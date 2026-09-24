@@ -13,4 +13,5 @@ export function profileDir(profile: string, home = homedir()): string {
 
 export * from './config.js';
 export * from './doctor.js';
+export * from './projects.js';
 export * from './result.js';
