@@ -9,7 +9,7 @@ A macOS app plus a `mesa` CLI that runs many Claude Code and Codex sessions acro
 - pnpm is the only package tool: `pnpm add`, `pnpm dlx`, `pnpm view`, `pnpm exec`. npm and npx are never used, in scripts, docs, or issues.
 - Punctuation is ASCII: commas, periods, colons, or hyphens where an em dash would go. `pnpm check:dashes` fails CI on U+2014.
 - The framework ships; the data stays home. Vault notes, receipts, profile configs, session records, and keys live under `~/.mesa/<profile>/` and in the user's vault, never in this repo or its fixtures. Test fixtures use invented content.
-- Issues are half a day at most and one PR each, written with `.github/ISSUE_TEMPLATE/task.md`: observable acceptance criteria and an exact test plan. Before merge, run `/code-review` against the issue; the Spec axis checks every criterion. Estimates are agent hours: size/S under 2, size/M under 4.
+- Issues are half a day at most and one PR each, written with `.github/ISSUE_TEMPLATE/task.md`: observable acceptance criteria and an exact test plan. Before merge, run `/code-review` against the issue; the Spec axis checks every criterion. The merge gate is `pnpm verify` (lint, typecheck, test, build); it runs on every `git push` through the pre-push hook. GitHub Actions is not used: the workflow exists for manual runs only. Estimates are agent hours: size/S under 2, size/M under 4.
 - A decision that is hard to reverse gets an ADR in `docs/adr/` with date and evidence. A new or ambiguous term gets a `CONTEXT.md` entry. A spike writes its outcome to `docs/spikes/`.
 - Faro decisions, session events, and receipts carry probabilities and confidence; keep them in the receipt when you add a new decision site.
 
