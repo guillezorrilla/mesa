@@ -21,7 +21,10 @@ const env = { MESA_PROFILE: 'work' };
 test('main help lists every registered command with its summary', async () => {
   const { code, stdout } = await runCli(['--help'], table, env);
   expect(code).toBe(0);
-  for (const c of table) expect(stdout).toMatch(new RegExp(`${c.name}\\s+${c.summary}`));
+  const lines = stdout.split('\n').map((l) => l.trim());
+  for (const c of table) {
+    expect(lines.some((l) => l.startsWith(`${c.name} `) && l.endsWith(c.summary))).toBe(true);
+  }
 });
 
 test('command help prints its flags and exits 0', async () => {
