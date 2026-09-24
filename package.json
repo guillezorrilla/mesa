@@ -5,6 +5,8 @@
   "packageManager": "pnpm@11.5.2",
   "scripts": {
     "build": "pnpm -r build",
+    "dev": "tsc --build --watch packages/core packages/cli",
+    "dev:link": "sh scripts/dev-link.sh",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome ci . && pnpm check:dashes",
