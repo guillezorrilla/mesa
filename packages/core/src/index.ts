@@ -1,6 +1,7 @@
 // The public interface of @mesa/core: the composition root, the real implementations of its
 // seams, the result envelope, and the data types callers render. Everything else is internal.
 export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents.js';
+export { type Clock, systemClock } from './clock.js';
 export type { Config } from './config.js';
 export {
   type Check,
@@ -15,3 +16,4 @@ export type { Project } from './project-file.js';
 export type { ProjectRow } from './projects.js';
 export type { RegistryEntry } from './registry.js';
 export * from './result.js';
+export type { VaultStatus } from './vault.js';

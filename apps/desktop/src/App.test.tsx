@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
-import type { Check, DoctorReport } from '@mesa/core';
+import type { Check, DoctorReport, VaultStatus } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { App } from './App';
 import { fakeBridge, renderWithMesa } from './lib/testing';
 
 const envelope = (data: unknown) => ({ ok: true, data });
+const vaultOk = () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus);
 const check = (version: string): Check => ({
   name: 'tmux',
   ok: true,
@@ -24,12 +25,14 @@ const report = (checks: Check[]): DoctorReport => ({
 test('the Doctor screen renders the report, and Recheck runs doctor again', async () => {
   let version = 1;
   const { bridge, calls } = fakeBridge({
+    vault: vaultOk,
     profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' }),
     doctor: () => envelope(report([check(`3.${version++}`)])),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
 
   expect(byTestId('active-profile')[0]?.textContent).toBe('Profile: default');
+  expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault');
   expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.1');
   await act(async () => byTestId('doctor-recheck')[0]?.click());
   expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.2');
@@ -46,6 +49,7 @@ test('an unhealthy report shows its summary and each row by status', async () =>
     hint: 'install with `brew install tmux`',
   };
   const { bridge } = fakeBridge({
+    vault: vaultOk,
     profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' }),
     doctor: () => envelope(report([missing])),
   });
@@ -59,6 +63,7 @@ test('an unhealthy report shows its summary and each row by status', async () =>
 
 test('a failed envelope and a bridge error both show in the toast', async () => {
   const { bridge } = fakeBridge({
+    vault: vaultOk,
     profile: () => ({ ok: false, error: { code: 'not_found', message: 'no profile here' } }),
     doctor: () => {
       throw new Error('mesa exited with code 1: boom');
@@ -70,4 +75,15 @@ test('a failed envelope and a bridge error both show in the toast', async () => 
   expect(toasts).toEqual(
     expect.arrayContaining(['no profile here', 'mesa exited with code 1: boom']),
   );
+});
+
+test('the header names what the vault is missing', async () => {
+  const { bridge } = fakeBridge({
+    vault: () =>
+      envelope({ path: '/h/vault', ok: false, missing: ['receipts'] } satisfies VaultStatus),
+    profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' }),
+    doctor: () => envelope(report([check('3.7c')])),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault is missing receipts');
 });

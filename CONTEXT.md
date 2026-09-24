@@ -9,7 +9,7 @@ Not: workspace, account, environment.
 
 ## Vault
 
-The Obsidian vault a profile owns. Layout: `raw/` (immutable inputs), `wiki/` (agent-written knowledge), `projects/`, `receipts/`, `daily/`, `AGENTS.md` (the vault's own schema), `index.md`, and an append-only `log.md`. Mesa writes files; Obsidian renders them. Vault content never enters this repo.
+The Obsidian vault a profile owns. Layout: `raw/` (immutable inputs), `wiki/` (agent-written knowledge), `projects/`, `receipts/`, `daily/`, `AGENTS.md` (the vault's own schema), `index.md`, and an append-only `log.md`. Mesa writes files; Obsidian renders them. `mesa vault init` lays the layout out (only what is missing; a folder that is neither empty nor a vault needs `--force`), and `mesa vault status` lists what is missing. Vault content never enters this repo.
 Not: notes folder, knowledge base, memory (memory is what the vault holds, not the vault).
 
 ## Project
@@ -79,12 +79,12 @@ Not: safety check, policy, filter.
 
 ## Composition root
 
-`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, process runner, Obsidian paths). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, process runner, Obsidian paths). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
 Not: container, context, app.
 
 ## Seam
 
-A place where Mesa's behaviour can change without editing the code there: the process runner, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
+A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
 Not: boundary, interface (the interface is what a caller must know; the seam is where it lives).
 
 ## Bridge

@@ -1,16 +1,19 @@
 import { resolve } from 'node:path';
+import type { Clock } from './clock.js';
 import { redactConfig, setConfigValue } from './config.js';
 import { type ObsidianPaths, runDoctor } from './doctor.js';
 import { profilePaths } from './paths.js';
 import type { Runner } from './process.js';
 import { initProfile, openProfile, type ProfileInfo } from './profile.js';
 import { listProjects, registerProject, unregisterProject } from './projects.js';
+import { initVault, vaultStatus } from './vault.js';
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
 export type MesaDeps = {
   home: string;
   /** Resolves relative paths the user types. */
   cwd: string;
+  clock: Clock;
   run: Runner;
   obsidian: ObsidianPaths;
 };
@@ -37,6 +40,10 @@ export function createMesa(profile: string, deps: MesaDeps) {
         registerProject(open(), { dir: absolute(dir), create }),
       list: () => listProjects(open()),
       unregister: (name: string) => unregisterProject(open(), name),
+    },
+    vault: {
+      init: (force = false) => initVault({ path: open().config.vault, force, clock: deps.clock }),
+      status: () => vaultStatus(open().config.vault),
     },
     doctor: () => runDoctor({ run: deps.run, obsidian: deps.obsidian, profileDir: paths.root }),
   };
