@@ -12,3 +12,10 @@ pre {
   white-space: pre-wrap;
   color: #c0392b;
 }
+
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  background: Canvas;
+}
