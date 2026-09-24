@@ -26,8 +26,9 @@ const HEADER = 'Mesa profile config. Edit with `mesa config set <path> <value>`.
 
 export const configPath = (dir: string) => join(dir, 'config.yaml');
 
-function validate(raw: unknown, file: string): Config {
-  const parsed = ConfigSchema.safeParse(raw);
+/** Parses `raw` with a schema; failure is invalid_config naming the file and the failing field. */
+export function parseWith<T>(schema: z.ZodType<T>, raw: unknown, file: string): T {
+  const parsed = schema.safeParse(raw);
   if (parsed.success) return parsed.data;
   const issues = parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
   const first = issues[0];
@@ -35,6 +36,19 @@ function validate(raw: unknown, file: string): Config {
     issues,
   });
 }
+
+/** Reads a YAML file. Errors give the position only: the parser quotes source lines, which may hold a key. */
+export function readYamlFile(file: string): unknown {
+  try {
+    return parse(readFileSync(file, 'utf8'));
+  } catch (error) {
+    const pos = (error as { linePos?: { line: number; col: number }[] }).linePos?.[0];
+    const at = pos ? ` at line ${pos.line}, column ${pos.col}` : '';
+    throw new MesaError('invalid_config', `${file}: not valid YAML${at}`);
+  }
+}
+
+const validate = (raw: unknown, file: string): Config => parseWith(ConfigSchema, raw, file);
 
 /** Creates the profile dir, `config.yaml` (mode 0600), and `sessions/`. A second run changes nothing. */
 export function initProfile(opts: { dir: string; vault: string; agent?: string }): {
@@ -62,16 +76,7 @@ export function loadConfig(dir: string): Config {
   if (!existsSync(path)) {
     throw new MesaError('not_found', `${path} not found; run mesa init --vault <path>`);
   }
-  let raw: unknown;
-  try {
-    raw = parse(readFileSync(path, 'utf8'));
-  } catch (error) {
-    // Position only: the parser's message quotes source lines, which may hold a key value.
-    const pos = (error as { linePos?: { line: number; col: number }[] }).linePos?.[0];
-    const at = pos ? ` at line ${pos.line}, column ${pos.col}` : '';
-    throw new MesaError('invalid_config', `${path}: not valid YAML${at}`);
-  }
-  return validate(raw, path);
+  return validate(readYamlFile(path), path);
 }
 
 /** The config as printed by `mesa config`: every key value becomes `***`. */
