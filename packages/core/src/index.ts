@@ -9,6 +9,7 @@ export {
   OBSIDIAN_PATHS,
   type ObsidianPaths,
 } from './doctor.js';
+export type { Frontmatter, Note } from './frontmatter.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export { type Env, execRunner, type Runner, type RunResult } from './process.js';
 export { type ProfileInfo, resolveProfileName } from './profile.js';

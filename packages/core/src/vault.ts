@@ -70,8 +70,10 @@ export function initVault(opts: { path: string; force?: boolean; clock: Clock })
       `${join(path, clash.name)} exists but is not a ${clash.kind}`,
     );
   }
-  // Finder drops .DS_Store into any folder it opens, so it does not make a folder non-empty.
-  const entries = existsSync(path) ? readdirSync(path).filter((n) => n !== '.DS_Store') : [];
+  // Finder's .DS_Store and Mesa's own .mesa/ (the vault lock) do not make a folder non-empty.
+  const entries = existsSync(path)
+    ? readdirSync(path).filter((n) => n !== '.DS_Store' && n !== '.mesa')
+    : [];
   if (missing.length && entries.length && !force && !isVault(path, entries)) {
     throw new MesaError(
       'invalid_config',

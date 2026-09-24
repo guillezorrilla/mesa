@@ -22,6 +22,11 @@ const commandWith = <Args, Data>(argv: (args: Args) => string[]): Spec<Args, Dat
 export const COMMANDS = {
   'config.get': command<Config>('config'),
   'doctor.run': command<DoctorReport>('doctor'),
+  'log.add': commandWith<{ text: string }, { entry: string; daily: string }>(({ text }) => [
+    'log',
+    '--',
+    text,
+  ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
   // `--` so a path starting with `-` is never read as a flag.

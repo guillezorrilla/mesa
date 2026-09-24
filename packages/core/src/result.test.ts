@@ -32,6 +32,7 @@ test('exit code map', () => {
     guardrail_blocked: 5,
     tmux_unavailable: 6,
     agent_unavailable: 7,
+    locked: 8,
   });
   expect(exitCode(ok(null))).toBe(0);
   expect(exitCode(fail('usage', 'x'))).toBe(2);
