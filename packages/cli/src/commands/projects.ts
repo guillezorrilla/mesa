@@ -1,5 +1,6 @@
 import { defineCommand } from '../command.js';
 import { columns } from '../format.js';
+import { withReceipt } from '../receipt-output.js';
 
 export const projects = defineCommand({
   name: 'projects',
@@ -26,12 +27,11 @@ export const register = defineCommand({
     },
   },
   run: ({ mesa, args, flags }) => {
-    const { project, path, created } = mesa.projects.register(args.path, flags.create ?? false);
+    const recorded = mesa.projects.register(args.path, flags.create ?? false);
+    const { project, path, created } = recorded.result;
     const note = created ? ' (wrote mesa.yaml)' : '';
-    return {
-      data: { ...project, path, created },
-      text: `registered ${project.name} at ${path}${note}`,
-    };
+    const { receipt, text } = withReceipt(recorded, `registered ${project.name} at ${path}${note}`);
+    return { data: { ...project, path, created, ...receipt }, text };
   },
 });
 

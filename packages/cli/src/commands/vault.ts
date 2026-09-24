@@ -1,5 +1,6 @@
 import { EXIT_CODES } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { withReceipt } from '../receipt-output.js';
 
 export const vaultInit = defineCommand({
   name: 'vault init',
@@ -8,11 +9,13 @@ export const vaultInit = defineCommand({
     force: { type: 'boolean', description: 'Lay out a folder that is not empty and not a vault' },
   },
   run: ({ mesa, flags }) => {
-    const { path, created } = mesa.vault.init(flags.force ?? false);
-    const text = created.length
+    const recorded = mesa.vault.init(flags.force ?? false);
+    const { path, created } = recorded.result;
+    const said = created.length
       ? `created ${created.join(', ')} in ${path}`
       : 'vault already initialised';
-    return { data: { path, created }, text };
+    const { receipt, text } = withReceipt(recorded, said);
+    return { data: { path, created, ...receipt }, text };
   },
 });
 

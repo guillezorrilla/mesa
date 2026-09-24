@@ -1,5 +1,6 @@
 import { AGENT_NAMES, DEFAULT_AGENT } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { withReceipt } from '../receipt-output.js';
 
 export const init = defineCommand({
   name: 'init',
@@ -12,11 +13,13 @@ export const init = defineCommand({
     },
   },
   run: ({ mesa, flags }) => {
-    const { created, path } = mesa.init({ vault: flags.vault, agent: flags.agent });
+    const recorded = mesa.init({ vault: flags.vault, agent: flags.agent });
+    const { created, path } = recorded.result;
     const { profile } = mesa.info();
-    const text = created
+    const said = created
       ? `initialised profile ${profile} at ${path}`
       : `profile ${profile} already initialised`;
-    return { data: { ...mesa.info(), created }, text };
+    const { receipt, text } = withReceipt(recorded, said);
+    return { data: { ...mesa.info(), created, ...receipt }, text };
   },
 });

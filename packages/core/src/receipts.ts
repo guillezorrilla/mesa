@@ -1,0 +1,224 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { z } from 'zod';
+import { AgentSchema } from './agents.js';
+import type { Clock } from './clock.js';
+import { BackendSchema } from './config.js';
+import { parseNote } from './frontmatter.js';
+import { type IdSource, ULID } from './ids.js';
+import { NOTE_FIELDS, writeNote } from './notes.js';
+import { RECEIPT_TYPES, receiptPath, receiptSortKey } from './receipt-file.js';
+import { MesaError, toFail } from './result.js';
+import { acceptsMesaWrites } from './vault.js';
+import { parseWith } from './yaml-file.js';
+
+const iso = z.iso.datetime();
+const probability = z.number().min(0).max(1);
+
+/**
+ * One Faro answer, shaped by its primitive (ADR-0004): Choice and Score keep per-option or
+ * per-level probabilities and a confidence; Noul keeps its one calibrated probability.
+ */
+const DecisionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    question: z.string(),
+    kind: z.literal('Choice'),
+    answer: z.string(),
+    probabilities: z.record(z.string(), probability),
+    confidence: probability,
+    backend: BackendSchema,
+  }),
+  z.strictObject({
+    question: z.string(),
+    kind: z.literal('Score'),
+    answer: z.number(),
+    probabilities: z.record(z.string(), probability),
+    confidence: probability,
+    backend: BackendSchema,
+  }),
+  z.strictObject({
+    question: z.string(),
+    kind: z.literal('Noul'),
+    answer: z.boolean(),
+    probabilities: probability,
+    backend: BackendSchema,
+  }),
+]);
+
+/** The receipt frontmatter, documented field by field in docs/receipts.md. */
+export const ReceiptSchema = z.strictObject({
+  type: z.enum(RECEIPT_TYPES),
+  id: z.string().regex(ULID, 'must be a ULID'),
+  profile: z.string(),
+  project: z.string().optional(),
+  session: z.string().optional(),
+  agent: AgentSchema.optional(),
+  started: iso,
+  ended: iso.optional(),
+  status: z.enum(['ok', 'failed', 'blocked']),
+  /** The mesa command line, key values redacted. */
+  command: z.string(),
+  decisions: z.array(DecisionSchema).default([]),
+  inputs: z.record(z.string(), z.unknown()).default({}),
+  outputs: z.record(z.string(), z.unknown()).default({}),
+  /** In US dollars, for information (for example `total_cost_usd` from `claude -p`). */
+  cost: z.number().min(0).optional(),
+});
+
+export type Receipt = z.infer<typeof ReceiptSchema>;
+export type ReceiptInput = Omit<z.input<typeof ReceiptSchema>, 'id' | 'started'> & {
+  started?: string;
+  /** The body's first line. */
+  summary: string;
+  /** Markdown under `## Details`. */
+  details?: string;
+};
+
+export type ReceiptsDeps = { vault: string; clock: Clock; newId: IdSource };
+
+export const DEFAULT_RECEIPT_LIMIT = 20;
+
+/** Validates and writes one receipt through writeNote, so it is atomic like every Mesa note. */
+export function writeReceipt(
+  deps: ReceiptsDeps,
+  input: ReceiptInput,
+): { receipt: Receipt; path: string } {
+  const { summary, details, ...fields } = input;
+  const started = fields.started ?? deps.clock().toISOString();
+  const receipt = parseWith(ReceiptSchema, { ...fields, id: deps.newId(), started }, 'receipt');
+  const path = receiptPath(receipt);
+  const body = `${summary}\n\n## Details\n\n${details ?? 'None.'}\n`;
+  writeNote({ vault: deps.vault, clock: deps.clock }, { path, frontmatter: receipt, body });
+  return { receipt, path };
+}
+
+/** Every receipt file, newest first; files whose names are not a receipt's are left out. */
+function receiptFiles(vault: string): string[] {
+  const root = join(vault, 'receipts');
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { recursive: true, encoding: 'utf8' })
+    .map((p) => ({ p, key: receiptSortKey(basename(p)) }))
+    .filter((f): f is { p: string; key: string } => f.key !== undefined)
+    .sort((a, b) => b.key.localeCompare(a.key))
+    .map((f) => join('receipts', f.p));
+}
+
+/** A receipt as read back: where it is, its frontmatter, and its body's first line. */
+export type ReceiptEntry = { path: string; receipt: Receipt; summary: string; body: string };
+
+function readReceipt(vault: string, path: string): ReceiptEntry {
+  const note = parseNote(readFileSync(join(vault, path), 'utf8'));
+  const fields = Object.fromEntries(
+    Object.entries(note.frontmatter).filter(([k]) => !NOTE_FIELDS.includes(k)),
+  );
+  const receipt = parseWith(ReceiptSchema, fields, join(vault, path));
+  return { path, receipt, summary: note.body.split('\n', 1)[0] ?? '', body: note.body };
+}
+
+/** The newest `limit` receipts with their frontmatter. */
+export const listReceipts = (vault: string, limit = DEFAULT_RECEIPT_LIMIT): ReceiptEntry[] =>
+  receiptFiles(vault)
+    .slice(0, limit)
+    .map((path) => readReceipt(vault, path));
+
+export function showReceipt(vault: string, id: string): ReceiptEntry {
+  const path = receiptFiles(vault).find((p) => p.endsWith(`-${id}.md`));
+  if (!path) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
+  return readReceipt(vault, path);
+}
+
+/**
+ * The command line as a receipt records it: `mesa` plus argv, with `***` for the value after a
+ * `keys` or `keys.<name>` path and for every occurrence of a key value (`secrets`) in any word.
+ * Values shorter than four characters are left alone, so they cannot blank ordinary words.
+ */
+export function redactCommand(argv: readonly string[], secrets: readonly string[] = []): string {
+  const quote = (word: string) => (/^[\w./:=@*-]+$/.test(word) ? word : JSON.stringify(word));
+  const long = secrets.filter((s) => s.length >= 4);
+  const scrub = (word: string) => long.reduce((w, secret) => w.split(secret).join('***'), word);
+  const words = argv.map((arg, i) => {
+    const previous = argv[i - 1] ?? '';
+    return previous === 'keys' || previous.startsWith('keys.') ? '***' : quote(scrub(arg));
+  });
+  return ['mesa', ...words].join(' ');
+}
+
+/** What one action's receipt says, given the action's result. */
+export type ActionSpec<T> = {
+  summary: (result: T) => string;
+  /** The summary when the action throws. */
+  failure: string;
+  inputs: Record<string, unknown>;
+  outputs?: (result: T) => Record<string, unknown>;
+  project?: (result: T) => string | undefined;
+  /** False when the action changed nothing: then no receipt. */
+  changed?: (result: T) => boolean;
+};
+
+/** The action's result, the receipt it left (if any), and why there is none when writing failed. */
+export type Recorded<T> = {
+  result: T;
+  receipt: { id: string; path: string } | null;
+  warning?: string;
+};
+
+/**
+ * Runs actions and records each as an `action` receipt. A failed action is recorded `failed`
+ * (best effort) and rethrown. A receipt never fails the action it records: when the vault
+ * cannot take one, the result carries a warning instead.
+ */
+export function actionRecorder(deps: {
+  profile: string;
+  /** The vault path, or undefined when the profile has none yet. */
+  vault: () => string | undefined;
+  clock: Clock;
+  newId: IdSource;
+  command: () => string;
+}) {
+  // Everything here is guarded: a receipt problem never escapes into the action's outcome.
+  const write = (
+    input: Omit<ReceiptInput, 'type' | 'profile' | 'command'>,
+  ): Omit<Recorded<unknown>, 'result'> => {
+    try {
+      const vault = deps.vault();
+      if (!vault) return { receipt: null, warning: 'no receipt: the profile has no vault yet' };
+      if (!acceptsMesaWrites(vault)) {
+        return {
+          receipt: null,
+          warning: `no receipt: ${vault} is not a vault; run mesa vault init`,
+        };
+      }
+      const { receipt, path } = writeReceipt(
+        { vault, clock: deps.clock, newId: deps.newId },
+        { type: 'action', profile: deps.profile, command: deps.command(), ...input },
+      );
+      return { receipt: { id: receipt.id, path } };
+    } catch (error) {
+      return { receipt: null, warning: `no receipt: ${toFail(error).error.message}` };
+    }
+  };
+
+  return <T>(spec: ActionSpec<T>, action: () => T): Recorded<T> => {
+    let result: T;
+    try {
+      result = action();
+    } catch (error) {
+      write({
+        status: 'failed',
+        summary: spec.failure,
+        inputs: spec.inputs,
+        outputs: { error: toFail(error).error },
+      });
+      throw error;
+    }
+    if (spec.changed && !spec.changed(result)) return { result, receipt: null };
+    const written = write({
+      status: 'ok',
+      summary: spec.summary(result),
+      project: spec.project?.(result),
+      inputs: spec.inputs,
+      outputs: spec.outputs?.(result) ?? {},
+    });
+    return { result, ...written };
+  };
+}
