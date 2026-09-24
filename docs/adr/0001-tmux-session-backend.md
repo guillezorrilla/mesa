@@ -32,3 +32,7 @@ docs/research/sources/tmux-vs-node-pty.md: tmux 3.7c man page and a live smoke t
 - tmux is a runtime dependency (Homebrew). `mesa doctor` checks for it.
 - tmux does not survive logout or reboot. Session records in `~/.mesa/<profile>/sessions/` do, and `mesa resume` recreates the window with the agent's own resume command.
 - Mouse and TERM behaviour were verified against a plain shell only; the P0 terminal spike verifies the Claude Code and Codex TUIs inside tmux inside xterm.
+
+## Amendment 2026-09-24: liveness before send is `pane_dead`, not `pane_current_command`
+
+docs/spikes/session-ids.md (issue #7, Claude Code 2.1.281 in a tmux window) shows `pane_current_command` reads the version string (`2.1.281`) while claude runs, never `claude`, so the `send` check above never matches a live agent. With `remain-on-exit on` an exited agent leaves a dead pane rather than a shell, so `mesa send` checks `pane_dead` is 0 instead. The spike also recommends `focus-events on` on the Mesa server, since claude warns when it is off.
