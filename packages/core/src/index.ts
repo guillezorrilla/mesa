@@ -11,4 +11,5 @@ export function profileDir(profile: string, home = homedir()): string {
   return join(home, '.mesa', profile);
 }
 
+export * from './doctor.js';
 export * from './result.js';
