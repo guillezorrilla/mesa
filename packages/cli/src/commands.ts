@@ -5,11 +5,14 @@ import {
   EXIT_CODES,
   initProfile,
   isHealthy,
+  listProjects,
   loadConfig,
   MesaError,
   profileDir,
   redactConfig,
+  registerProject,
   setConfigValue,
+  unregisterProject,
 } from '@mesa/core';
 import { stringify } from 'yaml';
 import type { Command } from './registry.js';
@@ -79,5 +82,57 @@ export const COMMANDS: Command[] = [
     name: 'profile',
     summary: 'Show the active profile and its directory',
     run: ({ profile }) => ({ data: { profile, dir: profileDir(profile) }, text: profile }),
+  },
+  {
+    name: 'projects',
+    summary: 'List the projects registered with this profile',
+    run: ({ profile }) => {
+      const rows = listProjects(profileDir(profile));
+      const text = rows.length
+        ? rows
+            .map((p) =>
+              [p.name, p.path, p.agent, p.priority, p.exists ? '' : '(missing)']
+                .filter((v) => v !== null && v !== '')
+                .join('  '),
+            )
+            .join('\n')
+        : 'no projects registered; run mesa register <path>';
+      return { data: rows, text: text.trimEnd() };
+    },
+  },
+  {
+    name: 'register',
+    summary: 'Register the project at <path> from its mesa.yaml',
+    flags: {
+      create: {
+        type: 'boolean',
+        description: 'Write a minimal mesa.yaml named after the folder first',
+      },
+    },
+    run: ({ profile, args, flags }) => {
+      const [dir, ...rest] = args;
+      if (!dir || rest.length)
+        throw new MesaError('usage', 'Usage: mesa register <path> [--create]');
+      const { project, path, created } = registerProject({
+        profileDir: profileDir(profile),
+        dir,
+        create: flags.create === true,
+      });
+      const note = created ? ' (wrote mesa.yaml)' : '';
+      return {
+        data: { ...project, path, created },
+        text: `registered ${project.name} at ${path}${note}`,
+      };
+    },
+  },
+  {
+    name: 'unregister',
+    summary: 'Remove a project from this profile by name',
+    run: ({ profile, args }) => {
+      const [name, ...rest] = args;
+      if (!name || rest.length) throw new MesaError('usage', 'Usage: mesa unregister <name>');
+      const entry = unregisterProject(profileDir(profile), name);
+      return { data: entry, text: `unregistered ${entry.name}` };
+    },
   },
 ];

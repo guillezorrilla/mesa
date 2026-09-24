@@ -14,12 +14,12 @@ Not: notes folder, knowledge base, memory (memory is what the vault holds, not t
 
 ## Project
 
-A repository registered with a profile through its `mesa.yaml` (name, preferred agent, tmux layout, extra skills). A project has zero or more sessions.
+A repository registered with a profile through its `mesa.yaml`: `name` (a slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`), `tmux.layout`, and extra `skills`. A project has zero or more sessions.
 Not: repo (a repo becomes a project once registered), workspace.
 
 ## Registry
 
-The list of registered `mesa.yaml` paths in a profile. `mesa projects` reads it; `mesa register <path>` appends to it.
+A profile's `registry.yaml`: one entry per project, its name and the directory holding its `mesa.yaml`. `mesa projects` reads it; `mesa register <path>` appends to it; `mesa unregister <name>` removes an entry.
 Not: project list, index.
 
 ## Agent
@@ -74,5 +74,5 @@ Not: provider, driver, engine.
 
 ## Guardrail
 
-A decision Faro makes before an external action (send a prompt, push, delete): allow, ask, or block, with confidence. Recorded in the action's receipt.
+A decision Faro makes before an external action (send a prompt, push, delete): allow, ask, or block, with confidence. Recorded in the action's receipt. A project's `guardrail` level in `mesa.yaml` (`normal` or `strict`) is an input to that decision, not a guardrail itself; `strict` projects get the stricter gate built in P3.
 Not: safety check, policy, filter.
