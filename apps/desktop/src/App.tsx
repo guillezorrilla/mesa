@@ -1,30 +1,35 @@
+import { useState } from 'react';
+import { ProfileSummary } from './components/ProfileSummary';
 import { useCommand } from './lib/useCommand';
 import { DoctorScreen } from './screens/DoctorScreen';
+import { ProjectsScreen } from './screens/ProjectsScreen';
+
+const SCREENS = ['Projects', 'Doctor'] as const;
 
 export function App() {
-  const { data: profile } = useCommand('profile.get');
-  const { data: vault } = useCommand('vault.status');
+  const [screen, setScreen] = useState<(typeof SCREENS)[number]>('Projects');
+  const doctor = useCommand('doctor.run');
   return (
     <main>
       <header>
         <h1 data-testid="app-name">Mesa</h1>
-        <p data-testid="active-profile">Profile: {profile?.profile ?? '...'}</p>
-        <p data-testid="vault-status">
-          Vault:{' '}
-          {!vault
-            ? '...'
-            : vault.ok
-              ? vault.path
-              : `${vault.path} is missing ${vault.missing.join(', ')}`}
-        </p>
-        {/* ponytail: one screen, so no router; add one when the Board lands. */}
+        <ProfileSummary doctor={doctor.data} />
+        {/* ponytail: two screens, so a button row instead of a router; add one when the Board lands. */}
         <nav>
-          <button type="button" aria-current="page">
-            Doctor
-          </button>
+          {SCREENS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              data-testid={`nav-${name.toLowerCase()}`}
+              aria-current={screen === name ? 'page' : undefined}
+              onClick={() => setScreen(name)}
+            >
+              {name}
+            </button>
+          ))}
         </nav>
       </header>
-      <DoctorScreen />
+      {screen === 'Projects' ? <ProjectsScreen /> : <DoctorScreen doctor={doctor} />}
     </main>
   );
 }

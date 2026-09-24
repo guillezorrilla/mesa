@@ -2,11 +2,15 @@ import { createContext, type ReactNode, useCallback, useContext, useState } from
 
 const ToastContext = createContext<(text: string) => void>(() => {});
 
-/** Shows every message until it is dismissed; `useToast()` returns the function that adds one. */
+/** Shows each distinct message until it is dismissed; `useToast()` returns the function that adds one. */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<{ id: number; text: string }[]>([]);
   const show = useCallback(
-    (text: string) => setMessages((all) => [...all, { id: (all.at(-1)?.id ?? 0) + 1, text }]),
+    // A message already showing is not repeated: several screens can hit the same failure.
+    (text: string) =>
+      setMessages((all) =>
+        all.some((m) => m.text === text) ? all : [...all, { id: (all.at(-1)?.id ?? 0) + 1, text }],
+      ),
     [],
   );
   const dismiss = (id: number) => setMessages((all) => all.filter((m) => m.id !== id));
