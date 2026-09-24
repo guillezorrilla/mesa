@@ -76,3 +76,4 @@ Seven research slices ran in parallel against official docs, Context7, local `--
 - `sources/obsidian.md`: obsidian.md/help/cli, /bases, /properties, jsoncanvas.org/spec/1.0, kepano/obsidian-skills, local bundle binary.
 - `sources/typesafe-jev.md`: typesafe.ai, docs.typesafe.ai, package registries, platform.claude.com structured outputs and pricing.
 - `sources/alternatives.md`: 18 repositories via `gh api` and READMEs.
+- `sources/claude-agentic-os.md`: 11 Claude Code session and memory setups (eyes-on-claude-code, tmux-claude-hatch, claude-obsidian, and others), accessed 2026-09-24.

@@ -31,6 +31,10 @@ docs/research/sources/claude-code.md, codex-cli.md, alternatives.md, all accesse
 - Codex hooks may require a trust step (`--dangerously-bypass-hook-trust` exists). The P0 spike records the exact behaviour and the event payloads for both agents.
 - Transcript JSONL formats are documented as internal for Claude Code; Mesa reads only session ids and timestamps from them, never message content.
 
+## Amendment 2026-09-24: tail is display, not truth
+
+docs/research/sources/claude-agentic-os.md (11 setups surveyed) shows pane-text parsing is the least reliable signal and that tools reading `claude agents --json` (tmux-claude-hatch) and hooks (claude-activity-monitor) are the ones that hold up. Ordering stays hooks, then agent listings; the tmux tail is shown on the board as "last output" and used for state only when neither other source has spoken, with confidence capped at 0.6. Permission prompts are answered by the human inside the attached session, never relayed through Mesa.
+
 ## Amendment 2026-09-24: v1 is Claude Code only
 
 The owner asked to ship Claude Code first and add Codex later. Every P2 issue implements the Claude path only; the Codex paths (hooks in config.toml, `codex` open and resume commands, `codex agents`, Codex tail patterns, `codex exec` for headless runs) are collected in one follow-up issue in P3. The signal design above is unchanged. The board's "open its terminal" action in v1 opens the session in the user's terminal app attached to the tmux window (`mesa attach`); the embedded xterm terminal is optional for the week-one target.
