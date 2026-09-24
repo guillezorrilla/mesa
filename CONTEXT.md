@@ -76,3 +76,18 @@ Not: provider, driver, engine.
 
 A decision Faro makes before an external action (send a prompt, push, delete): allow, ask, or block, with confidence. Recorded in the action's receipt. A project's `guardrail` level in `mesa.yaml` (`normal` or `strict`) is an input to that decision, not a guardrail itself; `strict` projects get the stricter gate built in P3.
 Not: safety check, policy, filter.
+
+## Composition root
+
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, process runner, Obsidian paths). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
+Not: container, context, app.
+
+## Seam
+
+A place where Mesa's behaviour can change without editing the code there: the process runner, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
+Not: boundary, interface (the interface is what a caller must know; the seam is where it lives).
+
+## Bridge
+
+The app's seam to the mesa CLI: a function from an argv to the envelope mesa printed. The real one calls the Rust `run_mesa` command; tests pass a fake. The app's client is built over it.
+Not: IPC, API, backend.

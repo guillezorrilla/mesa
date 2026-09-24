@@ -2,8 +2,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "../..",
+    "noEmit": true,
     "paths": {
+      "@mesa/core/testing": ["../core/src/testing.ts"],
       "@mesa/core": ["../core/src/index.ts"]
     }
-  }
+  },
+  "exclude": []
 }

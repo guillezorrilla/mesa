@@ -1,12 +1,17 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+const core = (file: string) => fileURLToPath(new URL(`packages/core/src/${file}`, import.meta.url));
+
 export default defineConfig({
-  // Tests run before build in `pnpm verify`, so resolve core from source.
+  // Tests run before build in `pnpm verify`, so resolve core from source. Most specific first.
   resolve: {
-    alias: { '@mesa/core': fileURLToPath(new URL('packages/core/src/index.ts', import.meta.url)) },
+    alias: [
+      { find: '@mesa/core/testing', replacement: core('testing.ts') },
+      { find: '@mesa/core', replacement: core('index.ts') },
+    ],
   },
   test: {
-    include: ['packages/*/src/**/*.test.ts'],
+    include: ['packages/*/src/**/*.test.ts', 'apps/desktop/src/**/*.test.tsx'],
   },
 });
