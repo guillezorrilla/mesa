@@ -10,6 +10,7 @@ One line per criterion from the issue, with how it was verified (command and out
 ## Checklist
 
 - [ ] Tests added or updated
+- [ ] `pnpm verify` green locally (pasted the last line)
 - [ ] `/code-review` run and findings addressed
 - [ ] No em dashes (U+2014) in the diff
 - [ ] No personal content, vault notes, accounts, or keys

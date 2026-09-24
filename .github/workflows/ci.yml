@@ -1,9 +1,9 @@
 name: CI
 
+# Manual only: this repo does not use paid Actions minutes. The merge gate is `pnpm verify`,
+# which runs locally on pre-push (see scripts/verify.sh and .githooks/pre-push).
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   check:

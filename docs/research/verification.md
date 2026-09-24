@@ -47,6 +47,8 @@ Seven research slices ran in parallel against official docs, Context7, local `--
 
 ## Open questions
 
+- GitHub Actions does not run for this repo (the owner does not pay for Actions minutes). The gate is `pnpm verify` on pre-push; the workflow is manual-only.
+
 - `--max-turns` is documented for `claude -p` but absent from the installed binary's help. The P0 spike checks it live.
 - `claude agents --json` status values beyond `busy` are unknown. The P0 spike enumerates them.
 - Whether `codex agents` lists sessions started in a plain terminal, and whether Codex hooks require a trust prompt. P0 spike.

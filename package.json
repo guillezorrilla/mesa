@@ -10,7 +10,9 @@
     "lint": "biome ci . && pnpm check:dashes",
     "format": "biome format --write .",
     "mesa": "node packages/cli/dist/mesa.js",
-    "check:dashes": "sh scripts/check-dashes.sh"
+    "check:dashes": "sh scripts/check-dashes.sh",
+    "verify": "sh scripts/verify.sh",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
