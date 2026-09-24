@@ -6,6 +6,7 @@ A macOS app plus a `mesa` CLI that runs many Claude Code and Codex sessions acro
 
 - Every capability lands three times in one PR: a function in `packages/core`, a `mesa` subcommand with `--json`, and a screen or element in `apps/desktop`. Core holds the logic; the CLI and the app are thin callers.
 - This file is the only instruction file. Codex reads it natively and Claude Code reads it when no `CLAUDE.md` exists, so a `CLAUDE.md` must never be created.
+- pnpm is the only package tool: `pnpm add`, `pnpm dlx`, `pnpm view`, `pnpm exec`. npm and npx are never used, in scripts, docs, or issues.
 - Punctuation is ASCII: commas, periods, colons, or hyphens where an em dash would go. `pnpm check:dashes` fails CI on U+2014.
 - The framework ships; the data stays home. Vault notes, receipts, profile configs, session records, and keys live under `~/.mesa/<profile>/` and in the user's vault, never in this repo or its fixtures. Test fixtures use invented content.
 - Issues are half a day at most and one PR each, written with `.github/ISSUE_TEMPLATE/task.md`: observable acceptance criteria and an exact test plan. Before merge, run `/code-review` against the issue; the Spec axis checks every criterion. Estimates are agent hours: size/S under 2, size/M under 4.

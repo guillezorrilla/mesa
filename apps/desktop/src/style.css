@@ -1,0 +1,14 @@
+:root {
+  font-family: system-ui, -apple-system, sans-serif;
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+}
+
+pre {
+  white-space: pre-wrap;
+  color: #c0392b;
+}

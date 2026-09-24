@@ -1,0 +1,21 @@
+{
+  "name": "mesa-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.5.2",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome ci . && pnpm check:dashes",
+    "format": "biome format --write .",
+    "mesa": "node packages/cli/dist/mesa.js",
+    "check:dashes": "sh scripts/check-dashes.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

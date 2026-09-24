@@ -4,13 +4,13 @@ Date: 2026-09-24. Every source below was read on that date; versions are as inst
 
 ## Method
 
-Seven research slices ran in parallel against official docs, Context7, local `--help` output, npm and PyPI registry data, and live commands on this machine (Claude Code 2.1.281, Codex CLI 0.154.0, tmux 3.7c, Obsidian 1.12.7, Node 24.16, pnpm 11.5.2). Each source file marks every claim as verified official, verified locally, or could not verify.
+Seven research slices ran in parallel against official docs, Context7, local `--help` output, package registry data, and live commands on this machine (Claude Code 2.1.281, Codex CLI 0.154.0, tmux 3.7c, Obsidian 1.12.7, Node 24.16, pnpm 11.5.2). Each source file marks every claim as verified official, verified locally, or could not verify.
 
 ## Summary
 
 | Area | Proposal | Verdict | Record |
 | --- | --- | --- | --- |
-| Stack: TypeScript, pnpm monorepo, Electron, React, node-pty, xterm.js, vitest | Held, with versions pinned and one packaging risk | Held | ADR-0002 |
+| Stack: TypeScript, pnpm monorepo, Electron, React, node-pty, xterm.js, vitest | Verified, then the owner replaced Electron with Tauri 2 the same day | Changed | ADR-0002, ADR-0007 |
 | Profiles under `~/.mesa/<profile>/config.yaml` | No external dependency; kept as proposed | Held | CONTEXT.md |
 | Vault layout (raw, wiki, projects, receipts, daily, AGENTS.md, index.md, log.md) | Files written directly; Obsidian CLI optional | Held, qualified | ADR-0006 |
 | `mesa.yaml` per project, registry in profile | Kept as proposed | Held | CONTEXT.md |
@@ -37,10 +37,13 @@ Seven research slices ran in parallel against official docs, Context7, local `--
 2. **Live session listing.** `claude agents --json` lists running sessions with pid, cwd, sessionId, and status. It is the second signal source and the way foreign sessions appear on the board. (ADR-0003)
 3. **Codex signals.** Codex has hooks (`[[hooks.<event>]]` in config.toml) covering session_start, user_prompt_submit, permission_request, stop, and more. `notify` is legacy and never fires on approvals. Issues install Codex hooks first and keep notify as a fallback. (ADR-0003)
 4. **Codex headless approvals.** `codex exec` rejects approval requests server-side, and `-a/--ask-for-approval` does not exist on `exec` in 0.154.0 despite the docs. `mesa run` with Codex therefore sets `-c approval_policy=never` with `sandbox_mode=workspace-write`, and Faro's guardrail runs before launch. (P3 issues)
-5. **Adapter backend.** The official System One adapter is Python only; the npm port is one day old with unclear provenance. Mesa's adapter backend calls Anthropic's Messages API with structured outputs on claude-haiku-4-5-20251001 and returns the Jev answer shape. (ADR-0004)
+5. **Adapter backend.** The official System One adapter is Python only; the community TypeScript port is one day old with unclear provenance. Mesa's adapter backend calls Anthropic's Messages API with structured outputs on claude-haiku-4-5-20251001 and returns the Jev answer shape. (ADR-0004)
 6. **Noul.** Confirmed as the yes-or-no primitive returning one probability, not an open-answer primitive. Free-text routing becomes a Choice over routes plus a Noul for "none". (ADR-0004, CONTEXT.md)
 7. **Obsidian CLI.** Optional accelerator, never a dependency: it requires the running app and a manual enable step. Vault writes are files. (ADR-0006)
 8. **Electron packaging risk.** electron-builder 26 has open pnpm monorepo ASAR issues (8982, 8986, 9654). A packaging smoke test is the first P7 task. (ADR-0002)
+
+9. **Desktop shell.** After the Electron scaffold was verified, the owner asked for a Rust-based shell. Tauri 2 replaces Electron: Rust core, WKWebView, the app calls the `mesa` CLI through one `run_mesa` command, and the embedded terminal uses the portable-pty crate. This removes the node-pty rebuild and electron-builder risks. (ADR-0007)
+10. **Toolchain.** TypeScript stays on the official 7.x package (native `tsc`). typescript-eslint has no TypeScript 7 API to use, so lint and format moved to Biome 2.5, one tool for both.
 
 ## Open questions
 
@@ -59,13 +62,14 @@ Seven research slices ran in parallel against official docs, Context7, local `--
 - ADR-0004 Faro uses Jev's primitives behind Mesa's own interface, with an in-house adapter
 - ADR-0005 Build the Session Board; borrow techniques, wrap nothing
 - ADR-0006 Mesa writes the vault as files; the Obsidian CLI is optional
+- ADR-0007 The desktop app is a Tauri 2 shell over the mesa CLI (supersedes ADR-0002)
 
 ## Sources
 
-- `sources/claude-code.md`: code.claude.com docs, local `claude --help` and `claude agents --json`, npm view of @anthropic-ai/claude-agent-sdk 0.3.281.
+- `sources/claude-code.md`: code.claude.com docs, local `claude --help` and `claude agents --json`, registry lookup of @anthropic-ai/claude-agent-sdk 0.3.281.
 - `sources/codex-cli.md`: learn.chatgpt.com/docs, Context7 openai/codex at rust-v0.154.0, local `codex --help` for every subcommand, `~/.codex` layout.
-- `sources/electron-stack.md`: electronjs.org docs, releases.electronjs.org, npm view for every package, Apple TN3147 and Hardened Runtime docs.
+- `sources/electron-stack.md`: electronjs.org docs, releases.electronjs.org, registry lookups for every package, Apple TN3147 and Hardened Runtime docs.
 - `sources/tmux-vs-node-pty.md`: tmux 3.7c man page, live smoke test transcript.
 - `sources/obsidian.md`: obsidian.md/help/cli, /bases, /properties, jsoncanvas.org/spec/1.0, kepano/obsidian-skills, local bundle binary.
-- `sources/typesafe-jev.md`: typesafe.ai, docs.typesafe.ai, npm and PyPI registries, platform.claude.com structured outputs and pricing.
+- `sources/typesafe-jev.md`: typesafe.ai, docs.typesafe.ai, package registries, platform.claude.com structured outputs and pricing.
 - `sources/alternatives.md`: 18 repositories via `gh api` and READMEs.
