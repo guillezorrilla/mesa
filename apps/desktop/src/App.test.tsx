@@ -136,3 +136,20 @@ test('every distinct failure shows once in the toast', async () => {
     'mesa exited with code 1: boom',
   ]);
 });
+
+test('the log box sends its line to mesa log and shows the entry', async () => {
+  const { bridge, calls } = fakeBridge({
+    log: (args) =>
+      envelope({
+        entry: `- 2026-09-24T12:00:00.000Z ${args.at(-1)}`,
+        daily: 'daily/2026-09-24.md',
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const input = byTestId('log-input')[0] as HTMLInputElement;
+  input.value = 'shipped #12';
+  await click(byTestId('log-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'log', '--', 'shipped #12']);
+  expect(byTestId('log-last')[0]?.textContent).toBe('- 2026-09-24T12:00:00.000Z shipped #12');
+  expect(input.value).toBe('');
+});

@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { Clock } from './clock.js';
 import { redactConfig, setConfigValue } from './config.js';
 import { type ObsidianPaths, runDoctor } from './doctor.js';
+import { logLine } from './notes.js';
 import { profilePaths } from './paths.js';
 import type { Runner } from './process.js';
 import { initProfile, openProfile, type ProfileInfo } from './profile.js';
@@ -26,6 +27,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const paths = profilePaths(deps.home, profile);
   const open = () => openProfile(paths);
   const absolute = (path: string) => resolve(deps.cwd, path);
+  const notes = () => ({ vault: open().config.vault, clock: deps.clock });
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
     init: (input: { vault: string; agent?: string }) =>
@@ -45,6 +47,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       init: (force = false) => initVault({ path: open().config.vault, force, clock: deps.clock }),
       status: () => vaultStatus(open().config.vault),
     },
+    log: (text: string) => logLine(notes(), text),
     doctor: () => runDoctor({ run: deps.run, obsidian: deps.obsidian, profileDir: paths.root }),
   };
 }

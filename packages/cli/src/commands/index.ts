@@ -2,6 +2,7 @@ import type { Command } from '../command.js';
 import { config, configSet } from './config.js';
 import { doctor } from './doctor.js';
 import { init } from './init.js';
+import { log } from './log.js';
 import { profile } from './profile.js';
 import { projects, register, unregister } from './projects.js';
 import { vaultInit, vaultStatus } from './vault.js';
@@ -12,6 +13,7 @@ export const COMMANDS: Command[] = [
   configSet,
   doctor,
   init,
+  log,
   profile,
   projects,
   register,

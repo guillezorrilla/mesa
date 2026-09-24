@@ -129,6 +129,22 @@ test('vault init refuses a non-empty folder that is not a vault unless --force',
   expect(readFileSync(join(home, 'repo/README.md'), 'utf8')).toBe('a repo\n');
 });
 
+test('log appends to log.md and to the daily note it creates', async () => {
+  await mesa('init', '--vault', 'vault');
+  expect((await mesa('log', 'hello')).code).toBe(3); // the vault is not laid out yet
+  await mesa('vault', 'init');
+  const out = await mesa('log', 'hello', '--json');
+  expect(out.code).toBe(0);
+  expect(out.json.data.entry).toBe('- 2026-09-24T12:00:00.000Z hello');
+  expect(readFileSync(join(home, 'vault/log.md'), 'utf8').trimEnd().split('\n').at(-1)).toBe(
+    '- 2026-09-24T12:00:00.000Z hello',
+  );
+  const daily = readFileSync(join(home, 'vault', out.json.data.daily), 'utf8');
+  expect(daily).toMatch(/^---\ncreated: /);
+  expect(daily.trimEnd().endsWith('- 2026-09-24T12:00:00.000Z hello')).toBe(true);
+  expect((await mesa('log')).code).toBe(2);
+});
+
 test('profile and version', async () => {
   expect((await mesa('profile', '--json')).json).toEqual({
     ok: true,

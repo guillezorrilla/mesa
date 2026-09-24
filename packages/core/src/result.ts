@@ -9,6 +9,8 @@ export const EXIT_CODES = {
   guardrail_blocked: 5,
   tmux_unavailable: 6,
   agent_unavailable: 7,
+  /** A note marked `locked: true`, or a vault lock another process holds. */
+  locked: 8,
 } as const;
 
 export type ErrorCode = Exclude<keyof typeof EXIT_CODES, 'ok'>;
