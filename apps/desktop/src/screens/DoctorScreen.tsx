@@ -1,10 +1,11 @@
-import type { Check } from '@mesa/core';
-import { useCommand } from '../lib/useCommand';
+import type { Check, DoctorReport } from '@mesa/core';
+import type { CommandState } from '../lib/useCommand';
 
 const MARK: Record<Check['status'], string> = { ok: '✓', warn: '!', fail: '✗' };
 
-export function DoctorScreen() {
-  const { data, busy, refresh } = useCommand('doctor.run');
+/** The doctor state is the App's, so the header's verdict and this screen show the same run. */
+export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> }) {
+  const { data, busy, refresh } = doctor;
   return (
     <section data-testid="doctor-panel">
       <h2>Doctor</h2>
