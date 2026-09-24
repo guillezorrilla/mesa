@@ -33,6 +33,9 @@ importers:
         specifier: ^19.3.0
         version: 19.3.0(react@19.3.0)
     devDependencies:
+      '@mesa/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@tauri-apps/cli':
         specifier: ^2.11.5
         version: 2.11.5
