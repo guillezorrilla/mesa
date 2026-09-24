@@ -1,0 +1,29 @@
+import type { Clock } from './clock.js';
+
+/** A source of new ids. Injected so receipts written in tests have known ids. */
+export type IdSource = () => string;
+
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+/** A ULID: 26 Crockford base32 characters; the first is 0 to 7, since 48 bits of time fit. */
+export const ULID_PATTERN = `[0-7][${CROCKFORD}]{25}`;
+export const ULID = new RegExp(`^${ULID_PATTERN}$`);
+
+/** ULIDs: 48 bits of milliseconds from `clock`, then 80 bits from `random`, in Crockford base32. */
+export function ulidSource(clock: Clock, random: (bytes: number) => Uint8Array): IdSource {
+  return () => {
+    let time = clock().getTime();
+    let head = '';
+    for (let i = 0; i < 10; i++) {
+      head = CROCKFORD[time % 32] + head;
+      time = Math.floor(time / 32);
+    }
+    let bits = 0n;
+    for (const b of random(10)) bits = (bits << 8n) | BigInt(b);
+    let tail = '';
+    for (let i = 0; i < 16; i++) {
+      tail = CROCKFORD[Number(bits & 31n)] + tail;
+      bits >>= 5n;
+    }
+    return head + tail;
+  };
+}

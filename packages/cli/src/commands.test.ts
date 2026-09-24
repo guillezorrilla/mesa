@@ -1,7 +1,7 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '@mesa/core';
-import { scriptedRunner, tempDir, testDeps } from '@mesa/core/testing';
+import { scriptedRunner, sequentialIds, tempDir, testDeps } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { runCli, VERSION } from './cli.js';
 import { COMMANDS } from './commands/index.js';
@@ -9,12 +9,18 @@ import { COMMANDS } from './commands/index.js';
 // Every real command through runCli, against a temp home: nothing here touches the real HOME.
 let home: string;
 let run: Runner;
+let newId = sequentialIds();
 beforeEach(() => {
   home = tempDir();
+  newId = sequentialIds(); // one id source per test, shared by its invocations
   run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
 });
 const mesa = async (...argv: string[]) => {
-  const out = await runCli(argv, { commands: COMMANDS, env: {}, mesa: testDeps(home, { run }) });
+  const out = await runCli(argv, {
+    commands: COMMANDS,
+    env: {},
+    mesa: testDeps(home, { run, argv, newId }),
+  });
   return { ...out, json: out.stdout.startsWith('{') ? JSON.parse(out.stdout) : undefined };
 };
 
@@ -96,8 +102,9 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
 
 test('vault init lays out the vault once; vault status finds what is missing', async () => {
   await mesa('init', '--vault', 'vault');
+  // mesa init already wrote its receipt, so receipts/ exists and vault init adds the rest.
   expect((await mesa('vault', 'init')).stdout).toBe(
-    `created log.md, AGENTS.md, index.md, raw, wiki, projects, receipts, daily in ${home}/vault\n`,
+    `created log.md, AGENTS.md, index.md, raw, wiki, projects, daily in ${home}/vault\n`,
   );
   expect(readFileSync(join(home, 'vault/log.md'), 'utf8')).toBe(
     '- 2026-09-24T12:00:00.000Z vault initialised by mesa\n',
@@ -143,6 +150,80 @@ test('log appends to log.md and to the daily note it creates', async () => {
   expect(daily).toMatch(/^---\ncreated: /);
   expect(daily.trimEnd().endsWith('- 2026-09-24T12:00:00.000Z hello')).toBe(true);
   expect((await mesa('log')).code).toBe(2);
+});
+
+test('init, register, and vault init each leave an action receipt; receipts lists and shows them', async () => {
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'tide'));
+  await mesa('register', 'tide', '--create');
+  await mesa('vault', 'init');
+  await mesa('vault', 'init'); // nothing to do: no receipt
+
+  const listed = await mesa('receipts', '--json', '--limit', '20');
+  const kinds = listed.json.data.map(
+    (e: { receipt: { type: string; command: string } }) => e.receipt,
+  );
+  expect(kinds.map((r: { type: string }) => r.type)).toEqual(['action', 'action', 'action']);
+  expect(kinds.map((r: { command: string }) => r.command).sort()).toEqual([
+    'mesa init --vault vault',
+    'mesa register tide --create',
+    'mesa vault init',
+  ]);
+  const first = listed.json.data[0];
+  expect(first.receipt).toMatchObject({
+    profile: 'default',
+    status: 'ok',
+    id: expect.stringMatching(/^01TEST/),
+  });
+
+  const shown = await mesa('receipts', 'show', first.receipt.id, '--json');
+  expect(shown.json.data.receipt).toEqual(first.receipt);
+  expect((await mesa('receipts', 'show', '01NOPE')).code).toBe(3);
+  expect((await mesa('receipts', '--limit', 'zero')).code).toBe(2);
+  expect((await mesa('receipts', '--limit', '1', '--json')).json.data).toHaveLength(1);
+});
+
+test('a vault path that is not a vault gets no receipt, only a warning; a failed register is recorded', async () => {
+  mkdirSync(join(home, 'repo/.git'), { recursive: true });
+  writeFileSync(join(home, 'repo/README.md'), 'a repo\n');
+  const out = await mesa('init', '--vault', 'repo');
+  expect(out.code).toBe(0);
+  expect(out.stdout).toContain(
+    `warning: no receipt: ${home}/repo is not a vault; run mesa vault init`,
+  );
+  expect(() => readFileSync(join(home, 'repo/receipts'))).toThrow();
+  const json = await mesa('--profile', 'json', 'init', '--vault', 'repo', '--json');
+  expect(json.json.data).toMatchObject({
+    receipt: null,
+    warning: expect.stringContaining('is not a vault'),
+  });
+
+  await mesa('--profile', 'work', 'init', '--vault', 'vault');
+  mkdirSync(join(home, 'nomesa'));
+  expect((await mesa('--profile', 'work', 'register', 'nomesa')).code).toBe(3);
+  const listed = await mesa('--profile', 'work', 'receipts', '--json');
+  const failed = listed.json.data.find(
+    (e: { receipt: { status: string } }) => e.receipt.status === 'failed',
+  );
+  expect(failed.receipt.outputs.error.code).toBe('not_found');
+  expect(failed.summary).toBe(`Could not register ${home}/nomesa`);
+});
+
+test('a receipt problem never changes the outcome of the action it records', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  mkdirSync(join(home, 'tide'));
+  chmodSync(join(home, 'vault/log.md'), 0o000); // acceptsMesaWrites cannot read the log mark
+  try {
+    const ok = await mesa('register', 'tide', '--create');
+    expect(ok.code).toBe(0);
+    expect(ok.stdout).toContain('registered tide');
+    expect(ok.stdout).toContain('warning: no receipt:');
+    const missing = await mesa('register', 'nowhere');
+    expect(missing.code).toBe(3); // the real error, not the receipt's
+  } finally {
+    chmodSync(join(home, 'vault/log.md'), 0o644);
+  }
 });
 
 test('profile and version', async () => {

@@ -9,8 +9,8 @@ import { withVaultLock } from './vault-lock.js';
 /** Where notes go: the vault root and the clock that stamps them. */
 export type NotesDeps = { vault: string; clock: Clock };
 
-// Mesa owns these fields; a caller's value for one is dropped.
-const RESERVED = ['created', 'updated', 'source'];
+/** The frontmatter fields writeNote owns; a caller's value for one is dropped. */
+export const NOTE_FIELDS = ['created', 'updated', 'source'];
 
 /** The absolute file for a vault-relative note path; a path that leaves the vault is refused. */
 function noteFile(vault: string, path: string): string {
@@ -46,7 +46,7 @@ export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note 
   }
   const now = deps.clock().toISOString();
   const fields = Object.fromEntries(
-    Object.entries(note.frontmatter).filter(([k]) => !RESERVED.includes(k)),
+    Object.entries(note.frontmatter).filter(([k]) => !NOTE_FIELDS.includes(k)),
   );
   const frontmatter: Frontmatter = {
     created: previous?.frontmatter.created ?? now,
