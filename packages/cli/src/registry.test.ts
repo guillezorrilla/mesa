@@ -69,3 +69,14 @@ test('unknown flags and commands are usage errors through the envelope', async (
   // After `--`, --json is a positional, not the flag.
   expect((await runCli(['nope', '--', '--json'], table, env)).stdout).toBe('');
 });
+
+test('a command can report a problem through the exit code and keep its data', async () => {
+  const warn: Command = {
+    name: 'warn',
+    summary: 'x',
+    run: () => ({ data: [1], text: 'bad', code: 3 }),
+  };
+  const out = await runCli(['warn', '--json'], [warn], env);
+  expect(out.code).toBe(3);
+  expect(JSON.parse(out.stdout)).toEqual({ ok: true, data: [1] });
+});

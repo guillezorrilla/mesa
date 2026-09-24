@@ -9,8 +9,11 @@ export type Context = {
   profile: string;
 };
 
-/** `data` goes into the JSON envelope; `text` is what a human sees without --json. */
-export type Output = { data: unknown; text: string };
+/**
+ * `data` goes into the JSON envelope; `text` is what a human sees without --json.
+ * `code` overrides the exit code of a successful result that still reports a problem.
+ */
+export type Output = { data: unknown; text: string; code?: number };
 
 export type Command = {
   name: string;
@@ -114,14 +117,16 @@ export async function runCli(
   const json = (end === -1 ? argv : argv.slice(0, end)).includes('--json');
   let result: Result<unknown>;
   let text = '';
+  let override: number | undefined;
   try {
     const out = await dispatch(argv, commands, env);
     result = ok(out.data);
     text = out.text;
+    override = out.code;
   } catch (error) {
     result = toFail(error);
   }
-  const code = exitCode(result);
+  const code = override ?? exitCode(result);
   if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '' };
   if (result.ok) return { code, stdout: `${text}\n`, stderr: '' };
   return { code, stdout: '', stderr: `${result.error.message}\n` };
