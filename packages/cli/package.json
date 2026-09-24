@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
-    "@mesa/core": "workspace:*"
+    "@mesa/core": "workspace:*",
+    "yaml": "^2.9.1"
   }
 }

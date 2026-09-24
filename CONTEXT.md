@@ -4,7 +4,7 @@ Shared vocabulary for issues, code, receipts, and screens. Use these terms as wr
 
 ## Profile
 
-A named configuration under `~/.mesa/<name>/`: `config.yaml` (vault path, default agent, enabled skills, decisions backend, keys), `registry.yaml`, and `sessions/`. Exactly one vault per profile. `default` is created on first run; `mesa --profile work` or `MESA_PROFILE=work` selects another. Work and personal are two profiles, never one shared vault.
+A named configuration under `~/.mesa/<name>/`: `config.yaml` (`vault` path, `defaultAgent`, enabled `skills`, `decisions.backend` and `decisions.threshold` (the confidence below which the rules backend defers to the adapter, ADR-0003), `sessions.log` (continuous output logging for sessions), and `keys` (literals or `env:VAR` references, always printed as `***`)), `registry.yaml`, and `sessions/`. `mesa init` creates it; `mesa config` reads and edits it. Exactly one vault per profile. `default` is created on first run; `mesa --profile work` or `MESA_PROFILE=work` selects another. Work and personal are two profiles, never one shared vault.
 Not: workspace, account, environment.
 
 ## Vault
