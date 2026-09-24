@@ -38,3 +38,15 @@ docs/research/sources/claude-agentic-os.md (11 setups surveyed) shows pane-text 
 ## Amendment 2026-09-24: v1 is Claude Code only
 
 The owner asked to ship Claude Code first and add Codex later. Every P2 issue implements the Claude path only; the Codex paths (hooks in config.toml, `codex` open and resume commands, `codex agents`, Codex tail patterns, `codex exec` for headless runs) are collected in one follow-up issue in P3. The signal design above is unchanged. The board's "open its terminal" action in v1 opens the session in the user's terminal app attached to the tmux window (`mesa attach`); the embedded xterm terminal is optional for the week-one target.
+
+## Amendment 2026-09-24: observed Claude Code signals
+
+docs/spikes/state-signals.md (issue #6: Claude Code 2.1.281 and 2.1.282, run live in a tmux window with temporary hooks) records the real payloads. Where they differ from the text above, the spike wins:
+
+- The session id is in the environment. Every hook process has `CLAUDE_CODE_SESSION_ID` equal to the payload's `session_id`, next to `MESA_SESSION_ID`, `MESA_PROFILE`, and `TMUX_PANE` inherited from the tmux window. Correlation by `MESA_SESSION_ID` works as designed.
+- `PermissionRequest` also fires for `AskUserQuestion`, 0.04 s after `PreToolUse`. `waiting-permission` is a PermissionRequest whose `tool_name` is not `AskUserQuestion`; `waiting-question` is PreToolUse with matcher AskUserQuestion, or a PermissionRequest for that tool.
+- `mesa hooks install` also registers `PostToolUse`. None of the seven hooks above fires between an approval or an answer and `Stop`; PostToolUse does, so it marks the return to `working`.
+- A user denial (Esc, or "No" on the prompt) fires no hook at all: PostToolUseFailure, PermissionDenied, Stop, and Notification stayed silent for 117 s. A waiting state from a hook therefore yields to a later `claude agents --json` poll that says `idle` or `busy`.
+- `claude agents --json` reports `status` `idle`, `busy`, or `waiting`, and while waiting it adds `waitingFor` (`"permission prompt"` or `"input needed"`). The listing alone separates the two waiting states at 0.85. The row disappears on exit and on SIGKILL.
+- Notification `permission_prompt` fires about 6 s into either kind of wait, with the same message, so it adds nothing over PermissionRequest. `idle_prompt` fires 60 s after Stop and not after a denied turn. Stop is the idle signal.
+- SessionEnd (`reason: "prompt_input_exit"` after `/exit`) does not fire on SIGKILL. `failed` comes from tmux `pane_dead_signal` or a nonzero `pane_dead_status` with no SessionEnd, at 0.85: that is a process fact, not tail text, so the 0.6 tail cap does not apply. `StopFailure` (a turn ended by an API error) is the hook-level `failed` signal; it was not captured and stays unverified.
