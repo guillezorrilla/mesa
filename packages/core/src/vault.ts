@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Clock } from './clock.js';
+import { RECEIPT_FILE } from './receipt-file.js';
 import { MesaError } from './result.js';
 
 const MARK = 'vault initialised by mesa';
@@ -13,7 +14,7 @@ type Item =
   | { name: string; kind: 'file'; content: (now: Date) => string };
 
 // The layout from ADR-0006, in creation order. log.md comes first: its first line marks the
-// folder as a Mesa vault (see isVault), so an interrupted init can be rerun without --force.
+// folder as a Mesa vault (see acceptsMesaWrites), so an interrupted init can be rerun without --force.
 const LAYOUT: Item[] = [
   { name: 'log.md', kind: 'file', content: (now) => `- ${now.toISOString()} ${MARK}\n` },
   { name: 'AGENTS.md', kind: 'file', content: () => readFileSync(TEMPLATE, 'utf8') },
@@ -33,12 +34,27 @@ const present = (path: string, item: Item) => {
   return item.kind === 'folder' ? stat?.isDirectory() === true : stat?.isFile() === true;
 };
 
+// Finder's .DS_Store and Mesa's own .mesa/ (the vault lock) do not make a folder non-empty.
+const IGNORED = ['.DS_Store', '.mesa'];
+
+const receiptsOnly = (dir: string): boolean =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((e) => e.isFile())
+    .every((e) => RECEIPT_FILE.test(e.name));
+
 /**
- * What counts as a vault: a folder with `.obsidian/` (an Obsidian vault the user points Mesa at)
- * or whose log.md starts with the line init writes. `.obsidian/` is only looked for, never read.
+ * Whether Mesa may write into `path`: a missing or empty folder; an Obsidian vault (`.obsidian/`
+ * is only looked for, never read); a Mesa vault (log.md starts with the line init writes); or a
+ * vault Mesa started, holding nothing but receipts. The one rule for vault init and receipts.
  */
-function isVault(path: string, entries: string[]): boolean {
-  if (entries.includes('.obsidian')) return true;
+export function acceptsMesaWrites(path: string): boolean {
+  const stat = statSync(path, { throwIfNoEntry: false });
+  if (!stat) return true;
+  if (!stat.isDirectory()) return false;
+  const entries = readdirSync(path).filter((n) => !IGNORED.includes(n));
+  if (entries.length === 0 || entries.includes('.obsidian')) return true;
+  if (entries.length === 1 && entries[0] === 'receipts')
+    return receiptsOnly(join(path, 'receipts'));
   if (!entries.includes('log.md')) return false;
   const first = readFileSync(join(path, 'log.md'), 'utf8').split('\n', 1)[0] ?? '';
   return first.startsWith('- ') && first.endsWith(` ${MARK}`);
@@ -51,8 +67,8 @@ export function vaultStatus(path: string): VaultStatus {
 
 /**
  * Creates whatever of the layout is missing and returns what it created. An existing file is
- * never overwritten, so a second run on a complete vault writes nothing. A missing or empty
- * folder, or a vault, is laid out; any other folder (a repo, say) needs `force`.
+ * never overwritten, so a second run on a complete vault writes nothing. A folder Mesa may write
+ * into (acceptsMesaWrites) is laid out; any other folder (a repo, say) needs `force`.
  */
 export function initVault(opts: { path: string; force?: boolean; clock: Clock }): {
   path: string;
@@ -70,11 +86,7 @@ export function initVault(opts: { path: string; force?: boolean; clock: Clock })
       `${join(path, clash.name)} exists but is not a ${clash.kind}`,
     );
   }
-  // Finder's .DS_Store and Mesa's own .mesa/ (the vault lock) do not make a folder non-empty.
-  const entries = existsSync(path)
-    ? readdirSync(path).filter((n) => n !== '.DS_Store' && n !== '.mesa')
-    : [];
-  if (missing.length && entries.length && !force && !isVault(path, entries)) {
+  if (missing.length && !force && !acceptsMesaWrites(path)) {
     throw new MesaError(
       'invalid_config',
       `${path} is not empty and is not a vault; set another vault path with mesa config set vault <path>, or rerun with --force`,

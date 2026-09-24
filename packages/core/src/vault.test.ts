@@ -105,3 +105,21 @@ test('an Obsidian vault is laid out without --force and .obsidian/ is untouched'
   expect(snapshot(join(vault, '.obsidian'))).toEqual(obsidian);
   expect(readFileSync(join(vault, 'Welcome.md'), 'utf8')).toBe('hello\n');
 });
+
+test('a folder holding only receipts (from mesa init) is finished without --force', () => {
+  const month = join(vault, 'receipts', '2026', '09');
+  mkdirSync(month, { recursive: true });
+  const receipt = '20260924T120000Z-action-01TEST00000000000000000001.md';
+  writeFileSync(join(month, receipt), 'a receipt\n');
+  const created = initVault({ path: vault }).created;
+  expect(created).not.toContain('receipts');
+  expect(created).toContain('log.md');
+  expect(readFileSync(join(month, receipt), 'utf8')).toBe('a receipt\n');
+});
+
+test('a receipts/ folder holding anything but receipts is not a vault Mesa started', () => {
+  mkdirSync(join(vault, 'receipts'), { recursive: true });
+  writeFileSync(join(vault, 'receipts', 'dentist.pdf'), 'mine\n');
+  expect(errorCode(() => initVault({ path: vault }))).toBe('invalid_config');
+  expect(readdirSync(vault)).toEqual(['receipts']);
+});

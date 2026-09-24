@@ -7,6 +7,9 @@ import type { Env } from './process.js';
 import { MesaError } from './result.js';
 import { parseWith, readYaml, setYamlPath } from './yaml-file.js';
 
+/** The decisions backends of ADR-0004. */
+export const BackendSchema = z.enum(['rules', 'adapter', 'jev']);
+
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 export const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
@@ -14,7 +17,7 @@ export const ConfigSchema = z.strictObject({
   skills: z.array(z.string()).default([]),
   decisions: z
     .strictObject({
-      backend: z.enum(['rules', 'adapter', 'jev']).default('adapter'),
+      backend: BackendSchema.default('adapter'),
       threshold: z.number().min(0).max(1).default(0.7),
     })
     .prefault({}),

@@ -4,6 +4,7 @@ import type {
   ProfileInfo,
   Project,
   ProjectRow,
+  ReceiptEntry,
   Result,
   VaultStatus,
 } from '@mesa/core';
@@ -33,6 +34,7 @@ export const COMMANDS = {
   'projects.register': commandWith<{ path: string }, Project & { path: string; created: boolean }>(
     ({ path }) => ['register', '--create', '--', path],
   ),
+  'receipts.list': command<ReceiptEntry[]>('receipts'),
   'vault.status': command<VaultStatus>('vault', 'status'),
 };
 

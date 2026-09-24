@@ -54,7 +54,7 @@ Not: plugin, command, tool, prompt.
 
 ## Receipt
 
-A markdown file with YAML frontmatter written to the vault's `receipts/` after every skill run, session, and decision. The frontmatter schema is a P1 deliverable (`docs/receipts.md`). Receipts are the audit trail; the `log.md` line points at the receipt.
+A markdown note with YAML frontmatter in the vault's `receipts/YYYY/MM/`, written after every action that changes something (and every one that fails), skill run, session, and decision. `type` (`session`, `skill`, `decision`, `action`), a ULID `id`, `status` (`ok`, `failed`, `blocked`), the redacted `command`, and every Faro decision with its probabilities; the schema and one example per type are in `docs/receipts.md`. Receipts are the audit trail; `mesa receipts` lists them. (Pointing a `log.md` line at each receipt is not built yet.)
 Not: log entry, record, artifact.
 
 ## Decision
@@ -79,12 +79,12 @@ Not: safety check, policy, filter.
 
 ## Composition root
 
-`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, process runner, Obsidian paths). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, id source, environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
 Not: container, context, app.
 
 ## Seam
 
-A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
+A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the id source, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
 Not: boundary, interface (the interface is what a caller must know; the seam is where it lives).
 
 ## Bridge
