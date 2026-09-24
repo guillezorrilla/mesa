@@ -1,4 +1,4 @@
-import type { DoctorReport, ProfileInfo, Result } from '@mesa/core';
+import type { DoctorReport, ProfileInfo, Result, VaultStatus } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
 export type Bridge = (args: string[]) => Promise<unknown>;
@@ -11,6 +11,7 @@ const spec = <Data>(...argv: string[]) => ({ argv }) as Spec<Data>;
 export const COMMANDS = {
   'doctor.run': spec<DoctorReport>('doctor'),
   'profile.get': spec<ProfileInfo>('profile'),
+  'vault.status': spec<VaultStatus>('vault', 'status'),
 };
 
 export type CommandName = keyof typeof COMMANDS;

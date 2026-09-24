@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '@mesa/core';
 import { scriptedRunner, tempDir, testDeps } from '@mesa/core/testing';
@@ -92,6 +92,41 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
   expect(sick.stdout).toMatch(/^FAIL {2}tmux/);
   expect(sick.stdout).toMatch(/\nFAIL {2}claude/);
   expect(sick.stdout).toContain('doctor: tmux and at least one agent');
+});
+
+test('vault init lays out the vault once; vault status finds what is missing', async () => {
+  await mesa('init', '--vault', 'vault');
+  expect((await mesa('vault', 'init')).stdout).toBe(
+    `created log.md, AGENTS.md, index.md, raw, wiki, projects, receipts, daily in ${home}/vault\n`,
+  );
+  expect(readFileSync(join(home, 'vault/log.md'), 'utf8')).toBe(
+    '- 2026-09-24T12:00:00.000Z vault initialised by mesa\n',
+  );
+  expect((await mesa('vault', 'init')).stdout).toBe('vault already initialised\n');
+  expect((await mesa('vault', 'status', '--json')).json.data).toEqual({
+    path: `${home}/vault`,
+    ok: true,
+    missing: [],
+  });
+
+  rmSync(join(home, 'vault/receipts'), { recursive: true });
+  const status = await mesa('vault', 'status', '--json');
+  expect(status.code).toBe(3);
+  expect(status.json.data).toMatchObject({ ok: false, missing: ['receipts'] });
+
+  const group = await mesa('vault');
+  expect(group.code).toBe(2);
+  expect(group.stderr).toContain('vault init');
+  expect(group.stderr).toContain('vault status');
+});
+
+test('vault init refuses a non-empty folder that is not a vault unless --force', async () => {
+  mkdirSync(join(home, 'repo'));
+  writeFileSync(join(home, 'repo/README.md'), 'a repo\n');
+  await mesa('init', '--vault', 'repo');
+  expect((await mesa('vault', 'init')).code).toBe(4);
+  expect((await mesa('vault', 'init', '--force')).code).toBe(0);
+  expect(readFileSync(join(home, 'repo/README.md'), 'utf8')).toBe('a repo\n');
 });
 
 test('profile and version', async () => {
