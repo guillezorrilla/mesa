@@ -1,13 +1,64 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { profileDir, resolveProfile } from './index.js';
+import { loadConfig } from './config.js';
+import { profilePaths } from './paths.js';
+import { initProfile, openProfile, resolveProfileName } from './profile.js';
+import { tempDir, thrown } from './testing.js';
 
-test('resolves profile precedence and its directory', () => {
-  expect(resolveProfile({ flag: 'personal', env: { MESA_PROFILE: 'work' } })).toBe('personal');
-  expect(resolveProfile({ env: { MESA_PROFILE: 'work' } })).toBe('work');
-  expect(resolveProfile({ env: {} })).toBe('default');
-  expect(resolveProfile({})).toBe('default');
-  expect(profileDir('work', '/Users/test')).toBe('/Users/test/.mesa/work');
-  expect(profileDir('default')).toBe(join(homedir(), '.mesa', 'default'));
+test('the flag wins over MESA_PROFILE, which wins over default', () => {
+  expect(resolveProfileName('personal', { MESA_PROFILE: 'work' })).toBe('personal');
+  expect(resolveProfileName(undefined, { MESA_PROFILE: 'work' })).toBe('work');
+  expect(resolveProfileName(undefined, {})).toBe('default');
+});
+
+test('profile paths live under <home>/.mesa/<profile>', () => {
+  expect(profilePaths('/h', 'work')).toEqual({
+    root: '/h/.mesa/work',
+    config: '/h/.mesa/work/config.yaml',
+    registry: '/h/.mesa/work/registry.yaml',
+    sessions: '/h/.mesa/work/sessions',
+  });
+});
+
+test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () => {
+  const paths = profilePaths(tempDir(), 'default');
+  expect(initProfile(paths, { vault: '/tmp/v' })).toEqual({ created: true, path: paths.config });
+  expect(statSync(paths.root).mode & 0o777).toBe(0o700);
+  expect(statSync(paths.sessions).isDirectory()).toBe(true);
+  expect(statSync(paths.config).mode & 0o777).toBe(0o600);
+  expect(readFileSync(paths.config, 'utf8')).toMatch(/^# Mesa profile config/);
+  expect(loadConfig(paths.config)).toEqual({
+    vault: '/tmp/v',
+    defaultAgent: 'claude',
+    skills: [],
+    decisions: { backend: 'adapter', threshold: 0.7 },
+    sessions: { log: true },
+    keys: {},
+  });
+});
+
+test('init is idempotent, profiles are independent, and invalid input leaves nothing', () => {
+  const home = tempDir();
+  const main = profilePaths(home, 'default');
+  initProfile(main, { vault: '/tmp/v' });
+  const before = readFileSync(main.config, 'utf8');
+  expect(initProfile(main, { vault: '/tmp/other', agent: 'codex' }).created).toBe(false);
+  expect(readFileSync(main.config, 'utf8')).toBe(before);
+
+  const work = profilePaths(home, 'work');
+  initProfile(work, { vault: '/tmp/w', agent: 'codex' });
+  expect(openProfile(work).config).toMatchObject({
+    vault: '/tmp/w',
+    defaultAgent: 'codex',
+  });
+
+  const bad = profilePaths(home, 'bad');
+  expect(thrown(() => initProfile(bad, { vault: 'relative' })).code).toBe('invalid_config');
+  expect(() => statSync(bad.root)).toThrow();
+});
+
+test('opening an uninitialised profile is not_found with the init hint', () => {
+  const { code, message } = thrown(() => openProfile(profilePaths(tempDir(), 'none')));
+  expect(code).toBe('not_found');
+  expect(message).toContain('run mesa init');
 });

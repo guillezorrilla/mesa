@@ -13,7 +13,7 @@ pre {
   color: #c0392b;
 }
 
-.toast {
+.toasts {
   position: fixed;
   right: 16px;
   bottom: 16px;

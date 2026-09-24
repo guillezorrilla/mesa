@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+    "typecheck": "tsc -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "@mesa/core": "workspace:*",

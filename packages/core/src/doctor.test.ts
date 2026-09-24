@@ -1,78 +1,84 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
-import {
-  CHECK_TIMEOUT_MS,
-  checkEnvironment,
-  isHealthy,
-  OBSIDIAN_BUNDLE,
-  OBSIDIAN_REGISTERED,
-  type Runner,
-} from './doctor.js';
+import { CHECK_TIMEOUT_MS, type Check, type ObsidianPaths, runDoctor } from './doctor.js';
+import { scriptedRunner, tempDir, testDeps } from './testing.js';
 
-const OUTPUT: Record<string, string> = {
+const VERSIONS = {
   tmux: 'tmux 3.7c\n',
   claude: '2.1.282 (Claude Code)\n',
   codex: 'codex-cli 0.154.0\n',
   '/usr/libexec/PlistBuddy': '1.12.7\n',
 };
 
-/** Answers from OUTPUT; names in `missing` are ENOENT, names in `slow` time out. */
-function fakeRunner(missing: string[] = [], slow: string[] = []) {
-  const calls: { file: string; timeoutMs: number }[] = [];
-  const run: Runner = async (file, _args, timeoutMs) => {
-    calls.push({ file, timeoutMs });
-    if (missing.includes(file)) return { ok: false, reason: 'missing', detail: 'ENOENT' };
-    if (slow.includes(file)) return { ok: false, reason: 'timeout', detail: 'killed' };
-    return { ok: true, stdout: OUTPUT[file] ?? '' };
-  };
-  return { run, calls };
+const touch = (path: string) => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, '');
+};
+
+/** A temp home with the Obsidian paths under it; `install` creates the ones named. */
+function setup(install: (keyof ObsidianPaths)[] = []) {
+  const home = tempDir();
+  const { obsidian } = testDeps(home);
+  for (const key of install) touch(obsidian[key]);
+  return { home, obsidian };
 }
 
-const byName = async (...args: Parameters<typeof checkEnvironment>) =>
-  Object.fromEntries((await checkEnvironment(...args)).map((c) => [c.name, c]));
+const byName = (checks: Check[]) => Object.fromEntries(checks.map((c) => [c.name, c]));
 
-test('found: versions parsed, registered obsidian, healthy', async () => {
-  const { run, calls } = fakeRunner();
-  const exists = (p: string) => p === OBSIDIAN_REGISTERED || p === '/home/.mesa/default';
-  const checks = await checkEnvironment({ profileDir: '/home/.mesa/default', run, exists });
-  const c = Object.fromEntries(checks.map((x) => [x.name, x]));
+test('found: versions parsed, registered obsidian, every probe bounded by the timeout, healthy', async () => {
+  const { home, obsidian } = setup(['registered']);
+  mkdirSync(join(home, 'profile'));
+  const { run, calls } = scriptedRunner(VERSIONS);
+  const report = await runDoctor({ run, obsidian, profileDir: join(home, 'profile') });
+  const c = byName(report.checks);
 
-  expect(c.tmux).toMatchObject({ required: true, ok: true, version: '3.7c' });
-  expect(c.claude).toMatchObject({ ok: true, version: '2.1.282' });
+  expect(report.healthy).toBe(true);
+  expect(report.summary).toBe('ready');
+  expect(c.tmux).toMatchObject({ ok: true, status: 'ok', version: '3.7c' });
+  expect(c.claude).toMatchObject({ ok: true, status: 'ok', version: '2.1.282' });
   expect(c.codex).toMatchObject({ ok: true, version: '0.154.0' });
   expect(c.obsidian).toMatchObject({ ok: true, registered: true, version: '1.12.7' });
-  expect(c['profile dir']).toMatchObject({ ok: true, path: '/home/.mesa/default' });
-  expect(isHealthy(checks)).toBe(true);
+  expect(c['profile dir']).toMatchObject({ ok: true });
   expect(CHECK_TIMEOUT_MS).toBe(2000);
   expect(calls.every((x) => x.timeoutMs === CHECK_TIMEOUT_MS)).toBe(true);
 });
 
-test('missing: tmux absent is unhealthy with a Homebrew hint; bundle-only obsidian is unregistered', async () => {
-  const { run } = fakeRunner(['tmux', 'codex']);
-  const exists = (p: string) => p === OBSIDIAN_BUNDLE;
-  const checks = await checkEnvironment({ profileDir: '/nope', run, exists });
-  const c = Object.fromEntries(checks.map((x) => [x.name, x]));
+test('missing: no tmux is unhealthy with a Homebrew hint; a bundle-only Obsidian is unregistered', async () => {
+  const { home, obsidian } = setup(['bundle']);
+  const { run } = scriptedRunner(VERSIONS, { missing: ['tmux', 'codex'] });
+  const report = await runDoctor({ run, obsidian, profileDir: join(home, 'nope') });
+  const c = byName(report.checks);
 
-  expect(c.tmux).toMatchObject({ ok: false, required: true });
+  expect(report.healthy).toBe(false);
+  expect(report.summary).toBe('tmux and at least one agent (claude or codex) are required');
+  expect(c.tmux).toMatchObject({ ok: false, status: 'fail' });
+  // One agent answered, so the missing one only warns.
+  expect(c.codex).toMatchObject({ ok: false, status: 'warn' });
   expect(c.tmux?.hint).toContain('brew install tmux');
-  expect(c.codex?.hint).toContain('brew install');
-  expect(c.obsidian).toMatchObject({ ok: true, registered: false, path: OBSIDIAN_BUNDLE });
+  expect(c.obsidian).toMatchObject({ ok: true, registered: false, path: obsidian.bundle });
   expect(c.obsidian?.hint).toContain('Command line interface');
-  expect(c['profile dir']?.ok).toBe(false);
-  expect(isHealthy(checks)).toBe(false);
+  expect(c['profile dir']).toMatchObject({ ok: false, hint: 'does not exist yet' });
 });
 
-test('timeout: a hung agent is not ok, and one agent is enough', async () => {
-  const { run } = fakeRunner([], ['claude']);
-  const c = await byName({ profileDir: '/x', run, exists: () => false });
-
-  expect(c.claude).toMatchObject({ ok: false });
-  expect(c.claude?.hint).toContain('did not answer within 2 s');
-  expect(c.obsidian).toMatchObject({ ok: false, registered: false });
-  expect(isHealthy(Object.values(c))).toBe(true);
-
-  const none = await checkEnvironment({
-    profileDir: '/x',
-    run: fakeRunner(['codex'], ['claude']).run,
+test('timeout: a hung agent is not ok, one agent is enough, and none is unhealthy', async () => {
+  const { home, obsidian } = setup();
+  const one = await runDoctor({
+    run: scriptedRunner(VERSIONS, { slow: ['claude'] }).run,
+    obsidian,
+    profileDir: home,
   });
-  expect(isHealthy(none)).toBe(false);
+  expect(byName(one.checks).claude?.hint).toContain('did not answer within 2 s');
+  expect(byName(one.checks).obsidian).toMatchObject({ ok: false, registered: false });
+  expect(one.healthy).toBe(true);
+
+  const none = await runDoctor({
+    run: scriptedRunner(VERSIONS, { missing: ['codex'], slow: ['claude'] }).run,
+    obsidian,
+    profileDir: home,
+  });
+  expect(none.healthy).toBe(false);
+  // No agent answered: every agent row is a failure, so the labels match the verdict.
+  expect(byName(none.checks).claude?.status).toBe('fail');
+  expect(byName(none.checks).codex?.status).toBe('fail');
 });

@@ -1,13 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
-import { isMap, parse, parseDocument, stringify } from 'yaml';
+import { existsSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
+import { parse } from 'yaml';
 import { z } from 'zod';
+import { AgentSchema, DEFAULT_AGENT } from './agents.js';
+import type { Env } from './process.js';
 import { MesaError } from './result.js';
+import { parseWith, readYaml, setYamlPath } from './yaml-file.js';
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 export const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
-  defaultAgent: z.enum(['claude', 'codex']).default('claude'),
+  defaultAgent: AgentSchema.default(DEFAULT_AGENT),
   skills: z.array(z.string()).default([]),
   decisions: z
     .strictObject({
@@ -22,95 +25,42 @@ export const ConfigSchema = z.strictObject({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-const HEADER = 'Mesa profile config. Edit with `mesa config set <path> <value>`.';
+export const CONFIG_HEADER = 'Mesa profile config. Edit with `mesa config set <path> <value>`.';
 
-export const configPath = (dir: string) => join(dir, 'config.yaml');
+/** A full config from partial input, with the schema defaults filled in. */
+export const buildConfig = (input: unknown, file: string): Config =>
+  parseWith(ConfigSchema, input, file);
 
-/** Parses `raw` with a schema; failure is invalid_config naming the file and the failing field. */
-export function parseWith<T>(schema: z.ZodType<T>, raw: unknown, file: string): T {
-  const parsed = schema.safeParse(raw);
-  if (parsed.success) return parsed.data;
-  const issues = parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
-  const first = issues[0];
-  throw new MesaError('invalid_config', `${file}: ${first?.path || '(root)'}: ${first?.message}`, {
-    issues,
-  });
-}
-
-/** Reads a YAML file. Errors give the position only: the parser quotes source lines, which may hold a key. */
-export function readYamlFile(file: string): unknown {
-  try {
-    return parse(readFileSync(file, 'utf8'));
-  } catch (error) {
-    const pos = (error as { linePos?: { line: number; col: number }[] }).linePos?.[0];
-    const at = pos ? ` at line ${pos.line}, column ${pos.col}` : '';
-    throw new MesaError('invalid_config', `${file}: not valid YAML${at}`);
+function requireConfigFile(file: string): void {
+  if (!existsSync(file)) {
+    throw new MesaError('not_found', `${file} not found; run mesa init --vault <path>`);
   }
 }
 
-const validate = (raw: unknown, file: string): Config => parseWith(ConfigSchema, raw, file);
-
-/** Creates the profile dir, `config.yaml` (mode 0600), and `sessions/`. A second run changes nothing. */
-export function initProfile(opts: { dir: string; vault: string; agent?: string }): {
-  created: boolean;
-  path: string;
-} {
-  const path = configPath(opts.dir);
-  if (existsSync(path)) return { created: false, path };
-  const config = validate({ vault: opts.vault, defaultAgent: opts.agent }, path);
-  mkdirSync(join(opts.dir, 'sessions'), { recursive: true, mode: 0o700 });
-  const doc = parseDocument(stringify(config));
-  doc.commentBefore = ` ${HEADER}`;
-  try {
-    writeFileSync(path, doc.toString(), { mode: 0o600, flag: 'wx' });
-  } catch (error) {
-    // A concurrent init won the race: same outcome as a second run.
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return { created: false, path };
-    throw error;
-  }
-  return { created: true, path };
+export function loadConfig(file: string): Config {
+  requireConfigFile(file);
+  return readYaml(file, ConfigSchema);
 }
 
-export function loadConfig(dir: string): Config {
-  const path = configPath(dir);
-  if (!existsSync(path)) {
-    throw new MesaError('not_found', `${path} not found; run mesa init --vault <path>`);
-  }
-  return validate(readYamlFile(path), path);
-}
-
-/** The config as printed by `mesa config`: every key value becomes `***`. */
+/** Every key value becomes `***`: the only form in which a config leaves Mesa. */
 export function redactConfig(config: Config): Config {
   return { ...config, keys: Object.fromEntries(Object.keys(config.keys).map((k) => [k, '***'])) };
 }
 
 /**
- * Sets one dotted path, keeping comments; the value is read as YAML (`0.5`, `true`, `[a, b]`).
- * Returns the new value, redacted under `keys`. The file is untouched when the result is invalid.
+ * Sets one dotted path; `value` is read as YAML (`0.5`, `true`, `[a, b]`). Returns the new value,
+ * redacted under `keys`.
  */
-export function setConfigValue(dir: string, dotted: string, value: string): unknown {
-  const path = configPath(dir);
-  loadConfig(dir);
-  const doc = parseDocument(readFileSync(path, 'utf8'));
-  const keys = dotted.split('.');
-  doc.setIn(keys, parse(value));
-  // `keys: {}` starts as a flow map; once it has entries, write it as a block.
-  const parent = doc.getIn(keys.slice(0, -1), true);
-  if (isMap(parent)) parent.flow = false;
-  const next = validate(doc.toJS(), path);
-  writeFileSync(path, doc.toString());
-  return keys.reduce<unknown>(
-    (node, k) => (node as Record<string, unknown>)?.[k],
-    redactConfig(next),
-  );
+export function setConfigValue(file: string, dotted: string, value: string): unknown {
+  requireConfigFile(file);
+  const next = redactConfig(setYamlPath(file, ConfigSchema, dotted, parse(value)));
+  return dotted
+    .split('.')
+    .reduce<unknown>((node, k) => (node as Record<string, unknown>)?.[k], next);
 }
 
-/** A key's value with `env:VAR` references read from the environment. */
-export function resolveKey(
-  config: Config,
-  name: string,
-  env: NodeJS.ProcessEnv = process.env,
-): string | undefined {
+/** A key's value, with an `env:VAR` reference read from `env`. */
+export function resolveKey(config: Config, name: string, env: Env): string | undefined {
   const value = config.keys[name];
   return value?.startsWith('env:') ? env[value.slice(4)] : value;
 }
