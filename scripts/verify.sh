@@ -5,5 +5,6 @@ cd "$(dirname "$0")/.."
 pnpm lint
 pnpm typecheck
 pnpm test
+cargo test --quiet --manifest-path apps/desktop/src-tauri/Cargo.toml
 pnpm build
 echo "verify: all green"

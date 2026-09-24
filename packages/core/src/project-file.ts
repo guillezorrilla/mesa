@@ -1,0 +1,49 @@
+import { existsSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { z } from 'zod';
+import { AgentSchema } from './agents.js';
+import { MesaError } from './result.js';
+import { parseWith, readYaml, writeYaml } from './yaml-file.js';
+
+/** The file that makes a folder a project. */
+export const PROJECT_FILE = 'mesa.yaml';
+
+export const ProjectSchema = z.strictObject({
+  name: z
+    .string()
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'must be a slug: lowercase letters, digits, and hyphens'),
+  agent: AgentSchema.optional(),
+  priority: z.number().min(0).max(1).default(0.5),
+  guardrail: z.enum(['normal', 'strict']).default('normal'),
+  tmux: z.strictObject({ layout: z.string().optional() }).optional(),
+  skills: z.array(z.string()).optional(),
+});
+
+export type Project = z.infer<typeof ProjectSchema>;
+
+export const projectFile = (dir: string) => join(dir, PROJECT_FILE);
+
+export const slugify = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+export function readProjectFile(dir: string): Project {
+  const file = projectFile(dir);
+  if (!existsSync(file)) {
+    throw new MesaError(
+      'not_found',
+      `no ${PROJECT_FILE} in ${dir}; add one or run mesa register ${dir} --create`,
+    );
+  }
+  return readYaml(file, ProjectSchema);
+}
+
+/** The minimal project for a folder: named after it, schema defaults filled in. */
+export const minimalProject = (dir: string): Project =>
+  parseWith(ProjectSchema, { name: slugify(basename(dir)) }, projectFile(dir));
+
+/** Writes a new project file; never replaces an existing one. */
+export const writeProjectFile = (dir: string, project: Project): boolean =>
+  writeYaml(projectFile(dir), project, { exclusive: true });
