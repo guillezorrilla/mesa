@@ -1,0 +1,16 @@
+{
+  "name": "@mesa/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "mesa": "dist/mesa.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@mesa/core": "workspace:*"
+  }
+}

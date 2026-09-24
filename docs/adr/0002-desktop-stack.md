@@ -1,6 +1,6 @@
 # ADR-0002: Desktop stack is Electron 44, electron-vite, React, node-pty, xterm 6
 
-Status: accepted
+Status: superseded by ADR-0007 on 2026-09-24
 Date: 2026-09-24
 
 ## Context
