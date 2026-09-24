@@ -76,8 +76,8 @@ test('refuse: a non-empty folder that is not a vault is invalid_config and left 
   expect(errorCode(() => initVault({ path: vault, force: true }))).toBe('invalid_config');
 });
 
-test('an empty folder, or one holding only .DS_Store, needs no --force', () => {
-  mkdirSync(vault);
+test('an empty folder, or one holding only .DS_Store or .mesa/, needs no --force', () => {
+  mkdirSync(join(vault, '.mesa'), { recursive: true });
   writeFileSync(join(vault, '.DS_Store'), '');
   expect(initVault({ path: vault }).created).toHaveLength(VAULT_LAYOUT.length);
 });

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
 import { useCommand } from './lib/useCommand';
 import { DoctorScreen } from './screens/DoctorScreen';
@@ -14,6 +15,7 @@ export function App() {
       <header>
         <h1 data-testid="app-name">Mesa</h1>
         <ProfileSummary doctor={doctor.data} />
+        <LogBox />
         {/* ponytail: two screens, so a button row instead of a router; add one when the Board lands. */}
         <nav>
           {SCREENS.map((name) => (
