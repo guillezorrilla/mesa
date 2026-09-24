@@ -47,6 +47,7 @@ Seven research slices ran in parallel against official docs, Context7, local `--
 
 ## Open questions
 
+- Owner constraints added on 2026-09-24: no Anthropic API key (subscriptions only, so the adapter backend runs on `claude -p`), Claude-only v1 with Codex in P3, Obsidian CLI enabled on this machine. See the amendments in ADR-0003 and ADR-0004.
 - GitHub Actions does not run for this repo (the owner does not pay for Actions minutes). The gate is `pnpm verify` on pre-push; the workflow is manual-only.
 
 - `--max-turns` is documented for `claude -p` but absent from the installed binary's help. The P0 spike checks it live.

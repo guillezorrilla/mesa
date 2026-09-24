@@ -26,3 +26,7 @@ docs/research/sources/typesafe-jev.md (typesafe.ai, docs.typesafe.ai, npm and Py
 - The plan's "adapter backend" survives with a different implementation and no new dependency.
 - Jev's wire format is documented but not yet verified by a live call; the contract test can be wrong until the spike runs.
 - Noul has no separate confidence, so the receipt schema records confidence as optional per answer.
+
+## Amendment 2026-09-24: the adapter backend runs on Claude Code headless
+
+The owner will not add an Anthropic API key; Mesa runs on the Claude and Codex subscriptions only. The `adapter` backend therefore does not call the Messages API. It runs `claude -p` with `--output-format json` and `--json-schema` (both present in Claude Code 2.1.281), `--model haiku`, tool use disabled, a 20 second timeout, and falls back to `rules` on any error. The answer shape is unchanged. Fixtures are recorded locally with the real `claude -p` and replayed in tests through a fake runner. `total_cost_usd` from the result is recorded for information only. Jev stays opt-in: it is a paid API (0.042 USD per million input tokens) and is used only when the owner adds a key. When Codex lands (v1 is Claude-only, see ADR-0003 amendment), `codex exec --output-schema` becomes a second subscription-backed adapter.

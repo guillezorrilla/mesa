@@ -24,7 +24,7 @@ Not: project list, index.
 
 ## Agent
 
-The CLI coding agent a session runs: `claude` (Claude Code) or `codex` (Codex CLI).
+The CLI coding agent a session runs: `claude` (Claude Code) or `codex` (Codex CLI). v1 ships `claude` only; `codex` is added in P3 (ADR-0003 amendment).
 Not: model, assistant, bot.
 
 ## Session
