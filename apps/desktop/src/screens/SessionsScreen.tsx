@@ -17,17 +17,38 @@ export function SessionsScreen() {
   const { data, busy, refresh } = useCommand(ended ? 'sessions.all' : 'sessions.list');
   const run = useRun();
   const toast = useToast();
-  const [opening, setOpening] = useState(false);
-  // One at a time, so a double click opens one terminal window, not two.
-  const openTerminal = async (id: string) => {
-    setOpening(true);
+  const [acting, setActing] = useState(false);
+  // One action at a time, so a double click opens one terminal or one session, not two.
+  const act = async (action: () => Promise<string | undefined>) => {
+    setActing(true);
     try {
-      const attached = await run('sessions.attach', { id });
-      if (attached) toast(`Opened ${attached.target} in ${attached.app}`);
+      const said = await action();
+      if (said) toast(said);
     } finally {
-      setOpening(false);
+      setActing(false);
     }
   };
+  const openTerminal = (id: string) =>
+    act(async () => {
+      const attached = await run('sessions.attach', { id });
+      return attached && `Opened ${attached.target} in ${attached.app}`;
+    });
+  const stop = (id: string) =>
+    act(async () => {
+      const stopped = await run('sessions.stop', { id });
+      await refresh();
+      if (!stopped) return undefined;
+      return stopped.outcome === 'already-ended'
+        ? `Session ${id} had already ended`
+        : `Stopped session ${id}`;
+    });
+  const resume = (id: string) =>
+    act(async () => {
+      const resumed = await run('sessions.resume', { id });
+      await refresh();
+      return resumed && `Resumed session ${id} as ${resumed.id}`;
+    });
+
   return (
     <section data-testid="sessions-screen">
       <h2>Sessions</h2>
@@ -38,7 +59,7 @@ export function SessionsScreen() {
           checked={ended}
           onChange={(e) => setEnded(e.target.checked)}
         />{' '}
-        Show ended
+        Show older
       </label>
       {data?.length === 0 && (
         <p data-testid="sessions-empty">
@@ -65,15 +86,37 @@ export function SessionsScreen() {
               <td>{s.lastState.state}</td>
               <td>{running(s.runningSeconds)}</td>
               <td>
-                {s.alive && (
-                  <button
-                    type="button"
-                    data-testid="session-terminal"
-                    onClick={() => openTerminal(s.id)}
-                    disabled={opening}
-                  >
-                    Terminal
-                  </button>
+                {s.alive ? (
+                  <>
+                    <button
+                      type="button"
+                      data-testid="session-terminal"
+                      onClick={() => openTerminal(s.id)}
+                      disabled={acting}
+                    >
+                      Terminal
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="session-stop"
+                      onClick={() => stop(s.id)}
+                      disabled={acting}
+                    >
+                      Stop
+                    </button>
+                  </>
+                ) : (
+                  s.agentSessionId &&
+                  !s.resumedBy && (
+                    <button
+                      type="button"
+                      data-testid="session-resume"
+                      onClick={() => resume(s.id)}
+                      disabled={acting}
+                    >
+                      Resume
+                    </button>
+                  )
                 )}
               </td>
             </tr>

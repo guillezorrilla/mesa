@@ -62,6 +62,119 @@ export function scriptedRunner(
   return { run, calls };
 }
 
+/** One window of `fakeTmux`: tests may mark it exited (`dead`) or read what was typed into it. */
+export type FakeWindow = {
+  project: string;
+  window: string;
+  path: string;
+  command: string;
+  dead: boolean;
+  typed: string[];
+};
+
+/**
+ * A tmux server in memory, as a scripted runner answer: `scriptedRunner({ tmux: world.answer })`.
+ * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
+ * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
+ */
+export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => void } = {}) {
+  const windows: FakeWindow[] = [];
+  const failed = (detail: string): RunResult => ({ ok: false, reason: 'failed', detail });
+  const flag = (args: string[], name: string) => args[args.indexOf(name) + 1] ?? '';
+  const find = (target: string) => {
+    const [, project, window] = /^=(.*):=(.*)$/.exec(target) ?? [];
+    return windows.find((w) => w.project === project && w.window === window);
+  };
+  const line = (w: FakeWindow, i: number) =>
+    [
+      w.project,
+      i,
+      w.window,
+      4242,
+      w.dead ? '' : '2.1.282',
+      w.path,
+      1790359178,
+      w.dead ? 1 : 0,
+    ].join('\t');
+  const one = (args: string[]): RunResult => {
+    const [command = '', ...rest] = args;
+    const ok = (stdout = ''): RunResult => ({ ok: true, stdout });
+    const target = flag(rest, '-t');
+    switch (command) {
+      case 'has-session':
+        return windows.some((w) => `=${w.project}` === target)
+          ? ok()
+          : failed("can't find session");
+      case 'new-session':
+      case 'new-window': {
+        const project = command === 'new-session' ? flag(rest, '-s') : target.slice(1, -1);
+        const [path, window] = [flag(rest, '-c'), flag(rest, '-n')];
+        windows.push({ project, window, path, command: rest.at(-1) ?? '', dead: false, typed: [] });
+        return ok();
+      }
+      case 'kill-window': {
+        const w = find(target);
+        if (!w) return failed("can't find window");
+        windows.splice(windows.indexOf(w), 1);
+        return ok();
+      }
+      case 'list-windows': {
+        // Mesa's server outlives its last window (exit-empty off) and then says this.
+        if (!windows.length) return failed('no current target');
+        const shown = rest.includes('-a')
+          ? windows
+          : windows.filter((w) => `=${w.project}` === target);
+        if (!shown.length) return failed(`can't find session: ${target.slice(1)}`);
+        return ok(shown.map(line).join('\n'));
+      }
+      case 'list-panes':
+        return find(target) ? ok('%1') : failed("can't find window");
+      case 'display-message': {
+        const w = find(target);
+        return w
+          ? ok(`${w.dead ? 1 : 0}\t${w.dead ? '' : '2.1.282'}`)
+          : failed("can't find window");
+      }
+      case 'send-keys': {
+        const w = find(target);
+        if (!w) return failed("can't find window");
+        if (rest.includes('-l')) {
+          const text = rest.at(-1) ?? '';
+          w.typed.push(text);
+          opts.onKeys?.(w, text);
+        }
+        return ok();
+      }
+      case 'capture-pane': {
+        const w = find(target);
+        return w ? ok(w.typed.join('\n')) : failed("can't find window");
+      }
+      case 'start-server':
+      case 'set-option':
+      case 'set-environment':
+        return ok();
+      default:
+        // A command this fake does not know fails, so a test cannot pass on a silent no-op.
+        return failed(`fakeTmux does not know ${command}`);
+    }
+  };
+  /** Every call: `-L <socket> -f /dev/null` first, then commands separated by `;`. */
+  const answer = (args: string[]): RunResult => {
+    const commands: string[][] = [[]];
+    for (const word of args.slice(4)) {
+      if (word === ';') commands.push([]);
+      else commands.at(-1)?.push(word);
+    }
+    let result: RunResult = { ok: true, stdout: '' };
+    for (const command of commands) {
+      result = one(command);
+      if (!result.ok) return result;
+    }
+    return result;
+  };
+  return { windows, answer };
+}
+
 /** Deps over `home` (a temp dir): cwd is home, the clock is fixed, and Obsidian lives under home. */
 export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaDeps => ({
   home,
@@ -69,6 +182,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   clock: fixedClock(),
   newId: sequentialIds(),
   newUuid: sequentialUuids(),
+  sleep: async () => {},
   env: {},
   run: scriptedRunner().run,
   argv: ['test'],

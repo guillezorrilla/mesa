@@ -7,6 +7,10 @@ export const AGENTS = {
     install: 'brew install --cask claude-code',
     /** The command a Mesa window runs, with the agent session id Mesa chose. */
     start: (sessionId: string) => `claude --session-id ${sessionId}`,
+    /** Reopens that conversation; run in the recorded project folder, which keys transcripts. */
+    resume: (sessionId: string) => `claude --resume ${sessionId}`,
+    /** Typed into the window to end the agent politely. */
+    quit: '/exit',
   },
   // v1 runs Claude Code only (ADR-0003 amendment).
   codex: {

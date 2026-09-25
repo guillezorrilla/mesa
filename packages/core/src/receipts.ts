@@ -6,7 +6,7 @@ import type { Clock } from './clock.js';
 import { BackendSchema } from './config.js';
 import { parseNote } from './frontmatter.js';
 import { type IdSource, ULID } from './ids.js';
-import { appendLog, NOTE_FIELDS, writeNote } from './notes.js';
+import { appendLog, NOTE_FIELDS, type NotesDeps, updateNote, writeNote } from './notes.js';
 import { RECEIPT_TYPES, receiptLink, receiptPath, receiptSortKey } from './receipt-file.js';
 import { MesaError, toFail } from './result.js';
 import { NoteTimeSchema, obsidianDateTime } from './time.js';
@@ -103,6 +103,37 @@ export function writeReceipt(
   } catch (error) {
     return { receipt, path, warning: `no log line: ${toFail(error).error.message}` };
   }
+}
+
+/**
+ * Marks the session's receipt (the one `mesa open` or `mesa resume` wrote) ended at `ended`, and
+ * merges `outputs` into it, under the vault lock. Undefined when the session has no receipt.
+ */
+export async function closeSessionReceipt(
+  deps: NotesDeps,
+  session: string,
+  ended: Date,
+  outputs: Record<string, unknown>,
+): Promise<{ id: string; path: string } | undefined> {
+  // ponytail: reads every receipt to find the session's; index them by session if vaults grow big.
+  // The oldest: the receipt of the open or resume that started it, not the stop's own.
+  const entry = listReceipts(deps.vault, Number.POSITIVE_INFINITY)
+    .filter(
+      (e) =>
+        e.receipt.type === 'session' && e.receipt.session === session && e.receipt.status === 'ok',
+    )
+    .at(-1);
+  if (!entry) return undefined;
+  await updateNote(deps, entry.path, (note = { frontmatter: {}, body: '' }) => {
+    const fields = Object.fromEntries(
+      Object.entries(note.frontmatter).filter(([k]) => !NOTE_FIELDS.includes(k)),
+    );
+    const before = (fields.outputs ?? {}) as Record<string, unknown>;
+    const next = { ...fields, ended: obsidianDateTime(ended), outputs: { ...before, ...outputs } };
+    // Validated as writeReceipt validates, so an update cannot leave a receipt Mesa cannot read.
+    return { ...note, frontmatter: parseWith(ReceiptSchema, next, entry.path) };
+  });
+  return { id: entry.receipt.id, path: entry.path };
 }
 
 /** Every receipt file, newest first; files whose names are not a receipt's are left out. */

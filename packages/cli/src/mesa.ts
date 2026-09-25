@@ -2,6 +2,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { writeSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { execRunner, macObsidianPaths, systemClock, ulidSource } from '@mesa/core';
 import { runCli } from './cli.js';
 import { COMMANDS } from './commands/index.js';
@@ -19,6 +20,9 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
     clock: systemClock,
     newId: ulidSource(systemClock, randomBytes),
     newUuid: randomUUID,
+    sleep: async (ms) => {
+      await sleep(ms);
+    },
     env: process.env,
     run: execRunner,
     obsidian: macObsidianPaths(homedir()),

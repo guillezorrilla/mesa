@@ -1,5 +1,5 @@
 import type { Clock } from '../clock.js';
-import { type SessionRecord, type SessionStore, windowOf } from './store.js';
+import { FINAL_STATES, type SessionRecord, type SessionStore, windowOf } from './store.js';
 import { type TmuxBackend, targetLabel } from './tmux.js';
 
 /**
@@ -8,22 +8,26 @@ import { type TmuxBackend, targetLabel } from './tmux.js';
  */
 export type SessionRow = SessionRecord & { alive: boolean; runningSeconds: number };
 
-/** States a session does not leave on its own; distinct from ended (stopped, with `endedAt`). */
-const FINAL_STATES = new Set(['done', 'failed']);
+// ponytail: a fixed day; a config field if someone wants stopped sessions to linger longer.
+/** How long a stopped session stays on the board, so it can be seen and resumed. */
+const RECENT_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The profile's sessions merged with live tmux. A session that has not ended but whose window is
+ * The profile's sessions merged with live tmux: those not stopped, or stopped within a day, or
+ * every one with `all`. A session that has not ended but whose window is
  * gone is marked `done` from tmux, and that is saved.
  */
 export async function listSessions(
   deps: { store: SessionStore; tmux: Pick<TmuxBackend, 'listWindows'>; clock: Clock },
   { all = false } = {},
 ): Promise<SessionRow[]> {
-  const records = deps.store.list({ all });
+  const now = deps.clock();
+  const recent = (r: SessionRecord) =>
+    !r.endedAt || now.getTime() - Date.parse(r.endedAt) < RECENT_MS;
+  const records = deps.store.list().filter((r) => all || recent(r));
   if (!records.length) return [];
   // One tmux call for the whole board rather than one windowExists per record.
   const windows = new Set((await deps.tmux.listWindows()).map(targetLabel));
-  const now = deps.clock();
   return records.map((found) => {
     const alive = windows.has(targetLabel(windowOf(found)));
     const gone = !alive && !found.endedAt && !FINAL_STATES.has(found.lastState.state);
