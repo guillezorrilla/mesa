@@ -10,6 +10,7 @@ import type {
   Result,
   SessionRecord,
   SessionRow,
+  StopOutcome,
   TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
@@ -41,6 +42,10 @@ export const COMMANDS = {
   ),
   'receipts.list': command<ReceiptEntry[]>('receipts'),
   'sessions.list': command<SessionRow[]>('sessions'),
+  'sessions.stop': commandWith<{ id: string }, SessionRecord & { outcome: StopOutcome }>(
+    ({ id }) => ['stop', '--', id],
+  ),
+  'sessions.resume': commandWith<{ id: string }, SessionRecord>(({ id }) => ['resume', '--', id]),
   // The app has no terminal of its own, so it always opens the user's terminal app.
   'sessions.attach': commandWith<{ id: string }, Attached>(({ id }) => [
     'attach',

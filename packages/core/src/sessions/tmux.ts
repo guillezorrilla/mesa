@@ -62,8 +62,8 @@ const nestedAgentVars = (env: Env) =>
   );
 
 const SHELL_NAMES = /^-?(sh|bash|zsh|fish|dash|ksh|tcsh|csh)$/;
-/** tmux's answers when there is nothing to list. */
-const NOTHING_THERE = /no server running|error connecting to|can't find session/;
+/** tmux's answers when there is nothing to list; `no current target` is a server with no sessions. */
+const NOTHING_THERE = /no server running|error connecting to|can't find session|no current target/;
 
 // `=` asks for an exact name: tmux otherwise takes a prefix, so `tide` would reach `tide-pool`.
 const exact = ({ project, window }: WindowTarget) => `=${project}:=${window}`;
@@ -167,6 +167,10 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       // `--` so text starting with `-` is typed, not read as a flag.
       await onWindow(target, 'send-keys', '-l', '--', text);
       await onWindow(target, 'send-keys', 'Enter');
+    },
+    /** Presses one key (`Escape`, `Enter`), not typed as text. */
+    pressKey: async (target: WindowTarget, key: string) => {
+      await onWindow(target, 'send-keys', key);
     },
     /** The last `lines` lines of the pane, trailing blank lines dropped. */
     capturePane: async (target: WindowTarget, lines: number) => {

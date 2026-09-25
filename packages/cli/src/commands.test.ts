@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import type { Runner } from '@mesa/core';
 import {
+  fakeTmux,
   newSession,
   scriptedRunner,
   sequentialIds,
@@ -283,7 +284,8 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   const save = (r: { id: string }) => writeFileSync(join(dir, `${r.id}.json`), JSON.stringify(r));
   save(record('aaaaaaaa', 'lantern-cove', '2026-09-24T11:00:00.000Z'));
   save(
-    record('bbbbbbbb', 'tide', '2026-09-24T10:00:00.000Z', { endedAt: '2026-09-24T10:10:00.000Z' }),
+    // Stopped two days ago: off the board, but shown with --all.
+    record('bbbbbbbb', 'tide', '2026-09-22T10:00:00.000Z', { endedAt: '2026-09-22T10:10:00.000Z' }),
   );
   save(record('cccccccc', 'harbor', '2026-09-24T11:59:18.000Z'));
   // tmux still has lantern-cove's window; harbor's is gone.
@@ -384,6 +386,38 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
     code: 3,
     stderr: 'session ended; use mesa resume\n',
   });
+});
+
+test('stop and resume print the updated and the new record', async () => {
+  const world = fakeTmux({
+    onKeys: (w, text) => {
+      if (text === '/exit') w.dead = true;
+    },
+  });
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const id = (await mesa('open', 'lantern-cove')).stdout.trim();
+
+  const stopped = await mesa('stop', id, '--json');
+  expect(stopped.json.data).toMatchObject({
+    id,
+    outcome: 'exited',
+    endedAt: '2026-09-24T12:00:00.000Z',
+    lastState: { state: 'done' },
+    receipt: { id: expect.stringMatching(/^01TEST/) },
+  });
+  expect((await mesa('stop', id)).stdout).toBe(`session ${id} had already ended\n`);
+
+  const resumed = await mesa('resume', id, '--json');
+  expect(resumed.json.data).toMatchObject({
+    resumedFrom: id,
+    agentSessionId: stopped.json.data.agentSessionId,
+  });
+  expect((await mesa('sessions', '--all')).stdout.split('\n').filter(Boolean)).toHaveLength(2);
+  expect((await mesa('stop', 'zzzzzzzz')).code).toBe(3);
 });
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {

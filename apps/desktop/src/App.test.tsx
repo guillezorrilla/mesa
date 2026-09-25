@@ -145,7 +145,7 @@ test('the Sessions screen lists each session with its state and running time', a
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-sessions')[0]);
   expect(byTestId('session-row').map(cells)).toEqual([
-    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'Terminal'],
+    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'TerminalStop'],
     // An exited session has no window to attach to.
     ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m', ''],
   ]);
@@ -161,6 +161,45 @@ test('the Sessions screen lists each session with its state and running time', a
   const empty = await renderWithMesa(<App />, fakeBridge().bridge);
   await click(empty('nav-sessions')[0]);
   expect(empty('sessions-empty')).toHaveLength(1);
+});
+
+test('Stop ends a live session and Resume reopens an exited one, then the list refreshes', async () => {
+  const session = (id: string, alive: boolean): SessionRow => ({
+    id,
+    kind: 'interactive',
+    project: 'lantern-cove',
+    agent: 'claude',
+    agentSessionId: '00000000-0000-4000-8000-000000000001',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${id}` },
+    startedAt: '2026-09-25T12:00:00.000Z',
+    lastState: {
+      state: alive ? 'idle' : 'done',
+      confidence: 1,
+      at: '2026-09-25T12:00:00.000Z',
+      source: 'mesa',
+    },
+    events: [],
+    alive,
+    runningSeconds: 5,
+  });
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([session('aaaaaaaa', true), session('bbbbbbbb', false)]),
+    stop: () => envelope({ ...session('aaaaaaaa', false), outcome: 'exited' }),
+    resume: () => envelope(session('cccccccc', true)),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-sessions')[0]);
+  await click(byTestId('session-stop')[0]);
+  await click(byTestId('session-resume')[0]);
+  expect(calls.filter((c) => ['stop', 'resume'].includes(c[1] ?? ''))).toEqual([
+    ['--json', 'stop', '--', 'aaaaaaaa'],
+    ['--json', 'resume', '--', 'bbbbbbbb'],
+  ]);
+  expect(calls.filter((c) => c[1] === 'sessions')).toHaveLength(3);
+  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
+    'Stopped session aaaaaaaa',
+    'Resumed session bbbbbbbb as cccccccc',
+  ]);
 });
 
 test('Terminal on a session row opens it in the terminal app', async () => {

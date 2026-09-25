@@ -32,7 +32,7 @@ test('create, get, update, list, and remove one record per file', () => {
   });
 });
 
-test('list is oldest first and leaves ended sessions to all', () => {
+test('list is every record, oldest first', () => {
   const { store } = storeIn();
   store.create(() => newSession({ project: 'tide', startedAt: '2026-09-24T12:05:00.000Z' }));
   store.create(() =>
@@ -42,12 +42,7 @@ test('list is oldest first and leaves ended sessions to all', () => {
     newSession({ project: 'harbor', startedAt: '2026-09-24T11:00:00.000Z' }),
   );
   store.update(ended.id, { endedAt: '2026-09-24T11:30:00.000Z' });
-  expect(store.list().map((r) => r.project)).toEqual(['lantern-cove', 'tide']);
-  expect(store.list({ all: true }).map((r) => r.project)).toEqual([
-    'harbor',
-    'lantern-cove',
-    'tide',
-  ]);
+  expect(store.list().map((r) => r.project)).toEqual(['harbor', 'lantern-cove', 'tide']);
 });
 
 test('ids never become paths, and a bad record names its file', () => {
