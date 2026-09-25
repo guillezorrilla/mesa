@@ -4,6 +4,7 @@ import type { FaroProfile } from '../decisions/decide.js';
 import {
   classifySession,
   hookState,
+  lastOutputLine,
   type Placement,
   type SessionSignals,
 } from '../decisions/session-state.js';
@@ -22,7 +23,8 @@ import { type TmuxBackend, targetLabel } from './tmux.js';
 
 /**
  * One board row for a Mesa session: the record with the state and attention Faro gives it now
- * (`decision` holds the probabilities), whether it is alive (its tmux window exists, a pane
+ * (`decision` holds the probabilities), `lastOutput` as its pane's last line now (read on each look,
+ * not saved; the record's own field is not written yet), whether it is alive (its tmux window exists, a pane
  * whose agent exited still does, or the agent listing names it), and how long it has run.
  */
 export type ManagedRow = SessionRecord &
@@ -157,10 +159,17 @@ export async function listSessions(
           : { exists: false, dead: false },
         priority: deps.priorityOf(found.project),
       };
-      // The tail is the last resort (ADR-0003): read only when no hook or listing speaks.
-      if (!event && !listedAs && window && !window.dead && !found.endedAt) {
-        signals.tail = await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined);
-      }
+      // The pane's screen (a dead pane keeps its last one) is the board's last output. For state
+      // it is the last resort (ADR-0003), passed on only for a live pane no hook or listing
+      // speaks for.
+      // ponytail: one capture-pane per window per look, side by side; batch them if boards grow
+      // past a handful of sessions.
+      const tail =
+        window && !found.endedAt
+          ? await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined)
+          : undefined;
+      if (tail !== undefined && !window?.dead && !event && !listedAs) signals.tail = tail;
+      const lastOutput = tail === undefined ? undefined : lastOutputLine(tail);
       const classified = await classifySession(faro, signals);
       const { state, source, basis } = found.lastState;
       const next = classified.lastState;
@@ -179,6 +188,7 @@ export async function listSessions(
         alive: window !== undefined || listedAs !== undefined,
         runningSeconds: secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime()),
         ...(listedAs ? { agentStatus: listedAs.status } : {}),
+        ...(lastOutput ? { lastOutput } : {}),
       };
     }),
   );

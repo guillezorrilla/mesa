@@ -73,3 +73,7 @@ Issue #23 wires the second signal into `mesa sessions`:
 - A session already `done` or `failed` stays that way when its window later vanishes.
 - A state's start time is the hook event's time. For the listing and the tail, it is when the board first saw the state.
 - A wait always outranks every other state on attention (CONTEXT.md, Attention score). The Score's spread between levels is its answer, not doubt, so it never sends a decision to the adapter; only Choice and Noul answers are checked against the threshold.
+
+## Amendment 2026-09-25: the board reads every pane (#27)
+
+The board shows each session's last output line, so every look captures each window's pane, including a dead pane, which keeps its last screen. For state, the tail is still the last resort: it is passed to the rules only for a live pane that no hook and no listing speaks for. That is one `capture-pane` per window per look, every 2 s in the app. This is cheap at a handful of sessions; batch the captures if boards grow.

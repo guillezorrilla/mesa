@@ -368,9 +368,13 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
     record('bbbbbbbb', 'tide', '2026-09-22T10:00:00.000Z', { endedAt: '2026-09-22T10:10:00.000Z' }),
   );
   save(record('cccccccc', 'harbor', '2026-09-24T11:59:18.000Z'));
-  // tmux still has lantern-cove's window; harbor's is gone.
+  // tmux still has lantern-cove's window, showing a finished reply; harbor's is gone.
+  const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
   run = scriptedRunner({
-    tmux: 'lantern-cove\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern-cove\t1790359178\t0\n',
+    tmux: (args) =>
+      args.includes('capture-pane')
+        ? screen
+        : 'lantern-cove\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern-cove\t1790359178\t0\n',
   }).run;
 
   const { json } = await mesa('sessions', '--json');
@@ -382,7 +386,7 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   expect((await mesa('sessions', '--all')).stdout).toBe(
     [
       // By attention: the live one (its screen reads idle, 60%), the vanished one, the stopped one.
-      'aaaaaaaa  lantern-cove  claude  idle     60%  0.33  1h00m',
+      'aaaaaaaa  lantern-cove  claude  idle     60%  0.33  1h00m   ⏺ Wrote tide-tables.md',
       'cccccccc  harbor        claude  done     85%  0.25  42s',
       'bbbbbbbb  tide          claude  working  95%  0.00  10m00s',
       '',
