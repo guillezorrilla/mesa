@@ -17,6 +17,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     config: '/h/.mesa/work/config.yaml',
     registry: '/h/.mesa/work/registry.yaml',
     sessions: '/h/.mesa/work/sessions',
+    tmuxSocket: 'mesa-work',
   });
 });
 

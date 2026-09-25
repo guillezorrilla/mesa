@@ -32,6 +32,11 @@ Not: model, assistant, bot.
 One agent process for one project, running or resumable. Fields: Mesa session id, agent, project, agent session id (Claude Code session UUID or Codex thread id), start time, last state, last output tail. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`.
 Not: task, run, job, thread (thread is Codex's word for its own id).
 
+## Window
+
+The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<shortid>`. A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them.
+Not: pane, tab. A tmux session is a project's group of windows, never a Mesa session.
+
 ## Session state
 
 Where a session is right now, one of: `working`, `waiting-permission`, `waiting-question`, `idle`, `done`, `failed`. Faro classifies it from hook signals and the output tail and attaches a confidence. `waiting-permission` and `waiting-question` are the states that need a human.

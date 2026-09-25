@@ -7,6 +7,7 @@ import { profile } from './profile.js';
 import { projects, register, unregister } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
+import { windows } from './windows.js';
 
 // Every mesa subcommand, in help order. A new command is one file and one entry here.
 export const COMMANDS: Command[] = [
@@ -24,4 +25,5 @@ export const COMMANDS: Command[] = [
   vaultInit,
   vaultOpen,
   vaultStatus,
+  windows,
 ];

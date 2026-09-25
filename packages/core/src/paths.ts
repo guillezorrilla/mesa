@@ -1,7 +1,17 @@
 import { join } from 'node:path';
 
-/** Where a profile keeps its files: `<home>/.mesa/<profile>/`. The only module that knows the layout. */
-export type ProfilePaths = { root: string; config: string; registry: string; sessions: string };
+/**
+ * Where a profile keeps its files, `<home>/.mesa/<profile>/`, and the name of its tmux socket. The
+ * only module that knows the layout.
+ */
+export type ProfilePaths = {
+  root: string;
+  config: string;
+  registry: string;
+  sessions: string;
+  /** ADR-0001: every profile has its own tmux server, never the user's. */
+  tmuxSocket: string;
+};
 
 export function profilePaths(home: string, profile: string): ProfilePaths {
   const root = join(home, '.mesa', profile);
@@ -10,5 +20,6 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     config: join(root, 'config.yaml'),
     registry: join(root, 'registry.yaml'),
     sessions: join(root, 'sessions'),
+    tmuxSocket: `mesa-${profile}`,
   };
 }

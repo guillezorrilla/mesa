@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { AGENT_NAMES, AGENTS } from './agents.js';
 import type { ObsidianPaths } from './obsidian.js';
 import type { Runner } from './process.js';
+import { TMUX_INSTALL } from './sessions/tmux.js';
 
 export type Check = {
   name: string;
@@ -28,7 +29,7 @@ type Binary = {
 
 // tmux is required on its own; the agents are required as a group: at least one of them.
 const BINARIES: Binary[] = [
-  { name: 'tmux', args: ['-V'], role: 'required', install: 'brew install tmux' },
+  { name: 'tmux', args: ['-V'], role: 'required', install: TMUX_INSTALL },
   ...AGENT_NAMES.map((name) => ({
     name,
     args: AGENTS[name].versionArgs,
