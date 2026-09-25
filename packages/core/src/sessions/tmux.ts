@@ -62,6 +62,8 @@ const nestedAgentVars = (env: Env) =>
   );
 
 const SHELL_NAMES = /^-?(sh|bash|zsh|fish|dash|ksh|tcsh|csh)$/;
+/** A pane whose current command is a shell: its agent is gone. */
+export const isShell = (command: string) => SHELL_NAMES.test(command);
 /** tmux's answers when there is nothing to list; `no current target` is a server with no sessions. */
 const NOTHING_THERE = /no server running|error connecting to|can't find session|no current target/;
 
@@ -108,6 +110,17 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
   /** `command` on one window; a missing window is not_found. */
   const onWindow = (target: WindowTarget, command: string, ...rest: string[]) =>
     must([command, '-t', exact(target), ...rest], 'not_found', `no window ${label(target)}`);
+
+  /** Every window on the server, or one project's; none when the server or project is absent. */
+  const listWindows = async (project?: string): Promise<TmuxWindow[]> => {
+    const scope = project ? ['-t', `=${project}`] : ['-a'];
+    const res = await tmux(['list-windows', ...scope, '-F', FORMAT]);
+    if (!res.ok) {
+      if (NOTHING_THERE.test(res.detail)) return [];
+      throw new MesaError('internal', `could not list tmux windows: ${res.detail}`);
+    }
+    return res.stdout.split('\n').filter(Boolean).map(parseWindow);
+  };
 
   const ensureServer = async () => {
     const options = SERVER_OPTIONS.flatMap((o) => [';', 'set-option', ...o]);
@@ -177,16 +190,7 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       const out = await onWindow(target, 'capture-pane', '-p', '-S', `-${lines}`);
       return out.replace(/\n+$/, '').split('\n').slice(-lines).join('\n');
     },
-    /** Every window on the server, or one project's; none when the server or project is absent. */
-    listWindows: async (project?: string): Promise<TmuxWindow[]> => {
-      const scope = project ? ['-t', `=${project}`] : ['-a'];
-      const res = await tmux(['list-windows', ...scope, '-F', FORMAT]);
-      if (!res.ok) {
-        if (NOTHING_THERE.test(res.detail)) return [];
-        throw new MesaError('internal', `could not list tmux windows: ${res.detail}`);
-      }
-      return res.stdout.split('\n').filter(Boolean).map(parseWindow);
-    },
+    listWindows,
     /** The argv that attaches a terminal to the window: run by the caller, in its own terminal. */
     attachArgv: (target: WindowTarget) => [
       'tmux',
@@ -201,6 +205,9 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       '-f',
       'ignore-size',
     ],
+    /** The window itself, with its pane's state; undefined when it is gone. */
+    findWindow: async (target: WindowTarget) =>
+      (await listWindows(target.project)).find((w) => w.window === target.window),
     windowExists: async (target: WindowTarget) =>
       (await tmux(['list-panes', '-t', exact(target), '-F', '#{pane_id}'])).ok,
   };

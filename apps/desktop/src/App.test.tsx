@@ -145,7 +145,7 @@ test('the Sessions screen lists each session with its state and running time', a
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-sessions')[0]);
   expect(byTestId('session-row').map(cells)).toEqual([
-    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'TerminalStop'],
+    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'SendTerminalStop'],
     // An exited session has no window to attach to.
     ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m', ''],
   ]);
@@ -200,6 +200,33 @@ test('Stop ends a live session and Resume reopens an exited one, then the list r
     'Stopped session aaaaaaaa',
     'Resumed session bbbbbbbb as cccccccc',
   ]);
+});
+
+test('Send types the row prompt into its session, then clears the box', async () => {
+  const live: SessionRow = {
+    id: 'aaaaaaaa',
+    kind: 'interactive',
+    project: 'lantern-cove',
+    agent: 'claude',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-aaaaaaaa' },
+    startedAt: '2026-09-25T12:00:00.000Z',
+    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
+    events: [],
+    alive: true,
+    runningSeconds: 5,
+  };
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([live]),
+    send: () => envelope({ sent: true, session: 'aaaaaaaa', chars: 9 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-sessions')[0]);
+  const box = byTestId('session-prompt')[0] as HTMLInputElement;
+  box.value = 'say hello';
+  await click(byTestId('session-send-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'send', '--', 'aaaaaaaa', 'say hello']);
+  expect(byTestId('toast')[0]?.textContent).toContain('Sent 9 characters to aaaaaaaa');
+  expect((byTestId('session-prompt')[0] as HTMLInputElement).value).toBe('');
 });
 
 test('Terminal on a session row opens it in the terminal app', async () => {

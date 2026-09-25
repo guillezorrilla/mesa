@@ -1,0 +1,112 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, test } from 'vitest';
+import { createMesa } from '../mesa.js';
+import { listReceipts } from '../receipts.js';
+import { fakeTmux, scriptedRunner, tempDir, testDeps } from '../testing.js';
+import { sessionStore } from './store.js';
+
+/** A profile with its vault laid out and one claude session open in a fake tmux. */
+async function setUp() {
+  const home = tempDir();
+  const world = fakeTmux();
+  const scripted = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' });
+  const mesa = createMesa('default', testDeps(home, { run: scripted.run }));
+  mesa.init({ vault: 'vault' });
+  mesa.vault.init();
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  mesa.projects.register(join(home, 'src/lantern-cove'), true);
+  const { result: opened } = await mesa.sessions.open('lantern-cove');
+  const window = world.windows[0];
+  if (!window) throw new Error('no window opened');
+  return { home, mesa, world, window, opened, calls: scripted.calls };
+}
+
+test('send types the prompt, records a send event, and writes an action receipt', async () => {
+  const { home, mesa, window, opened } = await setUp();
+  const prompt = `say hello ${'and more '.repeat(12)}`;
+  const { result, receipt } = await mesa.sessions.send(opened.id, prompt);
+  expect(result).toMatchObject({ sent: true, session: opened.id, chars: prompt.length });
+  expect(window.typed).toEqual([prompt]);
+
+  const [row] = await mesa.sessions.list();
+  expect(row?.events).toEqual([
+    { type: 'send', at: '2026-09-24T12:00:00.000Z', chars: prompt.length },
+  ]);
+  const [latest] = listReceipts(join(home, 'vault'), 1);
+  expect(latest?.receipt).toMatchObject({
+    id: receipt?.id,
+    type: 'action',
+    status: 'ok',
+    session: opened.id,
+    project: 'lantern-cove',
+    inputs: { session: opened.id, prompt: prompt.slice(0, 80), force: false },
+    outputs: { chars: prompt.length },
+  });
+});
+
+test('a multi-line prompt goes as one literal chunk, then one Enter', async () => {
+  const { mesa, window, opened, calls } = await setUp();
+  const prompt = 'first line\nsecond line\nthird';
+  await mesa.sessions.send(opened.id, prompt);
+  expect(window.typed).toEqual([prompt]);
+  const keys = calls
+    .filter((c) => c.args.includes('send-keys'))
+    // After `send-keys -t <target>`.
+    .map((c) => c.args.slice(c.args.indexOf('send-keys') + 3));
+  expect(keys).toEqual([['-l', '--', prompt], ['Enter']]);
+});
+
+test('an exited or vanished session is not_found; a shell is refused unless --force', async () => {
+  const { mesa, world, window, opened } = await setUp();
+  window.running = 'zsh'; // the agent is gone and its pane runs a shell
+  await expect(mesa.sessions.send(opened.id, 'hi')).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${opened.id} runs zsh, not its agent; --force sends anyway`,
+  });
+  expect(window.typed).toEqual([]);
+  await mesa.sessions.send(opened.id, 'echo forced', true);
+  expect(window.typed).toEqual(['echo forced']);
+
+  window.dead = true;
+  await expect(mesa.sessions.send(opened.id, 'hi', true)).rejects.toMatchObject({
+    code: 'not_found',
+    message: 'session ended; use mesa resume',
+  });
+  world.windows.splice(0);
+  await expect(mesa.sessions.send(opened.id, 'hi')).rejects.toMatchObject({ code: 'not_found' });
+  await expect(mesa.sessions.send(opened.id, '  ')).rejects.toMatchObject({ code: 'usage' });
+});
+
+test('a session waiting on a person is refused, so Enter never answers its prompt', async () => {
+  const { home, mesa, window, opened } = await setUp();
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const at = '2026-09-24T12:00:00.000Z';
+  store.update(opened.id, {
+    lastState: { state: 'waiting-permission', confidence: 0.95, at, source: 'hook' },
+  });
+  await expect(mesa.sessions.send(opened.id, 'yes')).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${opened.id} is waiting-permission; answer it there (mesa attach ${opened.id}), or --force`,
+  });
+  expect(window.typed).toEqual([]);
+});
+
+test('the receipt keeps 80 characters of the prompt, in its inputs and command, keys redacted', async () => {
+  const home = tempDir();
+  const world = fakeTmux();
+  const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const prompt = `use sk-live-1234 then ${'x'.repeat(100)}`;
+  const mesa = createMesa('default', testDeps(home, { run, argv: ['send', 'SESSION', prompt] }));
+  mesa.init({ vault: 'vault' });
+  mesa.vault.init();
+  mesa.config.set('keys.jev', 'sk-live-1234');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  mesa.projects.register(join(home, 'src/lantern-cove'), true);
+  const { result } = await mesa.sessions.open('lantern-cove');
+  await mesa.sessions.send(result.id, prompt);
+  const [latest] = listReceipts(join(home, 'vault'), 1);
+  const short = `use *** then ${'x'.repeat(58)}`;
+  expect(latest?.receipt.inputs.prompt).toBe(short);
+  expect(latest?.receipt.command).toBe(`mesa send SESSION ${JSON.stringify(short)}`);
+});

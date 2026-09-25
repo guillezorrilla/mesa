@@ -16,12 +16,14 @@ import {
   listReceipts,
   type Recorded,
   redactCommand,
+  redactText,
   showReceipt,
 } from './receipts.js';
 import { MesaError, toFail } from './result.js';
 import { attachSession } from './sessions/attach.js';
 import { listSessions } from './sessions/list.js';
 import { openSession, resumeSession } from './sessions/open.js';
+import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
 import type { SessionRecord } from './sessions/store.js';
 import { sessionStore } from './sessions/store.js';
@@ -93,24 +95,20 @@ export function createMesa(profile: string, deps: MesaDeps) {
     clock: deps.clock,
     newUuid: deps.newUuid,
   });
+  /** Both the stored key values and what their env: references resolve to. */
+  const secrets = () => {
+    const config = configIfAny();
+    const names = Object.keys(config?.keys ?? {});
+    return names
+      .flatMap((n) => [config?.keys[n], config && resolveKey(config, n, deps.env)])
+      .filter((s): s is string => typeof s === 'string');
+  };
   const record = actionRecorder({
     profile,
     vault: () => configIfAny()?.vault,
     clock: deps.clock,
     newId: deps.newId,
-    command: () => {
-      const config = configIfAny();
-      const names = Object.keys(config?.keys ?? {});
-      // Both the stored values and what env: references resolve to are secrets.
-      const secrets = names.flatMap((n) => [
-        config?.keys[n],
-        config && resolveKey(config, n, deps.env),
-      ]);
-      return redactCommand(
-        deps.argv,
-        secrets.filter((s): s is string => typeof s === 'string'),
-      );
-    },
+    command: (argv = deps.argv) => redactCommand(argv, secrets()),
   });
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
@@ -220,6 +218,23 @@ export function createMesa(profile: string, deps: MesaDeps) {
         );
         if (recorded.result.outcome === 'already-ended') return recorded;
         return markEnded(recorded, recorded.result.record);
+      },
+      /** Types a prompt into a live session's agent; an action receipt keeps its first 80 chars. */
+      send: (id: string, prompt: string, force = false) => {
+        const short = Array.from(prompt).slice(0, 80).join('');
+        return record(
+          {
+            // The receipt keeps the first 80 characters, in its command line too, keys redacted.
+            argv: deps.argv.map((word) => (word === prompt ? short : word)),
+            summary: (r) => `Sent ${r.chars} characters to session ${id}`,
+            failure: `Could not send to session ${id}`,
+            project: (r) => r.project,
+            session: () => id,
+            inputs: { session: id, prompt: redactText(short, secrets()), force },
+            outputs: (r) => ({ chars: r.chars }),
+          },
+          () => sendPrompt({ store, tmux, clock: deps.clock }, id, prompt, { force }),
+        );
       },
       /** Reopens a session's conversation in a new window, as a new record linked to the old. */
       resume: (id: string) =>

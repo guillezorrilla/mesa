@@ -420,6 +420,23 @@ test('stop and resume print the updated and the new record', async () => {
   expect((await mesa('stop', 'zzzzzzzz')).code).toBe(3);
 });
 
+test('send prints {sent, session, chars}; a gone session is exit 3', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+  const { json } = await mesa('send', id, 'say hello', '--json');
+  expect(json.data).toMatchObject({ sent: true, session: id, chars: 9 });
+  expect(world.windows[0]?.typed).toEqual(['say hello']);
+  expect((await mesa('send', id, 'again')).stdout.split('\n')[0]).toBe(
+    `sent 5 characters to ${id}`,
+  );
+  world.windows.splice(0);
+  expect(await mesa('send', id, 'hi')).toMatchObject({ code: 3 });
+});
+
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {
   const scripted = scriptedRunner({
     tmux: 'lantern\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern\t1790359178\t1\n',
