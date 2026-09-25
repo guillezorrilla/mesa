@@ -55,6 +55,10 @@ export const COMMANDS = {
     ({ id }) => ['stop', '--', id],
   ),
   'sessions.resume': commandWith<{ id: string }, SessionRecord>(({ id }) => ['resume', '--', id]),
+  'sessions.resize': commandWith<
+    { id: string; cols: number; rows: number },
+    { session: string; target: string; cols: number; rows: number }
+  >(({ id, cols, rows }) => ['resize', '--', id, String(cols), String(rows)]),
   // The app has no terminal of its own, so it always opens the user's terminal app.
   'sessions.attach': commandWith<{ id: string }, Attached>(({ id }) => [
     'attach',

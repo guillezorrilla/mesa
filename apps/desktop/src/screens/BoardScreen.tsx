@@ -1,5 +1,6 @@
 import type { Agent, SessionRow } from '@mesa/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Terminal } from '../components/Terminal';
 import { useToast } from '../components/Toast';
 import { useCommand, useRun } from '../lib/useCommand';
 
@@ -44,6 +45,10 @@ export function BoardScreen() {
   const [data, setData] = useState<SessionRow[]>();
   const [acting, setActing] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  // Embedded terminals, one panel per session, in the order opened; several at once.
+  const [panels, setPanels] = useState<string[]>([]);
+  const embed = (id: string) => setPanels((open) => (open.includes(id) ? open : [...open, id]));
+  const unembed = (id: string) => setPanels((open) => open.filter((p) => p !== id));
   // The running time ticks every second between looks: seconds since the rows arrived.
   const [since, setSince] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -176,7 +181,21 @@ export function BoardScreen() {
               data-managed={s.managed}
               className={s.managed ? undefined : 'muted'}
             >
-              <td>{s.id}</td>
+              <td>
+                {s.managed && !exited(s) ? (
+                  <button
+                    type="button"
+                    className="link"
+                    data-testid="embed-terminal"
+                    title="Open its terminal here"
+                    onClick={() => embed(s.id)}
+                  >
+                    {s.id}
+                  </button>
+                ) : (
+                  s.id
+                )}
+              </td>
               <td>{s.project ?? '-'}</td>
               <td>{s.agent}</td>
               <td>
@@ -253,6 +272,25 @@ export function BoardScreen() {
           ))}
         </tbody>
       </table>
+      {panels.map((id) => (
+        <section key={id} className="terminal-panel" data-testid="terminal-panel">
+          <header>
+            <strong>{id}</strong>{' '}
+            <button
+              type="button"
+              data-testid="open-external-terminal"
+              onClick={() => openTerminal(id)}
+              disabled={acting}
+            >
+              Open in Terminal.app
+            </button>{' '}
+            <button type="button" data-testid="close-terminal" onClick={() => unembed(id)}>
+              Close
+            </button>
+          </header>
+          <Terminal sessionId={id} />
+        </section>
+      ))}
     </section>
   );
 }

@@ -58,23 +58,10 @@ test('a session whose window is gone is not_found with the resume hint', async (
   await expect(mesa.sessions.attach('nope0000')).rejects.toMatchObject({ code: 'not_found' });
 });
 
-test('--app opens Terminal by default, through osascript', async () => {
-  const { mesa, id, calls } = setUp();
-  expect((await mesa.sessions.attach(id, true)).attached.app).toBe('Terminal');
-  const line = `exec ${ATTACH.map((w) => `'${w}'`).join(' ')}`;
-  expect(calls.at(-1)).toMatchObject({
-    file: 'osascript',
-    args: [
-      '-e',
-      `tell application "Terminal" to do script "${line}"`,
-      '-e',
-      'tell application "Terminal" to activate',
-    ],
-  });
-});
-
-test('--app with terminal.app iTerm or Ghostty opens a one-line script with open -a', async () => {
-  for (const app of ['iTerm', 'Ghostty'] as const) {
+test('--app with any terminal.app (Terminal by default) opens a one-line script with open -a', async () => {
+  const { mesa: plain, id: first } = setUp();
+  expect((await plain.sessions.attach(first, true)).attached.app).toBe('Terminal');
+  for (const app of ['Terminal', 'iTerm', 'Ghostty'] as const) {
     const { home, mesa, id, calls } = setUp([], { PATH: '/opt/homebrew/bin:/usr/bin' });
     mesa.config.set('terminal.app', app);
     const { attached, exec } = await mesa.sessions.attach(id, true);
@@ -91,7 +78,7 @@ test('--app with terminal.app iTerm or Ghostty opens a one-line script with open
 });
 
 test('a terminal app that fails to open is an error, not a silent no-op', async () => {
-  const { mesa, id } = setUp(['osascript']);
+  const { mesa, id } = setUp(['open']);
   await expect(mesa.sessions.attach(id, true)).rejects.toMatchObject({
     code: 'internal',
     message: 'could not open Terminal: exit 1',

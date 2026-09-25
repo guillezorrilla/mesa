@@ -58,6 +58,15 @@ const SERVER_OPTIONS = [
   ['-g', 'remain-on-exit', 'on'],
   ['-g', 'history-limit', '10000'],
   ['-g', 'default-terminal', 'tmux-256color'],
+  // The app's embedded terminal (ADR-0007 amendment, SP-3), as Xirp sets its sessions: the wheel
+  // scrolls tmux's history instead of sending arrow keys, no status row, escape sequences and
+  // OSC 52 copies reach the outer terminal, and it says so it can take RGB and OSC 8 links.
+  ['-g', 'mouse', 'on'],
+  ['-g', 'status', 'off'],
+  ['-g', 'allow-passthrough', 'on'],
+  ['-s', 'set-clipboard', 'external'],
+  // An index, not -a: this runs on every open, and an append would grow the list each time.
+  ['-s', 'terminal-features[9]', 'xterm*:RGB:hyperlinks'],
 ];
 
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
@@ -167,6 +176,32 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
         `could not open ${label(spec)}`,
       );
       return { project: spec.project, window: spec.window };
+    },
+    /**
+     * Sizes the window to a view's cols and rows, then gives the size back to tmux's own policy
+     * (resize-window alone would pin it): the last view resized wins (ADR-0001 amendment).
+     */
+    resizeWindow: async (target: WindowTarget, cols: number, rows: number) => {
+      await must(
+        [
+          'resize-window',
+          '-t',
+          exact(target),
+          '-x',
+          String(cols),
+          '-y',
+          String(rows),
+          ';',
+          'set-option',
+          '-w',
+          '-t',
+          exact(target),
+          '-u',
+          'window-size',
+        ],
+        'not_found',
+        `no window ${label(target)}`,
+      );
     },
     killWindow: async (target: WindowTarget) => {
       await onWindow(target, 'kill-window');

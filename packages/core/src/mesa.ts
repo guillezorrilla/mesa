@@ -35,8 +35,8 @@ import { openSession, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
 import type { SessionRecord } from './sessions/store.js';
-import { sessionStore } from './sessions/store.js';
-import { tmuxBackend } from './sessions/tmux.js';
+import { sessionStore, windowOf } from './sessions/store.js';
+import { targetLabel, tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
@@ -335,6 +335,12 @@ export function createMesa(profile: string, deps: MesaDeps) {
           () => resumeSession(openDeps(), id),
         ).then((recorded) => markEnded(recorded, recorded.result.from)),
       /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
+      /** Sizes a session's window to a view (the app's terminal), then lets tmux take it back. */
+      resize: async (id: string, cols: number, rows: number) => {
+        const target = windowOf(store.get(id));
+        await tmux.resizeWindow(target, cols, rows);
+        return { session: id, target: targetLabel(target), cols, rows };
+      },
       attach: (id: string, app = false) =>
         attachSession(
           { store, tmux, run: deps.run, scripts: paths.attachScripts, env: deps.env },

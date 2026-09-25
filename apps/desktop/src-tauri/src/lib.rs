@@ -1,4 +1,5 @@
 mod bridge;
+mod terminal;
 
 use serde_json::Value;
 
@@ -21,7 +22,16 @@ async fn run_mesa(args: Vec<String>) -> Result<Value, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![run_mesa])
+        .manage(terminal::Terms::default())
+        .invoke_handler(tauri::generate_handler![
+            run_mesa,
+            terminal::term_open,
+            terminal::term_write,
+            terminal::term_resize,
+            terminal::term_close,
+            terminal::clipboard_write,
+            terminal::clipboard_read
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

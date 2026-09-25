@@ -39,7 +39,7 @@ Not: orphan (a Mesa session whose window vanished is still Mesa's, marked `done`
 
 ## Window
 
-The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them. `mesa attach <session>` attaches this terminal to a session's window (`-f ignore-size`, so the app and a terminal never fight over its size), and `--app` opens it in the app the config key `terminal.app` names: the board's terminal action in v1. Without a terminal on stdin, and without `--app`, it is a usage error.
+The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them. `mesa attach <session>` attaches this terminal to a session's window (`-f ignore-size`). `--app` opens it in the app the config key `terminal.app` names, through `open -a <app> <script>`. `--print` prints the attach argv instead, and the app's embedded terminal runs that argv. Without a terminal on stdin, and with neither flag, it is a usage error. `mesa resize <session> <cols> <rows>` sizes the window to a view, then gives the size back to tmux (`window-size`): the last view resized wins (ADR-0001 amendment). Mesa's server sets its windows up for the embedded terminal, as Xirp does (SP-3): `mouse on`, `status off`, `allow-passthrough on`, `set-clipboard external`, RGB and hyperlinks, and `COLORTERM=truecolor` in each window.
 Not: pane, tab. A tmux session is a project's group of windows, never a Mesa session.
 
 ## Session state
@@ -78,7 +78,7 @@ The Session Board: the app's first screen (BoardScreen) and the output of `mesa 
 - a running time that ticks between looks;
 - the last output line of its pane.
 
-Foreign sessions are muted and tagged "not managed", with no actions. Actions: New session (a modal dialog with a registered project and an agent), and per row:
+Foreign sessions are muted and tagged "not managed", with no actions. Clicking a live session's id opens its terminal in the app, under the board, and several can be open at once. The terminal is xterm.js over a pty running `mesa attach --print`'s argv. A tmux copy reaches the pasteboard (OSC 52, through Rust), and Close ends only the tmux client. Actions: New session (a modal dialog with a registered project and an agent), and per row:
 
 - Send (inline, Enter or the button sends);
 - Open terminal (`mesa attach --app`);

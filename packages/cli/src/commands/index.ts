@@ -10,6 +10,7 @@ import { open } from './open.js';
 import { profile } from './profile.js';
 import { projects, register, unregister } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
+import { resize } from './resize.js';
 import { resume } from './resume.js';
 import { send } from './send.js';
 import { sessions } from './sessions.js';
@@ -36,6 +37,7 @@ export const COMMANDS: Command[] = [
   receipts,
   receiptsShow,
   register,
+  resize,
   resume,
   send,
   sessions,

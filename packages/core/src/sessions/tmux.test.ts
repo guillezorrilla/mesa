@@ -189,6 +189,21 @@ test('the server drops only the variables that make claude think it is nested', 
   );
 });
 
+test('the server takes the app terminal options: mouse, no status, passthrough, OSC 52, RGB', async () => {
+  const { run, calls } = scriptedRunner();
+  await tmuxBackend({ run, socket: 'mesa-default', env: {} }).ensureServer();
+  const args = calls[0]?.args.join(' ') ?? '';
+  for (const option of [
+    '-g mouse on',
+    '-g status off',
+    '-g allow-passthrough on',
+    '-s set-clipboard external',
+    '-s terminal-features[9] xterm*:RGB:hyperlinks',
+  ]) {
+    expect(args).toContain(`set-option ${option}`);
+  }
+});
+
 test('a missing or hung tmux is tmux_unavailable', async () => {
   const missing = tmuxBackend({
     run: scriptedRunner({}, { missing: ['tmux'] }).run,

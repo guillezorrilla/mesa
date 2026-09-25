@@ -534,6 +534,41 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   expect(here.json.data).toEqual({ opened: true, target: 'lantern-cove:claude-aaaaaa', app: null });
   expect(here.exec?.slice(-4)).toEqual(['-t', '=lantern-cove:=claude-aaaaaa', '-f', 'ignore-size']);
 
+  // --print: the argv the app's terminal runs, no terminal needed, nothing attached.
+  tty = false;
+  const printed = await mesa('attach', 'aaaaaaaa', '--print', '--json');
+  expect(printed.json.data).toEqual({ target: 'lantern-cove:claude-aaaaaa', argv: here.exec });
+  expect(printed.exec).toBeUndefined();
+  tty = true;
+  // resize: the window takes the view's size, then the size goes back to tmux's own policy.
+  const { run: sized, calls } = scriptedRunner({ tmux: '' });
+  run = sized;
+  expect((await mesa('resize', 'aaaaaaaa', '120', '40', '--json')).json.data).toEqual({
+    session: 'aaaaaaaa',
+    target: 'lantern-cove:claude-aaaaaa',
+    cols: 120,
+    rows: 40,
+  });
+  expect(calls.at(-1)?.args.slice(4)).toEqual([
+    'resize-window',
+    '-t',
+    '=lantern-cove:=claude-aaaaaa',
+    '-x',
+    '120',
+    '-y',
+    '40',
+    ';',
+    'set-option',
+    '-w',
+    '-t',
+    '=lantern-cove:=claude-aaaaaa',
+    '-u',
+    'window-size',
+  ]);
+  expect(await mesa('resize', 'aaaaaaaa', '0', '40')).toMatchObject({ code: 2 });
+  expect(await mesa('resize', 'ext-4242', '120', '40')).toMatchObject({ code: 3 });
+  run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
+
   await mesa('config', 'set', 'terminal.app', 'WezTerm');
   const app = await mesa('attach', 'aaaaaaaa', '--app');
   expect(app).toMatchObject({ stdout: 'attaching to lantern-cove:claude-aaaaaa in WezTerm\n' });
