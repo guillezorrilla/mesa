@@ -17,8 +17,11 @@ export type ProfilePaths = {
   tmuxSocket: string;
 };
 
+/** Where every profile's folder lives. */
+export const profilesDir = (home: string) => join(home, '.mesa');
+
 export function profilePaths(home: string, profile: string): ProfilePaths {
-  const root = join(home, '.mesa', profile);
+  const root = join(profilesDir(home), profile);
   return {
     root,
     config: join(root, 'config.yaml'),
