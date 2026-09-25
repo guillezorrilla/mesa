@@ -87,18 +87,20 @@ test('rules answer first; the named backend only below the threshold, and only w
   // Rules are sure (1 and 0.8): the adapter is not asked. Unsure (even): it is.
   expect(await used(working, { idle: true })).toBe('rules');
   expect(await used(working)).toBe('adapter');
-  // Its failures keep the rules' answers.
-  expect(await used(() => Promise.reject(new Error('timeout')))).toBe('rules');
+  // Its failures keep the rules' answers, marked as a fallback.
+  expect(await used(() => Promise.reject(new Error('timeout')))).toBe('rules-fallback');
   expect(await used(async () => (await working()).map((a) => ({ ...a, id: 'other' })))).toBe(
-    'rules',
+    'rules-fallback',
   );
   const [choice, noul] = await working();
   expect(
     await used(async () => [{ ...choice, probabilities: { working: 0.9, idle: 0.9 } }, noul]),
-  ).toBe('rules');
-  expect(await used(async () => [choice, { ...noul, probabilities: '0.2' }])).toBe('rules');
-  expect(await used(async () => [choice])).toBe('rules');
-  expect(await used(async () => [{ ...choice, answer: 'asleep' }, noul])).toBe('rules');
+  ).toBe('rules-fallback');
+  expect(await used(async () => [choice, { ...noul, probabilities: '0.2' }])).toBe(
+    'rules-fallback',
+  );
+  expect(await used(async () => [choice])).toBe('rules-fallback');
+  expect(await used(async () => [{ ...choice, answer: 'asleep' }, noul])).toBe('rules-fallback');
 
   // A Score between levels is not doubt: an even Score alone never asks the adapter.
   const score: Question[] = [{ kind: 'Score', id: 'urgency', levels: ['low', 'high'] }];

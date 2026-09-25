@@ -1,4 +1,4 @@
-import type { Answer, Question } from './types.js';
+import type { Answer, Choice, Question, Score } from './types.js';
 
 /**
  * How a rule weighs one question: a weight per option (Choice) or level (Score), normalised to
@@ -11,6 +11,9 @@ export type Rule<S> = {
   when: (state: S) => boolean;
   answer: (questions: Question[], state: S) => Readonly<Record<string, Weights>>;
 };
+
+/** A Choice's options or a Score's levels: what its probabilities are over. */
+export const namesOf = (q: Choice | Score) => (q.kind === 'Choice' ? q.options : q.levels);
 
 /** A usable weight, or 0: a negative, non-finite, or missing weight counts for nothing. */
 const weight = (w: Weights | undefined, name: string) => {
@@ -29,7 +32,7 @@ export function toAnswer(question: Question, weights: Weights | undefined): Answ
     const probability = Math.min(1, Math.max(0, p));
     return { id: question.id, kind: 'Noul', answer: probability > 0.5, probabilities: probability };
   }
-  const names = question.kind === 'Choice' ? question.options : question.levels;
+  const names = namesOf(question);
   // Scaled by the largest first, so huge weights cannot overflow the total.
   const top = Math.max(...names.map((n) => weight(weights, n)));
   const raw = names.map((n) => (top > 0 ? weight(weights, n) / top : 1));

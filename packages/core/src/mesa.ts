@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Clock } from './clock.js';
 import { redactConfig, resolveKey, setConfigValue } from './config.js';
+import { adapterBackend } from './decisions/adapter.js';
 import { decide, type FaroProfile, selectBackend } from './decisions/decide.js';
 import { rulesBackend } from './decisions/rules.js';
 import type { Question } from './decisions/types.js';
@@ -28,7 +29,7 @@ import { readRegistry } from './registry.js';
 import { MesaError, toFail } from './result.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession } from './sessions/attach.js';
-import { readHookEvents, recordHookEvent } from './sessions/events.js';
+import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
 import { listSessions } from './sessions/list.js';
 import { openSession, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
@@ -37,10 +38,6 @@ import type { SessionRecord } from './sessions/store.js';
 import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
-
-// ponytail: rules only; the adapter backend (#26) joins here, and jev when a key exists.
-/** The decisions backends every decision site can use, next to its own rules backend. */
-const FARO_BACKENDS = [rulesBackend<unknown>([])];
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
 export type MesaDeps = {
@@ -135,6 +132,16 @@ export function createMesa(profile: string, deps: MesaDeps) {
     }
     return (project: string | null) => (project ? known.get(project) : undefined) ?? 0.5;
   };
+  // ponytail: jev joins here when its backend lands (a paid API, used only with a key).
+  /** Faro's shared backends, asked when a decision site's own rules are unsure. */
+  const shared = [
+    adapterBackend<unknown>({
+      run: deps.run,
+      redact: (value, maxString) => redactPayload(value, deps.home, secrets(), maxString),
+    }),
+  ];
+  /** For questions no rules know (mesa decide), the rules answer evenly. */
+  const FARO_BACKENDS = [rulesBackend<unknown>([]), ...shared];
   /** Faro's view of the profile; before init, rules only (nothing else is configured). */
   const faroProfile = (): FaroProfile => {
     const config = configIfAny();
@@ -245,6 +252,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
             events: (id) => readHookEvents(paths.events, id),
             priorityOf: priorities(),
             faro: faroProfile(),
+            backends: shared,
             clock: deps.clock,
           },
           { all },

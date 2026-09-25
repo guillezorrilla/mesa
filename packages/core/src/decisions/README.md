@@ -5,8 +5,15 @@
 - `types.ts`: the questions (`Choice`, `Score`, `Noul`), `Answer`, `Decision`, `Backend`, and `DecisionRecorder`.
 - `rules.ts`: `rulesBackend(rules, fallback)`, deterministic and always available. The first rule whose `when(state)` holds weighs the questions by id. The backend normalises the weights, so probabilities always sum to 1.
 - `decide.ts`: `decide` validates the questions, and the site's rules answer first. The backend the profile names (`decisions.backend`) is asked only when the least sure answer is below `decisions.threshold` (ADR-0003). That backend must be available at this site, and `jev` also needs a `jev` key. Its answers stand only when they parse and fit the questions; otherwise the rules' answers stand. Rules that throw give even answers. The Decision then goes to `deps.recorder`, and a failed record never fails the decision.
+- `adapter.ts`: `adapterBackend`, the shared backend that answers when rules are unsure. It runs Claude Code headless on the subscription:
 
-Every decision site brings its own rules backend; the adapter backend (#26) is shared. `mesa decide` asks from the command line: questions no rules know, so the answers are even.
+  ```
+  claude -p <prompt> --output-format json --json-schema <schema> --model haiku --tools "" --no-session-persistence --strict-mcp-config
+  ```
+
+  The call has a 20 s timeout. The schema has, per question, an enum of options or levels (with a probability each and a confidence), or for a Noul a boolean with a confidence, turned into the probability that the statement holds. The prompt carries the state after the shared redactor (`redactPayload`), with `tail` cut to its last 2000 characters. `total_cost_usd` (a list price; the subscription charges nothing) becomes the Decision's `costUsd`, for information only. A failed call leaves the rules' answers as `rules-fallback`, with `fallbackReason`. Tests replay `fixtures/adapter/`; `MESA_RECORD_FIXTURES=1 pnpm exec vitest run packages/core/src/decisions/adapter.test.ts` records them again with a logged-in Claude Code. `pnpm test -- adapter` does not filter, so it runs every file.
+
+Every decision site brings its own rules backend; the adapter backend is shared. `mesa decide` asks from the command line: questions no rules know, so the answers are even.
 
 ## Choice: pick one of 2 to 255 options
 

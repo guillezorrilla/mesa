@@ -35,3 +35,19 @@ The owner will not add an Anthropic API key; Mesa runs on the Claude and Codex s
 
 - A `Score` answer is the probability-weighted position on its rubric, normalised to 0 for the first level through 1 for the last. That way one scale serves every rubric length, and the attention score (0 to 1) can be read from a Score directly. The `jev` backend maps Jev's position onto this scale when it lands. Receipts store the normalised number.
 - A decision site passes its own rules backend. Rules answer first, as ADR-0003 says. The backend the profile names is asked only when the least sure answer is below `decisions.threshold`. For a Noul, "sure" means how far its probability leans from 0.5. The named backend's answers are parsed and checked against the questions, and if they do not fit, the rules' answers stand.
+
+## Amendment 2026-09-25: the adapter as built (#26)
+
+- The call is `claude -p <prompt> --output-format json --json-schema <schema> --model haiku --tools ""`, as amended above, plus two flags:
+  - `--no-session-persistence`, so decisions leave nothing in the owner's session history;
+  - `--strict-mcp-config` (with no `--mcp-config`), so no MCP server starts for a decision.
+- The call reads `structured_output` and `total_cost_usd` from the result.
+- A recorded call took 4 to 13 s, so the 20 s timeout can bite under load. That is one reason the adapter is asked only when the rules are unsure.
+- When the named backend was asked and failed, the Decision says `rules-fallback`. The receipt schema's `backend` (rules, adapter, jev) gains it when P3 writes decisions into receipts.
+- Fixtures hold the exact argv and the verbatim result, so a changed prompt or schema fails the replay until someone records again.
+- A Noul is asked as a boolean with a confidence, and Mesa turns the pair into the probability that the statement holds. A first recording asked for a bare "probability" next to the boolean, and the model read it as its confidence in "no".
+- On the board:
+  - Attention always comes from the rules' bands (ADR-0003), applied to the adapter's state. The adapter's own Score stays in the Decision, so a wait still outranks work.
+  - The adapter's confidence is kept as it comes. The tail's 0.6 cap is on the rules' reading of the screen, not on the adapter's.
+  - The board refreshes every few seconds, so the adapter's answer is saved with a hash of what it saw, and it is not asked again until that changes.
+  - Foreign sessions have no record to keep that hash, so they use rules only.

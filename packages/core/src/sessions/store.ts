@@ -44,8 +44,13 @@ const SessionRecordSchema = z.strictObject({
     state: z.enum(SESSION_STATES),
     confidence: z.number().min(0).max(1),
     at: z.iso.datetime(),
-    /** ADR-0003's signals (hook, listing, tmux), or Mesa's own action (open, stop). */
-    source: z.enum(['hook', 'listing', 'tmux', 'mesa']),
+    /**
+     * ADR-0003's signals (hook, listing, tmux), Faro's adapter when the rules were unsure, or
+     * Mesa's own action (open, stop).
+     */
+    source: z.enum(['hook', 'listing', 'tmux', 'adapter', 'mesa']),
+    /** With `adapter`: a hash of what it saw, so an unchanged session is not asked again. */
+    basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
   // ponytail: the hooks stream events to sessions/events/ (#22); nothing reads this list yet.

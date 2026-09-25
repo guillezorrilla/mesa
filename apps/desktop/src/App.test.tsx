@@ -213,6 +213,8 @@ test('the Sessions screen lists each session with its state and running time', a
     ['ext-4242', '-', 'claude', 'idle', '85%', '0.50', '1m30s', 'not managed by Mesa'],
   ]);
   expect(byTestId('session-row')[2]?.dataset.managed).toBe('false');
+  // Hovering the confidence says who decided it.
+  expect(byTestId('session-confidence')[0]?.title).toBe('decided by rules');
   expect(byTestId('session-row')[1]?.dataset.alive).toBe('false');
   await click(byTestId('sessions-refresh')[0]);
   await click(byTestId('sessions-ended')[0]);

@@ -26,13 +26,15 @@ const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Values under a key naming a secret become `***`, as do configured key values; the home
- * directory becomes `~` (also in the escaped form Claude uses in project folder names); long
- * strings are cut.
+ * directory becomes `~` (also in the escaped form Claude uses in project folder names); strings
+ * longer than `maxString` are cut. The one redactor for hook logs and for what Faro's adapter
+ * sends.
  */
 export function redactPayload(
   value: unknown,
   home: string,
   secrets: readonly string[] = [],
+  maxString = MAX_STRING,
 ): unknown {
   const homes = home
     ? new RegExp(`${literal(home)}(?=/|$)|${literal(home.replaceAll('/', '-'))}(?=-|$)`, 'g')
@@ -40,7 +42,7 @@ export function redactPayload(
   const walk = (v: unknown): unknown => {
     if (typeof v === 'string') {
       const text = redactText(homes ? v.replace(homes, '~') : v, secrets);
-      return text.length > MAX_STRING ? `${text.slice(0, MAX_STRING)}...` : text;
+      return text.length > maxString ? `${text.slice(0, maxString)}...` : text;
     }
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object') {
