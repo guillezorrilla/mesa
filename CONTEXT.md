@@ -29,12 +29,12 @@ Not: model, assistant, bot.
 
 ## Session
 
-One agent process for one project, running or resumable. Fields: Mesa session id (8 lowercase characters, typed in `mesa stop <id>`), `kind` (`interactive` or `run`), agent, project, agent session id (Claude Code session UUID or Codex thread id), its tmux socket, session, and window, start time, end time once stopped, last state with its confidence and source, last output tail, and `resumedFrom`/`resumedBy` links. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`. `mesa sessions` lists them oldest first with `alive` (the window exists); `--all` adds ended ones. A session has ended when it was stopped (`mesa stop`, which sets `endedAt`); one whose window vanished (a crash, a reboot) is marked `done` from tmux but has not ended, so it stays on the board to resume. `kind: run` is a headless run (`claude -p`), still a session.
+One agent process for one project, running or resumable. Fields: Mesa session id (8 lowercase characters, typed in `mesa stop <id>`), `kind` (`interactive` or `run`), agent, project, agent session id (Claude Code session UUID or Codex thread id), its tmux socket, session, and window, start time, end time once stopped, last state with its confidence and source, last output tail, and `resumedFrom`/`resumedBy` links. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`. `mesa open <project> [--agent claude] [--attach]` starts one: it writes the record, then runs `claude --session-id <uuid>` in window `claude-<id>` of the project's tmux session, and writes a `session` receipt. `mesa sessions` lists them oldest first with `alive` (the window exists); `--all` adds ended ones. A session has ended when it was stopped (`mesa stop`, which sets `endedAt`); one whose window vanished (a crash, a reboot) is marked `done` from tmux but has not ended, so it stays on the board to resume. `kind: run` is a headless run (`claude -p`), still a session.
 Not: task, job, run (`kind: run` qualifies a session, it is not another name for one), thread (thread is Codex's word for its own id).
 
 ## Window
 
-The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<shortid>`. A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them.
+The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them.
 Not: pane, tab. A tmux session is a project's group of windows, never a Mesa session.
 
 ## Session state
@@ -84,12 +84,12 @@ Not: safety check, policy, filter.
 
 ## Composition root
 
-`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, id source, environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
 Not: container, context, app.
 
 ## Seam
 
-A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the id source, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
+A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the id source, the UUID source, the home directory, the app's bridge. Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
 Not: boundary, interface (the interface is what a caller must know; the seam is where it lives).
 
 ## Bridge

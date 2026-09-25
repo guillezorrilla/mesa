@@ -3,6 +3,7 @@ import { config, configSet } from './config.js';
 import { doctor } from './doctor.js';
 import { init } from './init.js';
 import { log } from './log.js';
+import { open } from './open.js';
 import { profile } from './profile.js';
 import { projects, register, unregister } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
@@ -17,6 +18,7 @@ export const COMMANDS: Command[] = [
   doctor,
   init,
   log,
+  open,
   profile,
   projects,
   receipts,

@@ -60,6 +60,8 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     expect(
       await raw('display-message', '-p', '-t', 'lantern:0', '#{remain-on-exit} #{history_limit}'),
     ).toBe('on 10000');
+    // The window has its id; the tmux session, which later windows inherit from, does not.
+    expect(await raw('show-environment', '-t', 'lantern')).not.toContain('MESA_SESSION_ID');
 
     await open(lantern('claude-bbbbbb'), 'cat');
     // A project whose name starts with another's: exact targets keep the two apart.

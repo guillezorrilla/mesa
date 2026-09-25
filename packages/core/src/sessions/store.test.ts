@@ -11,7 +11,7 @@ const storeIn = (dir = join(tempDir(), 'sessions')) => ({
 
 test('create, get, update, list, and remove one record per file', () => {
   const { dir, store } = storeIn();
-  const created = store.create(
+  const created = store.create(() =>
     newSession({ project: 'lantern-cove', startedAt: '2026-09-24T12:00:00.000Z' }),
   );
   expect(created).toMatchObject({ id: '00000001', project: 'lantern-cove', events: [] });
@@ -34,9 +34,11 @@ test('create, get, update, list, and remove one record per file', () => {
 
 test('list is oldest first and leaves ended sessions to all', () => {
   const { store } = storeIn();
-  store.create(newSession({ project: 'tide', startedAt: '2026-09-24T12:05:00.000Z' }));
-  store.create(newSession({ project: 'lantern-cove', startedAt: '2026-09-24T12:00:00.000Z' }));
-  const ended = store.create(
+  store.create(() => newSession({ project: 'tide', startedAt: '2026-09-24T12:05:00.000Z' }));
+  store.create(() =>
+    newSession({ project: 'lantern-cove', startedAt: '2026-09-24T12:00:00.000Z' }),
+  );
+  const ended = store.create(() =>
     newSession({ project: 'harbor', startedAt: '2026-09-24T11:00:00.000Z' }),
   );
   store.update(ended.id, { endedAt: '2026-09-24T11:30:00.000Z' });
@@ -54,7 +56,7 @@ test('ids never become paths, and a bad record names its file', () => {
   for (const id of ['../config', '00000001.json', 'ABCDEFGH']) {
     expect(thrown(() => store.get(id)).code).toBe('not_found');
   }
-  store.create(newSession({ project: 'tide', startedAt: '2026-09-24T12:00:00.000Z' }));
+  store.create(() => newSession({ project: 'tide', startedAt: '2026-09-24T12:00:00.000Z' }));
   // The hooks' events/ folder and a stray file sit beside the records.
   mkdirSync(join(dir, 'events'));
   writeFileSync(join(dir, 'notes.txt'), 'x');

@@ -36,7 +36,13 @@ export type Context<A extends readonly string[] = readonly string[], F extends F
  * `data` goes into the JSON envelope; `text` is what a human sees without --json.
  * `code` overrides the exit code of a successful result that still reports a problem.
  */
-export type Output = { data: unknown; text: string; code?: number };
+export type Output = {
+  data: unknown;
+  text: string;
+  code?: number;
+  /** An argv the entrypoint replaces the process with after printing (`mesa open --attach`). */
+  exec?: string[];
+};
 
 export type Command = {
   /** One or more words (`config`, `config set`); the longest name matching the input wins. */

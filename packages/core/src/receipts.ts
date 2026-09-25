@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { AgentSchema } from './agents.js';
+import { type Agent, AgentSchema } from './agents.js';
 import type { Clock } from './clock.js';
 import { BackendSchema } from './config.js';
 import { parseNote } from './frontmatter.js';
@@ -158,12 +158,16 @@ export function redactCommand(argv: readonly string[], secrets: readonly string[
 
 /** What one action's receipt says, given the action's result. */
 export type ActionSpec<T> = {
+  /** `action` unless the work is a session's. */
+  type?: 'action' | 'session';
   summary: (result: T) => string;
   /** The summary when the action throws. */
   failure: string;
   inputs: Record<string, unknown>;
   outputs?: (result: T) => Record<string, unknown>;
   project?: (result: T) => string | undefined;
+  session?: (result: T) => string | undefined;
+  agent?: (result: T) => Agent | undefined;
   /** False when the action changed nothing: then no receipt. */
   changed?: (result: T) => boolean;
 };
@@ -176,9 +180,9 @@ export type Recorded<T> = {
 };
 
 /**
- * Runs actions and records each as an `action` receipt. A failed action is recorded `failed`
- * (best effort) and rethrown. A receipt never fails the action it records: when the vault
- * cannot take one, the result carries a warning instead.
+ * Runs actions, sync or async, and records each as a receipt (`action` unless the spec says
+ * `session`). A failed action is recorded `failed` (best effort) and rethrown. A receipt never
+ * fails the action it records: when the vault cannot take one, the result carries a warning.
  */
 export function actionRecorder(deps: {
   profile: string;
@@ -190,7 +194,7 @@ export function actionRecorder(deps: {
 }) {
   // Everything here is guarded: a receipt problem never escapes into the action's outcome.
   const write = (
-    input: Omit<ReceiptInput, 'type' | 'profile' | 'command'>,
+    input: Omit<ReceiptInput, 'profile' | 'command'>,
   ): Omit<Recorded<unknown>, 'result'> => {
     try {
       const vault = deps.vault();
@@ -203,7 +207,7 @@ export function actionRecorder(deps: {
       }
       const { receipt, path, warning } = writeReceipt(
         { vault, clock: deps.clock, newId: deps.newId },
-        { type: 'action', profile: deps.profile, command: deps.command(), ...input },
+        { profile: deps.profile, command: deps.command(), ...input },
       );
       return { receipt: { id: receipt.id, path }, ...(warning ? { warning } : {}) };
     } catch (error) {
@@ -211,27 +215,47 @@ export function actionRecorder(deps: {
     }
   };
 
-  return <T>(spec: ActionSpec<T>, action: () => T): Recorded<T> => {
-    let result: T;
-    try {
-      result = action();
-    } catch (error) {
-      write({
-        status: 'failed',
-        summary: spec.failure,
-        inputs: spec.inputs,
-        outputs: { error: toFail(error).error },
-      });
-      throw error;
-    }
+  const failed = <T>(spec: ActionSpec<T>, error: unknown) => {
+    write({
+      type: spec.type ?? 'action',
+      status: 'failed',
+      summary: spec.failure,
+      inputs: spec.inputs,
+      outputs: { error: toFail(error).error },
+    });
+    return error;
+  };
+  const succeeded = <T>(spec: ActionSpec<T>, result: T): Recorded<T> => {
     if (spec.changed && !spec.changed(result)) return { result, receipt: null };
     const written = write({
+      type: spec.type ?? 'action',
       status: 'ok',
       summary: spec.summary(result),
       project: spec.project?.(result),
+      session: spec.session?.(result),
+      agent: spec.agent?.(result),
       inputs: spec.inputs,
       outputs: spec.outputs?.(result) ?? {},
     });
     return { result, ...written };
   };
+
+  function record<T>(spec: ActionSpec<T>, action: () => Promise<T>): Promise<Recorded<T>>;
+  function record<T>(spec: ActionSpec<T>, action: () => T): Recorded<T>;
+  function record<T>(spec: ActionSpec<T>, action: () => T | Promise<T>) {
+    let result: T | Promise<T>;
+    try {
+      result = action();
+    } catch (error) {
+      throw failed(spec, error);
+    }
+    if (!(result instanceof Promise)) return succeeded(spec, result);
+    return result.then(
+      (value) => succeeded(spec, value),
+      (error) => {
+        throw failed(spec, error);
+      },
+    );
+  }
+  return record;
 }

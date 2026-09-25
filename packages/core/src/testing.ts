@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { Clock } from './clock.js';
 import type { IdSource } from './ids.js';
 import type { MesaDeps } from './mesa.js';
-import type { Runner } from './process.js';
+import type { Runner, RunResult } from './process.js';
 import { MesaError } from './result.js';
 import type { NewSession } from './sessions/store.js';
 
@@ -22,6 +22,12 @@ export function sequentialIds(): IdSource {
   return () => `01TEST${String(++n).padStart(20, '0')}`;
 }
 
+/** UUID-shaped ids 00000000-0000-4000-8000-000000000001 and up, for claude --session-id. */
+export function sequentialUuids(): () => string {
+  let n = 0;
+  return () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`;
+}
+
 /** A clock that moves `stepMs` forward on every read: for timeouts and before/after stamps. */
 export function steppingClock(iso = '2026-09-24T12:00:00.000Z', stepMs = 1000): Clock {
   let now = new Date(iso).getTime();
@@ -32,12 +38,15 @@ export function steppingClock(iso = '2026-09-24T12:00:00.000Z', stepMs = 1000): 
   };
 }
 
+/** Stdout, or a function of the call's arguments returning stdout or a whole result. */
+type Answer = string | ((args: string[]) => string | RunResult);
+
 /**
  * Answers from `outputs` by binary name; names in `missing` are ENOENT, names in `slow` time out,
  * names in `failing` exit non-zero. Every call is recorded.
  */
 export function scriptedRunner(
-  outputs: Record<string, string> = {},
+  outputs: Record<string, Answer> = {},
   opts: { missing?: string[]; slow?: string[]; failing?: string[] } = {},
 ) {
   const calls: { file: string; args: string[]; timeoutMs: number }[] = [];
@@ -46,7 +55,9 @@ export function scriptedRunner(
     if (opts.missing?.includes(file)) return { ok: false, reason: 'missing', detail: 'ENOENT' };
     if (opts.slow?.includes(file)) return { ok: false, reason: 'timeout', detail: 'killed' };
     if (opts.failing?.includes(file)) return { ok: false, reason: 'failed', detail: 'exit 1' };
-    return { ok: true, stdout: outputs[file] ?? '' };
+    const answer = outputs[file] ?? '';
+    const said = typeof answer === 'function' ? answer(args) : answer;
+    return typeof said === 'string' ? { ok: true, stdout: said } : said;
   };
   return { run, calls };
 }
@@ -57,6 +68,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   cwd: home,
   clock: fixedClock(),
   newId: sequentialIds(),
+  newUuid: sequentialUuids(),
   env: {},
   run: scriptedRunner().run,
   argv: ['test'],
