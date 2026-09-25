@@ -69,7 +69,7 @@ Not: log entry, record, artifact.
 
 ## Decision
 
-One call to Faro: `decide(state, questions)` returning one answer per question with a probability distribution and a confidence. Question primitives: `Choice` (pick one of N), `Score` (a number on a stated scale), and `Noul` (yes or no as one calibrated probability). Fixed in ADR-0004. Every decision is written to a receipt with its probabilities.
+One call to Faro: `decide(state, questions)` returning one answer per question with a probability distribution and a confidence. Question primitives: `Choice` (pick one of 2 to 255 options), `Score` (a position from 0 to 1 on an ordered rubric of 2 to 10 levels), and `Noul` (yes or no as one calibrated probability, with no separate confidence). Fixed in ADR-0004. A Decision keeps the questions, the answers, the backend that answered, when, and how long it took. Each decision site brings its own rules backend, which answers first; the backend the profile names is asked only when the least sure answer is below `decisions.threshold` (ADR-0003). `mesa decide` asks from the command line (questions on stdin, even answers, since no rules know them) and records nothing; the Doctor screen shows which decisions backend is in use. Decisions reach receipts, with their probabilities, through a `DecisionRecorder` (P3).
 Not: judgment, classification, inference, prediction.
 
 ## Faro

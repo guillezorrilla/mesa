@@ -130,6 +130,25 @@ test('the Doctor screen shares the header run; Recheck runs doctor again', async
   expect(calls.filter((c) => c[1] === 'windows')).toHaveLength(2);
 });
 
+test('the Doctor screen shows which decisions backend Faro uses', async () => {
+  const decisions: Check = {
+    name: 'decisions',
+    ok: true,
+    status: 'ok',
+    version: 'rules',
+    hint: 'adapter is not available; decisions use rules',
+  };
+  const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.6'), decisions])) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(cells(byTestId('doctor-row')[1])).toEqual([
+    'decisions',
+    '✓',
+    'rules',
+    'adapter is not available; decisions use rules',
+  ]);
+});
+
 test('the Sessions screen lists each session with its state and running time', async () => {
   const row = (
     id: string,

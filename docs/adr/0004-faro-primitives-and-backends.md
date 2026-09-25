@@ -30,3 +30,8 @@ docs/research/sources/typesafe-jev.md (typesafe.ai, docs.typesafe.ai, npm and Py
 ## Amendment 2026-09-24: the adapter backend runs on Claude Code headless
 
 The owner will not add an Anthropic API key; Mesa runs on the Claude and Codex subscriptions only. The `adapter` backend therefore does not call the Messages API. It runs `claude -p` with `--output-format json` and `--json-schema` (both present in Claude Code 2.1.281), `--model haiku`, tool use disabled, a 20 second timeout, and falls back to `rules` on any error. The answer shape is unchanged. Fixtures are recorded locally with the real `claude -p` and replayed in tests through a fake runner. `total_cost_usd` from the result is recorded for information only. Jev stays opt-in: it is a paid API (0.042 USD per million input tokens) and is used only when the owner adds a key. When Codex lands (v1 is Claude-only, see ADR-0003 amendment), `codex exec --output-schema` becomes a second subscription-backed adapter.
+
+## Amendment 2026-09-25: the interface as built (#24)
+
+- A `Score` answer is the probability-weighted position on its rubric, normalised to 0 for the first level through 1 for the last. That way one scale serves every rubric length, and the attention score (0 to 1) can be read from a Score directly. The `jev` backend maps Jev's position onto this scale when it lands. Receipts store the normalised number.
+- A decision site passes its own rules backend. Rules answer first, as ADR-0003 says. The backend the profile names is asked only when the least sure answer is below `decisions.threshold`. For a Noul, "sure" means how far its probability leans from 0.5. The named backend's answers are parsed and checked against the questions, and if they do not fit, the rules' answers stand.
