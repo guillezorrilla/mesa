@@ -24,6 +24,8 @@ export const decide = defineCommand({
         a.kind === 'Noul' ? `p ${two(a.probabilities)}` : `confidence ${two(a.confidence)}`,
       ]),
     );
-    return { data: decision, text: [...lines, `backend ${decision.backend}`].join('\n') };
+    const cost =
+      decision.costUsd === undefined ? '' : ` (list price $${decision.costUsd.toFixed(4)})`;
+    return { data: decision, text: [...lines, `backend ${decision.backend}${cost}`].join('\n') };
   },
 });

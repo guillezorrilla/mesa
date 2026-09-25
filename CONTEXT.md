@@ -44,7 +44,7 @@ Not: pane, tab. A tmux session is a project's group of windows, never a Mesa ses
 
 ## Session state
 
-Where a session is right now, one of: `working`, `waiting-permission`, `waiting-question`, `idle`, `done`, `failed`. On every look at the board, Faro classifies it (`classifySession`, rules only until #26) and attaches a confidence and a source. The order is ADR-0003's:
+Where a session is right now, one of: `working`, `waiting-permission`, `waiting-question`, `idle`, `done`, `failed`. On every look at the board, Faro classifies it (`classifySession`) and attaches a confidence and a source. The rules come first, in ADR-0003's order:
 
 - A stopped session keeps its state.
 - A dead or vanished window is a process fact (0.85): `failed` with a signal or a nonzero status, else `done`.
@@ -52,7 +52,7 @@ Where a session is right now, one of: `working`, `waiting-permission`, `waiting-
 - Then the agent listing (0.85).
 - Then the tail, the pane's last 30 lines read with CCManager's Claude Code patterns (0.6). The tail is read only when no hook or listing speaks.
 
-A new state is saved in the record, with the time it began: the hook event's time, else when the board first saw it. `waiting-permission` and `waiting-question` are the states that need a human.
+When the least sure answer is below `decisions.threshold`, the adapter (`claude -p`) is asked, and its state is the row's, with source `adapter`. The adapter's answer is saved with a `basis`, a hash of what it saw, and it is not asked again while that is unchanged. Foreign sessions use rules only. A new state is saved in the record, with the time it began: the hook event's time, else when the board first saw it. `waiting-permission` and `waiting-question` are the states that need a human.
 Not: status, phase, mode.
 
 ## Attention score
@@ -86,7 +86,7 @@ Not: log entry, record, artifact.
 
 ## Decision
 
-One call to Faro: `decide(state, questions)` returning one answer per question with a probability distribution and a confidence. Question primitives: `Choice` (pick one of 2 to 255 options), `Score` (a position from 0 to 1 on an ordered rubric of 2 to 10 levels), and `Noul` (yes or no as one calibrated probability, with no separate confidence). Fixed in ADR-0004. A Decision keeps the questions, the answers, the backend that answered, when, and how long it took. Each decision site brings its own rules backend, which answers first; the backend the profile names is asked only when the least sure answer is below `decisions.threshold` (ADR-0003). `mesa decide` asks from the command line (questions on stdin, even answers, since no rules know them) and records nothing; the Doctor screen shows which decisions backend is in use. Decisions reach receipts, with their probabilities, through a `DecisionRecorder` (P3).
+One call to Faro: `decide(state, questions)` returning one answer per question with a probability distribution and a confidence. Question primitives: `Choice` (pick one of 2 to 255 options), `Score` (a position from 0 to 1 on an ordered rubric of 2 to 10 levels), and `Noul` (yes or no as one calibrated probability, with no separate confidence). Fixed in ADR-0004. A Decision keeps the questions, the answers, the backend that answered (`rules-fallback` when the named backend was asked and failed), what the call cost (`costUsd`, adapter only, for information), when, and how long it took. Each decision site brings its own rules backend, which answers first; the backend the profile names is asked only when the least sure answer is below `decisions.threshold` (ADR-0003). `mesa decide` asks from the command line (questions on stdin, even answers, since no rules know them) and records nothing; the Doctor screen shows which decisions backend is in use. Decisions reach receipts, with their probabilities, through a `DecisionRecorder` (P3).
 Not: judgment, classification, inference, prediction.
 
 ## Faro

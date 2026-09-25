@@ -276,7 +276,7 @@ test('vault open: the URI by default, --json, and its errors', async () => {
   expect((await mesa('vault', 'open', 'wiki/missing.md')).code).toBe(3);
 });
 
-test('decide answers the questions on stdin with the rules backend; doctor names it', async () => {
+test('decide answers the questions on stdin, rules first, then the adapter; doctor names it', async () => {
   // Before init there is nothing configured: rules answer.
   stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'x', statement: 'It holds' }] });
   expect((await mesa('decide')).stdout).toBe('x  Noul  false  p 0.50\nbackend rules\n');
@@ -289,22 +289,42 @@ test('decide answers the questions on stdin with the rules backend; doctor names
       { kind: 'Noul', id: 'destructive', statement: 'The prompt deletes files' },
     ],
   });
-  // No rules know these questions, so every answer is even.
+  // No rules know these questions, so they are even and unsure: the adapter (the default) is
+  // asked. Its `claude -p` result here is invented, shaped like a recorded one.
+  const structured = {
+    route: { answer: 'ask', probabilities: { ingest: 0.2, ask: 0.8 }, confidence: 0.8 },
+    urgency: { answer: 'high', probabilities: { low: 0, medium: 0.4, high: 0.6 }, confidence: 0.7 },
+    destructive: { answer: false, confidence: 0.9 },
+  };
+  const result = {
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    structured_output: structured,
+    total_cost_usd: 0.0021,
+  };
+  run = scriptedRunner({
+    claude: (args) => (args[0] === '-p' ? JSON.stringify(result) : '[]'),
+  }).run;
   expect((await mesa('decide')).stdout).toBe(
     [
-      'route        Choice  ingest  confidence 0.50',
-      'urgency      Score   0.50    confidence 0.33',
-      'destructive  Noul    false   p 0.50',
-      'backend rules',
+      'route        Choice  ask    confidence 0.80',
+      'urgency      Score   0.80   confidence 0.70',
+      'destructive  Noul    false  p 0.10',
+      'backend adapter (list price $0.0021)',
       '',
     ].join('\n'),
   );
   const { json } = await mesa('decide', '--json');
   expect(json.data).toMatchObject({
-    backend: 'rules',
+    backend: 'adapter',
+    costUsd: 0.0021,
     at: '2026-09-24T12:00:00.000Z',
     latencyMs: 0,
   });
+  // A claude that cannot answer: the even rules stand, marked as a fallback.
+  run = scriptedRunner({}, { missing: ['claude'] }).run;
+  expect((await mesa('decide')).stdout).toContain('backend rules-fallback\n');
   expect(json.data.answers).toHaveLength(3);
 
   stdin = 'not json';
@@ -318,14 +338,14 @@ test('decide answers the questions on stdin with the rules backend; doctor names
     stderr: expect.stringContaining('invalid questions: 0.options'),
   });
 
-  // The profile names adapter (the default); until it lands, doctor says decisions use rules.
+  // The profile names adapter (the default): doctor says rules come first.
   const { json: report } = await mesa('doctor', '--json');
   expect(report.data.checks).toContainEqual({
     name: 'decisions',
     ok: true,
     status: 'ok',
-    version: 'rules',
-    hint: 'adapter is not available; decisions use rules',
+    version: 'adapter',
+    hint: 'rules first; adapter below confidence 0.7',
   });
 });
 

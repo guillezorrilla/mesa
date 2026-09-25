@@ -68,8 +68,18 @@ export type Answer = z.infer<typeof AnswerSchema>;
 export type Decision = {
   questions: Question[];
   answers: Answer[];
-  /** Who answered; `rules` also when even answers stood in for a failing rules backend. */
-  backend: BackendName;
+  /**
+   * Who answered: `rules` (also when even answers stood in for failing rules), the named
+   * backend, or `rules-fallback` when the named backend was asked and failed.
+   */
+  backend: BackendName | 'rules-fallback';
+  /**
+   * The call's price as the adapter reports it (`total_cost_usd`, list price: on the subscription
+   * nothing is charged), for information only.
+   */
+  costUsd?: number;
+  /** With `rules-fallback`: why the named backend's answer was not used. */
+  fallbackReason?: string;
   /** ISO. */
   at: string;
   latencyMs: number;
@@ -78,7 +88,10 @@ export type Decision = {
 /** A decisions backend (ADR-0004): answers valid questions about `state`, or throws. */
 export type Backend<S = unknown> = {
   name: BackendName;
-  /** Whatever it returns is parsed and checked against the questions (decide.ts). */
+  /**
+   * Answers, or `{answers, costUsd}`; whatever it returns is parsed and checked against the
+   * questions (decide.ts).
+   */
   answer: (state: S, questions: Question[]) => Promise<unknown>;
 };
 

@@ -12,6 +12,9 @@ const running = (seconds: number) => {
 };
 
 const percent = (p: number) => `${Math.round(p * 100)}%`;
+/** Who placed the row: Faro's backend, and the adapter's list price when it answered. */
+const decidedBy = (d: { backend: string; costUsd?: number }) =>
+  `decided by ${d.backend}${d.costUsd === undefined ? '' : ` (list price $${d.costUsd.toFixed(4)})`}`;
 
 /**
  * The profile's sessions and, read-only, agent sessions Mesa did not start, highest attention
@@ -100,7 +103,9 @@ export function SessionsScreen() {
                 <td>{s.project}</td>
                 <td>{s.agent}</td>
                 <td>{s.lastState.state}</td>
-                <td>{percent(s.lastState.confidence)}</td>
+                <td title={decidedBy(s.decision)} data-testid="session-confidence">
+                  {percent(s.lastState.confidence)}
+                </td>
                 <td>{s.attention.toFixed(2)}</td>
                 <td>{running(s.runningSeconds)}</td>
                 <td>
@@ -161,7 +166,9 @@ export function SessionsScreen() {
                 <td>{s.project ?? '-'}</td>
                 <td>{s.agent}</td>
                 <td>{s.lastState.state}</td>
-                <td>{percent(s.lastState.confidence)}</td>
+                <td title={decidedBy(s.decision)} data-testid="session-confidence">
+                  {percent(s.lastState.confidence)}
+                </td>
                 <td>{s.attention.toFixed(2)}</td>
                 <td>{running(s.runningSeconds)}</td>
                 <td title={s.cwd}>not managed by Mesa</td>
