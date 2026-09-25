@@ -21,3 +21,14 @@ obsidian.md/help/cli, obsidian.md/help/bases, jsoncanvas.org/spec/1.0, kepano/ob
 
 - No hard dependency on the app being open or the CLI being enabled.
 - JSON Canvas 1.0 and Bases (five view types: table, list, cards, kanban, map) are written by hand from the specs.
+
+## Amendment 2026-09-25: the spike's findings
+
+docs/spikes/obsidian-cli.md (issue #15, Obsidian 1.13.7, installer 1.12.7) replaces three assumptions above:
+
+- Externally written files appear live. Notes and new folders written by `writeNote` were listed by the running app within 100 ms and searchable at once, three times each, with no reload. The reload fallback is dropped.
+- The registered CLI does not launch Obsidian: with the app closed every command prints "The CLI is unable to find Obsidian. Please make sure Obsidian is running and try again." and exits 1. An `obsidian://open` URI does launch it, so the URI is the default for `mesa vault open` and the fallback for `--cli`.
+- CLI commands can write: `daily:read` creates an empty daily note at the vault root when none exists, because Obsidian's Daily notes plugin looks at the root and Mesa writes `daily/`. Mesa never runs the CLI's `daily:*` commands on a vault.
+
+Unchanged: the vault is written as files, and `.obsidian/` stays Obsidian's (Obsidian creates it the first time it opens a vault). A vault is added to Obsidian's list only through the app ("Open folder as vault"); `obsidian://open?path=<folder>` on an unknown folder shows a "Vault not found" modal, so `mesa vault open` checks Obsidian's `obsidian.json` (read-only) first. The same alert appears for `vault=<unknown name>`, and while it is up the app answers no CLI call and refuses to quit.
+
