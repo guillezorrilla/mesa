@@ -30,7 +30,7 @@ test('send types the prompt, records a send event, and writes an action receipt'
   expect(window.typed).toEqual([prompt]);
 
   const [row] = await mesa.sessions.list();
-  expect(row?.events).toEqual([
+  expect(row?.managed && row.events).toEqual([
     { type: 'send', at: '2026-09-24T12:00:00.000Z', chars: prompt.length },
   ]);
   const [latest] = listReceipts(join(home, 'vault'), 1);

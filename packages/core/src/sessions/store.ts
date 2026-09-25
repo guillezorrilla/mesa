@@ -25,6 +25,10 @@ const SHORT_ID = /^[0-9a-z]{8}$/;
 export const isSessionId = (id: string) => SHORT_ID.test(id);
 const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
+const FOREIGN = 'ext-';
+/** A foreign session's board id (CONTEXT.md): no record has it, so every lookup refuses it. */
+export const foreignId = (pid: number) => `${FOREIGN}${pid}` as const;
+
 const SessionRecordSchema = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
   id: z.string().regex(SHORT_ID),
@@ -84,6 +88,8 @@ const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();
 export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
   /** The record's file; an id that is not a short id names no session, and never a path. */
   const fileOf = (id: string) => {
+    if (id.startsWith(FOREIGN))
+      throw new MesaError('not_found', `${id}: session not managed by mesa`);
     if (!SHORT_ID.test(id)) throw new MesaError('not_found', `no session ${id}`);
     return join(dir, `${id}.json`);
   };

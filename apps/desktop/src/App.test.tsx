@@ -1,5 +1,13 @@
 // @vitest-environment happy-dom
-import type { Check, DoctorReport, ProjectRow, SessionRow, TmuxWindow } from '@mesa/core';
+import type {
+  Check,
+  DoctorReport,
+  ForeignRow,
+  ManagedRow,
+  ProjectRow,
+  SessionRow,
+  TmuxWindow,
+} from '@mesa/core';
 import { expect, test } from 'vitest';
 import { App } from './App';
 import { click, envelope, failure, fakeBridge, fakePlatform, renderWithMesa } from './lib/testing';
@@ -125,7 +133,7 @@ test('the Doctor screen shares the header run; Recheck runs doctor again', async
 test('the Sessions screen lists each session with its state and running time', async () => {
   const row = (
     id: string,
-    state: SessionRow['lastState']['state'],
+    state: ManagedRow['lastState']['state'],
     runningSeconds: number,
   ): SessionRow => ({
     id,
@@ -136,11 +144,32 @@ test('the Sessions screen lists each session with its state and running time', a
     startedAt: '2026-09-25T12:00:00.000Z',
     lastState: { state, confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
     events: [],
+    managed: true,
     alive: state !== 'done',
     runningSeconds,
   });
+  const foreign: ForeignRow = {
+    id: 'ext-4242',
+    managed: false,
+    agent: 'claude',
+    pid: 4242,
+    cwd: '/src/elsewhere',
+    agentSessionId: '00000000-0000-4000-8000-00000000000e',
+    startedAt: '2026-09-25T12:00:00.000Z',
+    project: null,
+    alive: true,
+    agentStatus: 'idle',
+    lastState: {
+      state: 'idle',
+      confidence: 0.85,
+      at: '2026-09-25T12:00:00.000Z',
+      source: 'listing',
+    },
+    runningSeconds: 90,
+  };
   const { bridge, calls } = fakeBridge({
-    sessions: () => envelope([row('aaaaaaaa', 'working', 42), row('bbbbbbbb', 'done', 7500)]),
+    sessions: () =>
+      envelope([row('aaaaaaaa', 'working', 42), row('bbbbbbbb', 'done', 7500), foreign]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-sessions')[0]);
@@ -148,7 +177,10 @@ test('the Sessions screen lists each session with its state and running time', a
     ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'SendTerminalStop'],
     // An exited session has no window to attach to.
     ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m', ''],
+    // Started outside Mesa: read-only, no actions.
+    ['ext-4242', '-', 'claude', 'idle', '1m30s', 'not managed by Mesa'],
   ]);
+  expect(byTestId('session-row')[2]?.dataset.managed).toBe('false');
   expect(byTestId('session-row')[1]?.dataset.alive).toBe('false');
   await click(byTestId('sessions-refresh')[0]);
   await click(byTestId('sessions-ended')[0]);
@@ -179,6 +211,7 @@ test('Stop ends a live session and Resume reopens an exited one, then the list r
       source: 'mesa',
     },
     events: [],
+    managed: true,
     alive,
     runningSeconds: 5,
   });
@@ -212,6 +245,7 @@ test('Send types the row prompt into its session, then clears the box', async ()
     startedAt: '2026-09-25T12:00:00.000Z',
     lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
     events: [],
+    managed: true,
     alive: true,
     runningSeconds: 5,
   };
@@ -239,6 +273,7 @@ test('Terminal on a session row opens it in the terminal app', async () => {
     startedAt: '2026-09-25T12:00:00.000Z',
     lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
     events: [],
+    managed: true,
     alive: true,
     runningSeconds: 5,
   };

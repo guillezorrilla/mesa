@@ -11,7 +11,10 @@ const running = (seconds: number) => {
   return m ? `${m}m${two(s)}s` : `${s}s`;
 };
 
-/** The profile's sessions with their last state; #27 turns this into the Board with its actions. */
+/**
+ * The profile's sessions with their last state, then agent sessions Mesa did not start, read-only;
+ * #27 turns this into the Board with its actions.
+ */
 export function SessionsScreen() {
   const [ended, setEnded] = useState(false);
   const { data, busy, refresh } = useCommand(ended ? 'sessions.all' : 'sessions.list');
@@ -86,65 +89,77 @@ export function SessionsScreen() {
           </tr>
         </thead>
         <tbody>
-          {data?.map((s) => (
-            <tr key={s.id} data-testid="session-row" data-alive={s.alive}>
-              <td>{s.id}</td>
-              <td>{s.project}</td>
-              <td>{s.agent}</td>
-              <td>{s.lastState.state}</td>
-              <td>{running(s.runningSeconds)}</td>
-              <td>
-                {s.alive ? (
-                  <>
-                    <form
-                      data-testid="session-send"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        send(s.id, e.currentTarget);
-                      }}
-                    >
-                      <input
-                        name="prompt"
-                        data-testid="session-prompt"
-                        aria-label={`Prompt for ${s.id}`}
-                      />
-                      <button type="submit" data-testid="session-send-submit" disabled={acting}>
-                        Send
+          {data?.map((s) =>
+            s.managed ? (
+              <tr key={s.id} data-testid="session-row" data-alive={s.alive}>
+                <td>{s.id}</td>
+                <td>{s.project}</td>
+                <td>{s.agent}</td>
+                <td>{s.lastState.state}</td>
+                <td>{running(s.runningSeconds)}</td>
+                <td>
+                  {s.alive ? (
+                    <>
+                      <form
+                        data-testid="session-send"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          send(s.id, e.currentTarget);
+                        }}
+                      >
+                        <input
+                          name="prompt"
+                          data-testid="session-prompt"
+                          aria-label={`Prompt for ${s.id}`}
+                        />
+                        <button type="submit" data-testid="session-send-submit" disabled={acting}>
+                          Send
+                        </button>
+                      </form>
+                      <button
+                        type="button"
+                        data-testid="session-terminal"
+                        onClick={() => openTerminal(s.id)}
+                        disabled={acting}
+                      >
+                        Terminal
                       </button>
-                    </form>
-                    <button
-                      type="button"
-                      data-testid="session-terminal"
-                      onClick={() => openTerminal(s.id)}
-                      disabled={acting}
-                    >
-                      Terminal
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="session-stop"
-                      onClick={() => stop(s.id)}
-                      disabled={acting}
-                    >
-                      Stop
-                    </button>
-                  </>
-                ) : (
-                  s.agentSessionId &&
-                  !s.resumedBy && (
-                    <button
-                      type="button"
-                      data-testid="session-resume"
-                      onClick={() => resume(s.id)}
-                      disabled={acting}
-                    >
-                      Resume
-                    </button>
-                  )
-                )}
-              </td>
-            </tr>
-          ))}
+                      <button
+                        type="button"
+                        data-testid="session-stop"
+                        onClick={() => stop(s.id)}
+                        disabled={acting}
+                      >
+                        Stop
+                      </button>
+                    </>
+                  ) : (
+                    s.agentSessionId &&
+                    !s.resumedBy && (
+                      <button
+                        type="button"
+                        data-testid="session-resume"
+                        onClick={() => resume(s.id)}
+                        disabled={acting}
+                      >
+                        Resume
+                      </button>
+                    )
+                  )}
+                </td>
+              </tr>
+            ) : (
+              // Started outside Mesa: shown so the board is complete, never acted on.
+              <tr key={s.id} data-testid="session-row" data-alive data-managed="false">
+                <td>{s.id}</td>
+                <td>{s.project ?? '-'}</td>
+                <td>{s.agent}</td>
+                <td>{s.lastState.state}</td>
+                <td>{running(s.runningSeconds)}</td>
+                <td title={s.cwd}>not managed by Mesa</td>
+              </tr>
+            ),
+          )}
         </tbody>
       </table>
       <button type="button" data-testid="sessions-refresh" onClick={refresh} disabled={busy}>

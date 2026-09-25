@@ -50,3 +50,13 @@ docs/spikes/state-signals.md (issue #6: Claude Code 2.1.281 and 2.1.282, run liv
 - `claude agents --json` reports `status` `idle`, `busy`, or `waiting`, and while waiting it adds `waitingFor` (`"permission prompt"` or `"input needed"`). The listing alone separates the two waiting states at 0.85. The row disappears on exit and on SIGKILL.
 - Notification `permission_prompt` fires about 6 s into either kind of wait, with the same message, so it adds nothing over PermissionRequest. `idle_prompt` fires 60 s after Stop and not after a denied turn. Stop is the idle signal.
 - SessionEnd (`reason: "prompt_input_exit"` after `/exit`) does not fire on SIGKILL. `failed` comes from tmux `pane_dead_signal` or a nonzero `pane_dead_status` with no SessionEnd, at 0.85: that is a process fact, not tail text, so the 0.6 tail cap does not apply. `StopFailure` (a turn ended by an API error) is the hook-level `failed` signal; it was not captured and stays unverified.
+
+## Amendment 2026-09-25: agent listings on the board
+
+Issue #23 wires the second signal into `mesa sessions`:
+
+- Each call reads `claude agents --json` once, with a 2 s timeout. Any failure counts as an empty listing.
+- A listed process belongs to the Mesa session whose tmux window it runs in (its pid is the pane pid, as the spike found). Failing that, it belongs to the newest open session that holds its agent session id. A `/clear` keeps the pane but not the id; a resumed conversation keeps the id but not the pane. A stopped session runs nowhere, so it never matches.
+- A session the listing names is alive even without a window, so it is not marked `done` from tmux. Its listing status is shown as `agentStatus`. The record's state is left to Faro's rules (#25).
+- Every other listed process is a foreign session, shown read-only. Its state comes from the listing alone, at 0.85. A wait the listing cannot name gets 0.6, and a status it has never shown gets 0.5.
+- Sessions held by another profile's records are left out, so each profile's board shows only its own sessions. Mesa never acts on a foreign session.
