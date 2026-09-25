@@ -21,6 +21,8 @@ export const SESSION_STATES = [
 export type SessionState = (typeof SESSION_STATES)[number];
 
 const SHORT_ID = /^[0-9a-z]{8}$/;
+/** An 8-character Mesa session id, so one from outside (a hook's env) never becomes a path. */
+export const isSessionId = (id: string) => SHORT_ID.test(id);
 const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 const SessionRecordSchema = z.strictObject({

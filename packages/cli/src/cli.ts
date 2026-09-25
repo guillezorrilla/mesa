@@ -32,6 +32,7 @@ export type CliDeps = {
   env: Env;
   /** Whether stdin is a terminal. */
   tty: boolean;
+  stdin: () => Promise<string>;
   /** What Mesa's services are built from, once the profile is known. */
   mesa: MesaDeps;
 };
@@ -103,7 +104,7 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   checkRequiredFlags(command, values);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
-  return command.run({ mesa, args, flags: values, tty: deps.tty } as Context);
+  return command.run({ mesa, args, flags: values, tty: deps.tty, stdin: deps.stdin } as Context);
 }
 
 /** Runs one CLI invocation and returns what to print; the entrypoint writes the streams. */

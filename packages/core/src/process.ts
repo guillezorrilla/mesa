@@ -21,3 +21,6 @@ export const execRunner: Runner = (file, args, timeoutMs) =>
       resolve({ ok: false, reason: 'failed', detail: (stderr || error.message).trim() });
     });
   });
+
+/** One POSIX shell word, single-quoted. */
+export const shellWord = (word: string) => `'${word.replaceAll("'", `'\\''`)}'`;

@@ -1,19 +1,35 @@
 #!/usr/bin/env node
-import { randomBytes, randomUUID } from 'node:crypto';
-import { writeSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { setTimeout as sleep } from 'node:timers/promises';
-import { execRunner, macObsidianPaths, systemClock, ulidSource } from '@mesa/core';
-import { runCli } from './cli.js';
-import { COMMANDS } from './commands/index.js';
-
 // The CLI entrypoint: the only place that reads process globals or picks the real implementations;
 // createMesa (the composition root) wires them.
+import { writeSync } from 'node:fs';
+
 const argv = process.argv.slice(2);
+// An agent hook outside a Mesa session exits before anything else loads (#22: within 50 ms).
+if (argv[0] === 'hook' && !process.env.MESA_SESSION_ID) process.exit(0);
+
+const [{ randomBytes, randomUUID }, { homedir }, { setTimeout: sleep }, { fileURLToPath }] =
+  await Promise.all([
+    import('node:crypto'),
+    import('node:os'),
+    import('node:timers/promises'),
+    import('node:url'),
+  ]);
+const { execRunner, macObsidianPaths, systemClock, ulidSource } = await import('@mesa/core');
+const { runCli } = await import('./cli.js');
+const { COMMANDS } = await import('./commands/index.js');
+
+/** All of stdin, for a hook's payload. */
+const readStdin = async () => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString('utf8');
+};
+
 const { code, stdout, stderr, exec } = await runCli(argv, {
   commands: COMMANDS,
   env: process.env,
   tty: Boolean(process.stdin.isTTY),
+  stdin: readStdin,
   mesa: {
     home: homedir(),
     cwd: process.cwd(),
@@ -23,6 +39,8 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
     sleep: async (ms) => {
       await sleep(ms);
     },
+    // This node and this script, so hooks run the same mesa whatever the hook's PATH holds.
+    self: [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
     run: execRunner,
     obsidian: macObsidianPaths(homedir()),

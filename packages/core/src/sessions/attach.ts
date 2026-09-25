@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TerminalApp } from '../config.js';
-import type { Env, Runner } from '../process.js';
+import { type Env, type Runner, shellWord } from '../process.js';
 import { MesaError } from '../result.js';
 import { type SessionStore, sessionEnded, windowOf } from './store.js';
 import { type TmuxBackend, targetLabel } from './tmux.js';
@@ -14,8 +14,6 @@ const LAUNCH_TIMEOUT_MS = 10_000;
 /** What `mesa attach --json` prints: the tmux target, and the app it opened in (null: here). */
 export type Attached = { opened: true; target: string; app: TerminalApp | null };
 
-/** One POSIX shell word. */
-const shellWord = (word: string) => `'${word.replaceAll("'", `'\\''`)}'`;
 /** One AppleScript string literal. */
 const appleString = (text: string) => `"${text.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
