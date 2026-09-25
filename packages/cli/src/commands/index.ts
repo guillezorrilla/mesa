@@ -1,4 +1,5 @@
 import type { Command } from '../command.js';
+import { attach } from './attach.js';
 import { config, configSet } from './config.js';
 import { doctor } from './doctor.js';
 import { init } from './init.js';
@@ -13,6 +14,7 @@ import { windows } from './windows.js';
 
 // Every mesa subcommand, in help order. A new command is one file and one entry here.
 export const COMMANDS: Command[] = [
+  attach,
   config,
   configSet,
   doctor,

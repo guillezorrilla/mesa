@@ -9,6 +9,8 @@ export type ProfilePaths = {
   config: string;
   registry: string;
   sessions: string;
+  /** The one-line scripts `mesa attach --app` hands to a terminal app. */
+  attachScripts: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
   tmuxSocket: string;
 };
@@ -20,6 +22,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     config: join(root, 'config.yaml'),
     registry: join(root, 'registry.yaml'),
     sessions: join(root, 'sessions'),
+    attachScripts: join(root, 'attach'),
     tmuxSocket: `mesa-${profile}`,
   };
 }

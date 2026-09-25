@@ -30,6 +30,8 @@ export type Context<A extends readonly string[] = readonly string[], F extends F
   mesa: Mesa;
   args: Args<A>;
   flags: FlagValues<F>;
+  /** Whether stdin is a terminal, which `tmux attach` needs. */
+  tty: boolean;
 };
 
 /**

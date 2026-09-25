@@ -12,6 +12,7 @@ const argv = process.argv.slice(2);
 const { code, stdout, stderr, exec } = await runCli(argv, {
   commands: COMMANDS,
   env: process.env,
+  tty: Boolean(process.stdin.isTTY),
   mesa: {
     home: homedir(),
     cwd: process.cwd(),

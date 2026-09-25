@@ -17,6 +17,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     config: '/h/.mesa/work/config.yaml',
     registry: '/h/.mesa/work/registry.yaml',
     sessions: '/h/.mesa/work/sessions',
+    attachScripts: '/h/.mesa/work/attach',
     tmuxSocket: 'mesa-work',
   });
 });
@@ -34,6 +35,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     skills: [],
     decisions: { backend: 'adapter', threshold: 0.7 },
     sessions: { log: true },
+    terminal: { app: 'Terminal' },
     keys: {},
   });
 });

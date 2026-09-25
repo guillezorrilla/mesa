@@ -67,7 +67,9 @@ const NOTHING_THERE = /no server running|error connecting to|can't find session/
 
 // `=` asks for an exact name: tmux otherwise takes a prefix, so `tide` would reach `tide-pool`.
 const exact = ({ project, window }: WindowTarget) => `=${project}:=${window}`;
-const label = ({ project, window }: WindowTarget) => `${project}:${window}`;
+/** `project:window`, as tmux itself names the window. */
+export const targetLabel = ({ project, window }: WindowTarget) => `${project}:${window}`;
+const label = targetLabel;
 
 function parseWindow(line: string): TmuxWindow {
   const [project = '', index, window = '', pid, command = '', path = '', activity, dead] =

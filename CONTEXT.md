@@ -4,7 +4,7 @@ Shared vocabulary for issues, code, receipts, and screens. Use these terms as wr
 
 ## Profile
 
-A named configuration under `~/.mesa/<name>/`: `config.yaml` (`vault` path, `defaultAgent`, enabled `skills`, `decisions.backend` and `decisions.threshold` (the confidence below which the rules backend defers to the adapter, ADR-0003), `sessions.log` (continuous output logging for sessions), and `keys` (literals or `env:VAR` references, always printed as `***`)), `registry.yaml`, and `sessions/`. `mesa init` creates it; `mesa config` reads and edits it. Exactly one vault per profile. `default` is created on first run; `mesa --profile work` or `MESA_PROFILE=work` selects another. Work and personal are two profiles, never one shared vault.
+A named configuration under `~/.mesa/<name>/`: `config.yaml` (`vault` path, `defaultAgent`, enabled `skills`, `decisions.backend` and `decisions.threshold` (the confidence below which the rules backend defers to the adapter, ADR-0003), `sessions.log` (continuous output logging for sessions), `terminal.app` (the app `mesa attach --app` opens: `Terminal` by default, `iTerm`, `Ghostty`, or `WezTerm`), and `keys` (literals or `env:VAR` references, always printed as `***`)), `registry.yaml`, and `sessions/`. `mesa init` creates it; `mesa config` reads and edits it. Exactly one vault per profile. `default` is created on first run; `mesa --profile work` or `MESA_PROFILE=work` selects another. Work and personal are two profiles, never one shared vault.
 Not: workspace, account, environment.
 
 ## Vault
@@ -34,7 +34,7 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 
 ## Window
 
-The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them.
+The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them. `mesa attach <session>` attaches this terminal to a session's window (`-f ignore-size`, so the app and a terminal never fight over its size), and `--app` opens it in the app the config key `terminal.app` names: the board's terminal action in v1. Without a terminal on stdin, and without `--app`, it is a usage error.
 Not: pane, tab. A tmux session is a project's group of windows, never a Mesa session.
 
 ## Session state
