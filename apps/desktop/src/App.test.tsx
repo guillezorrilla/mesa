@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Check, DoctorReport, ProjectRow } from '@mesa/core';
+import type { Check, DoctorReport, ProjectRow, TmuxWindow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { App } from './App';
 import { click, envelope, failure, fakeBridge, fakePlatform, renderWithMesa } from './lib/testing';
@@ -101,6 +101,33 @@ test('the Doctor screen shares the header run; Recheck runs doctor again', async
   await click(byTestId('doctor-recheck')[0]);
   expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.2');
   expect(calls.filter((c) => c[1] === 'doctor')).toHaveLength(2);
+  expect(calls.filter((c) => c[1] === 'windows')).toHaveLength(2);
+});
+
+test('the Doctor screen lists the windows on the Mesa tmux server', async () => {
+  const window = (name: string, dead: boolean): TmuxWindow => ({
+    project: 'lantern-cove',
+    window: name,
+    index: 0,
+    panePid: 4242,
+    command: '2.1.282',
+    path: '/src/lantern-cove',
+    activity: '2026-09-25T12:00:00.000Z',
+    dead,
+  });
+  const { bridge } = fakeBridge({
+    windows: () => envelope([window('claude-aaaaaa', false), window('claude-bbbbbb', true)]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('tmux-window').map((li) => li.textContent)).toEqual([
+    'lantern-cove:claude-aaaaaa 2.1.282 /src/lantern-cove',
+    'lantern-cove:claude-bbbbbb (exited) /src/lantern-cove',
+  ]);
+
+  const empty = await renderWithMesa(<App />, fakeBridge().bridge);
+  await click(empty('nav-doctor')[0]);
+  expect(empty('tmux-none')).toHaveLength(1);
 });
 
 test('an unhealthy report shows its summary and each row by status', async () => {

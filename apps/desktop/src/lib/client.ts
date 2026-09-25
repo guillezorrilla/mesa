@@ -7,6 +7,7 @@ import type {
   ProjectRow,
   ReceiptEntry,
   Result,
+  TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
 
@@ -38,6 +39,7 @@ export const COMMANDS = {
   'receipts.list': command<ReceiptEntry[]>('receipts'),
   'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),
+  'windows.list': command<TmuxWindow[]>('windows'),
 };
 
 export type CommandName = keyof typeof COMMANDS;
