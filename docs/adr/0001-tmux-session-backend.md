@@ -49,3 +49,9 @@ Issue #17 built the backend (`packages/core/src/sessions/tmux.ts`). Choices the 
 - `send` always refuses a dead pane, and refuses a pane running a shell unless forced.
 
 Evidence: live checks with tmux 3.7c on a throwaway socket (2026-09-25), kept as `packages/core/src/sessions/tmux.test.ts`.
+
+## Amendment 2026-09-25: windows are named after the Mesa session id
+
+Issue #19 names a window `<agent>-<Mesa session id>` (`claude-a1b2c3d4`), not after the first characters of the agent session id as docs/spikes/session-ids.md suggested. A resume keeps the agent session id but gets a new Mesa session id (#20), so the resumed window never takes the old window's name, and `mesa sessions` never mistakes one session's window for another's.
+
+Evidence: docs/spikes/session-ids.md (`mesa resume` reopens `claude-<shortid>` with the same agent session id) and issue #19's review, which found the resumed window would share the old one's name.

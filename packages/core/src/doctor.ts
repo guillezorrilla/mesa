@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { AGENT_NAMES, AGENTS } from './agents.js';
+import { AGENT_NAMES, AGENTS, type Agent } from './agents.js';
 import type { ObsidianPaths } from './obsidian.js';
 import type { Runner } from './process.js';
 import { TMUX_INSTALL } from './sessions/tmux.js';
@@ -27,15 +27,14 @@ type Binary = {
   install: string;
 };
 
+function agentBinary(name: Agent): Binary {
+  return { name, args: AGENTS[name].versionArgs, role: 'agent', install: AGENTS[name].install };
+}
+
 // tmux is required on its own; the agents are required as a group: at least one of them.
 const BINARIES: Binary[] = [
   { name: 'tmux', args: ['-V'], role: 'required', install: TMUX_INSTALL },
-  ...AGENT_NAMES.map((name) => ({
-    name,
-    args: AGENTS[name].versionArgs,
-    role: 'agent' as const,
-    install: AGENTS[name].install,
-  })),
+  ...AGENT_NAMES.map((name) => agentBinary(name)),
 ];
 
 const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) are required`;
@@ -55,6 +54,9 @@ async function probe(run: Runner, b: Binary): Promise<Probe> {
   }[res.reason];
   return { name: b.name, ok: false, hint: `${why}; install with \`${b.install}\`` };
 }
+
+/** One agent's row as doctor shows it: `hint` says why it failed and how to install it. */
+export const checkAgent = (run: Runner, agent: Agent) => probe(run, agentBinary(agent));
 
 async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Probe> {
   const base = { name: 'obsidian' };

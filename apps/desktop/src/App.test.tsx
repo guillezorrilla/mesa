@@ -36,8 +36,15 @@ test('the Projects screen lists the fixture projects, marking one whose path is 
 
   expect(byTestId('projects-screen')).toHaveLength(1);
   const rows = byTestId('project-row');
-  expect(cells(rows[0])).toEqual(['lantern-cove', '/src/lantern-cove', 'claude', '0.5']);
-  expect(cells(rows[1])).toEqual(['tide ✗', '/src/tide', '', '']);
+  expect(cells(rows[0])).toEqual([
+    'lantern-cove',
+    '/src/lantern-cove',
+    'claude',
+    '0.5',
+    'Open session',
+  ]);
+  // A project whose path is gone cannot start a session.
+  expect(cells(rows[1])).toEqual(['tide ✗', '/src/tide', '', '', '']);
   expect(byTestId('project-missing')).toHaveLength(1);
 });
 
@@ -56,6 +63,17 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
   expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault (missing receipts)');
   expect(byTestId('doctor-health')[0]?.textContent).toBe('Doctor: needs attention');
   expect(byTestId('doctor-health')[0]?.style.color).toBe('red');
+});
+
+test('Open session starts a session for the row and says so', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope({ id: 'a1b2c3d4', project: 'lantern-cove' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('open-session')[0]);
+  expect(calls).toContainEqual(['--json', 'open', '--', 'lantern-cove']);
+  expect(byTestId('toast')[0]?.textContent).toContain('Opened session a1b2c3d4 on lantern-cove');
 });
 
 test('Register folder picks a folder, registers it with --create, and refreshes the list', async () => {

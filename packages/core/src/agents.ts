@@ -2,8 +2,18 @@ import { z } from 'zod';
 
 /** The agents Mesa runs and how to probe and install each. Everything agent-specific derives from here. */
 export const AGENTS = {
-  claude: { versionArgs: ['--version'], install: 'brew install --cask claude-code' },
-  codex: { versionArgs: ['--version'], install: 'brew install --cask codex' },
+  claude: {
+    versionArgs: ['--version'],
+    install: 'brew install --cask claude-code',
+    /** The command a Mesa window runs, with the agent session id Mesa chose. */
+    start: (sessionId: string) => `claude --session-id ${sessionId}`,
+  },
+  // v1 runs Claude Code only (ADR-0003 amendment).
+  codex: {
+    versionArgs: ['--version'],
+    install: 'brew install --cask codex',
+    planned: 'codex support is planned in #43',
+  },
 } as const;
 
 export type Agent = keyof typeof AGENTS;
