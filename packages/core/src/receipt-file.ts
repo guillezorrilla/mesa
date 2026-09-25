@@ -7,12 +7,19 @@ export const RECEIPT_FILE = new RegExp(
   `^(\\d{8}T\\d{6}Z)-(${RECEIPT_TYPES.join('|')})-(${ULID_PATTERN})\\.md$`,
 );
 
-/** `receipts/YYYY/MM/<file>`, from the receipt's start time, type, and id. */
+/**
+ * `receipts/YYYY/MM/<file>`, from the receipt's start time (in UTC, whichever form `started` is
+ * written in: a zone-less local time parses as local), its type, and its id.
+ */
 export function receiptPath(r: { started: string; type: string; id: string }): string {
-  const [year, month] = r.started.split('-');
-  const stamp = r.started.replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+  const utc = new Date(r.started).toISOString();
+  const [year, month] = utc.split('-');
+  const stamp = utc.replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
   return `receipts/${year}/${month}/${stamp}-${r.type}-${r.id}.md`;
 }
+
+/** The wikilink a log.md line uses to point at a receipt (docs/receipts.md). */
+export const receiptLink = (path: string) => `[[${path.replace(/\.md$/, '')}|receipt]]`;
 
 /**
  * Newest first by start time, then by id: a ULID starts with its millisecond time, so it orders

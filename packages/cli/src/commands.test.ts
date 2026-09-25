@@ -25,8 +25,13 @@ const mesa = async (...argv: string[]) => {
 };
 
 test('init, then a second init, then a second profile', async () => {
-  expect((await mesa('init', '--vault', 'vault')).stdout).toBe(
-    `initialised profile default at ${home}/.mesa/default/config.yaml\n`,
+  const first = (await mesa('init', '--vault', 'vault')).stdout;
+  expect(first.split('\n')[0]).toBe(
+    `initialised profile default at ${home}/.mesa/default/config.yaml`,
+  );
+  // The receipt is written; its log.md line waits for mesa vault init.
+  expect(first).toContain(
+    `warning: no log line: ${home}/vault/log.md not found; run mesa vault init`,
   );
   expect(readFileSync(join(home, '.mesa/default/config.yaml'), 'utf8')).toContain(
     `vault: ${home}/vault`,
@@ -58,8 +63,8 @@ test('register, projects, unregister', async () => {
   await mesa('init', '--vault', '/tmp/v');
   mkdirSync(join(home, 'lantern-cove'));
   expect((await mesa('register', 'lantern-cove')).code).toBe(3);
-  expect((await mesa('register', 'lantern-cove', '--create')).stdout).toBe(
-    `registered lantern-cove at ${home}/lantern-cove (wrote mesa.yaml)\n`,
+  expect((await mesa('register', 'lantern-cove', '--create')).stdout.split('\n')[0]).toBe(
+    `registered lantern-cove at ${home}/lantern-cove (wrote mesa.yaml)`,
   );
   expect((await mesa('register', 'lantern-cove')).code).toBe(4);
   const { json } = await mesa('projects', '--json');
@@ -106,8 +111,11 @@ test('vault init lays out the vault once; vault status finds what is missing', a
   expect((await mesa('vault', 'init')).stdout).toBe(
     `created log.md, AGENTS.md, index.md, raw, wiki, projects, daily in ${home}/vault\n`,
   );
-  expect(readFileSync(join(home, 'vault/log.md'), 'utf8')).toBe(
-    '- 2026-09-24T12:00:00.000Z vault initialised by mesa\n',
+  const log = readFileSync(join(home, 'vault/log.md'), 'utf8').split('\n');
+  expect(log[0]).toBe('- 2026-09-24T12:00:00.000Z vault initialised by mesa');
+  // vault init's own receipt, linked from the log.
+  expect(log[1]).toMatch(
+    /^- 2026-09-24T12:00:00\.000Z Laid out the vault: .* \[\[receipts\/2026\/09\/20260924T120000Z-action-01TEST\d+\|receipt\]\]$/,
   );
   expect((await mesa('vault', 'init')).stdout).toBe('vault already initialised\n');
   expect((await mesa('vault', 'status', '--json')).json.data).toEqual({
