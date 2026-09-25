@@ -1,3 +1,4 @@
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Clock } from './clock.js';
 import { redactConfig, resolveKey, setConfigValue } from './config.js';
@@ -6,7 +7,7 @@ import { hooksStatus, installHooks, uninstallHooks } from './hooks.js';
 import type { IdSource } from './ids.js';
 import { logLine } from './notes.js';
 import { type ObsidianPaths, openInObsidian } from './obsidian.js';
-import { profilePaths } from './paths.js';
+import { profilePaths, profilesDir } from './paths.js';
 import type { Env, Runner } from './process.js';
 import { initProfile, openProfile, type ProfileInfo } from './profile.js';
 import { listProjects, registerProject, unregisterProject } from './projects.js';
@@ -20,7 +21,9 @@ import {
   redactText,
   showReceipt,
 } from './receipts.js';
+import { readRegistry } from './registry.js';
 import { MesaError, toFail } from './result.js';
+import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession } from './sessions/attach.js';
 import { recordHookEvent } from './sessions/events.js';
 import { listSessions } from './sessions/list.js';
@@ -89,6 +92,31 @@ export function createMesa(profile: string, deps: MesaDeps) {
       const why = `session ${ended.id}'s receipt not marked ended: ${toFail(error).error.message}`;
       return { ...recorded, warning: [recorded.warning, why].filter(Boolean).join('; ') };
     }
+  };
+  /**
+   * The agent session ids this home's other profiles' records hold, so their sessions are not
+   * foreign on this board. A profile whose records do not read counts as none.
+   */
+  // ponytail: by agent session id only; another profile's session after a /clear still lists
+  // here as foreign. Ask each profile's tmux for its pane pids if that shows.
+  const otherProfilesSessions = () => {
+    const root = profilesDir(deps.home);
+    if (!existsSync(root)) return new Set<string>();
+    const others = readdirSync(root, { withFileTypes: true }).filter(
+      (e) => e.isDirectory() && e.name !== profile,
+    );
+    return new Set(
+      others.flatMap((e) => {
+        const dir = profilePaths(deps.home, e.name).sessions;
+        try {
+          return sessionStore({ dir, newId: deps.newId })
+            .list()
+            .flatMap((r) => (r.agentSessionId ? [r.agentSessionId] : []));
+        } catch {
+          return [];
+        }
+      }),
+    );
   };
   const openDeps = () => ({
     profile: open(),
@@ -180,8 +208,19 @@ export function createMesa(profile: string, deps: MesaDeps) {
       show: (id: string) => showReceipt(vaultOf(), id),
     },
     sessions: {
-      /** The board: sessions merged with live tmux; ended ones only with `all`. */
-      list: (all = false) => listSessions({ store, tmux, clock: deps.clock }, { all }),
+      /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
+      list: (all = false) =>
+        listSessions(
+          {
+            store,
+            tmux,
+            listing: () => listAgentProcesses(deps.run),
+            projects: readRegistry(paths.registry),
+            elsewhere: otherProfilesSessions,
+            clock: deps.clock,
+          },
+          { all },
+        ),
       /** Starts `agent` (else the project's, else the profile's) in a new window. */
       open: (project: string, agent?: string) =>
         record(

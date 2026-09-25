@@ -3,7 +3,8 @@ import { columns, duration } from '../format.js';
 
 export const sessions = defineCommand({
   name: 'sessions',
-  summary: 'List the sessions of this profile, oldest first, with live tmux state',
+  summary:
+    'List the sessions of this profile, oldest first, with live tmux state, then agent sessions Mesa did not start',
   flags: { all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' } },
   run: async ({ mesa, flags }) => {
     const rows = await mesa.sessions.list(flags.all ?? false);
@@ -11,10 +12,11 @@ export const sessions = defineCommand({
       ? columns(
           rows.map((s) => [
             s.id,
-            s.project,
+            s.project ?? '-',
             s.agent,
             s.lastState.state,
             duration(s.runningSeconds),
+            s.managed ? '' : 'not managed by mesa',
           ]),
         ).join('\n')
       : 'no sessions; run mesa open <project>';

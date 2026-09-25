@@ -316,6 +316,80 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   );
 });
 
+test('sessions shows agent sessions Mesa did not start; stop, send, resume refuse them', async () => {
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  // A claude started in a plain terminal in the project, as `claude agents --json` lists it.
+  const listing = [
+    {
+      pid: 4242,
+      cwd: join(home, 'src/lantern-cove'),
+      kind: 'interactive',
+      startedAt: Date.parse('2026-09-24T11:58:00.000Z'),
+      sessionId: '00000000-0000-4000-8000-00000000000e',
+      name: 'lantern-cove-12',
+      status: 'idle',
+    },
+  ];
+  run = scriptedRunner({ claude: JSON.stringify(listing) }).run;
+  expect((await mesa('sessions')).stdout).toBe(
+    'ext-4242  lantern-cove  claude  idle  2m00s  not managed by mesa\n',
+  );
+  expect((await mesa('sessions', '--json')).json.data).toEqual([
+    {
+      id: 'ext-4242',
+      managed: false,
+      agent: 'claude',
+      pid: 4242,
+      cwd: join(home, 'src/lantern-cove'),
+      agentSessionId: '00000000-0000-4000-8000-00000000000e',
+      startedAt: '2026-09-24T11:58:00.000Z',
+      project: 'lantern-cove',
+      alive: true,
+      agentStatus: 'idle',
+      lastState: {
+        state: 'idle',
+        confidence: 0.85,
+        at: '2026-09-24T12:00:00.000Z',
+        source: 'listing',
+      },
+      runningSeconds: 120,
+    },
+  ]);
+  for (const argv of [
+    ['stop', 'ext-4242'],
+    ['send', 'ext-4242', 'hi'],
+    ['resume', 'ext-4242'],
+    ['attach', 'ext-4242'],
+  ]) {
+    expect(await mesa(...argv), argv[0]).toMatchObject({
+      code: 3,
+      stderr: 'ext-4242: session not managed by mesa\n',
+    });
+  }
+  const { json } = await mesa('stop', 'ext-4242', '--json');
+  expect(json.error).toEqual({
+    code: 'not_found',
+    message: 'ext-4242: session not managed by mesa',
+  });
+
+  // Another profile's session is that board's, not a foreign one here.
+  const work = join(home, '.mesa/work/sessions');
+  mkdirSync(work, { recursive: true });
+  const theirs = { id: 'wwwwwwww', ...newSession(), events: [] };
+  writeFileSync(
+    join(work, 'wwwwwwww.json'),
+    JSON.stringify({ ...theirs, agentSessionId: '00000000-0000-4000-8000-00000000000e' }),
+  );
+  expect((await mesa('sessions', '--json')).json.data).toEqual([]);
+  rmSync(join(work, 'wwwwwwww.json'));
+
+  // The process exits: the listing no longer names it, and its row is gone.
+  run = scriptedRunner({ claude: '[]' }).run;
+  expect((await mesa('sessions')).stdout).toBe('no sessions; run mesa open <project>\n');
+});
+
 test('open prints the session id, --json the record, and --attach hands back the attach argv', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('vault', 'init');

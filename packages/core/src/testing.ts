@@ -62,6 +62,29 @@ export function scriptedRunner(
   return { run, calls };
 }
 
+/**
+ * SP-1's recorded `claude agents --json` rows (docs/spikes/state-signals.md, from a throwaway
+ * spike project): one conversation idle, waiting on a permission prompt, waiting on a question,
+ * then resumed under a new pid with the same session id.
+ */
+export const SPIKE_LISTING = (() => {
+  const row = {
+    pid: 67213,
+    cwd: '/private/var/folders/XX/XXXXXXXX/T/mesa-spike.proj',
+    kind: 'interactive',
+    startedAt: 1790276764032,
+    sessionId: '36c173f2-803e-4845-bd97-a032b37c6d6d',
+    name: 'mesa-spike-proj-55',
+    status: 'idle',
+  };
+  return {
+    idle: row,
+    permission: { ...row, status: 'waiting', waitingFor: 'permission prompt' },
+    question: { ...row, status: 'waiting', waitingFor: 'input needed' },
+    resumed: { ...row, pid: 75186, startedAt: 1790276958673, name: 'mesa-spike-proj-36' },
+  };
+})();
+
 /** One window of `fakeTmux`: tests may mark it exited (`dead`) or read what was typed into it. */
 export type FakeWindow = {
   project: string;
