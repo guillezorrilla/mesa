@@ -1,7 +1,16 @@
 import { basename } from 'node:path';
 import type { Clock } from '../clock.js';
+import type { FaroProfile } from '../decisions/decide.js';
+import {
+  classifySession,
+  hookState,
+  type Placement,
+  type SessionSignals,
+} from '../decisions/session-state.js';
+import type { DecisionRecorder } from '../decisions/types.js';
 import type { RegistryEntry } from '../registry.js';
 import { type AgentProcess, listedState } from './agent-listing.js';
+import type { HookEvent } from './events.js';
 import {
   FINAL_STATES,
   foreignId,
@@ -12,31 +21,33 @@ import {
 import { type TmuxBackend, targetLabel } from './tmux.js';
 
 /**
- * One board row for a Mesa session: the record, whether it is alive (its tmux window exists, a
- * pane whose agent exited still does, or the agent listing names it), and how long it has run.
+ * One board row for a Mesa session: the record with the state and attention Faro gives it now
+ * (`decision` holds the probabilities), whether it is alive (its tmux window exists, a pane
+ * whose agent exited still does, or the agent listing names it), and how long it has run.
  */
-export type ManagedRow = SessionRecord & {
-  managed: true;
-  alive: boolean;
-  runningSeconds: number;
-  /** The agent listing's status (`idle`, `busy`, `waiting`), while it lists the session. */
-  agentStatus?: string;
-};
+export type ManagedRow = SessionRecord &
+  Placement & {
+    managed: true;
+    alive: boolean;
+    runningSeconds: number;
+    /** The agent listing's status (`idle`, `busy`, `waiting`), while it lists the session. */
+    agentStatus?: string;
+  };
 
 /**
  * A live agent session Mesa did not start, read-only: shown on the board, never acted on
- * (ADR-0003). `project` is the registered project it runs in, if any; `lastState` is the
- * listing's own reading of it.
+ * (ADR-0003). `project` is the registered project it runs in, if any; Faro reads its state from
+ * the listing alone.
  */
-export type ForeignRow = Omit<AgentProcess, 'status' | 'waitingFor'> & {
-  id: ReturnType<typeof foreignId>;
-  managed: false;
-  project: string | null;
-  alive: true;
-  agentStatus: string;
-  lastState: SessionRecord['lastState'];
-  runningSeconds: number;
-};
+export type ForeignRow = Omit<AgentProcess, 'status' | 'waitingFor'> &
+  Placement & {
+    id: ReturnType<typeof foreignId>;
+    managed: false;
+    project: string | null;
+    alive: true;
+    agentStatus: string;
+    runningSeconds: number;
+  };
 
 export type SessionRow = ManagedRow | ForeignRow;
 
@@ -61,14 +72,22 @@ const secondsBetween = (from: string, until: number) =>
  * stopped within a day, or every one with `all`, then the listed sessions none of them runs, as
  * foreign rows (sessions of this home's other profiles are left out). A listed process is the
  * session whose window it runs in (its pid is the pane's), else the newest session not stopped
- * that holds its agent session id. A session that has not ended but is not alive is marked
- * `done` from tmux, and that is saved.
+ * that holds its agent session id. Faro classifies every row from its latest hook event, its
+ * listing, its window, and (only when neither of the first two speaks) its tail; a new state is
+ * saved to the record. Highest attention first.
  */
 export async function listSessions(
   deps: {
     store: SessionStore;
-    tmux: Pick<TmuxBackend, 'listWindows'>;
+    tmux: Pick<TmuxBackend, 'listWindows' | 'capturePane'>;
     listing: () => Promise<AgentProcess[]>;
+    /** The session's hook events, oldest first. */
+    events: (id: string) => HookEvent[];
+    /** A project's priority from its mesa.yaml (0.5 when unknown). */
+    priorityOf: (project: string | null) => number;
+    faro: FaroProfile;
+    /** Where each row's Decision goes; receipts implement it in P3. */
+    recorder?: DecisionRecorder;
     projects: readonly RegistryEntry[];
     /** Agent session ids that other profiles' records hold: not foreign, not this board's. */
     elsewhere: () => ReadonlySet<string>;
@@ -85,7 +104,6 @@ export async function listSessions(
     deps.listing(),
     records.length ? deps.tmux.listWindows() : [],
   ]);
-  const windows = new Set(windowList.map(targetLabel));
   // A stopped session runs nowhere, so only open ones can be a listed process. By pid first: a
   // /clear gives the agent a new session id in the same window. A resumed conversation keeps
   // its id, so the newest open record holding it wins.
@@ -102,45 +120,90 @@ export async function listSessions(
       return id ? [[id, p] as const] : [];
     }),
   );
-  const managed = records.map((found): ManagedRow => {
-    const listedAs = byRecord.get(found.id);
-    const alive = windows.has(targetLabel(windowOf(found))) || listedAs !== undefined;
-    const gone = !alive && !found.endedAt && !FINAL_STATES.has(found.lastState.state);
-    const record = gone
-      ? deps.store.update(found.id, {
-          // ponytail: #18's rule, set here; Faro's rules backend (#25) takes state over. 0.85 as for
-          // pane_dead (ADR-0003 amendment): the window being gone is a process fact.
-          lastState: { state: 'done', confidence: 0.85, at: now.toISOString(), source: 'tmux' },
-        })
-      : found;
-    // An ended session stops the clock when it ended, or when it was seen to.
-    const end =
-      record.endedAt ??
-      (FINAL_STATES.has(record.lastState.state) ? record.lastState.at : undefined);
-    return {
-      ...record,
-      managed: true,
-      alive,
-      runningSeconds: secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime()),
-      ...(listedAs ? { agentStatus: listedAs.status } : {}),
-    };
-  });
+  const byLabel = new Map(windowList.map((w) => [targetLabel(w), w]));
+  const faro = { profile: deps.faro, clock: deps.clock, recorder: deps.recorder };
+  const managed = await Promise.all(
+    records.map(async (found): Promise<ManagedRow> => {
+      const listedAs = byRecord.get(found.id);
+      const window = byLabel.get(targetLabel(windowOf(found)));
+      // A stopped session keeps its state, so its hook log is not read.
+      const event = found.endedAt
+        ? undefined
+        : deps
+            .events(found.id)
+            .filter((e) => hookState(e.event, e.payload))
+            .at(-1);
+      const signals: SessionSignals = {
+        now: now.toISOString(),
+        agent: found.agent,
+        last: found.lastState,
+        ended: Boolean(found.endedAt),
+        ...(event ? { event } : {}),
+        ...(listedAs ? { listed: listedAs } : {}),
+        window: window
+          ? {
+              exists: true,
+              dead: window.dead,
+              deadStatus: window.deadStatus,
+              deadSignal: window.deadSignal,
+            }
+          : { exists: false, dead: false },
+        priority: deps.priorityOf(found.project),
+      };
+      // The tail is the last resort (ADR-0003): read only when no hook or listing speaks.
+      if (!event && !listedAs && window && !window.dead && !found.endedAt) {
+        signals.tail = await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined);
+      }
+      const classified = await classifySession(faro, signals);
+      const { state, source } = found.lastState;
+      const changed =
+        classified.lastState.state !== state || classified.lastState.source !== source;
+      const record = changed
+        ? deps.store.update(found.id, { lastState: classified.lastState })
+        : found;
+      // An ended session stops the clock when it ended, or when it was seen to.
+      const end =
+        record.endedAt ??
+        (FINAL_STATES.has(classified.lastState.state) ? classified.lastState.at : undefined);
+      return {
+        ...record,
+        ...classified,
+        managed: true,
+        alive: window !== undefined || listedAs !== undefined,
+        runningSeconds: secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime()),
+        ...(listedAs ? { agentStatus: listedAs.status } : {}),
+      };
+    }),
+  );
   const elsewhere = deps.elsewhere();
   const foreign = listed
     .filter((p) => !runs(p) && !elsewhere.has(p.agentSessionId))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-    .map((process): ForeignRow => {
+    .map(async (process): Promise<ForeignRow> => {
       const { status, waitingFor: _, ...p } = process;
+      const project = projectOf(p.cwd, deps.projects);
+      // ponytail: no record, so each look starts its state now and a foreign wait never climbs;
+      // keep a first-seen time per pid if foreign sessions need to rank by how long they wait.
+      const last = { ...listedState(process), at: now.toISOString(), source: 'listing' as const };
+      const classified = await classifySession(faro, {
+        now: now.toISOString(),
+        agent: p.agent,
+        last,
+        ended: false,
+        listed: process,
+        priority: deps.priorityOf(project),
+      });
       return {
         ...p,
+        ...classified,
         id: foreignId(p.pid),
         managed: false,
-        project: projectOf(p.cwd, deps.projects),
+        project,
         alive: true,
         agentStatus: status,
-        lastState: { ...listedState(process), at: now.toISOString(), source: 'listing' },
         runningSeconds: secondsBetween(p.startedAt, now.getTime()),
       };
     });
-  return [...managed, ...foreign];
+  const rows: SessionRow[] = [...managed, ...(await Promise.all(foreign))];
+  return rows.sort((a, b) => b.attention - a.attention || a.startedAt.localeCompare(b.startedAt));
 }

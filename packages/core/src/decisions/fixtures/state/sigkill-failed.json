@@ -1,0 +1,32 @@
+{
+  "note": "Run 1 at 213.9 s: SIGKILL of the claude pid, no SessionEnd; tmux names the signal",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "idle",
+      "confidence": 0.6,
+      "at": "2026-09-24T11:50:00.000Z",
+      "source": "mesa"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": true,
+      "deadSignal": "kill"
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:52.000Z",
+      "event": "Stop",
+      "payload": {
+        "hook_event_name": "Stop"
+      }
+    }
+  },
+  "expected": {
+    "state": "failed",
+    "confidence": 0.85,
+    "source": "tmux"
+  }
+}

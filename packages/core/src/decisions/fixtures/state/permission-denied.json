@@ -1,0 +1,35 @@
+{
+  "note": "Run 2 at 31.6 s: Esc on the prompt fires no hook; the listing reads idle",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "waiting-permission",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:20.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:20.000Z",
+      "event": "PermissionRequest",
+      "payload": {
+        "hook_event_name": "PermissionRequest",
+        "tool_name": "Bash"
+      }
+    },
+    "listed": {
+      "status": "idle"
+    }
+  },
+  "expected": {
+    "state": "idle",
+    "confidence": 0.85,
+    "source": "listing"
+  }
+}

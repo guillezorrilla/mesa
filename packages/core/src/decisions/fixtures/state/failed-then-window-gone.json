@@ -1,0 +1,25 @@
+{
+  "note": "A crashed session whose window later vanished (tmux restarted) stays failed (review finding)",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "failed",
+      "confidence": 0.85,
+      "at": "2026-09-24T11:50:00.000Z",
+      "source": "tmux"
+    },
+    "ended": false,
+    "window": {
+      "exists": false,
+      "dead": false
+    },
+    "priority": 0.5
+  },
+  "expected": {
+    "state": "failed",
+    "confidence": 0.85,
+    "source": "tmux",
+    "at": "2026-09-24T11:50:00.000Z"
+  }
+}

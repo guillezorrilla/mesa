@@ -1,0 +1,33 @@
+{
+  "note": "Run 1 at 161.8 s: /exit fires SessionEnd; the row leaves the listing and the pane is dead with status 0",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "idle",
+      "confidence": 0.6,
+      "at": "2026-09-24T11:50:00.000Z",
+      "source": "mesa"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": true,
+      "deadStatus": 0
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:58.000Z",
+      "event": "SessionEnd",
+      "payload": {
+        "hook_event_name": "SessionEnd",
+        "reason": "prompt_input_exit"
+      }
+    }
+  },
+  "expected": {
+    "state": "done",
+    "confidence": 0.95,
+    "source": "hook"
+  }
+}

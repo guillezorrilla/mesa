@@ -1,0 +1,36 @@
+{
+  "note": "Run 1 at 68.1 s: PreToolUse (AskUserQuestion), the listing waiting on input",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:59.000Z",
+      "event": "PreToolUse",
+      "payload": {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "AskUserQuestion"
+      }
+    },
+    "listed": {
+      "status": "waiting",
+      "waitingFor": "input needed"
+    }
+  },
+  "expected": {
+    "state": "waiting-question",
+    "confidence": 0.95,
+    "source": "hook"
+  }
+}

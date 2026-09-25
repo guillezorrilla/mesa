@@ -361,9 +361,10 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   expect(json.data[1].lastState).toMatchObject({ state: 'done', source: 'tmux' });
   expect((await mesa('sessions', '--all')).stdout).toBe(
     [
-      'bbbbbbbb  tide          claude  working  10m00s',
-      'aaaaaaaa  lantern-cove  claude  working  1h00m',
-      'cccccccc  harbor        claude  done     42s',
+      // By attention: the live one (its screen reads idle, 60%), the vanished one, the stopped one.
+      'aaaaaaaa  lantern-cove  claude  idle     60%  0.33  1h00m',
+      'cccccccc  harbor        claude  done     85%  0.25  42s',
+      'bbbbbbbb  tide          claude  working  95%  0.00  10m00s',
       '',
     ].join('\n'),
   );
@@ -387,10 +388,20 @@ test('sessions shows agent sessions Mesa did not start; stop, send, resume refus
   ];
   run = scriptedRunner({ claude: JSON.stringify(listing) }).run;
   expect((await mesa('sessions')).stdout).toBe(
-    'ext-4242  lantern-cove  claude  idle  2m00s  not managed by mesa\n',
+    'ext-4242  lantern-cove  claude  idle  85%  0.33  2m00s  not managed by mesa\n',
   );
-  expect((await mesa('sessions', '--json')).json.data).toEqual([
+  // --json carries the Decision behind each row, with its probabilities.
+  expect((await mesa('sessions', '--json')).json.data).toMatchObject([
     {
+      attention: expect.closeTo(1 / 3, 6),
+      decision: {
+        backend: 'rules',
+        answers: [
+          { id: 'state', answer: 'idle', probabilities: { idle: expect.closeTo(0.85, 6) } },
+          { id: 'attention', probabilities: { low: expect.closeTo(2 / 3, 6) } },
+          { id: 'human', answer: false, probabilities: expect.closeTo(0.06, 6) },
+        ],
+      },
       id: 'ext-4242',
       managed: false,
       agent: 'claude',

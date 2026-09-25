@@ -20,6 +20,9 @@ export type TmuxWindow = WindowTarget & {
   activity: string;
   /** The process exited; `remain-on-exit` keeps the pane and its output. */
   dead: boolean;
+  /** How it exited, once dead: its exit status, or the signal that killed it (`kill`). */
+  deadStatus?: number;
+  deadSignal?: string;
 };
 
 export type WindowSpec = WindowTarget & {
@@ -40,6 +43,8 @@ const FORMAT = [
   'pane_current_path',
   'window_activity',
   'pane_dead',
+  'pane_dead_status',
+  'pane_dead_signal',
 ]
   .map((f) => `#{${f}}`)
   .join('\t');
@@ -74,8 +79,11 @@ export const targetLabel = ({ project, window }: WindowTarget) => `${project}:${
 const label = targetLabel;
 
 function parseWindow(line: string): TmuxWindow {
-  const [project = '', index, window = '', pid, command = '', path = '', activity, dead] =
+  const [project = '', index, window = '', pid, command = '', path = '', activity, dead, st, sig] =
     line.split('\t');
+  // Empty while the pane lives; once dead, tmux prints the status or the signal's name.
+  const status = st && /^\d+$/.test(st) ? Number(st) : undefined;
+  const signal = sig || undefined;
   return {
     project,
     window,
@@ -85,6 +93,8 @@ function parseWindow(line: string): TmuxWindow {
     path,
     activity: new Date(Number(activity) * 1000).toISOString(),
     dead: dead === '1',
+    ...(status === undefined ? {} : { deadStatus: status }),
+    ...(signal === undefined ? {} : { deadSignal: signal }),
   };
 }
 

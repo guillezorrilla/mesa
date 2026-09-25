@@ -58,9 +58,16 @@ function checked(questions: Question[], raw: unknown): Answer[] {
   return answers;
 }
 
-/** How sure an answer is: its confidence, or for a Noul how far its probability leans. */
+/**
+ * How sure an answer is: a Choice's confidence, or how far a Noul leans. A Score's spread over
+ * its levels is its answer (a position between them), not doubt, so it never counts as unsure.
+ */
 const certainty = (a: Answer) =>
-  a.kind === 'Noul' ? Math.max(a.probabilities, 1 - a.probabilities) : a.confidence;
+  a.kind === 'Noul'
+    ? Math.max(a.probabilities, 1 - a.probabilities)
+    : a.kind === 'Choice'
+      ? a.confidence
+      : 1;
 
 async function attempt<S>(backend: Backend<S>, state: S, questions: Question[]) {
   try {
