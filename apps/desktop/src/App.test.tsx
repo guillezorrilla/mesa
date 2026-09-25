@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Check, DoctorReport, ProjectRow, TmuxWindow } from '@mesa/core';
+import type { Check, DoctorReport, ProjectRow, SessionRow, TmuxWindow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { App } from './App';
 import { click, envelope, failure, fakeBridge, fakePlatform, renderWithMesa } from './lib/testing';
@@ -102,6 +102,46 @@ test('the Doctor screen shares the header run; Recheck runs doctor again', async
   expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.2');
   expect(calls.filter((c) => c[1] === 'doctor')).toHaveLength(2);
   expect(calls.filter((c) => c[1] === 'windows')).toHaveLength(2);
+});
+
+test('the Sessions screen lists each session with its state and running time', async () => {
+  const row = (
+    id: string,
+    state: SessionRow['lastState']['state'],
+    runningSeconds: number,
+  ): SessionRow => ({
+    id,
+    kind: 'interactive',
+    project: 'lantern-cove',
+    agent: 'claude',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${id.slice(0, 6)}` },
+    startedAt: '2026-09-25T12:00:00.000Z',
+    lastState: { state, confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
+    events: [],
+    alive: state !== 'done',
+    runningSeconds,
+  });
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([row('aaaaaaaa', 'working', 42), row('bbbbbbbb', 'done', 7500)]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-sessions')[0]);
+  expect(byTestId('session-row').map(cells)).toEqual([
+    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s'],
+    ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m'],
+  ]);
+  expect(byTestId('session-row')[1]?.dataset.alive).toBe('false');
+  await click(byTestId('sessions-refresh')[0]);
+  await click(byTestId('sessions-ended')[0]);
+  expect(calls.filter((c) => c[1] === 'sessions')).toEqual([
+    ['--json', 'sessions'],
+    ['--json', 'sessions'],
+    ['--json', 'sessions', '--all'],
+  ]);
+
+  const empty = await renderWithMesa(<App />, fakeBridge().bridge);
+  await click(empty('nav-sessions')[0]);
+  expect(empty('sessions-empty')).toHaveLength(1);
 });
 
 test('the Doctor screen lists the windows on the Mesa tmux server', async () => {

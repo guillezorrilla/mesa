@@ -7,6 +7,7 @@ import type {
   ProjectRow,
   ReceiptEntry,
   Result,
+  SessionRow,
   TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
@@ -37,6 +38,8 @@ export const COMMANDS = {
     ({ path }) => ['register', '--create', '--', path],
   ),
   'receipts.list': command<ReceiptEntry[]>('receipts'),
+  'sessions.list': command<SessionRow[]>('sessions'),
+  'sessions.all': command<SessionRow[]>('sessions', '--all'),
   'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),
   'windows.list': command<TmuxWindow[]>('windows'),

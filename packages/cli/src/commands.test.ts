@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '@mesa/core';
-import { scriptedRunner, sequentialIds, tempDir, testDeps } from '@mesa/core/testing';
+import { newSession, scriptedRunner, sequentialIds, tempDir, testDeps } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { runCli, VERSION } from './cli.js';
 import { COMMANDS } from './commands/index.js';
@@ -253,6 +253,45 @@ test('vault open: the URI by default, --json, and its errors', async () => {
     `obsidian://open?vault=vault&file=${encodeURIComponent(daily)}`,
   );
   expect((await mesa('vault', 'open', 'wiki/missing.md')).code).toBe(3);
+});
+
+test('sessions lists the records with live tmux; a fresh profile is empty', async () => {
+  await mesa('init', '--vault', 'vault');
+  expect((await mesa('sessions', '--json')).json).toEqual({ ok: true, data: [] });
+  expect((await mesa('sessions')).stdout).toBe('no sessions; run mesa open <project>\n');
+
+  const record = (id: string, project: string, startedAt: string, extra = {}) => ({
+    id,
+    ...newSession({ project, startedAt, ...extra }),
+    tmux: { socket: 'mesa-default', session: project, window: `claude-${id.slice(0, 6)}` },
+    events: [],
+  });
+  const dir = join(home, '.mesa/default/sessions');
+  const save = (r: { id: string }) => writeFileSync(join(dir, `${r.id}.json`), JSON.stringify(r));
+  save(record('aaaaaaaa', 'lantern-cove', '2026-09-24T11:00:00.000Z'));
+  save(
+    record('bbbbbbbb', 'tide', '2026-09-24T10:00:00.000Z', { endedAt: '2026-09-24T10:10:00.000Z' }),
+  );
+  save(record('cccccccc', 'harbor', '2026-09-24T11:59:18.000Z'));
+  // tmux still has lantern-cove's window; harbor's is gone.
+  run = scriptedRunner({
+    tmux: 'lantern-cove\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern-cove\t1790359178\t0\n',
+  }).run;
+
+  const { json } = await mesa('sessions', '--json');
+  expect(json.data.map((s: { id: string; alive: boolean }) => [s.id, s.alive])).toEqual([
+    ['aaaaaaaa', true],
+    ['cccccccc', false],
+  ]);
+  expect(json.data[1].lastState).toMatchObject({ state: 'done', source: 'tmux' });
+  expect((await mesa('sessions', '--all')).stdout).toBe(
+    [
+      'bbbbbbbb  tide          claude  working  10m00s',
+      'aaaaaaaa  lantern-cove  claude  working  1h00m',
+      'cccccccc  harbor        claude  done     42s',
+      '',
+    ].join('\n'),
+  );
 });
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {

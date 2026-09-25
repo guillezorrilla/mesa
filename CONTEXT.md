@@ -29,8 +29,8 @@ Not: model, assistant, bot.
 
 ## Session
 
-One agent process for one project, running or resumable. Fields: Mesa session id, agent, project, agent session id (Claude Code session UUID or Codex thread id), start time, last state, last output tail. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`.
-Not: task, run, job, thread (thread is Codex's word for its own id).
+One agent process for one project, running or resumable. Fields: Mesa session id (8 lowercase characters, typed in `mesa stop <id>`), `kind` (`interactive` or `run`), agent, project, agent session id (Claude Code session UUID or Codex thread id), its tmux socket, session, and window, start time, end time once stopped, last state with its confidence and source, last output tail, and `resumedFrom`/`resumedBy` links. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`. `mesa sessions` lists them oldest first with `alive` (the window exists); `--all` adds ended ones. A session has ended when it was stopped (`mesa stop`, which sets `endedAt`); one whose window vanished (a crash, a reboot) is marked `done` from tmux but has not ended, so it stays on the board to resume. `kind: run` is a headless run (`claude -p`), still a session.
+Not: task, job, run (`kind: run` qualifies a session, it is not another name for one), thread (thread is Codex's word for its own id).
 
 ## Window
 

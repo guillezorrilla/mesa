@@ -20,5 +20,6 @@ export {
 } from './receipts.js';
 export type { RegistryEntry } from './registry.js';
 export * from './result.js';
+export type { SessionRow } from './sessions/list.js';
 export type { TmuxWindow } from './sessions/tmux.js';
 export type { VaultStatus } from './vault.js';

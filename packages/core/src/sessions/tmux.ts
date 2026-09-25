@@ -173,3 +173,5 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       (await tmux(['list-panes', '-t', exact(target), '-F', '#{pane_id}'])).ok,
   };
 }
+
+export type TmuxBackend = ReturnType<typeof tmuxBackend>;
