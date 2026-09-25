@@ -67,6 +67,9 @@ export function ending(r: SessionRecord, at: string): Pick<SessionRecord, 'ended
   };
 }
 
+/** A session with no live window: nothing to attach to or type into, only to resume. */
+export const sessionEnded = () => new MesaError('not_found', 'session ended; use mesa resume');
+
 /** The session's window on the profile's tmux server. */
 export const windowOf = (r: SessionRecord): WindowTarget => ({
   project: r.tmux.session,

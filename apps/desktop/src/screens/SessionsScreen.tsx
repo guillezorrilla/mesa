@@ -33,6 +33,14 @@ export function SessionsScreen() {
       const attached = await run('sessions.attach', { id });
       return attached && `Opened ${attached.target} in ${attached.app}`;
     });
+  const send = (id: string, form: HTMLFormElement) =>
+    act(async () => {
+      const prompt = String(new FormData(form).get('prompt') ?? '');
+      const sent = await run('sessions.send', { id, prompt });
+      if (!sent) return undefined;
+      form.reset();
+      return `Sent ${sent.chars} characters to ${id}`;
+    });
   const stop = (id: string) =>
     act(async () => {
       const stopped = await run('sessions.stop', { id });
@@ -88,6 +96,22 @@ export function SessionsScreen() {
               <td>
                 {s.alive ? (
                   <>
+                    <form
+                      data-testid="session-send"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        send(s.id, e.currentTarget);
+                      }}
+                    >
+                      <input
+                        name="prompt"
+                        data-testid="session-prompt"
+                        aria-label={`Prompt for ${s.id}`}
+                      />
+                      <button type="submit" data-testid="session-send-submit" disabled={acting}>
+                        Send
+                      </button>
+                    </form>
                     <button
                       type="button"
                       data-testid="session-terminal"

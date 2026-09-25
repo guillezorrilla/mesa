@@ -9,6 +9,7 @@ import { profile } from './profile.js';
 import { projects, register, unregister } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { resume } from './resume.js';
+import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { stop } from './stop.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
@@ -29,6 +30,7 @@ export const COMMANDS: Command[] = [
   receiptsShow,
   register,
   resume,
+  send,
   sessions,
   stop,
   unregister,
