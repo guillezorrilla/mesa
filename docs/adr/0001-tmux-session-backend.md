@@ -59,3 +59,7 @@ Evidence: docs/spikes/session-ids.md (`mesa resume` reopens `claude-<shortid>` w
 ## Amendment 2026-09-25: stop is polite first
 
 Issue #20: `mesa stop` presses Escape, waits 300 ms, types the agent's quit command (`/exit`, then Enter), and waits up to 5 s for the pane to die or the window to vanish before `kill-window`; `--force` goes straight to `kill-window`. Escape comes first so a pending permission prompt is dismissed (a denial) and never answered by the Enter; the pause keeps a TUI from reading Escape and `/` as one Alt key. Checked live against Claude Code 2.1.282 at its prompt: it quit within a second.
+
+## Amendment 2026-09-25: ignore-size does not stop size fights (#8)
+
+SP-3 measured it: an `-f ignore-size` client is skipped only while a client without the flag is attached. When the app and `mesa attach` both carry the flag, tmux sizes the window to the latest client, as `window-size latest` does. So the app sizes the window explicitly after each fit, with `resize-window`, then unsets `window-size`. The last view resized wins, and that is the one in use. `mesa attach` keeps the flag, so a terminal the user leaves open never shrinks the app's view on its own.
