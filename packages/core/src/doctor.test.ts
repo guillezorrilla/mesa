@@ -1,7 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
-import { CHECK_TIMEOUT_MS, type Check, type ObsidianPaths, runDoctor } from './doctor.js';
+import { CHECK_TIMEOUT_MS, type Check, runDoctor } from './doctor.js';
+import type { ObsidianPaths } from './obsidian.js';
 import { scriptedRunner, tempDir, testDeps } from './testing.js';
 
 const VERSIONS = {

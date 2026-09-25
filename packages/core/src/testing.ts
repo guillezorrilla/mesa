@@ -31,16 +31,20 @@ export function steppingClock(iso = '2026-09-24T12:00:00.000Z', stepMs = 1000): 
   };
 }
 
-/** Answers from `outputs` by binary name; names in `missing` are ENOENT, names in `slow` time out. */
+/**
+ * Answers from `outputs` by binary name; names in `missing` are ENOENT, names in `slow` time out,
+ * names in `failing` exit non-zero. Every call is recorded.
+ */
 export function scriptedRunner(
   outputs: Record<string, string> = {},
-  opts: { missing?: string[]; slow?: string[] } = {},
+  opts: { missing?: string[]; slow?: string[]; failing?: string[] } = {},
 ) {
   const calls: { file: string; args: string[]; timeoutMs: number }[] = [];
   const run: Runner = async (file, args, timeoutMs) => {
     calls.push({ file, args, timeoutMs });
     if (opts.missing?.includes(file)) return { ok: false, reason: 'missing', detail: 'ENOENT' };
     if (opts.slow?.includes(file)) return { ok: false, reason: 'timeout', detail: 'killed' };
+    if (opts.failing?.includes(file)) return { ok: false, reason: 'failed', detail: 'exit 1' };
     return { ok: true, stdout: outputs[file] ?? '' };
   };
   return { run, calls };
@@ -59,6 +63,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
     registered: join(home, 'bin/obsidian'),
     bundle: join(home, 'Obsidian.app/obsidian-cli'),
     plist: join(home, 'Obsidian.app/Info.plist'),
+    vaultList: join(home, 'obsidian/obsidian.json'),
   },
   ...overrides,
 });

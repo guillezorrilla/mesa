@@ -3,15 +3,11 @@
 export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents.js';
 export { type Clock, systemClock } from './clock.js';
 export type { Config } from './config.js';
-export {
-  type Check,
-  type DoctorReport,
-  OBSIDIAN_PATHS,
-  type ObsidianPaths,
-} from './doctor.js';
+export type { Check, DoctorReport } from './doctor.js';
 export type { Frontmatter, Note } from './frontmatter.js';
 export { type IdSource, ulidSource } from './ids.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
+export { macObsidianPaths, type ObsidianPaths, type Opened } from './obsidian.js';
 export { type Env, execRunner, type Runner, type RunResult } from './process.js';
 export { type ProfileInfo, resolveProfileName } from './profile.js';
 export type { Project } from './project-file.js';

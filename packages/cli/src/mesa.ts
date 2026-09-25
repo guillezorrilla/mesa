@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
-import { execRunner, OBSIDIAN_PATHS, systemClock, ulidSource } from '@mesa/core';
+import { execRunner, macObsidianPaths, systemClock, ulidSource } from '@mesa/core';
 import { runCli } from './cli.js';
 import { COMMANDS } from './commands/index.js';
 
@@ -18,7 +18,7 @@ const { code, stdout, stderr } = await runCli(argv, {
     newId: ulidSource(systemClock, randomBytes),
     env: process.env,
     run: execRunner,
-    obsidian: OBSIDIAN_PATHS,
+    obsidian: macObsidianPaths(homedir()),
     argv,
   },
 });

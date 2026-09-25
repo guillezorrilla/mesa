@@ -1,6 +1,7 @@
 import type {
   Config,
   DoctorReport,
+  Opened,
   ProfileInfo,
   Project,
   ProjectRow,
@@ -35,6 +36,7 @@ export const COMMANDS = {
     ({ path }) => ['register', '--create', '--', path],
   ),
   'receipts.list': command<ReceiptEntry[]>('receipts'),
+  'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),
 };
 
