@@ -1,0 +1,25 @@
+{
+  "note": "An AskUserQuestion that starts \"Do you want\" is still a question (review finding)",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "tail": " ☐ Target\nDo you want staging or production?\n❯ 1. Staging\n  2. Production\n  3. Type something.\nEnter to select · ↑/↓ to navigate · Esc to cancel"
+  },
+  "expected": {
+    "state": "waiting-question",
+    "confidence": 0.6,
+    "source": "tmux"
+  }
+}

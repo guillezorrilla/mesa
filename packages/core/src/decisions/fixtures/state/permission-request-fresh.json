@@ -1,0 +1,36 @@
+{
+  "note": "Run 1 at 31.0 s: PermissionRequest (Bash), the listing waiting on the prompt",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:55.000Z",
+      "event": "PermissionRequest",
+      "payload": {
+        "hook_event_name": "PermissionRequest",
+        "tool_name": "Bash"
+      }
+    },
+    "listed": {
+      "status": "waiting",
+      "waitingFor": "permission prompt"
+    }
+  },
+  "expected": {
+    "state": "waiting-permission",
+    "confidence": 0.95,
+    "source": "hook"
+  }
+}

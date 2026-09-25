@@ -1,0 +1,35 @@
+{
+  "note": "Run 1 at 147.7 s: Notification idle_prompt 60 s after Stop",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "idle",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:00.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T12:00:00.000Z",
+      "event": "Notification",
+      "payload": {
+        "hook_event_name": "Notification",
+        "notification_type": "idle_prompt"
+      }
+    },
+    "listed": {
+      "status": "idle"
+    }
+  },
+  "expected": {
+    "state": "idle",
+    "confidence": 0.95,
+    "source": "hook"
+  }
+}

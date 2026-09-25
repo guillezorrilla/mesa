@@ -1,0 +1,25 @@
+{
+  "note": "A spinner line from an earlier turn, above the latest reply, does not read as busy",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "tail": "✻ Pondering… (12s · ↓ 1.2k tokens · esc to interrupt)\n\n⏺ Created spike.txt.\n\n────────────────────────────────────────────────────────────────────────────────────────────────────\n❯\n────────────────────────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents                     Not logged in · Run /login\n                                                                                ◐ medium · /effort"
+  },
+  "expected": {
+    "state": "idle",
+    "confidence": 0.6,
+    "source": "tmux"
+  }
+}

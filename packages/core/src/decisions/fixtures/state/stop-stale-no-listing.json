@@ -1,0 +1,31 @@
+{
+  "note": "A Stop ten minutes old and no listing (it timed out): idle, less sure",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "idle",
+      "confidence": 0.6,
+      "at": "2026-09-24T11:50:00.000Z",
+      "source": "mesa"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:50:00.000Z",
+      "event": "Stop",
+      "payload": {
+        "hook_event_name": "Stop"
+      }
+    }
+  },
+  "expected": {
+    "state": "idle",
+    "confidence": 0.8,
+    "source": "hook"
+  }
+}

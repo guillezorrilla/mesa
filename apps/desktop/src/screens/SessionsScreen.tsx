@@ -11,9 +11,11 @@ const running = (seconds: number) => {
   return m ? `${m}m${two(s)}s` : `${s}s`;
 };
 
+const percent = (p: number) => `${Math.round(p * 100)}%`;
+
 /**
- * The profile's sessions with their last state, then agent sessions Mesa did not start, read-only;
- * #27 turns this into the Board with its actions.
+ * The profile's sessions and, read-only, agent sessions Mesa did not start, highest attention
+ * first, with Faro's state, confidence, and attention; #27 turns this into the Board.
  */
 export function SessionsScreen() {
   const [ended, setEnded] = useState(false);
@@ -84,6 +86,8 @@ export function SessionsScreen() {
             <th>Project</th>
             <th>Agent</th>
             <th>State</th>
+            <th>Confidence</th>
+            <th>Attention</th>
             <th>Running</th>
             <th />
           </tr>
@@ -96,6 +100,8 @@ export function SessionsScreen() {
                 <td>{s.project}</td>
                 <td>{s.agent}</td>
                 <td>{s.lastState.state}</td>
+                <td>{percent(s.lastState.confidence)}</td>
+                <td>{s.attention.toFixed(2)}</td>
                 <td>{running(s.runningSeconds)}</td>
                 <td>
                   {s.alive ? (
@@ -155,6 +161,8 @@ export function SessionsScreen() {
                 <td>{s.project ?? '-'}</td>
                 <td>{s.agent}</td>
                 <td>{s.lastState.state}</td>
+                <td>{percent(s.lastState.confidence)}</td>
+                <td>{s.attention.toFixed(2)}</td>
                 <td>{running(s.runningSeconds)}</td>
                 <td title={s.cwd}>not managed by Mesa</td>
               </tr>

@@ -29,12 +29,12 @@ Not: model, assistant, bot.
 
 ## Session
 
-One agent process for one project, running or resumable. Fields: Mesa session id (8 lowercase characters, typed in `mesa stop <id>`), `kind` (`interactive` or `run`), agent, project, agent session id (Claude Code session UUID or Codex thread id), its tmux socket, session, and window, start time, end time once stopped, last state with its confidence and source, last output tail, and `resumedFrom`/`resumedBy` links. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`. `mesa open <project> [--agent claude] [--attach]` starts one: it writes the record, then runs `claude --session-id <uuid>` in window `claude-<id>` of the project's tmux session, and writes a `session` receipt. `mesa sessions` lists them oldest first with `alive` (the window exists, or the agent listing names the session) and `agentStatus` (the listing's `idle`, `busy`, or `waiting`, while it lists the session): every session not stopped, and those stopped within the last day; `--all` adds older ones. A session has ended when it was stopped (`mesa stop [--force]`: the agent's `/exit`, up to 5 s for it to quit, then `kill-window`; it sets `endedAt`); one whose window vanished (a crash, a reboot) is marked `done` from tmux but has not ended, so it stays on the board to resume. `mesa resume <id>` reopens an ended session's conversation (`claude --resume <agent session id>`) in a new window as a new session, linked by `resumedFrom` and `resumedBy`. `mesa send <id> <prompt> [--force]` types a prompt into a live session's agent (one literal chunk, then Enter) and adds a `send` event to its record; it refuses a pane running a shell, and an agent waiting on a person, unless forced. `mesa hooks install|status|uninstall` manages Mesa's entries in `~/.claude/settings.json` (8 events, ADR-0003); each runs `mesa hook claude`, which, inside a Mesa session only, appends the payload (secret-named keys and the home directory redacted) to `sessions/events/<id>.jsonl` and fills in the record's agent session id. `kind: run` is a headless run (`claude -p`), still a session.
+One agent process for one project, running or resumable. Fields: Mesa session id (8 lowercase characters, typed in `mesa stop <id>`), `kind` (`interactive` or `run`), agent, project, agent session id (Claude Code session UUID or Codex thread id), its tmux socket, session, and window, start time, end time once stopped, last state with its confidence and source, last output tail, and `resumedFrom`/`resumedBy` links. Backed by one tmux window. Persisted as `~/.mesa/<profile>/sessions/<id>.json`. `mesa open <project> [--agent claude] [--attach]` starts one: it writes the record, then runs `claude --session-id <uuid>` in window `claude-<id>` of the project's tmux session, and writes a `session` receipt. `mesa sessions` lists them, highest attention first, with `alive` (the window exists, or the agent listing names the session) and `agentStatus` (the listing's `idle`, `busy`, or `waiting`, while it lists the session): every session not stopped, and those stopped within the last day; `--all` adds older ones. A session has ended when it was stopped (`mesa stop [--force]`: the agent's `/exit`, up to 5 s for it to quit, then `kill-window`; it sets `endedAt`); one whose window vanished (a crash, a reboot) is marked `done` from tmux but has not ended, so it stays on the board to resume. `mesa resume <id>` reopens an ended session's conversation (`claude --resume <agent session id>`) in a new window as a new session, linked by `resumedFrom` and `resumedBy`. `mesa send <id> <prompt> [--force]` types a prompt into a live session's agent (one literal chunk, then Enter) and adds a `send` event to its record; it refuses a pane running a shell, and an agent waiting on a person, unless forced. `mesa hooks install|status|uninstall` manages Mesa's entries in `~/.claude/settings.json` (8 events, ADR-0003); each runs `mesa hook claude`, which, inside a Mesa session only, appends the payload (secret-named keys and the home directory redacted) to `sessions/events/<id>.jsonl` and fills in the record's agent session id. `kind: run` is a headless run (`claude -p`), still a session.
 Not: task, job, run (`kind: run` qualifies a session, it is not another name for one), thread (thread is Codex's word for its own id).
 
 ## Foreign session
 
-A live agent session Mesa did not start: a `claude` run in a plain terminal, or by another tool. `claude agents --json` lists every live Claude Code session on the machine. A listed process that runs in no open Mesa session's window, and whose agent session id no open session of this profile holds, is foreign, unless another profile's records hold that id. `mesa sessions` and the board show foreign sessions after Mesa's own, read-only. Each gets id `ext-<pid>`, `managed: false`, a state read from the listing alone (0.85, ADR-0003), and a project. The project is the registered one it runs in (its folder or one inside it), else a project named like its folder, else none. `stop`, `send`, `resume`, and `attach` refuse an `ext-` id as `not_found` with "session not managed by mesa". Adopting one into Mesa is out of scope.
+A live agent session Mesa did not start: a `claude` run in a plain terminal, or by another tool. `claude agents --json` lists every live Claude Code session on the machine. A listed process that runs in no open Mesa session's window, and whose agent session id no open session of this profile holds, is foreign, unless another profile's records hold that id. `mesa sessions` and the board show foreign sessions among Mesa's, by attention, read-only. Each gets id `ext-<pid>`, `managed: false`, a state read from the listing alone (0.85, ADR-0003), and a project. The project is the registered one it runs in (its folder or one inside it), else a project named like its folder, else none. `stop`, `send`, `resume`, and `attach` refuse an `ext-` id as `not_found` with "session not managed by mesa". Adopting one into Mesa is out of scope.
 Not: orphan (a Mesa session whose window vanished is still Mesa's, marked `done`).
 
 ## Window
@@ -44,17 +44,34 @@ Not: pane, tab. A tmux session is a project's group of windows, never a Mesa ses
 
 ## Session state
 
-Where a session is right now, one of: `working`, `waiting-permission`, `waiting-question`, `idle`, `done`, `failed`. Faro classifies it from hook signals and the output tail and attaches a confidence. `waiting-permission` and `waiting-question` are the states that need a human.
+Where a session is right now, one of: `working`, `waiting-permission`, `waiting-question`, `idle`, `done`, `failed`. On every look at the board, Faro classifies it (`classifySession`, rules only until #26) and attaches a confidence and a source. The order is ADR-0003's:
+
+- A stopped session keeps its state.
+- A dead or vanished window is a process fact (0.85): `failed` with a signal or a nonzero status, else `done`.
+- Next comes the latest hook event: 0.95 under a minute old or when the listing agrees, 0.8 when stale. A wait more than 2 s old yields to a listing that says the agent moved on.
+- Then the agent listing (0.85).
+- Then the tail, the pane's last 30 lines read with CCManager's Claude Code patterns (0.6). The tail is read only when no hook or listing speaks.
+
+A new state is saved in the record, with the time it began: the hook event's time, else when the board first saw it. `waiting-permission` and `waiting-question` are the states that need a human.
 Not: status, phase, mode.
 
 ## Attention score
 
-A number from 0 to 1 per session: how urgently the user is needed. Faro computes it from state, time in state, and project priority. The board sorts by it, highest first.
+A number from 0 to 1 per session: how urgently the user is needed. Faro computes it as a `Score` over the levels none, low, medium, high, and urgent, from the state, the time in that state, and the project's `priority`. The bands never overlap across states:
+
+- A waiting session starts at 0.75 and climbs to urgent over five minutes, and with priority.
+- A failed session is 0.5 to 0.67, growing over ten minutes.
+- An idle session is 0.25 to 0.42, growing over ten minutes.
+- A done session is 0.25.
+- A working session is 0 to 0.125.
+- A stopped session is 0.
+
+So a wait always outranks every other state. The board sorts by it, highest first.
 Not: priority, urgency, rank.
 
 ## Board
 
-The Session Board: the first screen of the app and the output of `mesa sessions`. Every session across every project with agent, state and confidence, last output, running time, and attention score. Actions: open, stop, send, terminal, resume.
+The Session Board: the first screen of the app and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, running time; `--json` adds each row's `decision` with its probabilities). Every session across every project with agent, state and confidence, last output, running time, and attention score. Actions: open, stop, send, terminal, resume.
 Not: dashboard, overview, list.
 
 ## Skill

@@ -1,0 +1,25 @@
+{
+  "note": "No hook, no listing: the recorded AskUserQuestion screen",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "tail": " ☐ Color\nDo you prefer red or blue?\n❯ 1. Red\n     You prefer red.\n  2. Blue\n     You prefer blue.\n  3. Type something.\n  4. Chat about this\nEnter to select · ↑/↓ to navigate · Esc to cancel"
+  },
+  "expected": {
+    "state": "waiting-question",
+    "confidence": 0.6,
+    "source": "tmux"
+  }
+}

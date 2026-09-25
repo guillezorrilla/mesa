@@ -1,0 +1,34 @@
+{
+  "note": "Run 1 at 27.1 s: UserPromptSubmit, the listing busy",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "idle",
+      "confidence": 0.6,
+      "at": "2026-09-24T11:50:00.000Z",
+      "source": "mesa"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:58.000Z",
+      "event": "UserPromptSubmit",
+      "payload": {
+        "hook_event_name": "UserPromptSubmit"
+      }
+    },
+    "listed": {
+      "status": "busy"
+    }
+  },
+  "expected": {
+    "state": "working",
+    "confidence": 0.95,
+    "source": "hook"
+  }
+}

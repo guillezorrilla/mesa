@@ -1,0 +1,25 @@
+{
+  "note": "No hook, no listing: Claude Code 2.1.282 at its empty prompt",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "tail": " ▐▛███▛█   Claude Code v2.1.282\n▝▜██████▀  Opus 5.5 (1M context) · API Usage Billing\n ▝▝   ▝▝   /private/var/folders/XX/XXXXXXXX/T/mesa-spike.proj\n\n────────────────────────────────────────────────────────────────────────────────────────────────────\n❯\n────────────────────────────────────────────────────────────────────────────────────────────────────\n  ⏸ manual mode on · ? for shortcuts · ← for agents                     Not logged in · Run /login\n                                                                                ◐ medium · /effort"
+  },
+  "expected": {
+    "state": "idle",
+    "confidence": 0.6,
+    "source": "tmux"
+  }
+}
