@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { TerminalApp } from '../config.js';
 import type { Env, Runner } from '../process.js';
 import { MesaError } from '../result.js';
-import { type SessionStore, windowOf } from './store.js';
+import { type SessionStore, sessionEnded, windowOf } from './store.js';
 import { type TmuxBackend, targetLabel } from './tmux.js';
 
 // The board's "open its terminal" action in v1 (ADR-0003 amendment): the session's tmux window in
@@ -33,9 +33,7 @@ export async function attachSession(
   app?: TerminalApp,
 ): Promise<{ attached: Attached; exec?: string[] }> {
   const target = windowOf(deps.store.get(id));
-  if (!(await deps.tmux.windowExists(target))) {
-    throw new MesaError('not_found', 'session ended; use mesa resume');
-  }
+  if (!(await deps.tmux.windowExists(target))) throw sessionEnded();
   const argv = deps.tmux.attachArgv(target);
   const attached: Attached = {
     opened: true,

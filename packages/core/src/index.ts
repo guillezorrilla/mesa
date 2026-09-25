@@ -22,6 +22,7 @@ export type { RegistryEntry } from './registry.js';
 export * from './result.js';
 export type { Attached } from './sessions/attach.js';
 export type { SessionRow } from './sessions/list.js';
+export type { Sent } from './sessions/send.js';
 export type { StopOutcome } from './sessions/stop.js';
 export type { SessionRecord } from './sessions/store.js';
 export type { TmuxWindow } from './sessions/tmux.js';

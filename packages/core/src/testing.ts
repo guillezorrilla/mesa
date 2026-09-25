@@ -67,7 +67,10 @@ export type FakeWindow = {
   project: string;
   window: string;
   path: string;
-  command: string;
+  /** The command tmux started the window with. */
+  launch: string;
+  /** What `pane_current_command` shows: claude's version, or a shell once the agent is gone. */
+  running: string;
   dead: boolean;
   typed: string[];
 };
@@ -91,7 +94,7 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
       i,
       w.window,
       4242,
-      w.dead ? '' : '2.1.282',
+      w.dead ? '' : w.running,
       w.path,
       1790359178,
       w.dead ? 1 : 0,
@@ -109,7 +112,15 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
       case 'new-window': {
         const project = command === 'new-session' ? flag(rest, '-s') : target.slice(1, -1);
         const [path, window] = [flag(rest, '-c'), flag(rest, '-n')];
-        windows.push({ project, window, path, command: rest.at(-1) ?? '', dead: false, typed: [] });
+        windows.push({
+          project,
+          window,
+          path,
+          launch: rest.at(-1) ?? '',
+          running: '2.1.282',
+          dead: false,
+          typed: [],
+        });
         return ok();
       }
       case 'kill-window': {
@@ -132,7 +143,7 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
       case 'display-message': {
         const w = find(target);
         return w
-          ? ok(`${w.dead ? 1 : 0}\t${w.dead ? '' : '2.1.282'}`)
+          ? ok(`${w.dead ? 1 : 0}\t${w.dead ? '' : w.running}`)
           : failed("can't find window");
       }
       case 'send-keys': {

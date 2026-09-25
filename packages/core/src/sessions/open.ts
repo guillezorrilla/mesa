@@ -61,7 +61,7 @@ export async function openSession(
  * dead window the old session left is removed first; a live one refuses.
  */
 export async function resumeSession(
-  deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'listWindows' | 'killWindow'> },
+  deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow' | 'killWindow'> },
   id: string,
 ): Promise<{ record: SessionRecord; from: SessionRecord }> {
   const old = deps.store.get(id);
@@ -82,9 +82,7 @@ export async function resumeSession(
   const check = await checkAgent(deps.run, old.agent);
   if (!check.ok) throw new MesaError('agent_unavailable', `${old.agent} ${check.hint}`);
   const target = windowOf(old);
-  const left = (await deps.tmux.listWindows(target.project)).find(
-    (w) => w.window === target.window,
-  );
+  const left = await deps.tmux.findWindow(target);
   if (left && !left.dead) {
     throw new MesaError(
       'usage',

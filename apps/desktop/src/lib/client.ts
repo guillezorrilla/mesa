@@ -8,6 +8,7 @@ import type {
   ProjectRow,
   ReceiptEntry,
   Result,
+  Sent,
   SessionRecord,
   SessionRow,
   StopOutcome,
@@ -42,6 +43,9 @@ export const COMMANDS = {
   ),
   'receipts.list': command<ReceiptEntry[]>('receipts'),
   'sessions.list': command<SessionRow[]>('sessions'),
+  'sessions.send': commandWith<{ id: string; prompt: string }, Omit<Sent, 'project'>>(
+    ({ id, prompt }) => ['send', '--', id, prompt],
+  ),
   'sessions.stop': commandWith<{ id: string }, SessionRecord & { outcome: StopOutcome }>(
     ({ id }) => ['stop', '--', id],
   ),

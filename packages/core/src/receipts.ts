@@ -176,10 +176,13 @@ export function showReceipt(vault: string, id: string): ReceiptEntry {
  * `keys` or `keys.<name>` path and for every occurrence of a key value (`secrets`) in any word.
  * Values shorter than four characters are left alone, so they cannot blank ordinary words.
  */
+/** `text` with every secret of 4 characters or more replaced by `***`. */
+export const redactText = (text: string, secrets: readonly string[]) =>
+  secrets.filter((s) => s.length >= 4).reduce((t, secret) => t.split(secret).join('***'), text);
+
 export function redactCommand(argv: readonly string[], secrets: readonly string[] = []): string {
   const quote = (word: string) => (/^[\w./:=@*-]+$/.test(word) ? word : JSON.stringify(word));
-  const long = secrets.filter((s) => s.length >= 4);
-  const scrub = (word: string) => long.reduce((w, secret) => w.split(secret).join('***'), word);
+  const scrub = (word: string) => redactText(word, secrets);
   const words = argv.map((arg, i) => {
     const previous = argv[i - 1] ?? '';
     return previous === 'keys' || previous.startsWith('keys.') ? '***' : quote(scrub(arg));
@@ -195,6 +198,8 @@ export type ActionSpec<T> = {
   /** The summary when the action throws. */
   failure: string;
   inputs: Record<string, unknown>;
+  /** The argv to record instead of the invocation's (send shortens its prompt). */
+  argv?: readonly string[];
   outputs?: (result: T) => Record<string, unknown>;
   project?: (result: T) => string | undefined;
   session?: (result: T) => string | undefined;
@@ -221,11 +226,13 @@ export function actionRecorder(deps: {
   vault: () => string | undefined;
   clock: Clock;
   newId: IdSource;
-  command: () => string;
+  /** The redacted command line of `argv`, else of this invocation. */
+  command: (argv?: readonly string[]) => string;
 }) {
   // Everything here is guarded: a receipt problem never escapes into the action's outcome.
   const write = (
     input: Omit<ReceiptInput, 'profile' | 'command'>,
+    argv?: readonly string[],
   ): Omit<Recorded<unknown>, 'result'> => {
     try {
       const vault = deps.vault();
@@ -238,7 +245,7 @@ export function actionRecorder(deps: {
       }
       const { receipt, path, warning } = writeReceipt(
         { vault, clock: deps.clock, newId: deps.newId },
-        { profile: deps.profile, command: deps.command(), ...input },
+        { profile: deps.profile, command: deps.command(argv), ...input },
       );
       return { receipt: { id: receipt.id, path }, ...(warning ? { warning } : {}) };
     } catch (error) {
@@ -247,27 +254,33 @@ export function actionRecorder(deps: {
   };
 
   const failed = <T>(spec: ActionSpec<T>, error: unknown) => {
-    write({
-      type: spec.type ?? 'action',
-      status: 'failed',
-      summary: spec.failure,
-      inputs: spec.inputs,
-      outputs: { error: toFail(error).error },
-    });
+    write(
+      {
+        type: spec.type ?? 'action',
+        status: 'failed',
+        summary: spec.failure,
+        inputs: spec.inputs,
+        outputs: { error: toFail(error).error },
+      },
+      spec.argv,
+    );
     return error;
   };
   const succeeded = <T>(spec: ActionSpec<T>, result: T): Recorded<T> => {
     if (spec.changed && !spec.changed(result)) return { result, receipt: null };
-    const written = write({
-      type: spec.type ?? 'action',
-      status: 'ok',
-      summary: spec.summary(result),
-      project: spec.project?.(result),
-      session: spec.session?.(result),
-      agent: spec.agent?.(result),
-      inputs: spec.inputs,
-      outputs: spec.outputs?.(result) ?? {},
-    });
+    const written = write(
+      {
+        type: spec.type ?? 'action',
+        status: 'ok',
+        summary: spec.summary(result),
+        project: spec.project?.(result),
+        session: spec.session?.(result),
+        agent: spec.agent?.(result),
+        inputs: spec.inputs,
+        outputs: spec.outputs?.(result) ?? {},
+      },
+      spec.argv,
+    );
     return { result, ...written };
   };
 

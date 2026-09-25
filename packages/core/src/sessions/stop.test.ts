@@ -138,7 +138,7 @@ test('resume reopens the conversation with claude --resume in a new window, link
     {
       window: `claude-${result.record.id}`,
       path: join(home, 'src/lantern-cove'),
-      command: `claude --resume ${opened.agentSessionId}`,
+      launch: `claude --resume ${opened.agentSessionId}`,
     },
   ]);
   expect(receipts()[0]?.receipt).toMatchObject({

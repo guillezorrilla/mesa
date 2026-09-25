@@ -17,7 +17,7 @@ export type StopOutcome = 'exited' | 'killed' | 'gone' | 'already-ended';
 
 type StopDeps = {
   store: SessionStore;
-  tmux: Pick<TmuxBackend, 'listWindows' | 'pressKey' | 'sendText' | 'killWindow'>;
+  tmux: Pick<TmuxBackend, 'findWindow' | 'pressKey' | 'sendText' | 'killWindow'>;
   clock: Clock;
   sleep: (ms: number) => Promise<void>;
 };
@@ -35,8 +35,7 @@ export async function stopSession(
   const found = deps.store.get(id);
   if (found.endedAt) return { record: found, outcome: 'already-ended' };
   const target = windowOf(found);
-  const pane = async () =>
-    (await deps.tmux.listWindows(target.project)).find((w) => w.window === target.window);
+  const pane = () => deps.tmux.findWindow(target);
 
   let outcome: StopOutcome = 'gone';
   const first = await pane();
