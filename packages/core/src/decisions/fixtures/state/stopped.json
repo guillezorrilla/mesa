@@ -1,0 +1,27 @@
+{
+  "note": "Stopped with mesa stop: the last state stands, whatever else is seen",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "done",
+      "confidence": 1,
+      "at": "2026-09-24T11:55:00.000Z",
+      "source": "mesa"
+    },
+    "ended": true,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "listed": {
+      "status": "busy"
+    }
+  },
+  "expected": {
+    "state": "done",
+    "confidence": 1,
+    "source": "mesa"
+  }
+}

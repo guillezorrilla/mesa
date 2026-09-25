@@ -60,3 +60,16 @@ Issue #23 wires the second signal into `mesa sessions`:
 - A session the listing names is alive even without a window, so it is not marked `done` from tmux. Its listing status is shown as `agentStatus`. The record's state is left to Faro's rules (#25).
 - Every other listed process is a foreign session, shown read-only. Its state comes from the listing alone, at 0.85. A wait the listing cannot name gets 0.6, and a status it has never shown gets 0.5.
 - Sessions held by another profile's records are left out, so each profile's board shows only its own sessions. Mesa never acts on a foreign session.
+
+## Amendment 2026-09-25: the rules, as built (#25)
+
+`classifySession` in packages/core/src/decisions/session-state.ts asks one Choice over the six states, one Score for attention, and one Noul ("a human is needed now") through `decide`. Its fixtures are in `decisions/fixtures/state/`.
+
+- A hook event more than a minute old gets 0.8, unless the listing agrees with it, in which case it gets 0.95.
+- A hook event that means nothing for state is skipped in favour of the one before it: a `Notification` of type `permission_prompt`, or a `PreToolUse` for another tool.
+- Tail patterns score 0.6. That is the cap from the "tail is display" amendment, and the low end of #25's 0.6 to 0.8.
+- The tail is read only when neither a hook nor the listing speaks. It uses CCManager's Claude Code markers (ADR-0005, attributed in the file header), split into a permission wait and a question wait by the screen's own words.
+- A waiting hook event yields to a listing that disagrees only once it is more than 2 s old. The listing trails the hook by about 0.3 s, and the spike saw it read `busy` just after a PermissionRequest.
+- A session already `done` or `failed` stays that way when its window later vanishes.
+- A state's start time is the hook event's time. For the listing and the tail, it is when the board first saw the state.
+- A wait always outranks every other state on attention (CONTEXT.md, Attention score). The Score's spread between levels is its answer, not doubt, so it never sends a decision to the adapter; only Choice and Noul answers are checked against the threshold.

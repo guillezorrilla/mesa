@@ -1,0 +1,34 @@
+{
+  "note": "Run 1 at 55.8 s: Stop, the listing idle",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:57.000Z",
+      "event": "Stop",
+      "payload": {
+        "hook_event_name": "Stop"
+      }
+    },
+    "listed": {
+      "status": "idle"
+    }
+  },
+  "expected": {
+    "state": "idle",
+    "confidence": 0.95,
+    "source": "hook"
+  }
+}

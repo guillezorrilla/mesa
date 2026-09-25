@@ -1,0 +1,25 @@
+{
+  "note": "No hook, no listing: the recorded permission screen",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:30.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "tail": " Bash command\n   touch spike.txt\n   Create empty spike.txt file\n Do you want to proceed?\n ❯ 1. Yes\n   2. Yes, and always allow access to /private/var/folders/XX/XXXXXXXX/T/mesa-spike.proj from this project\n   3. Yes, and switch to auto mode · auto mode handles these prompts for you\n   4. No\n Esc to cancel · Tab to amend"
+  },
+  "expected": {
+    "state": "waiting-permission",
+    "confidence": 0.6,
+    "source": "tmux"
+  }
+}

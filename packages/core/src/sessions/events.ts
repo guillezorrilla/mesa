@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
@@ -109,4 +109,22 @@ function findRecord(store: SessionStore, id: string) {
   } catch {
     return undefined;
   }
+}
+
+// ponytail: reads the whole log; read its tail instead if long sessions make it slow.
+/** The session's hook events, oldest first; a line that does not parse is skipped. */
+export function readHookEvents(eventsDir: string, id: string): HookEvent[] {
+  if (!isSessionId(id)) return [];
+  const file = join(eventsDir, `${id}.jsonl`);
+  if (!existsSync(file)) return [];
+  return readFileSync(file, 'utf8')
+    .split('\n')
+    .flatMap((line) => {
+      try {
+        const e = JSON.parse(line);
+        return typeof e?.event === 'string' && typeof e.at === 'string' ? [e as HookEvent] : [];
+      } catch {
+        return [];
+      }
+    });
 }

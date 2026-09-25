@@ -35,6 +35,17 @@ const report = (checks: Check[]): DoctorReport => {
   const summary = healthy ? 'ready' : 'tmux and at least one agent (claude or codex) are required';
   return { healthy, summary, checks };
 };
+/** Faro's part of a board row: a middling attention and an empty Decision. */
+const placed = {
+  attention: 0.5,
+  decision: {
+    questions: [],
+    answers: [],
+    backend: 'rules' as const,
+    at: '2026-09-25T12:00:00.000Z',
+    latencyMs: 0,
+  },
+};
 const cells = (row: HTMLElement | undefined) =>
   [...(row?.querySelectorAll('td') ?? [])].map((td) => td.textContent);
 
@@ -164,12 +175,14 @@ test('the Sessions screen lists each session with its state and running time', a
     lastState: { state, confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
     events: [],
     managed: true,
+    ...placed,
     alive: state !== 'done',
     runningSeconds,
   });
   const foreign: ForeignRow = {
     id: 'ext-4242',
     managed: false,
+    ...placed,
     agent: 'claude',
     pid: 4242,
     cwd: '/src/elsewhere',
@@ -193,11 +206,11 @@ test('the Sessions screen lists each session with its state and running time', a
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-sessions')[0]);
   expect(byTestId('session-row').map(cells)).toEqual([
-    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'SendTerminalStop'],
+    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '85%', '0.50', '42s', 'SendTerminalStop'],
     // An exited session has no window to attach to.
-    ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m', ''],
+    ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '85%', '0.50', '2h05m', ''],
     // Started outside Mesa: read-only, no actions.
-    ['ext-4242', '-', 'claude', 'idle', '1m30s', 'not managed by Mesa'],
+    ['ext-4242', '-', 'claude', 'idle', '85%', '0.50', '1m30s', 'not managed by Mesa'],
   ]);
   expect(byTestId('session-row')[2]?.dataset.managed).toBe('false');
   expect(byTestId('session-row')[1]?.dataset.alive).toBe('false');
@@ -231,6 +244,7 @@ test('Stop ends a live session and Resume reopens an exited one, then the list r
     },
     events: [],
     managed: true,
+    ...placed,
     alive,
     runningSeconds: 5,
   });
@@ -265,6 +279,7 @@ test('Send types the row prompt into its session, then clears the box', async ()
     lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
     events: [],
     managed: true,
+    ...placed,
     alive: true,
     runningSeconds: 5,
   };
@@ -293,6 +308,7 @@ test('Terminal on a session row opens it in the terminal app', async () => {
     lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
     events: [],
     managed: true,
+    ...placed,
     alive: true,
     runningSeconds: 5,
   };

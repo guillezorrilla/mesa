@@ -28,7 +28,7 @@ import { readRegistry } from './registry.js';
 import { MesaError, toFail } from './result.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession } from './sessions/attach.js';
-import { recordHookEvent } from './sessions/events.js';
+import { readHookEvents, recordHookEvent } from './sessions/events.js';
 import { listSessions } from './sessions/list.js';
 import { openSession, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
@@ -124,6 +124,16 @@ export function createMesa(profile: string, deps: MesaDeps) {
         }
       }),
     );
+  };
+  /** Each registered project's priority, read once per board; 0.5 for one without (the default). */
+  const priorities = () => {
+    let known = new Map<string, number>();
+    try {
+      known = new Map(listProjects(open()).map((p) => [p.name, p.priority ?? 0.5]));
+    } catch {
+      // No profile, or a registry that does not read: every project counts as 0.5.
+    }
+    return (project: string | null) => (project ? known.get(project) : undefined) ?? 0.5;
   };
   /** Faro's view of the profile; before init, rules only (nothing else is configured). */
   const faroProfile = (): FaroProfile => {
@@ -232,6 +242,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
             listing: () => listAgentProcesses(deps.run),
             projects: readRegistry(paths.registry),
             elsewhere: otherProfilesSessions,
+            events: (id) => readHookEvents(paths.events, id),
+            priorityOf: priorities(),
+            faro: faroProfile(),
             clock: deps.clock,
           },
           { all },

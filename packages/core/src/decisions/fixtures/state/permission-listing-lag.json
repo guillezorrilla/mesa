@@ -1,0 +1,36 @@
+{
+  "note": "Run 1 at 30.7 s: PermissionRequest 0.3 s before the listing leaves busy; the wait holds",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "working",
+      "confidence": 0.95,
+      "at": "2026-09-24T11:59:57.000Z",
+      "source": "hook"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "event": {
+      "at": "2026-09-24T11:59:59.700Z",
+      "event": "PermissionRequest",
+      "payload": {
+        "hook_event_name": "PermissionRequest",
+        "tool_name": "Bash"
+      }
+    },
+    "listed": {
+      "status": "busy"
+    }
+  },
+  "expected": {
+    "state": "waiting-permission",
+    "confidence": 0.95,
+    "source": "hook",
+    "at": "2026-09-24T11:59:59.700Z"
+  }
+}

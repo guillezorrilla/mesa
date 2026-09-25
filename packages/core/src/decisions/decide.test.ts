@@ -100,6 +100,19 @@ test('rules answer first; the named backend only below the threshold, and only w
   expect(await used(async () => [choice])).toBe('rules');
   expect(await used(async () => [{ ...choice, answer: 'asleep' }, noul])).toBe('rules');
 
+  // A Score between levels is not doubt: an even Score alone never asks the adapter.
+  const score: Question[] = [{ kind: 'Score', id: 'urgency', levels: ['low', 'high'] }];
+  const scored = await decide(
+    {
+      backends: [rules, fake('adapter', () => Promise.reject(new Error('asked')))],
+      profile: profile('adapter'),
+      clock: fixedClock(),
+    },
+    { idle: false },
+    score,
+  );
+  expect(scored).toMatchObject({ backend: 'rules', answers: [{ answer: 0.5, confidence: 0.5 }] });
+
   // Rules that throw give even answers, labelled rules; with no other backend, they stand.
   const broken = rulesBackend<State>([
     {

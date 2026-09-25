@@ -1,0 +1,25 @@
+{
+  "note": "No hook, no listing: a turn in progress, spinner and esc to interrupt",
+  "input": {
+    "now": "2026-09-24T12:00:00.000Z",
+    "agent": "claude",
+    "last": {
+      "state": "idle",
+      "confidence": 0.6,
+      "at": "2026-09-24T11:50:00.000Z",
+      "source": "mesa"
+    },
+    "ended": false,
+    "window": {
+      "exists": true,
+      "dead": false
+    },
+    "priority": 0.5,
+    "tail": "⏺ Bash(touch spike.txt)\n  ⎿  (No output)\n\n✻ Pondering… (12s · ↓ 1.2k tokens · esc to interrupt)\n\n────────────────────────────────────────────────────────────────────────────────────────────────────\n❯\n────────────────────────────────────────────────────────────────────────────────────────────────────"
+  },
+  "expected": {
+    "state": "working",
+    "confidence": 0.6,
+    "source": "tmux"
+  }
+}

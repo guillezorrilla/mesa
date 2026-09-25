@@ -64,12 +64,14 @@ const LISTED: Record<string, SessionState> = {
   'waiting:input needed': 'waiting-question',
 };
 
-// ponytail: the listing's own rule; Faro's rules backend (#25) takes it over with the other signals.
 /**
  * The state the listing alone gives, at ADR-0003's 0.85. A wait it cannot name still needs a
  * person (0.6); a status it has never shown is a guess at `working` (0.5).
  */
-export function listedState(p: AgentProcess): { state: SessionState; confidence: number } {
+export function listedState(p: Pick<AgentProcess, 'status' | 'waitingFor'>): {
+  state: SessionState;
+  confidence: number;
+} {
   const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : p.status];
   if (state) return { state, confidence: 0.85 };
   return p.status === 'waiting'
