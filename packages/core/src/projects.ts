@@ -57,13 +57,18 @@ export function listProjects(profile: Profile): ProjectRow[] {
   });
 }
 
-export function unregisterProject(profile: Profile, name: string): RegistryEntry {
-  const entries = readRegistry(profile.paths.registry);
-  const entry = entries.find((e) => e.name === name);
+/** The registry entry named `name`; not_found otherwise. */
+export function findProject(profile: Profile, name: string): RegistryEntry {
+  const entry = readRegistry(profile.paths.registry).find((e) => e.name === name);
   if (!entry) throw new MesaError('not_found', `no project named ${name}; see mesa projects`);
+  return entry;
+}
+
+export function unregisterProject(profile: Profile, name: string): RegistryEntry {
+  const entry = findProject(profile, name);
   writeRegistry(
     profile.paths.registry,
-    entries.filter((e) => e !== entry),
+    readRegistry(profile.paths.registry).filter((e) => e.name !== name),
   );
   return entry;
 }

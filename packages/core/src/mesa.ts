@@ -18,7 +18,8 @@ import {
 } from './receipts.js';
 import { MesaError } from './result.js';
 import { listSessions } from './sessions/list.js';
-import { sessionStore } from './sessions/store.js';
+import { openSession } from './sessions/open.js';
+import { type SessionRecord, sessionStore, windowOf } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
 
@@ -29,6 +30,8 @@ export type MesaDeps = {
   cwd: string;
   clock: Clock;
   newId: IdSource;
+  /** Random v4 UUIDs: the agent session id Mesa hands to claude --session-id. */
+  newUuid: IdSource;
   /** For `env:VAR` key values, so a receipt can redact them too. */
   env: Env;
   run: Runner;
@@ -144,6 +147,39 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sessions: {
       /** The board: sessions merged with live tmux; ended ones only with `all`. */
       list: (all = false) => listSessions({ store, tmux, clock: deps.clock }, { all }),
+      /** Starts `agent` (else the project's, else the profile's) in a new window. */
+      open: (project: string, agent?: string) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Opened session ${r.id} on ${r.project}`,
+            failure: `Could not open a session on ${project}`,
+            project: (r) => r.project,
+            session: (r) => r.id,
+            agent: (r) => r.agent,
+            inputs: { project, agent: agent ?? null },
+            outputs: (r) => ({
+              window: r.tmux.window,
+              agentSessionId: r.agentSessionId,
+              lastState: r.lastState,
+            }),
+          },
+          () =>
+            openSession(
+              {
+                profile: open(),
+                profileName: profile,
+                store,
+                tmux,
+                run: deps.run,
+                clock: deps.clock,
+                newUuid: deps.newUuid,
+              },
+              { project, agent },
+            ),
+        ),
+      /** The argv that attaches a terminal to the session's window. */
+      attachArgv: (session: SessionRecord) => tmux.attachArgv(windowOf(session)),
     },
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),

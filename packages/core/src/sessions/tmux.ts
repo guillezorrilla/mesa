@@ -124,8 +124,20 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
         ? ['new-window', '-d', '-t', `=${spec.project}:`]
         : ['new-session', '-d', '-s', spec.project];
       const vars = Object.entries(spec.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+      // new-session -e also sets the tmux session's environment, which a window the user adds by
+      // hand would inherit; the first window keeps its own copy.
+      const unset = hasSession
+        ? []
+        : Object.keys(spec.env).flatMap((k) => [
+            ';',
+            'set-environment',
+            '-t',
+            `=${spec.project}`,
+            '-u',
+            k,
+          ]);
       await must(
-        [...where, '-n', spec.window, '-c', spec.cwd, ...vars, spec.command],
+        [...where, '-n', spec.window, '-c', spec.cwd, ...vars, spec.command, ...unset],
         'internal',
         `could not open ${label(spec)}`,
       );
@@ -169,6 +181,20 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       }
       return res.stdout.split('\n').filter(Boolean).map(parseWindow);
     },
+    /** The argv that attaches a terminal to the window: run by the caller, in its own terminal. */
+    attachArgv: (target: WindowTarget) => [
+      'tmux',
+      '-L',
+      socket,
+      '-f',
+      '/dev/null',
+      'attach-session',
+      '-t',
+      exact(target),
+      // ADR-0001: the app and a user terminal never fight over the pane size.
+      '-f',
+      'ignore-size',
+    ],
     windowExists: async (target: WindowTarget) =>
       (await tmux(['list-panes', '-t', exact(target), '-F', '#{pane_id}'])).ok,
   };

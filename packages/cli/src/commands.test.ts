@@ -1,7 +1,14 @@
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '@mesa/core';
-import { newSession, scriptedRunner, sequentialIds, tempDir, testDeps } from '@mesa/core/testing';
+import {
+  newSession,
+  scriptedRunner,
+  sequentialIds,
+  sequentialUuids,
+  tempDir,
+  testDeps,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { runCli, VERSION } from './cli.js';
 import { COMMANDS } from './commands/index.js';
@@ -10,16 +17,18 @@ import { COMMANDS } from './commands/index.js';
 let home: string;
 let run: Runner;
 let newId = sequentialIds();
+let newUuid = sequentialUuids();
 beforeEach(() => {
   home = tempDir();
   newId = sequentialIds(); // one id source per test, shared by its invocations
+  newUuid = sequentialUuids();
   run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
 });
 const mesa = async (...argv: string[]) => {
   const out = await runCli(argv, {
     commands: COMMANDS,
     env: {},
-    mesa: testDeps(home, { run, argv, newId }),
+    mesa: testDeps(home, { run, argv, newId, newUuid }),
   });
   return { ...out, json: out.stdout.startsWith('{') ? JSON.parse(out.stdout) : undefined };
 };
@@ -292,6 +301,51 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
       '',
     ].join('\n'),
   );
+});
+
+test('open prints the session id, --json the record, and --attach hands back the attach argv', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const dir = join(home, 'src/lantern-cove');
+  mkdirSync(dir, { recursive: true });
+  await mesa('register', '--create', dir);
+
+  const { json } = await mesa('open', 'lantern-cove', '--json');
+  expect(json.data).toMatchObject({
+    project: 'lantern-cove',
+    agent: 'claude',
+    agentSessionId: '00000000-0000-4000-8000-000000000001',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove' },
+    receipt: { id: expect.stringMatching(/^01TEST/) },
+  });
+  const plain = await mesa('open', 'lantern-cove');
+  expect(plain.stdout).toMatch(/^[0-9a-z]{8}\n$/);
+  expect(
+    JSON.parse(
+      readFileSync(join(home, `.mesa/default/sessions/${plain.stdout.trim()}.json`), 'utf8'),
+    ).agentSessionId,
+  ).toBe('00000000-0000-4000-8000-000000000002');
+  expect(plain.exec).toBeUndefined();
+
+  const attached = await mesa('open', 'lantern-cove', '--attach');
+  const id = attached.stdout.trim();
+  expect(attached.exec).toEqual([
+    'tmux',
+    '-L',
+    'mesa-default',
+    '-f',
+    '/dev/null',
+    'attach-session',
+    '-t',
+    `=lantern-cove:=claude-${id}`,
+    '-f',
+    'ignore-size',
+  ]);
+  expect(await mesa('open', 'tide')).toMatchObject({ code: 3 });
+  expect(await mesa('open', 'lantern-cove', '--agent', 'codex')).toMatchObject({
+    code: 7,
+    stderr: 'codex support is planned in #43\n',
+  });
 });
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {

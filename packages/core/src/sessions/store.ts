@@ -6,6 +6,7 @@ import { writeFileAtomic } from '../atomic-file.js';
 import type { IdSource } from '../ids.js';
 import { MesaError } from '../result.js';
 import { parseWith } from '../yaml-file.js';
+import type { WindowTarget } from './tmux.js';
 
 // Session records: one JSON file per session in the profile's `sessions/`, outliving tmux.
 
@@ -49,6 +50,12 @@ const SessionRecordSchema = z.strictObject({
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 
+/** The session's window on the profile's tmux server. */
+export const windowOf = (r: SessionRecord): WindowTarget => ({
+  project: r.tmux.session,
+  window: r.tmux.window,
+});
+
 /** The ULID's last 8 characters are random: 40 bits, and short enough to type. */
 const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();
 
@@ -83,11 +90,12 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
   };
 
   return {
-    create: (session: NewSession): SessionRecord => {
+    /** A new record with a fresh id, which `build` may use (the window is named after it). */
+    create: (build: (id: string) => NewSession): SessionRecord => {
       const id = shortId(newId);
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       if (existsSync(fileOf(id))) throw new MesaError('internal', `session id ${id} is taken`);
-      return write({ ...session, id, events: [] });
+      return write({ ...build(id), id, events: [] });
     },
     get,
     // ponytail: read-modify-write without a lock; add one when hooks (#22) update records too.

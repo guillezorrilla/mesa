@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useToast } from '../components/Toast';
 import { usePlatform } from '../lib/MesaRoot';
 import { useCommand, useRun } from '../lib/useCommand';
 
@@ -7,6 +8,20 @@ export function ProjectsScreen() {
   const run = useRun();
   const platform = usePlatform();
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
+
+  const [opening, setOpening] = useState(false);
+
+  // One open at a time, so a double click starts one session, not two.
+  const openSession = async (project: string) => {
+    setOpening(true);
+    try {
+      const session = await run('sessions.open', { project });
+      if (session) toast(`Opened session ${session.id} on ${project}`);
+    } finally {
+      setOpening(false);
+    }
+  };
 
   // One picker at a time: the button stays disabled until the register and refresh finish.
   const registerFolder = async () => {
@@ -29,6 +44,7 @@ export function ProjectsScreen() {
             <th>Path</th>
             <th>Agent</th>
             <th>Priority</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -45,6 +61,18 @@ export function ProjectsScreen() {
               <td>{p.path}</td>
               <td>{p.agent ?? ''}</td>
               <td>{p.priority ?? ''}</td>
+              <td>
+                {p.exists && (
+                  <button
+                    type="button"
+                    data-testid="open-session"
+                    onClick={() => openSession(p.name)}
+                    disabled={opening}
+                  >
+                    Open session
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

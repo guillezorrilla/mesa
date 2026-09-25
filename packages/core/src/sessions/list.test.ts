@@ -11,9 +11,13 @@ const storeIn = () => sessionStore({ dir: join(tempDir(), 'sessions'), newId: se
 
 test('listSessions marks a session whose window is gone done from tmux, and saves it', async () => {
   const store = storeIn();
-  const live = store.create(inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'));
-  const gone = store.create(inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
-  const stopped = store.create(inWindow('harbor', '2026-09-24T10:00:00.000Z', 'claude-cccccc'));
+  const live = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+  );
+  const gone = store.create(() => inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
+  const stopped = store.create(() =>
+    inWindow('harbor', '2026-09-24T10:00:00.000Z', 'claude-cccccc'),
+  );
   store.update(stopped.id, {
     endedAt: '2026-09-24T10:30:00.000Z',
     lastState: { state: 'done', confidence: 1, at: '2026-09-24T10:30:00.000Z', source: 'mesa' },

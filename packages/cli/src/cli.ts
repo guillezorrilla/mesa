@@ -34,7 +34,7 @@ export type CliDeps = {
   mesa: MesaDeps;
 };
 
-export type CliResult = { code: number; stdout: string; stderr: string };
+export type CliResult = { code: number; stdout: string; stderr: string; exec?: string[] };
 
 function parse(argv: string[], flags: Record<string, Flag>) {
   try {
@@ -117,7 +117,8 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
     result = toFail(error);
   }
   const code = out?.code ?? exitCode(result);
-  if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '' };
-  if (result.ok) return { code, stdout: `${out?.text ?? ''}\n`, stderr: '' };
+  const exec = result.ok ? out?.exec : undefined;
+  if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '', exec };
+  if (result.ok) return { code, stdout: `${out?.text ?? ''}\n`, stderr: '', exec };
   return { code, stdout: '', stderr: `${result.error.message}\n` };
 }
