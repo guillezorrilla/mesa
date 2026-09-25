@@ -50,6 +50,23 @@ const SessionRecordSchema = z.strictObject({
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 
+/** States a session does not leave on its own; distinct from ended (stopped, with `endedAt`). */
+export const FINAL_STATES: ReadonlySet<SessionState> = new Set(['done', 'failed']);
+
+/**
+ * What ending a record at `at` sets: `endedAt` (when it was seen done or failed, if it was), and
+ * `done` unless it had already finished; a `failed` stays failed.
+ */
+export function ending(r: SessionRecord, at: string): Pick<SessionRecord, 'endedAt' | 'lastState'> {
+  if (FINAL_STATES.has(r.lastState.state)) {
+    return { endedAt: r.endedAt ?? r.lastState.at, lastState: r.lastState };
+  }
+  return {
+    endedAt: r.endedAt ?? at,
+    lastState: { state: 'done', confidence: 1, at, source: 'mesa' },
+  };
+}
+
 /** The session's window on the profile's tmux server. */
 export const windowOf = (r: SessionRecord): WindowTarget => ({
   project: r.tmux.session,
@@ -101,15 +118,14 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
     // ponytail: read-modify-write without a lock; add one when hooks (#22) update records too.
     update: (id: string, patch: Partial<Omit<SessionRecord, 'id'>>) =>
       write({ ...get(id), ...patch, id }),
-    /** Oldest first; ended sessions (stopped, with `endedAt`) only with `all`. */
-    list: ({ all = false } = {}): SessionRecord[] => {
+    /** Every record, oldest first. */
+    list: (): SessionRecord[] => {
       if (!existsSync(dir)) return [];
       return readdirSync(dir, { withFileTypes: true })
         .flatMap((e) => {
           const id = e.isFile() && RECORD_FILE.exec(e.name)?.[1];
           return id ? [read(id)] : [];
         })
-        .filter((r) => all || !r.endedAt)
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     },
     remove: (id: string) => {

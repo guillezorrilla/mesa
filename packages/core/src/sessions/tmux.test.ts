@@ -139,6 +139,15 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await expect(tmux.capturePane(target, 5)).rejects.toMatchObject({ code: 'not_found' });
     expect(await tmux.listWindows('no-such-project')).toEqual([]);
   });
+
+  test('a server whose last window is gone lists nothing and has no windows', async () => {
+    // exit-empty off keeps the server up; tmux then answers `no current target` to everything.
+    for (const w of await tmux.listWindows()) await tmux.killWindow(w);
+    expect(await raw('list-sessions')).toMatch(/no current target|^$/);
+    expect(await tmux.listWindows()).toEqual([]);
+    expect(await tmux.listWindows('lantern')).toEqual([]);
+    expect(await tmux.windowExists(lantern('claude-aaaaaa'))).toBe(false);
+  });
 });
 
 test('every call goes to the profile socket without the user tmux.conf', async () => {

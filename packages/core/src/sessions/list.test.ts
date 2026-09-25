@@ -50,10 +50,26 @@ test('listSessions marks a session whose window is gone done from tmux, and save
   // Marked once: the next list writes nothing new, and the clock stays stopped for it.
   const later = { ...deps, clock: fixedClock('2026-09-24T13:00:00.000Z') };
   expect((await listSessions(later)).map((r) => [r.id, r.runningSeconds])).toEqual([
+    [stopped.id, 1800],
     [gone.id, 3600],
     [live.id, 3660],
   ]);
   expect(store.get(gone.id).lastState).toEqual(marked);
+});
+
+test('a stopped session stays on the board for a day; all shows older ones too', async () => {
+  const store = storeIn();
+  const old = store.create(() => inWindow('harbor', '2026-09-22T10:00:00.000Z', 'claude-aaaaaa'));
+  store.update(old.id, { endedAt: '2026-09-22T10:30:00.000Z' });
+  const recent = store.create(() => inWindow('tide', '2026-09-24T10:00:00.000Z', 'claude-bbbbbb'));
+  store.update(recent.id, { endedAt: '2026-09-24T10:30:00.000Z' });
+  const deps = {
+    store,
+    tmux: tmuxBackend({ run: scriptedRunner().run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  };
+  expect((await listSessions(deps)).map((r) => r.id)).toEqual([recent.id]);
+  expect((await listSessions(deps, { all: true })).map((r) => r.id)).toEqual([old.id, recent.id]);
 });
 
 test('an empty board never calls tmux', async () => {

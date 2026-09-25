@@ -11,15 +11,19 @@ import { initProfile, openProfile, type ProfileInfo } from './profile.js';
 import { listProjects, registerProject, unregisterProject } from './projects.js';
 import {
   actionRecorder,
+  closeSessionReceipt,
   DEFAULT_RECEIPT_LIMIT,
   listReceipts,
+  type Recorded,
   redactCommand,
   showReceipt,
 } from './receipts.js';
-import { MesaError } from './result.js';
+import { MesaError, toFail } from './result.js';
 import { attachSession } from './sessions/attach.js';
 import { listSessions } from './sessions/list.js';
-import { openSession } from './sessions/open.js';
+import { openSession, resumeSession } from './sessions/open.js';
+import { stopSession } from './sessions/stop.js';
+import type { SessionRecord } from './sessions/store.js';
 import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
@@ -33,6 +37,8 @@ export type MesaDeps = {
   newId: IdSource;
   /** Random v4 UUIDs: the agent session id Mesa hands to claude --session-id. */
   newUuid: IdSource;
+  /** Waits, for polling tmux: a real timer in the CLI, instant in tests. */
+  sleep: (ms: number) => Promise<void>;
   /** For `env:VAR` key values, so a receipt can redact them too. */
   env: Env;
   run: Runner;
@@ -61,6 +67,32 @@ export function createMesa(profile: string, deps: MesaDeps) {
   };
   const tmux = tmuxBackend({ run: deps.run, socket: paths.tmuxSocket, env: deps.env });
   const store = sessionStore({ dir: paths.sessions, newId: deps.newId });
+  /**
+   * Marks `ended`'s opening receipt ended, best effort: a failure joins the recorded action's
+   * warning instead of failing it.
+   */
+  const markEnded = async <T>(
+    recorded: Recorded<T>,
+    ended: SessionRecord,
+  ): Promise<Recorded<T>> => {
+    try {
+      const at = new Date(ended.endedAt ?? deps.clock());
+      await closeSessionReceipt(notes(), ended.id, at, { lastState: ended.lastState.state });
+      return recorded;
+    } catch (error) {
+      const why = `session ${ended.id}'s receipt not marked ended: ${toFail(error).error.message}`;
+      return { ...recorded, warning: [recorded.warning, why].filter(Boolean).join('; ') };
+    }
+  };
+  const openDeps = () => ({
+    profile: open(),
+    profileName: profile,
+    store,
+    tmux,
+    run: deps.run,
+    clock: deps.clock,
+    newUuid: deps.newUuid,
+  });
   const record = actionRecorder({
     profile,
     vault: () => configIfAny()?.vault,
@@ -165,20 +197,49 @@ export function createMesa(profile: string, deps: MesaDeps) {
               lastState: r.lastState,
             }),
           },
-          () =>
-            openSession(
-              {
-                profile: open(),
-                profileName: profile,
-                store,
-                tmux,
-                run: deps.run,
-                clock: deps.clock,
-                newUuid: deps.newUuid,
-              },
-              { project, agent },
-            ),
+          () => openSession(openDeps(), { project, agent }),
         ),
+      /**
+       * Ends a session politely, or at once with `force`. The stop gets a session receipt of its
+       * own (none when it changed nothing), and the session's opening receipt is marked ended.
+       */
+      stop: async (id: string, force = false) => {
+        const recorded = await record(
+          {
+            type: 'session',
+            summary: (r) => `Stopped session ${id} (${r.outcome})`,
+            failure: `Could not stop session ${id}`,
+            project: (r) => r.record.project,
+            session: () => id,
+            agent: (r) => r.record.agent,
+            inputs: { id, force },
+            outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
+            changed: (r) => r.outcome !== 'already-ended',
+          },
+          () => stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, { force }),
+        );
+        if (recorded.result.outcome === 'already-ended') return recorded;
+        return markEnded(recorded, recorded.result.record);
+      },
+      /** Reopens a session's conversation in a new window, as a new record linked to the old. */
+      resume: (id: string) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Resumed session ${r.from.id} as ${r.record.id} on ${r.record.project}`,
+            failure: `Could not resume session ${id}`,
+            project: (r) => r.record.project,
+            session: (r) => r.record.id,
+            agent: (r) => r.record.agent,
+            inputs: { id },
+            outputs: (r) => ({
+              window: r.record.tmux.window,
+              agentSessionId: r.record.agentSessionId,
+              resumedFrom: r.from.id,
+            }),
+          },
+          () => resumeSession(openDeps(), id),
+        ).then((recorded) => markEnded(recorded, recorded.result.from)),
       /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
       attach: (id: string, app = false) =>
         attachSession(
