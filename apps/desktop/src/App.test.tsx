@@ -145,8 +145,9 @@ test('the Sessions screen lists each session with its state and running time', a
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-sessions')[0]);
   expect(byTestId('session-row').map(cells)).toEqual([
-    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s'],
-    ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m'],
+    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '42s', 'Terminal'],
+    // An exited session has no window to attach to.
+    ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '2h05m', ''],
   ]);
   expect(byTestId('session-row')[1]?.dataset.alive).toBe('false');
   await click(byTestId('sessions-refresh')[0]);
@@ -160,6 +161,33 @@ test('the Sessions screen lists each session with its state and running time', a
   const empty = await renderWithMesa(<App />, fakeBridge().bridge);
   await click(empty('nav-sessions')[0]);
   expect(empty('sessions-empty')).toHaveLength(1);
+});
+
+test('Terminal on a session row opens it in the terminal app', async () => {
+  const live: SessionRow = {
+    id: 'aaaaaaaa',
+    kind: 'interactive',
+    project: 'lantern-cove',
+    agent: 'claude',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-aaaaaaaa' },
+    startedAt: '2026-09-25T12:00:00.000Z',
+    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
+    events: [],
+    alive: true,
+    runningSeconds: 5,
+  };
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([live]),
+    attach: () =>
+      envelope({ opened: true, target: 'lantern-cove:claude-aaaaaaaa', app: 'Terminal' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-sessions')[0]);
+  await click(byTestId('session-terminal')[0]);
+  expect(calls).toContainEqual(['--json', 'attach', '--app', '--', 'aaaaaaaa']);
+  expect(byTestId('toast')[0]?.textContent).toContain(
+    'Opened lantern-cove:claude-aaaaaaaa in Terminal',
+  );
 });
 
 test('the Doctor screen lists the windows on the Mesa tmux server', async () => {

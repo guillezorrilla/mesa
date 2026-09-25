@@ -18,16 +18,20 @@ let home: string;
 let run: Runner;
 let newId = sequentialIds();
 let newUuid = sequentialUuids();
+/** Whether the next invocations run in a terminal. */
+let tty = true;
 beforeEach(() => {
   home = tempDir();
   newId = sequentialIds(); // one id source per test, shared by its invocations
   newUuid = sequentialUuids();
+  tty = true;
   run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
 });
 const mesa = async (...argv: string[]) => {
   const out = await runCli(argv, {
     commands: COMMANDS,
     env: {},
+    tty,
     mesa: testDeps(home, { run, argv, newId, newUuid }),
   });
   return { ...out, json: out.stdout.startsWith('{') ? JSON.parse(out.stdout) : undefined };
@@ -345,6 +349,40 @@ test('open prints the session id, --json the record, and --attach hands back the
   expect(await mesa('open', 'lantern-cove', '--agent', 'codex')).toMatchObject({
     code: 7,
     stderr: 'codex support is planned in #43\n',
+  });
+});
+
+test('attach: here it hands back the attach argv, --app opens terminal.app, gone is exit 3', async () => {
+  await mesa('init', '--vault', 'vault');
+  const dir = join(home, '.mesa/default/sessions');
+  writeFileSync(
+    join(dir, 'aaaaaaaa.json'),
+    JSON.stringify({ id: 'aaaaaaaa', ...newSession(), events: [] }),
+  );
+  const here = await mesa('attach', 'aaaaaaaa', '--json');
+  expect(here.json.data).toEqual({ opened: true, target: 'lantern-cove:claude-aaaaaa', app: null });
+  expect(here.exec?.slice(-4)).toEqual(['-t', '=lantern-cove:=claude-aaaaaa', '-f', 'ignore-size']);
+
+  await mesa('config', 'set', 'terminal.app', 'WezTerm');
+  const app = await mesa('attach', 'aaaaaaaa', '--app');
+  expect(app).toMatchObject({ stdout: 'attaching to lantern-cove:claude-aaaaaa in WezTerm\n' });
+  expect(app.exec).toBeUndefined();
+  expect((await mesa('config', 'set', 'terminal.app', 'Hyper')).code).toBe(4);
+
+  // Without a terminal only --app can attach; open --attach refuses before opening anything.
+  tty = false;
+  expect(await mesa('attach', 'aaaaaaaa', '--json')).toMatchObject({ code: 2 });
+  expect((await mesa('attach', 'aaaaaaaa', '--app')).code).toBe(0);
+  expect(await mesa('open', 'lantern-cove', '--attach')).toMatchObject({
+    code: 2,
+    stderr: 'not a terminal: run this in one, or use mesa attach --app\n',
+  });
+
+  tty = true;
+  run = scriptedRunner({}, { failing: ['tmux'] }).run;
+  expect(await mesa('attach', 'aaaaaaaa')).toMatchObject({
+    code: 3,
+    stderr: 'session ended; use mesa resume\n',
   });
 });
 

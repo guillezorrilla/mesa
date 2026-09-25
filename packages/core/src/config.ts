@@ -7,6 +7,10 @@ import type { Env } from './process.js';
 import { MesaError } from './result.js';
 import { parseWith, readYaml, setYamlPath } from './yaml-file.js';
 
+/** The terminal apps `mesa attach --app` can open. */
+export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
+export type TerminalApp = (typeof TERMINAL_APPS)[number];
+
 /** The decisions backends of ADR-0004. */
 export const BackendSchema = z.enum(['rules', 'adapter', 'jev']);
 
@@ -22,6 +26,7 @@ export const ConfigSchema = z.strictObject({
     })
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
+  terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */
   keys: z.record(z.string(), z.string()).default({}),
 });
