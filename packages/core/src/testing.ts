@@ -194,6 +194,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   newId: sequentialIds(),
   newUuid: sequentialUuids(),
   sleep: async () => {},
+  self: ['/usr/local/bin/mesa'],
   env: {},
   run: scriptedRunner().run,
   argv: ['test'],

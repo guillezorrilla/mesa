@@ -1,5 +1,5 @@
 import type { Check, DoctorReport } from '@mesa/core';
-import { type CommandState, useCommand } from '../lib/useCommand';
+import { type CommandState, useCommand, useRun } from '../lib/useCommand';
 
 const MARK: Record<Check['status'], string> = { ok: '✓', warn: '!', fail: '✗' };
 
@@ -10,6 +10,11 @@ const MARK: Record<Check['status'], string> = { ok: '✓', warn: '!', fail: '✗
 export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> }) {
   const { data, busy, refresh } = doctor;
   const windows = useCommand('windows.list');
+  const hooks = useCommand('hooks.status');
+  const run = useRun();
+  const change = async (name: 'hooks.install' | 'hooks.uninstall') => {
+    if (await run(name)) await hooks.refresh();
+  };
   return (
     <section data-testid="doctor-panel">
       <h2>Doctor</h2>
@@ -34,6 +39,25 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           ))}
         </tbody>
       </table>
+      <h3>Claude Code hooks</h3>
+      {hooks.data && (
+        <p data-testid="hooks-status">
+          {hooks.data.installed
+            ? 'Installed'
+            : hooks.data.stale
+              ? 'Stale (reinstall)'
+              : 'Not installed'}{' '}
+          in {hooks.data.path}{' '}
+          <button
+            type="button"
+            data-testid={hooks.data.installed ? 'hooks-uninstall' : 'hooks-install'}
+            onClick={() => change(hooks.data?.installed ? 'hooks.uninstall' : 'hooks.install')}
+            disabled={hooks.busy}
+          >
+            {hooks.data.installed ? 'Uninstall' : 'Install'}
+          </button>
+        </p>
+      )}
       <h3>tmux windows</h3>
       {windows.data?.length === 0 && (
         <p data-testid="tmux-none">No windows on Mesa's tmux server.</p>

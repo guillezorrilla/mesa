@@ -1,6 +1,7 @@
 import type {
   Config,
   DoctorReport,
+  HooksStatus,
   ProfileInfo,
   ProjectRow,
   SessionRow,
@@ -37,6 +38,13 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
   projects: () => envelope([] satisfies ProjectRow[]),
   sessions: () => envelope([] satisfies SessionRow[]),
   windows: () => envelope([] satisfies TmuxWindow[]),
+  'hooks status': () =>
+    envelope({
+      path: '/h/.claude/settings.json',
+      installed: true,
+      stale: false,
+      events: {},
+    } satisfies HooksStatus),
 };
 
 /** A bridge answering each mesa command (the words after --json), recording every call. */

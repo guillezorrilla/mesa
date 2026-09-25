@@ -31,6 +31,7 @@ const deps: CliDeps = {
   commands: [greet, greetTwice, warn],
   env: { MESA_PROFILE: 'work' },
   tty: false,
+  stdin: async () => '',
   mesa: testDeps(home),
 };
 const cli = (...argv: string[]) => runCli(argv, deps);

@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { Clock } from './clock.js';
 import { redactConfig, resolveKey, setConfigValue } from './config.js';
 import { runDoctor } from './doctor.js';
+import { hooksStatus, installHooks, uninstallHooks } from './hooks.js';
 import type { IdSource } from './ids.js';
 import { logLine } from './notes.js';
 import { type ObsidianPaths, openInObsidian } from './obsidian.js';
@@ -21,6 +22,7 @@ import {
 } from './receipts.js';
 import { MesaError, toFail } from './result.js';
 import { attachSession } from './sessions/attach.js';
+import { recordHookEvent } from './sessions/events.js';
 import { listSessions } from './sessions/list.js';
 import { openSession, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
@@ -39,6 +41,8 @@ export type MesaDeps = {
   newId: IdSource;
   /** Random v4 UUIDs: the agent session id Mesa hands to claude --session-id. */
   newUuid: IdSource;
+  /** The argv that runs this mesa, for the agent hooks that call back into it. */
+  self: readonly string[];
   /** Waits, for polling tmux: a real timer in the CLI, instant in tests. */
   sleep: (ms: number) => Promise<void>;
   /** For `env:VAR` key values, so a receipt can redact them too. */
@@ -263,6 +267,38 @@ export function createMesa(profile: string, deps: MesaDeps) {
           app ? open().config.terminal.app : undefined,
         ),
     },
+    hooks: {
+      status: () => hooksStatus(deps.home, deps.self),
+      /** Adds Mesa's entries to ~/.claude/settings.json; running it twice leaves one per event. */
+      install: () =>
+        record(
+          {
+            summary: () => "Installed Mesa's Claude Code hooks",
+            failure: "Could not install Mesa's Claude Code hooks",
+            inputs: {},
+            outputs: (r) => ({ path: r.path }),
+            changed: (r) => r.changed,
+          },
+          () => installHooks(deps.home, deps.self),
+        ),
+      uninstall: () =>
+        record(
+          {
+            summary: () => "Removed Mesa's Claude Code hooks",
+            failure: "Could not remove Mesa's Claude Code hooks",
+            inputs: {},
+            outputs: (r) => ({ path: r.path }),
+            changed: (r) => r.changed,
+          },
+          () => uninstallHooks(deps.home, deps.self),
+        ),
+    },
+    /** One agent hook's payload, from `mesa hook claude` inside a Mesa session. */
+    hookEvent: (agent: string, payload: string) =>
+      recordHookEvent(
+        { store, eventsDir: paths.events, clock: deps.clock, home: deps.home, secrets: secrets() },
+        { agent, mesaSessionId: deps.env.MESA_SESSION_ID, payload },
+      ),
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),
     doctor: () => runDoctor({ run: deps.run, obsidian: deps.obsidian, profileDir: paths.root }),
