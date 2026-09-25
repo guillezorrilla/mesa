@@ -1,13 +1,13 @@
 ---
-created: 2026-09-24T12:00:00.000Z
-updated: 2026-09-24T12:00:00.000Z
+created: 2026-09-24T12:00
+updated: 2026-09-24T12:00
 source: mesa
 type: decision
 id: 01TEST00000000000000000001
 profile: default
 project: lantern-cove
 session: a1b2c3
-started: 2026-09-24T12:00:00.000Z
+started: 2026-09-24T12:00
 status: blocked
 command: mesa send a1b2c3 "git push --force"
 decisions:
