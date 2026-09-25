@@ -71,7 +71,21 @@ Not: priority, urgency, rank.
 
 ## Board
 
-The Session Board: the first screen of the app and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, running time; `--json` adds each row's `decision` with its probabilities). Every session across every project with agent, state and confidence, last output, running time, and attention score. Actions: open, stop, send, terminal, resume.
+The Session Board: the app's first screen (BoardScreen) and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, running time, last output; `--json` adds each row's `decision` with its probabilities). Every session across every project, highest attention first. Each row shows:
+
+- a state badge coloured per state, with its confidence (hover: which decisions backend decided);
+- the attention score;
+- a running time that ticks between looks;
+- the last output line of its pane.
+
+Foreign sessions are muted and tagged "not managed", with no actions. Actions: New session (a modal dialog with a registered project and an agent), and per row:
+
+- Send (inline, Enter or the button sends);
+- Open terminal (`mesa attach --app`);
+- Stop;
+- Resume, once the agent has exited: stopped, its window gone, or its pane dead.
+
+The app looks again every 2 s and at once after every action, one look at a time: a look asked for during one runs right after it. A failure shows in the toast.
 Not: dashboard, overview, list.
 
 ## Skill

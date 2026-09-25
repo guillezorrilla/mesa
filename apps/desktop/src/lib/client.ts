@@ -1,4 +1,5 @@
 import type {
+  Agent,
   Attached,
   Config,
   DoctorReport,
@@ -61,11 +62,9 @@ export const COMMANDS = {
     '--',
     id,
   ]),
-  'sessions.open': commandWith<{ project: string }, SessionRecord>(({ project }) => [
-    'open',
-    '--',
-    project,
-  ]),
+  'sessions.open': commandWith<{ project: string; agent?: Agent }, SessionRecord>(
+    ({ project, agent }) => ['open', ...(agent ? ['--agent', agent] : []), '--', project],
+  ),
   'sessions.all': command<SessionRow[]>('sessions', '--all'),
   'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),
