@@ -10,6 +10,7 @@
 // and there is no idle debounce, since the board reads one snapshot (at 0.6, only when no hook
 // or listing speaks). Codex patterns land in #43.
 
+import { createHash } from 'node:crypto';
 import type { Agent } from '../agents.js';
 import { type AgentProcess, listedState } from '../sessions/agent-listing.js';
 import {
@@ -19,8 +20,8 @@ import {
   type SessionState,
 } from '../sessions/store.js';
 import { decide, type FaroDeps } from './decide.js';
-import { rulesBackend, type Weights } from './rules.js';
-import type { Decision, Question } from './types.js';
+import { rulesBackend, toAnswer, type Weights } from './rules.js';
+import type { Backend, Decision, Question } from './types.js';
 
 type LastState = SessionRecord['lastState'];
 
@@ -203,9 +204,10 @@ export function attentionWeights(c: LastState, s: SessionSignals): Record<string
   }
 }
 
+const ATTENTION: Question = { kind: 'Score', id: 'attention', levels: LEVELS };
 const STATE_QUESTIONS: Question[] = [
   { kind: 'Choice', id: 'state', options: [...SESSION_STATES] },
-  { kind: 'Score', id: 'attention', levels: LEVELS },
+  ATTENTION,
   { kind: 'Noul', id: 'human', statement: 'A human is needed now' },
 ];
 
@@ -229,21 +231,44 @@ const stateRules = rulesBackend<SessionSignals>([{ when: () => true, answer: (_,
 /** A board row's place: its state, its attention (0 to 1), and the Decision behind them. */
 export type Placement = { lastState: LastState; attention: number; decision: Decision };
 
+/** What the adapter saw, as a short hash: while it is unchanged, the adapter's answer stands. */
+const basisOf = (s: SessionSignals) =>
+  createHash('sha256')
+    .update(JSON.stringify([s.agent, s.ended, s.event, s.listed, s.window, s.tail]))
+    .digest('hex')
+    .slice(0, 16);
+
 /**
  * Faro places one session: a Choice over the six states, a Score for attention, and a Noul for
- * "a human is needed now", asked through `decide` with the state rules.
+ * "a human is needed now", asked through `decide` with the state rules first and `backends`
+ * (the adapter) when they are unsure. The adapter's Choice, when it answered, is the state, kept
+ * with the `basis` it saw: the board refreshes every few seconds, and while nothing it saw has
+ * changed the adapter is not asked again. Attention always comes from the rules' bands, applied
+ * to the state that stands, so a wait outranks work whoever named the state.
  */
 export async function classifySession(
-  deps: Omit<FaroDeps<SessionSignals>, 'backends'>,
+  deps: Omit<FaroDeps<SessionSignals>, 'backends'> & {
+    backends?: readonly Backend<SessionSignals>[];
+  },
   signals: SessionSignals,
 ): Promise<Placement> {
-  const decision = await decide({ ...deps, backends: [stateRules] }, signals, STATE_QUESTIONS);
-  const attention = decision.answers[1];
-  // ponytail: rules only, so the state is `classify`'s own; when the adapter (#26) may answer,
-  // take its Choice here.
-  return {
-    lastState: classify(signals),
-    attention: attention?.kind === 'Score' ? attention.answer : 0,
-    decision,
-  };
+  const basis = basisOf(signals);
+  const known = signals.last.source === 'adapter' && signals.last.basis === basis;
+  const backends = [stateRules, ...(known ? [] : (deps.backends ?? []))];
+  const decision = await decide({ ...deps, backends }, signals, STATE_QUESTIONS);
+  const [state] = decision.answers;
+  const adapted = decision.backend === 'adapter' && state?.kind === 'Choice' ? state : undefined;
+  const lastState: LastState = known
+    ? signals.last
+    : adapted
+      ? {
+          state: adapted.answer as SessionState,
+          confidence: adapted.confidence,
+          source: 'adapter',
+          at: adapted.answer === signals.last.state ? signals.last.at : signals.now,
+          basis,
+        }
+      : classify(signals);
+  const attention = toAnswer(ATTENTION, attentionWeights(lastState, signals));
+  return { lastState, attention: attention.kind === 'Score' ? attention.answer : 0, decision };
 }

@@ -84,3 +84,68 @@ test('a waiting session always outranks a working one, and climbs with time and 
   expect(at('working', 86400, 1)).toBeLessThanOrEqual(0.125);
   expect(at('idle', 600, 0)).toBeGreaterThan(at('idle', 0, 0));
 });
+
+test('classifySession asks the adapter only when the rules are unsure, and takes its state', async () => {
+  const calls: string[] = [];
+  const adapter = {
+    name: 'adapter' as const,
+    answer: async (s: SessionSignals) => {
+      calls.push(s.tail ?? 'no tail');
+      return {
+        answers: [
+          {
+            id: 'state',
+            kind: 'Choice',
+            answer: 'waiting-question',
+            probabilities: Object.fromEntries(
+              SESSION_STATES.map((n) => [n, n === 'waiting-question' ? 0.9 : 0.02]),
+            ),
+            confidence: 0.9,
+          },
+          {
+            id: 'attention',
+            kind: 'Score',
+            answer: 0.75,
+            probabilities: { none: 0, low: 0, medium: 0, high: 1, urgent: 0 },
+            confidence: 1,
+          },
+          { id: 'human', kind: 'Noul', answer: true, probabilities: 0.9 },
+        ],
+        costUsd: 0.003,
+      };
+    },
+  };
+  const adapterProfile: FaroProfile = {
+    decisions: { backend: 'adapter', threshold: 0.7 },
+    hasKey: () => false,
+  };
+  const sure = fixtures.find((f) => f.name === 'permission-request-fresh.json')
+    ?.input as SessionSignals;
+  const unsure = fixtures.find((f) => f.name === 'tail-busy-screen.json')?.input as SessionSignals;
+  const placed = (signals: SessionSignals) =>
+    classifySession({ profile: adapterProfile, clock: fixedClock(), backends: [adapter] }, signals);
+
+  // A fresh hook (0.95): the rules stand and the adapter is never asked.
+  expect((await placed(sure)).decision.backend).toBe('rules');
+  expect(calls).toEqual([]);
+  // The tail alone (0.6, below 0.7): the adapter answers, and its state is the row's.
+  const { lastState, decision } = await placed(unsure);
+  expect(calls).toHaveLength(1);
+  expect(decision).toMatchObject({ backend: 'adapter', costUsd: 0.003 });
+  expect(lastState).toMatchObject({
+    state: 'waiting-question',
+    confidence: 0.9,
+    source: 'adapter',
+  });
+  // Attention is the rules' band for the adapter's state: a wait, at least 0.75.
+  expect((await placed(unsure)).attention).toBeGreaterThanOrEqual(0.75);
+
+  // The next look sees the same screen: the saved answer stands, and the adapter is not asked.
+  calls.length = 0;
+  const again = await placed({ ...unsure, last: lastState });
+  expect(calls).toEqual([]);
+  expect(again.lastState).toEqual(lastState);
+  // The screen changes: it is asked again.
+  await placed({ ...unsure, last: lastState, tail: `${unsure.tail}\n` });
+  expect(calls).toHaveLength(1);
+});

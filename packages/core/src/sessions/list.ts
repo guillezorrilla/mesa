@@ -7,7 +7,7 @@ import {
   type Placement,
   type SessionSignals,
 } from '../decisions/session-state.js';
-import type { DecisionRecorder } from '../decisions/types.js';
+import type { Backend, DecisionRecorder } from '../decisions/types.js';
 import type { RegistryEntry } from '../registry.js';
 import { type AgentProcess, listedState } from './agent-listing.js';
 import type { HookEvent } from './events.js';
@@ -88,6 +88,8 @@ export async function listSessions(
     faro: FaroProfile;
     /** Where each row's Decision goes; receipts implement it in P3. */
     recorder?: DecisionRecorder;
+    /** Faro's shared backends (the adapter), asked when the state rules are unsure. */
+    backends?: readonly Backend<SessionSignals>[];
     projects: readonly RegistryEntry[];
     /** Agent session ids that other profiles' records hold: not foreign, not this board's. */
     elsewhere: () => ReadonlySet<string>;
@@ -121,7 +123,12 @@ export async function listSessions(
     }),
   );
   const byLabel = new Map(windowList.map((w) => [targetLabel(w), w]));
-  const faro = { profile: deps.faro, clock: deps.clock, recorder: deps.recorder };
+  const faro = {
+    profile: deps.faro,
+    clock: deps.clock,
+    recorder: deps.recorder,
+    backends: deps.backends,
+  };
   const managed = await Promise.all(
     records.map(async (found): Promise<ManagedRow> => {
       const listedAs = byRecord.get(found.id);
@@ -155,9 +162,9 @@ export async function listSessions(
         signals.tail = await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined);
       }
       const classified = await classifySession(faro, signals);
-      const { state, source } = found.lastState;
-      const changed =
-        classified.lastState.state !== state || classified.lastState.source !== source;
+      const { state, source, basis } = found.lastState;
+      const next = classified.lastState;
+      const changed = next.state !== state || next.source !== source || next.basis !== basis;
       const record = changed
         ? deps.store.update(found.id, { lastState: classified.lastState })
         : found;
@@ -185,14 +192,19 @@ export async function listSessions(
       // ponytail: no record, so each look starts its state now and a foreign wait never climbs;
       // keep a first-seen time per pid if foreign sessions need to rank by how long they wait.
       const last = { ...listedState(process), at: now.toISOString(), source: 'listing' as const };
-      const classified = await classifySession(faro, {
-        now: now.toISOString(),
-        agent: p.agent,
-        last,
-        ended: false,
-        listed: process,
-        priority: deps.priorityOf(project),
-      });
+      // ponytail: rules only; with no record to keep its basis, the adapter would be asked again
+      // on every look. Give foreign sessions a basis cache if they need the adapter.
+      const classified = await classifySession(
+        { ...faro, backends: [] },
+        {
+          now: now.toISOString(),
+          agent: p.agent,
+          last,
+          ended: false,
+          listed: process,
+          priority: deps.priorityOf(project),
+        },
+      );
       return {
         ...p,
         ...classified,

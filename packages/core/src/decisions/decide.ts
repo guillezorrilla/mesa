@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Clock } from '../clock.js';
 import type { Config } from '../config.js';
 import { MesaError } from '../result.js';
-import { rulesBackend, toAnswer } from './rules.js';
+import { namesOf, rulesBackend, toAnswer } from './rules.js';
 import {
   type Answer,
   AnswerSchema,
@@ -43,7 +43,7 @@ function checked(questions: Question[], raw: unknown): Answer[] {
   const fits = (q: Question, a: Answer) => {
     if (a.id !== q.id || a.kind !== q.kind) return false;
     if (q.kind === 'Noul' || a.kind === 'Noul') return true;
-    const names = q.kind === 'Choice' ? q.options : q.levels;
+    const names = namesOf(q);
     const ps = Object.values(a.probabilities);
     return (
       ps.length === names.length &&
@@ -69,12 +69,26 @@ const certainty = (a: Answer) =>
       ? a.confidence
       : 1;
 
-async function attempt<S>(backend: Backend<S>, state: S, questions: Question[]) {
+const Reply = z.union([
+  z.array(z.unknown()),
+  z.object({ answers: z.array(z.unknown()), costUsd: z.number().optional() }),
+]);
+
+type Attempt<S> =
+  | { backend: Backend<S>; answers: Answer[]; costUsd?: number | undefined }
+  | { failed: string };
+
+async function attempt<S>(
+  backend: Backend<S>,
+  state: S,
+  questions: Question[],
+): Promise<Attempt<S>> {
   try {
-    return { backend, answers: checked(questions, await backend.answer(state, questions)) };
-  } catch {
-    // ponytail: the reason is dropped; keep it in the Decision when the adapter (#26) lands.
-    return undefined;
+    const reply = Reply.parse(await backend.answer(state, questions));
+    const [raw, costUsd] = Array.isArray(reply) ? [reply] : [reply.answers, reply.costUsd];
+    return { backend, answers: checked(questions, raw), costUsd };
+  } catch (error) {
+    return { failed: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -82,7 +96,8 @@ async function attempt<S>(backend: Backend<S>, state: S, questions: Question[]) 
  * Faro: answers `questions` about `state`, one answer per question with its probabilities and
  * confidence. The site's rules answer first; the backend the profile names is asked only when
  * the least sure answer is below `decisions.threshold` (ADR-0003), and its answers stand only if
- * they are well formed. Rules that fail give even answers. Questions are validated here too, as
+ * they are well formed; when it fails, the rules' answers stand as `rules-fallback`. Rules that
+ * fail give even answers. Questions are validated here too, as
  * callers at a boundary pass what they read: invalid ones are a usage error.
  */
 export async function decide<S>(
@@ -99,17 +114,24 @@ export async function decide<S>(
   const asked = parsed.data;
   const started = deps.clock();
   const rules = rulesOf(deps.backends);
-  let made = (await attempt(rules, state, asked)) ?? {
-    backend: rules,
-    answers: asked.map((q) => toAnswer(q, undefined)),
-  };
+  const first = await attempt(rules, state, asked);
+  const ruled =
+    'failed' in first
+      ? { backend: rules, answers: asked.map((q) => toAnswer(q, undefined)), costUsd: undefined }
+      : first;
+  let made: Exclude<Attempt<S>, { failed: string }> & { fellBack?: string } = ruled;
   const named = selectBackend(deps.backends, deps.profile);
-  const unsure = Math.min(...made.answers.map(certainty)) < deps.profile.decisions.threshold;
-  if (named !== rules && unsure) made = (await attempt(named, state, asked)) ?? made;
+  const unsure = Math.min(...ruled.answers.map(certainty)) < deps.profile.decisions.threshold;
+  if (named !== rules && unsure) {
+    const second = await attempt(named, state, asked);
+    made = 'failed' in second ? { ...ruled, fellBack: second.failed } : second;
+  }
   const decision: Decision = {
     questions: asked,
     answers: made.answers,
-    backend: made.backend.name,
+    backend: made.fellBack === undefined ? made.backend.name : 'rules-fallback',
+    ...(made.fellBack === undefined ? {} : { fallbackReason: made.fellBack }),
+    ...(made.costUsd === undefined ? {} : { costUsd: made.costUsd }),
     at: started.toISOString(),
     latencyMs: deps.clock().getTime() - started.getTime(),
   };
