@@ -1,6 +1,6 @@
 ---
-created: 2026-09-24T12:00:00.000Z
-updated: 2026-09-24T12:00:00.000Z
+created: 2026-09-24T12:00
+updated: 2026-09-24T12:00
 source: mesa
 type: session
 id: 01TEST00000000000000000001
@@ -8,8 +8,8 @@ profile: default
 project: lantern-cove
 session: a1b2c3
 agent: claude
-started: 2026-09-24T09:30:00.000Z
-ended: 2026-09-24T11:05:00.000Z
+started: 2026-09-24T09:30
+ended: 2026-09-24T11:05
 status: ok
 command: mesa open lantern-cove
 decisions: []

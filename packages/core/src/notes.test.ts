@@ -2,8 +2,9 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import type { Frontmatter } from './frontmatter.js';
-import { appendLog, localDay, logLine, readNote, updateNote, writeNote } from './notes.js';
+import { appendLog, logLine, readNote, updateNote, writeNote } from './notes.js';
 import { fixedClock, steppingClock, tempDir, thrown } from './testing.js';
+import { localDay } from './time.js';
 import { initVault } from './vault.js';
 import { vaultLockPath, withVaultLock } from './vault-lock.js';
 
@@ -22,8 +23,8 @@ test('writeNote stamps created, updated, and source, keeps created on rewrite, a
   });
   const first = readNote(deps, 'wiki/tide.md');
   expect(first.frontmatter).toEqual({
-    created: '2026-09-24T12:00:00.000Z',
-    updated: '2026-09-24T12:00:00.000Z',
+    created: '2026-09-24T12:00',
+    updated: '2026-09-24T12:00',
     source: 'mesa',
     tags: ['sea'],
   });
@@ -32,8 +33,8 @@ test('writeNote stamps created, updated, and source, keeps created on rewrite, a
   writeNote(deps, { path: 'wiki/tide.md', frontmatter: { tags: [] }, body: 'v2\n' });
   expect(readNote(deps, 'wiki/tide.md')).toEqual({
     frontmatter: {
-      created: '2026-09-24T12:00:00.000Z',
-      updated: '2026-09-24T12:01:00.000Z',
+      created: '2026-09-24T12:00',
+      updated: '2026-09-24T12:01',
       source: 'mesa',
       tags: [],
     },

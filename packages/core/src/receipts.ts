@@ -6,13 +6,13 @@ import type { Clock } from './clock.js';
 import { BackendSchema } from './config.js';
 import { parseNote } from './frontmatter.js';
 import { type IdSource, ULID } from './ids.js';
-import { NOTE_FIELDS, writeNote } from './notes.js';
-import { RECEIPT_TYPES, receiptPath, receiptSortKey } from './receipt-file.js';
+import { appendLog, NOTE_FIELDS, writeNote } from './notes.js';
+import { RECEIPT_TYPES, receiptLink, receiptPath, receiptSortKey } from './receipt-file.js';
 import { MesaError, toFail } from './result.js';
+import { NoteTimeSchema, obsidianDateTime } from './time.js';
 import { acceptsMesaWrites } from './vault.js';
 import { parseWith } from './yaml-file.js';
 
-const iso = z.iso.datetime();
 const probability = z.number().min(0).max(1);
 
 /**
@@ -53,8 +53,8 @@ export const ReceiptSchema = z.strictObject({
   project: z.string().optional(),
   session: z.string().optional(),
   agent: AgentSchema.optional(),
-  started: iso,
-  ended: iso.optional(),
+  started: NoteTimeSchema,
+  ended: NoteTimeSchema.optional(),
   status: z.enum(['ok', 'failed', 'blocked']),
   /** The mesa command line, key values redacted. */
   command: z.string(),
@@ -78,18 +78,31 @@ export type ReceiptsDeps = { vault: string; clock: Clock; newId: IdSource };
 
 export const DEFAULT_RECEIPT_LIMIT = 20;
 
-/** Validates and writes one receipt through writeNote, so it is atomic like every Mesa note. */
+/**
+ * Validates and writes one receipt through writeNote, so it is atomic like every Mesa note, then
+ * appends a log.md line linking to it. With no log.md yet (a receipt from mesa init before mesa
+ * vault init), the receipt still stands and `warning` says the line is missing.
+ */
 export function writeReceipt(
   deps: ReceiptsDeps,
   input: ReceiptInput,
-): { receipt: Receipt; path: string } {
+): { receipt: Receipt; path: string; warning?: string } {
   const { summary, details, ...fields } = input;
-  const started = fields.started ?? deps.clock().toISOString();
+  const at = deps.clock();
+  const started = fields.started ?? obsidianDateTime(at);
   const receipt = parseWith(ReceiptSchema, { ...fields, id: deps.newId(), started }, 'receipt');
-  const path = receiptPath(receipt);
+  // The file name keeps the clock's seconds, which the minute-precision `started` drops.
+  const path = receiptPath({ ...receipt, started: fields.started ?? at.toISOString() });
   const body = `${summary}\n\n## Details\n\n${details ?? 'None.'}\n`;
-  writeNote({ vault: deps.vault, clock: deps.clock }, { path, frontmatter: receipt, body });
-  return { receipt, path };
+  const notes = { vault: deps.vault, clock: deps.clock };
+  writeNote(notes, { path, frontmatter: receipt, body });
+  try {
+    // Brackets in the summary cannot open or close a link of their own before the receipt's.
+    appendLog(notes, `${summary.replace(/\[\[|\]\]/g, '')} ${receiptLink(path)}`);
+    return { receipt, path };
+  } catch (error) {
+    return { receipt, path, warning: `no log line: ${toFail(error).error.message}` };
+  }
 }
 
 /** Every receipt file, newest first; files whose names are not a receipt's are left out. */
@@ -188,11 +201,11 @@ export function actionRecorder(deps: {
           warning: `no receipt: ${vault} is not a vault; run mesa vault init`,
         };
       }
-      const { receipt, path } = writeReceipt(
+      const { receipt, path, warning } = writeReceipt(
         { vault, clock: deps.clock, newId: deps.newId },
         { type: 'action', profile: deps.profile, command: deps.command(), ...input },
       );
-      return { receipt: { id: receipt.id, path } };
+      return { receipt: { id: receipt.id, path }, ...(warning ? { warning } : {}) };
     } catch (error) {
       return { receipt: null, warning: `no receipt: ${toFail(error).error.message}` };
     }

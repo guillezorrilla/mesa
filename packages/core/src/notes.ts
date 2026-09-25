@@ -4,6 +4,7 @@ import { writeFileAtomic } from './atomic-file.js';
 import type { Clock } from './clock.js';
 import { type Frontmatter, type Note, parseNote, serializeNote } from './frontmatter.js';
 import { MesaError } from './result.js';
+import { localDay, obsidianDateTime } from './time.js';
 import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
@@ -44,7 +45,7 @@ export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note 
       reason: 'note',
     });
   }
-  const now = deps.clock().toISOString();
+  const now = obsidianDateTime(deps.clock());
   const fields = Object.fromEntries(
     Object.entries(note.frontmatter).filter(([k]) => !NOTE_FIELDS.includes(k)),
   );
@@ -93,12 +94,6 @@ export function appendLog(deps: NotesDeps, line: string): string {
   appendFileSync(file, `${entry}\n`);
   return entry;
 }
-
-/** The local calendar date of `date` as YYYY-MM-DD, the daily note's name. */
-export const localDay = (date: Date) =>
-  [date.getFullYear(), date.getMonth() + 1, date.getDate()]
-    .map((n, i) => String(n).padStart(i === 0 ? 4 : 2, '0'))
-    .join('-');
 
 /**
  * `mesa log`: the line goes to log.md and to today's daily note (created with frontmatter when

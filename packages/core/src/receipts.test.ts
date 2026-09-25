@@ -13,6 +13,7 @@ import {
   writeReceipt,
 } from './receipts.js';
 import { fixedClock, sequentialIds, steppingClock, tempDir, testDeps, thrown } from './testing.js';
+import { initVault } from './vault.js';
 
 let vault: string;
 beforeEach(() => {
@@ -195,4 +196,50 @@ test('an env: key value is redacted in the recorded command', () => {
   expect(receipt).not.toBeNull();
   const [entry] = again.receipts.list(1);
   expect(entry?.receipt.command).toBe('mesa log "token ***"');
+});
+
+test('each receipt adds a log.md line linking to it; without log.md the receipt stands, with a warning', () => {
+  const bare = writeReceipt(deps(), EXAMPLES.action);
+  expect(bare.warning).toMatch(/^no log line: .*log\.md not found; run mesa vault init$/);
+  expect(listReceipts(vault)).toHaveLength(1);
+
+  initVault({ path: vault, clock: fixedClock() });
+  const linked = writeReceipt(
+    { vault, clock: fixedClock('2026-09-24T12:30:00.000Z'), newId: sequentialIds() },
+    EXAMPLES.skill,
+  );
+  expect(linked.warning).toBeUndefined();
+  const last = readFileSync(join(vault, 'log.md'), 'utf8').trimEnd().split('\n').at(-1);
+  expect(last).toBe(
+    `- 2026-09-24T12:30:00.000Z Skill tidy-readme failed on lantern-cove [[${linked.path.replace(/\.md$/, '')}|receipt]]`,
+  );
+  const bracketed = writeReceipt(deps(), {
+    ...EXAMPLES.action,
+    summary: 'Touched [[wiki/x]] and ]] more',
+  });
+  const tail = readFileSync(join(vault, 'log.md'), 'utf8').trimEnd().split('\n').at(-1);
+  expect(tail).toBe(
+    `- 2026-09-24T12:00:00.000Z Touched wiki/x and  more [[${bracketed.path.replace(/\.md$/, '')}|receipt]]`,
+  );
+});
+
+test('a vault holding receipts in both time forms lists newest first', () => {
+  const legacy = writeReceipt(
+    { vault, clock: fixedClock('2026-09-24T08:00:00.000Z'), newId: sequentialIds() },
+    { ...EXAMPLES.action, started: '2026-09-24T08:00:00.000Z' },
+  );
+  const current = writeReceipt(
+    {
+      vault,
+      clock: fixedClock('2026-09-24T09:00:00.000Z'),
+      newId: () => '01TEST00000000000000000009',
+    },
+    EXAMPLES.skill,
+  );
+  expect(current.receipt.started).toBe('2026-09-24T09:00');
+  expect(legacy.receipt.started).toBe('2026-09-24T08:00:00.000Z');
+  expect(listReceipts(vault).map((e) => e.receipt.id)).toEqual([
+    current.receipt.id,
+    legacy.receipt.id,
+  ]);
 });
