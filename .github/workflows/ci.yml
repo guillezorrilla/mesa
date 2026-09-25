@@ -21,6 +21,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+      - run: brew install tmux
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck

@@ -17,6 +17,7 @@ import {
   showReceipt,
 } from './receipts.js';
 import { MesaError } from './result.js';
+import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
@@ -52,6 +53,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       return undefined;
     }
   };
+  const tmux = tmuxBackend({ run: deps.run, socket: paths.tmuxSocket, env: deps.env });
   const record = actionRecorder({
     profile,
     vault: () => configIfAny()?.vault,
@@ -136,6 +138,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
       list: (limit = DEFAULT_RECEIPT_LIMIT) => listReceipts(vaultOf(), limit),
       show: (id: string) => showReceipt(vaultOf(), id),
     },
+    /** The windows on the profile's tmux server, or one project's. */
+    windows: (project?: string) => tmux.listWindows(project),
     doctor: () => runDoctor({ run: deps.run, obsidian: deps.obsidian, profileDir: paths.root }),
   };
 }

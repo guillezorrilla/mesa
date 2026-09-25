@@ -255,6 +255,32 @@ test('vault open: the URI by default, --json, and its errors', async () => {
   expect((await mesa('vault', 'open', 'wiki/missing.md')).code).toBe(3);
 });
 
+test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {
+  const scripted = scriptedRunner({
+    tmux: 'lantern\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern\t1790359178\t1\n',
+  });
+  run = scripted.run;
+  const { json } = await mesa('windows', '--json');
+  expect(json.data).toEqual([
+    expect.objectContaining({ project: 'lantern', window: 'claude-aaaaaa', dead: true }),
+  ]);
+  expect((await mesa('windows', 'lantern')).stdout).toBe(
+    'lantern:claude-aaaaaa  (exited)  /src/lantern\n',
+  );
+  expect(scripted.calls[1]?.args.slice(0, 6)).toEqual([
+    '-L',
+    'mesa-default',
+    '-f',
+    '/dev/null',
+    'list-windows',
+    '-t',
+  ]);
+  run = scriptedRunner({ tmux: '' }).run;
+  expect((await mesa('windows')).stdout).toBe('no Mesa tmux windows\n');
+  run = scriptedRunner({}, { missing: ['tmux'] }).run;
+  expect(await mesa('windows')).toMatchObject({ code: 6 });
+});
+
 test('profile and version', async () => {
   expect((await mesa('profile', '--json')).json).toEqual({
     ok: true,

@@ -1,4 +1,11 @@
-import type { Config, DoctorReport, ProfileInfo, ProjectRow, VaultStatus } from '@mesa/core';
+import type {
+  Config,
+  DoctorReport,
+  ProfileInfo,
+  ProjectRow,
+  TmuxWindow,
+  VaultStatus,
+} from '@mesa/core';
 import { act, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Bridge } from './client';
@@ -26,6 +33,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),
   doctor: () => envelope({ healthy: true, summary: 'ready', checks: [] } satisfies DoctorReport),
   projects: () => envelope([] satisfies ProjectRow[]),
+  windows: () => envelope([] satisfies TmuxWindow[]),
 };
 
 /** A bridge answering each mesa command (the words after --json), recording every call. */
