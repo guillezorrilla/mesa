@@ -3,6 +3,7 @@
 export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents.js';
 export { type Clock, systemClock } from './clock.js';
 export { type Config, TERMINAL_APPS } from './config.js';
+export type { Answer, Decision, Question } from './decisions/types.js';
 export type { Check, DoctorReport } from './doctor.js';
 export type { Frontmatter, Note } from './frontmatter.js';
 export type { HooksStatus } from './hooks.js';

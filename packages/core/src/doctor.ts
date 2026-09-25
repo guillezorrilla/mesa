@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { AGENT_NAMES, AGENTS, type Agent } from './agents.js';
+import type { BackendName } from './config.js';
 import type { ObsidianPaths } from './obsidian.js';
 import type { Runner } from './process.js';
 import { TMUX_INSTALL } from './sessions/tmux.js';
@@ -83,6 +84,24 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Probe> 
   return { ...base, ok: true, version, path, registered, hint };
 }
 
+/**
+ * The decisions backend the profile names, the one rules defer to when unsure (the named one,
+ * else rules while it is unavailable), and the confidence below which they do.
+ */
+export type DecisionsInUse = { named: BackendName; active: BackendName; threshold: number };
+
+function decisionsCheck(decisions: DecisionsInUse | undefined): Probe[] {
+  if (!decisions) return [];
+  const { named, active, threshold } = decisions;
+  const hint =
+    named !== active
+      ? `${named} is not available; decisions use ${active}`
+      : active === 'rules'
+        ? ''
+        : `rules first; ${active} below confidence ${threshold}`;
+  return [{ name: 'decisions', ok: true, version: active, hint }];
+}
+
 function profileDirCheck(dir: string): Probe {
   const ok = existsSync(dir);
   return {
@@ -98,6 +117,8 @@ export async function runDoctor(deps: {
   run: Runner;
   obsidian: ObsidianPaths;
   profileDir: string;
+  /** Faro's backends; none before init. */
+  decisions?: DecisionsInUse;
 }): Promise<DoctorReport> {
   const [binaries, obsidian] = await Promise.all([
     Promise.all(BINARIES.map(async (b) => ({ role: b.role, check: await probe(deps.run, b) }))),
@@ -108,7 +129,7 @@ export async function runDoctor(deps: {
   const blocking = (b: (typeof binaries)[number]) => b.role === 'required' || !anAgent;
   const checks: Check[] = [
     ...binaries.map((b) => ({ ...b.check, status: statusOf(b.check.ok, blocking(b)) })),
-    ...[obsidian, profileDirCheck(deps.profileDir)].map((c) => ({
+    ...[obsidian, profileDirCheck(deps.profileDir), ...decisionsCheck(deps.decisions)].map((c) => ({
       ...c,
       status: statusOf(c.ok, false),
     })),
