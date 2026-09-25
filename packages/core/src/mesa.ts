@@ -17,6 +17,8 @@ import {
   showReceipt,
 } from './receipts.js';
 import { MesaError } from './result.js';
+import { listSessions } from './sessions/list.js';
+import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
 
@@ -54,6 +56,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     }
   };
   const tmux = tmuxBackend({ run: deps.run, socket: paths.tmuxSocket, env: deps.env });
+  const store = sessionStore({ dir: paths.sessions, newId: deps.newId });
   const record = actionRecorder({
     profile,
     vault: () => configIfAny()?.vault,
@@ -137,6 +140,10 @@ export function createMesa(profile: string, deps: MesaDeps) {
     receipts: {
       list: (limit = DEFAULT_RECEIPT_LIMIT) => listReceipts(vaultOf(), limit),
       show: (id: string) => showReceipt(vaultOf(), id),
+    },
+    sessions: {
+      /** The board: sessions merged with live tmux; ended ones only with `all`. */
+      list: (all = false) => listSessions({ store, tmux, clock: deps.clock }, { all }),
     },
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),

@@ -3,6 +3,7 @@ import type {
   DoctorReport,
   ProfileInfo,
   ProjectRow,
+  SessionRow,
   TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
@@ -33,6 +34,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),
   doctor: () => envelope({ healthy: true, summary: 'ready', checks: [] } satisfies DoctorReport),
   projects: () => envelope([] satisfies ProjectRow[]),
+  sessions: () => envelope([] satisfies SessionRow[]),
   windows: () => envelope([] satisfies TmuxWindow[]),
 };
 

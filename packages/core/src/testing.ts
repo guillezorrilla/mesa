@@ -6,6 +6,7 @@ import type { IdSource } from './ids.js';
 import type { MesaDeps } from './mesa.js';
 import type { Runner } from './process.js';
 import { MesaError } from './result.js';
+import type { NewSession } from './sessions/store.js';
 
 // Test implementations of Mesa's seams, real but controlled: a scripted runner and a temp home,
 // never mocks of Mesa's own modules. Published as @mesa/core/testing, not from the index.
@@ -67,6 +68,21 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   },
   ...overrides,
 });
+
+/** A session record before its id: claude working on lantern-cove unless `overrides` say otherwise. */
+export function newSession(overrides: Partial<NewSession> = {}): NewSession {
+  const project = overrides.project ?? 'lantern-cove';
+  const startedAt = overrides.startedAt ?? '2026-09-24T12:00:00.000Z';
+  return {
+    kind: 'interactive',
+    project,
+    agent: 'claude',
+    tmux: { socket: 'mesa-default', session: project, window: 'claude-aaaaaa' },
+    startedAt,
+    lastState: { state: 'working', confidence: 0.95, at: startedAt, source: 'mesa' },
+    ...overrides,
+  };
+}
 
 /** A fresh temp dir, symlinks resolved (macOS `/var` is `/private/var`). */
 export const tempDir = (prefix = 'mesa-') => realpathSync(mkdtempSync(join(tmpdir(), prefix)));
