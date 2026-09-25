@@ -21,11 +21,17 @@ let newId = sequentialIds();
 let newUuid = sequentialUuids();
 /** Whether the next invocations run in a terminal. */
 let tty = true;
+/** What the next invocations read on stdin. */
+let stdin = '';
+/** The environment of the next invocations (MESA_SESSION_ID for a hook). */
+let env: Record<string, string> = {};
 beforeEach(() => {
   home = tempDir();
   newId = sequentialIds(); // one id source per test, shared by its invocations
   newUuid = sequentialUuids();
   tty = true;
+  stdin = '';
+  env = {};
   run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
 });
 const mesa = async (...argv: string[]) => {
@@ -33,7 +39,8 @@ const mesa = async (...argv: string[]) => {
     commands: COMMANDS,
     env: {},
     tty,
-    mesa: testDeps(home, { run, argv, newId, newUuid }),
+    stdin: async () => stdin,
+    mesa: testDeps(home, { run, argv, newId, newUuid, env }),
   });
   return { ...out, json: out.stdout.startsWith('{') ? JSON.parse(out.stdout) : undefined };
 };
@@ -435,6 +442,40 @@ test('send prints {sent, session, chars}; a gone session is exit 3', async () =>
   );
   world.windows.splice(0);
   expect(await mesa('send', id, 'hi')).toMatchObject({ code: 3 });
+});
+
+test('hooks install, status, uninstall, and a hook appending its payload', async () => {
+  await mesa('init', '--vault', 'vault');
+  expect((await mesa('hooks', 'status', '--json')).json.data.installed).toBe(false);
+  const installed = await mesa('hooks', 'install', '--json');
+  expect(installed.json.data).toMatchObject({ installed: true, changed: true });
+  expect((await mesa('hooks', 'install')).stdout).toBe('hooks already installed\n');
+
+  // A hook from a Mesa session appends to its log; from anything else it records nothing.
+  stdin = JSON.stringify({ session_id: 'uuid-1', hook_event_name: 'Stop' });
+  expect((await mesa('hook', 'claude', '--json')).json.data).toEqual({
+    recorded: false,
+    event: null,
+  });
+  env = { MESA_SESSION_ID: 'aaaaaaaa' };
+  expect((await mesa('hook', 'claude', '--json')).json.data).toEqual({
+    recorded: true,
+    event: 'Stop',
+  });
+  const log = readFileSync(join(home, '.mesa/default/sessions/events/aaaaaaaa.jsonl'), 'utf8');
+  expect(JSON.parse(log)).toMatchObject({
+    agent: 'claude',
+    event: 'Stop',
+    agentSessionId: 'uuid-1',
+  });
+  expect(await mesa('hook', 'codex')).toMatchObject({ code: 7 });
+
+  env = {};
+  expect((await mesa('hooks', 'uninstall', '--json')).json.data).toMatchObject({
+    installed: false,
+    changed: true,
+  });
+  expect(readFileSync(join(home, '.claude/settings.json'), 'utf8')).toBe('{}\n');
 });
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {

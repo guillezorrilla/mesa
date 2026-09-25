@@ -282,6 +282,34 @@ test('the Doctor screen lists the windows on the Mesa tmux server', async () => 
   expect(empty('tmux-none')).toHaveLength(1);
 });
 
+test('the Doctor screen shows the Claude hooks and installs them when missing', async () => {
+  let installed = false;
+  const { bridge, calls } = fakeBridge({
+    'hooks status': () =>
+      envelope({ path: '/h/.claude/settings.json', installed, stale: false, events: {} }),
+    'hooks install': () => {
+      installed = true;
+      return envelope({
+        path: '/h/.claude/settings.json',
+        installed,
+        stale: false,
+        events: {},
+        changed: true,
+      });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('hooks-status')[0]?.textContent).toBe(
+    'Not installed in /h/.claude/settings.json Install',
+  );
+  await click(byTestId('hooks-install')[0]);
+  expect(calls).toContainEqual(['--json', 'hooks', 'install']);
+  expect(byTestId('hooks-status')[0]?.textContent).toBe(
+    'Installed in /h/.claude/settings.json Uninstall',
+  );
+});
+
 test('an unhealthy report shows its summary and each row by status', async () => {
   const missing: Check = {
     name: 'tmux',

@@ -32,6 +32,8 @@ export type Context<A extends readonly string[] = readonly string[], F extends F
   flags: FlagValues<F>;
   /** Whether stdin is a terminal, which `tmux attach` needs. */
   tty: boolean;
+  /** All of stdin, read on demand (a hook's payload). */
+  stdin: () => Promise<string>;
 };
 
 /**

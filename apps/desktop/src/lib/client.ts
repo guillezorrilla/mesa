@@ -2,6 +2,7 @@ import type {
   Attached,
   Config,
   DoctorReport,
+  HooksStatus,
   Opened,
   ProfileInfo,
   Project,
@@ -30,6 +31,9 @@ const commandWith = <Args, Data>(argv: (args: Args) => string[]): Spec<Args, Dat
 export const COMMANDS = {
   'config.get': command<Config>('config'),
   'doctor.run': command<DoctorReport>('doctor'),
+  'hooks.status': command<HooksStatus>('hooks', 'status'),
+  'hooks.install': command<HooksStatus & { changed: boolean }>('hooks', 'install'),
+  'hooks.uninstall': command<HooksStatus & { changed: boolean }>('hooks', 'uninstall'),
   'log.add': commandWith<{ text: string }, { entry: string; daily: string }>(({ text }) => [
     'log',
     '--',
