@@ -30,3 +30,16 @@ export const vaultStatus = defineCommand({
     return { data: status, text, code: status.ok ? 0 : EXIT_CODES.not_found };
   },
 });
+
+export const vaultOpen = defineCommand({
+  name: 'vault open',
+  summary: 'Open the vault, or one note in it, in Obsidian',
+  args: ['note?'],
+  flags: {
+    cli: { type: 'boolean', description: 'Use the Obsidian CLI for a note when it is registered' },
+  },
+  run: async ({ mesa, args, flags }) => {
+    const { opened, method, target } = await mesa.vault.open(args.note, flags.cli ?? false);
+    return { data: { opened, method, target }, text: `opened ${target} (${method})` };
+  },
+});

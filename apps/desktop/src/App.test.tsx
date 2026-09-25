@@ -44,13 +44,13 @@ test('the Projects screen lists the fixture projects, marking one whose path is 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
   expect(healthy('profile-summary')[0]?.textContent).toBe(
-    'Profile: default | Vault: /h/vault | Doctor: ok',
+    'Profile: default | Vault: /h/vault Open in Obsidian | Doctor: ok',
   );
   expect(healthy('doctor-health')[0]?.style.color).toBe('green');
 
   const sick = fakeBridge({
     doctor: () => envelope(report([{ name: 'tmux', ok: false, status: 'fail', hint: '' }])),
-    vault: () => envelope({ path: '/h/vault', ok: false, missing: ['receipts'] }),
+    'vault status': () => envelope({ path: '/h/vault', ok: false, missing: ['receipts'] }),
   });
   const byTestId = await renderWithMesa(<App />, sick.bridge);
   expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault (missing receipts)');
@@ -123,7 +123,7 @@ test('every distinct failure shows once in the toast', async () => {
   const notInit = failure('config.yaml not found; run mesa init --vault <path>');
   const { bridge } = fakeBridge({
     config: () => notInit,
-    vault: () => notInit,
+    'vault status': () => notInit,
     projects: () => notInit,
     doctor: () => {
       throw new Error('mesa exited with code 1: boom');
@@ -180,4 +180,25 @@ test('the Receipts screen lists the newest receipts with their summary', async (
   const rows = byTestId('receipt-row');
   expect(rows.map((r) => r.dataset.status)).toEqual(['ok', 'blocked']);
   expect(rows[1]?.textContent).toContain('decision blocked');
+});
+
+test('Open in Obsidian runs mesa vault open; a failure shows in the toast', async () => {
+  const { bridge, calls } = fakeBridge({
+    'vault open': () =>
+      envelope({ opened: true, method: 'uri', target: 'obsidian://open?vault=vault' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('open-vault')[0]);
+  expect(calls).toContainEqual(['--json', 'vault', 'open']);
+  expect(byTestId('toast')).toHaveLength(0);
+
+  const unknown = fakeBridge({
+    'vault open': () =>
+      failure(
+        'Obsidian does not know the vault /h/vault yet: open it once with "Open folder as vault" in Obsidian, then retry',
+      ),
+  });
+  const again = await renderWithMesa(<App />, unknown.bridge);
+  await click(again('open-vault')[0]);
+  expect(again('toast')[0]?.textContent).toContain('Open folder as vault');
 });
