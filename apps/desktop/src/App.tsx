@@ -5,8 +5,9 @@ import { useCommand } from './lib/useCommand';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ReceiptsScreen } from './screens/ReceiptsScreen';
+import { SessionsScreen } from './screens/SessionsScreen';
 
-const SCREENS = ['Projects', 'Receipts', 'Doctor'] as const;
+const SCREENS = ['Projects', 'Sessions', 'Receipts', 'Doctor'] as const;
 
 export function App() {
   const [screen, setScreen] = useState<(typeof SCREENS)[number]>('Projects');
@@ -17,7 +18,7 @@ export function App() {
         <h1 data-testid="app-name">Mesa</h1>
         <ProfileSummary doctor={doctor.data} />
         <LogBox />
-        {/* ponytail: three screens, so a button row instead of a router; add one when the Board lands. */}
+        {/* ponytail: four screens, so a button row instead of a router; add one when the Board lands. */}
         <nav>
           {SCREENS.map((name) => (
             <button
@@ -33,6 +34,7 @@ export function App() {
         </nav>
       </header>
       {screen === 'Projects' && <ProjectsScreen />}
+      {screen === 'Sessions' && <SessionsScreen />}
       {screen === 'Receipts' && <ReceiptsScreen />}
       {screen === 'Doctor' && <DoctorScreen doctor={doctor} />}
     </main>
