@@ -30,10 +30,13 @@ Owner request on 2026-09-24. Versions from `pnpm view` and crates.io on 2026-09-
 
 ## Amendment 2026-09-25: the embedded terminal as spiked (#8)
 
-docs/spikes/embedded-terminal.md (SP-3, run live in the Tauri window) confirms the stack above, with these changes for #28:
+docs/spikes/embedded-terminal.md (SP-3, run live in the Tauri window) measured the stack above: portable-pty, events, xterm 6 with fit, and webgl in WKWebView. These changes apply to #28:
 
 - Output events carry base64 strings, not byte arrays: JSON number arrays delivered a tenth of the bytes in a burst.
-- `@xterm/addon-webgl` loads in WKWebView. `navigator.clipboard` and `execCommand('copy')` are refused there, so copy and paste go through Rust. tmux's `set-clipboard external` sends copies as OSC 52, and an OSC 52 handler in xterm writes them to the macOS pasteboard.
+- `@xterm/addon-webgl` loads in WKWebView. `navigator.clipboard` and `execCommand('copy')` are refused there, so copy and paste go through Rust. tmux's `set-clipboard external` sends copies as OSC 52, and an OSC 52 handler in xterm writes them to the macOS pasteboard. That path was not built in the spike; #28 builds and checks it.
 - The pane is sized explicitly, as Xirp does: after each fit, `resize-window -x <cols> -y <rows>`, then `set-option -w -u window-size`. This is because `-f ignore-size` has no effect when every attached client carries it (ADR-0001 amendment).
-- The window options that make the TUI usable in xterm are `mouse on` (without it the wheel sends arrow keys to the agent), `status off`, `allow-passthrough on`, and `set-clipboard external`. They are Xirp's defaults for its tmux sessions.
+- The options that make the TUI usable in xterm are Xirp's defaults for its tmux sessions:
+  - `mouse on` and `status off`, session options. Without `mouse on` the wheel sends arrow keys to the agent.
+  - `allow-passthrough on`, a pane option.
+  - `set-clipboard external`, a server option and the default.
 - The tmux-only alternative (`capture-pane -e` plus `send-keys`, no xterm) was measured at 7 ms a capture. It stays the board's last-output preview, because it cannot keep cursor, mouse, and scrollback fidelity.

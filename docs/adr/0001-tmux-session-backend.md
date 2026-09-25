@@ -62,4 +62,4 @@ Issue #20: `mesa stop` presses Escape, waits 300 ms, types the agent's quit comm
 
 ## Amendment 2026-09-25: ignore-size does not stop size fights (#8)
 
-SP-3 measured it: an `-f ignore-size` client is skipped only while a client without the flag is attached. When the app and `mesa attach` both carry the flag, tmux sizes the window to the latest client, as `window-size latest` does. So the app sizes the window explicitly after each fit, with `resize-window`, then unsets `window-size`. The last view resized wins, and that is the one in use. `mesa attach` keeps the flag, so a terminal the user leaves open never shrinks the app's view on its own.
+SP-3 measured it: an `-f ignore-size` client is skipped only while a client without the flag is attached. When the app and `mesa attach` both carry the flag, tmux sizes the window to the latest client, as `window-size latest` does. So the app sizes the window explicitly after each fit, with `resize-window`, then unsets `window-size`, as Xirp does. The intent is that the last view to resize wins, since that is the one in use. It was not measured with two clients, and #28 checks it. `mesa attach` keeps the flag.
