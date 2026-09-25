@@ -112,6 +112,17 @@ function recentAbovePrompt(tail: string): string {
   return above.slice(start).join('\n');
 }
 
+// ponytail: 200 characters, as the hook log keeps; the board shows one line.
+/** The board's "last output": the last line of the latest block above the prompt box. */
+export function lastOutputLine(tail: string): string | undefined {
+  const line = recentAbovePrompt(tail)
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .at(-1);
+  return line && Array.from(line).slice(0, 200).join('');
+}
+
 /** Claude Code's screen read as a state, or none when it shows nothing that says one. */
 function tailState(agent: Agent, tail: string): SessionState | undefined {
   if (agent !== 'claude' || !tail.trim()) return undefined;

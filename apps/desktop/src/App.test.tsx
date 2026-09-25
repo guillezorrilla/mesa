@@ -8,7 +8,8 @@ import type {
   SessionRow,
   TmuxWindow,
 } from '@mesa/core';
-import { expect, test } from 'vitest';
+import { act } from 'react';
+import { expect, test, vi } from 'vitest';
 import { App } from './App';
 import { click, envelope, failure, fakeBridge, fakePlatform, renderWithMesa } from './lib/testing';
 
@@ -52,6 +53,7 @@ const cells = (row: HTMLElement | undefined) =>
 test('the Projects screen lists the fixture projects, marking one whose path is gone', async () => {
   const { bridge } = fakeBridge({ projects: () => envelope(PROJECTS) });
   const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-projects')[0]);
 
   expect(byTestId('projects-screen')).toHaveLength(1);
   const rows = byTestId('project-row');
@@ -90,6 +92,7 @@ test('Open session starts a session for the row and says so', async () => {
     open: () => envelope({ id: 'a1b2c3d4', project: 'lantern-cove' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-projects')[0]);
   await click(byTestId('open-session')[0]);
   expect(calls).toContainEqual(['--json', 'open', '--', 'lantern-cove']);
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session a1b2c3d4 on lantern-cove');
@@ -105,6 +108,7 @@ test('Register folder picks a folder, registers it with --create, and refreshes 
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform('/src/lantern-cove'));
+  await click(byTestId('nav-projects')[0]);
   expect(byTestId('project-row')).toHaveLength(0);
 
   await click(byTestId('register-folder')[0]);
@@ -115,11 +119,13 @@ test('Register folder picks a folder, registers it with --create, and refreshes 
 test('a cancelled picker registers nothing; a failed register shows in the toast', async () => {
   const cancelled = fakeBridge();
   const quiet = await renderWithMesa(<App />, cancelled.bridge, fakePlatform(null));
+  await click(quiet('nav-projects')[0]);
   await click(quiet('register-folder')[0]);
   expect(cancelled.calls.some((c) => c[1] === 'register')).toBe(false);
 
   const clash = fakeBridge({ register: () => failure('already registered: tide at /src/tide') });
   const byTestId = await renderWithMesa(<App />, clash.bridge, fakePlatform('/src/tide'));
+  await click(byTestId('nav-projects')[0]);
   await click(byTestId('register-folder')[0]);
   expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
     'already registered: tide at /src/tide',
@@ -160,172 +166,234 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
   ]);
 });
 
-test('the Sessions screen lists each session with its state and running time', async () => {
-  const row = (
-    id: string,
-    state: ManagedRow['lastState']['state'],
-    runningSeconds: number,
-  ): SessionRow => ({
-    id,
-    kind: 'interactive',
-    project: 'lantern-cove',
-    agent: 'claude',
-    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${id.slice(0, 6)}` },
-    startedAt: '2026-09-25T12:00:00.000Z',
-    lastState: { state, confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
-    events: [],
-    managed: true,
-    ...placed,
-    alive: state !== 'done',
-    runningSeconds,
-  });
-  const foreign: ForeignRow = {
-    id: 'ext-4242',
-    managed: false,
-    ...placed,
-    agent: 'claude',
-    pid: 4242,
-    cwd: '/src/elsewhere',
-    agentSessionId: '00000000-0000-4000-8000-00000000000e',
-    startedAt: '2026-09-25T12:00:00.000Z',
-    project: null,
-    alive: true,
-    agentStatus: 'idle',
-    lastState: {
-      state: 'idle',
-      confidence: 0.85,
-      at: '2026-09-25T12:00:00.000Z',
-      source: 'listing',
-    },
-    runningSeconds: 90,
-  };
-  const { bridge, calls } = fakeBridge({
-    sessions: () =>
-      envelope([row('aaaaaaaa', 'working', 42), row('bbbbbbbb', 'done', 7500), foreign]),
+/** A Mesa session row as the board receives it; `extra` varies state, attention, liveness. */
+const managedRow = (id: string, extra: Partial<ManagedRow> = {}): ManagedRow => ({
+  id,
+  kind: 'interactive',
+  project: 'lantern-cove',
+  agent: 'claude',
+  agentSessionId: '00000000-0000-4000-8000-000000000001',
+  tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${id}` },
+  startedAt: '2026-09-25T12:00:00.000Z',
+  lastState: { state: 'working', confidence: 0.95, at: '2026-09-25T12:00:00.000Z', source: 'hook' },
+  events: [],
+  managed: true,
+  ...placed,
+  alive: true,
+  runningSeconds: 42,
+  ...extra,
+});
+const foreignRow: ForeignRow = {
+  id: 'ext-4242',
+  managed: false,
+  ...placed,
+  attention: 0.33,
+  agent: 'claude',
+  pid: 4242,
+  cwd: '/src/elsewhere',
+  agentSessionId: '00000000-0000-4000-8000-00000000000e',
+  startedAt: '2026-09-25T12:00:00.000Z',
+  project: null,
+  alive: true,
+  agentStatus: 'idle',
+  lastState: { state: 'idle', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'listing' },
+  runningSeconds: 90,
+};
+const asking = managedRow('aaaaaaaa', {
+  lastState: {
+    state: 'waiting-permission',
+    confidence: 0.95,
+    at: '2026-09-25T12:00:00.000Z',
+    source: 'hook',
+  },
+  attention: 0.83,
+  lastOutput: 'Do you want to proceed?',
+});
+const busy = managedRow('bbbbbbbb', { attention: 0.08, runningSeconds: 7500 });
+const exited = managedRow('cccccccc', {
+  alive: false,
+  lastState: { state: 'done', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
+  attention: 0.25,
+});
+
+// The agent in this pane exited on its own: the window stays (remain-on-exit), the state is done.
+const deadPane = managedRow('ffffffff', {
+  lastState: { state: 'done', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
+  attention: 0.24,
+  lastOutput: 'Bye!',
+});
+
+test('the Board is the first screen: every session by attention, with its state, confidence, and output', async () => {
+  const { bridge } = fakeBridge({
+    // Out of order on purpose: the Board ranks by attention itself.
+    sessions: () => envelope([busy, deadPane, foreignRow, exited, asking] satisfies SessionRow[]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-sessions')[0]);
-  expect(byTestId('session-row').map(cells)).toEqual([
-    ['aaaaaaaa', 'lantern-cove', 'claude', 'working', '85%', '0.50', '42s', 'SendTerminalStop'],
-    // An exited session has no window to attach to.
-    ['bbbbbbbb', 'lantern-cove', 'claude', 'done', '85%', '0.50', '2h05m', ''],
-    // Started outside Mesa: read-only, no actions.
-    ['ext-4242', '-', 'claude', 'idle', '85%', '0.50', '1m30s', 'not managed by Mesa'],
+  expect(byTestId('session-board')).toHaveLength(1);
+  expect(byTestId('session-row').map((r) => cells(r).slice(0, 7))).toEqual([
+    [
+      'aaaaaaaa',
+      'lantern-cove',
+      'claude',
+      'waiting-permission 95%',
+      '0.83',
+      '42s',
+      'Do you want to proceed?',
+    ],
+    // Started outside Mesa: muted, tagged, no actions.
+    ['ext-4242', '-', 'claude', 'idle 85%', '0.33', '1m30s', ''],
+    ['cccccccc', 'lantern-cove', 'claude', 'done 85%', '0.25', '42s', ''],
+    ['ffffffff', 'lantern-cove', 'claude', 'done 85%', '0.24', '42s', 'Bye!'],
+    ['bbbbbbbb', 'lantern-cove', 'claude', 'working 95%', '0.08', '2h05m', ''],
   ]);
-  expect(byTestId('session-row')[2]?.dataset.managed).toBe('false');
-  // Hovering the confidence says who decided it.
-  expect(byTestId('session-confidence')[0]?.title).toBe('decided by rules');
-  expect(byTestId('session-row')[1]?.dataset.alive).toBe('false');
-  await click(byTestId('sessions-refresh')[0]);
-  await click(byTestId('sessions-ended')[0]);
-  expect(calls.filter((c) => c[1] === 'sessions')).toEqual([
-    ['--json', 'sessions'],
-    ['--json', 'sessions'],
-    ['--json', 'sessions', '--all'],
+  expect(byTestId('session-state').map((b) => b.className)).toEqual([
+    'badge state-waiting-permission',
+    'badge state-idle',
+    'badge state-done',
+    'badge state-done',
+    'badge state-working',
   ]);
+  expect(byTestId('session-state')[0]?.title).toBe('decided by rules');
+  const [, foreign] = byTestId('session-row');
+  expect(foreign?.className).toBe('muted');
+  expect(foreign?.textContent).toContain('not managed');
+  expect(foreign?.querySelector('button')).toBeNull();
+  // Resume once the agent has exited (window gone or pane dead); Send only while it runs.
+  const enabled = (id: string) =>
+    byTestId(id).map((b) => !(b as HTMLButtonElement | HTMLInputElement).disabled);
+  expect(enabled('session-resume')).toEqual([false, true, true, false]);
+  expect(enabled('session-prompt')).toEqual([true, false, false, true]);
+  expect(enabled('session-stop')).toEqual([true, false, true, true]);
+  expect(enabled('open-terminal')).toEqual([true, false, true, true]);
 
   const empty = await renderWithMesa(<App />, fakeBridge().bridge);
-  await click(empty('nav-sessions')[0]);
   expect(empty('sessions-empty')).toHaveLength(1);
 });
 
-test('Stop ends a live session and Resume reopens an exited one, then the list refreshes', async () => {
-  const session = (id: string, alive: boolean): SessionRow => ({
-    id,
-    kind: 'interactive',
-    project: 'lantern-cove',
-    agent: 'claude',
-    agentSessionId: '00000000-0000-4000-8000-000000000001',
-    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${id}` },
-    startedAt: '2026-09-25T12:00:00.000Z',
-    lastState: {
-      state: alive ? 'idle' : 'done',
-      confidence: 1,
-      at: '2026-09-25T12:00:00.000Z',
-      source: 'mesa',
+test('the Board looks again every two seconds, one look at a time, and its clock ticks every second', async () => {
+  vi.useFakeTimers();
+  try {
+    let release = () => {};
+    let slow = false;
+    const { bridge, calls } = fakeBridge({
+      sessions: () =>
+        slow
+          ? new Promise((done) => (release = () => done(envelope([asking]))))
+          : envelope([asking]),
+    });
+    const byTestId = await renderWithMesa(<App />, bridge);
+    const looks = () => calls.filter((c) => c[1] === 'sessions').length;
+    expect(looks()).toBe(1);
+    await act(async () => vi.advanceTimersByTime(1000));
+    expect(byTestId('session-running')[0]?.textContent).toBe('43s');
+    await act(async () => vi.advanceTimersByTime(1000));
+    expect(looks()).toBe(2);
+    // A slow look: the ticks meanwhile ask for one more look, run once it lands.
+    slow = true;
+    await act(async () => vi.advanceTimersByTime(2000));
+    await act(async () => vi.advanceTimersByTime(4000));
+    expect(looks()).toBe(3);
+    slow = false;
+    await act(async () => release());
+    expect(looks()).toBe(4);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('a late reply for the other list never lands: Show older wins', async () => {
+  let release = () => {};
+  const { bridge, calls } = fakeBridge({
+    sessions: (args) =>
+      args.includes('--all')
+        ? envelope([asking, exited])
+        : new Promise((done) => (release = () => done(envelope([busy])))),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sessions-ended')[0]);
+  await act(async () => release());
+  expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual(['--json', 'sessions', '--all']);
+  expect(byTestId('session-row').map((r) => cells(r)[0])).toEqual(['aaaaaaaa', 'cccccccc']);
+});
+
+test('New session opens a dialog, and Open starts the picked project with the picked agent', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope({ ...busy, id: 'dddddddd' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('new-session')[0]);
+  const dialog = byTestId('new-session-dialog')[0];
+  expect(dialog?.hasAttribute('open')).toBe(true);
+  const options = [...(byTestId('new-session-project')[0] as HTMLSelectElement).options];
+  expect(options.map((o) => [o.value, o.disabled])).toEqual([
+    ['lantern-cove', false],
+    // Its folder is gone: it cannot start a session.
+    ['tide', true],
+  ]);
+  const codex = dialog?.querySelector<HTMLInputElement>('input[value="codex"]');
+  expect(codex?.disabled).toBe(true);
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'open', '--agent', 'claude', '--', 'lantern-cove']);
+  expect(byTestId('new-session-dialog')).toHaveLength(0);
+  expect(byTestId('toast')[0]?.textContent).toContain('Opened session dddddddd on lantern-cove');
+});
+
+test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {
+  let stopped = false;
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([
+        stopped ? { ...asking, alive: false, endedAt: '2026-09-25T12:05:00.000Z' } : asking,
+      ]),
+    send: () => envelope({ sent: true, session: 'aaaaaaaa', chars: 5 }),
+    stop: () => {
+      stopped = true;
+      return envelope({ ...asking, alive: false, outcome: 'exited' });
     },
-    events: [],
-    managed: true,
-    ...placed,
-    alive,
-    runningSeconds: 5,
-  });
-  const { bridge, calls } = fakeBridge({
-    sessions: () => envelope([session('aaaaaaaa', true), session('bbbbbbbb', false)]),
-    stop: () => envelope({ ...session('aaaaaaaa', false), outcome: 'exited' }),
-    resume: () => envelope(session('cccccccc', true)),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-sessions')[0]);
-  await click(byTestId('session-stop')[0]);
-  await click(byTestId('session-resume')[0]);
-  expect(calls.filter((c) => ['stop', 'resume'].includes(c[1] ?? ''))).toEqual([
-    ['--json', 'stop', '--', 'aaaaaaaa'],
-    ['--json', 'resume', '--', 'bbbbbbbb'],
-  ]);
-  expect(calls.filter((c) => c[1] === 'sessions')).toHaveLength(3);
-  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
-    'Stopped session aaaaaaaa',
-    'Resumed session bbbbbbbb as cccccccc',
-  ]);
-});
-
-test('Send types the row prompt into its session, then clears the box', async () => {
-  const live: SessionRow = {
-    id: 'aaaaaaaa',
-    kind: 'interactive',
-    project: 'lantern-cove',
-    agent: 'claude',
-    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-aaaaaaaa' },
-    startedAt: '2026-09-25T12:00:00.000Z',
-    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
-    events: [],
-    managed: true,
-    ...placed,
-    alive: true,
-    runningSeconds: 5,
-  };
-  const { bridge, calls } = fakeBridge({
-    sessions: () => envelope([live]),
-    send: () => envelope({ sent: true, session: 'aaaaaaaa', chars: 9 }),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-sessions')[0]);
-  const box = byTestId('session-prompt')[0] as HTMLInputElement;
-  box.value = 'say hello';
-  await click(byTestId('session-send-submit')[0]);
-  expect(calls).toContainEqual(['--json', 'send', '--', 'aaaaaaaa', 'say hello']);
-  expect(byTestId('toast')[0]?.textContent).toContain('Sent 9 characters to aaaaaaaa');
-  expect((byTestId('session-prompt')[0] as HTMLInputElement).value).toBe('');
-});
-
-test('Terminal on a session row opens it in the terminal app', async () => {
-  const live: SessionRow = {
-    id: 'aaaaaaaa',
-    kind: 'interactive',
-    project: 'lantern-cove',
-    agent: 'claude',
-    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-aaaaaaaa' },
-    startedAt: '2026-09-25T12:00:00.000Z',
-    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
-    events: [],
-    managed: true,
-    ...placed,
-    alive: true,
-    runningSeconds: 5,
-  };
-  const { bridge, calls } = fakeBridge({
-    sessions: () => envelope([live]),
+    resume: () => envelope({ ...asking, id: 'eeeeeeee' }),
     attach: () =>
       envelope({ opened: true, target: 'lantern-cove:claude-aaaaaaaa', app: 'Terminal' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-sessions')[0]);
-  await click(byTestId('session-terminal')[0]);
-  expect(calls).toContainEqual(['--json', 'attach', '--app', '--', 'aaaaaaaa']);
-  expect(byTestId('toast')[0]?.textContent).toContain(
+  const box = byTestId('session-prompt')[0] as HTMLInputElement;
+  box.value = 'hello';
+  // Enter in the field submits its form (requestSubmit is what the browser does on Enter).
+  await act(async () => (byTestId('session-send')[0] as HTMLFormElement).requestSubmit());
+  await click(byTestId('open-terminal')[0]);
+  expect(byTestId('session-resume')[0]?.hasAttribute('disabled')).toBe(true);
+  await click(byTestId('session-stop')[0]);
+  // The look after Stop shows it ended: Resume is now open for the same row.
+  expect(byTestId('session-resume')[0]?.hasAttribute('disabled')).toBe(false);
+  await click(byTestId('session-resume')[0]);
+  expect(calls.filter((c) => ['send', 'stop', 'resume', 'attach'].includes(c[1] ?? ''))).toEqual([
+    ['--json', 'send', '--', 'aaaaaaaa', 'hello'],
+    ['--json', 'attach', '--app', '--', 'aaaaaaaa'],
+    ['--json', 'stop', '--', 'aaaaaaaa'],
+    ['--json', 'resume', '--', 'aaaaaaaa'],
+  ]);
+  expect((byTestId('session-prompt')[0] as HTMLInputElement).value).toBe('');
+  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
+    'Sent 5 characters to aaaaaaaa',
     'Opened lantern-cove:claude-aaaaaaaa in Terminal',
+    'Stopped session aaaaaaaa',
+    'Resumed session aaaaaaaa as eeeeeeee',
+  ]);
+});
+
+test('a failed action or look shows its error in the toast', async () => {
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([asking]),
+    attach: () => failure('session ended; use mesa resume'),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('open-terminal')[0]);
+  expect(byTestId('toast')[0]?.textContent).toContain('session ended; use mesa resume');
+  const broken = await renderWithMesa(
+    <App />,
+    fakeBridge({ sessions: () => failure('tmux is not answering') }).bridge,
   );
+  expect(broken('toast')[0]?.textContent).toContain('tmux is not answering');
 });
 
 test('the Doctor screen lists the windows on the Mesa tmux server', async () => {

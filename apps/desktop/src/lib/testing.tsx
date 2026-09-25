@@ -9,7 +9,7 @@ import type {
   VaultStatus,
 } from '@mesa/core';
 import { act, type ReactNode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import type { Bridge } from './client';
 import { MesaRoot } from './MesaRoot';
 import type { Platform } from './platform';
@@ -67,11 +67,17 @@ export const fakePlatform = (folder: string | null = null): Platform => ({
 });
 
 /** Renders `ui` inside the same MesaRoot main.tsx uses, over fakes; returns a test-id query. */
+let mounted: Root | undefined;
+
 export async function renderWithMesa(ui: ReactNode, bridge: Bridge, platform = fakePlatform()) {
+  // The previous render goes first, so its timers (the Board's looks) stop with it.
+  await act(async () => mounted?.unmount());
   document.body.innerHTML = '<div id="root"></div>';
   const root = document.getElementById('root') as HTMLElement;
+  mounted = createRoot(root);
+  const created = mounted;
   await act(async () =>
-    createRoot(root).render(
+    created.render(
       <MesaRoot bridge={bridge} platform={platform}>
         {ui}
       </MesaRoot>,

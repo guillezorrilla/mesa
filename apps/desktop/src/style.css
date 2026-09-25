@@ -19,3 +19,47 @@ pre {
   bottom: 16px;
   background: Canvas;
 }
+
+/* The Board: one colour per session state; waits stand out, finished work recedes. */
+.badge {
+  border-radius: 4px;
+  padding: 0 0.4em;
+  white-space: nowrap;
+}
+.state-working {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+.state-waiting-permission,
+.state-waiting-question {
+  background: #fde68a;
+  color: #78350f;
+  font-weight: 600;
+}
+.state-idle {
+  background: #dcfce7;
+  color: #14532d;
+}
+.state-done {
+  background: #e5e7eb;
+  color: #374151;
+}
+.state-failed {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+tr.muted {
+  opacity: 0.55;
+}
+.tag {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0 0.3em;
+  font-size: 0.85em;
+}
+.last-output {
+  max-width: 28em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
