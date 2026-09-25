@@ -17,9 +17,10 @@ import {
   showReceipt,
 } from './receipts.js';
 import { MesaError } from './result.js';
+import { attachSession } from './sessions/attach.js';
 import { listSessions } from './sessions/list.js';
 import { openSession } from './sessions/open.js';
-import { type SessionRecord, sessionStore, windowOf } from './sessions/store.js';
+import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
 
@@ -178,8 +179,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
               { project, agent },
             ),
         ),
-      /** The argv that attaches a terminal to the session's window. */
-      attachArgv: (session: SessionRecord) => tmux.attachArgv(windowOf(session)),
+      /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
+      attach: (id: string, app = false) =>
+        attachSession(
+          { store, tmux, run: deps.run, scripts: paths.attachScripts, env: deps.env },
+          id,
+          app ? open().config.terminal.app : undefined,
+        ),
     },
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),

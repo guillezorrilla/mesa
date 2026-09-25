@@ -1,4 +1,5 @@
 import type {
+  Attached,
   Config,
   DoctorReport,
   Opened,
@@ -40,6 +41,13 @@ export const COMMANDS = {
   ),
   'receipts.list': command<ReceiptEntry[]>('receipts'),
   'sessions.list': command<SessionRow[]>('sessions'),
+  // The app has no terminal of its own, so it always opens the user's terminal app.
+  'sessions.attach': commandWith<{ id: string }, Attached>(({ id }) => [
+    'attach',
+    '--app',
+    '--',
+    id,
+  ]),
   'sessions.open': commandWith<{ project: string }, SessionRecord>(({ project }) => [
     'open',
     '--',

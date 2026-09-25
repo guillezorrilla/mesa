@@ -166,10 +166,10 @@ test('a project whose folder is gone is not_found, even with --agent', async () 
   });
 });
 
-test('attachArgv attaches to the exact window on the profile socket', async () => {
+test('an open session attaches to its exact window on the profile socket', async () => {
   const { mesa } = await setUp(fakeWorld());
   const { result } = await mesa.sessions.open('lantern-cove');
-  expect(mesa.sessions.attachArgv(result)).toEqual([
+  expect((await mesa.sessions.attach(result.id)).exec).toEqual([
     'tmux',
     '-L',
     'mesa-default',

@@ -30,6 +30,7 @@ const home = tempDir();
 const deps: CliDeps = {
   commands: [greet, greetTwice, warn],
   env: { MESA_PROFILE: 'work' },
+  tty: false,
   mesa: testDeps(home),
 };
 const cli = (...argv: string[]) => runCli(argv, deps);

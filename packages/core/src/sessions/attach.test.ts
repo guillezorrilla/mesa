@@ -1,0 +1,99 @@
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, test } from 'vitest';
+import { createMesa } from '../mesa.js';
+import { newSession, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
+import { sessionStore } from './store.js';
+
+const ATTACH = [
+  'tmux',
+  '-L',
+  'mesa-default',
+  '-f',
+  '/dev/null',
+  'attach-session',
+  '-t',
+  '=lantern-cove:=claude-aaaaaa',
+  '-f',
+  'ignore-size',
+];
+
+/** A profile holding one session record; binaries in `failing` (tmux: no window) exit 1. */
+function setUp(failing: string[] = [], env = {}) {
+  const home = tempDir();
+  const scripted = scriptedRunner({}, { failing });
+  const mesa = createMesa('default', testDeps(home, { run: scripted.run, env }));
+  mesa.init({ vault: 'vault' });
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: sequentialIds() });
+  const { id } = store.create(() => newSession());
+  return { home, mesa, id, calls: scripted.calls };
+}
+
+test('without --app, attach hands back the attach argv for this terminal', async () => {
+  const { mesa, id, calls } = setUp();
+  expect(await mesa.sessions.attach(id)).toEqual({
+    attached: { opened: true, target: 'lantern-cove:claude-aaaaaa', app: null },
+    exec: ATTACH,
+  });
+  // Liveness is the exact window on the profile socket.
+  expect(calls[0]?.args).toEqual([
+    '-L',
+    'mesa-default',
+    '-f',
+    '/dev/null',
+    'list-panes',
+    '-t',
+    '=lantern-cove:=claude-aaaaaa',
+    '-F',
+    '#{pane_id}',
+  ]);
+});
+
+test('a session whose window is gone is not_found with the resume hint', async () => {
+  const { mesa, id } = setUp(['tmux']);
+  await expect(mesa.sessions.attach(id)).rejects.toMatchObject({
+    code: 'not_found',
+    message: 'session ended; use mesa resume',
+  });
+  await expect(mesa.sessions.attach('nope0000')).rejects.toMatchObject({ code: 'not_found' });
+});
+
+test('--app opens Terminal by default, through osascript', async () => {
+  const { mesa, id, calls } = setUp();
+  expect((await mesa.sessions.attach(id, true)).attached.app).toBe('Terminal');
+  const line = `exec ${ATTACH.map((w) => `'${w}'`).join(' ')}`;
+  expect(calls.at(-1)).toMatchObject({
+    file: 'osascript',
+    args: [
+      '-e',
+      `tell application "Terminal" to do script "${line}"`,
+      '-e',
+      'tell application "Terminal" to activate',
+    ],
+  });
+});
+
+test('--app with terminal.app iTerm or Ghostty opens a one-line script with open -a', async () => {
+  for (const app of ['iTerm', 'Ghostty'] as const) {
+    const { home, mesa, id, calls } = setUp([], { PATH: '/opt/homebrew/bin:/usr/bin' });
+    mesa.config.set('terminal.app', app);
+    const { attached, exec } = await mesa.sessions.attach(id, true);
+    expect(attached.app).toBe(app);
+    expect(exec).toBeUndefined();
+    const script = join(home, `.mesa/default/attach/${id}.command`);
+    expect(calls.at(-1)).toMatchObject({ file: 'open', args: ['-a', app, script] });
+    expect(readFileSync(script, 'utf8')).toBe(
+      // The app may start without Homebrew on PATH, so the script carries the caller's.
+      `#!/bin/sh\nexport PATH='/opt/homebrew/bin:/usr/bin'\nexec ${ATTACH.map((w) => `'${w}'`).join(' ')}\n`,
+    );
+    expect(statSync(script).mode & 0o777).toBe(0o700);
+  }
+});
+
+test('a terminal app that fails to open is an error, not a silent no-op', async () => {
+  const { mesa, id } = setUp(['osascript']);
+  await expect(mesa.sessions.attach(id, true)).rejects.toMatchObject({
+    code: 'internal',
+    message: 'could not open Terminal: exit 1',
+  });
+});

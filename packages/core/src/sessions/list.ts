@@ -1,6 +1,6 @@
 import type { Clock } from '../clock.js';
 import { type SessionRecord, type SessionStore, windowOf } from './store.js';
-import type { TmuxBackend, WindowTarget } from './tmux.js';
+import { type TmuxBackend, targetLabel } from './tmux.js';
 
 /**
  * One board row: the record, whether its tmux window exists (a pane whose agent exited still
@@ -22,11 +22,10 @@ export async function listSessions(
   const records = deps.store.list({ all });
   if (!records.length) return [];
   // One tmux call for the whole board rather than one windowExists per record.
-  const key = (t: WindowTarget) => `${t.project}:${t.window}`;
-  const windows = new Set((await deps.tmux.listWindows()).map(key));
+  const windows = new Set((await deps.tmux.listWindows()).map(targetLabel));
   const now = deps.clock();
   return records.map((found) => {
-    const alive = windows.has(key(windowOf(found)));
+    const alive = windows.has(targetLabel(windowOf(found)));
     const gone = !alive && !found.endedAt && !FINAL_STATES.has(found.lastState.state);
     const record = gone
       ? deps.store.update(found.id, {
