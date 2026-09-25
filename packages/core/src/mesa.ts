@@ -1,9 +1,10 @@
 import { resolve } from 'node:path';
 import type { Clock } from './clock.js';
 import { redactConfig, resolveKey, setConfigValue } from './config.js';
-import { type ObsidianPaths, runDoctor } from './doctor.js';
+import { runDoctor } from './doctor.js';
 import type { IdSource } from './ids.js';
 import { logLine } from './notes.js';
+import { type ObsidianPaths, openInObsidian } from './obsidian.js';
 import { profilePaths } from './paths.js';
 import type { Env, Runner } from './process.js';
 import { initProfile, openProfile, type ProfileInfo } from './profile.js';
@@ -15,6 +16,7 @@ import {
   redactCommand,
   showReceipt,
 } from './receipts.js';
+import { MesaError } from './result.js';
 import { initVault, vaultStatus } from './vault.js';
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
@@ -117,6 +119,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
           () => initVault({ path: vaultOf(), force, clock: deps.clock }),
         ),
       status: () => vaultStatus(open().config.vault),
+      /** Opens the vault, or one note in it, in Obsidian: the URI by default, the CLI with `cli`. */
+      open: (note?: string, cli = false) => {
+        const vault = configIfAny()?.vault;
+        if (!vault) {
+          throw new MesaError(
+            'invalid_config',
+            `no vault configured for profile ${profile}; run mesa init --vault <path>`,
+          );
+        }
+        return openInObsidian({ run: deps.run, obsidian: deps.obsidian }, { vault, note, cli });
+      },
     },
     log: (text: string) => logLine(notes(), text),
     receipts: {

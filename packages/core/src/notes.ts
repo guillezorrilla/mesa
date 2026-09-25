@@ -13,7 +13,7 @@ export type NotesDeps = { vault: string; clock: Clock };
 export const NOTE_FIELDS = ['created', 'updated', 'source'];
 
 /** The absolute file for a vault-relative note path; a path that leaves the vault is refused. */
-function noteFile(vault: string, path: string): string {
+export function vaultFile(vault: string, path: string): string {
   const file = resolve(vault, path);
   const inside = relative(vault, file);
   if (!inside || inside.startsWith('..') || isAbsolute(inside)) {
@@ -26,7 +26,7 @@ const readIfExists = (file: string) =>
   existsSync(file) ? parseNote(readFileSync(file, 'utf8')) : undefined;
 
 export function readNote(deps: NotesDeps, path: string): Note {
-  const note = readIfExists(noteFile(deps.vault, path));
+  const note = readIfExists(vaultFile(deps.vault, path));
   if (!note) throw new MesaError('not_found', `no note at ${path} in ${deps.vault}`);
   return note;
 }
@@ -37,7 +37,7 @@ export function readNote(deps: NotesDeps, path: string): Note {
  * whose frontmatter says `locked: true` is never replaced.
  */
 export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note {
-  const file = noteFile(deps.vault, note.path);
+  const file = vaultFile(deps.vault, note.path);
   const previous = readIfExists(file);
   if (previous?.frontmatter.locked === true) {
     throw new MesaError('locked', `${file} is locked (locked: true in its frontmatter)`, {
@@ -63,7 +63,7 @@ type Change = (current: Note | undefined) => Note | Promise<Note>;
 
 // The read-modify-write itself; callers hold the vault lock.
 async function rewrite(deps: NotesDeps, path: string, change: Change): Promise<Note> {
-  const current = readIfExists(noteFile(deps.vault, path));
+  const current = readIfExists(vaultFile(deps.vault, path));
   return writeNote(deps, { path, ...(await change(current)) });
 }
 

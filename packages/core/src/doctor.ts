@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { AGENT_NAMES, AGENTS } from './agents.js';
+import type { ObsidianPaths } from './obsidian.js';
 import type { Runner } from './process.js';
 
 export type Check = {
@@ -15,15 +16,6 @@ export type Check = {
 
 /** Decided here once: `healthy` when tmux and at least one agent answered; `summary` says why not. */
 export type DoctorReport = { healthy: boolean; summary: string; checks: Check[] };
-
-/** Where Obsidian lives. Injected so tests point at a temp dir instead of /Applications. */
-export type ObsidianPaths = { registered: string; bundle: string; plist: string };
-
-export const OBSIDIAN_PATHS: ObsidianPaths = {
-  registered: '/usr/local/bin/obsidian',
-  bundle: '/Applications/Obsidian.app/Contents/MacOS/obsidian-cli',
-  plist: '/Applications/Obsidian.app/Contents/Info.plist',
-};
 
 export const CHECK_TIMEOUT_MS = 2000;
 

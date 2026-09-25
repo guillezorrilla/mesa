@@ -226,6 +226,27 @@ test('a receipt problem never changes the outcome of the action it records', asy
   }
 });
 
+test('vault open: the URI by default, --json, and its errors', async () => {
+  expect((await mesa('vault', 'open')).code).toBe(4); // no profile, so no vault configured
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const list = join(home, 'obsidian/obsidian.json');
+  mkdirSync(join(home, 'obsidian'), { recursive: true });
+  writeFileSync(list, JSON.stringify({ vaults: { a1: { path: join(home, 'vault'), ts: 1 } } }));
+
+  const opened = await mesa('vault', 'open', '--json');
+  expect(opened.json).toEqual({
+    ok: true,
+    data: { opened: true, method: 'uri', target: 'obsidian://open?vault=vault' },
+  });
+  const { daily } = (await mesa('log', 'hello', '--json')).json.data;
+  const note = await mesa('vault', 'open', daily, '--json');
+  expect(note.json.data.target).toBe(
+    `obsidian://open?vault=vault&file=${encodeURIComponent(daily)}`,
+  );
+  expect((await mesa('vault', 'open', 'wiki/missing.md')).code).toBe(3);
+});
+
 test('profile and version', async () => {
   expect((await mesa('profile', '--json')).json).toEqual({
     ok: true,
