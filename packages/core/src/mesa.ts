@@ -2,6 +2,9 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Clock } from './clock.js';
 import { redactConfig, resolveKey, setConfigValue } from './config.js';
+import { decide, type FaroProfile, selectBackend } from './decisions/decide.js';
+import { rulesBackend } from './decisions/rules.js';
+import type { Question } from './decisions/types.js';
 import { runDoctor } from './doctor.js';
 import { hooksStatus, installHooks, uninstallHooks } from './hooks.js';
 import type { IdSource } from './ids.js';
@@ -34,6 +37,10 @@ import type { SessionRecord } from './sessions/store.js';
 import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
 import { initVault, vaultStatus } from './vault.js';
+
+// ponytail: rules only; the adapter backend (#26) joins here, and jev when a key exists.
+/** The decisions backends every decision site can use, next to its own rules backend. */
+const FARO_BACKENDS = [rulesBackend<unknown>([])];
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
 export type MesaDeps = {
@@ -117,6 +124,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
         }
       }),
     );
+  };
+  /** Faro's view of the profile; before init, rules only (nothing else is configured). */
+  const faroProfile = (): FaroProfile => {
+    const config = configIfAny();
+    return {
+      decisions: config?.decisions ?? { backend: 'rules', threshold: 1 },
+      hasKey: (name) => Boolean(config && resolveKey(config, name, deps.env)),
+    };
   };
   const openDeps = () => ({
     profile: open(),
@@ -340,7 +355,33 @@ export function createMesa(profile: string, deps: MesaDeps) {
       ),
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),
-    doctor: () => runDoctor({ run: deps.run, obsidian: deps.obsidian, profileDir: paths.root }),
+    /**
+     * Faro, for questions from outside (mesa decide): no rules know them, so the rules backend
+     * answers evenly. Decision sites bring their own rules backend.
+     */
+    decide: (state: unknown, questions: unknown) =>
+      // decide validates what it is given: this is the boundary it checks.
+      decide(
+        { backends: FARO_BACKENDS, profile: faroProfile(), clock: deps.clock },
+        state,
+        questions as Question[],
+      ),
+    doctor: () => {
+      const profileNow = faroProfile();
+      const named = profileNow.decisions.backend;
+      const active = selectBackend(FARO_BACKENDS, profileNow).name;
+      const decisions = configIfAny() && {
+        named,
+        active,
+        threshold: profileNow.decisions.threshold,
+      };
+      return runDoctor({
+        run: deps.run,
+        obsidian: deps.obsidian,
+        profileDir: paths.root,
+        decisions,
+      });
+    },
   };
 }
 

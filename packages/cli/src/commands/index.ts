@@ -1,6 +1,7 @@
 import type { Command } from '../command.js';
 import { attach } from './attach.js';
 import { config, configSet } from './config.js';
+import { decide } from './decide.js';
 import { doctor } from './doctor.js';
 import { hook, hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { init } from './init.js';
@@ -21,6 +22,7 @@ export const COMMANDS: Command[] = [
   attach,
   config,
   configSet,
+  decide,
   doctor,
   hook,
   hooksInstall,

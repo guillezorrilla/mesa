@@ -276,6 +276,59 @@ test('vault open: the URI by default, --json, and its errors', async () => {
   expect((await mesa('vault', 'open', 'wiki/missing.md')).code).toBe(3);
 });
 
+test('decide answers the questions on stdin with the rules backend; doctor names it', async () => {
+  // Before init there is nothing configured: rules answer.
+  stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'x', statement: 'It holds' }] });
+  expect((await mesa('decide')).stdout).toBe('x  Noul  false  p 0.50\nbackend rules\n');
+  await mesa('init', '--vault', 'vault');
+  stdin = JSON.stringify({
+    state: { anything: true },
+    questions: [
+      { kind: 'Choice', id: 'route', options: ['ingest', 'ask'] },
+      { kind: 'Score', id: 'urgency', levels: ['low', 'medium', 'high'] },
+      { kind: 'Noul', id: 'destructive', statement: 'The prompt deletes files' },
+    ],
+  });
+  // No rules know these questions, so every answer is even.
+  expect((await mesa('decide')).stdout).toBe(
+    [
+      'route        Choice  ingest  confidence 0.50',
+      'urgency      Score   0.50    confidence 0.33',
+      'destructive  Noul    false   p 0.50',
+      'backend rules',
+      '',
+    ].join('\n'),
+  );
+  const { json } = await mesa('decide', '--json');
+  expect(json.data).toMatchObject({
+    backend: 'rules',
+    at: '2026-09-24T12:00:00.000Z',
+    latencyMs: 0,
+  });
+  expect(json.data.answers).toHaveLength(3);
+
+  stdin = 'not json';
+  expect(await mesa('decide')).toMatchObject({
+    code: 2,
+    stderr: expect.stringContaining('stdin is not JSON'),
+  });
+  stdin = JSON.stringify({ questions: [{ kind: 'Choice', id: 'a', options: ['only'] }] });
+  expect(await mesa('decide')).toMatchObject({
+    code: 2,
+    stderr: expect.stringContaining('invalid questions: 0.options'),
+  });
+
+  // The profile names adapter (the default); until it lands, doctor says decisions use rules.
+  const { json: report } = await mesa('doctor', '--json');
+  expect(report.data.checks).toContainEqual({
+    name: 'decisions',
+    ok: true,
+    status: 'ok',
+    version: 'rules',
+    hint: 'adapter is not available; decisions use rules',
+  });
+});
+
 test('sessions lists the records with live tmux; a fresh profile is empty', async () => {
   await mesa('init', '--vault', 'vault');
   expect((await mesa('sessions', '--json')).json).toEqual({ ok: true, data: [] });

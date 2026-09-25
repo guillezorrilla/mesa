@@ -2,6 +2,7 @@ import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Clock } from './clock.js';
+import type { Decision, DecisionRecorder } from './decisions/types.js';
 import type { IdSource } from './ids.js';
 import type { MesaDeps } from './mesa.js';
 import type { Runner, RunResult } from './process.js';
@@ -84,6 +85,12 @@ export const SPIKE_LISTING = (() => {
     resumed: { ...row, pid: 75186, startedAt: 1790276958673, name: 'mesa-spike-proj-36' },
   };
 })();
+
+/** A DecisionRecorder that keeps every decision in `decisions`, for tests. */
+export function memoryRecorder(): DecisionRecorder & { decisions: Decision[] } {
+  const decisions: Decision[] = [];
+  return { decisions, record: (d) => void decisions.push(d) };
+}
 
 /** One window of `fakeTmux`: tests may mark it exited (`dead`) or read what was typed into it. */
 export type FakeWindow = {

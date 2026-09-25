@@ -13,6 +13,7 @@ export type TerminalApp = (typeof TERMINAL_APPS)[number];
 
 /** The decisions backends of ADR-0004. */
 export const BackendSchema = z.enum(['rules', 'adapter', 'jev']);
+export type BackendName = z.infer<typeof BackendSchema>;
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 export const ConfigSchema = z.strictObject({
