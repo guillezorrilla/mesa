@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { writeFileAtomic } from './atomic-file.js';
-import { shellWord } from './process.js';
-import { MesaError } from './result.js';
+import { dirname } from 'node:path';
+import { writeFileAtomic } from '../../lib/atomic-file.js';
+import { shellWord } from '../../lib/process.js';
+import { MesaError } from '../../lib/result.js';
+import { claudeSettings } from './paths.js';
 
 // Mesa's entries in Claude Code's user settings (ADR-0003 and its amendments): each event runs
 // `mesa hook claude`, which appends the payload to the session's event log. Codex joins in #43.
@@ -56,8 +57,6 @@ export type HooksStatus = ClaudeHooksStatus & { tmux: TmuxHookStatus };
 
 /** The profile's tmux socket, whether a server runs there, and whether it has this mesa's hook. */
 export type TmuxHookStatus = { socket: string; server: boolean; paneDied: boolean };
-
-export const claudeSettings = (home: string) => join(home, '.claude', 'settings.json');
 
 type Loaded = { settings: Settings; newline: boolean; indent: string };
 

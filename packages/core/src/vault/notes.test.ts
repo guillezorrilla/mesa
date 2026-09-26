@@ -1,10 +1,10 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
+import { localDay } from '../lib/time.js';
+import { fixedClock, steppingClock, tempDir, thrown } from '../testing/index.js';
 import type { Frontmatter } from './frontmatter.js';
 import { appendLog, logLine, readNote, updateNote, writeNote } from './notes.js';
-import { fixedClock, steppingClock, tempDir, thrown } from './testing.js';
-import { localDay } from './time.js';
 import { initVault } from './vault.js';
 import { vaultLockPath, withVaultLock } from './vault-lock.js';
 

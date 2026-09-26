@@ -1,13 +1,13 @@
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Clock } from './clock.js';
-import type { Decision, DecisionRecorder } from './decisions/types.js';
-import type { IdSource } from './ids.js';
-import type { MesaDeps } from './mesa.js';
-import type { Runner, RunResult } from './process.js';
-import { MesaError } from './result.js';
-import type { NewSession } from './sessions/store.js';
+import type { Decision, DecisionRecorder } from '../decisions/types.js';
+import type { Clock } from '../lib/clock.js';
+import type { IdSource } from '../lib/ids.js';
+import type { Runner, RunResult } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
+import type { MesaDeps } from '../mesa.js';
+import type { NewSession } from '../sessions/store.js';
 
 // Test implementations of Mesa's seams, real but controlled: a scripted runner and a temp home,
 // never mocks of Mesa's own modules. Published as @mesa/core/testing, not from the index.

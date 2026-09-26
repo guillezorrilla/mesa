@@ -11,7 +11,7 @@
 // or listing speaks). Codex patterns land in #43.
 
 import { createHash } from 'node:crypto';
-import type { Agent } from '../agents.js';
+import type { Agent } from '../agents/agents.js';
 import { type AgentProcess, listedState } from '../sessions/agent-listing.js';
 import {
   FINAL_STATES,

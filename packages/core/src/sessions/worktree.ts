@@ -1,7 +1,7 @@
 import { mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import type { Runner } from '../process.js';
-import { MesaError } from '../result.js';
+import type { Runner } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
 
 // A session's own git worktree (CONTEXT.md, Worktree): git through the injected Runner.
 // ponytail: git inherits mesa's environment, so a GIT_DIR exported around mesa (a git hook runs

@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { fixedClock, tempDir, thrown } from './testing.js';
+import { fixedClock, tempDir, thrown } from '../testing/index.js';
 import { initVault as init, VAULT_LAYOUT, vaultStatus } from './vault.js';
 
 let vault: string;
@@ -24,7 +24,7 @@ function snapshot(dir: string) {
 
 const errorCode = (fn: () => unknown) => thrown(fn).code;
 
-const template = readFileSync(new URL('../templates/vault-AGENTS.md', import.meta.url), 'utf8');
+const template = readFileSync(new URL('../../templates/vault-AGENTS.md', import.meta.url), 'utf8');
 
 test('fresh: creates every folder and file, AGENTS.md from the template, log.md first line', () => {
   expect(initVault({ path: vault }).created.sort()).toEqual([...VAULT_LAYOUT].sort());

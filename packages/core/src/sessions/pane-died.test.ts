@@ -1,6 +1,12 @@
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { fixedClock, newSession, scriptedRunner, sequentialIds, tempDir } from '../testing.js';
+import {
+  fixedClock,
+  newSession,
+  scriptedRunner,
+  sequentialIds,
+  tempDir,
+} from '../testing/index.js';
 import { recordPaneDied } from './pane-died.js';
 import { sessionStore } from './store.js';
 import { tmuxBackend } from './tmux.js';

@@ -1,5 +1,5 @@
-import { type Env, type Runner, shellWord } from '../process.js';
-import { type ErrorCode, MesaError } from '../result.js';
+import { type Env, type Runner, shellWord } from '../lib/process.js';
+import { type ErrorCode, MesaError } from '../lib/result.js';
 
 // The session backend: ADR-0001's tmux commands on the profile's own socket, never the user's
 // tmux server. Command lines and options follow docs/spikes/session-ids.md.

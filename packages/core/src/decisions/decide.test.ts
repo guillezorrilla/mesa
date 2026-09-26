@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { fixedClock, memoryRecorder, steppingClock } from '../testing.js';
+import { fixedClock, memoryRecorder, steppingClock } from '../testing/index.js';
 import { decide, type FaroProfile, selectBackend } from './decide.js';
 import { rulesBackend } from './rules.js';
 import type { Backend, Question } from './types.js';

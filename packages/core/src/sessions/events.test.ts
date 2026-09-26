@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { fixedClock, newSession, sequentialIds, tempDir } from '../testing.js';
+import { fixedClock, newSession, sequentialIds, tempDir } from '../testing/index.js';
 import { recordHookEvent } from './events.js';
 import { sessionStore } from './store.js';
 
