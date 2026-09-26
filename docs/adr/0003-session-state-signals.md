@@ -77,3 +77,10 @@ Issue #23 wires the second signal into `mesa sessions`:
 ## Amendment 2026-09-25: the board reads every pane (#27)
 
 The board shows each session's last output line, so every look captures each window's pane, including a dead pane, which keeps its last screen. For state, the tail is still the last resort: it is passed to the rules only for a live pane that no hook and no listing speaks for. That is one `capture-pane` per window per look, every 2 s in the app. This is cheap at a handful of sessions; batch the captures if boards grow.
+
+## Amendment 2026-09-25: transcripts give context use, and /clear changes the agent session id (#70)
+
+docs/spikes/context-use.md measured a session's context use from outside the session. It compared the transcript against the status line at ten points, on a 200k and a 1M window model. The largest difference was 0.48 points. Two things change:
+
+- **Context use.** Mesa now reads three things from transcripts beyond session ids and timestamps: `message.model` and `message.usage` of the last main-chain assistant message, and `compact_boundary` entries. It still never reads message content. That gives the record's `context: {used, window, at, source: 'transcript'}` (#75). The window comes from the model id, and is `null` for a model Mesa has not measured.
+- **The agent session id is not fixed for a session's life.** `/clear` starts a new Claude Code session in the same process, with a new id and a new transcript. `claude agents --json` reports the new id for the pane's pid, and `SessionStart` fires with source `clear`. The record follows both (#92), so hook events keep counting after `/clear`. Until then, the nested-claude guard drops them.
