@@ -30,6 +30,8 @@ pre {
   background: #dbeafe;
   color: #1e3a8a;
 }
+/* A collapsed row that hides a session waiting on you. */
+.needs-you,
 .state-waiting-permission,
 .state-waiting-question {
   background: #fde68a;

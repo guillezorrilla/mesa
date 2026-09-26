@@ -32,14 +32,22 @@ const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.endedAt);
 const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;
 
-/** The rows a collapsed row hides: every one after it that sits deeper, until the tree climbs back. */
-function shown(rows: readonly TreeRow[], collapsed: ReadonlySet<string>): TreeRow[] {
-  let below: number | undefined;
-  return rows.filter((row) => {
-    if (below !== undefined && row.depth > below) return false;
-    below = collapsed.has(row.id) ? row.depth : undefined;
-    return true;
-  });
+const WAITING = new Set(['waiting-permission', 'waiting-question']);
+
+/**
+ * The rows to show, each with the rows below it in the tree (the deeper ones right after it). A
+ * collapsed row hides those, and the toggle says how many, and whether one waits on a person.
+ */
+function shown(rows: readonly TreeRow[], collapsed: ReadonlySet<string>) {
+  const out: { row: TreeRow; below: TreeRow[] }[] = [];
+  for (let i = 0; i < rows.length; ) {
+    const row = rows[i] as TreeRow;
+    let end = i + 1;
+    while (end < rows.length && (rows[end] as TreeRow).depth > row.depth) end++;
+    out.push({ row, below: rows.slice(i + 1, end) });
+    i = collapsed.has(row.id) ? end : i + 1;
+  }
+  return out;
 }
 
 /**
@@ -55,10 +63,6 @@ export function BoardScreen() {
   const toast = useToast();
   const [data, setData] = useState<TreeRow[]>();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
-  // Rows with a child on the board: only those get a toggle.
-  const parents = new Set(
-    (data ?? []).flatMap((r) => (r.depth > 0 && r.managed && r.parent ? [r.parent] : [])),
-  );
   const toggle = (id: string) =>
     setCollapsed((was) => {
       const next = new Set(was);
@@ -199,7 +203,7 @@ export function BoardScreen() {
           </tr>
         </thead>
         <tbody>
-          {shown(data ?? [], collapsed).map((s) => (
+          {shown(data ?? [], collapsed).map(({ row: s, below }) => (
             <tr
               key={s.id}
               data-testid="session-row"
@@ -209,17 +213,21 @@ export function BoardScreen() {
               className={s.managed ? undefined : 'muted'}
             >
               <td style={{ paddingLeft: `${s.depth * 1.5}em` }}>
-                {parents.has(s.id) && (
+                {below.length > 0 && (
                   <>
                     <button
                       type="button"
-                      className="link"
+                      className={`link${collapsed.has(s.id) && below.some((r) => WAITING.has(r.lastState.state)) ? ' needs-you' : ''}`}
                       data-testid="session-toggle"
                       aria-expanded={!collapsed.has(s.id)}
-                      title={collapsed.has(s.id) ? 'Show its sessions' : 'Hide its sessions'}
+                      aria-label={
+                        collapsed.has(s.id)
+                          ? `Show the ${below.length} sessions under it`
+                          : 'Hide the sessions under it'
+                      }
                       onClick={() => toggle(s.id)}
                     >
-                      {collapsed.has(s.id) ? '▸' : '▾'}
+                      {collapsed.has(s.id) ? `▸ ${below.length}` : '▾'}
                     </button>{' '}
                   </>
                 )}

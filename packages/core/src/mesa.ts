@@ -158,6 +158,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     run: deps.run,
     clock: deps.clock,
     newUuid: deps.newUuid,
+    env: deps.env,
   });
   /** Both the stored key values and what their env: references resolve to. */
   const secrets = () => {
@@ -275,9 +276,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
           noParent?: boolean;
         } = {},
       ) => {
-        const { agent } = opts;
-        // Inside a Mesa window, MESA_SESSION_ID names the session this one is started from.
-        const parent = opts.noParent ? undefined : (opts.parent ?? deps.env.MESA_SESSION_ID);
+        const { agent, parent, noParent } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -285,9 +284,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
             goal: opts.goal,
             goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
           });
-          if (opts.noParent && opts.parent !== undefined) {
-            throw new MesaError('usage', 'pass --parent or --no-parent, not both');
-          }
         } catch (error) {
           refused = error;
         }
@@ -306,17 +302,19 @@ export function createMesa(profile: string, deps: MesaDeps) {
               project,
               agent: agent ?? null,
               ...(kept ? { goal: kept.short } : {}),
-              ...(parent ? { parent } : {}),
+              ...(parent === undefined ? {} : { parent }),
+              ...(noParent ? { noParent } : {}),
             },
             outputs: (r) => ({
               window: r.tmux.window,
               agentSessionId: r.agentSessionId,
               lastState: r.lastState,
+              parent: r.parent ?? null,
             }),
           },
           async () => {
             if (refused) throw refused;
-            return openSession(openDeps(), { project, agent, goal, parent });
+            return openSession(openDeps(), { project, agent, goal, parent, noParent });
           },
         );
       },

@@ -825,7 +825,7 @@ test('open inside a session makes a child; sessions --tree indents it; --json na
   mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
   await mesa('register', '--create', join(home, 'src/lantern-cove'));
   const a = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
-  env = { MESA_SESSION_ID: a };
+  env = { MESA_SESSION_ID: a, MESA_PROFILE: 'default' };
   const child = (await mesa('open', 'lantern-cove', '--json')).json.data;
   expect(child.parent).toBe(a);
   const loose = (await mesa('open', 'lantern-cove', '--no-parent', '--json')).json.data;

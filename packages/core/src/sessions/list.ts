@@ -104,11 +104,14 @@ export async function listSessions(
   const now = deps.clock();
   const recent = (r: SessionRecord) =>
     !r.endedAt || now.getTime() - Date.parse(r.endedAt) < RECENT_MS;
+  // Oldest first (the store's order), so `children` is too.
   const every = deps.store.list();
   const records = every.filter((r) => all || recent(r));
   const children = new Map<string, string[]>();
-  for (const r of [...every].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
-    if (r.parent) children.set(r.parent, [...(children.get(r.parent) ?? []), r.id]);
+  for (const r of every) {
+    if (!r.parent) continue;
+    if (children.has(r.parent)) children.get(r.parent)?.push(r.id);
+    else children.set(r.parent, [r.id]);
   }
   // One tmux call and one listing for the whole board, side by side, rather than one per record.
   const [listed, windowList] = await Promise.all([
@@ -242,23 +245,57 @@ export async function listSessions(
 export type TreeRow = SessionRow & { depth: number };
 
 /**
- * The board as a tree: each row followed by its children, and theirs, in the board's own order
- * (attention). A row whose parent is not on the board (removed, or stopped too long ago) sits at
- * the top.
+ * The board as a tree: each row followed by its children, and theirs. Siblings, and the rows at
+ * the top, rank by the highest attention in their subtree, so a child waiting on a person lifts
+ * its whole branch (CONTEXT.md, Attention score); ties keep the board's order.
+ *
+ * A row's parent is the one it names, or, when that session is off the board, the session it
+ * was resumed as. A row whose parent is not on the board at all (removed, or stopped too long
+ * ago) sits at the top, and so does a row in a loop of hand-edited records.
  */
 export function sessionTree(rows: readonly SessionRow[]): TreeRow[] {
-  const ids = new Set(rows.map((r) => r.id));
-  const parentOf = (r: SessionRow) =>
-    r.managed && r.parent && ids.has(r.parent) ? r.parent : undefined;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const resumedAs = new Map(
+    rows.flatMap((r) => (r.managed && r.resumedFrom ? [[r.resumedFrom, r.id] as const] : [])),
+  );
+  const parentOf = (r: SessionRow): string | undefined => {
+    let parent = r.managed ? r.parent : undefined;
+    const seen = new Set<string>();
+    while (parent && !byId.has(parent) && !seen.has(parent)) {
+      seen.add(parent);
+      parent = resumedAs.get(parent);
+    }
+    return parent && parent !== r.id && byId.has(parent) ? parent : undefined;
+  };
+  const kids = new Map<string, SessionRow[]>();
+  const tops: SessionRow[] = [];
+  for (const row of rows) {
+    const parent = parentOf(row);
+    if (!parent) tops.push(row);
+    else if (kids.has(parent)) kids.get(parent)?.push(row);
+    else kids.set(parent, [row]);
+  }
+  // The highest attention in each row's subtree, each subtree counted once.
+  const peak = new Map<string, number>();
+  const peakOf = (row: SessionRow): number => {
+    const known = peak.get(row.id);
+    if (known !== undefined) return known;
+    peak.set(row.id, row.attention);
+    const top = Math.max(row.attention, ...(kids.get(row.id) ?? []).map(peakOf));
+    peak.set(row.id, top);
+    return top;
+  };
+  const ranked = (group: readonly SessionRow[]) => [...group].sort((a, b) => peakOf(b) - peakOf(a));
   const out: TreeRow[] = [];
   const placed = new Set<string>();
   const place = (row: SessionRow, depth: number) => {
-    // A record edited by hand could loop; each row is placed once.
     if (placed.has(row.id)) return;
     placed.add(row.id);
     out.push({ ...row, depth });
-    for (const child of rows.filter((r) => parentOf(r) === row.id)) place(child, depth + 1);
+    for (const child of ranked(kids.get(row.id) ?? [])) place(child, depth + 1);
   };
-  for (const row of rows.filter((r) => !parentOf(r))) place(row, 0);
+  for (const row of ranked(tops)) place(row, 0);
+  // Rows in a loop have a parent on the board but no way down from the top: they go at the top.
+  for (const row of rows) place(row, 0);
   return out;
 }

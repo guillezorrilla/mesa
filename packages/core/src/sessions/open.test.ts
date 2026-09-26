@@ -30,19 +30,19 @@ function fakeWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
   );
 }
 
-/** An initialised profile with its vault laid out and lantern-cove registered. */
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();
 
+/** An initialised profile with its vault laid out and lantern-cove registered. */
 async function setUp(
   world: ReturnType<typeof fakeWorld>,
-  { mesaYaml = 'name: lantern-cove\n', argv = ['open'], env = {} as Record<string, string> } = {},
+  { mesaYaml = 'name: lantern-cove\n', argv = ['open'] } = {},
 ) {
   const home = tempDir();
   const dir = join(home, 'src/lantern-cove');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
-  const mesa = createMesa('default', testDeps(home, { run: world.run, argv, env, newId }));
+  const mesa = createMesa('default', testDeps(home, { run: world.run, argv, newId }));
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
   mesa.projects.register(dir);
@@ -316,17 +316,24 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
   const { home, mesa } = await setUp(world);
   const { result: a } = await mesa.sessions.open('lantern-cove');
   expect(a.parent).toBeUndefined();
-  // Inside a's window, every mesa has a's id in MESA_SESSION_ID.
-  const inside = createMesa(
-    'default',
-    testDeps(home, { run: world.run, env: { MESA_SESSION_ID: a.id }, newId }),
-  );
+  // Inside a's window, every mesa has a's id and profile in its environment.
+  const within = (env: Record<string, string>) =>
+    createMesa('default', testDeps(home, { run: world.run, env, newId }));
+  const inside = within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' });
   const { result: child } = await inside.sessions.open('lantern-cove');
   expect(child.parent).toBe(a.id);
   const { result: explicit } = await inside.sessions.open('lantern-cove', { parent: child.id });
   expect(explicit.parent).toBe(child.id);
   const { result: none } = await inside.sessions.open('lantern-cove', { noParent: true });
   expect(none.parent).toBeUndefined();
+  // Another profile's window, an empty id, or a removed session: no parent, and no error.
+  for (const env of [
+    { MESA_SESSION_ID: a.id, MESA_PROFILE: 'work' },
+    { MESA_SESSION_ID: '', MESA_PROFILE: 'default' },
+    { MESA_SESSION_ID: 'gonegone', MESA_PROFILE: 'default' },
+  ]) {
+    expect((await within(env).sessions.open('lantern-cove')).result.parent).toBeUndefined();
+  }
 
   const before = (await mesa.sessions.list()).length;
   await expect(inside.sessions.open('lantern-cove', { parent: 'zzzzzzzz' })).rejects.toMatchObject({
