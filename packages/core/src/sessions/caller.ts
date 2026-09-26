@@ -5,14 +5,17 @@ import type { SessionStore } from './store.js';
 // Whether mesa runs inside a Mesa window, and whose: the MESA_SESSION_ID and MESA_PROFILE a
 // window's environment holds. The one place that writes and reads them.
 
+/** The variable naming a window's Mesa session; a Claude Code hook reads it too. */
+export const SESSION_ID_VAR = 'MESA_SESSION_ID';
+
 /** The environment a session's window gets, so mesa inside it knows the session and profile. */
 export const windowEnv = (id: string, profileName: string) => ({
-  MESA_SESSION_ID: id,
+  [SESSION_ID_VAR]: id,
   MESA_PROFILE: profileName,
 });
 
 /** The Mesa session id a window's environment names, if any, of whatever profile. */
-export const windowId = (env: Env) => env.MESA_SESSION_ID || undefined;
+export const windowId = (env: Env) => env[SESSION_ID_VAR] || undefined;
 
 /** Who runs this mesa: this profile's session whose window it is in, and whether it is in any. */
 export type Caller = { session?: SessionRecord; inMesaWindow: boolean };

@@ -88,8 +88,8 @@ The spike's O6 run had a temporary hook, loaded with `--settings` and recording 
 Mesa's record keeps the old `agentSessionId`. From the code, not observed through Mesa, three things follow:
 
 - **`SessionEnd` still passes.** It carries the old id, so `recordHookEvent`'s guard lets it through, and it is recorded.
-- **The session reads `done`.** `hookState` in `packages/core/src/decisions/session-state.ts` maps every `SessionEnd` to `done`. A non-waiting hook state holds over a disagreeing listing for 60 s, so the Board shows the session `done` at 0.95 for up to a minute, with Resume offered.
-- **Every later event is dropped.** `recordHookEvent` in `packages/core/src/sessions/events.ts` drops any hook event whose `session_id` differs from the record's, to ignore nested claudes, and every event after `/clear` carries the new id.
+- **The session reads `done`.** `hookState` in `packages/core/src/sessions/state.ts` maps every `SessionEnd` to `done`. A non-waiting hook state holds over a disagreeing listing for 60 s, so the Board shows the session `done` at 0.95 for up to a minute, with Resume offered.
+- **Every later event is dropped.** `recordHookEvent` in `packages/core/src/sessions/hook-events.ts` drops any hook event whose `session_id` differs from the record's, to ignore nested claudes, and every event after `/clear` carries the new id.
 
 A transcript read by the old id returns the frozen, pre-clear value.
 
@@ -141,5 +141,5 @@ This changes ADR-0003's statement that Mesa reads only session ids and timestamp
 
 ## Other observations
 
-- **The busy hint is hidden.** The status line docs say that with a custom status line, Claude Code "stops showing most of the footer's keyboard hints, including `esc to interrupt`". That is why the spike's first helper returned mid-turn. Mesa's tail classifier (`packages/core/src/decisions/session-state.ts`) also matches `esc to interrupt`, but it checks the spinner activity label and the token stats line too. The spike did not test which of those match on a screen with a custom status line. The tail is ADR-0003's last signal, read only when no hook or listing speaks.
+- **The busy hint is hidden.** The status line docs say that with a custom status line, Claude Code "stops showing most of the footer's keyboard hints, including `esc to interrupt`". That is why the spike's first helper returned mid-turn. Mesa's tail classifier (`packages/core/src/sessions/state.ts`) also matches `esc to interrupt`, but it checks the spinner activity label and the token stats line too. The spike did not test which of those match on a screen with a custom status line. The tail is ADR-0003's last signal, read only when no hook or listing speaks.
 - **Starting context.** The Haiku session started at 42,324 tokens (21 % of 200k) before any work, and each Opus session at 45,000 to 52,000 (about 5 % of 1M, or 23 % of 200k). That is the system prompt, tools, and skills.

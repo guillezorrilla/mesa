@@ -2,7 +2,8 @@ import type { Clock } from '../lib/clock.js';
 import type { SessionRecord } from './record.js';
 import { exitState, PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
-import { type TmuxBackend, VIEW_PREFIX } from './tmux/backend.js';
+import type { TmuxBackend } from './tmux/backend.js';
+import { VIEW_PREFIX } from './tmux/format.js';
 import { idOfWindow, windowOf } from './window-name.js';
 
 /**

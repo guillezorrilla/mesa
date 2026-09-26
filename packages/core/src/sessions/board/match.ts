@@ -1,6 +1,6 @@
 import type { AgentProcess } from '../agent-listing.js';
 import type { SessionRecord } from '../record.js';
-import { type TmuxWindow, targetLabel } from '../tmux/backend.js';
+import { type TmuxWindow, targetLabel } from '../tmux/format.js';
 import { windowOf } from '../window-name.js';
 
 /**

@@ -4,7 +4,8 @@ import { MesaError, toFail } from '../lib/result.js';
 import type { Caller } from './caller.js';
 import { type SessionRecord, sessionEnded, WAITING_STATES } from './record.js';
 import type { SessionStore } from './store.js';
-import { isShell, type TmuxBackend } from './tmux/backend.js';
+import type { TmuxBackend } from './tmux/backend.js';
+import { isShell } from './tmux/format.js';
 import { windowOf } from './window-name.js';
 
 export type Sent = {

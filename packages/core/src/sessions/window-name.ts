@@ -1,5 +1,5 @@
 import type { SessionRecord } from './record.js';
-import type { WindowTarget } from './tmux/backend.js';
+import type { WindowTarget } from './tmux/format.js';
 
 // A session's window name, `<agent>-<Mesa session id>` (CONTEXT.md, Window): written and read here.
 

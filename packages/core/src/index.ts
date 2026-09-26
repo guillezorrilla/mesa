@@ -26,6 +26,6 @@ export type { TreeRow } from './sessions/board/tree.js';
 export type { SessionRecord, SessionState } from './sessions/record.js';
 export type { Sent } from './sessions/send.js';
 export type { StopOutcome } from './sessions/stop.js';
-export type { TmuxWindow } from './sessions/tmux/backend.js';
+export type { TmuxWindow } from './sessions/tmux/format.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';

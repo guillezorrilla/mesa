@@ -1,5 +1,6 @@
 import type { SessionStore } from './store.js';
-import { type TmuxBackend, targetLabel } from './tmux/backend.js';
+import type { TmuxBackend } from './tmux/backend.js';
+import { targetLabel } from './tmux/format.js';
 import { windowOf } from './window-name.js';
 
 /** Sizes a session's window to a view (the app's terminal) now; tmux then follows its latest client. */
