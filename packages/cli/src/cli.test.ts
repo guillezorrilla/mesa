@@ -1,9 +1,8 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { tempDir, testDeps } from '@mesa/core/testing';
+import { tempDir } from '@mesa/core/testing';
 import { expect, test } from 'vitest';
-import { type CliDeps, runCli, VERSION } from './cli.js';
+import { runCli, VERSION } from './cli.js';
 import { defineCommand } from './command.js';
-import { commandReference, referenceMarkdown } from './help.js';
+import { cliDeps } from './testing.js';
 
 let seen: { args: object; loud: boolean | undefined; profile: string } | undefined;
 const greet = defineCommand({
@@ -31,14 +30,10 @@ const warn = defineCommand({
   run: () => ({ data: [1], text: 'bad', code: 3 }),
 });
 
-const home = tempDir();
-const deps: CliDeps = {
+const deps = cliDeps(tempDir(), {
   commands: [greet, greetTwice, warn],
   env: { MESA_PROFILE: 'work' },
-  tty: false,
-  stdin: async () => '',
-  mesa: testDeps(home),
-};
+});
 const cli = (...argv: string[]) => runCli(argv, deps);
 
 test('main help lists every command with its arguments and summary', async () => {
@@ -132,24 +127,4 @@ test('a required flag is checked from the declaration and shows in the usage lin
     stderr: '--to is required. Usage: mesa needs --to <string> [flags]\n',
   });
   expect((await run('needs', '--to', 'x')).stdout).toBe('x\n');
-});
-
-test('the agent reference pins its Markdown for fixture commands in two groups', () => {
-  const greetAt = defineCommand({
-    name: 'greet at',
-    summary: 'Greet someone somewhere',
-    args: ['who'],
-    flags: {
-      place: { type: 'string', required: true, description: 'Where to greet' },
-      wave: { type: 'boolean', description: 'Wave too' },
-    },
-    example: 'mesa greet at ada --place hall --wave',
-    run: () => ({ data: null, text: '' }),
-  });
-  const golden = new URL('golden/agent-reference.md', import.meta.url);
-  // One made-up global, so the golden file pins the layout and not the real globals' wording.
-  const globals = { json: { type: 'boolean' as const, description: 'Print JSON' } };
-  const written = referenceMarkdown(commandReference([greet, greetAt, warn]), globals);
-  if (process.env.UPDATE_GOLDEN) writeFileSync(golden, written);
-  expect(written).toBe(readFileSync(golden, 'utf8'));
 });

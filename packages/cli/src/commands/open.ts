@@ -1,6 +1,6 @@
 import { defineCommand } from '../command.js';
-import { withReceipt } from '../receipt-output.js';
-import { requireTty } from './attach.js';
+import { requireTty } from '../guards.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const open = defineCommand({
   name: 'open',
@@ -46,8 +46,7 @@ export const open = defineCommand({
       base: flags.base,
     });
     const session = recorded.result;
-    const { receipt, text } = withReceipt(recorded, session.id);
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;
-    return { data: { ...session, ...receipt }, text, exec };
+    return { ...recordedOutput(recorded, { data: session, text: session.id }), exec };
   },
 });

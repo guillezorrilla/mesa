@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { withReceipt } from '../receipt-output.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const stop = defineCommand({
   name: 'stop',
@@ -18,7 +18,6 @@ export const stop = defineCommand({
       gone: `stopped ${record.id} (its window was already gone)`,
       'already-ended': `session ${record.id} had already ended`,
     }[outcome];
-    const { receipt, text } = withReceipt(recorded, said);
-    return { data: { ...record, outcome, ...receipt }, text };
+    return recordedOutput(recorded, { data: { ...record, outcome }, text: said });
   },
 });

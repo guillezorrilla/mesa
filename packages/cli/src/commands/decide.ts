@@ -1,6 +1,6 @@
 import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { columns } from '../format.js';
+import { columns } from '../output/columns.js';
 
 const two = (n: number) => n.toFixed(2);
 
