@@ -63,9 +63,12 @@ async function setUp(
     mesaYaml = 'name: lantern-cove\n',
     argv = ['open'],
     run = withGit(world),
-  }: { mesaYaml?: string; argv?: string[]; run?: Runner } = {},
+    linkedHome = false,
+  }: { mesaYaml?: string; argv?: string[]; run?: Runner; linkedHome?: boolean } = {},
 ) {
-  const home = tempDir();
+  // A home reached through a symlink, as the paths Mesa builds are then not the real ones.
+  const home = linkedHome ? join(tempDir(), 'home') : tempDir();
+  if (linkedHome) symlinkSync(tempDir(), home);
   const dir = join(home, 'src/lantern-cove');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
@@ -509,11 +512,16 @@ test('--base starts the new branch there; an existing branch is reused as it is'
   git(dir, 'worktree', 'remove', worktreeAt(home, 'fix'));
   const { result: fixAgain } = await mesa.sessions.open('lantern-cove', { branch: 'fix' });
   expect(fixAgain.worktree).toEqual({ path: worktreeAt(home, 'fix'), branch: 'fix' });
+  // The first session on fix cannot resume into the worktree the new one has.
+  await expect(mesa.sessions.resume(result.id)).rejects.toMatchObject({
+    code: 'usage',
+    message: `the worktree at ${worktreeAt(home, 'fix')} is session ${fixAgain.id}'s now: two sessions never share one`,
+  });
   // Its worktree gone, the session cannot resume: its conversation was there.
   git(dir, 'worktree', 'remove', worktreeAt(home, 'kept'));
   await expect(mesa.sessions.resume(resumed.record.id)).rejects.toMatchObject({
     code: 'not_found',
-    message: `session ${resumed.record.id}'s worktree ${worktreeAt(home, 'kept')} is gone, and its conversation with it`,
+    message: `session ${resumed.record.id}'s worktree ${worktreeAt(home, 'kept')} is gone, and claude finds its conversation only there`,
   });
 });
 
@@ -588,6 +596,9 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
   let killed: 'after' | 'during' | undefined = 'after';
   const world = fakeWorld();
   const run: Runner = async (file, args, ms) => {
+    // Someone else makes `raced` just before Mesa does.
+    if (args.includes('--no-track') && args.includes('raced'))
+      git(args[1] ?? '', 'branch', 'raced');
     const add = args.includes('worktree') && args.includes('add');
     if (add && killed === 'during') {
       const path = args.at(-2) ?? '';
@@ -619,13 +630,18 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
   });
   expect(existsSync(worktreeAt(home, 'slow'))).toBe(false);
   killed = undefined;
+  // The branch someone else made first is theirs, and stays.
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'raced' })).rejects.toMatchObject({
+    message: expect.stringMatching(/^cannot start raced from main: fatal: .*already exists/),
+  });
+  expect(git(dir, 'branch', '--list', 'raced')).toBe('raced');
 
   // A worktree git still lists whose folder is gone is refused, and stays git's.
   git(dir, 'worktree', 'add', '-q', worktreeAt(home, 'p-q'), '-b', 'p-q');
   rmSync(worktreeAt(home, 'p-q'), { recursive: true });
   await expect(mesa.sessions.open('lantern-cove', { branch: 'p/q' })).rejects.toMatchObject({
     code: 'usage',
-    message: `git lists a worktree at ${worktreeAt(home, 'p-q')} already: pick another branch, or run git worktree prune if its folder was deleted`,
+    message: `git lists a worktree at ${worktreeAt(home, 'p-q')} already: pick another branch, or see git worktree list`,
   });
   expect(git(dir, 'branch', '--list', 'p/q')).toBe('');
   expect(git(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/p-q');
@@ -681,4 +697,17 @@ test('every refusal before the window comes before the worktree, and a missing g
     code: 'internal',
     message: 'git not found on PATH; --branch needs it',
   });
+});
+
+test('through a symlinked home, a worktree git lists is still seen', async () => {
+  const { home, dir, mesa } = await setUp(fakeWorld(), { linkedHome: true });
+  gitInit(dir);
+  git(dir, 'worktree', 'add', '-q', worktreeAt(home, 'gone'), '-b', 'gone-old');
+  rmSync(worktreeAt(home, 'gone'), { recursive: true });
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'gone' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `git lists a worktree at ${worktreeAt(home, 'gone')} already: pick another branch, or see git worktree list`,
+  });
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'fine' });
+  expect(result.worktree?.path).toBe(worktreeAt(home, 'fine'));
 });

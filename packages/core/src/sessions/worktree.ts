@@ -1,5 +1,5 @@
 import { mkdirSync, realpathSync, rmSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import type { Runner } from '../process.js';
 import { MesaError } from '../result.js';
 
@@ -57,14 +57,18 @@ async function defaultBase(run: Runner, repo: string, branch: string) {
   return base;
 }
 
-/** Where addWorktree puts `branch`'s worktree under `root`: a `/` in it becomes `-`. */
+/**
+ * Where addWorktree puts `branch`'s worktree under `root`: a `/` in it becomes `-`. Absolute, as
+ * git also finds a worktree by the end of a relative path.
+ */
 export const worktreePath = (root: string, branch: string) =>
-  join(root, branch.replaceAll('/', '-'));
+  resolve(root, branch.replaceAll('/', '-'));
 
 /**
  * Adds a worktree for `branch` at worktreePath: an existing branch not checked out elsewhere,
  * reused as it is, or a new one from `base` (defaultBase). A new branch tracks only the branch of
- * its name on origin, so a push never lands on the branch it started from. `repo` must be a
+ * its name on origin, so a push never lands on the branch it started from.
+ * ponytail: a `git branch` that hangs past 5 s may leave its branch, which a retry then reuses. `repo` must be a
  * repository's top folder. Every refusal is `usage`; a failed add removes what it made, and only
  * that: the path is claimed with one mkdir first, and the branch made in its own step.
  */
@@ -112,7 +116,7 @@ export async function addWorktree(
   if (listed.split('\n').includes(`worktree ${real}`)) {
     throw new MesaError(
       'usage',
-      `git lists a worktree at ${path} already: pick another branch, or run git worktree prune if its folder was deleted`,
+      `git lists a worktree at ${path} already: pick another branch, or see git worktree list`,
     );
   }
   claim(path);
@@ -120,10 +124,14 @@ export async function addWorktree(
   let added = false;
   try {
     if (base !== undefined) {
-      const track = base === `origin/${branch}` ? '--track' : '--no-track';
-      const start = ['branch', '--quiet', track, '--end-of-options', branch, base];
+      const start = ['branch', '--quiet', '--no-track', '--end-of-options', branch, base];
       await must(run, repo, start, `cannot start ${branch} from ${base}`);
       made = true;
+      // Continued from origin, it pulls from there; best effort, as a single-branch clone's
+      // fetched ref is not a branch git tracks.
+      if (base === `origin/${branch}`) {
+        await ask(run, repo, ['branch', '--quiet', `--set-upstream-to=${base}`, branch]);
+      }
     }
     const add = ['worktree', 'add', '--quiet', '--end-of-options', path, branch];
     await must(run, repo, add, `cannot check out ${branch}`, ADD_MS);
@@ -147,7 +155,8 @@ function claim(path: string) {
 
 /** Removes the worktree at `path`, and `branch` when given: best effort, forced. */
 async function discard(run: Runner, repo: string, path: string, branch?: string) {
-  const quietly = (args: string[]) => git(run, repo, args).catch(() => undefined);
+  // As long as an add may take: a remove cut short leaves the registration, and the branch.
+  const quietly = (args: string[]) => git(run, repo, args, ADD_MS).catch(() => undefined);
   await quietly(['worktree', 'remove', '--force', path]);
   rmSync(path, { recursive: true, force: true });
   if (branch !== undefined) await quietly(['branch', '-D', branch]);

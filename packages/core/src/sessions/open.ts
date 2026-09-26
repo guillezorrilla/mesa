@@ -165,14 +165,18 @@ export async function openSession(deps: OpenDeps, input: OpenInput): Promise<Ses
   }
 }
 
-/** A new worktree on `branch`, unless a session has the worktree there: the newest is named. */
-function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
-  const root = join(deps.profile.paths.worktrees, entry.name);
-  const path = worktreePath(root, branch);
-  const holder = deps.store
+/** The session a worktree is: the newest with it, as a resume keeps it. */
+const worktreeHolder = (store: SessionStore, path: string) =>
+  store
     .list()
     .filter((r) => r.worktree?.path === path)
     .at(-1);
+
+/** A new worktree on `branch`, unless a session has the worktree there. */
+function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
+  const root = join(deps.profile.paths.worktrees, entry.name);
+  const path = worktreePath(root, branch);
+  const holder = worktreeHolder(deps.store, path);
   if (holder?.worktree && existsSync(path)) {
     throw new MesaError(
       'usage',
@@ -210,12 +214,23 @@ export async function resumeSession(
   if (!('resume' in spec)) throw new MesaError('agent_unavailable', spec.planned);
   const check = await checkAgent(deps.run, old.agent);
   if (!check.ok) throw new MesaError('agent_unavailable', `${old.agent} ${check.hint}`);
-  // tmux would start a window whose folder is gone in $HOME, where claude has no such conversation.
-  if (old.worktree && !existsSync(old.worktree.path)) {
-    throw new MesaError(
-      'not_found',
-      `session ${id}'s worktree ${old.worktree.path} is gone, and its conversation with it`,
-    );
+  if (old.worktree) {
+    const { path } = old.worktree;
+    // tmux would start a window whose folder is gone in $HOME, where claude has no such
+    // conversation.
+    if (!existsSync(path)) {
+      throw new MesaError(
+        'not_found',
+        `session ${id}'s worktree ${path} is gone, and claude finds its conversation only there`,
+      );
+    }
+    const holder = worktreeHolder(deps.store, path);
+    if (holder && holder.id !== old.id) {
+      throw new MesaError(
+        'usage',
+        `the worktree at ${path} is session ${holder.id}'s now: two sessions never share one`,
+      );
+    }
   }
   const target = windowOf(old);
   const left = await deps.tmux.findWindow(target);
