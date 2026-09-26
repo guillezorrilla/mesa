@@ -14,6 +14,7 @@ import type {
   Result,
   Sent,
   SessionRecord,
+  SkillRow,
   SkillSync,
   StopOutcome,
   TmuxWindow,
@@ -46,6 +47,7 @@ export const COMMANDS = {
   ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
+  'skills.list': command<SkillRow[]>('skills', 'list'),
   'skills.sync': commandWith<{ project: string }, SkillSync>(({ project }) => [
     'skills',
     'sync',

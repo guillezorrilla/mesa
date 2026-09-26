@@ -99,7 +99,16 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
 test("Sync skills links the project's enabled skills and says what changed", async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
-    skills: () =>
+    'skills list': () =>
+      envelope([
+        {
+          name: 'session-summary',
+          source: 'mesa',
+          enabled: true,
+          description: 'Summarises a session',
+        },
+      ]),
+    'skills sync': () =>
       envelope({
         added: ['.claude/skills/session-summary', '.agents/skills/session-summary'],
         removed: [],
@@ -112,6 +121,10 @@ test("Sync skills links the project's enabled skills and says what changed", asy
   await click(byTestId('nav-projects')[0]);
   // Only a project whose folder exists can take skills.
   expect(byTestId('sync-skills')).toHaveLength(1);
+  // The library, with what this profile enables.
+  expect(byTestId('skill-row').map((r) => r.textContent)).toEqual([
+    'enabledsession-summarySummarises a session',
+  ]);
   await click(byTestId('sync-skills')[0]);
   expect(calls).toContainEqual(['--json', 'skills', 'sync', '--', 'lantern-cove']);
   expect(byTestId('toast')[0]?.textContent).toContain(

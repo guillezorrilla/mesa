@@ -44,6 +44,21 @@ function isMesaLink(entry: string, library: string): boolean {
 }
 
 /**
+ * The project's skill folders, each once: a folder that is another's alias (`.claude/skills` a
+ * link to `.agents/skills`, as some repos keep them) is the same place, so it is skipped.
+ */
+function skillFolders(projectDir: string) {
+  const seen = new Set<string>();
+  return SKILL_DIRS.flatMap((dir) => {
+    const folder = join(projectDir, dir);
+    const real = existsSync(folder) ? realpathSync(folder) : folder;
+    if (seen.has(real)) return [];
+    seen.add(real);
+    return [{ dir, folder }];
+  });
+}
+
+/**
  * The skills a project sees: the library's, enabled when the profile or the project's mesa.yaml
  * names them, then the project's own (entries in its skill folders Mesa did not make), enabled.
  */
@@ -61,8 +76,7 @@ export function listSkills(input: {
   }));
   if (!input.projectDir) return rows;
   const seen = new Set<string>();
-  for (const dir of SKILL_DIRS) {
-    const folder = join(input.projectDir, dir);
+  for (const { folder } of skillFolders(input.projectDir)) {
     if (!existsSync(folder)) continue;
     for (const name of readdirSync(folder)) {
       const entry = join(folder, name);
@@ -95,8 +109,7 @@ export function syncSkills(input: {
     conflicts: [],
     unknown: [...input.enabled].filter((n) => !byName.has(n)).sort(),
   };
-  for (const dir of SKILL_DIRS) {
-    const folder = join(input.projectDir, dir);
+  for (const { dir, folder } of skillFolders(input.projectDir)) {
     for (const name of wanted) {
       const entry = join(folder, name);
       const label = `${dir}/${name}`;

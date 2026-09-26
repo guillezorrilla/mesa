@@ -135,3 +135,18 @@ test('a library skill Mesa cannot ship is invalid_config: no SKILL.md, or the wr
     message: `${join(other, 'folder/SKILL.md')}: name is mislabelled, not folder`,
   });
 });
+
+test('a skill folder that links to the other is one place: each link is made, and said, once', () => {
+  const { dir, mesa } = setUp();
+  mkdirSync(join(dir, '.agents/skills'), { recursive: true });
+  mkdirSync(join(dir, '.claude'), { recursive: true });
+  symlinkSync('../.agents/skills', join(dir, '.claude/skills'));
+  const { result } = mesa.skills.sync('lantern-cove');
+  expect(result.added).toEqual(['.claude/skills/a', '.claude/skills/b']);
+  expect(result.kept).toEqual([]);
+  writeFileSync(join(dir, 'mesa.yaml'), 'name: lantern-cove\n');
+  expect(mesa.skills.sync('lantern-cove').result).toMatchObject({
+    removed: ['.claude/skills/b'],
+    kept: ['.claude/skills/a'],
+  });
+});
