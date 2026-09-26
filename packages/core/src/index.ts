@@ -1,13 +1,13 @@
 // The public interface of @mesa/core: the composition root, the real implementations of its
 // seams, the result envelope, and the data types callers render. Everything else is internal.
 export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents/agents.js';
-export type { ClaudeHooksStatus, HooksStatus, TmuxHookStatus } from './agents/claude/hooks.js';
+export type { ClaudeHooksStatus, HooksStatus } from './agents/claude/hooks.js';
 export type { CommandReference } from './command-reference.js';
-export type { Answer, Decision, Question } from './decisions/types.js';
+export type { Decision } from './decisions/types.js';
 export type { Check, DoctorReport } from './doctor.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
-export { type Env, execRunner, type Runner, type RunResult } from './lib/process.js';
+export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
@@ -15,7 +15,6 @@ export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
 export type { Project } from './projects/project-file.js';
 export type { ProjectRow } from './projects/projects.js';
 export type { Recorded } from './receipts/recorder.js';
-export type { Receipt } from './receipts/schema.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';

@@ -18,7 +18,7 @@ export const AGENT_STATES = [
  * session it waits on ends (mesa open --after), `stopped` once cancelled. Mesa sets those; Faro
  * never reads them.
  */
-export const SESSION_STATES = [...AGENT_STATES, 'queued', 'stopped'] as const;
+const SESSION_STATES = [...AGENT_STATES, 'queued', 'stopped'] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
 /** Whether Faro places a session in this state, rather than Mesa holding it there. */
 export const isAgentState = (state: SessionState) =>
@@ -60,7 +60,7 @@ export const SessionRecordSchema = z.strictObject({
       claimedAt: z.iso.datetime().optional(),
     })
     .optional(),
-  /** What a person calls it (mesa adopt --name). */
+  /** What a person calls it (mesa rename, mesa adopt --name). */
   name: z.string().optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
   adopted: z.literal(true).optional(),
@@ -102,8 +102,8 @@ export const SessionRecordSchema = z.strictObject({
     })
     .optional(),
   /**
-   * What happened to the session that Mesa keeps: prompts sent to it and by it, and its agent's
-   * exit. Claude Code's hook events go to sessions/events/ instead.
+   * What happened to the session that Mesa keeps: prompts sent to it and by it, its agent's
+   * exit, and a handoff. Claude Code's hook events go to sessions/events/ instead.
    */
   events: z.array(
     z.discriminatedUnion('type', [

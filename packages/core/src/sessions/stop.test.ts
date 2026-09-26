@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  CLAUDE_VERSION,
   type FakeWindow,
   fakeTmux,
   newSession,
@@ -34,7 +35,7 @@ async function setUp({
       beforeTmux(args, world);
       return world.answer(args);
     },
-    claude: '2.1.282 (Claude Code)',
+    claude: CLAUDE_VERSION,
   });
   const sleeps: number[] = [];
   const sleep = async (ms: number) => {

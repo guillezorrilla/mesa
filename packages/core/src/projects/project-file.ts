@@ -6,6 +6,9 @@ import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
+/** A project's priority when its mesa.yaml gives none, or it cannot be read: the middle. */
+export const DEFAULT_PRIORITY = 0.5;
+
 /** The file that makes a folder a project. */
 const PROJECT_FILE = 'mesa.yaml';
 
@@ -14,7 +17,7 @@ const ProjectSchema = z.strictObject({
     .string()
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'must be a slug: lowercase letters, digits, and hyphens'),
   agent: AgentSchema.optional(),
-  priority: z.number().min(0).max(1).default(0.5),
+  priority: z.number().min(0).max(1).default(DEFAULT_PRIORITY),
   guardrail: z.enum(['normal', 'strict']).default('normal'),
   tmux: z.strictObject({ layout: z.string().optional() }).optional(),
   skills: z.array(z.string()).optional(),

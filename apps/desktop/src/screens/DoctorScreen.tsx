@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useAct } from '@/lib/useAct';
 import { type CommandState, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 
@@ -31,10 +32,15 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
   const windows = useCommand('windows.list');
   const hooks = useCommand('hooks.status');
   const run = useRun();
-  const change = async (name: 'hooks.install' | 'hooks.uninstall') => {
-    // The doctor's own `claude hooks` row changes too.
-    if (await run(name)) await Promise.all([hooks.refresh(), refresh()]);
-  };
+  const { acting, act } = useAct();
+  const change = (name: 'hooks.install' | 'hooks.uninstall') =>
+    act(async () => {
+      const changed = await run(name);
+      if (!changed) return undefined;
+      // The doctor's own `claude hooks` row changes too.
+      await Promise.all([hooks.refresh(), refresh()]);
+      return changed.warning;
+    });
   return (
     <section data-testid="doctor-panel" className="space-y-4">
       <PageHeader title="Doctor" description="What Mesa needs, and whether it has it.">
@@ -101,7 +107,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
                   onClick={() =>
                     change(hooks.data?.installed ? 'hooks.uninstall' : 'hooks.install')
                   }
-                  disabled={hooks.busy}
+                  disabled={hooks.busy || acting}
                 >
                   {hooks.data.installed ? 'Uninstall' : 'Install'}
                 </Button>

@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
-import type { IdSource } from '../lib/ids.js';
-import { withLockSync } from '../lib/lock-file.js';
+import { type IdSource, shortId } from '../lib/ids.js';
+import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import {
@@ -18,9 +18,6 @@ import {
 const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
-
-/** The ULID's last 8 characters are random: 40 bits, and short enough to type. */
-const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();
 
 export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
   /** The record's file; an id that is not a short id names no session, and never a path. */
@@ -58,12 +55,7 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
    */
   const locked = <T>(id: string, fn: () => T, tries?: number): T => {
     const lock = fileOf(id).replace(/\.json$/, '.lock');
-    const busy = () =>
-      new MesaError(
-        'locked',
-        `session ${id} is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
-        { reason: 'session' },
-      );
+    const busy = () => lockedBy(`session ${id}`, lock, 'session');
     return withLockSync(lock, fn, busy, tries);
   };
 

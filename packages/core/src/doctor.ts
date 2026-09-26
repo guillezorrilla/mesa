@@ -22,7 +22,8 @@ export type Check = {
 /** Decided here once: `healthy` when tmux and at least one agent answered; `summary` says why not. */
 export type DoctorReport = { healthy: boolean; summary: string; checks: Check[] };
 
-type Probe = Omit<Check, 'status'>;
+/** What a check found, before its status is set. */
+type Finding = Omit<Check, 'status'>;
 
 // tmux is required on its own; the agents are required as a group: at least one of them.
 const BINARIES: Binary[] = [
@@ -32,7 +33,7 @@ const BINARIES: Binary[] = [
 
 const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) are required`;
 
-async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Probe> {
+async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding> {
   const base = { name: 'obsidian' };
   const path = [paths.registered, paths.bundle].find((p) => existsSync(p));
   if (!path) {
@@ -63,7 +64,7 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Probe> 
  */
 type DecisionsInUse = { named: BackendName; active: BackendName; threshold: number };
 
-function decisionsCheck(decisions: DecisionsInUse | undefined): Probe[] {
+function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   if (!decisions) return [];
   const { named, active, threshold } = decisions;
   const hint =
@@ -76,7 +77,7 @@ function decisionsCheck(decisions: DecisionsInUse | undefined): Probe[] {
 }
 
 /** Mesa's Claude Code hooks: a warning with its fix when missing, or when settings do not read. */
-function claudeHooksCheck(read: () => ClaudeHooksStatus): Probe {
+function claudeHooksCheck(read: () => ClaudeHooksStatus): Finding {
   const name = 'claude hooks';
   let status: ClaudeHooksStatus;
   try {
@@ -101,7 +102,7 @@ function claudeHooksCheck(read: () => ClaudeHooksStatus): Probe {
  * server gets it when it starts. A server without it (started by an older mesa, or by a mesa
  * that moved) is a warning.
  */
-function tmuxHookCheck(status: TmuxHookStatus): Probe {
+function tmuxHookCheck(status: TmuxHookStatus): Finding {
   const name = 'tmux hooks';
   if (!status.server) return { name, ok: true, hint: `no server on ${status.socket} yet` };
   const hint = status.paneDied
@@ -110,7 +111,7 @@ function tmuxHookCheck(status: TmuxHookStatus): Probe {
   return { name, ok: status.paneDied, hint };
 }
 
-function profileDirCheck(dir: string): Probe {
+function profileDirCheck(dir: string): Finding {
   const ok = existsSync(dir);
   return {
     name: 'profile dir',
@@ -120,7 +121,10 @@ function profileDirCheck(dir: string): Probe {
   };
 }
 
-/** Presence and version of every external dependency, plus the profile directory. */
+/**
+ * Presence and version of every external dependency, the profile directory, the decisions
+ * backend, and both kinds of hook (Claude Code's and the tmux server's pane-died).
+ */
 export async function runDoctor(deps: {
   run: Runner;
   obsidian: ObsidianPaths;

@@ -1,14 +1,7 @@
-import { existsSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import {
-  fakeTmux,
-  gitRepo,
-  isolateGit,
-  projectProfile,
-  scriptedRunner,
-  withRealGit,
-} from '../testing/index.js';
+import { agentWorld, gitRepo, isolateGit, projectProfile, withRealGit } from '../testing/index.js';
 
 isolateGit({ beforeAll, afterAll });
 
@@ -17,8 +10,7 @@ isolateGit({ beforeAll, afterAll });
  * command `failing` fails.
  */
 function setUp(failing?: string) {
-  const tmux = fakeTmux({ failing });
-  const { run } = scriptedRunner({ claude: '2.1.282 (Claude Code)', tmux: tmux.answer });
+  const { tmux, run } = agentWorld({ failing });
   const { home, dir, mesa } = projectProfile(withRealGit(run));
   gitRepo(dir);
   const note = join(home, 'note.md');
@@ -57,4 +49,13 @@ test('a window that cannot open removes the successor and its note again', async
   expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([a.id]);
   expect(readdirSync(join(home, '.mesa/default/handoffs'))).toEqual([]);
   expect((await mesa.sessions.show(a.id)).events).toEqual([]);
+});
+
+test('a successor whose folder is gone is not_found, never an agent started in $HOME', async () => {
+  const { tmux, mesa, note } = setUp();
+  const a = (await mesa.sessions.open('lantern-cove', { goal: 'Tidy up', branch: 'tidy' })).result;
+  rmSync(a.worktree?.path ?? '', { recursive: true, force: true });
+  await expect(mesa.sessions.handoff(a.id, { note })).rejects.toMatchObject({ code: 'not_found' });
+  expect(tmux.windows).toHaveLength(1);
+  expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([a.id]);
 });

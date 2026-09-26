@@ -1,6 +1,5 @@
 import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fakeTmux, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -9,12 +8,11 @@ beforeEach(cli.reset);
 const { mesa } = cli;
 
 test('stop and resume print the updated and the new record', async () => {
-  const world = fakeTmux({
+  cli.withTmux({
     onKeys: (w, text) => {
       if (text === '/exit') w.dead = true;
     },
   });
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
   await cli.withProject();
   const id = (await mesa('open', 'lantern-cove')).stdout.trim();
 

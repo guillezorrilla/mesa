@@ -3,7 +3,11 @@ import { type Binary, probe } from '../lib/probe.js';
 import { type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 
-/** The agents Mesa runs and how to probe and install each. Everything agent-specific derives from here. */
+/**
+ * The agents Mesa runs, how to probe and install each, and how to start, resume, and quit one.
+ * Claude Code's hooks, listing, transcripts, and screen are still read in sessions/ and
+ * agents/claude/ directly, until Codex (#43) gives them a second agent.
+ */
 export const AGENTS = {
   claude: {
     versionArgs: ['--version'],

@@ -2,7 +2,7 @@ import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { tempDir } from '../../testing/index.js';
-import { claudeContext, nativeWindow } from './context.js';
+import { claudeContext, nativeWindow } from './context-use.js';
 import { claudeSettings, claudeTranscripts } from './paths.js';
 import { lastUsage } from './transcripts.js';
 

@@ -9,7 +9,7 @@ import { idOfWindow, windowOf } from './window-name.js';
 /**
  * tmux's pane-died hook, through `mesa hook tmux pane-died <project> <window>`: the agent in a
  * Mesa window exited. Its state is known at once, `done` for exit status 0 and `failed` for
- * another status or a signal, as a look reads a dead pane (session-state.ts), with an `exited`
+ * another status or a signal, as a look reads a dead pane (state.ts), with an `exited`
  * event. It is not stopped: `endedAt` is left to stop and resume, so the board still ranks it,
  * shows its last screen, and offers Resume (the owner's call, ADR-0003 amendment).
  *

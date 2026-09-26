@@ -8,7 +8,7 @@ import { parseNote } from '../vault/frontmatter.js';
 // The skills Mesa ships (CONTEXT.md, Skill): the repo's `skills/`, one folder per skill.
 
 /** A skill's own file, read by both agents. */
-export const SKILL_FILE = 'SKILL.md';
+const SKILL_FILE = 'SKILL.md';
 
 /** The frontmatter Claude Code and Codex both read. */
 const SkillFrontmatterSchema = z.object({

@@ -15,6 +15,7 @@ export function TreeToggle(props: {
     <button
       type="button"
       data-testid="session-toggle"
+      data-waits={waits}
       aria-expanded={!closed}
       aria-label={
         closed
@@ -23,8 +24,8 @@ export function TreeToggle(props: {
       }
       className={cn(
         'mr-1 rounded px-1 font-mono text-muted-foreground text-xs hover:bg-accent hover:text-foreground',
-        // `needs-you`: a collapsed row that hides a session waiting on you stands out as a wait does.
-        waits && 'needs-you bg-state-waiting/25 font-semibold text-foreground',
+        // A collapsed row that hides a session waiting on you stands out as a wait does.
+        waits && 'bg-state-waiting/25 font-semibold text-foreground',
       )}
       onClick={props.onToggle}
     >

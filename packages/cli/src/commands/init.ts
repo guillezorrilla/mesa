@@ -9,7 +9,7 @@ export const init = defineCommand({
     vault: { type: 'string', required: true, description: 'Path of the vault this profile owns' },
     agent: {
       type: 'string',
-      description: `Default agent: ${AGENT_NAMES.join(' or ')} (default ${DEFAULT_AGENT})`,
+      description: `Default agent: claude (v1; ${AGENT_NAMES.join(', ')} are known), default ${DEFAULT_AGENT}`,
     },
   },
   example: 'mesa init --vault ~/vault',

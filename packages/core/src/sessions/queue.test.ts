@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { openProfile } from '../profile/profile.js';
 import {
+  CLAUDE_VERSION,
   fakeTmux,
   fixedClock,
   projectProfile,
@@ -17,7 +18,7 @@ const now = '2026-09-24T12:00:00.000Z';
 /** A queued session after a running one, and the deps that start it; `claude` false: none installed. */
 async function setUp({ claude = true } = {}) {
   const world = fakeTmux();
-  const answers = { claude: '2.1.282 (Claude Code)', tmux: world.answer };
+  const answers = { claude: CLAUDE_VERSION, tmux: world.answer };
   const { home, mesa } = projectProfile(scriptedRunner(answers).run);
   const a = (await mesa.sessions.open('lantern-cove')).result;
   const b = (await mesa.sessions.open('lantern-cove', { after: a.id })).result;

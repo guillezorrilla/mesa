@@ -22,6 +22,8 @@ type ActionSpec<T> = {
   agent?: (result: T) => Agent | undefined;
   /** False when the action changed nothing: then no receipt. */
   changed?: (result: T) => boolean;
+  /** The action's own warning, joined before its receipt's into the Recorded one. */
+  warning?: (result: T) => string | undefined;
 };
 
 /** The action's result, the receipt it left (if any), and why there is none when writing failed. */
@@ -31,10 +33,15 @@ export type Recorded<T> = {
   warning?: string;
 };
 
+/** Warnings joined into one, the empty ones dropped; none when every one is. */
+export const joinWarnings = (...parts: (string | undefined)[]) =>
+  parts.filter(Boolean).join('; ') || undefined;
+
 /**
  * Runs actions, sync or async, and records each as a receipt (`action` unless the spec says
  * `session`). A failed action is recorded `failed` (best effort) and rethrown. A receipt never
- * fails the action it records: when the vault cannot take one, the result carries a warning.
+ * fails the action it records: when the vault cannot take one, the result carries a warning,
+ * after the action's own (`warning`).
  */
 export function actionRecorder(deps: {
   profile: string;
@@ -83,7 +90,10 @@ export function actionRecorder(deps: {
     return error;
   };
   const succeeded = <T>(spec: ActionSpec<T>, result: T): Recorded<T> => {
-    if (spec.changed && !spec.changed(result)) return { result, receipt: null };
+    const own = spec.warning?.(result);
+    if (spec.changed && !spec.changed(result)) {
+      return { result, receipt: null, ...(own ? { warning: own } : {}) };
+    }
     const written = write(
       {
         type: spec.type ?? 'action',
@@ -97,7 +107,8 @@ export function actionRecorder(deps: {
       },
       spec.argv,
     );
-    return { result, ...written };
+    const warning = joinWarnings(own, written.warning);
+    return { result, receipt: written.receipt, ...(warning ? { warning } : {}) };
   };
 
   function record<T>(spec: ActionSpec<T>, action: () => Promise<T>): Promise<Recorded<T>>;

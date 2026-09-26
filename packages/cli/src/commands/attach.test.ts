@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, scriptedRunner } from '@mesa/core/testing';
+import { CLAUDE_VERSION, newSession, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -70,7 +70,7 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
     stderr: 'cols must be a whole number, not 12.5\n',
   });
   expect(await mesa('resize', 'ext-4242', '120', '40')).toMatchObject({ code: 3 });
-  cli.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
+  cli.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: CLAUDE_VERSION }).run;
 
   await mesa('config', 'set', 'terminal.app', 'WezTerm');
   const app = await mesa('attach', 'aaaaaaaa', '--app');

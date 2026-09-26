@@ -1,6 +1,5 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fakeTmux, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -9,8 +8,7 @@ beforeEach(cli.reset);
 const { mesa } = cli;
 
 test('send prints {sent, session, chars}; a gone session is exit 3', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const world = cli.withTmux();
   await cli.withProject({ layOut: false });
   const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
   const { json } = await mesa('send', id, 'say hello', '--json');
@@ -24,8 +22,7 @@ test('send prints {sent, session, chars}; a gone session is exit 3', async () =>
 });
 
 test('send --from, or from inside a window, adds the sender; --json prints {sent, session, from, chars}', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const world = cli.withTmux();
   await cli.withProject({ layOut: false });
   const a = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
   const b = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
@@ -52,8 +49,7 @@ test('send --from, or from inside a window, adds the sender; --json prints {sent
 });
 
 test('a send typed with a warning keeps it beside a receipt warning in --json', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  cli.withTmux();
   // No vault layout, so every receipt warns too.
   await mesa('init', '--vault', 'vault');
   mkdirSync(join(cli.home, 'src/lantern-cove'), { recursive: true });

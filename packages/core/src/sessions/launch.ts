@@ -1,5 +1,7 @@
+import { existsSync } from 'node:fs';
 import type { Agent } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
+import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { windowEnv } from './caller.js';
@@ -9,7 +11,8 @@ import type { TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
 import type { Worktree } from './worktree.js';
 
-// Launching a session: its record, then its window. Open, resume, and adopt all launch this way.
+// Launching a session: its record, then its window. Open, resume, and adopt launch through
+// launchSession; a queued start and a handoff write the record first and open its window after.
 
 export type LaunchDeps = {
   profile: Profile;
@@ -57,21 +60,35 @@ export async function launchSession(
   return record;
 }
 
-/** Opens the window a record is named for, running `command` in its folder. */
-export const openWindowOf = (
+/**
+ * The folder a session's agent runs in, which must still be there: not_found when it is gone, as
+ * tmux would start the agent in $HOME, and a skills sync would make the folder again.
+ */
+export function agentFolder(record: SessionRecord, project: RegistryEntry) {
+  const folder = folderOf(record, project);
+  if (!existsSync(folder)) {
+    throw new MesaError('not_found', `${folder} is gone: its agent has nowhere to run`);
+  }
+  return folder;
+}
+
+/** Opens the window a record is named for, running `command` in its folder (agentFolder). */
+export async function openWindowOf(
   deps: Pick<LaunchDeps, 'tmux' | 'profileName'>,
   record: SessionRecord,
   project: RegistryEntry,
   command: string,
-) =>
-  deps.tmux.openWindow({
+) {
+  const cwd = agentFolder(record, project);
+  return deps.tmux.openWindow({
     project: project.name,
     window: record.tmux.window,
     // claude keys its transcripts by cwd.
-    cwd: folderOf(record, project),
+    cwd,
     command,
     env: windowEnv(record.id, deps.profileName),
   });
+}
 
 // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its
 // prompt, or at the trust dialog in a folder it has not seen, or works on its goal.

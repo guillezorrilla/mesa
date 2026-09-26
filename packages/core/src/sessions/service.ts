@@ -1,11 +1,12 @@
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
+import { shortId } from '../lib/ids.js';
 import { toFail } from '../lib/result.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
-import type { Recorded } from '../receipts/recorder.js';
+import { joinWarnings, type Recorded } from '../receipts/recorder.js';
 import { closeSessionReceipt } from '../receipts/store.js';
 import { adoptSession } from './adopt.js';
 import { listAgentProcesses } from './agent-listing.js';
@@ -13,7 +14,7 @@ import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { callerOf, windowId } from './caller.js';
-import { refreshContext } from './context.js';
+import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { handoffSession } from './handoff.js';
@@ -35,11 +36,14 @@ import { stopSession } from './stop.js';
 /** How long a session that handed itself off keeps running before the server stops it. */
 const SELF_STOP_DELAY_S = 2;
 
-/** `recorded` with the action's own warning joined after its receipt's. */
-const withWarning = <T>(recorded: Recorded<T>, warning?: string): Recorded<T> => {
-  const joined = [recorded.warning, warning].filter(Boolean).join('; ');
-  return joined ? { ...recorded, warning: joined } : recorded;
-};
+/** What a session receipt says of a session that started: its window, conversation, and place. */
+const startedOutputs = (r: SessionRecord) => ({
+  window: r.tmux.window,
+  agentSessionId: r.agentSessionId,
+  lastState: r.lastState,
+  parent: r.parent ?? null,
+  ...(r.worktree ? { worktree: r.worktree } : {}),
+});
 
 /**
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
@@ -68,7 +72,7 @@ export function sessionsService(
       return recorded;
     } catch (error) {
       const why = `session ${ended.id}'s receipt not marked ended: ${toFail(error).error.message}`;
-      return { ...recorded, warning: [recorded.warning, why].filter(Boolean).join('; ') };
+      return { ...recorded, warning: joinWarnings(recorded.warning, why) };
     }
   };
   /** Where a session's context use is read: its agent's files under home, with this env. */
@@ -88,35 +92,40 @@ export function sessionsService(
   });
   /**
    * Starts, each with its session receipt, the queued sessions waiting on one `over` says is
-   * over; a start that fails leaves its failure receipt and never fails the caller. True when one
-   * started.
+   * over. A start that fails leaves its failure receipt and a warning, never a failed caller:
+   * whether one started, and the warnings.
    */
   const startQueue = async (over: (id: string) => boolean) => {
-    let any = false;
+    let started = false;
+    const warnings: (string | undefined)[] = [];
     for (const queued of dueToStart(store, over, deps.clock())) {
-      const started = await record(
-        {
-          type: 'session',
-          summary: (r) => `Started queued session ${queued.id} on ${r?.record.project}`,
-          failure: `Could not start queued session ${queued.id}`,
-          project: () => queued.project,
-          session: () => queued.id,
-          agent: () => queued.agent,
-          inputs: { id: queued.id, after: queued.after },
-          outputs: (r) => ({
-            window: r?.record.tmux.window,
-            agentSessionId: r?.record.agentSessionId,
-            lastState: r?.record.lastState,
-            ...(r?.record.worktree ? { worktree: r.record.worktree } : {}),
-            ...(r?.warning ? { warning: r.warning } : {}),
-          }),
-          changed: (r) => r !== undefined,
-        },
-        () => startQueued(openDeps(), queued.id),
-      ).catch(() => undefined);
-      any ||= Boolean(started?.result);
+      try {
+        const recorded = await record(
+          {
+            type: 'session',
+            summary: (r) => `Started queued session ${queued.id} on ${r?.record.project}`,
+            failure: `Could not start queued session ${queued.id}`,
+            project: () => queued.project,
+            session: () => queued.id,
+            agent: () => queued.agent,
+            inputs: { id: queued.id, after: queued.after },
+            outputs: (r) => (r ? startedOutputs(r.record) : {}),
+            changed: (r) => r !== undefined,
+            warning: (r) => r?.warning,
+          },
+          () => startQueued(openDeps(), queued.id),
+        );
+        started ||= Boolean(recorded.result);
+        warnings.push(recorded.warning);
+      } catch (error) {
+        warnings.push(`queued session ${queued.id} did not start: ${toFail(error).error.message}`);
+        // It ended failed: its opening receipt (Queued session) is marked ended too.
+        const ended = store.find(queued.id);
+        if (ended?.endedAt)
+          warnings.push((await markEnded({ result: null, receipt: null }, ended)).warning);
+      }
     }
-    return any;
+    return { started, warning: joinWarnings(...warnings) };
   };
   /** Whether the session `id` is over for its queue: it is, or it is gone. */
   const overOrGone = (id: string) => {
@@ -150,7 +159,7 @@ export function sessionsService(
       const row = rows.find((r) => r.id === id);
       return row?.managed ? isOver(row) : overOrGone(id);
     };
-    return (await startQueue(overNow)) ? look(all) : rows;
+    return (await startQueue(overNow)).started ? look(all) : rows;
   };
   /**
    * Ends a session politely, or at once with `force`. The stop gets a session receipt of its own
@@ -174,8 +183,10 @@ export function sessionsService(
     const { outcome } = recorded.result;
     if (outcome === 'already-ended') return recorded;
     // Stopped is over: what was queued after it starts (a cancel hands its queue on instead).
-    if (outcome !== 'cancelled') await startQueue((after) => after === id);
-    return markEnded(recorded, recorded.result.record);
+    const queue = outcome === 'cancelled' ? undefined : await startQueue((after) => after === id);
+    const ended = await markEnded(recorded, recorded.result.record);
+    const warning = joinWarnings(ended.warning, queue?.warning);
+    return warning ? { ...ended, warning } : ended;
   };
   return {
     sessions: {
@@ -211,6 +222,7 @@ export function sessionsService(
                 ? `Queued session ${r.id} on ${r.project} after ${r.after}`
                 : `Opened session ${r.id} on ${r.project}`,
             failure: `Could not open a session on ${project}`,
+            warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
             agent: (r) => r.record.agent,
@@ -224,23 +236,14 @@ export function sessionsService(
               ...(branch === undefined ? {} : { branch }),
               ...(base === undefined ? {} : { base }),
             },
-            outputs: ({ record: r }) => ({
-              window: r.tmux.window,
-              agentSessionId: r.agentSessionId,
-              lastState: r.lastState,
-              parent: r.parent ?? null,
-              ...(r.worktree ? { worktree: r.worktree } : {}),
-            }),
+            outputs: ({ record: r }) => startedOutputs(r),
           },
           async () => {
             if (refused) throw refused;
             const input = { project, agent, goal, parent, noParent, after, branch, base };
             return openSession(openDeps(), input);
           },
-        ).then((recorded) => ({
-          ...withWarning(recorded, recorded.result.warning),
-          result: recorded.result.record,
-        }));
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
       },
       /** A session's goal, or not_found when it was started without one. */
       goal: (id: string) => sessionGoal(store, id),
@@ -249,9 +252,10 @@ export function sessionsService(
        * not_found for an unknown id.
        */
       show: async (id: string) => {
-        const record = refreshContext(contextDeps, store.get(id));
+        refreshContext(contextDeps, store.get(id));
         const row = (await board(true)).find((r) => r.id === id);
-        return { ...record, alive: row?.alive ?? false };
+        // Read again: the look may have saved a new state, or started it from its queue.
+        return { ...store.get(id), alive: row?.alive ?? false };
       },
       /** Gives a session the name a person calls it by; the board shows it in place of the id. */
       rename: (id: string, name: string) =>
@@ -308,6 +312,7 @@ export function sessionsService(
             type: 'session',
             summary: (r) => `Handed off session ${id} to ${r.to.id} (${r.stop})`,
             failure: `Could not hand off session ${id}`,
+            warning: (r) => r.warning,
             project: (r) => r.to.project,
             session: () => id,
             agent: (r) => r.to.agent,
@@ -320,14 +325,22 @@ export function sessionsService(
               keep,
             });
             if (keep) return { ...done, stop: 'kept' as const };
-            if (caller().session?.id === id) {
-              await tmux.runMesaLater(['stop', id], SELF_STOP_DELAY_S);
-              return { ...done, stop: 'later' as const };
+            // The successor runs now: a stop that fails is a warning, never a failed handoff that
+            // a retry would start a second successor for.
+            try {
+              if (caller().session?.id === id) {
+                await tmux.runMesaLater(['stop', id], SELF_STOP_DELAY_S);
+                return { ...done, stop: 'later' as const };
+              }
+              const stopped = await stop(id);
+              const warning = joinWarnings(done.warning, stopped.warning);
+              return { ...done, stop: stopped.result.outcome, ...(warning ? { warning } : {}) };
+            } catch (error) {
+              const why = `session ${id} not stopped: ${toFail(error).error.message}; mesa stop ${id}`;
+              return { ...done, stop: 'failed' as const, warning: joinWarnings(done.warning, why) };
             }
-            const stopped = await stop(id);
-            return { ...done, stop: stopped.result.outcome };
           },
-        ).then((recorded) => withWarning(recorded, recorded.result.warning));
+        );
       },
       /**
        * Types a prompt into a live session's agent, from another session (`from`, else the window
@@ -346,6 +359,7 @@ export function sessionsService(
             summary: (r) =>
               `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,
             failure: `Could not send to session ${id}`,
+            warning: (r) => r.warning,
             project: (r) => r.project,
             session: () => id,
             inputs: {
@@ -379,6 +393,7 @@ export function sessionsService(
             summary: ({ record: r }) =>
               `Adopted Claude Code session ${agentSessionId} as ${r.id} on ${r.project}`,
             failure: `Could not adopt Claude Code session ${agentSessionId}`,
+            warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
             agent: (r) => r.record.agent,
@@ -407,6 +422,7 @@ export function sessionsService(
             type: 'session',
             summary: (r) => `Resumed session ${r.from.id} as ${r.record.id} on ${r.record.project}`,
             failure: `Could not resume session ${id}`,
+            warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
             agent: (r) => r.record.agent,
@@ -418,9 +434,7 @@ export function sessionsService(
             }),
           },
           () => resumeSession(openDeps(), id),
-        ).then((recorded) =>
-          markEnded(withWarning(recorded, recorded.result.warning), recorded.result.from),
-        ),
+        ).then((recorded) => markEnded(recorded, recorded.result.from)),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),
@@ -433,7 +447,7 @@ export function sessionsService(
             run: deps.run,
             scripts: paths.attachScripts,
             env: deps.env,
-            viewId: () => deps.newId().slice(-8).toLowerCase(),
+            viewId: () => shortId(deps.newId),
           },
           id,
           app ? open().config.terminal.app : undefined,

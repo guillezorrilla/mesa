@@ -6,7 +6,8 @@ const MARK = { ok: 'ok', warn: 'warn', fail: 'FAIL' } as const;
 
 export const doctor = defineCommand({
   name: 'doctor',
-  summary: 'Check tmux, the agents, Obsidian, and the profile directory',
+  summary:
+    'Check tmux, the agents, Obsidian, the profile directory, the decisions backend, and both hooks',
   example: 'mesa doctor',
   run: async ({ mesa }) => {
     const report = await mesa.doctor();

@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { withLockSync } from '../lib/lock-file.js';
-import { MesaError } from '../lib/result.js';
+import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
 /** One registered project: its name and the directory holding its mesa.yaml. */
@@ -25,12 +24,7 @@ export function updateRegistry(
   change: (entries: RegistryEntry[]) => RegistryEntry[],
 ): void {
   const lock = `${file}.lock`;
-  const busy = () =>
-    new MesaError(
-      'locked',
-      `the registry is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
-      { reason: 'registry' },
-    );
+  const busy = () => lockedBy('the registry', lock, 'registry');
   withLockSync(
     lock,
     () =>

@@ -2,10 +2,12 @@ import type { ManagedRow } from '@mesa/core';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
-import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { said, useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 import { HandoffDialog } from './HandoffDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
@@ -38,8 +40,6 @@ export function BoardScreen() {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
   const run = useRun();
-  const toast = useToast();
-  const [acting, setActing] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   // The row a Rename or a Remove dialog is open for.
   const [renaming, setRenaming] = useState<ManagedRow>();
@@ -52,17 +52,16 @@ export function BoardScreen() {
   const live = new Set((data ?? []).filter((s) => s.managed && !exited(s)).map((s) => s.id));
   if (data && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
 
-  // One action at a time, so a double click opens one terminal or one session, not two.
-  const act = async (action: () => Promise<string | undefined>) => {
-    setActing(true);
-    try {
-      const said = await action();
-      if (said) toast(said);
-    } finally {
-      setActing(false);
-      await look();
-    }
-  };
+  // Every action looks again when it ends, so the Board shows what it did.
+  const { acting, act: once } = useAct();
+  const act = (action: () => Promise<string | undefined>) =>
+    once(async () => {
+      try {
+        return await action();
+      } finally {
+        await look();
+      }
+    });
   const actions: RowActions = {
     embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
     openTerminal: (id) =>
@@ -77,22 +76,24 @@ export function BoardScreen() {
         if (!sent) return undefined;
         form.reset();
         // Typed either way: a warning says so, so the prompt is not sent twice.
-        const said = `Sent ${sent.chars} characters to ${id}`;
-        return sent.warning ? `${said}; ${sent.warning}` : said;
+        return said(`Sent ${sent.chars} characters to ${id}`, sent);
       }),
     stop: (id) =>
       act(async () => {
         const stopped = await run('sessions.stop', { id });
         if (!stopped) return undefined;
         if (stopped.outcome === 'already-ended') return `Session ${id} had already ended`;
-        return stopped.outcome === 'cancelled'
-          ? `Cancelled session ${id}: it never starts`
-          : `Stopped session ${id}`;
+        return said(
+          stopped.outcome === 'cancelled'
+            ? `Cancelled session ${id}: it never starts`
+            : `Stopped session ${id}`,
+          stopped,
+        );
       }),
     resume: (id) =>
       act(async () => {
         const resumed = await run('sessions.resume', { id });
-        return resumed && `Resumed session ${id} as ${resumed.id}`;
+        return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
     rename: (row) => row.managed && setRenaming(row),
     handoff: (row) => row.managed && setHandingOff(row),
@@ -100,7 +101,7 @@ export function BoardScreen() {
     adopt: (agentSessionId, project) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
-        return adopted && `Adopted as ${adopted.record.id}; ${adopted.warning}`;
+        return adopted && said(`Adopted as ${adopted.record.id}`, adopted);
       }),
   };
   const handoff = (id: string, note: string, keep: boolean) =>
@@ -108,14 +109,14 @@ export function BoardScreen() {
       const done = await run('sessions.handoff', { id, note, keep });
       if (!done) return undefined;
       setHandingOff(undefined);
-      return `Handed off ${id} to ${done.to}`;
+      return said(`Handed off ${id} to ${done.to}`, done);
     });
   const rename = (id: string, name: string) =>
     act(async () => {
       const renamed = await run('sessions.rename', { id, name });
       if (!renamed) return undefined;
       setRenaming(undefined);
-      return `Renamed ${id} to ${renamed.name}`;
+      return said(`Renamed ${id} to ${renamed.name}`, renamed);
     });
   const remove = (id: string, opts: { deleteWorktree: boolean; deleteBranch: boolean }) =>
     act(async () => {
@@ -127,14 +128,14 @@ export function BoardScreen() {
         removed.branch && `branch ${removed.branch}`,
       ];
       const extra = also.filter(Boolean).join(' and ');
-      return `Removed session ${id}${extra ? ` with ${extra}` : ''}`;
+      return said(`Removed session ${id}${extra ? ` with ${extra}` : ''}`, removed);
     });
   const open = (input: NewSessionInput) =>
     act(async () => {
       const opened = await run('sessions.open', input);
       if (!opened) return undefined;
       setNewOpen(false);
-      return `Opened session ${opened.id} on ${opened.project}`;
+      return said(`Opened session ${opened.id} on ${opened.project}`, opened);
     });
 
   return (
@@ -143,16 +144,17 @@ export function BoardScreen() {
         title="Board"
         description="Every session, the ones waiting on you first; children sit under their parent."
       >
-        <label className="flex items-center gap-2 text-muted-foreground text-sm">
-          <input
-            type="checkbox"
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Checkbox
+            id="sessions-ended"
             data-testid="sessions-ended"
-            className="size-4 accent-primary"
             checked={ended}
-            onChange={(e) => setEnded(e.target.checked)}
+            onCheckedChange={(checked) => setEnded(checked === true)}
           />
-          Show older
-        </label>
+          <Label htmlFor="sessions-ended" className="font-normal">
+            Show older
+          </Label>
+        </div>
         <Button data-testid="new-session" onClick={() => setNewOpen(true)}>
           <Plus aria-hidden />
           New session

@@ -3,7 +3,7 @@ import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { folderOf, launched, openWindowOf } from './launch.js';
+import { agentFolder, launched, openWindowOf } from './launch.js';
 import { type OpenDeps, syncSkillsInto, worktreeFor } from './open.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -55,7 +55,7 @@ export async function startQueued(
   let made: Worktree | undefined;
   try {
     entry = findProject(deps.profile, claimed.project);
-    // A folder that is gone is not_found, never a claude in $HOME.
+    // Still a project, as open requires.
     readProjectFile(entry.path);
     const spec = await readyAgent(deps.run, claimed.agent);
     const agentSessionId = claimed.agentSessionId ?? deps.newUuid();
@@ -66,7 +66,7 @@ export async function startQueued(
       made = await worktreeFor(deps, entry, branch, base);
       record = deps.store.update(id, { worktree: made });
     }
-    const warning = syncSkillsInto(deps, entry.name, folderOf(record, entry));
+    const warning = syncSkillsInto(deps, entry.name, agentFolder(record, entry));
     // A start killed after its window opened left that window: it is this session's.
     if (!(await deps.tmux.findWindow(windowOf(record)))) {
       await openWindowOf(deps, record, entry, spec.start(agentSessionId, record.goal));

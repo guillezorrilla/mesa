@@ -257,6 +257,36 @@ export function fakeTmux(
   return { windows, answer, hooks, ranLater };
 }
 
+/** mulberry32: numbers in [0, 1) from `seed`, the same on every run, so a failing case replays. */
+export function seededRandom(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** What `claude --version` answers in tests. */
+export const CLAUDE_VERSION = '2.1.282 (Claude Code)';
+
+/**
+ * claude and a tmux server in memory, as one scripted runner: `claude: false` leaves claude
+ * uninstalled, and the rest shapes the fake tmux (fakeTmux).
+ */
+export function agentWorld({
+  claude = true,
+  ...tmuxOpts
+}: Parameters<typeof fakeTmux>[0] & { claude?: boolean } = {}) {
+  const tmux = fakeTmux(tmuxOpts);
+  const scripted = scriptedRunner(
+    { claude: CLAUDE_VERSION, tmux: tmux.answer },
+    { missing: claude ? [] : ['claude'] },
+  );
+  return { ...scripted, tmux };
+}
+
 /**
  * One `list-windows` line in Mesa's format (sessions/tmux/format.ts), as tmux prints it: a live
  * claude on pid 4242 in `/src/<project>` unless told otherwise.

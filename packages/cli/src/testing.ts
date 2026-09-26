@@ -2,6 +2,8 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MesaDeps, Runner } from '@mesa/core';
 import {
+  CLAUDE_VERSION,
+  fakeTmux,
   scriptedRunner,
   sequentialIds,
   sequentialUuids,
@@ -49,9 +51,11 @@ export function cliHarness() {
       h.tty = true;
       h.stdin = '';
       h.env = {};
-      h.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: '2.1.282 (Claude Code)' }).run;
+      h.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: CLAUDE_VERSION }).run;
     },
     mesa: async (...argv: string[]) => {
+      // An empty home is the repo's folder: a file that forgot beforeEach(cli.reset) would write there.
+      if (!h.home) throw new Error('cliHarness: run beforeEach(cli.reset) first');
       const out = await runCli(
         argv,
         cliDeps(h.home, {
@@ -61,6 +65,12 @@ export function cliHarness() {
         }),
       );
       return { ...out, json: out.stdout.startsWith('{') ? JSON.parse(out.stdout) : undefined };
+    },
+    /** A tmux server in memory, and claude, for the next invocations; the server, to read or shape. */
+    withTmux: (opts?: Parameters<typeof fakeTmux>[0]) => {
+      const world = fakeTmux(opts);
+      h.run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
+      return world;
     },
     /** An initialised profile with `name` registered, and its vault laid out unless told; its folder. */
     withProject: async ({ name = 'lantern-cove', layOut = true } = {}) => {

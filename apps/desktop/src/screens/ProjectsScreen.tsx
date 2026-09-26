@@ -1,7 +1,6 @@
 import { FolderPlus, Play, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
-import { useToast } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePlatform } from '@/lib/MesaRoot';
+import { said, useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
 /** The profile's registered projects: open a session on one, or register a folder. */
@@ -22,53 +22,47 @@ export function ProjectsScreen() {
   const skills = useCommand('skills.list', {});
   const run = useRun();
   const platform = usePlatform();
-  const [busy, setBusy] = useState(false);
-  const toast = useToast();
-  const [opening, setOpening] = useState(false);
+  const { acting, act } = useAct();
+  // Sync and open both link skills into a project: its Skills column reads again after either.
+  const [linked, setLinked] = useState(0);
 
-  // One open at a time, so a double click starts one session, not two.
-  const openSession = async (project: string) => {
-    setOpening(true);
-    try {
+  const openSession = (project: string) =>
+    act(async () => {
       const session = await run('sessions.open', { project });
-      if (session) toast(`Opened session ${session.id} on ${project}`);
-    } finally {
-      setOpening(false);
-    }
-  };
+      if (!session) return undefined;
+      setLinked((n) => n + 1);
+      return said(`Opened session ${session.id} on ${project}`, session);
+    });
 
   // Links the profile's and the project's enabled skills into its skill folders.
-  const syncSkills = async (project: string) => {
-    setOpening(true);
-    try {
+  const syncSkills = (project: string) =>
+    act(async () => {
       const synced = await run('skills.sync', { project });
-      if (!synced) return;
+      if (!synced) return undefined;
+      setLinked((n) => n + 1);
       const clashes = synced.conflicts.length
         ? `; ${synced.conflicts.length} of the project's own left alone`
         : '';
-      toast(
+      return said(
         `Synced skills into ${project}: ${synced.added.length} added, ${synced.removed.length} removed${clashes}`,
+        synced,
       );
-    } finally {
-      setOpening(false);
-    }
-  };
+    });
 
-  // One picker at a time: the button stays disabled until the register and refresh finish.
-  const registerFolder = async () => {
-    setBusy(true);
-    try {
+  // The button stays disabled until the register and refresh finish.
+  const registerFolder = () =>
+    act(async () => {
       const path = await platform.pickFolder();
-      if (path && (await run('projects.register', { path }))) await refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
+      const registered = path ? await run('projects.register', { path }) : undefined;
+      if (!registered) return undefined;
+      await refresh();
+      return registered.warning;
+    });
 
   return (
     <section data-testid="projects-screen" className="space-y-4">
       <PageHeader title="Projects" description="The repositories this profile has registered.">
-        <Button data-testid="register-folder" onClick={registerFolder} disabled={busy}>
+        <Button data-testid="register-folder" onClick={registerFolder} disabled={acting}>
           <FolderPlus aria-hidden />
           Register folder
         </Button>
@@ -103,7 +97,9 @@ export function ProjectsScreen() {
                 <TableCell className="font-mono text-muted-foreground text-xs">{p.path}</TableCell>
                 <TableCell>{p.agent ?? ''}</TableCell>
                 <TableCell className="font-mono tabular-nums">{p.priority ?? ''}</TableCell>
-                <TableCell>{p.exists && <SyncedSkills project={p.name} />}</TableCell>
+                <TableCell>
+                  {p.exists && <SyncedSkills key={`${p.name}-${linked}`} project={p.name} />}
+                </TableCell>
                 <TableCell className="text-right">
                   {p.exists && (
                     <div className="flex justify-end gap-1">
@@ -113,7 +109,7 @@ export function ProjectsScreen() {
                         data-testid="sync-skills"
                         title="Link the enabled skills into its .claude/skills and .agents/skills"
                         onClick={() => syncSkills(p.name)}
-                        disabled={opening}
+                        disabled={acting}
                       >
                         <Sparkles aria-hidden />
                         Sync skills
@@ -123,7 +119,7 @@ export function ProjectsScreen() {
                         size="sm"
                         data-testid="open-session"
                         onClick={() => openSession(p.name)}
-                        disabled={opening}
+                        disabled={acting}
                       >
                         <Play aria-hidden />
                         Open session
