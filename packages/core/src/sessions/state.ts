@@ -15,8 +15,14 @@ import type { Agent } from '../agents/agents.js';
 import { decide, type FaroDeps } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Backend, Decision, Question } from '../decisions/types.js';
-import { type AgentProcess, listedState } from './agent-listing.js';
-import { FINAL_STATES, SESSION_STATES, type SessionRecord, type SessionState } from './record.js';
+import type { AgentProcess } from './agent-listing.js';
+import {
+  FINAL_STATES,
+  SESSION_STATES,
+  type SessionRecord,
+  type SessionState,
+  WAITING_STATES,
+} from './record.js';
 
 type LastState = SessionRecord['lastState'];
 
@@ -145,8 +151,6 @@ function tailState(agent: Agent, tail: string): SessionState | undefined {
   return 'idle';
 }
 
-const WAITING: ReadonlySet<SessionState> = new Set(['waiting-permission', 'waiting-question']);
-
 /**
  * Where a session is, by ADR-0003's order: a stopped session keeps its state; a dead or gone
  * window is a process fact (a session already done or failed stays so); then the latest hook
@@ -173,7 +177,7 @@ export function classify(s: SessionSignals): LastState {
   }
   if (fromHook && s.event) {
     const age = Date.parse(s.now) - Date.parse(s.event.at);
-    const movedOn = WAITING.has(fromHook) ? age > LISTING_LAG_MS : age >= FRESH_MS;
+    const movedOn = WAITING_STATES.has(fromHook) ? age > LISTING_LAG_MS : age >= FRESH_MS;
     if (listing && listing.state !== fromHook && movedOn) {
       return seen(listing.state, listing.confidence, 'listing');
     }
@@ -229,7 +233,7 @@ function weigh(s: SessionSignals): Record<string, Weights> {
   const state = Object.fromEntries(
     SESSION_STATES.map((name) => [name, name === c.state ? c.confidence : rest]),
   );
-  const human = SESSION_STATES.filter((n) => WAITING.has(n)).reduce(
+  const human = SESSION_STATES.filter((n) => WAITING_STATES.has(n)).reduce(
     (sum, n) => sum + (state[n] ?? 0),
     0,
   );
@@ -282,4 +286,27 @@ export async function classifySession(
       : classify(signals);
   const attention = toAnswer(ATTENTION, attentionWeights(lastState, signals));
   return { lastState, attention: attention.kind === 'Score' ? attention.answer : 0, decision };
+}
+
+/** What each listed status means as a session state (docs/spikes/state-signals.md). */
+const LISTED: Record<string, SessionState> = {
+  idle: 'idle',
+  busy: 'working',
+  'waiting:permission prompt': 'waiting-permission',
+  'waiting:input needed': 'waiting-question',
+};
+
+/**
+ * The state the listing alone gives, at ADR-0003's 0.85. A wait it cannot name still needs a
+ * person (0.6); a status it has never shown is a guess at `working` (0.5).
+ */
+export function listedState(p: Pick<AgentProcess, 'status' | 'waitingFor'>): {
+  state: SessionState;
+  confidence: number;
+} {
+  const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : p.status];
+  if (state) return { state, confidence: 0.85 };
+  return p.status === 'waiting'
+    ? { state: 'waiting-question', confidence: 0.6 }
+    : { state: 'working', confidence: 0.5 };
 }

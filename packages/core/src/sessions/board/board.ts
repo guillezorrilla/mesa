@@ -1,16 +1,17 @@
-import { basename } from 'node:path';
 import type { FaroProfile } from '../../decisions/decide.js';
 import type { Backend, DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import { MesaError } from '../../lib/result.js';
+import { projectOf } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import { type AgentProcess, listedState } from '../agent-listing.js';
+import type { AgentProcess } from '../agent-listing.js';
 import type { HookEvent } from '../hook-events.js';
 import { FINAL_STATES, foreignId, type SessionRecord } from '../record.js';
 import {
   classifySession,
   hookState,
   lastOutputLine,
+  listedState,
   type Placement,
   type SessionSignals,
 } from '../state.js';
@@ -55,14 +56,6 @@ export type SessionRow = ManagedRow | ForeignRow;
 // ponytail: a fixed day; a config field if someone wants stopped sessions to linger longer.
 /** How long a stopped session stays on the board, so it can be seen and resumed. */
 const RECENT_MS = 24 * 60 * 60 * 1000;
-
-/** The registered project `cwd` is in (the innermost), else the one named like its folder. */
-export const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
-  const inside = projects
-    .filter((p) => cwd === p.path || cwd.startsWith(`${p.path}/`))
-    .sort((a, b) => b.path.length - a.path.length)[0];
-  return (inside ?? projects.find((p) => p.name === basename(cwd)))?.name ?? null;
-};
 
 /**
  * Saves a look's new state onto the record as it is now: a session a stop ended since keeps the

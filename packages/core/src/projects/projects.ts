@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
+import { basename } from 'node:path';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import {
@@ -70,3 +71,11 @@ export function unregisterProject(profile: Profile, name: string): RegistryEntry
   updateRegistry(profile.paths.registry, (entries) => entries.filter((e) => e.name !== name));
   return entry;
 }
+
+/** The registered project `cwd` is in (the innermost), else the one named like its folder. */
+export const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
+  const inside = projects
+    .filter((p) => cwd === p.path || cwd.startsWith(`${p.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  return (inside ?? projects.find((p) => p.name === basename(cwd)))?.name ?? null;
+};

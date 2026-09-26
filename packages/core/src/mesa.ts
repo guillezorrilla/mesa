@@ -11,7 +11,7 @@ import type { Clock } from './lib/clock.js';
 import type { IdSource } from './lib/ids.js';
 import type { Env, Runner } from './lib/process.js';
 import { redactPayload } from './lib/redact.js';
-import { MesaError, toFail } from './lib/result.js';
+import { toFail } from './lib/result.js';
 import { redactConfig, resolveKey, setConfigValue } from './profile/config.js';
 import { profilePaths, profilesDir } from './profile/paths.js';
 import { initProfile, openProfile, type ProfileInfo } from './profile/profile.js';
@@ -29,13 +29,16 @@ import {
 } from './receipts/receipts.js';
 import { adoptSession } from './sessions/adopt.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
-import { attachSession, resizeSession } from './sessions/attach.js';
+import { attachSession } from './sessions/attach.js';
 import { listSessions, sessionTree } from './sessions/board/board.js';
 import { callerOf, windowId } from './sessions/caller.js';
+import { readGoal, sessionGoal } from './sessions/goal.js';
 import { readHookEvents, recordHookEvent } from './sessions/hook-events.js';
-import { type OpenInput, openSession, readGoal, resumeSession } from './sessions/open.js';
+import { type OpenInput, openSession } from './sessions/open.js';
 import { recordPaneDied } from './sessions/pane-died.js';
 import type { SessionRecord } from './sessions/record.js';
+import { resizeSession } from './sessions/resize.js';
+import { resumeSession } from './sessions/resume.js';
 import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
 import { sessionStore } from './sessions/store.js';
@@ -334,11 +337,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         );
       },
       /** A session's goal, or not_found when it was started without one. */
-      goal: (id: string) => {
-        const { goal } = store.get(id);
-        if (goal === undefined) throw new MesaError('not_found', `session ${id} has no goal`);
-        return { id, goal };
-      },
+      goal: (id: string) => sessionGoal(store, id),
       /**
        * Ends a session politely, or at once with `force`. The stop gets a session receipt of its
        * own (none when it changed nothing), and the session's opening receipt is marked ended.

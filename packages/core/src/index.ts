@@ -22,7 +22,7 @@ export {
 } from './receipts/receipts.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow, TreeRow } from './sessions/board/board.js';
-export type { SessionRecord } from './sessions/record.js';
+export type { SessionRecord, SessionState } from './sessions/record.js';
 export type { Sent } from './sessions/send.js';
 export type { StopOutcome } from './sessions/stop.js';
 export type { TmuxWindow } from './sessions/tmux/backend.js';

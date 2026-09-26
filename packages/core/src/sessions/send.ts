@@ -2,7 +2,7 @@ import { guardrail } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Caller } from './caller.js';
-import { type SessionRecord, sessionEnded } from './record.js';
+import { type SessionRecord, sessionEnded, WAITING_STATES } from './record.js';
 import type { SessionStore } from './store.js';
 import { isShell, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
@@ -19,10 +19,9 @@ export type Sent = {
 };
 
 /** States in which the agent waits on a person, who answers inside the session (ADR-0003). */
-const WAITING = new Set(['waiting-permission', 'waiting-question']);
 
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
-export const charCount = (text: string) => Array.from(text).length;
+const charCount = (text: string) => Array.from(text).length;
 
 /** The line a prompt from another session starts with: who sent it, and how to answer. */
 const header = (sender: SessionRecord) =>
@@ -96,7 +95,7 @@ export async function sendPrompt(
   // session may not force it, with --no-from or without: only a person answers one (ADR-0003).
   // Any Mesa window counts, this profile's or another's.
   const agent = Boolean(sender ?? window) || deps.caller().inMesaWindow;
-  if (WAITING.has(record.lastState.state) && (agent || !force)) {
+  if (WAITING_STATES.has(record.lastState.state) && (agent || !force)) {
     const state = record.lastState.state;
     throw new MesaError(
       'usage',
