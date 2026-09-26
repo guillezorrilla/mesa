@@ -1,12 +1,17 @@
 import { z } from 'zod';
+import { shellWord } from './process.js';
 
 /** The agents Mesa runs and how to probe and install each. Everything agent-specific derives from here. */
 export const AGENTS = {
   claude: {
     versionArgs: ['--version'],
     install: 'brew install --cask claude-code',
-    /** The command a Mesa window runs, with the agent session id Mesa chose. */
-    start: (sessionId: string) => `claude --session-id ${sessionId}`,
+    /**
+     * The command a Mesa window runs, with the agent session id Mesa chose and the goal, if any,
+     * as claude's first prompt: one shell word, so the shell hands it over byte for byte.
+     */
+    start: (sessionId: string, goal?: string) =>
+      `claude --session-id ${sessionId}${goal === undefined ? '' : ` ${shellWord(goal)}`}`,
     /** Reopens that conversation; run in the recorded project folder, which keys transcripts. */
     resume: (sessionId: string) => `claude --resume ${sessionId}`,
     /** Typed into the window to end the agent politely. */
