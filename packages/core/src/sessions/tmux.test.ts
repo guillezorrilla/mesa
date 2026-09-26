@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
@@ -157,6 +157,38 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await open(lantern('claude-goal01'), `${command} > ${out}`);
     const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
     expect(await eventually(written, /stop$/)).toBe(goal);
+  });
+
+  test('ensureServer sets one pane-died hook; a pane that dies runs mesa hook tmux with its window', async () => {
+    const out = join(cwd, 'died.log');
+    const script = join(cwd, 'mesa-stand-in.sh');
+    // Stands in for mesa: it writes the arguments the hook passes.
+    writeFileSync(script, `printf '%s|' "$@" >> ${out}; echo >> ${out}\n`);
+    const hooked = tmuxBackend({
+      run: underParent,
+      socket,
+      env: PARENT,
+      paneDied: { self: ['/bin/sh', script], profile: 'ptest' },
+    });
+    await hooked.ensureServer();
+    await hooked.ensureServer();
+    const hooks = (await raw('show-hooks', '-g', 'pane-died')).split('\n').filter(Boolean);
+    expect(hooks).toHaveLength(1);
+    expect(hooks[0]).toContain('--profile');
+    expect(hooks[0]).toContain("hook tmux pane-died '#{session_name}' '#{window_name}'");
+
+    const started = Date.now();
+    await hooked.openWindow({
+      ...lantern('claude-died01'),
+      cwd,
+      command: "sh -c 'exit 0'",
+      env: {},
+    });
+    const logged = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
+    expect(await eventually(logged, /claude-died01/)).toBe(
+      '--profile|ptest|hook|tmux|pane-died|lantern|claude-died01|\n',
+    );
+    expect(Date.now() - started).toBeLessThan(1000);
   });
 
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {

@@ -44,6 +44,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       installed: true,
       stale: false,
       events: {},
+      tmux: { socket: 'mesa-default', paneDied: true },
     } satisfies HooksStatus),
 };
 

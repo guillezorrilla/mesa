@@ -52,10 +52,10 @@ const SessionRecordSchema = z.strictObject({
     confidence: z.number().min(0).max(1),
     at: z.iso.datetime(),
     /**
-     * ADR-0003's signals (hook, listing, tmux), Faro's adapter when the rules were unsure, or
-     * Mesa's own action (open, stop).
+     * ADR-0003's signals (hook, listing, tmux, and tmux's pane-died hook), Faro's adapter when the
+     * rules were unsure, or Mesa's own action (open, stop).
      */
-    source: z.enum(['hook', 'listing', 'tmux', 'adapter', 'mesa']),
+    source: z.enum(['hook', 'listing', 'tmux', 'tmux-hook', 'adapter', 'mesa']),
     /** With `adapter`: a hash of what it saw, so an unchanged session is not asked again. */
     basis: z.string().optional(),
   }),
@@ -70,6 +70,8 @@ const SessionRecordSchema = z.strictObject({
         /** The session that sent it (mesa send --from). */
         from: z.string().regex(SHORT_ID).optional(),
       }),
+      /** Its agent exited: tmux's pane-died hook said so (mesa hook tmux). */
+      z.strictObject({ type: z.literal('ended'), at: z.iso.datetime() }),
       z.strictObject({
         type: z.literal('sent'),
         at: z.iso.datetime(),

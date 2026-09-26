@@ -41,7 +41,8 @@ const isMesaHook = (h: Hook) =>
 export const hookCommand = (self: readonly string[]) =>
   `${GUARD}${self.map(shellWord).join(' ')}${TAIL}`;
 
-export type HooksStatus = {
+/** Mesa's Claude Code hooks in ~/.claude/settings.json. */
+export type ClaudeHooksStatus = {
   path: string;
   /** Every event has Mesa's entry, running this mesa. */
   installed: boolean;
@@ -49,6 +50,9 @@ export type HooksStatus = {
   stale: boolean;
   events: Record<string, boolean>;
 };
+
+/** Both kinds of Mesa hook: Claude Code's, and the pane-died hook on the profile's tmux server. */
+export type HooksStatus = ClaudeHooksStatus & { tmux: { socket: string; paneDied: boolean } };
 
 export const claudeSettings = (home: string) => join(home, '.claude', 'settings.json');
 
@@ -102,7 +106,7 @@ function withoutMesa(settings: Settings): Settings {
 const mesaHooks = (settings: Settings, event: string) =>
   (settings.hooks?.[event] ?? []).flatMap((g) => (g.hooks ?? []).filter(isMesaHook));
 
-export function hooksStatus(home: string, self: readonly string[]): HooksStatus {
+export function hooksStatus(home: string, self: readonly string[]): ClaudeHooksStatus {
   const path = claudeSettings(home);
   const { settings } = read(path);
   const command = hookCommand(self);
@@ -122,7 +126,7 @@ export function hooksStatus(home: string, self: readonly string[]): HooksStatus 
 export function installHooks(
   home: string,
   self: readonly string[],
-): HooksStatus & { changed: boolean } {
+): ClaudeHooksStatus & { changed: boolean } {
   const now = hooksStatus(home, self);
   const once = HOOK_EVENTS.every(
     ({ event }) => mesaHooks(read(now.path).settings, event).length === 1,
@@ -146,7 +150,7 @@ export function installHooks(
 export function uninstallHooks(
   home: string,
   self: readonly string[],
-): HooksStatus & { changed: boolean } {
+): ClaudeHooksStatus & { changed: boolean } {
   const path = claudeSettings(home);
   if (!existsSync(path)) return { ...hooksStatus(home, self), changed: false };
   const loaded = read(path);

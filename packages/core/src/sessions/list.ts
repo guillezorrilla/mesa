@@ -107,7 +107,7 @@ const secondsBetween = (from: string, until: number) =>
 export async function listSessions(
   deps: {
     store: SessionStore;
-    tmux: Pick<TmuxBackend, 'listWindows' | 'capturePane'>;
+    tmux: Pick<TmuxBackend, 'ensureServer' | 'listWindows' | 'capturePane'>;
     listing: () => Promise<AgentProcess[]>;
     /** The session's hook events, oldest first. */
     events: (id: string) => HookEvent[];
@@ -137,10 +137,16 @@ export async function listSessions(
     if (children.has(r.parent)) children.get(r.parent)?.push(r.id);
     else children.set(r.parent, [r.id]);
   }
-  // One tmux call and one listing for the whole board, side by side, rather than one per record.
+  // One tmux look and one listing for the whole board, side by side, rather than one per record.
+  // A board with sessions keeps its server set up, the pane-died hook with it, so a server from
+  // an older mesa gets it on the next look.
+  const windowsNow = async () => {
+    await deps.tmux.ensureServer();
+    return deps.tmux.listWindows();
+  };
   const [listed, windowList] = await Promise.all([
     deps.listing(),
-    records.length ? deps.tmux.listWindows() : [],
+    records.length ? windowsNow() : [],
   ]);
   // A stopped session runs nowhere, so only open ones can be a listed process. By pid first: a
   // /clear gives the agent a new session id in the same window. A resumed conversation keeps

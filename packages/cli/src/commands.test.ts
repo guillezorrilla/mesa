@@ -116,6 +116,8 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     'codex',
     'obsidian',
     'profile dir',
+    'claude hooks',
+    'tmux hooks',
   ]);
 
   run = scriptedRunner({}, { missing: ['tmux', 'claude', 'codex'] }).run;
@@ -911,4 +913,45 @@ test('a send typed with a warning keeps it beside a receipt warning in --json', 
     /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
   );
   rmSync(join(home, `.mesa/default/sessions/${b}.lock`));
+});
+
+test('mesa hook tmux pane-died ends the session its pane ran; hooks status and doctor show both hooks', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const status = async () => (await mesa('hooks', 'status', '--json')).json.data.tmux;
+  const doctorRow = async (name: string) =>
+    (await mesa('doctor', '--json')).json.data.checks.find(
+      (c: { name: string }) => c.name === name,
+    );
+  // No server yet: the hook is missing, and doctor says how to get it.
+  expect(await status()).toEqual({ socket: 'mesa-default', paneDied: false });
+  expect(await doctorRow('tmux hooks')).toMatchObject({
+    status: 'warn',
+    hint: 'not set on mesa-default: `mesa sessions` starts the server with it',
+  });
+  expect(await doctorRow('claude hooks')).toMatchObject({
+    status: 'warn',
+    hint: 'not installed: run `mesa hooks install`',
+  });
+
+  const id = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  // Opening started the server, and with it the hook, running this mesa for this profile.
+  expect(await status()).toEqual({ socket: 'mesa-default', paneDied: true });
+  expect(world.hooks.get('pane-died')).toBe(
+    `run-shell "'/usr/local/bin/mesa' --profile 'default' hook tmux pane-died '#{session_name}' '#{window_name}'"`,
+  );
+  expect((await doctorRow('tmux hooks')).status).toBe('ok');
+
+  const window = world.windows.find((w) => w.window === `claude-${id}`);
+  if (window) window.dead = true;
+  const died = await mesa('hook', 'tmux', 'pane-died', 'lantern-cove', `claude-${id}`, '--json');
+  expect(died).toMatchObject({ code: 0 });
+  expect(died.json.data).toEqual({ recorded: true, session: id });
+  const [row] = (await mesa('sessions', '--json')).json.data;
+  expect(row).toMatchObject({ endedAt: expect.any(String), lastState: { source: 'tmux-hook' } });
+  // A window that is no session's is not an error.
+  expect(await mesa('hook', 'tmux', 'pane-died', 'lantern-cove', 'zsh')).toMatchObject({ code: 0 });
 });

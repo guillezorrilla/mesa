@@ -4,7 +4,8 @@ import { AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
 import { redactText } from '../receipts.js';
 import { MesaError } from '../result.js';
-import { isSessionId, type SessionStore } from './store.js';
+import { isSessionId, type SessionRecord, type SessionStore } from './store.js';
+import type { TmuxWindow, WindowTarget } from './tmux.js';
 
 // One line per agent hook in `sessions/events/<mesa-session-id>.jsonl`: the first signal Faro
 // reads for session state (ADR-0003).
@@ -134,4 +135,45 @@ export function readHookEvents(eventsDir: string, id: string): HookEvent[] {
         return [];
       }
     });
+}
+
+/**
+ * tmux's pane-died hook, through `mesa hook tmux pane-died <session> <window>`: the agent in a
+ * Mesa window exited, so its session ends now, `done` for exit status 0 and `failed` for another
+ * status or a signal (as the board reads a dead pane), with an `ended` event. A window that is
+ * no session of this profile's, or a session already ended, is left alone: undefined.
+ */
+export async function recordPaneDied(
+  deps: {
+    store: SessionStore;
+    tmux: {
+      findWindow: (
+        target: WindowTarget,
+      ) => Promise<Pick<TmuxWindow, 'deadStatus' | 'deadSignal'> | undefined>;
+    };
+    clock: Clock;
+  },
+  session: string,
+  window: string,
+): Promise<SessionRecord | undefined> {
+  const id = /^[a-z]+-([0-9a-z]{8})$/.exec(window)?.[1];
+  const found = id ? deps.store.find(id) : undefined;
+  if (!found || found.endedAt || found.tmux.session !== session || found.tmux.window !== window) {
+    return undefined;
+  }
+  const pane = await deps.tmux.findWindow({ project: session, window });
+  const failed = Boolean(pane?.deadSignal) || (pane?.deadStatus ?? 0) !== 0;
+  const at = deps.clock().toISOString();
+  const state = failed ? 'failed' : 'done';
+  const ended = deps.store.update(found.id, (current) =>
+    current.endedAt
+      ? {}
+      : {
+          endedAt: at,
+          lastState: { state, confidence: 1, at, source: 'tmux-hook' },
+          events: [...current.events, { type: 'ended', at }],
+        },
+  );
+  // A stop that got there first already ended it.
+  return ended.endedAt === at && ended.lastState.source === 'tmux-hook' ? ended : undefined;
 }

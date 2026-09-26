@@ -29,7 +29,12 @@ import { readRegistry } from './registry.js';
 import { MesaError, toFail } from './result.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession, resizeSession } from './sessions/attach.js';
-import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
+import {
+  readHookEvents,
+  recordHookEvent,
+  recordPaneDied,
+  redactPayload,
+} from './sessions/events.js';
 import { listSessions, sessionTree } from './sessions/list.js';
 import { openSession, readGoal, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
@@ -78,7 +83,17 @@ export function createMesa(profile: string, deps: MesaDeps) {
       return undefined;
     }
   };
-  const tmux = tmuxBackend({ run: deps.run, socket: paths.tmuxSocket, env: deps.env });
+  const tmux = tmuxBackend({
+    run: deps.run,
+    socket: paths.tmuxSocket,
+    env: deps.env,
+    paneDied: { self: deps.self, profile },
+  });
+  /** Both kinds of hook: Claude Code's in its settings, and the pane-died one on Mesa's server. */
+  const hooksNow = async () => ({
+    ...hooksStatus(deps.home, deps.self),
+    tmux: { socket: paths.tmuxSocket, paneDied: await tmux.hasPaneDiedHook() },
+  });
   const store = sessionStore({ dir: paths.sessions, newId: deps.newId });
   /**
    * Marks `ended`'s opening receipt ended, best effort: a failure joins the recorded action's
@@ -428,7 +443,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         ),
     },
     hooks: {
-      status: () => hooksStatus(deps.home, deps.self),
+      status: hooksNow,
       /** Adds Mesa's entries to ~/.claude/settings.json; running it twice leaves one per event. */
       install: () =>
         record(
@@ -459,6 +474,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
         { store, eventsDir: paths.events, clock: deps.clock, home: deps.home, secrets: secrets() },
         { agent, mesaSessionId: deps.env.MESA_SESSION_ID, payload },
       ),
+    /** tmux's pane-died hook: the agent in a Mesa window exited (`mesa hook tmux pane-died`). */
+    paneDied: (session: string, window: string) =>
+      recordPaneDied({ store, tmux, clock: deps.clock }, session, window),
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),
     /**
@@ -486,6 +504,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         obsidian: deps.obsidian,
         profileDir: paths.root,
         decisions,
+        hooks: hooksNow,
       });
     },
   };

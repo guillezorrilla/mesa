@@ -1,4 +1,4 @@
-import type { Env, Runner } from '../process.js';
+import { type Env, type Runner, shellWord } from '../process.js';
 import { type ErrorCode, MesaError } from '../result.js';
 
 // The session backend: ADR-0001's tmux commands on the profile's own socket, never the user's
@@ -131,7 +131,29 @@ function parseWindow(line: string): TmuxWindow {
   };
 }
 
-export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string; env: Env }) {
+/**
+ * The tmux command a pane-died hook runs: `mesa --profile <profile> hook tmux pane-died <session>
+ * <window>`, the pane's own names filled in by tmux when it fires. Inside tmux's double quotes a
+ * backslash, a quote, and a `$` are escaped; the shell words are single-quoted.
+ */
+export function paneDiedHook(self: readonly string[], profile: string): string {
+  const mesa = [...self.map(shellWord), '--profile', shellWord(profile)].join(' ');
+  const command = `${mesa} hook tmux pane-died '#{session_name}' '#{window_name}'`;
+  return `run-shell "${command.replace(/[\\"$]/g, (c) => `\\${c}`)}"`;
+}
+
+export function tmuxBackend({
+  run,
+  socket,
+  env,
+  paneDied,
+}: {
+  run: Runner;
+  socket: string;
+  env: Env;
+  /** This mesa and its profile, for the pane-died hook; tests leave it out. */
+  paneDied?: { self: readonly string[]; profile: string };
+}) {
   /** One tmux call on Mesa's socket. A missing or hung tmux throws; a failed command returns. */
   const tmux = async (args: string[]) => {
     // -f /dev/null: the user's tmux.conf never shapes Mesa's server (ADR-0001 amendment).
@@ -173,16 +195,25 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
   const ensureServer = async () => {
     const options = SERVER_OPTIONS.flatMap((o) => [';', 'set-option', ...o]);
     const unset = nestedAgentVars(env).flatMap((name) => [';', 'set-environment', '-gu', name]);
+    // One global hook: set-hook replaces index 0, so starting again leaves exactly one.
+    const hook = paneDied
+      ? [';', 'set-hook', '-g', 'pane-died', paneDiedHook(paneDied.self, paneDied.profile)]
+      : [];
     await must(
-      ['start-server', ...options, ...COPY_BINDINGS, ...unset],
+      ['start-server', ...options, ...COPY_BINDINGS, ...unset, ...hook],
       'internal',
       'could not start tmux',
     );
   };
 
   return {
-    /** Starts the profile's server, or updates it, with Mesa's options. */
+    /** Starts the profile's server, or updates it, with Mesa's options and its pane-died hook. */
     ensureServer,
+    /** Whether the running server has Mesa's pane-died hook; false with no server, or no tmux. */
+    hasPaneDiedHook: async () => {
+      const res = await tmux(['show-hooks', '-g', 'pane-died']).catch(() => undefined);
+      return Boolean(res?.ok && /^pane-died\[\d+\] .* hook tmux pane-died /m.test(res.stdout));
+    },
     /** A window in the project's tmux session, which is created with it when missing. */
     openWindow: async (spec: WindowSpec): Promise<WindowTarget> => {
       await ensureServer();

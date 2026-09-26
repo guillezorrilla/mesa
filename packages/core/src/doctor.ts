@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { AGENT_NAMES, AGENTS, type Agent } from './agents.js';
 import type { BackendName } from './config.js';
+import type { HooksStatus } from './hooks.js';
 import type { ObsidianPaths } from './obsidian.js';
 import type { Runner } from './process.js';
 import { TMUX_INSTALL } from './sessions/tmux.js';
@@ -102,6 +103,22 @@ function decisionsCheck(decisions: DecisionsInUse | undefined): Probe[] {
   return [{ name: 'decisions', ok: true, version: active, hint }];
 }
 
+/** Mesa's two kinds of hook, each a warning with its fix when missing. */
+function hookChecks(status: HooksStatus): Probe[] {
+  const claude = status.installed
+    ? ''
+    : status.stale
+      ? 'stale: they run a mesa that moved; run `mesa hooks install`'
+      : 'not installed: run `mesa hooks install`';
+  const tmux = status.tmux.paneDied
+    ? ''
+    : `not set on ${status.tmux.socket}: \`mesa sessions\` starts the server with it`;
+  return [
+    { name: 'claude hooks', ok: status.installed, path: status.path, hint: claude },
+    { name: 'tmux hooks', ok: status.tmux.paneDied, hint: tmux },
+  ];
+}
+
 function profileDirCheck(dir: string): Probe {
   const ok = existsSync(dir);
   return {
@@ -119,17 +136,25 @@ export async function runDoctor(deps: {
   profileDir: string;
   /** Faro's backends; none before init. */
   decisions?: DecisionsInUse;
+  /** Mesa's hooks, read side by side with the other checks. */
+  hooks?: () => Promise<HooksStatus>;
 }): Promise<DoctorReport> {
-  const [binaries, obsidian] = await Promise.all([
+  const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(BINARIES.map(async (b) => ({ role: b.role, check: await probe(deps.run, b) }))),
     obsidianCheck(deps.run, deps.obsidian),
+    deps.hooks?.(),
   ]);
   const anAgent = binaries.some((b) => b.role === 'agent' && b.check.ok);
   const healthy = anAgent && binaries.every((b) => b.role !== 'required' || b.check.ok);
   const blocking = (b: (typeof binaries)[number]) => b.role === 'required' || !anAgent;
   const checks: Check[] = [
     ...binaries.map((b) => ({ ...b.check, status: statusOf(b.check.ok, blocking(b)) })),
-    ...[obsidian, profileDirCheck(deps.profileDir), ...decisionsCheck(deps.decisions)].map((c) => ({
+    ...[
+      obsidian,
+      profileDirCheck(deps.profileDir),
+      ...decisionsCheck(deps.decisions),
+      ...(hooks ? hookChecks(hooks) : []),
+    ].map((c) => ({
       ...c,
       status: statusOf(c.ok, false),
     })),

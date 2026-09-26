@@ -112,6 +112,8 @@ export type FakeWindow = {
  */
 export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => void } = {}) {
   const windows: FakeWindow[] = [];
+  /** Global hooks by name, as set-hook -g sets them: one command each. */
+  const hooks = new Map<string, string>();
   const failed = (detail: string): RunResult => ({ ok: false, reason: 'failed', detail });
   const flag = (args: string[], name: string) => args[args.indexOf(name) + 1] ?? '';
   const find = (target: string) => {
@@ -195,6 +197,14 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
       case 'bind-key':
       case 'set-environment':
         return ok();
+      case 'set-hook':
+        hooks.set(rest.at(-2) ?? '', rest.at(-1) ?? '');
+        return ok();
+      case 'show-hooks': {
+        const name = rest.at(-1) ?? '';
+        const set = hooks.get(name);
+        return ok(set === undefined ? name : `${name}[0] ${set}`);
+      }
       default:
         // A command this fake does not know fails, so a test cannot pass on a silent no-op.
         return failed(`fakeTmux does not know ${command}`);
@@ -221,7 +231,7 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
     }
     return result;
   };
-  return { windows, answer };
+  return { windows, answer, hooks };
 }
 
 /** Deps over `home` (a temp dir): cwd is home, the clock is fixed, and Obsidian lives under home. */

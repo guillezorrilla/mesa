@@ -817,3 +817,28 @@ test('a send typed with a warning says so in the toast, so it is not sent again'
   await click(byTestId('session-send-submit')[0]);
   expect(byTestId('toast')[0]?.textContent).toContain('do not send it again');
 });
+
+test('the Doctor panel shows both kinds of hook, each with its fix when missing', async () => {
+  const hookRows: Check[] = [
+    {
+      name: 'claude hooks',
+      ok: false,
+      status: 'warn',
+      hint: 'not installed: run `mesa hooks install`',
+    },
+    {
+      name: 'tmux hooks',
+      ok: false,
+      status: 'warn',
+      hint: 'not set on mesa-default: `mesa sessions` starts the server with it',
+    },
+  ];
+  const { bridge } = fakeBridge({ doctor: () => envelope(report(hookRows)) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  const rows = byTestId('doctor-row').filter((r) => cells(r)[0]?.endsWith('hooks'));
+  expect(rows.map((r) => [cells(r)[0], r.dataset.status, cells(r)[3]])).toEqual([
+    ['claude hooks', 'warn', 'not installed: run `mesa hooks install`'],
+    ['tmux hooks', 'warn', 'not set on mesa-default: `mesa sessions` starts the server with it'],
+  ]);
+});

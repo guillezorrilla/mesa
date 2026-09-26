@@ -99,3 +99,11 @@ Three things change.
 **Following the new id (#92).** The record follows the listing and the `SessionStart`, and a `SessionEnd` with reason `clear` no longer ends the session. Until #92 lands, two things go wrong:
 - that `SessionEnd` reads as `done`;
 - the nested-claude guard drops every later event.
+
+## Amendment 2026-09-26: tmux reports an agent's exit itself (#68)
+
+The tmux signal was read on each look, so an agent that exited was noticed only at the next `mesa sessions`. Mesa's server now carries one global `pane-died` hook, set by `ensureServer` on every start and every look at a board with sessions, and only on the profile's own socket. It runs `mesa --profile <profile> hook tmux pane-died '#{session_name}' '#{window_name}'`.
+- The handler ends the matching session at once: `endedAt`, an `ended` event, and `lastState` with source `tmux-hook` and confidence 1.
+- The state is `done` for exit status 0, or `failed` for another status or a signal, as a dead pane already reads on a look (the owner's call, keeping the distinction).
+- A window that is no Mesa session's, or a session already ended, is left alone, and the command exits 0.
+- `mesa hooks status` reports the hook, and `mesa doctor` warns when it or Claude Code's hooks are missing.

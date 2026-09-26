@@ -5,7 +5,7 @@ import { decide } from './decide.js';
 import { doctor } from './doctor.js';
 import { goal } from './goal.js';
 import { help } from './help.js';
-import { hook, hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
+import { hook, hooksInstall, hooksStatus, hooksUninstall, hookTmux } from './hooks.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { open } from './open.js';
@@ -30,6 +30,7 @@ export const COMMANDS: Command[] = [
   goal,
   help,
   hook,
+  hookTmux,
   hooksInstall,
   hooksStatus,
   hooksUninstall,
