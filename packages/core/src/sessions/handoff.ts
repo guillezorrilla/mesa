@@ -7,7 +7,7 @@ import { MesaError, toFail } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { requireCommandFits } from './goal.js';
-import { worktreeHolder } from './holders.js';
+import { requireOwnWorktree } from './holders.js';
 import { createRecord, folderOf, type LaunchDeps, openWindowOf } from './launch.js';
 import { syncSkillsInto } from './open.js';
 import { isAgentState, type SessionRecord } from './record.js';
@@ -63,10 +63,7 @@ export async function handoffSession(
       `session ${id} runs in its own worktree, which its successor takes over; two sessions never share one, so it cannot be kept`,
     );
   }
-  const holder = worktree && worktreeHolder(deps.store, worktree.path);
-  if (holder && holder.id !== id) {
-    throw new MesaError('usage', `the worktree at ${worktree?.path} is session ${holder.id}'s now`);
-  }
+  requireOwnWorktree(deps.store, from);
   const entry = findProject(deps.profile, from.project);
   // A folder that is gone is not_found, never a claude in $HOME.
   readProjectFile(entry.path);
