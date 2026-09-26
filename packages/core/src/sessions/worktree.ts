@@ -1,5 +1,5 @@
-import { existsSync, realpathSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, realpathSync, rmSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import type { Runner } from '../process.js';
 import { MesaError } from '../result.js';
 
@@ -57,37 +57,37 @@ async function defaultBase(run: Runner, repo: string, branch: string) {
   return base;
 }
 
+/** Where addWorktree puts `branch`'s worktree under `root`: a `/` in it becomes `-`. */
+export const worktreePath = (root: string, branch: string) =>
+  join(root, branch.replaceAll('/', '-'));
+
 /**
- * Adds a worktree for `branch` at `<root>/<branch, / as ->`: an existing branch not checked out
- * elsewhere, reused as it is, or a new one from `base` (defaultBase), tracking nothing, so a push
- * never lands on the branch it started from. `repo` must be a repository's top folder. Every
- * refusal is `usage`; a failed add removes what it made.
+ * Adds a worktree for `branch` at worktreePath: an existing branch not checked out elsewhere,
+ * reused as it is, or a new one from `base` (defaultBase). A new branch tracks only the branch of
+ * its name on origin, so a push never lands on the branch it started from. `repo` must be a
+ * repository's top folder. Every refusal is `usage`; a failed add removes what it made, and only
+ * that: the path is claimed with one mkdir first, and the branch made in its own step.
  */
 export async function addWorktree(
   run: Runner,
   input: { repo: string; root: string; branch: string; base?: string },
 ): Promise<Worktree> {
   const { repo, branch } = input;
-  const top = await must(
+  const below = await must(
     run,
     repo,
-    ['rev-parse', '--show-toplevel'],
+    ['rev-parse', '--show-prefix'],
     `${repo} is not a git repository`,
   );
-  if (top !== realpathSync(repo)) {
+  if (below) {
     throw new MesaError(
       'usage',
-      `${repo} is inside the git repository ${top}, not its top folder: --branch needs a project there`,
+      `${repo} is below the top folder of its git repository: --branch needs a project at the top`,
     );
   }
   // git prints the name it would use: a different one (`@{-1}`) is not the branch asked for.
   if ((await ask(run, repo, ['check-ref-format', '--branch', branch])) !== branch) {
     throw new MesaError('usage', `${branch} is not a valid branch name`);
-  }
-  const path = join(input.root, branch.replaceAll('/', '-'));
-  // So everything at `path` after a failed add is git's, and removing it takes nothing else.
-  if (existsSync(path)) {
-    throw new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   }
   const local = await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`]);
   if (local !== undefined && input.base !== undefined) {
@@ -98,32 +98,64 @@ export async function addWorktree(
   }
   const base =
     local === undefined ? (input.base ?? (await defaultBase(run, repo, branch))) : undefined;
-  const worktree: Worktree = { path, branch, ...(base === undefined ? {} : { base }) };
-  const args =
-    base === undefined
-      ? ['worktree', 'add', '--quiet', '--end-of-options', path, branch]
-      : ['worktree', 'add', '--quiet', '--no-track', '-b', branch, '--end-of-options', path, base];
-  const why =
-    base === undefined ? `cannot check out ${branch}` : `cannot start ${branch} from ${base}`;
+  const path = worktreePath(input.root, branch);
+  mkdirSync(input.root, { recursive: true });
+  // Before the claim, so a registration at the path after it can only be this call's. git lists
+  // real paths.
+  const real = join(realpathSync.native(input.root), basename(path));
+  const listed = await must(
+    run,
+    repo,
+    ['worktree', 'list', '--porcelain'],
+    'cannot list worktrees',
+  );
+  if (listed.split('\n').includes(`worktree ${real}`)) {
+    throw new MesaError(
+      'usage',
+      `git lists a worktree at ${path} already: pick another branch, or run git worktree prune if its folder was deleted`,
+    );
+  }
+  claim(path);
+  let made = false;
   let added = false;
   try {
-    await must(run, repo, args, why, ADD_MS);
+    if (base !== undefined) {
+      const track = base === `origin/${branch}` ? '--track' : '--no-track';
+      const start = ['branch', '--quiet', track, '--end-of-options', branch, base];
+      await must(run, repo, start, `cannot start ${branch} from ${base}`);
+      made = true;
+    }
+    const add = ['worktree', 'add', '--quiet', '--end-of-options', path, branch];
+    await must(run, repo, add, `cannot check out ${branch}`, ADD_MS);
     added = true;
   } finally {
-    // git leaves a new branch, and a killed one a half-made folder.
-    if (!added) await removeWorktree(run, repo, worktree);
+    // A killed add leaves a half-made folder, and perhaps its registration.
+    if (!added) await discard(run, repo, path, made ? branch : undefined);
   }
-  return worktree;
+  return { path, branch, ...(base === undefined ? {} : { base }) };
+}
+
+/** Makes `path`, empty, for this call alone: one that exists, even a dangling link, refuses. */
+function claim(path: string) {
+  try {
+    mkdirSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    throw new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
+  }
+}
+
+/** Removes the worktree at `path`, and `branch` when given: best effort, forced. */
+async function discard(run: Runner, repo: string, path: string, branch?: string) {
+  const quietly = (args: string[]) => git(run, repo, args).catch(() => undefined);
+  await quietly(['worktree', 'remove', '--force', path]);
+  rmSync(path, { recursive: true, force: true });
+  if (branch !== undefined) await quietly(['branch', '-D', branch]);
 }
 
 /**
  * Removes a worktree addWorktree made, and its branch when that made it too (it has a base).
- * ponytail: forced and best effort, for a worktree whose session never started; #71 removes one
- * with work in it.
+ * ponytail: forced, for a worktree whose session never started; #71 removes one with work in it.
  */
-export async function removeWorktree(run: Runner, repo: string, worktree: Worktree) {
-  const quietly = (args: string[]) => git(run, repo, args).catch(() => undefined);
-  await quietly(['worktree', 'remove', '--force', worktree.path]);
-  rmSync(worktree.path, { recursive: true, force: true });
-  if (worktree.base !== undefined) await quietly(['branch', '-D', worktree.branch]);
-}
+export const removeWorktree = (run: Runner, repo: string, worktree: Worktree) =>
+  discard(run, repo, worktree.path, worktree.base === undefined ? undefined : worktree.branch);

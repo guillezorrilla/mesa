@@ -12,7 +12,7 @@ import type { RegistryEntry } from '../registry.js';
 import { MesaError, toFail } from '../result.js';
 import { ending, type SessionRecord, type SessionStore, windowOf, windowSession } from './store.js';
 import type { TmuxBackend } from './tmux.js';
-import { addWorktree, removeWorktree, type Worktree } from './worktree.js';
+import { addWorktree, removeWorktree, type Worktree, worktreePath } from './worktree.js';
 
 export type OpenDeps = {
   profile: Profile;
@@ -165,18 +165,20 @@ export async function openSession(deps: OpenDeps, input: OpenInput): Promise<Ses
   }
 }
 
-/** A new worktree on `branch`, unless a session of the project has that branch's worktree. */
+/** A new worktree on `branch`, unless a session has the worktree there: the newest is named. */
 function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
+  const root = join(deps.profile.paths.worktrees, entry.name);
+  const path = worktreePath(root, branch);
   const holder = deps.store
     .list()
-    .find((r) => r.project === entry.name && r.worktree?.branch === branch);
-  if (holder?.worktree && existsSync(holder.worktree.path)) {
+    .filter((r) => r.worktree?.path === path)
+    .at(-1);
+  if (holder?.worktree && existsSync(path)) {
     throw new MesaError(
       'usage',
-      `session ${holder.id} has branch ${branch} in ${holder.worktree.path}: use that session, or pick another branch`,
+      `session ${holder.id} has ${holder.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
     );
   }
-  const root = join(deps.profile.paths.worktrees, entry.name);
   return addWorktree(deps.run, { repo: entry.path, root, branch, base });
 }
 
