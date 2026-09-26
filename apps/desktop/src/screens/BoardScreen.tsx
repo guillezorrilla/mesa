@@ -73,6 +73,34 @@ function Toggle(props: { below: readonly TreeRow[]; closed: boolean; onToggle: (
   );
 }
 
+/** When a prompt came: the time today, else the date and time. */
+const when = (at: string) => {
+  const date = new Date(at);
+  const today = date.toDateString() === new Date().toDateString();
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return today ? time : `${date.toLocaleDateString()} ${time}`;
+};
+
+/** The prompts a session was sent, newest first, each with who sent it (mesa send --from). */
+function Received({ row }: { row: TreeRow }) {
+  if (!row.managed) return null;
+  const received = row.events.flatMap((e) => (e.type === 'send' ? [e] : [])).reverse();
+  if (!received.length) return null;
+  return (
+    <details data-testid="session-received">
+      <summary>Received ({received.length})</summary>
+      <ul>
+        {received.map((e) => (
+          <li key={`${e.at}-${e.from ?? ''}-${e.chars}`} data-testid="received-prompt">
+            {e.from ? `from session ${e.from}` : 'from a person'}, {e.chars} characters,{' '}
+            {when(e.at)}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 /**
  * The Session Board: every session, Mesa's and (muted, read-only) those it did not start, in
  * mesa's order (highest attention first, children under their parent, collapsible), with Faro's
@@ -177,7 +205,9 @@ export function BoardScreen() {
       const sent = await run('sessions.send', { id, prompt });
       if (!sent) return undefined;
       form.reset();
-      return `Sent ${sent.chars} characters to ${id}`;
+      // Typed either way: a warning says so, so the prompt is not sent twice.
+      const said = `Sent ${sent.chars} characters to ${id}`;
+      return sent.warning ? `${said}; ${sent.warning}` : said;
     });
   const stop = (id: string) =>
     act(async () => {
@@ -313,6 +343,7 @@ export function BoardScreen() {
                         Send
                       </button>
                     </form>
+                    <Received row={s} />
                     <button
                       type="button"
                       data-testid="open-terminal"

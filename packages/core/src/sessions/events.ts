@@ -98,13 +98,18 @@ export function recordHookEvent(
   }
   mkdirSync(deps.eventsDir, { recursive: true, mode: 0o700 });
   appendFileSync(join(deps.eventsDir, `${id}.jsonl`), `${JSON.stringify(line)}\n`);
-  // ponytail: unlocked, like every record update; open and resume set agentSessionId first, so
-  // this runs only for a record written without one.
+  // Open and resume set agentSessionId first, so this runs only for a record written without
+  // one. ponytail: under the record's lock, which can hold a hook up to 2 s past its budget when
+  // another process has the record; it only ever waits on that rare first fill.
   if (record && !record.agentSessionId && agentSessionId) deps.store.update(id, { agentSessionId });
   return line;
 }
 
-/** The record, or undefined for a session without one (removed, or another profile's). */
+/**
+ * The record, or undefined for a session without one (removed, or another profile's). Unlike
+ * `store.find`, any error gives undefined: a hook still logs its event when the record cannot
+ * be read.
+ */
 function findRecord(store: SessionStore, id: string) {
   try {
     return store.get(id);
