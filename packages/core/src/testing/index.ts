@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
@@ -6,8 +6,10 @@ import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
 import type { Runner, RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import type { MesaDeps } from '../mesa.js';
+import { createMesa, type MesaDeps } from '../mesa.js';
+import { profilePaths } from '../profile/paths.js';
 import type { NewSession } from '../sessions/record.js';
+import { sessionStore } from '../sessions/store.js';
 
 // Test implementations of Mesa's seams, real but controlled: a scripted runner and a temp home,
 // never mocks of Mesa's own modules. Published as @mesa/core/testing, not from the index.
@@ -110,7 +112,13 @@ export type FakeWindow = {
  * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
  * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
  */
-export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => void } = {}) {
+export function fakeTmux(
+  opts: {
+    onKeys?: (window: FakeWindow, text: string) => void;
+    /** A tmux command that fails, as a broken server would (`new-session`). */
+    failing?: string;
+  } = {},
+) {
   const windows: FakeWindow[] = [];
   /** Global hooks by name, as set-hook -g sets them: one command each. */
   const hooks = new Map<string, string>();
@@ -124,18 +132,10 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
     return windows.find((w) => w.project === project && w.window === window);
   };
   const line = (w: FakeWindow, i: number) =>
-    [
-      w.project,
-      i,
-      w.window,
-      4242,
-      w.dead ? '' : w.running,
-      w.path,
-      1790359178,
-      w.dead ? 1 : 0,
-    ].join('\t');
+    tmuxLine({ ...w, index: i, command: w.dead ? '' : w.running });
   const one = (args: string[]): RunResult => {
     const [command = '', ...rest] = args;
+    if (command === opts.failing) return failed(`${command} failed`);
     const ok = (stdout = ''): RunResult => ({ ok: true, stdout });
     const target = flag(rest, '-t');
     switch (command) {
@@ -247,6 +247,35 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
   return { windows, answer, hooks };
 }
 
+/**
+ * One `list-windows` line in Mesa's format (sessions/tmux/format.ts), as tmux prints it: a live
+ * claude on pid 4242 in `/src/<project>` unless told otherwise.
+ */
+export function tmuxLine(w: {
+  project: string;
+  window: string;
+  index?: number;
+  pid?: number;
+  command?: string;
+  path?: string;
+  dead?: boolean;
+  status?: number;
+  signal?: string;
+}): string {
+  return [
+    w.project,
+    w.index ?? 0,
+    w.window,
+    w.pid ?? 4242,
+    w.command ?? '2.1.282',
+    w.path ?? `/src/${w.project}`,
+    1790359178,
+    w.dead ? 1 : 0,
+    w.status ?? '',
+    w.signal ?? '',
+  ].join('\t');
+}
+
 /** Deps over `home` (a temp dir): cwd is home, the clock is fixed, and Obsidian lives under home. */
 export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaDeps => ({
   home,
@@ -295,4 +324,27 @@ export function thrown(fn: () => unknown): { code: string; message: string } {
     throw error;
   }
   throw new Error('expected a MesaError');
+}
+
+/** A profile's session store under a temp home, as mesa keeps it: for reading or planting records. */
+export const testStore = (home: string, profile = 'default') =>
+  sessionStore({ dir: profilePaths(home, profile).sessions, newId: sequentialIds() });
+
+/**
+ * A profile over a fresh temp home with its vault laid out and lantern-cove registered: its
+ * mesa.yaml written from `mesaYaml` when given, else a minimal one.
+ */
+export function projectProfile(
+  run: Runner,
+  { mesaYaml, ...overrides }: Partial<MesaDeps> & { mesaYaml?: string } = {},
+) {
+  const home = tempDir();
+  const dir = join(home, 'src/lantern-cove');
+  mkdirSync(dir, { recursive: true });
+  if (mesaYaml !== undefined) writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
+  const mesa = createMesa('default', testDeps(home, { run, ...overrides }));
+  mesa.init({ vault: 'vault' });
+  mesa.vault.init();
+  mesa.projects.register(dir, mesaYaml === undefined);
+  return { home, dir, mesa };
 }

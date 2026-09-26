@@ -10,9 +10,11 @@ import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
 export type NotesDeps = { vault: string; clock: Clock };
+/** For a change under the vault lock: `sleep` waits between tries for it. */
+export type LockedNotesDeps = NotesDeps & { sleep: (ms: number) => Promise<void> };
 
 /** The frontmatter fields writeNote owns; a caller's value for one is dropped. */
-export const NOTE_FIELDS = ['created', 'updated', 'source'];
+const NOTE_FIELDS = ['created', 'updated', 'source'];
 
 /** A note's own frontmatter: the fields writeNote does not manage. */
 export const ownFields = (frontmatter: Frontmatter): Frontmatter =>
@@ -75,8 +77,8 @@ async function rewrite(deps: NotesDeps, path: string, change: Change): Promise<N
  * Read-modify-write of one shared note under the vault lock, so concurrent updates are never
  * lost. `change` gets the current note (undefined if there is none) and returns the new one.
  */
-export const updateNote = (deps: NotesDeps, path: string, change: Change): Promise<Note> =>
-  withVaultLock(deps.vault, () => rewrite(deps, path, change));
+export const updateNote = (deps: LockedNotesDeps, path: string, change: Change): Promise<Note> =>
+  withVaultLock(deps, () => rewrite(deps, path, change));
 
 /** The vault's log.md; not_found until `mesa vault init` has run. */
 function requireLog(vault: string): string {
@@ -102,11 +104,14 @@ export function appendLog(deps: NotesDeps, line: string): string {
  * `mesa log`: the line goes to log.md and to today's daily note (created with frontmatter when
  * missing), both under one hold of the vault lock, so a busy lock writes neither.
  */
-export function logLine(deps: NotesDeps, text: string): Promise<{ entry: string; daily: string }> {
+export function logLine(
+  deps: LockedNotesDeps,
+  text: string,
+): Promise<{ entry: string; daily: string }> {
   requireLog(deps.vault); // before the lock, which would otherwise create .mesa/ in a bare folder
   const day = localDay(deps.clock());
   const daily = dailyNotePath(day);
-  return withVaultLock(deps.vault, async () => {
+  return withVaultLock(deps, async () => {
     const entry = appendLog(deps, text);
     await rewrite(deps, daily, (note) => ({
       frontmatter: { type: 'daily', date: day, ...note?.frontmatter },

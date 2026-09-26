@@ -8,7 +8,7 @@ import { obsidianDateTime } from '../lib/time.js';
 import { VAULT } from '../vault/layout.js';
 import {
   appendLog,
-  type NotesDeps,
+  type LockedNotesDeps,
   ownFields,
   readNote,
   updateNote,
@@ -19,7 +19,7 @@ import { type Receipt, type ReceiptInput, ReceiptSchema } from './schema.js';
 
 // Receipts in the vault's receipts/: written, closed, listed, and read back (docs/receipts.md).
 
-export type ReceiptsDeps = { vault: string; clock: Clock; newId: IdSource };
+type ReceiptsDeps = { vault: string; clock: Clock; newId: IdSource };
 
 export const DEFAULT_RECEIPT_LIMIT = 20;
 
@@ -55,7 +55,7 @@ export function writeReceipt(
  * merges `outputs` into it, under the vault lock. Undefined when the session has no receipt.
  */
 export async function closeSessionReceipt(
-  deps: NotesDeps,
+  deps: LockedNotesDeps,
   session: string,
   ended: Date,
   outputs: Record<string, unknown>,

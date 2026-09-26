@@ -26,8 +26,6 @@ const LAYOUT: Item[] = [
   })),
 ];
 
-export const VAULT_LAYOUT = LAYOUT.map((i) => i.name);
-
 export type VaultStatus = { path: string; ok: boolean; missing: string[] };
 
 const present = (path: string, item: Item) => {

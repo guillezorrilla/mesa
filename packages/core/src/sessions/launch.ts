@@ -25,7 +25,7 @@ export const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: Re
   r.cwd ?? r.worktree?.path ?? project.path;
 
 /** What a new session's record holds before its window opens. */
-export type NewLaunch = {
+type NewLaunch = {
   project: RegistryEntry;
   agent: Agent;
   agentSessionId: string;

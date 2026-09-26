@@ -8,6 +8,10 @@ import { appendLog, logLine, readNote, updateNote, writeNote } from './notes.js'
 import { initVault } from './vault.js';
 import { vaultLockPath, withVaultLock } from './vault-lock.js';
 
+/** Waits for real, so writers under the lock truly interleave; `instant` gives up at once. */
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const instant = async () => {};
+
 let vault: string;
 beforeEach(() => {
   vault = join(tempDir(), 'vault');
@@ -15,7 +19,11 @@ beforeEach(() => {
 });
 
 test('writeNote stamps created, updated, and source, keeps created on rewrite, and leaves no temp file', () => {
-  const deps = { vault, clock: steppingClock('2026-09-24T12:00:00.000Z', 60_000) };
+  const deps = {
+    vault,
+    clock: steppingClock('2026-09-24T12:00:00.000Z', 60_000),
+    sleep: realSleep,
+  };
   writeNote(deps, {
     path: 'wiki/tide.md',
     frontmatter: { tags: ['sea'], source: 'ignored' },
@@ -44,7 +52,7 @@ test('writeNote stamps created, updated, and source, keeps created on rewrite, a
 });
 
 test('a note with locked: true is never replaced', () => {
-  const deps = { vault, clock: fixedClock() };
+  const deps = { vault, clock: fixedClock(), sleep: realSleep };
   writeNote(deps, { path: 'wiki/keep.md', frontmatter: { locked: true }, body: 'mine\n' });
   expect(
     thrown(() => writeNote(deps, { path: 'wiki/keep.md', frontmatter: {}, body: 'x' })).code,
@@ -105,7 +113,7 @@ test('property: write then read returns the same frontmatter and body for 50 ran
       () => Array.from({ length: Math.floor(next() * 4) }, () => text()),
       () => (depth > 1 ? text() : Object.fromEntries([[`k${depth}`, value(depth + 1)]])),
     ])();
-  const deps = { vault, clock: fixedClock() };
+  const deps = { vault, clock: fixedClock(), sleep: realSleep };
   for (let i = 0; i < 50; i++) {
     const frontmatter: Frontmatter = Object.fromEntries(
       Array.from({ length: 1 + Math.floor(next() * 5) }, (_, j) => [
@@ -128,10 +136,10 @@ test('property: write then read returns the same frontmatter and body for 50 ran
 
 test('mesa log writes log.md and creates, then appends to, the daily note', async () => {
   const clock = fixedClock('2026-09-24T12:00:00.000Z');
-  const { entry, daily } = await logLine({ vault, clock }, 'hello');
+  const { entry, daily } = await logLine({ vault, clock, sleep: realSleep }, 'hello');
   expect(entry).toBe('- 2026-09-24T12:00:00.000Z hello');
   expect(daily).toBe(`daily/${localDay(clock())}.md`);
-  await logLine({ vault, clock }, 'again');
+  await logLine({ vault, clock, sleep: realSleep }, 'again');
   const note = readNote({ vault, clock }, daily);
   expect(note.frontmatter).toMatchObject({
     type: 'daily',
@@ -147,7 +155,7 @@ test('mesa log writes log.md and creates, then appends to, the daily note', asyn
 });
 
 test('20 concurrent read-modify-write updates of index.md lose nothing', async () => {
-  const deps = { vault, clock: fixedClock() };
+  const deps = { vault, clock: fixedClock(), sleep: realSleep };
   const pause = () => new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
   await Promise.all(
     Array.from({ length: 20 }, (_, i) =>
@@ -166,26 +174,26 @@ test('20 concurrent read-modify-write updates of index.md lose nothing', async (
 test('a held lock times out as locked, and its holder keeps it', async () => {
   mkdirSync(join(vault, '.mesa'), { recursive: true });
   writeFileSync(vaultLockPath(vault), 'another holder');
-  const error = await withVaultLock(vault, async () => 'never').catch((e) => e);
+  const error = await withVaultLock({ vault, sleep: instant }, async () => 'never').catch((e) => e);
   expect(error).toMatchObject({ code: 'locked', details: { reason: 'vault' } });
   expect(readFileSync(vaultLockPath(vault), 'utf8')).toBe('another holder');
   // A busy lock writes nothing: no half-done mesa log.
   const before = readFileSync(join(vault, 'log.md'), 'utf8');
-  await expect(logLine({ vault, clock: fixedClock() }, 'x')).rejects.toMatchObject({
+  await expect(logLine({ vault, clock: fixedClock(), sleep: instant }, 'x')).rejects.toMatchObject({
     code: 'locked',
   });
   expect(readFileSync(join(vault, 'log.md'), 'utf8')).toBe(before);
-}, 15_000);
+});
 
 test('a lock is released after the work, even when it throws', async () => {
-  await expect(withVaultLock(vault, async () => Promise.reject(new Error('boom')))).rejects.toThrow(
-    'boom',
-  );
-  expect(await withVaultLock(vault, async () => 'ran')).toBe('ran');
+  await expect(
+    withVaultLock({ vault, sleep: instant }, async () => Promise.reject(new Error('boom'))),
+  ).rejects.toThrow('boom');
+  expect(await withVaultLock({ vault, sleep: instant }, async () => 'ran')).toBe('ran');
 });
 
 test('log text stays one line and cannot be empty; note paths stay inside the vault', () => {
-  const deps = { vault, clock: fixedClock() };
+  const deps = { vault, clock: fixedClock(), sleep: realSleep };
   expect(appendLog(deps, 'real\n- 2020-01-01T00:00:00.000Z forged')).toBe(
     '- 2026-09-24T12:00:00.000Z real - 2020-01-01T00:00:00.000Z forged',
   );

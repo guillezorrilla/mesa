@@ -2,8 +2,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { newSession, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
-import { sessionStore } from './store.js';
+import { newSession, scriptedRunner, tempDir, testDeps, testStore } from '../testing/index.js';
 
 const ATTACH = [
   'tmux',
@@ -33,7 +32,7 @@ function setUp(failing: string[] = [], env = {}) {
   const scripted = scriptedRunner({}, { failing });
   const mesa = createMesa('default', testDeps(home, { run: scripted.run, env }));
   mesa.init({ vault: 'vault' });
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: sequentialIds() });
+  const store = testStore(home);
   const { id } = store.create(() => newSession());
   return { home, mesa, id, calls: scripted.calls };
 }

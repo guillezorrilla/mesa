@@ -38,10 +38,10 @@ export function agentBinary(name: Agent): Binary {
 }
 
 /** One agent's probe: `hint` says why it failed and how to install it. */
-export const checkAgent = (run: Runner, agent: Agent) => probe(run, agentBinary(agent));
+const checkAgent = (run: Runner, agent: Agent) => probe(run, agentBinary(agent));
 
 /** An agent Mesa can run: it starts and resumes sessions (v1: claude). */
-export type RunnableAgent = Extract<(typeof AGENTS)[Agent], { start: unknown }>;
+type RunnableAgent = Extract<(typeof AGENTS)[Agent], { start: unknown }>;
 
 /**
  * The agent's spec, once Mesa can run it and its binary answers; agent_unavailable otherwise,

@@ -8,6 +8,7 @@ import {
   scriptedRunner,
   sequentialIds,
   tempDir,
+  tmuxLine,
 } from '../../testing/index.js';
 import { listAgentProcesses } from '../agent-listing.js';
 import { sessionStore } from '../store.js';
@@ -21,8 +22,7 @@ const storeIn = () => sessionStore({ dir: join(tempDir(), 'sessions'), newId: se
 /** Board order is attention's; tests about other things read rows oldest first. */
 const byStart = <T extends { startedAt: string }>(rows: T[]) =>
   [...rows].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-const LIVE_LINE =
-  'lantern-cove\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern-cove\t1790359178\t0\n';
+const LIVE_LINE = `${tmuxLine({ project: 'lantern-cove', window: 'claude-aaaaaa' })}\n`;
 /** tmux listing `windows`, with an empty screen for capture-pane. */
 const screenless = (windows: string) => (args: string[]) =>
   args.includes('capture-pane') ? '' : windows;
@@ -123,7 +123,7 @@ const listingOf = (...rows: object[]) => {
 };
 /** tmux's line for one window whose pane runs `pid`. */
 const windowLine = (project: string, window: string, pid: number) =>
-  `${project}\t0\t${window}\t${pid}\t2.1.282\t/src/${project}\t1790359178\t0\n`;
+  `${tmuxLine({ project, window, pid })}\n`;
 
 test('a listed process marks the session it runs in: by pane pid, else by agent session id', async () => {
   const store = storeIn();

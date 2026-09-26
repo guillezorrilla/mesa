@@ -14,7 +14,7 @@ import { type LaunchDeps, launchSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import { addWorktree, removeWorktree, worktreePath } from './worktree.js';
 
-export type OpenDeps = LaunchDeps & {
+type OpenDeps = LaunchDeps & {
   run: Runner;
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */

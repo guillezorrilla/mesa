@@ -1,5 +1,5 @@
 /** A prompt Mesa is about to type into a session, as a guardrail sees it. */
-export type GuardedSend = {
+type GuardedSend = {
   session: string;
   project: string;
   text: string;

@@ -5,32 +5,25 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import { execRunner, type Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
-import { scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
+import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 
 /**
- * claude and tmux as a scripted runner: `claude --version` answers (unless `claude` is false),
- * `has-session` finds a project's tmux session once a `new-session` made it, and the tmux
- * command named in `tmuxFails` fails.
+ * claude and a fake tmux as a scripted runner: `claude --version` answers unless `claude` is
+ * false, and the tmux command named in `tmuxFails` fails.
  */
-function fakeWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
-  const sessions = new Set<string>();
-  const after = (args: string[], flag: string) => args[args.indexOf(flag) + 1] ?? '';
-  const failed = { ok: false as const, reason: 'failed' as const, detail: "can't find session" };
-  return scriptedRunner(
-    {
-      claude: '2.1.282 (Claude Code)',
-      tmux: (args) => {
-        if (opts.tmuxFails && args.includes(opts.tmuxFails)) return failed;
-        if (args.includes('has-session')) {
-          return sessions.has(after(args, '-t').slice(1)) ? '' : failed;
-        }
-        if (args.includes('new-session')) sessions.add(after(args, '-s'));
-        return '';
-      },
-    },
+function agentWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
+  const tmux = fakeTmux({ failing: opts.tmuxFails });
+  const scripted = scriptedRunner(
+    { claude: '2.1.282 (Claude Code)', tmux: tmux.answer },
     { missing: opts.claude === false ? ['claude'] : [] },
   );
+  return { ...scripted, tmux };
 }
+
+/** Every agent in the fake tmux exits, its pane dead, as a session's must before it resumes. */
+const exitAll = (world: ReturnType<typeof agentWorld>) => {
+  for (const w of world.tmux.windows) w.dead = true;
+};
 
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();
@@ -52,13 +45,13 @@ afterAll(() => {
 
 /** The real git, over the temp repositories; the rest stays scripted. */
 const withGit =
-  (world: ReturnType<typeof fakeWorld>): Runner =>
+  (world: ReturnType<typeof agentWorld>): Runner =>
   (file, args, ms) =>
     file === 'git' ? execRunner(file, args, ms) : world.run(file, args, ms);
 
 /** An initialised profile with its vault laid out and lantern-cove registered. */
 async function setUp(
-  world: ReturnType<typeof fakeWorld>,
+  world: ReturnType<typeof agentWorld>,
   {
     mesaYaml = 'name: lantern-cove\n',
     argv = ['open'],
@@ -80,7 +73,7 @@ async function setUp(
 }
 
 test('open starts claude with its session id in a new tmux session, then in a new window', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);
 
   const { result: first, receipt } = await mesa.sessions.open('lantern-cove');
@@ -155,7 +148,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
 });
 
 test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs claude only', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { mesa } = await setUp(world, { mesaYaml: 'name: lantern-cove\nagent: codex\n' });
   await expect(mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'agent_unavailable',
@@ -169,7 +162,7 @@ test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs c
     message: 'unknown agent gpt; agents are claude, codex',
   });
 
-  const plain = await setUp(fakeWorld());
+  const plain = await setUp(agentWorld());
   plain.mesa.config.set('defaultAgent', 'codex');
   await expect(plain.mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'agent_unavailable',
@@ -177,20 +170,20 @@ test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs c
 });
 
 test('an unknown project, a missing claude, or a failed window leaves no session', async () => {
-  const { mesa } = await setUp(fakeWorld());
+  const { mesa } = await setUp(agentWorld());
   await expect(mesa.sessions.open('tide')).rejects.toMatchObject({
     code: 'not_found',
     message: 'no project named tide; see mesa projects',
   });
 
-  const noClaude = await setUp(fakeWorld({ claude: false }));
+  const noClaude = await setUp(agentWorld({ claude: false }));
   await expect(noClaude.mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'agent_unavailable',
     message: 'claude not found on PATH; install with `brew install --cask claude-code`',
   });
   expect(await noClaude.mesa.sessions.list()).toEqual([]);
 
-  const broken = await setUp(fakeWorld({ tmuxFails: 'new-session' }));
+  const broken = await setUp(agentWorld({ tmuxFails: 'new-session' }));
   await expect(broken.mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'internal',
   });
@@ -200,7 +193,7 @@ test('an unknown project, a missing claude, or a failed window leaves no session
 });
 
 test('a project whose folder is gone is not_found, even with --agent', async () => {
-  const { dir, mesa } = await setUp(fakeWorld());
+  const { dir, mesa } = await setUp(agentWorld());
   rmSync(dir, { recursive: true });
   await expect(mesa.sessions.open('lantern-cove', { agent: 'claude' })).rejects.toMatchObject({
     code: 'not_found',
@@ -208,7 +201,7 @@ test('a project whose folder is gone is not_found, even with --agent', async () 
 });
 
 test('an open session attaches to its exact window on the profile socket', async () => {
-  const { mesa } = await setUp(fakeWorld());
+  const { mesa } = await setUp(agentWorld());
   const { result } = await mesa.sessions.open('lantern-cove');
   expect((await mesa.sessions.attach(result.id)).exec).toEqual([
     'tmux',
@@ -234,13 +227,13 @@ test('an open session attaches to its exact window on the profile socket', async
 });
 
 /** The command the last window runs: the word after `/bin/sh -c`. */
-const launched = (world: ReturnType<typeof fakeWorld>) => {
+const launched = (world: ReturnType<typeof agentWorld>) => {
   const args = world.calls.filter((c) => c.args.includes('-n')).at(-1)?.args ?? [];
   return args[args.indexOf('/bin/sh') + 2];
 };
 
 test('a goal is the first prompt: one shell word after the session id, kept on the record', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { mesa } = await setUp(world);
   const goal = `/goal Print "ready" in $HOME, then 'stop'`;
   const { result } = await mesa.sessions.open('lantern-cove', { goal });
@@ -272,7 +265,7 @@ test('the receipt keeps the goal first 80 characters, keys redacted, in its comm
     [['open', 'lantern-cove', `--goal=${goal}`], `mesa open lantern-cove "--goal=${short}"`],
   ];
   for (const [argv, command] of forms) {
-    const { home, mesa } = await setUp(fakeWorld(), { argv });
+    const { home, mesa } = await setUp(agentWorld(), { argv });
     mesa.config.set('keys.jev', 'sk-live-1234');
     await mesa.sessions.open('lantern-cove', { goal });
     const [entry] = listReceipts(join(home, 'vault'), 1);
@@ -282,7 +275,7 @@ test('the receipt keeps the goal first 80 characters, keys redacted, in its comm
 });
 
 test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt and no session', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, mesa } = await setUp(world);
   const file = join(home, 'goal.md');
   writeFileSync(file, '/goal Keep going until `pnpm verify` is green.\nThen stop.\n');
@@ -333,16 +326,17 @@ test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt 
 });
 
 test('resume keeps the goal on the new record but does not send it again', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { mesa } = await setUp(world);
   const { result: first } = await mesa.sessions.open('lantern-cove', { goal: 'Print ready' });
+  exitAll(world);
   const { result } = await mesa.sessions.resume(first.id);
   expect(launched(world)).toBe(`claude --resume ${first.agentSessionId}`);
   expect(result.record.goal).toBe('Print ready');
 });
 
 test('a session opened inside another is its child: from MESA_SESSION_ID, --parent, or none', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, mesa } = await setUp(world);
   const { result: a } = await mesa.sessions.open('lantern-cove');
   expect(a.parent).toBeUndefined();
@@ -386,6 +380,7 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
   expect(await mesa.sessions.list()).toHaveLength(before);
 
   // A resumed session keeps its place in the tree.
+  exitAll(world);
   const { result } = await mesa.sessions.resume(child.id);
   expect(result.record.parent).toBe(a.id);
 });
@@ -405,7 +400,7 @@ function gitInit(dir: string) {
 }
 
 /** The folder the last window started in. */
-const cwdOf = (world: ReturnType<typeof fakeWorld>) => {
+const cwdOf = (world: ReturnType<typeof agentWorld>) => {
   const args = world.calls.filter((c) => c.args.includes('-n')).at(-1)?.args ?? [];
   return args[args.indexOf('-c') + 1];
 };
@@ -424,7 +419,7 @@ const upstreamOf = (dir: string, branch: string) => {
 };
 
 test('--branch starts the agent in a new worktree under the profile, from the default branch', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);
   gitInit(dir);
   const { result } = await mesa.sessions.open('lantern-cove', { branch: 'try/worktree' });
@@ -443,13 +438,14 @@ test('--branch starts the agent in a new worktree under the profile, from the de
   // The board shows it; a resume runs in the same worktree, where claude keeps the conversation.
   const [row] = await mesa.sessions.list();
   expect(row).toMatchObject({ managed: true, worktree: result.worktree });
+  exitAll(world);
   const { result: resumed } = await mesa.sessions.resume(result.id);
   expect(resumed.record.worktree).toEqual(result.worktree);
   expect(cwdOf(world)).toBe(path);
 });
 
 test("with an origin, a new branch starts from origin's HEAD, tracking nothing, or from its branch there, tracking it", async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);
   gitInit(dir);
   const bare = join(home, 'origin.git');
@@ -475,7 +471,7 @@ test("with an origin, a new branch starts from origin's HEAD, tracking nothing, 
 });
 
 test('--base starts the new branch there; an existing branch is reused as it is', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);
   gitInit(dir);
   git(dir, 'commit', '-q', '--allow-empty', '-m', 'second');
@@ -498,6 +494,7 @@ test('--base starts the new branch there; an existing branch is reused as it is'
 
   // A second session on a branch a session has, or one whose folder is the same: that session
   // is named, the newest of a resumed pair.
+  exitAll(world);
   const { result: resumed } = await mesa.sessions.resume(reused.id);
   await expect(mesa.sessions.open('lantern-cove', { branch: 'kept' })).rejects.toMatchObject({
     code: 'usage',
@@ -526,7 +523,7 @@ test('--base starts the new branch there; an existing branch is reused as it is'
 });
 
 test('a non-git project, a branch in use, or a bad branch or base is usage with the reason, and no session', async () => {
-  const world = fakeWorld();
+  const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);
   await expect(mesa.sessions.open('lantern-cove', { branch: 'x' })).rejects.toMatchObject({
     code: 'usage',
@@ -594,7 +591,7 @@ test('a non-git project, a branch in use, or a bad branch or base is usage with 
 test('a failed or killed add, or a window that cannot open, leaves no worktree and no new branch', async () => {
   // git's add was killed: after it made its branch and folder, or while it wrote the folder.
   let killed: 'after' | 'during' | undefined = 'after';
-  const world = fakeWorld();
+  const world = agentWorld();
   const run: Runner = async (file, args, ms) => {
     // Someone else makes `raced` just before Mesa does.
     if (args.includes('--no-track') && args.includes('raced'))
@@ -655,7 +652,7 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
   expect(git(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/race');
 
   // The window cannot open: the branch Mesa made goes, the one it reused stays.
-  const broken = fakeWorld({ tmuxFails: 'new-session' });
+  const broken = agentWorld({ tmuxFails: 'new-session' });
   const again = await setUp(broken);
   gitInit(again.dir);
   git(again.dir, 'branch', 'kept');
@@ -671,12 +668,12 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
 });
 
 test('every refusal before the window comes before the worktree, and a missing git says so', async () => {
-  const noClaude = await setUp(fakeWorld({ claude: false }));
+  const noClaude = await setUp(agentWorld({ claude: false }));
   gitInit(noClaude.dir);
   await expect(noClaude.mesa.sessions.open('lantern-cove', { branch: 'b' })).rejects.toMatchObject({
     code: 'agent_unavailable',
   });
-  const long = await setUp(fakeWorld());
+  const long = await setUp(agentWorld());
   gitInit(long.dir);
   await expect(
     long.mesa.sessions.open('lantern-cove', { branch: 'b', goal: 'x'.repeat(12_000) }),
@@ -686,7 +683,7 @@ test('every refusal before the window comes before the worktree, and a missing g
     expect(git(dir, 'branch', '--list', 'b')).toBe('');
   }
 
-  const world = fakeWorld();
+  const world = agentWorld();
   const noGit = await setUp(world, {
     run: (file, args, ms) =>
       file === 'git'
@@ -700,7 +697,7 @@ test('every refusal before the window comes before the worktree, and a missing g
 });
 
 test('through a symlinked home, a worktree git lists is still seen', async () => {
-  const { home, dir, mesa } = await setUp(fakeWorld(), { linkedHome: true });
+  const { home, dir, mesa } = await setUp(agentWorld(), { linkedHome: true });
   gitInit(dir);
   git(dir, 'worktree', 'add', '-q', worktreeAt(home, 'gone'), '-b', 'gone-old');
   rmSync(worktreeAt(home, 'gone'), { recursive: true });
