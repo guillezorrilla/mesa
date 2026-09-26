@@ -8,7 +8,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { ReceivedPrompts } from './ReceivedPrompts';
 import { RowMenu } from './RowMenu';
-import { decidedBy, exited, resumable, running, ticking } from './rows';
+import { decidedBy, exited, queued, resumable, running, ticking } from './rows';
 import { TreeToggle } from './TreeToggle';
 
 /** What a row can ask the Board to do; the Board runs one action at a time. */
@@ -26,8 +26,8 @@ export type RowActions = {
 
 /**
  * One Board row: the session's id (a live one opens its terminal here), project with its branch
- * and goal, agent, state, attention, running time, last output, and its actions. A foreign
- * session is muted, with Adopt its only action.
+ * and goal, agent, state, attention, running time, last output (for a queued one, the session it
+ * waits on), and its actions. A foreign session is muted, with Adopt its only action.
  */
 export function SessionRow(props: {
   row: TreeRow;
@@ -72,13 +72,13 @@ export function SessionRow(props: {
       </TableCell>
       <TableCell>
         {s.project ?? '-'}
-        {s.managed && s.worktree && (
+        {s.managed && (s.worktree ?? s.pending?.branch) && (
           <div
             data-testid="session-branch"
-            title={s.worktree.path}
+            title={s.worktree?.path}
             className="max-w-80 truncate font-mono text-muted-foreground text-xs"
           >
-            {s.worktree.branch}
+            {s.worktree?.branch ?? s.pending?.branch}
           </div>
         )}
         {s.managed && s.goal && (
@@ -106,7 +106,13 @@ export function SessionRow(props: {
         {running(s.runningSeconds + (ticking(s) ? props.elapsed : 0))}
       </TableCell>
       <TableCell className="max-w-96 truncate font-mono text-muted-foreground text-xs">
-        {s.managed ? (s.lastOutput ?? '') : ''}
+        {s.managed && queued(s) ? (
+          <span data-testid="session-waiting">waiting on {s.after}</span>
+        ) : s.managed ? (
+          (s.lastOutput ?? '')
+        ) : (
+          ''
+        )}
       </TableCell>
       <TableCell>
         {s.managed ? (
@@ -153,11 +159,12 @@ export function SessionRow(props: {
                 variant="outline"
                 size="sm"
                 data-testid="session-stop"
+                title={queued(s) ? 'Cancel it: it never starts' : undefined}
                 onClick={() => actions.stop(s.id)}
-                disabled={!s.alive || acting}
+                disabled={!(s.alive || queued(s)) || acting}
               >
                 <Square aria-hidden />
-                Stop
+                {queued(s) ? 'Cancel' : 'Stop'}
               </Button>
               <Button
                 variant="outline"

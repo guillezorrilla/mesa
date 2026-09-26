@@ -1,6 +1,9 @@
 import { defineCommand } from '../command.js';
 
-/** Run by tmux's pane-died hook, never by hand: the agent in a Mesa window exited. */
+/**
+ * Run by tmux's pane-died hook, never by hand: the agent in a Mesa window exited, so what was
+ * queued after its session starts.
+ */
 export const hookTmux = defineCommand({
   name: 'hook tmux',
   summary: 'Record a tmux hook (run by the pane-died hook Mesa sets on its tmux server)',
@@ -14,14 +17,17 @@ export const hookTmux = defineCommand({
   },
 });
 
-/** Run by the agent's hooks, never by hand: appends the payload on stdin to the session's log. */
+/**
+ * Run by the agent's hooks, never by hand: appends the payload on stdin to the session's log; a
+ * SessionEnd starts what was queued after the session.
+ */
 export const hook = defineCommand({
   name: 'hook',
   summary: 'Record an agent hook payload from stdin (run by the hooks mesa hooks install adds)',
   args: ['agent'],
   example: 'mesa hook claude < payload.json',
   run: async ({ mesa, args, stdin }) => {
-    const event = mesa.hookEvent(args.agent, await stdin());
+    const event = await mesa.hookEvent(args.agent, await stdin());
     return { data: { recorded: Boolean(event), event: event?.event ?? null }, text: '' };
   },
 });

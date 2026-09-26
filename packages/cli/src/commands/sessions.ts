@@ -5,7 +5,7 @@ import { duration } from '../output/duration.js';
 export const sessions = defineCommand({
   name: 'sessions',
   summary:
-    'List the sessions, foreign ones too, by attention: state, confidence, attention, running time, last output',
+    'List the sessions, foreign ones too, by attention: state, confidence, attention, running time, last output (or what a queued one waits on)',
   flags: {
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     tree: {
@@ -25,13 +25,19 @@ export const sessions = defineCommand({
           rows.map((s) => [
             // A name a person gave it stands in for the id; --json keeps both.
             `${indent(s)}${s.managed && s.name ? s.name : s.id}`,
-            s.managed && s.worktree ? `${s.project} (${s.worktree.branch})` : (s.project ?? '-'),
+            s.managed && (s.worktree ?? s.pending?.branch)
+              ? `${s.project} (${s.worktree?.branch ?? s.pending?.branch})`
+              : (s.project ?? '-'),
             s.agent,
             s.lastState.state,
             `${Math.round(s.lastState.confidence * 100)}%`,
             s.attention.toFixed(2),
             duration(s.runningSeconds),
-            s.managed ? (s.lastOutput ?? '') : 'not managed by mesa',
+            !s.managed
+              ? 'not managed by mesa'
+              : s.lastState.state === 'queued'
+                ? `waiting on ${s.after}`
+                : (s.lastOutput ?? ''),
           ]),
         ).join('\n')
       : 'no sessions; run mesa open <project>';

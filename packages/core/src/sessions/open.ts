@@ -10,11 +10,11 @@ import type { RegistryEntry } from '../projects/registry.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
 import { worktreeHolder } from './holders.js';
-import { type LaunchDeps, launchSession } from './launch.js';
-import type { SessionRecord } from './record.js';
+import { createRecord, type LaunchDeps, launchSession } from './launch.js';
+import { isOver, type SessionRecord } from './record.js';
 import { addWorktree, removeWorktree, worktreePath } from './worktree.js';
 
-type OpenDeps = LaunchDeps & {
+export type OpenDeps = LaunchDeps & {
   run: Runner;
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
@@ -25,11 +25,12 @@ type OpenDeps = LaunchDeps & {
 
 /**
  * The parent a new session gets: `parent` when given (not_found if it is not a session here),
- * none with `noParent`, else the session whose window this runs in (the caller).
+ * none with `noParent`, else the session it waits on, else the session whose window this runs in
+ * (the caller).
  */
 function parentOf(
   deps: Pick<OpenDeps, 'store' | 'caller'>,
-  input: { parent?: string; noParent?: boolean },
+  input: { parent?: string; noParent?: boolean; after?: string },
 ): string | undefined {
   if (input.noParent && input.parent !== undefined) {
     throw new MesaError('usage', 'pass --parent or --no-parent, not both');
@@ -43,7 +44,7 @@ function parentOf(
     }
     return input.parent;
   }
-  return input.noParent ? undefined : deps.caller().session?.id;
+  return input.noParent ? undefined : (input.after ?? deps.caller().session?.id);
 }
 
 /** What `mesa open` asks for, the goal already read (readGoal). */
@@ -53,6 +54,8 @@ export type OpenInput = {
   goal?: string;
   parent?: string;
   noParent?: boolean;
+  /** Queued until this session is over (CONTEXT.md, Queued session). */
+  after?: string;
   /** Its own git worktree on this branch (CONTEXT.md, Worktree), started from `base` if new. */
   branch?: string;
   base?: string;
@@ -62,7 +65,9 @@ export type OpenInput = {
  * Starts an agent for a registered project in a new window of the project's tmux session, with
  * `goal` as its first prompt, and with `branch`, in its own git worktree. The record is written
  * first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and removed again,
- * with the worktree, if the window cannot open.
+ * with the worktree, if the window cannot open. With `after` a session that is not over yet, it
+ * is only queued: the record, `queued`, with no window, worktree, or agent session id until it
+ * starts (startQueued).
  */
 export async function openSession(
   deps: OpenDeps,
@@ -71,6 +76,7 @@ export async function openSession(
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
   }
+  const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
   const entry = findProject(deps.profile, input.project);
   // Read even when --agent is given: a folder that is gone is not_found, never a claude in $HOME.
@@ -87,26 +93,26 @@ export async function openSession(
   const agentSessionId = deps.newUuid();
   const command = spec.start(agentSessionId, input.goal);
   requireCommandFits(command);
+  const session = { project: entry, agent, goal: input.goal, parent };
+  if (waited && !isOver(waited)) {
+    const { branch, base } = input;
+    const pending = {
+      ...(branch === undefined ? {} : { branch }),
+      ...(base === undefined ? {} : { base }),
+    };
+    return { record: createRecord(deps, { ...session, after: waited.id, pending }) };
+  }
   const worktree =
     input.branch === undefined
       ? undefined
       : await worktreeFor(deps, entry, input.branch, input.base);
-  // Before the agent starts, so it finds its skills where it runs; a failure warns, never fails.
-  const folder = worktree?.path ?? entry.path;
-  let warning: string | undefined;
-  try {
-    deps.syncSkills(entry.name, folder);
-  } catch (error) {
-    warning = `skills not synced into ${folder}: ${toFail(error).error.message}`;
-  }
+  const warning = syncSkillsInto(deps, entry.name, worktree?.path ?? entry.path);
   try {
     const record = await launchSession(deps, {
-      project: entry,
-      agent,
+      ...session,
+      ...(waited ? { after: waited.id } : {}),
       agentSessionId,
       command,
-      goal: input.goal,
-      parent,
       worktree,
     });
     return { record, ...(warning ? { warning } : {}) };
@@ -117,8 +123,32 @@ export async function openSession(
   }
 }
 
+/** The session `id` a new one waits on; not_found when there is none. */
+function waitedOn(deps: Pick<OpenDeps, 'store'>, id: string) {
+  const found = deps.store.find(id);
+  if (!found) throw new MesaError('not_found', `no session ${id} to wait on; see mesa sessions`);
+  return found;
+}
+
+/**
+ * Links the project's enabled skills into `folder` before its agent starts there, so it finds
+ * them; a failure is the warning returned, never an error.
+ */
+export function syncSkillsInto(
+  deps: Pick<OpenDeps, 'syncSkills'>,
+  project: string,
+  folder: string,
+) {
+  try {
+    deps.syncSkills(project, folder);
+    return undefined;
+  } catch (error) {
+    return `skills not synced into ${folder}: ${toFail(error).error.message}`;
+  }
+}
+
 /** A new worktree on `branch`, unless a session has the worktree there. */
-function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
+export function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
   const root = join(deps.profile.paths.worktrees, entry.name);
   const path = worktreePath(root, branch);
   const holder = worktreeHolder(deps.store, path);

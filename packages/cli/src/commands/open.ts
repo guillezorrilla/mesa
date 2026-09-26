@@ -22,6 +22,11 @@ export const open = defineCommand({
       description: 'The session this one is started from; default: the Mesa window this runs in',
     },
     'no-parent': { type: 'boolean', description: 'Start it with no parent, even inside a session' },
+    after: {
+      type: 'string',
+      description:
+        'Queue it until this session is over, then start it; its parent by default. At once if it is over',
+    },
     branch: {
       type: 'string',
       description:
@@ -42,6 +47,7 @@ export const open = defineCommand({
       goalFile: flags['goal-file'],
       parent: flags.parent,
       noParent: flags['no-parent'],
+      after: flags.after,
       branch: flags.branch,
       base: flags.base,
     });
