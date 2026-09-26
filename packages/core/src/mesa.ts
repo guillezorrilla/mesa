@@ -170,15 +170,23 @@ export function createMesa(profile: string, deps: MesaDeps) {
     env: deps.env,
   });
   /**
-   * Both the stored key values and what their env: references resolve to; none before init. A
-   * config that does not read throws, so nothing is written with a key it would have hidden.
+   * Both the stored key values and what their env: references resolve to. None when the config
+   * does not read: receipts and the adapter, the writes that use these, need that config to run.
    */
   const secrets = () => {
-    if (!existsSync(paths.config)) return [];
-    const { config } = open();
-    return Object.keys(config.keys)
-      .flatMap((n) => [config.keys[n], resolveKey(config, n, deps.env)])
+    const config = configIfAny();
+    const names = Object.keys(config?.keys ?? {});
+    return names
+      .flatMap((n) => [config?.keys[n], config && resolveKey(config, n, deps.env)])
       .filter((s): s is string => typeof s === 'string');
+  };
+  /**
+   * secrets(), for a write that needs no config (a hook's log): a config that does not read
+   * refuses the write, so no key it would have hidden is written.
+   */
+  const secretsOrRefuse = () => {
+    if (existsSync(paths.config)) open();
+    return secrets();
   };
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const board = (all = false) =>
@@ -494,7 +502,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
     /** One agent hook's payload, from `mesa hook claude` inside a Mesa session. */
     hookEvent: (agent: string, payload: string) =>
       recordHookEvent(
-        { store, eventsDir: paths.events, clock: deps.clock, home: deps.home, secrets },
+        {
+          store,
+          eventsDir: paths.events,
+          clock: deps.clock,
+          home: deps.home,
+          secrets: secretsOrRefuse,
+        },
         { agent, mesaSessionId: deps.env.MESA_SESSION_ID, payload },
       ),
     /** tmux's pane-died hook: the agent in a Mesa window exited (`mesa hook tmux pane-died`). */
