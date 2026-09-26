@@ -393,6 +393,28 @@ test('New session opens a dialog, and Open starts the picked project with the pi
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session dddddddd on lantern-cove');
 });
 
+test('New session passes a multi-line goal with --goal; an empty one passes none', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope({ ...busy, id: 'dddddddd' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('new-session')[0]);
+  const goal = byTestId('new-session-goal')[0] as HTMLTextAreaElement;
+  expect(goal.tagName).toBe('TEXTAREA');
+  goal.value = '/goal Print "ready"\nthen stop';
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--agent',
+    'claude',
+    '--goal=/goal Print "ready"\nthen stop',
+    '--',
+    'lantern-cove',
+  ]);
+});
+
 test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {
   let stopped = false;
   const { bridge, calls } = fakeBridge({

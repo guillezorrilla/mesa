@@ -1,8 +1,9 @@
+import { readFileSync, statSync } from 'node:fs';
 import { AGENT_NAMES, AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
 import { checkAgent } from '../doctor.js';
 import type { IdSource } from '../ids.js';
-import type { Runner } from '../process.js';
+import { type Runner, shellWord } from '../process.js';
 import type { Profile } from '../profile.js';
 import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
@@ -22,14 +23,47 @@ export type OpenDeps = {
   newUuid: IdSource;
 };
 
+// ponytail: a tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
+// "command too long"), so the quoted goal gets most of it. Past that, type the goal in with
+// send-keys after the start.
+const MAX_GOAL_BYTES = 12_000;
+
 /**
- * Starts an agent for a registered project in a new window of the project's tmux session. The
- * record is written first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and
- * removed again if the window cannot open.
+ * The goal from `--goal` or `--goal-file` (an absolute path), checked so claude takes it whole as
+ * its first prompt. Undefined without either.
+ */
+export function readGoal(input: { goal?: string; goalFile?: string }): string | undefined {
+  if (input.goal !== undefined && input.goalFile !== undefined) {
+    throw new MesaError('usage', 'pass --goal or --goal-file, not both');
+  }
+  const file = input.goalFile;
+  if (file !== undefined && !statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    throw new MesaError('not_found', `no goal file at ${file}`);
+  }
+  const goal = file === undefined ? input.goal : readFileSync(file, 'utf8');
+  if (goal === undefined) return undefined;
+  if (!goal.trim()) throw new MesaError('usage', 'the goal is empty');
+  if (goal.startsWith('-')) {
+    throw new MesaError('usage', 'a goal cannot start with -: claude would read it as a flag');
+  }
+  const bytes = Buffer.byteLength(shellWord(goal));
+  if (bytes > MAX_GOAL_BYTES) {
+    throw new MesaError(
+      'usage',
+      `the goal is ${bytes} bytes quoted, over the ${MAX_GOAL_BYTES} a tmux command holds: put it in a file and make the goal point to that file`,
+    );
+  }
+  return goal;
+}
+
+/**
+ * Starts an agent for a registered project in a new window of the project's tmux session, with
+ * `goal` (from readGoal) as its first prompt. The record is written first, with the agent session
+ * id Mesa chose (docs/spikes/session-ids.md), and removed again if the window cannot open.
  */
 export async function openSession(
   deps: OpenDeps,
-  input: { project: string; agent?: string },
+  input: { project: string; agent?: string; goal?: string },
 ): Promise<SessionRecord> {
   const entry = findProject(deps.profile, input.project);
   // Read even when --agent is given: a folder that is gone is not_found, never a claude in $HOME.
@@ -51,7 +85,8 @@ export async function openSession(
     project: entry,
     agent,
     agentSessionId,
-    command: spec.start(agentSessionId),
+    command: spec.start(agentSessionId, input.goal),
+    goal: input.goal,
   });
 }
 
@@ -94,7 +129,9 @@ export async function resumeSession(
     project: findProject(deps.profile, old.project),
     agent: old.agent,
     agentSessionId: old.agentSessionId,
+    // The same conversation, so the same goal; it is not typed in again.
     command: spec.resume(old.agentSessionId),
+    goal: old.goal,
     resumedFrom: old.id,
   });
   const from = deps.store.update(old.id, {
@@ -112,6 +149,7 @@ async function startWindow(
     agent: Agent;
     agentSessionId: string;
     command: string;
+    goal?: string;
     resumedFrom?: string;
   },
 ): Promise<SessionRecord> {
@@ -121,6 +159,7 @@ async function startWindow(
     project: s.project.name,
     agent: s.agent,
     agentSessionId: s.agentSessionId,
+    ...(s.goal === undefined ? {} : { goal: s.goal }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,

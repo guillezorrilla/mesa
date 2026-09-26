@@ -1,6 +1,8 @@
-import { rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
+import { AGENTS } from '../agents.js';
 import { execRunner, type Runner } from '../process.js';
 import { scriptedRunner, tempDir } from '../testing.js';
 import { tmuxBackend, type WindowTarget } from './tmux.js';
@@ -128,6 +130,18 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     const target = lantern('claude-tail01');
     await open(target, `sh -c 'printf "one\\ntwo\\nthree\\n"; exec cat'`);
     expect(await eventually(() => tmux.capturePane(target, 2), /three/)).toBe('two\nthree');
+  });
+
+  test('a goal reaches the agent byte for byte: $HOME, backticks, both quotes, a newline', async () => {
+    const goal = `Say "hi" to $HOME and \`whoami\`, it's done\nthen stop`;
+    const out = join(cwd, 'goal.out');
+    // The command open runs, with printf standing in for claude.
+    const command = AGENTS.claude
+      .start('uuid', goal)
+      .replace('claude --session-id uuid', 'printf %s');
+    await open(lantern('claude-goal01'), `${command} > ${out}`);
+    const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
+    expect(await eventually(written, /stop$/)).toBe(goal);
   });
 
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {

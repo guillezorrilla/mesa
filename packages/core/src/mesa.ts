@@ -31,7 +31,7 @@ import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession, resizeSession } from './sessions/attach.js';
 import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
 import { listSessions } from './sessions/list.js';
-import { openSession, resumeSession } from './sessions/open.js';
+import { openSession, readGoal, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
 import type { SessionRecord } from './sessions/store.js';
@@ -257,25 +257,58 @@ export function createMesa(profile: string, deps: MesaDeps) {
           },
           { all },
         ),
-      /** Starts `agent` (else the project's, else the profile's) in a new window. */
-      open: (project: string, agent?: string) =>
-        record(
+      /**
+       * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
+       * as its first prompt. A goal it could not take is refused first, like a bad flag, with no
+       * receipt; the receipt keeps the goal's first 80 characters, in its command line too.
+       */
+      open: async (
+        project: string,
+        opts: { agent?: string; goal?: string; goalFile?: string } = {},
+      ) => {
+        const { agent } = opts;
+        const goal = readGoal({
+          goal: opts.goal,
+          goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
+        });
+        const short = goal === undefined ? undefined : Array.from(goal).slice(0, 80).join('');
+        const shortened =
+          short === undefined
+            ? {}
+            : {
+                argv: deps.argv.map((word) =>
+                  word === goal ? short : word === `--goal=${goal}` ? `--goal=${short}` : word,
+                ),
+              };
+        return record(
           {
             type: 'session',
+            ...shortened,
             summary: (r) => `Opened session ${r.id} on ${r.project}`,
             failure: `Could not open a session on ${project}`,
             project: (r) => r.project,
             session: (r) => r.id,
             agent: (r) => r.agent,
-            inputs: { project, agent: agent ?? null },
+            inputs: {
+              project,
+              agent: agent ?? null,
+              ...(short === undefined ? {} : { goal: redactText(short, secrets()) }),
+            },
             outputs: (r) => ({
               window: r.tmux.window,
               agentSessionId: r.agentSessionId,
               lastState: r.lastState,
             }),
           },
-          () => openSession(openDeps(), { project, agent }),
-        ),
+          () => openSession(openDeps(), { project, agent, goal }),
+        );
+      },
+      /** A session's goal, or not_found when it was started without one. */
+      goal: (id: string) => {
+        const { goal } = store.get(id);
+        if (goal === undefined) throw new MesaError('not_found', `session ${id} has no goal`);
+        return { id, goal };
+      },
       /**
        * Ends a session politely, or at once with `force`. The stop gets a session receipt of its
        * own (none when it changed nothing), and the session's opening receipt is marked ended.

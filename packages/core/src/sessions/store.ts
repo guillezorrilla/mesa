@@ -37,6 +37,8 @@ const SessionRecordSchema = z.strictObject({
   agent: AgentSchema,
   /** Claude Code's session UUID. */
   agentSessionId: z.string().optional(),
+  /** The first prompt the agent was started with (CONTEXT.md, Goal). */
+  goal: z.string().optional(),
   tmux: z.strictObject({ socket: z.string(), session: z.string(), window: z.string() }),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),

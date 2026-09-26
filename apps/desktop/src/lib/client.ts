@@ -68,8 +68,15 @@ export const COMMANDS = {
     '--',
     id,
   ]),
-  'sessions.open': commandWith<{ project: string; agent?: Agent }, SessionRecord>(
-    ({ project, agent }) => ['open', ...(agent ? ['--agent', agent] : []), '--', project],
+  // `--goal=` keeps a goal that starts with `-` from reading as a flag.
+  'sessions.open': commandWith<{ project: string; agent?: Agent; goal?: string }, SessionRecord>(
+    ({ project, agent, goal }) => [
+      'open',
+      ...(agent ? ['--agent', agent] : []),
+      ...(goal ? [`--goal=${goal}`] : []),
+      '--',
+      project,
+    ],
   ),
   'sessions.all': command<SessionRow[]>('sessions', '--all'),
   'vault.open': command<Opened>('vault', 'open'),
