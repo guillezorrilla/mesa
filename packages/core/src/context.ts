@@ -31,6 +31,8 @@ export type MesaDeps = {
   obsidian: ObsidianPaths;
   /** This invocation's arguments, recorded (key values redacted) in every receipt. */
   argv: readonly string[];
+  /** The skill library Mesa ships, the repo's `skills/` (CONTEXT.md, Skill). */
+  skillsDir: string;
 };
 
 /**

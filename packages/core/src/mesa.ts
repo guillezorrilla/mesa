@@ -7,6 +7,7 @@ import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { receiptsService } from './receipts/service.js';
 import { sessionsService } from './sessions/service.js';
+import { skillsService } from './skills/service.js';
 import { vaultService } from './vault/service.js';
 
 export type { MesaDeps } from './context.js';
@@ -26,6 +27,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     receipts: receiptsService(ctx),
     ...sessionsService(ctx, faro),
     hooks: hooksService(ctx),
+    skills: skillsService(ctx),
     decide: faro.decide,
     doctor: () =>
       runDoctor({

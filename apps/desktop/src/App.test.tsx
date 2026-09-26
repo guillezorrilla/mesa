@@ -71,7 +71,7 @@ test('the Projects screen lists the fixture projects, marking one whose path is 
     '/src/lantern-cove',
     'claude',
     '0.5',
-    'Open session',
+    'Sync skillsOpen session',
   ]);
   // A project whose path is gone cannot start a session.
   expect(cells(rows[1])).toEqual(['tide ✗', '/src/tide', '', '', '']);
@@ -94,6 +94,42 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
   expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault (missing receipts)');
   expect(byTestId('doctor-health')[0]?.textContent).toBe('Doctor: needs attention');
   expect(byTestId('doctor-health')[0]?.dataset.health).toBe('unhealthy');
+});
+
+test("Sync skills links the project's enabled skills and says what changed", async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'skills list': () =>
+      envelope([
+        {
+          name: 'session-summary',
+          source: 'mesa',
+          enabled: true,
+          description: 'Summarises a session',
+        },
+      ]),
+    'skills sync': () =>
+      envelope({
+        added: ['.claude/skills/session-summary', '.agents/skills/session-summary'],
+        removed: [],
+        kept: [],
+        conflicts: ['.claude/skills/grill-me'],
+        unknown: [],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-projects')[0]);
+  // Only a project whose folder exists can take skills.
+  expect(byTestId('sync-skills')).toHaveLength(1);
+  // The library, with what this profile enables.
+  expect(byTestId('skill-row').map((r) => r.textContent)).toEqual([
+    'enabledsession-summarySummarises a session',
+  ]);
+  await click(byTestId('sync-skills')[0]);
+  expect(calls).toContainEqual(['--json', 'skills', 'sync', '--', 'lantern-cove']);
+  expect(byTestId('toast')[0]?.textContent).toContain(
+    "Synced skills into lantern-cove: 2 added, 0 removed; 1 of the project's own left alone",
+  );
 });
 
 test('Open session starts a session for the row and says so', async () => {
