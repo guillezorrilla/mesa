@@ -484,7 +484,7 @@ test('Send on Enter, Open terminal, then Stop and Resume on the same row, each s
   expect(byTestId('session-resume')[0]?.hasAttribute('disabled')).toBe(false);
   await click(byTestId('session-resume')[0]);
   expect(calls.filter((c) => ['send', 'stop', 'resume', 'attach'].includes(c[1] ?? ''))).toEqual([
-    ['--json', 'send', '--', 'aaaaaaaa', 'hello'],
+    ['--json', 'send', '--no-from', '--', 'aaaaaaaa', 'hello'],
     ['--json', 'attach', '--app', '--', 'aaaaaaaa'],
     ['--json', 'stop', '--', 'aaaaaaaa'],
     ['--json', 'resume', '--', 'aaaaaaaa'],
@@ -766,4 +766,54 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
   // Opening the parent again keeps the child collapsed.
   await click(top);
   expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', '▸ 1 cccccccc']);
+});
+
+test("a session's received prompts list each one with its sender, newest first", async () => {
+  const reply = managedRow('bbbbbbbb', {
+    events: [
+      { type: 'send', at: '2026-09-25T12:00:00.000Z', chars: 12 },
+      { type: 'send', at: '2026-09-25T12:05:00.000Z', chars: 29, from: 'aaaaaaaa' },
+      { type: 'sent', at: '2026-09-25T12:06:00.000Z', chars: 4, to: 'aaaaaaaa' },
+    ],
+  });
+  const quiet = managedRow('cccccccc');
+  const { bridge } = fakeBridge({ sessions: () => envelope([reply, quiet]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('session-received')).toHaveLength(1);
+  expect(byTestId('session-received')[0]?.querySelector('summary')?.textContent).toBe(
+    'Received (2)',
+  );
+  const prompts = byTestId('received-prompt').map((m) => m.textContent ?? '');
+  expect(prompts[0]).toMatch(/^from session aaaaaaaa, 29 characters, /);
+  // A prompt from another day shows its date too.
+  expect(prompts[1]).toMatch(/^from a person, 12 characters, .*\d{4}/);
+});
+
+test('a prompt received today shows its time alone', async () => {
+  const today = managedRow('bbbbbbbb', {
+    events: [{ type: 'send', at: new Date().toISOString(), chars: 5 }],
+  });
+  const { bridge } = fakeBridge({ sessions: () => envelope([today]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [prompt] = byTestId('received-prompt');
+  expect(prompt?.textContent).toMatch(/^from a person, 5 characters, \S+/);
+  expect(prompt?.textContent).not.toMatch(/\d{4}/);
+});
+
+test('a send typed with a warning says so in the toast, so it is not sent again', async () => {
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    send: () =>
+      envelope({
+        sent: true,
+        session: 'aaaaaaaa',
+        from: null,
+        chars: 5,
+        warning: 'the prompt was typed, but no send event on aaaaaaaa (x); do not send it again',
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  (byTestId('session-prompt')[0] as HTMLInputElement).value = 'hello';
+  await click(byTestId('session-send-submit')[0]);
+  expect(byTestId('toast')[0]?.textContent).toContain('do not send it again');
 });

@@ -8,8 +8,8 @@ import type { Profile } from '../profile.js';
 import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
 import type { RegistryEntry } from '../registry.js';
-import { MesaError } from '../result.js';
-import { ending, type SessionRecord, type SessionStore, windowOf } from './store.js';
+import { MesaError, toFail } from '../result.js';
+import { ending, type SessionRecord, type SessionStore, windowOf, windowSession } from './store.js';
 import type { TmuxBackend } from './tmux.js';
 
 export type OpenDeps = {
@@ -27,9 +27,7 @@ export type OpenDeps = {
 
 /**
  * The parent a new session gets: `parent` when given (not_found if it is not a session here),
- * none with `noParent`, else the session whose window this runs in: MESA_SESSION_ID, when its
- * record is here. A window of another profile (MESA_PROFILE names it), or of a removed session,
- * gives none.
+ * none with `noParent`, else the session whose window this runs in (windowSession).
  */
 function parentOf(
   deps: Pick<OpenDeps, 'store' | 'env' | 'profileName'>,
@@ -38,17 +36,8 @@ function parentOf(
   if (input.noParent && input.parent !== undefined) {
     throw new MesaError('usage', 'pass --parent or --no-parent, not both');
   }
-  const exists = (id: string) => {
-    try {
-      deps.store.get(id);
-      return true;
-    } catch (error) {
-      if (error instanceof MesaError && error.code === 'not_found') return false;
-      throw error;
-    }
-  };
   if (input.parent !== undefined) {
-    if (!exists(input.parent)) {
+    if (!deps.store.find(input.parent)) {
       throw new MesaError(
         'not_found',
         `no session ${input.parent} to be the parent; see mesa sessions, or pass --no-parent`,
@@ -56,10 +45,7 @@ function parentOf(
     }
     return input.parent;
   }
-  const own = deps.env.MESA_SESSION_ID;
-  const windowProfile = deps.env.MESA_PROFILE ?? deps.profileName;
-  if (input.noParent || !own || windowProfile !== deps.profileName) return undefined;
-  return exists(own) ? own : undefined;
+  return input.noParent ? undefined : windowSession(deps)?.id;
 }
 
 // ponytail: one tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
@@ -161,7 +147,7 @@ export async function openSession(
 export async function resumeSession(
   deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow' | 'killWindow'> },
   id: string,
-): Promise<{ record: SessionRecord; from: SessionRecord }> {
+): Promise<{ record: SessionRecord; from: SessionRecord; warning?: string }> {
   const old = deps.store.get(id);
   if (!old.agentSessionId) {
     throw new MesaError(
@@ -169,10 +155,12 @@ export async function resumeSession(
       `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project}`,
     );
   }
-  if (old.resumedBy) {
+  // Its record says so, or, when writing that failed, the record resuming it does.
+  const resumedBy = old.resumedBy ?? deps.store.list().find((r) => r.resumedFrom === id)?.id;
+  if (resumedBy) {
     throw new MesaError(
       'usage',
-      `session ${id} was already resumed as ${old.resumedBy}; mesa resume ${old.resumedBy}`,
+      `session ${id} was already resumed as ${resumedBy}; mesa resume ${resumedBy}`,
     );
   }
   const spec = AGENTS[old.agent];
@@ -199,11 +187,19 @@ export async function resumeSession(
     parent: old.parent,
     resumedFrom: old.id,
   });
-  const from = deps.store.update(old.id, {
-    resumedBy: record.id,
-    ...ending(old, deps.clock().toISOString()),
-  });
-  return { record, from };
+  // The new session runs now, so marking the old one is best effort: a failure is a warning,
+  // never a failed resume that a retry would open twice.
+  const at = deps.clock().toISOString();
+  try {
+    const from = deps.store.update(old.id, (current) => ({
+      resumedBy: record.id,
+      ...ending(current, at),
+    }));
+    return { record, from };
+  } catch (error) {
+    const why = toFail(error).error.message;
+    return { record, from: old, warning: `session ${id} not marked resumed: ${why}` };
+  }
 }
 
 /** Writes the record, then opens its window; a window that cannot open removes the record again. */

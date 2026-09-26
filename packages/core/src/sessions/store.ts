@@ -1,10 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents.js';
 import { writeFileAtomic } from '../atomic-file.js';
 import type { IdSource } from '../ids.js';
+import type { Env } from '../process.js';
 import { MesaError } from '../result.js';
+import { tryLock, unlock } from '../vault-lock.js';
 import { parseWith } from '../yaml-file.js';
 import type { WindowTarget } from './tmux.js';
 
@@ -57,8 +60,24 @@ const SessionRecordSchema = z.strictObject({
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
-  // ponytail: the hooks stream events to sessions/events/ (#22); nothing reads this list yet.
-  events: z.array(z.unknown()),
+  /** What Mesa did to the session: prompts sent to it, and by it (the hooks log to sessions/events/). */
+  events: z.array(
+    z.discriminatedUnion('type', [
+      z.strictObject({
+        type: z.literal('send'),
+        at: z.iso.datetime(),
+        chars: z.number(),
+        /** The session that sent it (mesa send --from). */
+        from: z.string().regex(SHORT_ID).optional(),
+      }),
+      z.strictObject({
+        type: z.literal('sent'),
+        at: z.iso.datetime(),
+        chars: z.number(),
+        to: z.string().regex(SHORT_ID),
+      }),
+    ]),
+  ),
   resumedFrom: z.string().optional(),
   resumedBy: z.string().optional(),
 });
@@ -90,6 +109,28 @@ export const windowOf = (r: SessionRecord): WindowTarget => ({
   project: r.tmux.session,
   window: r.tmux.window,
 });
+
+/**
+ * The Mesa session whose window this runs in: MESA_SESSION_ID, when its record is here. A window
+ * of another profile (MESA_PROFILE names it), or of a removed session, gives none.
+ */
+export function windowSession(deps: {
+  store: SessionStore;
+  env: Env;
+  profileName: string;
+}): SessionRecord | undefined {
+  const own = deps.env.MESA_SESSION_ID;
+  const windowProfile = deps.env.MESA_PROFILE ?? deps.profileName;
+  if (!own || windowProfile !== deps.profileName) return undefined;
+  return deps.store.find(own);
+}
+
+type Patch = Partial<Omit<SessionRecord, 'id'>>;
+
+// About 2 s of 5 ms waits for a record's lock.
+const LOCK_TRIES = 400;
+const LOCK_PAUSE_MS = 5;
+const PAUSE = new Int32Array(new SharedArrayBuffer(4));
 
 /** The ULID's last 8 characters are random: 40 bits, and short enough to type. */
 const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();
@@ -125,6 +166,32 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
     if (!existsSync(fileOf(id))) throw new MesaError('not_found', `no session ${id}`);
     return read(id);
   };
+  /**
+   * Runs `fn` holding the record's lock (`<id>.lock` beside it), so read-modify-write updates of
+   * one record serialise across processes: a send from two sessions at once keeps both events.
+   * ponytail: waits synchronously, blocking the event loop up to about 2 s under contention; the
+   * section it guards is one read and one rename, so waits are short. No stale takeover, as for
+   * the vault lock.
+   */
+  const locked = <T>(id: string, fn: () => T, tries = LOCK_TRIES): T => {
+    const lock = fileOf(id).replace(/\.json$/, '.lock');
+    const token = randomUUID();
+    for (let attempt = 0; !tryLock(lock, token); attempt++) {
+      if (attempt >= tries) {
+        throw new MesaError(
+          'locked',
+          `session ${id} is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
+          { reason: 'session' },
+        );
+      }
+      Atomics.wait(PAUSE, 0, 0, LOCK_PAUSE_MS);
+    }
+    try {
+      return fn();
+    } finally {
+      unlock(lock, token);
+    }
+  };
 
   return {
     /** A new record with a fresh id, which `build` may use (the window is named after it). */
@@ -135,9 +202,34 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
       return write({ ...build(id), id, events: [] });
     },
     get,
-    // ponytail: read-modify-write without a lock; add one when hooks (#22) update records too.
-    update: (id: string, patch: Partial<Omit<SessionRecord, 'id'>>) =>
-      write({ ...get(id), ...patch, id }),
+    /** The record, or undefined when this profile has none (removed, foreign, or not an id). */
+    find: (id: string): SessionRecord | undefined => {
+      try {
+        return get(id);
+      } catch (error) {
+        if (error instanceof MesaError && error.code === 'not_found') return undefined;
+        throw error;
+      }
+    },
+    /**
+     * Merges `patch` into the record under its lock; a function gets the record as it is now,
+     * for a change that depends on it (appending an event). With `wait: false` a held lock is
+     * refused at once, for a write that can wait for the next look.
+     */
+    update: (
+      id: string,
+      patch: Patch | ((current: SessionRecord) => Patch),
+      { wait = true } = {},
+    ) =>
+      locked(
+        id,
+        () => {
+          const current = get(id);
+          const change = typeof patch === 'function' ? patch(current) : patch;
+          return write({ ...current, ...change, id });
+        },
+        wait ? LOCK_TRIES : 0,
+      ),
     /** Every record, oldest first. */
     list: (): SessionRecord[] => {
       if (!existsSync(dir)) return [];
@@ -148,10 +240,12 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
         })
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     },
-    remove: (id: string) => {
-      get(id);
-      rmSync(fileOf(id));
-    },
+    /** Under the lock, so an update that waited for it cannot write the record back. */
+    remove: (id: string) =>
+      locked(id, () => {
+        get(id);
+        rmSync(fileOf(id));
+      }),
   };
 }
 

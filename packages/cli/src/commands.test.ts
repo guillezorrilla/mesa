@@ -759,7 +759,7 @@ test('mesa help --agent lists every registered command; --json has one entry eac
   for (const c of data) expect(markdown).toContain(`\n### \`${c.usage}\`\n`);
   expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
     name: 'send',
-    usage: 'mesa send <session> <prompt> [--force]',
+    usage: 'mesa send <session> <prompt> [--force] [--from <string>] [--no-from]',
     description: "Type a prompt into a session's agent, then Enter",
     args: [
       { name: 'session', required: true },
@@ -771,6 +771,19 @@ test('mesa help --agent lists every registered command; --json has one entry eac
         type: 'boolean',
         required: false,
         description: 'Send even when the pane runs a shell, not the agent',
+      },
+      {
+        name: 'from',
+        type: 'string',
+        required: false,
+        description:
+          'The session it is from, named in a header with how to reply; default: the Mesa window this runs in',
+      },
+      {
+        name: 'no-from',
+        type: 'boolean',
+        required: false,
+        description: 'Send it as a person, even inside a Mesa window',
       },
     ],
     example: 'mesa send a1b2c3d4 "run the tests, then summarise the failures"',
@@ -851,4 +864,51 @@ test('open inside a session makes a child; sessions --tree indents it; --json na
   expect(links).toEqual({ [a]: [null, [child.id]], [child.id]: [a, []], [loose.id]: [null, []] });
   const treeRows = (await mesa('sessions', '--tree', '--json')).json.data;
   expect(treeRows.map((r: { depth: number }) => r.depth).sort()).toEqual([0, 0, 1]);
+});
+
+test('send --from, or from inside a window, adds the sender; --json prints {sent, session, from, chars}', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const a = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  const b = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  const sent = await mesa('send', b, 'Reply with pong', '--from', a, '--json');
+  expect(sent.json.data).toMatchObject({ sent: true, session: b, from: a, chars: 15 });
+  expect(world.windows.find((w) => w.window === `claude-${b}`)?.typed.at(-1)).toBe(
+    `[mesa] from session ${a} (lantern-cove). Reply with: mesa send ${a} "<reply>"\nReply with pong`,
+  );
+
+  env = { MESA_SESSION_ID: b, MESA_PROFILE: 'default' };
+  expect((await mesa('send', a, 'pong')).stdout.split('\n')[0]).toBe(
+    `sent 4 characters to ${a} from ${b}`,
+  );
+  expect(await mesa('send', b, 'to myself')).toMatchObject({
+    code: 2,
+    stderr: `session ${b} cannot send to itself\n`,
+  });
+  // As a person, from inside the window: no header, and its own session takes it.
+  expect((await mesa('send', b, 'from me', '--no-from', '--json')).json.data.from).toBeNull();
+  expect(await mesa('send', a, 'hi', '--from', 'zzzzzzzz')).toMatchObject({
+    code: 3,
+    stderr: 'no session zzzzzzzz to send from; see mesa sessions\n',
+  });
+});
+
+test('a send typed with a warning keeps it beside a receipt warning in --json', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  // No vault layout, so every receipt warns too.
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const b = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  writeFileSync(join(home, `.mesa/default/sessions/${b}.lock`), 'a killed mesa');
+  const sent = await mesa('send', b, 'hello', '--json');
+  expect(sent.code).toBe(0);
+  expect(sent.json.data.warning).toMatch(
+    /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
+  );
+  rmSync(join(home, `.mesa/default/sessions/${b}.lock`));
 });

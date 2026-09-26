@@ -47,7 +47,8 @@ export async function stopSession(
     // A pane that exited stays, dead, under remain-on-exit; the window goes either way.
     if (last) await killIfThere(deps, target);
   }
-  const record = deps.store.update(id, ending(found, deps.clock().toISOString()));
+  const at = deps.clock().toISOString();
+  const record = deps.store.update(id, (current) => ending(current, at));
   return { record, outcome };
 }
 

@@ -52,7 +52,9 @@ export const COMMANDS = {
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
   'sessions.send': commandWith<{ id: string; prompt: string }, Omit<Sent, 'project'>>(
-    ({ id, prompt }) => ['send', '--', id, prompt],
+    // `--no-from`: a person typing here is not a session sending, even when the app itself was
+    // started inside a Mesa window.
+    ({ id, prompt }) => ['send', '--no-from', '--', id, prompt],
   ),
   'sessions.stop': commandWith<{ id: string }, SessionRecord & { outcome: StopOutcome }>(
     ({ id }) => ['stop', '--', id],
