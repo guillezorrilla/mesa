@@ -83,7 +83,8 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
   expect(healthy('profile-summary')[0]?.textContent).toBe(
     'Profile: default | Vault: /h/vault Open in Obsidian | Doctor: ok',
   );
-  expect(healthy('doctor-health')[0]?.style.color).toBe('green');
+  // The verdict's colour comes from its data-health (theme tokens), not an inline style.
+  expect(healthy('doctor-health')[0]?.dataset.health).toBe('healthy');
 
   const sick = fakeBridge({
     doctor: () => envelope(report([{ name: 'tmux', ok: false, status: 'fail', hint: '' }])),
@@ -92,7 +93,7 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
   const byTestId = await renderWithMesa(<App />, sick.bridge);
   expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault (missing receipts)');
   expect(byTestId('doctor-health')[0]?.textContent).toBe('Doctor: needs attention');
-  expect(byTestId('doctor-health')[0]?.style.color).toBe('red');
+  expect(byTestId('doctor-health')[0]?.dataset.health).toBe('unhealthy');
 });
 
 test('Open session starts a session for the row and says so', async () => {
@@ -259,16 +260,17 @@ test('the Board is the first screen: every session by attention, with its state,
     ['ffffffff', 'lantern-cove', 'claude', 'done 85%', '0.24', '42s', 'Bye!'],
     ['bbbbbbbb', 'lantern-cove', 'claude', 'working 95%', '0.08', '2h05m', ''],
   ]);
-  expect(byTestId('session-state').map((b) => b.className)).toEqual([
-    'badge state-waiting-permission',
-    'badge state-idle',
-    'badge state-done',
-    'badge state-done',
-    'badge state-working',
+  // StateBadge colours by its data-state.
+  expect(byTestId('session-state').map((b) => b.dataset.state)).toEqual([
+    'waiting-permission',
+    'idle',
+    'done',
+    'done',
+    'working',
   ]);
   expect(byTestId('session-state')[0]?.title).toBe('decided by rules');
   const [, foreign] = byTestId('session-row');
-  expect(foreign?.className).toBe('muted');
+  expect(foreign?.dataset.managed).toBe('false');
   expect(foreign?.textContent).toContain('not managed');
   // Its one action is Adopt.
   expect([...(foreign?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toEqual([
@@ -390,14 +392,15 @@ test('New session opens a dialog, and Open starts the picked project with the pi
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('new-session')[0]);
   const dialog = byTestId('new-session-dialog')[0];
-  expect(dialog?.hasAttribute('open')).toBe(true);
+  // A Radix dialog: open is its data-state, not the native open attribute.
+  expect(dialog?.dataset.state).toBe('open');
   const options = [...(byTestId('new-session-project')[0] as HTMLSelectElement).options];
   expect(options.map((o) => [o.value, o.disabled])).toEqual([
     ['lantern-cove', false],
     // Its folder is gone: it cannot start a session.
     ['tide', true],
   ]);
-  const codex = dialog?.querySelector<HTMLInputElement>('input[value="codex"]');
+  const codex = dialog?.querySelector<HTMLButtonElement>('[role="radio"][value="codex"]');
   expect(codex?.disabled).toBe(true);
   await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([

@@ -14,7 +14,8 @@
     "noEmit": true,
     "types": ["node", "vite/client"],
     "paths": {
-      "@mesa/core": ["../../packages/core/src/index.ts"]
+      "@mesa/core": ["../../packages/core/src/index.ts"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "vite.config.ts"]

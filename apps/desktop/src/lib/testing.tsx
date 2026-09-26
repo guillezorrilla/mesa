@@ -118,7 +118,8 @@ export async function renderWithMesa(ui: ReactNode, bridge: Bridge, platform = f
       </MesaRoot>,
     ),
   );
-  return (id: string) => [...root.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)];
+  // The whole document: a dialog renders in a portal outside the root. The body is fresh per render.
+  return (id: string) => [...document.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)];
 }
 
 export const click = (element: HTMLElement | undefined) => act(async () => element?.click());
