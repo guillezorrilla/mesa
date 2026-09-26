@@ -63,3 +63,13 @@ Issue #20: `mesa stop` presses Escape, waits 300 ms, types the agent's quit comm
 ## Amendment 2026-09-25: ignore-size does not stop size fights (#8)
 
 SP-3 measured it: an `-f ignore-size` client is skipped only while a client without the flag is attached. When the app and `mesa attach` both carry the flag, tmux sizes the window to the latest client, as `window-size latest` does. So the app sizes the window after each fit, as Xirp does: `resize-window` applies the view's size at once, then `set -w -u window-size` hands sizing back to `latest`. From then on the client used last (attached or typed in) sizes the window, which is the view in use. The #28 review measured this with two `ignore-size` clients: the unset returned the window to the latest client's size straight away. `mesa attach` keeps the flag.
+
+## Amendment 2026-09-25: a view session per terminal (#28)
+
+One tmux session per project holds every Mesa session's window. So attaching a terminal to `project:window` changes that session's current window, and every terminal attached to the project follows it. The #28 review saw two app panels both show the last window attached, with input reaching the wrong agent. Each terminal (the app's, and `mesa attach` in the user's) now makes its own view:
+
+- `new-session -t =<project> -s _view-<id>`: grouped, so it has the same windows but its own current window;
+- `set-option destroy-unattached on`: tmux removes the view when the terminal detaches;
+- `select-window -t =_view-<id>:=<window>`.
+
+Views are hidden from window listings. When a window is killed (stop, resume), a view on it moves to another window of the group, so the app closes a session's panel once the session is no longer live. `-f ignore-size` went with `attach-session`, which was of no use anyway (amendment above).

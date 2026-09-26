@@ -35,13 +35,15 @@ export async function attachSession(
     scripts: string;
     /** For PATH: an app launched by launchd may not have Homebrew's tmux on its own. */
     env: Env;
+    /** A fresh id for this terminal's view session. */
+    viewId: () => string;
   },
   id: string,
   app?: TerminalApp,
 ): Promise<{ attached: Attached; exec?: string[] }> {
   const target = windowOf(deps.store.get(id));
   if (!(await deps.tmux.windowExists(target))) throw sessionEnded();
-  const argv = deps.tmux.attachArgv(target);
+  const argv = deps.tmux.attachArgv(target, deps.viewId());
   const attached: Attached = {
     opened: true,
     target: targetLabel(target),

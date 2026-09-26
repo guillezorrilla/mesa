@@ -34,7 +34,12 @@ export function Terminal(props: { sessionId: string }) {
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    const term = new Xterm({ fontSize: 13, cursorBlink: true });
+    // Option-drag selects in xterm itself (a plain drag goes to tmux's copy mode, `mouse on`).
+    const term = new Xterm({
+      fontSize: 13,
+      cursorBlink: true,
+      macOptionClickForcesSelection: true,
+    });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(el);
@@ -64,7 +69,8 @@ export function Terminal(props: { sessionId: string }) {
       return true;
     });
     term.onData((data) => {
-      if (termId) terminal.write(termId, data);
+      // After the attach ended, a keystroke has nowhere to go.
+      if (termId) terminal.write(termId, data).catch(() => {});
     });
     (async () => {
       fit.fit();

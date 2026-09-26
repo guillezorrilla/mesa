@@ -510,11 +510,20 @@ test('open prints the session id, --json the record, and --attach hands back the
     'mesa-default',
     '-f',
     '/dev/null',
-    'attach-session',
+    // Its own view of the project's session, so other terminals keep their windows.
+    'new-session',
     '-t',
-    `=lantern-cove:=claude-${id}`,
-    '-f',
-    'ignore-size',
+    '=lantern-cove',
+    '-s',
+    expect.stringMatching(/^_view-[0-9a-z]{8}$/),
+    ';',
+    'set-option',
+    'destroy-unattached',
+    'on',
+    ';',
+    'select-window',
+    '-t',
+    expect.stringMatching(new RegExp(`^=_view-[0-9a-z]{8}:=claude-${id}$`)),
   ]);
   expect(await mesa('open', 'tide')).toMatchObject({ code: 3 });
   expect(await mesa('open', 'lantern-cove', '--agent', 'codex')).toMatchObject({
@@ -532,12 +541,18 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   );
   const here = await mesa('attach', 'aaaaaaaa', '--json');
   expect(here.json.data).toEqual({ opened: true, target: 'lantern-cove:claude-aaaaaa', app: null });
-  expect(here.exec?.slice(-4)).toEqual(['-t', '=lantern-cove:=claude-aaaaaa', '-f', 'ignore-size']);
+  expect(here.exec?.slice(-2)).toEqual([
+    '-t',
+    expect.stringMatching(/^=_view-[0-9a-z]{8}:=claude-aaaaaa$/),
+  ]);
 
   // --print: the argv the app's terminal runs, no terminal needed, nothing attached.
   tty = false;
   const printed = await mesa('attach', 'aaaaaaaa', '--print', '--json');
-  expect(printed.json.data).toEqual({ target: 'lantern-cove:claude-aaaaaa', argv: here.exec });
+  // Every terminal gets a fresh view session: the same command, its own view id.
+  expect(printed.json.data.target).toBe('lantern-cove:claude-aaaaaa');
+  expect(printed.json.data.argv.slice(0, 8)).toEqual(here.exec?.slice(0, 8));
+  expect(printed.json.data.argv[9]).not.toBe(here.exec?.[9]);
   expect(printed.exec).toBeUndefined();
   tty = true;
   // resize: the window takes the view's size, then the size goes back to tmux's own policy.

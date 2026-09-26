@@ -334,14 +334,20 @@ export function createMesa(profile: string, deps: MesaDeps) {
           },
           () => resumeSession(openDeps(), id),
         ).then((recorded) => markEnded(recorded, recorded.result.from)),
-      /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),
-      /** The session's window: the argv to run here (`exec`), or opened in `terminal.app` with `app`. */
+      /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
       attach: (id: string, app = false) =>
         attachSession(
-          { store, tmux, run: deps.run, scripts: paths.attachScripts, env: deps.env },
+          {
+            store,
+            tmux,
+            run: deps.run,
+            scripts: paths.attachScripts,
+            env: deps.env,
+            viewId: () => deps.newId().slice(-8).toLowerCase(),
+          },
           id,
           app ? open().config.terminal.app : undefined,
         ),

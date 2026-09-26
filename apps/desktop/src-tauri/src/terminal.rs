@@ -5,36 +5,42 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 
 use base64::Engine;
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, PtySize};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::bridge;
 
-/// One running terminal: its pty, the writer into it, and the attach process.
+/// What the renderer asks of a pty: applied in order by its one writer thread.
+enum Op {
+    Write(Vec<u8>),
+    Resize(u16, u16),
+}
+
+/// One running terminal: the queue into its pty, and the attach process.
 pub struct Term {
-    master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
-    child: Box<dyn Child + Send + Sync>,
+    ops: Sender<Op>,
+    child: Arc<Mutex<Box<dyn Child + Send + Sync>>>,
 }
 
 impl Term {
-    pub fn write(&mut self, data: &[u8]) -> Result<(), String> {
-        self.writer.write_all(data).map_err(|e| e.to_string())?;
-        self.writer.flush().map_err(|e| e.to_string())
+    /// Queued, never blocking: a big paste into a full pty waits in the writer thread.
+    pub fn write(&self, data: &[u8]) -> Result<(), String> {
+        self.ops.send(Op::Write(data.to_vec())).map_err(|_| "the terminal has ended".to_string())
     }
     pub fn resize(&self, cols: u16, rows: u16) -> Result<(), String> {
-        self.master
-            .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
-            .map_err(|e| e.to_string())
+        self.ops.send(Op::Resize(cols, rows)).map_err(|_| "the terminal has ended".to_string())
     }
-    /// Ends the attach process and reaps it: tmux keeps the window and its agent.
-    pub fn end(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+    /// Ends the attach process and reaps it: tmux keeps the window and its agent. The child has
+    /// its own lock, so a write stuck in the writer thread never delays this.
+    pub fn end(&self) {
+        let mut child = self.child.lock().unwrap();
+        let _ = child.kill();
+        let _ = child.wait();
     }
 }
 
@@ -58,7 +64,20 @@ pub fn spawn(
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
-    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let mut writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let master = pair.master;
+    let (ops, queue) = mpsc::channel::<Op>();
+    // The writer thread: writes and resizes in the order they were asked; it ends with the Term.
+    std::thread::spawn(move || {
+        for op in queue {
+            let _ = match op {
+                Op::Write(data) => writer.write_all(&data).and_then(|()| writer.flush()).map_err(|e| e.to_string()),
+                Op::Resize(cols, rows) => master
+                    .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
+                    .map_err(|e| e.to_string()),
+            };
+        }
+    });
     std::thread::spawn(move || {
         let mut buf = [0u8; 65536];
         loop {
@@ -73,31 +92,39 @@ pub fn spawn(
         }
         on_exit();
     });
-    Ok(Term { master: pair.master, writer, child })
+    Ok(Term { ops, child: Arc::new(Mutex::new(child)) })
 }
 
-/// Output held until the renderer listens (Tauri events are not buffered), then passed on.
+/// Output held until the renderer listens (Tauri events are not buffered), then passed on; an
+/// attach that ended before that is reported then too.
 #[derive(Default)]
 struct Gate {
     ready: bool,
+    exited: bool,
     held: Vec<u8>,
 }
 
-type Shared = Arc<Mutex<Term>>;
+type Entry = (Arc<Term>, Arc<Mutex<Gate>>);
 
-/// Every open terminal, by id; each has its own lock, so one busy terminal never stalls another.
+/// Every open terminal, by id.
 #[derive(Default)]
 pub struct Terms {
     next: AtomicU32,
-    open: Mutex<HashMap<String, (Shared, Arc<Mutex<Gate>>)>>,
+    open: Mutex<HashMap<String, Entry>>,
 }
 
 impl Terms {
-    fn get(&self, id: &str) -> Result<(Shared, Arc<Mutex<Gate>>), String> {
+    fn get(&self, id: &str) -> Result<Entry, String> {
         self.open.lock().unwrap().get(id).cloned().ok_or_else(|| "no such terminal".to_string())
     }
-    fn take(&self, id: &str) -> Option<Shared> {
+    fn take(&self, id: &str) -> Option<Arc<Term>> {
         self.open.lock().unwrap().remove(id).map(|(term, _)| term)
+    }
+    /// Forgets a terminal and reaps its attach, off the caller's thread.
+    fn finish(&self, id: &str) {
+        if let Some(term) = self.take(id) {
+            std::thread::spawn(move || term.end());
+        }
     }
 }
 
@@ -120,6 +147,8 @@ fn argv_of(envelope: &Value) -> Result<Vec<String>, String> {
         .collect()
 }
 
+const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
+
 /// Opens a terminal on `session_id`'s window. Its output is held until `term_ready`, then comes
 /// as `term://data/<id>` events (base64), and `term://exit/<id>` when the attach ends.
 #[tauri::command]
@@ -136,7 +165,7 @@ pub async fn term_open(
     let id = format!("t{}", terms.next.fetch_add(1, Ordering::Relaxed) + 1);
     let gate = Arc::new(Mutex::new(Gate::default()));
     let (data, exit) = (format!("term://data/{id}"), format!("term://exit/{id}"));
-    let (out, done, held, gone) = (app.clone(), app, gate.clone(), id.clone());
+    let (out, done, held, ended, gone) = (app.clone(), app, gate.clone(), gate.clone(), id.clone());
     let term = spawn(
         &argv,
         cols,
@@ -147,60 +176,64 @@ pub async fn term_open(
                 gate.held.extend_from_slice(chunk);
                 return true;
             }
-            out.emit(&data, base64::engine::general_purpose::STANDARD.encode(chunk)).is_ok()
+            out.emit(&data, B64.encode(chunk)).is_ok()
         },
         move || {
-            // The attach ended on its own (detached, killed): reap it and forget the terminal.
-            if let Some(term) = done.state::<Terms>().take(&gone) {
-                term.lock().unwrap().end();
+            // The attach ended on its own (detached, killed). Before term_ready, that waits for it.
+            let mut gate = ended.lock().unwrap();
+            gate.exited = true;
+            if gate.ready {
+                let _ = done.emit(&exit, ());
+                drop(gate);
+                done.state::<Terms>().finish(&gone);
             }
-            let _ = done.emit(&exit, ());
         },
     )?;
-    terms.open.lock().unwrap().insert(id.clone(), (Arc::new(Mutex::new(term)), gate));
+    terms.open.lock().unwrap().insert(id.clone(), (Arc::new(term), gate));
     Ok(id)
 }
 
-/// The renderer listens now: what the terminal printed so far goes out, then the rest as it comes.
+/// The renderer listens now: what the terminal printed so far goes out, then the rest as it
+/// comes, and an attach that already ended is reported. Off the main thread, like every command
+/// that takes a Gate.
 #[tauri::command]
-pub fn term_ready(app: AppHandle, terms: State<Terms>, term_id: String) -> Result<(), String> {
+pub async fn term_ready(app: AppHandle, terms: State<'_, Terms>, term_id: String) -> Result<(), String> {
     let (_, gate) = terms.get(&term_id)?;
-    let mut gate = gate.lock().unwrap();
-    if !gate.held.is_empty() {
-        let held = std::mem::take(&mut gate.held);
-        let _ = app.emit(&format!("term://data/{term_id}"), base64::engine::general_purpose::STANDARD.encode(held));
+    let exited = {
+        let mut gate = gate.lock().unwrap();
+        if !gate.held.is_empty() {
+            let held = std::mem::take(&mut gate.held);
+            let _ = app.emit(&format!("term://data/{term_id}"), B64.encode(held));
+        }
+        gate.ready = true;
+        gate.exited
+    };
+    if exited {
+        let _ = app.emit(&format!("term://exit/{term_id}"), ());
+        terms.finish(&term_id);
     }
-    gate.ready = true;
     Ok(())
 }
 
-// Writes and resizes run off the main thread: a big paste into a full pty blocks until the
-// agent reads, and must not freeze the window or the other terminals.
+// Writes and resizes only queue (the writer thread does the I/O), so they stay on the main
+// thread, which runs commands in the order the renderer sent them.
 #[tauri::command]
-pub async fn term_write(terms: State<'_, Terms>, term_id: String, data: String) -> Result<(), String> {
-    let (term, _) = terms.get(&term_id)?;
-    tauri::async_runtime::spawn_blocking(move || term.lock().unwrap().write(data.as_bytes()))
-        .await
-        .map_err(|e| e.to_string())?
+pub fn term_write(terms: State<Terms>, term_id: String, data: String) -> Result<(), String> {
+    terms.get(&term_id)?.0.write(data.as_bytes())
 }
 
 /// The pty's size; the window's own size is `mesa resize`, which the renderer calls after this.
 #[tauri::command]
-pub async fn term_resize(terms: State<'_, Terms>, term_id: String, cols: u16, rows: u16) -> Result<(), String> {
-    let (term, _) = terms.get(&term_id)?;
-    tauri::async_runtime::spawn_blocking(move || term.lock().unwrap().resize(cols, rows))
-        .await
-        .map_err(|e| e.to_string())?
+pub fn term_resize(terms: State<Terms>, term_id: String, cols: u16, rows: u16) -> Result<(), String> {
+    terms.get(&term_id)?.0.resize(cols, rows)
 }
 
-/// Kills the terminal's tmux client, outside every lock (portable-pty's kill waits a little);
-/// the window and its agent keep running.
+/// Kills the terminal's tmux client and reaps it, off the main thread (portable-pty's kill waits
+/// a little); the window and its agent keep running, and tmux drops the client's view session.
 #[tauri::command]
 pub async fn term_close(terms: State<'_, Terms>, term_id: String) -> Result<(), String> {
     let Some(term) = terms.take(&term_id) else { return Ok(()) };
-    tauri::async_runtime::spawn_blocking(move || term.lock().unwrap().end())
-        .await
-        .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || term.end()).await.map_err(|e| e.to_string())
 }
 
 /// Writes the macOS pasteboard: WKWebView refuses `navigator.clipboard` (SP-3), so OSC 52 copies
@@ -253,13 +286,13 @@ mod tests {
         let (exited_tx, exited) = mpsc::channel::<()>();
         // `stty size` prints rows and cols; `head -1` then echoes one typed line back.
         let argv = ["sh".to_string(), "-c".to_string(), "stty size; head -1; sleep 30".to_string()];
-        let mut term = spawn(&argv, 100, 30, move |c| tx.send(c.to_vec()).is_ok(), move || {
+        let term = spawn(&argv, 100, 30, move |c| tx.send(c.to_vec()).is_ok(), move || {
             let _ = exited_tx.send(());
         })
         .expect("spawn sh");
         let mut seen = String::new();
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        let mut wait_for = |text: &str, seen: &mut String| {
+        let wait_for = |text: &str, seen: &mut String| {
             while !seen.contains(text) && std::time::Instant::now() < deadline {
                 if let Ok(c) = rx.recv_timeout(Duration::from_millis(100)) {
                     seen.push_str(&String::from_utf8_lossy(&c));

@@ -48,6 +48,10 @@ export function BoardScreen() {
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
   const embed = (id: string) => setPanels((open) => (open.includes(id) ? open : [...open, id]));
+  // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
+  // show the view another window of the project.
+  const live = new Set((data ?? []).filter((s) => s.managed && !exited(s)).map((s) => s.id));
+  if (data && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
   const unembed = (id: string) => setPanels((open) => open.filter((p) => p !== id));
   // The running time ticks every second between looks: seconds since the rows arrived.
   const [since, setSince] = useState(() => Date.now());

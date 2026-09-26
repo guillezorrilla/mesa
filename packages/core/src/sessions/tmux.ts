@@ -49,7 +49,6 @@ const FORMAT = [
   .map((f) => `#{${f}}`)
   .join('\t');
 
-// Set on every start, before any window exists: history-limit applies only to panes made after it.
 /**
  * With `mouse on`, a drag selects in tmux's copy mode; ending it pipes the text to pbcopy, so a
  * copy reaches the pasteboard in every client, Terminal.app too (it ignores OSC 52).
@@ -66,6 +65,7 @@ const COPY_BINDINGS = ['copy-mode', 'copy-mode-vi'].flatMap((table) => [
   'pbcopy',
 ]);
 
+// Set on every start, before any window exists: history-limit applies only to panes made after it.
 const SERVER_OPTIONS = [
   // Mesa's server outlives its last window, so the options below hold for the next open.
   ['-s', 'exit-empty', 'off'],
@@ -83,6 +83,9 @@ const SERVER_OPTIONS = [
   ['-g', 'status', 'off'],
   ['-s', 'set-clipboard', 'external'],
 ];
+
+/** The name prefix of a terminal's view session (attachArgv): never a project's session. */
+const VIEW_PREFIX = '_view-';
 
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
 const nestedAgentVars = (env: Env) =>
@@ -153,7 +156,12 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       if (NOTHING_THERE.test(res.detail)) return [];
       throw new MesaError('internal', `could not list tmux windows: ${res.detail}`);
     }
-    return res.stdout.split('\n').filter(Boolean).map(parseWindow);
+    // A terminal's view session repeats its project's windows: they are listed once, as the project's.
+    return res.stdout
+      .split('\n')
+      .filter(Boolean)
+      .map(parseWindow)
+      .filter((w) => !w.project.startsWith(VIEW_PREFIX));
   };
 
   const ensureServer = async () => {
@@ -251,19 +259,31 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       return out.replace(/\n+$/, '').split('\n').slice(-lines).join('\n');
     },
     listWindows,
-    /** The argv that attaches a terminal to the window: run by the caller, in its own terminal. */
-    attachArgv: (target: WindowTarget) => [
+    /**
+     * The argv that shows the window in a terminal, run by the caller in its own terminal. Each
+     * terminal gets its own view: a session grouped with the project's (same windows, its own
+     * current window) that tmux destroys when the terminal detaches. Attaching to the project's
+     * session itself would switch every attached terminal to this window (ADR-0001 amendment).
+     */
+    attachArgv: (target: WindowTarget, view: string) => [
       'tmux',
       '-L',
       socket,
       '-f',
       '/dev/null',
-      'attach-session',
+      'new-session',
       '-t',
-      exact(target),
-      // ADR-0001: the app and a user terminal never fight over the pane size.
-      '-f',
-      'ignore-size',
+      `=${target.project}`,
+      '-s',
+      `${VIEW_PREFIX}${view}`,
+      ';',
+      'set-option',
+      'destroy-unattached',
+      'on',
+      ';',
+      'select-window',
+      '-t',
+      `=${VIEW_PREFIX}${view}:=${target.window}`,
     ],
     /** The window itself, with its pane's state; undefined when it is gone. */
     findWindow: async (target: WindowTarget) =>

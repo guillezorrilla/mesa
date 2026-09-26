@@ -11,11 +11,20 @@ const ATTACH = [
   'mesa-default',
   '-f',
   '/dev/null',
-  'attach-session',
+  // Its own view of the project's session (ids from sequentialIds), so other terminals keep theirs.
+  'new-session',
   '-t',
-  '=lantern-cove:=claude-aaaaaa',
-  '-f',
-  'ignore-size',
+  '=lantern-cove',
+  '-s',
+  expect.stringMatching(/^_view-[0-9a-z]{8}$/),
+  ';',
+  'set-option',
+  'destroy-unattached',
+  'on',
+  ';',
+  'select-window',
+  '-t',
+  expect.stringMatching(/^=_view-[0-9a-z]{8}:=claude-aaaaaa$/),
 ];
 
 /** A profile holding one session record; binaries in `failing` (tmux: no window) exit 1. */
@@ -69,9 +78,9 @@ test('--app with any terminal.app (Terminal by default) opens a one-line script 
     expect(exec).toBeUndefined();
     const script = join(home, `.mesa/default/attach/${id}.command`);
     expect(calls.at(-1)).toMatchObject({ file: 'open', args: ['-a', app, script] });
-    expect(readFileSync(script, 'utf8')).toBe(
-      // The app may start without Homebrew on PATH, so the script carries the caller's.
-      `#!/bin/sh\nexport PATH='/opt/homebrew/bin:/usr/bin'\nexec ${ATTACH.map((w) => `'${w}'`).join(' ')}\n`,
+    // The app may start without Homebrew on PATH, so the script carries the caller's.
+    expect(readFileSync(script, 'utf8')).toMatch(
+      /^#!\/bin\/sh\nexport PATH='\/opt\/homebrew\/bin:\/usr\/bin'\nexec 'tmux' '-L' 'mesa-default' '-f' '\/dev\/null' 'new-session' '-t' '=lantern-cove' '-s' '_view-[0-9a-z]{8}' ';' 'set-option' 'destroy-unattached' 'on' ';' 'select-window' '-t' '=_view-[0-9a-z]{8}:=claude-aaaaaa'\n$/,
     );
     expect(statSync(script).mode & 0o777).toBe(0o700);
   }
