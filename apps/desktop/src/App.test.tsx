@@ -724,9 +724,10 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
       source: 'hook',
     },
   });
-  const loose = managedRow('cccccccc', { attention: 0.2 });
+  const loose = managedRow('cccccccc', { attention: 0.2, children: ['eeeeeeee'] });
+  const quiet = managedRow('eeeeeeee', { attention: 0.1, parent: 'cccccccc', depth: 1 });
   const { bridge, calls } = fakeBridge({
-    sessions: () => envelope([parent, child, waiting, loose]),
+    sessions: () => envelope([parent, child, waiting, loose, quiet]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   expect(calls).toContainEqual(['--json', 'sessions', '--tree']);
@@ -736,21 +737,33 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
     ['▾ aaaaaaaa', '0'],
     ['▾ bbbbbbbb', '1'],
     ['dddddddd', '2'],
-    ['cccccccc', '0'],
+    ['▾ cccccccc', '0'],
+    ['eeeeeeee', '1'],
   ]);
 
   // Collapse the child, then the parent: each hides every row under it, and says how many.
   await click(toggles()[1]);
-  expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', 'cccccccc']);
+  expect(rows().map(([id]) => id)).toEqual([
+    '▾ aaaaaaaa',
+    '▸ 1 bbbbbbbb',
+    '▾ cccccccc',
+    'eeeeeeee',
+  ]);
+  expect(toggles()[1]?.getAttribute('aria-label')).toBe(
+    'Show the session under it, one waits on you',
+  );
   await click(toggles()[0]);
-  expect(rows().map(([id]) => id)).toEqual(['▸ 2 aaaaaaaa', 'cccccccc']);
+  expect(rows().map(([id]) => id)).toEqual(['▸ 2 aaaaaaaa', '▾ cccccccc', 'eeeeeeee']);
   const [top] = toggles();
   expect(top?.getAttribute('aria-expanded')).toBe('false');
-  expect(top?.getAttribute('aria-label')).toBe('Show the 2 sessions under it');
-  // One of the hidden rows waits on a person.
+  expect(top?.getAttribute('aria-label')).toBe('Show the 2 sessions under it, one waits on you');
   expect(top?.className).toContain('needs-you');
+  // A collapsed row with nothing waiting under it is not marked.
+  await click(toggles()[1]);
+  expect(toggles()[1]?.getAttribute('aria-label')).toBe('Show the session under it');
+  expect(toggles()[1]?.className).not.toContain('needs-you');
 
   // Opening the parent again keeps the child collapsed.
   await click(top);
-  expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', 'cccccccc']);
+  expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', '▸ 1 cccccccc']);
 });

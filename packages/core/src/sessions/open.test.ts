@@ -322,10 +322,18 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
   const inside = within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' });
   const { result: child } = await inside.sessions.open('lantern-cove');
   expect(child.parent).toBe(a.id);
+  // The window's session alone, as the issue's test plan types it, is enough.
+  const bare = await within({ MESA_SESSION_ID: a.id }).sessions.open('lantern-cove');
+  expect(bare.result.parent).toBe(a.id);
+  // The receipt says what was asked and what parent it got.
+  const receiptOf = () => listReceipts(join(home, 'vault'), 1)[0]?.receipt;
+  expect(receiptOf()).toMatchObject({ inputs: {}, outputs: { parent: a.id } });
+  expect(receiptOf()?.inputs).not.toHaveProperty('parent');
   const { result: explicit } = await inside.sessions.open('lantern-cove', { parent: child.id });
   expect(explicit.parent).toBe(child.id);
   const { result: none } = await inside.sessions.open('lantern-cove', { noParent: true });
   expect(none.parent).toBeUndefined();
+  expect(receiptOf()).toMatchObject({ inputs: { noParent: true }, outputs: { parent: null } });
   // Another profile's window, an empty id, or a removed session: no parent, and no error.
   for (const env of [
     { MESA_SESSION_ID: a.id, MESA_PROFILE: 'work' },

@@ -50,6 +50,29 @@ function shown(rows: readonly TreeRow[], collapsed: ReadonlySet<string>) {
   return out;
 }
 
+/** A row's toggle for the rows under it: how many a closed one hides, and whether one waits. */
+function Toggle(props: { below: readonly TreeRow[]; closed: boolean; onToggle: () => void }) {
+  const { below, closed } = props;
+  const waits = closed && below.some((r) => WAITING.has(r.lastState.state));
+  const count = below.length === 1 ? 'the session' : `the ${below.length} sessions`;
+  return (
+    <button
+      type="button"
+      className={`link${waits ? ' needs-you' : ''}`}
+      data-testid="session-toggle"
+      aria-expanded={!closed}
+      aria-label={
+        closed
+          ? `Show ${count} under it${waits ? ', one waits on you' : ''}`
+          : 'Hide the sessions under it'
+      }
+      onClick={props.onToggle}
+    >
+      {closed ? `▸ ${below.length}` : '▾'}
+    </button>
+  );
+}
+
 /**
  * The Session Board: every session, Mesa's and (muted, read-only) those it did not start, in
  * mesa's order (highest attention first, children under their parent, collapsible), with Faro's
@@ -104,6 +127,13 @@ export function BoardScreen() {
         const rows = await list(name);
         if (rows && wanted.current === name) {
           setData(rows);
+          // A collapsed row whose rows have all gone opens again, so a new one is not hidden.
+          const withRows = new Set(
+            rows.filter((r, i) => (rows[i + 1]?.depth ?? -1) > r.depth).map((r) => r.id),
+          );
+          setCollapsed((was) =>
+            was.size ? new Set([...was].filter((id) => withRows.has(id))) : was,
+          );
           setSince(Date.now());
         }
       } while (again.current);
@@ -215,20 +245,11 @@ export function BoardScreen() {
               <td style={{ paddingLeft: `${s.depth * 1.5}em` }}>
                 {below.length > 0 && (
                   <>
-                    <button
-                      type="button"
-                      className={`link${collapsed.has(s.id) && below.some((r) => WAITING.has(r.lastState.state)) ? ' needs-you' : ''}`}
-                      data-testid="session-toggle"
-                      aria-expanded={!collapsed.has(s.id)}
-                      aria-label={
-                        collapsed.has(s.id)
-                          ? `Show the ${below.length} sessions under it`
-                          : 'Hide the sessions under it'
-                      }
-                      onClick={() => toggle(s.id)}
-                    >
-                      {collapsed.has(s.id) ? `▸ ${below.length}` : '▾'}
-                    </button>{' '}
+                    <Toggle
+                      below={below}
+                      closed={collapsed.has(s.id)}
+                      onToggle={() => toggle(s.id)}
+                    />{' '}
                   </>
                 )}
                 {s.managed && !exited(s) ? (

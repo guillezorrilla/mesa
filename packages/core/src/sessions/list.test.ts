@@ -352,6 +352,18 @@ test('children name every record, even one stopped too long ago to be on the boa
   });
   expect(rows.map((r) => r.id)).toEqual([root.id]);
   expect(rows[0]?.managed && rows[0].children).toEqual([old.id]);
+  // Oldest first.
+  const young = store.create(() =>
+    newSession({ startedAt: '2026-09-24T11:00:00.000Z', parent: root.id }),
+  );
+  const again = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const top = again.find((r) => r.id === root.id);
+  expect(top?.managed && top.children).toEqual([old.id, young.id]);
 });
 
 test('the tree ranks siblings and branches by their highest attention; loops and resumes still place', async () => {
@@ -385,21 +397,28 @@ test('the tree ranks siblings and branches by their highest attention; loops and
     ]),
   ).toEqual(['0:quietrot', '1:childlow', '2:waitsnow', '1:childtop', '0:busyroot']);
 
-  // A loop of hand-edited records, and one that is its own parent, still show, at the top.
+  // Ties keep the board's order.
+  expect(tree([row('firstsss', 0.3), row('secondss', 0.3)])).toEqual(['0:firstsss', '0:secondss']);
+
+  // A loop of hand-edited records, and one that is its own parent, still show, at the top; a
+  // loop row with two children ranks them without looping forever.
   expect(
     tree([
       row('loopaaaa', 0.3, { parent: 'loopbbbb' }),
       row('loopbbbb', 0.2, { parent: 'loopaaaa' }),
+      row('loopkidb', 0.1, { parent: 'loopaaaa' }),
       row('selfself', 0.1, { parent: 'selfself' }),
     ]),
     // Its own parent counts as none; a loop has no top, so it follows the rows that do.
-  ).toEqual(['0:selfself', '0:loopaaaa', '1:loopbbbb']);
+  ).toEqual(['0:selfself', '0:loopaaaa', '1:loopbbbb', '1:loopkidb']);
 
-  // Its parent is off the board but was resumed: the child sits under the resumed session.
+  // Its parent was resumed, twice: the child sits under the newest resume, off the board or on it.
   expect(
     tree([
-      row('resumed2', 0.3, { resumedFrom: 'original' }),
+      row('resumed2', 0.3, { resumedFrom: 'resumed1' }),
+      row('resumed1', 0.25, { resumedFrom: 'original' }),
+      row('original', 0.25),
       row('childofo', 0.2, { parent: 'original' }),
     ]),
-  ).toEqual(['0:resumed2', '1:childofo']);
+  ).toEqual(['0:resumed2', '1:childofo', '0:resumed1', '0:original']);
 });

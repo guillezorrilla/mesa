@@ -27,9 +27,9 @@ export type OpenDeps = {
 
 /**
  * The parent a new session gets: `parent` when given (not_found if it is not a session here),
- * none with `noParent`, else the session whose window this runs in. That is MESA_SESSION_ID, when
- * the window is this profile's (MESA_PROFILE) and its record is still here; a window of another
- * profile, or of a removed session, gives none.
+ * none with `noParent`, else the session whose window this runs in: MESA_SESSION_ID, when its
+ * record is here. A window of another profile (MESA_PROFILE names it), or of a removed session,
+ * gives none.
  */
 function parentOf(
   deps: Pick<OpenDeps, 'store' | 'env' | 'profileName'>,
@@ -57,7 +57,8 @@ function parentOf(
     return input.parent;
   }
   const own = deps.env.MESA_SESSION_ID;
-  if (input.noParent || !own || deps.env.MESA_PROFILE !== deps.profileName) return undefined;
+  const windowProfile = deps.env.MESA_PROFILE ?? deps.profileName;
+  if (input.noParent || !own || windowProfile !== deps.profileName) return undefined;
   return exists(own) ? own : undefined;
 }
 

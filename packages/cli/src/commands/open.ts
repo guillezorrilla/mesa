@@ -19,7 +19,7 @@ export const open = defineCommand({
     'goal-file': { type: 'string', description: 'Read the goal from this file (UTF-8)' },
     parent: {
       type: 'string',
-      description: 'The session this one is started from; default: $MESA_SESSION_ID, if set',
+      description: 'The session this one is started from; default: the Mesa window this runs in',
     },
     'no-parent': { type: 'boolean', description: 'Start it with no parent, even inside a session' },
   },
