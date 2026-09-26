@@ -16,8 +16,17 @@ export const attach = defineCommand({
       type: 'boolean',
       description: `Open it in the app config terminal.app names (${TERMINAL_APPS.join(', ')})`,
     },
+    print: {
+      type: 'boolean',
+      description:
+        'Print the attach argv instead of attaching (the app runs it in its own terminal)',
+    },
   },
   run: async ({ mesa, args, flags, tty }) => {
+    if (flags.print) {
+      const { attached, exec = [] } = await mesa.sessions.attach(args.session, false);
+      return { data: { target: attached.target, argv: exec }, text: exec.join(' ') };
+    }
     if (!flags.app) requireTty(tty);
     const { attached, exec } = await mesa.sessions.attach(args.session, flags.app ?? false);
     const where = attached.app ? `in ${attached.app}` : 'here';

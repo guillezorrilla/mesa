@@ -12,7 +12,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Bridge } from './client';
 import { MesaRoot } from './MesaRoot';
-import type { Platform } from './platform';
+import type { Platform, TerminalHost } from './platform';
 
 // React needs this flag to run act() outside a test renderer.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -61,10 +61,44 @@ export function fakeBridge(answers: Record<string, (args: string[]) => unknown> 
   return { bridge, calls };
 }
 
+/** Terminals in memory: every call recorded, and `push` plays output into an open one. */
+export function fakeTerminals() {
+  const calls: (string | number)[][] = [];
+  const data = new Map<string, (bytes: Uint8Array) => void>();
+  let next = 0;
+  const host: TerminalHost = {
+    open: async (sessionId, cols, rows) => {
+      calls.push(['open', sessionId, cols, rows]);
+      next += 1;
+      return `t${next}`;
+    },
+    write: async (termId, text) => void calls.push(['write', termId, text]),
+    resize: async (termId, cols, rows) => void calls.push(['resize', termId, cols, rows]),
+    close: async (termId) => void calls.push(['close', termId]),
+    onData: async (termId, listener) => {
+      data.set(termId, listener);
+      return () => data.delete(termId);
+    },
+    onExit: async () => () => {},
+    ready: async (termId) => void calls.push(['ready', termId]),
+  };
+  const push = (termId: string, text: string) => data.get(termId)?.(new TextEncoder().encode(text));
+  return { host, calls, push };
+}
+
 /** A platform whose folder picker returns `folder` (null: the user cancelled). */
-export const fakePlatform = (folder: string | null = null): Platform => ({
-  pickFolder: async () => folder,
-});
+export const fakePlatform = (
+  folder: string | null = null,
+  terminal: TerminalHost = fakeTerminals().host,
+): Platform & { pasteboard: string[] } => {
+  const pasteboard: string[] = [];
+  return {
+    pickFolder: async () => folder,
+    terminal,
+    clipboard: { write: async (text) => void pasteboard.push(text) },
+    pasteboard,
+  };
+};
 
 /** Renders `ui` inside the same MesaRoot main.tsx uses, over fakes; returns a test-id query. */
 let mounted: Root | undefined;

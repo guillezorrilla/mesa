@@ -11,7 +11,15 @@ import type {
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from './App';
-import { click, envelope, failure, fakeBridge, fakePlatform, renderWithMesa } from './lib/testing';
+import {
+  click,
+  envelope,
+  failure,
+  fakeBridge,
+  fakePlatform,
+  fakeTerminals,
+  renderWithMesa,
+} from './lib/testing';
 
 const PROJECTS: ProjectRow[] = [
   {
@@ -314,6 +322,51 @@ test('a late reply for the other list never lands: Show older wins', async () =>
   await act(async () => release());
   expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual(['--json', 'sessions', '--all']);
   expect(byTestId('session-row').map((r) => cells(r)[0])).toEqual(['aaaaaaaa', 'cccccccc']);
+});
+
+test('clicking a live session opens its terminal here; two at once; Close ends only the client', async () => {
+  const terms = fakeTerminals();
+  const platform = fakePlatform(null, terms.host);
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([asking, busy, exited]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+    attach: () =>
+      envelope({ opened: true, target: 'lantern-cove:claude-aaaaaaaa', app: 'Terminal' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  // Only live Mesa sessions can embed: the exited one has no link.
+  expect(byTestId('embed-terminal').map((b) => b.textContent)).toEqual(['aaaaaaaa', 'bbbbbbbb']);
+  await click(byTestId('embed-terminal')[0]);
+  await click(byTestId('embed-terminal')[1]);
+  await act(async () => new Promise((done) => setTimeout(done, 20)));
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  const opened = terms.calls.filter((c) => c[0] === 'open');
+  expect(opened.map((c) => c[1])).toEqual(['aaaaaaaa', 'bbbbbbbb']);
+  // The terminal fits, then the window takes that size: the pty, then mesa resize.
+  // Output flows once the listeners are in place: nothing tmux drew first is lost.
+  expect(terms.calls).toContainEqual(['ready', 't1']);
+  const [, , cols, rows] = opened[0] ?? [];
+  expect(terms.calls).toContainEqual(['resize', 't1', cols as number, rows as number]);
+  expect(calls).toContainEqual(['--json', 'resize', '--', 'aaaaaaaa', String(cols), String(rows)]);
+
+  // A copy in tmux arrives as OSC 52 and reaches the pasteboard (through Rust in the app).
+  await act(async () => {
+    terms.push('t1', `\x1b]52;c;${btoa('copied in tmux')}\x07`);
+    await new Promise((done) => setTimeout(done, 50));
+  });
+  expect(platform.pasteboard).toEqual(['copied in tmux']);
+
+  await click(byTestId('open-external-terminal')[0]);
+  expect(calls).toContainEqual(['--json', 'attach', '--app', '--', 'aaaaaaaa']);
+
+  await click(byTestId('close-terminal')[0]);
+  expect(terms.calls).toContainEqual(['close', 't1']);
+  expect(terms.calls).not.toContainEqual(['close', 't2']);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(0);
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  // No stop, no kill-window: only the client went.
+  expect(calls.some((c) => c[1] === 'stop')).toBe(false);
 });
 
 test('New session opens a dialog, and Open starts the picked project with the picked agent', async () => {

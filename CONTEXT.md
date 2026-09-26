@@ -39,7 +39,7 @@ Not: orphan (a Mesa session whose window vanished is still Mesa's, marked `done`
 
 ## Window
 
-The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them. `mesa attach <session>` attaches this terminal to a session's window (`-f ignore-size`, so the app and a terminal never fight over its size), and `--app` opens it in the app the config key `terminal.app` names: the board's terminal action in v1. Without a terminal on stdin, and without `--app`, it is a usage error.
+The tmux window one session runs in, on the profile's own tmux server (socket `mesa-<profile>`, ADR-0001). The tmux session holding it is named after the project; the window is named `<agent>-<Mesa session id>` (`claude-a1b2c3d4`). A window whose agent exited stays, dead, with its output. `mesa windows [project]` lists them, and the Doctor screen shows them. `mesa attach <session>` shows a session's window in this terminal. Each terminal gets its own view session (`_view-<id>`), grouped with the project's session: it has the same windows but its own current window. tmux drops the view when the terminal detaches, and the board and `mesa windows` never list views. Attaching to the project's session itself would switch every attached terminal to that window. `--app` opens it in the app the config key `terminal.app` names, through `open -a <app> <script>`. `--print` prints the attach argv instead, and the app's embedded terminal runs that argv. Without a terminal on stdin, and with neither flag, it is a usage error. `mesa resize <session> <cols> <rows>` sizes the window to a view now, then hands sizing back to tmux's `window-size latest`, so from then on the client used last (attached or typed in) sizes it (ADR-0001 amendment). Mesa's server sets its windows up for the app's embedded terminal, as Xirp does (SP-3): `mouse on` (the wheel scrolls tmux's history), `status off`, and `set-clipboard external` (a copy goes out as OSC 52). A drag's copy is also piped to `pbcopy`, so it reaches the pasteboard in any client, Terminal.app included. In the app, Option-drag selects in xterm itself.
 Not: pane, tab. A tmux session is a project's group of windows, never a Mesa session.
 
 ## Session state
@@ -78,7 +78,7 @@ The Session Board: the app's first screen (BoardScreen) and the output of `mesa 
 - a running time that ticks between looks;
 - the last output line of its pane.
 
-Foreign sessions are muted and tagged "not managed", with no actions. Actions: New session (a modal dialog with a registered project and an agent), and per row:
+Foreign sessions are muted and tagged "not managed", with no actions. Clicking a live session's id opens its terminal in the app, under the board, and several can be open at once. This embedded terminal is xterm.js over a pty running `mesa attach --print`'s argv. It shows the 256-colour palette. A tmux copy reaches the pasteboard, Cmd+V pastes, and Close ends only the tmux client. Actions: New session (a modal dialog with a registered project and an agent), and per row:
 
 - Send (inline, Enter or the button sends);
 - Open terminal (`mesa attach --app`);
@@ -120,7 +120,7 @@ Not: safety check, policy, filter.
 
 ## Composition root
 
-`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge. ADR-0008.
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge and platform (dialogs, terminals, the pasteboard). ADR-0008.
 Not: container, context, app.
 
 ## Seam
