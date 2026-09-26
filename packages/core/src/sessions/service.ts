@@ -25,18 +25,13 @@ import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
 import { sendPrompt } from './send.js';
+import { hookState } from './state.js';
 import { stopSession } from './stop.js';
 
 /** `recorded` with the action's own warning joined after its receipt's. */
 const withWarning = <T>(recorded: Recorded<T>, warning?: string): Recorded<T> => {
   const joined = [recorded.warning, warning].filter(Boolean).join('; ');
   return joined ? { ...recorded, warning: joined } : recorded;
-};
-
-/** A SessionEnd whose agent goes on in its window: /clear and /resume start a new conversation. */
-const agentGoesOn = (payload: unknown) => {
-  const reason = (payload as { reason?: unknown } | undefined)?.reason;
-  return reason === 'clear' || reason === 'resume';
 };
 
 /**
@@ -412,7 +407,7 @@ export function sessionsService(
         { agent, mesaSessionId: windowId(deps.env), payload },
       );
       const id = windowId(deps.env);
-      if (event?.event === 'SessionEnd' && id && !agentGoesOn(event.payload)) {
+      if (event?.event === 'SessionEnd' && id && hookState(event.event, event.payload)) {
         await startQueue((after) => after === id);
       }
       return event;

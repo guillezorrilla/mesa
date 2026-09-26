@@ -87,7 +87,8 @@ export function hookState(event: string, payload?: unknown): SessionState | unde
     case 'Notification':
       return field(payload, 'notification_type') === 'idle_prompt' ? 'idle' : undefined;
     case 'SessionEnd':
-      return 'done';
+      // /clear and /resume start another conversation in the same agent, which goes on.
+      return ['clear', 'resume'].includes(field(payload, 'reason') ?? '') ? undefined : 'done';
     case 'StopFailure':
       return 'failed';
     default:
