@@ -6,7 +6,11 @@ export const send = defineCommand({
   summary: "Type a prompt into a session's agent, then Enter",
   args: ['session', 'prompt'],
   flags: {
-    force: { type: 'boolean', description: 'Send even when the pane runs a shell, not the agent' },
+    force: {
+      type: 'boolean',
+      description:
+        'Send even when the pane runs a shell, or, as a person, when the agent waits on one',
+    },
     from: {
       type: 'string',
       description:

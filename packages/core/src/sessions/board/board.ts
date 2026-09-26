@@ -49,8 +49,6 @@ function saveLook(
   }
 }
 
-/** Whole seconds from `from` (ISO) to `until` (epoch ms), never negative. */
-
 /**
  * The profile's sessions merged with live tmux and the agent listing: those not stopped, or
  * stopped within a day, or every one with `all`, then the listed sessions none of them runs, as

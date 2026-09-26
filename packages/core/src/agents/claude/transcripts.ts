@@ -41,7 +41,7 @@ export function transcriptCwd(transcripts: string, id: string): string | undefin
 }
 
 /** The usage Claude Code recorded for the context of its last reply. */
-export type LastUsage = { model: string; tokens: number; at: string };
+type LastUsage = { model: string; tokens: number; at: string };
 
 const TAIL_CHUNK = 1 << 16;
 

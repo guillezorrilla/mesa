@@ -131,6 +131,30 @@ test("Sync skills links the project's enabled skills and says what changed", asy
   expect(byTestId('toast')[0]?.textContent).toContain(
     "Synced skills into lantern-cove: 2 added, 0 removed; 1 of the project's own left alone",
   );
+  // The row's Skills column reads again, so it shows what the sync linked.
+  const rowReads = () =>
+    calls.filter((c) => c.join(' ') === '--json skills list -- lantern-cove').length;
+  const before = rowReads();
+  await click(byTestId('sync-skills')[0]);
+  expect(rowReads()).toBe(before + 1);
+});
+
+test('a recorded action says its warning with its confirmation, so a missing receipt shows', async () => {
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([asking]),
+    stop: () =>
+      envelope({
+        ...asking,
+        outcome: 'exited',
+        receipt: null,
+        warning: 'no receipt: the profile has no vault yet',
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('session-stop')[0]);
+  expect(byTestId('toast')[0]?.textContent).toContain(
+    'Stopped session aaaaaaaa; no receipt: the profile has no vault yet',
+  );
 });
 
 test('each project row shows the Mesa skills synced into it', async () => {
@@ -181,7 +205,11 @@ test('Register folder picks a folder, registers it with --create, and refreshes 
       return envelope({ name: 'lantern-cove', path: '/src/lantern-cove', created: true });
     },
   });
-  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform('/src/lantern-cove'));
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({ folder: '/src/lantern-cove' }),
+  );
   await click(byTestId('nav-projects')[0]);
   expect(byTestId('project-row')).toHaveLength(0);
 
@@ -192,13 +220,17 @@ test('Register folder picks a folder, registers it with --create, and refreshes 
 
 test('a cancelled picker registers nothing; a failed register shows in the toast', async () => {
   const cancelled = fakeBridge();
-  const quiet = await renderWithMesa(<App />, cancelled.bridge, fakePlatform(null));
+  const quiet = await renderWithMesa(<App />, cancelled.bridge, fakePlatform());
   await click(quiet('nav-projects')[0]);
   await click(quiet('register-folder')[0]);
   expect(cancelled.calls.some((c) => c[1] === 'register')).toBe(false);
 
   const clash = fakeBridge({ register: () => failure('already registered: tide at /src/tide') });
-  const byTestId = await renderWithMesa(<App />, clash.bridge, fakePlatform('/src/tide'));
+  const byTestId = await renderWithMesa(
+    <App />,
+    clash.bridge,
+    fakePlatform({ folder: '/src/tide' }),
+  );
   await click(byTestId('nav-projects')[0]);
   await click(byTestId('register-folder')[0]);
   expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
@@ -406,7 +438,7 @@ test('a late reply for the other list never lands: Show older wins', async () =>
 
 test('clicking a live session opens its terminal here; two at once; Close ends only the client', async () => {
   const terms = fakeTerminals();
-  const platform = fakePlatform(null, terms.host);
+  const platform = fakePlatform({ terminal: terms.host });
   const { bridge, calls } = fakeBridge({
     sessions: () => envelope([asking, busy, exited]),
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
@@ -722,11 +754,7 @@ test('Hand off asks for the note, then hands the session off; one without a goal
     handoff: () =>
       envelope({ from: 'bbbbbbbb', to: 'eeeeeeee', note: '/h/.mesa/default/handoffs/eeeeeeee.md' }),
   });
-  const byTestId = await renderWithMesa(
-    <App />,
-    bridge,
-    fakePlatform(null, undefined, '/h/note.md'),
-  );
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ file: '/h/note.md' }));
   const [handoff, none] = byTestId('session-handoff');
   expect(none?.hasAttribute('disabled')).toBe(true);
   await click(handoff);
@@ -749,11 +777,7 @@ test('a session in its own worktree cannot be kept running when it hands off', a
     sessions: () => envelope([{ ...busy, goal: 'Tidy up', worktree }] satisfies TreeRow[]),
     handoff: () => envelope({ from: 'bbbbbbbb', to: 'eeeeeeee', note: '/n.md' }),
   });
-  const byTestId = await renderWithMesa(
-    <App />,
-    bridge,
-    fakePlatform(null, undefined, '/h/note.md'),
-  );
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ file: '/h/note.md' }));
   await click(byTestId('session-handoff')[0]);
   expect(byTestId('handoff-keep')[0]?.hasAttribute('disabled')).toBe(true);
   await click(byTestId('handoff-pick')[0]);
@@ -925,6 +949,23 @@ test('the log box sends its line to mesa log and shows the entry', async () => {
   expect(input.value).toBe('');
 });
 
+test('Enter twice while a line is being logged logs it once', async () => {
+  let release = () => {};
+  const { bridge, calls } = fakeBridge({
+    log: () =>
+      new Promise((done) => {
+        release = () => done(envelope({ entry: '- shipped', daily: 'daily/2026-09-24.md' }));
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  (byTestId('log-input')[0] as HTMLInputElement).value = 'shipped #12';
+  const form = byTestId('log-box')[0] as HTMLFormElement;
+  await act(async () => form.requestSubmit());
+  await act(async () => form.requestSubmit());
+  await act(async () => release());
+  expect(calls.filter((c) => c[1] === 'log')).toHaveLength(1);
+});
+
 test('the Receipts screen lists the newest receipts with their summary', async () => {
   const receipt = (id: string, type: string, status: string) => ({
     path: `receipts/2026/09/20260924T120000Z-${type}-${id}.md`,
@@ -1064,11 +1105,11 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
   const [top] = toggles();
   expect(top?.getAttribute('aria-expanded')).toBe('false');
   expect(top?.getAttribute('aria-label')).toBe('Show the 2 sessions under it, one waits on you');
-  expect(top?.className).toContain('needs-you');
+  expect(top?.dataset.waits).toBe('true');
   // A collapsed row with nothing waiting under it is not marked.
   await click(toggles()[1]);
   expect(toggles()[1]?.getAttribute('aria-label')).toBe('Show the session under it');
-  expect(toggles()[1]?.className).not.toContain('needs-you');
+  expect(toggles()[1]?.dataset.waits).toBe('false');
 
   // Opening the parent again keeps the child collapsed.
   await click(top);

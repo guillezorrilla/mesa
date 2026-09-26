@@ -1,4 +1,4 @@
-import { claudeContext } from '../agents/claude/context.js';
+import { claudeContext } from '../agents/claude/context-use.js';
 import type { Env } from '../lib/process.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';

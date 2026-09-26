@@ -232,6 +232,17 @@ describe('open --after queues a session until the one it waits on is over', () =
     expect(await state(a.id)).toBe('done');
   });
 
+  test('mesa show of a queued session whose look starts it shows it started', async () => {
+    const { open, exit } = await queueWorld();
+    const a = await open();
+    const b = await open('--after', a.id);
+    exit(a.id);
+    const shown = (await mesa('show', b.id, '--json')).json.data;
+    expect(shown.lastState.state).not.toBe('queued');
+    expect(shown.pending).toBeUndefined();
+    expect(shown.alive).toBe(true);
+  });
+
   test('two signals at once start it once', async () => {
     const { world, open, exit } = await queueWorld();
     const a = await open();

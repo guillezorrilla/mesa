@@ -39,7 +39,6 @@ export const QuestionsSchema = z
 
 export type Choice = z.infer<typeof ChoiceSchema>;
 export type Score = z.infer<typeof ScoreSchema>;
-export type Noul = z.infer<typeof NoulSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
 
 const probability = z.number().min(0).max(1);

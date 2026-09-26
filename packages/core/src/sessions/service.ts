@@ -14,7 +14,7 @@ import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { callerOf, windowId } from './caller.js';
-import { refreshContext } from './context.js';
+import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { handoffSession } from './handoff.js';

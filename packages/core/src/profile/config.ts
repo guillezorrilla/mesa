@@ -14,8 +14,6 @@ import { readYaml, setYamlPath } from '../lib/yaml-file.js';
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
 
-/** The decisions backends of ADR-0004. */
-
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),

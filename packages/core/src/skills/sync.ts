@@ -13,7 +13,7 @@ import { excludeFromGit } from './git-exclude.js';
 import { type LibrarySkill, readSkill } from './library.js';
 
 /** Where each agent looks for a project's skills: Claude Code's, then Codex's. */
-export const SKILL_DIRS = ['.claude/skills', '.agents/skills'] as const;
+const SKILL_DIRS = ['.claude/skills', '.agents/skills'] as const;
 
 /** One skill as a project sees it: Mesa's (from the library) or the project's own. */
 export type SkillRow = {

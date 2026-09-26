@@ -48,7 +48,7 @@ export function NewSessionDialog(props: {
             const goal = e.currentTarget.elements.namedItem('goal') as HTMLTextAreaElement;
             props.onOpen({
               project: String(form.get('project') ?? ''),
-              agent: 'claude',
+              agent: String(form.get('agent') ?? 'claude') as Agent,
               goal: goal.value,
               branch: String(form.get('branch') ?? ''),
             });

@@ -41,12 +41,13 @@ export function HandoffDialog(props: {
         </DialogHeader>
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label>Handoff note</Label>
+            <Label htmlFor="handoff-pick">Handoff note</Label>
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                id="handoff-pick"
                 data-testid="handoff-pick"
                 onClick={async () => setNote((await platform.pickFile()) ?? note)}
               >

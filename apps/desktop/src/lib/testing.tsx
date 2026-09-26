@@ -88,12 +88,18 @@ export function fakeTerminals() {
   return { host, calls, push };
 }
 
-/** A platform whose pickers return `folder` and `file` (null: the user cancelled). */
-export const fakePlatform = (
-  folder: string | null = null,
-  terminal: TerminalHost = fakeTerminals().host,
-  file: string | null = null,
-): Platform & { pasteboard: string[] } => {
+/** A platform whose pickers return `folder` and `file` (none: the user cancelled). */
+export const fakePlatform = ({
+  folder = null,
+  file = null,
+  terminal = fakeTerminals().host,
+}: {
+  folder?: string | null;
+  file?: string | null;
+  terminal?: TerminalHost;
+} = {}): Platform & {
+  pasteboard: string[];
+} => {
   const pasteboard: string[] = [];
   return {
     pickFolder: async () => folder,
@@ -104,9 +110,9 @@ export const fakePlatform = (
   };
 };
 
-/** Renders `ui` inside the same MesaRoot main.tsx uses, over fakes; returns a test-id query. */
 let mounted: Root | undefined;
 
+/** Renders `ui` inside the same MesaRoot main.tsx uses, over fakes; returns a test-id query. */
 export async function renderWithMesa(ui: ReactNode, bridge: Bridge, platform = fakePlatform()) {
   // The previous render goes first, so its timers (the Board's looks) stop with it.
   await act(async () => mounted?.unmount());

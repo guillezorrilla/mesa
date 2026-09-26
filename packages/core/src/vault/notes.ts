@@ -9,7 +9,7 @@ import { dailyNotePath, VAULT } from './layout.js';
 import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
-export type NotesDeps = { vault: string; clock: Clock };
+type NotesDeps = { vault: string; clock: Clock };
 /** For a change under the vault lock: `sleep` waits between tries for it. */
 export type LockedNotesDeps = NotesDeps & { sleep: (ms: number) => Promise<void> };
 

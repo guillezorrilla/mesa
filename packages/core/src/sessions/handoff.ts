@@ -19,7 +19,7 @@ import { isAgentState, type SessionRecord } from './record.js';
 const NOTE_LINE = /\n\nRead the handoff note at .+ first\.$/;
 
 /** The successor's goal: the session's own, its earlier handoff line dropped, then its note's. */
-export const handoffGoal = (goal: string, note: string) =>
+const handoffGoal = (goal: string, note: string) =>
   `${goal.replace(NOTE_LINE, '')}\n\nRead the handoff note at ${note} first.`;
 
 type HandoffDeps = LaunchDeps & {

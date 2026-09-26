@@ -19,8 +19,6 @@ export type Sent = {
   warning?: string;
 };
 
-/** States in which the agent waits on a person, who answers inside the session (ADR-0003). */
-
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
 const charCount = (text: string) => Array.from(text).length;
 

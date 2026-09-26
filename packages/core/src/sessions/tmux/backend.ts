@@ -42,8 +42,6 @@ const nestedAgentVars = (env: Env) =>
 /** tmux's answers when there is nothing to list; `no current target` is a server with no sessions. */
 const NOTHING_THERE = /no server running|error connecting to|can't find session|no current target/;
 
-const label = targetLabel;
-
 export function tmuxBackend({
   run,
   socket,
@@ -76,7 +74,7 @@ export function tmuxBackend({
   };
   /** `command` on one window; a missing window is not_found. */
   const onWindow = (target: WindowTarget, command: string, ...rest: string[]) =>
-    must([command, '-t', exact(target), ...rest], 'not_found', `no window ${label(target)}`);
+    must([command, '-t', exact(target), ...rest], 'not_found', `no window ${targetLabel(target)}`);
 
   /** Every window on the server, or one project's; none when the server or project is absent. */
   const listWindows = async (project?: string): Promise<TmuxWindow[]> => {
@@ -177,7 +175,7 @@ export function tmuxBackend({
           ...unset,
         ],
         'internal',
-        `could not open ${label(spec)}`,
+        `could not open ${targetLabel(spec)}`,
       );
       return { project: spec.project, window: spec.window };
     },
@@ -221,7 +219,7 @@ export function tmuxBackend({
       // Checked again as it types, after the caller's look: the pane may have changed since.
       if (dead === '1' || (isShell(command) && !force)) {
         const why = dead === '1' ? 'its process exited' : `it runs ${command}; force sends anyway`;
-        throw new MesaError('agent_unavailable', `no agent in ${label(target)}: ${why}`);
+        throw new MesaError('agent_unavailable', `no agent in ${targetLabel(target)}: ${why}`);
       }
       // `--` so text starting with `-` is typed, not read as a flag. tmux reads any word ending in
       // `;` as the end of a command and turns a closing `\;` into `;`, so a closing `;` goes as `\;`.

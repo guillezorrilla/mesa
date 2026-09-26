@@ -50,7 +50,8 @@ test('mesa help --agent lists every registered command; --json has one entry eac
         name: 'force',
         type: 'boolean',
         required: false,
-        description: 'Send even when the pane runs a shell, not the agent',
+        description:
+          'Send even when the pane runs a shell, or, as a person, when the agent waits on one',
       },
       {
         name: 'from',
