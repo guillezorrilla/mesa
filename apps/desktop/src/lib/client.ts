@@ -87,6 +87,16 @@ export const COMMANDS = {
     '--',
     project,
   ]),
+  // The row's project, which the board read from its folder, so both place it alike.
+  'sessions.adopt': commandWith<
+    { agentSessionId: string; project?: string },
+    { record: SessionRecord; warning: string }
+  >(({ agentSessionId, project }) => [
+    'adopt',
+    ...(project ? ['--project', project] : []),
+    '--',
+    agentSessionId,
+  ]),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
   'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),
