@@ -21,9 +21,13 @@ export const send = defineCommand({
       from: flags.from,
       noFrom: flags['no-from'],
     });
-    const { sent, session, from, chars } = recorded.result;
-    const said = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
+    const { sent, session, from, chars, warning } = recorded.result;
+    const warned = warning ? `\nwarning: ${warning}` : '';
+    const said = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}${warned}`;
     const { receipt, text } = withReceipt(recorded, said);
-    return { data: { sent, session, from, chars, ...receipt }, text };
+    return {
+      data: { sent, session, from, chars, ...(warning ? { warning } : {}), ...receipt },
+      text,
+    };
   },
 });

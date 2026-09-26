@@ -173,11 +173,11 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
    * section it guards is one read and one rename, so waits are short. No stale takeover, as for
    * the vault lock.
    */
-  const locked = <T>(id: string, fn: () => T): T => {
+  const locked = <T>(id: string, fn: () => T, tries = LOCK_TRIES): T => {
     const lock = fileOf(id).replace(/\.json$/, '.lock');
     const token = randomUUID();
     for (let attempt = 0; !tryLock(lock, token); attempt++) {
-      if (attempt >= LOCK_TRIES) {
+      if (attempt >= tries) {
         throw new MesaError(
           'locked',
           `session ${id} is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
@@ -213,13 +213,23 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
     },
     /**
      * Merges `patch` into the record under its lock; a function gets the record as it is now,
-     * for a change that depends on it (appending an event).
+     * for a change that depends on it (appending an event). With `wait: false` a held lock is
+     * refused at once, for a write that can wait for the next look.
      */
-    update: (id: string, patch: Patch | ((current: SessionRecord) => Patch)) =>
-      locked(id, () => {
-        const current = get(id);
-        return write({ ...current, ...(typeof patch === 'function' ? patch(current) : patch), id });
-      }),
+    update: (
+      id: string,
+      patch: Patch | ((current: SessionRecord) => Patch),
+      { wait = true } = {},
+    ) =>
+      locked(
+        id,
+        () => {
+          const current = get(id);
+          const change = typeof patch === 'function' ? patch(current) : patch;
+          return write({ ...current, ...change, id });
+        },
+        wait ? LOCK_TRIES : 0,
+      ),
     /** Every record, oldest first. */
     list: (): SessionRecord[] => {
       if (!existsSync(dir)) return [];
@@ -230,10 +240,12 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
         })
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     },
-    remove: (id: string) => {
-      get(id);
-      rmSync(fileOf(id));
-    },
+    /** Under the lock, so an update that waited for it cannot write the record back. */
+    remove: (id: string) =>
+      locked(id, () => {
+        get(id);
+        rmSync(fileOf(id));
+      }),
   };
 }
 

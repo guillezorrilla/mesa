@@ -214,7 +214,8 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
       } else commands.at(-1)?.push(word);
     }
     let result: RunResult = { ok: true, stdout: '' };
-    for (const command of commands) {
+    // tmux skips an empty command (a leading, trailing, or doubled `;`).
+    for (const command of commands.filter((c) => c.length)) {
       result = one(command);
       if (!result.ok) return result;
     }

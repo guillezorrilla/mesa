@@ -788,3 +788,14 @@ test("a session's received prompts list each one with its sender, newest first",
   // A prompt from another day shows its date too.
   expect(prompts[1]).toMatch(/^from a person, 12 characters, .*\d{4}/);
 });
+
+test('a prompt received today shows its time alone', async () => {
+  const today = managedRow('bbbbbbbb', {
+    events: [{ type: 'send', at: new Date().toISOString(), chars: 5 }],
+  });
+  const { bridge } = fakeBridge({ sessions: () => envelope([today]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [prompt] = byTestId('received-prompt');
+  expect(prompt?.textContent).toMatch(/^from a person, 5 characters, \S+/);
+  expect(prompt?.textContent).not.toMatch(/\d{4}/);
+});

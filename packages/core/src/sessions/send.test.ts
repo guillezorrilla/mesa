@@ -1,4 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -254,4 +255,82 @@ test('a record update waits for its lock and, while another holds it, is refused
     expect.objectContaining({ code: 'locked' }),
   );
   expect(store.get(record.id).lastOutput).toBe('first then');
+});
+
+test('an agent in a window cannot force a wait even with --no-from; an ended window sends as none', async () => {
+  const { home, mesa, within, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const at = '2026-09-24T12:00:00.000Z';
+  store.update(b.id, {
+    lastState: { state: 'waiting-question', confidence: 0.95, at, source: 'hook' },
+  });
+  const inA = within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' });
+  await expect(inA.sessions.send(b.id, 'yes', { noFrom: true, force: true })).rejects.toMatchObject(
+    { code: 'usage', message: expect.stringContaining('a person answers it') },
+  );
+
+  store.update(b.id, { lastState: { state: 'idle', confidence: 0.95, at, source: 'hook' } });
+  store.update(a.id, { endedAt: at });
+  expect((await inA.sessions.send(b.id, 'hello')).result.from).toBeNull();
+});
+
+test('events are best effort once the prompt is typed: a locked receiver warns and skips the sent', async () => {
+  const { home, mesa, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const dir = join(home, '.mesa/default/sessions');
+  writeFileSync(join(dir, `${b.id}.lock`), 'a killed mesa');
+  const { result, receipt } = await mesa.sessions.send(b.id, 'typed anyway', { from: a.id });
+  expect(result).toMatchObject({ sent: true, from: a.id });
+  expect(result.warning).toMatch(
+    new RegExp(`^no send event on ${b.id}: session ${b.id} is locked`),
+  );
+  expect(receipt).not.toBeNull();
+  rmSync(join(dir, `${b.id}.lock`));
+  const store = sessionStore({ dir, newId: () => 'x' });
+  // No `sent` on the sender without its `send` on the receiver.
+  expect(store.get(b.id).events).toEqual([]);
+  expect(store.get(a.id).events).toEqual([]);
+});
+
+test('--no-from is kept in the receipt', async () => {
+  const { home, mesa, opened } = await setUp();
+  await mesa.sessions.send(opened.id, 'as a person', { noFrom: true });
+  const [latest] = listReceipts(join(home, 'vault'), 1);
+  expect(latest?.receipt.inputs).toMatchObject({ noFrom: true });
+  expect(latest?.receipt.outputs).toMatchObject({ from: null });
+});
+
+test('a function patch runs under the lock; an update waits while another process holds it', async () => {
+  const dir = join(tempDir(), 'sessions');
+  const store = sessionStore({ dir, newId: sequentialIds() });
+  const record = store.create(() => ({
+    kind: 'interactive',
+    project: 'lantern-cove',
+    agent: 'claude',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-x' },
+    startedAt: '2026-09-24T12:00:00.000Z',
+    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-24T12:00:00.000Z', source: 'mesa' },
+  }));
+  const lock = join(dir, `${record.id}.lock`);
+  let held = false;
+  store.update(record.id, () => {
+    held = existsSync(lock);
+    return {};
+  });
+  expect(held).toBe(true);
+  expect(existsSync(lock)).toBe(false);
+
+  // Another process holds it for about 100 ms, then lets go: the update waits and lands.
+  writeFileSync(lock, 'another process');
+  const release = spawn('sh', ['-c', `sleep 0.1; rm ${lock}`]);
+  await new Promise((resolve) => release.on('spawn', resolve));
+  expect(store.update(record.id, { lastOutput: 'waited' }).lastOutput).toBe('waited');
+  await new Promise((resolve) => release.on('exit', resolve));
+  // Removing waits for it too, and refuses while another holds it.
+  writeFileSync(lock, 'another process');
+  expect(() => store.remove(record.id)).toThrow(expect.objectContaining({ code: 'locked' }));
+  rmSync(lock);
+  store.remove(record.id);
+  expect(store.find(record.id)).toBeUndefined();
 });

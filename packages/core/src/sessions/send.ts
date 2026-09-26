@@ -18,6 +18,8 @@ export type Sent = {
   /** The session that sent it, or null. */
   from: string | null;
   chars: number;
+  /** Sent, but an event could not be written. */
+  warning?: string;
 };
 
 /** States in which the agent waits on a person, who answers inside the session (ADR-0003). */
@@ -31,31 +33,36 @@ const header = (sender: SessionRecord) =>
   `[mesa] from session ${sender.id} (${sender.project}). Reply with: mesa send ${sender.id} "<reply>"`;
 
 /**
- * The session a prompt is from: `from` when given (not_found if it is not a session here, usage
- * if it has ended: a reply would go nowhere), none with `noFrom`, else the session whose window
- * this runs in (windowSession). Never the receiver itself.
+ * Who a prompt is from. `window` is the Mesa session whose window this runs in (windowSession),
+ * whatever the flags say: an agent there may not force a wait. `sender` is the one the header
+ * names: `from` when given (not_found if it is not a session here, usage if it has ended, since
+ * a reply would go nowhere), none with `noFrom`, else the window's session while it is live.
+ * Never the receiver itself.
  */
 function senderOf(
   deps: { store: SessionStore; env: Env; profileName: string },
   to: string,
   { from, noFrom }: { from?: string; noFrom?: boolean },
-): SessionRecord | undefined {
-  if (noFrom && from !== undefined)
+): { sender?: SessionRecord; window?: SessionRecord } {
+  if (noFrom && from !== undefined) {
     throw new MesaError('usage', 'pass --from or --no-from, not both');
+  }
   if (from === '') throw new MesaError('usage', '--from needs a session id');
+  const window = windowSession(deps);
   let sender: SessionRecord | undefined;
   if (from !== undefined) {
     sender = deps.store.find(from);
-    if (!sender)
+    if (!sender) {
       throw new MesaError('not_found', `no session ${from} to send from; see mesa sessions`);
+    }
     if (sender.endedAt) {
       throw new MesaError('usage', `session ${from} has ended, so a reply to it would go nowhere`);
     }
-  } else if (!noFrom) {
-    sender = windowSession(deps);
+  } else if (!noFrom && !window?.endedAt) {
+    sender = window;
   }
   if (sender?.id === to) throw new MesaError('usage', `session ${to} cannot send to itself`);
-  return sender;
+  return { sender, window };
 }
 
 /**
@@ -80,7 +87,7 @@ export async function sendPrompt(
 ): Promise<Sent> {
   if (!prompt.trim()) throw new MesaError('usage', 'nothing to send: the prompt is empty');
   const record = deps.store.get(id);
-  const sender = senderOf(deps, id, { from, noFrom });
+  const { sender, window } = senderOf(deps, id, { from, noFrom });
   const target = windowOf(record);
   const pane = await deps.tmux.findWindow(target);
   if (!pane || pane.dead) throw sessionEnded();
@@ -90,13 +97,14 @@ export async function sendPrompt(
       `session ${id} runs ${pane.command}, not its agent; --force sends anyway`,
     );
   }
-  // The Enter after the text would answer a permission prompt, which Mesa never relays; another
-  // session may not force it, since only a person answers one (ADR-0003).
-  if (WAITING.has(record.lastState.state) && (sender || !force)) {
+  // The Enter after the text would answer a permission prompt, which Mesa never relays. Another
+  // session may not force it, with --no-from or without: only a person answers one (ADR-0003).
+  const agent = sender ?? window;
+  if (WAITING.has(record.lastState.state) && (agent || !force)) {
     const state = record.lastState.state;
     throw new MesaError(
       'usage',
-      sender
+      agent
         ? `session ${id} is ${state}; a person answers it there (mesa attach ${id})`
         : `session ${id} is ${state}; answer it there (mesa attach ${id}), or --force`,
     );
@@ -120,13 +128,34 @@ export async function sendPrompt(
   }
   const chars = charCount(prompt);
   const at = deps.clock().toISOString();
-  // Under the record's lock, onto the record as it is now, so a concurrent event is kept.
-  const addEvent = (recordId: string, event: SessionRecord['events'][number]) =>
-    deps.store.update(recordId, (current) => ({ events: [...current.events, event] }));
-  // The receiver first, so there is never a `sent` without its `send`.
-  addEvent(id, { type: 'send', at, chars, ...(sender ? { from: sender.id } : {}) });
-  // A sender removed while its prompt was typed loses only its own log line; the send happened.
-  if (sender && deps.store.find(sender.id))
-    addEvent(sender.id, { type: 'sent', at, chars, to: id });
-  return { sent: true, session: id, project: record.project, from: sender?.id ?? null, chars };
+  // The prompt is typed now, so its events are best effort: one that cannot be written (a record
+  // locked by a killed mesa, or removed meanwhile) becomes a warning, never a failed send that a
+  // retry would type twice. Each goes under the record's lock, onto the record as it is now.
+  const problems: string[] = [];
+  const addEvent = (recordId: string, event: SessionRecord['events'][number]) => {
+    try {
+      deps.store.update(recordId, (current) => ({ events: [...current.events, event] }));
+      return true;
+    } catch (error) {
+      if (!(error instanceof MesaError)) throw error;
+      problems.push(`no ${event.type} event on ${recordId}: ${error.message}`);
+      return false;
+    }
+  };
+  // The receiver first, and the sender only after it, so there is never a `sent` without its `send`.
+  const received = addEvent(id, {
+    type: 'send',
+    at,
+    chars,
+    ...(sender ? { from: sender.id } : {}),
+  });
+  if (sender && received) addEvent(sender.id, { type: 'sent', at, chars, to: id });
+  return {
+    sent: true,
+    session: id,
+    project: record.project,
+    from: sender?.id ?? null,
+    chars,
+    ...(problems.length ? { warning: problems.join('; ') } : {}),
+  };
 }

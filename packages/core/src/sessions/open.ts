@@ -185,10 +185,11 @@ export async function resumeSession(
     parent: old.parent,
     resumedFrom: old.id,
   });
-  const from = deps.store.update(old.id, {
+  const at = deps.clock().toISOString();
+  const from = deps.store.update(old.id, (current) => ({
     resumedBy: record.id,
-    ...ending(old, deps.clock().toISOString()),
-  });
+    ...ending(current, at),
+  }));
   return { record, from };
 }
 

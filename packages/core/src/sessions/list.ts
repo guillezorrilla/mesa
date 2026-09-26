@@ -10,6 +10,7 @@ import {
 } from '../decisions/session-state.js';
 import type { Backend, DecisionRecorder } from '../decisions/types.js';
 import type { RegistryEntry } from '../registry.js';
+import { MesaError } from '../result.js';
 import { type AgentProcess, listedState } from './agent-listing.js';
 import type { HookEvent } from './events.js';
 import {
@@ -66,6 +67,26 @@ const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
     .sort((a, b) => b.path.length - a.path.length)[0];
   return (inside ?? projects.find((p) => p.name === basename(cwd)))?.name ?? null;
 };
+
+/**
+ * Saves a look's new state onto the record as it is now: a session a stop ended since keeps the
+ * stop's. A record another process holds locked (busy, or a lock left by a killed mesa) is not
+ * waited for or written: this look still shows the new state, and the next one tries again.
+ */
+function saveState(
+  store: SessionStore,
+  found: SessionRecord,
+  lastState: SessionRecord['lastState'],
+): SessionRecord {
+  try {
+    return store.update(found.id, (current) => (current.endedAt ? {} : { lastState }), {
+      wait: false,
+    });
+  } catch (error) {
+    if (error instanceof MesaError && error.code === 'locked') return { ...found, lastState };
+    throw error;
+  }
+}
 
 /** Whole seconds from `from` (ISO) to `until` (epoch ms), never negative. */
 const secondsBetween = (from: string, until: number) =>
@@ -184,9 +205,7 @@ export async function listSessions(
       const { state, source, basis } = found.lastState;
       const next = classified.lastState;
       const changed = next.state !== state || next.source !== source || next.basis !== basis;
-      const record = changed
-        ? deps.store.update(found.id, { lastState: classified.lastState })
-        : found;
+      const record = changed ? saveState(deps.store, found, classified.lastState) : found;
       // An ended session stops the clock when it ended, or when it was seen to.
       const end =
         record.endedAt ??

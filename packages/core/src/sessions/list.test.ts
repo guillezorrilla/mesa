@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
@@ -421,4 +422,22 @@ test('the tree ranks siblings and branches by their highest attention; loops and
       row('childofo', 0.2, { parent: 'original' }),
     ]),
   ).toEqual(['0:resumed2', '1:childofo', '0:resumed1', '0:original']);
+});
+
+test('a record another process holds locked still shows its new state, and the board still lists', async () => {
+  const dir = join(tempDir(), 'sessions');
+  const store = sessionStore({ dir, newId: sequentialIds() });
+  const gone = store.create(() => inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
+  // A lock left by a killed mesa.
+  writeFileSync(join(dir, `${gone.id}.lock`), 'a killed mesa');
+  const { run } = scriptedRunner({ tmux: '' });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  expect(rows.map((r) => [r.id, r.lastState.state])).toEqual([[gone.id, 'done']]);
+  // Not written: the record keeps its old state until the lock is gone.
+  expect(store.get(gone.id).lastState.state).toBe('working');
 });
