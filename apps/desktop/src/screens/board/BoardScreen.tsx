@@ -101,7 +101,7 @@ export function BoardScreen() {
     adopt: (agentSessionId, project) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
-        return adopted && said(`Adopted as ${adopted.record.id}`, adopted);
+        return adopted && said(`Adopted as ${adopted.id}`, adopted);
       }),
   };
   const handoff = (id: string, note: string, keep: boolean) =>
