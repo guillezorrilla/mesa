@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENT_NAMES, AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
@@ -97,24 +97,25 @@ export function readGoal(input: { goal?: string; goalFile?: string }): string | 
   return goal;
 }
 
+/** What `mesa open` asks for, the goal already read (readGoal). */
+export type OpenInput = {
+  project: string;
+  agent?: string;
+  goal?: string;
+  parent?: string;
+  noParent?: boolean;
+  /** Its own git worktree on this branch (CONTEXT.md, Worktree), started from `base` if new. */
+  branch?: string;
+  base?: string;
+};
+
 /**
  * Starts an agent for a registered project in a new window of the project's tmux session, with
- * `goal` (from readGoal) as its first prompt, and with `branch`, in its own git worktree. The
- * record is written first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and
- * removed again, with the worktree, if the window cannot open.
+ * `goal` as its first prompt, and with `branch`, in its own git worktree. The record is written
+ * first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and removed again,
+ * with the worktree, if the window cannot open.
  */
-export async function openSession(
-  deps: OpenDeps,
-  input: {
-    project: string;
-    agent?: string;
-    goal?: string;
-    parent?: string;
-    noParent?: boolean;
-    branch?: string;
-    base?: string;
-  },
-): Promise<SessionRecord> {
+export async function openSession(deps: OpenDeps, input: OpenInput): Promise<SessionRecord> {
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
   }
@@ -146,12 +147,7 @@ export async function openSession(
   const worktree =
     input.branch === undefined
       ? undefined
-      : await addWorktree(deps.run, {
-          repo: entry.path,
-          root: join(deps.profile.paths.worktrees, entry.name),
-          branch: input.branch,
-          base: input.base,
-        });
+      : await worktreeFor(deps, entry, input.branch, input.base);
   try {
     return await startWindow(deps, {
       project: entry,
@@ -167,6 +163,21 @@ export async function openSession(
     if (worktree) await removeWorktree(deps.run, entry.path, worktree);
     throw error;
   }
+}
+
+/** A new worktree on `branch`, unless a session of the project has that branch's worktree. */
+function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
+  const holder = deps.store
+    .list()
+    .find((r) => r.project === entry.name && r.worktree?.branch === branch);
+  if (holder?.worktree && existsSync(holder.worktree.path)) {
+    throw new MesaError(
+      'usage',
+      `session ${holder.id} has branch ${branch} in ${holder.worktree.path}: use that session, or pick another branch`,
+    );
+  }
+  const root = join(deps.profile.paths.worktrees, entry.name);
+  return addWorktree(deps.run, { repo: entry.path, root, branch, base });
 }
 
 /**
@@ -197,6 +208,13 @@ export async function resumeSession(
   if (!('resume' in spec)) throw new MesaError('agent_unavailable', spec.planned);
   const check = await checkAgent(deps.run, old.agent);
   if (!check.ok) throw new MesaError('agent_unavailable', `${old.agent} ${check.hint}`);
+  // tmux would start a window whose folder is gone in $HOME, where claude has no such conversation.
+  if (old.worktree && !existsSync(old.worktree.path)) {
+    throw new MesaError(
+      'not_found',
+      `session ${id}'s worktree ${old.worktree.path} is gone, and its conversation with it`,
+    );
+  }
   const target = windowOf(old);
   const left = await deps.tmux.findWindow(target);
   if (left && !left.dead) {

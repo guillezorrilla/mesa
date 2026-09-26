@@ -31,7 +31,7 @@ import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession, resizeSession } from './sessions/attach.js';
 import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
 import { listSessions, sessionTree } from './sessions/list.js';
-import { openSession, readGoal, resumeSession } from './sessions/open.js';
+import { type OpenInput, openSession, readGoal, resumeSession } from './sessions/open.js';
 import { recordPaneDied } from './sessions/pane-died.js';
 import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
@@ -271,21 +271,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
       tree: async (all = false) => sessionTree(await board(all)),
       /**
        * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
-       * as its first prompt, and with `branch`, in its own git worktree. The goal is read first, so the receipt keeps it (receiptText); one
-       * Mesa cannot take fails inside the recorded action, as every refusal does.
+       * as its first prompt, and with `branch`, in its own git worktree. The goal is read first,
+       * so the receipt keeps it (receiptText); one Mesa cannot take fails inside the recorded
+       * action, as every refusal does.
        */
-      open: (
-        project: string,
-        opts: {
-          agent?: string;
-          goal?: string;
-          goalFile?: string;
-          parent?: string;
-          noParent?: boolean;
-          branch?: string;
-          base?: string;
-        } = {},
-      ) => {
+      open: (project: string, opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {}) => {
         const { agent, parent, noParent, branch, base } = opts;
         let goal: string | undefined;
         let refused: unknown;

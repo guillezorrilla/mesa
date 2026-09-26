@@ -1,9 +1,11 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Runner } from '../process.js';
 import { MesaError } from '../result.js';
 
 // A session's own git worktree (CONTEXT.md, Worktree): git through the injected Runner.
+// ponytail: git inherits mesa's environment, so a GIT_DIR exported around mesa (a git hook runs
+// it) points git at that repository instead; pass git a clean environment if mesa runs there.
 
 /** Where a session's worktree is, its branch, and the ref a new branch started from. */
 export type Worktree = {
@@ -17,75 +19,111 @@ export type Worktree = {
 const ADD_MS = 60_000;
 const ASK_MS = 5_000;
 
-/** git in `repo`: its stdout, or undefined when it fails. */
+/** One git call in `repo`. A missing or hung git throws; a failed command returns. */
 async function git(run: Runner, repo: string, args: string[], ms = ASK_MS) {
-  const said = await run('git', ['-C', repo, ...args], ms);
-  return said.ok ? said.stdout.trim() : undefined;
+  const res = await run('git', ['-C', repo, ...args], ms);
+  if (res.ok || res.reason === 'failed') return res;
+  throw new MesaError(
+    'internal',
+    res.reason === 'missing'
+      ? 'git not found on PATH; --branch needs it'
+      : `git did not answer within ${ms / 1000} s`,
+  );
 }
 
-/** git in `repo`, or a usage error that starts with `why` and ends with git's reason. */
-async function gitOrFail(run: Runner, repo: string, args: string[], why: string, ms = ASK_MS) {
-  const said = await run('git', ['-C', repo, ...args], ms);
-  if (!said.ok) throw new MesaError('usage', `${why}: ${said.detail}`);
-  return said.stdout.trim();
+/** git's answer, or undefined when it says no. */
+async function ask(run: Runner, repo: string, args: string[]) {
+  const res = await git(run, repo, args);
+  return res.ok ? res.stdout.trim() : undefined;
 }
 
-/** The project's default branch: origin/HEAD, else the current branch. */
-async function defaultBase(run: Runner, repo: string) {
+/** A git call that must succeed: its failure is `usage`, `why` then git's reason. */
+async function must(run: Runner, repo: string, args: string[], why: string, ms = ASK_MS) {
+  const res = await git(run, repo, args, ms);
+  if (!res.ok) throw new MesaError('usage', `${why}: ${res.detail}`);
+  return res.stdout.trim();
+}
+
+/** A new branch's default start: the branch on origin, else origin/HEAD, else the current one. */
+async function defaultBase(run: Runner, repo: string, branch: string) {
+  const onOrigin = await ask(run, repo, ['show-ref', '--verify', `refs/remotes/origin/${branch}`]);
   const base =
-    (await git(run, repo, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD'])) ||
-    (await git(run, repo, ['symbolic-ref', '--short', '-q', 'HEAD']));
-  if (!base)
+    (onOrigin && `origin/${branch}`) ||
+    (await ask(run, repo, ['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD'])) ||
+    (await ask(run, repo, ['symbolic-ref', '--short', '-q', 'HEAD']));
+  if (!base) {
     throw new MesaError('usage', `${repo} has no default branch to start from: pass --base`);
+  }
   return base;
 }
 
 /**
- * Adds a worktree for `branch` at `<root>/<branch, / as ->`: a new branch from `base` (default:
- * the project's default branch), or an existing branch not checked out elsewhere, reused as it
- * is. Every refusal is `usage`, with git's reason.
+ * Adds a worktree for `branch` at `<root>/<branch, / as ->`: an existing branch not checked out
+ * elsewhere, reused as it is, or a new one from `base` (defaultBase), tracking nothing, so a push
+ * never lands on the branch it started from. `repo` must be a repository's top folder. Every
+ * refusal is `usage`; a failed add removes what it made.
  */
 export async function addWorktree(
   run: Runner,
   input: { repo: string; root: string; branch: string; base?: string },
 ): Promise<Worktree> {
-  const { repo } = input;
-  // ponytail: a project whose mesa.yaml sits below the repository's top starts at the worktree's
-  // top; keep the subfolder when a project like that shows up.
-  await gitOrFail(run, repo, ['rev-parse', '--show-toplevel'], `${repo} is not a git repository`);
-  const branch = await git(run, repo, ['check-ref-format', '--branch', input.branch]);
-  if (!branch) throw new MesaError('usage', `${input.branch} is not a valid branch name`);
+  const { repo, branch } = input;
+  const top = await must(
+    run,
+    repo,
+    ['rev-parse', '--show-toplevel'],
+    `${repo} is not a git repository`,
+  );
+  if (top !== realpathSync(repo)) {
+    throw new MesaError(
+      'usage',
+      `${repo} is inside the git repository ${top}, not its top folder: --branch needs a project there`,
+    );
+  }
+  // git prints the name it would use: a different one (`@{-1}`) is not the branch asked for.
+  if ((await ask(run, repo, ['check-ref-format', '--branch', branch])) !== branch) {
+    throw new MesaError('usage', `${branch} is not a valid branch name`);
+  }
   const path = join(input.root, branch.replaceAll('/', '-'));
-  // Checked here: git makes a new branch before it finds the path taken, and leaves it behind.
+  // So everything at `path` after a failed add is git's, and removing it takes nothing else.
   if (existsSync(path)) {
     throw new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   }
-  const exists =
-    (await git(run, repo, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`])) !==
-    undefined;
-  if (exists) {
-    if (input.base !== undefined) {
-      throw new MesaError(
-        'usage',
-        `branch ${branch} exists and is reused as it is: drop --base, or pick a new branch`,
-      );
-    }
-    const add = ['worktree', 'add', '--quiet', '--end-of-options', path, branch];
-    await gitOrFail(run, repo, add, `cannot check out ${branch}`, ADD_MS);
-    return { path, branch };
+  const local = await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`]);
+  if (local !== undefined && input.base !== undefined) {
+    throw new MesaError(
+      'usage',
+      `branch ${branch} exists and is reused as it is: drop --base, or pick a new branch`,
+    );
   }
-  const base = input.base ?? (await defaultBase(run, repo));
-  const add = ['worktree', 'add', '--quiet', '-b', branch, '--end-of-options', path, base];
-  await gitOrFail(run, repo, add, `cannot start ${branch} from ${base}`, ADD_MS);
-  return { path, branch, base };
+  const base =
+    local === undefined ? (input.base ?? (await defaultBase(run, repo, branch))) : undefined;
+  const worktree: Worktree = { path, branch, ...(base === undefined ? {} : { base }) };
+  const args =
+    base === undefined
+      ? ['worktree', 'add', '--quiet', '--end-of-options', path, branch]
+      : ['worktree', 'add', '--quiet', '--no-track', '-b', branch, '--end-of-options', path, base];
+  const why =
+    base === undefined ? `cannot check out ${branch}` : `cannot start ${branch} from ${base}`;
+  let added = false;
+  try {
+    await must(run, repo, args, why, ADD_MS);
+    added = true;
+  } finally {
+    // git leaves a new branch, and a killed one a half-made folder.
+    if (!added) await removeWorktree(run, repo, worktree);
+  }
+  return worktree;
 }
 
 /**
- * Removes a worktree Mesa added, and its branch when Mesa made it (it has a base).
- * ponytail: forced and best effort, for a worktree whose session never started; #71 removes
- * one with work in it.
+ * Removes a worktree addWorktree made, and its branch when that made it too (it has a base).
+ * ponytail: forced and best effort, for a worktree whose session never started; #71 removes one
+ * with work in it.
  */
 export async function removeWorktree(run: Runner, repo: string, worktree: Worktree) {
-  await git(run, repo, ['worktree', 'remove', '--force', worktree.path]);
-  if (worktree.base !== undefined) await git(run, repo, ['branch', '-D', worktree.branch]);
+  const quietly = (args: string[]) => git(run, repo, args).catch(() => undefined);
+  await quietly(['worktree', 'remove', '--force', worktree.path]);
+  rmSync(worktree.path, { recursive: true, force: true });
+  if (worktree.base !== undefined) await quietly(['branch', '-D', worktree.branch]);
 }
