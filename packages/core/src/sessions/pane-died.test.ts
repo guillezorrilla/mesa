@@ -9,7 +9,7 @@ import {
 } from '../testing/index.js';
 import { recordPaneDied } from './pane-died.js';
 import { sessionStore } from './store.js';
-import { tmuxBackend } from './tmux.js';
+import { tmuxBackend } from './tmux/backend.js';
 
 const at = '2026-09-24T12:05:00.000Z';
 const inWindow = (window: string) =>

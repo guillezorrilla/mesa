@@ -1,15 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { SESSION_STATES } from '../sessions/store.js';
+import type { FaroProfile } from '../decisions/decide.js';
 import { fixedClock } from '../testing/index.js';
-import type { FaroProfile } from './decide.js';
-import {
-  attentionWeights,
-  classify,
-  classifySession,
-  type SessionSignals,
-} from './session-state.js';
+import { SESSION_STATES } from './record.js';
+import { attentionWeights, classify, classifySession, type SessionSignals } from './state.js';
 
 const dir = join(import.meta.dirname, 'fixtures/state');
 const fixtures = readdirSync(dir)

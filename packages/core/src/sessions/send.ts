@@ -1,15 +1,12 @@
 import { guardrail } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
-import type { Env } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
-import {
-  type SessionRecord,
-  type SessionStore,
-  sessionEnded,
-  windowOf,
-  windowSession,
-} from './store.js';
-import { isShell, type TmuxBackend } from './tmux.js';
+import type { Caller } from './caller.js';
+import { type SessionRecord, sessionEnded, WAITING_STATES } from './record.js';
+import type { SessionStore } from './store.js';
+import type { TmuxBackend } from './tmux/backend.js';
+import { isShell } from './tmux/format.js';
+import { windowOf } from './window-name.js';
 
 export type Sent = {
   sent: true;
@@ -23,24 +20,23 @@ export type Sent = {
 };
 
 /** States in which the agent waits on a person, who answers inside the session (ADR-0003). */
-const WAITING = new Set(['waiting-permission', 'waiting-question']);
 
 /** A prompt's length in characters (code points), as `chars` and receipts count it. */
-export const charCount = (text: string) => Array.from(text).length;
+const charCount = (text: string) => Array.from(text).length;
 
 /** The line a prompt from another session starts with: who sent it, and how to answer. */
 const header = (sender: SessionRecord) =>
   `[mesa] from session ${sender.id} (${sender.project}). Reply with: mesa send ${sender.id} "<reply>"`;
 
 /**
- * Who a prompt is from. `window` is the Mesa session whose window this runs in (windowSession),
+ * Who a prompt is from. `window` is the Mesa session whose window this runs in (the caller),
  * whatever the flags say: an agent there may not force a wait. `sender` is the one the header
  * names: `from` when given (not_found if it is not a session here, usage if it has ended, since
  * a reply would go nowhere), none with `noFrom`, else the window's session while it is live.
  * Never the receiver itself.
  */
 function senderOf(
-  deps: { store: SessionStore; env: Env; profileName: string },
+  deps: { store: SessionStore; caller: () => Caller },
   to: string,
   { from, noFrom }: { from?: string; noFrom?: boolean },
 ): { sender?: SessionRecord; window?: SessionRecord } {
@@ -48,7 +44,7 @@ function senderOf(
     throw new MesaError('usage', 'pass --from or --no-from, not both');
   }
   if (from === '') throw new MesaError('usage', '--from needs a session id');
-  const window = windowSession(deps);
+  const window = deps.caller().session;
   let sender: SessionRecord | undefined;
   if (from !== undefined) {
     sender = deps.store.find(from);
@@ -78,8 +74,7 @@ export async function sendPrompt(
     store: SessionStore;
     tmux: Pick<TmuxBackend, 'findWindow' | 'sendText'>;
     clock: Clock;
-    env: Env;
-    profileName: string;
+    caller: () => Caller;
   },
   id: string,
   prompt: string,
@@ -100,8 +95,8 @@ export async function sendPrompt(
   // The Enter after the text would answer a permission prompt, which Mesa never relays. Another
   // session may not force it, with --no-from or without: only a person answers one (ADR-0003).
   // Any Mesa window counts, this profile's or another's.
-  const agent = sender ?? window ?? deps.env.MESA_SESSION_ID;
-  if (WAITING.has(record.lastState.state) && (agent || !force)) {
+  const agent = Boolean(sender ?? window) || deps.caller().inMesaWindow;
+  if (WAITING_STATES.has(record.lastState.state) && (agent || !force)) {
     const state = record.lastState.state;
     throw new MesaError(
       'usage',

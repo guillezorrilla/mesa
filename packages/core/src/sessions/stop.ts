@@ -1,8 +1,11 @@
 import { AGENTS } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
-import { ending, type SessionRecord, type SessionStore, windowOf } from './store.js';
-import { killIfThere, type TmuxBackend, type WindowTarget } from './tmux.js';
+import { ending, type SessionRecord } from './record.js';
+import type { SessionStore } from './store.js';
+import { killIfThere, type TmuxBackend } from './tmux/backend.js';
+import type { WindowTarget } from './tmux/format.js';
+import { windowOf } from './window-name.js';
 
 const POLITE_WAIT_MS = 5000;
 const POLL_MS = 250;

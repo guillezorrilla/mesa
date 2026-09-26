@@ -3,8 +3,11 @@ import { join } from 'node:path';
 import { type Env, type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { TerminalApp } from '../profile/config.js';
-import { type SessionStore, sessionEnded, windowOf } from './store.js';
-import { type TmuxBackend, targetLabel } from './tmux.js';
+import { sessionEnded } from './record.js';
+import type { SessionStore } from './store.js';
+import type { TmuxBackend } from './tmux/backend.js';
+import { targetLabel } from './tmux/format.js';
+import { windowOf } from './window-name.js';
 
 // The board's "open its terminal" action in v1 (ADR-0003 amendment): the session's tmux window in
 // this terminal, or in the user's terminal app.
@@ -13,18 +16,6 @@ const LAUNCH_TIMEOUT_MS = 10_000;
 
 /** What `mesa attach --json` prints: the tmux target, and the app it opened in (null: here). */
 export type Attached = { opened: true; target: string; app: TerminalApp | null };
-
-/** Sizes a session's window to a view (the app's terminal) now; tmux then follows its latest client. */
-export async function resizeSession(
-  deps: { store: SessionStore; tmux: Pick<TmuxBackend, 'resizeWindow'> },
-  id: string,
-  cols: number,
-  rows: number,
-) {
-  const target = windowOf(deps.store.get(id));
-  await deps.tmux.resizeWindow(target, cols, rows);
-  return { session: id, target: targetLabel(target), cols, rows };
-}
 
 export async function attachSession(
   deps: {

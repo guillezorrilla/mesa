@@ -11,7 +11,7 @@ import type { Clock } from './lib/clock.js';
 import type { IdSource } from './lib/ids.js';
 import type { Env, Runner } from './lib/process.js';
 import { redactPayload } from './lib/redact.js';
-import { MesaError, toFail } from './lib/result.js';
+import { toFail } from './lib/result.js';
 import { redactConfig, resolveKey, setConfigValue } from './profile/config.js';
 import { profilePaths, profilesDir } from './profile/paths.js';
 import { initProfile, openProfile, type ProfileInfo } from './profile/profile.js';
@@ -29,16 +29,21 @@ import {
 } from './receipts/receipts.js';
 import { adoptSession } from './sessions/adopt.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
-import { attachSession, resizeSession } from './sessions/attach.js';
-import { readHookEvents, recordHookEvent } from './sessions/events.js';
-import { listSessions, sessionTree } from './sessions/list.js';
-import { type OpenInput, openSession, readGoal, resumeSession } from './sessions/open.js';
+import { attachSession } from './sessions/attach.js';
+import { listSessions } from './sessions/board/board.js';
+import { sessionTree } from './sessions/board/tree.js';
+import { callerOf, windowId } from './sessions/caller.js';
+import { readGoal, sessionGoal } from './sessions/goal.js';
+import { readHookEvents, recordHookEvent } from './sessions/hook-events.js';
+import { type OpenInput, openSession } from './sessions/open.js';
 import { recordPaneDied } from './sessions/pane-died.js';
+import type { SessionRecord } from './sessions/record.js';
+import { resizeSession } from './sessions/resize.js';
+import { resumeSession } from './sessions/resume.js';
 import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
-import type { SessionRecord } from './sessions/store.js';
 import { sessionStore } from './sessions/store.js';
-import { tmuxBackend } from './sessions/tmux.js';
+import { tmuxBackend } from './sessions/tmux/backend.js';
 import { logLine } from './vault/notes.js';
 import { type ObsidianPaths, openInObsidian } from './vault/obsidian.js';
 import { initVault, vaultStatus } from './vault/vault.js';
@@ -161,6 +166,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
       hasKey: (name) => Boolean(config && resolveKey(config, name, deps.env)),
     };
   };
+  /** Who runs this mesa: the session whose Mesa window it is in, if any. */
+  const caller = () => callerOf({ store, env: deps.env, profileName: profile });
   const openDeps = () => ({
     profile: open(),
     profileName: profile,
@@ -169,7 +176,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     run: deps.run,
     clock: deps.clock,
     newUuid: deps.newUuid,
-    env: deps.env,
+    caller,
   });
   /**
    * Both the stored key values and what their env: references resolve to. None when the config
@@ -331,11 +338,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         );
       },
       /** A session's goal, or not_found when it was started without one. */
-      goal: (id: string) => {
-        const { goal } = store.get(id);
-        if (goal === undefined) throw new MesaError('not_found', `session ${id} has no goal`);
-        return { id, goal };
-      },
+      goal: (id: string) => sessionGoal(store, id),
       /**
        * Ends a session politely, or at once with `force`. The stop gets a session receipt of its
        * own (none when it changed nothing), and the session's opening receipt is marked ended.
@@ -387,12 +390,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
             outputs: (r) => ({ chars: r.chars, from: r.from }),
           },
           () =>
-            sendPrompt(
-              { store, tmux, clock: deps.clock, env: deps.env, profileName: profile },
-              id,
-              prompt,
-              { force, from, noFrom },
-            ),
+            sendPrompt({ store, tmux, clock: deps.clock, caller }, id, prompt, {
+              force,
+              from,
+              noFrom,
+            }),
         );
       },
       /**
@@ -511,7 +513,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
           home: deps.home,
           secrets: secretsOrRefuse,
         },
-        { agent, mesaSessionId: deps.env.MESA_SESSION_ID, payload },
+        { agent, mesaSessionId: windowId(deps.env), payload },
       ),
     /** tmux's pane-died hook: the agent in a Mesa window exited (`mesa hook tmux pane-died`). */
     paneDied: (project: string, window: string) =>

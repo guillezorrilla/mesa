@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { writeFileAtomic } from '../../lib/atomic-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
+import { SESSION_ID_VAR } from '../../sessions/caller.js';
 import { claudeSettings } from './paths.js';
 
 // Mesa's entries in Claude Code's user settings (ADR-0003 and its amendments): each event runs
@@ -25,7 +26,7 @@ type Hook = { type?: string; command?: string };
 type Group = { matcher?: string; hooks?: Hook[] };
 type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 
-const GUARD = '[ -z "$MESA_SESSION_ID" ] || ';
+const GUARD = `[ -z "$${SESSION_ID_VAR}" ] || `;
 const TAIL = ' hook claude >/dev/null 2>&1 || true';
 /** A hook entry Mesa wrote: exactly its guard and its tail, whatever mesa path sits between. */
 const isMesaHook = (h: Hook) =>

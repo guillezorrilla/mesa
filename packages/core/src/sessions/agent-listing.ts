@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
-import type { SessionState } from './store.js';
 
 // Agent listings, ADR-0003's second signal: `claude agents --json` names every live Claude Code
 // session on the machine, Mesa's and the owner's alike (docs/spikes/state-signals.md).
@@ -54,27 +53,4 @@ export async function listAgentProcesses(run: Runner): Promise<AgentProcess[]> {
     status: p.status,
     ...(p.waitingFor === undefined ? {} : { waitingFor: p.waitingFor }),
   }));
-}
-
-/** What each listed status means as a session state (docs/spikes/state-signals.md). */
-const LISTED: Record<string, SessionState> = {
-  idle: 'idle',
-  busy: 'working',
-  'waiting:permission prompt': 'waiting-permission',
-  'waiting:input needed': 'waiting-question',
-};
-
-/**
- * The state the listing alone gives, at ADR-0003's 0.85. A wait it cannot name still needs a
- * person (0.6); a status it has never shown is a guess at `working` (0.5).
- */
-export function listedState(p: Pick<AgentProcess, 'status' | 'waitingFor'>): {
-  state: SessionState;
-  confidence: number;
-} {
-  const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : p.status];
-  if (state) return { state, confidence: 0.85 };
-  return p.status === 'waiting'
-    ? { state: 'waiting-question', confidence: 0.6 }
-    : { state: 'working', confidence: 0.5 };
 }
