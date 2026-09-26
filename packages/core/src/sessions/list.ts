@@ -107,7 +107,7 @@ const secondsBetween = (from: string, until: number) =>
 export async function listSessions(
   deps: {
     store: SessionStore;
-    tmux: Pick<TmuxBackend, 'listWindows' | 'capturePane'>;
+    tmux: Pick<TmuxBackend, 'setPaneDiedHook' | 'listWindows' | 'capturePane'>;
     listing: () => Promise<AgentProcess[]>;
     /** The session's hook events, oldest first. */
     events: (id: string) => HookEvent[];
@@ -137,11 +137,16 @@ export async function listSessions(
     if (children.has(r.parent)) children.get(r.parent)?.push(r.id);
     else children.set(r.parent, [r.id]);
   }
-  // One tmux call and one listing for the whole board, side by side, rather than one per record.
-  const [listed, windowList] = await Promise.all([
-    deps.listing(),
-    records.length ? deps.tmux.listWindows() : [],
-  ]);
+  // One tmux look and one listing for the whole board, side by side, rather than one per record.
+  // The look sets the pane-died hook first, so a server an older mesa started gets it; it never
+  // starts a server. ponytail: two tmux calls in a row per look (about 8 ms); chain the hook into
+  // list-windows if looks ever need to be faster.
+  // Any record at all, on the board or not, so a stale hook heals even when only old sessions are left.
+  const windowsNow = async () => {
+    if (every.length) await deps.tmux.setPaneDiedHook();
+    return records.length ? deps.tmux.listWindows() : [];
+  };
+  const [listed, windowList] = await Promise.all([deps.listing(), windowsNow()]);
   // A stopped session runs nowhere, so only open ones can be a listed process. By pid first: a
   // /clear gives the agent a new session id in the same window. A resumed conversation keeps
   // its id, so the newest open record holding it wins.

@@ -73,3 +73,7 @@ One tmux session per project holds every Mesa session's window. So attaching a t
 - `select-window -t =_view-<id>:=<window>`.
 
 Views are hidden from window listings. When a window is killed (stop, resume), a view on it moves to another window of the group, so the app closes a session's panel once the session is no longer live. `-f ignore-size` went with `attach-session`, which was of no use anyway (amendment above).
+
+## Amendment 2026-09-26: the server runs a hook (#68)
+
+Mesa's server now also runs `mesa hook tmux pane-died` whenever a pane dies. `ensureServer` sets that hook with the other options, and a look at a board with sessions sets it again without starting a server. ADR-0003's amendment of the same date gives the rules.

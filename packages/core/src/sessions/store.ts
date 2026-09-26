@@ -52,15 +52,18 @@ const SessionRecordSchema = z.strictObject({
     confidence: z.number().min(0).max(1),
     at: z.iso.datetime(),
     /**
-     * ADR-0003's signals (hook, listing, tmux), Faro's adapter when the rules were unsure, or
-     * Mesa's own action (open, stop).
+     * ADR-0003's signals (hook, listing, tmux, and tmux's pane-died hook), Faro's adapter when the
+     * rules were unsure, or Mesa's own action (open, stop).
      */
-    source: z.enum(['hook', 'listing', 'tmux', 'adapter', 'mesa']),
+    source: z.enum(['hook', 'listing', 'tmux', 'tmux-hook', 'adapter', 'mesa']),
     /** With `adapter`: a hash of what it saw, so an unchanged session is not asked again. */
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
-  /** What Mesa did to the session: prompts sent to it, and by it (the hooks log to sessions/events/). */
+  /**
+   * What happened to the session that Mesa keeps: prompts sent to it and by it, and its agent's
+   * exit. Claude Code's hook events go to sessions/events/ instead.
+   */
   events: z.array(
     z.discriminatedUnion('type', [
       z.strictObject({
@@ -70,6 +73,8 @@ const SessionRecordSchema = z.strictObject({
         /** The session that sent it (mesa send --from). */
         from: z.string().regex(SHORT_ID).optional(),
       }),
+      /** Its agent exited: tmux's pane-died hook said so (mesa hook tmux). */
+      z.strictObject({ type: z.literal('exited'), at: z.iso.datetime() }),
       z.strictObject({
         type: z.literal('sent'),
         at: z.iso.datetime(),
@@ -103,6 +108,9 @@ export function ending(r: SessionRecord, at: string): Pick<SessionRecord, 'ended
 
 /** A session with no live window: nothing to attach to or type into, only to resume. */
 export const sessionEnded = () => new MesaError('not_found', 'session ended; use mesa resume');
+
+/** The Mesa session id in a window's name (`claude-a1b2c3d4`), if it has one. */
+export const idOfWindow = (window: string) => /^[a-z]+-([0-9a-z]{8})$/.exec(window)?.[1];
 
 /** The session's window on the profile's tmux server. */
 export const windowOf = (r: SessionRecord): WindowTarget => ({

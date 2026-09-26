@@ -1,6 +1,7 @@
 import type {
   Agent,
   Attached,
+  ClaudeHooksStatus,
   CommandReference,
   Config,
   DoctorReport,
@@ -35,8 +36,8 @@ export const COMMANDS = {
   'doctor.run': command<DoctorReport>('doctor'),
   'help.reference': command<CommandReference[]>('help', '--agent'),
   'hooks.status': command<HooksStatus>('hooks', 'status'),
-  'hooks.install': command<HooksStatus & { changed: boolean }>('hooks', 'install'),
-  'hooks.uninstall': command<HooksStatus & { changed: boolean }>('hooks', 'uninstall'),
+  'hooks.install': command<ClaudeHooksStatus & { changed: boolean }>('hooks', 'install'),
+  'hooks.uninstall': command<ClaudeHooksStatus & { changed: boolean }>('hooks', 'uninstall'),
   'log.add': commandWith<{ text: string }, { entry: string; daily: string }>(({ text }) => [
     'log',
     '--',

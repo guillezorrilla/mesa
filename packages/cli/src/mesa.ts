@@ -5,7 +5,8 @@ import { writeSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 // An agent hook outside a Mesa session exits before anything else loads (#22: within 50 ms).
-if (argv[0] === 'hook' && !process.env.MESA_SESSION_ID) process.exit(0);
+// `mesa hook tmux`, typed without --profile first, is tmux's, which never has a session id.
+if (argv[0] === 'hook' && argv[1] !== 'tmux' && !process.env.MESA_SESSION_ID) process.exit(0);
 
 const [{ randomBytes, randomUUID }, { homedir }, { setTimeout: sleep }, { fileURLToPath }] =
   await Promise.all([
