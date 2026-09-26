@@ -59,6 +59,26 @@ test('a claim is left alone for 30 s, then taken again: a start killed mid-way i
   expect(windows()).toHaveLength(1);
 });
 
+test('a start retried after one killed once its window opened keeps that window and its id', async () => {
+  const { deps, store, b, windows } = await setUp();
+  // The killed start: claimed with its id, its window open, the record never finished.
+  const agentSessionId = '00000000-0000-4000-8000-0000000000aa';
+  store.update(b.id, { agentSessionId, pending: { claimedAt: '2026-09-24T11:59:00.000Z' } });
+  const record = store.get(b.id);
+  await deps.tmux.openWindow({
+    project: 'lantern-cove',
+    window: record.tmux.window,
+    cwd: deps.profile.paths.worktrees,
+    command: 'claude',
+    env: {},
+  });
+  expect((await startQueued(deps, b.id))?.record).toMatchObject({
+    agentSessionId,
+    lastState: { state: 'idle' },
+  });
+  expect(windows()).toHaveLength(1);
+});
+
 test('a start that fails leaves it failed and ended, with no conversation to resume', async () => {
   const { deps, store, b, windows } = await setUp({ claude: false });
   await expect(startQueued(deps, b.id)).rejects.toMatchObject({ code: 'agent_unavailable' });

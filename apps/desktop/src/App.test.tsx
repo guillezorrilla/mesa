@@ -638,6 +638,10 @@ test('a queued row says what it waits on and has Cancel, which stops it; it cann
   expect(inRow('session-send-submit')?.hasAttribute('disabled')).toBe(true);
   expect(inRow('session-resume')?.hasAttribute('disabled')).toBe(true);
   expect(inRow('session-stop')?.textContent).toBe('Cancel');
+  // Removed, it would leave what waits on it waiting on nothing: it is cancelled first.
+  await click(inRow('row-menu'));
+  expect((byTestId('session-remove')[0] as HTMLButtonElement).disabled).toBe(true);
+  await click(inRow('row-menu'));
   await click(inRow('session-stop'));
   expect(calls.filter((c) => c[1] === 'stop')).toEqual([['--json', 'stop', '--', 'dddddddd']]);
   expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([

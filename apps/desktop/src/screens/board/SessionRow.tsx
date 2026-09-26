@@ -178,7 +178,7 @@ export function SessionRow(props: {
               </Button>
               <RowMenu
                 sessionId={s.id}
-                canRemove={exited(s) && !acting}
+                canRemove={exited(s) && !queued(s) && !acting}
                 onRename={() => actions.rename(s)}
                 onRemove={() => actions.remove(s)}
               />

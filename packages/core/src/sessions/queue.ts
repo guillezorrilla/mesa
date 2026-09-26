@@ -7,6 +7,8 @@ import { folderOf, launched, openWindowOf } from './launch.js';
 import { type OpenDeps, syncSkillsInto, worktreeFor } from './open.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
+import type { TmuxBackend } from './tmux/backend.js';
+import { windowOf } from './window-name.js';
 import { removeWorktree, type Worktree } from './worktree.js';
 
 // Queued sessions (CONTEXT.md, Queued session): `mesa open --after` writes one; whichever signal
@@ -14,7 +16,7 @@ import { removeWorktree, type Worktree } from './worktree.js';
 // a look at the board). No daemon.
 
 // ponytail: a start killed mid-way (a SessionEnd hook gets 1.5 s) is retried by the next signal or
-// look once its claim is this old; a start slower than that could run twice.
+// look once its claim is this old; a start still running after that could open a second window.
 const CLAIM_MS = 30_000;
 
 /** Queued, and nobody is starting it now: never claimed, or its claim is stale. */
@@ -35,16 +37,18 @@ export const dueToStart = (store: SessionStore, over: (id: string) => boolean, n
  * session `failed` and ended, its new worktree removed, and throws.
  */
 export async function startQueued(
-  deps: OpenDeps,
+  deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
   id: string,
 ): Promise<{ record: SessionRecord; warning?: string } | undefined> {
   const now = deps.clock();
   const at = now.toISOString();
   let won = false;
+  // The agent session id comes with the claim, so a start retried after a kill keeps it.
   const claimed = deps.store.update(id, (current) => {
     if (!startable(current, now)) return {};
     won = true;
-    return { pending: { ...current.pending, claimedAt: at } };
+    const agentSessionId = current.agentSessionId ?? deps.newUuid();
+    return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
   });
   if (!won) return undefined;
   let entry: RegistryEntry | undefined;
@@ -54,7 +58,7 @@ export async function startQueued(
     // A folder that is gone is not_found, never a claude in $HOME.
     readProjectFile(entry.path);
     const spec = await readyAgent(deps.run, claimed.agent);
-    const agentSessionId = deps.newUuid();
+    const agentSessionId = claimed.agentSessionId ?? deps.newUuid();
     const { branch, base } = claimed.pending ?? {};
     let record = claimed;
     // Kept on the record at once, so a start retried after a kill finds it made.
@@ -63,9 +67,11 @@ export async function startQueued(
       record = deps.store.update(id, { worktree: made });
     }
     const warning = syncSkillsInto(deps, entry.name, folderOf(record, entry));
-    await openWindowOf(deps, record, entry, spec.start(agentSessionId, record.goal));
+    // A start killed after its window opened left that window: it is this session's.
+    if (!(await deps.tmux.findWindow(windowOf(record)))) {
+      await openWindowOf(deps, record, entry, spec.start(agentSessionId, record.goal));
+    }
     const started = deps.store.update(id, {
-      agentSessionId,
       pending: undefined,
       startedAt: at,
       lastState: launched(at),
@@ -75,6 +81,7 @@ export async function startQueued(
     if (entry && made) await removeWorktree(deps.run, entry.path, made);
     deps.store.update(id, {
       pending: undefined,
+      agentSessionId: undefined,
       ...(made ? { worktree: undefined } : {}),
       endedAt: at,
       lastState: { state: 'failed', confidence: 1, at, source: 'mesa' },
@@ -96,6 +103,7 @@ export function cancelQueued(store: SessionStore, id: string, now: Date): Sessio
     }
     return {
       pending: undefined,
+      agentSessionId: undefined,
       endedAt: at,
       lastState: { state: 'stopped', confidence: 1, at, source: 'mesa' },
     };

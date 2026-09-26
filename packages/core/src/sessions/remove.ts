@@ -25,8 +25,8 @@ export type Removed = {
 
 /**
  * Removes a session's record and its hook log, with `deleteWorktree` its git worktree and with
- * `deleteBranch` its branch. A live session is refused unless `force`, which closes its window
- * first; git refuses a dirty worktree unless `force`. Every refusal comes before the record goes,
+ * `deleteBranch` its branch. A queued session is refused, to be cancelled first; a live one is
+ * refused unless `force`, which closes its window first; git refuses a dirty worktree unless `force`. Every refusal comes before the record goes,
  * so a refused rm leaves the session as it was, to retry.
  */
 export async function removeSession(
@@ -41,6 +41,10 @@ export async function removeSession(
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
 ): Promise<Removed> {
   const record = deps.store.get(id);
+  // Removing it would leave what waits on it waiting on nothing, so it would start at once.
+  if (record.lastState.state === 'queued') {
+    throw new MesaError('usage', `session ${id} is queued: mesa stop ${id} cancels it first`);
+  }
   const target = windowOf(record);
   const pane = await deps.tmux.findWindow(target);
   if (pane && !pane.dead && !force) {

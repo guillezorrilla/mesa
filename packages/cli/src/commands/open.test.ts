@@ -273,6 +273,8 @@ describe('open --after queues a session until the one it waits on is over', () =
     const a = await open();
     const b = await open('--after', a.id);
     const c = await open('--after', b.id);
+    // Removed, it would leave C waiting on nothing: rm refuses until it is cancelled.
+    expect(await mesa('rm', b.id)).toMatchObject({ code: 2 });
     const stopped = await mesa('stop', b.id, '--json');
     expect(stopped.json.data).toMatchObject({
       outcome: 'cancelled',
@@ -291,8 +293,9 @@ describe('open --after queues a session until the one it waits on is over', () =
     await mesa('hook', 'tmux', 'pane-died', 'lantern-cove', `claude-${a.id}`);
     expect(window(b.id)).toBeUndefined();
     expect(window(c.id)).toBeDefined();
-    // A cancelled session never ran: nothing to resume.
+    // A cancelled session never ran: nothing to resume, and now it can go.
     expect(await mesa('resume', b.id)).toMatchObject({ code: 3 });
+    expect(await mesa('rm', b.id)).toMatchObject({ code: 0 });
   });
 
   test('stopping the session it waits on starts it', async () => {
