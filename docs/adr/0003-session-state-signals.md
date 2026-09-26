@@ -96,9 +96,11 @@ Three things change.
 - It then fires `SessionStart` with the new id and source `clear`.
 - `claude agents --json` reports the new id for the pane's pid.
 
-**Following the new id (#92).** The record follows the listing and the `SessionStart`, and a `SessionEnd` with reason `clear` no longer ends the session. Until #92 lands, two things go wrong:
-- that `SessionEnd` reads as `done`;
-- the nested-claude guard drops every later event.
+**Following the new id (#92, done).** The record follows the listing and the `SessionStart`, and a `SessionEnd` with reason `clear` no longer ends the session. Before #92, two things went wrong:
+- that `SessionEnd` read as `done`;
+- the nested-claude guard dropped every later event.
+
+#92 landed it: `recordHookEvent` moves the record to the id of a `SessionStart` with source `clear` and logs it (any other source under another id is still a nested claude's, and dropped); each look saves the id the listing names for the pane's pid; and `hookState` gives a `SessionEnd` with reason `clear` (or `resume`, whose agent also goes on) no state.
 
 ## Amendment 2026-09-26: tmux reports an agent's exit itself (#68)
 

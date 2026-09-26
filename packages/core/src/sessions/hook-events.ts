@@ -20,8 +20,9 @@ export type HookEvent = {
 
 /**
  * Appends one hook payload to its session's event log, and gives the record its agent session id
- * when that is first learned. Undefined, and nothing written, when the hook did not come from a
- * Mesa session: no MESA_SESSION_ID, or one that is not a session id.
+ * when that is first learned or a /clear moves it (a SessionStart with source `clear`). Undefined,
+ * and nothing written, when the hook did not come from a Mesa session: no MESA_SESSION_ID, or one
+ * that is not a session id, or another agent session id (a nested claude's).
  */
 export function recordHookEvent(
   deps: {
@@ -56,16 +57,20 @@ export function recordHookEvent(
     payload: redactPayload(payload, deps.home, deps.secrets()),
   };
   const record = findRecord(deps.store, id);
+  // A /clear starts a new conversation in the same agent: its SessionStart names the new id.
+  const cleared = line.event === 'SessionStart' && payload.source === 'clear';
   // A claude started inside the session's claude inherits MESA_SESSION_ID; its events are not ours.
-  if (record?.agentSessionId && agentSessionId && agentSessionId !== record.agentSessionId) {
-    return undefined;
-  }
+  const moved = Boolean(record?.agentSessionId && agentSessionId !== record.agentSessionId);
+  if (agentSessionId && moved && !cleared) return undefined;
   mkdirSync(deps.eventsDir, { recursive: true, mode: 0o700 });
   appendFileSync(join(deps.eventsDir, `${id}.jsonl`), `${JSON.stringify(line)}\n`);
-  // Open and resume set agentSessionId first, so this runs only for a record written without
-  // one. ponytail: under the record's lock, which can hold a hook up to 2 s past its budget when
-  // another process has the record; it only ever waits on that rare first fill.
-  if (record && !record.agentSessionId && agentSessionId) deps.store.update(id, { agentSessionId });
+  // The record follows: to its first id (open and resume set one first, so only a record written
+  // without one), or to the one a /clear moved it to. ponytail: under the record's lock, which can
+  // hold a hook up to 2 s past its budget when another process has the record; it only waits on
+  // those rare changes.
+  if (record && agentSessionId && agentSessionId !== record.agentSessionId) {
+    deps.store.update(id, { agentSessionId });
+  }
   return line;
 }
 

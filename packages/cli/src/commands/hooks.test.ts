@@ -112,3 +112,37 @@ test('mesa hook tmux pane-died records its exit; hooks status and doctor show bo
   // A window that is no session's is not an error.
   expect(await mesa('hook', 'tmux', 'pane-died', 'lantern-cove', 'zsh')).toMatchObject({ code: 0 });
 });
+
+test('after a /clear, mesa sessions shows the new agent session id, not done, and its hooks log on', async () => {
+  const world = fakeTmux();
+  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await cli.withProject();
+  const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const hook = (payload: object) => {
+    cli.stdin = JSON.stringify(payload);
+    return mesa('hook', 'claude', '--json');
+  };
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  const after = '11111111-2222-4333-8444-555555555555';
+  await hook({ session_id: opened.agentSessionId, hook_event_name: 'SessionEnd', reason: 'clear' });
+  await hook({ session_id: after, hook_event_name: 'SessionStart', source: 'clear' });
+  expect((await hook({ session_id: after, hook_event_name: 'Stop' })).json.data).toEqual({
+    recorded: true,
+    event: 'Stop',
+  });
+  expect((await hook({ session_id: 'a-third-id', hook_event_name: 'Stop' })).json.data).toEqual({
+    recorded: false,
+    event: null,
+  });
+  cli.env = {};
+  const [row] = (await mesa('sessions', '--json')).json.data;
+  expect(row).toMatchObject({ id: opened.id, agentSessionId: after, lastState: { state: 'idle' } });
+  const events = readFileSync(
+    join(cli.home, `.mesa/default/sessions/events/${opened.id}.jsonl`),
+    'utf8',
+  )
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l).event);
+  expect(events).toEqual(['SessionEnd', 'SessionStart', 'Stop']);
+});

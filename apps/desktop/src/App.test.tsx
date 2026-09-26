@@ -653,6 +653,40 @@ test('a queued row says what it waits on and has Cancel, which stops it; it cann
   expect(inRow('session-resume')?.hasAttribute('disabled')).toBe(true);
 });
 
+test('after a /clear moves its agent session id, the row keeps its state and actions', async () => {
+  vi.useFakeTimers();
+  try {
+    let cleared = false;
+    const after = '00000000-0000-4000-8000-0000000000cc';
+    const { bridge } = fakeBridge({
+      sessions: () => envelope([cleared ? { ...busy, agentSessionId: after } : busy]),
+    });
+    const byTestId = await renderWithMesa(<App />, bridge);
+    const seen = () => ({
+      rows: byTestId('session-row').length,
+      state: byTestId('session-state')[0]?.dataset.state,
+      send: byTestId('session-send-submit')[0]?.hasAttribute('disabled'),
+      stop: byTestId('session-stop')[0]?.hasAttribute('disabled'),
+      terminal: byTestId('open-terminal')[0]?.hasAttribute('disabled'),
+      resume: byTestId('session-resume')[0]?.hasAttribute('disabled'),
+    });
+    const before = seen();
+    expect(before).toEqual({
+      rows: 1,
+      state: 'working',
+      send: false,
+      stop: false,
+      terminal: false,
+      resume: true,
+    });
+    cleared = true;
+    await act(async () => vi.advanceTimersByTime(2000));
+    expect(seen()).toEqual(before);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {
   let stopped = false;
   const { bridge, calls } = fakeBridge({
