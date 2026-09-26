@@ -14,6 +14,17 @@ A macOS app plus a `mesa` CLI that runs many Claude Code and Codex sessions acro
 - A decision that is hard to reverse gets an ADR in `docs/adr/` with date and evidence. A new or ambiguous term gets a `CONTEXT.md` entry. A spike writes its outcome to `docs/spikes/`.
 - Faro decisions, session events, and receipts carry probabilities and confidence; keep them in the receipt when you add a new decision site.
 
+## Code shape
+
+The code stays reusable and easy to maintain; every PR is reviewed against these rules.
+
+- Every concept has one owner: a module, helper, path, lookup, or guard. Before writing one, `git grep` for its owner and extend it; a second copy is a defect to fold back in.
+- One job per module and one concept per file, in the folder of its domain (`packages/core/src/<domain>/`, `packages/cli/src/commands/<first word>.ts`). When a module's summary needs "and", split it.
+- Modules are deep: a small interface over real behaviour. A seam exists where two implementations do (ADR-0008); a pass-through layer or an option nobody asked for does not.
+- Tests cross the interface callers use, over the seams and fixtures in `@mesa/core/testing`; a helper two test files need moves there.
+- The app builds screens from shared components in `apps/desktop/src/components/`: shadcn/ui on Tailwind, with lucide-react icons.
+- Design and review with the `codebase-design`, `code-simplification`, and `code-review-and-quality` skills.
+
 ## Agent skills
 
 ### Issue tracker
