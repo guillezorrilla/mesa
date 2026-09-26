@@ -1,9 +1,10 @@
-import { FolderPlus, Play } from 'lucide-react';
+import { FolderPlus, Play, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 /** The profile's registered projects: open a session on one, or register a folder. */
 export function ProjectsScreen() {
   const { data: projects, refresh } = useCommand('projects.list');
+  const skills = useCommand('skills.list');
   const run = useRun();
   const platform = usePlatform();
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,23 @@ export function ProjectsScreen() {
     try {
       const session = await run('sessions.open', { project });
       if (session) toast(`Opened session ${session.id} on ${project}`);
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  // Links the profile's and the project's enabled skills into its skill folders.
+  const syncSkills = async (project: string) => {
+    setOpening(true);
+    try {
+      const synced = await run('skills.sync', { project });
+      if (!synced) return;
+      const clashes = synced.conflicts.length
+        ? `; ${synced.conflicts.length} of the project's own left alone`
+        : '';
+      toast(
+        `Synced skills into ${project}: ${synced.added.length} added, ${synced.removed.length} removed${clashes}`,
+      );
     } finally {
       setOpening(false);
     }
@@ -85,22 +104,57 @@ export function ProjectsScreen() {
                 <TableCell className="font-mono tabular-nums">{p.priority ?? ''}</TableCell>
                 <TableCell className="text-right">
                   {p.exists && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      data-testid="open-session"
-                      onClick={() => openSession(p.name)}
-                      disabled={opening}
-                    >
-                      <Play aria-hidden />
-                      Open session
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="sync-skills"
+                        title="Link the enabled skills into its .claude/skills and .agents/skills"
+                        onClick={() => syncSkills(p.name)}
+                        disabled={opening}
+                      >
+                        <Sparkles aria-hidden />
+                        Sync skills
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="open-session"
+                        onClick={() => openSession(p.name)}
+                        disabled={opening}
+                      >
+                        <Play aria-hidden />
+                        Open session
+                      </Button>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mesa's skills</CardTitle>
+          <CardDescription>
+            Enabled in this profile's config.yaml; a project's mesa.yaml can add more. Sync skills
+            links them into the project.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {skills.data?.map((s) => (
+            <div key={s.name} data-testid="skill-row" className="flex items-start gap-3 text-sm">
+              <Badge variant={s.enabled ? 'default' : 'outline'} className="font-mono">
+                {s.enabled ? 'enabled' : 'off'}
+              </Badge>
+              <div>
+                <div className="font-medium font-mono">{s.name}</div>
+                <div className="text-muted-foreground text-xs">{s.description}</div>
+              </div>
+            </div>
+          ))}
+        </CardContent>
       </Card>
     </section>
   );

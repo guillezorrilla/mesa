@@ -19,6 +19,7 @@ import { resize } from './resize.js';
 import { resume } from './resume.js';
 import { send } from './send.js';
 import { sessions } from './sessions.js';
+import { skillsList, skillsSync } from './skills.js';
 import { stop } from './stop.js';
 import { unregister } from './unregister.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
@@ -52,6 +53,8 @@ export const COMMANDS: Command[] = [
   resume,
   send,
   sessions,
+  skillsList,
+  skillsSync,
   stop,
   unregister,
   vaultInit,

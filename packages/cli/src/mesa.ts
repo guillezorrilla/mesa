@@ -47,6 +47,8 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
     run: execRunner,
     obsidian: macObsidianPaths(home),
     argv,
+    // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js).
+    skillsDir: fileURLToPath(new URL('../../../skills', import.meta.url)),
   },
 });
 if (exec) {
