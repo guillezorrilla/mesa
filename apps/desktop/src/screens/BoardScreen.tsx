@@ -1,4 +1,4 @@
-import type { Agent, SessionRow } from '@mesa/core';
+import type { Agent, SessionRow, TreeRow } from '@mesa/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Terminal } from '../components/Terminal';
 import { useToast } from '../components/Toast';
@@ -32,17 +32,66 @@ const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.endedAt);
 const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;
 
+const WAITING = new Set(['waiting-permission', 'waiting-question']);
+
 /**
- * The Session Board: every session, Mesa's and (muted, read-only) those it did not start,
- * highest attention first, with Faro's state, confidence, and attention, the running time, and
- * the last output line. It looks again every two seconds and after every action.
+ * The rows to show, each with the rows below it in the tree (the deeper ones right after it). A
+ * collapsed row hides those, and the toggle says how many, and whether one waits on a person.
+ */
+function shown(rows: readonly TreeRow[], collapsed: ReadonlySet<string>) {
+  const out: { row: TreeRow; below: TreeRow[] }[] = [];
+  for (let i = 0; i < rows.length; ) {
+    const row = rows[i] as TreeRow;
+    let end = i + 1;
+    while (end < rows.length && (rows[end] as TreeRow).depth > row.depth) end++;
+    out.push({ row, below: rows.slice(i + 1, end) });
+    i = collapsed.has(row.id) ? end : i + 1;
+  }
+  return out;
+}
+
+/** A row's toggle for the rows under it: how many a closed one hides, and whether one waits. */
+function Toggle(props: { below: readonly TreeRow[]; closed: boolean; onToggle: () => void }) {
+  const { below, closed } = props;
+  const waits = closed && below.some((r) => WAITING.has(r.lastState.state));
+  const count = below.length === 1 ? 'the session' : `the ${below.length} sessions`;
+  return (
+    <button
+      type="button"
+      className={`link${waits ? ' needs-you' : ''}`}
+      data-testid="session-toggle"
+      aria-expanded={!closed}
+      aria-label={
+        closed
+          ? `Show ${count} under it${waits ? ', one waits on you' : ''}`
+          : 'Hide the sessions under it'
+      }
+      onClick={props.onToggle}
+    >
+      {closed ? `▸ ${below.length}` : '▾'}
+    </button>
+  );
+}
+
+/**
+ * The Session Board: every session, Mesa's and (muted, read-only) those it did not start, in
+ * mesa's order (highest attention first, children under their parent, collapsible), with Faro's
+ * state, confidence, and attention, the running time, and the last output line. It looks again
+ * every two seconds and after every action.
  */
 export function BoardScreen() {
   const [ended, setEnded] = useState(false);
   const run = useRun();
-  const list = run as (name: ListName) => Promise<SessionRow[] | undefined>;
+  const list = run as (name: ListName) => Promise<TreeRow[] | undefined>;
   const toast = useToast();
-  const [data, setData] = useState<SessionRow[]>();
+  const [data, setData] = useState<TreeRow[]>();
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setCollapsed((was) => {
+      const next = new Set(was);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const [acting, setActing] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   // Embedded terminals, one panel per session, in the order opened; several at once.
@@ -77,7 +126,14 @@ export function BoardScreen() {
         const name = wanted.current;
         const rows = await list(name);
         if (rows && wanted.current === name) {
-          setData([...rows].sort((a, b) => b.attention - a.attention));
+          setData(rows);
+          // A collapsed row whose rows have all gone opens again, so a new one is not hidden.
+          const withRows = new Set(
+            rows.filter((r, i) => (rows[i + 1]?.depth ?? -1) > r.depth).map((r) => r.id),
+          );
+          setCollapsed((was) =>
+            was.size ? new Set([...was].filter((id) => withRows.has(id))) : was,
+          );
           setSince(Date.now());
         }
       } while (again.current);
@@ -177,15 +233,25 @@ export function BoardScreen() {
           </tr>
         </thead>
         <tbody>
-          {data?.map((s) => (
+          {shown(data ?? [], collapsed).map(({ row: s, below }) => (
             <tr
               key={s.id}
               data-testid="session-row"
+              data-depth={s.depth}
               data-alive={s.alive}
               data-managed={s.managed}
               className={s.managed ? undefined : 'muted'}
             >
-              <td>
+              <td style={{ paddingLeft: `${s.depth * 1.5}em` }}>
+                {below.length > 0 && (
+                  <>
+                    <Toggle
+                      below={below}
+                      closed={collapsed.has(s.id)}
+                      onToggle={() => toggle(s.id)}
+                    />{' '}
+                  </>
+                )}
                 {s.managed && !exited(s) ? (
                   <button
                     type="button"

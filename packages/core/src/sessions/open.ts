@@ -3,7 +3,7 @@ import { AGENT_NAMES, AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
 import { checkAgent } from '../doctor.js';
 import type { IdSource } from '../ids.js';
-import type { Runner } from '../process.js';
+import type { Env, Runner } from '../process.js';
 import type { Profile } from '../profile.js';
 import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
@@ -21,7 +21,46 @@ export type OpenDeps = {
   run: Runner;
   clock: Clock;
   newUuid: IdSource;
+  /** For MESA_SESSION_ID and MESA_PROFILE: a window's session is the default parent. */
+  env: Env;
 };
+
+/**
+ * The parent a new session gets: `parent` when given (not_found if it is not a session here),
+ * none with `noParent`, else the session whose window this runs in: MESA_SESSION_ID, when its
+ * record is here. A window of another profile (MESA_PROFILE names it), or of a removed session,
+ * gives none.
+ */
+function parentOf(
+  deps: Pick<OpenDeps, 'store' | 'env' | 'profileName'>,
+  input: { parent?: string; noParent?: boolean },
+): string | undefined {
+  if (input.noParent && input.parent !== undefined) {
+    throw new MesaError('usage', 'pass --parent or --no-parent, not both');
+  }
+  const exists = (id: string) => {
+    try {
+      deps.store.get(id);
+      return true;
+    } catch (error) {
+      if (error instanceof MesaError && error.code === 'not_found') return false;
+      throw error;
+    }
+  };
+  if (input.parent !== undefined) {
+    if (!exists(input.parent)) {
+      throw new MesaError(
+        'not_found',
+        `no session ${input.parent} to be the parent; see mesa sessions, or pass --no-parent`,
+      );
+    }
+    return input.parent;
+  }
+  const own = deps.env.MESA_SESSION_ID;
+  const windowProfile = deps.env.MESA_PROFILE ?? deps.profileName;
+  if (input.noParent || !own || windowProfile !== deps.profileName) return undefined;
+  return exists(own) ? own : undefined;
+}
 
 // ponytail: one tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
 // "command too long"), so Mesa caps the agent's command below that, leaving room for the cwd and
@@ -77,8 +116,9 @@ export function readGoal(input: { goal?: string; goalFile?: string }): string | 
  */
 export async function openSession(
   deps: OpenDeps,
-  input: { project: string; agent?: string; goal?: string },
+  input: { project: string; agent?: string; goal?: string; parent?: string; noParent?: boolean },
 ): Promise<SessionRecord> {
+  const parent = parentOf(deps, input);
   const entry = findProject(deps.profile, input.project);
   // Read even when --agent is given: a folder that is gone is not_found, never a claude in $HOME.
   const project = readProjectFile(entry.path);
@@ -109,6 +149,7 @@ export async function openSession(
     agentSessionId,
     command,
     goal: input.goal,
+    parent,
   });
 }
 
@@ -154,6 +195,8 @@ export async function resumeSession(
     // The same conversation, so the same goal; it is not typed in again.
     command: spec.resume(old.agentSessionId),
     goal: old.goal,
+    // Its place in the tree too.
+    parent: old.parent,
     resumedFrom: old.id,
   });
   const from = deps.store.update(old.id, {
@@ -172,6 +215,7 @@ async function startWindow(
     agentSessionId: string;
     command: string;
     goal?: string;
+    parent?: string;
     resumedFrom?: string;
   },
 ): Promise<SessionRecord> {
@@ -182,6 +226,7 @@ async function startWindow(
     agent: s.agent,
     agentSessionId: s.agentSessionId,
     ...(s.goal === undefined ? {} : { goal: s.goal }),
+    ...(s.parent === undefined ? {} : { parent: s.parent }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,

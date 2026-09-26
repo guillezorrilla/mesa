@@ -9,7 +9,7 @@ import {
   tempDir,
 } from '../testing.js';
 import { listAgentProcesses } from './agent-listing.js';
-import { listSessions } from './list.js';
+import { listSessions, sessionTree } from './list.js';
 import { sessionStore } from './store.js';
 import { tmuxBackend } from './tmux.js';
 
@@ -292,4 +292,133 @@ test('the board sorts by attention: a session waiting on a permission tops a wor
     source: 'hook',
   });
   expect(rows[0]?.decision.answers[2]).toMatchObject({ kind: 'Noul', answer: true });
+});
+
+test('each row names its parent and children; the tree puts children under their parent', async () => {
+  const store = storeIn();
+  const at = (minute: number) => `2026-09-24T11:${String(minute).padStart(2, '0')}:00.000Z`;
+  const root = store.create(() => newSession({ startedAt: at(0) }));
+  const child = store.create(() => newSession({ startedAt: at(10), parent: root.id }));
+  const grandchild = store.create(() => newSession({ startedAt: at(20), parent: child.id }));
+  const other = store.create(() => newSession({ startedAt: at(30) }));
+  // Its parent's record was removed: it lists at the top, its parent kept.
+  const parentGone = store.create(() => newSession({ startedAt: at(40), parent: 'gonegone' }));
+  const { run } = scriptedRunner({ tmux: '' });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const links = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    return row?.managed ? [row.parent ?? null, row.children] : undefined;
+  };
+  expect(links(root.id)).toEqual([null, [child.id]]);
+  expect(links(child.id)).toEqual([root.id, [grandchild.id]]);
+  expect(links(grandchild.id)).toEqual([child.id, []]);
+  expect(links(parentGone.id)).toEqual(['gonegone', []]);
+
+  // Board order puts the grandchild first; the tree still nests it under its parent.
+  const ranked = [grandchild, other, parentGone, root, child].map((r) =>
+    rows.find((x) => x.id === r.id),
+  );
+  const tree = sessionTree(ranked.filter((r) => r !== undefined));
+  expect(tree.map((r) => [r.id, r.depth])).toEqual([
+    [other.id, 0],
+    [parentGone.id, 0],
+    [root.id, 0],
+    [child.id, 1],
+    [grandchild.id, 2],
+  ]);
+});
+
+test('children name every record, even one stopped too long ago to be on the board', async () => {
+  const store = storeIn();
+  const root = store.create(() => newSession({ startedAt: '2026-09-20T10:00:00.000Z' }));
+  const old = store.create(() =>
+    newSession({ startedAt: '2026-09-20T11:00:00.000Z', parent: root.id }),
+  );
+  store.update(old.id, {
+    endedAt: '2026-09-20T12:00:00.000Z',
+    lastState: { state: 'done', confidence: 1, at: '2026-09-20T12:00:00.000Z', source: 'mesa' },
+  });
+  const { run } = scriptedRunner({ tmux: '' });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  expect(rows.map((r) => r.id)).toEqual([root.id]);
+  expect(rows[0]?.managed && rows[0].children).toEqual([old.id]);
+  // Oldest first.
+  const young = store.create(() =>
+    newSession({ startedAt: '2026-09-24T11:00:00.000Z', parent: root.id }),
+  );
+  const again = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const top = again.find((r) => r.id === root.id);
+  expect(top?.managed && top.children).toEqual([old.id, young.id]);
+});
+
+test('the tree ranks siblings and branches by their highest attention; loops and resumes still place', async () => {
+  const store = storeIn();
+  store.create(() => newSession());
+  const { run } = scriptedRunner({ tmux: '' });
+  const [base] = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  if (!base?.managed) throw new Error('expected a managed row');
+  const row = (
+    id: string,
+    attention: number,
+    links: { parent?: string; resumedFrom?: string } = {},
+  ) => ({ ...base, id, attention, ...links });
+  const tree = (rows: ReturnType<typeof row>[]) =>
+    sessionTree(rows).map((r) => `${r.depth}:${r.id}`);
+
+  // Siblings by attention; a quiet parent with a waiting grandchild outranks a busier root.
+  expect(
+    tree([
+      // In board order (attention), which the tree must rearrange.
+      row('busyroot', 0.4),
+      row('childtop', 0.2, { parent: 'quietrot' }),
+      row('childlow', 0.1, { parent: 'quietrot' }),
+      row('quietrot', 0.05),
+      row('waitsnow', 0.9, { parent: 'childlow' }),
+    ]),
+  ).toEqual(['0:quietrot', '1:childlow', '2:waitsnow', '1:childtop', '0:busyroot']);
+
+  // Ties keep the board's order.
+  expect(tree([row('firstsss', 0.3), row('secondss', 0.3)])).toEqual(['0:firstsss', '0:secondss']);
+
+  // A loop of hand-edited records, and one that is its own parent, still show, at the top; a
+  // loop row with two children ranks them without looping forever.
+  expect(
+    tree([
+      row('loopaaaa', 0.3, { parent: 'loopbbbb' }),
+      row('loopbbbb', 0.2, { parent: 'loopaaaa' }),
+      row('loopkidb', 0.1, { parent: 'loopaaaa' }),
+      row('selfself', 0.1, { parent: 'selfself' }),
+    ]),
+    // Its own parent counts as none; a loop has no top, so it follows the rows that do.
+  ).toEqual(['0:selfself', '0:loopaaaa', '1:loopbbbb', '1:loopkidb']);
+
+  // Its parent was resumed, twice: the child sits under the newest resume, off the board or on it.
+  expect(
+    tree([
+      row('resumed2', 0.3, { resumedFrom: 'resumed1' }),
+      row('resumed1', 0.25, { resumedFrom: 'original' }),
+      row('original', 0.25),
+      row('childofo', 0.2, { parent: 'original' }),
+    ]),
+  ).toEqual(['0:resumed2', '1:childofo', '0:resumed1', '0:original']);
 });

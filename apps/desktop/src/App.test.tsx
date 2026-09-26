@@ -6,8 +6,8 @@ import type {
   ForeignRow,
   ManagedRow,
   ProjectRow,
-  SessionRow,
   TmuxWindow,
+  TreeRow,
 } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
@@ -103,7 +103,7 @@ test('Open session starts a session for the row and says so', async () => {
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-projects')[0]);
   await click(byTestId('open-session')[0]);
-  expect(calls).toContainEqual(['--json', 'open', '--', 'lantern-cove']);
+  expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session a1b2c3d4 on lantern-cove');
 });
 
@@ -175,8 +175,9 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
   ]);
 });
 
+type BoardRow = ManagedRow & { depth: number };
 /** A Mesa session row as the board receives it; `extra` varies state, attention, liveness. */
-const managedRow = (id: string, extra: Partial<ManagedRow> = {}): ManagedRow => ({
+const managedRow = (id: string, extra: Partial<BoardRow> = {}): BoardRow => ({
   id,
   kind: 'interactive',
   project: 'lantern-cove',
@@ -190,9 +191,11 @@ const managedRow = (id: string, extra: Partial<ManagedRow> = {}): ManagedRow => 
   ...placed,
   alive: true,
   runningSeconds: 42,
+  children: [],
+  depth: 0,
   ...extra,
 });
-const foreignRow: ForeignRow = {
+const foreignRow: ForeignRow & { depth: number } = {
   id: 'ext-4242',
   managed: false,
   ...placed,
@@ -207,6 +210,7 @@ const foreignRow: ForeignRow = {
   agentStatus: 'idle',
   lastState: { state: 'idle', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'listing' },
   runningSeconds: 90,
+  depth: 0,
 };
 const asking = managedRow('aaaaaaaa', {
   lastState: {
@@ -234,8 +238,8 @@ const deadPane = managedRow('ffffffff', {
 
 test('the Board is the first screen: every session by attention, with its state, confidence, and output', async () => {
   const { bridge } = fakeBridge({
-    // Out of order on purpose: the Board ranks by attention itself.
-    sessions: () => envelope([busy, deadPane, foreignRow, exited, asking] satisfies SessionRow[]),
+    // mesa sends the board in its order (attention, children under their parent); the Board keeps it.
+    sessions: () => envelope([asking, foreignRow, exited, deadPane, busy] satisfies TreeRow[]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   expect(byTestId('session-board')).toHaveLength(1);
@@ -321,7 +325,12 @@ test('a late reply for the other list never lands: Show older wins', async () =>
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('sessions-ended')[0]);
   await act(async () => release());
-  expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual(['--json', 'sessions', '--all']);
+  expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual([
+    '--json',
+    'sessions',
+    '--all',
+    '--tree',
+  ]);
   expect(byTestId('session-row').map((r) => cells(r)[0])).toEqual(['aaaaaaaa', 'cccccccc']);
 });
 
@@ -388,14 +397,22 @@ test('New session opens a dialog, and Open starts the picked project with the pi
   const codex = dialog?.querySelector<HTMLInputElement>('input[value="codex"]');
   expect(codex?.disabled).toBe(true);
   await click(byTestId('new-session-submit')[0]);
-  expect(calls).toContainEqual(['--json', 'open', '--agent', 'claude', '--', 'lantern-cove']);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'claude',
+    '--',
+    'lantern-cove',
+  ]);
   expect(byTestId('new-session-dialog')).toHaveLength(0);
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session dddddddd on lantern-cove');
 });
 
 test("a session's goal shows under its project, its first line, the whole goal on hover", async () => {
   const withGoal = { ...busy, goal: '/goal Keep going until green\nthen stop' };
-  const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies SessionRow[]) });
+  const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies TreeRow[]) });
   const byTestId = await renderWithMesa(<App />, bridge);
   const [goal] = byTestId('session-goal');
   expect(goal?.textContent).toBe('/goal Keep going until green');
@@ -417,6 +434,7 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
   expect(calls).toContainEqual([
     '--json',
     'open',
+    '--no-parent',
     '--agent',
     'claude',
     '--goal=/goal Print "ready"\nthen stop',
@@ -430,6 +448,7 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
   expect(calls.filter((c) => c[1] === 'open').at(-1)).toEqual([
     '--json',
     'open',
+    '--no-parent',
     '--agent',
     'claude',
     '--',
@@ -689,4 +708,62 @@ test('the Help screen lists every command from mesa help --agent, with its flags
     'mesa send a1b2c3d4 "run the tests"',
     'mesa init --vault ~/vault',
   ]);
+});
+
+test('a child row sits under its parent; a toggle hides the rows under it and says if one waits', async () => {
+  const parent = managedRow('aaaaaaaa', { attention: 0.9, children: ['bbbbbbbb'] });
+  const child = managedRow('bbbbbbbb', { parent: 'aaaaaaaa', depth: 1, children: ['dddddddd'] });
+  const waiting = managedRow('dddddddd', {
+    parent: 'bbbbbbbb',
+    depth: 2,
+    attention: 0.9,
+    lastState: {
+      state: 'waiting-question',
+      confidence: 0.95,
+      at: '2026-09-25T12:00:00.000Z',
+      source: 'hook',
+    },
+  });
+  const loose = managedRow('cccccccc', { attention: 0.2, children: ['eeeeeeee'] });
+  const quiet = managedRow('eeeeeeee', { attention: 0.1, parent: 'cccccccc', depth: 1 });
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([parent, child, waiting, loose, quiet]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(calls).toContainEqual(['--json', 'sessions', '--tree']);
+  const rows = () => byTestId('session-row').map((r) => [cells(r)[0], r.dataset.depth]);
+  const toggles = () => byTestId('session-toggle');
+  expect(rows()).toEqual([
+    ['▾ aaaaaaaa', '0'],
+    ['▾ bbbbbbbb', '1'],
+    ['dddddddd', '2'],
+    ['▾ cccccccc', '0'],
+    ['eeeeeeee', '1'],
+  ]);
+
+  // Collapse the child, then the parent: each hides every row under it, and says how many.
+  await click(toggles()[1]);
+  expect(rows().map(([id]) => id)).toEqual([
+    '▾ aaaaaaaa',
+    '▸ 1 bbbbbbbb',
+    '▾ cccccccc',
+    'eeeeeeee',
+  ]);
+  expect(toggles()[1]?.getAttribute('aria-label')).toBe(
+    'Show the session under it, one waits on you',
+  );
+  await click(toggles()[0]);
+  expect(rows().map(([id]) => id)).toEqual(['▸ 2 aaaaaaaa', '▾ cccccccc', 'eeeeeeee']);
+  const [top] = toggles();
+  expect(top?.getAttribute('aria-expanded')).toBe('false');
+  expect(top?.getAttribute('aria-label')).toBe('Show the 2 sessions under it, one waits on you');
+  expect(top?.className).toContain('needs-you');
+  // A collapsed row with nothing waiting under it is not marked.
+  await click(toggles()[1]);
+  expect(toggles()[1]?.getAttribute('aria-label')).toBe('Show the session under it');
+  expect(toggles()[1]?.className).not.toContain('needs-you');
+
+  // Opening the parent again keeps the child collapsed.
+  await click(top);
+  expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', '▸ 1 cccccccc']);
 });

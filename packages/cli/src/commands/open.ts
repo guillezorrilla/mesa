@@ -16,7 +16,12 @@ export const open = defineCommand({
       type: 'string',
       description: "The agent's first prompt; one starting /goal runs Claude Code's goal command",
     },
-    'goal-file': { type: 'string', description: 'Read the goal from this file, byte for byte' },
+    'goal-file': { type: 'string', description: 'Read the goal from this file (UTF-8)' },
+    parent: {
+      type: 'string',
+      description: 'The session this one is started from; default: the Mesa window this runs in',
+    },
+    'no-parent': { type: 'boolean', description: 'Start it with no parent, even inside a session' },
   },
   example: 'mesa open lantern-cove --goal "Read AGENTS.md, then summarise it"',
   run: async ({ mesa, args, flags, tty }) => {
@@ -26,6 +31,8 @@ export const open = defineCommand({
       agent: flags.agent,
       goal: flags.goal,
       goalFile: flags['goal-file'],
+      parent: flags.parent,
+      noParent: flags['no-parent'],
     });
     const session = recorded.result;
     const { receipt, text } = withReceipt(recorded, session.id);
