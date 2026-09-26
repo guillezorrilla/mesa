@@ -781,3 +781,39 @@ test('mesa help without --agent prints the command list', async () => {
   const { stdout } = await mesa('help');
   expect(stdout).toBe((await mesa('--help')).stdout);
 });
+
+test('open --goal and --goal-file start with a goal; mesa goal prints it', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const opened = await mesa('open', 'lantern-cove', '--goal', 'Print the word ready and stop');
+  const id = opened.stdout.split('\n')[0] ?? '';
+  expect(world.windows.at(-1)?.launch).toBe(
+    "claude --session-id 00000000-0000-4000-8000-000000000001 'Print the word ready and stop'",
+  );
+  expect((await mesa('goal', id, '--json')).json).toEqual({
+    ok: true,
+    data: { id, goal: 'Print the word ready and stop' },
+  });
+  expect((await mesa('goal', id)).stdout).toBe('Print the word ready and stop\n');
+
+  // A relative --goal-file is read from where mesa runs.
+  writeFileSync(join(home, 'goal.md'), 'From a file\n');
+  const fromFile = await mesa('open', 'lantern-cove', '--goal-file', 'goal.md', '--json');
+  expect(fromFile.json.data.goal).toBe('From a file\n');
+  expect(world.windows.at(-1)?.launch).toBe(
+    "claude --session-id 00000000-0000-4000-8000-000000000002 'From a file\n'",
+  );
+
+  const plain = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+  expect(await mesa('goal', plain)).toMatchObject({
+    code: 3,
+    stderr: `session ${plain} has no goal\n`,
+  });
+  expect(await mesa('open', 'lantern-cove', '--goal', '')).toMatchObject({
+    code: 2,
+    stderr: 'the goal is empty\n',
+  });
+});

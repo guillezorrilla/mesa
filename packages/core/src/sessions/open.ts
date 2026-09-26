@@ -1,3 +1,4 @@
+import { readFileSync, statSync } from 'node:fs';
 import { AGENT_NAMES, AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
 import { checkAgent } from '../doctor.js';
@@ -22,14 +23,61 @@ export type OpenDeps = {
   newUuid: IdSource;
 };
 
+// ponytail: one tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
+// "command too long"), so Mesa caps the agent's command below that, leaving room for the cwd and
+// the variables. Past that, type the goal in with send-keys after the start.
+const MAX_COMMAND_BYTES = 12_000;
+
+// Strict, and a leading BOM dropped, so a file saved with one still starts `/goal`.
+const decoder = new TextDecoder('utf-8', { fatal: true });
+
+/** A goal file's text: UTF-8, its BOM dropped, otherwise unchanged. */
+function readGoalFile(file: string): string {
+  let bytes: Buffer;
+  try {
+    if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
+      throw new MesaError('not_found', `no goal file at ${file}`);
+    }
+    bytes = readFileSync(file);
+  } catch (error) {
+    if (error instanceof MesaError) throw error;
+    const code = (error as NodeJS.ErrnoException).code ?? String(error);
+    throw new MesaError('usage', `cannot read the goal file ${file}: ${code}`);
+  }
+  try {
+    return decoder.decode(bytes);
+  } catch {
+    throw new MesaError('usage', `the goal file ${file} is not UTF-8 text`);
+  }
+}
+
 /**
- * Starts an agent for a registered project in a new window of the project's tmux session. The
- * record is written first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and
- * removed again if the window cannot open.
+ * The goal from `--goal` or `--goal-file` (an absolute path), checked so claude takes it whole as
+ * its first prompt. Undefined without either.
+ */
+export function readGoal(input: { goal?: string; goalFile?: string }): string | undefined {
+  if (input.goal !== undefined && input.goalFile !== undefined) {
+    throw new MesaError('usage', 'pass --goal or --goal-file, not both');
+  }
+  const goal = input.goalFile === undefined ? input.goal : readGoalFile(input.goalFile);
+  if (goal === undefined) return undefined;
+  if (!goal.trim()) throw new MesaError('usage', 'the goal is empty');
+  if (goal.startsWith('-')) {
+    throw new MesaError('usage', 'a goal cannot start with -: claude would read it as a flag');
+  }
+  // A process argument cannot hold one.
+  if (goal.includes('\0')) throw new MesaError('usage', 'the goal holds a NUL byte');
+  return goal;
+}
+
+/**
+ * Starts an agent for a registered project in a new window of the project's tmux session, with
+ * `goal` (from readGoal) as its first prompt. The record is written first, with the agent session
+ * id Mesa chose (docs/spikes/session-ids.md), and removed again if the window cannot open.
  */
 export async function openSession(
   deps: OpenDeps,
-  input: { project: string; agent?: string },
+  input: { project: string; agent?: string; goal?: string },
 ): Promise<SessionRecord> {
   const entry = findProject(deps.profile, input.project);
   // Read even when --agent is given: a folder that is gone is not_found, never a claude in $HOME.
@@ -47,11 +95,20 @@ export async function openSession(
   if (!check.ok) throw new MesaError('agent_unavailable', `${agent} ${check.hint}`);
 
   const agentSessionId = deps.newUuid();
+  const command = spec.start(agentSessionId, input.goal);
+  const bytes = Buffer.byteLength(command);
+  if (bytes > MAX_COMMAND_BYTES) {
+    throw new MesaError(
+      'usage',
+      `the goal makes a ${bytes}-byte command, over the ${MAX_COMMAND_BYTES} Mesa passes to tmux: shorten it, or keep the long part in a file the goal names`,
+    );
+  }
   return startWindow(deps, {
     project: entry,
     agent,
     agentSessionId,
-    command: spec.start(agentSessionId),
+    command,
+    goal: input.goal,
   });
 }
 
@@ -94,7 +151,9 @@ export async function resumeSession(
     project: findProject(deps.profile, old.project),
     agent: old.agent,
     agentSessionId: old.agentSessionId,
+    // The same conversation, so the same goal; it is not typed in again.
     command: spec.resume(old.agentSessionId),
+    goal: old.goal,
     resumedFrom: old.id,
   });
   const from = deps.store.update(old.id, {
@@ -112,6 +171,7 @@ async function startWindow(
     agent: Agent;
     agentSessionId: string;
     command: string;
+    goal?: string;
     resumedFrom?: string;
   },
 ): Promise<SessionRecord> {
@@ -121,6 +181,7 @@ async function startWindow(
     project: s.project.name,
     agent: s.agent,
     agentSessionId: s.agentSessionId,
+    ...(s.goal === undefined ? {} : { goal: s.goal }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,
@@ -128,8 +189,8 @@ async function startWindow(
       window: `${s.agent}-${id}`,
     },
     startedAt: now,
-    // ponytail: a guess until Faro (#25) classifies it: a fresh claude waits at its prompt, or at
-    // the trust dialog in a folder it has not seen.
+    // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at
+    // its prompt, or at the trust dialog in a folder it has not seen, or works on its goal.
     lastState: { state: 'idle', confidence: 0.6, at: now, source: 'mesa' },
     ...(s.resumedFrom ? { resumedFrom: s.resumedFrom } : {}),
   }));

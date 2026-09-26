@@ -136,9 +136,9 @@ export function BoardScreen() {
       const resumed = await run('sessions.resume', { id });
       return resumed && `Resumed session ${id} as ${resumed.id}`;
     });
-  const open = (project: string, agent: Agent) =>
+  const open = (project: string, agent: Agent, goal: string) =>
     act(async () => {
-      const opened = await run('sessions.open', { project, agent });
+      const opened = await run('sessions.open', { project, agent, goal });
       if (!opened) return undefined;
       setNewOpen(false);
       return `Opened session ${opened.id} on ${opened.project}`;
@@ -200,7 +200,14 @@ export function BoardScreen() {
                   s.id
                 )}
               </td>
-              <td>{s.project ?? '-'}</td>
+              <td>
+                {s.project ?? '-'}
+                {s.managed && s.goal && (
+                  <div className="goal" data-testid="session-goal" title={s.goal}>
+                    {s.goal.trim().split(/\r?\n/, 1)[0]}
+                  </div>
+                )}
+              </td>
               <td>{s.agent}</td>
               <td>
                 <span
@@ -299,9 +306,12 @@ export function BoardScreen() {
   );
 }
 
-/** The New session dialog, modal: a registered project and an agent (v1 runs Claude Code only). */
+/**
+ * The New session dialog, modal: a registered project, an agent (v1 runs Claude Code only), and
+ * an optional goal, the agent's first prompt.
+ */
 function NewSession(props: {
-  onOpen: (project: string, agent: Agent) => void;
+  onOpen: (project: string, agent: Agent, goal: string) => void;
   onCancel: () => void;
   disabled: boolean;
 }) {
@@ -325,7 +335,9 @@ function NewSession(props: {
         onSubmit={(e) => {
           e.preventDefault();
           const form = new FormData(e.currentTarget);
-          props.onOpen(String(form.get('project') ?? ''), 'claude');
+          // The textarea's own value: form data may turn its newlines into CRLF.
+          const goal = e.currentTarget.elements.namedItem('goal') as HTMLTextAreaElement;
+          props.onOpen(String(form.get('project') ?? ''), 'claude', goal.value);
         }}
       >
         <label>
@@ -347,6 +359,15 @@ function NewSession(props: {
             <input type="radio" name="agent" value="codex" disabled /> Codex (planned)
           </label>
         </fieldset>
+        <label>
+          Goal (optional){' '}
+          <textarea
+            name="goal"
+            data-testid="new-session-goal"
+            rows={4}
+            placeholder="The first prompt; /goal keeps the agent working until its condition holds"
+          />
+        </label>
         <button type="submit" data-testid="new-session-submit" disabled={props.disabled}>
           Open
         </button>{' '}

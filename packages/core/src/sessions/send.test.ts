@@ -106,7 +106,8 @@ test('the receipt keeps 80 characters of the prompt, in its inputs and command, 
   const { result } = await mesa.sessions.open('lantern-cove');
   await mesa.sessions.send(result.id, prompt);
   const [latest] = listReceipts(join(home, 'vault'), 1);
-  const short = `use *** then ${'x'.repeat(58)}`;
+  // Redacted first, then cut: a key that crosses character 80 never leaves a piece behind.
+  const short = `use *** then ${'x'.repeat(67)}`;
   expect(latest?.receipt.inputs.prompt).toBe(short);
   expect(latest?.receipt.command).toBe(`mesa send SESSION ${JSON.stringify(short)}`);
 });
