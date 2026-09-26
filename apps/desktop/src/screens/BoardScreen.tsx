@@ -1,4 +1,4 @@
-import type { Agent, SessionRow } from '@mesa/core';
+import type { Agent, SessionRow, TreeRow } from '@mesa/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Terminal } from '../components/Terminal';
 import { useToast } from '../components/Toast';
@@ -32,17 +32,39 @@ const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.endedAt);
 const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;
 
+/** The rows a collapsed row hides: every one after it that sits deeper, until the tree climbs back. */
+function shown(rows: readonly TreeRow[], collapsed: ReadonlySet<string>): TreeRow[] {
+  let below: number | undefined;
+  return rows.filter((row) => {
+    if (below !== undefined && row.depth > below) return false;
+    below = collapsed.has(row.id) ? row.depth : undefined;
+    return true;
+  });
+}
+
 /**
- * The Session Board: every session, Mesa's and (muted, read-only) those it did not start,
- * highest attention first, with Faro's state, confidence, and attention, the running time, and
- * the last output line. It looks again every two seconds and after every action.
+ * The Session Board: every session, Mesa's and (muted, read-only) those it did not start, in
+ * mesa's order (highest attention first, children under their parent, collapsible), with Faro's
+ * state, confidence, and attention, the running time, and the last output line. It looks again
+ * every two seconds and after every action.
  */
 export function BoardScreen() {
   const [ended, setEnded] = useState(false);
   const run = useRun();
-  const list = run as (name: ListName) => Promise<SessionRow[] | undefined>;
+  const list = run as (name: ListName) => Promise<TreeRow[] | undefined>;
   const toast = useToast();
-  const [data, setData] = useState<SessionRow[]>();
+  const [data, setData] = useState<TreeRow[]>();
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // Rows with a child on the board: only those get a toggle.
+  const parents = new Set(
+    (data ?? []).flatMap((r) => (r.depth > 0 && r.managed && r.parent ? [r.parent] : [])),
+  );
+  const toggle = (id: string) =>
+    setCollapsed((was) => {
+      const next = new Set(was);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const [acting, setActing] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   // Embedded terminals, one panel per session, in the order opened; several at once.
@@ -77,7 +99,7 @@ export function BoardScreen() {
         const name = wanted.current;
         const rows = await list(name);
         if (rows && wanted.current === name) {
-          setData([...rows].sort((a, b) => b.attention - a.attention));
+          setData(rows);
           setSince(Date.now());
         }
       } while (again.current);
@@ -177,15 +199,30 @@ export function BoardScreen() {
           </tr>
         </thead>
         <tbody>
-          {data?.map((s) => (
+          {shown(data ?? [], collapsed).map((s) => (
             <tr
               key={s.id}
               data-testid="session-row"
+              data-depth={s.depth}
               data-alive={s.alive}
               data-managed={s.managed}
               className={s.managed ? undefined : 'muted'}
             >
-              <td>
+              <td style={{ paddingLeft: `${s.depth * 1.5}em` }}>
+                {parents.has(s.id) && (
+                  <>
+                    <button
+                      type="button"
+                      className="link"
+                      data-testid="session-toggle"
+                      aria-expanded={!collapsed.has(s.id)}
+                      title={collapsed.has(s.id) ? 'Show its sessions' : 'Hide its sessions'}
+                      onClick={() => toggle(s.id)}
+                    >
+                      {collapsed.has(s.id) ? '▸' : '▾'}
+                    </button>{' '}
+                  </>
+                )}
                 {s.managed && !exited(s) ? (
                   <button
                     type="button"

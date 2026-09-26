@@ -34,6 +34,8 @@ export type ManagedRow = SessionRecord &
     runningSeconds: number;
     /** The agent listing's status (`idle`, `busy`, `waiting`), while it lists the session. */
     agentStatus?: string;
+    /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
+    children: string[];
   };
 
 /**
@@ -102,7 +104,12 @@ export async function listSessions(
   const now = deps.clock();
   const recent = (r: SessionRecord) =>
     !r.endedAt || now.getTime() - Date.parse(r.endedAt) < RECENT_MS;
-  const records = deps.store.list().filter((r) => all || recent(r));
+  const every = deps.store.list();
+  const records = every.filter((r) => all || recent(r));
+  const children = new Map<string, string[]>();
+  for (const r of [...every].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    if (r.parent) children.set(r.parent, [...(children.get(r.parent) ?? []), r.id]);
+  }
   // One tmux call and one listing for the whole board, side by side, rather than one per record.
   const [listed, windowList] = await Promise.all([
     deps.listing(),
@@ -185,6 +192,7 @@ export async function listSessions(
         ...record,
         ...classified,
         managed: true,
+        children: children.get(record.id) ?? [],
         alive: window !== undefined || listedAs !== undefined,
         runningSeconds: secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime()),
         ...(listedAs ? { agentStatus: listedAs.status } : {}),
@@ -228,4 +236,29 @@ export async function listSessions(
     });
   const rows: SessionRow[] = [...managed, ...(await Promise.all(foreign))];
   return rows.sort((a, b) => b.attention - a.attention || a.startedAt.localeCompare(b.startedAt));
+}
+
+/** A board row placed in the session tree: `depth` 0 at the top, 1 for a child, and so on. */
+export type TreeRow = SessionRow & { depth: number };
+
+/**
+ * The board as a tree: each row followed by its children, and theirs, in the board's own order
+ * (attention). A row whose parent is not on the board (removed, or stopped too long ago) sits at
+ * the top.
+ */
+export function sessionTree(rows: readonly SessionRow[]): TreeRow[] {
+  const ids = new Set(rows.map((r) => r.id));
+  const parentOf = (r: SessionRow) =>
+    r.managed && r.parent && ids.has(r.parent) ? r.parent : undefined;
+  const out: TreeRow[] = [];
+  const placed = new Set<string>();
+  const place = (row: SessionRow, depth: number) => {
+    // A record edited by hand could loop; each row is placed once.
+    if (placed.has(row.id)) return;
+    placed.add(row.id);
+    out.push({ ...row, depth });
+    for (const child of rows.filter((r) => parentOf(r) === row.id)) place(child, depth + 1);
+  };
+  for (const row of rows.filter((r) => !parentOf(r))) place(row, 0);
+  return out;
 }

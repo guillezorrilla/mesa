@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts.js';
-import { scriptedRunner, tempDir, testDeps } from '../testing.js';
+import { scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
 
 /**
  * claude and tmux as a scripted runner: `claude --version` answers (unless `claude` is false),
@@ -31,15 +31,18 @@ function fakeWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
 }
 
 /** An initialised profile with its vault laid out and lantern-cove registered. */
+// One id source for the file, so a second mesa over the same home never reuses an id.
+const newId = sequentialIds();
+
 async function setUp(
   world: ReturnType<typeof fakeWorld>,
-  { mesaYaml = 'name: lantern-cove\n', argv = ['open'] } = {},
+  { mesaYaml = 'name: lantern-cove\n', argv = ['open'], env = {} as Record<string, string> } = {},
 ) {
   const home = tempDir();
   const dir = join(home, 'src/lantern-cove');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
-  const mesa = createMesa('default', testDeps(home, { run: world.run, argv }));
+  const mesa = createMesa('default', testDeps(home, { run: world.run, argv, env, newId }));
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
   mesa.projects.register(dir);
@@ -306,4 +309,38 @@ test('resume keeps the goal on the new record but does not send it again', async
   const { result } = await mesa.sessions.resume(first.id);
   expect(launched(world)).toBe(`claude --resume ${first.agentSessionId}`);
   expect(result.record.goal).toBe('Print ready');
+});
+
+test('a session opened inside another is its child: from MESA_SESSION_ID, --parent, or none', async () => {
+  const world = fakeWorld();
+  const { home, mesa } = await setUp(world);
+  const { result: a } = await mesa.sessions.open('lantern-cove');
+  expect(a.parent).toBeUndefined();
+  // Inside a's window, every mesa has a's id in MESA_SESSION_ID.
+  const inside = createMesa(
+    'default',
+    testDeps(home, { run: world.run, env: { MESA_SESSION_ID: a.id }, newId }),
+  );
+  const { result: child } = await inside.sessions.open('lantern-cove');
+  expect(child.parent).toBe(a.id);
+  const { result: explicit } = await inside.sessions.open('lantern-cove', { parent: child.id });
+  expect(explicit.parent).toBe(child.id);
+  const { result: none } = await inside.sessions.open('lantern-cove', { noParent: true });
+  expect(none.parent).toBeUndefined();
+
+  const before = (await mesa.sessions.list()).length;
+  await expect(inside.sessions.open('lantern-cove', { parent: 'zzzzzzzz' })).rejects.toMatchObject({
+    code: 'not_found',
+    message: 'no session zzzzzzzz to be the parent; see mesa sessions, or pass --no-parent',
+  });
+  const [refused] = listReceipts(join(home, 'vault'), 1);
+  expect(refused?.receipt).toMatchObject({ status: 'failed', inputs: { parent: 'zzzzzzzz' } });
+  await expect(
+    inside.sessions.open('lantern-cove', { parent: a.id, noParent: true }),
+  ).rejects.toMatchObject({ code: 'usage', message: 'pass --parent or --no-parent, not both' });
+  expect(await mesa.sessions.list()).toHaveLength(before);
+
+  // A resumed session keeps its place in the tree.
+  const { result } = await mesa.sessions.resume(child.id);
+  expect(result.record.parent).toBe(a.id);
 });

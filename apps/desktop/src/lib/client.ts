@@ -13,9 +13,9 @@ import type {
   Result,
   Sent,
   SessionRecord,
-  SessionRow,
   StopOutcome,
   TmuxWindow,
+  TreeRow,
   VaultStatus,
 } from '@mesa/core';
 
@@ -49,7 +49,8 @@ export const COMMANDS = {
     ({ path }) => ['register', '--create', '--', path],
   ),
   'receipts.list': command<ReceiptEntry[]>('receipts'),
-  'sessions.list': command<SessionRow[]>('sessions'),
+  // The board as mesa orders it: attention, children under their parent.
+  'sessions.list': command<TreeRow[]>('sessions', '--tree'),
   'sessions.send': commandWith<{ id: string; prompt: string }, Omit<Sent, 'project'>>(
     ({ id, prompt }) => ['send', '--', id, prompt],
   ),
@@ -79,7 +80,7 @@ export const COMMANDS = {
       project,
     ],
   ),
-  'sessions.all': command<SessionRow[]>('sessions', '--all'),
+  'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
   'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),
   'windows.list': command<TmuxWindow[]>('windows'),

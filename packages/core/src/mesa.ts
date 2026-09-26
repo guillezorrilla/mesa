@@ -30,7 +30,7 @@ import { MesaError, toFail } from './result.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession, resizeSession } from './sessions/attach.js';
 import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
-import { listSessions } from './sessions/list.js';
+import { listSessions, sessionTree } from './sessions/list.js';
 import { openSession, readGoal, resumeSession } from './sessions/open.js';
 import { sendPrompt } from './sessions/send.js';
 import { stopSession } from './sessions/stop.js';
@@ -167,6 +167,23 @@ export function createMesa(profile: string, deps: MesaDeps) {
       .flatMap((n) => [config?.keys[n], config && resolveKey(config, n, deps.env)])
       .filter((s): s is string => typeof s === 'string');
   };
+  /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
+  const board = (all = false) =>
+    listSessions(
+      {
+        store,
+        tmux,
+        listing: () => listAgentProcesses(deps.run),
+        projects: readRegistry(paths.registry),
+        elsewhere: otherProfilesSessions,
+        events: (id) => readHookEvents(paths.events, id),
+        priorityOf: priorities(),
+        faro: faroProfile(),
+        backends: shared,
+        clock: deps.clock,
+      },
+      { all },
+    );
   const record = actionRecorder({
     profile,
     vault: () => configIfAny()?.vault,
@@ -240,30 +257,27 @@ export function createMesa(profile: string, deps: MesaDeps) {
       show: (id: string) => showReceipt(vaultOf(), id),
     },
     sessions: {
-      /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
-      list: (all = false) =>
-        listSessions(
-          {
-            store,
-            tmux,
-            listing: () => listAgentProcesses(deps.run),
-            projects: readRegistry(paths.registry),
-            elsewhere: otherProfilesSessions,
-            events: (id) => readHookEvents(paths.events, id),
-            priorityOf: priorities(),
-            faro: faroProfile(),
-            backends: shared,
-            clock: deps.clock,
-          },
-          { all },
-        ),
+      list: board,
+      /** The board as a tree: children under their parent, each row with its depth. */
+      tree: async (all = false) => sessionTree(await board(all)),
       /**
        * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
        * as its first prompt. The goal is read first, so the receipt keeps it (receiptText); one
        * Mesa cannot take fails inside the recorded action, as every refusal does.
        */
-      open: (project: string, opts: { agent?: string; goal?: string; goalFile?: string } = {}) => {
+      open: (
+        project: string,
+        opts: {
+          agent?: string;
+          goal?: string;
+          goalFile?: string;
+          parent?: string;
+          noParent?: boolean;
+        } = {},
+      ) => {
         const { agent } = opts;
+        // Inside a Mesa window, MESA_SESSION_ID names the session this one is started from.
+        const parent = opts.noParent ? undefined : (opts.parent ?? deps.env.MESA_SESSION_ID);
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -271,6 +285,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
             goal: opts.goal,
             goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
           });
+          if (opts.noParent && opts.parent !== undefined) {
+            throw new MesaError('usage', 'pass --parent or --no-parent, not both');
+          }
         } catch (error) {
           refused = error;
         }
@@ -285,7 +302,12 @@ export function createMesa(profile: string, deps: MesaDeps) {
             project: (r) => r.project,
             session: (r) => r.id,
             agent: (r) => r.agent,
-            inputs: { project, agent: agent ?? null, ...(kept ? { goal: kept.short } : {}) },
+            inputs: {
+              project,
+              agent: agent ?? null,
+              ...(kept ? { goal: kept.short } : {}),
+              ...(parent ? { parent } : {}),
+            },
             outputs: (r) => ({
               window: r.tmux.window,
               agentSessionId: r.agentSessionId,
@@ -294,7 +316,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
           },
           async () => {
             if (refused) throw refused;
-            return openSession(openDeps(), { project, agent, goal });
+            return openSession(openDeps(), { project, agent, goal, parent });
           },
         );
       },

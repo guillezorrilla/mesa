@@ -9,7 +9,7 @@ import {
   tempDir,
 } from '../testing.js';
 import { listAgentProcesses } from './agent-listing.js';
-import { listSessions } from './list.js';
+import { listSessions, sessionTree } from './list.js';
 import { sessionStore } from './store.js';
 import { tmuxBackend } from './tmux.js';
 
@@ -292,4 +292,43 @@ test('the board sorts by attention: a session waiting on a permission tops a wor
     source: 'hook',
   });
   expect(rows[0]?.decision.answers[2]).toMatchObject({ kind: 'Noul', answer: true });
+});
+
+test('each row names its parent and children; the tree puts children under their parent', async () => {
+  const store = storeIn();
+  const at = (minute: number) => `2026-09-24T11:${String(minute).padStart(2, '0')}:00.000Z`;
+  const root = store.create(() => newSession({ startedAt: at(0) }));
+  const child = store.create(() => newSession({ startedAt: at(10), parent: root.id }));
+  const grandchild = store.create(() => newSession({ startedAt: at(20), parent: child.id }));
+  const other = store.create(() => newSession({ startedAt: at(30) }));
+  // Its parent's record was removed: it lists at the top, its parent kept.
+  const orphan = store.create(() => newSession({ startedAt: at(40), parent: 'gonegone' }));
+  const { run } = scriptedRunner({ tmux: '' });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const links = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    return row?.managed ? [row.parent ?? null, row.children] : undefined;
+  };
+  expect(links(root.id)).toEqual([null, [child.id]]);
+  expect(links(child.id)).toEqual([root.id, [grandchild.id]]);
+  expect(links(grandchild.id)).toEqual([child.id, []]);
+  expect(links(orphan.id)).toEqual(['gonegone', []]);
+
+  // Board order puts the grandchild first; the tree still nests it under its parent.
+  const ranked = [grandchild, other, orphan, root, child].map((r) =>
+    rows.find((x) => x.id === r.id),
+  );
+  const tree = sessionTree(ranked.filter((r) => r !== undefined));
+  expect(tree.map((r) => [r.id, r.depth])).toEqual([
+    [other.id, 0],
+    [orphan.id, 0],
+    [root.id, 0],
+    [child.id, 1],
+    [grandchild.id, 2],
+  ]);
 });

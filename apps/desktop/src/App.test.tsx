@@ -6,8 +6,8 @@ import type {
   ForeignRow,
   ManagedRow,
   ProjectRow,
-  SessionRow,
   TmuxWindow,
+  TreeRow,
 } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
@@ -175,8 +175,9 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
   ]);
 });
 
+type BoardRow = ManagedRow & { depth: number };
 /** A Mesa session row as the board receives it; `extra` varies state, attention, liveness. */
-const managedRow = (id: string, extra: Partial<ManagedRow> = {}): ManagedRow => ({
+const managedRow = (id: string, extra: Partial<BoardRow> = {}): BoardRow => ({
   id,
   kind: 'interactive',
   project: 'lantern-cove',
@@ -190,9 +191,11 @@ const managedRow = (id: string, extra: Partial<ManagedRow> = {}): ManagedRow => 
   ...placed,
   alive: true,
   runningSeconds: 42,
+  children: [],
+  depth: 0,
   ...extra,
 });
-const foreignRow: ForeignRow = {
+const foreignRow: ForeignRow & { depth: number } = {
   id: 'ext-4242',
   managed: false,
   ...placed,
@@ -207,6 +210,7 @@ const foreignRow: ForeignRow = {
   agentStatus: 'idle',
   lastState: { state: 'idle', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'listing' },
   runningSeconds: 90,
+  depth: 0,
 };
 const asking = managedRow('aaaaaaaa', {
   lastState: {
@@ -234,8 +238,8 @@ const deadPane = managedRow('ffffffff', {
 
 test('the Board is the first screen: every session by attention, with its state, confidence, and output', async () => {
   const { bridge } = fakeBridge({
-    // Out of order on purpose: the Board ranks by attention itself.
-    sessions: () => envelope([busy, deadPane, foreignRow, exited, asking] satisfies SessionRow[]),
+    // mesa sends the board in its order (attention, children under their parent); the Board keeps it.
+    sessions: () => envelope([asking, foreignRow, exited, deadPane, busy] satisfies TreeRow[]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   expect(byTestId('session-board')).toHaveLength(1);
@@ -321,7 +325,12 @@ test('a late reply for the other list never lands: Show older wins', async () =>
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('sessions-ended')[0]);
   await act(async () => release());
-  expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual(['--json', 'sessions', '--all']);
+  expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual([
+    '--json',
+    'sessions',
+    '--all',
+    '--tree',
+  ]);
   expect(byTestId('session-row').map((r) => cells(r)[0])).toEqual(['aaaaaaaa', 'cccccccc']);
 });
 
@@ -395,7 +404,7 @@ test('New session opens a dialog, and Open starts the picked project with the pi
 
 test("a session's goal shows under its project, its first line, the whole goal on hover", async () => {
   const withGoal = { ...busy, goal: '/goal Keep going until green\nthen stop' };
-  const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies SessionRow[]) });
+  const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies TreeRow[]) });
   const byTestId = await renderWithMesa(<App />, bridge);
   const [goal] = byTestId('session-goal');
   expect(goal?.textContent).toBe('/goal Keep going until green');
@@ -689,4 +698,30 @@ test('the Help screen lists every command from mesa help --agent, with its flags
     'mesa send a1b2c3d4 "run the tests"',
     'mesa init --vault ~/vault',
   ]);
+});
+
+test('a child row sits under its parent, indented; the toggle hides and shows it', async () => {
+  const parent = managedRow('aaaaaaaa', { attention: 0.3, children: ['bbbbbbbb'] });
+  const child = managedRow('bbbbbbbb', { attention: 0.5, parent: 'aaaaaaaa', depth: 1 });
+  const loose = managedRow('cccccccc', { attention: 0.2 });
+  const { bridge, calls } = fakeBridge({ sessions: () => envelope([parent, child, loose]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(calls).toContainEqual(['--json', 'sessions', '--tree']);
+  const rows = () => byTestId('session-row').map((r) => [cells(r)[0], r.dataset.depth]);
+  expect(rows()).toEqual([
+    ['▾ aaaaaaaa', '0'],
+    ['bbbbbbbb', '1'],
+    ['cccccccc', '0'],
+  ]);
+  // Only a row with a child on the board has a toggle.
+  const [toggle] = byTestId('session-toggle');
+  expect(byTestId('session-toggle')).toHaveLength(1);
+  await click(toggle);
+  expect(rows()).toEqual([
+    ['▸ aaaaaaaa', '0'],
+    ['cccccccc', '0'],
+  ]);
+  expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+  await click(byTestId('session-toggle')[0]);
+  expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
 });

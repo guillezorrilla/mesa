@@ -77,8 +77,19 @@ export function readGoal(input: { goal?: string; goalFile?: string }): string | 
  */
 export async function openSession(
   deps: OpenDeps,
-  input: { project: string; agent?: string; goal?: string },
+  input: { project: string; agent?: string; goal?: string; parent?: string },
 ): Promise<SessionRecord> {
+  if (input.parent !== undefined) {
+    try {
+      deps.store.get(input.parent);
+    } catch (error) {
+      if (!(error instanceof MesaError) || error.code !== 'not_found') throw error;
+      throw new MesaError(
+        'not_found',
+        `no session ${input.parent} to be the parent; see mesa sessions, or pass --no-parent`,
+      );
+    }
+  }
   const entry = findProject(deps.profile, input.project);
   // Read even when --agent is given: a folder that is gone is not_found, never a claude in $HOME.
   const project = readProjectFile(entry.path);
@@ -109,6 +120,7 @@ export async function openSession(
     agentSessionId,
     command,
     goal: input.goal,
+    parent: input.parent,
   });
 }
 
@@ -154,6 +166,8 @@ export async function resumeSession(
     // The same conversation, so the same goal; it is not typed in again.
     command: spec.resume(old.agentSessionId),
     goal: old.goal,
+    // Its place in the tree too.
+    parent: old.parent,
     resumedFrom: old.id,
   });
   const from = deps.store.update(old.id, {
@@ -172,6 +186,7 @@ async function startWindow(
     agentSessionId: string;
     command: string;
     goal?: string;
+    parent?: string;
     resumedFrom?: string;
   },
 ): Promise<SessionRecord> {
@@ -182,6 +197,7 @@ async function startWindow(
     agent: s.agent,
     agentSessionId: s.agentSessionId,
     ...(s.goal === undefined ? {} : { goal: s.goal }),
+    ...(s.parent === undefined ? {} : { parent: s.parent }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,

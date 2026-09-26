@@ -817,3 +817,38 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
     stderr: 'the goal is empty\n',
   });
 });
+
+test('open inside a session makes a child; sessions --tree indents it; --json names the links', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const a = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  env = { MESA_SESSION_ID: a };
+  const child = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  expect(child.parent).toBe(a);
+  const loose = (await mesa('open', 'lantern-cove', '--no-parent', '--json')).json.data;
+  expect(loose.parent).toBeUndefined();
+  expect(await mesa('open', 'lantern-cove', '--parent', 'zzzzzzzz')).toMatchObject({
+    code: 3,
+    stderr: 'no session zzzzzzzz to be the parent; see mesa sessions, or pass --no-parent\n',
+  });
+
+  const tree = (await mesa('sessions', '--tree')).stdout.split('\n').filter(Boolean);
+  const at = (id: string) => tree.findIndex((line) => line.trimStart().startsWith(id));
+  expect(tree[at(child.id)]).toMatch(new RegExp(`^  ${child.id} `));
+  expect(at(child.id)).toBe(at(a) + 1);
+  expect(tree[at(loose.id)]).toMatch(new RegExp(`^${loose.id} `));
+
+  const rows = (await mesa('sessions', '--json')).json.data;
+  const links = Object.fromEntries(
+    rows.map((r: { id: string; parent?: string; children: string[] }) => [
+      r.id,
+      [r.parent ?? null, r.children],
+    ]),
+  );
+  expect(links).toEqual({ [a]: [null, [child.id]], [child.id]: [a, []], [loose.id]: [null, []] });
+  const treeRows = (await mesa('sessions', '--tree', '--json')).json.data;
+  expect(treeRows.map((r: { depth: number }) => r.depth).sort()).toEqual([0, 0, 1]);
+});
