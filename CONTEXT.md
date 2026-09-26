@@ -110,7 +110,7 @@ Not: dashboard, overview, list.
 
 ## Skill
 
-A folder with a `SKILL.md` that either agent can load. Repo skills live in `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Skills Mesa ships live in `skills/` and are installed into a profile's enabled set.
+A folder with a `SKILL.md` that either agent can load; its frontmatter names it (`name`, the folder's name) and says when to use it (`description`). Repo skills live in `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex). Skills Mesa ships live in the repo's `skills/`, the library (`session-summary` first); a skill is enabled for a project when the profile's `skills` list, or the project's `mesa.yaml` `skills` extras, name it. `mesa skills list [project]` prints `[{name, source, enabled, description}]`: the library's skills (`source: mesa`), and with a project its own too (`source: repo`). `mesa skills sync <project>` links each enabled skill into the project's `.claude/skills/<name>` and `.agents/skills/<name>` (a symlink into the library), removes the links Mesa made for skills no longer enabled, and never touches an entry it did not make: an entry of the project's own where a Mesa skill would go is a conflict, left alone; `--json` prints the diff (`added`, `removed`, `kept`, `conflicts`, `unknown` enabled names). A link is Mesa's when it resolves inside the library. The Projects screen's Sync skills runs it.
 Not: plugin, command, tool, prompt.
 
 ## Receipt

@@ -1,4 +1,4 @@
-import { FolderPlus, Play } from 'lucide-react';
+import { FolderPlus, Play, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
@@ -30,6 +30,23 @@ export function ProjectsScreen() {
     try {
       const session = await run('sessions.open', { project });
       if (session) toast(`Opened session ${session.id} on ${project}`);
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  // Links the profile's and the project's enabled skills into its skill folders.
+  const syncSkills = async (project: string) => {
+    setOpening(true);
+    try {
+      const synced = await run('skills.sync', { project });
+      if (!synced) return;
+      const clashes = synced.conflicts.length
+        ? `; ${synced.conflicts.length} of the project's own left alone`
+        : '';
+      toast(
+        `Synced skills into ${project}: ${synced.added.length} added, ${synced.removed.length} removed${clashes}`,
+      );
     } finally {
       setOpening(false);
     }
@@ -85,16 +102,29 @@ export function ProjectsScreen() {
                 <TableCell className="font-mono tabular-nums">{p.priority ?? ''}</TableCell>
                 <TableCell className="text-right">
                   {p.exists && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      data-testid="open-session"
-                      onClick={() => openSession(p.name)}
-                      disabled={opening}
-                    >
-                      <Play aria-hidden />
-                      Open session
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="sync-skills"
+                        title="Link the enabled skills into its .claude/skills and .agents/skills"
+                        onClick={() => syncSkills(p.name)}
+                        disabled={opening}
+                      >
+                        <Sparkles aria-hidden />
+                        Sync skills
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="open-session"
+                        onClick={() => openSession(p.name)}
+                        disabled={opening}
+                      >
+                        <Play aria-hidden />
+                        Open session
+                      </Button>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>

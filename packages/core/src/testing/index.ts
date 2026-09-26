@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
@@ -288,6 +289,8 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   env: {},
   run: scriptedRunner().run,
   argv: ['test'],
+  // The repo's own library: tests that need another pass their own.
+  skillsDir: fileURLToPath(new URL('../../../../skills', import.meta.url)),
   obsidian: {
     registered: join(home, 'bin/obsidian'),
     bundle: join(home, 'Obsidian.app/obsidian-cli'),

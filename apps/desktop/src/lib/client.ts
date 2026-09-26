@@ -14,6 +14,7 @@ import type {
   Result,
   Sent,
   SessionRecord,
+  SkillSync,
   StopOutcome,
   TmuxWindow,
   TreeRow,
@@ -45,6 +46,12 @@ export const COMMANDS = {
   ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
+  'skills.sync': commandWith<{ project: string }, SkillSync>(({ project }) => [
+    'skills',
+    'sync',
+    '--',
+    project,
+  ]),
   // `--` so a path starting with `-` is never read as a flag.
   'projects.register': commandWith<{ path: string }, Project & { path: string; created: boolean }>(
     ({ path }) => ['register', '--create', '--', path],
