@@ -77,3 +77,25 @@ Issue #23 wires the second signal into `mesa sessions`:
 ## Amendment 2026-09-25: the board reads every pane (#27)
 
 The board shows each session's last output line, so every look captures each window's pane, including a dead pane, which keeps its last screen. For state, the tail is still the last resort: it is passed to the rules only for a live pane that no hook and no listing speaks for. That is one `capture-pane` per window per look, every 2 s in the app. This is cheap at a handful of sessions; batch the captures if boards grow.
+
+## Amendment 2026-09-25: transcripts give context use, and /clear changes the agent session id (#70)
+
+docs/spikes/context-use.md measured a session's context use from outside it, on Claude Code 2.1.283, against the status line at eleven points on 200k and 1M windows.
+
+**Accuracy.** At rest, the largest difference was 0.48 points, the status line's own rounding. While a request is in flight, the transcript trails by that request (up to 11.7 points measured). Right after `/compact`, its last usage is stale until the next reply.
+
+Three things change.
+
+**Context use.** Mesa now reads more from transcripts than session ids and timestamps. From the last main-chain assistant message (not a sidechain, that is not a subagent's) it reads `message.model` and `message.usage`, with `type`, `isSidechain`, and `timestamp`. It also reads `compact_boundary` entries. It still never reads message content.
+- That gives the record's `context: {used, window, at, source: 'transcript'}` (#75), with `used` in percent of `window`.
+- The window is the model's native window, held to 200k when `CLAUDE_CODE_DISABLE_1M_CONTEXT` or a third-party provider is set. The transcript alone cannot tell those apart, since both report `claude-opus-5-5`. A model Mesa has not measured has no reading.
+- The transcript format stays internal to Claude Code, as Consequences says, and Mesa now depends on the shape of these fields too.
+
+**The agent session id is not fixed for a session's life.** The #23 amendment above already noted that `/clear` keeps the pane but not the id. The spike recorded the hooks:
+- `/clear` fires `SessionEnd` with the old id and reason `clear`.
+- It then fires `SessionStart` with the new id and source `clear`.
+- `claude agents --json` reports the new id for the pane's pid.
+
+**Following the new id (#92).** The record follows the listing and the `SessionStart`, and a `SessionEnd` with reason `clear` no longer ends the session. Until #92 lands, two things go wrong:
+- that `SessionEnd` reads as `done`;
+- the nested-claude guard drops every later event.
