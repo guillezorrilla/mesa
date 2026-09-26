@@ -1,6 +1,6 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, scriptedRunner, tmuxLine } from '@mesa/core/testing';
+import { fakeTmux, newSession, scriptedRunner, tmuxLine } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -47,9 +47,9 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
     [
       // By attention: the live one (its screen reads idle, 60%), the vanished one, the stopped one.
       // A session in its own worktree shows its branch.
-      'aaaaaaaa  lantern-cove    claude  idle     60%  0.33  1h00m   ⏺ Wrote tide-tables.md',
-      'cccccccc  harbor (try/x)  claude  done     85%  0.25  42s',
-      'bbbbbbbb  tide            claude  working  95%  0.00  10m00s',
+      'aaaaaaaa  lantern-cove    claude  idle     60%  0.33  ctx -  1h00m   ⏺ Wrote tide-tables.md',
+      'cccccccc  harbor (try/x)  claude  done     85%  0.25  ctx -  42s',
+      'bbbbbbbb  tide            claude  working  95%  0.00  ctx -  10m00s',
       '',
     ].join('\n'),
   );
@@ -71,7 +71,7 @@ test('sessions shows agent sessions Mesa did not start; stop, send, resume refus
   ];
   cli.run = scriptedRunner({ claude: JSON.stringify(listing) }).run;
   expect((await mesa('sessions')).stdout).toBe(
-    'ext-4242  lantern-cove  claude  idle  85%  0.33  2m00s  not managed by mesa\n',
+    'ext-4242  lantern-cove  claude  idle  85%  0.33  ctx -  2m00s  not managed by mesa\n',
   );
   // --json carries the Decision behind each row, with its probabilities.
   expect((await mesa('sessions', '--json')).json.data).toMatchObject([
@@ -161,4 +161,42 @@ test('windows lists the profile tmux server; none is an empty list, no tmux exit
   expect((await mesa('windows')).stdout).toBe('no Mesa tmux windows\n');
   cli.run = scriptedRunner({}, { missing: ['tmux'] }).run;
   expect(await mesa('windows')).toMatchObject({ code: 6 });
+});
+
+test('a Stop reads the context use: mesa sessions shows ctx, mesa show --json the context', async () => {
+  const world = fakeTmux();
+  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  await cli.withProject();
+  const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const row = async () => (await mesa('sessions')).stdout;
+  // No transcript yet: no reading, and nothing fails.
+  expect(await row()).toContain(' ctx - ');
+  expect((await mesa('show', opened.id, '--json')).json.data.context).toBeUndefined();
+
+  const folder = join(cli.home, '.claude/projects/-src-lantern-cove');
+  mkdirSync(folder, { recursive: true });
+  const fixtures = join(
+    import.meta.dirname,
+    '../../../core/src/agents/claude/fixtures/transcripts',
+  );
+  copyFileSync(join(fixtures, 'normal-turn.jsonl'), join(folder, `${opened.agentSessionId}.jsonl`));
+  cli.stdin = JSON.stringify({ session_id: opened.agentSessionId, hook_event_name: 'Stop' });
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  await mesa('hook', 'claude');
+  cli.env = {};
+  expect(await row()).toMatch(new RegExp(`^${opened.id} .* ctx 21% `, 'm'));
+  expect((await mesa('show', opened.id, '--json')).json.data.context).toEqual({
+    used: 21.16,
+    window: 200_000,
+    at: '2026-09-25T10:00:09.000Z',
+    source: 'transcript',
+  });
+
+  // mesa show reads it again: after a /compact there is none until the next reply.
+  copyFileSync(
+    join(fixtures, 'after-compaction.jsonl'),
+    join(folder, `${opened.agentSessionId}.jsonl`),
+  );
+  expect((await mesa('show', opened.id, '--json')).json.data.context).toBeUndefined();
+  expect(await row()).toContain(' ctx - ');
 });

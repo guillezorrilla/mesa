@@ -90,6 +90,18 @@ export const SessionRecordSchema = z.strictObject({
   }),
   lastOutput: z.string().optional(),
   /**
+   * How much of its context window it has used (CONTEXT.md, Context use): `used` in percent of
+   * `window` tokens, as of its agent's reply at `at`. Absent while there is no reading.
+   */
+  context: z
+    .strictObject({
+      used: z.number().min(0),
+      window: z.number().int().positive(),
+      at: z.iso.datetime({ offset: true }),
+      source: z.literal('transcript'),
+    })
+    .optional(),
+  /**
    * What happened to the session that Mesa keeps: prompts sent to it and by it, and its agent's
    * exit. Claude Code's hook events go to sessions/events/ instead.
    */
@@ -116,6 +128,7 @@ export const SessionRecordSchema = z.strictObject({
   resumedBy: z.string().optional(),
 });
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+export type ContextUse = NonNullable<SessionRecord['context']>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 
 /** States a session does not leave on its own; distinct from ended (stopped, with `endedAt`). */

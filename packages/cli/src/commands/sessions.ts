@@ -5,7 +5,7 @@ import { duration } from '../output/duration.js';
 export const sessions = defineCommand({
   name: 'sessions',
   summary:
-    'List the sessions, foreign ones too, by attention: state, confidence, attention, running time, last output (or what a queued one waits on)',
+    'List the sessions, foreign ones too, by attention: state, confidence, attention, context use (ctx), running time, last output (or what a queued one waits on)',
   flags: {
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     tree: {
@@ -32,6 +32,8 @@ export const sessions = defineCommand({
             s.lastState.state,
             `${Math.round(s.lastState.confidence * 100)}%`,
             s.attention.toFixed(2),
+            // Its context use, labelled, as the columns have no header.
+            `ctx ${s.managed && s.context ? `${Math.round(s.context.used)}%` : '-'}`,
             duration(s.runningSeconds),
             !s.managed
               ? 'not managed by mesa'

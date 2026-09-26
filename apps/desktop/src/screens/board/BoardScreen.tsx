@@ -21,6 +21,7 @@ const COLUMNS = [
   'Agent',
   'State',
   'Attention',
+  'Context',
   'Running',
   'Last output',
   'Actions',
