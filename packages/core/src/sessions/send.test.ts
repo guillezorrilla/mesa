@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts.js';
-import { fakeTmux, scriptedRunner, tempDir, testDeps } from '../testing.js';
+import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
 import { sessionStore } from './store.js';
 
 /** A profile with its vault laid out and one claude session open in a fake tmux. */
@@ -11,7 +11,11 @@ async function setUp() {
   const home = tempDir();
   const world = fakeTmux();
   const scripted = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' });
-  const mesa = createMesa('default', testDeps(home, { run: scripted.run }));
+  const newId = sequentialIds();
+  const mesa = createMesa('default', testDeps(home, { run: scripted.run, newId }));
+  /** Mesa as an agent inside a window sees it: that window's session and profile in its env. */
+  const within = (env: Record<string, string>) =>
+    createMesa('default', testDeps(home, { run: scripted.run, newId, env }));
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
   mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
@@ -19,7 +23,7 @@ async function setUp() {
   const { result: opened } = await mesa.sessions.open('lantern-cove');
   const window = world.windows[0];
   if (!window) throw new Error('no window opened');
-  return { home, mesa, world, window, opened, calls: scripted.calls };
+  return { home, mesa, within, world, window, opened, calls: scripted.calls };
 }
 
 test('send types the prompt, records a send event, and writes an action receipt', async () => {
@@ -65,11 +69,11 @@ test('an exited or vanished session is not_found; a shell is refused unless --fo
     message: `session ${opened.id} runs zsh, not its agent; --force sends anyway`,
   });
   expect(window.typed).toEqual([]);
-  await mesa.sessions.send(opened.id, 'echo forced', true);
+  await mesa.sessions.send(opened.id, 'echo forced', { force: true });
   expect(window.typed).toEqual(['echo forced']);
 
   window.dead = true;
-  await expect(mesa.sessions.send(opened.id, 'hi', true)).rejects.toMatchObject({
+  await expect(mesa.sessions.send(opened.id, 'hi', { force: true })).rejects.toMatchObject({
     code: 'not_found',
     message: 'session ended; use mesa resume',
   });
@@ -110,4 +114,65 @@ test('the receipt keeps 80 characters of the prompt, in its inputs and command, 
   const short = `use *** then ${'x'.repeat(67)}`;
   expect(latest?.receipt.inputs.prompt).toBe(short);
   expect(latest?.receipt.command).toBe(`mesa send SESSION ${JSON.stringify(short)}`);
+});
+
+test('a session sends to another: a header names the sender and how to reply; both records log it', async () => {
+  const { home, mesa, world, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const { result } = await mesa.sessions.send(b.id, 'Reply to A with the word pong', {
+    from: a.id,
+  });
+  expect(result).toEqual({
+    sent: true,
+    session: b.id,
+    project: 'lantern-cove',
+    from: a.id,
+    chars: 29,
+  });
+  const typed = world.windows.find((w) => w.window === `claude-${b.id}`)?.typed;
+  expect(typed).toEqual([
+    `[mesa] from session ${a.id} (lantern-cove). Reply with: mesa send ${a.id} "<reply>"\nReply to A with the word pong`,
+  ]);
+  const rows = await mesa.sessions.list();
+  const events = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    return row?.managed ? row.events : undefined;
+  };
+  expect(events(b.id)).toEqual([
+    { type: 'send', at: '2026-09-24T12:00:00.000Z', chars: 29, from: a.id },
+  ]);
+  expect(events(a.id)).toEqual([
+    { type: 'sent', at: '2026-09-24T12:00:00.000Z', chars: 29, to: b.id },
+  ]);
+  const [latest] = listReceipts(join(home, 'vault'), 1);
+  expect(latest?.receipt.inputs).toMatchObject({ session: b.id, from: a.id });
+});
+
+test('the sender defaults to the window it runs in; unknown or self is refused; none sends as before', async () => {
+  const { mesa, within, world, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const typedIn = (id: string) => world.windows.find((w) => w.window === `claude-${id}`)?.typed;
+
+  const inA = within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' });
+  expect((await inA.sessions.send(b.id, 'hello')).result.from).toBe(a.id);
+  expect(typedIn(b.id)?.at(-1)).toMatch(new RegExp(`^\\[mesa\\] from session ${a.id} `));
+
+  await expect(inA.sessions.send(a.id, 'to me')).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${a.id} cannot send to itself`,
+  });
+  await expect(mesa.sessions.send(b.id, 'hi', { from: 'zzzzzzzz' })).rejects.toMatchObject({
+    code: 'not_found',
+    message: 'no session zzzzzzzz to send from; see mesa sessions',
+  });
+  await expect(mesa.sessions.send(b.id, 'hi', { from: b.id })).rejects.toMatchObject({
+    code: 'usage',
+  });
+
+  // No sender: another profile's window, or none at all, types the text unchanged.
+  for (const m of [within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'work' }), mesa]) {
+    const { result } = await m.sessions.send(b.id, 'plain text');
+    expect(result.from).toBeNull();
+    expect(typedIn(b.id)?.at(-1)).toBe('plain text');
+  }
 });

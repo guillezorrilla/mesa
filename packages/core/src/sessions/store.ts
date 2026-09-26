@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AgentSchema } from '../agents.js';
 import { writeFileAtomic } from '../atomic-file.js';
 import type { IdSource } from '../ids.js';
+import type { Env } from '../process.js';
 import { MesaError } from '../result.js';
 import { parseWith } from '../yaml-file.js';
 import type { WindowTarget } from './tmux.js';
@@ -57,8 +58,24 @@ const SessionRecordSchema = z.strictObject({
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
-  // ponytail: the hooks stream events to sessions/events/ (#22); nothing reads this list yet.
-  events: z.array(z.unknown()),
+  /** What Mesa did to the session: prompts sent to it, and by it (the hooks log to sessions/events/). */
+  events: z.array(
+    z.union([
+      z.strictObject({
+        type: z.literal('send'),
+        at: z.iso.datetime(),
+        chars: z.number(),
+        /** The session that sent it (mesa send --from). */
+        from: z.string().optional(),
+      }),
+      z.strictObject({
+        type: z.literal('sent'),
+        at: z.iso.datetime(),
+        chars: z.number(),
+        to: z.string(),
+      }),
+    ]),
+  ),
   resumedFrom: z.string().optional(),
   resumedBy: z.string().optional(),
 });
@@ -90,6 +107,31 @@ export const windowOf = (r: SessionRecord): WindowTarget => ({
   project: r.tmux.session,
   window: r.tmux.window,
 });
+
+/** The record with `id`, or undefined when this profile has none (removed, foreign, malformed). */
+export function recordIf(store: SessionStore, id: string): SessionRecord | undefined {
+  try {
+    return store.get(id);
+  } catch (error) {
+    if (error instanceof MesaError && error.code === 'not_found') return undefined;
+    throw error;
+  }
+}
+
+/**
+ * The Mesa session whose window this runs in: MESA_SESSION_ID, when its record is here. A window
+ * of another profile (MESA_PROFILE names it), or of a removed session, gives none.
+ */
+export function windowSession(deps: {
+  store: SessionStore;
+  env: Env;
+  profileName: string;
+}): SessionRecord | undefined {
+  const own = deps.env.MESA_SESSION_ID;
+  const windowProfile = deps.env.MESA_PROFILE ?? deps.profileName;
+  if (!own || windowProfile !== deps.profileName) return undefined;
+  return recordIf(deps.store, own);
+}
 
 /** The ULID's last 8 characters are random: 40 bits, and short enough to type. */
 const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();

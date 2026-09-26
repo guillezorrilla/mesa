@@ -264,8 +264,10 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
         const why = dead === '1' ? 'its process exited' : `it runs ${command}; force sends anyway`;
         throw new MesaError('agent_unavailable', `no agent in ${label(target)}: ${why}`);
       }
-      // `--` so text starting with `-` is typed, not read as a flag.
-      await onWindow(target, 'send-keys', '-l', '--', text);
+      // `--` so text starting with `-` is typed, not read as a flag. tmux reads any word ending in
+      // `;` as the end of a command and turns a closing `\;` into `;`, so a closing `;` goes as `\;`.
+      const word = text.endsWith(';') ? `${text.slice(0, -1)}\\;` : text;
+      await onWindow(target, 'send-keys', '-l', '--', word);
       await onWindow(target, 'send-keys', 'Enter');
     },
     /** Presses one key (`Escape`, `Enter`), not typed as text. */

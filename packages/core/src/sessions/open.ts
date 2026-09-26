@@ -9,7 +9,14 @@ import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
 import type { RegistryEntry } from '../registry.js';
 import { MesaError } from '../result.js';
-import { ending, type SessionRecord, type SessionStore, windowOf } from './store.js';
+import {
+  ending,
+  recordIf,
+  type SessionRecord,
+  type SessionStore,
+  windowOf,
+  windowSession,
+} from './store.js';
 import type { TmuxBackend } from './tmux.js';
 
 export type OpenDeps = {
@@ -27,9 +34,7 @@ export type OpenDeps = {
 
 /**
  * The parent a new session gets: `parent` when given (not_found if it is not a session here),
- * none with `noParent`, else the session whose window this runs in: MESA_SESSION_ID, when its
- * record is here. A window of another profile (MESA_PROFILE names it), or of a removed session,
- * gives none.
+ * none with `noParent`, else the session whose window this runs in (windowSession).
  */
 function parentOf(
   deps: Pick<OpenDeps, 'store' | 'env' | 'profileName'>,
@@ -38,17 +43,8 @@ function parentOf(
   if (input.noParent && input.parent !== undefined) {
     throw new MesaError('usage', 'pass --parent or --no-parent, not both');
   }
-  const exists = (id: string) => {
-    try {
-      deps.store.get(id);
-      return true;
-    } catch (error) {
-      if (error instanceof MesaError && error.code === 'not_found') return false;
-      throw error;
-    }
-  };
   if (input.parent !== undefined) {
-    if (!exists(input.parent)) {
+    if (!recordIf(deps.store, input.parent)) {
       throw new MesaError(
         'not_found',
         `no session ${input.parent} to be the parent; see mesa sessions, or pass --no-parent`,
@@ -56,10 +52,7 @@ function parentOf(
     }
     return input.parent;
   }
-  const own = deps.env.MESA_SESSION_ID;
-  const windowProfile = deps.env.MESA_PROFILE ?? deps.profileName;
-  if (input.noParent || !own || windowProfile !== deps.profileName) return undefined;
-  return exists(own) ? own : undefined;
+  return input.noParent ? undefined : windowSession(deps)?.id;
 }
 
 // ponytail: one tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was

@@ -180,7 +180,9 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
         const w = find(target);
         if (!w) return failed("can't find window");
         if (rest.includes('-l')) {
-          const text = rest.at(-1) ?? '';
+          // tmux turns a closing `\;` into `;`, as it does for any word.
+          const word = rest.at(-1) ?? '';
+          const text = word.endsWith('\\;') ? `${word.slice(0, -2)};` : word;
           w.typed.push(text);
           opts.onKeys?.(w, text);
         }

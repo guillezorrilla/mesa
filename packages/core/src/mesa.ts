@@ -346,20 +346,31 @@ export function createMesa(profile: string, deps: MesaDeps) {
         if (recorded.result.outcome === 'already-ended') return recorded;
         return markEnded(recorded, recorded.result.record);
       },
-      /** Types a prompt into a live session's agent; an action receipt keeps its first 80 chars. */
-      send: (id: string, prompt: string, force = false) => {
+      /**
+       * Types a prompt into a live session's agent, from another session (`from`, else the window
+       * this runs in) when there is one; an action receipt keeps its first 80 chars.
+       */
+      send: (id: string, prompt: string, opts: { force?: boolean; from?: string } = {}) => {
+        const { force = false, from } = opts;
         const kept = receiptText(prompt, deps.argv, secrets());
         return record(
           {
             argv: kept.argv,
-            summary: (r) => `Sent ${r.chars} characters to session ${id}`,
+            summary: (r) =>
+              `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,
             failure: `Could not send to session ${id}`,
             project: (r) => r.project,
             session: () => id,
-            inputs: { session: id, prompt: kept.short, force },
-            outputs: (r) => ({ chars: r.chars }),
+            inputs: { session: id, prompt: kept.short, force, ...(from ? { from } : {}) },
+            outputs: (r) => ({ chars: r.chars, from: r.from }),
           },
-          () => sendPrompt({ store, tmux, clock: deps.clock }, id, prompt, { force }),
+          () =>
+            sendPrompt(
+              { store, tmux, clock: deps.clock, env: deps.env, profileName: profile },
+              id,
+              prompt,
+              { force, from },
+            ),
         );
       },
       /** Reopens a session's conversation in a new window, as a new record linked to the old. */

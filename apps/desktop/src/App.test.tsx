@@ -767,3 +767,23 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
   await click(top);
   expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', '▸ 1 cccccccc']);
 });
+
+test("a session's received messages list each one with its sender, newest first", async () => {
+  const reply = managedRow('bbbbbbbb', {
+    events: [
+      { type: 'send', at: '2026-09-25T12:00:00.000Z', chars: 12 },
+      { type: 'send', at: '2026-09-25T12:05:00.000Z', chars: 29, from: 'aaaaaaaa' },
+      { type: 'sent', at: '2026-09-25T12:06:00.000Z', chars: 4, to: 'aaaaaaaa' },
+    ],
+  });
+  const quiet = managedRow('cccccccc');
+  const { bridge } = fakeBridge({ sessions: () => envelope([reply, quiet]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('session-messages')).toHaveLength(1);
+  expect(byTestId('session-messages')[0]?.querySelector('summary')?.textContent).toBe(
+    'Received (2)',
+  );
+  const messages = byTestId('session-message').map((m) => m.textContent ?? '');
+  expect(messages[0]).toMatch(/^from session aaaaaaaa, 29 characters, /);
+  expect(messages[1]).toMatch(/^from you, 12 characters, /);
+});

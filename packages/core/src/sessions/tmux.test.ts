@@ -96,6 +96,17 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     );
   });
 
+  test('sendText types a closing ; as it is, and a closing \\; too', async () => {
+    const target = lantern('claude-semi01');
+    await open(target, 'cat');
+    await tmux.sendText(target, 'plain;');
+    await tmux.sendText(target, 'one\\;');
+    // cat echoes each typed line, then prints it back after Enter.
+    expect(await eventually(() => tmux.capturePane(target, 8), /one\\;\none\\;/)).toBe(
+      'plain;\nplain;\none\\;\none\\;',
+    );
+  });
+
   test('sendText refuses a shell unless forced, and an exited pane always', async () => {
     const shell = lantern('claude-shell1');
     await open(shell, 'sh');
