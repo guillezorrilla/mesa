@@ -27,4 +27,5 @@ shadcn/ui is not a dependency but source copied into the repo (`apps/desktop/src
 
 - A new screen or element uses the shared components; a missing primitive is added with `pnpm dlx shadcn@latest add <name>` into `components/ui/`, and a Mesa-specific one goes in `components/`.
 - Colours come from the theme tokens, never literal values in a component.
+- After `shadcn add`, check the new file's imports and `package.json`: shadcn's resolver misreads the `@/` alias here, writes `import { cn } from "cn"`, and installs an unrelated `cn` package; point the import at `@/lib/utils` and `pnpm remove cn`.
 - shadcn's components are Mesa's code now: an upstream fix is pulled in by re-adding the component, reviewing the diff.

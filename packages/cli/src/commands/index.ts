@@ -15,10 +15,13 @@ import { profile } from './profile.js';
 import { projects } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
+import { rename } from './rename.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
+import { rm } from './rm.js';
 import { send } from './send.js';
 import { sessions } from './sessions.js';
+import { show } from './show.js';
 import { skillsList, skillsSync } from './skills.js';
 import { stop } from './stop.js';
 import { unregister } from './unregister.js';
@@ -49,10 +52,13 @@ export const COMMANDS: Command[] = [
   receipts,
   receiptsShow,
   register,
+  rename,
   resize,
   resume,
+  rm,
   send,
   sessions,
+  show,
   skillsList,
   skillsSync,
   stop,

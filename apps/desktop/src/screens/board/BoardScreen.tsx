@@ -1,3 +1,4 @@
+import type { ManagedRow } from '@mesa/core';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
@@ -7,6 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRun } from '@/lib/useCommand';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
+import { RemoveDialog } from './RemoveDialog';
+import { RenameDialog } from './RenameDialog';
 import { exited, shown } from './rows';
 import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
@@ -36,6 +39,9 @@ export function BoardScreen() {
   const toast = useToast();
   const [acting, setActing] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  // The row a Rename or a Remove dialog is open for.
+  const [renaming, setRenaming] = useState<ManagedRow>();
+  const [removing, setRemoving] = useState<ManagedRow>();
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
   // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
@@ -84,12 +90,33 @@ export function BoardScreen() {
         const resumed = await run('sessions.resume', { id });
         return resumed && `Resumed session ${id} as ${resumed.id}`;
       }),
+    rename: (row) => row.managed && setRenaming(row),
+    remove: (row) => row.managed && setRemoving(row),
     adopt: (agentSessionId, project) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
         return adopted && `Adopted as ${adopted.record.id}; ${adopted.warning}`;
       }),
   };
+  const rename = (id: string, name: string) =>
+    act(async () => {
+      const renamed = await run('sessions.rename', { id, name });
+      if (!renamed) return undefined;
+      setRenaming(undefined);
+      return `Renamed ${id} to ${renamed.name}`;
+    });
+  const remove = (id: string, opts: { deleteWorktree: boolean; deleteBranch: boolean }) =>
+    act(async () => {
+      const removed = await run('sessions.remove', { id, ...opts });
+      if (!removed) return undefined;
+      setRemoving(undefined);
+      const also = [
+        removed.worktree && 'its worktree',
+        removed.branch && `branch ${removed.branch}`,
+      ];
+      const extra = also.filter(Boolean).join(' and ');
+      return `Removed session ${id}${extra ? ` with ${extra}` : ''}`;
+    });
   const open = (input: NewSessionInput) =>
     act(async () => {
       const opened = await run('sessions.open', input);
@@ -121,6 +148,23 @@ export function BoardScreen() {
       </PageHeader>
       {newOpen && (
         <NewSessionDialog onOpen={open} onCancel={() => setNewOpen(false)} disabled={acting} />
+      )}
+      {renaming && (
+        <RenameDialog
+          sessionId={renaming.id}
+          name={renaming.name}
+          disabled={acting}
+          onRename={(name) => rename(renaming.id, name)}
+          onCancel={() => setRenaming(undefined)}
+        />
+      )}
+      {removing && (
+        <RemoveDialog
+          row={removing}
+          disabled={acting}
+          onRemove={(opts) => remove(removing.id, opts)}
+          onCancel={() => setRemoving(undefined)}
+        />
       )}
       {data?.length === 0 && (
         <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
