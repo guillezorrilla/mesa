@@ -30,7 +30,18 @@ import { stopSession } from './stop.js';
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
  * windows: the Session Board's side of Mesa for one profile.
  */
-export function sessionsService(ctx: MesaContext, faro: Faro) {
+/** `recorded` with the action's own warning joined after its receipt's. */
+const withWarning = <T>(recorded: Recorded<T>, warning?: string): Recorded<T> => {
+  const joined = [recorded.warning, warning].filter(Boolean).join('; ');
+  return joined ? { ...recorded, warning: joined } : recorded;
+};
+
+export function sessionsService(
+  ctx: MesaContext,
+  faro: Faro,
+  /** Links a project's enabled skills into a folder (the skills service's). */
+  syncSkills: (project: string, folder: string) => void,
+) {
   const { profile, deps, paths, open, store, tmux, record, secrets, secretsOrRefuse, absolute } =
     ctx;
   const notes = ctx.notes;
@@ -62,6 +73,7 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
     clock: deps.clock,
     newUuid: deps.newUuid,
     caller,
+    syncSkills,
   });
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const board = (all = false) =>
@@ -109,11 +121,11 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
           {
             type: 'session',
             ...(kept ? { argv: kept.argv } : {}),
-            summary: (r) => `Opened session ${r.id} on ${r.project}`,
+            summary: ({ record: r }) => `Opened session ${r.id} on ${r.project}`,
             failure: `Could not open a session on ${project}`,
-            project: (r) => r.project,
-            session: (r) => r.id,
-            agent: (r) => r.agent,
+            project: (r) => r.record.project,
+            session: (r) => r.record.id,
+            agent: (r) => r.record.agent,
             inputs: {
               project,
               agent: agent ?? null,
@@ -123,7 +135,7 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
               ...(branch === undefined ? {} : { branch }),
               ...(base === undefined ? {} : { base }),
             },
-            outputs: (r) => ({
+            outputs: ({ record: r }) => ({
               window: r.tmux.window,
               agentSessionId: r.agentSessionId,
               lastState: r.lastState,
@@ -136,7 +148,10 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
             const input = { project, agent, goal, parent, noParent, branch, base };
             return openSession(openDeps(), input);
           },
-        );
+        ).then((recorded) => ({
+          ...withWarning(recorded, recorded.result.warning),
+          result: recorded.result.record,
+        }));
       },
       /** A session's goal, or not_found when it was started without one. */
       goal: (id: string) => sessionGoal(store, id),
@@ -297,14 +312,9 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
             }),
           },
           () => resumeSession(openDeps(), id),
-        ).then((recorded) => {
-          const { warning } = recorded.result;
-          const joined = [recorded.warning, warning].filter(Boolean).join('; ');
-          return markEnded(
-            { ...recorded, ...(joined ? { warning: joined } : {}) },
-            recorded.result.from,
-          );
-        }),
+        ).then((recorded) =>
+          markEnded(withWarning(recorded, recorded.result.warning), recorded.result.from),
+        ),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),

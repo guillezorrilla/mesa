@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { AGENT_NAMES, AgentSchema, readyAgent } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import type { Runner } from '../lib/process.js';
-import { MesaError } from '../lib/result.js';
+import { MesaError, toFail } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
@@ -19,6 +19,8 @@ type OpenDeps = LaunchDeps & {
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
   caller: () => Caller;
+  /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
+  syncSkills: (project: string, folder: string) => void;
 };
 
 /**
@@ -62,7 +64,10 @@ export type OpenInput = {
  * first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and removed again,
  * with the worktree, if the window cannot open.
  */
-export async function openSession(deps: OpenDeps, input: OpenInput): Promise<SessionRecord> {
+export async function openSession(
+  deps: OpenDeps,
+  input: OpenInput,
+): Promise<{ record: SessionRecord; warning?: string }> {
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
   }
@@ -86,8 +91,16 @@ export async function openSession(deps: OpenDeps, input: OpenInput): Promise<Ses
     input.branch === undefined
       ? undefined
       : await worktreeFor(deps, entry, input.branch, input.base);
+  // Before the agent starts, so it finds its skills where it runs; a failure warns, never fails.
+  const folder = worktree?.path ?? entry.path;
+  let warning: string | undefined;
   try {
-    return await launchSession(deps, {
+    deps.syncSkills(entry.name, folder);
+  } catch (error) {
+    warning = `skills not synced into ${folder}: ${toFail(error).error.message}`;
+  }
+  try {
+    const record = await launchSession(deps, {
       project: entry,
       agent,
       agentSessionId,
@@ -96,6 +109,7 @@ export async function openSession(deps: OpenDeps, input: OpenInput): Promise<Ses
       parent,
       worktree,
     });
+    return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     // A retry can then add it again.
     if (worktree) await removeWorktree(deps.run, entry.path, worktree);

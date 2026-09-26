@@ -18,6 +18,17 @@ export function skillsService(ctx: MesaContext) {
     /** The library's skills, enabled or not, and with `project`, that project's own too. */
     list: (project?: string) =>
       listSkills({ library: readLibrary(libraryDir), libraryDir, ...scope(project) }),
+    /**
+     * The same sync into `folder` (where a session's agent runs: the project's, or its
+     * worktree), without a receipt of its own: `mesa open` runs it before every start.
+     */
+    linkInto: (project: string, folder: string) =>
+      syncSkills({
+        library: readLibrary(libraryDir),
+        libraryDir,
+        enabled: scope(project).enabled,
+        projectDir: folder,
+      }),
     /** Links the enabled skills into the project's skill folders; unlinks Mesa's others. */
     sync: (project: string) =>
       ctx.record(
