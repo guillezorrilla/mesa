@@ -79,3 +79,17 @@ export const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
     .sort((a, b) => b.path.length - a.path.length)[0];
   return (inside ?? projects.find((p) => p.name === basename(cwd)))?.name ?? null;
 };
+
+/**
+ * Each registered project's priority, read once: 0.5 for one without (the default), and for
+ * every project when the profile or its registry does not read.
+ */
+export function projectPriorities(open: () => Profile): (project: string | null) => number {
+  let known = new Map<string, number>();
+  try {
+    known = new Map(listProjects(open()).map((p) => [p.name, p.priority ?? 0.5]));
+  } catch {
+    // Every project counts as 0.5.
+  }
+  return (project) => (project ? known.get(project) : undefined) ?? 0.5;
+}
