@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { said, useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
@@ -143,14 +144,17 @@ export function BoardScreen() {
         title="Board"
         description="Every session, the ones waiting on you first; children sit under their parent."
       >
-        <label className="flex items-center gap-2 text-muted-foreground text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Checkbox
+            id="sessions-ended"
             data-testid="sessions-ended"
             checked={ended}
             onCheckedChange={(checked) => setEnded(checked === true)}
           />
-          Show older
-        </label>
+          <Label htmlFor="sessions-ended" className="font-normal">
+            Show older
+          </Label>
+        </div>
         <Button data-testid="new-session" onClick={() => setNewOpen(true)}>
           <Plus aria-hidden />
           New session
