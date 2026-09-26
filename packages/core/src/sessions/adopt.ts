@@ -8,6 +8,7 @@ import type { AgentProcess } from './agent-listing.js';
 import { agentSessionHolder } from './holders.js';
 import { createRecord, type LaunchDeps, launchSession } from './launch.js';
 import type { SessionRecord } from './record.js';
+import { sessionName } from './rename.js';
 
 // Adopting a Claude Code session Mesa did not start (CONTEXT.md, Adopted session).
 
@@ -40,9 +41,7 @@ export async function adoptSession(
   if (!UUID.test(id)) {
     throw new MesaError('usage', `${id} is not a Claude Code session id (a lowercase UUID)`);
   }
-  if (input.name !== undefined && !input.name.trim()) {
-    throw new MesaError('usage', 'the name is empty');
-  }
+  const named = input.name === undefined ? {} : { name: sessionName(input.name) };
   const held = agentSessionHolder(deps.store, id);
   if (held) throw new MesaError('usage', `Mesa has ${id} already, as session ${held.id}`);
   if (deps.elsewhere().has(id)) {
@@ -78,7 +77,7 @@ export async function adoptSession(
     adopted: true as const,
     // Where claude finds the conversation, when it is not the project's own folder.
     ...(cwd === project.path ? {} : { cwd }),
-    ...(input.name === undefined ? {} : { name: input.name }),
+    ...named,
   };
   if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
   const spec = await readyAgent(deps.run, 'claude');

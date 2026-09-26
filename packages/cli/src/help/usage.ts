@@ -19,7 +19,7 @@ export const argWords = (command: Command) =>
 const subcommandsOf = (command: Command, commands: Command[]) =>
   commands.filter((c) => c.name.startsWith(`${command.name} `));
 
-export const commandRows = (commands: Command[]) =>
+const commandRows = (commands: Command[]) =>
   columns(
     commands.map((c) => [[c.name, ...argWords(c)].join(' '), c.summary]),
     '  ',

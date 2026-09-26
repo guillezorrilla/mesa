@@ -21,9 +21,9 @@ export const adopt = defineCommand({
       name: flags.name,
       noResume: flags['no-resume'],
     });
-    const { record, warning } = recorded.result;
+    const { record } = recorded.result;
     const done = flags['no-resume'] ? 'recorded' : 'resumed in its window';
     const text = `${record.id}: adopted on ${record.project}, ${done}`;
-    return recordedOutput(recorded, { data: { record }, text, warning });
+    return recordedOutput(recorded, { data: { record }, text });
   },
 });

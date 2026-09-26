@@ -1,8 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
-import type { MesaError } from './result.js';
+import { MesaError } from './result.js';
 
 // Lock files: taken with an exclusive create, holding the holder's token, removed only by it.
+
+/**
+ * The error for a lock another mesa holds: `what` is locked, with the file to delete should no
+ * mesa be running (a killed one leaves its lock), and `reason` saying which lock it was.
+ */
+export const lockedBy = (what: string, lock: string, reason: string) =>
+  new MesaError(
+    'locked',
+    `${what} is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
+    { reason },
+  );
 
 /** Takes the lock file at `path` for `token` with an exclusive create; false while another holds it. */
 export function tryLock(path: string, token: string): boolean {

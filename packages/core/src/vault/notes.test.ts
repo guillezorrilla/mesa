@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { localDay } from '../lib/time.js';
-import { fixedClock, steppingClock, tempDir, thrown } from '../testing/index.js';
+import { fixedClock, seededRandom, steppingClock, tempDir, thrown } from '../testing/index.js';
 import type { Frontmatter } from './frontmatter.js';
 import { appendLog, logLine, readNote, updateNote, writeNote } from './notes.js';
 import { initVault } from './vault.js';
@@ -29,7 +29,7 @@ test('writeNote stamps created, updated, and source, keeps created on rewrite, a
     frontmatter: { tags: ['sea'], source: 'ignored' },
     body: '# Tide\n',
   });
-  const first = readNote(deps, 'wiki/tide.md');
+  const first = readNote(deps.vault, 'wiki/tide.md');
   expect(first.frontmatter).toEqual({
     created: '2026-09-24T12:00',
     updated: '2026-09-24T12:00',
@@ -39,7 +39,7 @@ test('writeNote stamps created, updated, and source, keeps created on rewrite, a
   expect(readFileSync(join(vault, 'wiki/tide.md'), 'utf8')).toMatch(/^---\ncreated: /);
 
   writeNote(deps, { path: 'wiki/tide.md', frontmatter: { tags: [] }, body: 'v2\n' });
-  expect(readNote(deps, 'wiki/tide.md')).toEqual({
+  expect(readNote(deps.vault, 'wiki/tide.md')).toEqual({
     frontmatter: {
       created: '2026-09-24T12:00',
       updated: '2026-09-24T12:01',
@@ -57,7 +57,7 @@ test('a note with locked: true is never replaced', () => {
   expect(
     thrown(() => writeNote(deps, { path: 'wiki/keep.md', frontmatter: {}, body: 'x' })).code,
   ).toBe('locked');
-  expect(readNote(deps, 'wiki/keep.md').body).toBe('mine\n');
+  expect(readNote(deps.vault, 'wiki/keep.md').body).toBe('mine\n');
 });
 
 test('appendLog appends "- <ISO> <line>" to log.md; it needs an initialised vault', () => {
@@ -71,18 +71,8 @@ test('appendLog appends "- <ISO> <line>" to log.md; it needs an initialised vaul
   ).toBe('not_found');
 });
 
-// A seeded generator (mulberry32), so the 50 cases are the same on every run.
-function random(seed: number) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 test('property: write then read returns the same frontmatter and body for 50 random notes', () => {
-  const next = random(54);
+  const next = seededRandom(54);
   const pick = <T>(items: T[]) => items[Math.floor(next() * items.length)] as T;
   const text = () =>
     Array.from({ length: 1 + Math.floor(next() * 12) }, () =>
@@ -123,7 +113,7 @@ test('property: write then read returns the same frontmatter and body for 50 ran
     );
     const body = `${text()}\n---\n${text()}`;
     writeNote(deps, { path: `wiki/p${i}.md`, frontmatter, body });
-    const read = readNote(deps, `wiki/p${i}.md`);
+    const read = readNote(deps.vault, `wiki/p${i}.md`);
     expect(read.body).toBe(body);
     expect(read.frontmatter).toEqual({
       created: expect.any(String),
@@ -140,7 +130,7 @@ test('mesa log writes log.md and creates, then appends to, the daily note', asyn
   expect(entry).toBe('- 2026-09-24T12:00:00.000Z hello');
   expect(daily).toBe(`daily/${localDay(clock())}.md`);
   await logLine({ vault, clock, sleep: realSleep }, 'again');
-  const note = readNote({ vault, clock }, daily);
+  const note = readNote(vault, daily);
   expect(note.frontmatter).toMatchObject({
     type: 'daily',
     date: localDay(clock()),
@@ -165,7 +155,7 @@ test('20 concurrent read-modify-write updates of index.md lose nothing', async (
       }),
     ),
   );
-  const lines = readNote(deps, 'index.md')
+  const lines = readNote(deps.vault, 'index.md')
     .body.split('\n')
     .filter((l) => l.startsWith('- entry'));
   expect(lines.sort()).toEqual(Array.from({ length: 20 }, (_, i) => `- entry ${i}`).sort());
@@ -201,5 +191,5 @@ test('log text stays one line and cannot be empty; note paths stay inside the va
   expect(
     thrown(() => writeNote(deps, { path: '../escape.md', frontmatter: {}, body: '' })).code,
   ).toBe('usage');
-  expect(thrown(() => readNote(deps, '/etc/hosts')).code).toBe('usage');
+  expect(thrown(() => readNote(deps.vault, '/etc/hosts')).code).toBe('usage');
 });

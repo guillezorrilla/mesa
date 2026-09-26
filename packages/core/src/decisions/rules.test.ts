@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { seededRandom } from '../testing/index.js';
 import { rulesBackend, toAnswer, type Weights } from './rules.js';
 import type { Question } from './types.js';
 
@@ -62,19 +63,8 @@ test('the first rule that holds weighs its questions, over the fallback, else ev
   expect((await rulesBackend([]).answer(null, [choice]))[0]).toMatchObject({ answer: 'ingest' });
 });
 
-/** mulberry32: a seeded generator, so a failing case can be replayed. */
-function seeded(seed: number) {
-  let a = seed;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 test('property: every Choice and Score answer has probabilities summing to 1 within 1e-6', async () => {
-  const random = seeded(24);
+  const random = seededRandom(24);
   const pick = <T>(xs: readonly T[]) => xs[Math.floor(random() * xs.length)] as T;
   const weights = [0, 0, -3, 1e-12, 1, 7, 1e9, 1.5e308, Number.NaN, Number.POSITIVE_INFINITY];
   for (let run = 0; run < 500; run++) {

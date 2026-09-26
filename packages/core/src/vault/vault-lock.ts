@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tryLock, unlock } from '../lib/lock-file.js';
-import { MesaError } from '../lib/result.js';
+import { lockedBy, tryLock, unlock } from '../lib/lock-file.js';
 import { VAULT } from './layout.js';
 
 /** About five seconds of retries before giving up. */
@@ -28,11 +27,7 @@ export async function withVaultLock<T>(
   mkdirSync(join(vault, VAULT.mesa), { recursive: true });
   for (let attempt = 0; !tryLock(lock, token); attempt++) {
     if (attempt >= LOCK_ATTEMPTS) {
-      throw new MesaError(
-        'locked',
-        `the vault is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
-        { reason: 'vault' },
-      );
+      throw lockedBy('the vault', lock, 'vault');
     }
     await deps.sleep(RETRY_MS);
   }

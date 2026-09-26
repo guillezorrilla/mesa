@@ -4,6 +4,7 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  CLAUDE_VERSION,
   fakeTmux,
   gitRepo,
   isolateGit,
@@ -18,7 +19,7 @@ isolateGit({ beforeAll, afterAll });
 /** lantern-cove as a git repository, in a profile over a fake tmux with the real git. */
 function setUp() {
   const world = fakeTmux();
-  const scripted = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' });
+  const scripted = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION });
   const made = projectProfile(withRealGit(scripted.run));
   gitRepo(made.dir);
   const exit = (window: string) => {

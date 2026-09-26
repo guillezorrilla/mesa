@@ -9,7 +9,7 @@ import { dailyNotePath, VAULT } from './layout.js';
 import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
-export type NotesDeps = { vault: string; clock: Clock };
+type NotesDeps = { vault: string; clock: Clock };
 /** For a change under the vault lock: `sleep` waits between tries for it. */
 export type LockedNotesDeps = NotesDeps & { sleep: (ms: number) => Promise<void> };
 
@@ -33,9 +33,10 @@ export function vaultFile(vault: string, path: string): string {
 const readIfExists = (file: string) =>
   existsSync(file) ? parseNote(readFileSync(file, 'utf8')) : undefined;
 
-export function readNote(deps: NotesDeps, path: string): Note {
-  const note = readIfExists(vaultFile(deps.vault, path));
-  if (!note) throw new MesaError('not_found', `no note at ${path} in ${deps.vault}`);
+/** The note at `path` (relative to the vault); not_found when there is none. */
+export function readNote(vault: string, path: string): Note {
+  const note = readIfExists(vaultFile(vault, path));
+  if (!note) throw new MesaError('not_found', `no note at ${path} in ${vault}`);
   return note;
 }
 

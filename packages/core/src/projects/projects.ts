@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import {
+  DEFAULT_PRIORITY,
   minimalProject,
   type Project,
   projectFile,
@@ -87,9 +88,9 @@ export const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
 export function projectPriorities(open: () => Profile): (project: string | null) => number {
   let known = new Map<string, number>();
   try {
-    known = new Map(listProjects(open()).map((p) => [p.name, p.priority ?? 0.5]));
+    known = new Map(listProjects(open()).map((p) => [p.name, p.priority ?? DEFAULT_PRIORITY]));
   } catch {
-    // Every project counts as 0.5.
+    // Every project counts as DEFAULT_PRIORITY.
   }
-  return (project) => (project ? known.get(project) : undefined) ?? 0.5;
+  return (project) => (project ? known.get(project) : undefined) ?? DEFAULT_PRIORITY;
 }

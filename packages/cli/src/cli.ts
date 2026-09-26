@@ -34,7 +34,7 @@ export type CliDeps = {
   mesa: MesaDeps;
 };
 
-export type CliResult = { code: number; stdout: string; stderr: string; exec?: string[] };
+type CliResult = { code: number; stdout: string; stderr: string; exec?: string[] };
 
 function parse(argv: string[], flags: Record<string, Flag>) {
   try {

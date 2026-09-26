@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fakeTmux, newSession, scriptedRunner, tmuxLine } from '@mesa/core/testing';
+import { newSession, scriptedRunner, tmuxLine } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -164,8 +164,7 @@ test('windows lists the profile tmux server; none is an empty list, no tmux exit
 });
 
 test('a Stop reads the context use: mesa sessions shows ctx, mesa show --json the context', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  cli.withTmux();
   await cli.withProject();
   const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
   const row = async () => (await mesa('sessions')).stdout;

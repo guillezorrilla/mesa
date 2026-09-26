@@ -12,9 +12,9 @@ export const receipts = defineCommand({
   },
   example: 'mesa receipts --limit 5',
   run: ({ mesa, flags }) => {
-    const limit =
-      flags.limit === undefined ? DEFAULT_RECEIPT_LIMIT : wholeNumber(flags.limit, '--limit');
-    const entries = mesa.receipts.list(limit);
+    const entries = mesa.receipts.list(
+      flags.limit === undefined ? undefined : wholeNumber(flags.limit, '--limit'),
+    );
     const text = entries.length
       ? columns(
           entries.map((e) => [

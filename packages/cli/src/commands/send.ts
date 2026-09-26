@@ -6,7 +6,11 @@ export const send = defineCommand({
   summary: "Type a prompt into a session's agent, then Enter",
   args: ['session', 'prompt'],
   flags: {
-    force: { type: 'boolean', description: 'Send even when the pane runs a shell, not the agent' },
+    force: {
+      type: 'boolean',
+      description:
+        'Send even when the pane runs a shell, or, as a person, when the agent waits on one',
+    },
     from: {
       type: 'string',
       description:
@@ -21,8 +25,8 @@ export const send = defineCommand({
       from: flags.from,
       noFrom: flags['no-from'],
     });
-    const { sent, session, from, chars, warning } = recorded.result;
+    const { sent, session, from, chars } = recorded.result;
     const text = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
-    return recordedOutput(recorded, { data: { sent, session, from, chars }, text, warning });
+    return recordedOutput(recorded, { data: { sent, session, from, chars }, text });
   },
 });

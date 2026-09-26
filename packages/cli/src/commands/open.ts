@@ -34,7 +34,8 @@ export const open = defineCommand({
     },
     base: {
       type: 'string',
-      description: "Start a new branch from this ref; default: the project's default branch",
+      description:
+        'Start a new branch from this ref; default: the branch of that name on origin, else origin/HEAD, else the current branch',
     },
   },
   example: 'mesa open lantern-cove --goal "Read AGENTS.md, then summarise it"',
