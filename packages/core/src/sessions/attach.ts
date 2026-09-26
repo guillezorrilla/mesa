@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { type Env, type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { TerminalApp } from '../profile/config.js';
-import { type SessionStore, sessionEnded, windowOf } from './store.js';
-import { type TmuxBackend, targetLabel } from './tmux.js';
+import { sessionEnded } from './record.js';
+import type { SessionStore } from './store.js';
+import { type TmuxBackend, targetLabel } from './tmux/backend.js';
+import { windowOf } from './window-name.js';
 
 // The board's "open its terminal" action in v1 (ADR-0003 amendment): the session's tmux window in
 // this terminal, or in the user's terminal app.

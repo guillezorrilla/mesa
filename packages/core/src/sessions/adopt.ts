@@ -5,9 +5,9 @@ import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import type { AgentProcess } from './agent-listing.js';
-import { projectOf } from './list.js';
+import { projectOf } from './board/board.js';
 import { createRecord, type OpenDeps, startWindow } from './open.js';
-import type { SessionRecord } from './store.js';
+import type { SessionRecord } from './record.js';
 
 // Adopting a Claude Code session Mesa did not start (CONTEXT.md, Adopted session).
 

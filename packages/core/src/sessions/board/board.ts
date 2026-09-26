@@ -1,26 +1,22 @@
 import { basename } from 'node:path';
-import type { FaroProfile } from '../decisions/decide.js';
+import type { FaroProfile } from '../../decisions/decide.js';
+import type { Backend, DecisionRecorder } from '../../decisions/types.js';
+import type { Clock } from '../../lib/clock.js';
+import { MesaError } from '../../lib/result.js';
+import type { RegistryEntry } from '../../projects/registry.js';
+import { type AgentProcess, listedState } from '../agent-listing.js';
+import type { HookEvent } from '../hook-events.js';
+import { FINAL_STATES, foreignId, type SessionRecord } from '../record.js';
 import {
   classifySession,
   hookState,
   lastOutputLine,
   type Placement,
   type SessionSignals,
-} from '../decisions/session-state.js';
-import type { Backend, DecisionRecorder } from '../decisions/types.js';
-import type { Clock } from '../lib/clock.js';
-import { MesaError } from '../lib/result.js';
-import type { RegistryEntry } from '../projects/registry.js';
-import { type AgentProcess, listedState } from './agent-listing.js';
-import type { HookEvent } from './events.js';
-import {
-  FINAL_STATES,
-  foreignId,
-  type SessionRecord,
-  type SessionStore,
-  windowOf,
-} from './store.js';
-import { type TmuxBackend, targetLabel } from './tmux.js';
+} from '../state.js';
+import type { SessionStore } from '../store.js';
+import { type TmuxBackend, targetLabel } from '../tmux/backend.js';
+import { windowOf } from '../window-name.js';
 
 /**
  * One board row for a Mesa session: the record with the state and attention Faro gives it now

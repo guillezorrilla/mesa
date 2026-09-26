@@ -12,16 +12,11 @@
 
 import { createHash } from 'node:crypto';
 import type { Agent } from '../agents/agents.js';
-import { type AgentProcess, listedState } from '../sessions/agent-listing.js';
-import {
-  FINAL_STATES,
-  SESSION_STATES,
-  type SessionRecord,
-  type SessionState,
-} from '../sessions/store.js';
-import { decide, type FaroDeps } from './decide.js';
-import { rulesBackend, toAnswer, type Weights } from './rules.js';
-import type { Backend, Decision, Question } from './types.js';
+import { decide, type FaroDeps } from '../decisions/decide.js';
+import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
+import type { Backend, Decision, Question } from '../decisions/types.js';
+import { type AgentProcess, listedState } from './agent-listing.js';
+import { FINAL_STATES, SESSION_STATES, type SessionRecord, type SessionState } from './record.js';
 
 type LastState = SessionRecord['lastState'];
 

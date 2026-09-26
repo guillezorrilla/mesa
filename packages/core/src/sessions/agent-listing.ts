@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
-import type { SessionState } from './store.js';
+import type { SessionState } from './record.js';
 
 // Agent listings, ADR-0003's second signal: `claude agents --json` names every live Claude Code
 // session on the machine, Mesa's and the owner's alike (docs/spikes/state-signals.md).

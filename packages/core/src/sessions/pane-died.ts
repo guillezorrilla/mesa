@@ -1,7 +1,9 @@
-import { exitState, PROCESS } from '../decisions/session-state.js';
 import type { Clock } from '../lib/clock.js';
-import { idOfWindow, type SessionRecord, type SessionStore, windowOf } from './store.js';
-import { type TmuxBackend, VIEW_PREFIX } from './tmux.js';
+import type { SessionRecord } from './record.js';
+import { exitState, PROCESS } from './state.js';
+import type { SessionStore } from './store.js';
+import { type TmuxBackend, VIEW_PREFIX } from './tmux/backend.js';
+import { idOfWindow, windowOf } from './window-name.js';
 
 /**
  * tmux's pane-died hook, through `mesa hook tmux pane-died <project> <window>`: the agent in a

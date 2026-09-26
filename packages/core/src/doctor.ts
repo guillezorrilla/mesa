@@ -5,7 +5,7 @@ import { type Binary, CHECK_TIMEOUT_MS, firstVersion, probe } from './lib/probe.
 import type { Runner } from './lib/process.js';
 import { toFail } from './lib/result.js';
 import type { BackendName } from './profile/config.js';
-import { TMUX_INSTALL } from './sessions/tmux.js';
+import { TMUX_INSTALL } from './sessions/tmux/backend.js';
 import type { ObsidianPaths } from './vault/obsidian.js';
 
 export type Check = {

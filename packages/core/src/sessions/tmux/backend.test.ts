@@ -2,10 +2,10 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
-import { AGENTS } from '../agents/agents.js';
-import { execRunner, type Runner } from '../lib/process.js';
-import { scriptedRunner, tempDir } from '../testing/index.js';
-import { tmuxBackend, type WindowTarget } from './tmux.js';
+import { AGENTS } from '../../agents/agents.js';
+import { execRunner, type Runner } from '../../lib/process.js';
+import { scriptedRunner, tempDir } from '../../testing/index.js';
+import { tmuxBackend, type WindowTarget } from './backend.js';
 
 const socket = `mesa-test-${process.pid}`;
 const hasTmux = (await execRunner('tmux', ['-V'], 2000)).ok;

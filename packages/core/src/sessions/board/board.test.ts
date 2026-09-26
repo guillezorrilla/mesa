@@ -8,11 +8,11 @@ import {
   scriptedRunner,
   sequentialIds,
   tempDir,
-} from '../testing/index.js';
-import { listAgentProcesses } from './agent-listing.js';
-import { listSessions, sessionTree } from './list.js';
-import { sessionStore } from './store.js';
-import { tmuxBackend } from './tmux.js';
+} from '../../testing/index.js';
+import { listAgentProcesses } from '../agent-listing.js';
+import { sessionStore } from '../store.js';
+import { tmuxBackend } from '../tmux/backend.js';
+import { listSessions, sessionTree } from './board.js';
 
 const inWindow = (project: string, startedAt: string, window: string) =>
   newSession({ project, startedAt, tmux: { socket: 'mesa-default', session: project, window } });

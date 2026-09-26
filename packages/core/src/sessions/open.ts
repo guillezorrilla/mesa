@@ -3,14 +3,17 @@ import { join } from 'node:path';
 import { AGENT_NAMES, AGENTS, type Agent, AgentSchema, checkAgent } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
-import type { Env, Runner } from '../lib/process.js';
+import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { ending, type SessionRecord, type SessionStore, windowOf, windowSession } from './store.js';
-import { killIfThere, type TmuxBackend } from './tmux.js';
+import { type Caller, windowEnv } from './caller.js';
+import { ending, type SessionRecord } from './record.js';
+import type { SessionStore } from './store.js';
+import { killIfThere, type TmuxBackend } from './tmux/backend.js';
+import { windowName, windowOf } from './window-name.js';
 import { addWorktree, removeWorktree, type Worktree, worktreePath } from './worktree.js';
 
 export type OpenDeps = {
@@ -22,16 +25,16 @@ export type OpenDeps = {
   run: Runner;
   clock: Clock;
   newUuid: IdSource;
-  /** For MESA_SESSION_ID and MESA_PROFILE: a window's session is the default parent. */
-  env: Env;
+  /** Who runs this mesa: the window's session is the default parent. */
+  caller: () => Caller;
 };
 
 /**
  * The parent a new session gets: `parent` when given (not_found if it is not a session here),
- * none with `noParent`, else the session whose window this runs in (windowSession).
+ * none with `noParent`, else the session whose window this runs in (the caller).
  */
 function parentOf(
-  deps: Pick<OpenDeps, 'store' | 'env' | 'profileName'>,
+  deps: Pick<OpenDeps, 'store' | 'caller'>,
   input: { parent?: string; noParent?: boolean },
 ): string | undefined {
   if (input.noParent && input.parent !== undefined) {
@@ -46,7 +49,7 @@ function parentOf(
     }
     return input.parent;
   }
-  return input.noParent ? undefined : windowSession(deps)?.id;
+  return input.noParent ? undefined : deps.caller().session?.id;
 }
 
 // ponytail: one tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
@@ -302,7 +305,7 @@ export async function startWindow(
       // claude keys its transcripts by cwd.
       cwd: folderOf(s, s.project),
       command: s.command,
-      env: { MESA_SESSION_ID: record.id, MESA_PROFILE: deps.profileName },
+      env: windowEnv(record.id, deps.profileName),
     });
   } catch (error) {
     deps.store.remove(record.id);
@@ -329,7 +332,7 @@ export function createRecord(deps: Pick<OpenDeps, 'store' | 'clock' | 'profile'>
     tmux: {
       socket: deps.profile.paths.tmuxSocket,
       session: s.project.name,
-      window: `${s.agent}-${id}`,
+      window: windowName(s.agent, id),
     },
     startedAt: now,
     // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at
