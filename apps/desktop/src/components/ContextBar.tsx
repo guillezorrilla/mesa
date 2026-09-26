@@ -8,7 +8,9 @@ const RED = 60;
 /** How full a session's context is: a bar with its percent, amber from 55% and red from 60%. */
 export function ContextBar(props: { used: number; window: number }) {
   const used = Math.min(100, Math.max(0, props.used));
-  const tone = used >= RED ? 'red' : used >= AMBER ? 'amber' : 'normal';
+  // By the percent it shows, so a bar reading 55% is never left uncoloured.
+  const shown = Math.round(used);
+  const tone = shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
   return (
     <div
       data-testid="context-bar"
@@ -25,7 +27,7 @@ export function ContextBar(props: { used: number; window: number }) {
           tone === 'red' && '[&>[data-slot=progress-indicator]]:bg-state-failed',
         )}
       />
-      <span className="font-mono text-xs tabular-nums">{Math.round(props.used)}%</span>
+      <span className="font-mono text-xs tabular-nums">{shown}%</span>
     </div>
   );
 }

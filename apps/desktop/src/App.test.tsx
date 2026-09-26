@@ -700,15 +700,16 @@ test('each row shows its context use as a bar: amber from 55%, red from 60%, a d
   const { bridge } = fakeBridge({
     sessions: () =>
       envelope([
-        managedRow('aaaaaaaa', { attention: 0.5, ...context(54.9) }),
-        managedRow('bbbbbbbb', { attention: 0.4, ...context(55) }),
+        managedRow('aaaaaaaa', { attention: 0.5, ...context(54.4) }),
+        managedRow('bbbbbbbb', { attention: 0.4, ...context(54.5) }),
         managedRow('cccccccc', { attention: 0.3, ...context(60.2) }),
         managedRow('dddddddd', { attention: 0.2 }),
       ] satisfies TreeRow[]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const cells = byTestId('session-context');
-  expect(cells.map((c) => c.textContent)).toEqual(['55%', '55%', '60%', '-']);
+  // By the percent shown: 54.5 reads 55%, so it is amber.
+  expect(cells.map((c) => c.textContent)).toEqual(['54%', '55%', '60%', '-']);
   expect(byTestId('context-bar').map((b) => b.dataset.tone)).toEqual(['normal', 'amber', 'red']);
   expect(byTestId('context-bar')[2]?.title).toBe('60.2% of a 200,000-token window');
 });
