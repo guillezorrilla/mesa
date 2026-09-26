@@ -308,21 +308,22 @@ test('the Board is the first screen: every session by attention, with its state,
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   expect(byTestId('session-board')).toHaveLength(1);
-  expect(byTestId('session-row').map((r) => cells(r).slice(0, 7))).toEqual([
+  expect(byTestId('session-row').map((r) => cells(r).slice(0, 8))).toEqual([
     [
       'aaaaaaaa',
       'lantern-cove',
       'claude',
       'waiting-permission 95%',
       '0.83',
+      '-',
       '42s',
       'Do you want to proceed?',
     ],
     // Started outside Mesa: muted, tagged, no actions.
-    ['ext-4242', '-', 'claude', 'idle 85%', '0.33', '1m30s', ''],
-    ['cccccccc', 'lantern-cove', 'claude', 'done 85%', '0.25', '42s', ''],
-    ['ffffffff', 'lantern-cove', 'claude', 'done 85%', '0.24', '42s', 'Bye!'],
-    ['bbbbbbbb', 'lantern-cove', 'claude', 'working 95%', '0.08', '2h05m', ''],
+    ['ext-4242', '-', 'claude', 'idle 85%', '0.33', '-', '1m30s', ''],
+    ['cccccccc', 'lantern-cove', 'claude', 'done 85%', '0.25', '-', '42s', ''],
+    ['ffffffff', 'lantern-cove', 'claude', 'done 85%', '0.24', '-', '42s', 'Bye!'],
+    ['bbbbbbbb', 'lantern-cove', 'claude', 'working 95%', '0.08', '-', '2h05m', ''],
   ]);
   // StateBadge colours by its data-state.
   expect(byTestId('session-state').map((b) => b.dataset.state)).toEqual([
@@ -685,6 +686,32 @@ test('after a /clear moves its agent session id, the row keeps its state and act
   } finally {
     vi.useRealTimers();
   }
+});
+
+test('each row shows its context use as a bar: amber from 55%, red from 60%, a dash with none', async () => {
+  const context = (used: number) => ({
+    context: {
+      used,
+      window: 200_000,
+      at: '2026-09-25T12:00:00.000Z',
+      source: 'transcript' as const,
+    },
+  });
+  const { bridge } = fakeBridge({
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', { attention: 0.5, ...context(54.4) }),
+        managedRow('bbbbbbbb', { attention: 0.4, ...context(54.5) }),
+        managedRow('cccccccc', { attention: 0.3, ...context(60.2) }),
+        managedRow('dddddddd', { attention: 0.2 }),
+      ] satisfies TreeRow[]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const cells = byTestId('session-context');
+  // By the percent shown: 54.5 reads 55%, so it is amber.
+  expect(cells.map((c) => c.textContent)).toEqual(['54%', '55%', '60%', '-']);
+  expect(byTestId('context-bar').map((b) => b.dataset.tone)).toEqual(['normal', 'amber', 'red']);
+  expect(byTestId('context-bar')[2]?.title).toBe('60.2% of a 200,000-token window');
 });
 
 test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {

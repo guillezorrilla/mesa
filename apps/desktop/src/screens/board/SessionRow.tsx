@@ -1,5 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { Download, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
+import { ContextBar } from '@/components/ContextBar';
 import { StateBadge } from '@/components/StateBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,8 +27,9 @@ export type RowActions = {
 
 /**
  * One Board row: the session's id (a live one opens its terminal here), project with its branch
- * and goal, agent, state, attention, running time, last output (for a queued one, the session it
- * waits on), and its actions. A foreign session is muted, with Adopt its only action.
+ * and goal, agent, state, attention, context use, running time, last output (for a queued one,
+ * the session it waits on), and its actions. A foreign session is muted, with Adopt its only
+ * action.
  */
 export function SessionRow(props: {
   row: TreeRow;
@@ -101,6 +103,13 @@ export function SessionRow(props: {
       </TableCell>
       <TableCell data-testid="session-attention" className="font-mono tabular-nums">
         {s.attention.toFixed(2)}
+      </TableCell>
+      <TableCell data-testid="session-context">
+        {s.managed && s.context ? (
+          <ContextBar used={s.context.used} window={s.context.window} />
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
       </TableCell>
       <TableCell data-testid="session-running" className="font-mono tabular-nums">
         {running(s.runningSeconds + (ticking(s) ? props.elapsed : 0))}

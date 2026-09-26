@@ -13,6 +13,7 @@ import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { callerOf, windowId } from './caller.js';
+import { refreshContext } from './context.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { readHookEvents, recordHookEvent } from './hook-events.js';
@@ -64,6 +65,8 @@ export function sessionsService(
       return { ...recorded, warning: [recorded.warning, why].filter(Boolean).join('; ') };
     }
   };
+  /** Where a session's context use is read: its agent's files under home, with this env. */
+  const contextDeps = { store, home: deps.home, env: deps.env };
   /** Who runs this mesa: the session whose Mesa window it is in, if any. */
   const caller = () => callerOf({ store, env: deps.env, profileName: profile });
   const openDeps = () => ({
@@ -210,9 +213,12 @@ export function sessionsService(
       },
       /** A session's goal, or not_found when it was started without one. */
       goal: (id: string) => sessionGoal(store, id),
-      /** One session's record with `alive` as the board reads it; not_found for an unknown id. */
+      /**
+       * One session's record, its context use read now, with `alive` as the board reads it;
+       * not_found for an unknown id.
+       */
       show: async (id: string) => {
-        const record = store.get(id);
+        const record = refreshContext(contextDeps, store.get(id));
         const row = (await board(true)).find((r) => r.id === id);
         return { ...record, alive: row?.alive ?? false };
       },
@@ -392,8 +398,9 @@ export function sessionsService(
         ),
     },
     /**
-     * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A SessionEnd (not
-     * a /clear or a /resume, which keep the agent running) starts what was queued after it.
+     * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop reads the
+     * session's context use; a SessionEnd (not a /clear or a /resume, which keep the agent
+     * running) starts what was queued after it.
      */
     hookEvent: async (agent: string, payload: string) => {
       const event = recordHookEvent(
@@ -407,6 +414,9 @@ export function sessionsService(
         { agent, mesaSessionId: windowId(deps.env), payload },
       );
       const id = windowId(deps.env);
+      // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
+      const ended = event?.event === 'Stop' && id ? store.find(id) : undefined;
+      if (ended) refreshContext(contextDeps, ended);
       if (event?.event === 'SessionEnd' && id && hookState(event.event, event.payload)) {
         await startQueue((after) => after === id);
       }
