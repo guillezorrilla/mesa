@@ -20,7 +20,8 @@ export type TerminalApp = (typeof TERMINAL_APPS)[number];
 const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
   defaultAgent: AgentSchema.default(DEFAULT_AGENT),
-  skills: z.array(z.string()).default([]),
+  // The mesa skill teaches every agent Mesa starts to drive Mesa (skills/mesa).
+  skills: z.array(z.string()).default(['mesa']),
   decisions: z
     .strictObject({
       backend: DecisionsBackendSchema.default('adapter'),

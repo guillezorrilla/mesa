@@ -10,10 +10,15 @@ const { mesa } = cli;
 test("skills list shows Mesa's library; skills sync links the enabled ones and prints the diff", async () => {
   const dir = await cli.withProject();
   const listed = (await mesa('skills', 'list', '--json')).json.data;
+  // A new profile has the mesa skill on.
+  expect(listed).toContainEqual(
+    expect.objectContaining({ name: 'mesa', source: 'mesa', enabled: true }),
+  );
   expect(listed).toContainEqual(
     expect.objectContaining({ name: 'session-summary', source: 'mesa', enabled: false }),
   );
   await mesa('config', 'set', 'skills', '[session-summary]');
+  // (mesa is off now: only what config.yaml lists is on.)
   expect((await mesa('skills', 'list', 'lantern-cove', '--json')).json.data).toContainEqual(
     expect.objectContaining({ name: 'session-summary', enabled: true }),
   );

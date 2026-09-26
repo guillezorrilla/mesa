@@ -34,7 +34,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
   expect(loadConfig(paths.config)).toEqual({
     vault: '/tmp/v',
     defaultAgent: 'claude',
-    skills: [],
+    skills: ['mesa'],
     decisions: { backend: 'adapter', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },

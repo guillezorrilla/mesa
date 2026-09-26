@@ -62,11 +62,19 @@ test("list merges the library with the profile's set, the project's extras, and 
   mkdirSync(join(dir, '.agents/skills/other'), { recursive: true });
   symlinkSync('../../.agents/skills/other', join(dir, '.claude/skills/other'));
   expect(mesa.skills.list('lantern-cove')).toEqual([
-    { name: 'a', source: 'mesa', enabled: true, description: 'The a skill' },
-    { name: 'b', source: 'mesa', enabled: true, description: 'The b skill' },
+    { name: 'a', source: 'mesa', enabled: true, description: 'The a skill', linked: false },
+    { name: 'b', source: 'mesa', enabled: true, description: 'The b skill', linked: false },
     { name: 'other', source: 'repo', enabled: true, description: '' },
     { name: 'own', source: 'repo', enabled: true, description: 'The own skill' },
   ]);
+  // Once synced, the project has Mesa's links to them.
+  mesa.skills.sync('lantern-cove');
+  expect(
+    mesa.skills
+      .list('lantern-cove')
+      .filter((r) => r.linked)
+      .map((r) => r.name),
+  ).toEqual(['a', 'b']);
 });
 
 test('sync links the enabled skills into both folders, then unlinks only its own', async () => {

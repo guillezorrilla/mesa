@@ -9,6 +9,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
+import { excludeFromGit } from './git-exclude.js';
 import { type LibrarySkill, readSkill } from './library.js';
 
 /** Where each agent looks for a project's skills: Claude Code's, then Codex's. */
@@ -20,6 +21,8 @@ export type SkillRow = {
   source: 'mesa' | 'repo';
   enabled: boolean;
   description: string;
+  /** With a project: whether Mesa's link to it is in the project (synced). */
+  linked?: boolean;
 };
 
 /** What a sync did, per link: `<skill dir>/<name>`, relative to the project. */
@@ -68,15 +71,20 @@ export function listSkills(input: {
   enabled: ReadonlySet<string>;
   projectDir?: string;
 }): SkillRow[] {
+  const { projectDir } = input;
+  const linked = (name: string) =>
+    Boolean(projectDir) &&
+    SKILL_DIRS.some((dir) => isMesaLink(join(projectDir as string, dir, name), input.libraryDir));
   const rows: SkillRow[] = input.library.map((s) => ({
     name: s.name,
     source: 'mesa',
     enabled: input.enabled.has(s.name),
     description: s.description,
+    ...(projectDir ? { linked: linked(s.name) } : {}),
   }));
-  if (!input.projectDir) return rows;
+  if (!projectDir) return rows;
   const seen = new Set<string>();
-  for (const { folder } of skillFolders(input.projectDir)) {
+  for (const { folder } of skillFolders(projectDir)) {
     if (!existsSync(folder)) continue;
     for (const name of readdirSync(folder)) {
       const entry = join(folder, name);
@@ -132,5 +140,7 @@ export function syncSkills(input: {
       }
     }
   }
+  // Every link Mesa has in the project, new or kept, so git never counts them as the project's.
+  excludeFromGit(input.projectDir, [...done.added, ...done.kept]);
   return done;
 }

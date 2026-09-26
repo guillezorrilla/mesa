@@ -20,14 +20,17 @@ export type { MesaDeps } from './context.js';
 export function createMesa(profile: string, deps: MesaDeps) {
   const ctx = createContext(profile, deps);
   const faro = createFaro(ctx);
+  const skills = skillsService(ctx);
   return {
     ...profileService(ctx),
     projects: projectsService(ctx),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),
-    ...sessionsService(ctx, faro),
+    ...sessionsService(ctx, faro, (project, folder) => {
+      skills.linkInto(project, folder);
+    }),
     hooks: hooksService(ctx),
-    skills: skillsService(ctx),
+    skills,
     decide: faro.decide,
     doctor: () =>
       runDoctor({

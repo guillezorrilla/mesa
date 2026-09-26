@@ -71,10 +71,11 @@ test('the Projects screen lists the fixture projects, marking one whose path is 
     '/src/lantern-cove',
     'claude',
     '0.5',
+    'none synced',
     'Sync skillsOpen session',
   ]);
   // A project whose path is gone cannot start a session.
-  expect(cells(rows[1])).toEqual(['tide ✗', '/src/tide', '', '', '']);
+  expect(cells(rows[1])).toEqual(['tide ✗', '/src/tide', '', '', '', '']);
   expect(byTestId('project-missing')).toHaveLength(1);
 });
 
@@ -130,6 +131,33 @@ test("Sync skills links the project's enabled skills and says what changed", asy
   expect(byTestId('toast')[0]?.textContent).toContain(
     "Synced skills into lantern-cove: 2 added, 0 removed; 1 of the project's own left alone",
   );
+});
+
+test('each project row shows the Mesa skills synced into it', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'skills list': (argv) =>
+      envelope(
+        argv.includes('lantern-cove')
+          ? [
+              { name: 'mesa', source: 'mesa', enabled: true, description: '', linked: true },
+              {
+                name: 'session-summary',
+                source: 'mesa',
+                enabled: false,
+                description: '',
+                linked: false,
+              },
+              { name: 'grill-me', source: 'repo', enabled: true, description: '' },
+            ]
+          : [],
+      ),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-projects')[0]);
+  expect(calls).toContainEqual(['--json', 'skills', 'list', '--', 'lantern-cove']);
+  // Only the linked Mesa skills: not one only enabled, not the project's own.
+  expect(byTestId('synced-skills').map((c) => c.textContent)).toEqual(['mesa']);
 });
 
 test('Open session starts a session for the row and says so', async () => {
