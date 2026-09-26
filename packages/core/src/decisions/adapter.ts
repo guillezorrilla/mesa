@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { Runner } from '../process.js';
-import { MesaError } from '../result.js';
+import type { Runner } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
 import { namesOf, toAnswer } from './rules.js';
 import type { Answer, Backend, Question } from './types.js';
 

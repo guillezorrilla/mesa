@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { beforeEach, expect, test } from 'vitest';
+import { tempDir, thrown } from '../testing/index.js';
 import { loadConfig, redactConfig, resolveKey, setConfigValue } from './config.js';
 import { profilePaths } from './paths.js';
 import { initProfile } from './profile.js';
-import { tempDir, thrown } from './testing.js';
 
 let file: string;
 beforeEach(() => {

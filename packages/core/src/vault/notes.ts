@@ -1,10 +1,11 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { writeFileAtomic } from './atomic-file.js';
-import type { Clock } from './clock.js';
+import { writeFileAtomic } from '../lib/atomic-file.js';
+import type { Clock } from '../lib/clock.js';
+import { MesaError } from '../lib/result.js';
+import { localDay, obsidianDateTime } from '../lib/time.js';
 import { type Frontmatter, type Note, parseNote, serializeNote } from './frontmatter.js';
-import { MesaError } from './result.js';
-import { localDay, obsidianDateTime } from './time.js';
+import { dailyNotePath, VAULT } from './layout.js';
 import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
@@ -77,7 +78,7 @@ export const updateNote = (deps: NotesDeps, path: string, change: Change): Promi
 
 /** The vault's log.md; not_found until `mesa vault init` has run. */
 function requireLog(vault: string): string {
-  const file = join(vault, 'log.md');
+  const file = join(vault, VAULT.log);
   if (!existsSync(file)) throw new MesaError('not_found', `${file} not found; run mesa vault init`);
   return file;
 }
@@ -102,7 +103,7 @@ export function appendLog(deps: NotesDeps, line: string): string {
 export function logLine(deps: NotesDeps, text: string): Promise<{ entry: string; daily: string }> {
   requireLog(deps.vault); // before the lock, which would otherwise create .mesa/ in a bare folder
   const day = localDay(deps.clock());
-  const daily = `daily/${day}.md`;
+  const daily = dailyNotePath(day);
   return withVaultLock(deps.vault, async () => {
     const entry = appendLog(deps, text);
     await rewrite(deps, daily, (note) => ({

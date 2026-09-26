@@ -2,10 +2,12 @@ import { existsSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { AgentSchema, DEFAULT_AGENT } from './agents.js';
-import type { Env } from './process.js';
-import { MesaError } from './result.js';
-import { parseWith, readYaml, setYamlPath } from './yaml-file.js';
+import { AgentSchema, DEFAULT_AGENT } from '../agents/agents.js';
+import type { Env } from '../lib/process.js';
+import { REDACTED } from '../lib/redact.js';
+import { MesaError } from '../lib/result.js';
+import { parseWith } from '../lib/schema.js';
+import { readYaml, setYamlPath } from '../lib/yaml-file.js';
 
 /** The terminal apps `mesa attach --app` can open. */
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
@@ -53,7 +55,10 @@ export function loadConfig(file: string): Config {
 
 /** Every key value becomes `***`: the only form in which a config leaves Mesa. */
 export function redactConfig(config: Config): Config {
-  return { ...config, keys: Object.fromEntries(Object.keys(config.keys).map((k) => [k, '***'])) };
+  return {
+    ...config,
+    keys: Object.fromEntries(Object.keys(config.keys).map((k) => [k, REDACTED])),
+  };
 }
 
 /**

@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts.js';
+import { listReceipts } from '../receipts/receipts.js';
 import {
   type FakeWindow,
   fakeTmux,
@@ -10,7 +10,7 @@ import {
   scriptedRunner,
   tempDir,
   testDeps,
-} from '../testing.js';
+} from '../testing/index.js';
 import { sessionStore } from './store.js';
 
 /**

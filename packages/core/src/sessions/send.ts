@@ -1,7 +1,7 @@
-import type { Clock } from '../clock.js';
 import { guardrail } from '../decisions/guardrail.js';
-import type { Env } from '../process.js';
-import { MesaError, toFail } from '../result.js';
+import type { Clock } from '../lib/clock.js';
+import type { Env } from '../lib/process.js';
+import { MesaError, toFail } from '../lib/result.js';
 import {
   type SessionRecord,
   type SessionStore,

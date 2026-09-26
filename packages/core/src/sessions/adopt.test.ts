@@ -2,8 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts.js';
-import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
+import { listReceipts } from '../receipts/receipts.js';
+import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 
 const LIVE = '36c173f2-803e-4845-bd97-a032b37c6d6d';
 const ON_DISK = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';

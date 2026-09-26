@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
-import { AGENT_NAMES, AGENTS, type Agent } from './agents.js';
-import type { BackendName } from './config.js';
-import type { ClaudeHooksStatus, TmuxHookStatus } from './hooks.js';
-import type { ObsidianPaths } from './obsidian.js';
-import type { Runner } from './process.js';
-import { toFail } from './result.js';
+import { AGENT_NAMES, agentBinary } from './agents/agents.js';
+import type { ClaudeHooksStatus, TmuxHookStatus } from './agents/claude/hooks.js';
+import { type Binary, CHECK_TIMEOUT_MS, firstVersion, probe } from './lib/probe.js';
+import type { Runner } from './lib/process.js';
+import { toFail } from './lib/result.js';
+import type { BackendName } from './profile/config.js';
 import { TMUX_INSTALL } from './sessions/tmux.js';
+import type { ObsidianPaths } from './vault/obsidian.js';
 
 export type Check = {
   name: string;
@@ -21,18 +22,7 @@ export type Check = {
 /** Decided here once: `healthy` when tmux and at least one agent answered; `summary` says why not. */
 export type DoctorReport = { healthy: boolean; summary: string; checks: Check[] };
 
-export const CHECK_TIMEOUT_MS = 2000;
-
-type Binary = {
-  name: string;
-  args: readonly string[];
-  role: 'required' | 'agent';
-  install: string;
-};
-
-function agentBinary(name: Agent): Binary {
-  return { name, args: AGENTS[name].versionArgs, role: 'agent', install: AGENTS[name].install };
-}
+type Probe = Omit<Check, 'status'>;
 
 // tmux is required on its own; the agents are required as a group: at least one of them.
 const BINARIES: Binary[] = [
@@ -41,25 +31,6 @@ const BINARIES: Binary[] = [
 ];
 
 const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) are required`;
-
-type Probe = Omit<Check, 'status'>;
-
-const firstVersion = (text: string) => text.match(/\d+\.\d+[\w.-]*/)?.[0];
-
-async function probe(run: Runner, b: Binary): Promise<Probe> {
-  const res = await run(b.name, [...b.args], CHECK_TIMEOUT_MS);
-  if (res.ok) return { name: b.name, ok: true, version: firstVersion(res.stdout), hint: '' };
-  const command = `\`${b.name} ${b.args.join(' ')}\``;
-  const why = {
-    missing: 'not found on PATH',
-    timeout: `${command} did not answer within ${CHECK_TIMEOUT_MS / 1000} s`,
-    failed: `${command} failed: ${res.detail}`,
-  }[res.reason];
-  return { name: b.name, ok: false, hint: `${why}; install with \`${b.install}\`` };
-}
-
-/** One agent's row as doctor shows it: `hint` says why it failed and how to install it. */
-export const checkAgent = (run: Runner, agent: Agent) => probe(run, agentBinary(agent));
 
 async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Probe> {
   const base = { name: 'obsidian' };

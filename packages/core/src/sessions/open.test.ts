@@ -2,10 +2,10 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
+import { execRunner, type Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
-import { execRunner, type Runner } from '../process.js';
-import { listReceipts } from '../receipts.js';
-import { scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
+import { listReceipts } from '../receipts/receipts.js';
+import { scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 
 /**
  * claude and tmux as a scripted runner: `claude --version` answers (unless `claude` is false),

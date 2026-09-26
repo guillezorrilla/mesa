@@ -1,4 +1,5 @@
-import { ULID_PATTERN } from './ids.js';
+import { ULID_PATTERN } from '../lib/ids.js';
+import { VAULT } from '../vault/layout.js';
 
 export const RECEIPT_TYPES = ['session', 'skill', 'decision', 'action'] as const;
 
@@ -15,7 +16,7 @@ export function receiptPath(r: { started: string; type: string; id: string }): s
   const utc = new Date(r.started).toISOString();
   const [year, month] = utc.split('-');
   const stamp = utc.replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
-  return `receipts/${year}/${month}/${stamp}-${r.type}-${r.id}.md`;
+  return `${VAULT.receipts}/${year}/${month}/${stamp}-${r.type}-${r.id}.md`;
 }
 
 /** The wikilink a log.md line uses to point at a receipt (docs/receipts.md). */

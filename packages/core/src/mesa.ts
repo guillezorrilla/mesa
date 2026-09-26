@@ -1,20 +1,22 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Clock } from './clock.js';
-import { redactConfig, resolveKey, setConfigValue } from './config.js';
+import { hooksStatus, installHooks, uninstallHooks } from './agents/claude/hooks.js';
+import { claudeTranscripts } from './agents/claude/paths.js';
 import { adapterBackend } from './decisions/adapter.js';
 import { decide, type FaroProfile, selectBackend } from './decisions/decide.js';
 import { rulesBackend } from './decisions/rules.js';
 import type { Question } from './decisions/types.js';
 import { runDoctor } from './doctor.js';
-import { hooksStatus, installHooks, uninstallHooks } from './hooks.js';
-import type { IdSource } from './ids.js';
-import { logLine } from './notes.js';
-import { type ObsidianPaths, openInObsidian } from './obsidian.js';
-import { profilePaths, profilesDir } from './paths.js';
-import type { Env, Runner } from './process.js';
-import { initProfile, openProfile, type ProfileInfo } from './profile.js';
-import { listProjects, registerProject, unregisterProject } from './projects.js';
+import type { Clock } from './lib/clock.js';
+import type { IdSource } from './lib/ids.js';
+import type { Env, Runner } from './lib/process.js';
+import { redactPayload } from './lib/redact.js';
+import { MesaError, toFail } from './lib/result.js';
+import { redactConfig, resolveKey, setConfigValue } from './profile/config.js';
+import { profilePaths, profilesDir } from './profile/paths.js';
+import { initProfile, openProfile, type ProfileInfo } from './profile/profile.js';
+import { listProjects, registerProject, unregisterProject } from './projects/projects.js';
+import { readRegistry } from './projects/registry.js';
 import {
   actionRecorder,
   closeSessionReceipt,
@@ -24,13 +26,11 @@ import {
   receiptText,
   redactCommand,
   showReceipt,
-} from './receipts.js';
-import { readRegistry } from './registry.js';
-import { MesaError, toFail } from './result.js';
-import { adoptSession, claudeTranscripts } from './sessions/adopt.js';
+} from './receipts/receipts.js';
+import { adoptSession } from './sessions/adopt.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession, resizeSession } from './sessions/attach.js';
-import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
+import { readHookEvents, recordHookEvent } from './sessions/events.js';
 import { listSessions, sessionTree } from './sessions/list.js';
 import { type OpenInput, openSession, readGoal, resumeSession } from './sessions/open.js';
 import { recordPaneDied } from './sessions/pane-died.js';
@@ -39,7 +39,9 @@ import { stopSession } from './sessions/stop.js';
 import type { SessionRecord } from './sessions/store.js';
 import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux.js';
-import { initVault, vaultStatus } from './vault.js';
+import { logLine } from './vault/notes.js';
+import { type ObsidianPaths, openInObsidian } from './vault/obsidian.js';
+import { initVault, vaultStatus } from './vault/vault.js';
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
 export type MesaDeps = {

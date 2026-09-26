@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { MesaError } from './result.js';
-import { withLockSync } from './vault-lock.js';
-import { readYaml, writeYaml } from './yaml-file.js';
+import { withLockSync } from '../lib/lock-file.js';
+import { MesaError } from '../lib/result.js';
+import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
 /** One registered project: its name and the directory holding its mesa.yaml. */
 export type RegistryEntry = { name: string; path: string };

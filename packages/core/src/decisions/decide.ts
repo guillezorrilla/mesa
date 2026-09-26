@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { Clock } from '../clock.js';
-import type { Config } from '../config.js';
-import { MesaError } from '../result.js';
+import type { Clock } from '../lib/clock.js';
+import { MesaError } from '../lib/result.js';
+import type { Config } from '../profile/config.js';
 import { namesOf, rulesBackend, toAnswer } from './rules.js';
 import {
   type Answer,

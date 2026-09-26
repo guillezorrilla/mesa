@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { SESSION_STATES } from '../sessions/store.js';
-import { fixedClock } from '../testing.js';
+import { fixedClock } from '../testing/index.js';
 import type { FaroProfile } from './decide.js';
 import {
   attentionWeights,

@@ -3,8 +3,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts.js';
-import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
+import { listReceipts } from '../receipts/receipts.js';
+import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 import { sessionStore } from './store.js';
 
 /** A profile with its vault laid out and one claude session open in a fake tmux. */

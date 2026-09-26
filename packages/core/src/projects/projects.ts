@@ -1,5 +1,6 @@
 import { existsSync, realpathSync } from 'node:fs';
-import type { Profile } from './profile.js';
+import { MesaError } from '../lib/result.js';
+import type { Profile } from '../profile/profile.js';
 import {
   minimalProject,
   type Project,
@@ -8,7 +9,6 @@ import {
   writeProjectFile,
 } from './project-file.js';
 import { findClash, type RegistryEntry, readRegistry, updateRegistry } from './registry.js';
-import { MesaError } from './result.js';
 
 export type ProjectRow = {
   name: string;

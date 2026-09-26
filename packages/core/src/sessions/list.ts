@@ -1,5 +1,4 @@
 import { basename } from 'node:path';
-import type { Clock } from '../clock.js';
 import type { FaroProfile } from '../decisions/decide.js';
 import {
   classifySession,
@@ -9,8 +8,9 @@ import {
   type SessionSignals,
 } from '../decisions/session-state.js';
 import type { Backend, DecisionRecorder } from '../decisions/types.js';
-import type { RegistryEntry } from '../registry.js';
-import { MesaError } from '../result.js';
+import type { Clock } from '../lib/clock.js';
+import { MesaError } from '../lib/result.js';
+import type { RegistryEntry } from '../projects/registry.js';
 import { type AgentProcess, listedState } from './agent-listing.js';
 import type { HookEvent } from './events.js';
 import {

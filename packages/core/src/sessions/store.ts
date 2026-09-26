@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { AgentSchema } from '../agents.js';
-import { writeFileAtomic } from '../atomic-file.js';
-import type { IdSource } from '../ids.js';
-import type { Env } from '../process.js';
-import { MesaError } from '../result.js';
-import { withLockSync } from '../vault-lock.js';
-import { parseWith } from '../yaml-file.js';
+import { AgentSchema } from '../agents/agents.js';
+import { writeFileAtomic } from '../lib/atomic-file.js';
+import type { IdSource } from '../lib/ids.js';
+import { withLockSync } from '../lib/lock-file.js';
+import type { Env } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
+import { parseWith } from '../lib/schema.js';
 import type { WindowTarget } from './tmux.js';
 
 // Session records: one JSON file per session in the profile's `sessions/`, outliving tmux.

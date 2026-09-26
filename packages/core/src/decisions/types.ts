@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { BackendName } from '../config.js';
+import type { BackendName } from '../profile/config.js';
 
 // Faro's question primitives, exactly Jev's (ADR-0004), and the shapes every backend answers in.
 
