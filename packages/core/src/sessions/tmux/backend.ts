@@ -19,7 +19,7 @@ import { COPY_BINDINGS, SERVER_OPTIONS } from './server-options.js';
 const TIMEOUT_MS = 5000;
 export const TMUX_INSTALL = 'brew install tmux';
 
-export type WindowSpec = WindowTarget & {
+type WindowSpec = WindowTarget & {
   cwd: string;
   /**
    * One simple command for POSIX sh, run as `/bin/sh -c`, never through the user's shell: Mesa

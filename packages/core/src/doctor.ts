@@ -61,7 +61,7 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Probe> 
  * The decisions backend the profile names, the one rules defer to when unsure (the named one,
  * else rules while it is unavailable), and the confidence below which they do.
  */
-export type DecisionsInUse = { named: BackendName; active: BackendName; threshold: number };
+type DecisionsInUse = { named: BackendName; active: BackendName; threshold: number };
 
 function decisionsCheck(decisions: DecisionsInUse | undefined): Probe[] {
   if (!decisions) return [];

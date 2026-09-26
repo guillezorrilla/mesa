@@ -3,7 +3,13 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
-import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
+import {
+  fakeTmux,
+  projectProfile,
+  scriptedRunner,
+  sequentialIds,
+  testDeps,
+} from '../testing/index.js';
 
 const LIVE = '36c173f2-803e-4845-bd97-a032b37c6d6d';
 const ON_DISK = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
@@ -14,27 +20,23 @@ const WARNING = 'end the session in its original terminal first: both hold the s
  * session running in lantern-cove unless told otherwise.
  */
 function setUp(listed?: { sessionId: string; cwd: string }[]) {
-  const home = tempDir();
-  const dir = join(home, 'src/lantern-cove');
-  mkdirSync(dir, { recursive: true });
   const world = fakeTmux();
-  const listing = listed ?? [{ sessionId: LIVE, cwd: dir }];
-  const rows = listing.map((l, i) => ({
-    pid: 4200 + i,
-    startedAt: 1790276764032,
-    status: 'idle',
-    ...l,
-  }));
+  // The listing names the project's folder, known once the profile is made.
+  let dir = '';
+  const rows = () =>
+    (listed ?? [{ sessionId: LIVE, cwd: dir }]).map((l, i) => ({
+      pid: 4200 + i,
+      startedAt: 1790276764032,
+      status: 'idle',
+      ...l,
+    }));
   const scripted = scriptedRunner({
     tmux: world.answer,
-    claude: (args) => (args.includes('agents') ? JSON.stringify(rows) : '2.1.283 (Claude Code)'),
+    claude: (args) => (args.includes('agents') ? JSON.stringify(rows()) : '2.1.283 (Claude Code)'),
   });
-  const newId = sequentialIds();
-  const mesa = createMesa('default', testDeps(home, { run: scripted.run, newId }));
-  mesa.init({ vault: 'vault' });
-  mesa.vault.init();
-  mesa.projects.register(dir, true);
-  return { home, dir, mesa, world };
+  const made = projectProfile(scripted.run, { newId: sequentialIds() });
+  dir = made.dir;
+  return { ...made, world };
 }
 
 /** A transcript on disk, as Claude Code writes one: its folder on a line after the first. */

@@ -4,7 +4,7 @@ import { writeYaml } from '../lib/yaml-file.js';
 import { buildConfig, CONFIG_HEADER, type Config, loadConfig } from './config.js';
 import type { ProfilePaths } from './paths.js';
 
-export const DEFAULT_PROFILE = 'default';
+const DEFAULT_PROFILE = 'default';
 
 declare const opened: unique symbol;
 

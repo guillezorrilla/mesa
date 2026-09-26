@@ -24,7 +24,7 @@ export const macObsidianPaths = (home: string): ObsidianPaths => ({
   vaultList: join(home, 'Library/Application Support/obsidian/obsidian.json'),
 });
 
-export const OPEN_TIMEOUT_MS = 5000;
+const OPEN_TIMEOUT_MS = 5000;
 
 /**
  * `obsidian://open` for the vault, or one note in it (docs/spikes/obsidian-cli.md). Obsidian names a
@@ -46,10 +46,6 @@ function knownVaults(vaultList: string): string[] {
     return [];
   }
 }
-
-/** Whether Obsidian's vault list holds this folder. */
-export const knownToObsidian = (vault: string, vaultList: string): boolean =>
-  knownVaults(vaultList).includes(resolve(vault));
 
 export type Opened = { opened: true; method: 'uri' | 'cli'; target: string };
 

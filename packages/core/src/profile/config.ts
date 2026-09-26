@@ -17,7 +17,7 @@ export type TerminalApp = (typeof TERMINAL_APPS)[number];
 /** The decisions backends of ADR-0004. */
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
-export const ConfigSchema = z.strictObject({
+const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
   defaultAgent: AgentSchema.default(DEFAULT_AGENT),
   skills: z.array(z.string()).default([]),

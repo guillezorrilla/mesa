@@ -13,25 +13,25 @@ const id = z.string().min(1);
 const distinct = (words: string[]) => new Set(words).size === words.length;
 
 /** Pick one of 2 to 255 options. */
-export const ChoiceSchema = z.strictObject({
+const ChoiceSchema = z.strictObject({
   kind: z.literal('Choice'),
   id,
   options: z.array(z.string().min(1)).min(2).max(255).refine(distinct, 'options must differ'),
 });
 /** A position on an ordered rubric of 2 to 10 levels, lowest first. */
-export const ScoreSchema = z.strictObject({
+const ScoreSchema = z.strictObject({
   kind: z.literal('Score'),
   id,
   levels: z.array(z.string().min(1)).min(2).max(10).refine(distinct, 'levels must differ'),
 });
 /** Yes or no, as one calibrated probability that `statement` is true. */
-export const NoulSchema = z.strictObject({
+const NoulSchema = z.strictObject({
   kind: z.literal('Noul'),
   id,
   statement: z.string().min(1),
 });
 
-export const QuestionSchema = z.discriminatedUnion('kind', [ChoiceSchema, ScoreSchema, NoulSchema]);
+const QuestionSchema = z.discriminatedUnion('kind', [ChoiceSchema, ScoreSchema, NoulSchema]);
 export const QuestionsSchema = z
   .array(QuestionSchema)
   .min(1)

@@ -9,7 +9,7 @@ import type { Answer, Backend, Question } from './types.js';
 
 export const ADAPTER_TIMEOUT_MS = 20_000;
 /** The screen's last characters that reach the prompt, after redaction. */
-export const TAIL_CHARS = 2000;
+const TAIL_CHARS = 2000;
 
 const unit = { type: 'number', minimum: 0, maximum: 1 };
 const perName = (names: string[]) => ({
