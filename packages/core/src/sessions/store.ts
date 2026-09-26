@@ -60,7 +60,10 @@ const SessionRecordSchema = z.strictObject({
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
-  /** What Mesa did to the session: prompts sent to it, and by it (the hooks log to sessions/events/). */
+  /**
+   * What happened to the session that Mesa keeps: prompts sent to it and by it, and its agent's
+   * exit. Claude Code's hook events go to sessions/events/ instead.
+   */
   events: z.array(
     z.discriminatedUnion('type', [
       z.strictObject({
@@ -71,7 +74,7 @@ const SessionRecordSchema = z.strictObject({
         from: z.string().regex(SHORT_ID).optional(),
       }),
       /** Its agent exited: tmux's pane-died hook said so (mesa hook tmux). */
-      z.strictObject({ type: z.literal('ended'), at: z.iso.datetime() }),
+      z.strictObject({ type: z.literal('exited'), at: z.iso.datetime() }),
       z.strictObject({
         type: z.literal('sent'),
         at: z.iso.datetime(),
@@ -105,6 +108,9 @@ export function ending(r: SessionRecord, at: string): Pick<SessionRecord, 'ended
 
 /** A session with no live window: nothing to attach to or type into, only to resume. */
 export const sessionEnded = () => new MesaError('not_found', 'session ended; use mesa resume');
+
+/** The Mesa session id in a window's name (`claude-a1b2c3d4`), if it has one. */
+export const idOfWindow = (window: string) => /^[a-z]+-([0-9a-z]{8})$/.exec(window)?.[1];
 
 /** The session's window on the profile's tmux server. */
 export const windowOf = (r: SessionRecord): WindowTarget => ({

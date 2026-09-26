@@ -114,6 +114,9 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
   const windows: FakeWindow[] = [];
   /** Global hooks by name, as set-hook -g sets them: one command each. */
   const hooks = new Map<string, string>();
+  /** A server runs once something started it; before that, tmux answers only with an error. */
+  let server = false;
+  const noServer = () => failed('no server running on /private/tmp/tmux-501/fake');
   const failed = (detail: string): RunResult => ({ ok: false, reason: 'failed', detail });
   const flag = (args: string[], name: string) => args[args.indexOf(name) + 1] ?? '';
   const find = (target: string) => {
@@ -142,6 +145,7 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
           : failed("can't find session");
       case 'new-session':
       case 'new-window': {
+        server = true;
         const project = command === 'new-session' ? flag(rest, '-s') : target.slice(1, -1);
         const [path, window] = [flag(rest, '-c'), flag(rest, '-n')];
         windows.push({
@@ -193,15 +197,24 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
         return w ? ok(w.typed.join('\n')) : failed("can't find window");
       }
       case 'start-server':
+        server = true;
+        return ok();
       case 'set-option':
       case 'bind-key':
       case 'set-environment':
         return ok();
+      // Only the forms Mesa sends: `set-hook -g <name> <command>`, `show-hooks -g <name>`.
       case 'set-hook':
-        hooks.set(rest.at(-2) ?? '', rest.at(-1) ?? '');
+        if (!server) return noServer();
+        if (rest.length !== 3 || rest[0] !== '-g')
+          return failed(`fakeTmux: set-hook ${rest.join(' ')}`);
+        hooks.set(rest[1] ?? '', rest[2] ?? '');
         return ok();
       case 'show-hooks': {
-        const name = rest.at(-1) ?? '';
+        if (!server) return noServer();
+        if (rest.length !== 2 || rest[0] !== '-g')
+          return failed(`fakeTmux: show-hooks ${rest.join(' ')}`);
+        const name = rest[1] ?? '';
         const set = hooks.get(name);
         return ok(set === undefined ? name : `${name}[0] ${set}`);
       }

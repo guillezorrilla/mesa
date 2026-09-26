@@ -13,7 +13,8 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
   const hooks = useCommand('hooks.status');
   const run = useRun();
   const change = async (name: 'hooks.install' | 'hooks.uninstall') => {
-    if (await run(name)) await hooks.refresh();
+    // The doctor's own `claude hooks` row changes too.
+    if (await run(name)) await Promise.all([hooks.refresh(), refresh()]);
   };
   return (
     <section data-testid="doctor-panel">

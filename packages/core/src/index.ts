@@ -7,7 +7,7 @@ export { type Config, TERMINAL_APPS } from './config.js';
 export type { Answer, Decision, Question } from './decisions/types.js';
 export type { Check, DoctorReport } from './doctor.js';
 export type { Frontmatter, Note } from './frontmatter.js';
-export type { ClaudeHooksStatus, HooksStatus } from './hooks.js';
+export type { ClaudeHooksStatus, HooksStatus, TmuxHookStatus } from './hooks.js';
 export { type IdSource, ulidSource } from './ids.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './obsidian.js';

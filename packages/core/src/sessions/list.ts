@@ -107,7 +107,7 @@ const secondsBetween = (from: string, until: number) =>
 export async function listSessions(
   deps: {
     store: SessionStore;
-    tmux: Pick<TmuxBackend, 'ensureServer' | 'listWindows' | 'capturePane'>;
+    tmux: Pick<TmuxBackend, 'setPaneDiedHook' | 'listWindows' | 'capturePane'>;
     listing: () => Promise<AgentProcess[]>;
     /** The session's hook events, oldest first. */
     events: (id: string) => HookEvent[];
@@ -138,10 +138,11 @@ export async function listSessions(
     else children.set(r.parent, [r.id]);
   }
   // One tmux look and one listing for the whole board, side by side, rather than one per record.
-  // A board with sessions keeps its server set up, the pane-died hook with it, so a server from
-  // an older mesa gets it on the next look.
+  // The look sets the pane-died hook first, so a server an older mesa started gets it; it never
+  // starts a server. ponytail: two tmux calls in a row per look (about 8 ms); chain the hook into
+  // list-windows if looks ever need to be faster.
   const windowsNow = async () => {
-    await deps.tmux.ensureServer();
+    await deps.tmux.setPaneDiedHook();
     return deps.tmux.listWindows();
   };
   const [listed, windowList] = await Promise.all([

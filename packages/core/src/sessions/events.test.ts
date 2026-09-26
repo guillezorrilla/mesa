@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { fixedClock, newSession, sequentialIds, tempDir } from '../testing.js';
-import { recordHookEvent, recordPaneDied } from './events.js';
+import { recordHookEvent } from './events.js';
 import { sessionStore } from './store.js';
 
 // Payloads shaped like the ones docs/spikes/state-signals.md recorded, with invented values.
@@ -116,50 +116,4 @@ test('a nested claude, with another agent session id, is not logged as the sessi
     recordHookEvent(deps, { agent: 'claude', mesaSessionId: id, payload: nested }),
   ).toBeUndefined();
   expect(existsSync(join(dir, 'events'))).toBe(false);
-});
-
-test('a pane that died ends its session: done for status 0, failed otherwise, once, as tmux-hook', async () => {
-  const dir = join(tempDir(), 'sessions');
-  const store = sessionStore({ dir, newId: sequentialIds() });
-  const clean = store.create(() =>
-    newSession({
-      tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-00000001' },
-    }),
-  );
-  const crashed = store.create(() =>
-    newSession({
-      tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-00000002' },
-    }),
-  );
-  const dead = (status: number, signal?: string) => ({
-    dead: true,
-    deadStatus: status,
-    deadSignal: signal,
-  });
-  const panes: Record<string, ReturnType<typeof dead>> = {
-    'claude-00000001': dead(0),
-    'claude-00000002': dead(1),
-  };
-  const deps = {
-    store,
-    tmux: { findWindow: async (t: { window: string }) => panes[t.window] },
-    clock: fixedClock('2026-09-24T12:05:00.000Z'),
-  };
-  const at = '2026-09-24T12:05:00.000Z';
-  const ended = await recordPaneDied(deps, 'lantern-cove', clean.tmux.window);
-  expect(ended).toMatchObject({
-    endedAt: at,
-    lastState: { state: 'done', confidence: 1, at, source: 'tmux-hook' },
-    events: [{ type: 'ended', at }],
-  });
-  expect((await recordPaneDied(deps, 'lantern-cove', crashed.tmux.window))?.lastState.state).toBe(
-    'failed',
-  );
-  // Once: a second hook for the same pane changes nothing.
-  expect(await recordPaneDied(deps, 'lantern-cove', clean.tmux.window)).toBeUndefined();
-  expect(store.get(clean.id).events).toEqual([{ type: 'ended', at }]);
-  // A window that is no Mesa session's, or another project's, is ignored.
-  expect(await recordPaneDied(deps, 'lantern-cove', 'claude-zzzzzzzz')).toBeUndefined();
-  expect(await recordPaneDied(deps, 'tide', crashed.tmux.window)).toBeUndefined();
-  expect(await recordPaneDied(deps, 'lantern-cove', 'zsh')).toBeUndefined();
 });

@@ -52,7 +52,10 @@ export type ClaudeHooksStatus = {
 };
 
 /** Both kinds of Mesa hook: Claude Code's, and the pane-died hook on the profile's tmux server. */
-export type HooksStatus = ClaudeHooksStatus & { tmux: { socket: string; paneDied: boolean } };
+export type HooksStatus = ClaudeHooksStatus & { tmux: TmuxHookStatus };
+
+/** The profile's tmux socket, whether a server runs there, and whether it has this mesa's hook. */
+export type TmuxHookStatus = { socket: string; server: boolean; paneDied: boolean };
 
 export const claudeSettings = (home: string) => join(home, '.claude', 'settings.json');
 

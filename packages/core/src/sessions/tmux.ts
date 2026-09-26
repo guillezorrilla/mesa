@@ -91,7 +91,7 @@ const SERVER_OPTIONS = [
 ];
 
 /** The name prefix of a terminal's view session (attachArgv): never a project's session. */
-const VIEW_PREFIX = '_view-';
+export const VIEW_PREFIX = '_view-';
 
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
 const nestedAgentVars = (env: Env) =>
@@ -132,14 +132,16 @@ function parseWindow(line: string): TmuxWindow {
 }
 
 /**
- * The tmux command a pane-died hook runs: `mesa --profile <profile> hook tmux pane-died <session>
- * <window>`, the pane's own names filled in by tmux when it fires. Inside tmux's double quotes a
- * backslash, a quote, and a `$` are escaped; the shell words are single-quoted.
+ * The tmux command a pane-died hook runs: `mesa --profile <profile> hook tmux pane-died -- <project>
+ * <window>`, the pane's names filled in, shell-quoted, by tmux when it fires (`#{q:...}`). Three
+ * parsers read it. For the shell, this mesa's words are single-quoted. For tmux's formats, a `#`
+ * in them is doubled. For tmux's double quotes, a backslash, a quote, and a `$` are escaped.
+ * `-b`: tmux runs each hook in the background, so one slow hook never holds up the next pane's.
  */
-export function paneDiedHook(self: readonly string[], profile: string): string {
+function paneDiedHook(self: readonly string[], profile: string): string {
   const mesa = [...self.map(shellWord), '--profile', shellWord(profile)].join(' ');
-  const command = `${mesa} hook tmux pane-died '#{session_name}' '#{window_name}'`;
-  return `run-shell "${command.replace(/[\\"$]/g, (c) => `\\${c}`)}"`;
+  const command = `${mesa.replaceAll('#', '##')} hook tmux pane-died -- #{q:session_name} #{q:window_name}`;
+  return `run-shell -b "${command.replace(/[\\"$]/g, (c) => `\\${c}`)}"`;
 }
 
 export function tmuxBackend({
@@ -195,7 +197,7 @@ export function tmuxBackend({
   const ensureServer = async () => {
     const options = SERVER_OPTIONS.flatMap((o) => [';', 'set-option', ...o]);
     const unset = nestedAgentVars(env).flatMap((name) => [';', 'set-environment', '-gu', name]);
-    // One global hook: set-hook replaces index 0, so starting again leaves exactly one.
+    // One global hook: set-hook -g replaces the hook's whole list, so starting again leaves one.
     const hook = paneDied
       ? [';', 'set-hook', '-g', 'pane-died', paneDiedHook(paneDied.self, paneDied.profile)]
       : [];
@@ -209,10 +211,25 @@ export function tmuxBackend({
   return {
     /** Starts the profile's server, or updates it, with Mesa's options and its pane-died hook. */
     ensureServer,
-    /** Whether the running server has Mesa's pane-died hook; false with no server, or no tmux. */
-    hasPaneDiedHook: async () => {
+    /**
+     * Whether a server runs on the profile's socket, and whether it has exactly this mesa's
+     * pane-died hook: one that runs a mesa that moved counts as missing, as a stale Claude hook
+     * does. No tmux reads as no server.
+     */
+    paneDiedHookState: async () => {
       const res = await tmux(['show-hooks', '-g', 'pane-died']).catch(() => undefined);
-      return Boolean(res?.ok && /^pane-died\[\d+\] .* hook tmux pane-died /m.test(res.stdout));
+      if (!res?.ok) return { server: false, paneDied: false };
+      const expected = paneDied && `pane-died[0] ${paneDiedHook(paneDied.self, paneDied.profile)}`;
+      const set = res.stdout.split('\n').filter((line) => line.startsWith('pane-died['));
+      return { server: true, paneDied: set.length === 1 && set[0] === expected };
+    },
+    /**
+     * Sets the pane-died hook on a running server, without starting one: a board look keeps a
+     * server from an older mesa hooked. ensureServer sets it with everything else.
+     */
+    setPaneDiedHook: async () => {
+      if (!paneDied) return;
+      await tmux(['set-hook', '-g', 'pane-died', paneDiedHook(paneDied.self, paneDied.profile)]);
     },
     /** A window in the project's tmux session, which is created with it when missing. */
     openWindow: async (spec: WindowSpec): Promise<WindowTarget> => {

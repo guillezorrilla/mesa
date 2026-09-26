@@ -55,7 +55,12 @@ const LISTING_LAG_MS = 2_000;
  */
 const HOOK = 0.95;
 const STALE_HOOK = 0.8;
-const PROCESS = 0.85;
+/** A dead or vanished window is a process fact (CONTEXT.md, Session state). */
+export const PROCESS = 0.85;
+
+/** An exited agent's state: `failed` for a signal or a nonzero status, else `done`. */
+export const exitState = (pane: { deadStatus?: number; deadSignal?: string }) =>
+  pane.deadSignal || (pane.deadStatus ?? 0) !== 0 ? ('failed' as const) : ('done' as const);
 /** The tail is display, not truth: 0.6 at most (ADR-0003 amendment). */
 const TAIL = 0.6;
 
@@ -168,8 +173,7 @@ export function classify(s: SessionSignals): LastState {
     if (s.event && (fromHook === 'done' || fromHook === 'failed')) {
       return { state: fromHook, confidence: HOOK, source: 'hook', at: s.event.at };
     }
-    const crashed = s.window.dead && (s.window.deadSignal || (s.window.deadStatus ?? 0) !== 0);
-    return seen(crashed ? 'failed' : 'done', PROCESS, 'tmux');
+    return seen(s.window.dead ? exitState(s.window) : 'done', PROCESS, 'tmux');
   }
   if (fromHook && s.event) {
     const age = Date.parse(s.now) - Date.parse(s.event.at);

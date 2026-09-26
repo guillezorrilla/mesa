@@ -174,8 +174,16 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await hooked.ensureServer();
     const hooks = (await raw('show-hooks', '-g', 'pane-died')).split('\n').filter(Boolean);
     expect(hooks).toHaveLength(1);
-    expect(hooks[0]).toContain('--profile');
-    expect(hooks[0]).toContain("hook tmux pane-died '#{session_name}' '#{window_name}'");
+    expect(hooks[0]).toContain('hook tmux pane-died -- #{q:session_name} #{q:window_name}');
+    // Read back exactly as tmux prints it, so a hook for a mesa that moved would not count.
+    expect(await hooked.paneDiedHookState()).toEqual({ server: true, paneDied: true });
+    const other = tmuxBackend({
+      run: underParent,
+      socket,
+      env: PARENT,
+      paneDied: { self: ['/moved/mesa'], profile: 'ptest' },
+    });
+    expect(await other.paneDiedHookState()).toEqual({ server: true, paneDied: false });
 
     const started = Date.now();
     await hooked.openWindow({
@@ -184,11 +192,19 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       command: "sh -c 'exit 0'",
       env: {},
     });
+    // A name no Mesa window has, but a hand-made one might: it reaches the shell as one word.
+    const pwned = join(cwd, 'pwned');
+    const hostile = `w'$(touch ${pwned})'`;
+    await hooked.openWindow({ ...lantern(hostile), cwd, command: "sh -c 'exit 0'", env: {} });
     const logged = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
-    expect(await eventually(logged, /claude-died01/)).toBe(
-      '--profile|ptest|hook|tmux|pane-died|lantern|claude-died01|\n',
-    );
+    const lines = (await eventually(logged, /pwned/)).split('\n').filter(Boolean).sort();
+    expect(lines).toEqual([
+      '--profile|ptest|hook|tmux|pane-died|--|lantern|claude-died01|',
+      `--profile|ptest|hook|tmux|pane-died|--|lantern|${hostile}|`,
+    ]);
+    expect(existsSync(pwned)).toBe(false);
     expect(Date.now() - started).toBeLessThan(1000);
+    await raw('set-hook', '-gu', 'pane-died');
   });
 
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {
