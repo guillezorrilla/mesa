@@ -14,12 +14,9 @@ export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
 export type { Project } from './projects/project-file.js';
 export type { ProjectRow } from './projects/projects.js';
-export {
-  DEFAULT_RECEIPT_LIMIT,
-  type Receipt,
-  type ReceiptEntry,
-  type Recorded,
-} from './receipts/receipts.js';
+export type { Recorded } from './receipts/recorder.js';
+export type { Receipt } from './receipts/schema.js';
+export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';

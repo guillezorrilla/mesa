@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { AGENT_NAMES, agentBinary } from './agents/agents.js';
 import type { ClaudeHooksStatus, TmuxHookStatus } from './agents/claude/hooks.js';
+import type { BackendName } from './decisions/types.js';
 import { type Binary, CHECK_TIMEOUT_MS, firstVersion, probe } from './lib/probe.js';
 import type { Runner } from './lib/process.js';
 import { toFail } from './lib/result.js';
-import type { BackendName } from './profile/config.js';
 import { TMUX_INSTALL } from './sessions/tmux/backend.js';
 import type { ObsidianPaths } from './vault/obsidian.js';
 

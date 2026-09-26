@@ -140,7 +140,7 @@ Not: safety check, policy, filter.
 
 ## Composition root
 
-`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: builds every Mesa service for one profile from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge and platform (dialogs, terminals, the pasteboard). ADR-0008.
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: composes every Mesa service for one profile, each domain's built by its own service factory over one shared context (`createContext`, ADR-0008 amendment), from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), environment, process runner, Obsidian paths, and the invocation's argv for receipts). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge and platform (dialogs, terminals, the pasteboard). ADR-0008.
 Not: container, context, app.
 
 ## Seam

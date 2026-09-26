@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts/receipts.js';
+import { listReceipts } from '../receipts/store.js';
 import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 
 const LIVE = '36c173f2-803e-4845-bd97-a032b37c6d6d';
