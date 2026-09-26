@@ -88,14 +88,16 @@ export function fakeTerminals() {
   return { host, calls, push };
 }
 
-/** A platform whose folder picker returns `folder` (null: the user cancelled). */
+/** A platform whose pickers return `folder` and `file` (null: the user cancelled). */
 export const fakePlatform = (
   folder: string | null = null,
   terminal: TerminalHost = fakeTerminals().host,
+  file: string | null = null,
 ): Platform & { pasteboard: string[] } => {
   const pasteboard: string[] = [];
   return {
     pickFolder: async () => folder,
+    pickFile: async () => file,
     terminal,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,

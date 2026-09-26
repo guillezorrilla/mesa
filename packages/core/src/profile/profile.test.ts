@@ -20,6 +20,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     events: '/h/.mesa/work/sessions/events',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
+    handoffs: '/h/.mesa/work/handoffs',
     tmuxSocket: 'mesa-work',
   });
 });
@@ -34,7 +35,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
   expect(loadConfig(paths.config)).toEqual({
     vault: '/tmp/v',
     defaultAgent: 'claude',
-    skills: ['mesa'],
+    skills: ['mesa', 'mesa-handoff'],
     decisions: { backend: 'adapter', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },

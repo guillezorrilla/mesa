@@ -18,6 +18,8 @@ export type TerminalHost = {
 export type Platform = {
   /** A folder the user picks, or null when they cancel. */
   pickFolder: () => Promise<string | null>;
+  /** A file the user picks (a handoff note), or null when they cancel. */
+  pickFile: () => Promise<string | null>;
   terminal: TerminalHost;
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
    * needs no seam: Cmd+V fires a paste event that xterm handles. */

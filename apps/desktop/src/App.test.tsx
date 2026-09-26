@@ -714,6 +714,55 @@ test('each row shows its context use as a bar: amber from 55%, red from 60%, a d
   expect(byTestId('context-bar')[2]?.title).toBe('60.2% of a 200,000-token window');
 });
 
+test('Hand off asks for the note, then hands the session off; one without a goal cannot', async () => {
+  const goaled = { ...busy, goal: 'Count the files in docs/adr' };
+  const bare = managedRow('dddddddd', { attention: 0.01 });
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([goaled, bare] satisfies TreeRow[]),
+    handoff: () =>
+      envelope({ from: 'bbbbbbbb', to: 'eeeeeeee', note: '/h/.mesa/default/handoffs/eeeeeeee.md' }),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform(null, undefined, '/h/note.md'),
+  );
+  const [handoff, none] = byTestId('session-handoff');
+  expect(none?.hasAttribute('disabled')).toBe(true);
+  await click(handoff);
+  // Nothing to hand off with until a note is picked.
+  expect(byTestId('handoff-submit')[0]?.hasAttribute('disabled')).toBe(true);
+  await click(byTestId('handoff-pick')[0]);
+  expect(byTestId('handoff-note')[0]?.textContent).toBe('/h/note.md');
+  await click(byTestId('handoff-keep')[0]);
+  await click(byTestId('handoff-submit')[0]);
+  expect(calls.filter((c) => c[1] === 'handoff')).toEqual([
+    ['--json', 'handoff', '--note', '/h/note.md', '--keep', '--', 'bbbbbbbb'],
+  ]);
+  expect(byTestId('toast')[0]?.textContent).toContain('Handed off bbbbbbbb to eeeeeeee');
+  expect(byTestId('handoff-dialog')).toHaveLength(0);
+});
+
+test('a session in its own worktree cannot be kept running when it hands off', async () => {
+  const worktree = { path: '/h/.mesa/default/worktrees/lantern-cove/tidy', branch: 'tidy' };
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([{ ...busy, goal: 'Tidy up', worktree }] satisfies TreeRow[]),
+    handoff: () => envelope({ from: 'bbbbbbbb', to: 'eeeeeeee', note: '/n.md' }),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform(null, undefined, '/h/note.md'),
+  );
+  await click(byTestId('session-handoff')[0]);
+  expect(byTestId('handoff-keep')[0]?.hasAttribute('disabled')).toBe(true);
+  await click(byTestId('handoff-pick')[0]);
+  await click(byTestId('handoff-submit')[0]);
+  expect(calls.filter((c) => c[1] === 'handoff')).toEqual([
+    ['--json', 'handoff', '--note', '/h/note.md', '--', 'bbbbbbbb'],
+  ]);
+});
+
 test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {
   let stopped = false;
   const { bridge, calls } = fakeBridge({

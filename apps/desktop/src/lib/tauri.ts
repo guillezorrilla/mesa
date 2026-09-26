@@ -14,6 +14,10 @@ export const tauriPlatform: Platform = {
     const picked = await open({ directory: true });
     return typeof picked === 'string' ? picked : null;
   },
+  pickFile: async () => {
+    const picked = await open({ directory: false, multiple: false });
+    return typeof picked === 'string' ? picked : null;
+  },
   terminal: {
     open: (sessionId, cols, rows) => invoke('term_open', { sessionId, cols, rows }),
     write: (termId, data) => invoke('term_write', { termId, data }),

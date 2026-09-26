@@ -122,8 +122,19 @@ export const SessionRecordSchema = z.strictObject({
         chars: z.number(),
         to: z.string().regex(SHORT_ID),
       }),
+      /** Handed off (mesa handoff): to its successor, or, on the successor, from the session. */
+      z.strictObject({
+        type: z.literal('handoff'),
+        at: z.iso.datetime(),
+        from: z.string().regex(SHORT_ID).optional(),
+        to: z.string().regex(SHORT_ID).optional(),
+        /** The handoff note, under the profile's handoffs/. */
+        note: z.string(),
+      }),
     ]),
   ),
+  /** The session it continues, which handed off to it (CONTEXT.md, Handoff). */
+  handoffFrom: z.string().regex(SHORT_ID).optional(),
   resumedFrom: z.string().optional(),
   resumedBy: z.string().optional(),
 });
