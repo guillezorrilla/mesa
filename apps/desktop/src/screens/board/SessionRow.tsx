@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { Download, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
+import { Download, Forward, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
 import { ContextBar } from '@/components/ContextBar';
 import { StateBadge } from '@/components/StateBadge';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,8 @@ export type RowActions = {
   stop: (id: string) => void;
   resume: (id: string) => void;
   adopt: (agentSessionId: string, project?: string) => void;
-  /** Open the Rename or the Remove dialog for this row. */
+  /** Open the Hand off, Rename, or Remove dialog for this row. */
+  handoff: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
   remove: (row: TreeRow) => void;
 };
@@ -184,6 +185,17 @@ export function SessionRow(props: {
               >
                 <RotateCcw aria-hidden />
                 Resume
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="session-handoff"
+                title={s.goal ? 'Continue its work in a successor' : 'It has no goal to hand on'}
+                onClick={() => actions.handoff(s)}
+                disabled={exited(s) || !s.goal || acting}
+              >
+                <Forward aria-hidden />
+                Hand off
               </Button>
               <RowMenu
                 sessionId={s.id}

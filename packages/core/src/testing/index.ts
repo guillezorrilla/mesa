@@ -124,6 +124,8 @@ export function fakeTmux(
   const windows: FakeWindow[] = [];
   /** Global hooks by name, as set-hook -g sets them: one command each. */
   const hooks = new Map<string, string>();
+  /** The shell commands run-shell -b was given, in order; the fake runs none of them. */
+  const ranLater: string[] = [];
   /** A server runs once something started it; before that, tmux answers only with an error. */
   let server = false;
   const noServer = () => failed('no server running on /private/tmp/tmux-501/fake');
@@ -212,6 +214,12 @@ export function fakeTmux(
           return failed(`fakeTmux: set-hook ${rest.join(' ')}`);
         hooks.set(rest[1] ?? '', rest[2] ?? '');
         return ok();
+      case 'run-shell':
+        if (!server) return noServer();
+        if (rest.length !== 2 || rest[0] !== '-b')
+          return failed(`fakeTmux: run-shell ${rest.join(' ')}`);
+        ranLater.push(rest[1] ?? '');
+        return ok();
       case 'show-hooks': {
         if (!server) return noServer();
         if (rest.length !== 2 || rest[0] !== '-g')
@@ -246,7 +254,7 @@ export function fakeTmux(
     }
     return result;
   };
-  return { windows, answer, hooks };
+  return { windows, answer, hooks, ranLater };
 }
 
 /**

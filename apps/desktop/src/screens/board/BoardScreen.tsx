@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useRun } from '@/lib/useCommand';
+import { HandoffDialog } from './HandoffDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
@@ -42,6 +43,7 @@ export function BoardScreen() {
   const [newOpen, setNewOpen] = useState(false);
   // The row a Rename or a Remove dialog is open for.
   const [renaming, setRenaming] = useState<ManagedRow>();
+  const [handingOff, setHandingOff] = useState<ManagedRow>();
   const [removing, setRemoving] = useState<ManagedRow>();
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
@@ -93,6 +95,7 @@ export function BoardScreen() {
         return resumed && `Resumed session ${id} as ${resumed.id}`;
       }),
     rename: (row) => row.managed && setRenaming(row),
+    handoff: (row) => row.managed && setHandingOff(row),
     remove: (row) => row.managed && setRemoving(row),
     adopt: (agentSessionId, project) =>
       act(async () => {
@@ -100,6 +103,13 @@ export function BoardScreen() {
         return adopted && `Adopted as ${adopted.record.id}; ${adopted.warning}`;
       }),
   };
+  const handoff = (id: string, note: string, keep: boolean) =>
+    act(async () => {
+      const done = await run('sessions.handoff', { id, note, keep });
+      if (!done) return undefined;
+      setHandingOff(undefined);
+      return `Handed off ${id} to ${done.to}`;
+    });
   const rename = (id: string, name: string) =>
     act(async () => {
       const renamed = await run('sessions.rename', { id, name });
@@ -150,6 +160,14 @@ export function BoardScreen() {
       </PageHeader>
       {newOpen && (
         <NewSessionDialog onOpen={open} onCancel={() => setNewOpen(false)} disabled={acting} />
+      )}
+      {handingOff && (
+        <HandoffDialog
+          row={handingOff}
+          disabled={acting}
+          onHandoff={(note, keep) => handoff(handingOff.id, note, keep)}
+          onCancel={() => setHandingOff(undefined)}
+        />
       )}
       {renaming && (
         <RenameDialog

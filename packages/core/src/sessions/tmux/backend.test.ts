@@ -172,7 +172,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       run: underParent,
       socket,
       env: PARENT,
-      paneDied: { self: ['/bin/sh', script], profile: 'ptest' },
+      mesa: { self: ['/bin/sh', script], profile: 'ptest' },
     });
     await hooked.ensureServer();
     await hooked.ensureServer();
@@ -185,7 +185,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       run: underParent,
       socket,
       env: PARENT,
-      paneDied: { self: ['/moved/mesa'], profile: 'ptest' },
+      mesa: { self: ['/moved/mesa'], profile: 'ptest' },
     });
     expect(await other.paneDiedHookState()).toEqual({ server: true, paneDied: false });
 
@@ -213,6 +213,29 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     expect(new Set((await raw('list-panes', '-a', '-F', '#{pane_in_mode}')).split('\n'))).toEqual(
       new Set(['0']),
     );
+    await raw('set-hook', '-gu', 'pane-died');
+  });
+
+  test('runMesaLater runs this mesa from the server, in the background, after its delay', async () => {
+    const out = join(cwd, 'later.log');
+    const folder = join(cwd, 'later #S here');
+    mkdirSync(folder);
+    const script = join(folder, 'mesa-stand-in.sh');
+    writeFileSync(script, `printf '%s|' "$@" >> '${out}'; echo >> '${out}'; echo printed\n`);
+    const later = tmuxBackend({
+      run: underParent,
+      socket,
+      env: PARENT,
+      mesa: { self: ['/bin/sh', script], profile: 'ptest' },
+    });
+    await later.ensureServer();
+    const started = Date.now();
+    await later.runMesaLater(['stop', 'a1b2c3d4', "it's #1 $HOME"], 1);
+    // It returns at once: the server runs the command, not this mesa.
+    expect(Date.now() - started).toBeLessThan(500);
+    const logged = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
+    expect(await eventually(logged, /stop/)).toBe("--profile|ptest|stop|a1b2c3d4|it's #1 $HOME|\n");
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1000);
     await raw('set-hook', '-gu', 'pane-died');
   });
 

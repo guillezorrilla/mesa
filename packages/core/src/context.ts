@@ -67,7 +67,7 @@ export function createContext(profile: string, deps: MesaDeps) {
     run: deps.run,
     socket: paths.tmuxSocket,
     env: deps.env,
-    paneDied: { self: deps.self, profile },
+    mesa: { self: deps.self, profile },
   });
   return {
     profile,

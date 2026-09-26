@@ -3,7 +3,7 @@ import { readyAgent } from '../agents/agents.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
-import { resumerOf, worktreeHolder } from './holders.js';
+import { requireOwnWorktree, resumerOf } from './holders.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
 import { ending, type SessionRecord } from './record.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
@@ -45,16 +45,7 @@ export async function resumeSession(
       `session ${id}'s folder ${folder} is gone, and claude finds its conversation only there`,
     );
   }
-  if (old.worktree) {
-    const { path } = old.worktree;
-    const holder = worktreeHolder(deps.store, path);
-    if (holder && holder.id !== old.id) {
-      throw new MesaError(
-        'usage',
-        `the worktree at ${path} is session ${holder.id}'s now: two sessions never share one`,
-      );
-    }
-  }
+  requireOwnWorktree(deps.store, old);
   const target = windowOf(old);
   const left = await deps.tmux.findWindow(target);
   if (left && !left.dead) {

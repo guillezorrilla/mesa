@@ -1,3 +1,4 @@
+import { MesaError } from '../lib/result.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
 
@@ -9,6 +10,21 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .list()
     .filter((r) => r.worktree?.path === path)
     .at(-1);
+
+/**
+ * Refuses `r`'s worktree once a newer session has it (a resume or a handoff took it over): two
+ * sessions never share one. A session without a worktree passes.
+ */
+export function requireOwnWorktree(store: SessionStore, r: SessionRecord) {
+  if (!r.worktree) return;
+  const holder = worktreeHolder(store, r.worktree.path);
+  if (holder && holder.id !== r.id) {
+    throw new MesaError(
+      'usage',
+      `the worktree at ${r.worktree.path} is session ${holder.id}'s now: two sessions never share one`,
+    );
+  }
+}
 
 /** The newest session that holds an agent session id (its conversation). */
 export const agentSessionHolder = (store: SessionStore, agentSessionId: string) =>
