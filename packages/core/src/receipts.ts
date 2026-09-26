@@ -177,12 +177,16 @@ export const redactText = (text: string, secrets: readonly string[]) =>
 
 /**
  * A long text an action took (send's prompt, open's goal) as its receipt keeps it: key values
- * redacted first, then the first 80 characters, in `inputs` and in every argv word holding it
- * (`--goal=<text>` too).
+ * redacted first, then the first 80 characters, in `inputs` and in the argv word that is the text
+ * (or `--flag=<text>`).
  */
 export function receiptText(text: string, argv: readonly string[], secrets: readonly string[]) {
   const short = Array.from(redactText(text, secrets)).slice(0, 80).join('');
-  return { short, argv: argv.map((word) => (text ? word.split(text).join(short) : word)) };
+  const shorten = (word: string) =>
+    word === text || word.endsWith(`=${text}`)
+      ? word.slice(0, word.length - text.length) + short
+      : word;
+  return { short, argv: text ? argv.map(shorten) : argv };
 }
 
 /**

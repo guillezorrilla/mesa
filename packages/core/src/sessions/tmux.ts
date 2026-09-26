@@ -28,8 +28,11 @@ export type TmuxWindow = WindowTarget & {
 export type WindowSpec = WindowTarget & {
   cwd: string;
   /**
-   * A POSIX sh command line, run as `/bin/sh -c`, never through the user's shell: Mesa quotes for
-   * sh (a goal is one shellWord), and fish or tcsh read quotes differently.
+   * One simple command for POSIX sh, run as `/bin/sh -c`, never through the user's shell: Mesa
+   * quotes for sh (a goal is one shellWord), and fish or tcsh read quotes differently. sh then
+   * execs it, so the pane's pid is the agent's; a list or a redirect would leave sh in between.
+   * The agent gets the tmux server's environment and the window's variables, and no shell
+   * startup file.
    */
   command: string;
   /** Set in the window's environment: `MESA_SESSION_ID` and `MESA_PROFILE` for the hooks. */

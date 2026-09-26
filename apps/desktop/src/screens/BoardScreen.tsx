@@ -204,7 +204,7 @@ export function BoardScreen() {
                 {s.project ?? '-'}
                 {s.managed && s.goal && (
                   <div className="goal" data-testid="session-goal" title={s.goal}>
-                    {s.goal.split('\n', 1)[0]}
+                    {s.goal.trim().split(/\r?\n/, 1)[0]}
                   </div>
                 )}
               </td>

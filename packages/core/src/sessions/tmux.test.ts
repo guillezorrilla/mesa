@@ -134,7 +134,9 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
   test('a goal reaches the agent byte for byte: $HOME, backticks, both quotes, a newline', async () => {
     // A default-shell that runs nothing: the window must go through /bin/sh, not the user's shell.
+    await tmux.ensureServer();
     await raw('set-option', '-g', 'default-shell', '/usr/bin/false');
+    expect(await raw('show-options', '-gv', 'default-shell')).toBe('/usr/bin/false');
     const goal = `Say "hi" to $HOME and \`whoami\`, it's done\nthen stop`;
     const out = join(cwd, 'goal.out');
     // The command open runs, with printf standing in for claude.

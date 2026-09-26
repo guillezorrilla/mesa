@@ -28,18 +28,21 @@ export type OpenDeps = {
 // the variables. Past that, type the goal in with send-keys after the start.
 const MAX_COMMAND_BYTES = 12_000;
 
-const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+// Strict, and a leading BOM dropped, so a file saved with one still starts `/goal`.
+const decoder = new TextDecoder('utf-8', { fatal: true });
 
-/** A goal file's text, decoded as UTF-8 and otherwise unchanged. */
+/** A goal file's text: UTF-8, its BOM dropped, otherwise unchanged. */
 function readGoalFile(file: string): string {
-  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
-    throw new MesaError('not_found', `no goal file at ${file}`);
-  }
   let bytes: Buffer;
   try {
+    if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
+      throw new MesaError('not_found', `no goal file at ${file}`);
+    }
     bytes = readFileSync(file);
   } catch (error) {
-    throw new MesaError('usage', `cannot read ${file}: ${(error as Error).message}`);
+    if (error instanceof MesaError) throw error;
+    const code = (error as NodeJS.ErrnoException).code ?? String(error);
+    throw new MesaError('usage', `cannot read the goal file ${file}: ${code}`);
   }
   try {
     return decoder.decode(bytes);

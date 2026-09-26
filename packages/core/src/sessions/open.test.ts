@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -259,10 +259,18 @@ test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt 
     "claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Keep going until `pnpm verify` is green.\nThen stop.\n'",
   );
 
+  // A BOM an editor saved goes, so the goal still starts /goal.
+  const bom = join(home, 'bom.md');
+  writeFileSync(bom, '\uFEFF/goal Ship it\n');
+  const { result: withBom } = await mesa.sessions.open('lantern-cove', { goalFile: bom });
+  expect(withBom.goal).toBe('/goal Ship it\n');
+
   const latin1 = join(home, 'latin1.md');
   writeFileSync(latin1, Buffer.from([0x63, 0x61, 0x66, 0xe9]));
   const nul = join(home, 'nul.md');
   writeFileSync(nul, 'before\0after');
+  const loop = join(home, 'loop.md');
+  symlinkSync(loop, loop);
   const cases: [object, string, string][] = [
     [{ goalFile: join(home, 'nope.md') }, 'not_found', `no goal file at ${join(home, 'nope.md')}`],
     [{ goalFile: home }, 'not_found', `no goal file at ${home}`],
@@ -272,6 +280,7 @@ test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt 
     [{ goal: '--help' }, 'usage', 'a goal cannot start with -: claude would read it as a flag'],
     [{ goalFile: nul }, 'usage', 'the goal holds a NUL byte'],
     [{ goalFile: latin1 }, 'usage', `the goal file ${latin1} is not UTF-8 text`],
+    [{ goalFile: loop }, 'usage', `cannot read the goal file ${loop}: ELOOP`],
     [
       // 4000 three-byte characters: 4002 UTF-16 units quoted, but 12002 bytes.
       { goal: '日'.repeat(4000) },
@@ -287,7 +296,7 @@ test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt 
   }
   const failed = listReceipts(join(home, 'vault'), 50).filter((e) => e.receipt.status === 'failed');
   expect(failed.length - failedBefore).toBe(cases.length);
-  expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([result.id]);
+  expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([result.id, withBom.id]);
 });
 
 test('resume keeps the goal on the new record but does not send it again', async () => {
