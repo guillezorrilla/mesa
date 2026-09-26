@@ -101,5 +101,11 @@ export function Terminal(props: { sessionId: string }) {
       term.dispose();
     };
   }, [platform, run, props.sessionId]);
-  return <div ref={host} className="terminal" data-testid={`terminal-${props.sessionId}`} />;
+  return (
+    <div
+      ref={host}
+      className="h-[420px] bg-black p-1"
+      data-testid={`terminal-${props.sessionId}`}
+    />
+  );
 }

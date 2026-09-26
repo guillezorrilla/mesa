@@ -9,6 +9,8 @@ export default defineConfig({
     alias: [
       { find: '@mesa/core/testing', replacement: core('testing/index.ts') },
       { find: '@mesa/core', replacement: core('index.ts') },
+      // The app's `@/` imports (shadcn/ui's components), its src.
+      { find: /^@\//, replacement: fileURLToPath(new URL('apps/desktop/src/', import.meta.url)) },
     ],
   },
   test: {
