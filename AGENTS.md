@@ -18,7 +18,7 @@ A macOS app plus a `mesa` CLI that runs many Claude Code and Codex sessions acro
 
 The code stays reusable and easy to maintain; every PR is reviewed against these rules.
 
-- Every concept has one owner: a module, helper, path, lookup, or guard. Before writing one, `git grep` for its owner and extend it; a second copy is a defect to fold back in.
+- Every concept has one owner: a module, helper, path, lookup, or guard. Before writing one, `git grep` for its owner and extend it, so no second copy appears.
 - One job per module and one concept per file, in the folder of its domain (`packages/core/src/<domain>/`, `packages/cli/src/commands/<first word>.ts`). When a module's summary needs "and", split it.
 - Modules are deep: a small interface over real behaviour. A seam exists where two implementations do (ADR-0008); a pass-through layer or an option nobody asked for does not.
 - Tests cross the interface callers use, over the seams and fixtures in `@mesa/core/testing`; a helper two test files need moves there.
