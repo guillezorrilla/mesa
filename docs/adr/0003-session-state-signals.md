@@ -80,7 +80,22 @@ The board shows each session's last output line, so every look captures each win
 
 ## Amendment 2026-09-25: transcripts give context use, and /clear changes the agent session id (#70)
 
-docs/spikes/context-use.md measured a session's context use from outside the session. It compared the transcript against the status line at ten points, on a 200k and a 1M window model. The largest difference was 0.48 points. Two things change:
+docs/spikes/context-use.md measured a session's context use from outside it, on Claude Code 2.1.283, against the status line at eleven points on 200k and 1M windows.
 
-- **Context use.** Mesa now reads three things from transcripts beyond session ids and timestamps: `message.model` and `message.usage` of the last main-chain assistant message, and `compact_boundary` entries. It still never reads message content. That gives the record's `context: {used, window, at, source: 'transcript'}` (#75). The window comes from the model id, and is `null` for a model Mesa has not measured.
-- **The agent session id is not fixed for a session's life.** `/clear` starts a new Claude Code session in the same process, with a new id and a new transcript. `claude agents --json` reports the new id for the pane's pid, and `SessionStart` fires with source `clear`. The record follows both (#92), so hook events keep counting after `/clear`. Until then, the nested-claude guard drops them.
+**Accuracy.** At rest, the largest difference was 0.48 points, the status line's own rounding. While a request is in flight, the transcript trails by that request (up to 11.7 points measured). Right after `/compact`, its last usage is stale until the next reply.
+
+Three things change.
+
+**Context use.** Mesa now reads more from transcripts than session ids and timestamps. From the last main-chain assistant message (not a sidechain, that is not a subagent's) it reads `message.model` and `message.usage`, with `type`, `isSidechain`, and `timestamp`. It also reads `compact_boundary` entries. It still never reads message content.
+- That gives the record's `context: {used, window, at, source: 'transcript'}` (#75), with `used` in percent of `window`.
+- The window is the model's native window, held to 200k when `CLAUDE_CODE_DISABLE_1M_CONTEXT` or a third-party provider is set. The transcript alone cannot tell those apart, since both report `claude-opus-5-5`. A model Mesa has not measured has no reading.
+- The transcript format stays internal to Claude Code, as Consequences says, and Mesa now depends on the shape of these fields too.
+
+**The agent session id is not fixed for a session's life.** The #23 amendment above already noted that `/clear` keeps the pane but not the id. The spike recorded the hooks:
+- `/clear` fires `SessionEnd` with the old id and reason `clear`.
+- It then fires `SessionStart` with the new id and source `clear`.
+- `claude agents --json` reports the new id for the pane's pid.
+
+**Following the new id (#92).** The record follows the listing and the `SessionStart`, and a `SessionEnd` with reason `clear` no longer ends the session. Until #92 lands, two things go wrong:
+- that `SessionEnd` reads as `done`;
+- the nested-claude guard drops every later event.
