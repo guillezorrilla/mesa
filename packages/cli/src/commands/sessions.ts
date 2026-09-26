@@ -6,6 +6,7 @@ export const sessions = defineCommand({
   summary:
     'List the sessions (and agent sessions Mesa did not start) by attention: state, confidence, attention, running time, last output',
   flags: { all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' } },
+  example: 'mesa sessions --all',
   run: async ({ mesa, flags }) => {
     const rows = await mesa.sessions.list(flags.all ?? false);
     const text = rows.length

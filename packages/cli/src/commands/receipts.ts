@@ -9,6 +9,7 @@ export const receipts = defineCommand({
   flags: {
     limit: { type: 'string', description: `How many to list (default ${DEFAULT_RECEIPT_LIMIT})` },
   },
+  example: 'mesa receipts --limit 5',
   run: ({ mesa, flags }) => {
     const limit = flags.limit === undefined ? DEFAULT_RECEIPT_LIMIT : Number(flags.limit);
     if (!Number.isInteger(limit) || limit < 1) {
@@ -34,6 +35,7 @@ export const receiptsShow = defineCommand({
   name: 'receipts show',
   summary: 'Print one receipt by id',
   args: ['id'],
+  example: 'mesa receipts show 01K62V4Q8J3M5N7P9R1S2T3V4W',
   run: ({ mesa, args }) => {
     const entry = mesa.receipts.show(args.id);
     return {

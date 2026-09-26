@@ -8,6 +8,7 @@ export const send = defineCommand({
   flags: {
     force: { type: 'boolean', description: 'Send even when the pane runs a shell, not the agent' },
   },
+  example: 'mesa send a1b2c3d4 "run the tests, then summarise the failures"',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.sessions.send(args.session, args.prompt, flags.force ?? false);
     const { sent, session, chars } = recorded.result;

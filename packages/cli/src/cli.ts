@@ -11,20 +11,17 @@ import {
   resolveProfileName,
   toFail,
 } from '@mesa/core';
-import { type Command, type Context, type Flag, type Output, parseArgSpec } from './command.js';
+import {
+  type Command,
+  type Context,
+  type Flag,
+  GLOBAL_FLAGS,
+  type Output,
+  parseArgSpec,
+} from './command.js';
 import { commandHelp, commandRows, mainHelp, usage, usageWithSubcommands } from './help.js';
 
 export const VERSION: string = createRequire(import.meta.url)('../package.json').version;
-
-export const GLOBAL_FLAGS: Record<string, Flag> = {
-  profile: {
-    type: 'string',
-    description: 'Select the profile (default: MESA_PROFILE, else "default")',
-  },
-  json: { type: 'boolean', description: 'Print the result envelope as JSON on stdout' },
-  help: { type: 'boolean', description: 'Show help' },
-  version: { type: 'boolean', description: 'Print the version' },
-};
 
 export type CliDeps = {
   commands: Command[];
@@ -104,7 +101,8 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   checkRequiredFlags(command, values);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
-  return command.run({ mesa, args, flags: values, tty: deps.tty, stdin: deps.stdin } as Context);
+  const { tty, stdin, commands } = deps;
+  return command.run({ mesa, args, flags: values, tty, stdin, commands } as Context);
 }
 
 /** Runs one CLI invocation and returns what to print; the entrypoint writes the streams. */

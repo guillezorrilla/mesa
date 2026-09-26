@@ -5,6 +5,7 @@ import { withReceipt } from '../receipt-output.js';
 export const projects = defineCommand({
   name: 'projects',
   summary: 'List the projects registered with this profile',
+  example: 'mesa projects',
   run: ({ mesa }) => {
     const rows = mesa.projects.list();
     const text = rows.length
@@ -26,6 +27,7 @@ export const register = defineCommand({
       description: 'Write a minimal mesa.yaml named after the folder first',
     },
   },
+  example: 'mesa register ~/src/lantern-cove --create',
   run: ({ mesa, args, flags }) => {
     const recorded = mesa.projects.register(args.path, flags.create ?? false);
     const { project, path, created } = recorded.result;
@@ -39,6 +41,7 @@ export const unregister = defineCommand({
   name: 'unregister',
   summary: 'Remove a project from this profile by name',
   args: ['name'],
+  example: 'mesa unregister lantern-cove',
   run: ({ mesa, args }) => {
     const entry = mesa.projects.unregister(args.name);
     return { data: entry, text: `unregistered ${entry.name}` };

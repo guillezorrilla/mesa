@@ -10,6 +10,7 @@ const listed = (s: HooksStatus) =>
 export const hooksStatus = defineCommand({
   name: 'hooks status',
   summary: "Show which of Mesa's Claude Code hooks are in ~/.claude/settings.json",
+  example: 'mesa hooks status',
   run: ({ mesa }) => {
     const status = mesa.hooks.status();
     return { data: status, text: `${status.path}\n${listed(status)}` };
@@ -19,6 +20,7 @@ export const hooksStatus = defineCommand({
 export const hooksInstall = defineCommand({
   name: 'hooks install',
   summary: "Add Mesa's hooks to Claude Code's user settings; the user's own hooks stay as they are",
+  example: 'mesa hooks install',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.install();
     const { changed, ...status } = recorded.result;
@@ -31,6 +33,7 @@ export const hooksInstall = defineCommand({
 export const hooksUninstall = defineCommand({
   name: 'hooks uninstall',
   summary: "Remove Mesa's hooks from Claude Code's user settings, and nothing else",
+  example: 'mesa hooks uninstall',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.uninstall();
     const { changed, ...status } = recorded.result;
@@ -45,6 +48,7 @@ export const hook = defineCommand({
   name: 'hook',
   summary: 'Record an agent hook payload from stdin (run by the hooks mesa hooks install adds)',
   args: ['agent'],
+  example: 'mesa hook claude < payload.json',
   run: async ({ mesa, args, stdin }) => {
     const event = mesa.hookEvent(args.agent, await stdin());
     return { data: { recorded: Boolean(event), event: event?.event ?? null }, text: '' };

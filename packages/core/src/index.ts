@@ -2,6 +2,7 @@
 // seams, the result envelope, and the data types callers render. Everything else is internal.
 export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents.js';
 export { type Clock, systemClock } from './clock.js';
+export type { CommandReference } from './command-reference.js';
 export { type Config, TERMINAL_APPS } from './config.js';
 export type { Answer, Decision, Question } from './decisions/types.js';
 export type { Check, DoctorReport } from './doctor.js';

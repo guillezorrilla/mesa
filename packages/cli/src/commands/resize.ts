@@ -14,6 +14,7 @@ export const resize = defineCommand({
   name: 'resize',
   summary: "Size a session's tmux window to <cols> x <rows>, then give the size back to tmux",
   args: ['session', 'cols', 'rows'],
+  example: 'mesa resize a1b2c3d4 120 40',
   run: async ({ mesa, args }) => {
     const done = await mesa.sessions.resize(
       args.session,

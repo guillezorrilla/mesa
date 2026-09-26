@@ -4,10 +4,11 @@ import { ProfileSummary } from './components/ProfileSummary';
 import { useCommand } from './lib/useCommand';
 import { BoardScreen } from './screens/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
+import { HelpScreen } from './screens/HelpScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ReceiptsScreen } from './screens/ReceiptsScreen';
 
-const SCREENS = ['Board', 'Projects', 'Receipts', 'Doctor'] as const;
+const SCREENS = ['Board', 'Projects', 'Receipts', 'Doctor', 'Help'] as const;
 
 export function App() {
   const [screen, setScreen] = useState<(typeof SCREENS)[number]>('Board');
@@ -18,7 +19,7 @@ export function App() {
         <h1 data-testid="app-name">Mesa</h1>
         <ProfileSummary doctor={doctor.data} />
         <LogBox />
-        {/* ponytail: four screens, so a button row instead of a router; add one past a handful. */}
+        {/* ponytail: five screens, so a button row instead of a router; add one past a handful. */}
         <nav>
           {SCREENS.map((name) => (
             <button
@@ -37,6 +38,7 @@ export function App() {
       {screen === 'Projects' && <ProjectsScreen />}
       {screen === 'Receipts' && <ReceiptsScreen />}
       {screen === 'Doctor' && <DoctorScreen doctor={doctor} />}
+      {screen === 'Help' && <HelpScreen />}
     </main>
   );
 }

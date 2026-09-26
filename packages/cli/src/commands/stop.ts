@@ -8,6 +8,7 @@ export const stop = defineCommand({
   flags: {
     force: { type: 'boolean', description: 'Close the window at once, without asking the agent' },
   },
+  example: 'mesa stop a1b2c3d4',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.sessions.stop(args.session, flags.force ?? false);
     const { record, outcome } = recorded.result;
