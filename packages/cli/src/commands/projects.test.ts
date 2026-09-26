@@ -1,0 +1,36 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { beforeEach, expect, test } from 'vitest';
+import { cliHarness } from '../testing.js';
+
+const cli = cliHarness();
+beforeEach(cli.reset);
+const { mesa } = cli;
+
+test('register, projects, unregister', async () => {
+  await mesa('init', '--vault', '/tmp/v');
+  mkdirSync(join(cli.home, 'lantern-cove'));
+  expect((await mesa('register', 'lantern-cove')).code).toBe(3);
+  expect((await mesa('register', 'lantern-cove', '--create')).stdout.split('\n')[0]).toBe(
+    `registered lantern-cove at ${cli.home}/lantern-cove (wrote mesa.yaml)`,
+  );
+  expect((await mesa('register', 'lantern-cove')).code).toBe(4);
+  const { json } = await mesa('projects', '--json');
+  expect(json.data).toEqual([
+    {
+      name: 'lantern-cove',
+      path: `${cli.home}/lantern-cove`,
+      agent: 'claude',
+      priority: 0.5,
+      skills: [],
+      exists: true,
+    },
+  ]);
+  expect((await mesa('projects')).stdout).toBe(
+    `lantern-cove  ${cli.home}/lantern-cove  claude  0.5\n`,
+  );
+  expect((await mesa('unregister', 'lantern-cove')).stdout).toBe('unregistered lantern-cove\n');
+  expect((await mesa('projects')).stdout).toBe(
+    'no projects registered; run mesa register <path>\n',
+  );
+});

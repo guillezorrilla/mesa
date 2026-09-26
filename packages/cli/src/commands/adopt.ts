@@ -1,9 +1,10 @@
 import { defineCommand } from '../command.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const adopt = defineCommand({
   name: 'adopt',
   summary:
-    'Adopt a Claude Code session Mesa did not start, and reopen its conversation in a Mesa window',
+    'Adopt a foreign session (a Claude Code session Mesa did not start) and reopen it in a Mesa window',
   args: ['agentSessionId'],
   flags: {
     project: {
@@ -20,12 +21,9 @@ export const adopt = defineCommand({
       name: flags.name,
       noResume: flags['no-resume'],
     });
-    const { record } = recorded.result;
-    const warning = [recorded.result.warning, recorded.warning].filter(Boolean).join('; ');
+    const { record, warning } = recorded.result;
     const done = flags['no-resume'] ? 'recorded' : 'resumed in its window';
-    return {
-      data: { record, warning, receipt: recorded.receipt },
-      text: `${record.id}: adopted on ${record.project}, ${done}\nwarning: ${warning}`,
-    };
+    const text = `${record.id}: adopted on ${record.project}, ${done}`;
+    return recordedOutput(recorded, { data: { record }, text, warning });
   },
 });

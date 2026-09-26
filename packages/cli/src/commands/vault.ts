@@ -1,6 +1,6 @@
 import { EXIT_CODES } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { withReceipt } from '../receipt-output.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const vaultInit = defineCommand({
   name: 'vault init',
@@ -15,8 +15,7 @@ export const vaultInit = defineCommand({
     const said = created.length
       ? `created ${created.join(', ')} in ${path}`
       : 'vault already initialised';
-    const { receipt, text } = withReceipt(recorded, said);
-    return { data: { path, created, ...receipt }, text };
+    return recordedOutput(recorded, { data: { path, created }, text: said });
   },
 });
 

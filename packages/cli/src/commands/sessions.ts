@@ -1,10 +1,11 @@
 import { defineCommand } from '../command.js';
-import { columns, duration } from '../format.js';
+import { columns } from '../output/columns.js';
+import { duration } from '../output/duration.js';
 
 export const sessions = defineCommand({
   name: 'sessions',
   summary:
-    'List the sessions (and agent sessions Mesa did not start) by attention: state, confidence, attention, running time, last output',
+    'List the sessions, foreign ones too, by attention: state, confidence, attention, running time, last output',
   flags: {
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     tree: {

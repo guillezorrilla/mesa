@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { columns } from '../format.js';
+import { columns } from '../output/columns.js';
 
 export const windows = defineCommand({
   name: 'windows',

@@ -1,6 +1,5 @@
 import { defineCommand } from '../command.js';
-import { columns } from '../format.js';
-import { withReceipt } from '../receipt-output.js';
+import { columns } from '../output/columns.js';
 
 export const projects = defineCommand({
   name: 'projects',
@@ -14,36 +13,5 @@ export const projects = defineCommand({
         ).join('\n')
       : 'no projects registered; run mesa register <path>';
     return { data: rows, text };
-  },
-});
-
-export const register = defineCommand({
-  name: 'register',
-  summary: 'Register the project at a path from its mesa.yaml',
-  args: ['path'],
-  flags: {
-    create: {
-      type: 'boolean',
-      description: 'Write a minimal mesa.yaml named after the folder first',
-    },
-  },
-  example: 'mesa register ~/src/lantern-cove --create',
-  run: ({ mesa, args, flags }) => {
-    const recorded = mesa.projects.register(args.path, flags.create ?? false);
-    const { project, path, created } = recorded.result;
-    const note = created ? ' (wrote mesa.yaml)' : '';
-    const { receipt, text } = withReceipt(recorded, `registered ${project.name} at ${path}${note}`);
-    return { data: { ...project, path, created, ...receipt }, text };
-  },
-});
-
-export const unregister = defineCommand({
-  name: 'unregister',
-  summary: 'Remove a project from this profile by name',
-  args: ['name'],
-  example: 'mesa unregister lantern-cove',
-  run: ({ mesa, args }) => {
-    const entry = mesa.projects.unregister(args.name);
-    return { data: entry, text: `unregistered ${entry.name}` };
   },
 });

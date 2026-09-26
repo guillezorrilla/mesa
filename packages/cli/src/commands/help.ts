@@ -1,5 +1,6 @@
 import { defineCommand, GLOBAL_FLAGS } from '../command.js';
-import { commandReference, mainHelp, referenceMarkdown } from '../help.js';
+import { commandReference, referenceMarkdown } from '../help/reference.js';
+import { mainHelp } from '../help/usage.js';
 
 export const help = defineCommand({
   name: 'help',

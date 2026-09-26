@@ -287,9 +287,15 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
         },
         { agent, mesaSessionId: windowId(deps.env), payload },
       ),
-    /** tmux's pane-died hook: the agent in a Mesa window exited (`mesa hook tmux pane-died`). */
-    paneDied: (project: string, window: string) =>
-      recordPaneDied({ store, tmux, clock: deps.clock }, project, window),
+    /**
+     * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
+     * exit of the agent in a Mesa window; any other event, or a window no session has, is not
+     * Mesa's and records nothing (undefined).
+     */
+    tmuxEvent: async (event: string, project: string, window: string) =>
+      event === 'pane-died'
+        ? recordPaneDied({ store, tmux, clock: deps.clock }, project, window)
+        : undefined,
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),
   };
