@@ -117,3 +117,42 @@ test('a nested claude, with another agent session id, is not logged as the sessi
   ).toBeUndefined();
   expect(existsSync(join(dir, 'events'))).toBe(false);
 });
+
+test('a /clear moves the session to its new agent session id; later events under it are kept', () => {
+  const { store, id, deps, log } = setUp();
+  store.update(id, { agentSessionId: 'before-clear' });
+  const hook = (payload: object) =>
+    recordHookEvent(deps, { agent: 'claude', mesaSessionId: id, payload: JSON.stringify(payload) });
+  // The spike's order (docs/spikes/context-use.md): SessionEnd under the old id, SessionStart under the new.
+  hook({ session_id: 'before-clear', hook_event_name: 'SessionEnd', reason: 'clear' });
+  expect(
+    hook({ session_id: 'after-clear', hook_event_name: 'SessionStart', source: 'clear' }),
+  ).toMatchObject({ event: 'SessionStart', agentSessionId: 'after-clear' });
+  expect(store.get(id).agentSessionId).toBe('after-clear');
+  expect(hook({ session_id: 'after-clear', hook_event_name: 'Stop' })).toBeDefined();
+  // Now the old id, and any third one, are another claude's.
+  expect(hook({ session_id: 'before-clear', hook_event_name: 'Stop' })).toBeUndefined();
+  expect(hook({ session_id: 'a-child', hook_event_name: 'Stop' })).toBeUndefined();
+  expect(log().map((e) => [e.event, e.agentSessionId])).toEqual([
+    ['SessionEnd', 'before-clear'],
+    ['SessionStart', 'after-clear'],
+    ['Stop', 'after-clear'],
+  ]);
+});
+
+test('another agent session id with any other source is still a nested claude, and dropped', () => {
+  const { store, id, deps, dir } = setUp();
+  store.update(id, { agentSessionId: 'the-sessions-own' });
+  for (const source of ['startup', 'resume', 'compact']) {
+    const start = JSON.stringify({
+      session_id: 'a-child',
+      hook_event_name: 'SessionStart',
+      source,
+    });
+    expect(
+      recordHookEvent(deps, { agent: 'claude', mesaSessionId: id, payload: start }),
+    ).toBeUndefined();
+  }
+  expect(store.get(id).agentSessionId).toBe('the-sessions-own');
+  expect(existsSync(join(dir, 'events'))).toBe(false);
+});

@@ -26,23 +26,24 @@ import { type ManagedRow, type SessionRow, secondsBetween } from './rows.js';
 const RECENT_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Saves a look's new state onto the record as it is now: a session a stop ended since keeps the
- * stop's. A record another process holds locked (busy, or a lock left by a killed mesa) is not
- * waited for or written: this look still shows the new state, and the next one tries again.
+ * Saves what a look learned onto the record as it is now: a new state, or the agent session id a
+ * /clear moved it to. A session a stop ended since keeps the stop's. A record another process
+ * holds locked (busy, or a lock left by a killed mesa) is not waited for or written: this look
+ * still shows what it learned, and the next one tries again.
  */
-function saveState(
+function saveLook(
   store: SessionStore,
   found: SessionRecord,
-  lastState: SessionRecord['lastState'],
+  learned: Partial<Pick<SessionRecord, 'lastState' | 'agentSessionId'>>,
 ): SessionRecord {
   try {
-    return store.update(found.id, (current) => (current.endedAt ? {} : { lastState }), {
+    return store.update(found.id, (current) => (current.endedAt ? {} : learned), {
       wait: false,
     });
   } catch (error) {
     // Locked, or removed meanwhile (an open whose window failed): shown, not saved.
     if (error instanceof MesaError && (error.code === 'locked' || error.code === 'not_found')) {
-      return { ...found, lastState };
+      return { ...found, ...learned };
     }
     throw error;
   }
@@ -57,8 +58,9 @@ function saveState(
  * session whose window it runs in (its pid is the pane's), else the newest session not stopped
  * that holds its agent session id. Faro classifies every row from its latest hook event, its
  * listing, its window, and (only when neither of the first two speaks) its tail; a new state is
- * saved to the record; a queued session, and one cancelled before it ran, keeps Mesa's state, at
- * no attention. Highest attention first.
+ * saved to the record, and so is the id the listing names for its pane after a /clear. A queued
+ * session, and one cancelled before it ran, keeps Mesa's state, at no attention. Highest
+ * attention first.
  */
 export async function listSessions(
   deps: {
@@ -158,7 +160,13 @@ export async function listSessions(
       const { state, source, basis } = found.lastState;
       const next = classified.lastState;
       const changed = next.state !== state || next.source !== source || next.basis !== basis;
-      const record = changed ? saveState(deps.store, found, classified.lastState) : found;
+      // Listed by its pane's pid under another id: a /clear started a new conversation there.
+      const moved = listedAs?.agentSessionId && listedAs.agentSessionId !== found.agentSessionId;
+      const learned = {
+        ...(changed ? { lastState: next } : {}),
+        ...(moved ? { agentSessionId: listedAs.agentSessionId } : {}),
+      };
+      const record = changed || moved ? saveLook(deps.store, found, learned) : found;
       // An ended session stops the clock when it ended, or when it was seen to; one that never
       // ran has none.
       const end =

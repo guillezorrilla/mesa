@@ -157,6 +157,35 @@ test('a listed process marks the session it runs in: by pane pid, else by agent 
   expect(store.get(resumed.id).lastState).toMatchObject({ state: 'idle', source: 'listing' });
 });
 
+test('a /clear moved the agent session id: a look saves the one the listing names for its pane', async () => {
+  const store = storeIn();
+  const cleared = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
+  );
+  store.update(cleared.id, { agentSessionId: '00000000-0000-4000-8000-00000000000a' });
+  const deps = {
+    ...noListing,
+    store,
+    tmux: tmuxBackend({
+      run: scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run,
+      socket: 'mesa-default',
+      env: {},
+    }),
+    listing: listingOf(SPIKE_LISTING.idle),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  };
+  const [row] = await listSessions(deps);
+  expect(row).toMatchObject({ id: cleared.id, agentSessionId: SPIKE_ID, alive: true });
+  expect(store.get(cleared.id)).toMatchObject({
+    agentSessionId: SPIKE_ID,
+    lastState: { state: 'idle', source: 'listing' },
+  });
+  // Saved once: the next look finds nothing new to write.
+  const saved = store.get(cleared.id);
+  await listSessions(deps);
+  expect(store.get(cleared.id)).toEqual(saved);
+});
+
 test('an unmatched process is a foreign row with its project and state; other profiles are left out', async () => {
   const store = storeIn();
   // Stopped: a live process holding its conversation is not this session any more.
