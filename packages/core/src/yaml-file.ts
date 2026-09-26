@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { isMap, parseDocument, stringify } from 'yaml';
 import type { z } from 'zod';
+import { createFileAtomic, writeFileAtomic } from './atomic-file.js';
 import { MesaError } from './result.js';
 
 /** Parses `raw` with a schema; failure is invalid_config naming the file and the first failing field. */
@@ -41,12 +42,8 @@ export function writeYaml(
 ): boolean {
   const doc = parseDocument(stringify(data));
   if (opts.header) doc.commentBefore = ` ${opts.header}`;
-  try {
-    writeFileSync(file, doc.toString(), { mode: opts.mode, flag: opts.exclusive ? 'wx' : 'w' });
-  } catch (error) {
-    if (opts.exclusive && (error as NodeJS.ErrnoException).code === 'EEXIST') return false;
-    throw error;
-  }
+  if (opts.exclusive) return createFileAtomic(file, doc.toString(), opts.mode);
+  writeFileAtomic(file, doc.toString(), opts.mode);
   return true;
 }
 
@@ -64,6 +61,7 @@ export function setYamlPath<T>(
   const parent = doc.getIn(keys.slice(0, -1), true);
   if (isMap(parent)) parent.flow = false;
   const next = parseWith(schema, doc.toJS(), file);
-  writeFileSync(file, doc.toString());
+  // The new file keeps the old one's mode: config.yaml holds keys, so it stays 0600.
+  writeFileAtomic(file, doc.toString(), statSync(file).mode & 0o777);
   return next;
 }

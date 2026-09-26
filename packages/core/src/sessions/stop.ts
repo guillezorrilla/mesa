@@ -2,7 +2,7 @@ import { AGENTS } from '../agents.js';
 import type { Clock } from '../clock.js';
 import { MesaError } from '../result.js';
 import { ending, type SessionRecord, type SessionStore, windowOf } from './store.js';
-import type { TmuxBackend, WindowTarget } from './tmux.js';
+import { killIfThere, type TmuxBackend, type WindowTarget } from './tmux.js';
 
 const POLITE_WAIT_MS = 5000;
 const POLL_MS = 250;
@@ -45,7 +45,7 @@ export async function stopSession(
     const last = await pane();
     outcome = !last || last.dead ? 'exited' : 'killed';
     // A pane that exited stays, dead, under remain-on-exit; the window goes either way.
-    if (last) await killIfThere(deps, target);
+    if (last) await killIfThere(deps.tmux, target);
   }
   const at = deps.clock().toISOString();
   const record = deps.store.update(id, (current) => ending(current, at));
@@ -74,14 +74,5 @@ async function askToQuit(
     const now = await pane();
     if (!now || now.dead) return;
     await deps.sleep(POLL_MS);
-  }
-}
-
-/** kill-window, where a window that vanished since it was seen is already the goal. */
-async function killIfThere(deps: StopDeps, target: WindowTarget) {
-  try {
-    await deps.tmux.killWindow(target);
-  } catch (error) {
-    if (!(error instanceof MesaError && error.code === 'not_found')) throw error;
   }
 }

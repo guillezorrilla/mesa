@@ -17,7 +17,11 @@ import { sessionStore } from './store.js';
  * A profile with its vault laid out, lantern-cove registered, and one session opened in a fake
  * tmux. Its claude hears what is typed and, when `quits`, exits on /exit.
  */
-async function setUp({ quits = true, duringSleep = () => {} } = {}) {
+async function setUp({
+  quits = true,
+  duringSleep = () => {},
+  beforeTmux = (_args: string[], _world: ReturnType<typeof fakeTmux>) => {},
+} = {}) {
   const home = tempDir();
   const heard: string[] = [];
   const world = fakeTmux({
@@ -26,7 +30,13 @@ async function setUp({ quits = true, duringSleep = () => {} } = {}) {
       if (quits && text === '/exit') w.dead = true;
     },
   });
-  const scripted = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' });
+  const scripted = scriptedRunner({
+    tmux: (args) => {
+      beforeTmux(args, world);
+      return world.answer(args);
+    },
+    claude: '2.1.282 (Claude Code)',
+  });
   const sleeps: number[] = [];
   const sleep = async (ms: number) => {
     sleeps.push(ms);
@@ -207,4 +217,17 @@ test('resume with its old record locked still runs, warns, and is not resumed tw
     code: 'usage',
     message: `session ${opened.id} was already resumed as ${first.result.record.id}; mesa resume ${first.result.record.id}`,
   });
+});
+
+test('resume goes on when the dead window it removes has gone already', async () => {
+  // Something else removes the window between resume's look and its kill-window.
+  const { mesa, world, opened } = await setUp({
+    beforeTmux: (args, w) => {
+      if (args.includes('kill-window')) w.windows.splice(0);
+    },
+  });
+  const [window] = world.windows;
+  if (window) window.dead = true;
+  const { result } = await mesa.sessions.resume(opened.id);
+  expect(result.record.resumedFrom).toBe(opened.id);
 });

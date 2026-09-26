@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { profilePaths } from './paths.js';
@@ -91,4 +92,26 @@ test('unregister removes the entry by name', () => {
 test('slugify', () => {
   expect(slugify('My Repo.v2')).toBe('my-repo-v2');
   expect(slugify('--x--')).toBe('x');
+});
+
+test('a register waits while another mesa holds the registry, and keeps the entry it wrote', async () => {
+  const lock = `${profile.paths.registry}.lock`;
+  const harbor = folder('harbor', 'name: harbor\n');
+  writeFileSync(lock, 'another mesa');
+  // The other mesa writes its entry, then lets go.
+  const theirs = `projects:\n  - name: harbor\n    path: ${harbor}\n`;
+  const other = spawn('sh', [
+    '-c',
+    'sleep 0.2; printf "%s" "$1" > "$2"; rm "$3"',
+    'sh',
+    theirs,
+    profile.paths.registry,
+    lock,
+  ]);
+  await new Promise((resolve) => other.on('spawn', resolve));
+  registerProject(profile, { dir: folder('tide'), create: true });
+  await new Promise((resolve) => other.on('exit', resolve));
+  expect(listProjects(profile).map((p) => p.name)).toEqual(['harbor', 'tide']);
+  // Written whole, and still the profile's alone.
+  expect(statSync(profile.paths.registry).mode & 0o777).toBe(0o600);
 });

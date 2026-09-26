@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
@@ -23,4 +23,14 @@ test('setYamlPath keeps comments, blocks a grown flow map, and never writes an i
 
   expect(thrown(() => setYamlPath(file, Schema, 'n', 9)).code).toBe('invalid_config');
   expect(readYaml(file, Schema).n).toBe(1);
+});
+
+test('writes are whole files that keep their mode, and leave no temp file behind', () => {
+  const dir = tempDir();
+  const file = join(dir, 'config.yaml');
+  expect(writeYaml(file, { n: 1, tags: {} }, { mode: 0o600, exclusive: true })).toBe(true);
+  setYamlPath(file, Schema, 'tags.a', 'x');
+  expect(statSync(file).mode & 0o777).toBe(0o600);
+  writeYaml(file, { n: 2, tags: {} }, { mode: 0o600 });
+  expect(readdirSync(dir)).toEqual(['config.yaml']);
 });

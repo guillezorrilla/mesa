@@ -11,7 +11,7 @@ import { findProject } from '../projects.js';
 import type { RegistryEntry } from '../registry.js';
 import { MesaError, toFail } from '../result.js';
 import { ending, type SessionRecord, type SessionStore, windowOf, windowSession } from './store.js';
-import type { TmuxBackend } from './tmux.js';
+import { killIfThere, type TmuxBackend } from './tmux.js';
 import { addWorktree, removeWorktree, type Worktree, worktreePath } from './worktree.js';
 
 export type OpenDeps = {
@@ -241,7 +241,7 @@ export async function resumeSession(
       `session ${id} is still running; mesa attach ${id}, or mesa stop ${id} first`,
     );
   }
-  if (left) await deps.tmux.killWindow(target);
+  if (left) await killIfThere(deps.tmux, target);
   const record = await startWindow(deps, {
     project,
     agent: old.agent,

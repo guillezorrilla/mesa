@@ -7,7 +7,7 @@ import {
   readProjectFile,
   writeProjectFile,
 } from './project-file.js';
-import { findClash, type RegistryEntry, readRegistry, writeRegistry } from './registry.js';
+import { findClash, type RegistryEntry, readRegistry, updateRegistry } from './registry.js';
 import { MesaError } from './result.js';
 
 export type ProjectRow = {
@@ -33,16 +33,17 @@ export function registerProject(
   const path = realpathSync(opts.dir);
   const created = Boolean(opts.create) && !existsSync(projectFile(path));
   const project = created ? minimalProject(path) : readProjectFile(path);
-  const entries = readRegistry(profile.paths.registry);
-  const clash = findClash(entries, { name: project.name, path });
-  if (clash) {
-    throw new MesaError(
-      'invalid_config',
-      `already registered: ${clash.name} at ${clash.path}; run mesa unregister ${clash.name} first`,
-    );
-  }
-  if (created) writeProjectFile(path, project);
-  writeRegistry(profile.paths.registry, [...entries, { name: project.name, path }]);
+  updateRegistry(profile.paths.registry, (entries) => {
+    const clash = findClash(entries, { name: project.name, path });
+    if (clash) {
+      throw new MesaError(
+        'invalid_config',
+        `already registered: ${clash.name} at ${clash.path}; run mesa unregister ${clash.name} first`,
+      );
+    }
+    if (created) writeProjectFile(path, project);
+    return [...entries, { name: project.name, path }];
+  });
   return { project, path, created };
 }
 
@@ -66,9 +67,6 @@ export function findProject(profile: Profile, name: string): RegistryEntry {
 
 export function unregisterProject(profile: Profile, name: string): RegistryEntry {
   const entry = findProject(profile, name);
-  writeRegistry(
-    profile.paths.registry,
-    readRegistry(profile.paths.registry).filter((e) => e.name !== name),
-  );
+  updateRegistry(profile.paths.registry, (entries) => entries.filter((e) => e.name !== name));
   return entry;
 }

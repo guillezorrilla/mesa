@@ -169,12 +169,15 @@ export function createMesa(profile: string, deps: MesaDeps) {
     newUuid: deps.newUuid,
     env: deps.env,
   });
-  /** Both the stored key values and what their env: references resolve to. */
+  /**
+   * Both the stored key values and what their env: references resolve to; none before init. A
+   * config that does not read throws, so nothing is written with a key it would have hidden.
+   */
   const secrets = () => {
-    const config = configIfAny();
-    const names = Object.keys(config?.keys ?? {});
-    return names
-      .flatMap((n) => [config?.keys[n], config && resolveKey(config, n, deps.env)])
+    if (!existsSync(paths.config)) return [];
+    const { config } = open();
+    return Object.keys(config.keys)
+      .flatMap((n) => [config.keys[n], resolveKey(config, n, deps.env)])
       .filter((s): s is string => typeof s === 'string');
   };
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
@@ -251,13 +254,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       status: () => vaultStatus(open().config.vault),
       /** Opens the vault, or one note in it, in Obsidian: the URI by default, the CLI with `cli`. */
       open: (note?: string, cli = false) => {
-        const vault = configIfAny()?.vault;
-        if (!vault) {
-          throw new MesaError(
-            'invalid_config',
-            `no vault configured for profile ${profile}; run mesa init --vault <path>`,
-          );
-        }
+        const vault = vaultOf();
         return openInObsidian({ run: deps.run, obsidian: deps.obsidian }, { vault, note, cli });
       },
     },
@@ -497,7 +494,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     /** One agent hook's payload, from `mesa hook claude` inside a Mesa session. */
     hookEvent: (agent: string, payload: string) =>
       recordHookEvent(
-        { store, eventsDir: paths.events, clock: deps.clock, home: deps.home, secrets: secrets() },
+        { store, eventsDir: paths.events, clock: deps.clock, home: deps.home, secrets },
         { agent, mesaSessionId: deps.env.MESA_SESSION_ID, payload },
       ),
     /** tmux's pane-died hook: the agent in a Mesa window exited (`mesa hook tmux pane-died`). */
