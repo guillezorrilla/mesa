@@ -799,3 +799,21 @@ test('a prompt received today shows its time alone', async () => {
   expect(prompt?.textContent).toMatch(/^from a person, 5 characters, \S+/);
   expect(prompt?.textContent).not.toMatch(/\d{4}/);
 });
+
+test('a send typed with a warning says so in the toast, so it is not sent again', async () => {
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    send: () =>
+      envelope({
+        sent: true,
+        session: 'aaaaaaaa',
+        from: null,
+        chars: 5,
+        warning: 'the prompt was typed, but no send event on aaaaaaaa (x); do not send it again',
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  (byTestId('session-prompt')[0] as HTMLInputElement).value = 'hello';
+  await click(byTestId('session-send-submit')[0]);
+  expect(byTestId('toast')[0]?.textContent).toContain('do not send it again');
+});

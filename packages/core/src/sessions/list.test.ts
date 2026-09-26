@@ -438,6 +438,39 @@ test('a record another process holds locked still shows its new state, and the b
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   expect(rows.map((r) => [r.id, r.lastState.state])).toEqual([[gone.id, 'done']]);
-  // Not written: the record keeps its old state until the lock is gone.
+  // Not written, and not waited for: the record keeps its old state until the lock is gone.
   expect(store.get(gone.id).lastState.state).toBe('working');
+  const started = Date.now();
+  await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  expect(Date.now() - started).toBeLessThan(500);
+});
+
+test('a look that read a session before a stop never writes its state over the stop', async () => {
+  const store = storeIn();
+  const live = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+  );
+  // The look reads the record live; a stop lands before the look saves.
+  const before = store.list();
+  const stopped = {
+    state: 'done',
+    confidence: 1,
+    at: '2026-09-24T12:00:00.000Z',
+    source: 'mesa',
+  } as const;
+  store.update(live.id, { endedAt: '2026-09-24T12:00:00.000Z', lastState: stopped });
+  // Its window is gone, so the look has a new state to save: done, from tmux.
+  const { run } = scriptedRunner({ tmux: '' });
+  await listSessions({
+    ...noListing,
+    store: { ...store, list: () => before },
+    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  expect(store.get(live.id).lastState).toEqual(stopped);
 });

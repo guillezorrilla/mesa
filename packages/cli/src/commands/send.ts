@@ -25,8 +25,10 @@ export const send = defineCommand({
     const warned = warning ? `\nwarning: ${warning}` : '';
     const said = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}${warned}`;
     const { receipt, text } = withReceipt(recorded, said);
+    // A receipt's warning joins the send's, rather than hiding it.
+    const warnings = [warning, receipt.warning].filter(Boolean).join('; ');
     return {
-      data: { sent, session, from, chars, ...(warning ? { warning } : {}), ...receipt },
+      data: { sent, session, from, chars, ...receipt, ...(warnings ? { warning: warnings } : {}) },
       text,
     };
   },

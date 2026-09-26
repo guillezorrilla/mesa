@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -282,8 +282,8 @@ test('events are best effort once the prompt is typed: a locked receiver warns a
   writeFileSync(join(dir, `${b.id}.lock`), 'a killed mesa');
   const { result, receipt } = await mesa.sessions.send(b.id, 'typed anyway', { from: a.id });
   expect(result).toMatchObject({ sent: true, from: a.id });
-  expect(result.warning).toMatch(
-    new RegExp(`^no send event on ${b.id}: session ${b.id} is locked`),
+  expect(result.warning).toBe(
+    `the prompt was typed, but no send event on ${b.id} (its record is locked by another mesa process); no sent event on ${a.id}; do not send it again`,
   );
   expect(receipt).not.toBeNull();
   rmSync(join(dir, `${b.id}.lock`));
@@ -333,4 +333,29 @@ test('a function patch runs under the lock; an update waits while another proces
   rmSync(lock);
   store.remove(record.id);
   expect(store.find(record.id)).toBeUndefined();
+});
+
+test('any error writing events after typing is a warning, and any Mesa window counts as an agent', async () => {
+  const { home, mesa, within, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const dir = join(home, '.mesa/default/sessions');
+  // A sessions folder this process cannot write (as a sandboxed agent may see it).
+  chmodSync(dir, 0o500);
+  try {
+    const { result } = await mesa.sessions.send(b.id, 'typed anyway');
+    expect(result.warning).toMatch(/^the prompt was typed, but no send event on \w+ \(EACCES/);
+  } finally {
+    chmodSync(dir, 0o700);
+  }
+  // Another profile's window: no sender, but still an agent that may not force a wait.
+  const store = sessionStore({ dir, newId: () => 'x' });
+  const at = '2026-09-24T12:00:00.000Z';
+  store.update(b.id, {
+    lastState: { state: 'waiting-permission', confidence: 0.95, at, source: 'hook' },
+  });
+  const elsewhere = within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'work' });
+  await expect(elsewhere.sessions.send(b.id, 'yes', { force: true })).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('a person answers it'),
+  });
 });

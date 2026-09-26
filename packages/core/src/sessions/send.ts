@@ -1,7 +1,7 @@
 import type { Clock } from '../clock.js';
 import { guardrail } from '../decisions/guardrail.js';
 import type { Env } from '../process.js';
-import { MesaError } from '../result.js';
+import { MesaError, toFail } from '../result.js';
 import {
   type SessionRecord,
   type SessionStore,
@@ -99,7 +99,8 @@ export async function sendPrompt(
   }
   // The Enter after the text would answer a permission prompt, which Mesa never relays. Another
   // session may not force it, with --no-from or without: only a person answers one (ADR-0003).
-  const agent = sender ?? window;
+  // Any Mesa window counts, this profile's or another's.
+  const agent = sender ?? window ?? deps.env.MESA_SESSION_ID;
   if (WAITING.has(record.lastState.state) && (agent || !force)) {
     const state = record.lastState.state;
     throw new MesaError(
@@ -137,8 +138,11 @@ export async function sendPrompt(
       deps.store.update(recordId, (current) => ({ events: [...current.events, event] }));
       return true;
     } catch (error) {
-      if (!(error instanceof MesaError)) throw error;
-      problems.push(`no ${event.type} event on ${recordId}: ${error.message}`);
+      const why =
+        error instanceof MesaError && error.code === 'locked'
+          ? 'its record is locked by another mesa process'
+          : toFail(error).error.message;
+      problems.push(`no ${event.type} event on ${recordId} (${why})`);
       return false;
     }
   };
@@ -150,12 +154,15 @@ export async function sendPrompt(
     ...(sender ? { from: sender.id } : {}),
   });
   if (sender && received) addEvent(sender.id, { type: 'sent', at, chars, to: id });
+  else if (sender) problems.push(`no sent event on ${sender.id}`);
   return {
     sent: true,
     session: id,
     project: record.project,
     from: sender?.id ?? null,
     chars,
-    ...(problems.length ? { warning: problems.join('; ') } : {}),
+    ...(problems.length
+      ? { warning: `the prompt was typed, but ${problems.join('; ')}; do not send it again` }
+      : {}),
   };
 }

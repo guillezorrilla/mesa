@@ -401,7 +401,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
             }),
           },
           () => resumeSession(openDeps(), id),
-        ).then((recorded) => markEnded(recorded, recorded.result.from)),
+        ).then((recorded) => {
+          const { warning } = recorded.result;
+          const joined = [recorded.warning, warning].filter(Boolean).join('; ');
+          return markEnded(
+            { ...recorded, ...(joined ? { warning: joined } : {}) },
+            recorded.result.from,
+          );
+        }),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),

@@ -8,7 +8,7 @@ import type { Profile } from '../profile.js';
 import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
 import type { RegistryEntry } from '../registry.js';
-import { MesaError } from '../result.js';
+import { MesaError, toFail } from '../result.js';
 import { ending, type SessionRecord, type SessionStore, windowOf, windowSession } from './store.js';
 import type { TmuxBackend } from './tmux.js';
 
@@ -147,7 +147,7 @@ export async function openSession(
 export async function resumeSession(
   deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow' | 'killWindow'> },
   id: string,
-): Promise<{ record: SessionRecord; from: SessionRecord }> {
+): Promise<{ record: SessionRecord; from: SessionRecord; warning?: string }> {
   const old = deps.store.get(id);
   if (!old.agentSessionId) {
     throw new MesaError(
@@ -155,10 +155,12 @@ export async function resumeSession(
       `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project}`,
     );
   }
-  if (old.resumedBy) {
+  // Its record says so, or, when writing that failed, the record resuming it does.
+  const resumedBy = old.resumedBy ?? deps.store.list().find((r) => r.resumedFrom === id)?.id;
+  if (resumedBy) {
     throw new MesaError(
       'usage',
-      `session ${id} was already resumed as ${old.resumedBy}; mesa resume ${old.resumedBy}`,
+      `session ${id} was already resumed as ${resumedBy}; mesa resume ${resumedBy}`,
     );
   }
   const spec = AGENTS[old.agent];
@@ -185,12 +187,19 @@ export async function resumeSession(
     parent: old.parent,
     resumedFrom: old.id,
   });
+  // The new session runs now, so marking the old one is best effort: a failure is a warning,
+  // never a failed resume that a retry would open twice.
   const at = deps.clock().toISOString();
-  const from = deps.store.update(old.id, (current) => ({
-    resumedBy: record.id,
-    ...ending(current, at),
-  }));
-  return { record, from };
+  try {
+    const from = deps.store.update(old.id, (current) => ({
+      resumedBy: record.id,
+      ...ending(current, at),
+    }));
+    return { record, from };
+  } catch (error) {
+    const why = toFail(error).error.message;
+    return { record, from: old, warning: `session ${id} not marked resumed: ${why}` };
+  }
 }
 
 /** Writes the record, then opens its window; a window that cannot open removes the record again. */

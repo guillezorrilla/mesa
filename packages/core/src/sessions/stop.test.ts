@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -17,7 +17,7 @@ import { sessionStore } from './store.js';
  * A profile with its vault laid out, lantern-cove registered, and one session opened in a fake
  * tmux. Its claude hears what is typed and, when `quits`, exits on /exit.
  */
-async function setUp({ quits = true } = {}) {
+async function setUp({ quits = true, duringSleep = () => {} } = {}) {
   const home = tempDir();
   const heard: string[] = [];
   const world = fakeTmux({
@@ -30,6 +30,7 @@ async function setUp({ quits = true } = {}) {
   const sleeps: number[] = [];
   const sleep = async (ms: number) => {
     sleeps.push(ms);
+    duringSleep();
   };
   const mesa = createMesa('default', testDeps(home, { run: scripted.run, sleep }));
   mesa.init({ vault: 'vault' });
@@ -175,5 +176,35 @@ test('resume refuses a live session, clears a dead window, and needs an agent se
   await expect(exited.mesa.sessions.resume(id)).rejects.toMatchObject({
     code: 'not_found',
     message: `session ${id} has no agent session id to resume; start a new one with mesa open lantern-cove`,
+  });
+});
+
+test('stop ends the record as it is when the stop lands, not as it was read', async () => {
+  let failNow = () => {};
+  const { home, mesa, opened } = await setUp({ quits: false, duringSleep: () => failNow() });
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const failed = {
+    state: 'failed',
+    confidence: 0.85,
+    at: '2026-09-24T12:00:00.000Z',
+    source: 'tmux',
+  } as const;
+  // The agent fails while stop waits for it to quit.
+  failNow = () => store.update(opened.id, { lastState: failed });
+  const { result } = await mesa.sessions.stop(opened.id);
+  expect(result.record.lastState).toEqual(failed);
+});
+
+test('resume with its old record locked still runs, warns, and is not resumed twice', async () => {
+  const { home, mesa, opened } = await setUp();
+  await mesa.sessions.stop(opened.id);
+  const dir = join(home, '.mesa/default/sessions');
+  writeFileSync(join(dir, `${opened.id}.lock`), 'a killed mesa');
+  const first = await mesa.sessions.resume(opened.id);
+  expect(first.warning).toMatch(new RegExp(`^session ${opened.id} not marked resumed: session`));
+  rmSync(join(dir, `${opened.id}.lock`));
+  await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${opened.id} was already resumed as ${first.result.record.id}; mesa resume ${first.result.record.id}`,
   });
 });

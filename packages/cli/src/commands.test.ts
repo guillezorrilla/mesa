@@ -895,3 +895,20 @@ test('send --from, or from inside a window, adds the sender; --json prints {sent
     stderr: 'no session zzzzzzzz to send from; see mesa sessions\n',
   });
 });
+
+test('a send typed with a warning keeps it beside a receipt warning in --json', async () => {
+  const world = fakeTmux();
+  run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  // No vault layout, so every receipt warns too.
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  await mesa('register', '--create', join(home, 'src/lantern-cove'));
+  const b = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  writeFileSync(join(home, `.mesa/default/sessions/${b}.lock`), 'a killed mesa');
+  const sent = await mesa('send', b, 'hello', '--json');
+  expect(sent.code).toBe(0);
+  expect(sent.json.data.warning).toMatch(
+    /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
+  );
+  rmSync(join(home, `.mesa/default/sessions/${b}.lock`));
+});

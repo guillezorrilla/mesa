@@ -83,7 +83,10 @@ function saveState(
       wait: false,
     });
   } catch (error) {
-    if (error instanceof MesaError && error.code === 'locked') return { ...found, lastState };
+    // Locked, or removed meanwhile (an open whose window failed): shown, not saved.
+    if (error instanceof MesaError && (error.code === 'locked' || error.code === 'not_found')) {
+      return { ...found, lastState };
+    }
     throw error;
   }
 }

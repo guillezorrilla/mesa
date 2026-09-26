@@ -205,7 +205,9 @@ export function BoardScreen() {
       const sent = await run('sessions.send', { id, prompt });
       if (!sent) return undefined;
       form.reset();
-      return `Sent ${sent.chars} characters to ${id}`;
+      // Typed either way: a warning says so, so the prompt is not sent twice.
+      const said = `Sent ${sent.chars} characters to ${id}`;
+      return sent.warning ? `${said}; ${sent.warning}` : said;
     });
   const stop = (id: string) =>
     act(async () => {
