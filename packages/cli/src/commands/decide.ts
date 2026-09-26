@@ -8,6 +8,7 @@ const two = (n: number) => n.toFixed(2);
 export const decide = defineCommand({
   name: 'decide',
   summary: 'Ask Faro the questions on stdin: {"state": ..., "questions": [Choice, Score, Noul]}',
+  example: `echo '{"state":null,"questions":[{"kind":"Noul","id":"done","statement":"the tests pass"}]}' | mesa decide`,
   run: async ({ mesa, stdin }) => {
     let input: { state?: unknown; questions?: unknown };
     try {

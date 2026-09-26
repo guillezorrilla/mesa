@@ -12,6 +12,7 @@ export const init = defineCommand({
       description: `Default agent: ${AGENT_NAMES.join(' or ')} (default ${DEFAULT_AGENT})`,
     },
   },
+  example: 'mesa init --vault ~/vault',
   run: ({ mesa, flags }) => {
     const recorded = mesa.init({ vault: flags.vault, agent: flags.agent });
     const { created, path } = recorded.result;

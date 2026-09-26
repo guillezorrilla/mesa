@@ -63,7 +63,7 @@ test('init, then a second init, then a second profile', async () => {
   expect((await mesa('--profile', 'work', 'init', '--vault', '/tmp/w')).code).toBe(0);
   expect(await mesa('init')).toMatchObject({
     code: 2,
-    stderr: '--vault is required. Usage: mesa init --vault <value> [flags]\n',
+    stderr: '--vault is required. Usage: mesa init --vault <string> [flags]\n',
   });
 });
 
@@ -722,4 +722,62 @@ test('profile and version', async () => {
     data: { profile: 'default', dir: `${home}/.mesa/default` },
   });
   expect((await mesa('--version')).stdout).toBe(`${VERSION}\n`);
+});
+
+/** An example's words after `mesa`, split as a shell splits them, up to a redirect or a pipe. */
+const wordsOf = (example: string) => {
+  const words = [
+    ...example
+      .slice(example.indexOf('mesa ') + 'mesa '.length)
+      .matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g),
+  ].map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+  const end = words.findIndex((w) => w === '<' || w === '|');
+  return end === -1 ? words : words.slice(0, end);
+};
+
+test('every example parses as its own command: its arguments, flags, and required flags', async () => {
+  // The real parser, with each run replaced by one that names its command.
+  const named = COMMANDS.map((c) => ({ ...c, run: () => ({ data: c.name, text: c.name }) }));
+  for (const command of COMMANDS) {
+    expect(command.example, command.name).toContain('mesa ');
+    const out = await runCli(wordsOf(command.example), {
+      commands: named,
+      env: {},
+      tty: false,
+      stdin: async () => '',
+      mesa: testDeps(home, { run }),
+    });
+    expect(out, command.example).toMatchObject({ code: 0, stdout: `${command.name}\n` });
+  }
+});
+
+test('mesa help --agent lists every registered command; --json has one entry each', async () => {
+  const markdown = (await mesa('help', '--agent')).stdout;
+  const { data } = (await mesa('help', '--agent', '--json')).json;
+  expect(data.map((c: { name: string }) => c.name)).toEqual(COMMANDS.map((c) => c.name));
+  // The whole heading, so `mesa config set` cannot stand in for a missing `mesa config`.
+  for (const c of data) expect(markdown).toContain(`\n### \`${c.usage}\`\n`);
+  expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
+    name: 'send',
+    usage: 'mesa send <session> <prompt> [--force]',
+    description: "Type a prompt into a session's agent, then Enter",
+    args: [
+      { name: 'session', required: true },
+      { name: 'prompt', required: true },
+    ],
+    flags: [
+      {
+        name: 'force',
+        type: 'boolean',
+        required: false,
+        description: 'Send even when the pane runs a shell, not the agent',
+      },
+    ],
+    example: 'mesa send a1b2c3d4 "run the tests, then summarise the failures"',
+  });
+});
+
+test('mesa help without --agent prints the command list', async () => {
+  const { stdout } = await mesa('help');
+  expect(stdout).toBe((await mesa('--help')).stdout);
 });
