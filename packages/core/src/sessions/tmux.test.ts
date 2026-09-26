@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
@@ -161,9 +161,12 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
   test('ensureServer sets one pane-died hook; a pane that dies runs mesa hook tmux with its window', async () => {
     const out = join(cwd, 'died.log');
-    const script = join(cwd, 'mesa-stand-in.sh');
-    // Stands in for mesa: it writes the arguments the hook passes.
-    writeFileSync(script, `printf '%s|' "$@" >> ${out}; echo >> ${out}\n`);
+    // In a folder whose name tmux would read as a format, were its # not doubled.
+    const folder = join(cwd, 'at #S here');
+    mkdirSync(folder);
+    const script = join(folder, 'mesa-stand-in.sh');
+    // Stands in for mesa: it writes the arguments the hook passes, and prints, as mesa does.
+    writeFileSync(script, `printf '%s|' "$@" >> '${out}'; echo >> '${out}'; echo printed\n`);
     const hooked = tmuxBackend({
       run: underParent,
       socket,
@@ -204,6 +207,11 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     ]);
     expect(existsSync(pwned)).toBe(false);
     expect(Date.now() - started).toBeLessThan(1000);
+    // What the hook printed shows nowhere: no pane was put in view mode to show it.
+    await sleep(200);
+    expect(new Set((await raw('list-panes', '-a', '-F', '#{pane_in_mode}')).split('\n'))).toEqual(
+      new Set(['0']),
+    );
     await raw('set-hook', '-gu', 'pane-died');
   });
 

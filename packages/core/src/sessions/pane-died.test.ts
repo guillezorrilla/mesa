@@ -22,7 +22,10 @@ function setUp() {
     deadLine(crashed.tmux.window, 1),
     deadLine(killed.tmux.window, 0, 'kill'),
   ];
-  const { run } = scriptedRunner({ tmux: lines.join('\n') });
+  // Only the project's own session lists its windows, as tmux answers: a view's name lists none.
+  const { run } = scriptedRunner({
+    tmux: (args) => (args.includes('=lantern-cove') || args.includes('-a') ? lines.join('\n') : ''),
+  });
   const deps = {
     store,
     tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
@@ -73,4 +76,14 @@ test('a session stopped, or seen exited, first is left alone, even between its r
   const racing = { ...deps, store: { ...store, find: () => stale } };
   expect(await recordPaneDied(racing, 'lantern-cove', crashed.tmux.window)).toBeUndefined();
   expect(store.get(crashed.id).events).toEqual([]);
+});
+
+test('a look that saw the dead pane first still leaves the exit to the hook', async () => {
+  const { store, deps, crashed } = setUp();
+  // The board saw it dead a moment before the hook ran.
+  const seen = { state: 'failed', confidence: 0.85, at, source: 'tmux' } as const;
+  store.update(crashed.id, { lastState: seen });
+  const exited = await recordPaneDied(deps, 'lantern-cove', crashed.tmux.window);
+  expect(exited).toMatchObject({ lastState: { state: 'failed', source: 'tmux-hook' } });
+  expect(exited?.events).toEqual([{ type: 'exited', at }]);
 });

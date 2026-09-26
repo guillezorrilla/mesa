@@ -1,12 +1,6 @@
 import type { Clock } from '../clock.js';
 import { exitState, PROCESS } from '../decisions/session-state.js';
-import {
-  FINAL_STATES,
-  idOfWindow,
-  type SessionRecord,
-  type SessionStore,
-  windowOf,
-} from './store.js';
+import { idOfWindow, type SessionRecord, type SessionStore, windowOf } from './store.js';
 import { type TmuxBackend, VIEW_PREFIX } from './tmux.js';
 
 /**
@@ -17,8 +11,9 @@ import { type TmuxBackend, VIEW_PREFIX } from './tmux.js';
  * shows its last screen, and offers Resume (the owner's call, ADR-0003 amendment).
  *
  * `project` is the tmux session tmux names, the project's or a terminal's view of it. A window
- * that is no session of this profile's, or a session already stopped or already known to have
- * exited, is left alone: undefined.
+ * that is no session of this profile's, or a session already stopped, or whose exit is already
+ * recorded, is left alone: undefined. A look that saw the dead pane first does not count: the
+ * hook still records the exit.
  * ponytail: the update waits for the record's lock like any other, up to 2 s, over the hook's
  * 200 ms budget; tmux runs the hook in the background (run-shell -b), so only this pane waits.
  */
@@ -31,9 +26,9 @@ export async function recordPaneDied(
   const found = id ? deps.store.find(id) : undefined;
   const ours = found?.tmux.window === window;
   const shown = project === found?.tmux.session || project.startsWith(VIEW_PREFIX);
-  if (!found || !ours || !shown || found.endedAt || FINAL_STATES.has(found.lastState.state)) {
-    return undefined;
-  }
+  const recorded = (r: SessionRecord) =>
+    Boolean(r.endedAt) || r.events.some((e) => e.type === 'exited');
+  if (!found || !ours || !shown || recorded(found)) return undefined;
   // The project's own session: a view's name lists no windows of its own.
   const pane = await deps.tmux.findWindow(windowOf(found));
   const at = deps.clock().toISOString();
@@ -43,11 +38,11 @@ export async function recordPaneDied(
     at,
     source: 'tmux-hook',
   } as const;
-  let recorded = false;
+  let wrote = false;
   const record = deps.store.update(found.id, (current) => {
-    if (current.endedAt || FINAL_STATES.has(current.lastState.state)) return {};
-    recorded = true;
+    if (recorded(current)) return {};
+    wrote = true;
     return { lastState, events: [...current.events, { type: 'exited', at }] };
   });
-  return recorded ? record : undefined;
+  return wrote ? record : undefined;
 }

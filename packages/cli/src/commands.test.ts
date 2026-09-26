@@ -941,7 +941,7 @@ test('mesa hook tmux pane-died records its exit; hooks status and doctor show bo
   // Opening started the server, and with it the hook, running this mesa for this profile.
   expect(await status()).toEqual({ socket: 'mesa-default', server: true, paneDied: true });
   expect(world.hooks.get('pane-died')).toBe(
-    `run-shell -b "'/usr/local/bin/mesa' --profile 'default' hook tmux pane-died -- #{q:session_name} #{q:window_name}"`,
+    `run-shell -b "'/usr/local/bin/mesa' --profile 'default' hook tmux pane-died -- #{q:session_name} #{q:window_name} >/dev/null 2>&1 || :"`,
   );
   expect((await doctorRow('tmux hooks')).status).toBe('ok');
   // A server whose hook runs another mesa is a warning with its fix, and a look sets it again.

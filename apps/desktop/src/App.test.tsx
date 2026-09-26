@@ -842,3 +842,30 @@ test('the Doctor panel shows both kinds of hook, each with its fix when missing'
     ['tmux hooks', 'warn', 'not set on mesa-default: `mesa sessions` starts the server with it'],
   ]);
 });
+
+test('installing the hooks from the Doctor panel runs doctor again, so its row agrees', async () => {
+  const { bridge, calls } = fakeBridge({
+    'hooks status': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: false,
+        stale: false,
+        events: {},
+        tmux: { socket: 'mesa-default', server: true, paneDied: true },
+      }),
+    'hooks install': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: true,
+        stale: false,
+        events: {},
+        changed: true,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  const doctorRuns = () => calls.filter((c) => c[1] === 'doctor').length;
+  const before = doctorRuns();
+  await click(byTestId('hooks-install')[0]);
+  expect(doctorRuns()).toBe(before + 1);
+});

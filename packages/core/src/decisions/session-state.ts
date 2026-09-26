@@ -123,7 +123,8 @@ export function lastOutputLine(tail: string): string | undefined {
   const line = recentAbovePrompt(tail)
     .split('\n')
     .map((l) => l.trim())
-    .filter(Boolean)
+    // tmux's own line under a dead pane (remain-on-exit) is not the agent's.
+    .filter((l) => l && !/^Pane is dead \(/.test(l))
     .at(-1);
   return line && Array.from(line).slice(0, 200).join('');
 }

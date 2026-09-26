@@ -137,10 +137,12 @@ function parseWindow(line: string): TmuxWindow {
  * parsers read it. For the shell, this mesa's words are single-quoted. For tmux's formats, a `#`
  * in them is doubled. For tmux's double quotes, a backslash, a quote, and a `$` are escaped.
  * `-b`: tmux runs each hook in the background, so one slow hook never holds up the next pane's.
+ * Its output and any failure are dropped: tmux shows a background command's output, or a
+ * nonzero status, in view mode on some other pane, which would freeze a live agent's screen.
  */
 function paneDiedHook(self: readonly string[], profile: string): string {
   const mesa = [...self.map(shellWord), '--profile', shellWord(profile)].join(' ');
-  const command = `${mesa.replaceAll('#', '##')} hook tmux pane-died -- #{q:session_name} #{q:window_name}`;
+  const command = `${mesa.replaceAll('#', '##')} hook tmux pane-died -- #{q:session_name} #{q:window_name} >/dev/null 2>&1 || :`;
   return `run-shell -b "${command.replace(/[\\"$]/g, (c) => `\\${c}`)}"`;
 }
 
