@@ -3,22 +3,29 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as Xterm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
+import { fromBase64 } from '../lib/bytes';
 import { usePlatform } from '../lib/MesaRoot';
 import { useRun } from '../lib/useCommand';
 
-/** An OSC 52 payload (`c;<base64>`): the text a tmux copy sends out, or null for a query. */
+/**
+ * An OSC 52 payload (`c;<base64>`): the text a tmux copy sends out, or null for a query or a
+ * payload that does not decode (pane output reaches this parser too).
+ */
 const osc52Text = (data: string) => {
   const encoded = data.slice(data.indexOf(';') + 1);
   if (!encoded || encoded === '?') return null;
-  const raw = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
-  return new TextDecoder().decode(raw);
+  try {
+    return new TextDecoder().decode(fromBase64(encoded));
+  } catch {
+    return null;
+  }
 };
 
 /**
  * One session's tmux window in the app: xterm.js 6 over the Rust pty (ADR-0007, SP-3). It fits
  * its box, and after each fit the window takes the size (`mesa resize`). A copy in tmux (a mouse
- * drag, with `mouse on`) arrives as OSC 52 and goes to the pasteboard; Cmd+V pastes. Unmounting
- * closes only the tmux client.
+ * drag, with `mouse on`) arrives as OSC 52 and goes to the pasteboard; Cmd+V is the webview's
+ * own paste. Unmounting closes only the tmux client.
  */
 export function Terminal(props: { sessionId: string }) {
   const host = useRef<HTMLDivElement>(null);
@@ -43,6 +50,7 @@ export function Terminal(props: { sessionId: string }) {
     // The window follows only a real change: a resize drag fires many observations, and each
     // `mesa resize` is a CLI run.
     const size = async () => {
+      if (closed) return;
       fit.fit();
       const now = `${term.cols}x${term.rows}`;
       if (!termId || now === sent) return;
@@ -52,14 +60,7 @@ export function Terminal(props: { sessionId: string }) {
     };
     term.parser.registerOscHandler(52, (data) => {
       const text = osc52Text(data);
-      if (text !== null) clipboard.write(text);
-      return true;
-    });
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.type === 'keydown' && e.metaKey && e.key === 'v') {
-        clipboard.read().then((text) => term.paste(text));
-        return false;
-      }
+      if (text !== null) clipboard.write(text).catch(() => {});
       return true;
     });
     term.onData((data) => {
@@ -68,14 +69,20 @@ export function Terminal(props: { sessionId: string }) {
     (async () => {
       fit.fit();
       const id = await terminal.open(props.sessionId, term.cols, term.rows);
-      if (closed) return terminal.close(id);
       termId = id;
       offs.push(await terminal.onData(id, (chunk) => term.write(chunk)));
       offs.push(await terminal.onExit(id, () => term.write('\r\n[detached]\r\n')));
+      // Unmounted meanwhile: the cleanup below already ran, so undo what came after it.
+      if (closed) {
+        for (const off of offs) off();
+        return terminal.close(id);
+      }
+      await terminal.ready(id);
       await size();
-    })().catch((e) =>
-      term.write(`\r\ncould not attach: ${e instanceof Error ? e.message : String(e)}\r\n`),
-    );
+    })().catch((e) => {
+      if (!closed)
+        term.write(`\r\ncould not attach: ${e instanceof Error ? e.message : String(e)}\r\n`);
+    });
     const observer = new ResizeObserver(() => {
       size().catch(() => {});
     });

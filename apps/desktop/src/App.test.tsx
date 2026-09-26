@@ -344,6 +344,8 @@ test('clicking a live session opens its terminal here; two at once; Close ends o
   const opened = terms.calls.filter((c) => c[0] === 'open');
   expect(opened.map((c) => c[1])).toEqual(['aaaaaaaa', 'bbbbbbbb']);
   // The terminal fits, then the window takes that size: the pty, then mesa resize.
+  // Output flows once the listeners are in place: nothing tmux drew first is lost.
+  expect(terms.calls).toContainEqual(['ready', 't1']);
   const [, , cols, rows] = opened[0] ?? [];
   expect(terms.calls).toContainEqual(['resize', 't1', cols as number, rows as number]);
   expect(calls).toContainEqual(['--json', 'resize', '--', 'aaaaaaaa', String(cols), String(rows)]);

@@ -7,15 +7,9 @@ use serde_json::Value;
 #[tauri::command]
 async fn run_mesa(args: Vec<String>) -> Result<Value, String> {
     // Off the main thread so a slow command never freezes the window.
-    tauri::async_runtime::spawn_blocking(move || {
-        let output = bridge::mesa_command(std::env::var_os("MESA_CLI"))?
-            .args(&args)
-            .output()
-            .map_err(|e| format!("cannot start mesa: {e}"))?;
-        bridge::interpret(output.status.code(), &output.stdout, &output.stderr)
-    })
-    .await
-    .map_err(|e| format!("run_mesa task failed: {e}"))?
+    tauri::async_runtime::spawn_blocking(move || bridge::run(&args))
+        .await
+        .map_err(|e| format!("run_mesa task failed: {e}"))?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -28,9 +22,9 @@ pub fn run() {
             terminal::term_open,
             terminal::term_write,
             terminal::term_resize,
+            terminal::term_ready,
             terminal::term_close,
-            terminal::clipboard_write,
-            terminal::clipboard_read
+            terminal::clipboard_write
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

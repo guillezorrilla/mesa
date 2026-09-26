@@ -5,12 +5,12 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde_json::Value;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::bridge;
 
@@ -31,9 +31,10 @@ impl Term {
             .resize(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
             .map_err(|e| e.to_string())
     }
-    /// Ends the attach process: tmux keeps the window and its agent.
-    pub fn kill(&mut self) -> Result<(), String> {
-        self.child.kill().map_err(|e| e.to_string())
+    /// Ends the attach process and reaps it: tmux keeps the window and its agent.
+    pub fn end(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 
@@ -54,10 +55,6 @@ pub fn spawn(
     cmd.args(args);
     // What the outer terminal is (tmux reads it); the pane itself stays tmux-256color.
     cmd.env("TERM", "xterm-256color");
-    cmd.env("COLORTERM", "truecolor");
-    // An app opened from Finder may not have Homebrew's tmux on its PATH.
-    let path = std::env::var("PATH").unwrap_or_default();
-    cmd.env("PATH", format!("/opt/homebrew/bin:/usr/local/bin:{path}"));
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     drop(pair.slave);
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
@@ -79,20 +76,39 @@ pub fn spawn(
     Ok(Term { master: pair.master, writer, child })
 }
 
-/// Every open terminal, by id.
+/// Output held until the renderer listens (Tauri events are not buffered), then passed on.
+#[derive(Default)]
+struct Gate {
+    ready: bool,
+    held: Vec<u8>,
+}
+
+type Shared = Arc<Mutex<Term>>;
+
+/// Every open terminal, by id; each has its own lock, so one busy terminal never stalls another.
 #[derive(Default)]
 pub struct Terms {
     next: AtomicU32,
-    open: Mutex<HashMap<String, Term>>,
+    open: Mutex<HashMap<String, (Shared, Arc<Mutex<Gate>>)>>,
+}
+
+impl Terms {
+    fn get(&self, id: &str) -> Result<(Shared, Arc<Mutex<Gate>>), String> {
+        self.open.lock().unwrap().get(id).cloned().ok_or_else(|| "no such terminal".to_string())
+    }
+    fn take(&self, id: &str) -> Option<Shared> {
+        self.open.lock().unwrap().remove(id).map(|(term, _)| term)
+    }
 }
 
 /// The attach argv for a session, from core: `mesa attach --print --json -- <id>`.
 fn attach_argv(session_id: &str) -> Result<Vec<String>, String> {
-    let output = bridge::mesa_command(std::env::var_os("MESA_CLI"))?
-        .args(["--json", "attach", "--print", "--", session_id])
-        .output()
-        .map_err(|e| format!("cannot start mesa: {e}"))?;
-    let envelope: Value = bridge::interpret(output.status.code(), &output.stdout, &output.stderr)?;
+    let args = ["--json", "attach", "--print", "--", session_id].map(String::from);
+    argv_of(&bridge::run(&args)?)
+}
+
+/// The `argv` of a `mesa attach --print --json` envelope, or its error message.
+fn argv_of(envelope: &Value) -> Result<Vec<String>, String> {
     if envelope["ok"] != Value::Bool(true) {
         return Err(envelope["error"]["message"].as_str().unwrap_or("mesa attach failed").to_string());
     }
@@ -104,8 +120,8 @@ fn attach_argv(session_id: &str) -> Result<Vec<String>, String> {
         .collect()
 }
 
-/// Opens a terminal on `session_id`'s window; its output arrives as `term://data/<id>` events
-/// (base64), and `term://exit/<id>` when the attach ends.
+/// Opens a terminal on `session_id`'s window. Its output is held until `term_ready`, then comes
+/// as `term://data/<id>` events (base64), and `term://exit/<id>` when the attach ends.
 #[tauri::command]
 pub async fn term_open(
     app: AppHandle,
@@ -118,65 +134,96 @@ pub async fn term_open(
         .await
         .map_err(|e| e.to_string())??;
     let id = format!("t{}", terms.next.fetch_add(1, Ordering::Relaxed) + 1);
+    let gate = Arc::new(Mutex::new(Gate::default()));
     let (data, exit) = (format!("term://data/{id}"), format!("term://exit/{id}"));
-    let (out, done) = (app.clone(), app);
+    let (out, done, held, gone) = (app.clone(), app, gate.clone(), id.clone());
     let term = spawn(
         &argv,
         cols,
         rows,
-        move |chunk| out.emit(&data, base64::engine::general_purpose::STANDARD.encode(chunk)).is_ok(),
+        move |chunk| {
+            let mut gate = held.lock().unwrap();
+            if !gate.ready {
+                gate.held.extend_from_slice(chunk);
+                return true;
+            }
+            out.emit(&data, base64::engine::general_purpose::STANDARD.encode(chunk)).is_ok()
+        },
         move || {
+            // The attach ended on its own (detached, killed): reap it and forget the terminal.
+            if let Some(term) = done.state::<Terms>().take(&gone) {
+                term.lock().unwrap().end();
+            }
             let _ = done.emit(&exit, ());
         },
     )?;
-    terms.open.lock().unwrap().insert(id.clone(), term);
+    terms.open.lock().unwrap().insert(id.clone(), (Arc::new(Mutex::new(term)), gate));
     Ok(id)
 }
 
+/// The renderer listens now: what the terminal printed so far goes out, then the rest as it comes.
 #[tauri::command]
-pub fn term_write(terms: State<Terms>, term_id: String, data: String) -> Result<(), String> {
-    let mut open = terms.open.lock().unwrap();
-    open.get_mut(&term_id).ok_or("no such terminal")?.write(data.as_bytes())
+pub fn term_ready(app: AppHandle, terms: State<Terms>, term_id: String) -> Result<(), String> {
+    let (_, gate) = terms.get(&term_id)?;
+    let mut gate = gate.lock().unwrap();
+    if !gate.held.is_empty() {
+        let held = std::mem::take(&mut gate.held);
+        let _ = app.emit(&format!("term://data/{term_id}"), base64::engine::general_purpose::STANDARD.encode(held));
+    }
+    gate.ready = true;
+    Ok(())
+}
+
+// Writes and resizes run off the main thread: a big paste into a full pty blocks until the
+// agent reads, and must not freeze the window or the other terminals.
+#[tauri::command]
+pub async fn term_write(terms: State<'_, Terms>, term_id: String, data: String) -> Result<(), String> {
+    let (term, _) = terms.get(&term_id)?;
+    tauri::async_runtime::spawn_blocking(move || term.lock().unwrap().write(data.as_bytes()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The pty's size; the window's own size is `mesa resize`, which the renderer calls after this.
 #[tauri::command]
-pub fn term_resize(terms: State<Terms>, term_id: String, cols: u16, rows: u16) -> Result<(), String> {
-    terms.open.lock().unwrap().get(&term_id).ok_or("no such terminal")?.resize(cols, rows)
+pub async fn term_resize(terms: State<'_, Terms>, term_id: String, cols: u16, rows: u16) -> Result<(), String> {
+    let (term, _) = terms.get(&term_id)?;
+    tauri::async_runtime::spawn_blocking(move || term.lock().unwrap().resize(cols, rows))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
-/// Kills the terminal's tmux client; the window and its agent keep running.
+/// Kills the terminal's tmux client, outside every lock (portable-pty's kill waits a little);
+/// the window and its agent keep running.
 #[tauri::command]
-pub fn term_close(terms: State<Terms>, term_id: String) -> Result<(), String> {
-    match terms.open.lock().unwrap().remove(&term_id) {
-        Some(mut term) => term.kill(),
-        None => Ok(()),
-    }
+pub async fn term_close(terms: State<'_, Terms>, term_id: String) -> Result<(), String> {
+    let Some(term) = terms.take(&term_id) else { return Ok(()) };
+    tauri::async_runtime::spawn_blocking(move || term.lock().unwrap().end())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Writes the macOS pasteboard: WKWebView refuses `navigator.clipboard` (SP-3), so OSC 52 copies
-/// from tmux come here.
+/// from tmux come here. (Paste is the webview's own: Cmd+V fires a paste event xterm handles.)
 #[tauri::command]
-pub fn clipboard_write(text: String) -> Result<(), String> {
-    let mut pbcopy = std::process::Command::new("pbcopy")
-        .stdin(std::process::Stdio::piped())
-        .spawn()
-        .map_err(|e| e.to_string())?;
-    pbcopy.stdin.take().ok_or("no stdin")?.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
-    pbcopy.wait().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-/// Reads the macOS pasteboard's text, for paste into a terminal.
-#[tauri::command]
-pub fn clipboard_read() -> Result<String, String> {
-    let out = std::process::Command::new("pbpaste").output().map_err(|e| e.to_string())?;
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+pub async fn clipboard_write(text: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut pbcopy = std::process::Command::new("pbcopy")
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        pbcopy.stdin.take().ok_or("no stdin")?.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+        pbcopy.wait().map_err(|e| e.to_string())?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
     use std::sync::mpsc;
     use std::time::Duration;
 
@@ -201,26 +248,40 @@ mod tests {
     }
 
     #[test]
-    fn the_pty_takes_its_size_and_input() {
+    fn the_pty_takes_its_size_and_input_and_ends_when_asked() {
         let (tx, rx) = mpsc::channel::<Vec<u8>>();
+        let (exited_tx, exited) = mpsc::channel::<()>();
         // `stty size` prints rows and cols; `head -1` then echoes one typed line back.
-        let argv = ["sh".to_string(), "-c".to_string(), "stty size; head -1".to_string()];
-        let mut term = spawn(&argv, 100, 30, move |c| tx.send(c.to_vec()).is_ok(), || {}).expect("spawn sh");
+        let argv = ["sh".to_string(), "-c".to_string(), "stty size; head -1; sleep 30".to_string()];
+        let mut term = spawn(&argv, 100, 30, move |c| tx.send(c.to_vec()).is_ok(), move || {
+            let _ = exited_tx.send(());
+        })
+        .expect("spawn sh");
         let mut seen = String::new();
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while !seen.contains("30 100") && std::time::Instant::now() < deadline {
-            if let Ok(c) = rx.recv_timeout(Duration::from_millis(100)) {
-                seen.push_str(&String::from_utf8_lossy(&c));
+        let mut wait_for = |text: &str, seen: &mut String| {
+            while !seen.contains(text) && std::time::Instant::now() < deadline {
+                if let Ok(c) = rx.recv_timeout(Duration::from_millis(100)) {
+                    seen.push_str(&String::from_utf8_lossy(&c));
+                }
             }
-        }
+        };
+        wait_for("30 100", &mut seen);
         assert!(seen.contains("30 100"), "stty size said: {seen:?}");
         term.write(b"typed line\n").expect("write");
-        while !seen.contains("typed line\r\ntyped line") && std::time::Instant::now() < deadline {
-            if let Ok(c) = rx.recv_timeout(Duration::from_millis(100)) {
-                seen.push_str(&String::from_utf8_lossy(&c));
-            }
-        }
-        assert!(seen.contains("typed line"), "echo: {seen:?}");
-        term.kill().ok();
+        wait_for("typed line\r\ntyped line", &mut seen);
+        assert!(seen.contains("typed line\r\ntyped line"), "echo: {seen:?}");
+        // end() kills and reaps the process mid-sleep, and the output stream ends.
+        term.end();
+        exited.recv_timeout(Duration::from_secs(5)).expect("the reader sees the end");
+    }
+
+    #[test]
+    fn the_attach_argv_comes_from_the_envelope() {
+        let ok = json!({"ok": true, "data": {"target": "p:w", "argv": ["tmux", "-L", "mesa-default", "attach-session"]}});
+        assert_eq!(argv_of(&ok).unwrap(), ["tmux", "-L", "mesa-default", "attach-session"]);
+        let gone = json!({"ok": false, "error": {"code": "not_found", "message": "session ended; use mesa resume"}});
+        assert_eq!(argv_of(&gone).unwrap_err(), "session ended; use mesa resume");
+        assert!(argv_of(&json!({"ok": true, "data": {}})).is_err());
     }
 }

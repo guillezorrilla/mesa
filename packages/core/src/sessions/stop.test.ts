@@ -48,7 +48,7 @@ test('stop presses Escape, types /exit, waits for the pane to die, and removes t
   expect(result.outcome).toBe('exited');
   expect(heard).toEqual(['/exit']);
   // Escape first, so a pending permission prompt is dismissed, never answered by the Enter.
-  const keys = calls.filter((c) => c.args.includes('send-keys')).map((c) => c.args.at(-1));
+  const keys = calls.filter((c) => c.args[4] === 'send-keys').map((c) => c.args.at(-1));
   expect(keys).toEqual(['Escape', '/exit', 'Enter']);
   expect(world.windows).toEqual([]);
   expect(result.record).toMatchObject({

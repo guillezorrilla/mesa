@@ -10,13 +10,16 @@ export type TerminalHost = {
   /** Output as it comes, and the end of the attach; each returns its unsubscribe. */
   onData: (termId: string, listener: (bytes: Uint8Array) => void) => Promise<() => void>;
   onExit: (termId: string, listener: () => void) => Promise<() => void>;
+  /** The listeners are in place: output held since open is sent, then the rest as it comes. */
+  ready: (termId: string) => Promise<void>;
 };
 
-/** What the app asks of the OS itself, apart from mesa: native dialogs. A seam like the bridge. */
+/** What the app asks of the OS itself, apart from mesa: dialogs, terminals, the pasteboard. A seam like the bridge. */
 export type Platform = {
   /** A folder the user picks, or null when they cancel. */
   pickFolder: () => Promise<string | null>;
   terminal: TerminalHost;
-  /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). */
-  clipboard: { write: (text: string) => Promise<void>; read: () => Promise<string> };
+  /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
+   * needs no seam: Cmd+V fires a paste event that xterm handles. */
+  clipboard: { write: (text: string) => Promise<void> };
 };

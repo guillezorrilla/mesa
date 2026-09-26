@@ -74,8 +74,6 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     `MESA_SESSION_ID=${first.id}`,
     '-e',
     'MESA_PROFILE=default',
-    '-e',
-    'COLORTERM=truecolor',
     'claude --session-id 00000000-0000-4000-8000-000000000001',
     // The tmux session does not keep the first window's ids for windows added by hand.
     ';',
@@ -90,12 +88,6 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     '=lantern-cove',
     '-u',
     'MESA_PROFILE',
-    ';',
-    'set-environment',
-    '-t',
-    '=lantern-cove',
-    '-u',
-    'COLORTERM',
   ]);
   // The record is saved, and the session receipt names it.
   expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([first.id]);

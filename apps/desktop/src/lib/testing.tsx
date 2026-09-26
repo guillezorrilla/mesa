@@ -80,6 +80,7 @@ export function fakeTerminals() {
       return () => data.delete(termId);
     },
     onExit: async () => () => {},
+    ready: async (termId) => void calls.push(['ready', termId]),
   };
   const push = (termId: string, text: string) => data.get(termId)?.(new TextEncoder().encode(text));
   return { host, calls, push };
@@ -94,10 +95,7 @@ export const fakePlatform = (
   return {
     pickFolder: async () => folder,
     terminal,
-    clipboard: {
-      write: async (text) => void pasteboard.push(text),
-      read: async () => pasteboard.at(-1) ?? '',
-    },
+    clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,
   };
 };

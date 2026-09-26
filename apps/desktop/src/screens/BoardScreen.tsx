@@ -282,7 +282,7 @@ export function BoardScreen() {
               onClick={() => openTerminal(id)}
               disabled={acting}
             >
-              Open in Terminal.app
+              Open in terminal app
             </button>{' '}
             <button type="button" data-testid="close-terminal" onClick={() => unembed(id)}>
               Close

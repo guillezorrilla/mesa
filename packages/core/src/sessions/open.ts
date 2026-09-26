@@ -140,8 +140,7 @@ async function startWindow(
       // The project's registered folder, where open ran it: claude keys its transcripts by cwd.
       cwd: s.project.path,
       command: s.command,
-      // COLORTERM: the agent draws its real palette in the app's terminal (SP-3).
-      env: { MESA_SESSION_ID: record.id, MESA_PROFILE: deps.profileName, COLORTERM: 'truecolor' },
+      env: { MESA_SESSION_ID: record.id, MESA_PROFILE: deps.profileName },
     });
   } catch (error) {
     deps.store.remove(record.id);

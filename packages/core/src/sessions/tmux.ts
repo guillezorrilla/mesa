@@ -50,6 +50,22 @@ const FORMAT = [
   .join('\t');
 
 // Set on every start, before any window exists: history-limit applies only to panes made after it.
+/**
+ * With `mouse on`, a drag selects in tmux's copy mode; ending it pipes the text to pbcopy, so a
+ * copy reaches the pasteboard in every client, Terminal.app too (it ignores OSC 52).
+ */
+const COPY_BINDINGS = ['copy-mode', 'copy-mode-vi'].flatMap((table) => [
+  ';',
+  'bind-key',
+  '-T',
+  table,
+  'MouseDragEnd1Pane',
+  'send-keys',
+  '-X',
+  'copy-pipe-and-cancel',
+  'pbcopy',
+]);
+
 const SERVER_OPTIONS = [
   // Mesa's server outlives its last window, so the options below hold for the next open.
   ['-s', 'exit-empty', 'off'],
@@ -59,14 +75,13 @@ const SERVER_OPTIONS = [
   ['-g', 'history-limit', '10000'],
   ['-g', 'default-terminal', 'tmux-256color'],
   // The app's embedded terminal (ADR-0007 amendment, SP-3), as Xirp sets its sessions: the wheel
-  // scrolls tmux's history instead of sending arrow keys, no status row, escape sequences and
-  // OSC 52 copies reach the outer terminal, and it says so it can take RGB and OSC 8 links.
+  // scrolls tmux's history instead of sending arrow keys to the agent, and no status row. A
+  // copy goes out as OSC 52 (to the app) and, through the bindings below, to pbcopy.
+  // ponytail: no allow-passthrough (pane output could write the pasteboard) and no RGB claim
+  // (Terminal.app shares xterm-256color); 256 colours until the app's pty gets its own TERM.
   ['-g', 'mouse', 'on'],
   ['-g', 'status', 'off'],
-  ['-g', 'allow-passthrough', 'on'],
   ['-s', 'set-clipboard', 'external'],
-  // An index, not -a: this runs on every open, and an append would grow the list each time.
-  ['-s', 'terminal-features[9]', 'xterm*:RGB:hyperlinks'],
 ];
 
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
@@ -144,7 +159,11 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
   const ensureServer = async () => {
     const options = SERVER_OPTIONS.flatMap((o) => [';', 'set-option', ...o]);
     const unset = nestedAgentVars(env).flatMap((name) => [';', 'set-environment', '-gu', name]);
-    await must(['start-server', ...options, ...unset], 'internal', 'could not start tmux');
+    await must(
+      ['start-server', ...options, ...COPY_BINDINGS, ...unset],
+      'internal',
+      'could not start tmux',
+    );
   };
 
   return {
@@ -178,29 +197,25 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
       return { project: spec.project, window: spec.window };
     },
     /**
-     * Sizes the window to a view's cols and rows, then gives the size back to tmux's own policy
-     * (resize-window alone would pin it): the last view resized wins (ADR-0001 amendment).
+     * Sizes the window to a view's cols and rows now, then hands sizing back to tmux's own
+     * `window-size latest` (resize-window alone would pin it): after that the client used last
+     * sizes the window (ADR-0001 amendment).
      */
     resizeWindow: async (target: WindowTarget, cols: number, rows: number) => {
-      await must(
-        [
-          'resize-window',
-          '-t',
-          exact(target),
-          '-x',
-          String(cols),
-          '-y',
-          String(rows),
-          ';',
-          'set-option',
-          '-w',
-          '-t',
-          exact(target),
-          '-u',
-          'window-size',
-        ],
-        'not_found',
-        `no window ${label(target)}`,
+      await onWindow(
+        target,
+        'resize-window',
+        '-x',
+        String(cols),
+        '-y',
+        String(rows),
+        ';',
+        'set-option',
+        '-w',
+        '-t',
+        exact(target),
+        '-u',
+        'window-size',
       );
     },
     killWindow: async (target: WindowTarget) => {
