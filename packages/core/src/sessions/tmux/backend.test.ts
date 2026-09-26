@@ -234,7 +234,10 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     // It returns at once: the server runs the command, not this mesa.
     expect(Date.now() - started).toBeLessThan(500);
     const logged = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
-    expect(await eventually(logged, /stop/)).toBe("--profile|ptest|stop|a1b2c3d4|it's #1 $HOME|\n");
+    // The stand-in writes its line in two steps: wait for the newline that ends it.
+    expect(await eventually(logged, /stop.*\n/)).toBe(
+      "--profile|ptest|stop|a1b2c3d4|it's #1 $HOME|\n",
+    );
     expect(Date.now() - started).toBeGreaterThanOrEqual(1000);
     await raw('set-hook', '-gu', 'pane-died');
   });
