@@ -5,8 +5,14 @@ import { MesaError } from '../../lib/result.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import type { AgentProcess } from '../agent-listing.js';
 import type { HookEvent } from '../hook-events.js';
-import { FINAL_STATES, type SessionRecord } from '../record.js';
-import { classifySession, hookState, lastOutputLine, type SessionSignals } from '../state.js';
+import { FINAL_STATES, isAgentState, type SessionRecord } from '../record.js';
+import {
+  classifySession,
+  hookState,
+  lastOutputLine,
+  type Placement,
+  type SessionSignals,
+} from '../state.js';
 import type { SessionStore } from '../store.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { targetLabel } from '../tmux/format.js';
@@ -51,7 +57,8 @@ function saveState(
  * session whose window it runs in (its pid is the pane's), else the newest session not stopped
  * that holds its agent session id. Faro classifies every row from its latest hook event, its
  * listing, its window, and (only when neither of the first two speaks) its tail; a new state is
- * saved to the record. Highest attention first.
+ * saved to the record; a queued session, and one cancelled before it ran, keeps Mesa's state, at
+ * no attention. Highest attention first.
  */
 export async function listSessions(
   deps: {
@@ -143,12 +150,17 @@ export async function listSessions(
           : undefined;
       if (tail !== undefined && !window?.dead && !event && !listedAs) signals.tail = tail;
       const lastOutput = tail === undefined ? undefined : lastOutputLine(tail);
-      const classified = await classifySession(faro, signals);
+      // Queued, or cancelled before it ran: Mesa's own state, with no agent for Faro to read.
+      const ran = isAgentState(found.lastState.state);
+      const classified: Placement = ran
+        ? await classifySession(faro, signals)
+        : { lastState: found.lastState, attention: 0 };
       const { state, source, basis } = found.lastState;
       const next = classified.lastState;
       const changed = next.state !== state || next.source !== source || next.basis !== basis;
       const record = changed ? saveState(deps.store, found, classified.lastState) : found;
-      // An ended session stops the clock when it ended, or when it was seen to.
+      // An ended session stops the clock when it ended, or when it was seen to; one that never
+      // ran has none.
       const end =
         record.endedAt ??
         (FINAL_STATES.has(classified.lastState.state) ? classified.lastState.at : undefined);
@@ -158,7 +170,9 @@ export async function listSessions(
         managed: true,
         children: children.get(record.id) ?? [],
         alive: window !== undefined || listedAs !== undefined,
-        runningSeconds: secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime()),
+        runningSeconds: ran
+          ? secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime())
+          : 0,
         ...(listedAs ? { agentStatus: listedAs.status } : {}),
         ...(lastOutput ? { lastOutput } : {}),
       };

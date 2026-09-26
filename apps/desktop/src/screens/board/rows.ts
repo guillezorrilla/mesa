@@ -11,14 +11,19 @@ export const running = (seconds: number) => {
   return m ? `${m}m${two(s)}s` : `${s}s`;
 };
 
-/** Who placed the row: Faro's backend, and the adapter's list price when it answered. */
-export const decidedBy = (d: { backend: string; costUsd?: number }) =>
-  `decided by ${d.backend}${d.costUsd === undefined ? '' : ` (list price $${d.costUsd.toFixed(4)})`}`;
+/**
+ * Who placed the row: Faro's backend, and the adapter's list price when it answered; Mesa, for a
+ * session that never ran.
+ */
+export const decidedBy = (d?: { backend: string; costUsd?: number }) =>
+  d
+    ? `decided by ${d.backend}${d.costUsd === undefined ? '' : ` (list price $${d.costUsd.toFixed(4)})`}`
+    : 'set by Mesa: its agent has not run';
 
 // ponytail: core's FINAL_STATES and WAITING_STATES, copied: the app imports core's types only (it
 // reaches Mesa through the bridge), and typing them as SessionState makes a renamed state fail
 // typecheck here.
-const FINISHED: ReadonlySet<SessionState> = new Set(['done', 'failed']);
+const FINISHED: ReadonlySet<SessionState> = new Set(['done', 'failed', 'stopped']);
 export const WAITING: ReadonlySet<SessionState> = new Set([
   'waiting-permission',
   'waiting-question',
@@ -26,6 +31,8 @@ export const WAITING: ReadonlySet<SessionState> = new Set([
 
 /** Its agent has exited: stopped, its window gone, or its pane dead (done or failed). */
 export const exited = (s: SessionRow) => !s.alive || FINISHED.has(s.lastState.state);
+/** A Mesa session waiting to start (mesa open --after): a Stop cancels it. */
+export const queued = (s: SessionRow) => s.managed && s.lastState.state === 'queued';
 /** A row whose clock still runs. */
 export const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.endedAt);
 /** A Mesa session whose agent has exited and whose conversation can reopen. */

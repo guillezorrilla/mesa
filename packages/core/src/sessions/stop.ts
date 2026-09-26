@@ -1,6 +1,7 @@
 import { AGENTS } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
+import { cancelQueued } from './queue.js';
 import { ending, type SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
@@ -14,9 +15,10 @@ const ESCAPE_SETTLE_MS = 300;
 
 /**
  * How a stop went: the agent quit when asked (or had exited), was killed (forced, or still running
- * after the wait), its window was already gone, or the session had already been stopped.
+ * after the wait), its window was already gone, the session was queued and never starts now, or
+ * it had already been stopped.
  */
-export type StopOutcome = 'exited' | 'killed' | 'gone' | 'already-ended';
+export type StopOutcome = 'exited' | 'killed' | 'gone' | 'cancelled' | 'already-ended';
 
 type StopDeps = {
   store: SessionStore;
@@ -28,7 +30,8 @@ type StopDeps = {
 /**
  * Ends a session: Escape, the agent's quit command, up to 5 s for its pane to die or its window
  * to vanish, then `kill-window`; `force` skips the polite step. The record gets `endedAt` and
- * `done` (a `failed` stays failed). A session already stopped changes nothing.
+ * `done` (a `failed` stays failed). A queued session is cancelled. A session already stopped
+ * changes nothing.
  */
 export async function stopSession(
   deps: StopDeps,
@@ -37,6 +40,9 @@ export async function stopSession(
 ): Promise<{ record: SessionRecord; outcome: StopOutcome }> {
   const found = deps.store.get(id);
   if (found.endedAt) return { record: found, outcome: 'already-ended' };
+  if (found.lastState.state === 'queued') {
+    return { record: cancelQueued(deps.store, id, deps.clock()), outcome: 'cancelled' };
+  }
   const target = windowOf(found);
   const pane = () => deps.tmux.findWindow(target);
 

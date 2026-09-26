@@ -294,7 +294,7 @@ test('the board sorts by attention: a session waiting on a permission tops a wor
     at: '2026-09-24T11:59:55.000Z',
     source: 'hook',
   });
-  expect(rows[0]?.decision.answers[2]).toMatchObject({ kind: 'Noul', answer: true });
+  expect(rows[0]?.decision?.answers[2]).toMatchObject({ kind: 'Noul', answer: true });
 });
 
 test('each row names its parent and children; the tree puts children under their parent', async () => {

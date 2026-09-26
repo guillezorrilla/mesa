@@ -28,9 +28,13 @@ export const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: Re
 type NewLaunch = {
   project: RegistryEntry;
   agent: Agent;
-  agentSessionId: string;
+  /** None while queued: a session that never ran has no conversation. */
+  agentSessionId?: string;
   goal?: string;
   parent?: string;
+  /** Queued after this session (mesa open --after): the record waits, with no window yet. */
+  after?: string;
+  pending?: SessionRecord['pending'];
   worktree?: Worktree;
   cwd?: string;
   name?: string;
@@ -45,14 +49,7 @@ export async function launchSession(
 ): Promise<SessionRecord> {
   const record = createRecord(deps, s);
   try {
-    await deps.tmux.openWindow({
-      project: s.project.name,
-      window: record.tmux.window,
-      // claude keys its transcripts by cwd.
-      cwd: folderOf(s, s.project),
-      command: s.command,
-      env: windowEnv(record.id, deps.profileName),
-    });
+    await openWindowOf(deps, record, s.project, s.command);
   } catch (error) {
     deps.store.remove(record.id);
     throw error;
@@ -60,16 +57,44 @@ export async function launchSession(
   return record;
 }
 
-/** A session's record, named for the window it gets (startWindow, or a later resume). */
+/** Opens the window a record is named for, running `command` in its folder. */
+export const openWindowOf = (
+  deps: Pick<LaunchDeps, 'tmux' | 'profileName'>,
+  record: SessionRecord,
+  project: RegistryEntry,
+  command: string,
+) =>
+  deps.tmux.openWindow({
+    project: project.name,
+    window: record.tmux.window,
+    // claude keys its transcripts by cwd.
+    cwd: folderOf(record, project),
+    command,
+    env: windowEnv(record.id, deps.profileName),
+  });
+
+// ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its
+// prompt, or at the trust dialog in a folder it has not seen, or works on its goal.
+/** A session's state the moment its window opens. */
+export const launched = (at: string): SessionRecord['lastState'] => ({
+  state: 'idle',
+  confidence: 0.6,
+  at,
+  source: 'mesa',
+});
+
+/** A session's record, named for the window it gets; with `pending`, queued, with none yet. */
 export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile'>, s: NewLaunch) {
   const now = deps.clock().toISOString();
   return deps.store.create((id) => ({
     kind: 'interactive',
     project: s.project.name,
     agent: s.agent,
-    agentSessionId: s.agentSessionId,
+    ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
     ...(s.parent === undefined ? {} : { parent: s.parent }),
+    ...(s.after === undefined ? {} : { after: s.after }),
+    ...(s.pending === undefined ? {} : { pending: s.pending }),
     ...(s.worktree === undefined ? {} : { worktree: s.worktree }),
     ...(s.cwd === undefined ? {} : { cwd: s.cwd }),
     ...(s.name === undefined ? {} : { name: s.name }),
@@ -81,9 +106,9 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
       window: windowName(s.agent, id),
     },
     startedAt: now,
-    // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at
-    // its prompt, or at the trust dialog in a folder it has not seen, or works on its goal.
-    lastState: { state: 'idle', confidence: 0.6, at: now, source: 'mesa' },
+    lastState: s.pending
+      ? { state: 'queued', confidence: 1, at: now, source: 'mesa' }
+      : launched(now),
     ...(s.resumedFrom ? { resumedFrom: s.resumedFrom } : {}),
   }));
 }

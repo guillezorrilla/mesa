@@ -17,8 +17,8 @@ import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Backend, Decision, Question } from '../decisions/types.js';
 import type { AgentProcess } from './agent-listing.js';
 import {
+  AGENT_STATES,
   FINAL_STATES,
-  SESSION_STATES,
   type SessionRecord,
   type SessionState,
   WAITING_STATES,
@@ -221,7 +221,7 @@ export function attentionWeights(c: LastState, s: SessionSignals): Record<string
 
 const ATTENTION: Question = { kind: 'Score', id: 'attention', levels: LEVELS };
 const STATE_QUESTIONS: Question[] = [
-  { kind: 'Choice', id: 'state', options: [...SESSION_STATES] },
+  { kind: 'Choice', id: 'state', options: [...AGENT_STATES] },
   ATTENTION,
   { kind: 'Noul', id: 'human', statement: 'A human is needed now' },
 ];
@@ -229,11 +229,11 @@ const STATE_QUESTIONS: Question[] = [
 /** The weights the rules give: the classified state at its confidence, the rest shared evenly. */
 function weigh(s: SessionSignals): Record<string, Weights> {
   const c = classify(s);
-  const rest = (1 - c.confidence) / (SESSION_STATES.length - 1);
+  const rest = (1 - c.confidence) / (AGENT_STATES.length - 1);
   const state = Object.fromEntries(
-    SESSION_STATES.map((name) => [name, name === c.state ? c.confidence : rest]),
+    AGENT_STATES.map((name) => [name, name === c.state ? c.confidence : rest]),
   );
-  const human = SESSION_STATES.filter((n) => WAITING_STATES.has(n)).reduce(
+  const human = AGENT_STATES.filter((n) => WAITING_STATES.has(n)).reduce(
     (sum, n) => sum + (state[n] ?? 0),
     0,
   );
@@ -243,8 +243,11 @@ function weigh(s: SessionSignals): Record<string, Weights> {
 /** The rules backend for session state: one rule, `classify` above. */
 const stateRules = rulesBackend<SessionSignals>([{ when: () => true, answer: (_, s) => weigh(s) }]);
 
-/** A board row's place: its state, its attention (0 to 1), and the Decision behind them. */
-export type Placement = { lastState: LastState; attention: number; decision: Decision };
+/**
+ * A board row's place: its state, its attention (0 to 1), and the Decision behind them, which a
+ * state Mesa holds (queued, stopped) has none of.
+ */
+export type Placement = { lastState: LastState; attention: number; decision?: Decision };
 
 /** What the adapter saw, as a short hash: while it is unchanged, the adapter's answer stands. */
 const basisOf = (s: SessionSignals) =>
@@ -254,7 +257,7 @@ const basisOf = (s: SessionSignals) =>
     .slice(0, 16);
 
 /**
- * Faro places one session: a Choice over the six states, a Score for attention, and a Noul for
+ * Faro places one session: a Choice over the six agent states, a Score for attention, and a Noul for
  * "a human is needed now", asked through `decide` with the state rules first and `backends`
  * (the adapter) when they are unsure. The adapter's Choice, when it answered, is the state, kept
  * with the `basis` it saw: the board refreshes every few seconds, and while nothing it saw has
@@ -266,7 +269,7 @@ export async function classifySession(
     backends?: readonly Backend<SessionSignals>[];
   },
   signals: SessionSignals,
-): Promise<Placement> {
+): Promise<Required<Placement>> {
   const basis = basisOf(signals);
   const known = signals.last.source === 'adapter' && signals.last.basis === basis;
   const backends = [stateRules, ...(known ? [] : (deps.backends ?? []))];
