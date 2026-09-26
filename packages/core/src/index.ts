@@ -21,10 +21,11 @@ export {
   type Recorded,
 } from './receipts/receipts.js';
 export type { Attached } from './sessions/attach.js';
-export type { ForeignRow, ManagedRow, SessionRow, TreeRow } from './sessions/list.js';
+export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
+export type { TreeRow } from './sessions/board/tree.js';
+export type { SessionRecord, SessionState } from './sessions/record.js';
 export type { Sent } from './sessions/send.js';
 export type { StopOutcome } from './sessions/stop.js';
-export type { SessionRecord } from './sessions/store.js';
-export type { TmuxWindow } from './sessions/tmux.js';
+export type { TmuxWindow } from './sessions/tmux/format.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';

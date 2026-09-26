@@ -7,7 +7,7 @@ import type { IdSource } from '../lib/ids.js';
 import type { Runner, RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { MesaDeps } from '../mesa.js';
-import type { NewSession } from '../sessions/store.js';
+import type { NewSession } from '../sessions/record.js';
 
 // Test implementations of Mesa's seams, real but controlled: a scripted runner and a temp home,
 // never mocks of Mesa's own modules. Published as @mesa/core/testing, not from the index.

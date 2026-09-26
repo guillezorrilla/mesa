@@ -4,7 +4,8 @@ import { AGENTS, type Agent, AgentSchema } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import { redactPayload } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
-import { isSessionId, type SessionStore } from './store.js';
+import { isSessionId } from './record.js';
+import type { SessionStore } from './store.js';
 
 // One line per agent hook in `sessions/events/<mesa-session-id>.jsonl`: the first signal Faro
 // reads for session state (ADR-0003).

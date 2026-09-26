@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { type Binary, probe } from '../lib/probe.js';
 import { type Runner, shellWord } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
 
 /** The agents Mesa runs and how to probe and install each. Everything agent-specific derives from here. */
 export const AGENTS = {
@@ -38,3 +39,18 @@ export function agentBinary(name: Agent): Binary {
 
 /** One agent's probe: `hint` says why it failed and how to install it. */
 export const checkAgent = (run: Runner, agent: Agent) => probe(run, agentBinary(agent));
+
+/** An agent Mesa can run: it starts and resumes sessions (v1: claude). */
+export type RunnableAgent = Extract<(typeof AGENTS)[Agent], { start: unknown }>;
+
+/**
+ * The agent's spec, once Mesa can run it and its binary answers; agent_unavailable otherwise,
+ * saying why and how to install it.
+ */
+export async function readyAgent(run: Runner, agent: Agent): Promise<RunnableAgent> {
+  const spec = AGENTS[agent];
+  if (!('start' in spec)) throw new MesaError('agent_unavailable', spec.planned);
+  const check = await checkAgent(run, agent);
+  if (!check.ok) throw new MesaError('agent_unavailable', `${agent} ${check.hint}`);
+  return spec;
+}

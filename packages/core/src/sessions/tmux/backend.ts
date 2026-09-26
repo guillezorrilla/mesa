@@ -1,29 +1,23 @@
-import { type Env, type Runner, shellWord } from '../lib/process.js';
-import { type ErrorCode, MesaError } from '../lib/result.js';
+import type { Env, Runner } from '../../lib/process.js';
+import { type ErrorCode, MesaError } from '../../lib/result.js';
+import {
+  exact,
+  FORMAT,
+  isShell,
+  parseWindow,
+  type TmuxWindow,
+  targetLabel,
+  VIEW_PREFIX,
+  type WindowTarget,
+} from './format.js';
+import { paneDiedHook } from './pane-died-hook.js';
+import { COPY_BINDINGS, SERVER_OPTIONS } from './server-options.js';
 
 // The session backend: ADR-0001's tmux commands on the profile's own socket, never the user's
 // tmux server. Command lines and options follow docs/spikes/session-ids.md.
 
 const TIMEOUT_MS = 5000;
 export const TMUX_INSTALL = 'brew install tmux';
-
-/** One window on Mesa's server: the project names the tmux session, the window one agent session. */
-export type WindowTarget = { project: string; window: string };
-
-export type TmuxWindow = WindowTarget & {
-  index: number;
-  panePid: number;
-  /** What the pane runs now: claude shows as its version string (`2.1.282`), a shell as `zsh`. */
-  command: string;
-  path: string;
-  /** Last activity in the window, ISO. */
-  activity: string;
-  /** The process exited; `remain-on-exit` keeps the pane and its output. */
-  dead: boolean;
-  /** How it exited, once dead: its exit status, or the signal that killed it (`kill`). */
-  deadStatus?: number;
-  deadSignal?: string;
-};
 
 export type WindowSpec = WindowTarget & {
   cwd: string;
@@ -39,112 +33,16 @@ export type WindowSpec = WindowTarget & {
   env: Record<string, string>;
 };
 
-// ADR-0001's list format, with the session name first for `-a`. Tabs, so a path may hold spaces.
-const FORMAT = [
-  'session_name',
-  'window_index',
-  'window_name',
-  'pane_pid',
-  'pane_current_command',
-  'pane_current_path',
-  'window_activity',
-  'pane_dead',
-  'pane_dead_status',
-  'pane_dead_signal',
-]
-  .map((f) => `#{${f}}`)
-  .join('\t');
-
-/**
- * With `mouse on`, a drag selects in tmux's copy mode; ending it pipes the text to pbcopy, so a
- * copy reaches the pasteboard in every client, Terminal.app too (it ignores OSC 52).
- */
-const COPY_BINDINGS = ['copy-mode', 'copy-mode-vi'].flatMap((table) => [
-  ';',
-  'bind-key',
-  '-T',
-  table,
-  'MouseDragEnd1Pane',
-  'send-keys',
-  '-X',
-  'copy-pipe-and-cancel',
-  'pbcopy',
-]);
-
-// Set on every start, before any window exists: history-limit applies only to panes made after it.
-const SERVER_OPTIONS = [
-  // Mesa's server outlives its last window, so the options below hold for the next open.
-  ['-s', 'exit-empty', 'off'],
-  // claude warns when focus events are off.
-  ['-s', 'focus-events', 'on'],
-  ['-g', 'remain-on-exit', 'on'],
-  ['-g', 'history-limit', '10000'],
-  ['-g', 'default-terminal', 'tmux-256color'],
-  // The app's embedded terminal (ADR-0007 amendment, SP-3), as the reference app sets its sessions: the wheel
-  // scrolls tmux's history instead of sending arrow keys to the agent, and no status row. A
-  // copy goes out as OSC 52 (to the app) and, through the bindings below, to pbcopy.
-  // ponytail: no allow-passthrough (pane output could write the pasteboard) and no RGB claim
-  // (Terminal.app shares xterm-256color); 256 colours until the app's pty gets its own TERM.
-  ['-g', 'mouse', 'on'],
-  ['-g', 'status', 'off'],
-  ['-s', 'set-clipboard', 'external'],
-];
-
-/** The name prefix of a terminal's view session (attachArgv): never a project's session. */
-export const VIEW_PREFIX = '_view-';
-
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
 const nestedAgentVars = (env: Env) =>
   Object.keys(env).filter(
     (name) => name === 'CLAUDECODE' || name === 'CLAUDE_PID' || name.startsWith('CLAUDE_CODE_'),
   );
 
-const SHELL_NAMES = /^-?(sh|bash|zsh|fish|dash|ksh|tcsh|csh)$/;
-/** A pane whose current command is a shell: its agent is gone. */
-export const isShell = (command: string) => SHELL_NAMES.test(command);
 /** tmux's answers when there is nothing to list; `no current target` is a server with no sessions. */
 const NOTHING_THERE = /no server running|error connecting to|can't find session|no current target/;
 
-// `=` asks for an exact name: tmux otherwise takes a prefix, so `tide` would reach `tide-pool`.
-const exact = ({ project, window }: WindowTarget) => `=${project}:=${window}`;
-/** `project:window`, as tmux itself names the window. */
-export const targetLabel = ({ project, window }: WindowTarget) => `${project}:${window}`;
 const label = targetLabel;
-
-function parseWindow(line: string): TmuxWindow {
-  const [project = '', index, window = '', pid, command = '', path = '', activity, dead, st, sig] =
-    line.split('\t');
-  // Empty while the pane lives; once dead, tmux prints the status or the signal's name.
-  const status = st && /^\d+$/.test(st) ? Number(st) : undefined;
-  const signal = sig || undefined;
-  return {
-    project,
-    window,
-    index: Number(index),
-    panePid: Number(pid),
-    command,
-    path,
-    activity: new Date(Number(activity) * 1000).toISOString(),
-    dead: dead === '1',
-    ...(status === undefined ? {} : { deadStatus: status }),
-    ...(signal === undefined ? {} : { deadSignal: signal }),
-  };
-}
-
-/**
- * The tmux command a pane-died hook runs: `mesa --profile <profile> hook tmux pane-died -- <project>
- * <window>`, the pane's names filled in, shell-quoted, by tmux when it fires (`#{q:...}`). Three
- * parsers read it. For the shell, this mesa's words are single-quoted. For tmux's formats, a `#`
- * in them is doubled. For tmux's double quotes, a backslash, a quote, and a `$` are escaped.
- * `-b`: tmux runs each hook in the background, so one slow hook never holds up the next pane's.
- * Its output and any failure are dropped: tmux shows a background command's output, or a
- * nonzero status, in view mode on some other pane, which would freeze a live agent's screen.
- */
-function paneDiedHook(self: readonly string[], profile: string): string {
-  const mesa = [...self.map(shellWord), '--profile', shellWord(profile)].join(' ');
-  const command = `${mesa.replaceAll('#', '##')} hook tmux pane-died -- #{q:session_name} #{q:window_name} >/dev/null 2>&1 || :`;
-  return `run-shell -b "${command.replace(/[\\"$]/g, (c) => `\\${c}`)}"`;
-}
 
 export function tmuxBackend({
   run,
@@ -310,7 +208,8 @@ export function tmuxBackend({
         '#{pane_dead}\t#{pane_current_command}',
       );
       const [dead, command = ''] = pane.trim().split('\t');
-      if (dead === '1' || (SHELL_NAMES.test(command) && !force)) {
+      // Checked again as it types, after the caller's look: the pane may have changed since.
+      if (dead === '1' || (isShell(command) && !force)) {
         const why = dead === '1' ? 'its process exited' : `it runs ${command}; force sends anyway`;
         throw new MesaError('agent_unavailable', `no agent in ${label(target)}: ${why}`);
       }

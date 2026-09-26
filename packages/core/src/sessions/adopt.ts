@@ -1,17 +1,18 @@
-import { closeSync, existsSync, openSync, readdirSync, readSync } from 'node:fs';
-import { join } from 'node:path';
-import { AGENTS, checkAgent } from '../agents/agents.js';
+import { readyAgent } from '../agents/agents.js';
+import { transcriptCwd } from '../agents/claude/transcripts.js';
+import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import { findProject } from '../projects/projects.js';
+import { findProject, projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import type { AgentProcess } from './agent-listing.js';
-import { projectOf } from './list.js';
-import { createRecord, type OpenDeps, startWindow } from './open.js';
-import type { SessionRecord } from './store.js';
+import { agentSessionHolder } from './holders.js';
+import { createRecord, type LaunchDeps, launchSession } from './launch.js';
+import type { SessionRecord } from './record.js';
 
 // Adopting a Claude Code session Mesa did not start (CONTEXT.md, Adopted session).
 
-export type AdoptDeps = OpenDeps & {
+export type AdoptDeps = LaunchDeps & {
+  run: Runner;
   /** The live agent sessions (listAgentProcesses). */
   listing: () => Promise<AgentProcess[]>;
   /** Agent session ids other profiles' records hold. */
@@ -24,36 +25,6 @@ export type AdoptDeps = OpenDeps & {
 const WARNING = 'end the session in its original terminal first: both hold the same transcript';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-// ponytail: the folder is on a transcript's first lines; 1 MiB holds them, read more if one does not.
-const HEAD_BYTES = 1 << 20;
-
-/** The folder a transcript's session ran in: the first line naming one. */
-function transcriptCwd(transcripts: string, id: string): string | undefined {
-  if (!existsSync(transcripts)) return undefined;
-  const file = readdirSync(transcripts)
-    .map((folder) => join(transcripts, folder, `${id}.jsonl`))
-    .find((f) => existsSync(f));
-  if (!file) return undefined;
-  const fd = openSync(file, 'r');
-  const head = Buffer.alloc(HEAD_BYTES);
-  const read = (() => {
-    try {
-      return readSync(fd, head, 0, HEAD_BYTES, 0);
-    } finally {
-      closeSync(fd);
-    }
-  })();
-  for (const line of head.subarray(0, read).toString('utf8').split('\n')) {
-    try {
-      const cwd = (JSON.parse(line) as { cwd?: unknown }).cwd;
-      if (typeof cwd === 'string') return cwd;
-    } catch {
-      // A line cut at the end of the head, or not JSON.
-    }
-  }
-  return undefined;
-}
 
 /**
  * Records a Claude Code session Mesa did not start, found live (the listing) or on disk (its
@@ -72,10 +43,7 @@ export async function adoptSession(
   if (input.name !== undefined && !input.name.trim()) {
     throw new MesaError('usage', 'the name is empty');
   }
-  const held = deps.store
-    .list()
-    .filter((r) => r.agentSessionId === id)
-    .at(-1);
+  const held = agentSessionHolder(deps.store, id);
   if (held) throw new MesaError('usage', `Mesa has ${id} already, as session ${held.id}`);
   if (deps.elsewhere().has(id)) {
     throw new MesaError('usage', `another profile's session has ${id} already`);
@@ -113,8 +81,7 @@ export async function adoptSession(
     ...(input.name === undefined ? {} : { name: input.name }),
   };
   if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
-  const check = await checkAgent(deps.run, 'claude');
-  if (!check.ok) throw new MesaError('agent_unavailable', `claude ${check.hint}`);
-  const record = await startWindow(deps, { ...s, command: AGENTS.claude.resume(id) });
+  const spec = await readyAgent(deps.run, 'claude');
+  const record = await launchSession(deps, { ...s, command: spec.resume(id) });
   return { record, warning: WARNING };
 }

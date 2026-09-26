@@ -63,7 +63,7 @@ Issue #23 wires the second signal into `mesa sessions`:
 
 ## Amendment 2026-09-25: the rules, as built (#25)
 
-`classifySession` in packages/core/src/decisions/session-state.ts asks one Choice over the six states, one Score for attention, and one Noul ("a human is needed now") through `decide`. Its fixtures are in `decisions/fixtures/state/`.
+`classifySession` in packages/core/src/sessions/state.ts asks one Choice over the six states, one Score for attention, and one Noul ("a human is needed now") through `decide`. Its fixtures are in `sessions/fixtures/state/`.
 
 - A hook event more than a minute old gets 0.8, unless the listing agrees with it, in which case it gets 0.95.
 - A hook event that means nothing for state is skipped in favour of the one before it: a `Notification` of type `permission_prompt`, or a `PreToolUse` for another tool.
@@ -109,4 +109,4 @@ The tmux signal was read on each look, so an agent that exited was noticed only 
 - **Which window.** tmux names the session last active, which is a terminal's `_view-` session when one is attached, so the handler matches the window by its name, which holds the Mesa id. Anything that is not a Mesa window of this profile is left alone, with exit 0.
 - **Reporting.** `mesa hooks status` reports whether a server runs and whether it has exactly this mesa's hook. `mesa doctor` warns when the hook is missing (none is needed without a server) or when Claude Code's hooks are.
 
-Evidence: tmux 3.7c, checked live. `show-hooks -g pane-died` prints `pane-died[0] <command>`, and `set-hook -g` replaces the hook's list, so starting again leaves one. A pane that dies runs the hook with its names filled in, within a second (packages/core/src/sessions/tmux.test.ts), and a hostile window name reaches the shell as one word. Without `-b`, two hooks ran one after another. In the #68 reviews, the hook took about 115 ms warm, and an attached view named the pane's session.
+Evidence: tmux 3.7c, checked live. `show-hooks -g pane-died` prints `pane-died[0] <command>`, and `set-hook -g` replaces the hook's list, so starting again leaves one. A pane that dies runs the hook with its names filled in, within a second (packages/core/src/sessions/tmux/backend.test.ts), and a hostile window name reaches the shell as one word. Without `-b`, two hooks ran one after another. In the #68 reviews, the hook took about 115 ms warm, and an attached view named the pane's session.

@@ -1,0 +1,47 @@
+import { projectOf } from '../../projects/projects.js';
+import type { RegistryEntry } from '../../projects/registry.js';
+import type { AgentProcess } from '../agent-listing.js';
+import { foreignId } from '../record.js';
+import { classifySession, listedState } from '../state.js';
+import { type ForeignRow, secondsBetween } from './rows.js';
+
+/** A foreign session's board row: its project from its folder, its state from the listing alone. */
+export async function foreignRow(
+  deps: {
+    projects: readonly RegistryEntry[];
+    priorityOf: (project: string | null) => number;
+    faro: Parameters<typeof classifySession>[0];
+  },
+  process: AgentProcess,
+  now: Date,
+): Promise<ForeignRow> {
+  const { faro } = deps;
+  const { status, waitingFor: _, ...p } = process;
+  const project = projectOf(p.cwd, deps.projects);
+  // ponytail: no record, so each look starts its state now and a foreign wait never climbs;
+  // keep a first-seen time per pid if foreign sessions need to rank by how long they wait.
+  const last = { ...listedState(process), at: now.toISOString(), source: 'listing' as const };
+  // ponytail: rules only; with no record to keep its basis, the adapter would be asked again
+  // on every look. Give foreign sessions a basis cache if they need the adapter.
+  const classified = await classifySession(
+    { ...faro, backends: [] },
+    {
+      now: now.toISOString(),
+      agent: p.agent,
+      last,
+      ended: false,
+      listed: process,
+      priority: deps.priorityOf(project),
+    },
+  );
+  return {
+    ...p,
+    ...classified,
+    id: foreignId(p.pid),
+    managed: false,
+    project,
+    alive: true,
+    agentStatus: status,
+    runningSeconds: secondsBetween(p.startedAt, now.getTime()),
+  };
+}

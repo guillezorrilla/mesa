@@ -1,4 +1,4 @@
-import type { Agent, SessionRow, TreeRow } from '@mesa/core';
+import type { Agent, SessionRow, SessionState, TreeRow } from '@mesa/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Terminal } from '../components/Terminal';
 import { useToast } from '../components/Toast';
@@ -32,7 +32,9 @@ const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.endedAt);
 const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;
 
-const WAITING = new Set(['waiting-permission', 'waiting-question']);
+// A copy of core's WAITING_STATES: the app imports core's types only (it reaches Mesa through the
+// bridge), and typing it as SessionState makes a renamed state fail typecheck here.
+const WAITING: ReadonlySet<SessionState> = new Set(['waiting-permission', 'waiting-question']);
 
 /**
  * The rows to show, each with the rows below it in the tree (the deeper ones right after it). A
