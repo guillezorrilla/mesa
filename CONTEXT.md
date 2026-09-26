@@ -19,7 +19,7 @@ Not: repo (a repo becomes a project once registered), workspace.
 
 ## Registry
 
-A profile's `registry.yaml`: one entry per project, its name and the directory holding its `mesa.yaml`. `mesa projects` reads it; `mesa register <path>` appends to it; `mesa unregister <name>` removes an entry.
+A profile's `registry.yaml`: one entry per project, its name and the directory holding its `mesa.yaml`. `mesa projects` reads it; `mesa register <path>` appends to it; `mesa unregister <name>` removes an entry. Both rewrite it whole, under `registry.yaml.lock`, so two at once keep both changes.
 Not: project list, index.
 
 ## Agent

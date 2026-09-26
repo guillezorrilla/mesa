@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
@@ -7,7 +6,7 @@ import { writeFileAtomic } from '../atomic-file.js';
 import type { IdSource } from '../ids.js';
 import type { Env } from '../process.js';
 import { MesaError } from '../result.js';
-import { tryLock, unlock } from '../vault-lock.js';
+import { withLockSync } from '../vault-lock.js';
 import { parseWith } from '../yaml-file.js';
 import type { WindowTarget } from './tmux.js';
 
@@ -148,11 +147,6 @@ export function windowSession(deps: {
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 
-// About 2 s of 5 ms waits for a record's lock.
-const LOCK_TRIES = 400;
-const LOCK_PAUSE_MS = 5;
-const PAUSE = new Int32Array(new SharedArrayBuffer(4));
-
 /** The ULID's last 8 characters are random: 40 bits, and short enough to type. */
 const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();
 
@@ -190,28 +184,16 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
   /**
    * Runs `fn` holding the record's lock (`<id>.lock` beside it), so read-modify-write updates of
    * one record serialise across processes: a send from two sessions at once keeps both events.
-   * ponytail: waits synchronously, blocking the event loop up to about 2 s under contention; the
-   * section it guards is one read and one rename, so waits are short. No stale takeover, as for
-   * the vault lock.
    */
-  const locked = <T>(id: string, fn: () => T, tries = LOCK_TRIES): T => {
+  const locked = <T>(id: string, fn: () => T, tries?: number): T => {
     const lock = fileOf(id).replace(/\.json$/, '.lock');
-    const token = randomUUID();
-    for (let attempt = 0; !tryLock(lock, token); attempt++) {
-      if (attempt >= tries) {
-        throw new MesaError(
-          'locked',
-          `session ${id} is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
-          { reason: 'session' },
-        );
-      }
-      Atomics.wait(PAUSE, 0, 0, LOCK_PAUSE_MS);
-    }
-    try {
-      return fn();
-    } finally {
-      unlock(lock, token);
-    }
+    const busy = () =>
+      new MesaError(
+        'locked',
+        `session ${id} is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
+        { reason: 'session' },
+      );
+    return withLockSync(lock, fn, busy, tries);
   };
 
   return {
@@ -249,7 +231,7 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
           const change = typeof patch === 'function' ? patch(current) : patch;
           return write({ ...current, ...change, id });
         },
-        wait ? LOCK_TRIES : 0,
+        wait ? undefined : 0,
       ),
     /** Every record, oldest first. */
     list: (): SessionRecord[] => {

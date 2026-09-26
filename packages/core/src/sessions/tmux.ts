@@ -365,3 +365,12 @@ export function tmuxBackend({
 }
 
 export type TmuxBackend = ReturnType<typeof tmuxBackend>;
+
+/** kill-window, where a window that vanished since it was seen is already the goal. */
+export async function killIfThere(tmux: Pick<TmuxBackend, 'killWindow'>, target: WindowTarget) {
+  try {
+    await tmux.killWindow(target);
+  } catch (error) {
+    if (!(error instanceof MesaError && error.code === 'not_found')) throw error;
+  }
+}

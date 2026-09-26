@@ -258,9 +258,22 @@ test('a receipt problem never changes the outcome of the action it records', asy
 });
 
 test('vault open: the URI by default, --json, and its errors', async () => {
-  expect((await mesa('vault', 'open')).code).toBe(4); // no profile, so no vault configured
+  // No profile yet: the same error every command gives.
+  const before = await mesa('vault', 'open');
+  expect([before.code, before.stderr]).toEqual([
+    3,
+    `${home}/.mesa/default/config.yaml not found; run mesa init --vault <path>\n`,
+  ]);
   await mesa('init', '--vault', 'vault');
   await mesa('vault', 'init');
+  // A config that does not read says why, as vault status does, not "no vault".
+  const config = join(home, '.mesa/default/config.yaml');
+  const good = readFileSync(config, 'utf8');
+  writeFileSync(config, `${good}surprise: 1\n`);
+  const broken = await mesa('vault', 'open');
+  expect(broken.code).toBe(4);
+  expect(broken.stderr).toMatch(/config\.yaml.*surprise/);
+  writeFileSync(config, good);
   const list = join(home, 'obsidian/obsidian.json');
   mkdirSync(join(home, 'obsidian'), { recursive: true });
   writeFileSync(list, JSON.stringify({ vaults: { a1: { path: join(home, 'vault'), ts: 1 } } }));
@@ -641,7 +654,26 @@ test('stop and resume print the updated and the new record', async () => {
   });
   expect((await mesa('sessions', '--all')).stdout.split('\n').filter(Boolean)).toHaveLength(2);
   expect((await mesa('stop', 'zzzzzzzz')).code).toBe(3);
-});
+
+  // The old record cannot be marked resumed (a killed mesa left its lock): the resume runs, and
+  // says so in its text and its --json.
+  const again = resumed.json.data.id;
+  await mesa('stop', again);
+  const lock = join(home, `.mesa/default/sessions/${again}.lock`);
+  writeFileSync(lock, 'a killed mesa');
+  const warned = await mesa('resume', again);
+  expect(warned.stdout).toMatch(
+    new RegExp(`\nwarning: session ${again} not marked resumed: session`),
+  );
+  rmSync(lock);
+  const third = warned.stdout.split('\n')[0] ?? '';
+  await mesa('stop', third);
+  writeFileSync(join(home, `.mesa/default/sessions/${third}.lock`), 'a killed mesa');
+  expect((await mesa('resume', third, '--json')).json.data.warning).toMatch(
+    new RegExp(`^session ${third} not marked resumed: session`),
+  );
+  // Each locked record is waited for, about 2 s, before the warning.
+}, 15_000);
 
 test('send prints {sent, session, chars}; a gone session is exit 3', async () => {
   const world = fakeTmux();
@@ -692,6 +724,28 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
     changed: true,
   });
   expect(readFileSync(join(home, '.claude/settings.json'), 'utf8')).toBe('{}\n');
+});
+
+test('a hook in a session refuses to log while config.yaml does not read, so no key leaks', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('config', 'set', 'keys.api', 'sk-live-1234');
+  const events = join(home, '.mesa/default/sessions/events/aaaaaaaa.jsonl');
+  stdin = JSON.stringify({ hook_event_name: 'Stop', prompt: 'my key is sk-live-1234' });
+  env = { MESA_SESSION_ID: 'aaaaaaaa' };
+  await mesa('hook', 'claude');
+  expect(readFileSync(events, 'utf8')).not.toContain('sk-live-1234');
+
+  const config = join(home, '.mesa/default/config.yaml');
+  writeFileSync(config, `${readFileSync(config, 'utf8')}surprise: 1\n`);
+  const before = readFileSync(events, 'utf8');
+  expect(await mesa('hook', 'claude')).toMatchObject({ code: 4 });
+  expect(readFileSync(events, 'utf8')).toBe(before);
+  // Outside a session the hook still records nothing, and says so, whatever the config.
+  env = {};
+  expect(await mesa('hook', 'claude', '--json')).toMatchObject({
+    code: 0,
+    json: { data: { recorded: false, event: null } },
+  });
 });
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {
