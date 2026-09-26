@@ -12,7 +12,8 @@ import {
 import { listAgentProcesses } from '../agent-listing.js';
 import { sessionStore } from '../store.js';
 import { tmuxBackend } from '../tmux/backend.js';
-import { listSessions, sessionTree } from './board.js';
+import { listSessions } from './board.js';
+import { sessionTree } from './tree.js';
 
 const inWindow = (project: string, startedAt: string, window: string) =>
   newSession({ project, startedAt, tmux: { socket: 'mesa-default', session: project, window } });

@@ -2,56 +2,17 @@ import type { FaroProfile } from '../../decisions/decide.js';
 import type { Backend, DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import { MesaError } from '../../lib/result.js';
-import { projectOf } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import type { AgentProcess } from '../agent-listing.js';
 import type { HookEvent } from '../hook-events.js';
-import { FINAL_STATES, foreignId, type SessionRecord } from '../record.js';
-import {
-  classifySession,
-  hookState,
-  lastOutputLine,
-  listedState,
-  type Placement,
-  type SessionSignals,
-} from '../state.js';
+import { FINAL_STATES, type SessionRecord } from '../record.js';
+import { classifySession, hookState, lastOutputLine, type SessionSignals } from '../state.js';
 import type { SessionStore } from '../store.js';
 import { type TmuxBackend, targetLabel } from '../tmux/backend.js';
 import { windowOf } from '../window-name.js';
-
-/**
- * One board row for a Mesa session: the record with the state and attention Faro gives it now
- * (`decision` holds the probabilities), `lastOutput` as its pane's last line now (read on each look,
- * not saved; the record's own field is not written yet), whether it is alive (its tmux window exists, a pane
- * whose agent exited still does, or the agent listing names it), and how long it has run.
- */
-export type ManagedRow = SessionRecord &
-  Placement & {
-    managed: true;
-    alive: boolean;
-    runningSeconds: number;
-    /** The agent listing's status (`idle`, `busy`, `waiting`), while it lists the session. */
-    agentStatus?: string;
-    /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
-    children: string[];
-  };
-
-/**
- * A live agent session Mesa did not start, read-only: shown on the board, never acted on
- * (ADR-0003). `project` is the registered project it runs in, if any; Faro reads its state from
- * the listing alone.
- */
-export type ForeignRow = Omit<AgentProcess, 'status' | 'waitingFor'> &
-  Placement & {
-    id: ReturnType<typeof foreignId>;
-    managed: false;
-    project: string | null;
-    alive: true;
-    agentStatus: string;
-    runningSeconds: number;
-  };
-
-export type SessionRow = ManagedRow | ForeignRow;
+import { foreignRow } from './foreign.js';
+import { matchListed } from './match.js';
+import { type ManagedRow, type SessionRow, secondsBetween } from './rows.js';
 
 // ponytail: a fixed day; a config field if someone wants stopped sessions to linger longer.
 /** How long a stopped session stays on the board, so it can be seen and resumed. */
@@ -81,8 +42,6 @@ function saveState(
 }
 
 /** Whole seconds from `from` (ISO) to `until` (epoch ms), never negative. */
-const secondsBetween = (from: string, until: number) =>
-  Math.max(0, Math.round((until - Date.parse(from)) / 1000));
 
 /**
  * The profile's sessions merged with live tmux and the agent listing: those not stopped, or
@@ -136,22 +95,7 @@ export async function listSessions(
     return records.length ? deps.tmux.listWindows() : [];
   };
   const [listed, windowList] = await Promise.all([deps.listing(), windowsNow()]);
-  // A stopped session runs nowhere, so only open ones can be a listed process. By pid first: a
-  // /clear gives the agent a new session id in the same window. A resumed conversation keeps
-  // its id, so the newest open record holding it wins.
-  const open = records.filter((r) => !r.endedAt);
-  const byWindow = new Map(open.map((r) => [targetLabel(windowOf(r)), r.id]));
-  const byPane = new Map(windowList.map((w) => [w.panePid, byWindow.get(targetLabel(w))]));
-  const byAgentSession = new Map(
-    open.flatMap((r) => (r.agentSessionId ? [[r.agentSessionId, r.id] as const] : [])),
-  );
-  const runs = (p: AgentProcess) => byPane.get(p.pid) ?? byAgentSession.get(p.agentSessionId);
-  const byRecord = new Map(
-    listed.flatMap((p) => {
-      const id = runs(p);
-      return id ? [[id, p] as const] : [];
-    }),
-  );
+  const { runs, listedAs: listedFor } = matchListed(records, windowList, listed);
   const byLabel = new Map(windowList.map((w) => [targetLabel(w), w]));
   const faro = {
     profile: deps.faro,
@@ -161,7 +105,7 @@ export async function listSessions(
   };
   const managed = await Promise.all(
     records.map(async (found): Promise<ManagedRow> => {
-      const listedAs = byRecord.get(found.id);
+      const listedAs = listedFor(found.id);
       const window = byLabel.get(targetLabel(windowOf(found)));
       // A stopped session keeps its state, so its hook log is not read.
       const event = found.endedAt
@@ -223,100 +167,7 @@ export async function listSessions(
   const foreign = listed
     .filter((p) => !runs(p) && !elsewhere.has(p.agentSessionId))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
-    .map(async (process): Promise<ForeignRow> => {
-      const { status, waitingFor: _, ...p } = process;
-      const project = projectOf(p.cwd, deps.projects);
-      // ponytail: no record, so each look starts its state now and a foreign wait never climbs;
-      // keep a first-seen time per pid if foreign sessions need to rank by how long they wait.
-      const last = { ...listedState(process), at: now.toISOString(), source: 'listing' as const };
-      // ponytail: rules only; with no record to keep its basis, the adapter would be asked again
-      // on every look. Give foreign sessions a basis cache if they need the adapter.
-      const classified = await classifySession(
-        { ...faro, backends: [] },
-        {
-          now: now.toISOString(),
-          agent: p.agent,
-          last,
-          ended: false,
-          listed: process,
-          priority: deps.priorityOf(project),
-        },
-      );
-      return {
-        ...p,
-        ...classified,
-        id: foreignId(p.pid),
-        managed: false,
-        project,
-        alive: true,
-        agentStatus: status,
-        runningSeconds: secondsBetween(p.startedAt, now.getTime()),
-      };
-    });
+    .map((process) => foreignRow({ ...deps, faro }, process, now));
   const rows: SessionRow[] = [...managed, ...(await Promise.all(foreign))];
   return rows.sort((a, b) => b.attention - a.attention || a.startedAt.localeCompare(b.startedAt));
-}
-
-/** A board row placed in the session tree: `depth` 0 at the top, 1 for a child, and so on. */
-export type TreeRow = SessionRow & { depth: number };
-
-/**
- * The board as a tree: each row followed by its children, and theirs. Siblings, and the rows at
- * the top, rank by the highest attention in their subtree, so a child waiting on a person lifts
- * its whole branch (CONTEXT.md, Attention score); ties keep the board's order.
- *
- * A row's parent is the one it names, or the session that one was resumed as, the newest in a
- * chain of resumes, so a conversation's children stay together. A row whose parent is not on the
- * board (removed, or stopped too long ago) sits at the top, and so does a row in a loop of
- * hand-edited records.
- *
- * ponytail: resumes are followed through the board's own rows, so a chain whose middle session
- * has left the board stops there; pass the store's resume links in if that ever matters. And
- * placing recurses: a parent chain thousands deep would overflow the stack.
- */
-export function sessionTree(rows: readonly SessionRow[]): TreeRow[] {
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const resumedAs = new Map(
-    rows.flatMap((r) => (r.managed && r.resumedFrom ? [[r.resumedFrom, r.id] as const] : [])),
-  );
-  const parentOf = (r: SessionRow): string | undefined => {
-    let parent = r.managed ? r.parent : undefined;
-    const seen = new Set<string>();
-    while (parent && resumedAs.has(parent) && !seen.has(parent)) {
-      seen.add(parent);
-      parent = resumedAs.get(parent);
-    }
-    return parent && parent !== r.id && byId.has(parent) ? parent : undefined;
-  };
-  const kids = new Map<string, SessionRow[]>();
-  const tops: SessionRow[] = [];
-  for (const row of rows) {
-    const parent = parentOf(row);
-    if (!parent) tops.push(row);
-    else if (kids.has(parent)) kids.get(parent)?.push(row);
-    else kids.set(parent, [row]);
-  }
-  // The highest attention in each row's subtree, each subtree counted once.
-  const peak = new Map<string, number>();
-  const peakOf = (row: SessionRow): number => {
-    const known = peak.get(row.id);
-    if (known !== undefined) return known;
-    peak.set(row.id, row.attention);
-    const top = Math.max(row.attention, ...(kids.get(row.id) ?? []).map(peakOf));
-    peak.set(row.id, top);
-    return top;
-  };
-  const ranked = (group: readonly SessionRow[]) => [...group].sort((a, b) => peakOf(b) - peakOf(a));
-  const out: TreeRow[] = [];
-  const placed = new Set<string>();
-  const place = (row: SessionRow, depth: number) => {
-    if (placed.has(row.id)) return;
-    placed.add(row.id);
-    out.push({ ...row, depth });
-    for (const child of ranked(kids.get(row.id) ?? [])) place(child, depth + 1);
-  };
-  for (const row of ranked(tops)) place(row, 0);
-  // Rows in a loop have a parent on the board but no way down from the top: they go at the top.
-  for (const row of rows) place(row, 0);
-  return out;
 }

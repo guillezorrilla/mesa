@@ -30,7 +30,8 @@ import {
 import { adoptSession } from './sessions/adopt.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession } from './sessions/attach.js';
-import { listSessions, sessionTree } from './sessions/board/board.js';
+import { listSessions } from './sessions/board/board.js';
+import { sessionTree } from './sessions/board/tree.js';
 import { callerOf, windowId } from './sessions/caller.js';
 import { readGoal, sessionGoal } from './sessions/goal.js';
 import { readHookEvents, recordHookEvent } from './sessions/hook-events.js';
