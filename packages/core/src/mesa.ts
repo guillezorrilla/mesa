@@ -27,6 +27,7 @@ import {
 } from './receipts.js';
 import { readRegistry } from './registry.js';
 import { MesaError, toFail } from './result.js';
+import { adoptSession, claudeTranscripts } from './sessions/adopt.js';
 import { listAgentProcesses } from './sessions/agent-listing.js';
 import { attachSession, resizeSession } from './sessions/attach.js';
 import { readHookEvents, recordHookEvent, redactPayload } from './sessions/events.js';
@@ -387,6 +388,41 @@ export function createMesa(profile: string, deps: MesaDeps) {
             ),
         );
       },
+      /**
+       * Adopts a Claude Code session Mesa did not start: a record for it, and, unless
+       * `noResume`, its conversation reopened in a Mesa window. Its warning is always said.
+       */
+      adopt: (
+        agentSessionId: string,
+        opts: { project?: string; name?: string; noResume?: boolean } = {},
+      ) =>
+        record(
+          {
+            type: 'session',
+            summary: ({ record: r }) =>
+              `Adopted Claude Code session ${agentSessionId} as ${r.id} on ${r.project}`,
+            failure: `Could not adopt Claude Code session ${agentSessionId}`,
+            project: (r) => r.record.project,
+            session: (r) => r.record.id,
+            agent: (r) => r.record.agent,
+            inputs: { agentSessionId, ...opts },
+            outputs: ({ record: r }) => ({
+              window: r.tmux.window,
+              resumed: !opts.noResume,
+              ...(r.cwd ? { cwd: r.cwd } : {}),
+            }),
+          },
+          () =>
+            adoptSession(
+              {
+                ...openDeps(),
+                listing: () => listAgentProcesses(deps.run),
+                elsewhere: otherProfilesSessions,
+                transcripts: claudeTranscripts(deps.home),
+              },
+              { agentSessionId, ...opts },
+            ),
+        ),
       /** Reopens a session's conversation in a new window, as a new record linked to the old. */
       resume: (id: string) =>
         record(

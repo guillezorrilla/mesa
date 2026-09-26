@@ -270,7 +270,10 @@ test('the Board is the first screen: every session by attention, with its state,
   const [, foreign] = byTestId('session-row');
   expect(foreign?.className).toBe('muted');
   expect(foreign?.textContent).toContain('not managed');
-  expect(foreign?.querySelector('button')).toBeNull();
+  // Its one action is Adopt.
+  expect([...(foreign?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toEqual([
+    'Adopt',
+  ]);
   // Resume once the agent has exited (window gone or pane dead); Send only while it runs.
   const enabled = (id: string) =>
     byTestId(id).map((b) => !(b as HTMLButtonElement | HTMLInputElement).disabled);
@@ -482,6 +485,36 @@ test('New session passes a branch with --branch, trimmed; a blank one passes non
   expect(calls.filter((c) => c[1] === 'open').at(-1)).not.toContainEqual(
     expect.stringMatching(/^--branch/),
   );
+});
+
+test('Adopt on a foreign row adopts it into its project and says to end the original', async () => {
+  const warning = 'end the session in its original terminal first: both hold the same transcript';
+  const placedForeign = { ...foreignRow, project: 'lantern-cove' };
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([placedForeign, { ...foreignRow, id: 'ext-7', pid: 7 }] satisfies TreeRow[]),
+    adopt: () => envelope({ record: { ...busy, id: 'eeeeeeee' }, warning }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [first, second] = byTestId('session-adopt');
+  await click(first);
+  expect(calls).toContainEqual([
+    '--json',
+    'adopt',
+    '--project',
+    'lantern-cove',
+    '--',
+    foreignRow.agentSessionId,
+  ]);
+  expect(byTestId('toast')[0]?.textContent).toContain(`Adopted as eeeeeeee; ${warning}`);
+  // A row in no project leaves the project to mesa.
+  await click(second);
+  expect(calls.filter((c) => c[1] === 'adopt').at(-1)).toEqual([
+    '--json',
+    'adopt',
+    '--',
+    foreignRow.agentSessionId,
+  ]);
 });
 
 test("a session's branch shows under its project, its worktree on hover", async () => {

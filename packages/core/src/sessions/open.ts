@@ -214,16 +214,17 @@ export async function resumeSession(
   if (!('resume' in spec)) throw new MesaError('agent_unavailable', spec.planned);
   const check = await checkAgent(deps.run, old.agent);
   if (!check.ok) throw new MesaError('agent_unavailable', `${old.agent} ${check.hint}`);
+  const project = findProject(deps.profile, old.project);
+  // tmux would start a window whose folder is gone in $HOME, where claude has no such conversation.
+  const folder = folderOf(old, project);
+  if (!existsSync(folder)) {
+    throw new MesaError(
+      'not_found',
+      `session ${id}'s folder ${folder} is gone, and claude finds its conversation only there`,
+    );
+  }
   if (old.worktree) {
     const { path } = old.worktree;
-    // tmux would start a window whose folder is gone in $HOME, where claude has no such
-    // conversation.
-    if (!existsSync(path)) {
-      throw new MesaError(
-        'not_found',
-        `session ${id}'s worktree ${path} is gone, and claude finds its conversation only there`,
-      );
-    }
     const holder = worktreeHolder(deps.store, path);
     if (holder && holder.id !== old.id) {
       throw new MesaError(
@@ -242,15 +243,18 @@ export async function resumeSession(
   }
   if (left) await deps.tmux.killWindow(target);
   const record = await startWindow(deps, {
-    project: findProject(deps.profile, old.project),
+    project,
     agent: old.agent,
     agentSessionId: old.agentSessionId,
     // The same conversation, so the same goal; it is not typed in again.
     command: spec.resume(old.agentSessionId),
     goal: old.goal,
-    // Its place in the tree too, and its worktree: claude finds the conversation by its cwd.
+    // Its place in the tree too, and its folder: claude finds the conversation by its cwd.
     parent: old.parent,
     worktree: old.worktree,
+    cwd: old.cwd,
+    name: old.name,
+    adopted: old.adopted,
     resumedFrom: old.id,
   });
   // The new session runs now, so marking the old one is best effort: a failure is a warning,
@@ -268,22 +272,50 @@ export async function resumeSession(
   }
 }
 
+/** Where a session's agent runs: its own folder, else its worktree, else the project's. */
+const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: RegistryEntry) =>
+  r.cwd ?? r.worktree?.path ?? project.path;
+
+/** What a new record holds before its window opens. */
+export type NewWindow = {
+  project: RegistryEntry;
+  agent: Agent;
+  agentSessionId: string;
+  goal?: string;
+  parent?: string;
+  worktree?: Worktree;
+  cwd?: string;
+  name?: string;
+  adopted?: true;
+  resumedFrom?: string;
+};
+
 /** Writes the record, then opens its window; a window that cannot open removes the record again. */
-async function startWindow(
+export async function startWindow(
   deps: OpenDeps,
-  s: {
-    project: RegistryEntry;
-    agent: Agent;
-    agentSessionId: string;
-    command: string;
-    goal?: string;
-    parent?: string;
-    worktree?: Worktree;
-    resumedFrom?: string;
-  },
+  s: NewWindow & { command: string },
 ): Promise<SessionRecord> {
+  const record = createRecord(deps, s);
+  try {
+    await deps.tmux.openWindow({
+      project: s.project.name,
+      window: record.tmux.window,
+      // claude keys its transcripts by cwd.
+      cwd: folderOf(s, s.project),
+      command: s.command,
+      env: { MESA_SESSION_ID: record.id, MESA_PROFILE: deps.profileName },
+    });
+  } catch (error) {
+    deps.store.remove(record.id);
+    throw error;
+  }
+  return record;
+}
+
+/** A session's record, named for the window it gets (startWindow, or a later resume). */
+export function createRecord(deps: Pick<OpenDeps, 'store' | 'clock' | 'profile'>, s: NewWindow) {
   const now = deps.clock().toISOString();
-  const record = deps.store.create((id) => ({
+  return deps.store.create((id) => ({
     kind: 'interactive',
     project: s.project.name,
     agent: s.agent,
@@ -291,6 +323,9 @@ async function startWindow(
     ...(s.goal === undefined ? {} : { goal: s.goal }),
     ...(s.parent === undefined ? {} : { parent: s.parent }),
     ...(s.worktree === undefined ? {} : { worktree: s.worktree }),
+    ...(s.cwd === undefined ? {} : { cwd: s.cwd }),
+    ...(s.name === undefined ? {} : { name: s.name }),
+    ...(s.adopted ? { adopted: s.adopted } : {}),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,
@@ -303,18 +338,4 @@ async function startWindow(
     lastState: { state: 'idle', confidence: 0.6, at: now, source: 'mesa' },
     ...(s.resumedFrom ? { resumedFrom: s.resumedFrom } : {}),
   }));
-  try {
-    await deps.tmux.openWindow({
-      project: s.project.name,
-      window: record.tmux.window,
-      // Its worktree, else the project's registered folder: claude keys its transcripts by cwd.
-      cwd: s.worktree?.path ?? s.project.path,
-      command: s.command,
-      env: { MESA_SESSION_ID: record.id, MESA_PROFILE: deps.profileName },
-    });
-  } catch (error) {
-    deps.store.remove(record.id);
-    throw error;
-  }
-  return record;
 }
