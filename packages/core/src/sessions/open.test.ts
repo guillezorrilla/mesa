@@ -175,10 +175,19 @@ test('an open session attaches to its exact window on the profile socket', async
     'mesa-default',
     '-f',
     '/dev/null',
-    'attach-session',
+    // Its own view of the project's session, so other terminals keep their windows.
+    'new-session',
     '-t',
-    `=lantern-cove:=claude-${result.id}`,
-    '-f',
-    'ignore-size',
+    '=lantern-cove',
+    '-s',
+    expect.stringMatching(/^_view-[0-9a-z]{8}$/),
+    ';',
+    'set-option',
+    'destroy-unattached',
+    'on',
+    ';',
+    'select-window',
+    '-t',
+    expect.stringMatching(new RegExp(`^=_view-[0-9a-z]{8}:=claude-${result.id}$`)),
   ]);
 });

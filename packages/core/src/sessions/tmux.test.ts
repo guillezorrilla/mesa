@@ -189,6 +189,21 @@ test('the server drops only the variables that make claude think it is nested', 
   );
 });
 
+test('the server takes the app terminal options: mouse, no status, OSC 52, drag copies to pbcopy', async () => {
+  const { run, calls } = scriptedRunner();
+  await tmuxBackend({ run, socket: 'mesa-default', env: {} }).ensureServer();
+  const args = calls[0]?.args.join(' ') ?? '';
+  for (const option of ['-g mouse on', '-g status off', '-s set-clipboard external']) {
+    expect(args).toContain(`set-option ${option}`);
+  }
+  for (const table of ['copy-mode', 'copy-mode-vi']) {
+    expect(args).toContain(
+      `bind-key -T ${table} MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel pbcopy`,
+    );
+  }
+  expect(args).not.toContain('allow-passthrough');
+});
+
 test('a missing or hung tmux is tmux_unavailable', async () => {
   const missing = tmuxBackend({
     run: scriptedRunner({}, { missing: ['tmux'] }).run,

@@ -63,3 +63,25 @@ tr.muted {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Embedded terminals under the board, one per opened session. */
+.terminal-panel {
+  margin-top: 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+}
+.terminal-panel header {
+  padding: 4px 8px;
+}
+.terminal {
+  height: 420px;
+}
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}

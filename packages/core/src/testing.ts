@@ -192,6 +192,7 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
       }
       case 'start-server':
       case 'set-option':
+      case 'bind-key':
       case 'set-environment':
         return ok();
       default:

@@ -35,8 +35,10 @@ docs/spikes/embedded-terminal.md (SP-3, run live in the Tauri window) measured t
 - Output events carry base64 strings, not byte arrays: JSON number arrays delivered a tenth of the bytes in a burst.
 - `@xterm/addon-webgl` loads in WKWebView. `navigator.clipboard` and `execCommand('copy')` are refused there, so copy and paste go through Rust. tmux's `set-clipboard external` sends copies as OSC 52, and an OSC 52 handler in xterm writes them to the macOS pasteboard. That path was not built in the spike; #28 builds and checks it.
 - The pane is sized explicitly, as the reference app does: after each fit, `resize-window -x <cols> -y <rows>`, then `set-option -w -u window-size`. This is because `-f ignore-size` has no effect when every attached client carries it (ADR-0001 amendment).
-- The options that make the TUI usable in xterm are the reference app's defaults for its tmux sessions:
+- The options that make the TUI usable in xterm follow the reference app's session defaults, less two (#28 review):
   - `mouse on` and `status off`, session options. Without `mouse on` the wheel sends arrow keys to the agent.
-  - `allow-passthrough on`, a pane option.
-  - `set-clipboard external`, a server option and the default.
+  - `set-clipboard external`, a server option and the default. Drag copies are also piped to `pbcopy` by a copy-mode binding, because Terminal.app ignores OSC 52.
+  - Not `allow-passthrough`: it lets any pane output write the pasteboard.
+  - No RGB `terminal-features`: Terminal.app shares `xterm-256color`. The app shows 256 colours until its pty gets its own TERM.
+- The pty's output is held until the renderer's listeners exist (`term_ready`), because Tauri does not buffer events and tmux's first frame would be lost.
 - The tmux-only alternative (`capture-pane -e` plus `send-keys`, no xterm) was measured at 7 ms a capture. It stays the board's last-output preview, because it cannot keep cursor, mouse, and scrollback fidelity.

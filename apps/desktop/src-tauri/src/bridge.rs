@@ -21,6 +21,16 @@ pub fn mesa_command(cli: Option<OsString>) -> Result<Command, String> {
     Ok(cmd)
 }
 
+/// Runs `mesa <args>` (the `MESA_CLI` override, else this workspace's build) and returns its
+/// envelope: the one path from the app to the CLI, for `run_mesa` and the terminal's attach.
+pub fn run(args: &[String]) -> Result<Value, String> {
+    let output = mesa_command(std::env::var_os("MESA_CLI"))?
+        .args(args)
+        .output()
+        .map_err(|e| format!("cannot start mesa: {e}"))?;
+    interpret(output.status.code(), &output.stdout, &output.stderr)
+}
+
 /// Any result envelope on stdout is returned as-is, whatever the exit code: the renderer reads
 /// `ok` and `error.code` itself (doctor exits 3 with its rows). No envelope means mesa itself
 /// failed, and the error carries the exit code and stderr.
