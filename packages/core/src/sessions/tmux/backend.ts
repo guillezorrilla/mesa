@@ -10,7 +10,7 @@ import {
   VIEW_PREFIX,
   type WindowTarget,
 } from './format.js';
-import { paneDiedHook } from './pane-died-hook.js';
+import { mesaCommand, paneDiedHook } from './mesa-command.js';
 import { COPY_BINDINGS, SERVER_OPTIONS } from './server-options.js';
 
 // The session backend: ADR-0001's tmux commands on the profile's own socket, never the user's
@@ -48,13 +48,13 @@ export function tmuxBackend({
   run,
   socket,
   env,
-  paneDied,
+  mesa,
 }: {
   run: Runner;
   socket: string;
   env: Env;
-  /** This mesa and its profile, for the pane-died hook; tests leave it out. */
-  paneDied?: { self: readonly string[]; profile: string };
+  /** This mesa and its profile, for what tmux runs back into it (the pane-died hook, runMesaLater); tests leave it out. */
+  mesa?: { self: readonly string[]; profile: string };
 }) {
   /** One tmux call on Mesa's socket. A missing or hung tmux throws; a failed command returns. */
   const tmux = async (args: string[]) => {
@@ -98,8 +98,8 @@ export function tmuxBackend({
     const options = SERVER_OPTIONS.flatMap((o) => [';', 'set-option', ...o]);
     const unset = nestedAgentVars(env).flatMap((name) => [';', 'set-environment', '-gu', name]);
     // One global hook: set-hook -g replaces the hook's whole list, so starting again leaves one.
-    const hook = paneDied
-      ? [';', 'set-hook', '-g', 'pane-died', paneDiedHook(paneDied.self, paneDied.profile)]
+    const hook = mesa
+      ? [';', 'set-hook', '-g', 'pane-died', paneDiedHook(mesa.self, mesa.profile)]
       : [];
     await must(
       ['start-server', ...options, ...COPY_BINDINGS, ...unset, ...hook],
@@ -119,7 +119,7 @@ export function tmuxBackend({
     paneDiedHookState: async () => {
       const res = await tmux(['show-hooks', '-g', 'pane-died']).catch(() => undefined);
       if (!res?.ok) return { server: false, paneDied: false };
-      const expected = paneDied && `pane-died[0] ${paneDiedHook(paneDied.self, paneDied.profile)}`;
+      const expected = mesa && `pane-died[0] ${paneDiedHook(mesa.self, mesa.profile)}`;
       const set = res.stdout.split('\n').filter((line) => line.startsWith('pane-died['));
       return { server: true, paneDied: set.length === 1 && set[0] === expected };
     },
@@ -128,8 +128,18 @@ export function tmuxBackend({
      * server from an older mesa hooked. ensureServer sets it with everything else.
      */
     setPaneDiedHook: async () => {
-      if (!paneDied) return;
-      await tmux(['set-hook', '-g', 'pane-died', paneDiedHook(paneDied.self, paneDied.profile)]);
+      if (!mesa) return;
+      await tmux(['set-hook', '-g', 'pane-died', paneDiedHook(mesa.self, mesa.profile)]);
+    },
+    /**
+     * Runs this mesa with `args` from the server, `seconds` from now, in the background: work that
+     * must outlive the mesa asking for it, as a session stopping itself would be killed half-way
+     * by its own stop. Its output and any failure are dropped, as the pane-died hook's are.
+     */
+    runMesaLater: async (args: readonly string[], seconds: number) => {
+      if (!mesa) throw new MesaError('internal', 'this tmux backend has no mesa to run');
+      const command = `sleep ${seconds}; ${mesaCommand(mesa.self, mesa.profile, args)} >/dev/null 2>&1 || :`;
+      await must(['run-shell', '-b', command], 'internal', 'could not run mesa later');
     },
     /** A window in the project's tmux session, which is created with it when missing. */
     openWindow: async (spec: WindowSpec): Promise<WindowTarget> => {

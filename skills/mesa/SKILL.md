@@ -54,6 +54,12 @@ Queue work after a session: the new one starts by itself when that session is ov
 mesa open lantern-cove --after b2c3d4e5 --goal "Review the PR b2c3d4e5 opened" --branch review/tide-flake
 ```
 
+Hand off before your context fills: the `mesa-handoff` skill says when, and what the note holds. A successor starts with your goal and the note, and your session stops.
+
+```sh
+mesa handoff $MESA_SESSION_ID --note /tmp/handoff-$MESA_SESSION_ID.md
+```
+
 Adopt a Claude Code session started outside Mesa, so it can be messaged and resumed:
 
 ```sh

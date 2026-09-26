@@ -92,6 +92,10 @@ export const COMMANDS = {
     ({ id }) => ['stop', '--', id],
   ),
   'sessions.resume': commandWith<{ id: string }, SessionRecord>(({ id }) => ['resume', '--', id]),
+  'sessions.handoff': commandWith<
+    { id: string; note: string; keep: boolean },
+    { from: string; to: string; note: string }
+  >(({ id, note, keep }) => ['handoff', '--note', note, ...(keep ? ['--keep'] : []), '--', id]),
   'sessions.resize': commandWith<
     { id: string; cols: number; rows: number },
     { session: string; target: string; cols: number; rows: number }

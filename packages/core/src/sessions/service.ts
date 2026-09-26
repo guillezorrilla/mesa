@@ -16,6 +16,7 @@ import { callerOf, windowId } from './caller.js';
 import { refreshContext } from './context.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { readGoal, sessionGoal } from './goal.js';
+import { handoffSession } from './handoff.js';
 import { readHookEvents, recordHookEvent } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
 import { recordPaneDied } from './pane-died.js';
@@ -28,6 +29,11 @@ import { resumeSession } from './resume.js';
 import { sendPrompt } from './send.js';
 import { hookState } from './state.js';
 import { stopSession } from './stop.js';
+
+// ponytail: a guess at how long a session's agent takes to finish its turn once mesa handoff
+// returns; its stop's Escape interrupts whatever it still writes, which is only its goodbye.
+/** How long a session that handed itself off keeps running before the server stops it. */
+const SELF_STOP_DELAY_S = 2;
 
 /** `recorded` with the action's own warning joined after its receipt's. */
 const withWarning = <T>(recorded: Recorded<T>, warning?: string): Recorded<T> => {
@@ -146,6 +152,31 @@ export function sessionsService(
     };
     return (await startQueue(overNow)) ? look(all) : rows;
   };
+  /**
+   * Ends a session politely, or at once with `force`. The stop gets a session receipt of its own
+   * (none when it changed nothing), and the session's opening receipt is marked ended.
+   */
+  const stop = async (id: string, force = false) => {
+    const recorded = await record(
+      {
+        type: 'session',
+        summary: (r) => `Stopped session ${id} (${r.outcome})`,
+        failure: `Could not stop session ${id}`,
+        project: (r) => r.record.project,
+        session: () => id,
+        agent: (r) => r.record.agent,
+        inputs: { id, force },
+        outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
+        changed: (r) => r.outcome !== 'already-ended',
+      },
+      () => stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, { force }),
+    );
+    const { outcome } = recorded.result;
+    if (outcome === 'already-ended') return recorded;
+    // Stopped is over: what was queued after it starts (a cancel hands its queue on instead).
+    if (outcome !== 'cancelled') await startQueue((after) => after === id);
+    return markEnded(recorded, recorded.result.record);
+  };
   return {
     sessions: {
       list: board,
@@ -262,30 +293,41 @@ export function sessionsService(
               opts,
             ),
         ),
+      stop,
       /**
-       * Ends a session politely, or at once with `force`. The stop gets a session receipt of its
-       * own (none when it changed nothing), and the session's opening receipt is marked ended.
+       * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
+       * `keep`: at once, or, when the session hands itself off from inside its own window, from
+       * the tmux server a moment later, as its own stop would kill this mesa half-way. The
+       * handoff's session receipt names both and the note.
        */
-      stop: async (id: string, force = false) => {
-        const recorded = await record(
+      handoff: (id: string, opts: { note: string; keep?: boolean }) => {
+        const note = absolute(opts.note);
+        const keep = opts.keep ?? false;
+        return record(
           {
             type: 'session',
-            summary: (r) => `Stopped session ${id} (${r.outcome})`,
-            failure: `Could not stop session ${id}`,
-            project: (r) => r.record.project,
+            summary: (r) => `Handed off session ${id} to ${r.to.id} (${r.stop})`,
+            failure: `Could not hand off session ${id}`,
+            project: (r) => r.to.project,
             session: () => id,
-            agent: (r) => r.record.agent,
-            inputs: { id, force },
-            outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
-            changed: (r) => r.outcome !== 'already-ended',
+            agent: (r) => r.to.agent,
+            inputs: { id, note, keep },
+            outputs: (r) => ({ from: id, to: r.to.id, note: r.note, stop: r.stop }),
           },
-          () => stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, { force }),
-        );
-        const { outcome } = recorded.result;
-        if (outcome === 'already-ended') return recorded;
-        // Stopped is over: what was queued after it starts (a cancel hands its queue on instead).
-        if (outcome !== 'cancelled') await startQueue((after) => after === id);
-        return markEnded(recorded, recorded.result.record);
+          async () => {
+            const done = await handoffSession({ ...openDeps(), handoffs: paths.handoffs }, id, {
+              note,
+              keep,
+            });
+            if (keep) return { ...done, stop: 'kept' as const };
+            if (caller().session?.id === id) {
+              await tmux.runMesaLater(['stop', id], SELF_STOP_DELAY_S);
+              return { ...done, stop: 'later' as const };
+            }
+            const stopped = await stop(id);
+            return { ...done, stop: stopped.result.outcome };
+          },
+        ).then((recorded) => withWarning(recorded, recorded.result.warning));
       },
       /**
        * Types a prompt into a live session's agent, from another session (`from`, else the window
