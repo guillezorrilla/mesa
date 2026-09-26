@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { ReceivedPrompts } from './ReceivedPrompts';
+import { RowMenu } from './RowMenu';
 import { decidedBy, exited, resumable, running, ticking } from './rows';
 import { TreeToggle } from './TreeToggle';
 
@@ -18,6 +19,9 @@ export type RowActions = {
   stop: (id: string) => void;
   resume: (id: string) => void;
   adopt: (agentSessionId: string, project?: string) => void;
+  /** Open the Rename or the Remove dialog for this row. */
+  rename: (row: TreeRow) => void;
+  remove: (row: TreeRow) => void;
 };
 
 /**
@@ -36,6 +40,8 @@ export function SessionRow(props: {
   actions: RowActions;
 }) {
   const { row: s, below, acting, actions } = props;
+  // A name a person gave it stands in for the id, which stays on hover.
+  const label = s.managed && s.name ? s.name : s.id;
   return (
     <TableRow
       data-testid="session-row"
@@ -55,13 +61,13 @@ export function SessionRow(props: {
             type="button"
             className="underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground"
             data-testid="embed-terminal"
-            title="Open its terminal here"
+            title={`Open its terminal here${s.name ? ` (${s.id})` : ''}`}
             onClick={() => actions.embed(s.id)}
           >
-            {s.id}
+            {label}
           </button>
         ) : (
-          s.id
+          <span title={s.managed && s.name ? s.id : undefined}>{label}</span>
         )}
       </TableCell>
       <TableCell>
@@ -163,6 +169,12 @@ export function SessionRow(props: {
                 <RotateCcw aria-hidden />
                 Resume
               </Button>
+              <RowMenu
+                sessionId={s.id}
+                canRemove={exited(s) && !acting}
+                onRename={() => actions.rename(s)}
+                onRemove={() => actions.remove(s)}
+              />
             </div>
           </div>
         ) : (

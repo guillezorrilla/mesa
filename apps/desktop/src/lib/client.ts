@@ -11,6 +11,7 @@ import type {
   Project,
   ProjectRow,
   ReceiptEntry,
+  Removed,
   Result,
   Sent,
   SessionRecord,
@@ -66,6 +67,23 @@ export const COMMANDS = {
     // started inside a Mesa window.
     ({ id, prompt }) => ['send', '--no-from', '--', id, prompt],
   ),
+  'sessions.rename': commandWith<{ id: string; name: string }, SessionRecord>(({ id, name }) => [
+    'rename',
+    '--',
+    id,
+    name,
+  ]),
+  // The app removes an ended session only, so never with --force.
+  'sessions.remove': commandWith<
+    { id: string; deleteWorktree?: boolean; deleteBranch?: boolean },
+    Removed
+  >(({ id, deleteWorktree, deleteBranch }) => [
+    'rm',
+    ...(deleteWorktree ? ['--delete-worktree'] : []),
+    ...(deleteBranch ? ['--delete-branch'] : []),
+    '--',
+    id,
+  ]),
   'sessions.stop': commandWith<{ id: string }, SessionRecord & { outcome: StopOutcome }>(
     ({ id }) => ['stop', '--', id],
   ),

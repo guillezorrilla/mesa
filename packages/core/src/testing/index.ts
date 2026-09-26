@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -5,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
-import type { Runner, RunResult } from '../lib/process.js';
+import { execRunner, type Runner, type RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { createMesa, type MesaDeps } from '../mesa.js';
 import { profilePaths } from '../profile/paths.js';
@@ -349,4 +350,51 @@ export function projectProfile(
   mesa.vault.init();
   mesa.projects.register(dir, mesaYaml === undefined);
   return { home, dir, mesa };
+}
+
+/**
+ * Keeps the real git in a test file to its temp repositories: a git hook (pre-push runs these
+ * tests) exports GIT_DIR and friends, which would point git at Mesa's own repository, and the
+ * user's git config (signing, hooks) stays out. The real git inherits process.env, so it is set
+ * for the calling file only: call it once at its top with vitest's hooks, which this module leaves
+ * to its caller so that nothing here needs vitest.
+ */
+export function isolateGit({
+  beforeAll,
+  afterAll,
+}: {
+  beforeAll: (fn: () => void) => void;
+  afterAll: (fn: () => void) => void;
+}) {
+  const saved = Object.entries(process.env).filter(([name]) => name.startsWith('GIT_'));
+  beforeAll(() => {
+    for (const [name] of saved) delete process.env[name];
+    process.env.GIT_CONFIG_GLOBAL = '/dev/null';
+    process.env.GIT_CONFIG_NOSYSTEM = '1';
+  });
+  afterAll(() => {
+    delete process.env.GIT_CONFIG_GLOBAL;
+    delete process.env.GIT_CONFIG_NOSYSTEM;
+    for (const [name, value] of saved) process.env[name] = value;
+  });
+}
+
+/** `run` with the real git in it, for the temp repositories; the rest stays as `run` answers. */
+export const withRealGit =
+  (run: Runner): Runner =>
+  (file, args, ms) =>
+    file === 'git' ? execRunner(file, args, ms) : run(file, args, ms);
+
+/** git in `dir`, as a person would type it, its output trimmed. */
+export const testGit = (dir: string, ...args: string[]) =>
+  execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+
+/** `dir` as a git repository on main, its files in one commit. */
+export function gitRepo(dir: string) {
+  testGit(dir, 'init', '-q', '-b', 'main');
+  testGit(dir, 'add', '-A');
+  testGit(dir, 'commit', '-q', '-m', 'init');
 }

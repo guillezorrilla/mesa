@@ -168,3 +168,33 @@ async function discard(run: Runner, repo: string, path: string, branch?: string)
  */
 export const removeWorktree = (run: Runner, repo: string, worktree: Worktree) =>
   discard(run, repo, worktree.path, worktree.base === undefined ? undefined : worktree.branch);
+
+/**
+ * Removes a session's worktree with work in it (mesa rm --delete-worktree): git refuses one with
+ * changes or untracked files unless `force`, and that refusal is usage with git's reason.
+ */
+export async function deleteWorktree(
+  run: Runner,
+  repo: string,
+  worktree: Worktree,
+  { force = false } = {},
+) {
+  const args = [
+    'worktree',
+    'remove',
+    ...(force ? ['--force'] : []),
+    '--end-of-options',
+    worktree.path,
+  ];
+  await must(run, repo, args, `cannot remove the worktree ${worktree.path}`, ADD_MS);
+}
+
+/** Deletes a session's branch (mesa rm --delete-branch); git refuses one checked out elsewhere. */
+export async function deleteBranch(run: Runner, repo: string, branch: string) {
+  await must(
+    run,
+    repo,
+    ['branch', '-D', '--end-of-options', branch],
+    `cannot delete branch ${branch}`,
+  );
+}
