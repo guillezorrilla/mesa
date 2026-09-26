@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { BackendName } from '../profile/config.js';
+
+/** A decisions backend (CONTEXT.md, Backend): what a profile's `decisions.backend` names. */
+export const DecisionsBackendSchema = z.enum(['rules', 'adapter', 'jev']);
+export type BackendName = z.infer<typeof DecisionsBackendSchema>;
+
+/** Who answered a Decision: a backend, or `rules-fallback` when the named one was asked and failed. */
+export const DecidedBySchema = z.union([DecisionsBackendSchema, z.literal('rules-fallback')]);
 
 // Faro's question primitives, exactly Jev's (ADR-0004), and the shapes every backend answers in.
 
@@ -72,7 +78,7 @@ export type Decision = {
    * Who answered: `rules` (also when even answers stood in for failing rules), the named
    * backend, or `rules-fallback` when the named backend was asked and failed.
    */
-  backend: BackendName | 'rules-fallback';
+  backend: z.infer<typeof DecidedBySchema>;
   /**
    * The call's price as the adapter reports it (`total_cost_usd`, list price: on the subscription
    * nothing is charged), for information only.

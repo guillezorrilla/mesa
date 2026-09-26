@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { execRunner, type Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts/receipts.js';
+import { listReceipts } from '../receipts/store.js';
 import { scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 
 /**

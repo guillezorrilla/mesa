@@ -14,6 +14,10 @@ export type NotesDeps = { vault: string; clock: Clock };
 /** The frontmatter fields writeNote owns; a caller's value for one is dropped. */
 export const NOTE_FIELDS = ['created', 'updated', 'source'];
 
+/** A note's own frontmatter: the fields writeNote does not manage. */
+export const ownFields = (frontmatter: Frontmatter): Frontmatter =>
+  Object.fromEntries(Object.entries(frontmatter).filter(([k]) => !NOTE_FIELDS.includes(k)));
+
 /** The absolute file for a vault-relative note path; a path that leaves the vault is refused. */
 export function vaultFile(vault: string, path: string): string {
   const file = resolve(vault, path);
@@ -47,9 +51,7 @@ export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note 
     });
   }
   const now = obsidianDateTime(deps.clock());
-  const fields = Object.fromEntries(
-    Object.entries(note.frontmatter).filter(([k]) => !NOTE_FIELDS.includes(k)),
-  );
+  const fields = ownFields(note.frontmatter);
   const frontmatter: Frontmatter = {
     created: previous?.frontmatter.created ?? now,
     updated: now,
