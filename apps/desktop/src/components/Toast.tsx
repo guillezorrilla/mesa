@@ -1,4 +1,7 @@
+import { TriangleAlert, X } from 'lucide-react';
 import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const ToastContext = createContext<(text: string) => void>(() => {});
 
@@ -17,14 +20,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext value={show}>
       {children}
-      <div className="toasts">
+      <div className="fixed right-4 bottom-4 z-50 flex w-[min(28rem,calc(100vw-2rem))] flex-col gap-2">
         {messages.map((m) => (
-          <div key={m.id} role="alert" data-testid="toast" className="toast">
-            <pre>{m.text}</pre>
-            <button type="button" onClick={() => dismiss(m.id)}>
-              Dismiss
-            </button>
-          </div>
+          <Alert
+            key={m.id}
+            data-testid="toast"
+            className="fade-in slide-in-from-bottom-2 animate-in shadow-lg"
+          >
+            <TriangleAlert className="text-state-waiting" />
+            <div className="flex items-start justify-between gap-2">
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs">{m.text}</pre>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 shrink-0"
+                aria-label="Dismiss"
+                onClick={() => dismiss(m.id)}
+              >
+                <X />
+              </Button>
+            </div>
+          </Alert>
         ))}
       </div>
     </ToastContext>

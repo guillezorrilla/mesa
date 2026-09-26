@@ -1,0 +1,166 @@
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+import { PageHeader } from '@/components/PageHeader';
+import { useToast } from '@/components/Toast';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useRun } from '@/lib/useCommand';
+import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
+import { exited, shown } from './rows';
+import { type RowActions, SessionRow } from './SessionRow';
+import { TerminalPanel } from './TerminalPanel';
+import { useBoard } from './useBoard';
+
+const COLUMNS = [
+  'Id',
+  'Project',
+  'Agent',
+  'State',
+  'Attention',
+  'Running',
+  'Last output',
+  'Actions',
+];
+
+/**
+ * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
+ * (highest attention first, children under their parent, collapsible), with Faro's state,
+ * confidence, and attention, the running time, and the last output line. It looks again every
+ * two seconds and after every action; a live session's terminal opens under it.
+ */
+export function BoardScreen() {
+  const [ended, setEnded] = useState(false);
+  const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
+  const run = useRun();
+  const toast = useToast();
+  const [acting, setActing] = useState(false);
+  const [newOpen, setNewOpen] = useState(false);
+  // Embedded terminals, one panel per session, in the order opened; several at once.
+  const [panels, setPanels] = useState<string[]>([]);
+  // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
+  // show the view another window of the project.
+  const live = new Set((data ?? []).filter((s) => s.managed && !exited(s)).map((s) => s.id));
+  if (data && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
+
+  // One action at a time, so a double click opens one terminal or one session, not two.
+  const act = async (action: () => Promise<string | undefined>) => {
+    setActing(true);
+    try {
+      const said = await action();
+      if (said) toast(said);
+    } finally {
+      setActing(false);
+      await look();
+    }
+  };
+  const actions: RowActions = {
+    embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
+    openTerminal: (id) =>
+      act(async () => {
+        const attached = await run('sessions.attach', { id });
+        return attached && `Opened ${attached.target} in ${attached.app}`;
+      }),
+    send: (id, form) =>
+      act(async () => {
+        const prompt = String(new FormData(form).get('prompt') ?? '');
+        const sent = await run('sessions.send', { id, prompt });
+        if (!sent) return undefined;
+        form.reset();
+        // Typed either way: a warning says so, so the prompt is not sent twice.
+        const said = `Sent ${sent.chars} characters to ${id}`;
+        return sent.warning ? `${said}; ${sent.warning}` : said;
+      }),
+    stop: (id) =>
+      act(async () => {
+        const stopped = await run('sessions.stop', { id });
+        if (!stopped) return undefined;
+        return stopped.outcome === 'already-ended'
+          ? `Session ${id} had already ended`
+          : `Stopped session ${id}`;
+      }),
+    resume: (id) =>
+      act(async () => {
+        const resumed = await run('sessions.resume', { id });
+        return resumed && `Resumed session ${id} as ${resumed.id}`;
+      }),
+    adopt: (agentSessionId, project) =>
+      act(async () => {
+        const adopted = await run('sessions.adopt', { agentSessionId, project });
+        return adopted && `Adopted as ${adopted.record.id}; ${adopted.warning}`;
+      }),
+  };
+  const open = (input: NewSessionInput) =>
+    act(async () => {
+      const opened = await run('sessions.open', input);
+      if (!opened) return undefined;
+      setNewOpen(false);
+      return `Opened session ${opened.id} on ${opened.project}`;
+    });
+
+  return (
+    <section data-testid="session-board" className="space-y-4">
+      <PageHeader
+        title="Board"
+        description="Every session, the ones waiting on you first; children sit under their parent."
+      >
+        <label className="flex items-center gap-2 text-muted-foreground text-sm">
+          <input
+            type="checkbox"
+            data-testid="sessions-ended"
+            className="size-4 accent-primary"
+            checked={ended}
+            onChange={(e) => setEnded(e.target.checked)}
+          />
+          Show older
+        </label>
+        <Button data-testid="new-session" onClick={() => setNewOpen(true)}>
+          <Plus aria-hidden />
+          New session
+        </Button>
+      </PageHeader>
+      {newOpen && (
+        <NewSessionDialog onOpen={open} onCancel={() => setNewOpen(false)} disabled={acting} />
+      )}
+      {data?.length === 0 && (
+        <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
+          No sessions yet: start one with New session.
+        </p>
+      )}
+      <Card className="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {COLUMNS.map((c) => (
+                <TableHead key={c}>{c}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown(data ?? [], collapsed).map(({ row, below }) => (
+              <SessionRow
+                key={row.id}
+                row={row}
+                below={below}
+                closed={collapsed.has(row.id)}
+                onToggle={() => toggle(row.id)}
+                elapsed={elapsed}
+                acting={acting}
+                actions={actions}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+      {panels.map((id) => (
+        <TerminalPanel
+          key={id}
+          sessionId={id}
+          busy={acting}
+          onOpenExternal={() => actions.openTerminal(id)}
+          onClose={() => setPanels((open) => open.filter((p) => p !== id))}
+        />
+      ))}
+    </section>
+  );
+}
