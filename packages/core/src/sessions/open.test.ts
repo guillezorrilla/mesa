@@ -5,7 +5,14 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import { execRunner, type Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
-import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
+import {
+  fakeTmux,
+  projectProfile,
+  scriptedRunner,
+  sequentialIds,
+  tempDir,
+  testDeps,
+} from '../testing/index.js';
 
 /**
  * claude and a fake tmux as a scripted runner: `claude --version` answers unless `claude` is
@@ -62,14 +69,7 @@ async function setUp(
   // A home reached through a symlink, as the paths Mesa builds are then not the real ones.
   const home = linkedHome ? join(tempDir(), 'home') : tempDir();
   if (linkedHome) symlinkSync(tempDir(), home);
-  const dir = join(home, 'src/lantern-cove');
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
-  const mesa = createMesa('default', testDeps(home, { run, argv, newId }));
-  mesa.init({ vault: 'vault' });
-  mesa.vault.init();
-  mesa.projects.register(dir);
-  return { home, dir, mesa };
+  return projectProfile(run, { home, mesaYaml, argv, newId });
 }
 
 test('open starts claude with its session id in a new tmux session, then in a new window', async () => {

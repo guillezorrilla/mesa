@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -102,16 +102,11 @@ test('a session waiting on a person is refused, so Enter never answers its promp
 });
 
 test('the receipt keeps 80 characters of the prompt, in its inputs and command, keys redacted', async () => {
-  const home = tempDir();
   const world = fakeTmux();
   const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
   const prompt = `use sk-live-1234 then ${'x'.repeat(100)}`;
-  const mesa = createMesa('default', testDeps(home, { run, argv: ['send', 'SESSION', prompt] }));
-  mesa.init({ vault: 'vault' });
-  mesa.vault.init();
+  const { home, mesa } = projectProfile(run, { argv: ['send', 'SESSION', prompt] });
   mesa.config.set('keys.jev', 'sk-live-1234');
-  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
-  mesa.projects.register(join(home, 'src/lantern-cove'), true);
   const { result } = await mesa.sessions.open('lantern-cove');
   await mesa.sessions.send(result.id, prompt);
   const [latest] = listReceipts(join(home, 'vault'), 1);
@@ -218,14 +213,10 @@ test('--no-from sends as a person; an ended, empty, or doubled sender is refused
 });
 
 test('a closing ; is typed as it is; a sender removed while typing still sends', async () => {
-  const home = tempDir();
   let removeWhileTyping: (() => void) | undefined;
   const world = fakeTmux({ onKeys: () => removeWhileTyping?.() });
   const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
-  const mesa = createMesa('default', testDeps(home, { run }));
-  mesa.init({ vault: 'vault' });
-  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
-  mesa.projects.register(join(home, 'src/lantern-cove'), true);
+  const { home, mesa } = projectProfile(run);
   const { result: a } = await mesa.sessions.open('lantern-cove');
   const { result: b } = await mesa.sessions.open('lantern-cove');
   await mesa.sessions.send(b.id, 'plain;');

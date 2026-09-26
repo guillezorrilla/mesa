@@ -331,14 +331,13 @@ export const testStore = (home: string, profile = 'default') =>
   sessionStore({ dir: profilePaths(home, profile).sessions, newId: sequentialIds() });
 
 /**
- * A profile over a fresh temp home with its vault laid out and lantern-cove registered: its
- * mesa.yaml written from `mesaYaml` when given, else a minimal one.
+ * A profile over `home` (a fresh temp dir by default) with its vault laid out and lantern-cove
+ * registered: its mesa.yaml written from `mesaYaml` when given, else a minimal one.
  */
 export function projectProfile(
   run: Runner,
-  { mesaYaml, ...overrides }: Partial<MesaDeps> & { mesaYaml?: string } = {},
+  { mesaYaml, home = tempDir(), ...overrides }: Partial<MesaDeps> & { mesaYaml?: string } = {},
 ) {
-  const home = tempDir();
   const dir = join(home, 'src/lantern-cove');
   mkdirSync(dir, { recursive: true });
   if (mesaYaml !== undefined) writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
