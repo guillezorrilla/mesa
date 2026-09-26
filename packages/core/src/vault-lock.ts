@@ -22,6 +22,27 @@ export function tryLock(path: string, token: string): boolean {
   }
 }
 
+const PAUSE = new Int32Array(new SharedArrayBuffer(4));
+
+/**
+ * Runs `fn` holding the lock file `lock`, waiting synchronously for another holder: `tries`
+ * pauses of 5 ms (about 2 s by default), then `busy()` is thrown.
+ * ponytail: blocks the event loop while it waits; the sections it guards are one read and one
+ * rename, so waits are short. No stale takeover, as for the vault lock.
+ */
+export function withLockSync<T>(lock: string, fn: () => T, busy: () => MesaError, tries = 400): T {
+  const token = randomUUID();
+  for (let attempt = 0; !tryLock(lock, token); attempt++) {
+    if (attempt >= tries) throw busy();
+    Atomics.wait(PAUSE, 0, 0, 5);
+  }
+  try {
+    return fn();
+  } finally {
+    unlock(lock, token);
+  }
+}
+
 /** Removes the lock file, only while it still holds `token`. */
 export function unlock(path: string, token: string): void {
   const holder = (() => {

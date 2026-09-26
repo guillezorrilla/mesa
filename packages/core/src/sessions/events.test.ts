@@ -30,7 +30,7 @@ function setUp() {
     eventsDir: join(dir, 'events'),
     clock: fixedClock(),
     home,
-    secrets: ['sk-conf-9876'],
+    secrets: () => ['sk-conf-9876'],
   };
   const log = () =>
     readFileSync(join(dir, 'events', `${id}.jsonl`), 'utf8')

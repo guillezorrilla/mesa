@@ -66,7 +66,8 @@ export function recordHookEvent(
     eventsDir: string;
     clock: Clock;
     home: string;
-    secrets: readonly string[];
+    /** Read only inside a Mesa session: a config that does not read then refuses the event. */
+    secrets: () => readonly string[];
   },
   input: { agent: string; mesaSessionId?: string; payload: string },
 ): HookEvent | undefined {
@@ -89,7 +90,7 @@ export function recordHookEvent(
     agent: agent.data,
     event: typeof payload.hook_event_name === 'string' ? payload.hook_event_name : 'unknown',
     ...(agentSessionId ? { agentSessionId } : {}),
-    payload: redactPayload(payload, deps.home, deps.secrets),
+    payload: redactPayload(payload, deps.home, deps.secrets()),
   };
   const record = findRecord(deps.store, id);
   // A claude started inside the session's claude inherits MESA_SESSION_ID; its events are not ours.

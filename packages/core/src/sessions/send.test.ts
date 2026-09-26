@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -358,4 +358,13 @@ test('any error writing events after typing is a warning, and any Mesa window co
     code: 'usage',
     message: expect.stringContaining('a person answers it'),
   });
+});
+
+test('a config.yaml that does not read still lets a prompt through: only the receipt is lost', async () => {
+  const { home, mesa, window, opened } = await setUp();
+  const config = join(home, '.mesa/default/config.yaml');
+  writeFileSync(config, `${readFileSync(config, 'utf8')}surprise: 1\n`);
+  const { result } = await mesa.sessions.send(opened.id, 'still here');
+  expect(result.sent).toBe(true);
+  expect(window.typed).toEqual(['still here']);
 });
