@@ -44,6 +44,10 @@ const SessionRecordSchema = z.strictObject({
   goal: z.string().optional(),
   /** The session this one was started from (CONTEXT.md, Parent session). */
   parent: z.string().regex(SHORT_ID).optional(),
+  /** The git worktree it runs in (mesa open --branch; CONTEXT.md, Worktree). */
+  worktree: z
+    .strictObject({ path: z.string(), branch: z.string(), base: z.string().optional() })
+    .optional(),
   tmux: z.strictObject({ socket: z.string(), session: z.string(), window: z.string() }),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),

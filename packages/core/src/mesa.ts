@@ -271,7 +271,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       tree: async (all = false) => sessionTree(await board(all)),
       /**
        * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
-       * as its first prompt. The goal is read first, so the receipt keeps it (receiptText); one
+       * as its first prompt, and with `branch`, in its own git worktree. The goal is read first, so the receipt keeps it (receiptText); one
        * Mesa cannot take fails inside the recorded action, as every refusal does.
        */
       open: (
@@ -282,9 +282,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
           goalFile?: string;
           parent?: string;
           noParent?: boolean;
+          branch?: string;
+          base?: string;
         } = {},
       ) => {
-        const { agent, parent, noParent } = opts;
+        const { agent, parent, noParent, branch, base } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -312,17 +314,21 @@ export function createMesa(profile: string, deps: MesaDeps) {
               ...(kept ? { goal: kept.short } : {}),
               ...(parent === undefined ? {} : { parent }),
               ...(noParent ? { noParent } : {}),
+              ...(branch === undefined ? {} : { branch }),
+              ...(base === undefined ? {} : { base }),
             },
             outputs: (r) => ({
               window: r.tmux.window,
               agentSessionId: r.agentSessionId,
               lastState: r.lastState,
               parent: r.parent ?? null,
+              ...(r.worktree ? { worktree: r.worktree } : {}),
             }),
           },
           async () => {
             if (refused) throw refused;
-            return openSession(openDeps(), { project, agent, goal, parent, noParent });
+            const input = { project, agent, goal, parent, noParent, branch, base };
+            return openSession(openDeps(), input);
           },
         );
       },

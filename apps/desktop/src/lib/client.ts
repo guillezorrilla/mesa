@@ -72,19 +72,21 @@ export const COMMANDS = {
     '--',
     id,
   ]),
-  // `--goal=` hands a goal starting with `-` to mesa, which refuses it with its own message; a
-  // blank goal passes none. `--no-parent`: a person opening one here is not a session starting a
-  // child, even when the app itself was started inside a Mesa window.
-  'sessions.open': commandWith<{ project: string; agent?: Agent; goal?: string }, SessionRecord>(
-    ({ project, agent, goal }) => [
-      'open',
-      '--no-parent',
-      ...(agent ? ['--agent', agent] : []),
-      ...(goal?.trim() ? [`--goal=${goal}`] : []),
-      '--',
-      project,
-    ],
-  ),
+  // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
+  // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
+  // session starting a child, even when the app itself was started inside a Mesa window.
+  'sessions.open': commandWith<
+    { project: string; agent?: Agent; goal?: string; branch?: string },
+    SessionRecord
+  >(({ project, agent, goal, branch }) => [
+    'open',
+    '--no-parent',
+    ...(agent ? ['--agent', agent] : []),
+    ...(goal?.trim() ? [`--goal=${goal}`] : []),
+    ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
+    '--',
+    project,
+  ]),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
   'vault.open': command<Opened>('vault', 'open'),
   'vault.status': command<VaultStatus>('vault', 'status'),

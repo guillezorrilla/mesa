@@ -59,7 +59,8 @@ tr.muted {
   padding: 0 0.3em;
   font-size: 0.85em;
 }
-.goal {
+.goal,
+.branch {
   max-width: 20em;
   overflow: hidden;
   text-overflow: ellipsis;

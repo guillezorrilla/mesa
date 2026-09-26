@@ -456,6 +456,46 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
   ]);
 });
 
+test('New session passes a branch with --branch, trimmed; a blank one passes none', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope({ ...busy, id: 'dddddddd' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('new-session')[0]);
+  (byTestId('new-session-branch')[0] as HTMLInputElement).value = ' try/worktree ';
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'claude',
+    '--branch=try/worktree',
+    '--',
+    'lantern-cove',
+  ]);
+
+  await click(byTestId('new-session')[0]);
+  (byTestId('new-session-branch')[0] as HTMLInputElement).value = '  ';
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls.filter((c) => c[1] === 'open').at(-1)).not.toContainEqual(
+    expect.stringMatching(/^--branch/),
+  );
+});
+
+test("a session's branch shows under its project, its worktree on hover", async () => {
+  const worktree = { path: '/h/.mesa/default/worktrees/lantern-cove/try-x', branch: 'try/x' };
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([{ ...busy, worktree }, asking] satisfies TreeRow[]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [branch] = byTestId('session-branch');
+  expect(branch?.textContent).toBe('try/x');
+  expect(branch?.title).toBe(worktree.path);
+  expect(byTestId('session-branch')).toHaveLength(1);
+});
+
 test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {
   let stopped = false;
   const { bridge, calls } = fakeBridge({

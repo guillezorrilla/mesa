@@ -23,7 +23,7 @@ export const sessions = defineCommand({
       ? columns(
           rows.map((s) => [
             `${indent(s)}${s.id}`,
-            s.project ?? '-',
+            s.managed && s.worktree ? `${s.project} (${s.worktree.branch})` : (s.project ?? '-'),
             s.agent,
             s.lastState.state,
             `${Math.round(s.lastState.confidence * 100)}%`,

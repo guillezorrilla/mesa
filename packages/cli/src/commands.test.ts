@@ -369,7 +369,8 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
     // Stopped two days ago: off the board, but shown with --all.
     record('bbbbbbbb', 'tide', '2026-09-22T10:00:00.000Z', { endedAt: '2026-09-22T10:10:00.000Z' }),
   );
-  save(record('cccccccc', 'harbor', '2026-09-24T11:59:18.000Z'));
+  const worktree = { path: '/h/.mesa/default/worktrees/harbor/try-x', branch: 'try/x' };
+  save(record('cccccccc', 'harbor', '2026-09-24T11:59:18.000Z', { worktree }));
   // tmux still has lantern-cove's window, showing a finished reply; harbor's is gone.
   const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
   run = scriptedRunner({
@@ -388,9 +389,10 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   expect((await mesa('sessions', '--all')).stdout).toBe(
     [
       // By attention: the live one (its screen reads idle, 60%), the vanished one, the stopped one.
-      'aaaaaaaa  lantern-cove  claude  idle     60%  0.33  1h00m   ⏺ Wrote tide-tables.md',
-      'cccccccc  harbor        claude  done     85%  0.25  42s',
-      'bbbbbbbb  tide          claude  working  95%  0.00  10m00s',
+      // A session in its own worktree shows its branch.
+      'aaaaaaaa  lantern-cove    claude  idle     60%  0.33  1h00m   ⏺ Wrote tide-tables.md',
+      'cccccccc  harbor (try/x)  claude  done     85%  0.25  42s',
+      'bbbbbbbb  tide            claude  working  95%  0.00  10m00s',
       '',
     ].join('\n'),
   );
