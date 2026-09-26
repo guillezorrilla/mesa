@@ -11,7 +11,7 @@ import type { SessionRecord } from './record.js';
 
 // Adopting a Claude Code session Mesa did not start (CONTEXT.md, Adopted session).
 
-export type AdoptDeps = LaunchDeps & {
+type AdoptDeps = LaunchDeps & {
   run: Runner;
   /** The live agent sessions (listAgentProcesses). */
   listing: () => Promise<AgentProcess[]>;

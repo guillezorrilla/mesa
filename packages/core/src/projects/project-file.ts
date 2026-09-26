@@ -7,9 +7,9 @@ import { parseWith } from '../lib/schema.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
 /** The file that makes a folder a project. */
-export const PROJECT_FILE = 'mesa.yaml';
+const PROJECT_FILE = 'mesa.yaml';
 
-export const ProjectSchema = z.strictObject({
+const ProjectSchema = z.strictObject({
   name: z
     .string()
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'must be a slug: lowercase letters, digits, and hyphens'),

@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, scriptedRunner } from '@mesa/core/testing';
+import { newSession, scriptedRunner, tmuxLine } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -34,7 +34,7 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
     tmux: (args) =>
       args.includes('capture-pane')
         ? screen
-        : 'lantern-cove\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern-cove\t1790359178\t0\n',
+        : `${tmuxLine({ project: 'lantern-cove', window: 'claude-aaaaaa' })}\n`,
   }).run;
 
   const { json } = await mesa('sessions', '--json');
@@ -139,7 +139,7 @@ test('sessions shows agent sessions Mesa did not start; stop, send, resume refus
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {
   const scripted = scriptedRunner({
-    tmux: 'lantern\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern\t1790359178\t1\n',
+    tmux: `${tmuxLine({ project: 'lantern', window: 'claude-aaaaaa', dead: true })}\n`,
   });
   cli.run = scripted.run;
   const { json } = await mesa('windows', '--json');

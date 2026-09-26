@@ -7,7 +7,7 @@ import type { Answer, Choice, Question, Score } from './types.js';
 export type Weights = Readonly<Record<string, number>> | number;
 
 /** One rule of the rules backend: when it holds for the state, it weighs questions by id. */
-export type Rule<S> = {
+type Rule<S> = {
   when: (state: S) => boolean;
   answer: (questions: Question[], state: S) => Readonly<Record<string, Weights>>;
 };
@@ -49,7 +49,7 @@ export function toAnswer(question: Question, weights: Weights | undefined): Answ
 }
 
 /** The rules backend: a Backend (it fits one) whose answers are always well formed. */
-export type RulesBackend<S> = {
+type RulesBackend<S> = {
   name: 'rules';
   answer: (state: S, questions: Question[]) => Promise<Answer[]>;
 };

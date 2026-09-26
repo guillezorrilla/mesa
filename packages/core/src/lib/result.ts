@@ -15,9 +15,9 @@ export const EXIT_CODES = {
 
 export type ErrorCode = Exclude<keyof typeof EXIT_CODES, 'ok'>;
 
-export type MesaErrorBody = { code: ErrorCode; message: string; details?: unknown };
-export type Ok<T> = { ok: true; data: T };
-export type Fail = { ok: false; error: MesaErrorBody };
+type MesaErrorBody = { code: ErrorCode; message: string; details?: unknown };
+type Ok<T> = { ok: true; data: T };
+type Fail = { ok: false; error: MesaErrorBody };
 export type Result<T> = Ok<T> | Fail;
 
 export class MesaError extends Error {

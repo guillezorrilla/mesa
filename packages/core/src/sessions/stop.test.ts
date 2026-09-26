@@ -1,15 +1,15 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { createMesa } from '../mesa.js';
+import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   type FakeWindow,
   fakeTmux,
   newSession,
+  projectProfile,
   scriptedRunner,
-  tempDir,
-  testDeps,
+  testStore,
 } from '../testing/index.js';
 import { sessionStore } from './store.js';
 
@@ -22,7 +22,6 @@ async function setUp({
   duringSleep = () => {},
   beforeTmux = (_args: string[], _world: ReturnType<typeof fakeTmux>) => {},
 } = {}) {
-  const home = tempDir();
   const heard: string[] = [];
   const world = fakeTmux({
     onKeys: (w: FakeWindow, text: string) => {
@@ -42,11 +41,7 @@ async function setUp({
     sleeps.push(ms);
     duringSleep();
   };
-  const mesa = createMesa('default', testDeps(home, { run: scripted.run, sleep }));
-  mesa.init({ vault: 'vault' });
-  mesa.vault.init();
-  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
-  mesa.projects.register(join(home, 'src/lantern-cove'), true);
+  const { home, mesa } = projectProfile(scripted.run, { sleep });
   const { result: opened } = await mesa.sessions.open('lantern-cove');
   const receipts = () =>
     listReceipts(join(home, 'vault'), 50).filter((e) => e.receipt.type === 'session');
@@ -123,7 +118,7 @@ test('a pane that already exited is ended and its dead window removed; a gone wi
 
 test('stop keeps a failed state failed', async () => {
   const { home, mesa, opened } = await setUp();
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   const failed = {
     state: 'failed',
     confidence: 0.85,
@@ -179,7 +174,7 @@ test('resume refuses a live session, clears a dead window, and needs an agent se
   expect(exited.receipts().at(-1)?.receipt.ended).toBe('2026-09-24T12:00');
 
   const store = sessionStore({
-    dir: join(exited.home, '.mesa/default/sessions'),
+    dir: profilePaths(exited.home, 'default').sessions,
     newId: () => '01TESTZZZZZZZZZZZZZZNOUUID',
   });
   const { id } = store.create(() => newSession());
@@ -192,7 +187,7 @@ test('resume refuses a live session, clears a dead window, and needs an agent se
 test('stop ends the record as it is when the stop lands, not as it was read', async () => {
   let failNow = () => {};
   const { home, mesa, opened } = await setUp({ quits: false, duringSleep: () => failNow() });
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   const failed = {
     state: 'failed',
     confidence: 0.85,
@@ -208,7 +203,7 @@ test('stop ends the record as it is when the stop lands, not as it was read', as
 test('resume with its old record locked still runs, warns, and is not resumed twice', async () => {
   const { home, mesa, opened } = await setUp();
   await mesa.sessions.stop(opened.id);
-  const dir = join(home, '.mesa/default/sessions');
+  const dir = profilePaths(home, 'default').sessions;
   writeFileSync(join(dir, `${opened.id}.lock`), 'a killed mesa');
   const first = await mesa.sessions.resume(opened.id);
   expect(first.warning).toMatch(new RegExp(`^session ${opened.id} not marked resumed: session`));

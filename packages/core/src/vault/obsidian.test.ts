@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { scriptedRunner, tempDir, testDeps } from '../testing/index.js';
-import { knownToObsidian, obsidianUri, openInObsidian } from './obsidian.js';
+import { obsidianUri, openInObsidian } from './obsidian.js';
 
 let home: string;
 let vault: string;
@@ -104,7 +104,11 @@ test('a vault Obsidian does not know is not_found with how to add it, instead of
     message: expect.stringContaining('Open folder as vault'),
   });
   expect(calls).toEqual([]);
-  expect(knownToObsidian(vault, join(home, 'no-such-list.json'))).toBe(false);
+  // No vault list at all: Obsidian knows no vault.
+  const noList = { ...obsidian, vaultList: join(home, 'no-such-list.json') };
+  await expect(openInObsidian({ run, obsidian: noList }, { vault })).rejects.toMatchObject({
+    code: 'not_found',
+  });
 });
 
 test('two known vaults with the same folder name are refused, not guessed', async () => {

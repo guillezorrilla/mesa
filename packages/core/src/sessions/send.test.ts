@@ -1,26 +1,30 @@
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
+import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
-import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
+import {
+  fakeTmux,
+  projectProfile,
+  scriptedRunner,
+  sequentialIds,
+  tempDir,
+  testDeps,
+  testStore,
+} from '../testing/index.js';
 import { sessionStore } from './store.js';
 
 /** A profile with its vault laid out and one claude session open in a fake tmux. */
 async function setUp() {
-  const home = tempDir();
   const world = fakeTmux();
   const scripted = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' });
   const newId = sequentialIds();
-  const mesa = createMesa('default', testDeps(home, { run: scripted.run, newId }));
+  const { home, mesa } = projectProfile(scripted.run, { newId });
   /** Mesa as an agent inside a window sees it: that window's session and profile in its env. */
   const within = (env: Record<string, string>) =>
     createMesa('default', testDeps(home, { run: scripted.run, newId, env }));
-  mesa.init({ vault: 'vault' });
-  mesa.vault.init();
-  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
-  mesa.projects.register(join(home, 'src/lantern-cove'), true);
   const { result: opened } = await mesa.sessions.open('lantern-cove');
   const window = world.windows[0];
   if (!window) throw new Error('no window opened');
@@ -85,7 +89,7 @@ test('an exited or vanished session is not_found; a shell is refused unless --fo
 
 test('a session waiting on a person is refused, so Enter never answers its prompt', async () => {
   const { home, mesa, window, opened } = await setUp();
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   const at = '2026-09-24T12:00:00.000Z';
   store.update(opened.id, {
     lastState: { state: 'waiting-permission', confidence: 0.95, at, source: 'hook' },
@@ -98,16 +102,11 @@ test('a session waiting on a person is refused, so Enter never answers its promp
 });
 
 test('the receipt keeps 80 characters of the prompt, in its inputs and command, keys redacted', async () => {
-  const home = tempDir();
   const world = fakeTmux();
   const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
   const prompt = `use sk-live-1234 then ${'x'.repeat(100)}`;
-  const mesa = createMesa('default', testDeps(home, { run, argv: ['send', 'SESSION', prompt] }));
-  mesa.init({ vault: 'vault' });
-  mesa.vault.init();
+  const { home, mesa } = projectProfile(run, { argv: ['send', 'SESSION', prompt] });
   mesa.config.set('keys.jev', 'sk-live-1234');
-  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
-  mesa.projects.register(join(home, 'src/lantern-cove'), true);
   const { result } = await mesa.sessions.open('lantern-cove');
   await mesa.sessions.send(result.id, prompt);
   const [latest] = listReceipts(join(home, 'vault'), 1);
@@ -181,7 +180,7 @@ test('the sender defaults to the window it runs in; unknown or self is refused; 
 test('another session cannot force a prompt into a wait; only a person answers it', async () => {
   const { home, mesa, world, opened: a } = await setUp();
   const { result: b } = await mesa.sessions.open('lantern-cove');
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   const at = '2026-09-24T12:00:00.000Z';
   store.update(b.id, {
     lastState: { state: 'waiting-permission', confidence: 0.95, at, source: 'hook' },
@@ -208,26 +207,22 @@ test('--no-from sends as a person; an ended, empty, or doubled sender is refused
     expect(mesa.sessions.send(b.id, 'hi', opts)).rejects.toMatchObject({ code: 'usage', message });
   await refused({ from: a.id, noFrom: true }, 'pass --from or --no-from, not both');
   await refused({ from: '' }, '--from needs a session id');
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   store.update(a.id, { endedAt: '2026-09-24T12:00:00.000Z' });
   await refused({ from: a.id }, `session ${a.id} has ended, so a reply to it would go nowhere`);
 });
 
 test('a closing ; is typed as it is; a sender removed while typing still sends', async () => {
-  const home = tempDir();
   let removeWhileTyping: (() => void) | undefined;
   const world = fakeTmux({ onKeys: () => removeWhileTyping?.() });
   const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
-  const mesa = createMesa('default', testDeps(home, { run }));
-  mesa.init({ vault: 'vault' });
-  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
-  mesa.projects.register(join(home, 'src/lantern-cove'), true);
+  const { home, mesa } = projectProfile(run);
   const { result: a } = await mesa.sessions.open('lantern-cove');
   const { result: b } = await mesa.sessions.open('lantern-cove');
   await mesa.sessions.send(b.id, 'plain;');
   expect(world.windows.find((w) => w.window === `claude-${b.id}`)?.typed).toEqual(['plain;']);
 
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   removeWhileTyping = () => store.remove(a.id);
   const { result } = await mesa.sessions.send(b.id, 'still arrives', { from: a.id });
   expect(result.from).toBe(a.id);
@@ -260,7 +255,7 @@ test('a record update waits for its lock and, while another holds it, is refused
 test('an agent in a window cannot force a wait even with --no-from; an ended window sends as none', async () => {
   const { home, mesa, within, opened: a } = await setUp();
   const { result: b } = await mesa.sessions.open('lantern-cove');
-  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const store = testStore(home);
   const at = '2026-09-24T12:00:00.000Z';
   store.update(b.id, {
     lastState: { state: 'waiting-question', confidence: 0.95, at, source: 'hook' },
@@ -278,7 +273,7 @@ test('an agent in a window cannot force a wait even with --no-from; an ended win
 test('events are best effort once the prompt is typed: a locked receiver warns and skips the sent', async () => {
   const { home, mesa, opened: a } = await setUp();
   const { result: b } = await mesa.sessions.open('lantern-cove');
-  const dir = join(home, '.mesa/default/sessions');
+  const dir = profilePaths(home, 'default').sessions;
   writeFileSync(join(dir, `${b.id}.lock`), 'a killed mesa');
   const { result, receipt } = await mesa.sessions.send(b.id, 'typed anyway', { from: a.id });
   expect(result).toMatchObject({ sent: true, from: a.id });
@@ -338,7 +333,7 @@ test('a function patch runs under the lock; an update waits while another proces
 test('any error writing events after typing is a warning, and any Mesa window counts as an agent', async () => {
   const { home, mesa, within, opened: a } = await setUp();
   const { result: b } = await mesa.sessions.open('lantern-cove');
-  const dir = join(home, '.mesa/default/sessions');
+  const dir = profilePaths(home, 'default').sessions;
   // A sessions folder this process cannot write (as a sandboxed agent may see it).
   chmodSync(dir, 0o500);
   try {

@@ -6,12 +6,10 @@ import { MesaError } from '../lib/result.js';
 import { VAULT } from './layout.js';
 
 /** About five seconds of retries before giving up. */
-export const LOCK_ATTEMPTS = 250;
+const LOCK_ATTEMPTS = 250;
 const RETRY_MS = 20;
 
 export const vaultLockPath = (vault: string) => join(vault, VAULT.mesa, 'lock');
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Runs `fn` while holding the vault's lock file, taken with an exclusive create, so
@@ -20,7 +18,11 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * ponytail: no stale takeover (it races); a lock left by a killed process is reported with the
  * file to delete. Upgrade path: flock through a native helper if that ever bites.
  */
-export async function withVaultLock<T>(vault: string, fn: () => Promise<T>): Promise<T> {
+export async function withVaultLock<T>(
+  deps: { vault: string; sleep: (ms: number) => Promise<void> },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const { vault } = deps;
   const lock = vaultLockPath(vault);
   const token = randomUUID();
   mkdirSync(join(vault, VAULT.mesa), { recursive: true });
@@ -32,7 +34,7 @@ export async function withVaultLock<T>(vault: string, fn: () => Promise<T>): Pro
         { reason: 'vault' },
       );
     }
-    await sleep(RETRY_MS);
+    await deps.sleep(RETRY_MS);
   }
   try {
     return await fn();

@@ -6,6 +6,7 @@ import {
   scriptedRunner,
   sequentialIds,
   tempDir,
+  tmuxLine,
 } from '../testing/index.js';
 import { recordPaneDied } from './pane-died.js';
 import { sessionStore } from './store.js';
@@ -16,7 +17,7 @@ const inWindow = (window: string) =>
   newSession({ tmux: { socket: 'mesa-default', session: 'lantern-cove', window } });
 /** A list-windows line, as tmux prints Mesa's format, for a pane that died. */
 const deadLine = (window: string, status: number, signal = '') =>
-  `lantern-cove\t0\t${window}\t4242\tclaude\t/src/lantern-cove\t1790359178\t1\t${status}\t${signal}`;
+  tmuxLine({ project: 'lantern-cove', window, command: 'claude', dead: true, status, signal });
 
 function setUp() {
   const store = sessionStore({ dir: join(tempDir(), 'sessions'), newId: sequentialIds() });

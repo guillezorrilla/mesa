@@ -7,7 +7,7 @@ import type { ReceiptInput } from './schema.js';
 import { writeReceipt } from './store.js';
 
 /** What one action's receipt says, given the action's result. */
-export type ActionSpec<T> = {
+type ActionSpec<T> = {
   /** `action` unless the work is a session's. */
   type?: 'action' | 'session';
   summary: (result: T) => string;

@@ -15,13 +15,15 @@
 
 Every decision site brings its own rules backend; the adapter backend is shared. `mesa decide` asks from the command line: questions no rules know, so the answers are even.
 
+In the examples, `profile` is Faro's view of the profile (`FaroProfile`: its `decisions` settings and `hasKey`), which `createFaro` (`faro.ts`) builds for each profile, and `clock` is the injected clock.
+
 ## Choice: pick one of 2 to 255 options
 
 ```ts
 const route = rulesBackend<{ text: string }>([
   { when: (s) => s.text.startsWith('http'), answer: () => ({ route: { ingest: 9, ask: 1 } }) },
 ]);
-await decide({ backends: [route], config, clock }, { text: 'https://example.com/post' }, [
+await decide({ backends: [route], profile, clock }, { text: 'https://example.com/post' }, [
   { kind: 'Choice', id: 'route', options: ['ingest', 'ask'] },
 ]);
 // answers: [{ id: 'route', kind: 'Choice', answer: 'ingest',
@@ -36,7 +38,7 @@ The answer is the probability-weighted position, from 0 (the first level) to 1 (
 const urgency = rulesBackend<{ waitingMinutes: number }>([
   { when: (s) => s.waitingMinutes > 10, answer: () => ({ urgency: { medium: 1, high: 3 } }) },
 ]);
-await decide({ backends: [urgency], config, clock }, { waitingMinutes: 15 }, [
+await decide({ backends: [urgency], profile, clock }, { waitingMinutes: 15 }, [
   { kind: 'Score', id: 'urgency', levels: ['low', 'medium', 'high'] },
 ]);
 // answers: [{ id: 'urgency', kind: 'Score', answer: 0.875,
@@ -51,7 +53,7 @@ A Noul has no separate confidence. Its answer is `true` above 0.5.
 const destructive = rulesBackend<{ prompt: string }>([
   { when: (s) => /rm -rf|--force/.test(s.prompt), answer: () => ({ destructive: 0.93 }) },
 ]);
-await decide({ backends: [destructive], config, clock }, { prompt: 'git push --force' }, [
+await decide({ backends: [destructive], profile, clock }, { prompt: 'git push --force' }, [
   { kind: 'Noul', id: 'destructive', statement: 'The prompt destroys work' },
 ]);
 // answers: [{ id: 'destructive', kind: 'Noul', answer: true, probabilities: 0.93 }]

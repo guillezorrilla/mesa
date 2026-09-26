@@ -75,7 +75,7 @@ export function createContext(profile: string, deps: MesaDeps) {
     configIfAny,
     vaultOf,
     /** What the vault's notes need: the vault, and the clock for their times. */
-    notes: () => ({ vault: vaultOf(), clock: deps.clock }),
+    notes: () => ({ vault: vaultOf(), clock: deps.clock, sleep: deps.sleep }),
     /** A path the user typed, resolved against the working directory. */
     absolute: (path: string) => resolve(deps.cwd, path),
     secrets,

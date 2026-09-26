@@ -2,7 +2,19 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync }
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { fixedClock, tempDir, thrown } from '../testing/index.js';
-import { initVault as init, VAULT_LAYOUT, vaultStatus } from './vault.js';
+import { initVault as init, vaultStatus } from './vault.js';
+
+/** ADR-0006's layout, in creation order: what vault init lays out. */
+const VAULT_LAYOUT = [
+  'log.md',
+  'AGENTS.md',
+  'index.md',
+  'raw',
+  'wiki',
+  'projects',
+  'receipts',
+  'daily',
+];
 
 let vault: string;
 beforeEach(() => {

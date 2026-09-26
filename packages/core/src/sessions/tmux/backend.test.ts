@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import { execRunner, type Runner } from '../../lib/process.js';
-import { scriptedRunner, tempDir } from '../../testing/index.js';
+import { scriptedRunner, tempDir, tmuxLine } from '../../testing/index.js';
 import { tmuxBackend } from './backend.js';
 import type { WindowTarget } from './format.js';
 
@@ -238,7 +238,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
 test('every call goes to the profile socket without the user tmux.conf', async () => {
   const { run, calls } = scriptedRunner({
-    tmux: 'lantern\t0\tclaude-aaaaaa\t4242\t2.1.282\t/src/lantern\t1790359178\t0\n',
+    tmux: `${tmuxLine({ project: 'lantern', window: 'claude-aaaaaa' })}\n`,
   });
   const tmux = tmuxBackend({ run, socket: 'mesa-work', env: {} });
   expect(await tmux.listWindows()).toEqual([
