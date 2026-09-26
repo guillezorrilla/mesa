@@ -803,6 +803,9 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
   writeFileSync(join(home, 'goal.md'), 'From a file\n');
   const fromFile = await mesa('open', 'lantern-cove', '--goal-file', 'goal.md', '--json');
   expect(fromFile.json.data.goal).toBe('From a file\n');
+  expect(world.windows.at(-1)?.launch).toBe(
+    "claude --session-id 00000000-0000-4000-8000-000000000002 'From a file\n'",
+  );
 
   const plain = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
   expect(await mesa('goal', plain)).toMatchObject({

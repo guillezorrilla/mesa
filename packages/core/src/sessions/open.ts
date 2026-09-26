@@ -3,7 +3,7 @@ import { AGENT_NAMES, AGENTS, type Agent, AgentSchema } from '../agents.js';
 import type { Clock } from '../clock.js';
 import { checkAgent } from '../doctor.js';
 import type { IdSource } from '../ids.js';
-import { type Runner, shellWord } from '../process.js';
+import type { Runner } from '../process.js';
 import type { Profile } from '../profile.js';
 import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
@@ -23,10 +23,30 @@ export type OpenDeps = {
   newUuid: IdSource;
 };
 
-// ponytail: a tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
-// "command too long"), so the quoted goal gets most of it. Past that, type the goal in with
-// send-keys after the start.
-const MAX_GOAL_BYTES = 12_000;
+// ponytail: one tmux command holds about 16 KiB (measured: 15000 bytes went through, 17000 was
+// "command too long"), so Mesa caps the agent's command below that, leaving room for the cwd and
+// the variables. Past that, type the goal in with send-keys after the start.
+const MAX_COMMAND_BYTES = 12_000;
+
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+
+/** A goal file's text, decoded as UTF-8 and otherwise unchanged. */
+function readGoalFile(file: string): string {
+  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
+    throw new MesaError('not_found', `no goal file at ${file}`);
+  }
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(file);
+  } catch (error) {
+    throw new MesaError('usage', `cannot read ${file}: ${(error as Error).message}`);
+  }
+  try {
+    return decoder.decode(bytes);
+  } catch {
+    throw new MesaError('usage', `the goal file ${file} is not UTF-8 text`);
+  }
+}
 
 /**
  * The goal from `--goal` or `--goal-file` (an absolute path), checked so claude takes it whole as
@@ -36,23 +56,14 @@ export function readGoal(input: { goal?: string; goalFile?: string }): string | 
   if (input.goal !== undefined && input.goalFile !== undefined) {
     throw new MesaError('usage', 'pass --goal or --goal-file, not both');
   }
-  const file = input.goalFile;
-  if (file !== undefined && !statSync(file, { throwIfNoEntry: false })?.isFile()) {
-    throw new MesaError('not_found', `no goal file at ${file}`);
-  }
-  const goal = file === undefined ? input.goal : readFileSync(file, 'utf8');
+  const goal = input.goalFile === undefined ? input.goal : readGoalFile(input.goalFile);
   if (goal === undefined) return undefined;
   if (!goal.trim()) throw new MesaError('usage', 'the goal is empty');
   if (goal.startsWith('-')) {
     throw new MesaError('usage', 'a goal cannot start with -: claude would read it as a flag');
   }
-  const bytes = Buffer.byteLength(shellWord(goal));
-  if (bytes > MAX_GOAL_BYTES) {
-    throw new MesaError(
-      'usage',
-      `the goal is ${bytes} bytes quoted, over the ${MAX_GOAL_BYTES} a tmux command holds: put it in a file and make the goal point to that file`,
-    );
-  }
+  // A process argument cannot hold one.
+  if (goal.includes('\0')) throw new MesaError('usage', 'the goal holds a NUL byte');
   return goal;
 }
 
@@ -81,11 +92,19 @@ export async function openSession(
   if (!check.ok) throw new MesaError('agent_unavailable', `${agent} ${check.hint}`);
 
   const agentSessionId = deps.newUuid();
+  const command = spec.start(agentSessionId, input.goal);
+  const bytes = Buffer.byteLength(command);
+  if (bytes > MAX_COMMAND_BYTES) {
+    throw new MesaError(
+      'usage',
+      `the goal makes a ${bytes}-byte command, over the ${MAX_COMMAND_BYTES} Mesa passes to tmux: shorten it, or keep the long part in a file the goal names`,
+    );
+  }
   return startWindow(deps, {
     project: entry,
     agent,
     agentSessionId,
-    command: spec.start(agentSessionId, input.goal),
+    command,
     goal: input.goal,
   });
 }
@@ -167,8 +186,8 @@ async function startWindow(
       window: `${s.agent}-${id}`,
     },
     startedAt: now,
-    // ponytail: a guess until Faro (#25) classifies it: a fresh claude waits at its prompt, or at
-    // the trust dialog in a folder it has not seen.
+    // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at
+    // its prompt, or at the trust dialog in a folder it has not seen, or works on its goal.
     lastState: { state: 'idle', confidence: 0.6, at: now, source: 'mesa' },
     ...(s.resumedFrom ? { resumedFrom: s.resumedFrom } : {}),
   }));

@@ -33,8 +33,7 @@ function fakeWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
 /** An initialised profile with its vault laid out and lantern-cove registered. */
 async function setUp(
   world: ReturnType<typeof fakeWorld>,
-  mesaYaml = 'name: lantern-cove\n',
-  argv = ['open'],
+  { mesaYaml = 'name: lantern-cove\n', argv = ['open'] } = {},
 ) {
   const home = tempDir();
   const dir = join(home, 'src/lantern-cove');
@@ -78,6 +77,9 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     `MESA_SESSION_ID=${first.id}`,
     '-e',
     'MESA_PROFILE=default',
+    // Through /bin/sh, never the user's shell, which may quote otherwise (fish, tcsh).
+    '/bin/sh',
+    '-c',
     'claude --session-id 00000000-0000-4000-8000-000000000001',
     // The tmux session does not keep the first window's ids for windows added by hand.
     ';',
@@ -121,7 +123,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
 
 test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs claude only', async () => {
   const world = fakeWorld();
-  const { mesa } = await setUp(world, 'name: lantern-cove\nagent: codex\n');
+  const { mesa } = await setUp(world, { mesaYaml: 'name: lantern-cove\nagent: codex\n' });
   await expect(mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'agent_unavailable',
     message: 'codex support is planned in #43',
@@ -198,10 +200,10 @@ test('an open session attaches to its exact window on the profile socket', async
   ]);
 });
 
-/** The command the window runs: the word after the window's -e variables. */
+/** The command the last window runs: the word after `/bin/sh -c`. */
 const launched = (world: ReturnType<typeof fakeWorld>) => {
   const args = world.calls.filter((c) => c.args.includes('-n')).at(-1)?.args ?? [];
-  return args[args.indexOf('MESA_PROFILE=default') + 1];
+  return args[args.indexOf('/bin/sh') + 2];
 };
 
 test('a goal is the first prompt: one shell word after the session id, kept on the record', async () => {
@@ -223,50 +225,68 @@ test('a goal is the first prompt: one shell word after the session id, kept on t
   );
 });
 
-test('the receipt keeps the goal first 80 characters, in its command line too', async () => {
-  const goal = `Write the release notes for ${'v1.2.3, '.repeat(12)}then stop`;
-  const { home, mesa } = await setUp(fakeWorld(), undefined, [
-    'open',
-    'lantern-cove',
-    `--goal=${goal}`,
-  ]);
-  await mesa.sessions.open('lantern-cove', { goal });
-  const [entry] = listReceipts(join(home, 'vault'), 1);
-  const short = goal.slice(0, 80);
-  expect(entry?.receipt.inputs).toEqual({ project: 'lantern-cove', agent: null, goal: short });
-  expect(entry?.receipt.command).toBe(
-    `mesa open lantern-cove ${JSON.stringify(`--goal=${short}`)}`,
-  );
+test('the receipt keeps the goal first 80 characters, keys redacted, in its command too', async () => {
+  // A key in the goal, and a character outside the BMP at the cut: the cut counts characters.
+  // 40 characters once redacted, 39 more, then the rocket as character 80.
+  const goal = `Deploy with sk-live-1234 and write the notes for ${'n'.repeat(39)}🚀 then stop and report back`;
+  const short = Array.from(goal.replace('sk-live-1234', '***')).slice(0, 80).join('');
+  expect(Array.from(short).at(-1)).toBe('🚀');
+  const forms: [string[], string][] = [
+    [
+      ['open', 'lantern-cove', '--goal', goal],
+      `mesa open lantern-cove --goal ${JSON.stringify(short)}`,
+    ],
+    [['open', 'lantern-cove', `--goal=${goal}`], `mesa open lantern-cove "--goal=${short}"`],
+  ];
+  for (const [argv, command] of forms) {
+    const { home, mesa } = await setUp(fakeWorld(), { argv });
+    mesa.config.set('keys.jev', 'sk-live-1234');
+    await mesa.sessions.open('lantern-cove', { goal });
+    const [entry] = listReceipts(join(home, 'vault'), 1);
+    expect(entry?.receipt.inputs).toEqual({ project: 'lantern-cove', agent: null, goal: short });
+    expect(entry?.receipt.command).toBe(command);
+  }
 });
 
-test('a goal file is read byte for byte; a bad goal is refused and leaves no session', async () => {
+test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt and no session', async () => {
   const world = fakeWorld();
   const { home, mesa } = await setUp(world);
   const file = join(home, 'goal.md');
   writeFileSync(file, '/goal Keep going until `pnpm verify` is green.\nThen stop.\n');
   const { result } = await mesa.sessions.open('lantern-cove', { goalFile: file });
   expect(result.goal).toBe('/goal Keep going until `pnpm verify` is green.\nThen stop.\n');
+  expect(launched(world)).toBe(
+    "claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Keep going until `pnpm verify` is green.\nThen stop.\n'",
+  );
 
-  const refused = async (opts: object, code: string, message: string) => {
+  const latin1 = join(home, 'latin1.md');
+  writeFileSync(latin1, Buffer.from([0x63, 0x61, 0x66, 0xe9]));
+  const nul = join(home, 'nul.md');
+  writeFileSync(nul, 'before\0after');
+  const cases: [object, string, string][] = [
+    [{ goalFile: join(home, 'nope.md') }, 'not_found', `no goal file at ${join(home, 'nope.md')}`],
+    [{ goalFile: home }, 'not_found', `no goal file at ${home}`],
+    [{ goal: 'x', goalFile: file }, 'usage', 'pass --goal or --goal-file, not both'],
+    [{ goal: '' }, 'usage', 'the goal is empty'],
+    [{ goal: ' \n\t' }, 'usage', 'the goal is empty'],
+    [{ goal: '--help' }, 'usage', 'a goal cannot start with -: claude would read it as a flag'],
+    [{ goalFile: nul }, 'usage', 'the goal holds a NUL byte'],
+    [{ goalFile: latin1 }, 'usage', `the goal file ${latin1} is not UTF-8 text`],
+    [
+      // 4000 three-byte characters: 4002 UTF-16 units quoted, but 12002 bytes.
+      { goal: '日'.repeat(4000) },
+      'usage',
+      'the goal makes a 12059-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
+    ],
+  ];
+  const failedBefore = listReceipts(join(home, 'vault'), 50).filter(
+    (e) => e.receipt.status === 'failed',
+  ).length;
+  for (const [opts, code, message] of cases) {
     await expect(mesa.sessions.open('lantern-cove', opts)).rejects.toMatchObject({ code, message });
-  };
-  await refused(
-    { goalFile: join(home, 'nope.md') },
-    'not_found',
-    `no goal file at ${join(home, 'nope.md')}`,
-  );
-  await refused({ goal: 'x', goalFile: file }, 'usage', 'pass --goal or --goal-file, not both');
-  await refused({ goal: '' }, 'usage', 'the goal is empty');
-  await refused(
-    { goal: '--help' },
-    'usage',
-    'a goal cannot start with -: claude would read it as a flag',
-  );
-  await refused(
-    { goal: 'x'.repeat(12_000) },
-    'usage',
-    'the goal is 12002 bytes quoted, over the 12000 a tmux command holds: put it in a file and make the goal point to that file',
-  );
+  }
+  const failed = listReceipts(join(home, 'vault'), 50).filter((e) => e.receipt.status === 'failed');
+  expect(failed.length - failedBefore).toBe(cases.length);
   expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([result.id]);
 });
 

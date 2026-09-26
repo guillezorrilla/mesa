@@ -21,8 +21,8 @@ import {
   DEFAULT_RECEIPT_LIMIT,
   listReceipts,
   type Recorded,
+  receiptText,
   redactCommand,
-  redactText,
   showReceipt,
 } from './receipts.js';
 import { readRegistry } from './registry.js';
@@ -259,48 +259,43 @@ export function createMesa(profile: string, deps: MesaDeps) {
         ),
       /**
        * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
-       * as its first prompt. A goal it could not take is refused first, like a bad flag, with no
-       * receipt; the receipt keeps the goal's first 80 characters, in its command line too.
+       * as its first prompt. The goal is read first, so the receipt keeps it (receiptText); one
+       * Mesa cannot take fails inside the recorded action, as every refusal does.
        */
-      open: async (
-        project: string,
-        opts: { agent?: string; goal?: string; goalFile?: string } = {},
-      ) => {
+      open: (project: string, opts: { agent?: string; goal?: string; goalFile?: string } = {}) => {
         const { agent } = opts;
-        const goal = readGoal({
-          goal: opts.goal,
-          goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
-        });
-        const short = goal === undefined ? undefined : Array.from(goal).slice(0, 80).join('');
-        const shortened =
-          short === undefined
-            ? {}
-            : {
-                argv: deps.argv.map((word) =>
-                  word === goal ? short : word === `--goal=${goal}` ? `--goal=${short}` : word,
-                ),
-              };
+        let goal: string | undefined;
+        let refused: unknown;
+        try {
+          goal = readGoal({
+            goal: opts.goal,
+            goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
+          });
+        } catch (error) {
+          refused = error;
+        }
+        const text = goal ?? opts.goal;
+        const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());
         return record(
           {
             type: 'session',
-            ...shortened,
+            ...(kept ? { argv: kept.argv } : {}),
             summary: (r) => `Opened session ${r.id} on ${r.project}`,
             failure: `Could not open a session on ${project}`,
             project: (r) => r.project,
             session: (r) => r.id,
             agent: (r) => r.agent,
-            inputs: {
-              project,
-              agent: agent ?? null,
-              ...(short === undefined ? {} : { goal: redactText(short, secrets()) }),
-            },
+            inputs: { project, agent: agent ?? null, ...(kept ? { goal: kept.short } : {}) },
             outputs: (r) => ({
               window: r.tmux.window,
               agentSessionId: r.agentSessionId,
               lastState: r.lastState,
             }),
           },
-          () => openSession(openDeps(), { project, agent, goal }),
+          async () => {
+            if (refused) throw refused;
+            return openSession(openDeps(), { project, agent, goal });
+          },
         );
       },
       /** A session's goal, or not_found when it was started without one. */
@@ -333,16 +328,15 @@ export function createMesa(profile: string, deps: MesaDeps) {
       },
       /** Types a prompt into a live session's agent; an action receipt keeps its first 80 chars. */
       send: (id: string, prompt: string, force = false) => {
-        const short = Array.from(prompt).slice(0, 80).join('');
+        const kept = receiptText(prompt, deps.argv, secrets());
         return record(
           {
-            // The receipt keeps the first 80 characters, in its command line too, keys redacted.
-            argv: deps.argv.map((word) => (word === prompt ? short : word)),
+            argv: kept.argv,
             summary: (r) => `Sent ${r.chars} characters to session ${id}`,
             failure: `Could not send to session ${id}`,
             project: (r) => r.project,
             session: () => id,
-            inputs: { session: id, prompt: redactText(short, secrets()), force },
+            inputs: { session: id, prompt: kept.short, force },
             outputs: (r) => ({ chars: r.chars }),
           },
           () => sendPrompt({ store, tmux, clock: deps.clock }, id, prompt, { force }),

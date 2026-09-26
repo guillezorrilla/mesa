@@ -200,7 +200,14 @@ export function BoardScreen() {
                   s.id
                 )}
               </td>
-              <td>{s.project ?? '-'}</td>
+              <td>
+                {s.project ?? '-'}
+                {s.managed && s.goal && (
+                  <div className="goal" data-testid="session-goal" title={s.goal}>
+                    {s.goal.split('\n', 1)[0]}
+                  </div>
+                )}
+              </td>
               <td>{s.agent}</td>
               <td>
                 <span
@@ -328,7 +335,9 @@ function NewSession(props: {
         onSubmit={(e) => {
           e.preventDefault();
           const form = new FormData(e.currentTarget);
-          props.onOpen(String(form.get('project') ?? ''), 'claude', String(form.get('goal') ?? ''));
+          // The textarea's own value: form data may turn its newlines into CRLF.
+          const goal = e.currentTarget.elements.namedItem('goal') as HTMLTextAreaElement;
+          props.onOpen(String(form.get('project') ?? ''), 'claude', goal.value);
         }}
       >
         <label>

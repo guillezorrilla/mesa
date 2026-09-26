@@ -27,7 +27,10 @@ export type TmuxWindow = WindowTarget & {
 
 export type WindowSpec = WindowTarget & {
   cwd: string;
-  /** Run by tmux through the default shell. */
+  /**
+   * A POSIX sh command line, run as `/bin/sh -c`, never through the user's shell: Mesa quotes for
+   * sh (a goal is one shellWord), and fish or tcsh read quotes differently.
+   */
   command: string;
   /** Set in the window's environment: `MESA_SESSION_ID` and `MESA_PROFILE` for the hooks. */
   env: Record<string, string>;
@@ -198,7 +201,20 @@ export function tmuxBackend({ run, socket, env }: { run: Runner; socket: string;
             k,
           ]);
       await must(
-        [...where, '-n', spec.window, '-c', spec.cwd, ...vars, spec.command, ...unset],
+        // Several words: tmux runs them as they are, not through default-shell. sh execs a lone
+        // command, so the pane's pid is the agent's, which the listing matches on.
+        [
+          ...where,
+          '-n',
+          spec.window,
+          '-c',
+          spec.cwd,
+          ...vars,
+          '/bin/sh',
+          '-c',
+          spec.command,
+          ...unset,
+        ],
         'internal',
         `could not open ${label(spec)}`,
       );

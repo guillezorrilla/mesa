@@ -68,12 +68,13 @@ export const COMMANDS = {
     '--',
     id,
   ]),
-  // `--goal=` keeps a goal that starts with `-` from reading as a flag.
+  // `--goal=` hands a goal starting with `-` to mesa, which refuses it with its own message; a
+  // blank goal passes none.
   'sessions.open': commandWith<{ project: string; agent?: Agent; goal?: string }, SessionRecord>(
     ({ project, agent, goal }) => [
       'open',
       ...(agent ? ['--agent', agent] : []),
-      ...(goal ? [`--goal=${goal}`] : []),
+      ...(goal?.trim() ? [`--goal=${goal}`] : []),
       '--',
       project,
     ],

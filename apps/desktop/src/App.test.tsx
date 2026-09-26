@@ -393,7 +393,17 @@ test('New session opens a dialog, and Open starts the picked project with the pi
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session dddddddd on lantern-cove');
 });
 
-test('New session passes a multi-line goal with --goal; an empty one passes none', async () => {
+test("a session's goal shows under its project, its first line, the whole goal on hover", async () => {
+  const withGoal = { ...busy, goal: '/goal Keep going until green\nthen stop' };
+  const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies SessionRow[]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [goal] = byTestId('session-goal');
+  expect(goal?.textContent).toBe('/goal Keep going until green');
+  expect(goal?.title).toBe('/goal Keep going until green\nthen stop');
+  expect(byTestId('session-goal')).toHaveLength(1);
+});
+
+test('New session passes a multi-line goal with --goal; a blank one passes none', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     open: () => envelope({ ...busy, id: 'dddddddd' }),
@@ -410,6 +420,18 @@ test('New session passes a multi-line goal with --goal; an empty one passes none
     '--agent',
     'claude',
     '--goal=/goal Print "ready"\nthen stop',
+    '--',
+    'lantern-cove',
+  ]);
+
+  await click(byTestId('new-session')[0]);
+  (byTestId('new-session-goal')[0] as HTMLTextAreaElement).value = ' \n ';
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls.filter((c) => c[1] === 'open').at(-1)).toEqual([
+    '--json',
+    'open',
+    '--agent',
+    'claude',
     '--',
     'lantern-cove',
   ]);
