@@ -9,11 +9,16 @@ const listed = (s: HooksStatus) =>
 
 export const hooksStatus = defineCommand({
   name: 'hooks status',
-  summary: "Show which of Mesa's Claude Code hooks are in ~/.claude/settings.json",
+  summary:
+    "Show which of Mesa's Claude Code hooks are in ~/.claude/settings.json, and its tmux pane-died hook",
   example: 'mesa hooks status',
-  run: ({ mesa }) => {
-    const status = mesa.hooks.status();
-    return { data: status, text: `${status.path}\n${listed(status)}` };
+  run: async ({ mesa }) => {
+    const status = await mesa.hooks.status();
+    const { socket, server, paneDied } = status.tmux;
+    const tmux = server
+      ? `${paneDied ? 'ok  ' : 'MISS'} tmux pane-died on ${socket}`
+      : `--   tmux pane-died: no server on ${socket} yet`;
+    return { data: status, text: `${status.path}\n${listed(status)}\n${tmux}` };
   },
 });
 
@@ -40,6 +45,21 @@ export const hooksUninstall = defineCommand({
     const said = changed ? `removed Mesa's hooks from ${status.path}` : 'no Mesa hooks to remove';
     const { receipt, text } = withReceipt(recorded, said);
     return { data: { ...status, changed, ...receipt }, text };
+  },
+});
+
+/** Run by tmux's pane-died hook, never by hand: the agent in a Mesa window exited. */
+export const hookTmux = defineCommand({
+  name: 'hook tmux',
+  summary: 'Record a tmux hook (run by the pane-died hook Mesa sets on its tmux server)',
+  // `project`: tmux calls it a session; CONTEXT.md keeps session for Mesa's (Window).
+  args: ['event', 'project', 'window'],
+  example: 'mesa hook tmux pane-died lantern-cove claude-a1b2c3d4',
+  run: async ({ mesa, args }) => {
+    // Any other event, and any window that is no session's, is not Mesa's: exit 0, recorded nothing.
+    const exited =
+      args.event === 'pane-died' ? await mesa.paneDied(args.project, args.window) : undefined;
+    return { data: { recorded: Boolean(exited), session: exited?.id ?? null }, text: '' };
   },
 });
 

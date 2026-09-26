@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
@@ -157,6 +157,62 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await open(lantern('claude-goal01'), `${command} > ${out}`);
     const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
     expect(await eventually(written, /stop$/)).toBe(goal);
+  });
+
+  test('ensureServer sets one pane-died hook; a pane that dies runs mesa hook tmux with its window', async () => {
+    const out = join(cwd, 'died.log');
+    // In a folder whose name tmux would read as a format, were its # not doubled.
+    const folder = join(cwd, 'at #S here');
+    mkdirSync(folder);
+    const script = join(folder, 'mesa-stand-in.sh');
+    // Stands in for mesa: it writes the arguments the hook passes, and prints, as mesa does.
+    writeFileSync(script, `printf '%s|' "$@" >> '${out}'; echo >> '${out}'; echo printed\n`);
+    const hooked = tmuxBackend({
+      run: underParent,
+      socket,
+      env: PARENT,
+      paneDied: { self: ['/bin/sh', script], profile: 'ptest' },
+    });
+    await hooked.ensureServer();
+    await hooked.ensureServer();
+    const hooks = (await raw('show-hooks', '-g', 'pane-died')).split('\n').filter(Boolean);
+    expect(hooks).toHaveLength(1);
+    expect(hooks[0]).toContain('hook tmux pane-died -- #{q:session_name} #{q:window_name}');
+    // Read back exactly as tmux prints it, so a hook for a mesa that moved would not count.
+    expect(await hooked.paneDiedHookState()).toEqual({ server: true, paneDied: true });
+    const other = tmuxBackend({
+      run: underParent,
+      socket,
+      env: PARENT,
+      paneDied: { self: ['/moved/mesa'], profile: 'ptest' },
+    });
+    expect(await other.paneDiedHookState()).toEqual({ server: true, paneDied: false });
+
+    const started = Date.now();
+    await hooked.openWindow({
+      ...lantern('claude-died01'),
+      cwd,
+      command: "sh -c 'exit 0'",
+      env: {},
+    });
+    // A name no Mesa window has, but a hand-made one might: it reaches the shell as one word.
+    const pwned = join(cwd, 'pwned');
+    const hostile = `w'$(touch ${pwned})'`;
+    await hooked.openWindow({ ...lantern(hostile), cwd, command: "sh -c 'exit 0'", env: {} });
+    const logged = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');
+    const lines = (await eventually(logged, /pwned/)).split('\n').filter(Boolean).sort();
+    expect(lines).toEqual([
+      '--profile|ptest|hook|tmux|pane-died|--|lantern|claude-died01|',
+      `--profile|ptest|hook|tmux|pane-died|--|lantern|${hostile}|`,
+    ]);
+    expect(existsSync(pwned)).toBe(false);
+    expect(Date.now() - started).toBeLessThan(1000);
+    // What the hook printed shows nowhere: no pane was put in view mode to show it.
+    await sleep(200);
+    expect(new Set((await raw('list-panes', '-a', '-F', '#{pane_in_mode}')).split('\n'))).toEqual(
+      new Set(['0']),
+    );
+    await raw('set-hook', '-gu', 'pane-died');
   });
 
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {

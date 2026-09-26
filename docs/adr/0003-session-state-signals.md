@@ -99,3 +99,14 @@ Three things change.
 **Following the new id (#92).** The record follows the listing and the `SessionStart`, and a `SessionEnd` with reason `clear` no longer ends the session. Until #92 lands, two things go wrong:
 - that `SessionEnd` reads as `done`;
 - the nested-claude guard drops every later event.
+
+## Amendment 2026-09-26: tmux reports an agent's exit itself (#68)
+
+The tmux signal was read on each look, so an agent that exited was noticed only at the next `mesa sessions`. Mesa's server now carries one global `pane-died` hook, only on the profile's own socket. `ensureServer` sets it on every start, and each look at a board with sessions sets it again (without starting a server), so a server an older mesa started gets it too. It runs `run-shell -b "<mesa> --profile <profile> hook tmux pane-died -- #{q:session_name} #{q:window_name}"`.
+- **Quoting.** `-b` keeps one slow hook from holding up the next pane's. `#{q:...}` shell-quotes the names tmux fills in, and a `#` in Mesa's own path is doubled so tmux's formats leave it alone.
+- **The state.** The handler records the exit at once: `done` for exit status 0, `failed` for another status or a signal. The confidence is the tmux signal's 0.85 (a process fact), the source is `tmux-hook`, and the record gets an `exited` event. A later look keeps that state.
+- **Not a stop.** The owner decided the hook does not set `endedAt`, which means stopped. A crashed agent keeps `failed` attention and its last screen on the board, and `mesa stop` still removes its window and closes its receipt.
+- **Which window.** tmux names the session last active, which is a terminal's `_view-` session when one is attached, so the handler matches the window by its name, which holds the Mesa id. Anything that is not a Mesa window of this profile is left alone, with exit 0.
+- **Reporting.** `mesa hooks status` reports whether a server runs and whether it has exactly this mesa's hook. `mesa doctor` warns when the hook is missing (none is needed without a server) or when Claude Code's hooks are.
+
+Evidence: tmux 3.7c, checked live. `show-hooks -g pane-died` prints `pane-died[0] <command>`, and `set-hook -g` replaces the hook's list, so starting again leaves one. A pane that dies runs the hook with its names filled in, within a second (packages/core/src/sessions/tmux.test.ts), and a hostile window name reaches the shell as one word. Without `-b`, two hooks ran one after another. In the #68 reviews, the hook took about 115 ms warm, and an attached view named the pane's session.
