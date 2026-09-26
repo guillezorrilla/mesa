@@ -1,7 +1,8 @@
-import { DEFAULT_RECEIPT_LIMIT, MesaError } from '@mesa/core';
+import { DEFAULT_RECEIPT_LIMIT } from '@mesa/core';
 import { stringify } from 'yaml';
 import { defineCommand } from '../command.js';
-import { columns } from '../format.js';
+import { wholeNumber } from '../guards.js';
+import { columns } from '../output/columns.js';
 
 export const receipts = defineCommand({
   name: 'receipts',
@@ -11,10 +12,8 @@ export const receipts = defineCommand({
   },
   example: 'mesa receipts --limit 5',
   run: ({ mesa, flags }) => {
-    const limit = flags.limit === undefined ? DEFAULT_RECEIPT_LIMIT : Number(flags.limit);
-    if (!Number.isInteger(limit) || limit < 1) {
-      throw new MesaError('usage', `--limit must be a positive whole number, not ${flags.limit}`);
-    }
+    const limit =
+      flags.limit === undefined ? DEFAULT_RECEIPT_LIMIT : wholeNumber(flags.limit, '--limit');
     const entries = mesa.receipts.list(limit);
     const text = entries.length
       ? columns(

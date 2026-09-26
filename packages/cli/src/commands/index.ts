@@ -6,22 +6,26 @@ import { decide } from './decide.js';
 import { doctor } from './doctor.js';
 import { goal } from './goal.js';
 import { help } from './help.js';
-import { hook, hooksInstall, hooksStatus, hooksUninstall, hookTmux } from './hooks.js';
+import { hook, hookTmux } from './hook.js';
+import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { open } from './open.js';
 import { profile } from './profile.js';
-import { projects, register, unregister } from './projects.js';
+import { projects } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
+import { register } from './register.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
 import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { stop } from './stop.js';
+import { unregister } from './unregister.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
 import { windows } from './windows.js';
 
-// Every mesa subcommand, in help order. A new command is one file and one entry here.
+// Every mesa subcommand, in help order. A command lives in the file named for its first word
+// (`hooks install` in hooks.ts), and has one entry here.
 export const COMMANDS: Command[] = [
   adopt,
   attach,

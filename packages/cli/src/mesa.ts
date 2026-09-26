@@ -26,13 +26,14 @@ const readStdin = async () => {
   return Buffer.concat(chunks).toString('utf8');
 };
 
+const home = homedir();
 const { code, stdout, stderr, exec } = await runCli(argv, {
   commands: COMMANDS,
   env: process.env,
   tty: Boolean(process.stdin.isTTY),
   stdin: readStdin,
   mesa: {
-    home: homedir(),
+    home,
     cwd: process.cwd(),
     clock: systemClock,
     newId: ulidSource(systemClock, randomBytes),
@@ -44,7 +45,7 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
     self: [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
     run: execRunner,
-    obsidian: macObsidianPaths(homedir()),
+    obsidian: macObsidianPaths(home),
     argv,
   },
 });

@@ -1,6 +1,6 @@
 import { EXIT_CODES } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { columns } from '../format.js';
+import { columns } from '../output/columns.js';
 
 const MARK = { ok: 'ok', warn: 'warn', fail: 'FAIL' } as const;
 

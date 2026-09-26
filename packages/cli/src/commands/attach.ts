@@ -1,12 +1,8 @@
-import { MesaError, TERMINAL_APPS } from '@mesa/core';
+import { TERMINAL_APPS } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { requireTty } from '../guards.js';
 
 /** tmux attach needs a terminal; say so before anything prints `opened`. */
-export function requireTty(tty: boolean) {
-  if (!tty)
-    throw new MesaError('usage', 'not a terminal: run this in one, or use mesa attach --app');
-}
-
 export const attach = defineCommand({
   name: 'attach',
   summary: "Attach to a session's tmux window here, or in your terminal app with --app",

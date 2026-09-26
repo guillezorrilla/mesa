@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { withReceipt } from '../receipt-output.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const resume = defineCommand({
   name: 'resume',
@@ -9,7 +9,6 @@ export const resume = defineCommand({
   run: async ({ mesa, args }) => {
     const recorded = await mesa.sessions.resume(args.session);
     const { record } = recorded.result;
-    const { receipt, text } = withReceipt(recorded, record.id);
-    return { data: { ...record, ...receipt }, text };
+    return recordedOutput(recorded, { data: record, text: record.id });
   },
 });

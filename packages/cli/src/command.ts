@@ -36,7 +36,7 @@ type FlagValues<F extends Flags> = {
     : boolean | undefined;
 };
 
-export type Context<A extends readonly string[] = readonly string[], F extends Flags = Flags> = {
+export type Invocation<A extends readonly string[] = readonly string[], F extends Flags = Flags> = {
   /** Mesa's services for the resolved profile. */
   mesa: Mesa;
   args: Args<A>;
@@ -70,7 +70,7 @@ export type Command = {
   flags?: Flags;
   /** One invocation an agent can copy; a test checks it parses as this command. */
   example: string;
-  run: (ctx: Context) => Output | Promise<Output>;
+  run: (invocation: Invocation) => Output | Promise<Output>;
 };
 
 /**
@@ -84,7 +84,7 @@ export function defineCommand<
   spec: Omit<Command, 'args' | 'flags' | 'run'> & {
     args?: A;
     flags?: F;
-    run: (ctx: Context<A, F>) => Output | Promise<Output>;
+    run: (invocation: Invocation<A, F>) => Output | Promise<Output>;
   },
 ): Command {
   // The table holds commands of many shapes; each one's own types were checked above.

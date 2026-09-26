@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { withReceipt } from '../receipt-output.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const send = defineCommand({
   name: 'send',
@@ -22,14 +22,7 @@ export const send = defineCommand({
       noFrom: flags['no-from'],
     });
     const { sent, session, from, chars, warning } = recorded.result;
-    const warned = warning ? `\nwarning: ${warning}` : '';
-    const said = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}${warned}`;
-    const { receipt, text } = withReceipt(recorded, said);
-    // A receipt's warning joins the send's, rather than hiding it.
-    const warnings = [warning, receipt.warning].filter(Boolean).join('; ');
-    return {
-      data: { sent, session, from, chars, ...receipt, ...(warnings ? { warning: warnings } : {}) },
-      text,
-    };
+    const text = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
+    return recordedOutput(recorded, { data: { sent, session, from, chars }, text, warning });
   },
 });

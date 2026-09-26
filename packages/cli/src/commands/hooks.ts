@@ -1,6 +1,6 @@
 import type { HooksStatus } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { withReceipt } from '../receipt-output.js';
+import { recordedOutput } from '../output/recorded.js';
 
 const listed = (s: HooksStatus) =>
   Object.entries(s.events)
@@ -29,9 +29,8 @@ export const hooksInstall = defineCommand({
   run: ({ mesa }) => {
     const recorded = mesa.hooks.install();
     const { changed, ...status } = recorded.result;
-    const said = changed ? `installed Mesa's hooks in ${status.path}` : 'hooks already installed';
-    const { receipt, text } = withReceipt(recorded, said);
-    return { data: { ...status, changed, ...receipt }, text };
+    const text = changed ? `installed Mesa's hooks in ${status.path}` : 'hooks already installed';
+    return recordedOutput(recorded, { data: { ...status, changed }, text });
   },
 });
 
@@ -42,35 +41,7 @@ export const hooksUninstall = defineCommand({
   run: ({ mesa }) => {
     const recorded = mesa.hooks.uninstall();
     const { changed, ...status } = recorded.result;
-    const said = changed ? `removed Mesa's hooks from ${status.path}` : 'no Mesa hooks to remove';
-    const { receipt, text } = withReceipt(recorded, said);
-    return { data: { ...status, changed, ...receipt }, text };
-  },
-});
-
-/** Run by tmux's pane-died hook, never by hand: the agent in a Mesa window exited. */
-export const hookTmux = defineCommand({
-  name: 'hook tmux',
-  summary: 'Record a tmux hook (run by the pane-died hook Mesa sets on its tmux server)',
-  // `project`: tmux calls it a session; CONTEXT.md keeps session for Mesa's (Window).
-  args: ['event', 'project', 'window'],
-  example: 'mesa hook tmux pane-died lantern-cove claude-a1b2c3d4',
-  run: async ({ mesa, args }) => {
-    // Any other event, and any window that is no session's, is not Mesa's: exit 0, recorded nothing.
-    const exited =
-      args.event === 'pane-died' ? await mesa.paneDied(args.project, args.window) : undefined;
-    return { data: { recorded: Boolean(exited), session: exited?.id ?? null }, text: '' };
-  },
-});
-
-/** Run by the agent's hooks, never by hand: appends the payload on stdin to the session's log. */
-export const hook = defineCommand({
-  name: 'hook',
-  summary: 'Record an agent hook payload from stdin (run by the hooks mesa hooks install adds)',
-  args: ['agent'],
-  example: 'mesa hook claude < payload.json',
-  run: async ({ mesa, args, stdin }) => {
-    const event = mesa.hookEvent(args.agent, await stdin());
-    return { data: { recorded: Boolean(event), event: event?.event ?? null }, text: '' };
+    const text = changed ? `removed Mesa's hooks from ${status.path}` : 'no Mesa hooks to remove';
+    return recordedOutput(recorded, { data: { ...status, changed }, text });
   },
 });

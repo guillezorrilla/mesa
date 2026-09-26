@@ -13,13 +13,13 @@ import {
 } from '@mesa/core';
 import {
   type Command,
-  type Context,
   type Flag,
   GLOBAL_FLAGS,
+  type Invocation,
   type Output,
   parseArgSpec,
 } from './command.js';
-import { commandHelp, commandRows, mainHelp, usage, usageWithSubcommands } from './help.js';
+import { commandHelp, groupUsage, mainHelp, usage, usageWithSubcommands } from './help/usage.js';
 
 export const VERSION: string = createRequire(import.meta.url)('../package.json').version;
 
@@ -69,18 +69,6 @@ function checkRequiredFlags(command: Command, values: Record<string, unknown>): 
 
 const say = (text: string): Output => ({ data: text, text });
 
-/** `mesa vault` alone names a group: list its subcommands rather than calling it unknown. */
-function unknownCommand(word: string, commands: Command[]): string {
-  const group = commands.filter((c) => c.name.startsWith(`${word} `));
-  if (!group.length) return `Unknown command: ${word}. Run mesa --help for the list.`;
-  return [
-    `Usage: mesa ${word} <subcommand> [flags]`,
-    '',
-    'Subcommands:',
-    ...commandRows(group),
-  ].join('\n');
-}
-
 async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   // A first, non-strict pass finds the command wherever the global flags sit.
   const words = parseArgs({
@@ -95,14 +83,14 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
 
   if (values.version) return say(VERSION);
   if (words.length === 0) return say(mainHelp(deps.commands, GLOBAL_FLAGS));
-  if (!command) throw new MesaError('usage', unknownCommand(words[0] ?? '', deps.commands));
+  if (!command) throw new MesaError('usage', groupUsage(words[0] ?? '', deps.commands));
   if (values.help) return say(commandHelp(command, deps.commands, GLOBAL_FLAGS));
   const args = bindArgs(command, positionals.slice(command.name.split(' ').length), deps.commands);
   checkRequiredFlags(command, values);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
   const { tty, stdin, commands } = deps;
-  return command.run({ mesa, args, flags: values, tty, stdin, commands } as Context);
+  return command.run({ mesa, args, flags: values, tty, stdin, commands } as Invocation);
 }
 
 /** Runs one CLI invocation and returns what to print; the entrypoint writes the streams. */
