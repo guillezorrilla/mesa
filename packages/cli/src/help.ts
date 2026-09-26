@@ -3,11 +3,12 @@ import { type Command, type Flag, parseArgSpec } from './command.js';
 import { columns } from './format.js';
 
 /** `--agent <string>` for a string flag, `--attach` for a boolean one. */
-const flagWord = (name: string, f: Flag) => `--${name}${f.type === 'string' ? ' <string>' : ''}`;
+const flagWord = (name: string, type: Flag['type']) =>
+  `--${name}${type === 'string' ? ' <string>' : ''}`;
 
 const flagRows = (flags: Record<string, Flag>) =>
   columns(
-    Object.entries(flags).map(([name, f]) => [flagWord(name, f), f.description]),
+    Object.entries(flags).map(([name, f]) => [flagWord(name, f.type), f.description]),
     '  ',
   );
 
@@ -26,7 +27,7 @@ export const commandRows = (commands: Command[]) =>
 const requiredFlagWords = (command: Command) =>
   Object.entries(command.flags ?? {})
     .filter(([, f]) => f.required)
-    .map(([name, f]) => flagWord(name, f));
+    .map(([name, f]) => flagWord(name, f.type));
 
 export const usage = (command: Command) =>
   [
@@ -79,55 +80,63 @@ export function commandHelp(
   ].join('\n');
 }
 
+type FlagEntry = CommandReference['flags'][number];
+
+const flagEntries = (flags: Record<string, Flag> = {}): FlagEntry[] =>
+  Object.entries(flags).map(([name, f]) => ({
+    name,
+    type: f.type,
+    required: f.required ?? false,
+    description: f.description,
+  }));
+
 /** The usage line with every flag, the optional ones in brackets. */
 const synopsis = (command: Command) =>
   [
     'mesa',
     command.name,
     ...argWords(command),
-    ...Object.entries(command.flags ?? {}).map(([name, f]) =>
-      f.required ? flagWord(name, f) : `[${flagWord(name, f)}]`,
+    ...flagEntries(command.flags).map((f) =>
+      f.required ? flagWord(f.name, f.type) : `[${flagWord(f.name, f.type)}]`,
     ),
   ].join(' ');
 
 /** What `mesa help --agent --json` prints: every command in the table, in its order. */
-export const reference = (commands: Command[]): CommandReference[] =>
+export const commandReference = (commands: Command[]): CommandReference[] =>
   commands.map((c) => ({
     name: c.name,
     usage: synopsis(c),
     description: c.summary,
     args: (c.args ?? []).map(parseArgSpec).map((a) => ({ name: a.name, required: !a.optional })),
-    flags: Object.entries(c.flags ?? {}).map(([name, f]) => ({
-      name,
-      type: f.type,
-      required: f.required ?? false,
-      description: f.description,
-    })),
+    flags: flagEntries(c.flags),
     example: c.example,
   }));
 
-const flagItems = (flags: Record<string, Flag>) =>
-  Object.entries(flags).map(
-    ([name, f]) => `- \`${flagWord(name, f)}\`${f.required ? ' (required)' : ''}: ${f.description}`,
+const flagItems = (flags: FlagEntry[]) =>
+  flags.map(
+    (f) => `- \`${flagWord(f.name, f.type)}\`${f.required ? ' (required)' : ''}: ${f.description}`,
   );
 
-const commandSection = (c: Command) =>
+const section = (c: CommandReference) =>
   [
-    `### \`${synopsis(c)}\``,
+    `### \`${c.usage}\``,
     '',
-    c.summary,
+    c.description,
     '',
-    ...(Object.keys(c.flags ?? {}).length ? [...flagItems(c.flags ?? {}), ''] : []),
+    ...(c.flags.length ? [...flagItems(c.flags), ''] : []),
     `Example: \`${c.example}\``,
   ].join('\n');
 
 /**
- * `mesa help --agent`: the whole command table as Markdown, one section per group (a command's
- * first word, so `vault init` sits with `vault open`), for agents inside sessions to read.
+ * `mesa help --agent`: the reference as Markdown, for agents inside sessions to read. One section
+ * per first word, as `mesa vault` names the group of `vault init` and `vault open`.
  */
-export function agentReference(commands: Command[], globals: Record<string, Flag>): string {
+export function referenceMarkdown(
+  commands: CommandReference[],
+  globals: Record<string, Flag>,
+): string {
   // ES2022 has no Map.groupBy. A Map keeps the groups in the table's order.
-  const groups = new Map<string, Command[]>();
+  const groups = new Map<string, CommandReference[]>();
   for (const c of commands) {
     const group = c.name.split(' ')[0] ?? '';
     groups.set(group, [...(groups.get(group) ?? []), c]);
@@ -137,15 +146,15 @@ export function agentReference(commands: Command[], globals: Record<string, Flag
     '',
     "Every mesa command, generated from the CLI's own command table. In a usage line `<x>` is required and `[x]` is optional; every argument is a string.",
     '',
-    'With `--json`, a command prints one envelope on stdout: `{"ok":true,"data":...}`, or `{"ok":false,"error":{"code":...,"message":...}}`. A nonzero exit code means it failed, or found a problem it reports in `data` (`mesa doctor`, `mesa vault status`).',
+    'With `--json`, a command prints one envelope on stdout: `{"ok":true,"data":...}`, or `{"ok":false,"error":{"code":...,"message":...}}`. A nonzero exit code means it failed, or that it found a problem it reports in `data`.',
     '',
     'Global flags go before or after the command:',
     '',
-    ...flagItems(globals),
+    ...flagItems(flagEntries(globals)),
     ...[...groups].flatMap(([group, members]) => [
       '',
       `## ${group}`,
-      ...members.flatMap((c) => ['', commandSection(c)]),
+      ...members.flatMap((c) => ['', section(c)]),
     ]),
     '',
   ].join('\n');

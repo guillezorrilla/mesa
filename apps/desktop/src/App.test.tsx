@@ -639,8 +639,8 @@ test('the Help screen lists every command from mesa help --agent, with its flags
     'mesa init --vault <string>',
   ]);
   expect(commands[0]?.textContent).toContain("Type a prompt into a session's agent, then Enter");
-  expect(commands[0]?.textContent).toContain('--force: Send to a shell too');
-  expect(commands[1]?.textContent).toContain('--vault <string> (required): The vault path');
+  expect(commands[0]?.textContent).toContain('--force boolean: Send to a shell too');
+  expect(commands[1]?.textContent).toContain('--vault string, required: The vault path');
   expect(byTestId('help-example').map((e) => e.textContent)).toEqual([
     'mesa send a1b2c3d4 "run the tests"',
     'mesa init --vault ~/vault',

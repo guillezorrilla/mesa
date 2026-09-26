@@ -22,7 +22,7 @@ export const attach = defineCommand({
         'Print the attach argv instead of attaching (the app runs it in its own terminal)',
     },
   },
-  example: 'mesa attach a1b2c3d4',
+  example: 'mesa attach a1b2c3d4 --print',
   run: async ({ mesa, args, flags, tty }) => {
     if (flags.print) {
       const { attached, exec = [] } = await mesa.sessions.attach(args.session, false);

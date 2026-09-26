@@ -16,11 +16,8 @@ export function HelpScreen() {
             <ul>
               {c.flags.map((f) => (
                 <li key={f.name}>
-                  <code>
-                    --{f.name}
-                    {f.type === 'string' ? ' <string>' : ''}
-                  </code>
-                  {f.required ? ' (required)' : ''}: {f.description}
+                  <code>--{f.name}</code> {f.type}
+                  {f.required ? ', required' : ''}: {f.description}
                 </li>
               ))}
             </ul>

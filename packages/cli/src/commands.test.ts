@@ -13,7 +13,6 @@ import {
 import { beforeEach, expect, test } from 'vitest';
 import { runCli, VERSION } from './cli.js';
 import { COMMANDS } from './commands/index.js';
-import { usage } from './help.js';
 
 // Every real command through runCli, against a temp home: nothing here touches the real HOME.
 let home: string;
@@ -725,22 +724,39 @@ test('profile and version', async () => {
   expect((await mesa('--version')).stdout).toBe(`${VERSION}\n`);
 });
 
-test('every command has an example that invokes it, with flags it declares', async () => {
+/** An example's words after `mesa`, split as a shell splits them, up to a redirect or a pipe. */
+const wordsOf = (example: string) => {
+  const words = [
+    ...example
+      .slice(example.indexOf('mesa ') + 'mesa '.length)
+      .matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g),
+  ].map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+  const end = words.findIndex((w) => w === '<' || w === '|');
+  return end === -1 ? words : words.slice(0, end);
+};
+
+test('every example parses as its own command: its arguments, flags, and required flags', async () => {
+  // The real parser, with each run replaced by one that names its command.
+  const named = COMMANDS.map((c) => ({ ...c, run: () => ({ data: c.name, text: c.name }) }));
   for (const command of COMMANDS) {
-    const at = command.example.indexOf('mesa ');
-    expect(at, command.name).toBeGreaterThanOrEqual(0);
-    // --help stops before the arguments are bound, but an undeclared flag still fails to parse.
-    const words = command.example.slice(at + 'mesa '.length).split(' ');
-    const help = await mesa(...words, '--help');
-    expect(help.stdout.split('\n')[0], command.example).toBe(usage(command));
+    expect(command.example, command.name).toContain('mesa ');
+    const out = await runCli(wordsOf(command.example), {
+      commands: named,
+      env: {},
+      tty: false,
+      stdin: async () => '',
+      mesa: testDeps(home, { run }),
+    });
+    expect(out, command.example).toMatchObject({ code: 0, stdout: `${command.name}\n` });
   }
 });
 
 test('mesa help --agent lists every registered command; --json has one entry each', async () => {
   const markdown = (await mesa('help', '--agent')).stdout;
-  for (const command of COMMANDS) expect(markdown).toContain(`### \`mesa ${command.name}`);
   const { data } = (await mesa('help', '--agent', '--json')).json;
   expect(data.map((c: { name: string }) => c.name)).toEqual(COMMANDS.map((c) => c.name));
+  // The whole heading, so `mesa config set` cannot stand in for a missing `mesa config`.
+  for (const c of data) expect(markdown).toContain(`\n### \`${c.usage}\`\n`);
   expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
     name: 'send',
     usage: 'mesa send <session> <prompt> [--force]',

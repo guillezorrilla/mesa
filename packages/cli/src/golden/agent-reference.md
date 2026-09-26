@@ -2,14 +2,11 @@
 
 Every mesa command, generated from the CLI's own command table. In a usage line `<x>` is required and `[x]` is optional; every argument is a string.
 
-With `--json`, a command prints one envelope on stdout: `{"ok":true,"data":...}`, or `{"ok":false,"error":{"code":...,"message":...}}`. A nonzero exit code means it failed, or found a problem it reports in `data` (`mesa doctor`, `mesa vault status`).
+With `--json`, a command prints one envelope on stdout: `{"ok":true,"data":...}`, or `{"ok":false,"error":{"code":...,"message":...}}`. A nonzero exit code means it failed, or that it found a problem it reports in `data`.
 
 Global flags go before or after the command:
 
-- `--profile <string>`: Select the profile (default: MESA_PROFILE, else "default")
-- `--json`: Print the result envelope as JSON on stdout
-- `--help`: Show help
-- `--version`: Print the version
+- `--json`: Print JSON
 
 ## greet
 
@@ -29,3 +26,11 @@ Greet someone somewhere
 - `--wave`: Wave too
 
 Example: `mesa greet at ada --place hall --wave`
+
+## warn
+
+### `mesa warn`
+
+Succeed with a problem
+
+Example: `mesa warn`

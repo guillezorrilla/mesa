@@ -1,6 +1,5 @@
-import { GLOBAL_FLAGS } from '../cli.js';
-import { defineCommand } from '../command.js';
-import { agentReference, mainHelp, reference } from '../help.js';
+import { defineCommand, GLOBAL_FLAGS } from '../command.js';
+import { commandReference, mainHelp, referenceMarkdown } from '../help.js';
 
 export const help = defineCommand({
   name: 'help',
@@ -13,8 +12,11 @@ export const help = defineCommand({
   },
   example: 'mesa help --agent',
   // The data is the reference either way; --agent picks the Markdown over the short list.
-  run: ({ commands, flags }) => ({
-    data: reference(commands),
-    text: flags.agent ? agentReference(commands, GLOBAL_FLAGS) : mainHelp(commands, GLOBAL_FLAGS),
-  }),
+  run: ({ commands, flags }) => {
+    const reference = commandReference(commands);
+    const text = flags.agent
+      ? referenceMarkdown(reference, GLOBAL_FLAGS)
+      : mainHelp(commands, GLOBAL_FLAGS);
+    return { data: reference, text };
+  },
 });

@@ -3,6 +3,17 @@ import type { Mesa } from '@mesa/core';
 export type Flag = { type: 'string' | 'boolean'; description: string; required?: boolean };
 type Flags = Record<string, Flag>;
 
+/** Flags every command takes, before or after its name; one wins over a command flag of its name. */
+export const GLOBAL_FLAGS: Record<string, Flag> = {
+  profile: {
+    type: 'string',
+    description: 'Select the profile (default: MESA_PROFILE, else "default")',
+  },
+  json: { type: 'boolean', description: 'Print the result envelope as JSON on stdout' },
+  help: { type: 'boolean', description: 'Show help' },
+  version: { type: 'boolean', description: 'Print the version' },
+};
+
 type ArgName<S extends string> = S extends `${infer N}?` ? N : S;
 
 /** `path` is a required argument named path; `name?` an optional one named name. */

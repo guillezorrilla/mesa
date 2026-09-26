@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { tempDir, testDeps } from '@mesa/core/testing';
 import { expect, test } from 'vitest';
-import { type CliDeps, GLOBAL_FLAGS, runCli, VERSION } from './cli.js';
+import { type CliDeps, runCli, VERSION } from './cli.js';
 import { defineCommand } from './command.js';
-import { agentReference } from './help.js';
+import { commandReference, referenceMarkdown } from './help.js';
 
 let seen: { args: object; loud: boolean | undefined; profile: string } | undefined;
 const greet = defineCommand({
@@ -134,8 +134,8 @@ test('a required flag is checked from the declaration and shows in the usage lin
   expect((await run('needs', '--to', 'x')).stdout).toBe('x\n');
 });
 
-test('the agent reference pins its Markdown for two fixture commands', () => {
-  const needs = defineCommand({
+test('the agent reference pins its Markdown for fixture commands in two groups', () => {
+  const greetAt = defineCommand({
     name: 'greet at',
     summary: 'Greet someone somewhere',
     args: ['who'],
@@ -147,7 +147,9 @@ test('the agent reference pins its Markdown for two fixture commands', () => {
     run: () => ({ data: null, text: '' }),
   });
   const golden = new URL('golden/agent-reference.md', import.meta.url);
-  const written = agentReference([greet, needs], GLOBAL_FLAGS);
+  // One made-up global, so the golden file pins the layout and not the real globals' wording.
+  const globals = { json: { type: 'boolean' as const, description: 'Print JSON' } };
+  const written = referenceMarkdown(commandReference([greet, greetAt, warn]), globals);
   if (process.env.UPDATE_GOLDEN) writeFileSync(golden, written);
   expect(written).toBe(readFileSync(golden, 'utf8'));
 });
