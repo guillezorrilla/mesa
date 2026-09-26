@@ -1,9 +1,9 @@
 import { readFileSync, statSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { tempDir, thrown } from '../testing/index.js';
 import { loadConfig } from './config.js';
 import { profilePaths } from './paths.js';
 import { initProfile, openProfile, resolveProfileName } from './profile.js';
-import { tempDir, thrown } from './testing.js';
 
 test('the flag wins over MESA_PROFILE, which wins over default', () => {
   expect(resolveProfileName('personal', { MESA_PROFILE: 'work' })).toBe('personal');

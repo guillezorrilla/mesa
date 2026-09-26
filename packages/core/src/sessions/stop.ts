@@ -1,6 +1,6 @@
-import { AGENTS } from '../agents.js';
-import type { Clock } from '../clock.js';
-import { MesaError } from '../result.js';
+import { AGENTS } from '../agents/agents.js';
+import type { Clock } from '../lib/clock.js';
+import { MesaError } from '../lib/result.js';
 import { ending, type SessionRecord, type SessionStore, windowOf } from './store.js';
 import { killIfThere, type TmuxBackend, type WindowTarget } from './tmux.js';
 

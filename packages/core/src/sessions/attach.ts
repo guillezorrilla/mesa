@@ -1,8 +1,8 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { TerminalApp } from '../config.js';
-import { type Env, type Runner, shellWord } from '../process.js';
-import { MesaError } from '../result.js';
+import { type Env, type Runner, shellWord } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
+import type { TerminalApp } from '../profile/config.js';
 import { type SessionStore, sessionEnded, windowOf } from './store.js';
 import { type TmuxBackend, targetLabel } from './tmux.js';
 

@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync } from 'node:fs';
+import type { Env } from '../lib/process.js';
+import { writeYaml } from '../lib/yaml-file.js';
 import { buildConfig, CONFIG_HEADER, type Config, loadConfig } from './config.js';
 import type { ProfilePaths } from './paths.js';
-import type { Env } from './process.js';
-import { writeYaml } from './yaml-file.js';
 
 export const DEFAULT_PROFILE = 'default';
 

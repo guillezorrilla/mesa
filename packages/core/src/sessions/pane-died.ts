@@ -1,5 +1,5 @@
-import type { Clock } from '../clock.js';
 import { exitState, PROCESS } from '../decisions/session-state.js';
+import type { Clock } from '../lib/clock.js';
 import { idOfWindow, type SessionRecord, type SessionStore, windowOf } from './store.js';
 import { type TmuxBackend, VIEW_PREFIX } from './tmux.js';
 

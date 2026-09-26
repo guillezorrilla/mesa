@@ -8,7 +8,7 @@ import {
   scriptedRunner,
   sequentialIds,
   tempDir,
-} from '../testing.js';
+} from '../testing/index.js';
 import { listAgentProcesses } from './agent-listing.js';
 import { listSessions, sessionTree } from './list.js';
 import { sessionStore } from './store.js';

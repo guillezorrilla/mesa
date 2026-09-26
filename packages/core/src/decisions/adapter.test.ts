@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { execRunner } from '../process.js';
-import { redactPayload } from '../sessions/events.js';
-import { fixedClock, scriptedRunner } from '../testing.js';
+import { execRunner } from '../lib/process.js';
+import { redactPayload } from '../lib/redact.js';
+import { fixedClock, scriptedRunner } from '../testing/index.js';
 import {
   ADAPTER_TIMEOUT_MS,
   adapterArgs,

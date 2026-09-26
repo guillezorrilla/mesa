@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { tempDir, thrown } from './testing.js';
+import { tempDir, thrown } from '../testing/index.js';
 import { readYaml, setYamlPath, writeYaml } from './yaml-file.js';
 
 const Schema = z.strictObject({ n: z.number().max(5), tags: z.record(z.string(), z.string()) });

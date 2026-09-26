@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { AgentSchema } from './agents.js';
-import { MesaError } from './result.js';
-import { parseWith, readYaml, writeYaml } from './yaml-file.js';
+import { AgentSchema } from '../agents/agents.js';
+import { MesaError } from '../lib/result.js';
+import { parseWith } from '../lib/schema.js';
+import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
 /** The file that makes a folder a project. */
 export const PROJECT_FILE = 'mesa.yaml';

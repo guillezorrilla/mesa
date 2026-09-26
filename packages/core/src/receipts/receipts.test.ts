@@ -1,9 +1,18 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { setConfigValue } from './config.js';
-import { ulidSource } from './ids.js';
-import { createMesa } from './mesa.js';
+import { ulidSource } from '../lib/ids.js';
+import { createMesa } from '../mesa.js';
+import { setConfigValue } from '../profile/config.js';
+import {
+  fixedClock,
+  sequentialIds,
+  steppingClock,
+  tempDir,
+  testDeps,
+  thrown,
+} from '../testing/index.js';
+import { initVault } from '../vault/vault.js';
 import { EXAMPLES } from './receipts.examples.js';
 import {
   actionRecorder,
@@ -12,8 +21,6 @@ import {
   showReceipt,
   writeReceipt,
 } from './receipts.js';
-import { fixedClock, sequentialIds, steppingClock, tempDir, testDeps, thrown } from './testing.js';
-import { initVault } from './vault.js';
 
 let vault: string;
 beforeEach(() => {
@@ -40,7 +47,7 @@ test.each(Object.keys(EXAMPLES))('the %s receipt matches its golden file', (type
 });
 
 test('docs/receipts.md shows every golden file', () => {
-  const docs = readFileSync(new URL('../../../docs/receipts.md', import.meta.url), 'utf8');
+  const docs = readFileSync(new URL('../../../../docs/receipts.md', import.meta.url), 'utf8');
   for (const type of Object.keys(EXAMPLES)) {
     expect(docs).toContain(readFileSync(golden(type), 'utf8').trimEnd());
   }

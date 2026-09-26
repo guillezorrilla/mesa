@@ -1,17 +1,19 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
-import { type Agent, AgentSchema } from './agents.js';
-import type { Clock } from './clock.js';
-import { BackendSchema } from './config.js';
-import { parseNote } from './frontmatter.js';
-import { type IdSource, ULID } from './ids.js';
-import { appendLog, NOTE_FIELDS, type NotesDeps, updateNote, writeNote } from './notes.js';
+import { type Agent, AgentSchema } from '../agents/agents.js';
+import type { Clock } from '../lib/clock.js';
+import { type IdSource, ULID } from '../lib/ids.js';
+import { REDACTED, redactText } from '../lib/redact.js';
+import { MesaError, toFail } from '../lib/result.js';
+import { parseWith } from '../lib/schema.js';
+import { NoteTimeSchema, obsidianDateTime } from '../lib/time.js';
+import { BackendSchema } from '../profile/config.js';
+import { parseNote } from '../vault/frontmatter.js';
+import { VAULT } from '../vault/layout.js';
+import { appendLog, NOTE_FIELDS, type NotesDeps, updateNote, writeNote } from '../vault/notes.js';
+import { acceptsMesaWrites } from '../vault/vault.js';
 import { RECEIPT_TYPES, receiptLink, receiptPath, receiptSortKey } from './receipt-file.js';
-import { MesaError, toFail } from './result.js';
-import { NoteTimeSchema, obsidianDateTime } from './time.js';
-import { acceptsMesaWrites } from './vault.js';
-import { parseWith } from './yaml-file.js';
 
 const probability = z.number().min(0).max(1);
 
@@ -138,13 +140,13 @@ export async function closeSessionReceipt(
 
 /** Every receipt file, newest first; files whose names are not a receipt's are left out. */
 function receiptFiles(vault: string): string[] {
-  const root = join(vault, 'receipts');
+  const root = join(vault, VAULT.receipts);
   if (!existsSync(root)) return [];
   return readdirSync(root, { recursive: true, encoding: 'utf8' })
     .map((p) => ({ p, key: receiptSortKey(basename(p)) }))
     .filter((f): f is { p: string; key: string } => f.key !== undefined)
     .sort((a, b) => b.key.localeCompare(a.key))
-    .map((f) => join('receipts', f.p));
+    .map((f) => join(VAULT.receipts, f.p));
 }
 
 /** A receipt as read back: where it is, its frontmatter, and its body's first line. */
@@ -171,10 +173,6 @@ export function showReceipt(vault: string, id: string): ReceiptEntry {
   return readReceipt(vault, path);
 }
 
-/** `text` with every secret of 4 characters or more replaced by `***`. */
-export const redactText = (text: string, secrets: readonly string[]) =>
-  secrets.filter((s) => s.length >= 4).reduce((t, secret) => t.split(secret).join('***'), text);
-
 /**
  * A long text an action took (send's prompt, open's goal) as its receipt keeps it: key values
  * redacted first, then the first 80 characters, in `inputs` and in the argv word that is the text
@@ -199,7 +197,7 @@ export function redactCommand(argv: readonly string[], secrets: readonly string[
   const scrub = (word: string) => redactText(word, secrets);
   const words = argv.map((arg, i) => {
     const previous = argv[i - 1] ?? '';
-    return previous === 'keys' || previous.startsWith('keys.') ? '***' : quote(scrub(arg));
+    return previous === 'keys' || previous.startsWith('keys.') ? REDACTED : quote(scrub(arg));
   });
   return ['mesa', ...words].join(' ');
 }

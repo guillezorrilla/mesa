@@ -1,10 +1,9 @@
 import { closeSync, existsSync, openSync, readdirSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS } from '../agents.js';
-import { checkAgent } from '../doctor.js';
-import { findProject } from '../projects.js';
-import { readRegistry } from '../registry.js';
-import { MesaError } from '../result.js';
+import { AGENTS, checkAgent } from '../agents/agents.js';
+import { MesaError } from '../lib/result.js';
+import { findProject } from '../projects/projects.js';
+import { readRegistry } from '../projects/registry.js';
 import type { AgentProcess } from './agent-listing.js';
 import { projectOf } from './list.js';
 import { createRecord, type OpenDeps, startWindow } from './open.js';
@@ -20,9 +19,6 @@ export type AdoptDeps = OpenDeps & {
   /** Where Claude Code keeps transcripts, `~/.claude/projects/<folder>/<id>.jsonl`. */
   transcripts: string;
 };
-
-/** Where Claude Code keeps every session's transcript, one folder per working folder. */
-export const claudeTranscripts = (home: string) => join(home, '.claude', 'projects');
 
 /** Said with every adoption: two agents writing one transcript would interleave it. */
 const WARNING = 'end the session in its original terminal first: both hold the same transcript';

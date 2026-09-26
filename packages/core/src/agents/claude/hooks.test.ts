@@ -9,8 +9,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { tempDir, thrown } from '../../testing/index.js';
 import { HOOK_EVENTS, hookCommand, hooksStatus, installHooks, uninstallHooks } from './hooks.js';
-import { tempDir, thrown } from './testing.js';
 
 const SELF = ['/opt/node/bin/node', '/src/mesa/packages/cli/dist/mesa.js'];
 

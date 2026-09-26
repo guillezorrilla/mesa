@@ -1,12 +1,13 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Clock } from './clock.js';
-import { RECEIPT_FILE } from './receipt-file.js';
-import { MesaError } from './result.js';
+import type { Clock } from '../lib/clock.js';
+import { MesaError } from '../lib/result.js';
+import { RECEIPT_FILE } from '../receipts/receipt-file.js';
+import { VAULT } from './layout.js';
 
 const MARK = 'vault initialised by mesa';
 // Relative to this module, so it resolves from src (vitest) and from dist (the built CLI).
-const TEMPLATE = new URL('../templates/vault-AGENTS.md', import.meta.url);
+const TEMPLATE = new URL('../../templates/vault-AGENTS.md', import.meta.url);
 const INDEX = '# Index\n\nOne line per note in `wiki/` and `projects/`: a link and a summary.\n';
 
 type Item =
@@ -16,10 +17,10 @@ type Item =
 // The layout from ADR-0006, in creation order. log.md comes first: its first line marks the
 // folder as a Mesa vault (see acceptsMesaWrites), so an interrupted init can be rerun without --force.
 const LAYOUT: Item[] = [
-  { name: 'log.md', kind: 'file', content: (now) => `- ${now.toISOString()} ${MARK}\n` },
-  { name: 'AGENTS.md', kind: 'file', content: () => readFileSync(TEMPLATE, 'utf8') },
-  { name: 'index.md', kind: 'file', content: () => INDEX },
-  ...['raw', 'wiki', 'projects', 'receipts', 'daily'].map((name) => ({
+  { name: VAULT.log, kind: 'file', content: (now) => `- ${now.toISOString()} ${MARK}\n` },
+  { name: VAULT.agents, kind: 'file', content: () => readFileSync(TEMPLATE, 'utf8') },
+  { name: VAULT.index, kind: 'file', content: () => INDEX },
+  ...[VAULT.raw, VAULT.wiki, VAULT.projects, VAULT.receipts, VAULT.daily].map((name) => ({
     name,
     kind: 'folder' as const,
   })),
@@ -35,7 +36,7 @@ const present = (path: string, item: Item) => {
 };
 
 // Finder's .DS_Store and Mesa's own .mesa/ (the vault lock) do not make a folder non-empty.
-const IGNORED = ['.DS_Store', '.mesa'];
+const IGNORED = ['.DS_Store', VAULT.mesa];
 
 const receiptsOnly = (dir: string): boolean =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
@@ -53,10 +54,10 @@ export function acceptsMesaWrites(path: string): boolean {
   if (!stat.isDirectory()) return false;
   const entries = readdirSync(path).filter((n) => !IGNORED.includes(n));
   if (entries.length === 0 || entries.includes('.obsidian')) return true;
-  if (entries.length === 1 && entries[0] === 'receipts')
-    return receiptsOnly(join(path, 'receipts'));
-  if (!entries.includes('log.md')) return false;
-  const first = readFileSync(join(path, 'log.md'), 'utf8').split('\n', 1)[0] ?? '';
+  if (entries.length === 1 && entries[0] === VAULT.receipts)
+    return receiptsOnly(join(path, VAULT.receipts));
+  if (!entries.includes(VAULT.log)) return false;
+  const first = readFileSync(join(path, VAULT.log), 'utf8').split('\n', 1)[0] ?? '';
   return first.startsWith('- ') && first.endsWith(` ${MARK}`);
 }
 

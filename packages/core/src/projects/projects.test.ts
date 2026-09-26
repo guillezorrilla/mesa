@@ -2,11 +2,11 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { profilePaths } from './paths.js';
-import { initProfile, openProfile, type Profile } from './profile.js';
+import { profilePaths } from '../profile/paths.js';
+import { initProfile, openProfile, type Profile } from '../profile/profile.js';
+import { tempDir, thrown } from '../testing/index.js';
 import { slugify } from './project-file.js';
 import { listProjects, registerProject, unregisterProject } from './projects.js';
-import { tempDir, thrown } from './testing.js';
 
 let root: string;
 let profile: Profile;

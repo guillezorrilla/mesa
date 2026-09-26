@@ -7,7 +7,7 @@ export default defineConfig({
   // Tests run before build in `pnpm verify`, so resolve core from source. Most specific first.
   resolve: {
     alias: [
-      { find: '@mesa/core/testing', replacement: core('testing.ts') },
+      { find: '@mesa/core/testing', replacement: core('testing/index.ts') },
       { find: '@mesa/core', replacement: core('index.ts') },
     ],
   },

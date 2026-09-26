@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
+import { scriptedRunner, tempDir, testDeps } from '../testing/index.js';
 import { knownToObsidian, obsidianUri, openInObsidian } from './obsidian.js';
-import { scriptedRunner, tempDir, testDeps } from './testing.js';
 
 let home: string;
 let vault: string;
