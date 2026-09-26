@@ -48,7 +48,11 @@ export const COMMANDS = {
   ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
-  'skills.list': command<SkillRow[]>('skills', 'list'),
+  'skills.list': commandWith<{ project?: string }, SkillRow[]>(({ project }) => [
+    'skills',
+    'list',
+    ...(project ? ['--', project] : []),
+  ]),
   'skills.sync': commandWith<{ project: string }, SkillSync>(({ project }) => [
     'skills',
     'sync',

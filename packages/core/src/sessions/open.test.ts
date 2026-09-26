@@ -686,3 +686,37 @@ test('through a symlinked home, a worktree git lists is still seen', async () =>
   const { result } = await mesa.sessions.open('lantern-cove', { branch: 'fine' });
   expect(result.worktree?.path).toBe(worktreeAt(home, 'fine'));
 });
+
+test('open links the enabled skills where the agent runs before its window opens; a failure warns', async () => {
+  const world = agentWorld();
+  let dir = '';
+  // Whether the mesa skill was linked when tmux was asked for the window.
+  const linkedAtStart: boolean[] = [];
+  const run: Runner = (file, args, ms) => {
+    if (file === 'tmux' && args.some((a) => a === 'new-session' || a === 'new-window')) {
+      linkedAtStart.push(existsSync(join(dir, '.claude/skills/mesa/SKILL.md')));
+    }
+    return withGit(world)(file, args, ms);
+  };
+  const made = await setUp(world, { run });
+  dir = made.dir;
+  const { mesa, home } = made;
+  const { warning } = await mesa.sessions.open('lantern-cove');
+  expect(linkedAtStart).toEqual([true]);
+  expect(warning).toBeUndefined();
+
+  // In its own worktree the links go there, and git does not count them: the worktree is clean.
+  gitRepo(dir);
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'skilled' });
+  const path = result.worktree?.path ?? '';
+  expect(existsSync(join(path, '.agents/skills/mesa/SKILL.md'))).toBe(true);
+  expect(testGit(path, 'status', '--porcelain')).toBe('');
+
+  // A folder the links cannot go in: the session opens anyway, and says why they are missing.
+  const blocked = join(home, 'src/lantern-cove/.agents');
+  rmSync(blocked, { recursive: true, force: true });
+  writeFileSync(blocked, 'not a folder');
+  const opened = await mesa.sessions.open('lantern-cove');
+  expect(opened.result.id).toMatch(/^[0-9a-z]{8}$/);
+  expect(opened.warning).toMatch(/^skills not synced into .*lantern-cove: /);
+});

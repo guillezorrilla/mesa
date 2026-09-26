@@ -24,22 +24,28 @@ export function useRun() {
   );
 }
 
-type NoArgCommand = { [K in CommandName]: CallArgs<K> extends [] ? K : never }[CommandName];
-
 export type CommandState<T> = { data: T | undefined; busy: boolean; refresh: () => Promise<void> };
 
-/** Runs a command on mount and on `refresh()`, keeping the last good data. */
-export function useCommand<K extends NoArgCommand>(name: K): CommandState<DataOf<K>> {
-  const run = useRun() as (name: K) => Promise<DataOf<K> | undefined>;
+/**
+ * Runs a command on mount, again when its arguments change, and on `refresh()`, keeping the last
+ * good data.
+ */
+export function useCommand<K extends CommandName>(
+  name: K,
+  ...args: CallArgs<K>
+): CommandState<DataOf<K>> {
+  const run = useRun() as (name: K, ...args: CallArgs<K>) => Promise<DataOf<K> | undefined>;
   const [data, setData] = useState<DataOf<K>>();
   const [busy, setBusy] = useState(false);
+  // By value: a caller passes a fresh object each render.
+  const key = JSON.stringify(args);
 
   const refresh = useCallback(async () => {
     setBusy(true);
-    const next = await run(name);
+    const next = await run(name, ...(JSON.parse(key) as CallArgs<K>));
     if (next !== undefined) setData(next);
     setBusy(false);
-  }, [run, name]);
+  }, [run, name, key]);
 
   useEffect(() => {
     refresh();

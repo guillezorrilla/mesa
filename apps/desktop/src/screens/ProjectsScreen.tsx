@@ -19,7 +19,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 /** The profile's registered projects: open a session on one, or register a folder. */
 export function ProjectsScreen() {
   const { data: projects, refresh } = useCommand('projects.list');
-  const skills = useCommand('skills.list');
+  const skills = useCommand('skills.list', {});
   const run = useRun();
   const platform = usePlatform();
   const [busy, setBusy] = useState(false);
@@ -81,6 +81,7 @@ export function ProjectsScreen() {
               <TableHead>Path</TableHead>
               <TableHead>Agent</TableHead>
               <TableHead>Priority</TableHead>
+              <TableHead>Skills</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -102,6 +103,7 @@ export function ProjectsScreen() {
                 <TableCell className="font-mono text-muted-foreground text-xs">{p.path}</TableCell>
                 <TableCell>{p.agent ?? ''}</TableCell>
                 <TableCell className="font-mono tabular-nums">{p.priority ?? ''}</TableCell>
+                <TableCell>{p.exists && <SyncedSkills project={p.name} />}</TableCell>
                 <TableCell className="text-right">
                   {p.exists && (
                     <div className="flex justify-end gap-1">
@@ -157,5 +159,24 @@ export function ProjectsScreen() {
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+/** The Mesa skills linked into a project (mesa skills sync, or mesa open, puts them there). */
+function SyncedSkills({ project }: { project: string }) {
+  const { data } = useCommand('skills.list', { project });
+  const linked = data?.filter((s) => s.source === 'mesa' && s.linked) ?? [];
+  return (
+    <div data-testid="synced-skills" className="flex flex-wrap gap-1">
+      {linked.length ? (
+        linked.map((s) => (
+          <Badge key={s.name} variant="secondary" className="font-mono">
+            {s.name}
+          </Badge>
+        ))
+      ) : (
+        <span className="text-muted-foreground text-xs">none synced</span>
+      )}
+    </div>
   );
 }
