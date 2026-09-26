@@ -3,7 +3,6 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll } from 'vitest';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
@@ -357,9 +356,16 @@ export function projectProfile(
  * Keeps the real git in a test file to its temp repositories: a git hook (pre-push runs these
  * tests) exports GIT_DIR and friends, which would point git at Mesa's own repository, and the
  * user's git config (signing, hooks) stays out. The real git inherits process.env, so it is set
- * for the calling file only; call it once at its top.
+ * for the calling file only: call it once at its top with vitest's hooks, which this module leaves
+ * to its caller so that nothing here needs vitest.
  */
-export function isolateGit() {
+export function isolateGit({
+  beforeAll,
+  afterAll,
+}: {
+  beforeAll: (fn: () => void) => void;
+  afterAll: (fn: () => void) => void;
+}) {
   const saved = Object.entries(process.env).filter(([name]) => name.startsWith('GIT_'));
   beforeAll(() => {
     for (const [name] of saved) delete process.env[name];

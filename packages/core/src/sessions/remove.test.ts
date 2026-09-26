@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
@@ -13,7 +13,7 @@ import {
   withRealGit,
 } from '../testing/index.js';
 
-isolateGit();
+isolateGit({ beforeAll, afterAll });
 
 /** lantern-cove as a git repository, in a profile over a fake tmux with the real git. */
 function setUp() {
