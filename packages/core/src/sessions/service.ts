@@ -18,7 +18,8 @@ import { readGoal, sessionGoal } from './goal.js';
 import { readHookEvents, recordHookEvent } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
 import { recordPaneDied } from './pane-died.js';
-import type { SessionRecord } from './record.js';
+import { dueToStart, startQueued } from './queue.js';
+import { isOver, type SessionRecord } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
@@ -26,16 +27,22 @@ import { resumeSession } from './resume.js';
 import { sendPrompt } from './send.js';
 import { stopSession } from './stop.js';
 
-/**
- * Every session action, each with its receipt, plus the hooks' entry points and the tmux
- * windows: the Session Board's side of Mesa for one profile.
- */
 /** `recorded` with the action's own warning joined after its receipt's. */
 const withWarning = <T>(recorded: Recorded<T>, warning?: string): Recorded<T> => {
   const joined = [recorded.warning, warning].filter(Boolean).join('; ');
   return joined ? { ...recorded, warning: joined } : recorded;
 };
 
+/** A SessionEnd whose agent goes on in its window: /clear and /resume start a new conversation. */
+const agentGoesOn = (payload: unknown) => {
+  const reason = (payload as { reason?: unknown } | undefined)?.reason;
+  return reason === 'clear' || reason === 'resume';
+};
+
+/**
+ * Every session action, each with its receipt, plus the hooks' entry points and the tmux
+ * windows: the Session Board's side of Mesa for one profile.
+ */
 export function sessionsService(
   ctx: MesaContext,
   faro: Faro,
@@ -75,8 +82,45 @@ export function sessionsService(
     caller,
     syncSkills,
   });
+  /**
+   * Starts, each with its session receipt, the queued sessions waiting on one `over` says is
+   * over; a start that fails leaves its failure receipt and never fails the caller. True when one
+   * started.
+   */
+  const startQueue = async (over: (id: string) => boolean) => {
+    let any = false;
+    for (const queued of dueToStart(store, over, deps.clock())) {
+      const started = await record(
+        {
+          type: 'session',
+          summary: (r) => `Started queued session ${queued.id} on ${r?.record.project}`,
+          failure: `Could not start queued session ${queued.id}`,
+          project: () => queued.project,
+          session: () => queued.id,
+          agent: () => queued.agent,
+          inputs: { id: queued.id, after: queued.after },
+          outputs: (r) => ({
+            window: r?.record.tmux.window,
+            agentSessionId: r?.record.agentSessionId,
+            lastState: r?.record.lastState,
+            ...(r?.record.worktree ? { worktree: r.record.worktree } : {}),
+            ...(r?.warning ? { warning: r.warning } : {}),
+          }),
+          changed: (r) => r !== undefined,
+        },
+        () => startQueued(openDeps(), queued.id),
+      ).catch(() => undefined);
+      any ||= Boolean(started?.result);
+    }
+    return any;
+  };
+  /** Whether the session `id` is over for its queue: it is, or it is gone. */
+  const overOrGone = (id: string) => {
+    const found = store.find(id);
+    return !found || isOver(found);
+  };
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
-  const board = (all = false) =>
+  const look = (all = false) =>
     listSessions(
       {
         store,
@@ -92,6 +136,18 @@ export function sessionsService(
       },
       { all },
     );
+  /**
+   * The board, once it has started what it found due: a queued session whose session is over by
+   * this look, which a missed signal left waiting.
+   */
+  const board = async (all = false) => {
+    const rows = await look(all);
+    const overNow = (id: string) => {
+      const row = rows.find((r) => r.id === id);
+      return row?.managed ? isOver(row) : overOrGone(id);
+    };
+    return (await startQueue(overNow)) ? look(all) : rows;
+  };
   return {
     sessions: {
       list: board,
@@ -104,7 +160,7 @@ export function sessionsService(
        * action, as every refusal does.
        */
       open: (project: string, opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {}) => {
-        const { agent, parent, noParent, branch, base } = opts;
+        const { agent, parent, noParent, after, branch, base } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -121,7 +177,10 @@ export function sessionsService(
           {
             type: 'session',
             ...(kept ? { argv: kept.argv } : {}),
-            summary: ({ record: r }) => `Opened session ${r.id} on ${r.project}`,
+            summary: ({ record: r }) =>
+              r.lastState.state === 'queued'
+                ? `Queued session ${r.id} on ${r.project} after ${r.after}`
+                : `Opened session ${r.id} on ${r.project}`,
             failure: `Could not open a session on ${project}`,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
@@ -132,6 +191,7 @@ export function sessionsService(
               ...(kept ? { goal: kept.short } : {}),
               ...(parent === undefined ? {} : { parent }),
               ...(noParent ? { noParent } : {}),
+              ...(after === undefined ? {} : { after }),
               ...(branch === undefined ? {} : { branch }),
               ...(base === undefined ? {} : { base }),
             },
@@ -145,7 +205,7 @@ export function sessionsService(
           },
           async () => {
             if (refused) throw refused;
-            const input = { project, agent, goal, parent, noParent, branch, base };
+            const input = { project, agent, goal, parent, noParent, after, branch, base };
             return openSession(openDeps(), input);
           },
         ).then((recorded) => ({
@@ -220,7 +280,10 @@ export function sessionsService(
           },
           () => stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, { force }),
         );
-        if (recorded.result.outcome === 'already-ended') return recorded;
+        const { outcome } = recorded.result;
+        if (outcome === 'already-ended') return recorded;
+        // Stopped is over: what was queued after it starts (a cancel hands its queue on instead).
+        if (outcome !== 'cancelled') await startQueue((after) => after === id);
         return markEnded(recorded, recorded.result.record);
       },
       /**
@@ -333,9 +396,12 @@ export function sessionsService(
           app ? open().config.terminal.app : undefined,
         ),
     },
-    /** One agent hook's payload, from `mesa hook claude` inside a Mesa session. */
-    hookEvent: (agent: string, payload: string) =>
-      recordHookEvent(
+    /**
+     * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A SessionEnd (not
+     * a /clear or a /resume, which keep the agent running) starts what was queued after it.
+     */
+    hookEvent: async (agent: string, payload: string) => {
+      const event = recordHookEvent(
         {
           store,
           eventsDir: paths.events,
@@ -344,16 +410,24 @@ export function sessionsService(
           secrets: secretsOrRefuse,
         },
         { agent, mesaSessionId: windowId(deps.env), payload },
-      ),
+      );
+      const id = windowId(deps.env);
+      if (event?.event === 'SessionEnd' && id && !agentGoesOn(event.payload)) {
+        await startQueue((after) => after === id);
+      }
+      return event;
+    },
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
-     * exit of the agent in a Mesa window; any other event, or a window no session has, is not
-     * Mesa's and records nothing (undefined).
+     * exit of the agent in a Mesa window, then starts what was queued after it; any other event,
+     * or a window no session has, is not Mesa's and records nothing (undefined).
      */
-    tmuxEvent: async (event: string, project: string, window: string) =>
-      event === 'pane-died'
-        ? recordPaneDied({ store, tmux, clock: deps.clock }, project, window)
-        : undefined,
+    tmuxEvent: async (event: string, project: string, window: string) => {
+      if (event !== 'pane-died') return undefined;
+      const exited = await recordPaneDied({ store, tmux, clock: deps.clock }, project, window);
+      if (exited) await startQueue((after) => after === exited.id);
+      return exited;
+    },
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),
   };

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { FaroProfile } from '../decisions/decide.js';
 import { fixedClock } from '../testing/index.js';
-import { SESSION_STATES } from './record.js';
+import { AGENT_STATES } from './record.js';
 import { attentionWeights, classify, classifySession, type SessionSignals } from './state.js';
 
 const dir = join(import.meta.dirname, 'fixtures/state');
@@ -30,7 +30,7 @@ test.each(fixtures)('$name: $note', async ({ input, expected }) => {
   const [state, score, human] = decision.answers;
   expect(state).toMatchObject({ kind: 'Choice', answer: expected.state });
   expect(Object.keys(state?.kind === 'Choice' ? state.probabilities : {})).toEqual([
-    ...SESSION_STATES,
+    ...AGENT_STATES,
   ]);
   expect(score?.kind).toBe('Score');
   // "A human is needed now" leans yes exactly for the waiting states.
@@ -93,7 +93,7 @@ test('classifySession asks the adapter only when the rules are unsure, and takes
             kind: 'Choice',
             answer: 'waiting-question',
             probabilities: Object.fromEntries(
-              SESSION_STATES.map((n) => [n, n === 'waiting-question' ? 0.9 : 0.02]),
+              AGENT_STATES.map((n) => [n, n === 'waiting-question' ? 0.9 : 0.02]),
             ),
             confidence: 0.9,
           },

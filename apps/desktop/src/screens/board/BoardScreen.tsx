@@ -81,8 +81,9 @@ export function BoardScreen() {
       act(async () => {
         const stopped = await run('sessions.stop', { id });
         if (!stopped) return undefined;
-        return stopped.outcome === 'already-ended'
-          ? `Session ${id} had already ended`
+        if (stopped.outcome === 'already-ended') return `Session ${id} had already ended`;
+        return stopped.outcome === 'cancelled'
+          ? `Cancelled session ${id}: it never starts`
           : `Stopped session ${id}`;
       }),
     resume: (id) =>

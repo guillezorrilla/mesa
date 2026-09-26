@@ -3,7 +3,8 @@ import { recordedOutput } from '../output/recorded.js';
 
 export const stop = defineCommand({
   name: 'stop',
-  summary: 'End a session: its agent is asked to quit (up to 5 s), then its window is closed',
+  summary:
+    'End a session: its agent is asked to quit (up to 5 s), then its window is closed; a queued one is cancelled',
   args: ['session'],
   flags: {
     force: { type: 'boolean', description: 'Close the window at once, without asking the agent' },
@@ -16,6 +17,7 @@ export const stop = defineCommand({
       exited: `stopped ${record.id}`,
       killed: `stopped ${record.id} (window closed)`,
       gone: `stopped ${record.id} (its window was already gone)`,
+      cancelled: `cancelled ${record.id}: it was queued, and never starts now`,
       'already-ended': `session ${record.id} had already ended`,
     }[outcome];
     return recordedOutput(recorded, { data: { ...record, outcome }, text: said });

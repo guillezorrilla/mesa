@@ -4,7 +4,8 @@ import { MesaError } from '../lib/result.js';
 
 // A session record's shape and the rules on it (CONTEXT.md, Session); the store keeps them.
 
-export const SESSION_STATES = [
+/** Where a session's agent is: what Faro reads from its signals (CONTEXT.md, Session state). */
+export const AGENT_STATES = [
   'working',
   'waiting-permission',
   'waiting-question',
@@ -12,7 +13,16 @@ export const SESSION_STATES = [
   'done',
   'failed',
 ] as const;
+/**
+ * An agent's states, and Mesa's own for a session whose agent never ran: `queued` until the
+ * session it waits on ends (mesa open --after), `stopped` once cancelled. Mesa sets those; Faro
+ * never reads them.
+ */
+export const SESSION_STATES = [...AGENT_STATES, 'queued', 'stopped'] as const;
 export type SessionState = (typeof SESSION_STATES)[number];
+/** Whether Faro places a session in this state, rather than Mesa holding it there. */
+export const isAgentState = (state: SessionState) =>
+  (AGENT_STATES as readonly string[]).includes(state);
 
 const SHORT_ID = /^[0-9a-z]{8}$/;
 /** An 8-character Mesa session id, so one from outside (a hook's env) never becomes a path. */
@@ -36,6 +46,20 @@ export const SessionRecordSchema = z.strictObject({
   goal: z.string().optional(),
   /** The session this one was started from (CONTEXT.md, Parent session). */
   parent: z.string().regex(SHORT_ID).optional(),
+  /** The session it waits on, while queued, and the one it waited on after (CONTEXT.md, Queued session). */
+  after: z.string().regex(SHORT_ID).optional(),
+  /**
+   * A queued session's start, still to come: the worktree it gets then (mesa open --after
+   * --branch), and `claimedAt`, set under the record's lock by whoever starts it, so it starts
+   * once. Gone once it starts.
+   */
+  pending: z
+    .strictObject({
+      branch: z.string().optional(),
+      base: z.string().optional(),
+      claimedAt: z.iso.datetime().optional(),
+    })
+    .optional(),
   /** What a person calls it (mesa adopt --name). */
   name: z.string().optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
@@ -95,7 +119,11 @@ export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 
 /** States a session does not leave on its own; distinct from ended (stopped, with `endedAt`). */
-export const FINAL_STATES: ReadonlySet<SessionState> = new Set(['done', 'failed']);
+export const FINAL_STATES: ReadonlySet<SessionState> = new Set(['done', 'failed', 'stopped']);
+
+/** Its agent is through: stopped, or seen done or failed. A queue waits for this (CONTEXT.md, Queued session). */
+export const isOver = (r: Pick<SessionRecord, 'endedAt' | 'lastState'>) =>
+  Boolean(r.endedAt) || FINAL_STATES.has(r.lastState.state);
 
 /** The states that need a person (CONTEXT.md, Session state). */
 export const WAITING_STATES: ReadonlySet<SessionState> = new Set([

@@ -1,7 +1,10 @@
 import type { SessionState } from '@mesa/core';
 import { cn } from '@/lib/utils';
 
-/** One colour per Session state (the theme's `--state-*` tokens); waits are the warm one. */
+/**
+ * One colour per Session state (the theme's `--state-*` tokens); waits are the warm one, and the
+ * states Mesa holds (queued, stopped) are uncoloured.
+ */
 const TONE: Record<SessionState, string> = {
   working: 'bg-state-working/15 text-state-working ring-state-working/30',
   'waiting-permission': 'bg-state-waiting/25 text-foreground ring-state-waiting font-semibold',
@@ -9,6 +12,9 @@ const TONE: Record<SessionState, string> = {
   idle: 'bg-state-idle/15 text-state-idle ring-state-idle/30',
   done: 'bg-state-done/15 text-muted-foreground ring-state-done/30',
   failed: 'bg-state-failed/15 text-state-failed ring-state-failed/40',
+  // Mesa's own: no agent has run yet, or ever will.
+  queued: 'text-muted-foreground ring-0 border border-dashed border-muted-foreground/60',
+  stopped: 'text-muted-foreground ring-border line-through',
 };
 
 /** A session's state and Faro's confidence in it, coloured by state; `title` says who decided. */

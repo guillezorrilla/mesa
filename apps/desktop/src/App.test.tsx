@@ -596,6 +596,63 @@ test("a session's branch shows under its project, its worktree on hover", async 
   expect(byTestId('session-branch')).toHaveLength(1);
 });
 
+test('a queued row says what it waits on and has Cancel, which stops it; it cannot resume', async () => {
+  let cancelled = false;
+  const at = '2026-09-25T12:00:00.000Z';
+  const queuedRow = managedRow('dddddddd', {
+    agentSessionId: undefined,
+    after: 'aaaaaaaa',
+    parent: 'aaaaaaaa',
+    pending: { branch: 'second' },
+    alive: false,
+    attention: 0,
+    runningSeconds: 0,
+    decision: undefined,
+    lastState: { state: 'queued', confidence: 1, at, source: 'mesa' },
+  });
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([
+        asking,
+        cancelled
+          ? {
+              ...queuedRow,
+              pending: undefined,
+              endedAt: at,
+              lastState: { state: 'stopped', confidence: 1, at, source: 'mesa' },
+            }
+          : queuedRow,
+      ] satisfies TreeRow[]),
+    stop: () => {
+      cancelled = true;
+      return envelope({ ...queuedRow, outcome: 'cancelled' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const row = () => byTestId('session-row')[1] as HTMLElement;
+  const inRow = (id: string) => row().querySelector(`[data-testid="${id}"]`) as HTMLElement;
+  expect(inRow('session-waiting')?.textContent).toBe('waiting on aaaaaaaa');
+  expect(inRow('session-state')?.dataset.state).toBe('queued');
+  expect(inRow('session-state')?.title).toBe('set by Mesa: its agent has not run');
+  expect(inRow('session-branch')?.textContent).toBe('second');
+  expect(inRow('session-send-submit')?.hasAttribute('disabled')).toBe(true);
+  expect(inRow('session-resume')?.hasAttribute('disabled')).toBe(true);
+  expect(inRow('session-stop')?.textContent).toBe('Cancel');
+  // Removed, it would leave what waits on it waiting on nothing: it is cancelled first.
+  await click(inRow('row-menu'));
+  expect((byTestId('session-remove')[0] as HTMLButtonElement).disabled).toBe(true);
+  await click(inRow('row-menu'));
+  await click(inRow('session-stop'));
+  expect(calls.filter((c) => c[1] === 'stop')).toEqual([['--json', 'stop', '--', 'dddddddd']]);
+  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
+    'Cancelled session dddddddd: it never starts',
+  ]);
+  expect(inRow('session-state')?.dataset.state).toBe('stopped');
+  expect(inRow('session-waiting')).toBeNull();
+  expect(inRow('session-stop')?.hasAttribute('disabled')).toBe(true);
+  expect(inRow('session-resume')?.hasAttribute('disabled')).toBe(true);
+});
+
 test('Send on Enter, Open terminal, then Stop and Resume on the same row, each said in a toast', async () => {
   let stopped = false;
   const { bridge, calls } = fakeBridge({

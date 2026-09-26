@@ -48,6 +48,12 @@ mesa sessions --tree            # every session, children under their parent, mo
 mesa show b2c3d4e5 --json       # one session's record, and whether it is alive
 ```
 
+Queue work after a session: the new one starts by itself when that session is over (its agent exits, or it is stopped), with its own goal. `mesa sessions` shows it `queued`, `waiting on <id>`; `mesa stop` on it cancels it.
+
+```sh
+mesa open lantern-cove --after b2c3d4e5 --goal "Review the PR b2c3d4e5 opened" --branch review/tide-flake
+```
+
 Adopt a Claude Code session started outside Mesa, so it can be messaged and resumed:
 
 ```sh
