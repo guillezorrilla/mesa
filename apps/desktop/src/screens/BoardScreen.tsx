@@ -222,9 +222,9 @@ export function BoardScreen() {
       const resumed = await run('sessions.resume', { id });
       return resumed && `Resumed session ${id} as ${resumed.id}`;
     });
-  const open = (project: string, agent: Agent, goal: string) =>
+  const open = (input: NewSessionInput) =>
     act(async () => {
-      const opened = await run('sessions.open', { project, agent, goal });
+      const opened = await run('sessions.open', input);
       if (!opened) return undefined;
       setNewOpen(false);
       return `Opened session ${opened.id} on ${opened.project}`;
@@ -298,6 +298,11 @@ export function BoardScreen() {
               </td>
               <td>
                 {s.project ?? '-'}
+                {s.managed && s.worktree && (
+                  <div className="branch" data-testid="session-branch" title={s.worktree.path}>
+                    {s.worktree.branch}
+                  </div>
+                )}
                 {s.managed && s.goal && (
                   <div className="goal" data-testid="session-goal" title={s.goal}>
                     {s.goal.trim().split(/\r?\n/, 1)[0]}
@@ -403,12 +408,14 @@ export function BoardScreen() {
   );
 }
 
+type NewSessionInput = { project: string; agent: Agent; goal: string; branch: string };
+
 /**
- * The New session dialog, modal: a registered project, an agent (v1 runs Claude Code only), and
- * an optional goal, the agent's first prompt.
+ * The New session dialog, modal: a registered project, an agent (v1 runs Claude Code only), an
+ * optional goal, the agent's first prompt, and an optional branch, for its own git worktree.
  */
 function NewSession(props: {
-  onOpen: (project: string, agent: Agent, goal: string) => void;
+  onOpen: (input: NewSessionInput) => void;
   onCancel: () => void;
   disabled: boolean;
 }) {
@@ -434,7 +441,12 @@ function NewSession(props: {
           const form = new FormData(e.currentTarget);
           // The textarea's own value: form data may turn its newlines into CRLF.
           const goal = e.currentTarget.elements.namedItem('goal') as HTMLTextAreaElement;
-          props.onOpen(String(form.get('project') ?? ''), 'claude', goal.value);
+          props.onOpen({
+            project: String(form.get('project') ?? ''),
+            agent: 'claude',
+            goal: goal.value,
+            branch: String(form.get('branch') ?? ''),
+          });
         }}
       >
         <label>
@@ -463,6 +475,14 @@ function NewSession(props: {
             data-testid="new-session-goal"
             rows={4}
             placeholder="The first prompt; /goal keeps the agent working until its condition holds"
+          />
+        </label>
+        <label>
+          Branch (optional){' '}
+          <input
+            name="branch"
+            data-testid="new-session-branch"
+            placeholder="Its own git worktree on this branch, new or existing"
           />
         </label>
         <button type="submit" data-testid="new-session-submit" disabled={props.disabled}>

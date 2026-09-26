@@ -13,6 +13,8 @@ export type ProfilePaths = {
   events: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
+  /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
+  worktrees: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
   tmuxSocket: string;
 };
@@ -29,6 +31,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     sessions: join(root, 'sessions'),
     events: join(root, 'sessions', 'events'),
     attachScripts: join(root, 'attach'),
+    worktrees: join(root, 'worktrees'),
     tmuxSocket: `mesa-${profile}`,
   };
 }
