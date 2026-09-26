@@ -1,7 +1,9 @@
+import { readFileSync, writeFileSync } from 'node:fs';
 import { tempDir, testDeps } from '@mesa/core/testing';
 import { expect, test } from 'vitest';
-import { type CliDeps, runCli, VERSION } from './cli.js';
+import { type CliDeps, GLOBAL_FLAGS, runCli, VERSION } from './cli.js';
 import { defineCommand } from './command.js';
+import { agentReference } from './help.js';
 
 let seen: { args: object; loud: boolean | undefined; profile: string } | undefined;
 const greet = defineCommand({
@@ -9,6 +11,7 @@ const greet = defineCommand({
   summary: 'Greet someone (a fake command)',
   args: ['who', 'title?'],
   flags: { loud: { type: 'boolean', description: 'Shout' } },
+  example: 'mesa greet ada --loud',
   run: (ctx) => {
     seen = { args: ctx.args, loud: ctx.flags.loud, profile: ctx.mesa.info().profile };
     return { data: { who: ctx.args.who }, text: `hi ${ctx.args.title ?? ''}${ctx.args.who}` };
@@ -18,11 +21,13 @@ const greetTwice = defineCommand({
   name: 'greet twice',
   summary: 'Greet twice',
   args: ['who'],
+  example: 'mesa greet twice ada',
   run: ({ args }) => ({ data: null, text: `hi ${args.who}, hi ${args.who}` }),
 });
 const warn = defineCommand({
   name: 'warn',
   summary: 'Succeed with a problem',
+  example: 'mesa warn',
   run: () => ({ data: [1], text: 'bad', code: 3 }),
 });
 
@@ -102,6 +107,7 @@ test('a command flag cannot shadow a global one; code overrides the exit code', 
     name: 's',
     summary: 's',
     flags: { json: { type: 'string', description: 'clash' } },
+    example: 'mesa s',
     run: () => ({ data: 1, text: '1' }),
   });
   const out = await runCli(['s', '--json'], { ...deps, commands: [shadow] });
@@ -117,12 +123,31 @@ test('a required flag is checked from the declaration and shows in the usage lin
     name: 'needs',
     summary: 'Needs a flag',
     flags: { to: { type: 'string', required: true, description: 'Where' } },
+    example: 'mesa needs --to here',
     run: ({ flags }) => ({ data: flags.to, text: flags.to }),
   });
   const run = (...argv: string[]) => runCli(argv, { ...deps, commands: [needs] });
   expect(await run('needs')).toMatchObject({
     code: 2,
-    stderr: '--to is required. Usage: mesa needs --to <value> [flags]\n',
+    stderr: '--to is required. Usage: mesa needs --to <string> [flags]\n',
   });
   expect((await run('needs', '--to', 'x')).stdout).toBe('x\n');
+});
+
+test('the agent reference pins its Markdown for two fixture commands', () => {
+  const needs = defineCommand({
+    name: 'greet at',
+    summary: 'Greet someone somewhere',
+    args: ['who'],
+    flags: {
+      place: { type: 'string', required: true, description: 'Where to greet' },
+      wave: { type: 'boolean', description: 'Wave too' },
+    },
+    example: 'mesa greet at ada --place hall --wave',
+    run: () => ({ data: null, text: '' }),
+  });
+  const golden = new URL('golden/agent-reference.md', import.meta.url);
+  const written = agentReference([greet, needs], GLOBAL_FLAGS);
+  if (process.env.UPDATE_GOLDEN) writeFileSync(golden, written);
+  expect(written).toBe(readFileSync(golden, 'utf8'));
 });

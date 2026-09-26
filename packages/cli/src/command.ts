@@ -34,6 +34,8 @@ export type Context<A extends readonly string[] = readonly string[], F extends F
   tty: boolean;
   /** All of stdin, read on demand (a hook's payload). */
   stdin: () => Promise<string>;
+  /** The command table, which `mesa help` describes. */
+  commands: Command[];
 };
 
 /**
@@ -55,6 +57,8 @@ export type Command = {
   /** Positional arguments in order; a trailing `?` marks one optional. */
   args?: readonly string[];
   flags?: Flags;
+  /** One invocation an agent can copy; a test checks it parses as this command. */
+  example: string;
   run: (ctx: Context) => Output | Promise<Output>;
 };
 

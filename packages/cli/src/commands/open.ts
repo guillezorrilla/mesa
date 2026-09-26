@@ -13,6 +13,7 @@ export const open = defineCommand({
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
   },
+  example: 'mesa open lantern-cove --attach',
   run: async ({ mesa, args, flags, tty }) => {
     // Checked first, so a session is never opened that this terminal cannot then attach to.
     if (flags.attach) requireTty(tty);

@@ -5,6 +5,7 @@ export const windows = defineCommand({
   name: 'windows',
   summary: "List the tmux windows on this profile's Mesa server, or one project's",
   args: ['project?'],
+  example: 'mesa windows lantern-cove',
   run: async ({ mesa, args }) => {
     const rows = await mesa.windows(args.project);
     const text = rows.length

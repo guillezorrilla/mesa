@@ -7,6 +7,7 @@ const MARK = { ok: 'ok', warn: 'warn', fail: 'FAIL' } as const;
 export const doctor = defineCommand({
   name: 'doctor',
   summary: 'Check tmux, the agents, Obsidian, and the profile directory',
+  example: 'mesa doctor',
   run: async ({ mesa }) => {
     const report = await mesa.doctor();
     // Path and hint share the last column, which is never padded.

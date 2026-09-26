@@ -104,7 +104,8 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   checkRequiredFlags(command, values);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
-  return command.run({ mesa, args, flags: values, tty: deps.tty, stdin: deps.stdin } as Context);
+  const { tty, stdin, commands } = deps;
+  return command.run({ mesa, args, flags: values, tty, stdin, commands } as Context);
 }
 
 /** Runs one CLI invocation and returns what to print; the entrypoint writes the streams. */

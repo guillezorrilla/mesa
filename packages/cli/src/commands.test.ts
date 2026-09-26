@@ -13,6 +13,7 @@ import {
 import { beforeEach, expect, test } from 'vitest';
 import { runCli, VERSION } from './cli.js';
 import { COMMANDS } from './commands/index.js';
+import { usage } from './help.js';
 
 // Every real command through runCli, against a temp home: nothing here touches the real HOME.
 let home: string;
@@ -63,7 +64,7 @@ test('init, then a second init, then a second profile', async () => {
   expect((await mesa('--profile', 'work', 'init', '--vault', '/tmp/w')).code).toBe(0);
   expect(await mesa('init')).toMatchObject({
     code: 2,
-    stderr: '--vault is required. Usage: mesa init --vault <value> [flags]\n',
+    stderr: '--vault is required. Usage: mesa init --vault <string> [flags]\n',
   });
 });
 
@@ -722,4 +723,45 @@ test('profile and version', async () => {
     data: { profile: 'default', dir: `${home}/.mesa/default` },
   });
   expect((await mesa('--version')).stdout).toBe(`${VERSION}\n`);
+});
+
+test('every command has an example that invokes it, with flags it declares', async () => {
+  for (const command of COMMANDS) {
+    const at = command.example.indexOf('mesa ');
+    expect(at, command.name).toBeGreaterThanOrEqual(0);
+    // --help stops before the arguments are bound, but an undeclared flag still fails to parse.
+    const words = command.example.slice(at + 'mesa '.length).split(' ');
+    const help = await mesa(...words, '--help');
+    expect(help.stdout.split('\n')[0], command.example).toBe(usage(command));
+  }
+});
+
+test('mesa help --agent lists every registered command; --json has one entry each', async () => {
+  const markdown = (await mesa('help', '--agent')).stdout;
+  for (const command of COMMANDS) expect(markdown).toContain(`### \`mesa ${command.name}`);
+  const { data } = (await mesa('help', '--agent', '--json')).json;
+  expect(data.map((c: { name: string }) => c.name)).toEqual(COMMANDS.map((c) => c.name));
+  expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
+    name: 'send',
+    usage: 'mesa send <session> <prompt> [--force]',
+    description: "Type a prompt into a session's agent, then Enter",
+    args: [
+      { name: 'session', required: true },
+      { name: 'prompt', required: true },
+    ],
+    flags: [
+      {
+        name: 'force',
+        type: 'boolean',
+        required: false,
+        description: 'Send even when the pane runs a shell, not the agent',
+      },
+    ],
+    example: 'mesa send a1b2c3d4 "run the tests, then summarise the failures"',
+  });
+});
+
+test('mesa help without --agent prints the command list', async () => {
+  const { stdout } = await mesa('help');
+  expect(stdout).toBe((await mesa('--help')).stdout);
 });
