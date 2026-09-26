@@ -1,4 +1,4 @@
-import type { ReceiptInput } from './receipts.js';
+import type { ReceiptInput } from './schema.js';
 
 // One example per receipt type. The golden files in golden/ are these, written by writeReceipt;
 // docs/receipts.md shows the same files (a test keeps them in step).

@@ -13,14 +13,10 @@ import {
   thrown,
 } from '../testing/index.js';
 import { initVault } from '../vault/vault.js';
+import { redactCommand } from './command.js';
 import { EXAMPLES } from './receipts.examples.js';
-import {
-  actionRecorder,
-  listReceipts,
-  redactCommand,
-  showReceipt,
-  writeReceipt,
-} from './receipts.js';
+import { actionRecorder } from './recorder.js';
+import { listReceipts, showReceipt, writeReceipt } from './store.js';
 
 let vault: string;
 beforeEach(() => {
@@ -75,6 +71,29 @@ test('an invalid receipt is refused before anything is written', () => {
   const bad = { ...EXAMPLES.action, status: 'maybe' as 'ok' };
   expect(thrown(() => writeReceipt(deps(), bad)).code).toBe('invalid_config');
   expect(listReceipts(vault)).toEqual([]);
+});
+
+test("a decision keeps Faro's answer and who decided it, a rules fallback too", () => {
+  const decided = (backend: string) => ({
+    ...EXAMPLES.decision,
+    decisions: [{ ...EXAMPLES.decision.decisions?.[0], backend }],
+  });
+  const { receipt } = writeReceipt(deps(), decided('rules-fallback') as typeof EXAMPLES.decision);
+  expect(receipt.decisions[0]?.backend).toBe('rules-fallback');
+  // A Score is a position from 0 to 1, as Faro gives it.
+  const score = {
+    question: 'How urgent?',
+    kind: 'Score',
+    answer: 1.5,
+    probabilities: { low: 1 },
+    confidence: 1,
+    backend: 'rules',
+  };
+  const bad = { ...EXAMPLES.decision, decisions: [score] } as unknown as typeof EXAMPLES.decision;
+  expect(thrown(() => writeReceipt(deps(), bad)).code).toBe('invalid_config');
+  expect(thrown(() => writeReceipt(deps(), decided('gpt') as typeof EXAMPLES.decision)).code).toBe(
+    'invalid_config',
+  );
 });
 
 test('ULIDs are 26 Crockford characters that sort by time', () => {

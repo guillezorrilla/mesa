@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts/receipts.js';
+import { listReceipts } from '../receipts/store.js';
 import { fakeTmux, scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing/index.js';
 import { sessionStore } from './store.js';
 

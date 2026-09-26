@@ -28,3 +28,12 @@ Issue #54 and its review. After the change, `grep -rnE 'process\.(env|cwd)|homed
 - A new core capability is a module that takes its dependencies as parameters, plus one line in `createMesa`. A new command is a `defineCommand` in `commands/` and one entry in `commands/index.ts`. A new app command is one entry in `apps/desktop/src/lib/client.ts`.
 - Help, usage lines, and text tables are derived, so their layout follows the declarations rather than hand-written strings.
 - Changing a dependency means changing `MesaDeps` and the CLI entrypoint that builds it; tests pick it up through `testDeps`.
+
+## Amendment, 2026-09-26: one service factory per domain
+
+A codebase review (issues #101 to #106) found `createMesa` at 554 lines holding rules as well as wiring: ten receipt specs, the goal read, `markEnded`, a scan of other profiles' files, Faro's wiring, and the doctor's summary. "One line in `createMesa`" per capability no longer held.
+
+- `createContext(profile, deps)` (`packages/core/src/context.ts`) builds what every domain shares for one profile: its paths, the config readers, the secrets receipts redact, the receipt recorder, the session store, and the tmux backend. `MesaDeps` lives there and is now `{ home, cwd, clock, newId, newUuid, self, sleep, env, run, obsidian, argv }`.
+- Each domain builds its own services over that context, receipts included: `profile/service.ts`, `projects/service.ts`, `vault/service.ts`, `receipts/service.ts`, `agents/claude/hooks-service.ts`, `sessions/service.ts`, and `decisions/faro.ts` (the shared backends, the profile's view of them, `decide`, and what doctor shows).
+- `createMesa` only composes them (41 lines) and holds no rule. A new capability is a function in its domain plus an entry in that domain's service; `createMesa` changes only for a new domain.
+- Core is laid out by domain (`lib/`, `profile/`, `vault/`, `receipts/`, `projects/`, `agents/`, `decisions/`, `sessions/`, `testing/`), and each shared concept has one owner (AGENTS.md, Code shape).

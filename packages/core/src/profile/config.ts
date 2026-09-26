@@ -3,6 +3,7 @@ import { isAbsolute } from 'node:path';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { AgentSchema, DEFAULT_AGENT } from '../agents/agents.js';
+import { DecisionsBackendSchema } from '../decisions/types.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
@@ -14,8 +15,6 @@ export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as cons
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
 
 /** The decisions backends of ADR-0004. */
-export const BackendSchema = z.enum(['rules', 'adapter', 'jev']);
-export type BackendName = z.infer<typeof BackendSchema>;
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 export const ConfigSchema = z.strictObject({
@@ -24,7 +23,7 @@ export const ConfigSchema = z.strictObject({
   skills: z.array(z.string()).default([]),
   decisions: z
     .strictObject({
-      backend: BackendSchema.default('adapter'),
+      backend: DecisionsBackendSchema.default('adapter'),
       threshold: z.number().min(0).max(1).default(0.7),
     })
     .prefault({}),
