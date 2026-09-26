@@ -19,6 +19,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     sessions: '/h/.mesa/work/sessions',
     events: '/h/.mesa/work/sessions/events',
     attachScripts: '/h/.mesa/work/attach',
+    worktrees: '/h/.mesa/work/worktrees',
     tmuxSocket: 'mesa-work',
   });
 });

@@ -1,7 +1,9 @@
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
+import { execRunner, type Runner } from '../process.js';
 import { listReceipts } from '../receipts.js';
 import { scriptedRunner, sequentialIds, tempDir, testDeps } from '../testing.js';
 
@@ -33,16 +35,44 @@ function fakeWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();
 
+// A git hook (pre-push runs these tests) exports GIT_DIR and friends, which would point every git
+// here at Mesa's own repository instead of the temp one; and the user's git config (signing, hooks)
+// stays out of the temp ones. The real git inherits process.env, so it is set for this file only.
+const gitEnv = Object.entries(process.env).filter(([name]) => name.startsWith('GIT_'));
+beforeAll(() => {
+  for (const [name] of gitEnv) delete process.env[name];
+  process.env.GIT_CONFIG_GLOBAL = '/dev/null';
+  process.env.GIT_CONFIG_NOSYSTEM = '1';
+});
+afterAll(() => {
+  delete process.env.GIT_CONFIG_GLOBAL;
+  delete process.env.GIT_CONFIG_NOSYSTEM;
+  for (const [name, value] of gitEnv) process.env[name] = value;
+});
+
+/** The real git, over the temp repositories; the rest stays scripted. */
+const withGit =
+  (world: ReturnType<typeof fakeWorld>): Runner =>
+  (file, args, ms) =>
+    file === 'git' ? execRunner(file, args, ms) : world.run(file, args, ms);
+
 /** An initialised profile with its vault laid out and lantern-cove registered. */
 async function setUp(
   world: ReturnType<typeof fakeWorld>,
-  { mesaYaml = 'name: lantern-cove\n', argv = ['open'] } = {},
+  {
+    mesaYaml = 'name: lantern-cove\n',
+    argv = ['open'],
+    run = withGit(world),
+    linkedHome = false,
+  }: { mesaYaml?: string; argv?: string[]; run?: Runner; linkedHome?: boolean } = {},
 ) {
-  const home = tempDir();
+  // A home reached through a symlink, as the paths Mesa builds are then not the real ones.
+  const home = linkedHome ? join(tempDir(), 'home') : tempDir();
+  if (linkedHome) symlinkSync(tempDir(), home);
   const dir = join(home, 'src/lantern-cove');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
-  const mesa = createMesa('default', testDeps(home, { run: world.run, argv, newId }));
+  const mesa = createMesa('default', testDeps(home, { run, argv, newId }));
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
   mesa.projects.register(dir);
@@ -358,4 +388,326 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
   // A resumed session keeps its place in the tree.
   const { result } = await mesa.sessions.resume(child.id);
   expect(result.record.parent).toBe(a.id);
+});
+
+/** git in `dir`, as a person would type it, its output trimmed. */
+const git = (dir: string, ...args: string[]) =>
+  execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+
+/** The project folder as a git repository on main, with one commit. */
+function gitInit(dir: string) {
+  git(dir, 'init', '-q', '-b', 'main');
+  git(dir, 'add', 'mesa.yaml');
+  git(dir, 'commit', '-q', '-m', 'init');
+}
+
+/** The folder the last window started in. */
+const cwdOf = (world: ReturnType<typeof fakeWorld>) => {
+  const args = world.calls.filter((c) => c.args.includes('-n')).at(-1)?.args ?? [];
+  return args[args.indexOf('-c') + 1];
+};
+
+/** Where Mesa puts lantern-cove's worktree for a branch. */
+const worktreeAt = (home: string, folder: string) =>
+  join(home, '.mesa/default/worktrees/lantern-cove', folder);
+
+/** The branch's upstream, or undefined when it tracks nothing. */
+const upstreamOf = (dir: string, branch: string) => {
+  try {
+    return git(dir, 'config', '--get', `branch.${branch}.merge`);
+  } catch {
+    return undefined;
+  }
+};
+
+test('--branch starts the agent in a new worktree under the profile, from the default branch', async () => {
+  const world = fakeWorld();
+  const { home, dir, mesa } = await setUp(world);
+  gitInit(dir);
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'try/worktree' });
+  const path = worktreeAt(home, 'try-worktree');
+  // No origin: the current branch is the default.
+  expect(result.worktree).toEqual({ path, branch: 'try/worktree', base: 'main' });
+  expect(cwdOf(world)).toBe(path);
+  expect(git(dir, 'worktree', 'list', '--porcelain')).toContain(
+    `worktree ${path}\nHEAD ${git(dir, 'rev-parse', 'main')}\nbranch refs/heads/try/worktree`,
+  );
+  const [entry] = listReceipts(join(home, 'vault'), 1);
+  expect(entry?.receipt).toMatchObject({
+    inputs: { branch: 'try/worktree' },
+    outputs: { worktree: result.worktree },
+  });
+  // The board shows it; a resume runs in the same worktree, where claude keeps the conversation.
+  const [row] = await mesa.sessions.list();
+  expect(row).toMatchObject({ managed: true, worktree: result.worktree });
+  const { result: resumed } = await mesa.sessions.resume(result.id);
+  expect(resumed.record.worktree).toEqual(result.worktree);
+  expect(cwdOf(world)).toBe(path);
+});
+
+test("with an origin, a new branch starts from origin's HEAD, tracking nothing, or from its branch there, tracking it", async () => {
+  const world = fakeWorld();
+  const { home, dir, mesa } = await setUp(world);
+  gitInit(dir);
+  const bare = join(home, 'origin.git');
+  execFileSync('git', ['init', '-q', '--bare', bare]);
+  git(dir, 'remote', 'add', 'origin', bare);
+  git(dir, 'commit', '-q', '--allow-empty', '-m', 'shared work');
+  git(dir, 'push', '-q', 'origin', 'main', 'main:shared');
+  git(dir, 'reset', '-q', '--hard', 'HEAD~1');
+  git(dir, 'remote', 'set-head', 'origin', 'main');
+
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'two' });
+  expect(result.worktree?.base).toBe('origin/main');
+  // A push from the worktree never goes to main.
+  expect(upstreamOf(dir, 'two')).toBeUndefined();
+
+  // A branch only on origin continues from there, and pulls from it.
+  const { result: shared } = await mesa.sessions.open('lantern-cove', { branch: 'shared' });
+  expect(shared.worktree?.base).toBe('origin/shared');
+  expect(git(worktreeAt(home, 'shared'), 'rev-parse', 'HEAD')).toBe(
+    git(dir, 'rev-parse', 'origin/shared'),
+  );
+  expect(upstreamOf(dir, 'shared')).toBe('refs/heads/shared');
+});
+
+test('--base starts the new branch there; an existing branch is reused as it is', async () => {
+  const world = fakeWorld();
+  const { home, dir, mesa } = await setUp(world);
+  gitInit(dir);
+  git(dir, 'commit', '-q', '--allow-empty', '-m', 'second');
+  git(dir, 'branch', 'older', 'HEAD~1');
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'fix', base: 'older' });
+  expect(result.worktree?.base).toBe('older');
+  expect(git(worktreeAt(home, 'fix'), 'rev-parse', 'HEAD')).toBe(git(dir, 'rev-parse', 'older'));
+
+  git(dir, 'branch', 'kept', 'HEAD~1');
+  await expect(
+    mesa.sessions.open('lantern-cove', { branch: 'kept', base: 'main' }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: 'branch kept exists and is reused as it is: drop --base, or pick a new branch',
+  });
+  const { result: reused } = await mesa.sessions.open('lantern-cove', { branch: 'kept' });
+  // No base: nothing was started from one.
+  expect(reused.worktree).toEqual({ path: worktreeAt(home, 'kept'), branch: 'kept' });
+  expect(git(worktreeAt(home, 'kept'), 'rev-parse', 'HEAD')).toBe(git(dir, 'rev-parse', 'kept'));
+
+  // A second session on a branch a session has, or one whose folder is the same: that session
+  // is named, the newest of a resumed pair.
+  const { result: resumed } = await mesa.sessions.resume(reused.id);
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'kept' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${resumed.record.id} has kept's worktree at ${worktreeAt(home, 'kept')}: use that session, or pick another branch`,
+  });
+  const { result: slashed } = await mesa.sessions.open('lantern-cove', { branch: 'a/b' });
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'a-b' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${slashed.id} has a/b's worktree at ${worktreeAt(home, 'a-b')}: use that session, or pick another branch`,
+  });
+  // A worktree removed by hand is not the session's any more: the branch opens again.
+  git(dir, 'worktree', 'remove', worktreeAt(home, 'fix'));
+  const { result: fixAgain } = await mesa.sessions.open('lantern-cove', { branch: 'fix' });
+  expect(fixAgain.worktree).toEqual({ path: worktreeAt(home, 'fix'), branch: 'fix' });
+  // The first session on fix cannot resume into the worktree the new one has.
+  await expect(mesa.sessions.resume(result.id)).rejects.toMatchObject({
+    code: 'usage',
+    message: `the worktree at ${worktreeAt(home, 'fix')} is session ${fixAgain.id}'s now: two sessions never share one`,
+  });
+  // Its worktree gone, the session cannot resume: its conversation was there.
+  git(dir, 'worktree', 'remove', worktreeAt(home, 'kept'));
+  await expect(mesa.sessions.resume(resumed.record.id)).rejects.toMatchObject({
+    code: 'not_found',
+    message: `session ${resumed.record.id}'s worktree ${worktreeAt(home, 'kept')} is gone, and claude finds its conversation only there`,
+  });
+});
+
+test('a non-git project, a branch in use, or a bad branch or base is usage with the reason, and no session', async () => {
+  const world = fakeWorld();
+  const { home, dir, mesa } = await setUp(world);
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'x' })).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringMatching(
+      new RegExp(`^${dir} is not a git repository: fatal: not a git repository`),
+    ),
+  });
+  const [refused] = listReceipts(join(home, 'vault'), 1);
+  expect(refused?.receipt).toMatchObject({ status: 'failed', inputs: { branch: 'x' } });
+
+  gitInit(dir);
+  // main is checked out in the project folder.
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'main' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `cannot check out main: fatal: 'main' is already used by worktree at '${dir}'`,
+  });
+  // Not a name git takes, or one it would turn into another branch.
+  git(dir, 'checkout', '-q', '-b', 'side');
+  git(dir, 'checkout', '-q', 'main');
+  // `@{-1}` is side to git.
+  for (const branch of ['a..b', '-x', '@{-1}']) {
+    await expect(mesa.sessions.open('lantern-cove', { branch })).rejects.toMatchObject({
+      code: 'usage',
+      message: `${branch} is not a valid branch name`,
+    });
+  }
+  await expect(
+    mesa.sessions.open('lantern-cove', { branch: 'y', base: '-nope' }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringMatching(/^cannot start y from -nope: fatal: .*-nope/),
+  });
+  await expect(mesa.sessions.open('lantern-cove', { base: 'main' })).rejects.toMatchObject({
+    code: 'usage',
+    message: '--base needs --branch',
+  });
+  // A detached HEAD, and no origin: no default to start from.
+  git(dir, 'checkout', '-q', '--detach');
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'z' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `${dir} has no default branch to start from: pass --base`,
+  });
+  git(dir, 'checkout', '-q', 'main');
+  // A path taken (two branches can map to one folder) is left alone.
+  mkdirSync(worktreeAt(home, 'p-q'), { recursive: true });
+  writeFileSync(join(worktreeAt(home, 'p-q'), 'notes.md'), 'mine\n');
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'p/q' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `${worktreeAt(home, 'p-q')} already exists: pick another branch, or remove it`,
+  });
+  expect(existsSync(join(worktreeAt(home, 'p-q'), 'notes.md'))).toBe(true);
+  // A project in a folder below the repository's top.
+  const sub = join(dir, 'harbor');
+  mkdirSync(sub);
+  writeFileSync(join(sub, 'mesa.yaml'), 'name: harbor\n');
+  mesa.projects.register(sub);
+  await expect(mesa.sessions.open('harbor', { branch: 'h' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `${sub} is below the top folder of its git repository: --branch needs a project at the top`,
+  });
+  expect(git(dir, 'branch', '--list', 'p/q', 'y', 'z', 'h')).toBe('');
+  expect(await mesa.sessions.list()).toEqual([]);
+});
+
+test('a failed or killed add, or a window that cannot open, leaves no worktree and no new branch', async () => {
+  // git's add was killed: after it made its branch and folder, or while it wrote the folder.
+  let killed: 'after' | 'during' | undefined = 'after';
+  const world = fakeWorld();
+  const run: Runner = async (file, args, ms) => {
+    // Someone else makes `raced` just before Mesa does.
+    if (args.includes('--no-track') && args.includes('raced'))
+      git(args[1] ?? '', 'branch', 'raced');
+    const add = args.includes('worktree') && args.includes('add');
+    if (add && killed === 'during') {
+      const path = args.at(-2) ?? '';
+      mkdirSync(path, { recursive: true });
+      writeFileSync(join(path, 'half.txt'), '');
+      return { ok: false, reason: 'timeout', detail: 'killed' };
+    }
+    const res = await withGit(world)(file, args, ms);
+    return add && killed ? { ok: false, reason: 'timeout', detail: 'killed' } : res;
+  };
+  const { home, dir, mesa } = await setUp(world, { run });
+  gitInit(dir);
+  git(dir, 'branch', 'kept');
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'slow' })).rejects.toMatchObject({
+    code: 'internal',
+    message: 'git did not answer within 60 s',
+  });
+  expect(existsSync(worktreeAt(home, 'slow'))).toBe(false);
+  expect(git(dir, 'branch', '--list', 'slow')).toBe('');
+  // A branch it reused stays.
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'kept' })).rejects.toMatchObject({
+    message: 'git did not answer within 60 s',
+  });
+  expect(existsSync(worktreeAt(home, 'kept'))).toBe(false);
+  expect(git(dir, 'branch', '--list', 'kept')).toBe('kept');
+  killed = 'during';
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'slow' })).rejects.toMatchObject({
+    message: 'git did not answer within 60 s',
+  });
+  expect(existsSync(worktreeAt(home, 'slow'))).toBe(false);
+  killed = undefined;
+  // The branch someone else made first is theirs, and stays.
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'raced' })).rejects.toMatchObject({
+    message: expect.stringMatching(/^cannot start raced from main: fatal: .*already exists/),
+  });
+  expect(git(dir, 'branch', '--list', 'raced')).toBe('raced');
+
+  // A worktree git still lists whose folder is gone is refused, and stays git's.
+  git(dir, 'worktree', 'add', '-q', worktreeAt(home, 'p-q'), '-b', 'p-q');
+  rmSync(worktreeAt(home, 'p-q'), { recursive: true });
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'p/q' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `git lists a worktree at ${worktreeAt(home, 'p-q')} already: pick another branch, or see git worktree list`,
+  });
+  expect(git(dir, 'branch', '--list', 'p/q')).toBe('');
+  expect(git(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/p-q');
+
+  // Two opens of one new branch at once: one wins, and the other takes nothing from it.
+  const both = await Promise.allSettled(
+    [1, 2].map(() => mesa.sessions.open('lantern-cove', { branch: 'race' })),
+  );
+  expect(both.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+  expect(existsSync(join(worktreeAt(home, 'race'), 'mesa.yaml'))).toBe(true);
+  expect(git(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/race');
+
+  // The window cannot open: the branch Mesa made goes, the one it reused stays.
+  const broken = fakeWorld({ tmuxFails: 'new-session' });
+  const again = await setUp(broken);
+  gitInit(again.dir);
+  git(again.dir, 'branch', 'kept');
+  for (const branch of ['fresh', 'kept']) {
+    await expect(again.mesa.sessions.open('lantern-cove', { branch })).rejects.toMatchObject({
+      code: 'internal',
+    });
+    expect(existsSync(worktreeAt(again.home, branch))).toBe(false);
+  }
+  expect(git(again.dir, 'worktree', 'list', '--porcelain')).not.toContain('.mesa');
+  expect(git(again.dir, 'branch', '--list', 'fresh', 'kept')).toBe('kept');
+  expect(await again.mesa.sessions.list()).toEqual([]);
+});
+
+test('every refusal before the window comes before the worktree, and a missing git says so', async () => {
+  const noClaude = await setUp(fakeWorld({ claude: false }));
+  gitInit(noClaude.dir);
+  await expect(noClaude.mesa.sessions.open('lantern-cove', { branch: 'b' })).rejects.toMatchObject({
+    code: 'agent_unavailable',
+  });
+  const long = await setUp(fakeWorld());
+  gitInit(long.dir);
+  await expect(
+    long.mesa.sessions.open('lantern-cove', { branch: 'b', goal: 'x'.repeat(12_000) }),
+  ).rejects.toMatchObject({ code: 'usage' });
+  for (const { home, dir } of [noClaude, long]) {
+    expect(existsSync(join(home, '.mesa/default/worktrees'))).toBe(false);
+    expect(git(dir, 'branch', '--list', 'b')).toBe('');
+  }
+
+  const world = fakeWorld();
+  const noGit = await setUp(world, {
+    run: (file, args, ms) =>
+      file === 'git'
+        ? Promise.resolve({ ok: false, reason: 'missing', detail: 'ENOENT' })
+        : world.run(file, args, ms),
+  });
+  await expect(noGit.mesa.sessions.open('lantern-cove', { branch: 'b' })).rejects.toMatchObject({
+    code: 'internal',
+    message: 'git not found on PATH; --branch needs it',
+  });
+});
+
+test('through a symlinked home, a worktree git lists is still seen', async () => {
+  const { home, dir, mesa } = await setUp(fakeWorld(), { linkedHome: true });
+  gitInit(dir);
+  git(dir, 'worktree', 'add', '-q', worktreeAt(home, 'gone'), '-b', 'gone-old');
+  rmSync(worktreeAt(home, 'gone'), { recursive: true });
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'gone' })).rejects.toMatchObject({
+    code: 'usage',
+    message: `git lists a worktree at ${worktreeAt(home, 'gone')} already: pick another branch, or see git worktree list`,
+  });
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'fine' });
+  expect(result.worktree?.path).toBe(worktreeAt(home, 'fine'));
 });

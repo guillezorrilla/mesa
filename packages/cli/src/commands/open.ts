@@ -22,6 +22,15 @@ export const open = defineCommand({
       description: 'The session this one is started from; default: the Mesa window this runs in',
     },
     'no-parent': { type: 'boolean', description: 'Start it with no parent, even inside a session' },
+    branch: {
+      type: 'string',
+      description:
+        'Run it in its own git worktree on this branch, new or existing, under the profile',
+    },
+    base: {
+      type: 'string',
+      description: "Start a new branch from this ref; default: the project's default branch",
+    },
   },
   example: 'mesa open lantern-cove --goal "Read AGENTS.md, then summarise it"',
   run: async ({ mesa, args, flags, tty }) => {
@@ -33,6 +42,8 @@ export const open = defineCommand({
       goalFile: flags['goal-file'],
       parent: flags.parent,
       noParent: flags['no-parent'],
+      branch: flags.branch,
+      base: flags.base,
     });
     const session = recorded.result;
     const { receipt, text } = withReceipt(recorded, session.id);
