@@ -44,6 +44,15 @@ const SessionRecordSchema = z.strictObject({
   goal: z.string().optional(),
   /** The session this one was started from (CONTEXT.md, Parent session). */
   parent: z.string().regex(SHORT_ID).optional(),
+  /** What a person calls it (mesa adopt --name). */
+  name: z.string().optional(),
+  /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
+  adopted: z.literal(true).optional(),
+  /**
+   * The folder its agent runs in, when that is neither the project's nor its worktree: an adopted
+   * session's own, where claude keeps its conversation.
+   */
+  cwd: z.string().optional(),
   /** The git worktree it runs in (mesa open --branch; CONTEXT.md, Worktree). */
   worktree: z
     .strictObject({ path: z.string(), branch: z.string(), base: z.string().optional() })

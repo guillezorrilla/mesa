@@ -222,6 +222,11 @@ export function BoardScreen() {
       const resumed = await run('sessions.resume', { id });
       return resumed && `Resumed session ${id} as ${resumed.id}`;
     });
+  const adopt = (agentSessionId: string, project?: string) =>
+    act(async () => {
+      const adopted = await run('sessions.adopt', { agentSessionId, project });
+      return adopted && `Adopted as ${adopted.record.id}; ${adopted.warning}`;
+    });
   const open = (input: NewSessionInput) =>
     act(async () => {
       const opened = await run('sessions.open', input);
@@ -375,10 +380,21 @@ export function BoardScreen() {
                     </button>
                   </>
                 ) : (
-                  // Started outside Mesa: shown so the board is complete, never acted on.
-                  <span className="tag" title={s.cwd}>
-                    not managed
-                  </span>
+                  // Started outside Mesa: shown so the board is complete; Adopt makes it Mesa's.
+                  <>
+                    <span className="tag" title={s.cwd}>
+                      not managed
+                    </span>{' '}
+                    <button
+                      type="button"
+                      data-testid="session-adopt"
+                      title="Reopen its conversation in a Mesa window"
+                      onClick={() => adopt(s.agentSessionId, s.project ?? undefined)}
+                      disabled={acting}
+                    >
+                      Adopt
+                    </button>
+                  </>
                 )}
               </td>
             </tr>

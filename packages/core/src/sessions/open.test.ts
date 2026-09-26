@@ -521,7 +521,7 @@ test('--base starts the new branch there; an existing branch is reused as it is'
   git(dir, 'worktree', 'remove', worktreeAt(home, 'kept'));
   await expect(mesa.sessions.resume(resumed.record.id)).rejects.toMatchObject({
     code: 'not_found',
-    message: `session ${resumed.record.id}'s worktree ${worktreeAt(home, 'kept')} is gone, and claude finds its conversation only there`,
+    message: `session ${resumed.record.id}'s folder ${worktreeAt(home, 'kept')} is gone, and claude finds its conversation only there`,
   });
 });
 

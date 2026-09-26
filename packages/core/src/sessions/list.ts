@@ -61,7 +61,7 @@ export type SessionRow = ManagedRow | ForeignRow;
 const RECENT_MS = 24 * 60 * 60 * 1000;
 
 /** The registered project `cwd` is in (the innermost), else the one named like its folder. */
-const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
+export const projectOf = (cwd: string, projects: readonly RegistryEntry[]) => {
   const inside = projects
     .filter((p) => cwd === p.path || cwd.startsWith(`${p.path}/`))
     .sort((a, b) => b.path.length - a.path.length)[0];
