@@ -180,9 +180,7 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
         const w = find(target);
         if (!w) return failed("can't find window");
         if (rest.includes('-l')) {
-          // tmux turns a closing `\;` into `;`, as it does for any word.
-          const word = rest.at(-1) ?? '';
-          const text = word.endsWith('\\;') ? `${word.slice(0, -2)};` : word;
+          const text = rest.at(-1) ?? '';
           w.typed.push(text);
           opts.onKeys?.(w, text);
         }
@@ -202,12 +200,18 @@ export function fakeTmux(opts: { onKeys?: (window: FakeWindow, text: string) => 
         return failed(`fakeTmux does not know ${command}`);
     }
   };
-  /** Every call: `-L <socket> -f /dev/null` first, then commands separated by `;`. */
+  /**
+   * Every call: `-L <socket> -f /dev/null` first, then commands. As tmux reads its arguments, a
+   * word ending in `;` ends a command (the `;` dropped), and a closing `\;` is a literal `;`.
+   */
   const answer = (args: string[]): RunResult => {
     const commands: string[][] = [[]];
     for (const word of args.slice(4)) {
-      if (word === ';') commands.push([]);
-      else commands.at(-1)?.push(word);
+      if (word.endsWith('\\;')) commands.at(-1)?.push(`${word.slice(0, -2)};`);
+      else if (word.endsWith(';')) {
+        if (word.length > 1) commands.at(-1)?.push(word.slice(0, -1));
+        commands.push([]);
+      } else commands.at(-1)?.push(word);
     }
     let result: RunResult = { ok: true, stdout: '' };
     for (const command of commands) {

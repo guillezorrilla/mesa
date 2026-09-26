@@ -73,19 +73,27 @@ function Toggle(props: { below: readonly TreeRow[]; closed: boolean; onToggle: (
   );
 }
 
+/** When a prompt came: the time today, else the date and time. */
+const when = (at: string) => {
+  const date = new Date(at);
+  const today = date.toDateString() === new Date().toDateString();
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return today ? time : `${date.toLocaleDateString()} ${time}`;
+};
+
 /** The prompts a session was sent, newest first, each with who sent it (mesa send --from). */
 function Received({ row }: { row: TreeRow }) {
   if (!row.managed) return null;
   const received = row.events.flatMap((e) => (e.type === 'send' ? [e] : [])).reverse();
   if (!received.length) return null;
   return (
-    <details data-testid="session-messages">
+    <details data-testid="session-received">
       <summary>Received ({received.length})</summary>
       <ul>
         {received.map((e) => (
-          <li key={`${e.at}-${e.from ?? ''}-${e.chars}`} data-testid="session-message">
-            {e.from ? `from session ${e.from}` : 'from you'}, {e.chars} characters,{' '}
-            {new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <li key={`${e.at}-${e.from ?? ''}-${e.chars}`} data-testid="received-prompt">
+            {e.from ? `from session ${e.from}` : 'from a person'}, {e.chars} characters,{' '}
+            {when(e.at)}
           </li>
         ))}
       </ul>

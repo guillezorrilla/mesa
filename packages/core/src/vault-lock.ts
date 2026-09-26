@@ -11,6 +11,29 @@ export const vaultLockPath = (vault: string) => join(vault, '.mesa', 'lock');
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Takes the lock file at `path` for `token` with an exclusive create; false while another holds it. */
+export function tryLock(path: string, token: string): boolean {
+  try {
+    writeFileSync(path, token, { flag: 'wx' });
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
+/** Removes the lock file, only while it still holds `token`. */
+export function unlock(path: string, token: string): void {
+  const holder = (() => {
+    try {
+      return readFileSync(path, 'utf8');
+    } catch {
+      return undefined;
+    }
+  })();
+  if (holder === token) rmSync(path, { force: true });
+}
+
 /**
  * Runs `fn` while holding the vault's lock file, taken with an exclusive create, so
  * read-modify-write updates of shared notes serialise across processes. The file holds this
@@ -22,32 +45,19 @@ export async function withVaultLock<T>(vault: string, fn: () => Promise<T>): Pro
   const lock = vaultLockPath(vault);
   const token = randomUUID();
   mkdirSync(join(vault, '.mesa'), { recursive: true });
-  for (let attempt = 0; ; attempt++) {
-    try {
-      writeFileSync(lock, token, { flag: 'wx' });
-      break;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      if (attempt >= LOCK_ATTEMPTS) {
-        throw new MesaError(
-          'locked',
-          `the vault is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
-          { reason: 'vault' },
-        );
-      }
-      await sleep(RETRY_MS);
+  for (let attempt = 0; !tryLock(lock, token); attempt++) {
+    if (attempt >= LOCK_ATTEMPTS) {
+      throw new MesaError(
+        'locked',
+        `the vault is locked by another mesa process (${lock}); retry, or delete that file if no mesa is running`,
+        { reason: 'vault' },
+      );
     }
+    await sleep(RETRY_MS);
   }
   try {
     return await fn();
   } finally {
-    const holder = (() => {
-      try {
-        return readFileSync(lock, 'utf8');
-      } catch {
-        return undefined;
-      }
-    })();
-    if (holder === token) rmSync(lock, { force: true });
+    unlock(lock, token);
   }
 }

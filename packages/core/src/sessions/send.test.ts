@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -175,4 +175,83 @@ test('the sender defaults to the window it runs in; unknown or self is refused; 
     expect(result.from).toBeNull();
     expect(typedIn(b.id)?.at(-1)).toBe('plain text');
   }
+});
+
+test('another session cannot force a prompt into a wait; only a person answers it', async () => {
+  const { home, mesa, world, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  const at = '2026-09-24T12:00:00.000Z';
+  store.update(b.id, {
+    lastState: { state: 'waiting-permission', confidence: 0.95, at, source: 'hook' },
+  });
+  await expect(mesa.sessions.send(b.id, 'yes', { from: a.id, force: true })).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${b.id} is waiting-permission; a person answers it there (mesa attach ${b.id})`,
+  });
+  expect(world.windows.find((w) => w.window === `claude-${b.id}`)?.typed).toEqual([]);
+  // A person may still force it.
+  await mesa.sessions.send(b.id, 'yes', { force: true });
+});
+
+test('--no-from sends as a person; an ended, empty, or doubled sender is refused', async () => {
+  const { home, mesa, within, world, opened: a } = await setUp();
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  const inA = within({ MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' });
+  const { result } = await inA.sessions.send(b.id, 'from the owner', { noFrom: true });
+  expect(result.from).toBeNull();
+  expect(world.windows.find((w) => w.window === `claude-${b.id}`)?.typed.at(-1)).toBe(
+    'from the owner',
+  );
+  const refused = (opts: object, message: string) =>
+    expect(mesa.sessions.send(b.id, 'hi', opts)).rejects.toMatchObject({ code: 'usage', message });
+  await refused({ from: a.id, noFrom: true }, 'pass --from or --no-from, not both');
+  await refused({ from: '' }, '--from needs a session id');
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  store.update(a.id, { endedAt: '2026-09-24T12:00:00.000Z' });
+  await refused({ from: a.id }, `session ${a.id} has ended, so a reply to it would go nowhere`);
+});
+
+test('a closing ; is typed as it is; a sender removed while typing still sends', async () => {
+  const home = tempDir();
+  let removeWhileTyping: (() => void) | undefined;
+  const world = fakeTmux({ onKeys: () => removeWhileTyping?.() });
+  const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const mesa = createMesa('default', testDeps(home, { run }));
+  mesa.init({ vault: 'vault' });
+  mkdirSync(join(home, 'src/lantern-cove'), { recursive: true });
+  mesa.projects.register(join(home, 'src/lantern-cove'), true);
+  const { result: a } = await mesa.sessions.open('lantern-cove');
+  const { result: b } = await mesa.sessions.open('lantern-cove');
+  await mesa.sessions.send(b.id, 'plain;');
+  expect(world.windows.find((w) => w.window === `claude-${b.id}`)?.typed).toEqual(['plain;']);
+
+  const store = sessionStore({ dir: join(home, '.mesa/default/sessions'), newId: () => 'x' });
+  removeWhileTyping = () => store.remove(a.id);
+  const { result } = await mesa.sessions.send(b.id, 'still arrives', { from: a.id });
+  expect(result.from).toBe(a.id);
+  expect(store.get(b.id).events.at(-1)).toMatchObject({ type: 'send', from: a.id });
+});
+
+test('a record update waits for its lock and, while another holds it, is refused', () => {
+  const dir = join(tempDir(), 'sessions');
+  const store = sessionStore({ dir, newId: sequentialIds() });
+  const record = store.create(() => ({
+    kind: 'interactive',
+    project: 'lantern-cove',
+    agent: 'claude',
+    tmux: { socket: 'mesa-default', session: 'lantern-cove', window: 'claude-x' },
+    startedAt: '2026-09-24T12:00:00.000Z',
+    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-24T12:00:00.000Z', source: 'mesa' },
+  }));
+  // A function patch sees the record as it is now.
+  store.update(record.id, { lastOutput: 'first' });
+  const seen = store.update(record.id, (current) => ({ lastOutput: `${current.lastOutput} then` }));
+  expect(seen.lastOutput).toBe('first then');
+  // Another process holds the lock (its token is not ours).
+  writeFileSync(join(dir, `${record.id}.lock`), 'another holder');
+  expect(() => store.update(record.id, { lastOutput: 'blocked' })).toThrow(
+    expect.objectContaining({ code: 'locked' }),
+  );
+  expect(store.get(record.id).lastOutput).toBe('first then');
 });

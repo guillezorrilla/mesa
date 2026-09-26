@@ -9,14 +9,7 @@ import { readProjectFile } from '../project-file.js';
 import { findProject } from '../projects.js';
 import type { RegistryEntry } from '../registry.js';
 import { MesaError } from '../result.js';
-import {
-  ending,
-  recordIf,
-  type SessionRecord,
-  type SessionStore,
-  windowOf,
-  windowSession,
-} from './store.js';
+import { ending, type SessionRecord, type SessionStore, windowOf, windowSession } from './store.js';
 import type { TmuxBackend } from './tmux.js';
 
 export type OpenDeps = {
@@ -44,7 +37,7 @@ function parentOf(
     throw new MesaError('usage', 'pass --parent or --no-parent, not both');
   }
   if (input.parent !== undefined) {
-    if (!recordIf(deps.store, input.parent)) {
+    if (!deps.store.find(input.parent)) {
       throw new MesaError(
         'not_found',
         `no session ${input.parent} to be the parent; see mesa sessions, or pass --no-parent`,

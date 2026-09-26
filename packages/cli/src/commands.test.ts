@@ -759,7 +759,7 @@ test('mesa help --agent lists every registered command; --json has one entry eac
   for (const c of data) expect(markdown).toContain(`\n### \`${c.usage}\`\n`);
   expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
     name: 'send',
-    usage: 'mesa send <session> <prompt> [--force] [--from <string>]',
+    usage: 'mesa send <session> <prompt> [--force] [--from <string>] [--no-from]',
     description: "Type a prompt into a session's agent, then Enter",
     args: [
       { name: 'session', required: true },
@@ -777,7 +777,13 @@ test('mesa help --agent lists every registered command; --json has one entry eac
         type: 'string',
         required: false,
         description:
-          'The session it is from, named in a header with how to reply; default: this window',
+          'The session it is from, named in a header with how to reply; default: the Mesa window this runs in',
+      },
+      {
+        name: 'no-from',
+        type: 'boolean',
+        required: false,
+        description: 'Send it as a person, even inside a Mesa window',
       },
     ],
     example: 'mesa send a1b2c3d4 "run the tests, then summarise the failures"',
@@ -882,6 +888,8 @@ test('send --from, or from inside a window, adds the sender; --json prints {sent
     code: 2,
     stderr: `session ${b} cannot send to itself\n`,
   });
+  // As a person, from inside the window: no header, and its own session takes it.
+  expect((await mesa('send', b, 'from me', '--no-from', '--json')).json.data.from).toBeNull();
   expect(await mesa('send', a, 'hi', '--from', 'zzzzzzzz')).toMatchObject({
     code: 3,
     stderr: 'no session zzzzzzzz to send from; see mesa sessions\n',

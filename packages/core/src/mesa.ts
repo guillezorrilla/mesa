@@ -350,8 +350,12 @@ export function createMesa(profile: string, deps: MesaDeps) {
        * Types a prompt into a live session's agent, from another session (`from`, else the window
        * this runs in) when there is one; an action receipt keeps its first 80 chars.
        */
-      send: (id: string, prompt: string, opts: { force?: boolean; from?: string } = {}) => {
-        const { force = false, from } = opts;
+      send: (
+        id: string,
+        prompt: string,
+        opts: { force?: boolean; from?: string; noFrom?: boolean } = {},
+      ) => {
+        const { force = false, from, noFrom } = opts;
         const kept = receiptText(prompt, deps.argv, secrets());
         return record(
           {
@@ -361,7 +365,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
             failure: `Could not send to session ${id}`,
             project: (r) => r.project,
             session: () => id,
-            inputs: { session: id, prompt: kept.short, force, ...(from ? { from } : {}) },
+            inputs: {
+              session: id,
+              prompt: kept.short,
+              force,
+              ...(from === undefined ? {} : { from }),
+              ...(noFrom ? { noFrom } : {}),
+            },
             outputs: (r) => ({ chars: r.chars, from: r.from }),
           },
           () =>
@@ -369,7 +379,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
               { store, tmux, clock: deps.clock, env: deps.env, profileName: profile },
               id,
               prompt,
-              { force, from },
+              { force, from, noFrom },
             ),
         );
       },

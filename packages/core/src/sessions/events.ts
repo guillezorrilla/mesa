@@ -104,7 +104,11 @@ export function recordHookEvent(
   return line;
 }
 
-/** The record, or undefined for a session without one (removed, or another profile's). */
+/**
+ * The record, or undefined for a session without one (removed, or another profile's). Unlike
+ * `store.find`, any error gives undefined: a hook still logs its event when the record cannot
+ * be read.
+ */
 function findRecord(store: SessionStore, id: string) {
   try {
     return store.get(id);

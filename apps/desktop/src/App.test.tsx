@@ -484,7 +484,7 @@ test('Send on Enter, Open terminal, then Stop and Resume on the same row, each s
   expect(byTestId('session-resume')[0]?.hasAttribute('disabled')).toBe(false);
   await click(byTestId('session-resume')[0]);
   expect(calls.filter((c) => ['send', 'stop', 'resume', 'attach'].includes(c[1] ?? ''))).toEqual([
-    ['--json', 'send', '--', 'aaaaaaaa', 'hello'],
+    ['--json', 'send', '--no-from', '--', 'aaaaaaaa', 'hello'],
     ['--json', 'attach', '--app', '--', 'aaaaaaaa'],
     ['--json', 'stop', '--', 'aaaaaaaa'],
     ['--json', 'resume', '--', 'aaaaaaaa'],
@@ -768,7 +768,7 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
   expect(rows().map(([id]) => id)).toEqual(['▾ aaaaaaaa', '▸ 1 bbbbbbbb', '▸ 1 cccccccc']);
 });
 
-test("a session's received messages list each one with its sender, newest first", async () => {
+test("a session's received prompts list each one with its sender, newest first", async () => {
   const reply = managedRow('bbbbbbbb', {
     events: [
       { type: 'send', at: '2026-09-25T12:00:00.000Z', chars: 12 },
@@ -779,11 +779,12 @@ test("a session's received messages list each one with its sender, newest first"
   const quiet = managedRow('cccccccc');
   const { bridge } = fakeBridge({ sessions: () => envelope([reply, quiet]) });
   const byTestId = await renderWithMesa(<App />, bridge);
-  expect(byTestId('session-messages')).toHaveLength(1);
-  expect(byTestId('session-messages')[0]?.querySelector('summary')?.textContent).toBe(
+  expect(byTestId('session-received')).toHaveLength(1);
+  expect(byTestId('session-received')[0]?.querySelector('summary')?.textContent).toBe(
     'Received (2)',
   );
-  const messages = byTestId('session-message').map((m) => m.textContent ?? '');
-  expect(messages[0]).toMatch(/^from session aaaaaaaa, 29 characters, /);
-  expect(messages[1]).toMatch(/^from you, 12 characters, /);
+  const prompts = byTestId('received-prompt').map((m) => m.textContent ?? '');
+  expect(prompts[0]).toMatch(/^from session aaaaaaaa, 29 characters, /);
+  // A prompt from another day shows its date too.
+  expect(prompts[1]).toMatch(/^from a person, 12 characters, .*\d{4}/);
 });
