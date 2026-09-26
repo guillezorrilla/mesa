@@ -1,6 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fakeTmux, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -12,9 +11,8 @@ const NOTE =
   '## Verified\n- 7 ADRs: `ls docs/adr | wc -l` printed 7\n## Assumed\n## Left out on purpose\n## Blocked\n';
 
 /** A profile with lantern-cove, claude, a fake tmux, and a note file in the home. */
-async function handoffWorld() {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+async function handoffWorld(failing?: string) {
+  const world = cli.withTmux({ failing });
   await cli.withProject();
   const note = join(cli.home, 'note.md');
   writeFileSync(note, NOTE);
@@ -96,4 +94,18 @@ test('--keep leaves the session running; no goal is usage, a missing note not_fo
   expect(await mesa('handoff', a.id)).toMatchObject({ code: 2 });
   // Refused before anything was written: no successor, no window.
   expect(world.windows).toHaveLength(windows);
+});
+
+test('a stop that fails after the successor runs is a warning, never a failed handoff', async () => {
+  const { world, note, open } = await handoffWorld('send-keys');
+  const a = await open('--goal', 'Count the files');
+  const out = await mesa('handoff', a.id, '--note', note, '--json');
+  expect(out.code).toBe(0);
+  expect(out.json.data.warning).toContain(`session ${a.id} not stopped`);
+  expect(out.json.data.warning).toContain(`mesa stop ${a.id}`);
+  // One successor: a retry is not needed, and would start a second.
+  expect(world.windows.map((w) => w.window)).toEqual([
+    `claude-${a.id}`,
+    `claude-${out.json.data.to}`,
+  ]);
 });

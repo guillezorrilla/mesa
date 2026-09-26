@@ -1,4 +1,3 @@
-import { fakeTmux, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -7,8 +6,7 @@ beforeEach(cli.reset);
 const { mesa } = cli;
 
 test('show, rename, and rm, as the issue types them: sessions shows the name, rm refuses a live one', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  cli.withTmux();
   await cli.withProject();
   const id = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
   expect((await mesa('show', id, '--json')).json.data).toMatchObject({ id, alive: true });

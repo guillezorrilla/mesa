@@ -6,6 +6,7 @@ import { createMesa } from '../mesa.js';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  CLAUDE_VERSION,
   fakeTmux,
   projectProfile,
   scriptedRunner,
@@ -19,7 +20,7 @@ import { sessionStore } from './store.js';
 /** A profile with its vault laid out and one claude session open in a fake tmux. */
 async function setUp() {
   const world = fakeTmux();
-  const scripted = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' });
+  const scripted = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION });
   const newId = sequentialIds();
   const { home, mesa } = projectProfile(scripted.run, { newId });
   /** Mesa as an agent inside a window sees it: that window's session and profile in its env. */
@@ -103,7 +104,7 @@ test('a session waiting on a person is refused, so Enter never answers its promp
 
 test('the receipt keeps 80 characters of the prompt, in its inputs and command, keys redacted', async () => {
   const world = fakeTmux();
-  const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
   const prompt = `use sk-live-1234 then ${'x'.repeat(100)}`;
   const { home, mesa } = projectProfile(run, { argv: ['send', 'SESSION', prompt] });
   mesa.config.set('keys.jev', 'sk-live-1234');
@@ -215,7 +216,7 @@ test('--no-from sends as a person; an ended, empty, or doubled sender is refused
 test('a closing ; is typed as it is; a sender removed while typing still sends', async () => {
   let removeWhileTyping: (() => void) | undefined;
   const world = fakeTmux({ onKeys: () => removeWhileTyping?.() });
-  const run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
   const { home, mesa } = projectProfile(run);
   const { result: a } = await mesa.sessions.open('lantern-cove');
   const { result: b } = await mesa.sessions.open('lantern-cove');

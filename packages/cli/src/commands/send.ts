@@ -21,8 +21,8 @@ export const send = defineCommand({
       from: flags.from,
       noFrom: flags['no-from'],
     });
-    const { sent, session, from, chars, warning } = recorded.result;
+    const { sent, session, from, chars } = recorded.result;
     const text = `sent ${chars} characters to ${session}${from ? ` from ${from}` : ''}`;
-    return recordedOutput(recorded, { data: { sent, session, from, chars }, text, warning });
+    return recordedOutput(recorded, { data: { sent, session, from, chars }, text });
   },
 });

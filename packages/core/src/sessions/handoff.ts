@@ -6,9 +6,10 @@ import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import { joinWarnings } from '../receipts/recorder.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
-import { createRecord, folderOf, type LaunchDeps, openWindowOf } from './launch.js';
+import { agentFolder, createRecord, type LaunchDeps, openWindowOf } from './launch.js';
 import { syncSkillsInto } from './open.js';
 import { isAgentState, type SessionRecord } from './record.js';
 
@@ -65,7 +66,7 @@ export async function handoffSession(
   }
   requireOwnWorktree(deps.store, from);
   const entry = findProject(deps.profile, from.project);
-  // A folder that is gone is not_found, never a claude in $HOME.
+  // Still a project, as open requires.
   readProjectFile(entry.path);
   const spec = await readyAgent(deps.run, from.agent);
   const agentSessionId = deps.newUuid();
@@ -94,7 +95,7 @@ export async function handoffSession(
       handoffFrom: id,
       events: [{ type: 'handoff', at, from: id, note: path }],
     });
-    warning = syncSkillsInto(deps, entry.name, folderOf(to, entry));
+    warning = syncSkillsInto(deps, entry.name, agentFolder(to, entry));
     await openWindowOf(deps, to, entry, spec.start(agentSessionId, goal));
   } catch (error) {
     deps.store.remove(created.id);
@@ -110,6 +111,6 @@ export async function handoffSession(
     return { from: marked, to, note: path, ...(warning ? { warning } : {}) };
   } catch (error) {
     const why = `session ${id} not marked handed off: ${toFail(error).error.message}`;
-    return { from, to, note: path, warning: [warning, why].filter(Boolean).join('; ') };
+    return { from, to, note: path, warning: joinWarnings(warning, why) };
   }
 }

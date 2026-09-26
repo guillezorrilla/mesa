@@ -33,9 +33,10 @@ export function vaultFile(vault: string, path: string): string {
 const readIfExists = (file: string) =>
   existsSync(file) ? parseNote(readFileSync(file, 'utf8')) : undefined;
 
-export function readNote(deps: NotesDeps, path: string): Note {
-  const note = readIfExists(vaultFile(deps.vault, path));
-  if (!note) throw new MesaError('not_found', `no note at ${path} in ${deps.vault}`);
+/** The note at `path` (relative to the vault); not_found when there is none. */
+export function readNote(vault: string, path: string): Note {
+  const note = readIfExists(vaultFile(vault, path));
+  if (!note) throw new MesaError('not_found', `no note at ${path} in ${vault}`);
   return note;
 }
 

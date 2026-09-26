@@ -1,6 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fakeTmux, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -65,8 +64,7 @@ test('a hook in a session refuses to log while config.yaml does not read, so no 
 });
 
 test('mesa hook tmux pane-died records its exit; hooks status and doctor show both hooks', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const world = cli.withTmux();
   await cli.withProject({ layOut: false });
   const status = async () => (await mesa('hooks', 'status', '--json')).json.data.tmux;
   const doctorRow = async (name: string) =>
@@ -114,8 +112,7 @@ test('mesa hook tmux pane-died records its exit; hooks status and doctor show bo
 });
 
 test('after a /clear, mesa sessions shows the new agent session id, not done, and its hooks log on', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  cli.withTmux();
   await cli.withProject();
   const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
   const hook = (payload: object) => {

@@ -6,30 +6,16 @@ import type { Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
-  fakeTmux,
+  agentWorld,
   gitRepo,
   isolateGit,
   projectProfile,
-  scriptedRunner,
   sequentialIds,
   tempDir,
   testDeps,
   testGit,
   withRealGit,
 } from '../testing/index.js';
-
-/**
- * claude and a fake tmux as a scripted runner: `claude --version` answers unless `claude` is
- * false, and the tmux command named in `tmuxFails` fails.
- */
-function agentWorld(opts: { claude?: boolean; tmuxFails?: string } = {}) {
-  const tmux = fakeTmux({ failing: opts.tmuxFails });
-  const scripted = scriptedRunner(
-    { claude: '2.1.282 (Claude Code)', tmux: tmux.answer },
-    { missing: opts.claude === false ? ['claude'] : [] },
-  );
-  return { ...scripted, tmux };
-}
 
 /** Every agent in the fake tmux exits, its pane dead, as a session's must before it resumes. */
 const exitAll = (world: ReturnType<typeof agentWorld>) => {
@@ -171,7 +157,7 @@ test('an unknown project, a missing claude, or a failed window leaves no session
   });
   expect(await noClaude.mesa.sessions.list()).toEqual([]);
 
-  const broken = await setUp(agentWorld({ tmuxFails: 'new-session' }));
+  const broken = await setUp(agentWorld({ failing: 'new-session' }));
   await expect(broken.mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'internal',
   });
@@ -630,7 +616,7 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
   expect(testGit(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/race');
 
   // The window cannot open: the branch Mesa made goes, the one it reused stays.
-  const broken = agentWorld({ tmuxFails: 'new-session' });
+  const broken = agentWorld({ failing: 'new-session' });
   const again = await setUp(broken);
   gitRepo(again.dir);
   testGit(again.dir, 'branch', 'kept');

@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fakeTmux, scriptedRunner } from '@mesa/core/testing';
+import { scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -63,8 +63,7 @@ test('open prints the session id, --json the record, and --attach hands back the
 });
 
 test('open --goal and --goal-file start with a goal; mesa goal prints it', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  const world = cli.withTmux();
   await cli.withProject({ layOut: false });
   const opened = await mesa('open', 'lantern-cove', '--goal', 'Print the word ready and stop');
   const id = opened.stdout.split('\n')[0] ?? '';
@@ -97,8 +96,7 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
 });
 
 test('open inside a session makes a child; sessions --tree indents it; --json names the links', async () => {
-  const world = fakeTmux();
-  cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+  cli.withTmux();
   await cli.withProject({ layOut: false });
   const a = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
   cli.env = { MESA_SESSION_ID: a, MESA_PROFILE: 'default' };
@@ -132,8 +130,7 @@ test('open inside a session makes a child; sessions --tree indents it; --json na
 describe('open --after queues a session until the one it waits on is over', () => {
   /** A profile with lantern-cove, claude, and a fake tmux; `window(id)` is a session's window. */
   async function queueWorld() {
-    const world = fakeTmux();
-    cli.run = scriptedRunner({ tmux: world.answer, claude: '2.1.282 (Claude Code)' }).run;
+    const world = cli.withTmux();
     await cli.withProject();
     const window = (id: string) => world.windows.find((w) => w.window === `claude-${id}`);
     const open = async (...flags: string[]) =>
@@ -296,6 +293,19 @@ describe('open --after queues a session until the one it waits on is over', () =
     // A cancelled session never ran: nothing to resume, and now it can go.
     expect(await mesa('resume', b.id)).toMatchObject({ code: 3 });
     expect(await mesa('rm', b.id)).toMatchObject({ code: 0 });
+  });
+
+  test('a queued session that cannot start says why in the stop, and ends failed', async () => {
+    const { world, open, window, state } = await queueWorld();
+    const a = await open();
+    const b = await open('--after', a.id);
+    // claude is gone by the time A stops.
+    cli.run = scriptedRunner({ tmux: world.answer }, { missing: ['claude'] }).run;
+    const stopped = await mesa('stop', a.id, '--force', '--json');
+    expect(stopped.code).toBe(0);
+    expect(stopped.json.data.warning).toContain(`queued session ${b.id} did not start`);
+    expect(window(b.id)).toBeUndefined();
+    expect(await state(b.id)).toBe('failed');
   });
 
   test('stopping the session it waits on starts it', async () => {

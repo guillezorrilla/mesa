@@ -94,8 +94,7 @@ function receiptFiles(vault: string): string[] {
 export type ReceiptEntry = { path: string; receipt: Receipt; summary: string; body: string };
 
 function readReceipt(vault: string, path: string): ReceiptEntry {
-  // No clock: reading a note needs none.
-  const note = readNote({ vault, clock: () => new Date(0) }, path);
+  const note = readNote(vault, path);
   const receipt = parseWith(ReceiptSchema, ownFields(note.frontmatter), join(vault, path));
   return { path, receipt, summary: note.body.split('\n', 1)[0] ?? '', body: note.body };
 }
