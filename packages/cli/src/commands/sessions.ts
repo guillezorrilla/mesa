@@ -23,7 +23,8 @@ export const sessions = defineCommand({
     const text = rows.length
       ? columns(
           rows.map((s) => [
-            `${indent(s)}${s.id}`,
+            // A name a person gave it stands in for the id; --json keeps both.
+            `${indent(s)}${s.managed && s.name ? s.name : s.id}`,
             s.managed && s.worktree ? `${s.project} (${s.worktree.branch})` : (s.project ?? '-'),
             s.agent,
             s.lastState.state,

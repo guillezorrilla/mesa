@@ -19,6 +19,8 @@ import { readHookEvents, recordHookEvent } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
 import { recordPaneDied } from './pane-died.js';
 import type { SessionRecord } from './record.js';
+import { removeSession } from './remove.js';
+import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
 import { sendPrompt } from './send.js';
@@ -138,6 +140,52 @@ export function sessionsService(ctx: MesaContext, faro: Faro) {
       },
       /** A session's goal, or not_found when it was started without one. */
       goal: (id: string) => sessionGoal(store, id),
+      /** One session's record with `alive` as the board reads it; not_found for an unknown id. */
+      show: async (id: string) => {
+        const record = store.get(id);
+        const row = (await board(true)).find((r) => r.id === id);
+        return { ...record, alive: row?.alive ?? false };
+      },
+      /** Gives a session the name a person calls it by; the board shows it in place of the id. */
+      rename: (id: string, name: string) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Renamed session ${id} to ${r.name}`,
+            failure: `Could not rename session ${id}`,
+            project: (r) => r.project,
+            session: () => id,
+            inputs: { id, name },
+            outputs: (r) => ({ name: r.name }),
+          },
+          () => renameSession(store, id, name),
+        ),
+      /**
+       * Removes a session's record and hook log, and with the flags its worktree and branch; a
+       * live one only with `force`. The session receipt says what went.
+       */
+      remove: (
+        id: string,
+        opts: { force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean } = {},
+      ) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) =>
+              `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
+            failure: `Could not remove session ${id}`,
+            project: (r) => r.project,
+            session: () => id,
+            inputs: { id, ...opts },
+            outputs: (r) => r,
+          },
+          () =>
+            removeSession(
+              { store, tmux, run: deps.run, profile: open, eventsDir: paths.events },
+              id,
+              opts,
+            ),
+        ),
       /**
        * Ends a session politely, or at once with `force`. The stop gets a session receipt of its
        * own (none when it changed nothing), and the session's opening receipt is marked ended.

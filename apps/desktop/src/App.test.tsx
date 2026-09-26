@@ -981,3 +981,62 @@ test('installing the hooks from the Doctor panel runs doctor again, so its row a
   await click(byTestId('hooks-install')[0]);
   expect(doctorRuns()).toBe(before + 1);
 });
+
+test("the row menu's Rename names a session; the Board shows the name in place of its id", async () => {
+  const named = { ...busy, name: 'tide tables' };
+  let renamed = false;
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([renamed ? named : busy] satisfies TreeRow[]),
+    rename: () => {
+      renamed = true;
+      return envelope(named);
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const menu = byTestId('row-menu')[0];
+  expect(menu?.getAttribute('aria-label')).toBe('More actions for bbbbbbbb');
+  await click(menu);
+  expect(menu?.getAttribute('aria-expanded')).toBe('true');
+  await click(byTestId('session-rename')[0]);
+  (byTestId('rename-name')[0] as HTMLInputElement).value = 'tide tables';
+  await click(byTestId('rename-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'rename', '--', 'bbbbbbbb', 'tide tables']);
+  expect(byTestId('toast')[0]?.textContent).toContain('Renamed bbbbbbbb to tide tables');
+  expect(byTestId('rename-dialog')).toHaveLength(0);
+  const [id] = byTestId('embed-terminal');
+  expect(id?.textContent).toBe('tide tables');
+  expect(id?.title).toBe('Open its terminal here (bbbbbbbb)');
+});
+
+test("Remove, only once a session's agent exited, lists what goes and passes the worktree flags", async () => {
+  const worktree = { path: '/h/.mesa/default/worktrees/lantern-cove/try-x', branch: 'try/x' };
+  const ended = { ...exited, worktree };
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([busy, ended] satisfies TreeRow[]),
+    rm: () =>
+      envelope({
+        id: 'cccccccc',
+        project: 'lantern-cove',
+        record: true,
+        events: true,
+        window: false,
+        worktree: worktree.path,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [liveMenu, endedMenu] = byTestId('row-menu');
+  await click(liveMenu);
+  // A live one is stopped first: the app never forces its window closed.
+  expect((byTestId('session-remove')[0] as HTMLButtonElement).disabled).toBe(true);
+  await click(liveMenu);
+  await click(endedMenu);
+  await click(byTestId('session-remove')[0]);
+  const listed = () => byTestId('remove-list')[0]?.textContent;
+  expect(listed()).toBe("session cccccccc's record and its hook log");
+  await click(byTestId('remove-worktree')[0]);
+  expect(listed()).toContain(`its worktree ${worktree.path}`);
+  await click(byTestId('remove-confirm')[0]);
+  expect(calls).toContainEqual(['--json', 'rm', '--delete-worktree', '--', 'cccccccc']);
+  expect(byTestId('toast')[0]?.textContent).toContain('Removed session cccccccc with its worktree');
+  expect(byTestId('remove-dialog')).toHaveLength(0);
+});
