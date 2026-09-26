@@ -1,5 +1,6 @@
 import { stringify } from 'yaml';
 import { defineCommand } from '../command.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const config = defineCommand({
   name: 'config',
@@ -17,7 +18,9 @@ export const configSet = defineCommand({
   args: ['path', 'value'],
   example: 'mesa config set decisions.threshold 0.6',
   run: ({ mesa, args }) => {
-    const value = mesa.config.set(args.path, args.value);
-    return { data: { path: args.path, value }, text: `${args.path} = ${JSON.stringify(value)}` };
+    const recorded = mesa.config.set(args.path, args.value);
+    const { value } = recorded.result;
+    const text = `${args.path} = ${JSON.stringify(value)}`;
+    return recordedOutput(recorded, { data: { path: args.path, value }, text });
   },
 });
