@@ -10,6 +10,9 @@ export const sessionLabel = (s: SessionRow) => (s.managed && s.name ? s.name : s
 export const sessionBranch = (s: SessionRow) =>
   s.managed ? (s.worktree?.branch ?? s.pending?.branch) : undefined;
 
+/** A number of sessions as it reads: `1 session`, `2 sessions`. */
+export const sessionCount = (n: number) => `${n} session${n === 1 ? '' : 's'}`;
+
 /** What a queued session shows in place of its output. */
 export const waitingOn = (after: string | undefined) => `waiting on ${after}`;
 

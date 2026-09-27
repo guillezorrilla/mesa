@@ -1,3 +1,4 @@
+import { sessionCount } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { APP_FLAG, requireTty } from '../guards.js';
 
@@ -14,8 +15,7 @@ export const view = defineCommand({
     if (!flags.app) requireTty(tty, 'mesa view --app');
     const { viewed, exec } = await mesa.sessions.view(args.project, flags.app ?? false);
     const where = viewed.app ? `in ${viewed.app}` : 'here';
-    const count = viewed.sessions.length;
-    const text = `viewing ${count} session${count === 1 ? '' : 's'} of ${viewed.project}, ${viewed.layout}, ${where}`;
+    const text = `viewing ${sessionCount(viewed.sessions.length)} of ${viewed.project}, ${viewed.layout}, ${where}`;
     return { data: viewed, text, exec };
   },
 });

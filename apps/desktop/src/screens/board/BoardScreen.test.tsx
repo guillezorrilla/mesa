@@ -19,6 +19,7 @@ import {
   managedRow,
   PROJECTS,
   renderWithMesa,
+  toastTexts,
 } from '@/lib/testing';
 
 test('a recorded action says its warning with its confirmation, so a missing receipt shows', async () => {
@@ -433,9 +434,7 @@ test('a queued row says what it waits on and has Cancel, which stops it; it cann
   await click(inRow('row-menu'));
   await click(inRow('session-stop'));
   expect(calls.filter((c) => c[1] === 'stop')).toEqual([['--json', 'stop', '--', 'dddddddd']]);
-  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
-    'Cancelled session dddddddd: it never starts',
-  ]);
+  expect(toastTexts(byTestId)).toEqual(['Cancelled session dddddddd: it never starts']);
   expect(inRow('session-state')?.dataset.state).toBe('stopped');
   expect(inRow('session-waiting')).toBeNull();
   expect(inRow('session-stop')?.hasAttribute('disabled')).toBe(true);
@@ -577,7 +576,7 @@ test('Send on Enter, Open terminal, then Stop and Resume on the same row, each s
     ['--json', 'resume', '--', 'aaaaaaaa'],
   ]);
   expect((byTestId('session-prompt')[0] as HTMLInputElement).value).toBe('');
-  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
+  expect(toastTexts(byTestId)).toEqual([
     'Sent 5 characters to aaaaaaaa',
     'Opened lantern-cove:claude-aaaaaaaa in Terminal',
     'Stopped session aaaaaaaa',

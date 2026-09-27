@@ -11,6 +11,7 @@ export {
   listPrice,
   percent,
   sessionBranch,
+  sessionCount,
   sessionLabel,
   waitingOn,
 } from './display.js';

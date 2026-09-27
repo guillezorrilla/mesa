@@ -6,6 +6,7 @@ import {
   listPrice,
   percent,
   sessionBranch,
+  sessionCount,
   sessionLabel,
   waitingOn,
 } from './display.js';
@@ -26,6 +27,7 @@ test('a row reads as its name, else its id; its branch is its worktree, else the
   expect(sessionBranch(managed({}))).toBeUndefined();
   expect(sessionBranch(foreign)).toBeUndefined();
   expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
+  expect([1, 2].map(sessionCount)).toEqual(['1 session', '2 sessions']);
 });
 
 test('durations and list prices read the same everywhere', () => {

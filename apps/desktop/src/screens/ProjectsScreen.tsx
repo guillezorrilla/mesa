@@ -1,6 +1,8 @@
+import { sessionCount } from '@mesa/core/browser';
 import { Columns2, FolderPlus, Play, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
+import { said, warned } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,10 +15,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePlatform } from '@/lib/MesaRoot';
-import { said, useAct, warned } from '@/lib/useAct';
+import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
-/** The profile's registered projects: open a session on one, or register a folder. */
+/**
+ * The profile's registered projects: register a folder, and on each, sync its skills, open a
+ * session, or view its sessions side by side.
+ */
 export function ProjectsScreen() {
   const { data: projects, refresh } = useCommand('projects.list');
   const skills = useCommand('skills.list', {});
@@ -38,9 +43,8 @@ export function ProjectsScreen() {
   const viewSessions = (project: string) =>
     act(async () => {
       const viewed = await run('sessions.view', { project });
-      return (
-        viewed && said(`Viewing ${viewed.sessions.length} sessions of ${project} in ${viewed.app}`)
-      );
+      const count = viewed && sessionCount(viewed.sessions.length);
+      return viewed && said(`Viewing ${count} of ${project} in ${viewed.app}`);
     });
 
   // Links the profile's and the project's enabled skills into its skill folders.
