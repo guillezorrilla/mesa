@@ -87,6 +87,8 @@ export function moveBoardSession(
   const order = groups.flatMap((item) =>
     item.rows.filter((row) => row.managed).map((row) => row.id),
   );
+  const visible = new Set(order);
+  order.push(...prefs.order.filter((saved) => !visible.has(saved)));
   if (!neighbor) return order;
   const from = order.indexOf(id);
   const to = order.indexOf(neighbor.id);

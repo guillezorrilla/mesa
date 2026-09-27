@@ -76,4 +76,10 @@ test('manual move stays within the managed rows of its current group', () => {
     'cccccccc',
     'bbbbbbbb',
   ]);
+  expect(moveBoardSession(rows, { ...prefs, order: ['dddddddd'] }, 'cccccccc', -1)).toEqual([
+    'cccccccc',
+    'aaaaaaaa',
+    'bbbbbbbb',
+    'dddddddd',
+  ]);
 });
