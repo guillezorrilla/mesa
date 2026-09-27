@@ -1,12 +1,12 @@
-import { z } from 'zod';
+import { AGENTS, RUNNABLE_AGENTS, type RunnableName } from '../agents/agents.js';
 import type { Runner } from '../lib/process.js';
 
-// Agent listings, ADR-0003's second signal: `claude agents --json` names every live Claude Code
-// session on the machine, Mesa's and the owner's alike (docs/spikes/state-signals.md).
+// Agent listings, ADR-0003's second signal: each agent Mesa runs lists its live sessions on the
+// machine, Mesa's and the owner's alike (Claude Code's: agents/claude/listing.ts).
 
 /** One live agent process, keyed by its agent session id (the listing's `name` changes). */
 export type AgentProcess = {
-  agent: 'claude';
+  agent: RunnableName;
   pid: number;
   cwd: string;
   agentSessionId: string;
@@ -17,40 +17,11 @@ export type AgentProcess = {
   waitingFor?: string;
 };
 
-const ListingSchema = z.array(
-  z.object({
-    pid: z.number().int().positive(),
-    cwd: z.string(),
-    // Epoch ms; the cap is the largest a Date takes, so toISOString never throws.
-    startedAt: z.number().nonnegative().max(8.64e15),
-    sessionId: z.string(),
-    status: z.string(),
-    waitingFor: z.string().optional(),
-  }),
-);
-
-/** Each call took about 0.5 s in the spike; a slow or broken listing must not hold the board up. */
-const LISTING_TIMEOUT_MS = 2000;
-
-/** The live Claude Code processes, or `[]` when the listing fails, times out, or does not parse. */
+/** Every agent's live processes; an agent whose listing fails lists none. */
 export async function listAgentProcesses(run: Runner): Promise<AgentProcess[]> {
-  const res = await run('claude', ['agents', '--json'], LISTING_TIMEOUT_MS);
-  if (!res.ok) return [];
-  let raw: unknown;
-  try {
-    raw = JSON.parse(res.stdout);
-  } catch {
-    return [];
-  }
-  const parsed = ListingSchema.safeParse(raw);
-  if (!parsed.success) return [];
-  return parsed.data.map((p) => ({
-    agent: 'claude',
-    pid: p.pid,
-    cwd: p.cwd,
-    agentSessionId: p.sessionId,
-    startedAt: new Date(p.startedAt).toISOString(),
-    status: p.status,
-    ...(p.waitingFor === undefined ? {} : { waitingFor: p.waitingFor }),
-  }));
+  const lists = await Promise.all(RUNNABLE_AGENTS.map((a) => AGENTS[a].listing.list(run)));
+  return lists.flat();
 }
+
+/** The state a listed process's status gives, as its agent reads it. */
+export const listedState = (p: AgentProcess) => AGENTS[p.agent].listing.state(p);

@@ -1,17 +1,5 @@
-// Tail patterns ported from CCManager's Claude Code state detector
-// (src/services/stateDetector/claude.ts at 7b55c65, https://github.com/kbwo/ccmanager, MIT,
-// Copyright (c) kbwo), as ADR-0005 requires. Ported: the search prompt (idle), the ctrl+r
-// toggle (no reading), the "Do you want / Would you like" menu, "esc to cancel", the numbered
-// "Deny (esc)" option, and, in the most recent block above the prompt box only, "esc to
-// interrupt", "ctrl+c to interrupt", the spinner activity label, and the token stats line.
-// Changed here: CCManager's single `waiting_input` splits into a question (the menu's "Enter to
-// select", Mesa's marker from docs/spikes/state-signals.md, checked first) and a permission; the
-// "Do you want" menu must offer a numbered Yes, so a plain question above the prompt stays idle;
-// and there is no idle debounce, since the board reads one snapshot (at 0.6, only when no hook
-// or listing speaks). Codex patterns land in #43.
-
 import { createHash } from 'node:crypto';
-import type { Agent } from '../agents/agents.js';
+import { type Agent, runnableAgent } from '../agents/agents.js';
 import { decide, type FaroDeps } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Backend, Decision, Question } from '../decisions/types.js';
@@ -65,93 +53,6 @@ export const exitState = (pane: { deadStatus?: number; deadSignal?: string }) =>
 /** The tail is display, not truth: 0.6 at most (ADR-0003 amendment). */
 const TAIL = 0.6;
 
-const field = (payload: unknown, key: string) =>
-  payload && typeof payload === 'object' && key in payload
-    ? String((payload as Record<string, unknown>)[key])
-    : undefined;
-
-/** The state a hook event means (docs/spikes/state-signals.md), or none for one that says nothing. */
-export function hookState(event: string, payload?: unknown): SessionState | undefined {
-  const question = field(payload, 'tool_name') === 'AskUserQuestion';
-  switch (event) {
-    case 'SessionStart':
-    case 'Stop':
-      return 'idle';
-    case 'UserPromptSubmit':
-    case 'PostToolUse':
-      return 'working';
-    case 'PermissionRequest':
-      return question ? 'waiting-question' : 'waiting-permission';
-    case 'PreToolUse':
-      return question ? 'waiting-question' : undefined;
-    case 'Notification':
-      return field(payload, 'notification_type') === 'idle_prompt' ? 'idle' : undefined;
-    case 'SessionEnd':
-      // /clear and /resume start another conversation in the same agent, which goes on.
-      return ['clear', 'resume'].includes(field(payload, 'reason') ?? '') ? undefined : 'done';
-    case 'StopFailure':
-      return 'failed';
-    default:
-      return undefined;
-  }
-}
-
-// CCManager's markers (see the header).
-const SPINNER_CHARS = '✱✲✳✴✵✶✷✸✹✺✻✼✽✾✿❀❁❂❃❇❈❉❊❋✢✣✤✥✦✧✨⊛⊕⊙◉◎◍⁂⁕※⍟☼★☆·•⏺▸▹∙⋅○●';
-const SPINNER_ACTIVITY = new RegExp(`^[${SPINNER_CHARS}] \\S+ing.*\u2026`, 'm');
-const TOKEN_STATS = /\([^)]*\d[^)]*tokens\s*\)/i;
-const RULE = /^[-─\s]*$/;
-
-/**
- * CCManager's getRecentContentAbovePromptBox: the lines above the prompt box (the second ─
- * border from the bottom), trailing blanks, rules, and the bare ❯ dropped, then the last
- * contiguous block of them. Old output further up cannot read as busy.
- */
-function recentAbovePrompt(tail: string): string {
-  const lines = tail.split('\n');
-  const borders = lines.flatMap((l, i) => (/^─+$/.test(l.trim()) ? [i] : []));
-  const above = lines.slice(0, borders.length >= 2 ? borders.at(-2) : lines.length);
-  while (above.length && (RULE.test(above.at(-1) ?? '') || above.at(-1)?.trim() === '❯')) {
-    above.pop();
-  }
-  let start = above.length;
-  while (start > 0 && !RULE.test(above[start - 1] ?? '')) start--;
-  return above.slice(start).join('\n');
-}
-
-// ponytail: 200 characters, as the hook log keeps; the board shows one line.
-/** The board's "last output": the last line of the latest block above the prompt box. */
-export function lastOutputLine(tail: string): string | undefined {
-  const line = recentAbovePrompt(tail)
-    .split('\n')
-    .map((l) => l.trim())
-    // tmux's own line under a dead pane (remain-on-exit) is not the agent's.
-    .filter((l) => l && !/^Pane is dead \(/.test(l))
-    .at(-1);
-  return line && Array.from(line).slice(0, 200).join('');
-}
-
-/** Claude Code's screen read as a state, or none when it shows nothing that says one. */
-function tailState(agent: Agent, tail: string): SessionState | undefined {
-  if (agent !== 'claude' || !tail.trim()) return undefined;
-  const lower = tail.toLowerCase();
-  if (lower.includes('⌕ search…')) return 'idle';
-  if (lower.includes('ctrl+r to toggle')) return undefined;
-  // The question menu: "Enter to select · ↑/↓ to navigate · Esc to cancel".
-  if (lower.includes('enter to select')) return 'waiting-question';
-  if (/(?:do you want|would you like).+\n+[\s\S]*?\d+\.\s*yes/.test(lower)) {
-    return 'waiting-permission';
-  }
-  if (lower.includes('esc to cancel') || /\d+\.\s*deny\s*\(esc\)/.test(lower)) {
-    return 'waiting-permission';
-  }
-  const recent = recentAbovePrompt(tail);
-  const busy = recent.toLowerCase();
-  if (busy.includes('esc to interrupt') || busy.includes('ctrl+c to interrupt')) return 'working';
-  if (SPINNER_ACTIVITY.test(recent) || TOKEN_STATS.test(recent)) return 'working';
-  return 'idle';
-}
-
 /**
  * Where a session is, by ADR-0003's order: a stopped session keeps its state; a dead or gone
  * window is a process fact (a session already done or failed stays so); then the latest hook
@@ -167,8 +68,10 @@ export function classify(s: SessionSignals): LastState {
     at: state === s.last.state ? s.last.at : s.now,
   });
   if (s.ended) return s.last;
-  const fromHook = s.event && hookState(s.event.event, s.event.payload);
-  const listing = s.listed && listedState(s.listed);
+  // The agent's own readers say what its hooks, listing, and screen mean.
+  const reader = runnableAgent(s.agent);
+  const fromHook = s.event && reader?.hookState(s.event.event, s.event.payload);
+  const listing = s.listed && reader?.listing.state(s.listed);
   if (s.window && (!s.window.exists || s.window.dead) && !listing) {
     if (FINAL_STATES.has(s.last.state)) return s.last;
     if (s.event && (fromHook === 'done' || fromHook === 'failed')) {
@@ -186,7 +89,7 @@ export function classify(s: SessionSignals): LastState {
     return { state: fromHook, confidence, source: 'hook', at: s.event.at };
   }
   if (listing) return seen(listing.state, listing.confidence, 'listing');
-  const fromTail = s.tail === undefined ? undefined : tailState(s.agent, s.tail);
+  const fromTail = s.tail === undefined ? undefined : reader?.screen.state(s.tail);
   if (fromTail) return seen(fromTail, TAIL, 'tmux');
   return s.last;
 }
@@ -290,27 +193,4 @@ export async function classifySession(
       : classify(signals);
   const attention = toAnswer(ATTENTION, attentionWeights(lastState, signals));
   return { lastState, attention: attention.kind === 'Score' ? attention.answer : 0, decision };
-}
-
-/** What each listed status means as a session state (docs/spikes/state-signals.md). */
-const LISTED: Record<string, SessionState> = {
-  idle: 'idle',
-  busy: 'working',
-  'waiting:permission prompt': 'waiting-permission',
-  'waiting:input needed': 'waiting-question',
-};
-
-/**
- * The state the listing alone gives, at ADR-0003's 0.85. A wait it cannot name still needs a
- * person (0.6); a status it has never shown is a guess at `working` (0.5).
- */
-export function listedState(p: Pick<AgentProcess, 'status' | 'waitingFor'>): {
-  state: SessionState;
-  confidence: number;
-} {
-  const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : p.status];
-  if (state) return { state, confidence: 0.85 };
-  return p.status === 'waiting'
-    ? { state: 'waiting-question', confidence: 0.6 }
-    : { state: 'working', confidence: 0.5 };
 }
