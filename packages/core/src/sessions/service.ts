@@ -26,6 +26,7 @@ import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { sessionSignals } from './signals.js';
 import { stopSession } from './stop.js';
+import { viewProject } from './view.js';
 
 // ponytail: a guess at how long a session's agent takes to finish its turn once mesa handoff
 // returns; its stop's Escape interrupts whatever it still writes, which is only its goodbye.
@@ -45,6 +46,14 @@ export function sessionsService(
   const { profile, deps, paths, open, store, tmux, record, secrets, absolute, notes } = ctx;
   /** Where a session's context use is read: its agent's files under home, with this env. */
   const contextDeps = { store, home: deps.home, env: deps.env };
+  /** What a terminal on a window takes: the user's terminal app, and a fresh view id each. */
+  const terminal = {
+    run: deps.run,
+    scripts: paths.attachScripts,
+    env: deps.env,
+    viewId: () => shortId(deps.newId),
+  };
+  const terminalApp = () => open().config.terminal.app;
   /** Who runs this mesa: the session whose Mesa window it is in, if any. */
   const caller = () => callerOf({ store, env: deps.env, profileName: profile });
   const openDeps = () => ({
@@ -356,17 +365,16 @@ export function sessionsService(
         resizeSession({ store, tmux }, id, cols, rows),
       /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
       attach: (id: string, app = false) =>
-        attachSession(
-          {
-            store,
-            tmux,
-            run: deps.run,
-            scripts: paths.attachScripts,
-            env: deps.env,
-            viewId: () => shortId(deps.newId),
-          },
-          id,
-          app ? open().config.terminal.app : undefined,
+        attachSession({ store, tmux, ...terminal }, id, app ? terminalApp() : undefined),
+      /**
+       * Shows a project's sessions side by side in one terminal, laid out by its mesa.yaml
+       * `tmux.layout` (CONTEXT.md, Project view): here (the argv to exec), or in `terminal.app`.
+       */
+      view: (project: string, app = false) =>
+        viewProject(
+          { profile: open(), store, tmux, ...terminal },
+          project,
+          app ? terminalApp() : undefined,
         ),
     },
     hookEvent: signals.hookEvent,

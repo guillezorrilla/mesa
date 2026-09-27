@@ -25,7 +25,7 @@ test('the Projects screen lists the fixture projects, marking one whose path is 
     'claude',
     '0.5',
     'none synced',
-    'Sync skillsOpen session',
+    'Sync skillsOpen sessionView sessions',
   ]);
   // A project whose path is gone cannot start a session.
   expect(cells(rows[1])).toEqual(['tide ✗', '/src/tide', '', '', '', '']);
@@ -153,4 +153,23 @@ test('a cancelled picker registers nothing; a failed register shows in the toast
   expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
     'already registered: tide at /src/tide',
   ]);
+});
+
+test("View sessions shows the project's sessions side by side in the terminal app and says so", async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    view: () =>
+      envelope({
+        opened: true,
+        project: 'lantern-cove',
+        sessions: ['aaaaaaaa', 'bbbbbbbb'],
+        layout: 'tiled',
+        app: 'Terminal',
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-projects')[0]);
+  await click(byTestId('view-sessions')[0]);
+  expect(calls).toContainEqual(['--json', 'view', '--app', '--', 'lantern-cove']);
+  expect(byTestId('toast')[0]?.textContent).toBe('Viewing 2 sessions of lantern-cove in Terminal');
 });

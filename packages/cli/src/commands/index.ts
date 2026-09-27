@@ -27,6 +27,7 @@ import { skillsList, skillsSync } from './skills.js';
 import { stop } from './stop.js';
 import { unregister } from './unregister.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
+import { view } from './view.js';
 import { windows } from './windows.js';
 
 // Every mesa subcommand, in help order. A command lives in the file named for its first word
@@ -68,5 +69,6 @@ export const COMMANDS: Command[] = [
   vaultInit,
   vaultOpen,
   vaultStatus,
+  view,
   windows,
 ];
