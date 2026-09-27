@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest';
 import { SPIKE_LISTING, scriptedRunner } from '../testing/index.js';
-import { listAgentProcesses } from './agent-listing.js';
-import { listedState } from './state.js';
+import { listAgentProcesses, listedState } from './agent-listing.js';
 
 const listing = (...rows: object[]) => JSON.stringify(rows);
 

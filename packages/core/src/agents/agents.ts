@@ -2,14 +2,21 @@ import { z } from 'zod';
 import { type Binary, probe } from '../lib/probe.js';
 import { type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { claudeContext } from './claude/context-use.js';
+import { claudeHookState } from './claude/hook-state.js';
+import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
+import { claudeTranscripts } from './claude/paths.js';
+import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
+import { transcriptCwd } from './claude/transcripts.js';
 
 /**
- * The agents Mesa runs, how to probe and install each, and how to start, resume, and quit one.
- * Claude Code's hooks, listing, transcripts, and screen are still read in sessions/ and
- * agents/claude/ directly, until Codex (#43) gives them a second agent.
+ * The agents Mesa runs, how to probe and install each, how to start, resume, and quit one, and
+ * the readers of what a running one writes and shows (its hooks, screen, listing, context use,
+ * and transcripts), under agents/<agent>/. Sessions reach an agent only through its entry here.
  */
 export const AGENTS = {
   claude: {
+    label: 'Claude Code',
     versionArgs: ['--version'],
     install: 'brew install --cask claude-code',
     /**
@@ -22,6 +29,19 @@ export const AGENTS = {
     resume: (sessionId: string) => `claude --resume ${sessionId}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
+    /** The session state a hook event means, if any. */
+    hookState: claudeHookState,
+    /** Its pane's screen: the state it shows, and the board's last output line. */
+    screen: { state: claudeScreenState, lastLine: claudeLastOutputLine },
+    /** Its live sessions on the machine, and the state each listed status means. */
+    listing: { list: listClaudeProcesses, state: claudeListedState },
+    /** A session's context use, from its transcript. */
+    context: claudeContext,
+    /** Where its transcripts are, and the folder a conversation ran in (adoption). */
+    transcripts: {
+      dir: claudeTranscripts,
+      cwdOf: (home: string, id: string) => transcriptCwd(claudeTranscripts(home), id),
+    },
   },
   // v1 runs Claude Code only (ADR-0003 amendment).
   codex: {
@@ -44,8 +64,19 @@ export function agentBinary(name: Agent): Binary {
 /** One agent's probe: `hint` says why it failed and how to install it. */
 const checkAgent = (run: Runner, agent: Agent) => probe(run, agentBinary(agent));
 
-/** An agent Mesa can run: it starts and resumes sessions (v1: claude). */
-type RunnableAgent = Extract<(typeof AGENTS)[Agent], { start: unknown }>;
+/** An agent Mesa can run: it starts and resumes sessions, and has readers (v1: claude). */
+export type RunnableName = {
+  [K in Agent]: (typeof AGENTS)[K] extends { start: unknown } ? K : never;
+}[Agent];
+type RunnableAgent = (typeof AGENTS)[RunnableName];
+
+/** The agent's entry when Mesa can run it; undefined for one only planned, which reads nothing. */
+export const runnableAgent = (agent: Agent): RunnableAgent | undefined => {
+  const spec = AGENTS[agent];
+  return 'start' in spec ? spec : undefined;
+};
+/** Every agent Mesa can run. */
+export const RUNNABLE_AGENTS = AGENT_NAMES.filter((a): a is RunnableName => !!runnableAgent(a));
 
 /**
  * The agent's spec, once Mesa can run it and its binary answers; agent_unavailable otherwise,

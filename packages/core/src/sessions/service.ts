@@ -1,4 +1,3 @@
-import { claudeTranscripts } from '../agents/claude/paths.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import { shortId } from '../lib/ids.js';
@@ -327,7 +326,7 @@ export function sessionsService(
                 ...openDeps(),
                 listing: () => listAgentProcesses(deps.run),
                 elsewhere: () => otherProfilesSessions(deps.home, profile),
-                transcripts: claudeTranscripts(deps.home),
+                home: deps.home,
               },
               { agentSessionId, ...opts },
             ),
