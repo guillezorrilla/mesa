@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { runnableAgent } from '../agents/agents.js';
+import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
@@ -59,6 +60,8 @@ type RunDeps = LaunchDeps & {
   runs: string;
   /** The skills a project sees, enabled or not (the skills service's list). */
   skills: (project: string) => SkillRow[];
+  /** The guardrail: throws guardrail_blocked, or returns the override that let it through. */
+  guard: (action: Guarded) => Promise<Override | undefined>;
 };
 
 /**
@@ -67,7 +70,8 @@ type RunDeps = LaunchDeps & {
  * runOutput; its stderr stays on the pane. The window's command execs the agent, so the pane's
  * pid and exit status are the agent's. Every refusal comes before anything is written: an unknown project, a skill
  * the project does not see or enable, an agent that cannot run, a timeout under one second, a
- * command too long for tmux.
+ * command too long for tmux, and last the guardrail on its prompt (`guard`), whose override, if
+ * one let it through, comes back with the record.
  */
 export async function startRun(deps: RunDeps, input: RunInput) {
   const { timeoutSeconds = RUN_TIMEOUT_SECONDS } = input;
@@ -83,13 +87,21 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const line = (id: string) => `exec ${command} </dev/null >${shellWord(runOutput(deps.runs, id))}`;
   // The line tmux gets, checked before anything is written: every Mesa session id is 8 characters.
   requireCommandFits(line('xxxxxxxx'));
+  // Last, so a person is never asked about a run that would be refused anyway.
+  const override = await deps.guard({
+    action: 'run',
+    target: input.skill,
+    text: prompt,
+    project: entry.name,
+  });
   mkdirSync(deps.runs, { recursive: true, mode: 0o700 });
   const parent = deps.caller().session?.id;
-  return launchSession(
+  const started = await launchSession(
     deps,
     { kind: 'run', project: entry, agent, agentSessionId, goal: prompt, parent },
     { command: (r) => line(r.id) },
   );
+  return { ...started, ...(override ? { override } : {}) };
 }
 
 /** A skill the project sees (the library's or its own) and enables; usage otherwise. */

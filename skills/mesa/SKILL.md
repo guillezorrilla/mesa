@@ -41,6 +41,15 @@ Reply to a session that messaged you with the command its header names:
 mesa send a1b2c3d4 "The tide-table test; it needed a fixed clock"
 ```
 
+Every prompt you send, and every skill you run, passes Mesa's guardrail first. It blocks a prompt that holds a secret or a destructive command (`rm -rf /`, `git push --force`, `DROP TABLE`, and the like), and in a project set to `guardrail: strict` it asks first. Either way `mesa send` or `mesa run` exits 5 (`guardrail_blocked`) and nothing is typed or started, and with `--json` the error says which (`error.details.verdict`: `ask` or `block`) and why (`error.details.reason`). Check a prompt beforehand with `mesa guardrail check "<prompt>" --project <project> --json`.
+
+- On `ask`, run the same command again with `--yes` once you are sure it is the prompt you mean.
+- On `block`, use a prompt without the secret or the command. `--force` sends or runs the original anyway, and its receipt records the override, so keep it for a prompt a person asked you to use as it is.
+
+```sh
+mesa send b2c3d4e5 "Rebase onto main and rerun the tide tests" --yes
+```
+
 Check state before you act: `waiting-permission` or `waiting-question` means a person must answer that session, and Mesa refuses a prompt from you into it.
 
 ```sh
@@ -61,7 +70,7 @@ Hand off before your context fills: the `mesa-handoff` skill says when, and what
 mesa handoff $MESA_SESSION_ID --note /tmp/handoff-$MESA_SESSION_ID.md
 ```
 
-Run a skill headlessly and wait for its result: a session of kind `run`, which ends `done` or `failed` on its own. The words after `--` are the skill's. `--json` gives `{ok, output, agentSessionId, costUsd, durationMs, reason}`; a run that is not ok exits 1, and one past `--timeout` (seconds, 1200 by default) fails with `timeout`.
+Run a skill headlessly and wait for its result: a session of kind `run`, which ends `done` or `failed` on its own. The words after `--` are the skill's. `--json` gives `{ok, output, agentSessionId, costUsd, durationMs, reason}`; a run that is not ok exits 1, one past `--timeout` (seconds, 1200 by default) fails with `timeout`, and one the guardrail stops exits 5 before it starts.
 
 ```sh
 mesa run session-summary --project lantern-cove --json -- focus on the tide-table tests

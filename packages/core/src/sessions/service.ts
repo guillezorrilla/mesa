@@ -1,5 +1,7 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
+import type { Guarded, Overrides } from '../decisions/guardrail.js';
+import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
 import { redactText } from '../lib/redact.js';
 import { projectPriorities } from '../projects/projects.js';
@@ -168,12 +170,15 @@ export function sessionsService(
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
       },
       /**
-       * Runs a skill headlessly on a project (CONTEXT.md, Skill run) and waits up to
-       * `timeoutSeconds` for its result, which is returned, ok or not. Its start writes a skill
-       * receipt; its end, as a stop does, starts what was queued after it.
+       * Runs a skill headlessly on a project (CONTEXT.md, Skill run), once the guardrail lets its
+       * prompt through (`yes`, `force`, and a person's `confirm` past an ask or a block), and
+       * waits up to `timeoutSeconds` for its result, which is returned, ok or not. Its start
+       * writes a skill receipt, with the guardrail's decision and the override; its end, as a
+       * stop does, starts what was queued after it.
        */
-      run: async (skill: string, opts: Omit<RunInput, 'skill'>) => {
-        const { project, agent, args = [] } = opts;
+      run: async (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) => {
+        const { force, yes, confirm, ...input } = opts;
+        const { project, agent, args = [] } = input;
         const started = await record(
           {
             type: 'skill',
@@ -188,11 +193,21 @@ export function sessionsService(
               project,
               agent: agent ?? null,
               args: args.map((a) => redactText(a, secrets())),
+              ...(force ? { force } : {}),
+              ...(yes ? { yes } : {}),
             },
-            outputs: ({ record: r }) => startedOutputs(r),
+            outputs: ({ record: r, override }) => ({
+              ...startedOutputs(r),
+              ...(override ? { override } : {}),
+            }),
           },
-          () =>
-            startRun({ ...openDeps(), runs: paths.runs, skills: skills.list }, { ...opts, skill }),
+          // Typed, so the result type comes from the action, as for one that takes nothing.
+          (decisions: DecisionRecorder) => {
+            const guard = (action: Guarded) =>
+              faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            const runDeps = { ...openDeps(), runs: paths.runs, skills: skills.list, guard };
+            return startRun(runDeps, { ...input, skill });
+          },
         );
         const run = started.result.record;
         const waitDeps = {
@@ -203,11 +218,12 @@ export function sessionsService(
           runs: paths.runs,
           logs: paths.logs,
         };
-        const result = await awaitRun(waitDeps, run, opts.timeoutSeconds);
+        const result = await awaitRun(waitDeps, run, input.timeoutSeconds);
         const queue = await ends.stopped(run.id, 'exited');
         const warning = joinWarnings(started.warning, queue?.warning);
+        const { override } = started.result;
         return {
-          result: { session: run.id, ...result },
+          result: { session: run.id, ...result, ...(override ? { override } : {}) },
           receipt: started.receipt,
           ...(warning ? { warning } : {}),
         };
@@ -324,14 +340,16 @@ export function sessionsService(
       },
       /**
        * Types a prompt into a live session's agent, from another session (`from`, else the window
-       * this runs in) when there is one; an action receipt keeps its first 80 chars.
+       * this runs in) when there is one, once the guardrail lets it (`yes`, `force`, and a
+       * person's `confirm` past an ask or a block); an action receipt keeps its first 80 chars,
+       * the guardrail's decision, and the override.
        */
       send: (
         id: string,
         prompt: string,
-        opts: { force?: boolean; from?: string; noFrom?: boolean } = {},
+        opts: { from?: string; noFrom?: boolean } & Overrides = {},
       ) => {
-        const { force = false, from, noFrom } = opts;
+        const { force = false, yes, confirm, from, noFrom } = opts;
         const kept = receiptText(prompt, deps.argv, secrets());
         return record(
           {
@@ -346,17 +364,26 @@ export function sessionsService(
               session: id,
               prompt: kept.short,
               force,
+              ...(yes ? { yes } : {}),
               ...(from === undefined ? {} : { from }),
               ...(noFrom ? { noFrom } : {}),
             },
-            outputs: (r) => ({ chars: r.chars, from: r.from }),
+            outputs: (r) => ({
+              chars: r.chars,
+              from: r.from,
+              ...(r.override ? { override: r.override } : {}),
+            }),
           },
-          () =>
-            sendPrompt({ store, tmux, clock: deps.clock, caller }, id, prompt, {
+          // Typed, so the result type comes from the action, as for one that takes nothing.
+          (decisions: DecisionRecorder) => {
+            const guard = (action: Guarded) =>
+              faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
               force,
               from,
               noFrom,
-            }),
+            });
+          },
         );
       },
       /**

@@ -54,6 +54,11 @@ export type Invocation<A extends readonly string[] = readonly string[], F extend
   tty: boolean;
   /** All of stdin, read on demand (a hook's payload). */
   stdin: () => Promise<string>;
+  /**
+   * Asks the person a yes-or-no question (a guardrail's ask): only in a terminal and without
+   * --json, else undefined.
+   */
+  confirm: ((question: string) => Promise<boolean>) | undefined;
   /** The command table, which `mesa help` describes. */
   commands: Command[];
 };

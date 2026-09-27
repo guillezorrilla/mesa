@@ -53,7 +53,86 @@ test('send types the prompt, records a send event, and writes an action receipt'
     project: 'lantern-cove',
     inputs: { session: opened.id, prompt: prompt.slice(0, 80), force: false },
     outputs: { chars: prompt.length },
+    // The guardrail's allow, with its probabilities.
+    decisions: [
+      { question: 'verdict', kind: 'Choice', answer: 'allow', backend: 'rules' },
+      { question: 'secret-or-destructive', kind: 'Noul', answer: false, probabilities: 0.05 },
+    ],
   });
+  expect(latest?.receipt.outputs).not.toHaveProperty('override');
+});
+
+test('a destructive prompt is blocked with its decision in a blocked receipt; --force sends it, noted', async () => {
+  const { home, mesa, window, opened } = await setUp();
+  await expect(mesa.sessions.send(opened.id, 'run rm -rf /')).rejects.toMatchObject({
+    code: 'guardrail_blocked',
+    message:
+      'blocked: the text holds a destructive command (rm -rf); pass --force to send it anyway',
+    details: { verdict: 'block' },
+  });
+  expect(window.typed).toEqual([]);
+  const [blocked] = listReceipts(join(home, 'vault'), 1);
+  expect(blocked?.receipt).toMatchObject({
+    status: 'blocked',
+    inputs: { session: opened.id, prompt: 'run rm -rf /', force: false },
+    outputs: { error: { code: 'guardrail_blocked' } },
+    // To 6 decimals: the rules' 0.95, without the float noise of normalising.
+    decisions: [
+      { question: 'verdict', kind: 'Choice', answer: 'block', confidence: 0.95, backend: 'rules' },
+      { question: 'secret-or-destructive', kind: 'Noul', answer: true, probabilities: 0.95 },
+    ],
+  });
+
+  const { result } = await mesa.sessions.send(opened.id, 'run rm -rf /', { force: true });
+  expect(result.override).toBe('force');
+  expect(window.typed).toEqual(['run rm -rf /']);
+  const [forced] = listReceipts(join(home, 'vault'), 1);
+  expect(forced?.receipt).toMatchObject({
+    status: 'ok',
+    outputs: { override: 'force' },
+    decisions: [{ question: 'verdict', answer: 'block' }, { answer: true }],
+  });
+});
+
+test('a strict project asks: --yes, a person yes, or --force sends; without one, or on a no, it is blocked', async () => {
+  const world = fakeTmux();
+  const run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
+  const { home, mesa } = projectProfile(run, {
+    mesaYaml: 'name: lantern-cove\nguardrail: strict\n',
+  });
+  const { result: opened } = await mesa.sessions.open('lantern-cove');
+  const latest = () => listReceipts(join(home, 'vault'), 1)[0]?.receipt;
+  await expect(mesa.sessions.send(opened.id, 'hello')).rejects.toMatchObject({
+    code: 'guardrail_blocked',
+    message:
+      'the guardrail asks first: project lantern-cove has guardrail: strict; pass --yes to send it',
+    details: { verdict: 'ask' },
+  });
+  expect(latest()).toMatchObject({ status: 'blocked', decisions: [{ answer: 'ask' }, {}] });
+
+  const asked: string[] = [];
+  const confirm = (yes: boolean) => async (question: string) => {
+    asked.push(question);
+    return yes;
+  };
+  await expect(
+    mesa.sessions.send(opened.id, 'hello', { confirm: confirm(false) }),
+  ).rejects.toMatchObject({
+    code: 'guardrail_blocked',
+    message: expect.stringMatching(/^declined/),
+  });
+  const said = await mesa.sessions.send(opened.id, 'one', { confirm: confirm(true) });
+  expect(said.result.override).toBe('confirmed');
+  expect(asked).toEqual([
+    'Project lantern-cove has guardrail: strict. Send it?',
+    'Project lantern-cove has guardrail: strict. Send it?',
+  ]);
+  const yes = await mesa.sessions.send(opened.id, 'two', { yes: true });
+  expect(yes.result.override).toBe('yes');
+  expect(latest()).toMatchObject({ inputs: { yes: true }, outputs: { override: 'yes' } });
+  await mesa.sessions.send(opened.id, 'three', { force: true });
+  expect(latest()?.outputs).toMatchObject({ override: 'force' });
+  expect(world.windows[0]?.typed).toEqual(['one', 'two', 'three']);
 });
 
 test('a multi-line prompt goes as one literal chunk, then one Enter', async () => {
@@ -110,8 +189,13 @@ test('the receipt keeps 80 characters of the prompt, in its inputs and command, 
   const { home, mesa } = projectProfile(run, { argv: ['send', 'SESSION', prompt] });
   mesa.config.set('keys.jev', 'sk-live-1234');
   const { result } = await mesa.sessions.open('lantern-cove');
-  await mesa.sessions.send(result.id, prompt);
+  // A prompt holding one of the profile's keys is blocked, and its receipt redacts it too.
+  await expect(mesa.sessions.send(result.id, prompt)).rejects.toMatchObject({
+    code: 'guardrail_blocked',
+  });
+  expect(world.windows[0]?.typed).toEqual([]);
   const [latest] = listReceipts(join(home, 'vault'), 1);
+  expect(latest?.receipt.status).toBe('blocked');
   // Redacted first, then cut: a key that crosses character 80 never leaves a piece behind.
   const short = `use *** then ${'x'.repeat(67)}`;
   expect(latest?.receipt.inputs.prompt).toBe(short);

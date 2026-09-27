@@ -1,4 +1,4 @@
-import type { ManagedRow } from '@mesa/core';
+import type { GuardrailCheck, ManagedRow } from '@mesa/core';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
@@ -9,7 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAct } from '@/lib/useAct';
-import { useRun } from '@/lib/useCommand';
+import { useCall, useRun } from '@/lib/useCommand';
+import { GuardrailDialog } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
 import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
@@ -20,10 +21,15 @@ import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
 
-/** The one dialog open on the Board, if any: New session, or a row's Rename, Hand off, Log, or Remove. */
+/**
+ * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
+ * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once the
+ * prompt goes).
+ */
 type OpenDialog =
   | { kind: 'new' }
-  | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow };
+  | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
+  | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 const COLUMNS = [
   'Id',
@@ -47,6 +53,7 @@ export function BoardScreen() {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
   const run = useRun();
+  const call = useCall();
   const [dialog, setDialog] = useState<OpenDialog>();
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
@@ -66,6 +73,29 @@ export function BoardScreen() {
         await look();
       }
     });
+  /**
+   * Sends a prompt. The guardrail's ask opens its dialog, whose Send anyway sends it again with
+   * `yes`; its block is said in the toast, with no way past it here (--force is the CLI's).
+   */
+  const send = (id: string, prompt: string, form: HTMLFormElement, yes = false) =>
+    act(async (): Promise<Message | undefined> => {
+      const sent = await call('sessions.send', { id, prompt, yes });
+      if (sent.ok) {
+        form.reset();
+        close();
+        // Typed either way: a warning says so, so the prompt is not sent twice.
+        return said(`Sent ${sent.data.chars} characters to ${id}`, sent.data);
+      }
+      const { error } = sent;
+      const check =
+        error.code === 'guardrail_blocked' ? (error.details as GuardrailCheck) : undefined;
+      if (check?.verdict === 'ask' && !yes) {
+        setDialog({ kind: 'guardrail', id, prompt, form, check });
+        return undefined;
+      }
+      close();
+      return { text: check ? `Not sent to ${id}: ${check.reason}` : error.message, tone: 'alert' };
+    });
   const actions: RowActions = {
     embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
     openTerminal: (id) =>
@@ -73,15 +103,7 @@ export function BoardScreen() {
         const attached = await run('sessions.attach', { id });
         return attached && said(`Opened ${attached.target} in ${attached.app}`);
       }),
-    send: (id, form) =>
-      act(async () => {
-        const prompt = String(new FormData(form).get('prompt') ?? '');
-        const sent = await run('sessions.send', { id, prompt });
-        if (!sent) return undefined;
-        form.reset();
-        // Typed either way: a warning says so, so the prompt is not sent twice.
-        return said(`Sent ${sent.chars} characters to ${id}`, sent);
-      }),
+    send: (id, form) => send(id, String(new FormData(form).get('prompt') ?? ''), form),
     stop: (id) =>
       act(async () => {
         const stopped = await run('sessions.stop', { id });
@@ -183,6 +205,15 @@ export function BoardScreen() {
           name={dialog.row.name}
           disabled={acting}
           onRename={(name) => rename(dialog.row.id, name)}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'guardrail' && (
+        <GuardrailDialog
+          sessionId={dialog.id}
+          check={dialog.check}
+          disabled={acting}
+          onSend={() => send(dialog.id, dialog.prompt, dialog.form, true)}
           onCancel={close}
         />
       )}

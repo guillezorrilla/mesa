@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { staleLock } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -63,4 +63,65 @@ test('a send typed with a warning keeps it beside a receipt warning in --json', 
     /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
   );
   rmSync(lock);
+});
+
+test('a destructive prompt is blocked with exit 5; --force sends it', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const id = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  expect(await mesa('send', id, 'run rm -rf /')).toMatchObject({
+    code: 5,
+    stderr:
+      'blocked: the text holds a destructive command (rm -rf); pass --force to send it anyway\n',
+  });
+  // --yes does not pass a block, and a person is never asked about one.
+  cli.answer = true;
+  expect((await mesa('send', id, 'run rm -rf /', '--yes')).code).toBe(5);
+  expect(cli.asked).toEqual([]);
+  const forced = await mesa('send', id, 'run rm -rf /', '--force', '--json');
+  expect(forced.json.data).toMatchObject({ sent: true, override: 'force' });
+  expect(world.windows[0]?.typed).toEqual(['run rm -rf /']);
+});
+
+test('a strict project asks y/N in a terminal; with --json or none, it is exit 5 unless --yes', async () => {
+  const world = cli.withTmux();
+  const dir = await cli.withProject({ layOut: false });
+  writeFileSync(join(dir, 'mesa.yaml'), 'name: lantern-cove\nguardrail: strict\n');
+  const id = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+
+  // No terminal: nobody to ask.
+  const none = await mesa('send', id, 'hello', '--json');
+  expect(none.code).toBe(5);
+  expect(none.json.error).toMatchObject({
+    code: 'guardrail_blocked',
+    message:
+      'the guardrail asks first: project lantern-cove has guardrail: strict; pass --yes to send it',
+    details: {
+      verdict: 'ask',
+      reason: 'project lantern-cove has guardrail: strict',
+      decision: { answers: [{ id: 'verdict', answer: 'ask' }, { answer: false }] },
+    },
+  });
+
+  // A person at the terminal answers; --json never asks, even there.
+  cli.answer = false;
+  expect(await mesa('send', id, 'hello')).toMatchObject({
+    code: 5,
+    stderr: 'declined: project lantern-cove has guardrail: strict\n',
+  });
+  cli.answer = true;
+  // The first line: without a vault layout, a receipt warning follows.
+  expect((await mesa('send', id, 'hello')).stdout.split('\n')[0]).toBe(
+    `sent 5 characters to ${id}`,
+  );
+  expect(cli.asked).toEqual([
+    'Project lantern-cove has guardrail: strict. Send it?',
+    'Project lantern-cove has guardrail: strict. Send it?',
+  ]);
+  expect((await mesa('send', id, 'hello', '--json')).code).toBe(5);
+  expect(cli.asked).toHaveLength(2);
+
+  const yes = await mesa('send', id, 'again', '--yes', '--json');
+  expect(yes.json.data).toMatchObject({ sent: true, override: 'yes' });
+  expect(world.windows[0]?.typed).toEqual(['hello', 'again']);
 });

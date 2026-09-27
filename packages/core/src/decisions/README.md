@@ -13,6 +13,8 @@
 
   The call has a 20 s timeout. The schema has, per question, an enum of options or levels (with a probability each and a confidence), or for a Noul a boolean with a confidence, turned into the probability that the statement holds. The prompt carries the state after the shared redactor (`redactPayload`), with `tail` cut to its last 2000 characters. `total_cost_usd` (a list price; the subscription charges nothing) becomes the Decision's `costUsd`, for information only. A failed call leaves the rules' answers as `rules-fallback`, with `fallbackReason`. Tests replay `fixtures/adapter/`; `MESA_RECORD_FIXTURES=1 pnpm exec vitest run packages/core/src/decisions/adapter.test.ts` records them again with a logged-in Claude Code. `pnpm test -- adapter` does not filter, so it runs every file.
 
+- `guardrail.ts`: the decision site in front of an external action (CONTEXT.md, Guardrail). `checkGuardrail` asks a Choice (`verdict`: allow, ask, block) and a Noul (`secret-or-destructive`) of its own rules over the patterns in `guardrail-patterns.ts` and the project's `guardrail` level; `passGuardrail` applies `yes`, `force`, and a person's `confirm`, or throws `guardrail_blocked`. Every rules answer is 0.95 sure, since a match or a level is a fact the rules read, so the adapter is asked only when the threshold is above that. The adapter never sees a secret: the state's text has them masked.
+
 Every decision site brings its own rules backend; the adapter backend is shared. `mesa decide` asks from the command line: questions no rules know, so the answers are even.
 
 In the examples, `profile` is Faro's view of the profile (`FaroProfile`: its `decisions` settings), which `createFaro` (`faro.ts`) builds for each profile, and `clock` is the injected clock.
