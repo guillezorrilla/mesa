@@ -41,7 +41,7 @@ export const open = defineCommand({
   example: 'mesa open lantern-cove --goal "Read AGENTS.md, then summarise it"',
   run: async ({ mesa, args, flags, tty }) => {
     // Checked first, so a session is never opened that this terminal cannot then attach to.
-    if (flags.attach) requireTty(tty);
+    if (flags.attach) requireTty(tty, 'mesa attach --app');
     const recorded = await mesa.sessions.open(args.project, {
       agent: flags.agent,
       goal: flags.goal,
