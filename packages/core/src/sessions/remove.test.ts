@@ -58,6 +58,22 @@ test('rename stores the name and the board carries it; a blank one is refused', 
   );
 });
 
+test('workflow label persists independently of Faro state and can be cleared', async () => {
+  const { mesa } = setUp();
+  const { result } = await mesa.sessions.open('lantern-cove');
+  const state = result.lastState;
+  expect(mesa.sessions.workflow(result.id, 'review').result).toMatchObject({
+    workflowStatus: 'review',
+    lastState: state,
+  });
+  expect((await mesa.sessions.list())[0]).toMatchObject({ workflowStatus: 'review' });
+  expect(mesa.sessions.workflow(result.id, 'clear').result.workflowStatus).toBeUndefined();
+  expect(() => mesa.sessions.workflow(result.id, 'waiting-permission')).toThrow(
+    expect.objectContaining({ code: 'usage' }),
+  );
+  expect(mesa.sessions.workflow(result.id, 'done').result.lastState).toEqual(state);
+});
+
 test('rm refuses a live session; --force closes its window, then removes the record and logs', async () => {
   const { home, mesa, world } = setUp();
   const { result } = await mesa.sessions.open('lantern-cove');

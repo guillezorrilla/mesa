@@ -34,6 +34,7 @@ import { exited, queued, resumable, shown } from './rows';
 import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
+import { WorkflowSelect } from './WorkflowSelect';
 
 /**
  * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
@@ -157,6 +158,14 @@ export function BoardScreen(
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
+    workflow: (id, status) =>
+      act(async () => {
+        const changed = await run('sessions.workflow', { id, status });
+        return (
+          changed &&
+          said(`Session ${id} workflow: ${changed.workflowStatus ?? 'unassigned'}`, changed)
+        );
+      }),
     adopt: (agentSessionId, project) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
@@ -286,6 +295,14 @@ export function BoardScreen(
               )}
               {selected.managed && sessionBranch(selected) && (
                 <span className="font-mono text-muted-foreground">{sessionBranch(selected)}</span>
+              )}
+              {selected.managed && (
+                <WorkflowSelect
+                  id={selected.id}
+                  status={selected.workflowStatus}
+                  disabled={acting}
+                  onChange={(status) => actions.workflow(selected.id, status)}
+                />
               )}
             </div>
             {selected.managed ? (

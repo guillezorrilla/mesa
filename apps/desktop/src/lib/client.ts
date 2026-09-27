@@ -23,6 +23,7 @@ import type {
   TreeRow,
   VaultStatus,
   Viewed,
+  WorkflowStatus,
 } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
@@ -122,6 +123,10 @@ const COMMANDS = {
   'sessions.rename': commandWith<{ id: string; name: string }, Recorded<SessionRecord>>(
     ({ id, name }) => ['rename', '--', id, name],
   ),
+  'sessions.workflow': commandWith<
+    { id: string; status: WorkflowStatus | 'clear' },
+    Recorded<SessionRecord>
+  >(({ id, status }) => ['workflow', '--', id, status]),
   // The app removes an ended session only, so never with --force.
   'sessions.remove': commandWith<
     { id: string; deleteWorktree?: boolean; deleteBranch?: boolean },

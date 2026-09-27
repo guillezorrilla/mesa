@@ -123,6 +123,26 @@ test('the Board is the first screen: every session by attention, with its state,
   expect(empty('sessions-empty')).toHaveLength(1);
 });
 
+test('workflow selection uses its own command and leaves Faro state visible', async () => {
+  let status: 'review' | undefined;
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([{ ...asking, workflowStatus: status }]),
+    workflow: (args) => {
+      status = args.at(-1) as 'review';
+      return envelope({ ...asking, workflowStatus: status, receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const select = byTestId('session-workflow')[0] as HTMLSelectElement;
+  await act(async () => {
+    select.value = 'review';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(calls.some((args) => args.join(' ') === '--json workflow -- aaaaaaaa review')).toBe(true);
+  expect((byTestId('session-workflow')[0] as HTMLSelectElement).value).toBe('review');
+  expect(byTestId('session-state')[0]?.dataset.state).toBe('waiting-permission');
+});
+
 test('the Board looks again every two seconds, one look at a time, and its clock ticks every second', async () => {
   vi.useFakeTimers();
   try {

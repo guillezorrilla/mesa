@@ -7,3 +7,4 @@ export { repositoryUrl } from './projects/project-url.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
+export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';

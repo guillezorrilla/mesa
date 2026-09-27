@@ -34,6 +34,7 @@ import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
 import { viewProject } from './view.js';
 import { windowOf } from './window-name.js';
+import { setWorkflowStatus } from './workflow.js';
 
 /**
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
@@ -309,6 +310,19 @@ export function sessionsService(
             outputs: (r) => ({ name: r.name }),
           },
           () => renameSession(store, id, name),
+        ),
+      workflow: (id: string, status: string) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Set session ${id} workflow to ${r.workflowStatus ?? 'unassigned'}`,
+            failure: `Could not set session ${id} workflow`,
+            project: (r) => r.project,
+            session: () => id,
+            inputs: { id, status },
+            outputs: (r) => ({ workflowStatus: r.workflowStatus ?? null }),
+          },
+          () => setWorkflowStatus(store, id, status),
         ),
       /**
        * Removes a session's record, hook log, output log, and a run's output, and with the flags

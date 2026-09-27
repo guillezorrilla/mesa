@@ -1,4 +1,4 @@
-import type { TreeRow } from '@mesa/core';
+import type { TreeRow, WorkflowStatus } from '@mesa/core';
 import {
   attentionScore,
   duration,
@@ -19,6 +19,7 @@ import { ReceivedPrompts } from './ReceivedPrompts';
 import { RowMenu } from './RowMenu';
 import { decidedBy, exited, queued, resumable, ticking } from './rows';
 import { TreeToggle } from './TreeToggle';
+import { WorkflowSelect } from './WorkflowSelect';
 
 /** What a row can ask the Board to do; the Board runs one action at a time. */
 export type RowActions = {
@@ -33,6 +34,7 @@ export type RowActions = {
   log: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
   remove: (row: TreeRow) => void;
+  workflow: (id: string, status: WorkflowStatus | 'clear') => void;
 };
 
 /**
@@ -179,6 +181,12 @@ export function SessionRow(props: {
               </form>
             )}
             <ReceivedPrompts row={s} />
+            <WorkflowSelect
+              id={s.id}
+              status={s.workflowStatus}
+              disabled={acting}
+              onChange={(status) => actions.workflow(s.id, status)}
+            />
             <div className="flex flex-wrap gap-1">
               <Button
                 variant="outline"
