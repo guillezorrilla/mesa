@@ -11,6 +11,7 @@ import { execRunner, type Runner, type RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { createMesa, type MesaDeps } from '../mesa.js';
 import { profilePaths } from '../profile/paths.js';
+import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
 
@@ -118,6 +119,8 @@ export type FakeWindow = {
   running: string;
   dead: boolean;
   typed: string[];
+  /** The shell command pipe-pane gave its output to, when it is logged. */
+  pipe?: string;
 };
 
 /** tmux's named layouts, the ones fakeTmux accepts. */
@@ -226,6 +229,12 @@ export function fakeTmux(
           w.typed.push(text);
           opts.onKeys?.(w, text);
         }
+        return ok();
+      }
+      case 'pipe-pane': {
+        const w = find(target);
+        if (!w) return failed("can't find window");
+        w.pipe = rest.at(-1);
         return ok();
       }
       case 'capture-pane': {
@@ -477,6 +486,13 @@ export function staleLock(home: string, id: string, holder = 'a killed mesa', pr
   const lock = join(profilePaths(home, profile).sessions, `${id}.lock`);
   writeFileSync(lock, holder);
   return lock;
+}
+
+/** Session `id`'s output log in the default profile, holding `text` as its pipe writes it; its path. */
+export function plantOutputLog(home: string, id: string, text: string | Buffer) {
+  const file = prepareOutputLog(profilePaths(home, 'default').logs, id);
+  writeFileSync(file, text);
+  return file;
 }
 
 /**

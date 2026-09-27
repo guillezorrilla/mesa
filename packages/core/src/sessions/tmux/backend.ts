@@ -31,6 +31,8 @@ type WindowSpec = WindowTarget & {
   command: string;
   /** Set in the window's environment: `MESA_SESSION_ID` and `MESA_PROFILE` for the hooks. */
   env: Record<string, string>;
+  /** The file its output is appended to as it prints, in a folder that exists; none: no log. */
+  log?: string;
 };
 
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
@@ -169,7 +171,10 @@ export function tmuxBackend({
       const command = `sleep ${seconds}; ${mesaCommand(mesa.self, mesa.profile, args)} >/dev/null 2>&1 || :`;
       await must(['run-shell', '-b', command], 'internal', 'could not run mesa later');
     },
-    /** A window in the project's tmux session, which is created with it when missing. */
+    /**
+     * A window in the project's tmux session, which is created with it when missing; with `log`,
+     * its pane's output goes on to that file through `pipe-pane`, from its first byte.
+     */
     openWindow: async (spec: WindowSpec): Promise<WindowTarget> => {
       await ensureServer();
       const hasSession = (await tmux(['has-session', '-t', `=${spec.project}`])).ok;
@@ -189,6 +194,18 @@ export function tmuxBackend({
             '-u',
             k,
           ]);
+      // In the same call, so the pipe is there before tmux reads anything the agent prints. tmux
+      // runs it with /bin/sh after expanding its formats: the file is one shell word, `#` doubled.
+      const pipe = spec.log
+        ? [
+            ';',
+            'pipe-pane',
+            '-o',
+            '-t',
+            exact(spec),
+            `cat >> ${shellWord(spec.log)}`.replaceAll('#', '##'),
+          ]
+        : [];
       await must(
         // Several words: tmux runs them as they are, not through default-shell. sh execs a lone
         // command, so the pane's pid is the agent's, which the listing matches on.
@@ -202,6 +219,7 @@ export function tmuxBackend({
           '/bin/sh',
           '-c',
           spec.command,
+          ...pipe,
           ...unset,
         ],
         'internal',

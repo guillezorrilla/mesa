@@ -11,6 +11,7 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 import { HandoffDialog } from './HandoffDialog';
+import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
@@ -19,8 +20,10 @@ import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
 
-/** The one dialog open on the Board, if any: New session, or a row's Rename, Hand off, or Remove. */
-type OpenDialog = { kind: 'new' } | { kind: 'rename' | 'handoff' | 'remove'; row: ManagedRow };
+/** The one dialog open on the Board, if any: New session, or a row's Rename, Hand off, Log, or Remove. */
+type OpenDialog =
+  | { kind: 'new' }
+  | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow };
 
 const COLUMNS = [
   'Id',
@@ -98,6 +101,7 @@ export function BoardScreen() {
       }),
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
+    log: (row) => row.managed && setDialog({ kind: 'log', row }),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
     adopt: (agentSessionId, project) =>
       act(async () => {
@@ -172,6 +176,7 @@ export function BoardScreen() {
           onCancel={close}
         />
       )}
+      {dialog?.kind === 'log' && <LogDialog row={dialog.row} onClose={close} />}
       {dialog?.kind === 'rename' && (
         <RenameDialog
           sessionId={dialog.row.id}

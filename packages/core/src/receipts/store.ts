@@ -38,9 +38,8 @@ export function writeReceipt(
   const receipt = parseWith(ReceiptSchema, { ...fields, id: deps.newId(), started }, 'receipt');
   // The file name keeps the clock's seconds, which the minute-precision `started` drops.
   const path = receiptPath({ ...receipt, started: fields.started ?? at.toISOString() });
-  const body = `${summary}\n\n## Details\n\n${details ?? 'None.'}\n`;
   const notes = { vault: deps.vault, clock: deps.clock };
-  writeNote(notes, { path, frontmatter: receipt, body });
+  writeNote(notes, { path, frontmatter: receipt, body: receiptBody(summary, details) });
   try {
     // Brackets in the summary cannot open or close a link of their own before the receipt's.
     appendLog(notes, `${summary.replace(/\[\[|\]\]/g, '')} ${receiptLink(path)}`);
@@ -50,15 +49,19 @@ export function writeReceipt(
   }
 }
 
+/** A receipt's body: its summary line, then its Details section. */
+const receiptBody = (summary: string, details = 'None.') =>
+  `${summary}\n\n## Details\n\n${details}\n`;
+
 /**
- * Marks the session's receipt (the one `mesa open` or `mesa resume` wrote) ended at `ended`, and
- * merges `outputs` into it, under the vault lock. Undefined when the session has no receipt.
+ * Updates the session's receipt (the one `mesa open` or `mesa resume` wrote) in place, under the
+ * vault lock: marked ended at `ended`, `outputs` merged into its own, and `details` in place of
+ * its Details, each when given. Undefined when the session has no receipt.
  */
-export async function closeSessionReceipt(
+export async function updateSessionReceipt(
   deps: LockedNotesDeps,
   session: string,
-  ended: Date,
-  outputs: Record<string, unknown>,
+  update: { ended?: Date; outputs?: Record<string, unknown>; details?: string },
 ): Promise<{ id: string; path: string } | undefined> {
   // ponytail: reads every receipt to find the session's; index them by session if vaults grow big.
   // The oldest: the receipt of the open or resume that started it, not the stop's own.
@@ -69,12 +72,20 @@ export async function closeSessionReceipt(
     )
     .at(-1);
   if (!entry) return undefined;
+  const { ended, outputs, details } = update;
   await updateNote(deps, entry.path, (note = { frontmatter: {}, body: '' }) => {
     const fields = ownFields(note.frontmatter);
     const before = (fields.outputs ?? {}) as Record<string, unknown>;
-    const next = { ...fields, ended: obsidianDateTime(ended), outputs: { ...before, ...outputs } };
-    // Validated as writeReceipt validates, so an update cannot leave a receipt Mesa cannot read.
-    return { ...note, frontmatter: parseWith(ReceiptSchema, next, entry.path) };
+    const next = {
+      ...fields,
+      ...(ended ? { ended: obsidianDateTime(ended) } : {}),
+      outputs: { ...before, ...outputs },
+    };
+    return {
+      // Validated as writeReceipt validates, so an update cannot leave a receipt Mesa cannot read.
+      frontmatter: parseWith(ReceiptSchema, next, entry.path),
+      body: details === undefined ? note.body : receiptBody(summaryOf(note.body), details),
+    };
   });
   return { id: entry.receipt.id, path: entry.path };
 }
@@ -90,13 +101,16 @@ function receiptFiles(vault: string): string[] {
     .map((f) => join(VAULT.receipts, f.p));
 }
 
+/** A receipt body's first line: its summary. */
+const summaryOf = (body: string) => body.split('\n', 1)[0] ?? '';
+
 /** A receipt as read back: where it is, its frontmatter, and its body's first line. */
 export type ReceiptEntry = { path: string; receipt: Receipt; summary: string; body: string };
 
 function readReceipt(vault: string, path: string): ReceiptEntry {
   const note = readNote(vault, path);
   const receipt = parseWith(ReceiptSchema, ownFields(note.frontmatter), join(vault, path));
-  return { path, receipt, summary: note.body.split('\n', 1)[0] ?? '', body: note.body };
+  return { path, receipt, summary: summaryOf(note.body), body: note.body };
 }
 
 /** The newest `limit` receipts with their frontmatter. */

@@ -9,7 +9,7 @@ import { recordHookEvent } from './hook-events.js';
 import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
 import { isOver } from './record.js';
-import { markEnded, startedOutputs } from './session-receipt.js';
+import { markEnded, markExited, startedOutputs } from './session-receipt.js';
 import type { StopOutcome } from './stop.js';
 
 // The signals that a session ended, and what follows from each: an agent hook's payload, a tmux
@@ -29,7 +29,7 @@ export function endSignals(
     context: Parameters<typeof refreshContext>[0];
   },
 ) {
-  const { store, tmux, record, paths, notes } = ctx;
+  const { store, tmux, record, paths } = ctx;
   const { clock, env, home } = ctx.deps;
   /**
    * Starts, each with its session receipt, the queued sessions waiting on one `over` says is
@@ -63,7 +63,7 @@ export function endSignals(
         // It ended failed: its opening receipt (Queued session) is marked ended too.
         const ended = store.find(queued.id);
         if (ended?.endedAt)
-          warnings.push((await markEnded(notes, { result: null, receipt: null }, ended)).warning);
+          warnings.push((await markEnded(ctx, { result: null, receipt: null }, ended)).warning);
       }
     }
     return { started, warning: joinWarnings(...warnings) };
@@ -116,13 +116,16 @@ export function endSignals(
     },
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
-     * exit of the agent in a Mesa window, then starts what was queued after it; any other event,
-     * or a window no session has, is not Mesa's and records nothing (undefined).
+     * exit of the agent in a Mesa window, starts what was queued after it, then puts its last
+     * output into its receipt (markExited); any other event, or a window no session has, is not
+     * Mesa's and records nothing (undefined).
      */
     tmuxEvent: async (event: string, project: string, window: string) => {
       if (event !== 'pane-died') return undefined;
       const exited = await recordPaneDied({ store, tmux, clock }, project, window);
-      if (exited) await startAfter(exited.id);
+      if (!exited) return undefined;
+      await startAfter(exited.id);
+      await markExited(ctx, exited);
       return exited;
     },
   };

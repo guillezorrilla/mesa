@@ -14,6 +14,7 @@ import type {
   Removed,
   Result,
   Sent,
+  SessionLog,
   SessionRecord,
   SkillRow,
   SkillSync,
@@ -108,6 +109,13 @@ const COMMANDS = {
     { id: string; note: string; keep: boolean },
     Recorded<{ from: string; to: string; note: string }>
   >(({ id, note, keep }) => ['handoff', '--note', note, ...(keep ? ['--keep'] : []), '--', id]),
+  'sessions.logs': commandWith<{ id: string; tail: number }, SessionLog>(({ id, tail }) => [
+    'logs',
+    '--tail',
+    String(tail),
+    '--',
+    id,
+  ]),
   'sessions.resize': commandWith<
     { id: string; cols: number; rows: number },
     { session: string; target: string; cols: number; rows: number }

@@ -1,15 +1,16 @@
-import { Ellipsis, Pencil, Trash2 } from 'lucide-react';
+import { Ellipsis, Pencil, ScrollText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 /**
- * A row's other actions, behind a toggle: Rename, and Remove (only once its agent has exited, so
- * the app never forces a live session's window closed).
+ * A row's other actions, behind a toggle: Log (its last output lines), Rename, and Remove (only
+ * once its agent has exited, so the app never forces a live session's window closed).
  * ponytail: a disclosure, not a dropdown menu, so it opens with a click and needs no portal.
  */
 export function RowMenu(props: {
   sessionId: string;
   canRemove: boolean;
+  onLog: () => void;
   onRename: () => void;
   onRemove: () => void;
 }) {
@@ -33,6 +34,10 @@ export function RowMenu(props: {
       </Button>
       {open && (
         <>
+          <Button variant="outline" size="sm" data-testid="session-log" onClick={pick(props.onLog)}>
+            <ScrollText aria-hidden />
+            Log
+          </Button>
           <Button
             variant="outline"
             size="sm"

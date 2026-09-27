@@ -11,6 +11,8 @@ export type ProfilePaths = {
   sessions: string;
   /** The agent hooks' event logs, one `<session id>.jsonl` each. */
   events: string;
+  /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
+  logs: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
@@ -32,6 +34,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     registry: join(root, 'registry.yaml'),
     sessions: join(root, 'sessions'),
     events: join(root, 'sessions', 'events'),
+    logs: join(root, 'sessions', 'logs'),
     attachScripts: join(root, 'attach'),
     worktrees: join(root, 'worktrees'),
     handoffs: join(root, 'handoffs'),

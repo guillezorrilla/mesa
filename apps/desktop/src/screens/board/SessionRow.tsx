@@ -27,8 +27,9 @@ export type RowActions = {
   stop: (id: string) => void;
   resume: (id: string) => void;
   adopt: (agentSessionId: string, project?: string) => void;
-  /** Open the Hand off, Rename, or Remove dialog for this row. */
+  /** Open the Hand off, Log, Rename, or Remove dialog for this row. */
   handoff: (row: TreeRow) => void;
+  log: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
   remove: (row: TreeRow) => void;
 };
@@ -208,6 +209,7 @@ export function SessionRow(props: {
               <RowMenu
                 sessionId={s.id}
                 canRemove={exited(s) && !queued(s) && !acting}
+                onLog={() => actions.log(s)}
                 onRename={() => actions.rename(s)}
                 onRemove={() => actions.remove(s)}
               />

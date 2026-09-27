@@ -7,8 +7,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
 /**
- * Confirms removing an ended session by listing what will be deleted: its record and hook log,
- * and, when asked, its worktree and branch. Git refuses a worktree with changes; the toast says so.
+ * Confirms removing an ended session by listing what will be deleted: its record, hook log, and
+ * output log, and, when asked, its worktree and branch. Git refuses a worktree with changes; the toast says so.
  */
 export function RemoveDialog(props: {
   row: ManagedRow;
@@ -20,7 +20,7 @@ export function RemoveDialog(props: {
   const [deleteWorktree, setDeleteWorktree] = useState(false);
   const [deleteBranch, setDeleteBranch] = useState(false);
   const goes = [
-    `session ${row.id}'s record and its hook log`,
+    `session ${row.id}'s record, its hook log, and its output log`,
     ...(row.worktree && deleteWorktree ? [`its worktree ${row.worktree.path}`] : []),
     ...(row.worktree && deleteBranch ? [`its branch ${row.worktree.branch}`] : []),
   ];

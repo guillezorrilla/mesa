@@ -5,8 +5,9 @@ import { afterAll, describe, expect, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import { execRunner, type Runner } from '../../lib/process.js';
 import { scriptedRunner, tempDir, tmuxLine } from '../../testing/index.js';
+import { outputLog, outputTail } from '../output-log.js';
 import { tmuxBackend } from './backend.js';
-import type { WindowTarget } from './format.js';
+import { exact, type WindowTarget } from './format.js';
 
 const socket = `mesa-test-${process.pid}`;
 const hasTmux = (await execRunner('tmux', ['-V'], 2000)).ok;
@@ -136,6 +137,31 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       code: 'agent_unavailable',
       message: 'no agent in lantern:claude-exit01: its process exited',
     });
+  });
+
+  test("openWindow with a log pipes the pane's output to it from the first byte; outputTail reads it as plain text", async () => {
+    // A folder the shell and tmux's formats would both misread, were its name not quoted for each.
+    const logs = join(cwd, "it's #S logs");
+    mkdirSync(logs);
+    const target = lantern('claude-log00001');
+    const file = outputLog(logs, 'log00001');
+    const script = 'printf "\\033[31mred\\033[0m one\\ntwo\\n"; exec cat';
+    await tmux.openWindow({ ...target, cwd, command: `sh -c '${script}'`, env: {}, log: file });
+    const logged = () => Promise.resolve(existsSync(file) ? readFileSync(file, 'utf8') : '');
+    // The raw stream, colours and the terminal's carriage returns kept, from its very first byte.
+    expect(await eventually(logged, /two/)).toBe('\x1b[31mred\x1b[0m one\r\ntwo\r\n');
+    await tmux.sendText(target, 'typed');
+    // The terminal echoes the typed line, then cat prints it back.
+    await eventually(logged, /typed\r\ntyped/);
+    expect(outputTail(logs, 'log00001')).toEqual(['red one', 'two', 'typed', 'typed']);
+    expect(outputTail(logs, 'log00001', 2)).toEqual(['typed', 'typed']);
+    expect(await raw('display-message', '-p', '-t', exact(target), '#{pane_pipe}')).toBe('1');
+  });
+
+  test('openWindow without a log pipes nothing', async () => {
+    const target = lantern('claude-log00002');
+    await open(target, 'cat');
+    expect(await raw('display-message', '-p', '-t', exact(target), '#{pane_pipe}')).toBe('0');
   });
 
   test('capturePane returns the last lines, trailing blank lines dropped', async () => {

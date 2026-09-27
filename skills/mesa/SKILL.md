@@ -46,6 +46,7 @@ Check state before you act: `waiting-permission` or `waiting-question` means a p
 ```sh
 mesa sessions --tree            # every session, children under their parent, most urgent first
 mesa show b2c3d4e5 --json       # one session's record, and whether it is alive
+mesa logs b2c3d4e5 --tail 50    # the last lines it printed, as plain text
 ```
 
 Queue work after a session: the new one starts by itself when that session is over (its agent exits, or it is stopped), with its own goal. `mesa sessions` shows it `queued`, `waiting on <id>`; `mesa stop` on it cancels it.
