@@ -51,3 +51,7 @@ The owner will not add an Anthropic API key; Mesa runs on the Claude and Codex s
   - The adapter's confidence is kept as it comes. The tail's 0.6 cap is on the rules' reading of the screen, not on the adapter's.
   - The board refreshes every few seconds, so the adapter's answer is saved with a hash of what it saw, and it is not asked again until that changes.
   - Foreign sessions have no record to keep that hash, so they use rules only.
+
+## Amendment 2026-09-26: Jev dropped (#154)
+
+The owner dropped Jev on 2026-09-26, and P3 leaves it out: the issues for the Jev spike (#34) and the `jev` backend (#35) were deleted. `decisions.backend` is `rules` or `adapter`, and a config that names `jev` is `invalid_config`. Faro keeps `Choice`, `Score`, and `Noul`, which are Mesa's own primitives now. What this ADR says above about the `jev` backend (its endpoint, its key and price, its Score mapping, and `jev` in the receipt schema's `backend`) no longer applies.

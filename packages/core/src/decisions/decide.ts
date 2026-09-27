@@ -13,8 +13,8 @@ import {
   QuestionsSchema,
 } from './types.js';
 
-/** What Faro reads from the profile: `decisions.backend` and `.threshold`, and whether a key is set. */
-export type FaroProfile = Pick<Config, 'decisions'> & { hasKey: (name: string) => boolean };
+/** What Faro reads from the profile: `decisions.backend` and `.threshold`. */
+export type FaroProfile = Pick<Config, 'decisions'>;
 
 export type FaroDeps<S> = {
   /** The backends this decision site can use; its rules backend among them, or an even one. */
@@ -27,14 +27,9 @@ export type FaroDeps<S> = {
 const rulesOf = <S>(backends: readonly Backend<S>[]) =>
   backends.find((b) => b.name === 'rules') ?? rulesBackend<S>([]);
 
-/**
- * The backend the profile names, if this site has it, else rules. ADR-0004: `jev` is a paid API,
- * used only with a `jev` key; `adapter` runs on the Claude subscription (its amendment).
- */
+/** The backend the profile names, if this site has it, else rules. */
 export function selectBackend<S>(backends: readonly Backend<S>[], profile: FaroProfile) {
-  const named = profile.decisions.backend;
-  if (named === 'jev' && !profile.hasKey('jev')) return rulesOf(backends);
-  return backends.find((b) => b.name === named) ?? rulesOf(backends);
+  return backends.find((b) => b.name === profile.decisions.backend) ?? rulesOf(backends);
 }
 
 /** A backend's answers, used only when they answer exactly these questions, in order. */

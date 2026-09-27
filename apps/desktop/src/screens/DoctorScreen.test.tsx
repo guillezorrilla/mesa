@@ -32,8 +32,8 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
     name: 'decisions',
     ok: true,
     status: 'ok',
-    version: 'rules',
-    hint: 'adapter is not available; decisions use rules',
+    version: 'adapter',
+    hint: 'rules first; adapter below confidence 0.7',
   };
   const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.6'), decisions])) });
   const byTestId = await renderWithMesa(<App />, bridge);
@@ -41,8 +41,8 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
   expect(cells(byTestId('doctor-row')[1])).toEqual([
     'decisions',
     '✓',
-    'rules',
-    'adapter is not available; decisions use rules',
+    'adapter',
+    'rules first; adapter below confidence 0.7',
   ]);
 });
 
