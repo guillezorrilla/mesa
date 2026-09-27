@@ -15,7 +15,7 @@ const RECENT_MS = 10 * 60 * 1000;
 /** The interactive Codex threads whose rollout was written in the last 10 minutes. */
 export function listCodexSessions(deps: { env: Env; home: string; clock: Clock }): AgentProcess[] {
   const now = deps.clock();
-  return recentThreads(deps, now, now.getTime() - RECENT_MS).map((t) => ({
+  return recentThreads(deps, now.getTime() - RECENT_MS).map((t) => ({
     agent: 'codex',
     cwd: t.cwd,
     agentSessionId: t.id,

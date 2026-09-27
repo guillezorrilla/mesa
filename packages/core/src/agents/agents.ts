@@ -105,7 +105,7 @@ export const AGENTS = {
       `codex ${CODEX_EMBEDDED}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /** Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. */
     resume: (sessionId: string, folder: string) =>
-      `codex ${CODEX_EMBEDDED} resume ${sessionId} -C ${shellWord(folder)}`,
+      `codex ${CODEX_EMBEDDED} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,

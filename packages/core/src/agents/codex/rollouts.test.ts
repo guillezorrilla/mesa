@@ -91,3 +91,9 @@ test("a look at the board fills a Codex session's id from its rollout, never ano
   expect(rows).toHaveLength(2);
   expect((await mesa.sessions.show(first.id)).agentSessionId).toBe(A);
 });
+
+test('a rollout with shell syntax instead of a thread UUID is ignored', () => {
+  const codex = codexWorld();
+  codex.rollout({ id: 'x; echo injected', cwd: FOLDER, startedAt: '2026-09-24T12:00:02.000Z' });
+  expect(idFor(codex)).toBeUndefined();
+});

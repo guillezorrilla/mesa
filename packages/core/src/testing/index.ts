@@ -447,6 +447,20 @@ export function agentWorld({
   return { ...scripted, tmux, codex: codexWorld() };
 }
 
+/** A fake agent world's key submissions and sleeps in order, for send and stop timing checks. */
+export function timedAgentWorld(opts: Parameters<typeof agentWorld>[0] = {}) {
+  const world = agentWorld(opts);
+  const log: string[] = [];
+  const run: Runner = (file, args, ms) => {
+    if (file === 'tmux' && args[4] === 'send-keys') log.push(`keys ${args.at(-1)}`);
+    return world.run(file, args, ms);
+  };
+  const sleep = async (ms: number) => {
+    log.push(`sleep ${ms}`);
+  };
+  return { ...world, run, sleep, log };
+}
+
 /**
  * What the agent listings read (listAgentProcesses): claude's from `run`, Codex's from an empty
  * home of its own, at the fixed clock's time, unless `over` says otherwise.

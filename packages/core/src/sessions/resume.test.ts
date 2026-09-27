@@ -22,5 +22,5 @@ test('resume reopens a Codex thread embedded, in its recorded folder, with -C', 
   expect(record).toMatchObject({ agent: 'codex', agentSessionId: THREAD, resumedFrom: opened.id });
   const window = world.tmux.windows.at(-1);
   expect(window).toMatchObject({ window: `codex-${record.id}`, path: dir });
-  expect(window?.launch).toBe(`codex -c mesa.embedded=true resume ${THREAD} -C '${dir}'`);
+  expect(window?.launch).toBe(`codex -c mesa.embedded=true resume '${THREAD}' -C '${dir}'`);
 });
