@@ -1,3 +1,4 @@
+import { AGENTS } from '../agents/agents.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError, toFail } from '../lib/result.js';
@@ -122,7 +123,8 @@ export async function sendPrompt(
   try {
     // The checks above are done; sendText still refuses a pane that died since.
     const text = sender ? `${header(sender)}\n${prompt}` : prompt;
-    await deps.tmux.sendText(target, text, { force: true });
+    const { submitDelayMs } = AGENTS[record.agent];
+    await deps.tmux.sendText(target, text, { force: true, submitDelayMs });
   } catch (error) {
     if (error instanceof MesaError && error.code === 'agent_unavailable') throw sessionEnded();
     throw error;

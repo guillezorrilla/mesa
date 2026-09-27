@@ -1,4 +1,4 @@
-import { runnableAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import type { Env } from '../lib/process.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -13,7 +13,7 @@ export function refreshContext(
   deps: { store: SessionStore; home: string; env: Env },
   record: SessionRecord,
 ): SessionRecord {
-  const read = runnableAgent(record.agent)?.context;
+  const read = AGENTS[record.agent].context;
   if (!read || !record.agentSessionId) return record;
   try {
     const context = read(deps, record.agentSessionId);

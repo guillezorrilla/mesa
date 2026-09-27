@@ -1,4 +1,4 @@
-import { readyAgent } from '../agents/agents.js';
+import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { type LaunchDeps, launched, launchProject, startSession } from './launch.js';
@@ -38,25 +38,26 @@ export async function startQueued(
 ): Promise<{ record: SessionRecord; warning?: string } | undefined> {
   const now = deps.clock();
   const at = now.toISOString();
-  // The agent session id comes with the claim, so a start retried after a kill keeps it; empty
-  // while the claim is not this start's.
-  let agentSessionId = '';
+  // The agent session id Mesa picks comes with the claim, so a start retried after a kill keeps
+  // it; an agent that picks its own gets none.
+  let claimedHere = false;
   const claimed = deps.store.update(id, (current) => {
     if (!startable(current, now)) return {};
-    agentSessionId = current.agentSessionId ?? deps.newUuid();
+    claimedHere = true;
+    const agentSessionId = current.agentSessionId ?? newSessionId(current.agent, deps.newUuid);
     return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
   });
-  if (!agentSessionId) return undefined;
+  if (!claimedHere) return undefined;
   try {
     const { entry } = launchProject(deps.profile, claimed.project);
-    const spec = await readyAgent(deps.run, claimed.agent);
+    await readyAgent(deps.run, claimed.agent);
     const { branch, base } = claimed.pending ?? {};
     // A start killed after its window opened left that window, its worktree and skills already
     // made: it is this session's.
     const { warning } = (await deps.tmux.findWindow(windowOf(claimed)))
       ? {}
       : await startSession(deps, claimed, entry, {
-          command: (r) => spec.start(agentSessionId, r.goal),
+          command: (r) => startCommand(r.agent, r),
           branch,
           base,
         });

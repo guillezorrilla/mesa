@@ -1,4 +1,4 @@
-import { runnableAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import { toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
@@ -109,7 +109,7 @@ export function endSignals(
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
       const ended = event?.event === 'Stop' && id ? store.find(id) : undefined;
       if (ended) refreshContext(deps.context, ended);
-      const state = event && runnableAgent(event.agent)?.hookState(event.event, event.payload);
+      const state = event && AGENTS[event.agent].hookState?.(event.event, event.payload);
       if (event?.event === 'SessionEnd' && id && state) {
         await startAfter(id);
       }

@@ -35,7 +35,7 @@ function setUp() {
   });
   const deps = {
     store,
-    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
     clock: fixedClock(at),
   };
   return { store, deps, clean, crashed, killed };

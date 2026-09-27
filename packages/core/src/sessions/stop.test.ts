@@ -13,6 +13,7 @@ import {
   scriptedRunner,
   staleLock,
   testStore,
+  timedAgentWorld,
 } from '../testing/index.js';
 import { sessionStore } from './store.js';
 
@@ -317,4 +318,26 @@ test('resume goes on when the dead window it removes has gone already', async ()
   if (window) window.dead = true;
   const { result } = await mesa.sessions.resume(opened.id);
   expect(result.record.resumedFrom).toBe(opened.id);
+});
+
+test("stop types /exit into codex 0.3 s before its Enter; claude's Enter follows at once", async () => {
+  const world = timedAgentWorld({
+    onKeys: (w, text) => {
+      if (text === '/exit') w.dead = true;
+    },
+  });
+  const { log } = world;
+  const { mesa } = projectProfile(world.run, { sleep: world.sleep });
+  for (const agent of ['codex', 'claude']) {
+    const { result: opened } = await mesa.sessions.open('lantern-cove', { agent });
+    log.length = 0;
+    expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
+    // The first pause lets the Escape land alone; codex's second keeps its Enter from being
+    // read as part of a paste (docs/spikes/codex.md).
+    expect(log, agent).toEqual(
+      agent === 'codex'
+        ? ['keys Escape', 'sleep 300', 'keys /exit', 'sleep 300', 'keys Enter']
+        : ['keys Escape', 'sleep 300', 'keys /exit', 'keys Enter'],
+    );
+  }
 });

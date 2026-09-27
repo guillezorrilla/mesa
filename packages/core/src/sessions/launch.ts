@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENT_NAMES, type Agent, AgentSchema, readyAgent } from '../agents/agents.js';
+import { AgentSchema, readyAgent } from '../agents/agents.js';
+import { AGENT_NAMES, type Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';

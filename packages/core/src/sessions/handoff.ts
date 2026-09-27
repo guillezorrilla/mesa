@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { readyAgent } from '../agents/agents.js';
+import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
@@ -64,13 +64,12 @@ export async function handoffSession(
   }
   requireOwnWorktree(deps.store, from);
   const { entry } = launchProject(deps.profile, from.project);
-  const spec = await readyAgent(deps.run, from.agent);
-  const agentSessionId = deps.newUuid();
+  await readyAgent(deps.run, from.agent);
+  const agentSessionId = newSessionId(from.agent, deps.newUuid);
   const { goal } = from;
   // Checked before anything is written, with a note path as long as the successor's will be.
-  requireCommandFits(
-    spec.start(agentSessionId, handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'))),
-  );
+  const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
+  requireCommandFits(startCommand(from.agent, { agentSessionId, goal: placeholder }));
   const at = deps.clock().toISOString();
   // The note is copied once the successor has its id, and removed again with it.
   let path = '';
@@ -95,7 +94,7 @@ export async function handoffSession(
           events: [{ type: 'handoff', at, from: id, note: path }],
         });
       },
-      command: (successor) => spec.start(agentSessionId, successor.goal),
+      command: (successor) => startCommand(from.agent, successor),
     },
   ).catch((error) => {
     if (path) rmSync(path, { force: true });

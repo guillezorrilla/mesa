@@ -28,7 +28,7 @@ async function setUp({ claude = true } = {}) {
     profile: openProfile(profilePaths(home, 'default')),
     profileName: 'default',
     store,
-    tmux: tmuxBackend({ run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
     run,
     clock: fixedClock(now),
     newUuid: sequentialUuids(),

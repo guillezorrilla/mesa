@@ -1,0 +1,14 @@
+
+
+› say hi
+
+
+⚠ Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the
+  rest.
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  gpt-6-astra low · /Users/example/src/lantern-cove · renaming... ⠹

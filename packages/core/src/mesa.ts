@@ -1,5 +1,6 @@
 import { hooksStatus } from './agents/claude/hooks.js';
 import { hooksService } from './agents/claude/hooks-service.js';
+import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { createContext, type MesaDeps } from './context.js';
 import { createFaro } from './decisions/faro.js';
 import { runDoctor } from './doctor.js';
@@ -38,6 +39,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         profileDir: ctx.paths.root,
         decisions: faro.inUse(),
         hooks: { claude: () => hooksStatus(deps.home, deps.self), tmux: ctx.tmuxHook },
+        codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),
       }),
   };
 }

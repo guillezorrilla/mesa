@@ -1,3 +1,4 @@
+import { newSessionId, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import type { Caller } from './caller.js';
@@ -58,10 +59,10 @@ export type OpenInput = {
 /**
  * Starts an agent for a registered project in a new window of the project's tmux session, with
  * `goal` as its first prompt, and with `branch`, in its own git worktree. The record is written
- * first, with the agent session id Mesa chose (docs/spikes/session-ids.md), and removed again,
- * with the worktree, if the window cannot open. With `after` a session that is not over yet, it
- * is only queued: the record, `queued`, with no window, worktree, or agent session id until it
- * starts (startQueued).
+ * first, with the agent session id Mesa chose (docs/spikes/session-ids.md), or none for an agent
+ * that picks its own (codex: a look at the board reads it), and removed again, with the worktree,
+ * if the window cannot open. With `after` a session that is not over yet, it is only queued: the
+ * record, `queued`, with no window, worktree, or agent session id until it starts (startQueued).
  */
 export async function openSession(
   deps: OpenDeps,
@@ -74,10 +75,10 @@ export async function openSession(
   const parent = parentOf(deps, input);
   // Read even when --agent is given.
   const { entry, project } = launchProject(deps.profile, input.project);
-  const { agent, spec } = await launchAgent(deps, project, input.agent);
+  const { agent } = await launchAgent(deps, project, input.agent);
 
-  const agentSessionId = deps.newUuid();
-  const command = spec.start(agentSessionId, input.goal);
+  const agentSessionId = newSessionId(agent, deps.newUuid);
+  const command = startCommand(agent, { agentSessionId, goal: input.goal });
   requireCommandFits(command);
   const session = { project: entry, agent, goal: input.goal, parent };
   if (waited && !isOver(waited)) {

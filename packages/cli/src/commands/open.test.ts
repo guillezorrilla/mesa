@@ -54,10 +54,10 @@ test('open prints the session id, --json the record, and --attach hands back the
     expect.stringMatching(new RegExp(`^=_view-[0-9a-z]{8}:=claude-${id}$`)),
   ]);
   expect(await mesa('open', 'tide')).toMatchObject({ code: 3 });
-  expect(await mesa('open', 'lantern-cove', '--agent', 'codex')).toMatchObject({
-    code: 7,
-    stderr: 'codex support is planned in #43\n',
-  });
+  // Codex picks its own thread id, which a look at the board reads later.
+  const codex = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
+  expect(codex).toMatchObject({ agent: 'codex', tmux: { window: `codex-${codex.id}` } });
+  expect(codex).not.toHaveProperty('agentSessionId');
 });
 
 test('open --goal and --goal-file start with a goal; mesa goal prints it', async () => {
