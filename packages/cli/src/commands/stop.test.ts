@@ -38,7 +38,7 @@ test('stop and resume print the updated and the new record', async () => {
   // says so in its text and its --json.
   const again = resumed.json.data.id;
   await mesa('stop', again);
-  const lock = join(cli.home, `.mesa/default/sessions/${again}.lock`);
+  const lock = join(cli.paths.sessions, `${again}.lock`);
   writeFileSync(lock, 'a killed mesa');
   const warned = await mesa('resume', again);
   expect(warned.stdout).toMatch(
@@ -47,7 +47,7 @@ test('stop and resume print the updated and the new record', async () => {
   rmSync(lock);
   const third = warned.stdout.split('\n')[0] ?? '';
   await mesa('stop', third);
-  writeFileSync(join(cli.home, `.mesa/default/sessions/${third}.lock`), 'a killed mesa');
+  writeFileSync(join(cli.paths.sessions, `${third}.lock`), 'a killed mesa');
   expect((await mesa('resume', third, '--json')).json.data.warning).toMatch(
     new RegExp(`^session ${third} not marked resumed: session`),
   );

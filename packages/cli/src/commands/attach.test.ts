@@ -1,6 +1,10 @@
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { CLAUDE_VERSION, newSession, scriptedRunner } from '@mesa/core/testing';
+import {
+  CLAUDE_VERSION,
+  newSession,
+  scriptedRunner,
+  shortIds,
+  testStore,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -10,11 +14,7 @@ const { mesa } = cli;
 
 test('attach: here it hands back the attach argv, --app opens terminal.app, gone is exit 3', async () => {
   await mesa('init', '--vault', 'vault');
-  const dir = join(cli.home, '.mesa/default/sessions');
-  writeFileSync(
-    join(dir, 'aaaaaaaa.json'),
-    JSON.stringify({ id: 'aaaaaaaa', ...newSession(), events: [] }),
-  );
+  testStore(cli.home, 'default', shortIds('aaaaaaaa')).create(() => newSession());
   const here = await mesa('attach', 'aaaaaaaa', '--json');
   expect(here.json.data).toEqual({ opened: true, target: 'lantern-cove:claude-aaaaaa', app: null });
   expect(here.exec?.slice(-2)).toEqual([

@@ -1,6 +1,6 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, scriptedRunner, tmuxLine } from '@mesa/core/testing';
+import { newSession, scriptedRunner, shortIds, testStore, tmuxLine } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -13,21 +13,18 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   expect((await mesa('sessions', '--json')).json).toEqual({ ok: true, data: [] });
   expect((await mesa('sessions')).stdout).toBe('no sessions; run mesa open <project>\n');
 
-  const record = (id: string, project: string, startedAt: string, extra = {}) => ({
-    id,
-    ...newSession({ project, startedAt, ...extra }),
-    tmux: { socket: 'mesa-default', session: project, window: `claude-${id.slice(0, 6)}` },
-    events: [],
-  });
-  const dir = join(cli.home, '.mesa/default/sessions');
-  const save = (r: { id: string }) => writeFileSync(join(dir, `${r.id}.json`), JSON.stringify(r));
-  save(record('aaaaaaaa', 'lantern-cove', '2026-09-24T11:00:00.000Z'));
-  save(
-    // Stopped two days ago: off the board, but shown with --all.
-    record('bbbbbbbb', 'tide', '2026-09-22T10:00:00.000Z', { endedAt: '2026-09-22T10:10:00.000Z' }),
-  );
-  const worktree = { path: '/h/.mesa/default/worktrees/harbor/try-x', branch: 'try/x' };
-  save(record('cccccccc', 'harbor', '2026-09-24T11:59:18.000Z', { worktree }));
+  // Planted as aaaaaaaa, bbbbbbbb, then cccccccc.
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa', 'bbbbbbbb', 'cccccccc'));
+  const record = (project: string, startedAt: string, extra = {}) =>
+    store.create((id) => ({
+      ...newSession({ project, startedAt, ...extra }),
+      tmux: { socket: 'mesa-default', session: project, window: `claude-${id.slice(0, 6)}` },
+    }));
+  record('lantern-cove', '2026-09-24T11:00:00.000Z');
+  // Stopped two days ago: off the board, but shown with --all.
+  record('tide', '2026-09-22T10:00:00.000Z', { endedAt: '2026-09-22T10:10:00.000Z' });
+  const worktree = { path: join(cli.paths.worktrees, 'harbor/try-x'), branch: 'try/x' };
+  record('harbor', '2026-09-24T11:59:18.000Z', { worktree });
   // tmux still has lantern-cove's window, showing a finished reply; harbor's is gone.
   const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
   cli.run = scriptedRunner({
@@ -122,15 +119,13 @@ test('sessions shows agent sessions Mesa did not start; stop, send, resume refus
   });
 
   // Another profile's session is that board's, not a foreign one here.
-  const work = join(cli.home, '.mesa/work/sessions');
-  mkdirSync(work, { recursive: true });
-  const theirs = { id: 'wwwwwwww', ...newSession(), events: [] };
-  writeFileSync(
-    join(work, 'wwwwwwww.json'),
-    JSON.stringify({ ...theirs, agentSessionId: '00000000-0000-4000-8000-00000000000e' }),
-  );
+  const work = testStore(cli.home, 'work', shortIds('wwwwwwww'));
+  const theirs = work.create(() => ({
+    ...newSession(),
+    agentSessionId: '00000000-0000-4000-8000-00000000000e',
+  }));
   expect((await mesa('sessions', '--json')).json.data).toEqual([]);
-  rmSync(join(work, 'wwwwwwww.json'));
+  work.remove(theirs.id);
 
   // The process exits: the listing no longer names it, and its row is gone.
   cli.run = scriptedRunner({ claude: '[]' }).run;

@@ -148,12 +148,12 @@ test('vault open: the URI by default, --json, and its errors', async () => {
   const before = await mesa('vault', 'open');
   expect([before.code, before.stderr]).toEqual([
     3,
-    `${cli.home}/.mesa/default/config.yaml not found; run mesa init --vault <path>\n`,
+    `${cli.paths.config} not found; run mesa init --vault <path>\n`,
   ]);
   await mesa('init', '--vault', 'vault');
   await mesa('vault', 'init');
   // A config that does not read says why, as vault status does, not "no vault".
-  const config = join(cli.home, '.mesa/default/config.yaml');
+  const config = cli.paths.config;
   const good = readFileSync(config, 'utf8');
   writeFileSync(config, `${good}surprise: 1\n`);
   const broken = await mesa('vault', 'open');

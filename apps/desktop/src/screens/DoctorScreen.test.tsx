@@ -1,0 +1,161 @@
+// @vitest-environment happy-dom
+import type { Check, TmuxWindow } from '@mesa/core';
+import { expect, test } from 'vitest';
+import { App } from '@/App';
+import { cells, check, click, envelope, fakeBridge, renderWithMesa, report } from '@/lib/testing';
+
+test('the Doctor screen shares the header run; Recheck runs doctor again', async () => {
+  let version = 1;
+  const { bridge, calls } = fakeBridge({
+    doctor: () => envelope(report([check(`3.${version++}`)])),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+
+  expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.1');
+  await click(byTestId('doctor-recheck')[0]);
+  expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.2');
+  expect(calls.filter((c) => c[1] === 'doctor')).toHaveLength(2);
+  expect(calls.filter((c) => c[1] === 'windows')).toHaveLength(2);
+});
+
+test('the Doctor screen shows which decisions backend Faro uses', async () => {
+  const decisions: Check = {
+    name: 'decisions',
+    ok: true,
+    status: 'ok',
+    version: 'rules',
+    hint: 'adapter is not available; decisions use rules',
+  };
+  const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.6'), decisions])) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(cells(byTestId('doctor-row')[1])).toEqual([
+    'decisions',
+    '✓',
+    'rules',
+    'adapter is not available; decisions use rules',
+  ]);
+});
+
+test('the Doctor screen lists the windows on the Mesa tmux server', async () => {
+  const window = (name: string, dead: boolean): TmuxWindow => ({
+    project: 'lantern-cove',
+    window: name,
+    index: 0,
+    panePid: 4242,
+    command: '2.1.282',
+    path: '/src/lantern-cove',
+    activity: '2026-09-25T12:00:00.000Z',
+    dead,
+  });
+  const { bridge } = fakeBridge({
+    windows: () => envelope([window('claude-aaaaaa', false), window('claude-bbbbbb', true)]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('tmux-window').map((li) => li.textContent)).toEqual([
+    'lantern-cove:claude-aaaaaa 2.1.282 /src/lantern-cove',
+    'lantern-cove:claude-bbbbbb (exited) /src/lantern-cove',
+  ]);
+
+  const empty = await renderWithMesa(<App />, fakeBridge().bridge);
+  await click(empty('nav-doctor')[0]);
+  expect(empty('tmux-none')).toHaveLength(1);
+});
+
+test('the Doctor screen shows the Claude hooks and installs them when missing', async () => {
+  let installed = false;
+  const { bridge, calls } = fakeBridge({
+    'hooks status': () =>
+      envelope({ path: '/h/.claude/settings.json', installed, stale: false, events: {} }),
+    'hooks install': () => {
+      installed = true;
+      return envelope({
+        path: '/h/.claude/settings.json',
+        installed,
+        stale: false,
+        events: {},
+        changed: true,
+      });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('hooks-status')[0]?.textContent).toBe(
+    'Not installed in /h/.claude/settings.json Install',
+  );
+  await click(byTestId('hooks-install')[0]);
+  expect(calls).toContainEqual(['--json', 'hooks', 'install']);
+  expect(byTestId('hooks-status')[0]?.textContent).toBe(
+    'Installed in /h/.claude/settings.json Uninstall',
+  );
+});
+
+test('an unhealthy report shows its summary and each row by status', async () => {
+  const missing: Check = {
+    name: 'tmux',
+    ok: false,
+    status: 'fail',
+    hint: 'install with `brew install tmux`',
+  };
+  const { bridge } = fakeBridge({ doctor: () => envelope(report([missing])) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('doctor-summary')[0]?.textContent).toBe(
+    'tmux and at least one agent (claude or codex) are required',
+  );
+  expect(byTestId('doctor-row')[0]?.dataset.status).toBe('fail');
+});
+
+test('the Doctor panel shows both kinds of hook, each with its fix when missing', async () => {
+  const hookRows: Check[] = [
+    {
+      name: 'claude hooks',
+      ok: false,
+      status: 'warn',
+      hint: 'not installed: run `mesa hooks install`',
+    },
+    {
+      name: 'tmux hooks',
+      ok: false,
+      status: 'warn',
+      hint: 'not set on mesa-default: `mesa sessions` starts the server with it',
+    },
+  ];
+  const { bridge } = fakeBridge({ doctor: () => envelope(report(hookRows)) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  const rows = byTestId('doctor-row').filter((r) => cells(r)[0]?.endsWith('hooks'));
+  expect(rows.map((r) => [cells(r)[0], r.dataset.status, cells(r)[3]])).toEqual([
+    ['claude hooks', 'warn', 'not installed: run `mesa hooks install`'],
+    ['tmux hooks', 'warn', 'not set on mesa-default: `mesa sessions` starts the server with it'],
+  ]);
+});
+
+test('installing the hooks from the Doctor panel runs doctor again, so its row agrees', async () => {
+  const { bridge, calls } = fakeBridge({
+    'hooks status': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: false,
+        stale: false,
+        events: {},
+        tmux: { socket: 'mesa-default', server: true, paneDied: true },
+      }),
+    'hooks install': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: true,
+        stale: false,
+        events: {},
+        changed: true,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  const doctorRuns = () => calls.filter((c) => c[1] === 'doctor').length;
+  const before = doctorRuns();
+  await click(byTestId('hooks-install')[0]);
+  expect(doctorRuns()).toBe(before + 1);
+});
