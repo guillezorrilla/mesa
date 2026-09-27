@@ -28,6 +28,12 @@ const SCREENS: { name: string; icon: LucideIcon }[] = [
 
 export function App() {
   const [screen, setScreen] = useState('Board');
+  // The receipt the Receipts screen shows, which a skill run's toast can open from anywhere.
+  const [receipt, setReceipt] = useState<string>();
+  const openReceipt = (id: string) => {
+    setReceipt(id);
+    setScreen('Receipts');
+  };
   const doctor = useCommand('doctor.run');
   return (
     <div className="flex min-h-screen flex-col">
@@ -65,10 +71,10 @@ export function App() {
         {/* Hidden, not unmounted: its terminals, Show older, and collapsed rows survive a look at
             another screen (CONTEXT.md, Board). */}
         <div hidden={screen !== 'Board'}>
-          <BoardScreen />
+          <BoardScreen onOpenReceipt={openReceipt} />
         </div>
         {screen === 'Projects' && <ProjectsScreen />}
-        {screen === 'Receipts' && <ReceiptsScreen />}
+        {screen === 'Receipts' && <ReceiptsScreen selected={receipt} onSelect={setReceipt} />}
         {screen === 'Doctor' && <DoctorScreen doctor={doctor} />}
         {screen === 'Help' && <HelpScreen />}
       </main>

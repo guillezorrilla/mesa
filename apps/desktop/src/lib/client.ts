@@ -5,6 +5,7 @@ import type {
   CommandReference,
   Config,
   DoctorReport,
+  HeadlessResult,
   HooksStatus,
   Opened,
   ProfileInfo,
@@ -64,6 +65,22 @@ const COMMANDS = {
     'list',
     ...(project ? ['--', project] : []),
   ]),
+  // A skill run (CONTEXT.md, Skill run), which resolves when the run ends: minutes. The skill's
+  // words go after `--` as one, so words starting with `-` are its own. `--yes` answers a
+  // guardrail's ask; the app never passes `--force`, so a block is final here.
+  'skills.run': commandWith<
+    { skill: string; project: string; agent?: Agent; args?: string; yes?: boolean },
+    Recorded<HeadlessResult & { session: string }>
+  >(({ skill, project, agent, args, yes }) => [
+    'run',
+    '--project',
+    project,
+    ...(agent ? ['--agent', agent] : []),
+    ...(yes ? ['--yes'] : []),
+    '--',
+    skill,
+    ...(args?.trim() ? [args.trim()] : []),
+  ]),
   'skills.sync': commandWith<{ project: string }, Recorded<SkillSync>>(({ project }) => [
     'skills',
     'sync',
@@ -75,7 +92,21 @@ const COMMANDS = {
     { path: string },
     Recorded<Project & { path: string; created: boolean }>
   >(({ path }) => ['register', '--create', '--', path]),
-  'receipts.list': command<ReceiptEntry[]>('receipts'),
+  // `--session=` so a value starting with `-` reaches mesa as the value.
+  'receipts.list': commandWith<{ limit?: number; type?: string; session?: string }, ReceiptEntry[]>(
+    ({ limit, type, session }) => [
+      'receipts',
+      ...(limit ? ['--limit', String(limit)] : []),
+      ...(type ? ['--type', type] : []),
+      ...(session ? [`--session=${session}`] : []),
+    ],
+  ),
+  'receipts.get': commandWith<{ id: string }, ReceiptEntry>(({ id }) => [
+    'receipts',
+    'show',
+    '--',
+    id,
+  ]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
   'sessions.send': commandWith<
