@@ -3,7 +3,6 @@ import {
   FolderGit2,
   LayoutDashboard,
   type LucideIcon,
-  ReceiptText,
   Stethoscope,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -16,24 +15,16 @@ import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { HelpScreen } from './screens/HelpScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
-import { ReceiptsScreen } from './screens/ReceiptsScreen';
 
 const SCREENS: { name: string; icon: LucideIcon }[] = [
   { name: 'Board', icon: LayoutDashboard },
   { name: 'Projects', icon: FolderGit2 },
-  { name: 'Receipts', icon: ReceiptText },
   { name: 'Doctor', icon: Stethoscope },
   { name: 'Help', icon: CircleHelp },
 ];
 
 export function App() {
   const [screen, setScreen] = useState('Board');
-  // The receipt the Receipts screen shows, which a skill run's toast can open from anywhere.
-  const [receipt, setReceipt] = useState<string>();
-  const openReceipt = (id: string) => {
-    setReceipt(id);
-    setScreen('Receipts');
-  };
   const doctor = useCommand('doctor.run');
   return (
     <div className="flex min-h-screen flex-col">
@@ -71,10 +62,9 @@ export function App() {
         {/* Hidden, not unmounted: its terminals, Show older, and collapsed rows survive a look at
             another screen (CONTEXT.md, Board). */}
         <div hidden={screen !== 'Board'}>
-          <BoardScreen onOpenReceipt={openReceipt} />
+          <BoardScreen />
         </div>
         {screen === 'Projects' && <ProjectsScreen />}
-        {screen === 'Receipts' && <ReceiptsScreen selected={receipt} onSelect={setReceipt} />}
         {screen === 'Doctor' && <DoctorScreen doctor={doctor} />}
         {screen === 'Help' && <HelpScreen />}
       </main>

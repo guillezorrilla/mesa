@@ -1,8 +1,8 @@
 import type { GuardrailCheck, ManagedRow } from '@mesa/core';
-import { Play, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
-import { type Message, said, useToast } from '@/components/Toast';
+import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,23 +16,19 @@ import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
-import { RunSkillDialog, type RunSkillInput } from './RunSkillDialog';
 import { exited, shown } from './rows';
 import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
 
 /**
- * The one dialog open on the Board, if any: New session, Run skill, a row's Rename, Hand off,
- * Log, or Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once
- * the prompt goes) or on a skill run.
+ * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
+ * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
-  | { kind: 'new' | 'run' }
+  | { kind: 'new' }
   | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
-  | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck }
-  | { kind: 'run-guardrail'; input: RunSkillInput; check: GuardrailCheck }
-  | { kind: 'summary-guardrail'; id: string; check: GuardrailCheck };
+  | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 const COLUMNS = [
   'Id',
@@ -50,15 +46,13 @@ const COLUMNS = [
  * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
  * (highest attention first, children under their parent, collapsible), with Faro's state,
  * confidence, and attention, the running time, and the last output line. It looks again every
- * two seconds and after every action; a live session's terminal opens under it. A skill run's
- * toast links to its receipt through `onOpenReceipt`.
+ * two seconds and after every action; a live session's terminal opens under it.
  */
-export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
+export function BoardScreen() {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
   const run = useRun();
   const call = useCall();
-  const toast = useToast();
   const [dialog, setDialog] = useState<OpenDialog>();
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
@@ -100,68 +94,6 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
       close();
       return { text: check ? `Not sent to ${id}: ${check.reason}` : error.message, tone: 'alert' };
     });
-  /**
-   * Runs a skill, which takes minutes: the dialog closes at once, the Board's looks show the run's
-   * row meanwhile, and the other actions stay free. The guardrail answers before the run starts:
-   * its ask opens its dialog, whose Run anyway runs it again with `yes`, and its block is said in
-   * the toast. The run's end is said in a toast, done or failed, linking to its receipt.
-   */
-  const runSkill = async (input: RunSkillInput, yes = false) => {
-    close();
-    const ran = await call('skills.run', { ...input, yes });
-    await look();
-    if (!ran.ok) {
-      const check = guardrailOf(ran.error);
-      if (check?.verdict === 'ask' && !yes) {
-        setDialog({ kind: 'run-guardrail', input, check });
-        return;
-      }
-      toast(
-        check
-          ? `Did not run ${input.skill} on ${input.project}: ${check.reason}`
-          : ran.error.message,
-      );
-      return;
-    }
-    const r = ran.data;
-    const how = r.ok ? 'done' : `failed (${r.reason})`;
-    const message = said(`Ran ${input.skill} on ${input.project} as ${r.session}: ${how}`, r);
-    const { receipt } = r;
-    toast(
-      message.text,
-      r.ok ? message.tone : 'alert',
-      receipt
-        ? { label: 'Open its receipt', onFollow: () => props.onOpenReceipt(receipt.id) }
-        : undefined,
-    );
-  };
-  const summarise = async (id: string, yes = false) => {
-    close();
-    const ran = await call('sessions.summarise', { id, yes });
-    await look();
-    if (!ran.ok) {
-      const check = guardrailOf(ran.error);
-      if (check?.verdict === 'ask' && !yes) {
-        setDialog({ kind: 'summary-guardrail', id, check });
-        return;
-      }
-      toast(ran.error.message);
-      return;
-    }
-    const r = ran.data;
-    const message = said(
-      r.ok ? `Summarised ${id}${r.note ? ` in ${r.note}` : ''}` : `Summary failed: ${r.reason}`,
-      r,
-    );
-    const { receipt } = r;
-    toast(
-      message.text,
-      r.ok ? message.tone : 'alert',
-      receipt
-        ? { label: 'Open its receipt', onFollow: () => props.onOpenReceipt(receipt.id) }
-        : undefined,
-    );
-  };
   const actions: RowActions = {
     embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
     openTerminal: (id) =>
@@ -190,7 +122,6 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
-    summarise: (row) => row.managed && void summarise(row.id),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
     adopt: (agentSessionId, project) =>
       act(async () => {
@@ -249,14 +180,6 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
             Show older
           </Label>
         </div>
-        <Button
-          variant="outline"
-          data-testid="run-skill"
-          onClick={() => setDialog({ kind: 'run' })}
-        >
-          <Play aria-hidden />
-          Run skill
-        </Button>
         <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
           <Plus aria-hidden />
           New session
@@ -264,29 +187,6 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
       </PageHeader>
       {dialog?.kind === 'new' && (
         <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
-      )}
-      {dialog?.kind === 'run' && (
-        <RunSkillDialog onRun={(input) => runSkill(input)} onCancel={close} />
-      )}
-      {dialog?.kind === 'run-guardrail' && (
-        <GuardrailDialog
-          action="run"
-          about={`/${dialog.input.skill} runs on ${dialog.input.project}`}
-          check={dialog.check}
-          disabled={false}
-          onConfirm={() => runSkill(dialog.input, true)}
-          onCancel={close}
-        />
-      )}
-      {dialog?.kind === 'summary-guardrail' && (
-        <GuardrailDialog
-          action="run"
-          about={`summarise session ${dialog.id}`}
-          check={dialog.check}
-          disabled={false}
-          onConfirm={() => summarise(dialog.id, true)}
-          onCancel={close}
-        />
       )}
       {dialog?.kind === 'handoff' && (
         <HandoffDialog
