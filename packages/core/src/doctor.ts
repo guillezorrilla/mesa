@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import { agentBinary } from './agents/agents.js';
-import type { ClaudeHooksStatus, TmuxHookStatus } from './agents/claude/hooks.js';
+import type { ClaudeHooksStatus } from './agents/claude/hooks.js';
+import type { CodexHooksStatus } from './agents/codex/hooks.js';
+import type { TmuxHookStatus } from './agents/hooks-service.js';
 import { AGENT_NAMES } from './agents/names.js';
 import type { BackendName } from './decisions/types.js';
 import { type Binary, CHECK_TIMEOUT_MS, firstVersion, probe } from './lib/probe.js';
@@ -90,6 +92,25 @@ function claudeHooksCheck(read: () => ClaudeHooksStatus): Finding {
   return { name, ok: status.installed, path: status.path, hint };
 }
 
+/** Every Codex event's install and trust status, from the same reader as hooks status. */
+function codexHooksChecks(read: () => CodexHooksStatus): Finding[] {
+  try {
+    const status = read();
+    return Object.entries(status.events).map(([event, installed]) => ({
+      name: `codex hooks ${event}`,
+      ok: installed && status.trusted[event] === true,
+      path: status.path,
+      hint: !installed
+        ? 'not installed: run `mesa hooks install`'
+        : status.trusted[event]
+          ? ''
+          : status.hint,
+    }));
+  } catch (error) {
+    return [{ name: 'codex hooks', ok: false, hint: toFail(error).error.message }];
+  }
+}
+
 /**
  * The pane-died hook on Mesa's tmux server. With no server there is nothing to hook: fine, the
  * server gets it when it starts. A server without it (started by an older mesa, or by a mesa
@@ -138,7 +159,11 @@ export async function runDoctor(deps: {
   /** Faro's backends; none before init. */
   decisions?: DecisionsInUse;
   /** Mesa's two kinds of hook, read side by side with the other checks. */
-  hooks?: { claude: () => ClaudeHooksStatus; tmux: () => Promise<TmuxHookStatus> };
+  hooks?: {
+    claude: () => ClaudeHooksStatus;
+    codex?: () => CodexHooksStatus;
+    tmux: () => Promise<TmuxHookStatus>;
+  };
   /** Where a Codex app-server daemon's socket is while it runs. */
   codexDaemon?: string;
 }): Promise<DoctorReport> {
@@ -157,6 +182,7 @@ export async function runDoctor(deps: {
       profileDirCheck(deps.profileDir),
       ...decisionsCheck(deps.decisions),
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
+      ...(deps.hooks?.codex ? codexHooksChecks(deps.hooks.codex) : []),
       ...codexDaemonCheck(deps.codexDaemon),
     ].map((c) => ({
       ...c,

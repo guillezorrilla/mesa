@@ -10,6 +10,7 @@ import { claudeTranscripts } from './claude/paths.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
 import { transcriptCwd } from './claude/transcripts.js';
+import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
@@ -111,8 +112,8 @@ export const AGENTS = {
     submitDelayMs: 300,
     /** Headless Codex runs come with #160. */
     headless: undefined,
-    /** Codex hooks are not installed yet (#159). */
-    hookState: undefined,
+    /** Trusted hooks from the embedded Codex process. */
+    hookState: codexHookState,
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
     listing: { list: listCodexSessions, state: () => undefined },
