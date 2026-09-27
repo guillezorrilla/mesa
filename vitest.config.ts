@@ -16,6 +16,10 @@ export default defineConfig({
   test: {
     // Local-time frontmatter (Obsidian's Date & Time) is golden-tested, so every machine runs in UTC.
     env: { TZ: 'UTC' },
-    include: ['packages/*/src/**/*.test.ts', 'apps/desktop/src/**/*.test.tsx'],
+    include: [
+      'packages/*/src/**/*.test.ts',
+      'apps/desktop/src/**/*.test.ts',
+      'apps/desktop/src/**/*.test.tsx',
+    ],
   },
 });

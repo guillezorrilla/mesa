@@ -5,6 +5,7 @@ import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
 import { fromBase64 } from '../lib/bytes';
 import { usePlatform } from '../lib/MesaRoot';
+import { oneAtATime } from '../lib/oneAtATime';
 import { useRun } from '../lib/useCommand';
 
 /**
@@ -52,17 +53,18 @@ export function Terminal(props: { sessionId: string }) {
     let closed = false;
     let sent = '';
     const offs: (() => void)[] = [];
-    // The window follows only a real change: a resize drag fires many observations, and each
-    // `mesa resize` is a CLI run.
-    const size = async () => {
+    // The window follows only a real change, one `mesa resize` at a time: a resize drag fires
+    // many observations, each `mesa resize` is a CLI run, and two in flight could finish out of
+    // order. Changes during one run once after it, at the size the box has then.
+    const size = oneAtATime(async () => {
       if (closed) return;
       fit.fit();
-      const now = `${term.cols}x${term.rows}`;
-      if (!termId || now === sent) return;
-      sent = now;
-      await terminal.resize(termId, term.cols, term.rows);
-      await run('sessions.resize', { id: props.sessionId, cols: term.cols, rows: term.rows });
-    };
+      const { cols, rows } = term;
+      if (!termId || `${cols}x${rows}` === sent) return;
+      sent = `${cols}x${rows}`;
+      await terminal.resize(termId, cols, rows);
+      await run('sessions.resize', { id: props.sessionId, cols, rows });
+    });
     term.parser.registerOscHandler(52, (data) => {
       const text = osc52Text(data);
       if (text !== null) clipboard.write(text).catch(() => {});
