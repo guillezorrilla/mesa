@@ -73,7 +73,7 @@ export function createFaro(ctx: MesaContext) {
           inputs: { state: redact(state), questions: redact(questions) },
           outputs: (d) => ({
             latencyMs: d.latencyMs,
-            ...(d.fallbackReason ? { fallbackReason: d.fallbackReason } : {}),
+            ...(d.fallbackReason ? { fallbackReason: redact(d.fallbackReason) } : {}),
           }),
           cost: (d) => d.costUsd,
         },

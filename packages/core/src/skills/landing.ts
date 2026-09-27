@@ -9,7 +9,7 @@ import { withVaultLock } from '../vault/vault-lock.js';
 // one lands nowhere, and its output stays in the run's result.
 
 /** The run whose output lands: its session, its project, and the session it is about, if any. */
-type Landed = { run: string; project: string; about?: string };
+type Landed = { run: string; project: string; about?: string; endedAt: string };
 
 type Landing = {
   /** The note's `type` in its frontmatter. */
@@ -63,7 +63,14 @@ export async function landOutput(
     const previous = existsSync(vaultFile(deps.vault, path))
       ? readNote(deps.vault, path)
       : undefined;
-    if (previous?.frontmatter.run !== run.run)
+    // The immutable completion time survives a failed log append. Equal times use the run id
+    // for a stable order, so an old retry can never oscillate the note between two runs.
+    const before = previous?.frontmatter;
+    const newer =
+      typeof before?.endedAt === 'string' &&
+      typeof before.run === 'string' &&
+      `${before.endedAt}:${before.run}` > `${run.endedAt}:${run.run}`;
+    if (before?.run !== run.run && !newer)
       writeNote(deps, {
         path,
         frontmatter: {
@@ -71,6 +78,7 @@ export async function landOutput(
           ...(run.about ? { session: run.about } : {}),
           project: run.project,
           run: run.run,
+          endedAt: run.endedAt,
           ...(link ? { receipt: link } : {}),
         },
         body: `${output.trim()}\n`,

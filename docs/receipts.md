@@ -212,3 +212,5 @@ Faro answered 2 questions (rules)
 
 None.
 ```
+
+Decision question ids, answers, and probability labels redact configured secrets and the home path. Labels that redact to the same text gain numbered suffixes, keeping every probability intact. Output notes keep the run completion time in `endedAt`; a delayed retry repairs its log entry without replacing a newer completion.

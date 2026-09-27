@@ -31,15 +31,16 @@ export function redactPayload(
   const homes = home
     ? new RegExp(`${literal(home)}(?=/|$)|${literal(home.replaceAll('/', '-'))}(?=-|$)`, 'g')
     : undefined;
+  const textOf = (value: string) => {
+    const text = redactText(homes ? value.replace(homes, '~') : value, secrets);
+    return text.length > maxString ? `${text.slice(0, maxString)}...` : text;
+  };
   const walk = (v: unknown): unknown => {
-    if (typeof v === 'string') {
-      const text = redactText(homes ? v.replace(homes, '~') : v, secrets);
-      return text.length > maxString ? `${text.slice(0, maxString)}...` : text;
-    }
+    if (typeof v === 'string') return textOf(v);
     if (Array.isArray(v)) return v.map(walk);
     if (v && typeof v === 'object') {
       return Object.fromEntries(
-        Object.entries(v).map(([k, x]) => [k, SECRET_KEY.test(k) ? REDACTED : walk(x)]),
+        Object.entries(v).map(([k, x]) => [textOf(k), SECRET_KEY.test(k) ? REDACTED : walk(x)]),
       );
     }
     return v;

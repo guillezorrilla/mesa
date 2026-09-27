@@ -36,7 +36,7 @@ const POLL_MS = 1000;
 /** Where a run's agent writes its stdout, its result: `<runs>/<session id>.json`, local to the profile. */
 export const runOutput = (runs: string, id: string) => join(runs, `${id}.json`);
 /** Where a run about a session reads its stdin from, until it ends: `<runs>/<session id>.input`. */
-const runInput = (runs: string, id: string) => join(runs, `${id}.input`);
+export const runInput = (runs: string, id: string) => join(runs, `${id}.input`);
 
 // ponytail: the last 1000 lines, some 15k tokens of a claude session; the start of a longer one
 // is left out of its summary. Stream the full log if summaries need the complete history.
@@ -285,7 +285,13 @@ export async function endRun(
   const ended = endRecord(ctx, run.id, result, at, exit);
   await killIfThere(ctx.tmux, windowOf(run));
   rmSync(runInput(ctx.paths.runs, run.id), { force: true });
-  const final = ended.runFailure ? { ...read, ok: false, reason: ended.runFailure } : read;
+  // Another process can finish between our file read and the locked update. Re-read using the
+  // winning record's exit, including when it succeeded after our timeout read found no output.
+  const winner = ended.events.find((event) => event.type === 'exited');
+  const finalRead = runResult(ctx.paths, ended, winner ?? exit, ended.endedAt ?? at);
+  const final = ended.runFailure
+    ? { ...finalRead, ok: false, reason: ended.runFailure }
+    : finalRead;
   return finishRun(ctx, ended, final);
 }
 
@@ -298,7 +304,12 @@ async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResu
   const skill = runSkill(run);
   let note: string | undefined;
   let unlanded: string | undefined;
-  const landed = { run: run.id, project: run.project, about: run.about };
+  const landed = {
+    run: run.id,
+    project: run.project,
+    about: run.about,
+    endedAt: run.endedAt ?? run.startedAt,
+  };
   if (read.ok && skill && landingOf(skill, landed)) {
     try {
       const notes = ctx.notes();

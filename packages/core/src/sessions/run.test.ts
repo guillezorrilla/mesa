@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { createContext } from '../context.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   agentWorld,
@@ -13,9 +14,11 @@ import {
   profilePaths,
   projectProfile,
   shortIds,
+  testDeps,
   testStore,
 } from '../testing/index.js';
 import { readNote, writeNote } from '../vault/notes.js';
+import { endRun, type RunEnd, runOutput } from './run.js';
 
 const UUID = '00000000-0000-4000-8000-000000000001';
 /** lantern-cove with session-summary enabled in its mesa.yaml, and claude in the fake tmux. */
@@ -453,11 +456,14 @@ test('stopping a run with successful output keeps it failed when its waiter fini
   expect(receipt).toMatchObject({ status: 'failed', outputs: { reason: 'stopped by mesa stop' } });
 });
 
-test('a fast hook before the start receipt is written is repaired by the waiter', async () => {
+test('a fast hook is repaired as soon as its start receipt exists, without polling again', async () => {
   const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
   let early = async (_args: string[]) => {};
+  let endedEarly = false;
   const { home, mesa } = projectProfile(
     async (file, args, options) => {
+      if (endedEarly && file === 'tmux' && args.includes('list-windows'))
+        throw new Error('waiter unavailable');
       const result = await world.run(file, args, options);
       if (file === 'tmux' && (args.includes('new-window') || args.includes('new-session')))
         await early([...args]);
@@ -470,6 +476,7 @@ test('a fast hook before the start receipt is written is repaired by the waiter'
   early = async () => {
     const w = world.tmux.windows[0];
     if (w) await mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
+    endedEarly = true;
   };
   const ran = await mesa.sessions.run('session-summary', { session: about.id });
   const note = readNote(join(home, 'vault'), ran.result.note ?? '');
@@ -477,6 +484,46 @@ test('a fast hook before the start receipt is written is repaired by the waiter'
   expect(
     listReceipts(join(home, 'vault')).find((r) => r.receipt.id === ran.receipt?.id)?.receipt,
   ).toMatchObject({ ended: '2026-09-24T12:00', status: 'ok', outputs: { note: ran.result.note } });
+});
+
+test('a successful completion committed after the timeout read supplies the winning result', async () => {
+  const world = agentWorld();
+  const { home, dir } = setUp(world);
+  const ctx = createContext('default', testDeps(home, { run: world.run }));
+  const run = ctx.store.create((id) =>
+    newSession({
+      kind: 'run',
+      goal: '/check',
+      agentSessionId: UUID,
+      tmux: { socket: ctx.paths.tmuxSocket, session: 'lantern-cove', window: `claude-${id}` },
+    }),
+  );
+  await ctx.tmux.openWindow({
+    project: run.project,
+    window: run.tmux.window,
+    cwd: dir,
+    command: 'claude',
+    env: {},
+  });
+  const pane = await ctx.tmux.findWindow({ project: run.project, window: run.tmux.window });
+  if (!pane) throw new Error('missing fixture window');
+  mkdirSync(ctx.paths.runs, { recursive: true });
+  let winning: Promise<RunEnd> | undefined;
+  const racing = {
+    ...ctx,
+    store: {
+      ...ctx.store,
+      update: ((id, change) => {
+        writeFileSync(runOutput(ctx.paths.runs, id), claudeResult('success'));
+        winning = endRun(ctx, run, { ...pane, dead: true, deadStatus: 0 });
+        return ctx.store.update(id, change);
+      }) as typeof ctx.store.update,
+    },
+  };
+  const timedOut = await endRun(racing, run, undefined, 'timed out after 1 s');
+  await winning;
+  expect(ctx.store.get(run.id).lastState.state).toBe('done');
+  expect(timedOut.result).toMatchObject({ ok: true, durationMs: 19113, agentSessionId: UUID });
 });
 
 test('a timeout keeps a successful output file failed, and non-writing skills need no vault landing', async () => {

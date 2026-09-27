@@ -55,6 +55,8 @@ export function actionRecorder(deps: {
   newId: IdSource;
   /** The redacted command line of `argv`, else of this invocation. */
   command: (argv?: readonly string[]) => string;
+  /** Whole receipt labels, including question ids and probability-map keys. */
+  redact: (text: string) => string;
 }) {
   // Everything here is guarded: a receipt problem never escapes into the action's outcome.
   const write = (
@@ -76,7 +78,7 @@ export function actionRecorder(deps: {
         {
           profile: deps.profile,
           command: deps.command(argv),
-          decisions: made.flatMap(decisionEntries),
+          decisions: made.flatMap((decision) => decisionEntries(decision, deps.redact)),
           ...input,
         },
       );
@@ -95,7 +97,7 @@ export function actionRecorder(deps: {
         status: code === 'guardrail_blocked' ? 'blocked' : 'failed',
         summary: spec.failure,
         inputs: spec.inputs,
-        outputs: { error: { code, message } },
+        outputs: { error: { code, message: deps.redact(message) } },
       },
       made,
       spec.argv,

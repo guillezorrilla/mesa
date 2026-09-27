@@ -6,7 +6,7 @@ import { findProject } from '../projects/projects.js';
 import { worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
-import { runOutput } from './run.js';
+import { runInput, runOutput } from './run.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
@@ -110,6 +110,7 @@ export async function removeSession(
   const result = runOutput(deps.runs, id);
   removed.runOutput = existsSync(result);
   rmSync(result, { force: true });
+  rmSync(runInput(deps.runs, id), { force: true });
   deps.store.remove(id);
   return removed;
 }

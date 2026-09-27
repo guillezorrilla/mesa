@@ -254,8 +254,12 @@ export function sessionsService(
             return startRun(runDeps, { ...input, skill });
           },
         );
-        const run = started.result.record;
-        const { result, warning: ended } = await awaitRun(ctx, run, input.timeoutSeconds);
+        const run = store.get(started.result.record.id);
+        // A fast hook may finish before record() writes the opening receipt. Repair it now,
+        // without depending on another asynchronous tmux look in the waiter.
+        const { result, warning: ended } = run.endedAt
+          ? await endRun(ctx, run)
+          : await awaitRun(ctx, run, input.timeoutSeconds);
         const queue = await ends.stopped(run.id, 'exited');
         const warning = joinWarnings(started.warning, ended, queue?.warning);
         const { override } = started.result;

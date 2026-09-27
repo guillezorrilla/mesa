@@ -9,7 +9,12 @@ test('a landing repairs its log after an interrupted write, then retries cannot 
   const vault = join(tempDir(), 'vault');
   mkdirSync(vault);
   const deps = { vault, clock: fixedClock('2026-09-24T12:00:00Z'), sleep: async () => {} };
-  const first = { run: 'first123', about: 'abcdefgh', project: 'lantern-cove' };
+  const first = {
+    run: 'first123',
+    about: 'abcdefgh',
+    project: 'lantern-cove',
+    endedAt: '2026-09-24T12:00:00.000Z',
+  };
   // No log.md: the note is written before appending fails.
   await expect(
     landOutput(deps, 'session-summary', first, 'First summary', 'receipts/first.md'),
@@ -34,5 +39,31 @@ test('a landing repairs its log after an interrupted write, then retries cannot 
   );
   await landOutput(deps, 'session-summary', first, 'Old retry', 'receipts/first.md');
   expect(readNote(vault, path).body).toBe('Second summary\n');
+  expect(readFileSync(join(vault, 'log.md'), 'utf8').trim().split('\n')).toHaveLength(2);
+});
+
+test('repairing an interrupted older landing preserves a newer summary', async () => {
+  const vault = join(tempDir(), 'vault');
+  mkdirSync(vault);
+  const deps = { vault, clock: fixedClock(), sleep: async () => {} };
+  const first = {
+    run: 'first123',
+    about: 'abcdefgh',
+    project: 'lantern-cove',
+    endedAt: '2026-09-24T12:00:00.000Z',
+  };
+  await expect(
+    landOutput(deps, 'session-summary', first, 'First', 'receipts/first.md'),
+  ).rejects.toThrow('log.md not found');
+  writeFileSync(join(vault, 'log.md'), '');
+  await landOutput(
+    deps,
+    'session-summary',
+    { ...first, run: 'second12', endedAt: '2026-09-24T12:00:00.001Z' },
+    'Second',
+    'receipts/second.md',
+  );
+  await landOutput(deps, 'session-summary', first, 'Old retry', 'receipts/first.md');
+  expect(readNote(vault, 'wiki/sessions/abcdefgh.md').body).toBe('Second\n');
   expect(readFileSync(join(vault, 'log.md'), 'utf8').trim().split('\n')).toHaveLength(2);
 });

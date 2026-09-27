@@ -36,12 +36,49 @@ const sixDecimals = (value: unknown): unknown =>
  * A Decision as a receipt keeps it: one entry per answer, its numbers to 6 decimals, with the
  * backend that answered. The Decision itself stays exact.
  */
-export const decisionEntries = ({ answers, backend }: Decision): z.input<typeof DecisionSchema>[] =>
-  answers.map(({ id, ...answer }) => ({
-    question: id,
-    ...(sixDecimals(answer) as typeof answer),
-    backend,
-  }));
+export function decisionEntries(
+  { answers, backend }: Decision,
+  redact: (text: string) => string,
+): z.input<typeof DecisionSchema>[] {
+  const questions = redactedLabels(
+    answers.map((a) => a.id),
+    redact,
+  );
+  return answers.map(({ id, ...answer }) => {
+    const base = { question: questions.get(id) ?? redact(id), backend };
+    const rounded = sixDecimals(answer) as typeof answer;
+    if (rounded.kind === 'Noul') return { ...base, ...rounded };
+    const labels = redactedLabels(Object.keys(rounded.probabilities), redact);
+    const probabilities = Object.fromEntries(
+      Object.entries(rounded.probabilities).map(([label, p]) => [
+        labels.get(label) ?? redact(label),
+        p,
+      ]),
+    );
+    return rounded.kind === 'Choice'
+      ? {
+          ...base,
+          ...rounded,
+          probabilities,
+          answer: labels.get(rounded.answer) ?? redact(rounded.answer),
+        }
+      : { ...base, ...rounded, probabilities };
+  });
+}
+
+/** Secret-bearing labels stay distinct, so redaction cannot discard probability mass. */
+function redactedLabels(labels: string[], redact: (text: string) => string) {
+  const used = new Set<string>();
+  return new Map(
+    labels.map((label) => {
+      const clean = redact(label);
+      let unique = clean;
+      for (let n = 2; used.has(unique); n++) unique = `${clean} (${n})`;
+      used.add(unique);
+      return [label, unique];
+    }),
+  );
+}
 
 /** The receipt frontmatter, documented field by field in docs/receipts.md. */
 export const ReceiptSchema = z.strictObject({
