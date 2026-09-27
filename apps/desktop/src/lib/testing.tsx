@@ -3,11 +3,14 @@ import type {
   Config,
   DoctorReport,
   ForeignRow,
+  GuardrailCheck,
   HooksStatus,
   ManagedRow,
   ProfileInfo,
   ProjectRow,
+  ReceiptEntry,
   SessionRow,
+  SkillRow,
   TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
@@ -21,6 +24,15 @@ import type { Platform, TerminalHost } from './platform';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 export const envelope = (data: unknown) => ({ ok: true, data });
+
+/** A bridge reply a screen test can complete after a newer request. */
+export const deferred = () => {
+  let resolve!: (value: unknown) => void;
+  const promise = new Promise<unknown>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
 
 /** The toasts showing, each as its tone and its text. */
 export const toasts = (byTestId: (id: string) => HTMLElement[]) =>
@@ -144,6 +156,13 @@ export async function renderWithMesa(ui: ReactNode, bridge: Bridge, platform = f
 
 export const click = (element: HTMLElement | undefined) => act(async () => element?.click());
 
+/** Picks `value` in a select as a person does: the change event React's onChange reads. */
+export const choose = (select: HTMLElement | undefined, value: string) =>
+  act(async () => {
+    (select as HTMLSelectElement).value = value;
+    select?.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
 // Fixtures the screens' tests share: projects, doctor checks, and board rows.
 
 export const PROJECTS: ProjectRow[] = [
@@ -235,4 +254,167 @@ export const deadPane = managedRow('ffffffff', {
   lastState: { state: 'done', confidence: 0.85, at: '2026-09-25T12:00:00.000Z', source: 'tmux' },
   attention: 0.24,
   lastOutput: 'Bye!',
+});
+
+/** The envelope `mesa send --json` or `mesa run --json` prints when the guardrail stops its text. */
+export const guardrailStopped = (verdict: 'ask' | 'block', reason: string) => ({
+  ok: false,
+  error: {
+    code: 'guardrail_blocked',
+    message: reason,
+    details: {
+      verdict,
+      reason,
+      decision: {
+        questions: [
+          { kind: 'Choice', id: 'verdict', options: ['allow', 'ask', 'block'] },
+          {
+            kind: 'Noul',
+            id: 'secret-or-destructive',
+            statement: 'This text contains a secret or a destructive instruction',
+          },
+        ],
+        answers: [
+          {
+            id: 'verdict',
+            kind: 'Choice',
+            answer: verdict,
+            probabilities: { allow: 0.04, ask: 0.95, block: 0.01 },
+            confidence: 0.95,
+          },
+          {
+            id: 'secret-or-destructive',
+            kind: 'Noul',
+            answer: verdict === 'block',
+            probabilities: verdict === 'block' ? 0.95 : 0.05,
+          },
+        ],
+        backend: 'rules',
+        at: '2026-09-25T12:00:00.000Z',
+        latencyMs: 0,
+      },
+    } satisfies GuardrailCheck,
+  },
+});
+
+/** Skills a project sees, as `mesa skills list <project>` prints them: two enabled, one not. */
+export const SKILLS: SkillRow[] = [
+  {
+    name: 'session-summary',
+    source: 'mesa',
+    enabled: true,
+    description: 'Summarise what a session did into the vault',
+  },
+  { name: 'mesa-handoff', source: 'mesa', enabled: false, description: 'Hand a session off' },
+  { name: 'tidy-readme', source: 'repo', enabled: true, description: 'Tidy the README' },
+];
+
+type Receipt = ReceiptEntry['receipt'];
+/** A receipt as `mesa receipts --json` lists it and `mesa receipts show` prints it. */
+const receiptEntry = (receipt: Receipt, summary: string): ReceiptEntry => ({
+  path: `receipts/2026/09/${receipt.started.replace(/[-:]/g, '')}00Z-${receipt.type}-${receipt.id}.md`,
+  receipt,
+  summary,
+  body: `${summary}\n\n## Details\n\nNone.\n`,
+});
+
+/** A skill run on a strict project, which the guardrail asked about and `--yes` let through. */
+export const RUN_RECEIPT = receiptEntry(
+  {
+    type: 'skill',
+    id: '01TEST00000000000000000003',
+    profile: 'default',
+    project: 'lantern-cove',
+    session: 'eeeeeeee',
+    agent: 'claude',
+    started: '2026-09-25T12:05',
+    ended: '2026-09-25T12:06',
+    status: 'ok',
+    cost: 0.042,
+    command: 'mesa run --project lantern-cove --yes -- tidy-readme "focus on tests"',
+    decisions: [
+      {
+        question: 'verdict',
+        kind: 'Choice',
+        answer: 'ask',
+        probabilities: { allow: 0.04, ask: 0.95, block: 0.01 },
+        confidence: 0.95,
+        backend: 'rules',
+      },
+      {
+        question: 'secret-or-destructive',
+        kind: 'Noul',
+        answer: false,
+        probabilities: 0.05,
+        backend: 'rules',
+      },
+    ],
+    inputs: {
+      skill: 'tidy-readme',
+      project: 'lantern-cove',
+      agent: 'claude',
+      args: ['focus on tests'],
+      yes: true,
+    },
+    outputs: { window: 'claude-eeeeeeee', state: 'done', durationMs: 61_000, override: 'yes' },
+  },
+  'Ran skill tidy-readme on lantern-cove as session eeeeeeee',
+);
+/** A session opened on the Board. */
+export const SESSION_RECEIPT = receiptEntry(
+  {
+    type: 'session',
+    id: '01TEST00000000000000000002',
+    profile: 'default',
+    project: 'lantern-cove',
+    session: 'bbbbbbbb',
+    agent: 'claude',
+    started: '2026-09-25T12:00',
+    ended: '2026-09-25T12:03',
+    status: 'ok',
+    command: 'mesa open --no-parent --agent claude -- lantern-cove',
+    decisions: [],
+    inputs: { project: 'lantern-cove', agent: 'claude' },
+    outputs: { window: 'claude-bbbbbbbb' },
+  },
+  'Opened session bbbbbbbb on lantern-cove',
+);
+/** A project registered, which failed. */
+export const ACTION_RECEIPT = receiptEntry(
+  {
+    type: 'action',
+    id: '01TEST00000000000000000001',
+    profile: 'default',
+    started: '2026-09-25T11:58',
+    status: 'failed',
+    command: 'mesa register --create -- /src/tide',
+    decisions: [],
+    inputs: { dir: '/src/tide', create: true },
+    outputs: { error: { code: 'not_found', message: 'no folder /src/tide' } },
+  },
+  'Could not register /src/tide',
+);
+/** The three receipts, newest first. */
+export const RECEIPTS = [RUN_RECEIPT, SESSION_RECEIPT, ACTION_RECEIPT];
+
+/**
+ * Answers for `mesa receipts` (newest first, of its --type and --session) and `mesa receipts
+ * show <id>`, over `entries`.
+ */
+export const receiptAnswers = (entries: ReceiptEntry[] = RECEIPTS) => ({
+  receipts: (args: string[]) => {
+    const type = args[args.indexOf('--type') + 1];
+    const session = args.find((a) => a.startsWith('--session='))?.slice('--session='.length);
+    return envelope(
+      entries.filter(
+        (e) =>
+          (!args.includes('--type') || e.receipt.type === type) &&
+          (session === undefined || e.receipt.session === session),
+      ),
+    );
+  },
+  'receipts show': (args: string[]) => {
+    const entry = entries.find((e) => e.receipt.id === args.at(-1));
+    return entry ? envelope(entry) : failure(`no receipt with id ${args.at(-1)}`);
+  },
 });

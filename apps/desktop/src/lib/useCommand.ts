@@ -1,5 +1,5 @@
 import type { Result } from '@mesa/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useToast } from '../components/Toast';
 import type { CallArgs, CommandName, DataOf } from './client';
 import { useClient } from './MesaRoot';
@@ -43,29 +43,50 @@ export function useRun() {
 export type CommandState<T> = { data: T | undefined; busy: boolean; refresh: () => Promise<void> };
 
 /**
- * Runs a command on mount, again when its arguments change, and on `refresh()`, keeping the last
- * good data.
+ * Runs a command on mount, again when its arguments change, and on `refresh()`. A refresh keeps
+ * the last good data for the same command and arguments; superseded replies cannot replace it.
  */
 export function useCommand<K extends CommandName>(
   name: K,
   ...args: CallArgs<K>
 ): CommandState<DataOf<K>> {
-  const run = useRun() as (name: K, ...args: CallArgs<K>) => Promise<DataOf<K> | undefined>;
-  const [data, setData] = useState<DataOf<K>>();
-  const [busy, setBusy] = useState(false);
+  const call = useCall();
+  const toast = useToast();
   // By value: a caller passes a fresh object each render.
-  const key = JSON.stringify(args);
+  const key = JSON.stringify([name, args]);
+  const currentKey = useRef(key);
+  useLayoutEffect(() => {
+    currentKey.current = key;
+  }, [key]);
+  const request = useRef(0);
+  const [state, setState] = useState<{ key: string; data: DataOf<K> | undefined; busy: boolean }>({
+    key,
+    data: undefined,
+    busy: false,
+  });
 
   const refresh = useCallback(async () => {
-    setBusy(true);
-    const next = await run(name, ...(JSON.parse(key) as CallArgs<K>));
-    if (next !== undefined) setData(next);
-    setBusy(false);
-  }, [run, name, key]);
+    const id = ++request.current;
+    setState((last) => ({ key, data: last.key === key ? last.data : undefined, busy: true }));
+    const result = await call(name, ...(JSON.parse(key)[1] as CallArgs<K>));
+    if (id !== request.current || key !== currentKey.current) return;
+    if (result.ok) setState({ key, data: result.data, busy: false });
+    else {
+      setState((last) => ({ ...last, busy: false }));
+      toast(result.error.message);
+    }
+  }, [call, toast, name, key]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
+    return () => {
+      request.current++;
+    };
   }, [refresh]);
 
-  return { data, busy, refresh };
+  return {
+    data: state.key === key ? state.data : undefined,
+    busy: state.key === key && state.busy,
+    refresh,
+  };
 }
