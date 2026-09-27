@@ -1,10 +1,12 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import { shortId } from '../lib/ids.js';
+import { redactText } from '../lib/redact.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import type { skillsService } from '../skills/service.js';
 import { adoptSession } from './adopt.js';
 import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
@@ -23,6 +25,7 @@ import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
+import { awaitRun, type RunInput, startRun } from './run.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
@@ -35,8 +38,8 @@ import { viewProject } from './view.js';
 export function sessionsService(
   ctx: MesaContext,
   faro: Faro,
-  /** Links a project's enabled skills into a folder (the skills service's). */
-  syncSkills: (project: string, folder: string) => void,
+  /** The skills service's: links a project's enabled skills into a folder, and lists what it sees. */
+  skills: Pick<ReturnType<typeof skillsService>, 'linkInto' | 'list'>,
 ) {
   const { profile, deps, paths, open, store, tmux, record, secrets, absolute } = ctx;
   /** Where a session's context use is read: its agent's files under home, with this env. */
@@ -60,7 +63,7 @@ export function sessionsService(
     clock: deps.clock,
     newUuid: deps.newUuid,
     caller,
-    syncSkills,
+    syncSkills: skills.linkInto,
   });
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const look = (all = false) =>
@@ -163,6 +166,44 @@ export function sessionsService(
             return openSession(openDeps(), input);
           },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
+      },
+      /**
+       * Runs a skill headlessly on a project (CONTEXT.md, Skill run) and waits up to
+       * `timeoutSeconds` for its result, which is returned, ok or not. Its start writes a skill
+       * receipt; its end, as a stop does, starts what was queued after it.
+       */
+      run: async (skill: string, opts: Omit<RunInput, 'skill'>) => {
+        const { project, agent, args = [] } = opts;
+        const started = await record(
+          {
+            type: 'skill',
+            summary: ({ record: r }) => `Started skill ${skill} on ${r.project} as session ${r.id}`,
+            failure: `Could not run skill ${skill} on ${project}`,
+            warning: (r) => r.warning,
+            project: (r) => r.record.project,
+            session: (r) => r.record.id,
+            agent: (r) => r.record.agent,
+            inputs: {
+              skill,
+              project,
+              agent: agent ?? null,
+              args: args.map((a) => redactText(a, secrets())),
+            },
+            outputs: ({ record: r }) => startedOutputs(r),
+          },
+          () =>
+            startRun({ ...openDeps(), runs: paths.runs, skills: skills.list }, { ...opts, skill }),
+        );
+        const run = started.result.record;
+        const waitDeps = { store, tmux, clock: deps.clock, sleep: deps.sleep, runs: paths.runs };
+        const result = await awaitRun(waitDeps, run, opts.timeoutSeconds);
+        const queue = await ends.stopped(run.id, 'exited');
+        const warning = joinWarnings(started.warning, queue?.warning);
+        return {
+          result: { session: run.id, ...result },
+          receipt: started.receipt,
+          ...(warning ? { warning } : {}),
+        };
       },
       /** A session's goal, or not_found when it was started without one. */
       goal: (id: string) => sessionGoal(store, id),

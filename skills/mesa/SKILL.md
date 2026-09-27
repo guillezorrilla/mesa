@@ -1,6 +1,6 @@
 ---
 name: mesa
-description: Drives Mesa, which runs many agent sessions across projects. Use when starting a session (with a goal or its own branch), messaging another session or replying to one, starting a child session, queueing work after a session, adopting a session started outside Mesa, handing off, or checking what other sessions are doing.
+description: Drives Mesa, which runs many agent sessions across projects. Use when starting a session (with a goal or its own branch), running a skill headlessly for its result, messaging another session or replying to one, starting a child session, queueing work after a session, adopting a session started outside Mesa, handing off, or checking what other sessions are doing.
 ---
 
 # Mesa
@@ -59,6 +59,12 @@ Hand off before your context fills: the `mesa-handoff` skill says when, and what
 
 ```sh
 mesa handoff $MESA_SESSION_ID --note /tmp/handoff-$MESA_SESSION_ID.md
+```
+
+Run a skill headlessly and wait for its result: a session of kind `run`, which ends `done` or `failed` on its own. The words after `--` are the skill's. `--json` gives `{ok, output, agentSessionId, costUsd, durationMs, reason}`; a run that is not ok exits 1, and one past `--timeout` (seconds, 1200 by default) fails with `timeout`.
+
+```sh
+mesa run session-summary --project lantern-cove --json -- focus on the tide-table tests
 ```
 
 Adopt a Claude Code session started outside Mesa, so it can be messaged and resumed:

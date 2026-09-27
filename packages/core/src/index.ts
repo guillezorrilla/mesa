@@ -8,6 +8,7 @@ export {
   attentionScore,
   contextPercent,
   duration,
+  isRun,
   listPrice,
   NO_OUTPUT_LOG,
   percent,
@@ -34,6 +35,7 @@ export type { TreeRow } from './sessions/board/tree.js';
 export type { SessionLog } from './sessions/output-log.js';
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
+export type { HeadlessResult } from './sessions/run.js';
 export type { Sent } from './sessions/send.js';
 export type { SessionState } from './sessions/states.js';
 export type { StopOutcome } from './sessions/stop.js';

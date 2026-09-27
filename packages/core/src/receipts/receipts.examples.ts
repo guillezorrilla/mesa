@@ -33,7 +33,7 @@ export const EXAMPLES: Record<ReceiptInput['type'], ReceiptInput> = {
     project: 'lantern-cove',
     agent: 'claude',
     status: 'failed',
-    command: 'mesa run lantern-cove --skill tidy-readme',
+    command: 'mesa run tidy-readme --project lantern-cove',
     inputs: { skill: 'tidy-readme' },
     outputs: { error: 'agent exited with code 1' },
     cost: 0.042,

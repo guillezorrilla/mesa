@@ -11,6 +11,8 @@ export const EXIT_CODES = {
   agent_unavailable: 7,
   /** A note marked `locked: true`, or a vault lock another process holds. */
   locked: 8,
+  /** A wait Mesa gave up on: a headless run past its `--timeout`. */
+  timeout: 9,
 } as const;
 
 export type ErrorCode = Exclude<keyof typeof EXIT_CODES, 'ok'>;

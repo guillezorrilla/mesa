@@ -6,6 +6,9 @@ import type { SessionRow } from './sessions/board/rows.js';
 /** A session's name when a person gave it one, else its id. */
 export const sessionLabel = (s: SessionRow) => (s.managed && s.name ? s.name : s.id);
 
+/** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
+export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
+
 /** The branch a Mesa session runs on (its worktree's), or will once it starts (a queued one's). */
 export const sessionBranch = (s: SessionRow) =>
   s.managed ? (s.worktree?.branch ?? s.pending?.branch) : undefined;

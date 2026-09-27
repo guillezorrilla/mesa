@@ -19,6 +19,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     sessions: '/h/.mesa/work/sessions',
     events: '/h/.mesa/work/sessions/events',
     logs: '/h/.mesa/work/sessions/logs',
+    runs: '/h/.mesa/work/sessions/runs',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
     handoffs: '/h/.mesa/work/handoffs',
@@ -40,6 +41,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     decisions: { backend: 'adapter', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },
+    run: { permissionMode: 'acceptEdits', allowedTools: [] },
     keys: {},
   });
 });

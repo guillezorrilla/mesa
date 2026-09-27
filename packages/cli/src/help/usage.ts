@@ -14,7 +14,9 @@ const flagRows = (flags: Record<string, Flag>) =>
   );
 
 export const argWords = (command: Command) =>
-  (command.args ?? []).map(parseArgSpec).map((a) => (a.optional ? `[${a.name}]` : `<${a.name}>`));
+  (command.args ?? [])
+    .map(parseArgSpec)
+    .map((a) => (a.rest ? `[${a.name}...]` : a.optional ? `[${a.name}]` : `<${a.name}>`));
 
 const subcommandsOf = (command: Command, commands: Command[]) =>
   commands.filter((c) => c.name.startsWith(`${command.name} `));

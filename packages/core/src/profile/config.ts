@@ -3,7 +3,7 @@ import { isAbsolute } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { parse } from 'yaml';
 import { z } from 'zod';
-import { AgentSchema, DEFAULT_AGENT } from '../agents/agents.js';
+import { AgentSchema, CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/agents.js';
 import { DecisionsBackendSchema } from '../decisions/types.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
@@ -29,6 +29,13 @@ const ConfigSchema = z.strictObject({
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
   terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
+  /** How a headless run may act (mesa run): claude's --permission-mode and --allowedTools. */
+  run: z
+    .strictObject({
+      permissionMode: z.enum(CLAUDE_PERMISSION_MODES).default('acceptEdits'),
+      allowedTools: z.array(z.string().min(1)).default([]),
+    })
+    .prefault({}),
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */
   keys: z.record(z.string(), z.string()).default({}),
 });

@@ -50,14 +50,26 @@ function match(commands: Command[], words: string[]): Command | undefined {
   return commands.filter(fits).sort((a, b) => b.name.length - a.name.length)[0];
 }
 
-/** Maps positionals to the declared argument names, or fails with the derived usage. */
-function bindArgs(command: Command, given: string[], commands: Command[]): Record<string, string> {
+/**
+ * Maps positionals to the declared argument names, the rest of them to a last `words...`, or
+ * fails with the derived usage.
+ */
+function bindArgs(
+  command: Command,
+  given: string[],
+  commands: Command[],
+): Record<string, string | string[]> {
   const specs = (command.args ?? []).map(parseArgSpec);
+  const rest = specs.at(-1)?.rest ? specs.pop() : undefined;
   const required = specs.filter((a) => !a.optional).length;
-  if (given.length < required || given.length > specs.length) {
+  if (given.length < required || (!rest && given.length > specs.length)) {
     throw new MesaError('usage', usageWithSubcommands(command, commands));
   }
-  return Object.fromEntries(given.map((value, i) => [specs[i]?.name ?? '', value]));
+  const args: Record<string, string | string[]> = Object.fromEntries(
+    given.slice(0, specs.length).map((value, i) => [specs[i]?.name ?? '', value]),
+  );
+  if (rest) args[rest.name] = given.slice(specs.length);
+  return args;
 }
 
 function checkRequiredFlags(command: Command, values: Record<string, unknown>): void {

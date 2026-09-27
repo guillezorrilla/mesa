@@ -1,0 +1,15 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "duration_ms": 68,
+  "duration_api_ms": 0,
+  "num_turns": 1,
+  "result": "Not logged in · Please run /login",
+  "stop_reason": "stop_sequence",
+  "terminal_reason": "api_error",
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "total_cost_usd": 0,
+  "permission_denials": [],
+  "uuid": "4b1f6c2e-8d3a-4e5f-9a7b-1c2d3e4f5a6b"
+}

@@ -37,6 +37,9 @@ export const FORMAT = [
 /** The name prefix of a terminal's view session (attachArgv): never a project's session. */
 export const VIEW_PREFIX = '_view-';
 
+/** tmux's own line under a dead pane (remain-on-exit), which its process never printed. */
+export const isDeadPaneLine = (line: string) => /^Pane is dead \(/.test(line.trim());
+
 const SHELL_NAMES = /^-?(sh|bash|zsh|fish|dash|ksh|tcsh|csh)$/;
 /** A pane whose current command is a shell: its agent is gone. */
 export const isShell = (command: string) => SHELL_NAMES.test(command);

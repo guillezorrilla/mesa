@@ -280,6 +280,27 @@ test("a session's goal shows under its project, its first line, the whole goal o
   expect(byTestId('session-goal')).toHaveLength(1);
 });
 
+test('a headless run is badged run beside its agent, and shows its skill as its goal', async () => {
+  const run = managedRow('dddddddd', {
+    kind: 'run',
+    goal: '/session-summary focus on tests',
+    alive: false,
+    endedAt: '2026-09-25T12:01:00.000Z',
+    lastState: { state: 'done', confidence: 1, at: '2026-09-25T12:01:00.000Z', source: 'mesa' },
+  });
+  const { bridge } = fakeBridge({ sessions: () => envelope([busy, run] satisfies TreeRow[]) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [badge] = byTestId('session-run');
+  expect(byTestId('session-run')).toHaveLength(1);
+  expect(badge?.closest('tr')?.querySelector('[data-testid="session-state"]')?.textContent).toBe(
+    'done 100%',
+  );
+  expect(badge?.closest('td')?.textContent).toBe('clauderun');
+  expect(byTestId('session-goal').map((g) => g.textContent)).toEqual([
+    '/session-summary focus on tests',
+  ]);
+});
+
 test('New session passes a multi-line goal with --goal; a blank one passes none', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

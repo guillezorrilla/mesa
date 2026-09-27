@@ -2,6 +2,7 @@ import type { TreeRow } from '@mesa/core';
 import {
   attentionScore,
   duration,
+  isRun,
   sessionBranch,
   sessionLabel,
   waitingOn,
@@ -36,9 +37,9 @@ export type RowActions = {
 
 /**
  * One Board row: the session's id (a live one opens its terminal here), project with its branch
- * and goal, agent, state, attention, context use, running time, last output (for a queued one,
- * the session it waits on), and its actions. A foreign session is muted, with Adopt its only
- * action.
+ * and goal, agent (a headless run badged), state, attention, context use, running time, last
+ * output (for a queued one, the session it waits on), and its actions. A foreign session is
+ * muted, with Adopt its only action.
  */
 export function SessionRow(props: {
   row: TreeRow;
@@ -103,7 +104,19 @@ export function SessionRow(props: {
           </div>
         )}
       </TableCell>
-      <TableCell className="text-muted-foreground">{s.agent}</TableCell>
+      <TableCell className="whitespace-nowrap text-muted-foreground">
+        {s.agent}
+        {isRun(s) && (
+          <Badge
+            variant="secondary"
+            data-testid="session-run"
+            title="A skill run headlessly (mesa run)"
+            className="ml-1.5"
+          >
+            run
+          </Badge>
+        )}
+      </TableCell>
       <TableCell>
         <StateBadge
           state={s.lastState.state}

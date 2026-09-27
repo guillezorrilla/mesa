@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,6 +118,9 @@ export type FakeWindow = {
   /** What `pane_current_command` shows: claude's version, or a shell once the agent is gone. */
   running: string;
   dead: boolean;
+  /** How it exited, once dead: an exit status, or a signal's name. */
+  status?: number;
+  signal?: string;
   typed: string[];
   /** The shell command pipe-pane gave its output to, when it is logged. */
   pipe?: string;
@@ -140,6 +143,8 @@ const TMUX_LAYOUTS = [
 export function fakeTmux(
   opts: {
     onKeys?: (window: FakeWindow, text: string) => void;
+    /** Sees each window as it opens, so a test can make its agent act, say finish a run (finishesRun). */
+    onOpen?: (window: FakeWindow) => void;
     /** A tmux command that fails, as a broken server would (`new-session`). */
     failing?: string;
   } = {},
@@ -175,7 +180,7 @@ export function fakeTmux(
         server = true;
         const project = command === 'new-session' ? flag(rest, '-s') : target.slice(1, -1);
         const [path, window] = [flag(rest, '-c'), flag(rest, '-n')];
-        windows.push({
+        const opened: FakeWindow = {
           project,
           window,
           path,
@@ -183,7 +188,9 @@ export function fakeTmux(
           running: '2.1.282',
           dead: false,
           typed: [],
-        });
+        };
+        windows.push(opened);
+        opts.onOpen?.(opened);
         return ok();
       }
       case 'kill-window': {
@@ -297,6 +304,45 @@ export function fakeTmux(
   };
   return { windows, answer, hooks, ranLater };
 }
+
+/**
+ * A headless run's agent in fakeTmux (`onOpen`): writes `output` where the run's command sends
+ * its stdout (none when undefined), prints `stderr` on its pane, then exits with `status`, or is
+ * killed by `signal`. A window that is not a run's is left running.
+ */
+export const finishesRun =
+  ({
+    output,
+    status = 0,
+    signal,
+    stderr,
+  }: {
+    output?: string;
+    status?: number;
+    signal?: string;
+    stderr?: string;
+  }) =>
+  (w: FakeWindow) => {
+    const file = /^exec claude -p .* >'([^']+)'$/.exec(w.launch)?.[1];
+    if (!file) return;
+    if (output !== undefined) writeFileSync(file, output);
+    if (stderr !== undefined) w.typed.push(stderr);
+    w.dead = true;
+    if (signal) w.signal = signal;
+    else w.status = status;
+  };
+
+/**
+ * `claude -p --output-format json` results, as a run's output file holds them
+ * (agents/claude/fixtures/results/): `not-logged-in` recorded from Claude Code 2.1.283 with a
+ * temp HOME, `success` shaped after it with invented text and cost, since the recording home had
+ * no login.
+ */
+export const claudeResult = (name: 'success' | 'not-logged-in') =>
+  readFileSync(
+    fileURLToPath(new URL(`../agents/claude/fixtures/results/${name}.json`, import.meta.url)),
+    'utf8',
+  );
 
 /** mulberry32: numbers in [0, 1) from `seed`, the same on every run, so a failing case replays. */
 export function seededRandom(seed: number): () => number {
