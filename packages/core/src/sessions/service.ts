@@ -28,7 +28,7 @@ import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
-import { awaitRun, endRun, type RunInput, startRun } from './run.js';
+import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
@@ -257,10 +257,17 @@ export function sessionsService(
         const run = store.get(started.result.record.id);
         // A fast hook may finish before record() writes the opening receipt. Repair it now,
         // without depending on another asynchronous tmux look in the waiter.
-        const { result, warning: ended } = run.endedAt
-          ? await endRun(ctx, run)
-          : await awaitRun(ctx, run, input.timeoutSeconds);
-        const queue = await ends.stopped(run.id, 'exited');
+        let finished: RunEnd;
+        let queue: Awaited<ReturnType<typeof ends.stopped>>;
+        try {
+          finished = run.endedAt
+            ? await endRun(ctx, run)
+            : await awaitRun(ctx, run, input.timeoutSeconds);
+        } finally {
+          // A timeout commits the failed end before throwing; its queue must still start.
+          if (store.find(run.id)?.endedAt) queue = await ends.stopped(run.id, 'exited');
+        }
+        const { result, warning: ended } = finished;
         const warning = joinWarnings(started.warning, ended, queue?.warning);
         const { override } = started.result;
         return {

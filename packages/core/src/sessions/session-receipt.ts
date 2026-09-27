@@ -2,7 +2,7 @@ import type { MesaContext } from '../context.js';
 import { redactWhole } from '../lib/redact.js';
 import { toFail } from '../lib/result.js';
 import { joinWarnings, type Recorded } from '../receipts/recorder.js';
-import { updateSessionReceipt } from '../receipts/store.js';
+import { sessionReceipt, updateSessionReceipt } from '../receipts/store.js';
 import { outputLog, outputTail } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import type { HeadlessResult } from './run.js';
@@ -93,7 +93,9 @@ export async function markEnded<T>(
  */
 export async function markExited(ctx: ReceiptContext, exited: SessionRecord) {
   try {
-    await updateSessionReceipt(ctx.notes(), exited.id, {
+    const notes = ctx.notes();
+    if (sessionReceipt(notes.vault, exited.id)?.receipt.ended) return;
+    await updateSessionReceipt(notes, exited.id, {
       ended: new Date(exited.lastState.at),
       ...endOf(ctx, exited),
     });

@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
@@ -349,4 +349,44 @@ test("stop types /exit into codex 0.3 s before its Enter; claude's Enter follows
         : ['keys Escape', 'sleep 300', 'keys /exit', 'keys Enter'],
     );
   }
+});
+
+test.each(['dead pane', 'missing window'])(
+  'the Board finishes a receipt after a missed exit hook: %s',
+  async (signal) => {
+    const { home, mesa, world, opened, receipts } = await setUp();
+    mesa.config.set('keys.tide', 'tide-key-0042');
+    plantOutputLog(home, opened.id, output(home));
+    if (signal === 'missing window') world.windows.splice(0);
+    else Object.assign(world.windows[0] ?? {}, { dead: true, status: 2 });
+    const state = signal === 'dead pane' ? 'failed' : 'done';
+    for (let look = 0; look < 2; look++) {
+      const rows = await mesa.sessions.list(true);
+      expect(rows.find((r) => r.id === opened.id)?.lastState.state).toBe(state);
+      const exited = receipts().find((e) => e.summary.startsWith('Opened'));
+      expect(exited?.receipt).toMatchObject({
+        ended: '2026-09-24T12:00',
+        status: state === 'failed' ? 'failed' : 'ok',
+        outputs: { lastState: { state }, events: { exited: 1 } },
+      });
+      expect(exited?.body).toContain(`## Details\n\n${details(opened.id)}\n`);
+      expect(testStore(home).get(opened.id).endedAt).toBeUndefined();
+    }
+  },
+);
+
+test('a Board look repairs an exit recorded before its opening receipt was available', async () => {
+  const { home, mesa, world, receipts } = await setUp();
+  const file = join(home, 'vault', receipts()[0]?.path ?? '');
+  const opening = readFileSync(file);
+  rmSync(file);
+  Object.assign(world.windows[0] ?? {}, { dead: true, status: 2 });
+  await mesa.sessions.list();
+  writeFileSync(file, opening);
+  await mesa.sessions.list();
+  expect(receipts()[0]?.receipt).toMatchObject({
+    ended: '2026-09-24T12:00',
+    status: 'failed',
+    outputs: { events: { exited: 1 } },
+  });
 });
