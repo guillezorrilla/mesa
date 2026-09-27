@@ -46,3 +46,10 @@ export function redactPayload(
   };
   return walk(value);
 }
+
+/**
+ * `text` whole, as it leaves the profile's logs for the vault or an agent (a receipt's Details, a
+ * skill run's input and output): the home directory as `~`, key values as `***`, nothing cut.
+ */
+export const redactWhole = (text: string, home: string, secrets: readonly string[]) =>
+  redactPayload(text, home, secrets, Number.POSITIVE_INFINITY) as string;

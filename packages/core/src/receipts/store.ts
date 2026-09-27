@@ -54,28 +54,49 @@ const receiptBody = (summary: string, details = 'None.') =>
   `${summary}\n\n## Details\n\n${details}\n`;
 
 /**
- * Updates the session's receipt (the one `mesa open` or `mesa resume` wrote) in place, under the
- * vault lock: marked ended at `ended`, `outputs` merged into its own, and `details` in place of
- * its Details, each when given. Undefined when the session has no receipt.
+ * The receipt a session's start wrote: `mesa open`'s or `mesa resume`'s `session` receipt, or a
+ * skill run's `skill` one. Undefined when the session has none.
+ */
+export function sessionReceipt(vault: string, session: string): ReceiptEntry | undefined {
+  // ponytail: reads every receipt to find the session's; index them by session if vaults grow big.
+  // The oldest: the receipt of the start, not a stop's or a send's own (a failed start names no
+  // session).
+  return listReceipts(vault, Number.POSITIVE_INFINITY)
+    .filter(
+      (e) =>
+        (e.receipt.type === 'session' || e.receipt.type === 'skill') &&
+        e.receipt.session === session,
+    )
+    .at(-1);
+}
+
+/**
+ * Updates the receipt a session's start wrote (sessionReceipt) in place, under the vault lock:
+ * marked ended at `ended`, its `status` and `cost` set, `outputs` merged into its own, and
+ * `details` in place of its Details, each when given. Undefined when the session has no receipt.
  */
 export async function updateSessionReceipt(
   deps: LockedNotesDeps,
   session: string,
-  update: { ended?: Date; outputs?: Record<string, unknown>; details?: string },
+  update: {
+    ended?: Date;
+    status?: Receipt['status'];
+    cost?: number;
+    outputs?: Record<string, unknown>;
+    details?: string;
+  },
 ): Promise<{ id: string; path: string } | undefined> {
-  // ponytail: reads every session receipt to find the session's; index them by session if vaults
-  // grow big. The oldest: the receipt of the open or resume that started it, not the stop's own.
-  const entry = listReceipts(deps.vault, Number.POSITIVE_INFINITY, { type: 'session', session })
-    .filter((e) => e.receipt.status === 'ok')
-    .at(-1);
+  const entry = sessionReceipt(deps.vault, session);
   if (!entry) return undefined;
-  const { ended, outputs, details } = update;
+  const { ended, status, cost, outputs, details } = update;
   await updateNote(deps, entry.path, (note = { frontmatter: {}, body: '' }) => {
     const fields = ownFields(note.frontmatter);
     const before = (fields.outputs ?? {}) as Record<string, unknown>;
     const next = {
       ...fields,
       ...(ended ? { ended: obsidianDateTime(ended) } : {}),
+      ...(status ? { status } : {}),
+      ...(cost === undefined ? {} : { cost }),
       outputs: { ...before, ...outputs },
     };
     return {

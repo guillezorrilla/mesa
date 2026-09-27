@@ -9,8 +9,8 @@ import { writeReceipt } from './store.js';
 
 /** What one action's receipt says, given the action's result. */
 type ActionSpec<T> = {
-  /** `action` unless the work is a session's, or a skill run's. */
-  type?: 'action' | 'session' | 'skill';
+  /** `action` unless the work is a session's, a skill run's, or a decision asked for itself. */
+  type?: 'action' | 'session' | 'skill' | 'decision';
   summary: (result: T) => string;
   /** The summary when the action throws. */
   failure: string;
@@ -21,6 +21,8 @@ type ActionSpec<T> = {
   project?: (result: T) => string | undefined;
   session?: (result: T) => string | undefined;
   agent?: (result: T) => Agent | undefined;
+  /** What the work cost in US dollars, for information (an adapter decision's list price). */
+  cost?: (result: T) => number | undefined;
   /** False when the action changed nothing: then no receipt. */
   changed?: (result: T) => boolean;
   /** The action's own warning, joined before its receipt's into the Recorded one. */
@@ -40,7 +42,7 @@ export const joinWarnings = (...parts: (string | undefined)[]) =>
 
 /**
  * Runs actions, sync or async, and records each as a receipt (`action` unless the spec says
- * `session` or `skill`). Each action is handed a DecisionRecorder: every Faro decision made on it
+ * `session`, `skill`, or `decision`). Each action is handed a DecisionRecorder: every Faro decision made on it
  * lands in the receipt's `decisions`. A failed action is recorded `failed`, or `blocked` when a
  * guardrail stopped it (best effort), and rethrown. A receipt never fails the action it records:
  * when the vault cannot take one, the result carries a warning, after the action's own (`warning`).
@@ -113,6 +115,7 @@ export function actionRecorder(deps: {
         project: spec.project?.(result),
         session: spec.session?.(result),
         agent: spec.agent?.(result),
+        cost: spec.cost?.(result),
         inputs: spec.inputs,
         outputs: spec.outputs?.(result) ?? {},
       },

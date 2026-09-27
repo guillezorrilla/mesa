@@ -3,7 +3,7 @@ import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
-import { redactText } from '../lib/redact.js';
+import { redactText, redactWhole } from '../lib/redact.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
@@ -172,27 +172,31 @@ export function sessionsService(
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
       },
       /**
-       * Runs a skill headlessly on a project (CONTEXT.md, Skill run), once the guardrail lets its
-       * prompt through (`yes`, `force`, and a person's `confirm` past an ask or a block), and
-       * waits up to `timeoutSeconds` for its result, which is returned, ok or not. Its start
-       * writes a skill receipt, with the guardrail's decision and the override; its end, as a
-       * stop does, starts what was queued after it.
+       * Runs a skill headlessly on a project (CONTEXT.md, Skill run), or about a session, whose
+       * output log its agent reads, once the guardrail lets its prompt through (`yes`, `force`,
+       * and a person's `confirm` past an ask or a block), and waits up to `timeoutSeconds` for
+       * its result, which is returned, ok or not, with the vault note its output became, if any.
+       * Its start writes a skill receipt, with the guardrail's decision and the override, which
+       * its end finishes (endRun); its end, as a stop does, starts what was queued after it.
        */
       run: async (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) => {
         const { force, yes, confirm, ...input } = opts;
-        const { project, agent, args = [] } = input;
+        const { project, session, agent, args = [] } = input;
+        const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
         const started = await record(
           {
             type: 'skill',
-            summary: ({ record: r }) => `Started skill ${skill} on ${r.project} as session ${r.id}`,
-            failure: `Could not run skill ${skill} on ${project}`,
+            summary: ({ record: r }) =>
+              `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
+            failure: `Could not run skill ${skill}${on}`,
             warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
             agent: (r) => r.record.agent,
             inputs: {
               skill,
-              project,
+              ...(project === undefined ? {} : { project }),
+              ...(session === undefined ? {} : { session }),
               agent: agent ?? null,
               args: args.map((a) => redactText(a, secrets())),
               ...(force ? { force } : {}),
@@ -207,22 +211,21 @@ export function sessionsService(
           (decisions: DecisionRecorder) => {
             const guard = (action: Guarded) =>
               faro.guardrail.gate(action, { force, yes, confirm }, decisions);
-            const runDeps = { ...openDeps(), runs: paths.runs, skills: skills.list, guard };
+            const runDeps = {
+              ...openDeps(),
+              runs: paths.runs,
+              logs: paths.logs,
+              redact: (text: string) => redactWhole(text, deps.home, secrets()),
+              skills: skills.list,
+              guard,
+            };
             return startRun(runDeps, { ...input, skill });
           },
         );
         const run = started.result.record;
-        const waitDeps = {
-          store,
-          tmux,
-          clock: deps.clock,
-          sleep: deps.sleep,
-          runs: paths.runs,
-          logs: paths.logs,
-        };
-        const result = await awaitRun(waitDeps, run, input.timeoutSeconds);
+        const { result, warning: ended } = await awaitRun(ctx, run, input.timeoutSeconds);
         const queue = await ends.stopped(run.id, 'exited');
-        const warning = joinWarnings(started.warning, queue?.warning);
+        const warning = joinWarnings(started.warning, ended, queue?.warning);
         const { override } = started.result;
         return {
           result: { session: run.id, ...result, ...(override ? { override } : {}) },
