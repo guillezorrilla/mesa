@@ -29,3 +29,14 @@ shadcn/ui is not a dependency but source copied into the repo (`apps/desktop/src
 - Colours come from the theme tokens, never literal values in a component.
 - After `shadcn add`, check the new file's imports and `package.json`: shadcn's resolver misreads the `@/` alias here, writes `import { cn } from "cn"`, and installs an unrelated `cn` package; point the import at `@/lib/utils` and `pnpm remove cn`.
 - shadcn's components are Mesa's code now: an upstream fix is pulled in by re-adding the component, reviewing the diff.
+
+## Amendment 2026-09-26: confirmations and alerts are two toast tones (#129)
+
+One channel made every confirmation ("Stopped session a1b2") look like a failure: it wore the warm wait colour, stayed until dismissed, and a second identical one (sending "hello" twice) showed nothing. The owner chose two tones (#129, option b):
+
+- `toast(text, tone)` takes `confirmation` or `alert` (the default, for a failed command). An action returns its message with its tone: `said()` is a confirmation, or an alert when the command's data carries a warning (no receipt, a skill not synced), and `warned()` is a command's own warning as an alert.
+- A confirmation is neutral (a muted check icon), shows every time, and goes by itself after `CONFIRMATION_MS` (4 s).
+- An alert keeps the first decision: warm (the wait colour's warning icon), shown once however often it comes, and it stays until dismissed.
+- Each toast carries `data-tone`, so tests read the tone as they read the text.
+
+Evidence: `apps/desktop/src/App.test.tsx` "a confirmation is neutral, shows every time, and goes by itself" and "a failure, or a confirmation with a warning, is an alert: warm, once, and it stays", with vitest's fake timers; letting a confirmation dedupe or stay, or an alert go by itself, fails one of them.

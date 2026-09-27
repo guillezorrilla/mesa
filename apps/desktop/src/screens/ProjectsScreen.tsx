@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { usePlatform } from '@/lib/MesaRoot';
-import { said, useAct } from '@/lib/useAct';
+import { said, useAct, warned } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
 /** The profile's registered projects: open a session on one, or register a folder. */
@@ -56,7 +56,7 @@ export function ProjectsScreen() {
       const registered = path ? await run('projects.register', { path }) : undefined;
       if (!registered) return undefined;
       await refresh();
-      return registered.warning;
+      return warned(registered.warning);
     });
 
   return (

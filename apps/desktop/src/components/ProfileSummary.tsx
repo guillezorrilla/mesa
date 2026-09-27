@@ -1,7 +1,7 @@
 import type { DoctorReport } from '@mesa/core';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAct } from '@/lib/useAct';
+import { useAct, warned } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +31,7 @@ export function ProfileSummary({ doctor }: { doctor: DoctorReport | undefined })
           size="sm"
           className="h-auto px-1 text-xs"
           data-testid="open-vault"
-          onClick={() => act(async () => (await run('vault.open'))?.warning)}
+          onClick={() => act(async () => warned((await run('vault.open'))?.warning))}
           disabled={acting}
         >
           Open in Obsidian
