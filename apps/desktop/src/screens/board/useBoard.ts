@@ -1,5 +1,6 @@
 import type { TreeRow } from '@mesa/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { oneAtATime } from '@/lib/oneAtATime';
 import { useRun } from '@/lib/useCommand';
 
 type ListName = 'sessions.list' | 'sessions.all';
@@ -23,17 +24,9 @@ export function useBoard(ended: boolean) {
   const [now, setNow] = useState(() => Date.now());
   const wanted = useRef<ListName>('sessions.list');
   wanted.current = ended ? 'sessions.all' : 'sessions.list';
-  const looking = useRef(false);
-  const again = useRef(false);
-  const look = useCallback(async () => {
-    if (looking.current) {
-      again.current = true;
-      return;
-    }
-    looking.current = true;
-    try {
-      do {
-        again.current = false;
+  const look = useMemo(
+    () =>
+      oneAtATime(async () => {
         const name = wanted.current;
         const rows = await list(name);
         if (rows && wanted.current === name) {
@@ -46,11 +39,9 @@ export function useBoard(ended: boolean) {
           );
           setSince(Date.now());
         }
-      } while (again.current);
-    } finally {
-      looking.current = false;
-    }
-  }, [list]);
+      }),
+    [list],
+  );
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new list is wanted when `ended` flips.
   useEffect(() => {
     look();
