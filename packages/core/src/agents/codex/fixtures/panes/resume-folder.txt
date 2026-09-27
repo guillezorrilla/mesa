@@ -1,0 +1,12 @@
+
+Choose working directory to resume this session
+
+  Session = latest cwd recorded in the resumed session
+  Current = your current working directory
+
+› 1. Use session directory (/Users/example/src/lantern-cove)
+  2. Use current directory (/Users/example/src/tide)
+  3. Always use session directory
+  4. Always use current directory
+
+  Press enter to continue

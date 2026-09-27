@@ -140,13 +140,10 @@ test("with config sessions.log off, a window's output is not piped to a log", as
   expect(mesa.sessions.logs(result.id)).toEqual({ session: result.id, path: null, lines: [] });
 });
 
-test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs claude only', async () => {
+test('the agent comes from the flag, else mesa.yaml, else the profile', async () => {
   const world = agentWorld();
   const { mesa } = await setUp(world, { mesaYaml: 'name: lantern-cove\nagent: codex\n' });
-  await expect(mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
-    code: 'agent_unavailable',
-    message: 'codex support is planned in #43',
-  });
+  expect((await mesa.sessions.open('lantern-cove')).result.agent).toBe('codex');
   expect((await mesa.sessions.open('lantern-cove', { agent: 'claude' })).result.agent).toBe(
     'claude',
   );
@@ -155,11 +152,30 @@ test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs c
     message: 'unknown agent gpt; agents are claude, codex',
   });
 
-  const plain = await setUp(agentWorld());
+  const plain = await setUp(agentWorld({ codex: false }));
   plain.mesa.config.set('defaultAgent', 'codex');
   await expect(plain.mesa.sessions.open('lantern-cove')).rejects.toMatchObject({
     code: 'agent_unavailable',
+    message: 'codex not found on PATH; install with `brew install --cask codex`',
   });
+});
+
+test('open starts codex embedded, its goal after --, in window codex-<id>, with no agent session id yet', async () => {
+  const world = agentWorld();
+  const { mesa, dir } = await setUp(world);
+  const { result } = await mesa.sessions.open('lantern-cove', { agent: 'codex', goal: 'review' });
+  expect(result).toMatchObject({
+    agent: 'codex',
+    goal: 'review',
+    tmux: { session: 'lantern-cove', window: `codex-${result.id}` },
+  });
+  // Codex picks its own thread id: a look at the board reads it (agents/codex/).
+  expect(result).not.toHaveProperty('agentSessionId');
+  expect(launched(world)).toBe("codex -c mesa.embedded=true -- 'review'");
+  expect(world.tmux.windows.at(-1)?.path).toBe(dir);
+
+  await mesa.sessions.open('lantern-cove', { agent: 'codex' });
+  expect(launched(world)).toBe('codex -c mesa.embedded=true');
 });
 
 test('an unknown project, a missing claude, or a failed window leaves no session', async () => {
@@ -501,7 +517,7 @@ test('--base starts the new branch there; an existing branch is reused as it is'
   testGit(dir, 'worktree', 'remove', worktreeAt(home, 'kept'));
   await expect(mesa.sessions.resume(resumed.record.id)).rejects.toMatchObject({
     code: 'not_found',
-    message: `session ${resumed.record.id}'s folder ${worktreeAt(home, 'kept')} is gone, and claude finds its conversation only there`,
+    message: `session ${resumed.record.id}'s folder ${worktreeAt(home, 'kept')} is gone, and claude resumes its conversation only there`,
   });
 });
 

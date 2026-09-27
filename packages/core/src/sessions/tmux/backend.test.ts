@@ -41,7 +41,7 @@ if (!hasTmux)
   );
 
 describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
-  const tmux = tmuxBackend({ run: underParent, socket, env: PARENT });
+  const tmux = tmuxBackend({ sleep: async () => {}, run: underParent, socket, env: PARENT });
   const cwd = tempDir();
   const open = (target: WindowTarget, command: string, env = {}) =>
     tmux.openWindow({ ...target, cwd, command, env });
@@ -195,6 +195,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     // Stands in for mesa: it writes the arguments the hook passes, and prints, as mesa does.
     writeFileSync(script, `printf '%s|' "$@" >> '${out}'; echo >> '${out}'; echo printed\n`);
     const hooked = tmuxBackend({
+      sleep: async () => {},
       run: underParent,
       socket,
       env: PARENT,
@@ -208,6 +209,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     // Read back exactly as tmux prints it, so a hook for a mesa that moved would not count.
     expect(await hooked.paneDiedHookState()).toEqual({ server: true, paneDied: true });
     const other = tmuxBackend({
+      sleep: async () => {},
       run: underParent,
       socket,
       env: PARENT,
@@ -249,6 +251,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     const script = join(folder, 'mesa-stand-in.sh');
     writeFileSync(script, `printf '%s|' "$@" >> '${out}'; echo >> '${out}'; echo printed\n`);
     const later = tmuxBackend({
+      sleep: async () => {},
       run: underParent,
       socket,
       env: PARENT,
@@ -338,7 +341,7 @@ test('every call goes to the profile socket without the user tmux.conf', async (
   const { run, calls } = scriptedRunner({
     tmux: `${tmuxLine({ project: 'lantern', window: 'claude-aaaaaa' })}\n`,
   });
-  const tmux = tmuxBackend({ run, socket: 'mesa-work', env: {} });
+  const tmux = tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env: {} });
   expect(await tmux.listWindows()).toEqual([
     {
       project: 'lantern',
@@ -364,7 +367,7 @@ test('every call goes to the profile socket without the user tmux.conf', async (
 test('the server drops only the variables that make claude think it is nested', async () => {
   const { run, calls } = scriptedRunner();
   const env = { ...PARENT, CLAUDE_CONFIG_DIR: '/c', HOME: '/h' };
-  await tmuxBackend({ run, socket: 'mesa-work', env }).ensureServer();
+  await tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env }).ensureServer();
   const args = calls[0]?.args ?? [];
   const unset = args.flatMap((a, i) => (a === '-gu' ? [args[i + 1]] : []));
   expect(unset).toEqual(['CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID']);
@@ -375,7 +378,7 @@ test('the server drops only the variables that make claude think it is nested', 
 
 test('the server takes the app terminal options: mouse, no status, OSC 52, drag copies to pbcopy', async () => {
   const { run, calls } = scriptedRunner();
-  await tmuxBackend({ run, socket: 'mesa-default', env: {} }).ensureServer();
+  await tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }).ensureServer();
   const args = calls[0]?.args.join(' ') ?? '';
   for (const option of ['-g mouse on', '-g status off', '-s set-clipboard external']) {
     expect(args).toContain(`set-option ${option}`);
@@ -390,6 +393,7 @@ test('the server takes the app terminal options: mouse, no status, OSC 52, drag 
 
 test('a missing or hung tmux is tmux_unavailable', async () => {
   const missing = tmuxBackend({
+    sleep: async () => {},
     run: scriptedRunner({}, { missing: ['tmux'] }).run,
     socket: 's',
     env: {},
@@ -407,6 +411,7 @@ test('a missing or hung tmux is tmux_unavailable', async () => {
     });
   }
   const slow = tmuxBackend({
+    sleep: async () => {},
     run: scriptedRunner({}, { slow: ['tmux'] }).run,
     socket: 's',
     env: {},

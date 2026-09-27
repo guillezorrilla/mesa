@@ -32,7 +32,8 @@ export type ForeignRow = Omit<AgentProcess, 'status' | 'waitingFor'> &
     managed: false;
     project: string | null;
     alive: true;
-    agentStatus: string;
+    /** The listing's status; none from a listing that says none (Codex's). */
+    agentStatus?: string;
     runningSeconds: number;
   };
 

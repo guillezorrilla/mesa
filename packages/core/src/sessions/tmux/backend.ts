@@ -48,11 +48,14 @@ export function tmuxBackend({
   run,
   socket,
   env,
+  sleep,
   mesa,
 }: {
   run: Runner;
   socket: string;
   env: Env;
+  /** Waits between typed text and its Enter, for an agent that needs it (sendText). */
+  sleep: (ms: number) => Promise<void>;
   /** This mesa and its profile, for what tmux runs back into it (the pane-died hook, runMesaLater); tests leave it out. */
   mesa?: { self: readonly string[]; profile: string };
 }) {
@@ -253,10 +256,15 @@ export function tmuxBackend({
       await onWindow(target, 'kill-window');
     },
     /**
-     * Types `text` literally, then Enter, in a second call. Refuses a pane whose process exited,
-     * and one running a shell (the agent is gone) unless `force`.
+     * Types `text` literally, then Enter, in a second call, `submitDelayMs` later when the agent
+     * needs the pause (its entry's). Refuses a pane whose process exited, and one running a shell
+     * (the agent is gone) unless `force`.
      */
-    sendText: async (target: WindowTarget, text: string, { force = false } = {}) => {
+    sendText: async (
+      target: WindowTarget,
+      text: string,
+      { force = false, submitDelayMs = 0 } = {},
+    ) => {
       const pane = await onWindow(
         target,
         'display-message',
@@ -273,6 +281,7 @@ export function tmuxBackend({
       // `;` as the end of a command and turns a closing `\;` into `;`, so a closing `;` goes as `\;`.
       const word = text.endsWith(';') ? `${text.slice(0, -1)}\\;` : text;
       await onWindow(target, 'send-keys', '-l', '--', word);
+      if (submitDelayMs > 0) await sleep(submitDelayMs);
       await onWindow(target, 'send-keys', 'Enter');
     },
     /** Presses one key (`Escape`, `Enter`), not typed as text. */

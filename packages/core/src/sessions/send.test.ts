@@ -15,6 +15,7 @@ import {
   tempDir,
   testDeps,
   testStore,
+  timedAgentWorld,
 } from '../testing/index.js';
 import { sessionStore } from './store.js';
 
@@ -448,4 +449,20 @@ test('a config.yaml that does not read still lets a prompt through: only the rec
   const { result } = await mesa.sessions.send(opened.id, 'still here');
   expect(result.sent).toBe(true);
   expect(window.typed).toEqual(['still here']);
+});
+
+test("send pauses 0.3 s between the text and its Enter for codex; claude's Enter follows at once", async () => {
+  const world = timedAgentWorld();
+  const { log } = world;
+  const { mesa } = projectProfile(world.run, { sleep: world.sleep });
+  for (const agent of ['codex', 'claude']) {
+    const { result: opened } = await mesa.sessions.open('lantern-cove', { agent });
+    log.length = 0;
+    await mesa.sessions.send(opened.id, 'say hi');
+    expect(log, agent).toEqual(
+      agent === 'codex'
+        ? ['keys say hi', 'sleep 300', 'keys Enter']
+        : ['keys say hi', 'keys Enter'],
+    );
+  }
 });

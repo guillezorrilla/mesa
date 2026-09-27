@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type Agent, AgentSchema, runnableAgent } from '../agents/agents.js';
+import { AGENTS, AgentSchema } from '../agents/agents.js';
+import type { Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
 import { redactPayload } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
@@ -39,8 +40,11 @@ export function recordHookEvent(
   input: { agent: string; mesaSessionId?: string; payload: string },
 ): HookEvent | undefined {
   const agent = AgentSchema.safeParse(input.agent);
-  if (!agent.success || !runnableAgent(agent.data)) {
-    throw new MesaError('agent_unavailable', `no hooks for agent ${input.agent}; v1 runs claude`);
+  if (!agent.success || !AGENTS[agent.data].hookState) {
+    throw new MesaError(
+      'agent_unavailable',
+      `no hooks for agent ${input.agent}; Mesa reads claude's only`,
+    );
   }
   const id = input.mesaSessionId;
   if (!id || !isSessionId(id)) return undefined;

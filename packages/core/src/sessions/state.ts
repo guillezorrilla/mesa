@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { type Agent, runnableAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
+import type { Agent } from '../agents/names.js';
 import { decide, type FaroDeps } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Backend, Decision, Question } from '../decisions/types.js';
@@ -64,9 +65,9 @@ export function classify(s: SessionSignals): LastState {
   });
   if (s.ended) return s.last;
   // The agent's own readers say what its hooks, listing, and screen mean.
-  const reader = runnableAgent(s.agent);
-  const fromHook = s.event && reader?.hookState(s.event.event, s.event.payload);
-  const listing = s.listed && reader?.listing.state(s.listed);
+  const reader = AGENTS[s.agent];
+  const fromHook = s.event && reader.hookState?.(s.event.event, s.event.payload);
+  const listing = s.listed && reader.listing.state(s.listed);
   if (s.window && (!s.window.exists || s.window.dead) && !listing) {
     if (FINAL_STATES.has(s.last.state)) return s.last;
     if (s.event && (fromHook === 'done' || fromHook === 'failed')) {
@@ -84,7 +85,7 @@ export function classify(s: SessionSignals): LastState {
     return { state: fromHook, confidence, source: 'hook', at: s.event.at };
   }
   if (listing) return seen(listing.state, listing.confidence, 'listing');
-  const fromTail = s.tail === undefined ? undefined : reader?.screen.state(s.tail);
+  const fromTail = s.tail === undefined ? undefined : reader.screen.state(s.tail);
   if (fromTail) return seen(fromTail, TAIL, 'tmux');
   return s.last;
 }

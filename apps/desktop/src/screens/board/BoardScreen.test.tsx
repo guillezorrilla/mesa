@@ -255,15 +255,21 @@ test('New session opens a dialog, and Open starts the picked project with the pi
     // Its folder is gone: it cannot start a session.
     ['tide', true],
   ]);
-  const codex = dialog?.querySelector<HTMLButtonElement>('[role="radio"][value="codex"]');
-  expect(codex?.disabled).toBe(true);
+  // Every agent Mesa runs, Claude Code first, as core lists them.
+  const agents = [...(dialog?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [])];
+  expect(agents.map((a) => [a.value, a.disabled, a.getAttribute('aria-checked')])).toEqual([
+    ['claude', false, 'true'],
+    ['codex', false, 'false'],
+  ]);
+  expect(dialog?.textContent).toContain('Codex');
+  await click(agents[1]);
   await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
     'open',
     '--no-parent',
     '--agent',
-    'claude',
+    'codex',
     '--',
     'lantern-cove',
   ]);

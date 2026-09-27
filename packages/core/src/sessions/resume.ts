@@ -10,7 +10,8 @@ import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
 
 /**
- * Reopens a session's agent conversation (`claude --resume`) in a new window, as a new record
+ * Reopens a session's agent conversation (`claude --resume`, `codex resume`) in its folder, in a
+ * new window, as a new record
  * linked both ways: `resumedFrom` on the new one, `resumedBy` and `endedAt` on the old one. A
  * dead window the old session left is removed first; a live one refuses.
  */
@@ -41,7 +42,7 @@ export async function resumeSession(
   if (!existsSync(folder)) {
     throw new MesaError(
       'not_found',
-      `session ${id}'s folder ${folder} is gone, and claude finds its conversation only there`,
+      `session ${id}'s folder ${folder} is gone, and ${old.agent} resumes its conversation only there`,
     );
   }
   requireOwnWorktree(deps.store, old);
@@ -54,7 +55,7 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const command = spec.resume(old.agentSessionId);
+  const command = spec.resume(old.agentSessionId, folder);
   const { record, warning } = await launchSession(
     deps,
     {

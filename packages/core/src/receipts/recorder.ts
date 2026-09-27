@@ -1,4 +1,4 @@
-import type { Agent } from '../agents/agents.js';
+import type { Agent } from '../agents/names.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';

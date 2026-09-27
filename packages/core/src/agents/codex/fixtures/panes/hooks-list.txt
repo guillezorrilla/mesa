@@ -1,0 +1,29 @@
+
+⚠ clamping Interrupt hook timeout to 3s in /Users/example/.codex/config.toml
+
+
+
+  Hooks
+  Lifecycle hooks from config and enabled plugins.
+
+  ⚠ 12 hooks need review before they can run.
+
+  Issues
+  ⚠ clamping SessionEnd hook timeout to 3s in /Users/example/.codex/config.toml
+  ⚠ clamping Interrupt hook timeout to 3s in /Users/example/.codex/config.toml
+
+  Event                 Installed   Active      Review      Description
+  PreToolUse            1           0           1           Before a tool executes
+  PermissionRequest     1           0           1           When permission is requested
+  PostToolUse           1           0           1           After a tool executes
+  PreCompact            1           0           1           Before context compaction
+  PostCompact           1           0           1           After context compaction
+  SessionStart          1           0           1           When a new session starts
+  SessionEnd            1           0           1           Right before a session ends
+  UserPromptSubmit      1           0           1           When the user submits a prompt
+  SubagentStart         1           0           1           When a subagent is created
+  SubagentStop          1           0           1           Right before a subagent ends its turn
+  Stop                  1           0           1           Right before Codex ends its turn
+  Interrupt             1           0           1           Right before an interrupted turn is aborted
+
+  Press t to trust all; enter to review hooks; esc to close

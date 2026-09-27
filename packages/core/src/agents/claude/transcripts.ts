@@ -1,5 +1,6 @@
 import { closeSync, existsSync, fstatSync, openSync, readdirSync, readSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileHead } from '../../lib/file-head.js';
 
 // Claude Code's transcripts, `<transcripts>/<folder>/<agent session id>.jsonl`: what Mesa reads
 // from them.
@@ -20,16 +21,7 @@ export function transcriptFile(transcripts: string, id: string): string | undefi
 export function transcriptCwd(transcripts: string, id: string): string | undefined {
   const file = transcriptFile(transcripts, id);
   if (!file) return undefined;
-  const fd = openSync(file, 'r');
-  const head = Buffer.alloc(HEAD_BYTES);
-  const read = (() => {
-    try {
-      return readSync(fd, head, 0, HEAD_BYTES, 0);
-    } finally {
-      closeSync(fd);
-    }
-  })();
-  for (const line of head.subarray(0, read).toString('utf8').split('\n')) {
+  for (const line of fileHead(file, HEAD_BYTES).split('\n')) {
     try {
       const cwd = (JSON.parse(line) as { cwd?: unknown }).cwd;
       if (typeof cwd === 'string') return cwd;

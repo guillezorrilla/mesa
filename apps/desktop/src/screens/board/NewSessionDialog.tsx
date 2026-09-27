@@ -1,4 +1,5 @@
 import type { Agent } from '@mesa/core';
+import { AGENT_LABELS, AGENT_NAMES, DEFAULT_AGENT } from '@mesa/core/browser';
 import { Play } from 'lucide-react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Input } from '@/components/ui/input';
@@ -11,7 +12,7 @@ import { useCommand } from '@/lib/useCommand';
 export type NewSessionInput = { project: string; agent: Agent; goal: string; branch: string };
 
 /**
- * The New session dialog, modal: a registered project, an agent (v1 runs Claude Code only), an
+ * The New session dialog, modal: a registered project, an agent (every one Mesa runs), an
  * optional goal, the agent's first prompt, and an optional branch, for its own git worktree.
  */
 export function NewSessionDialog(props: {
@@ -42,7 +43,7 @@ export function NewSessionDialog(props: {
         const goal = form.elements.namedItem('goal') as HTMLTextAreaElement;
         props.onOpen({
           project: String(data.get('project') ?? ''),
-          agent: String(data.get('agent') ?? 'claude') as Agent,
+          agent: String(data.get('agent') ?? DEFAULT_AGENT) as Agent,
           goal: goal.value,
           branch: String(data.get('branch') ?? ''),
         });
@@ -68,17 +69,13 @@ export function NewSessionDialog(props: {
       </div>
       <fieldset className="grid gap-2">
         <legend className="mb-2 font-medium text-sm">Agent</legend>
-        <RadioGroup name="agent" defaultValue="claude" className="flex gap-6">
-          <div className="flex items-center gap-2">
-            <RadioGroupItem id="agent-claude" value="claude" />
-            <Label htmlFor="agent-claude">Claude Code</Label>
-          </div>
-          <div className="flex items-center gap-2" title="Codex support is planned in #43">
-            <RadioGroupItem id="agent-codex" value="codex" disabled />
-            <Label htmlFor="agent-codex" className="text-muted-foreground">
-              Codex (planned)
-            </Label>
-          </div>
+        <RadioGroup name="agent" defaultValue={DEFAULT_AGENT} className="flex gap-6">
+          {AGENT_NAMES.map((agent) => (
+            <div key={agent} className="flex items-center gap-2">
+              <RadioGroupItem id={`agent-${agent}`} value={agent} />
+              <Label htmlFor={`agent-${agent}`}>{AGENT_LABELS[agent]}</Label>
+            </div>
+          ))}
         </RadioGroup>
       </fieldset>
       <div className="grid gap-2">
