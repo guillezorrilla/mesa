@@ -1,4 +1,14 @@
-import { closeSync, openSync, readFileSync, statSync, writeSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+  writeSync,
+} from 'node:fs';
 import { expect, test } from 'vitest';
 import { plantOutputLog, profilePaths, tempDir } from '../testing/index.js';
 import { outputTail } from './output-log.js';
@@ -63,6 +73,26 @@ test('a log over 20 MB is cut in place to its last 5 MB, from a whole line, and 
   }
   expect(readFileSync(file, 'utf8').endsWith(`${line(count - 1)}after the cut\n`)).toBe(true);
   expect(statSync(file).size).toBeLessThan(6 * MB);
+});
+
+test('a cut waits for another mesa cutting the same log, then finds it cut and leaves it', async () => {
+  const home = tempDir();
+  const file = plantOutputLog(home, 'a1b2c3d4', Buffer.alloc(20 * MB + 2, 'x\n'));
+  // Another mesa is cutting it (a stop, while the pane-died hook reads): it holds the lock beside
+  // the log, and lets go once the log is cut. This one saw the log over 20 MB before it waited.
+  const lock = `${file}.lock`;
+  writeFileSync(lock, 'another mesa');
+  const other = spawn('/bin/sh', [
+    '-c',
+    `sleep 0.3; printf 'cut by the other mesa\n' > "$0"; rm "$1"`,
+    file,
+    lock,
+  ]);
+  const lines = outputTail(profilePaths(home, 'default').logs, 'a1b2c3d4');
+  await once(other, 'exit');
+  expect(lines).toEqual(['cut by the other mesa']);
+  expect(readFileSync(file, 'utf8')).toBe('cut by the other mesa\n');
+  expect(existsSync(lock)).toBe(false);
 });
 
 test('a log of 20 MB or less is left whole', () => {

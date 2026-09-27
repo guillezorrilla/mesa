@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { plainText } from '../lib/terminal-text.js';
 
 // A session's output log: everything its window printed, which tmux's pipe-pane appends to
@@ -31,21 +32,34 @@ export function prepareOutputLog(dir: string, id: string) {
 /**
  * Cuts a log over MAX_BYTES to its last KEEP_BYTES, from the first whole line, in place: the
  * window's `cat >>` keeps appending to the same file, which a rename would take away from it.
- * What the agent prints during the cut may be lost.
+ * What the agent prints during the cut may be lost. Under a lock beside the log, as a stop and
+ * the pane-died hook may both cut it: the size is read again once the lock is held, so a second
+ * cutter finds the log cut and leaves it, and only bytes read are written back.
  * ponytail: cut only when Mesa reads the log (mesa logs, a stop, an agent's exit); a live session
  * nobody reads grows past 20 MB until then.
  */
 function cut(file: string) {
-  const { size } = statSync(file);
-  if (size <= MAX_BYTES) return;
-  const tail = Buffer.alloc(KEEP_BYTES);
-  const fd = openSync(file, 'r');
-  try {
-    readSync(fd, tail, 0, KEEP_BYTES, size - KEEP_BYTES);
-  } finally {
-    closeSync(fd);
-  }
-  writeFileSync(file, tail.subarray(tail.indexOf(0x0a) + 1));
+  if (statSync(file).size <= MAX_BYTES) return;
+  const lock = `${file}.lock`;
+  const busy = () => lockedBy(`the output log ${file}`, lock, 'output-log');
+  withLockSync(
+    lock,
+    () => {
+      const { size } = statSync(file);
+      if (size <= MAX_BYTES) return;
+      const tail = Buffer.alloc(KEEP_BYTES);
+      const fd = openSync(file, 'r');
+      let read = 0;
+      try {
+        read = readSync(fd, tail, 0, KEEP_BYTES, size - KEEP_BYTES);
+      } finally {
+        closeSync(fd);
+      }
+      const kept = tail.subarray(0, read);
+      writeFileSync(file, kept.subarray(kept.indexOf(0x0a) + 1));
+    },
+    busy,
+  );
 }
 
 /**
