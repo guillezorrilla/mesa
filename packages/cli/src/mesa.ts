@@ -18,6 +18,7 @@ const [{ randomBytes, randomUUID }, { homedir }, { setTimeout: sleep }, { fileUR
 const { execRunner, macObsidianPaths, systemClock, ulidSource } = await import('@mesa/core');
 const { runCli } = await import('./cli.js');
 const { COMMANDS } = await import('./commands/index.js');
+const { terminalConfirm } = await import('./confirm.js');
 
 /** All of stdin, for a hook's payload. */
 const readStdin = async () => {
@@ -32,6 +33,8 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
   env: process.env,
   tty: Boolean(process.stdin.isTTY),
   stdin: readStdin,
+  // Only a terminal has a person to ask.
+  ...(process.stdin.isTTY ? { confirm: terminalConfirm(process.stdin, process.stderr) } : {}),
   mesa: {
     home,
     cwd: process.cwd(),

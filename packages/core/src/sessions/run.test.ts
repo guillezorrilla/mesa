@@ -287,3 +287,54 @@ test('a skill the project does not see or enable, another agent, or a bad timeou
   expect(testStore(home).list()).toEqual([]);
   expect(listReceipts(join(home, 'vault')).map((r) => r.receipt.status)).toContain('failed');
 });
+
+test('the guardrail gates a run before anything is written: a block or an ask opens nothing; --yes and --force run it', async () => {
+  const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  const strict = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nguardrail: strict\nskills: [session-summary]\n',
+    argv: ['run', 'session-summary', '--project', 'lantern-cove'],
+  });
+  const run = (opts: { args?: string[]; yes?: boolean; force?: boolean } = {}) =>
+    strict.mesa.sessions.run('session-summary', { project: 'lantern-cove', ...opts });
+  const latest = () => listReceipts(join(strict.home, 'vault'), 1)[0]?.receipt;
+
+  await expect(run()).rejects.toMatchObject({
+    code: 'guardrail_blocked',
+    message:
+      'the guardrail asks first: project lantern-cove has guardrail: strict; pass --yes to run it',
+    details: { verdict: 'ask' },
+  });
+  expect(world.calls.some((c) => c.args.includes('new-session'))).toBe(false);
+  expect(testStore(strict.home).list()).toEqual([]);
+  expect(latest()).toMatchObject({
+    type: 'skill',
+    status: 'blocked',
+    decisions: [{ question: 'verdict', answer: 'ask', confidence: 0.95 }, { answer: false }],
+    outputs: { error: { code: 'guardrail_blocked' } },
+  });
+
+  // A destructive prompt is blocked even past --yes; --force runs it.
+  await expect(run({ args: ['rm', '-rf', '/'], yes: true })).rejects.toMatchObject({
+    code: 'guardrail_blocked',
+    message:
+      'blocked: the text holds a destructive command (rm -rf); pass --force to run it anyway',
+  });
+  expect(testStore(strict.home).list()).toEqual([]);
+  const forced = await run({ args: ['rm', '-rf', '/'], force: true });
+  expect(forced.result).toMatchObject({ ok: true, override: 'force' });
+  expect(latest()).toMatchObject({
+    status: 'ok',
+    inputs: { force: true },
+    outputs: { override: 'force' },
+    decisions: [{ answer: 'block' }, { answer: true }],
+  });
+
+  const yes = await run({ yes: true });
+  expect(yes.result).toMatchObject({ ok: true, override: 'yes' });
+  expect(latest()).toMatchObject({
+    status: 'ok',
+    inputs: { yes: true },
+    outputs: { override: 'yes', window: `claude-${yes.result.session}` },
+  });
+  expect(testStore(strict.home).list()).toHaveLength(2);
+});

@@ -133,8 +133,8 @@ export async function decide<S>(
   try {
     await deps.recorder?.record(decision);
   } catch {
-    // ponytail: a record never fails the decision it keeps (docs/receipts.md); P3's receipt
-    // recorder surfaces its failure as the action's receipt warning.
+    // A record never fails the decision it keeps (docs/receipts.md): the action recorder's only
+    // collects it, and the receipt that writes it warns when it cannot.
   }
   return decision;
 }

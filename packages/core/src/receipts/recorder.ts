@@ -1,9 +1,10 @@
 import type { Agent } from '../agents/agents.js';
+import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
 import { toFail } from '../lib/result.js';
 import { acceptsMesaWrites } from '../vault/vault.js';
-import type { ReceiptInput } from './schema.js';
+import { decisionEntries, type ReceiptInput } from './schema.js';
 import { writeReceipt } from './store.js';
 
 /** What one action's receipt says, given the action's result. */
@@ -39,9 +40,10 @@ export const joinWarnings = (...parts: (string | undefined)[]) =>
 
 /**
  * Runs actions, sync or async, and records each as a receipt (`action` unless the spec says
- * `session` or `skill`). A failed action is recorded `failed` (best effort) and rethrown. A receipt never
- * fails the action it records: when the vault cannot take one, the result carries a warning,
- * after the action's own (`warning`).
+ * `session` or `skill`). Each action is handed a DecisionRecorder: every Faro decision made on it
+ * lands in the receipt's `decisions`. A failed action is recorded `failed`, or `blocked` when a
+ * guardrail stopped it (best effort), and rethrown. A receipt never fails the action it records:
+ * when the vault cannot take one, the result carries a warning, after the action's own (`warning`).
  */
 export function actionRecorder(deps: {
   profile: string;
@@ -54,7 +56,8 @@ export function actionRecorder(deps: {
 }) {
   // Everything here is guarded: a receipt problem never escapes into the action's outcome.
   const write = (
-    input: Omit<ReceiptInput, 'profile' | 'command'>,
+    input: Omit<ReceiptInput, 'profile' | 'command' | 'decisions'>,
+    made: readonly Decision[],
     argv?: readonly string[],
   ): Omit<Recorded<unknown>, 'result'> => {
     try {
@@ -68,7 +71,12 @@ export function actionRecorder(deps: {
       }
       const { receipt, path, warning } = writeReceipt(
         { vault, clock: deps.clock, newId: deps.newId },
-        { profile: deps.profile, command: deps.command(argv), ...input },
+        {
+          profile: deps.profile,
+          command: deps.command(argv),
+          decisions: made.flatMap(decisionEntries),
+          ...input,
+        },
       );
       return { receipt: { id: receipt.id, path }, ...(warning ? { warning } : {}) };
     } catch (error) {
@@ -76,20 +84,23 @@ export function actionRecorder(deps: {
     }
   };
 
-  const failed = <T>(spec: ActionSpec<T>, error: unknown) => {
+  const failed = <T>(spec: ActionSpec<T>, error: unknown, made: readonly Decision[]) => {
+    // The code and message: a guardrail's details are its decision, in `decisions` already.
+    const { code, message } = toFail(error).error;
     write(
       {
         type: spec.type ?? 'action',
-        status: 'failed',
+        status: code === 'guardrail_blocked' ? 'blocked' : 'failed',
         summary: spec.failure,
         inputs: spec.inputs,
-        outputs: { error: toFail(error).error },
+        outputs: { error: { code, message } },
       },
+      made,
       spec.argv,
     );
     return error;
   };
-  const succeeded = <T>(spec: ActionSpec<T>, result: T): Recorded<T> => {
+  const succeeded = <T>(spec: ActionSpec<T>, result: T, made: readonly Decision[]): Recorded<T> => {
     const own = spec.warning?.(result);
     if (spec.changed && !spec.changed(result)) {
       return { result, receipt: null, ...(own ? { warning: own } : {}) };
@@ -105,26 +116,29 @@ export function actionRecorder(deps: {
         inputs: spec.inputs,
         outputs: spec.outputs?.(result) ?? {},
       },
+      made,
       spec.argv,
     );
     const warning = joinWarnings(own, written.warning);
     return { result, receipt: written.receipt, ...(warning ? { warning } : {}) };
   };
 
-  function record<T>(spec: ActionSpec<T>, action: () => Promise<T>): Promise<Recorded<T>>;
-  function record<T>(spec: ActionSpec<T>, action: () => T): Recorded<T>;
-  function record<T>(spec: ActionSpec<T>, action: () => T | Promise<T>) {
+  type Action<T> = (decisions: DecisionRecorder) => T;
+  function record<T>(spec: ActionSpec<T>, action: Action<Promise<T>>): Promise<Recorded<T>>;
+  function record<T>(spec: ActionSpec<T>, action: Action<T>): Recorded<T>;
+  function record<T>(spec: ActionSpec<T>, action: Action<T | Promise<T>>) {
+    const made: Decision[] = [];
     let result: T | Promise<T>;
     try {
-      result = action();
+      result = action({ record: (decision) => void made.push(decision) });
     } catch (error) {
-      throw failed(spec, error);
+      throw failed(spec, error, made);
     }
-    if (!(result instanceof Promise)) return succeeded(spec, result);
+    if (!(result instanceof Promise)) return succeeded(spec, result, made);
     return result.then(
-      (value) => succeeded(spec, value),
+      (value) => succeeded(spec, value, made),
       (error) => {
-        throw failed(spec, error);
+        throw failed(spec, error, made);
       },
     );
   }

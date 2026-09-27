@@ -39,8 +39,8 @@ test('mesa help --agent lists every registered command; --json has one entry eac
   for (const c of data) expect(markdown).toContain(`\n### \`${c.usage}\`\n`);
   expect(data.find((c: { name: string }) => c.name === 'send')).toEqual({
     name: 'send',
-    usage: 'mesa send <session> <prompt> [--force] [--from <string>] [--no-from]',
-    description: "Type a prompt into a session's agent, then Enter",
+    usage: 'mesa send <session> <prompt> [--force] [--yes] [--from <string>] [--no-from]',
+    description: "Type a prompt into a session's agent, then Enter, once the guardrail allows it",
     args: [
       { name: 'session', required: true },
       { name: 'prompt', required: true },
@@ -51,7 +51,13 @@ test('mesa help --agent lists every registered command; --json has one entry eac
         type: 'boolean',
         required: false,
         description:
-          'Send even when the pane runs a shell, or, as a person, when the agent waits on one',
+          'Send anyway: past a guardrail block or ask, a pane that runs a shell, or, as a person, an agent waiting on one',
+      },
+      {
+        name: 'yes',
+        type: 'boolean',
+        required: false,
+        description: 'Send past a guardrail ask (a strict project) without asking y/N',
       },
       {
         name: 'from',

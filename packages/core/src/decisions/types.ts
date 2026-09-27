@@ -100,5 +100,8 @@ export type Backend<S = unknown> = {
   answer: (state: S, questions: Question[]) => Promise<unknown>;
 };
 
-/** Where decisions go once made: receipts implement it in P3; tests keep them in memory. */
+/**
+ * Where decisions go once made: the action recorder hands each action one, so they land in its
+ * receipt (receipts/recorder.ts); tests keep them in memory.
+ */
 export type DecisionRecorder = { record: (decision: Decision) => void | Promise<void> };

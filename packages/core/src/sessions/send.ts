@@ -1,4 +1,4 @@
-import { guardrail } from '../decisions/guardrail.js';
+import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Caller } from './caller.js';
@@ -16,6 +16,8 @@ export type Sent = {
   /** The session that sent it, or null. */
   from: string | null;
   chars: number;
+  /** What let it past the guardrail: --yes or a person's yes on an ask, --force. */
+  override?: Override;
   /** Sent, but an event could not be written. */
   warning?: string;
 };
@@ -65,8 +67,9 @@ function senderOf(
  * adds a `send` event to its record. From another session (`from`, else the window this runs
  * in, unless `noFrom`), a header line first names the sender and how to reply, and the sender's
  * record gets a `sent` event. A session that exited is not_found; a skill run, a pane running a
- * shell, or an agent waiting on a person, is a usage error; `force` sends anyway, except from another session
- * into a wait, which only a person answers (ADR-0003).
+ * shell, or an agent waiting on a person, is a usage error; `force` sends anyway, except from
+ * another session into a wait, which only a person answers (ADR-0003). Once those pass, `guard`
+ * (the guardrail, with the caller's overrides) has the last word before anything is typed.
  */
 export async function sendPrompt(
   deps: {
@@ -74,6 +77,8 @@ export async function sendPrompt(
     tmux: Pick<TmuxBackend, 'findWindow' | 'sendText'>;
     clock: Clock;
     caller: () => Caller;
+    /** The guardrail: throws guardrail_blocked, or returns the override that let it through. */
+    guard: (action: Guarded) => Promise<Override | undefined>;
   },
   id: string,
   prompt: string,
@@ -106,12 +111,12 @@ export async function sendPrompt(
     );
   }
 
-  // Guardrail hook point: see decisions/guardrail.ts.
-  await guardrail({
-    session: id,
-    project: record.project,
+  // Last, so a person is never asked about a send that would be refused anyway.
+  const override = await deps.guard({
+    action: 'send',
+    target: id,
     text: prompt,
-    ...(sender ? { from: sender.id } : {}),
+    project: record.project,
   });
 
   try {
@@ -156,6 +161,7 @@ export async function sendPrompt(
     project: record.project,
     from: sender?.id ?? null,
     chars,
+    ...(override ? { override } : {}),
     ...(problems.length
       ? { warning: `the prompt was typed, but ${problems.join('; ')}; do not send it again` }
       : {}),

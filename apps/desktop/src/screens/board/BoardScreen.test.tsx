@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { TreeRow } from '@mesa/core';
+import type { GuardrailCheck, TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
@@ -19,6 +19,7 @@ import {
   managedRow,
   PROJECTS,
   renderWithMesa,
+  toasts,
   toastTexts,
 } from '@/lib/testing';
 
@@ -734,6 +735,103 @@ test('a send typed with a warning says so in the toast, so it is not sent again'
   (byTestId('session-prompt')[0] as HTMLInputElement).value = 'hello';
   await click(byTestId('session-send-submit')[0]);
   expect(byTestId('toast')[0]?.textContent).toContain('do not send it again');
+});
+
+/** The envelope `mesa send --json` prints when the guardrail stops a prompt. */
+const guardrailStopped = (verdict: 'ask' | 'block', reason: string) => ({
+  ok: false,
+  error: {
+    code: 'guardrail_blocked',
+    message: reason,
+    details: {
+      verdict,
+      reason,
+      decision: {
+        questions: [
+          { kind: 'Choice', id: 'verdict', options: ['allow', 'ask', 'block'] },
+          {
+            kind: 'Noul',
+            id: 'secret-or-destructive',
+            statement: 'This text contains a secret or a destructive instruction',
+          },
+        ],
+        answers: [
+          {
+            id: 'verdict',
+            kind: 'Choice',
+            answer: verdict,
+            probabilities: { allow: 0.04, ask: 0.95, block: 0.01 },
+            confidence: 0.95,
+          },
+          {
+            id: 'secret-or-destructive',
+            kind: 'Noul',
+            answer: verdict === 'block',
+            probabilities: verdict === 'block' ? 0.95 : 0.05,
+          },
+        ],
+        backend: 'rules',
+        at: '2026-09-25T12:00:00.000Z',
+        latencyMs: 0,
+      },
+    } satisfies GuardrailCheck,
+  },
+});
+
+test("the guardrail's ask opens a dialog with its reason and decision; Send anyway sends with --yes", async () => {
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    send: (args) =>
+      args.includes('--yes')
+        ? envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5, override: 'yes' })
+        : guardrailStopped('ask', 'project lantern-cove has guardrail: strict'),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const box = () => byTestId('session-prompt')[0] as HTMLInputElement;
+  box().value = 'hello';
+  await click(byTestId('session-send-submit')[0]);
+  expect(byTestId('guardrail-dialog')[0]?.textContent).toContain(
+    'Project lantern-cove has guardrail: strict.',
+  );
+  expect(
+    [...(byTestId('guardrail-decision')[0]?.querySelectorAll('dd') ?? [])].map(
+      (d) => d.textContent,
+    ),
+  ).toEqual(['ask, 95% sure', '5%', 'rules']);
+  expect(byTestId('toast')).toEqual([]);
+
+  // Cancel keeps the prompt, unsent.
+  const buttons = byTestId('guardrail-dialog')[0]?.querySelectorAll('button') ?? [];
+  await click([...buttons].find((b) => b.textContent === 'Cancel'));
+  expect(byTestId('guardrail-dialog')).toEqual([]);
+  expect(box().value).toBe('hello');
+
+  await click(byTestId('session-send-submit')[0]);
+  await click(byTestId('guardrail-send')[0]);
+  expect(calls.filter((c) => c[1] === 'send')).toEqual([
+    ['--json', 'send', '--no-from', '--', 'aaaaaaaa', 'hello'],
+    ['--json', 'send', '--no-from', '--', 'aaaaaaaa', 'hello'],
+    ['--json', 'send', '--no-from', '--yes', '--', 'aaaaaaaa', 'hello'],
+  ]);
+  expect(byTestId('guardrail-dialog')).toEqual([]);
+  expect(box().value).toBe('');
+  expect(toastTexts(byTestId)).toEqual(['Sent 5 characters to aaaaaaaa']);
+});
+
+test("the guardrail's block is said in the toast, with no way past it in the app", async () => {
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    send: () => guardrailStopped('block', 'the text holds a destructive command (rm -rf)'),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  (byTestId('session-prompt')[0] as HTMLInputElement).value = 'run rm -rf /';
+  await click(byTestId('session-send-submit')[0]);
+  expect(byTestId('guardrail-dialog')).toEqual([]);
+  expect(toasts(byTestId)).toEqual([
+    ['alert', 'Not sent to aaaaaaaa: the text holds a destructive command (rm -rf)'],
+  ]);
+  expect(calls.filter((c) => c[1] === 'send')).toHaveLength(1);
+  expect((byTestId('session-prompt')[0] as HTMLInputElement).value).toBe('run rm -rf /');
 });
 
 test("the row menu's Rename names a session; the Board shows the name in place of its id", async () => {

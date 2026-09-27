@@ -3,6 +3,7 @@
 export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents/agents.js';
 export type { ClaudeHooksStatus, HooksStatus } from './agents/claude/hooks.js';
 export type { CommandReference } from './command-reference.js';
+export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { Decision } from './decisions/types.js';
 export {
   attentionScore,

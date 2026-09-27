@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { claudeResult, finishesRun, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -103,4 +105,40 @@ test('run refuses a bad timeout, a missing --project, and a skill not enabled be
     /^skill session-summary is not enabled/,
   );
   expect(world.windows).toEqual([]);
+});
+
+test('in a strict project, run --json with no terminal is guardrail_blocked, exit 5, opening nothing; --yes runs it', async () => {
+  const world = cli.withTmux({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  const dir = await cli.withProject();
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    'name: lantern-cove\nguardrail: strict\nskills: [session-summary]\n',
+  );
+  const run = (...more: string[]) =>
+    mesa('run', 'session-summary', '--project', 'lantern-cove', '--json', ...more);
+
+  const asked = await run();
+  expect(asked.code).toBe(5);
+  expect(asked.json.error).toMatchObject({
+    code: 'guardrail_blocked',
+    details: { verdict: 'ask', reason: 'project lantern-cove has guardrail: strict' },
+  });
+  expect(world.windows).toEqual([]);
+  expect(testStore(cli.home).list()).toEqual([]);
+  const [blocked] = (await mesa('receipts', '--json', '--limit', '1')).json.data;
+  expect(blocked.receipt).toMatchObject({ type: 'skill', status: 'blocked' });
+
+  const destructive = await run('--', 'rm', '-rf', '/');
+  expect(destructive).toMatchObject({
+    code: 5,
+    json: { error: { details: { verdict: 'block' } } },
+  });
+  expect(testStore(cli.home).list()).toEqual([]);
+
+  const yes = await run('--yes');
+  expect(yes.code).toBe(0);
+  expect(yes.json.data).toMatchObject({ ok: true, override: 'yes' });
+  const shown = await mesa('receipts', 'show', yes.json.data.receipt.id, '--json');
+  expect(shown.json.data.receipt.outputs).toMatchObject({ override: 'yes' });
+  expect(testStore(cli.home).list()).toHaveLength(1);
 });

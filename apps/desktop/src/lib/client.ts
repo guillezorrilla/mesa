@@ -78,10 +78,14 @@ const COMMANDS = {
   'receipts.list': command<ReceiptEntry[]>('receipts'),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
-  'sessions.send': commandWith<{ id: string; prompt: string }, Recorded<Omit<Sent, 'project'>>>(
+  'sessions.send': commandWith<
+    { id: string; prompt: string; yes?: boolean },
+    Recorded<Omit<Sent, 'project'>>
+  >(
     // `--no-from`: a person typing here is not a session sending, even when the app itself was
-    // started inside a Mesa window.
-    ({ id, prompt }) => ['send', '--no-from', '--', id, prompt],
+    // started inside a Mesa window. `--yes` answers a guardrail's ask; the app never passes
+    // `--force`, so a block is final here.
+    ({ id, prompt, yes }) => ['send', '--no-from', ...(yes ? ['--yes'] : []), '--', id, prompt],
   ),
   'sessions.rename': commandWith<{ id: string; name: string }, Recorded<SessionRecord>>(
     ({ id, name }) => ['rename', '--', id, name],
