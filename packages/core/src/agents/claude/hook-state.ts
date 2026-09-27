@@ -1,4 +1,4 @@
-import type { SessionState } from '../../sessions/record.js';
+import type { SessionState } from '../../sessions/states.js';
 
 // What Claude Code's hook events mean as a session state (docs/spikes/state-signals.md).
 

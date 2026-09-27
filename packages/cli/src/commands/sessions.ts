@@ -1,4 +1,12 @@
-import { duration, sessionBranch, sessionLabel, waitingOn } from '@mesa/core/view';
+import {
+  attentionScore,
+  contextPercent,
+  duration,
+  percent,
+  sessionBranch,
+  sessionLabel,
+  waitingOn,
+} from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 
@@ -28,10 +36,10 @@ export const sessions = defineCommand({
             sessionBranch(s) ? `${s.project} (${sessionBranch(s)})` : (s.project ?? '-'),
             s.agent,
             s.lastState.state,
-            `${Math.round(s.lastState.confidence * 100)}%`,
-            s.attention.toFixed(2),
+            percent(s.lastState.confidence),
+            attentionScore(s.attention),
             // Its context use, labelled, as the columns have no header.
-            `ctx ${s.managed && s.context ? `${Math.round(s.context.used)}%` : '-'}`,
+            `ctx ${s.managed && s.context ? `${contextPercent(s.context.used)}%` : '-'}`,
             duration(s.runningSeconds),
             !s.managed
               ? 'not managed by mesa'

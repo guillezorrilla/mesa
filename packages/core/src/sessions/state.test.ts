@@ -4,8 +4,8 @@ import { expect, test } from 'vitest';
 import { claudeHookState as hookState } from '../agents/claude/hook-state.js';
 import type { FaroProfile } from '../decisions/decide.js';
 import { fixedClock } from '../testing/index.js';
-import { AGENT_STATES } from './record.js';
 import { attentionWeights, classify, classifySession, type SessionSignals } from './state.js';
+import { AGENT_STATES } from './states.js';
 
 const dir = join(import.meta.dirname, 'fixtures/state');
 const fixtures = readdirSync(dir)

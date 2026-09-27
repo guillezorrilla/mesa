@@ -1,5 +1,11 @@
 import type { TreeRow } from '@mesa/core';
-import { duration, sessionBranch, sessionLabel, waitingOn } from '@mesa/core/view';
+import {
+  attentionScore,
+  duration,
+  sessionBranch,
+  sessionLabel,
+  waitingOn,
+} from '@mesa/core/browser';
 import { Download, Forward, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
 import { ContextBar } from '@/components/ContextBar';
 import { StateBadge } from '@/components/StateBadge';
@@ -105,7 +111,7 @@ export function SessionRow(props: {
         />
       </TableCell>
       <TableCell data-testid="session-attention" className="font-mono tabular-nums">
-        {s.attention.toFixed(2)}
+        {attentionScore(s.attention)}
       </TableCell>
       <TableCell data-testid="session-context">
         {s.managed && s.context ? (

@@ -1,9 +1,9 @@
-import type { SessionRow, SessionState, TreeRow } from '@mesa/core';
-import { listPrice } from '@mesa/core/view';
+import type { SessionRow, TreeRow } from '@mesa/core';
+import { FINAL_STATES, listPrice } from '@mesa/core/browser';
 
 // What the Board derives from a row: pure, so every piece of the Board reads it the same way.
-// How a row's label, branch, and numbers read is core's view (`@mesa/core/view`), which the CLI
-// shares.
+// How a row's label, branch, and numbers read, and which states are final or waiting, is core's
+// (`@mesa/core/browser`), which the CLI shares.
 
 /**
  * Who placed the row: Faro's backend, and the adapter's list price when it answered; Mesa, for a
@@ -12,17 +12,8 @@ import { listPrice } from '@mesa/core/view';
 export const decidedBy = (d?: { backend: string; costUsd?: number }) =>
   d ? `decided by ${d.backend}${listPrice(d.costUsd)}` : 'set by Mesa: its agent has not run';
 
-// ponytail: core's FINAL_STATES and WAITING_STATES, copied: the app imports core's types only (it
-// reaches Mesa through the bridge), and typing them as SessionState makes a renamed state fail
-// typecheck here.
-const FINISHED: ReadonlySet<SessionState> = new Set(['done', 'failed', 'stopped']);
-export const WAITING: ReadonlySet<SessionState> = new Set([
-  'waiting-permission',
-  'waiting-question',
-]);
-
 /** Its agent has exited: stopped, its window gone, or its pane dead (done or failed). */
-export const exited = (s: SessionRow) => !s.alive || FINISHED.has(s.lastState.state);
+export const exited = (s: SessionRow) => !s.alive || FINAL_STATES.has(s.lastState.state);
 /** A Mesa session waiting to start (mesa open --after): a Stop cancels it. */
 export const queued = (s: SessionRow) => s.managed && s.lastState.state === 'queued';
 /** A row whose clock still runs. */

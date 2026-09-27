@@ -9,7 +9,8 @@ import { joinWarnings } from '../receipts/recorder.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
 import { type LaunchDeps, launchSession } from './launch.js';
-import { isAgentState, type SessionRecord } from './record.js';
+import type { SessionRecord } from './record.js';
+import { isAgentState } from './states.js';
 
 // A handoff (CONTEXT.md, Handoff): a session's work continues in a successor that starts from the
 // same goal and a note of where the work stands.

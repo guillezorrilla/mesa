@@ -1,5 +1,4 @@
-import { MesaError } from '@mesa/core';
-import { listPrice } from '@mesa/core/view';
+import { listPrice, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 

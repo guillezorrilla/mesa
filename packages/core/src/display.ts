@@ -1,7 +1,7 @@
 import type { SessionRow } from './sessions/board/rows.js';
 
 // How Mesa shows a session row and its numbers to a person, the same in `mesa sessions` and on
-// the Board. Pure, and with type imports only, so the app bundles it as `@mesa/core/view`.
+// the Board. Pure, and with type imports only, so the app bundles it (`@mesa/core/browser`).
 
 /** A session's name when a person gave it one, else its id. */
 export const sessionLabel = (s: SessionRow) => (s.managed && s.name ? s.name : s.id);
@@ -24,3 +24,12 @@ export function duration(seconds: number): string {
 /** What an adapter's answer cost at list price, as ` (list price $0.0123)`; nothing when free. */
 export const listPrice = (costUsd: number | undefined) =>
   costUsd === undefined ? '' : ` (list price $${costUsd.toFixed(4)})`;
+
+/** A share of 1 as a whole percent: a state's confidence, `95%`. */
+export const percent = (share: number) => `${Math.round(share * 100)}%`;
+
+/** A session's attention score (0 to 1) as it reads: `0.83`. */
+export const attentionScore = (attention: number) => attention.toFixed(2);
+
+/** How full a session's context is, as the whole percent shown: 0 to 100 whatever the reading. */
+export const contextPercent = (used: number) => Math.round(Math.min(100, Math.max(0, used)));

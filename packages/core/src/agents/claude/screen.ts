@@ -10,7 +10,7 @@
 // and there is no idle debounce, since the board reads one snapshot (at 0.6, only when no hook
 // or listing speaks).
 
-import type { SessionState } from '../../sessions/record.js';
+import type { SessionState } from '../../sessions/states.js';
 
 const SPINNER_CHARS = '✱✲✳✴✵✶✷✸✹✺✻✼✽✾✿❀❁❂❃❇❈❉❊❋✢✣✤✥✦✧✨⊛⊕⊙◉◎◍⁂⁕※⍟☼★☆·•⏺▸▹∙⋅○●';
 const SPINNER_ACTIVITY = new RegExp(`^[${SPINNER_CHARS}] \\S+ing.*\u2026`, 'm');
