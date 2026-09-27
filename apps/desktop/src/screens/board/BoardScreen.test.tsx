@@ -757,11 +757,46 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
   await click(endedMenu);
   await click(byTestId('session-remove')[0]);
   const listed = () => byTestId('remove-list')[0]?.textContent;
-  expect(listed()).toBe("session cccccccc's record and its hook log");
+  expect(listed()).toBe("session cccccccc's record, its hook log, and its output log");
   await click(byTestId('remove-worktree')[0]);
   expect(listed()).toContain(`its worktree ${worktree.path}`);
   await click(byTestId('remove-confirm')[0]);
   expect(calls).toContainEqual(['--json', 'rm', '--delete-worktree', '--', 'cccccccc']);
   expect(byTestId('toast')[0]?.textContent).toContain('Removed session cccccccc with its worktree');
   expect(byTestId('remove-dialog')).toHaveLength(0);
+});
+
+test("the row menu's Log shows a session's last output lines, and reads them again on Refresh", async () => {
+  let lines = ['Reading the tide tables', 'High water 06:12'];
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([busy, exited] satisfies TreeRow[]),
+    logs: (args) =>
+      envelope(
+        args.at(-1) === 'bbbbbbbb'
+          ? { session: 'bbbbbbbb', path: '/h/.mesa/default/sessions/logs/bbbbbbbb.log', lines }
+          : { session: 'cccccccc', path: null, lines: [] },
+      ),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const [liveMenu, endedMenu] = byTestId('row-menu');
+  await click(liveMenu);
+  await click(byTestId('session-log')[0]);
+  expect(calls).toContainEqual(['--json', 'logs', '--tail', '200', '--', 'bbbbbbbb']);
+  expect(byTestId('log-dialog')[0]?.textContent).toContain('Log of bbbbbbbb');
+  expect(byTestId('log-lines')[0]?.textContent).toBe('Reading the tide tables\nHigh water 06:12');
+  lines = [...lines, 'Low water 12:25'];
+  await click(byTestId('log-refresh')[0]);
+  expect(byTestId('log-lines')[0]?.textContent).toBe(
+    'Reading the tide tables\nHigh water 06:12\nLow water 12:25',
+  );
+  await click(
+    byTestId('log-dialog')[0]?.querySelector<HTMLElement>('button[type="button"]') ?? undefined,
+  );
+  expect(byTestId('log-dialog')).toHaveLength(0);
+
+  // One with no output log says why it may have none.
+  await click(endedMenu);
+  await click(byTestId('session-log')[0]);
+  expect(byTestId('log-said')[0]?.textContent).toMatch(/^No output log: it has not started/);
+  expect(byTestId('log-lines')).toHaveLength(0);
 });

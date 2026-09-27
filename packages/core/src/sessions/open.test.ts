@@ -82,6 +82,13 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     '/bin/sh',
     '-c',
     'claude --session-id 00000000-0000-4000-8000-000000000001',
+    // Its output log, from the first byte: the pipe starts in the same call.
+    ';',
+    'pipe-pane',
+    '-o',
+    '-t',
+    `=lantern-cove:=claude-${first.id}`,
+    `cat >> '${join(profilePaths(home, 'default').logs, `${first.id}.log`)}'`,
     // The tmux session does not keep the first window's ids for windows added by hand.
     ';',
     'set-environment',
@@ -120,6 +127,17 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     `claude-${second.id}`,
   ]);
   expect(second.id).not.toBe(first.id);
+});
+
+test("with config sessions.log off, a window's output is not piped to a log", async () => {
+  const world = agentWorld();
+  const { home, mesa } = await setUp(world);
+  mesa.config.set('sessions.log', 'false');
+  const { result } = await mesa.sessions.open('lantern-cove');
+  expect(world.tmux.windows[0]?.pipe).toBeUndefined();
+  expect(world.calls.some((c) => c.args.includes('pipe-pane'))).toBe(false);
+  expect(existsSync(profilePaths(home, 'default').logs)).toBe(false);
+  expect(mesa.sessions.logs(result.id)).toEqual({ session: result.id, path: null, lines: [] });
 });
 
 test('the agent comes from the flag, else mesa.yaml, else the profile; v1 runs claude only', async () => {

@@ -8,6 +8,7 @@ import {
   fakeTmux,
   gitRepo,
   isolateGit,
+  plantOutputLog,
   projectProfile,
   scriptedRunner,
   testGit,
@@ -56,12 +57,13 @@ test('rename stores the name and the board carries it; a blank one is refused', 
   );
 });
 
-test('rm refuses a live session; --force closes its window, then removes the record and log', async () => {
+test('rm refuses a live session; --force closes its window, then removes the record and logs', async () => {
   const { home, mesa, world } = setUp();
   const { result } = await mesa.sessions.open('lantern-cove');
   const events = join(profilePaths(home, 'default').events, `${result.id}.jsonl`);
   mkdirSync(profilePaths(home, 'default').events, { recursive: true });
   writeFileSync(events, '{}\n');
+  const output = plantOutputLog(home, result.id, 'Reading the tide tables\n');
   await expect(mesa.sessions.remove(result.id)).rejects.toMatchObject({
     code: 'usage',
     message: `session ${result.id} is live: mesa stop ${result.id} first, or pass --force to close its window`,
@@ -73,10 +75,12 @@ test('rm refuses a live session; --force closes its window, then removes the rec
     project: 'lantern-cove',
     record: true,
     events: true,
+    outputLog: true,
     window: true,
   });
   expect(world.windows).toEqual([]);
   expect(existsSync(events)).toBe(false);
+  expect(existsSync(output)).toBe(false);
   await expect(mesa.sessions.show(result.id)).rejects.toMatchObject({ code: 'not_found' });
   expect(listReceipts(join(home, 'vault'), 1)[0]?.receipt).toMatchObject({
     id: receipt?.id,

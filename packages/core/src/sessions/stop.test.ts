@@ -8,6 +8,7 @@ import {
   type FakeWindow,
   fakeTmux,
   newSession,
+  plantOutputLog,
   projectProfile,
   scriptedRunner,
   staleLock,
@@ -76,6 +77,96 @@ test('stop presses Escape, types /exit, waits for the pane to die, and removes t
     ended: '2026-09-24T12:00',
     outputs: { lastState: 'done' },
   });
+  // No output log (the fake tmux writes none): its Details stay as they were.
+  expect(openedReceipt?.body).toBe(
+    `Opened session ${opened.id} on lantern-cove\n\n## Details\n\nNone.\n`,
+  );
+});
+
+/** 250 lines of output as a terminal writes them, the last two naming the home folder and a key. */
+const output = (home: string) =>
+  [
+    ...Array.from({ length: 248 }, (_, n) => `\x1b[2mline ${n + 1}\x1b[0m`),
+    `Wrote ${home}/src/lantern-cove/tides.md`,
+    'Used tide-key-0042 in ```js fetch()```',
+  ].join('\r\n');
+
+/** The Details a session receipt gets for `output`: its last 200 lines, redacted, fenced. */
+const details = (id: string) =>
+  [
+    `The last 200 lines of its output; the whole log stays on this machine, at ~/.mesa/default/sessions/logs/${id}.log.`,
+    '',
+    '````text',
+    ...Array.from({ length: 198 }, (_, n) => `line ${n + 51}`),
+    'Wrote ~/src/lantern-cove/tides.md',
+    'Used *** in ```js fetch()```',
+    '````',
+  ].join('\n');
+
+test("stop copies the last 200 lines of the session's output, redacted, into its receipt's Details", async () => {
+  const { home, mesa, opened, receipts } = await setUp();
+  mesa.config.set('keys.tide', 'tide-key-0042');
+  plantOutputLog(home, opened.id, output(home));
+  await mesa.sessions.stop(opened.id);
+  const openedReceipt = receipts().find((e) => e.summary.startsWith('Opened'));
+  expect(openedReceipt?.receipt.ended).toBe('2026-09-24T12:00');
+  expect(openedReceipt?.body).toBe(
+    `Opened session ${opened.id} on lantern-cove\n\n## Details\n\n${details(opened.id)}\n`,
+  );
+});
+
+test("resume copies the old session's output into its receipt; none, or an empty log, keeps None.", async () => {
+  const { home, mesa, world, opened, receipts } = await setUp();
+  plantOutputLog(home, opened.id, 'All tests pass.\r\n');
+  const [pane] = world.windows;
+  if (pane) pane.dead = true;
+  const { result } = await mesa.sessions.resume(opened.id);
+  const body = (id: string) =>
+    receipts().find((e) => e.receipt.session === id && e.summary.startsWith('Opened'))?.body;
+  expect(body(opened.id)).toBe(
+    [
+      `Opened session ${opened.id} on lantern-cove`,
+      '',
+      '## Details',
+      '',
+      `The last line of its output; the whole log stays on this machine, at ~/.mesa/default/sessions/logs/${opened.id}.log.`,
+      '',
+      '```text',
+      'All tests pass.',
+      '```',
+      '',
+    ].join('\n'),
+  );
+
+  // Its successor's log is there, and empty: nothing to copy.
+  const next = result.record.id;
+  plantOutputLog(home, next, '\x1b[2J\r\n');
+  await mesa.sessions.stop(next);
+  expect(
+    receipts().find((e) => e.summary.startsWith(`Resumed session ${opened.id}`))?.body,
+  ).toMatch(/## Details\n\nNone\.\n$/);
+});
+
+test("an agent's exit puts its last output lines in its receipt at once; the stop after it, again", async () => {
+  const { home, mesa, world, opened, receipts } = await setUp();
+  mesa.config.set('keys.tide', 'tide-key-0042');
+  plantOutputLog(home, opened.id, output(home));
+  const [pane] = world.windows;
+  if (pane) pane.dead = true;
+  expect((await mesa.tmuxEvent('pane-died', 'lantern-cove', `claude-${opened.id}`))?.id).toBe(
+    opened.id,
+  );
+  const exited = receipts().find((e) => e.summary.startsWith('Opened'));
+  // Not stopped: the receipt has its output, but no end yet.
+  expect(exited?.receipt.ended).toBeUndefined();
+  expect(exited?.body).toContain(`## Details\n\n${details(opened.id)}\n`);
+
+  plantOutputLog(home, opened.id, `${output(home)}\r\nBye`);
+  await mesa.sessions.stop(opened.id);
+  const stopped = receipts().find((e) => e.summary.startsWith('Opened'));
+  expect(stopped?.receipt.ended).toBe('2026-09-24T12:00');
+  expect(stopped?.body).toMatch(/Used \*\*\* in ```js fetch\(\)```\nBye\n````\n$/);
+  expect(stopped?.body.match(/## Details/g)).toHaveLength(1);
 });
 
 test('an agent that ignores /exit is killed after 5 s', async () => {

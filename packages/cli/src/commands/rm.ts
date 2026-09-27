@@ -3,7 +3,8 @@ import { recordedOutput } from '../output/recorded.js';
 
 export const rm = defineCommand({
   name: 'rm',
-  summary: "Remove a session's record and hook log, and with flags its worktree and branch",
+  summary:
+    "Remove a session's record, hook log, and output log, and with flags its worktree and branch",
   args: ['session'],
   flags: {
     force: {
@@ -24,6 +25,7 @@ export const rm = defineCommand({
     const also = [
       r.window && 'its window',
       r.events && 'its hook log',
+      r.outputLog && 'its output log',
       r.worktree && `worktree ${r.worktree}`,
       r.branch && `branch ${r.branch}`,
     ].filter(Boolean);
