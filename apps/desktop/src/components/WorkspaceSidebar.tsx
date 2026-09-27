@@ -1,5 +1,5 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/browser';
+import { sessionLabel, WAITING_STATES } from '@mesa/core/browser';
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,8 +11,10 @@ import {
   Plus,
   Stethoscope,
 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { exited, queued } from '@/screens/board/rows';
 
 export type WorkspaceView =
   | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
@@ -29,17 +31,21 @@ export function WorkspaceSidebar(props: {
   onCollapse: () => void;
 }) {
   const { view, onView, collapsed } = props;
+  const lastProject = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (view.kind === 'project') lastProject.current = view.name;
+  }, [view]);
   const visible = props.projects
     .filter((project) => !project.hidden)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const registered = new Set(visible.map((project) => project.name));
-  const active = props.sessions.filter(
-    (session) => !['done', 'failed', 'stopped'].includes(session.lastState.state),
-  );
+  const active = props.sessions.filter((session) => !exited(session) || queued(session));
   const unassigned = active.filter(
     (session) => !session.project || !registered.has(session.project),
   );
   const projectTab = view.kind === 'project' || view.kind === 'projects';
+  const selectedProject =
+    visible.find((project) => project.name === lastProject.current) ?? visible[0];
   const item = (label: string, icon: typeof LayoutDashboard, target: WorkspaceView) => {
     const Icon = icon;
     return (
@@ -73,7 +79,7 @@ export function WorkspaceSidebar(props: {
         aria-hidden
         className={cn(
           'size-1.5 shrink-0 rounded-full bg-state-idle',
-          session.lastState.state.startsWith('waiting') && 'bg-state-waiting',
+          WAITING_STATES.has(session.lastState.state) && 'bg-state-waiting',
           session.lastState.state === 'working' && 'bg-state-working',
           session.lastState.state === 'failed' && 'bg-state-failed',
         )}
@@ -112,7 +118,9 @@ export function WorkspaceSidebar(props: {
               )}
               onClick={() =>
                 onView(
-                  visible[0] ? { kind: 'project', name: visible[0].name } : { kind: 'projects' },
+                  selectedProject
+                    ? { kind: 'project', name: selectedProject.name }
+                    : { kind: 'projects' },
                 )
               }
             >

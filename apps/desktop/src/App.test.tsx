@@ -44,7 +44,34 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
-    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', {
+          lastState: {
+            state: 'waiting-permission',
+            confidence: 0.9,
+            at: '2026-09-25T12:00:00.000Z',
+            source: 'hook',
+          },
+        }),
+        managedRow('finished', {
+          lastState: {
+            state: 'failed',
+            confidence: 0.9,
+            at: '2026-09-25T12:00:00.000Z',
+            source: 'hook',
+          },
+        }),
+        managedRow('queuedone', {
+          alive: false,
+          lastState: {
+            state: 'queued',
+            confidence: 1,
+            at: '2026-09-25T12:00:00.000Z',
+            source: 'mesa',
+          },
+        }),
+      ]),
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
@@ -56,6 +83,12 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   ).toBe('true');
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
   expect(byTestId('project-workspace')).toHaveLength(1);
+  expect(byTestId('project-active-session')).toHaveLength(2);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('finished');
+  expect(byTestId('project-active-session')[1]?.textContent).toContain('queuedone');
+  expect(
+    byTestId('project-active-session')[0]?.querySelector('[data-state="waiting-permission"]'),
+  ).not.toBeNull();
   expect(document.querySelector('#session-location')).toBeNull();
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   expect(document.querySelector('#session-location')).not.toBeNull();
@@ -66,6 +99,12 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
       .find((tab) => tab.textContent?.includes('Sessions'))
       ?.getAttribute('aria-selected'),
   ).toBe('true');
+  await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  await click(byTestId('sidebar-project')[1]);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
+  await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
+  await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
 test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {

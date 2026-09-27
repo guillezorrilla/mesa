@@ -3,6 +3,7 @@ import { sessionLabel } from '@mesa/core/browser';
 import { ArrowDown, ArrowUp, Folder, MoreHorizontal, Play, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { AgentField } from './board/AgentField';
+import { exited, queued } from './board/rows';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
@@ -32,8 +34,8 @@ export function ProjectWorkspace(props: {
   const run = useRun();
   const { acting, act } = useAct();
   const sessions = props.sessions.filter((s) => s.managed && s.project === project.name);
-  const activeSessions = sessions.filter((s) => s.managed && s.alive);
-  const recentSessions = sessions.filter((s) => s.managed && !s.alive);
+  const activeSessions = sessions.filter((s) => !exited(s) || queued(s));
+  const recentSessions = sessions.filter((s) => exited(s) && !queued(s));
   const open = (input: { agent?: Agent; goal?: string; branch?: string }) =>
     act(async () => {
       const session = await run('sessions.open', { project: project.name, ...input });
@@ -269,7 +271,10 @@ export function ProjectWorkspace(props: {
                   className="flex min-h-32 w-64 flex-col items-start rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
-                  <span className="text-xs text-state-idle">{session.lastState.state}</span>
+                  <StateBadge
+                    state={session.lastState.state}
+                    confidence={session.lastState.confidence}
+                  />
                   <span className="mt-3 truncate font-medium">{sessionLabel(session)}</span>
                   <span className="mt-auto text-xs text-muted-foreground">{session.agent}</span>
                 </button>
