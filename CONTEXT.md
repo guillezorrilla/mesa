@@ -37,6 +37,11 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 A person's optional label for a session's work: `todo`, `in-progress`, `review`, or `done`. `mesa workflow <id> <status>` sets it, and `clear` removes it; `--json` returns the record. It lives in the session record as `workflowStatus` and appears on the Board. Faro's `lastState`, confidence, attention and decision evidence remain separate; setting workflow never changes what the agent is observed doing. An absent label is unassigned.
 Not: agent state, attention, Faro decision.
 
+## Grid group
+
+A profile-local named set of session ids for reopening live terminal tiles in the app's Grid. `mesa grid save <name> <ids...> [--project <slug>]` stores it in `config.yaml`; `mesa grid` lists groups and `mesa grid remove <name>` removes one without stopping or deleting its sessions. The Grid's project tabs filter visible tiles; switching tabs or leaving the Grid keeps terminal clients attached. An ended or missing session stays in the saved group and is reported unavailable when reopened.
+Not: session group (Board grouping derives from session properties and saves no named set).
+
 ## Goal
 
 A session's first prompt, given at start: `mesa open <project> --goal "<text>"`, or `--goal-file <path>` (read as UTF-8, otherwise unchanged), or the Goal field of the Board's New session dialog. It reaches `claude` as one argument, `claude --session-id <uuid> <goal>`, quoted for `/bin/sh`, which runs every Mesa window whatever the user's shell. So the session starts working without anyone typing into it. A goal starting with `/goal` runs Claude Code's goal command, which keeps the agent working until its condition holds. The record keeps it as `goal`, `mesa goal <id>` prints it, and the Board shows its first line under the project. A resumed session keeps its goal, but it is not sent again. A goal is refused, with a failed receipt, when it is blank, starts with `-`, holds a NUL byte, or makes the command longer than the 12000 bytes Mesa passes to tmux (one tmux command holds about 16 KiB). The session receipt keeps its first 80 characters, key values redacted.

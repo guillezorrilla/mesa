@@ -6,6 +6,7 @@ import type {
   Config,
   DiscoveredProject,
   DoctorReport,
+  GridGroup,
   HooksStatus,
   Opened,
   ProfileInfo,
@@ -45,6 +46,23 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
   'config.get': command<Config>('config'),
+  'grid.list': command<GridGroup[]>('grid'),
+  'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
+    ({ name, project, sessions }) => [
+      'grid',
+      'save',
+      ...(project ? ['--project', project] : []),
+      '--',
+      name,
+      ...sessions,
+    ],
+  ),
+  'grid.remove': commandWith<{ name: string }, Recorded<{ groups: GridGroup[] }>>(({ name }) => [
+    'grid',
+    'remove',
+    '--',
+    name,
+  ]),
   'config.set': commandWith<
     { path: string; value: unknown },
     Recorded<{ path: string; value: unknown }>

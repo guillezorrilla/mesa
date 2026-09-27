@@ -55,6 +55,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       terminal: { app: 'Terminal' },
       shortcuts: { ...DEFAULT_SHORTCUTS },
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
+      grid: { groups: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
       keys: {},
     } satisfies Config),

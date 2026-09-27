@@ -68,6 +68,16 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
   expect(byTestId('workspace-sidebar')[0]?.dataset.collapsed).toBe('true');
   expect(byTestId('selected-session')).toHaveLength(1);
+  await click(byTestId('search-trigger')[0]);
+  const grid = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    grid.value = 'Open Grid View';
+    grid.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => {
+    grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('grid-toolbar')).toHaveLength(1);
 });
 
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
@@ -241,6 +251,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     terminal: { app: 'Terminal' },
     shortcuts,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
+    grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     keys: {},
   });

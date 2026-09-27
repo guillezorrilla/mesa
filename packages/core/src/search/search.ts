@@ -12,6 +12,7 @@ export type SearchHit = {
 
 const ACTIONS: SearchHit[] = [
   { kind: 'action', id: 'board', label: 'Board', detail: 'All sessions' },
+  { kind: 'action', id: 'grid', label: 'Open Grid View', detail: 'Live session terminals' },
   { kind: 'action', id: 'new-session', label: 'New session', detail: 'Start an agent' },
   { kind: 'action', id: 'projects', label: 'Projects', detail: 'Manage registered projects' },
   { kind: 'action', id: 'doctor', label: 'Doctor', detail: 'Check Mesa health' },

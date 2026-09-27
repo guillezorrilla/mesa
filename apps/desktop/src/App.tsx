@@ -111,8 +111,11 @@ export function App() {
         />
         <main className="min-w-0 flex-1 overflow-auto px-6 py-5">
           {/* The Board stays mounted so its terminal clients survive navigation. */}
-          <div hidden={view.kind !== 'board' && !sessionView}>
+          <div hidden={view.kind !== 'board' && view.kind !== 'grid' && !sessionView}>
             <BoardScreen
+              gridMode={view.kind === 'grid'}
+              gridGroups={config.data?.grid?.groups}
+              onGridGroupsChanged={() => void config.refresh()}
               selectedSession={view.kind === 'session' ? view.id : undefined}
               onRowsChange={setSessions}
               onBoard={() => setView({ kind: 'board' })}
@@ -179,6 +182,7 @@ export function App() {
             const destination = hit.id === 'skills' ? 'projects' : hit.id;
             if (
               destination === 'board' ||
+              destination === 'grid' ||
               destination === 'projects' ||
               destination === 'doctor' ||
               destination === 'help' ||

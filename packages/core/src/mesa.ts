@@ -8,6 +8,7 @@ import { runDoctor } from './doctor.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { receiptsService } from './receipts/service.js';
+import { gridService } from './sessions/grid-service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { vaultService } from './vault/service.js';
@@ -23,12 +24,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const ctx = createContext(profile, deps);
   const faro = createFaro(ctx);
   const skills = skillsService(ctx);
+  const profileApi = profileService(ctx);
   return {
-    ...profileService(ctx),
+    ...profileApi,
     projects: projectsService(ctx),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),
     ...sessionsService(ctx, faro, skills),
+    grid: gridService(() => ctx.open().config.grid.groups, profileApi.config.set),
     hooks: hooksService(ctx),
     skills,
     decide: faro.decide,

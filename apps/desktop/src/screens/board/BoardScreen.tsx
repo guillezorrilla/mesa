@@ -1,4 +1,4 @@
-import type { BoardPreferences, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import type { BoardPreferences, GridGroup, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
 import {
   attentionScore,
   DEFAULT_BOARD_PREFERENCES,
@@ -31,6 +31,7 @@ import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
+import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
 import { LogDialog } from './LogDialog';
@@ -68,6 +69,9 @@ export function BoardScreen(
     preferences?: BoardPreferences;
     onPreferencesChanged?: () => void;
     onSelectSession?: (id: string) => void;
+    gridMode?: boolean;
+    gridGroups?: GridGroup[];
+    onGridGroupsChanged?: () => void;
   } = {},
 ) {
   const [ended, setEnded] = useState(false);
@@ -84,9 +88,13 @@ export function BoardScreen(
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
+  const [gridProject, setGridProject] = useState('all');
+  const [zoomed, setZoomed] = useState<string>();
+  const [gridNotice, setGridNotice] = useState('');
   // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
   // show the view another window of the project.
   const live = new Set((data ?? []).filter((s) => s.managed && !exited(s)).map((s) => s.id));
+  const gridLive = (data ?? []).filter((s): s is ManagedRow & TreeRow => s.managed && !exited(s));
   if (data && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
   useEffect(() => {
     const id = props.selectedSession;
@@ -225,6 +233,39 @@ export function BoardScreen(
     [ids[index], ids[other]] = [ids[other] as string, ids[index] as string];
     savePreference('order', ids);
   };
+  const saveGroup = (name: string) =>
+    act(async () => {
+      const sessions = panels.filter((id) =>
+        gridLive.some(
+          (row) => row.id === id && (gridProject === 'all' || row.project === gridProject),
+        ),
+      );
+      const saved = await run('grid.save', {
+        name,
+        project: gridProject === 'all' ? undefined : gridProject,
+        sessions,
+      });
+      if (!saved) return undefined;
+      props.onGridGroupsChanged?.();
+      return said(`Saved grid group ${name}`, saved);
+    });
+  const removeGroup = (name: string) =>
+    act(async () => {
+      const removed = await run('grid.remove', { name });
+      if (!removed) return undefined;
+      props.onGridGroupsChanged?.();
+      return said(`Removed grid group ${name}; sessions kept`, removed);
+    });
+  const openGroup = (group: GridGroup) => {
+    const available = group.sessions.filter((id) => live.has(id));
+    setGridProject(group.project ?? 'all');
+    setPanels((open) => [...new Set([...open, ...available])]);
+    setGridNotice(
+      group.sessions.length === available.length
+        ? ''
+        : `${group.sessions.length - available.length} saved session(s) are unavailable; the group was kept.`,
+    );
+  };
 
   return (
     <section data-testid="session-board" className="space-y-4">
@@ -236,6 +277,15 @@ export function BoardScreen(
           <Button variant="outline" onClick={props.onBoard}>
             <ArrowLeft aria-hidden />
             All sessions
+          </Button>
+        </PageHeader>
+      ) : props.gridMode ? (
+        <PageHeader
+          title="Terminal grid"
+          description="Live sessions in separate tiles, grouped by project."
+        >
+          <Button variant="outline" onClick={props.onBoard}>
+            <ArrowLeft aria-hidden /> Board
           </Button>
         </PageHeader>
       ) : (
@@ -260,12 +310,46 @@ export function BoardScreen(
           </Button>
         </PageHeader>
       )}
-      {!props.selectedSession && (
+      {!props.selectedSession && !props.gridMode && (
         <BoardControls
           preferences={preferences}
           disabled={acting}
           onChange={(key, value) => savePreference(key, value)}
         />
+      )}
+      {props.gridMode && (
+        <>
+          <GridToolbar
+            live={gridLive}
+            panels={panels}
+            groups={props.gridGroups ?? []}
+            project={gridProject}
+            busy={acting}
+            onProject={(project) => {
+              setGridProject(project);
+              setZoomed(undefined);
+            }}
+            onAdd={(id) => setPanels((open) => (open.includes(id) ? open : [...open, id]))}
+            onAddProject={() =>
+              setPanels((open) => [
+                ...new Set([
+                  ...open,
+                  ...gridLive
+                    .filter((row) => gridProject === 'all' || row.project === gridProject)
+                    .map((row) => row.id),
+                ]),
+              ])
+            }
+            onSave={saveGroup}
+            onOpenGroup={openGroup}
+            onRemoveGroup={removeGroup}
+          />
+          {gridNotice && (
+            <p role="status" className="text-muted-foreground text-sm">
+              {gridNotice}
+            </p>
+          )}
+        </>
       )}
       {dialog?.kind === 'new' && (
         <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
@@ -417,7 +501,7 @@ export function BoardScreen(
             {data ? 'Session unavailable. Open Board to choose another.' : 'Loading session...'}
           </p>
         )
-      ) : (
+      ) : !props.gridMode ? (
         <>
           {data?.length === 0 && (
             <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
@@ -436,17 +520,49 @@ export function BoardScreen(
             onMove={move}
           />
         </>
+      ) : null}
+      {props.gridMode && panels.length === 0 && (
+        <p className="text-muted-foreground text-sm">
+          No tiles open. Choose a live session or reopen a saved group.
+        </p>
       )}
-      {panels.map((id) => (
-        <div key={id} hidden={Boolean(props.selectedSession) && id !== props.selectedSession}>
-          <TerminalPanel
-            sessionId={id}
-            busy={acting}
-            onOpenExternal={() => actions.openTerminal(id)}
-            onClose={() => setPanels((open) => open.filter((p) => p !== id))}
-          />
-        </div>
-      ))}
+      <div className={props.gridMode ? 'grid gap-3 lg:grid-cols-2' : 'space-y-4'}>
+        {panels.map((id) => (
+          <div
+            key={id}
+            data-testid={props.gridMode ? 'grid-tile' : undefined}
+            hidden={
+              props.selectedSession
+                ? id !== props.selectedSession
+                : props.gridMode
+                  ? (gridProject !== 'all' &&
+                      !gridLive.some((row) => row.id === id && row.project === gridProject)) ||
+                    (Boolean(zoomed) && zoomed !== id)
+                  : false
+            }
+            className={
+              props.gridMode
+                ? zoomed === id
+                  ? 'col-span-full h-[70vh] min-w-[320px]'
+                  : 'h-[380px] min-w-[320px] resize overflow-auto'
+                : undefined
+            }
+          >
+            <TerminalPanel
+              sessionId={id}
+              busy={acting}
+              onOpenExternal={() => actions.openTerminal(id)}
+              onClose={() => {
+                setPanels((open) => open.filter((p) => p !== id));
+                setZoomed((current) => (current === id ? undefined : current));
+              }}
+              grid={props.gridMode}
+              zoomed={zoomed === id}
+              onZoom={() => setZoomed((current) => (current === id ? undefined : id))}
+            />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

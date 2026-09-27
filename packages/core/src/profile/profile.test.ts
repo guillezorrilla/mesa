@@ -45,6 +45,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     terminal: { app: 'Terminal' },
     shortcuts: DEFAULT_SHORTCUTS,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
+    grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     keys: {},
   });

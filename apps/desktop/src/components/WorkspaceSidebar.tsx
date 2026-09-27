@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleHelp,
   FolderGit2,
+  Grid2X2,
   Keyboard,
   LayoutDashboard,
   Stethoscope,
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type WorkspaceView =
-  | { kind: 'board' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
+  | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
   | { kind: 'project'; name: string }
   | { kind: 'session'; id: string };
 
@@ -97,6 +98,7 @@ export function WorkspaceSidebar(props: {
       <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         <div className="space-y-1">
           {item('Board', LayoutDashboard, { kind: 'board' })}
+          {item('Grid', Grid2X2, { kind: 'grid' })}
           {item('Projects', FolderGit2, { kind: 'projects' })}
         </div>
         {!collapsed && (

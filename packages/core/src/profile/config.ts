@@ -68,6 +68,24 @@ const ConfigSchema = z.strictObject({
         .default([]),
     })
     .prefault({}),
+  grid: z
+    .strictObject({
+      groups: z
+        .array(
+          z.strictObject({
+            name: z.string().trim().min(1).max(60),
+            project: z.string().optional(),
+            sessions: z.array(z.string().regex(/^[0-9a-z]{8}$/)).min(1),
+          }),
+        )
+        .refine(
+          (groups) =>
+            new Set(groups.map((group) => group.name.toLowerCase())).size === groups.length,
+          'grid group names must be unique',
+        )
+        .default([]),
+    })
+    .prefault({}),
   /** How a headless run may act (mesa run): claude's --permission-mode and --allowedTools. */
   run: z
     .strictObject({
