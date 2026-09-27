@@ -130,7 +130,7 @@ Foreign sessions are muted and tagged "not managed", with Adopt their only actio
 
 Each action's confirmation shows in a toast that goes by itself after a few seconds; a recorded action's warning (a receipt not written, skills not synced) shows with its confirmation as an alert, which stays until dismissed.
 
-The app looks again every 2 s and at once after every action, one look at a time: a look asked for during one runs right after it. A failure shows as an alert toast, once however often it comes (ADR-0009 amendment).
+The app looks again every 2 s and at once after every action, one look at a time: a look asked for during one runs right after it. A failure shows as an alert toast, once however often it comes (ADR-0009 amendment). Another screen hides the Board instead of closing it (the owner's choice, #133): its embedded terminals, Show older, and collapsed rows are as they were on the way back, and it keeps looking meanwhile. None of it outlives the app.
 Not: dashboard, overview, list.
 
 ## Skill

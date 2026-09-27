@@ -92,7 +92,8 @@ export function Terminal(props: { sessionId: string }) {
         term.write(`\r\ncould not attach: ${e instanceof Error ? e.message : String(e)}\r\n`);
     });
     const observer = new ResizeObserver(() => {
-      size().catch(() => {});
+      // A hidden Board (another screen open) leaves the box no width: the window keeps its size.
+      if (el.clientWidth) size().catch(() => {});
     });
     observer.observe(el);
     return () => {
