@@ -21,6 +21,7 @@ import type {
   TmuxWindow,
   TreeRow,
   VaultStatus,
+  Viewed,
 } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
@@ -117,6 +118,13 @@ const COMMANDS = {
     '--app',
     '--',
     id,
+  ]),
+  // A project's sessions side by side, in the user's terminal app.
+  'sessions.view': commandWith<{ project: string }, Viewed>(({ project }) => [
+    'view',
+    '--app',
+    '--',
+    project,
   ]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a

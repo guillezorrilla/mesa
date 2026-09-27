@@ -14,7 +14,7 @@ Not: notes folder, knowledge base, memory (memory is what the vault holds, not t
 
 ## Project
 
-A repository registered with a profile through its `mesa.yaml`: `name` (a slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`), `tmux.layout` (accepted, read by nothing yet), and extra `skills`. A project has zero or more sessions.
+A repository registered with a profile through its `mesa.yaml`: `name` (a slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`), `tmux.layout` (how its Project view lays out its sessions), and extra `skills`. A project has zero or more sessions.
 Not: repo (a repo becomes a project once registered), workspace.
 
 ## Registry
@@ -71,6 +71,11 @@ Not: orphan (a Mesa session whose window vanished is still Mesa's, marked `done`
 
 A Claude Code session started outside Mesa that Mesa then took in: `mesa adopt <agentSessionId> [--project <name>] [--name <text>] [--no-resume]`, or Adopt on a foreign row of the Board. Mesa finds it in the agent listing, else by its transcript, `~/.claude/projects/<folder>/<id>.jsonl`, and reads the folder it ran in from there. Its project is the one that folder is in, as for a foreign session; else `--project` places it; else it is `not_found`, and a `--project` other than the folder's project is a usage error. Mesa writes a record with `adopted: true`, its agent session id, `name` when given, and `cwd` when the folder is not the project's own, then reopens the conversation in a Mesa window in that folder (`claude --resume <id>`), as `mesa resume` does, since claude finds a conversation only from the folder it ran in; `--no-resume` writes the record only, and `mesa resume` opens it later. Every adoption says `end the session in its original terminal first: both hold the same transcript`, in the output and as `--json`'s `warning`, beside the record's own fields (as `mesa resume` prints them). An id that is not a lowercase UUID is a usage error; one Mesa already has is a usage error naming that session, or saying another profile has it. A resume keeps `adopted`, `name`, and `cwd`.
 Not: imported, attached, foreign (a foreign session is one not yet adopted).
+
+## Project view
+
+A project's sessions side by side in one terminal: `mesa view <project> [--app]`, or View sessions on the Projects screen (in `terminal.app`). Mesa opens a view session (`_view-<id>`, hidden from listings) whose one window, named after the project, has a pane per session of the project with a window, oldest first. Each pane is a terminal on that session's window with a view of its own, as `mesa attach` makes (ADR-0001 amendment), so typing in a pane reaches that session's agent. The panes are laid out by the project's `mesa.yaml` `tmux.layout`, a tmux layout name (`tiled`, `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical`), `tiled` when unset; one tmux does not know is a usage error. The view goes, with the terminals in its panes, when its terminal detaches; the sessions keep running. `--json` prints `{opened, project, sessions, layout, app}`. No session with a window is `not_found`.
+Not: layout (the field), dashboard, the Board.
 
 ## Window
 

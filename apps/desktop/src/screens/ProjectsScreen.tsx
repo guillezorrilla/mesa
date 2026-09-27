@@ -1,4 +1,4 @@
-import { FolderPlus, Play, Sparkles } from 'lucide-react';
+import { Columns2, FolderPlus, Play, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,15 @@ export function ProjectsScreen() {
       if (!session) return undefined;
       setLinked((n) => n + 1);
       return said(`Opened session ${session.id} on ${project}`, session);
+    });
+
+  // Its sessions side by side in the terminal app, laid out by its mesa.yaml tmux.layout.
+  const viewSessions = (project: string) =>
+    act(async () => {
+      const viewed = await run('sessions.view', { project });
+      return (
+        viewed && said(`Viewing ${viewed.sessions.length} sessions of ${project} in ${viewed.app}`)
+      );
     });
 
   // Links the profile's and the project's enabled skills into its skill folders.
@@ -123,6 +132,17 @@ export function ProjectsScreen() {
                       >
                         <Play aria-hidden />
                         Open session
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="view-sessions"
+                        title="Its sessions side by side in your terminal app, laid out by mesa.yaml tmux.layout"
+                        onClick={() => viewSessions(p.name)}
+                        disabled={acting}
+                      >
+                        <Columns2 aria-hidden />
+                        View sessions
                       </Button>
                     </div>
                   )}

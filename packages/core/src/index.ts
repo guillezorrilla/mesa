@@ -24,6 +24,7 @@ export type { Removed } from './sessions/remove.js';
 export type { Sent } from './sessions/send.js';
 export type { StopOutcome } from './sessions/stop.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
+export type { Viewed } from './sessions/view.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';

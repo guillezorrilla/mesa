@@ -124,6 +124,15 @@ export type FakeWindow = {
  * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
  * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
  */
+/** tmux's named layouts, the ones fakeTmux accepts. */
+const TMUX_LAYOUTS = [
+  'even-horizontal',
+  'even-vertical',
+  'main-horizontal',
+  'main-vertical',
+  'tiled',
+];
+
 export function fakeTmux(
   opts: {
     onKeys?: (window: FakeWindow, text: string) => void;
@@ -179,6 +188,18 @@ export function fakeTmux(
         windows.splice(windows.indexOf(w), 1);
         return ok();
       }
+      case 'kill-session': {
+        const gone = windows.filter((w) => `=${w.project}` === target);
+        for (const w of gone) windows.splice(windows.indexOf(w), 1);
+        return gone.length ? ok() : failed("can't find session");
+      }
+      // A view's panes (openView): the split is on its one window, the layout one tmux has.
+      case 'split-window':
+        return find(target) ? ok() : failed("can't find window");
+      case 'select-layout':
+        return TMUX_LAYOUTS.includes(rest.at(-1) ?? '')
+          ? ok()
+          : failed(`invalid layout: ${rest.at(-1)}`);
       case 'list-windows': {
         // Mesa's server outlives its last window (exit-empty off) and then says this.
         if (!windows.length) return failed('no current target');
