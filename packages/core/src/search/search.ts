@@ -32,6 +32,7 @@ const SETTINGS: SearchHit[] = [
     detail: 'Current profile and vault',
   },
   { kind: 'setting', id: 'skills', label: 'Manage skills', detail: 'Browse and sync skills' },
+  { kind: 'setting', id: 'shortcuts', label: 'Keyboard shortcuts', detail: 'View and change keys' },
 ];
 
 /** The same bounded project/session/action index serves `mesa search` and the app palette. */

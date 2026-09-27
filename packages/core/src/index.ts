@@ -29,6 +29,12 @@ export * from './lib/result.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
+export {
+  DEFAULT_SHORTCUTS,
+  type Shortcuts,
+  shortcutFromKeys,
+  validShortcut,
+} from './profile/shortcuts.js';
 export type { Project } from './projects/project-file.js';
 export type { ProjectRow } from './projects/projects.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';

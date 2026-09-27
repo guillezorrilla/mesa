@@ -79,3 +79,18 @@ test('a set repairs a value the file holds by hand that does not validate', () =
   expect(setConfigValue(file, 'decisions.threshold', '0.5')).toEqual({ value: 0.5, changed: true });
   expect(loadConfig(file).decisions.threshold).toBe(0.5);
 });
+
+test('shortcut values are canonical, unique, and never take reserved window keys', () => {
+  expect(loadConfig(file).shortcuts).toEqual({
+    search: 'Mod+K',
+    board: 'Mod+1',
+    newSession: 'Mod+N',
+  });
+  expect(setConfigValue(file, 'shortcuts.search', 'Mod+Shift+P').value).toBe('Mod+Shift+P');
+  for (const value of ['Mod+Q', 'Mod+1', 'K', 'Mod+shift+P']) {
+    expect(thrown(() => setConfigValue(file, 'shortcuts.search', value)).code).toBe(
+      'invalid_config',
+    );
+  }
+  expect(loadConfig(file).shortcuts.search).toBe('Mod+Shift+P');
+});

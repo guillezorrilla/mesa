@@ -43,6 +43,10 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
   'config.get': command<Config>('config'),
+  'config.set': commandWith<
+    { path: string; value: string },
+    Recorded<{ path: string; value: unknown }>
+  >(({ path, value }) => ['config', 'set', '--', path, JSON.stringify(value)]),
   'doctor.run': command<DoctorReport>('doctor'),
   'help.reference': command<CommandReference[]>('help', '--agent'),
   'hooks.status': command<HooksStatus>('hooks', 'status'),

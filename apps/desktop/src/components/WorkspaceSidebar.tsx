@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleHelp,
   FolderGit2,
+  Keyboard,
   LayoutDashboard,
   Stethoscope,
 } from 'lucide-react';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type WorkspaceView =
-  | { kind: 'board' | 'projects' | 'doctor' | 'help' }
+  | { kind: 'board' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
   | { kind: 'project'; name: string }
   | { kind: 'session'; id: string };
 
@@ -143,6 +144,7 @@ export function WorkspaceSidebar(props: {
       </nav>
       <div className="space-y-1 border-t px-2 py-2">
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
+        {item('Shortcuts', Keyboard, { kind: 'shortcuts' })}
         {item('Help', CircleHelp, { kind: 'help' })}
       </div>
     </aside>

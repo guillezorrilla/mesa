@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS, sessionLabel, shortcutFromKeys } from '@mesa/core/browser';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { CommandPalette } from './components/CommandPalette';
@@ -15,6 +15,7 @@ import { DoctorScreen } from './screens/DoctorScreen';
 import { HelpScreen } from './screens/HelpScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
+import { ShortcutSettings } from './screens/ShortcutSettings';
 
 export function App() {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
@@ -30,22 +31,35 @@ export function App() {
   };
   const run = useRun();
   const { act } = useAct();
+  const doctor = useCommand('doctor.run');
+  const config = useCommand('config.get');
+  const projects = useCommand('projects.list');
+  const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
+  const canStart = projects.data?.some((project) => project.exists) ?? false;
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      const key = shortcutFromKeys(event);
+      if (key === shortcuts.search) {
         event.preventDefault();
         if (searchOpen) setSearchOpen(false);
         else {
           searchReturnFocus.current = document.activeElement as HTMLElement;
           setSearchOpen(true);
         }
+      } else if (key === shortcuts.board) {
+        event.preventDefault();
+        setView({ kind: 'board' });
+      } else if (key === shortcuts.newSession) {
+        event.preventDefault();
+        if (canStart) {
+          setView({ kind: 'board' });
+          setNewSessionRequest((count) => count + 1);
+        }
       }
     };
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);
-  }, [searchOpen]);
-  const doctor = useCommand('doctor.run');
-  const projects = useCommand('projects.list');
+  }, [searchOpen, shortcuts.search, shortcuts.board, shortcuts.newSession, canStart]);
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
   const selectedSession =
@@ -74,7 +88,7 @@ export function App() {
           <span className="flex items-center gap-2">
             <Search aria-hidden className="size-4" /> Search Mesa
           </span>
-          <kbd className="text-xs">⌘K</kbd>
+          <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
         </Button>
         <details ref={profileMenu} className="relative">
           <summary className="cursor-pointer rounded-md px-3 py-1.5 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
@@ -133,6 +147,12 @@ export function App() {
             ))}
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
           {view.kind === 'help' && <HelpScreen />}
+          {view.kind === 'shortcuts' && (
+            <ShortcutSettings
+              shortcuts={config.data?.shortcuts}
+              onChanged={() => void config.refresh()}
+            />
+          )}
         </main>
       </div>
       <CommandPalette
@@ -158,7 +178,8 @@ export function App() {
               destination === 'board' ||
               destination === 'projects' ||
               destination === 'doctor' ||
-              destination === 'help'
+              destination === 'help' ||
+              destination === 'shortcuts'
             ) {
               setView({ kind: destination });
             }

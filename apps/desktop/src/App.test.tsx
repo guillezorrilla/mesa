@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import type { Config } from '@mesa/core';
+import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
@@ -226,6 +228,52 @@ test('Search Mesa disables New session when no project can start, and opens it w
   await click(byTestId('search-trigger')[0]);
   await click(byTestId('palette-hit').find((hit) => hit.textContent?.includes('New session')));
   expect(byTestId('new-session-dialog')).toHaveLength(1);
+});
+
+test('shortcut settings validate conflicts and update the active profile key', async () => {
+  let shortcuts = { ...DEFAULT_SHORTCUTS } as Config['shortcuts'];
+  const config = (): Config => ({
+    vault: '/h/vault',
+    defaultAgent: 'claude',
+    skills: [],
+    decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
+    sessions: { log: true },
+    terminal: { app: 'Terminal' },
+    shortcuts,
+    run: { permissionMode: 'acceptEdits', allowedTools: [] },
+    keys: {},
+  });
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config()),
+    'config set': (args) => {
+      const value = JSON.parse(args.at(-1) ?? '""');
+      shortcuts = { ...shortcuts, search: value };
+      return envelope({ path: 'shortcuts.search', value });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-shortcuts')[0]);
+  const input = byTestId('shortcut-search')[0] as HTMLInputElement;
+  const type = async (value: string) =>
+    act(async () => {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  await type('Mod+Q');
+  expect(byTestId('save-shortcut-search')[0]?.hasAttribute('disabled')).toBe(true);
+  await type('Mod+1');
+  expect(byTestId('save-shortcut-search')[0]?.hasAttribute('disabled')).toBe(true);
+  await type('Mod+P');
+  await click(byTestId('save-shortcut-search')[0]);
+  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'shortcuts.search', '"Mod+P"']);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(0);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', metaKey: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(1);
 });
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {

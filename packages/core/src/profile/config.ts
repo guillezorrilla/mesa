@@ -11,6 +11,7 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath } from '../lib/yaml-file.js';
+import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 
 /** The terminal apps `mesa attach --app` can open. */
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
@@ -31,6 +32,23 @@ const ConfigSchema = z.strictObject({
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
   terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
+  shortcuts: z
+    .strictObject({
+      search: z
+        .string()
+        .refine(validShortcut, 'must be Mod plus a letter or digit')
+        .default(DEFAULT_SHORTCUTS.search),
+      board: z
+        .string()
+        .refine(validShortcut, 'must be Mod plus a letter or digit')
+        .default(DEFAULT_SHORTCUTS.board),
+      newSession: z
+        .string()
+        .refine(validShortcut, 'must be Mod plus a letter or digit')
+        .default(DEFAULT_SHORTCUTS.newSession),
+    })
+    .refine((keys) => new Set(Object.values(keys)).size === 3, 'shortcuts must be unique')
+    .prefault({}),
   /** How a headless run may act (mesa run): claude's --permission-mode and --allowedTools. */
   run: z
     .strictObject({

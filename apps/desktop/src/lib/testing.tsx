@@ -12,6 +12,7 @@ import type {
   TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
+import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Bridge } from './client';
@@ -52,6 +53,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
       terminal: { app: 'Terminal' },
+      shortcuts: { ...DEFAULT_SHORTCUTS },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
       keys: {},
     } satisfies Config),
