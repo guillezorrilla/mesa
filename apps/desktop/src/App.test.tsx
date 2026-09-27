@@ -157,6 +157,77 @@ test('project controls update profile presentation and leave the slug available 
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Enter', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(1);
+  const input = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    input.value = 'lantern';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(byTestId('palette-hit').map((hit) => hit.textContent)).toEqual([
+    'lantern-covelantern-cove · /src/lantern-cove',
+    'aaaaaaaalantern-cove · claude · working',
+  ]);
+  await act(async () => {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  await click(byTestId('search-trigger')[0]);
+  const again = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    again.value = 'lantern';
+    again.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => {
+    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  });
+  await act(async () => {
+    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('selected-session')).toHaveLength(1);
+});
+
+test('Search Mesa shows no matches and Escape returns keyboard focus', async () => {
+  const byTestId = await renderWithMesa(<App />, fakeBridge().bridge);
+  const trigger = byTestId('search-trigger')[0];
+  trigger?.focus();
+  await click(trigger);
+  const input = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    input.value = 'nothing-matches';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(byTestId('palette-empty')).toHaveLength(1);
+  await act(async () => {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(0);
+  expect(document.activeElement).toBe(trigger);
+});
+
+test('Search Mesa disables New session when no project can start, and opens it when one can', async () => {
+  const empty = await renderWithMesa(<App />, fakeBridge().bridge);
+  await click(empty('search-trigger')[0]);
+  expect(
+    empty('palette-hit')
+      .find((hit) => hit.textContent?.includes('New session'))
+      ?.hasAttribute('disabled'),
+  ).toBe(true);
+  const { bridge } = fakeBridge({ projects: () => envelope(PROJECTS) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('search-trigger')[0]);
+  await click(byTestId('palette-hit').find((hit) => hit.textContent?.includes('New session')));
+  expect(byTestId('new-session-dialog')).toHaveLength(1);
+});
+
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
   expect(healthy('profile-summary')[0]?.textContent).toBe(

@@ -23,6 +23,7 @@ import { resize } from './resize.js';
 import { resume } from './resume.js';
 import { rm } from './rm.js';
 import { run } from './run.js';
+import { search } from './search.js';
 import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { show } from './show.js';
@@ -66,6 +67,7 @@ export const COMMANDS: Command[] = [
   resume,
   rm,
   run,
+  search,
   send,
   sessions,
   show,

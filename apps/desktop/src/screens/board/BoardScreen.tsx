@@ -67,6 +67,7 @@ export function BoardScreen(
     selectedSession?: string;
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
+    newSessionRequest?: number;
   } = {},
 ) {
   const [ended, setEnded] = useState(false);
@@ -77,6 +78,9 @@ export function BoardScreen(
   const run = useRun();
   const call = useCall();
   const [dialog, setDialog] = useState<OpenDialog>();
+  useEffect(() => {
+    if (props.newSessionRequest) setDialog({ kind: 'new' });
+  }, [props.newSessionRequest]);
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);

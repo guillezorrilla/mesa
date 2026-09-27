@@ -34,6 +34,7 @@ export type { ProjectRow } from './projects/projects.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
+export { type SearchHit, searchWorkspace } from './search/search.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
