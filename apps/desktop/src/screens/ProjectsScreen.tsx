@@ -22,7 +22,9 @@ import { useCommand, useRun } from '@/lib/useCommand';
  * The profile's registered projects: register a folder, and on each, sync its skills, open a
  * session, or view its sessions side by side.
  */
-export function ProjectsScreen() {
+export function ProjectsScreen(
+  props: { onRegistered?: () => void; onSelectProject?: (name: string) => void } = {},
+) {
   const { data: projects, refresh } = useCommand('projects.list');
   const skills = useCommand('skills.list', {});
   const run = useRun();
@@ -69,6 +71,7 @@ export function ProjectsScreen() {
       const registered = path ? await run('projects.register', { path }) : undefined;
       if (!registered) return undefined;
       await refresh();
+      props.onRegistered?.();
       return warned(registered.warning);
     });
 
@@ -96,7 +99,17 @@ export function ProjectsScreen() {
             {projects?.map((p) => (
               <TableRow key={p.name} data-testid="project-row">
                 <TableCell className="font-medium">
-                  {p.name}
+                  {props.onSelectProject ? (
+                    <button
+                      type="button"
+                      className="text-left underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                      onClick={() => props.onSelectProject?.(p.name)}
+                    >
+                      {p.name}
+                    </button>
+                  ) : (
+                    p.name
+                  )}
                   {!p.exists && (
                     <span
                       data-testid="project-missing"

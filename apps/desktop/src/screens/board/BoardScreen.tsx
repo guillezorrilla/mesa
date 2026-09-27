@@ -1,11 +1,24 @@
-import type { GuardrailCheck, ManagedRow } from '@mesa/core';
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import type { GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import { attentionScore, isRun, sessionBranch, sessionLabel } from '@mesa/core/browser';
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  Forward,
+  Plus,
+  RotateCcw,
+  Send,
+  Square,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ContextBar } from '@/components/ContextBar';
 import { PageHeader } from '@/components/PageHeader';
+import { StateBadge } from '@/components/StateBadge';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAct } from '@/lib/useAct';
@@ -16,7 +29,8 @@ import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
-import { exited, shown } from './rows';
+import { RowMenu } from './RowMenu';
+import { exited, queued, resumable, shown } from './rows';
 import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
@@ -48,9 +62,18 @@ const COLUMNS = [
  * confidence, and attention, the running time, and the last output line. It looks again every
  * two seconds and after every action; a live session's terminal opens under it.
  */
-export function BoardScreen() {
+export function BoardScreen(
+  props: {
+    selectedSession?: string;
+    onRowsChange?: (rows: TreeRow[]) => void;
+    onBoard?: () => void;
+  } = {},
+) {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
+  useEffect(() => {
+    if (data) props.onRowsChange?.(data);
+  }, [data, props.onRowsChange]);
   const run = useRun();
   const call = useCall();
   const [dialog, setDialog] = useState<OpenDialog>();
@@ -61,6 +84,13 @@ export function BoardScreen() {
   // show the view another window of the project.
   const live = new Set((data ?? []).filter((s) => s.managed && !exited(s)).map((s) => s.id));
   if (data && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
+  useEffect(() => {
+    const id = props.selectedSession;
+    if (id && data?.some((row) => row.id === id && row.managed && !exited(row))) {
+      setPanels((open) => (open.includes(id) ? open : [...open, id]));
+    }
+  }, [data, props.selectedSession]);
+  const selected = data?.find((row) => row.id === props.selectedSession);
 
   // Every action looks again when it ends, so the Board shows what it did.
   const { acting, act: once } = useAct();
@@ -165,26 +195,38 @@ export function BoardScreen() {
 
   return (
     <section data-testid="session-board" className="space-y-4">
-      <PageHeader
-        title="Board"
-        description="Every session, the ones waiting on you first; children sit under their parent."
-      >
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Checkbox
-            id="sessions-ended"
-            data-testid="sessions-ended"
-            checked={ended}
-            onCheckedChange={(checked) => setEnded(checked === true)}
-          />
-          <Label htmlFor="sessions-ended" className="font-normal">
-            Show older
-          </Label>
-        </div>
-        <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
-          <Plus aria-hidden />
-          New session
-        </Button>
-      </PageHeader>
+      {props.selectedSession ? (
+        <PageHeader
+          title={selected ? sessionLabel(selected) : props.selectedSession}
+          description={selected ? `${selected.project ?? 'General'}, ${selected.agent}` : 'Session'}
+        >
+          <Button variant="outline" onClick={props.onBoard}>
+            <ArrowLeft aria-hidden />
+            All sessions
+          </Button>
+        </PageHeader>
+      ) : (
+        <PageHeader
+          title="Board"
+          description="Every session, the ones waiting on you first; children sit under their parent."
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Checkbox
+              id="sessions-ended"
+              data-testid="sessions-ended"
+              checked={ended}
+              onCheckedChange={(checked) => setEnded(checked === true)}
+            />
+            <Label htmlFor="sessions-ended" className="font-normal">
+              Show older
+            </Label>
+          </div>
+          <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
+            <Plus aria-hidden />
+            New session
+          </Button>
+        </PageHeader>
+      )}
       {dialog?.kind === 'new' && (
         <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
       )}
@@ -224,44 +266,152 @@ export function BoardScreen() {
           onCancel={close}
         />
       )}
-      {data?.length === 0 && (
-        <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
-          No sessions yet: start one with New session.
-        </p>
-      )}
-      <Card className="py-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {COLUMNS.map((c) => (
-                <TableHead key={c}>{c}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown(data ?? [], collapsed).map(({ row, below }) => (
-              <SessionRow
-                key={row.id}
-                row={row}
-                below={below}
-                closed={collapsed.has(row.id)}
-                onToggle={() => toggle(row.id)}
-                elapsed={elapsed}
-                acting={acting}
-                actions={actions}
+      {props.selectedSession ? (
+        selected ? (
+          <Card data-testid="selected-session" className="gap-3 p-4">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <StateBadge
+                state={selected.lastState.state}
+                confidence={selected.lastState.confidence}
               />
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+              <span className="text-muted-foreground">
+                Attention {attentionScore(selected.attention)}
+              </span>
+              {selected.managed && selected.context && (
+                <ContextBar used={selected.context.used} window={selected.context.window} />
+              )}
+              {selected.managed && sessionBranch(selected) && (
+                <span className="font-mono text-muted-foreground">{sessionBranch(selected)}</span>
+              )}
+            </div>
+            {selected.managed ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => actions.openTerminal(selected.id)}
+                  disabled={!selected.alive || acting}
+                >
+                  <ExternalLink aria-hidden />
+                  Open in terminal app
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => actions.stop(selected.id)}
+                  disabled={!(selected.alive || queued(selected)) || acting}
+                >
+                  <Square aria-hidden />
+                  {queued(selected) ? 'Cancel' : 'Stop'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => actions.resume(selected.id)}
+                  disabled={!resumable(selected) || acting}
+                >
+                  <RotateCcw aria-hidden />
+                  Resume
+                </Button>
+                {!isRun(selected) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.handoff(selected)}
+                    disabled={exited(selected) || !selected.goal || acting}
+                  >
+                    <Forward aria-hidden />
+                    Hand off
+                  </Button>
+                )}
+                <RowMenu
+                  sessionId={selected.id}
+                  canRemove={exited(selected) && !queued(selected) && !acting}
+                  onLog={() => actions.log(selected)}
+                  onRename={() => actions.rename(selected)}
+                  onRemove={() => actions.remove(selected)}
+                />
+                {!isRun(selected) && !exited(selected) && (
+                  <form
+                    className="flex min-w-48 flex-1 gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (!acting) actions.send(selected.id, event.currentTarget);
+                    }}
+                  >
+                    <Input
+                      name="prompt"
+                      aria-label={`Prompt for ${selected.id}`}
+                      placeholder="Message session"
+                    />
+                    <Button type="submit" size="sm" disabled={acting}>
+                      <Send aria-hidden />
+                      Send
+                    </Button>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  actions.adopt(selected.agentSessionId, selected.project ?? undefined)
+                }
+              >
+                <Download aria-hidden />
+                Adopt
+              </Button>
+            )}
+          </Card>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {data ? 'Session unavailable. Open Board to choose another.' : 'Loading session...'}
+          </p>
+        )
+      ) : (
+        <>
+          {data?.length === 0 && (
+            <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
+              No sessions yet: start one with New session.
+            </p>
+          )}
+          <Card className="py-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {COLUMNS.map((c) => (
+                    <TableHead key={c}>{c}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {shown(data ?? [], collapsed).map(({ row, below }) => (
+                  <SessionRow
+                    key={row.id}
+                    row={row}
+                    below={below}
+                    closed={collapsed.has(row.id)}
+                    onToggle={() => toggle(row.id)}
+                    elapsed={elapsed}
+                    acting={acting}
+                    actions={actions}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
+      )}
       {panels.map((id) => (
-        <TerminalPanel
-          key={id}
-          sessionId={id}
-          busy={acting}
-          onOpenExternal={() => actions.openTerminal(id)}
-          onClose={() => setPanels((open) => open.filter((p) => p !== id))}
-        />
+        <div key={id} hidden={Boolean(props.selectedSession) && id !== props.selectedSession}>
+          <TerminalPanel
+            sessionId={id}
+            busy={acting}
+            onOpenExternal={() => actions.openTerminal(id)}
+            onClose={() => setPanels((open) => open.filter((p) => p !== id))}
+          />
+        </div>
       ))}
     </section>
   );

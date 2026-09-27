@@ -8,12 +8,64 @@ import {
   envelope,
   failure,
   fakeBridge,
+  fakePlatform,
+  fakeTerminals,
   managedRow,
+  PROJECTS,
   renderWithMesa,
   report,
   toasts,
   toastTexts,
 } from '@/lib/testing';
+
+test('sidebar opens a project workspace and its Skills tab', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('/src/lantern-cove');
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('aaaaaaaa');
+  await click(
+    [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent?.toLowerCase() === 'skills',
+    ),
+  );
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('No skills found.');
+  await click(byTestId('nav-projects')[0]);
+  expect(byTestId('projects-screen')).toHaveLength(1);
+});
+
+test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {
+  const terms = fakeTerminals();
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb', { project: 'other' })]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
+  expect(byTestId('sidebar-session').map((item) => item.textContent)).toEqual([
+    'aaaaaaaa',
+    'bbbbbbbb',
+  ]);
+  await click(byTestId('sidebar-session')[1]);
+  expect(byTestId('session-board')[0]?.textContent).toContain('bbbbbbbb');
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  expect(terms.calls.filter((call) => call[0] === 'open').map((call) => call[1])).toEqual([
+    'bbbbbbbb',
+  ]);
+  await click(byTestId('nav-doctor')[0]);
+  await click(byTestId('nav-board')[0]);
+  await click(byTestId('sidebar-session')[1]);
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  expect(terms.calls.filter((call) => call[0] === 'close')).toEqual([]);
+  expect(terms.calls.filter((call) => call[0] === 'open')).toHaveLength(1);
+  await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
+  expect(byTestId('workspace-sidebar')[0]?.dataset.collapsed).toBe('true');
+  expect(byTestId('selected-session')).toHaveLength(1);
+});
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
