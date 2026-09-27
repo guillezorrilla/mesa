@@ -11,6 +11,7 @@ import { requireOwnWorktree } from './holders.js';
 import { type LaunchDeps, launchSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import { isAgentState } from './states.js';
+import type { StopOutcome } from './stop.js';
 
 // A handoff (CONTEXT.md, Handoff): a session's work continues in a successor that starts from the
 // same goal and a note of where the work stands.
@@ -112,5 +113,42 @@ export async function handoffSession(
   } catch (error) {
     const why = `session ${id} not marked handed off: ${toFail(error).error.message}`;
     return { from, to, note: path, warning: joinWarnings(warning, why) };
+  }
+}
+
+// ponytail: a guess at how long a session's agent takes to finish its turn once mesa handoff
+// returns; its stop's Escape interrupts whatever it still writes, which is only its goodbye.
+/** How long a session that handed itself off keeps running before the server stops it. */
+const SELF_STOP_DELAY_S = 2;
+
+/**
+ * How a handed-off session stops: not with `keep`; from the tmux server a moment later when it
+ * hands itself off (`self`), as its own stop would kill this mesa half-way; else at once. The
+ * successor runs already, so a stop that fails is a warning, never a failed handoff that a retry
+ * would start a second successor for.
+ */
+export async function stopHandedOff(
+  deps: {
+    /** The session hands itself off, from inside its own window. */
+    self: boolean;
+    stopLater: (args: string[], seconds: number) => Promise<void>;
+    stopNow: (id: string) => Promise<{ outcome: StopOutcome; warning?: string }>;
+  },
+  id: string,
+  keep: boolean,
+): Promise<{ stop: StopOutcome | 'kept' | 'later' | 'failed'; warning?: string }> {
+  if (keep) return { stop: 'kept' };
+  try {
+    if (deps.self) {
+      await deps.stopLater(['stop', id], SELF_STOP_DELAY_S);
+      return { stop: 'later' };
+    }
+    const { outcome, warning } = await deps.stopNow(id);
+    return { stop: outcome, ...(warning ? { warning } : {}) };
+  } catch (error) {
+    return {
+      stop: 'failed',
+      warning: `session ${id} not stopped: ${toFail(error).error.message}; mesa stop ${id}`,
+    };
   }
 }
