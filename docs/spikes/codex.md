@@ -314,3 +314,48 @@ Run on 2026-09-27 with the installed `codex-cli 0.157.1`. A throwaway HOME and C
 - Cleanup killed only the throwaway tmux server, deleted the auth copy and entire temp home/profile/project, and checked that the auth/root no longer existed and that listing the socket exited 1. The real default Mesa profile, vault, and Codex settings were untouched.
 
 Limits: the owner performed the review interaction; its screen was not captured after computer-use was denied. The live run exercised SessionStart, UserPromptSubmit, and Stop, not all seven event deliveries. PermissionRequest, PostToolUse, Interrupt, prompt-less SessionEnd, and arbitrary SessionEnd reasons are covered by invented spike-shaped fixtures. The TUI showed two warnings whose details were not opened. Trust status reads Codex's recorded trusted_hash at each actual Mesa handler position; it does not reproduce or verify Codex's internal hash recipe, so a later external edit can require Codex review even while an older hash remains recorded.
+
+## 11. Headless skills and restricted Faro adapter (#160, 2026-09-27)
+
+Verified with installed `codex-cli 0.157.1`. Every live call used a temporary HOME and CODEX_HOME, a mode 0600 copy of the authorized auth file, invented data, and no hooks or hook-trust bypass. Exact temporary homes, auth copies, and profiles were deleted in `finally`; no real profile, vault, or Codex config was changed. The skill check used an invented git project. These probes did not use tmux; Mesa's window lifecycle is covered separately by the core/CLI tests and the delivery check.
+
+### Skill and stdin discovery
+
+The installed `codex exec --help` states that stdin is appended as a `<stdin>` block when a positional prompt is present. A local `.agents/skills/lantern-proof/SKILL.md` instructed Codex to return `LANTERN_SKILL_OK` and the stdin marker, with no tools. This command returned exit 0 and `LANTERN_SKILL_OK TIDE_STDIN_731`:
+
+```sh
+printf 'Input marker: TIDE_STDIN_731\n' | codex exec --json -C <invented-git-project> -c approval_policy=never -c sandbox_mode=workspace-write '$lantern-proof'
+```
+
+The recorded stream is `packages/core/src/agents/codex/fixtures/results/skill-stdin.jsonl` (thread id replaced with an invented one). It reported input 14851, cached input 12160, output 16, cache write 0, reasoning output 0. The result reader also replays section 5's successful stream, including nonfatal error items, and tests malformed, incomplete, top-level-error, failed-turn, and nonzero-exit cases. Startup stderr, including a bad `-C`, goes through the shared run owner. Codex supplies no duration, so Mesa measures elapsed wall time.
+
+### Faro's authority
+
+The installed CLI supports `--ignore-user-config`, `--ignore-rules`, `--ephemeral`, `--strict-config`, and `--output-schema`. The [official config reference](https://developers.openai.com/codex/config-reference) defines named permission profiles, deny filesystem entries, and tool-network denial. The [official apply_patch handler](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/apply_patch.rs) passes the environment sandbox into patch verification; the [tool plan](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/spec_plan.rs) offers apply_patch whenever the model supports it and an environment exists (sources inspected 2026-09-27).
+
+Mesa uses these strict config overrides, rather than the skill run's workspace-write sandbox:
+
+```toml
+approval_policy = "never"
+default_permissions = "faro"
+[permissions.faro.filesystem]
+"/" = "deny"
+[permissions.faro.network]
+enabled = false
+```
+
+The exact argv is owned by `decisions/codex.ts` and recorded in `decisions/fixtures/adapter/codex-choice.json`. It disables shell, apps, plugins, hooks, memories, chronicle, host skill discovery, skill search, multi-agent, browser/computer use, image generation/viewing, goals, web search, project instruction loading, the native environment context, and plan updates. `include_environment_context=false` keeps Codex from adding the unredacted home/profile path beside the redacted Faro state. It ignores user config and exec rules, starts in a private scratch directory with only the schema, and does not persist conversation history. `--skip-git-repo-check` permits that empty non-project folder; it grants no hook or folder trust. The provider still reads its authentication and native administrative settings. No raw project or session files are offered to Faro.
+
+A tiny native probe requested two apply_patch operations against invented data: update `<temporary>/private.txt` (containing `INVENTED_PRIVATE_LANTERN_042`) and add `<temporary>/empty/blocked.txt`. The update failed before reading its contents:
+
+```text
+apply_patch verification failed: Failed to read file to update <temporary>/private.txt:
+fs sandbox helper failed with status exit status: 71:
+sandbox-exec: execvp() of '<codex-binary>' failed: Operation not permitted
+```
+
+The add failed with `patch rejected: writing is blocked by read-only sandbox; rejected by user approval settings`. The sentinel stayed unchanged and the added file did not exist. This is offered-but-denied apply_patch, not a claim that zero tools were offered. The deny-all profile intentionally prevents even the filesystem helper from executing. Unsupported flags/config fail closed through the existing rules fallback; `features.skip_host_skill_discovery` currently produces an under-development warning.
+
+A real isolated `mesa config set decisions.adapter codex`, followed by `mesa decide --json` with state `{"status":"The lantern check passed."}` and a Choice over `passed`/`failed`, returned backend `adapter`, answer `passed`, probabilities 1/0, confidence 1, no cost, in 5161 ms after disabling native environment context. The strict schema and complete request/reply are recorded, with invented ids and temporary paths. An invented MCP entry in ignored user config did not start its marker process; the schema/scratch directory was absent after completion. Unit replays assert schema/argv, file modes, cleanup on success/failure/timeout, no cost, and rules fallback.
+
+Limitations: this is the installed macOS CLI's native enforcement, not a cross-platform certification. Ephemeral mode prevents conversation history, not every provider diagnostic/cache write. Codex skill runs deliberately retain normal provider config/skills and workspace authority; only the Faro adapter uses the deny-all profile. The full session-summary and project-brief live acceptance checks are recorded by the delivery owner separately.

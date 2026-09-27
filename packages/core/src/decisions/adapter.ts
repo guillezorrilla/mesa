@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import type { Agent } from '../agents/names.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { codexDecision } from './codex.js';
 import { namesOf, toAnswer } from './rules.js';
 import type { Answer, Backend, Question } from './types.js';
 
-// The adapter backend (ADR-0004 amendment): the same questions, answered by Claude Code headless
-// on the subscription (`claude -p` with structured output), never the Messages API.
+// The adapter backend (ADR-0004): the same questions, answered on a Claude or Codex subscription.
 
 export const ADAPTER_TIMEOUT_MS = 20_000;
 /** The screen's last characters that reach the prompt, after redaction. */
@@ -131,12 +132,15 @@ function toFaro(q: Question, raw: unknown): Answer {
 }
 
 /**
- * The adapter backend: one `claude -p` call per decision, with a 20 s timeout. Its answers and
+ * The adapter backend: one headless provider call per decision, with a 20 s timeout. Its answers and
  * `total_cost_usd` (for information only) go back to `decide`, which checks them; a failed call,
  * a timeout, or no `claude` throws, and `decide` falls back to rules.
  */
 export function adapterBackend<S>(deps: {
   run: Runner;
+  /** Profile-local scratch space for the Codex schema and empty working folder. */
+  directory: string;
+  agent?: () => Agent;
   /** The shared redactor with the profile's home and secrets bound. */
   redact: (value: unknown, maxString?: number) => unknown;
 }): Backend<S> {
@@ -144,6 +148,20 @@ export function adapterBackend<S>(deps: {
     name: 'adapter',
     answer: async (state, questions) => {
       const prompt = adapterPrompt(state, questions, deps.redact);
+      if (deps.agent?.() === 'codex') {
+        const raw = z
+          .record(z.string(), z.unknown())
+          .parse(
+            await codexDecision(
+              deps.run,
+              deps.directory,
+              prompt,
+              answerSchema(questions),
+              ADAPTER_TIMEOUT_MS,
+            ),
+          );
+        return { answers: questions.map((q) => toFaro(q, raw[q.id])) };
+      }
       const res = await deps.run('claude', adapterArgs(prompt, questions), ADAPTER_TIMEOUT_MS);
       if (!res.ok) throw new MesaError('agent_unavailable', `claude -p: ${res.reason}`);
       const result = ResultSchema.parse(JSON.parse(res.stdout));

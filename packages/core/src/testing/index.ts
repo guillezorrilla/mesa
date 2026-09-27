@@ -341,7 +341,7 @@ export const finishesRun =
     stderr?: string;
   }) =>
   (w: FakeWindow) => {
-    const file = /^exec claude -p .* >'([^']+)'$/.exec(w.launch)?.[1];
+    const file = /^exec (?:claude -p|codex exec) .* >'([^']+)'$/.exec(w.launch)?.[1];
     if (!file) return;
     if (output !== undefined) writeFileSync(file, output);
     if (stderr !== undefined) {
@@ -354,6 +354,13 @@ export const finishesRun =
     if (signal) w.signal = signal;
     else w.status = status;
   };
+
+/** Recorded Codex exec streams, with invented ids. */
+export const codexResult = (name: 'success' | 'skill-stdin') =>
+  readFileSync(
+    join(import.meta.dirname, '../agents/codex/fixtures/results', `${name}.jsonl`),
+    'utf8',
+  );
 
 /**
  * `claude -p --output-format json` results, as a run's output file holds them

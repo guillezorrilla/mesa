@@ -38,7 +38,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     vault: '/tmp/v',
     defaultAgent: 'claude',
     skills: ['mesa', 'mesa-handoff'],
-    decisions: { backend: 'adapter', threshold: 0.7 },
+    decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },

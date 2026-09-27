@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { execRunner } from '../lib/process.js';
 import { redactPayload } from '../lib/redact.js';
-import { fixedClock, scriptedRunner } from '../testing/index.js';
+import { fixedClock, scriptedRunner, tempDir } from '../testing/index.js';
 import {
   ADAPTER_TIMEOUT_MS,
   adapterArgs,
@@ -11,6 +11,7 @@ import {
   adapterPrompt,
   answerSchema,
 } from './adapter.js';
+import { codexDecisionArgs } from './codex.js';
 import { decide, type FaroProfile } from './decide.js';
 import { rulesBackend } from './rules.js';
 import type { Decision, Question } from './types.js';
@@ -119,7 +120,7 @@ test.each(cases)(
     const { run, calls } = scriptedRunner({ claude: () => fixture.response.stdout });
     const decision = await decide(
       {
-        backends: [rulesBackend([]), adapterBackend({ run, redact })],
+        backends: [rulesBackend([]), adapterBackend({ run, redact, directory: tempDir() })],
         profile,
         clock: fixedClock(),
       },
@@ -191,7 +192,7 @@ test('a missing claude, a timeout, a failed or unreadable reply fall back to rul
   for (const run of replies) {
     const decision = await decide(
       {
-        backends: [rulesBackend([]), adapterBackend({ run, redact })],
+        backends: [rulesBackend([]), adapterBackend({ run, redact, directory: tempDir() })],
         profile,
         clock: fixedClock(),
       },
@@ -200,5 +201,83 @@ test('a missing claude, a timeout, a failed or unreadable reply fall back to rul
     );
     expect(decision.backend).toBe('rules-fallback');
     expect(decision).not.toHaveProperty('costUsd');
+  }
+});
+
+test('Codex replays a recorded strict-schema Choice, removes private scratch, and has no cost', async () => {
+  const fixture = JSON.parse(readFileSync(join(dir, 'codex-choice.json'), 'utf8'));
+  const directory = tempDir();
+  const { run, calls } = scriptedRunner({
+    codex: (args) => {
+      const scratch = args[args.indexOf('-C') + 1] as string;
+      const schema = args[args.indexOf('--output-schema') + 1] as string;
+      expect(statSync(scratch).mode & 0o777).toBe(0o700);
+      expect(statSync(schema).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(readFileSync(schema, 'utf8'))).toEqual(fixture.request.schema);
+      expect(args.map((arg) => arg.replaceAll(scratch, '<scratch>'))).toEqual(fixture.request.args);
+      return fixture.response.stdout;
+    },
+  });
+  const decision = await decide(
+    {
+      backends: [
+        rulesBackend([]),
+        adapterBackend({ run, redact, directory, agent: () => 'codex' }),
+      ],
+      profile,
+      clock: fixedClock(),
+    },
+    fixture.state,
+    fixture.questions,
+  );
+  expect(decision.backend).toBe('adapter');
+  expect(decision.answers).toMatchObject([{ answer: 'passed', confidence: 1 }]);
+  expect(decision).not.toHaveProperty('costUsd');
+  expect(calls[0]?.timeoutMs).toBe(ADAPTER_TIMEOUT_MS);
+  expect(readdirSync(directory)).toEqual([]);
+  expect(fixture.request.args).toEqual(
+    codexDecisionArgs(
+      adapterPrompt(fixture.state, fixture.questions, redact),
+      '<scratch>',
+      '<scratch>/answer.schema.json',
+    ),
+  );
+});
+
+test('Codex failures fall back to rules and remove schema/scratch on every outcome', async () => {
+  const directory = tempDir();
+  for (const provider of [
+    scriptedRunner({}, { missing: ['codex'] }).run,
+    scriptedRunner({}, { slow: ['codex'] }).run,
+    scriptedRunner({}, { failing: ['codex'] }).run,
+    scriptedRunner({ codex: 'not json' }).run,
+    scriptedRunner({ codex: '{"type":"error","message":"bad schema"}' }).run,
+  ]) {
+    let scratch = '';
+    const decision = await decide(
+      {
+        backends: [
+          rulesBackend([]),
+          adapterBackend({
+            directory,
+            redact,
+            agent: () => 'codex',
+            run: (file, args, timeout) => {
+              scratch = args[args.indexOf('-C') + 1] as string;
+              return provider(file, args, timeout);
+            },
+          }),
+        ],
+        profile,
+        clock: fixedClock(),
+      },
+      {},
+      board,
+    );
+    expect(decision.backend).toBe('rules-fallback');
+    expect(decision).not.toHaveProperty('costUsd');
+    expect(scratch).not.toBe('');
+    expect(existsSync(scratch)).toBe(false);
+    expect(readdirSync(directory)).toEqual([]);
   }
 });

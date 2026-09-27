@@ -12,7 +12,7 @@ export type Runner = (file: string, args: string[], timeoutMs: number) => Promis
 
 export const execRunner: Runner = (file, args, timeoutMs) =>
   new Promise((resolve) => {
-    execFile(file, args, { timeout: timeoutMs }, (error, stdout, stderr) => {
+    const child = execFile(file, args, { timeout: timeoutMs }, (error, stdout, stderr) => {
       if (!error) return resolve({ ok: true, stdout });
       const code = (error as NodeJS.ErrnoException).code;
       if (code === 'ENOENT')
@@ -20,6 +20,8 @@ export const execRunner: Runner = (file, args, timeoutMs) =>
       if (error.killed) return resolve({ ok: false, reason: 'timeout', detail: error.message });
       resolve({ ok: false, reason: 'failed', detail: (stderr || error.message).trim() });
     });
+    // Runner has no stdin input: providers such as codex exec must see EOF immediately.
+    child.stdin?.end();
   });
 
 /** One POSIX shell word, single-quoted. */

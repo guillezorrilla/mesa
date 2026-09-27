@@ -51,7 +51,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       vault: '/h/vault',
       defaultAgent: 'claude',
       skills: [],
-      decisions: { backend: 'adapter', threshold: 0.7 },
+      decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
       terminal: { app: 'Terminal' },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
