@@ -80,6 +80,11 @@ test('a selected receipt shows its frontmatter and its decisions; a Noul has one
     ['verdictChoice', 'ask', 'ask 95%', '95%', 'rules'],
     ['secret-or-destructiveNoul', 'no', 'yes 5%', 'none', 'rules'],
   ]);
+  expect(
+    decisions.map((row) =>
+      row.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow'),
+    ),
+  ).toEqual(['95', '5']);
 
   // Another receipt, with no decision; Close puts the list back alone.
   await click(byTestId('receipt-open')[2]);
@@ -88,6 +93,22 @@ test('a selected receipt shows its frontmatter and its decisions; a Noul has one
   const close = byTestId('receipt-details')[0]?.querySelector<HTMLElement>('[aria-label="Close"]');
   await click(close ?? undefined);
   expect(byTestId('receipt-details')).toEqual([]);
+});
+
+test('clicking a receipt cell or its button selects that row', async () => {
+  const { byTestId } = await openReceipts();
+  await click(byTestId('receipt-row')[0]?.querySelector('td') ?? undefined);
+  expect(byTestId('receipt-details')[0]?.querySelector('h3')?.textContent).toBe(
+    RUN_RECEIPT.summary,
+  );
+  await click(byTestId('receipt-row')[1]?.querySelector('td') ?? undefined);
+  expect(byTestId('receipt-details')[0]?.querySelector('h3')?.textContent).toBe(
+    SESSION_RECEIPT.summary,
+  );
+  await click(byTestId('receipt-open')[0]);
+  expect(byTestId('receipt-details')[0]?.querySelector('h3')?.textContent).toBe(
+    RUN_RECEIPT.summary,
+  );
 });
 
 test('a late receipt detail reply cannot replace the newer selection', async () => {
