@@ -1,4 +1,4 @@
-import type { Env, Runner } from '../../lib/process.js';
+import { type Env, type Runner, shellWord } from '../../lib/process.js';
 import { type ErrorCode, MesaError } from '../../lib/result.js';
 import {
   exact,
@@ -106,6 +106,32 @@ export function tmuxBackend({
     );
   };
 
+  /**
+   * The argv that shows the window in a terminal, run by the caller in its own terminal. Each
+   * terminal gets its own view: a session grouped with the project's (same windows, its own
+   * current window) that tmux destroys when the terminal detaches. Attaching to the project's
+   * session itself would switch every attached terminal to this window (ADR-0001 amendment).
+   */
+  const attachArgv = (target: WindowTarget, view: string) => [
+    'tmux',
+    '-L',
+    socket,
+    '-f',
+    '/dev/null',
+    'new-session',
+    '-t',
+    `=${target.project}`,
+    '-s',
+    `${VIEW_PREFIX}${view}`,
+    ';',
+    'set-option',
+    'destroy-unattached',
+    'on',
+    ';',
+    'select-window',
+    '-t',
+    `=${VIEW_PREFIX}${view}:=${target.window}`,
+  ];
   return {
     /** Starts the profile's server, or updates it, with Mesa's options and its pane-died hook. */
     ensureServer,
@@ -237,31 +263,62 @@ export function tmuxBackend({
       return out.replace(/\n+$/, '').split('\n').slice(-lines).join('\n');
     },
     listWindows,
+    attachArgv,
     /**
-     * The argv that shows the window in a terminal, run by the caller in its own terminal. Each
-     * terminal gets its own view: a session grouped with the project's (same windows, its own
-     * current window) that tmux destroys when the terminal detaches. Attaching to the project's
-     * session itself would switch every attached terminal to this window (ADR-0001 amendment).
+     * Several windows side by side, for one terminal (CONTEXT.md, Project view): a session
+     * `_view-<id>` whose one window, `name`, has a pane per target, each a terminal on that
+     * target's window with its own view (attachArgv, TMUX unset so tmux lets it nest), laid out
+     * by `layout`. Built detached and re-tiled after each split, so every pane has room; a
+     * layout tmux does not know is a usage error, and the view is removed again.
+     * viewAttachArgv attaches it.
      */
-    attachArgv: (target: WindowTarget, view: string) => [
+    openView: async (
+      targets: readonly WindowTarget[],
+      layout: string,
+      name: string,
+      newView: () => string,
+    ): Promise<WindowTarget> => {
+      const view = { project: `${VIEW_PREFIX}${newView()}`, window: name };
+      const [first, ...rest] = targets.map((t) => [
+        '/bin/sh',
+        '-c',
+        `unset TMUX; exec ${attachArgv(t, newView()).map(shellWord).join(' ')}`,
+      ]);
+      if (!first) throw new MesaError('internal', 'a view needs a window to show');
+      const splits = rest.flatMap((pane) => [
+        ...[';', 'split-window', '-t', exact(view), ...pane],
+        ...[';', 'select-layout', '-t', exact(view), 'tiled'],
+      ]);
+      await must(
+        ['new-session', '-d', '-s', view.project, '-n', name, ...first, ...splits],
+        'internal',
+        'could not open the view',
+      );
+      const laid = await tmux(['select-layout', '-t', exact(view), layout]);
+      if (!laid.ok) {
+        await tmux(['kill-session', '-t', `=${view.project}`]);
+        throw new MesaError('usage', `tmux cannot lay out a view as ${layout}: ${laid.detail}`);
+      }
+      return view;
+    },
+    /**
+     * The argv that shows a view (openView) in this terminal; tmux removes the view, and the
+     * terminals in its panes, when the terminal detaches. Set only once attached: a session that
+     * no terminal has yet would go at once.
+     */
+    viewAttachArgv: (view: WindowTarget) => [
       'tmux',
       '-L',
       socket,
       '-f',
       '/dev/null',
-      'new-session',
+      'attach-session',
       '-t',
-      `=${target.project}`,
-      '-s',
-      `${VIEW_PREFIX}${view}`,
+      `=${view.project}`,
       ';',
       'set-option',
       'destroy-unattached',
       'on',
-      ';',
-      'select-window',
-      '-t',
-      `=${VIEW_PREFIX}${view}:=${target.window}`,
     ],
     /** The window itself, with its pane's state; undefined when it is gone. */
     findWindow: async (target: WindowTarget) =>

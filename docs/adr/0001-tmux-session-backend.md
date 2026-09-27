@@ -77,3 +77,13 @@ Views are hidden from window listings. When a window is killed (stop, resume), a
 ## Amendment 2026-09-26: the server runs a hook (#68)
 
 Mesa's server now also runs `mesa hook tmux pane-died` whenever a pane dies. `ensureServer` sets that hook with the other options, and a look at a board with sessions sets it again without starting a server. ADR-0003's amendment of the same date gives the rules.
+
+## Amendment 2026-09-26: a project view nests a terminal per session (#134)
+
+A tmux layout arranges the panes of one window, and Mesa gives each session its own single-pane window, so `tmux.layout` had nothing to arrange. The owner chose a view of the project's sessions as the panes of one window (#134). Moving the sessions' panes into one window (`join-pane`) would break a window per session, which the board, stop, and resume read, so the window stays and the view shows it:
+
+- `openView` makes a detached session `_view-<id>` with one window; each pane runs `unset TMUX; exec <attachArgv>`, the same view per terminal as `mesa attach` (above), nested in the pane. tmux refuses a client inside one of its own panes while `TMUX` is set, and the nested client is a client of the same server showing a different session, so nothing recurses.
+- After each `split-window` the window is re-tiled, so every pane has room for the next split; then `select-layout` applies the project's layout. A layout tmux does not know removes the view again and is a usage error.
+- `viewAttachArgv` attaches it with `attach-session`, then sets `destroy-unattached`. Setting it at creation does not work: probed on a throwaway socket, a detached session with `destroy-unattached on` is destroyed at once, before any terminal attaches. Once the terminal detaches, tmux destroys the view, its panes' clients exit, and their own views (also `destroy-unattached`) go too. When `--app` cannot open the terminal app, Mesa removes the view itself, as no terminal will ever attach it.
+
+Evidence: `packages/core/src/sessions/tmux/backend.test.ts` "openView lays windows out side by side, a terminal on each; a layout tmux lacks is usage", on real tmux: `even-vertical` stacks the two panes, each pane's view shows its own window, and the later test that expects an empty server still passes, so the nested views are gone once the view is.

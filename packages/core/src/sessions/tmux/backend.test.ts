@@ -242,6 +242,52 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await raw('set-hook', '-gu', 'pane-died');
   });
 
+  test('openView lays windows out side by side, a terminal on each; a layout tmux lacks is usage', async () => {
+    const [a, b] = [lantern('claude-view01'), lantern('claude-view02')];
+    await open(a, 'cat');
+    await open(b, 'cat');
+    let n = 0;
+    const ids = () => `v${++n}`;
+    const view = await tmux.openView([a, b], 'even-vertical', 'lantern', ids);
+    expect(view).toEqual({ project: '_view-v1', window: 'lantern' });
+    // even-vertical: the two panes stack, one above the other.
+    const panes = (
+      await raw('list-panes', '-t', '=_view-v1:=lantern', '-F', '#{pane_left} #{pane_top}')
+    )
+      .split('\n')
+      .map((l) => l.split(' '));
+    expect(panes.map(([left]) => left)).toEqual(['0', '0']);
+    expect(new Set(panes.map(([, top]) => top)).size).toBe(2);
+    // Each pane is a terminal on its own window, through a view of its own, as mesa attach makes.
+    const current = (session: string) =>
+      raw('display-message', '-p', '-t', `=${session}:`, '#{window_name}');
+    expect(await eventually(() => current('_view-v2'), /claude-view01/)).toBe('claude-view01');
+    expect(await eventually(() => current('_view-v3'), /claude-view02/)).toBe('claude-view02');
+    // Views stay out of the listings.
+    expect((await tmux.listWindows()).some((w) => w.project.startsWith('_view-'))).toBe(false);
+    expect(tmux.viewAttachArgv(view)).toEqual([
+      'tmux',
+      '-L',
+      socket,
+      '-f',
+      '/dev/null',
+      'attach-session',
+      '-t',
+      '=_view-v1',
+      ';',
+      'set-option',
+      'destroy-unattached',
+      'on',
+    ]);
+    await raw('kill-session', '-t', '=_view-v1');
+
+    await expect(tmux.openView([a], 'sideways', 'lantern', ids)).rejects.toMatchObject({
+      code: 'usage',
+      message: expect.stringMatching(/^tmux cannot lay out a view as sideways: /),
+    });
+    expect(await raw('has-session', '-t', '=_view-v4')).toMatch(/^failed/);
+  });
+
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {
     const target = lantern('claude-kill01');
     await open(target, 'cat');
