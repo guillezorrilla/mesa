@@ -21,9 +21,27 @@ const DecisionSchema = z.discriminatedUnion('kind', [
   recorded(noul),
 ]);
 
-/** A Decision as a receipt keeps it: one entry per answer, with the backend that answered. */
+/**
+ * Every number in `value` to 6 decimals: normalising weights leaves float noise
+ * (0.9500000000000001), which a receipt, read by a person, keeps as 0.95.
+ */
+const sixDecimals = (value: unknown): unknown =>
+  typeof value === 'number'
+    ? Math.round(value * 1e6) / 1e6
+    : value && typeof value === 'object'
+      ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, sixDecimals(v)]))
+      : value;
+
+/**
+ * A Decision as a receipt keeps it: one entry per answer, its numbers to 6 decimals, with the
+ * backend that answered. The Decision itself stays exact.
+ */
 export const decisionEntries = ({ answers, backend }: Decision): z.input<typeof DecisionSchema>[] =>
-  answers.map(({ id, ...answer }) => ({ question: id, ...answer, backend }));
+  answers.map(({ id, ...answer }) => ({
+    question: id,
+    ...(sixDecimals(answer) as typeof answer),
+    backend,
+  }));
 
 /** The receipt frontmatter, documented field by field in docs/receipts.md. */
 export const ReceiptSchema = z.strictObject({

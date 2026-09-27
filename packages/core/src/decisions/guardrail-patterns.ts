@@ -8,7 +8,11 @@ export type Pattern = { name: string; matches: RegExp };
 
 export const SECRET_PATTERNS: readonly Pattern[] = [
   { name: 'an Anthropic API key', matches: /\bsk-ant-[\w-]{20,}/ },
-  { name: 'an OpenAI API key', matches: /\bsk-(?:proj-|svcacct-|admin-)?[\w-]{40,}/ },
+  // A project key, which has a digit (a long sk- slug seldom does), or a legacy one, all letters and digits.
+  {
+    name: 'an OpenAI API key',
+    matches: /\bsk-(?:(?:proj|svcacct|admin)-(?=[\w-]*\d)[\w-]{40,}|[A-Za-z0-9]{40,}\b)/,
+  },
   { name: 'a GitHub token', matches: /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_\w{22,})/ },
   { name: 'an AWS access key id', matches: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/ },
   { name: 'a Slack token', matches: /\bxox[abprs]-[A-Za-z0-9-]{10,}/ },
@@ -17,20 +21,47 @@ export const SECRET_PATTERNS: readonly Pattern[] = [
   { name: 'a private key', matches: /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/ },
 ];
 
-/** Commands a person would want to see before they run: each loses work or harms the machine. */
+/**
+ * `name` run with `arg` within its first three words: a command's shape. A word holds no comma,
+ * so prose that only mentions a command ("git push, then drop the -f") does not match.
+ */
+const command = (name: RegExp, arg: RegExp) =>
+  new RegExp(`\\b${name.source}(?:\\s+[^\\s;&|,]+){0,3}?\\s+${arg.source}`);
+
+/**
+ * Commands a person would want to see before they run, each in a command's shape: each loses
+ * work or harms the machine.
+ */
 export const DESTRUCTIVE_PATTERNS: readonly Pattern[] = [
-  // Both -r and -f in one word, in any order and case (-rf, -fr, -Rf, -rfv).
-  { name: 'rm -rf', matches: /\brm\s+-[a-z]*(?:r[a-z]*f|f[a-z]*r)/i },
+  // -rf in one word in any order (-fr, -Rf, -rfv) or two (-r -f), on a target that starts with
+  // /, ~, $, *, or a dot: `rm -rf node_modules` goes, `rm -rf ~/` does not.
+  {
+    name: 'rm -rf',
+    matches:
+      /\brm(?:\s+-[\w-]+)*?\s+(?:-[a-zA-Z]*(?:[rR][a-zA-Z]*f|f[a-zA-Z]*[rR])[a-zA-Z]*|-[rR]\s+-f|-f\s+-[rR])(?:\s+-[\w-]+)*\s+["']?[/~$*.]/,
+  },
   // --force-with-lease checks the remote first, so it is left alone.
-  { name: 'git push --force', matches: /\bgit\s+push\b[^\n;&|]*\s(?:--force(?![\w-])|-f\b)/ },
-  { name: 'git reset --hard', matches: /\bgit\s+reset\b[^\n;&|]*\s--hard\b/ },
-  { name: 'git clean -f', matches: /\bgit\s+clean\b[^\n;&|]*\s-[a-z]*f/ },
-  { name: 'DROP TABLE', matches: /\bdrop\s+(?:table|database|schema)\b/i },
-  { name: 'TRUNCATE TABLE', matches: /\btruncate\s+table\b/i },
-  { name: 'mkfs', matches: /\bmkfs(?:\.\w+)?\s[^\n;&|]*\/dev\// },
-  { name: 'dd of=/dev/', matches: /\bdd\b[^\n;&|]*\bof=\/dev\// },
+  { name: 'git push --force', matches: command(/git\s+push/, /(?:--force(?![\w-])|-f\b)/) },
+  { name: 'git reset --hard', matches: command(/git\s+reset/, /--hard\b/) },
+  { name: 'git clean -f', matches: command(/git\s+clean/, /(?:-[a-zA-Z]*f|--force\b)/) },
+  // SQL's own upper case, then a name: `DROP TABLE tides`, not "drop table support". TRUNCATE
+  // without TABLE takes a name that ends the statement: `TRUNCATE tides;`.
+  { name: 'DROP TABLE', matches: /\bDROP\s+(?:TABLE|DATABASE|SCHEMA)\s+[\w"`[]/ },
+  {
+    name: 'TRUNCATE',
+    matches: /\bTRUNCATE\s+(?:TABLE\s+[\w"`[]|(?!TABLE\b)[\w"`.[\]]+\s*(?:;|$))/m,
+  },
+  { name: 'mkfs', matches: command(/mkfs(?:\.\w+)?/, /\/dev\//) },
+  // Onto a disk: /dev/null and the like are where dd's benchmarks write.
+  {
+    name: 'dd of=/dev/',
+    matches: command(/dd/, /of=\/dev\/(?!(?:null|zero|random|urandom|stdout|stderr|tty)\b|fd\/)/),
+  },
   { name: 'chmod -R 777 /', matches: /\bchmod\s+-R\s+0?777\s+\/(?:\s|$)/ },
-  { name: 'curl | sh', matches: /\b(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b/ },
+  {
+    name: 'curl | sh',
+    matches: /\b(?:curl|wget)(?:\s+[^\s;&|,]+){1,8}?\s*\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b/,
+  },
   { name: 'a fork bomb', matches: /:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:/ },
 ];
 

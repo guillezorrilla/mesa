@@ -76,9 +76,10 @@ test('a destructive prompt is blocked with its decision in a blocked receipt; --
     status: 'blocked',
     inputs: { session: opened.id, prompt: 'run rm -rf /', force: false },
     outputs: { error: { code: 'guardrail_blocked' } },
+    // To 6 decimals: the rules' 0.95, without the float noise of normalising.
     decisions: [
-      { question: 'verdict', kind: 'Choice', answer: 'block', backend: 'rules' },
-      { question: 'secret-or-destructive', kind: 'Noul', answer: true, backend: 'rules' },
+      { question: 'verdict', kind: 'Choice', answer: 'block', confidence: 0.95, backend: 'rules' },
+      { question: 'secret-or-destructive', kind: 'Noul', answer: true, probabilities: 0.95 },
     ],
   });
 

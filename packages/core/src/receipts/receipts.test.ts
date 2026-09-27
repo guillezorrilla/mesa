@@ -210,7 +210,7 @@ test('the recorder records success, failure, and nothing-changed, and never fail
   expect(() => readFileSync(join(repo, 'receipts'))).toThrow();
 });
 
-test('every decision made during an action lands in its receipt, a failed or blocked one too', () => {
+test('every decision made during an action lands in its receipt, a failed or blocked one too, to 6 decimals', () => {
   const record = actionRecorder({
     profile: 'default',
     vault: () => vault,
@@ -223,15 +223,16 @@ test('every decision made during an action lands in its receipt, a failed or blo
       { kind: 'Choice', id: 'verdict', options: ['allow', 'block'] },
       { kind: 'Noul', id: 'harmful', statement: 'It harms' },
     ],
+    // As normalising weights leaves them: float noise.
     answers: [
       {
         id: 'verdict',
         kind: 'Choice',
         answer: 'block',
-        probabilities: { allow: 0.1, block: 0.9 },
-        confidence: 0.9,
+        probabilities: { allow: 0.09999999999999998, block: 0.9000000000000001 },
+        confidence: 0.9000000000000001,
       },
-      { id: 'harmful', kind: 'Noul', answer: true, probabilities: 0.9 },
+      { id: 'harmful', kind: 'Noul', answer: true, probabilities: 0.9000000000000001 },
     ],
     backend: 'rules',
     at: '2026-09-24T12:00:00.000Z',
@@ -271,6 +272,8 @@ test('every decision made during an action lands in its receipt, a failed or blo
     outputs: { error: { code: 'guardrail_blocked', message: 'blocked: it harms' } },
   });
   expect(byStatus.blocked?.receipt.outputs.error).not.toHaveProperty('details');
+  // The Decision itself stays exact.
+  expect(decision.answers[1]?.probabilities).toBe(0.9000000000000001);
 });
 
 test('an env: key value is redacted in the recorded command', () => {

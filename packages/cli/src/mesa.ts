@@ -18,6 +18,7 @@ const [{ randomBytes, randomUUID }, { homedir }, { setTimeout: sleep }, { fileUR
 const { execRunner, macObsidianPaths, systemClock, ulidSource } = await import('@mesa/core');
 const { runCli } = await import('./cli.js');
 const { COMMANDS } = await import('./commands/index.js');
+const { terminalConfirm } = await import('./confirm.js');
 
 /** All of stdin, for a hook's payload. */
 const readStdin = async () => {
@@ -26,29 +27,14 @@ const readStdin = async () => {
   return Buffer.concat(chunks).toString('utf8');
 };
 
-/**
- * A y/N question on stderr, so stdout stays the result; anything but y or yes is no, and so is
- * no answer at all (Ctrl+D or Ctrl+C at the prompt, which readline rejects).
- */
-const confirm = async (question: string) => {
-  const { createInterface } = await import('node:readline/promises');
-  const line = createInterface({ input: process.stdin, output: process.stderr });
-  try {
-    return /^y(es)?$/i.test((await line.question(`${question} [y/N] `)).trim());
-  } catch {
-    return false;
-  } finally {
-    line.close();
-  }
-};
-
 const home = homedir();
 const { code, stdout, stderr, exec } = await runCli(argv, {
   commands: COMMANDS,
   env: process.env,
   tty: Boolean(process.stdin.isTTY),
   stdin: readStdin,
-  ...(process.stdin.isTTY ? { confirm } : {}),
+  // Only a terminal has a person to ask.
+  ...(process.stdin.isTTY ? { confirm: terminalConfirm(process.stdin, process.stderr) } : {}),
   mesa: {
     home,
     cwd: process.cwd(),
