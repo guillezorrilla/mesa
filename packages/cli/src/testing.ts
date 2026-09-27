@@ -4,6 +4,7 @@ import type { MesaDeps, Runner } from '@mesa/core';
 import {
   CLAUDE_VERSION,
   fakeTmux,
+  profilePaths,
   scriptedRunner,
   sequentialIds,
   sequentialUuids,
@@ -43,6 +44,10 @@ export function cliHarness() {
     stdin: '',
     /** The environment of the next invocations (MESA_SESSION_ID for a hook). */
     env: {} as Record<string, string>,
+    /** Where the default profile keeps its files under this home. */
+    get paths() {
+      return profilePaths(h.home, 'default');
+    },
     reset: () => {
       h.home = tempDir();
       // One id source per test, shared by its invocations.
