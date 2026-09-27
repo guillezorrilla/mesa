@@ -1,7 +1,7 @@
 import type { MesaContext } from '../context.js';
 import { redactPayload } from '../lib/redact.js';
 import { adapterBackend } from './adapter.js';
-import { decide, type FaroProfile, selectBackend } from './decide.js';
+import { decide, type FaroProfile } from './decide.js';
 import { rulesBackend } from './rules.js';
 import type { Question } from './types.js';
 
@@ -35,13 +35,10 @@ export function createFaro(ctx: MesaContext) {
         state,
         questions as Question[],
       ),
-    /** The backend the profile names and the one in use, for doctor; none before init. */
+    /** The backend the profile names and its threshold, for doctor; none before init. */
     inUse: () => {
-      if (!ctx.configIfAny()) return undefined;
-      const now = profile();
-      const named = now.decisions.backend;
-      const active = selectBackend(outside, now).name;
-      return { named, active, threshold: now.decisions.threshold };
+      const decisions = ctx.configIfAny()?.decisions;
+      return decisions && { named: decisions.backend, threshold: decisions.threshold };
     },
   };
 }
