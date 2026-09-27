@@ -240,8 +240,8 @@ export function sessionsService(
           () => renameSession(store, id, name),
         ),
       /**
-       * Removes a session's record, hook log, and output log, and with the flags its worktree and
-       * branch; a live one only with `force`. The session receipt says what went.
+       * Removes a session's record, hook log, output log, and a run's output, and with the flags
+       * its worktree and branch; a live one only with `force`. The session receipt says what went.
        */
       remove: (
         id: string,
@@ -267,6 +267,7 @@ export function sessionsService(
                 profile: open,
                 eventsDir: paths.events,
                 logsDir: paths.logs,
+                runs: paths.runs,
               },
               id,
               opts,

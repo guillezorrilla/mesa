@@ -11,7 +11,6 @@
 // or listing speaks).
 
 import type { SessionState } from '../../sessions/states.js';
-import { isDeadPaneLine } from '../../sessions/tmux/format.js';
 
 const SPINNER_CHARS = '✱✲✳✴✵✶✷✸✹✺✻✼✽✾✿❀❁❂❃❇❈❉❊❋✢✣✤✥✦✧✨⊛⊕⊙◉◎◍⁂⁕※⍟☼★☆·•⏺▸▹∙⋅○●';
 const SPINNER_ACTIVITY = new RegExp(`^[${SPINNER_CHARS}] \\S+ing.*\u2026`, 'm');
@@ -41,7 +40,8 @@ export function claudeLastOutputLine(tail: string): string | undefined {
   const line = recentAbovePrompt(tail)
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l && !isDeadPaneLine(l))
+    // tmux's own line under a dead pane (remain-on-exit) is not the agent's.
+    .filter((l) => l && !/^Pane is dead \(/.test(l))
     .at(-1);
   return line && Array.from(line).slice(0, 200).join('');
 }

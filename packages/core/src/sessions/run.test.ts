@@ -7,8 +7,10 @@ import {
   claudeResult,
   type FakeWindow,
   finishesRun,
+  newSession,
   profilePaths,
   projectProfile,
+  shortIds,
   testStore,
 } from '../testing/index.js';
 
@@ -32,6 +34,7 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   });
   const id = result.session;
   const output = join(profilePaths(home, 'default').runs, `${id}.json`);
+  const stderr = join(profilePaths(home, 'default').runs, `${id}.err`);
   expect(result).toEqual({
     session: id,
     ok: true,
@@ -40,13 +43,13 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
     costUsd: 0.0421,
     durationMs: 8421,
   });
-  // stdin closed, stdout into the profile's runs/, and exec, so the pane's exit is claude's.
+  // stdin closed, stdout and stderr into the profile's runs/, and exec, so the pane's exit is claude's.
   expect(world.tmux.windows).toEqual([]);
   const launch = world.calls
     .find((c) => c.file === 'tmux' && c.args.includes('new-session'))
     ?.args.find((a) => a.startsWith('exec '));
   expect(launch).toBe(
-    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' --allowedTools 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
+    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' --allowedTools 'Read' 'Bash(git log:*)' </dev/null >'${output}' 2>'${stderr}'`,
   );
   expect(existsSync(output)).toBe(true);
   // The skill was linked into the folder claude ran in, as every start does.
@@ -57,6 +60,7 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
     agentSessionId: UUID,
     endedAt: expect.any(String),
     lastState: { state: 'done', confidence: 1, source: 'mesa' },
+    events: [{ type: 'exited', at: expect.any(String), status: 0 }],
   });
   const [started] = listReceipts(join(home, 'vault'));
   expect(started?.path).toBe(receipt?.path);
@@ -78,6 +82,11 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   // On the board beside live sessions: a run, done.
   const [row] = await mesa.sessions.list(true);
   expect(row).toMatchObject({ id, kind: 'run', lastState: { state: 'done' } });
+
+  // mesa rm takes its output with the record.
+  const { result: removed } = await mesa.sessions.remove(id);
+  expect(removed).toMatchObject({ runOutput: true, events: false, window: false });
+  expect(existsSync(output)).toBe(false);
 });
 
 test('an error claude reports, and a nonzero exit with no result, are not ok, with the reason', async () => {
@@ -96,15 +105,9 @@ test('an error claude reports, and a nonzero exit with no result, are not ok, wi
   });
   expect(testStore(first.home).get(result.session).lastState.state).toBe('failed');
 
-  // claude refused its flags: no result, its exit, and the line it left on the pane.
+  // claude refused its flags: no result, its exit, and the last line it printed on stderr.
   const refused = agentWorld({
-    onOpen: finishesRun({
-      output: '',
-      status: 1,
-      // As live tmux shows it: remain-on-exit's own line under claude's.
-      stderr:
-        "error: unknown option '--bogus'\n\nPane is dead (status 1, Sat Sep 26 22:25:23 2026)",
-    }),
+    onOpen: finishesRun({ output: '', status: 1, stderr: "error: unknown option '--bogus'\n\n" }),
   });
   const second = setUp(refused);
   const run = await second.mesa.sessions.run('session-summary', { project: 'lantern-cove' });
@@ -155,6 +158,63 @@ test("a run's end starts what was queued after it, as a stop does", async () => 
   expect(world.tmux.windows.map((w) => w.window)).toEqual([`claude-${next?.id}`]);
 });
 
+test("tmux's pane-died hook ends a run as its wait would: once that wait is gone, or before it looks", async () => {
+  // Its mesa run is killed while it waits: the agent then exits, and only the hook sees it.
+  const world = agentWorld();
+  let whileRunning = async () => {};
+  const { home, mesa } = setUp(world, () => whileRunning());
+  whileRunning = async () => {
+    finishesRun({ output: '', status: 2, stderr: 'error: bad flag\n' })(
+      world.tmux.windows[0] as FakeWindow,
+    );
+    throw new Error('mesa run was killed');
+  };
+  await expect(mesa.sessions.run('session-summary', { project: 'lantern-cove' })).rejects.toThrow(
+    'mesa run was killed',
+  );
+  const [orphan] = testStore(home).list();
+  const window = `claude-${orphan?.id}`;
+  expect(orphan?.endedAt).toBeUndefined();
+  expect(await mesa.tmuxEvent('pane-died', 'lantern-cove', window)).toMatchObject({ kind: 'run' });
+  expect(world.tmux.windows).toEqual([]);
+  expect(testStore(home).get(orphan?.id ?? '')).toMatchObject({
+    endedAt: expect.any(String),
+    lastState: { state: 'failed', confidence: 1, source: 'mesa' },
+    events: [{ type: 'exited', at: expect.any(String), status: 2 }],
+  });
+
+  // The hook ends it first: the wait reads the same result, the exit from the record.
+  whileRunning = async () => {
+    const [w] = world.tmux.windows;
+    finishesRun({ output: '', status: 2, stderr: 'error: bad flag\n' })(w as FakeWindow);
+    await mesa.tmuxEvent('pane-died', 'lantern-cove', w?.window ?? '');
+  };
+  const { result } = await mesa.sessions.run('session-summary', { project: 'lantern-cove' });
+  expect(result.reason).toBe(
+    'claude printed no result; claude exited with status 2; error: bad flag',
+  );
+  expect(testStore(home).get(result.session).lastState.state).toBe('failed');
+});
+
+test('a run takes no prompt and has nothing to hand off', async () => {
+  const world = agentWorld();
+  const { home, mesa } = setUp(world);
+  const run = testStore(home, 'default', shortIds('runabcde')).create(() =>
+    newSession({ kind: 'run', goal: '/session-summary' }),
+  );
+  const refused = (e: { code: string; message: string }) => ({ code: e.code, message: e.message });
+  expect(await mesa.sessions.send(run.id, 'hello').catch(refused)).toEqual({
+    code: 'usage',
+    message:
+      'session runabcde is a skill run (mesa run), which takes no prompt: its agent reads no input and ends by itself',
+  });
+  expect(await mesa.sessions.handoff(run.id, { note: 'note.md' }).catch(refused)).toEqual({
+    code: 'usage',
+    message:
+      'session runabcde is a skill run (mesa run), which has no work to hand off: its agent reads no input and ends by itself',
+  });
+});
+
 test('past its timeout a run is killed, ended failed, and a timeout error', async () => {
   const world = agentWorld();
   let slept = 0;
@@ -183,7 +243,10 @@ test('past its timeout a run is killed, ended failed, and a timeout error', asyn
 test('a skill the project does not see or enable, another agent, or a bad timeout starts nothing', async () => {
   const world = agentWorld();
   const { home, mesa } = setUp(world);
-  const refused = (skill: string, opts: { agent?: string; timeoutSeconds?: number } = {}) =>
+  const refused = (
+    skill: string,
+    opts: { agent?: string; timeoutSeconds?: number; args?: string[] } = {},
+  ) =>
     mesa.sessions
       .run(skill, { project: 'lantern-cove', ...opts })
       .catch((e: { code: string; message: string }) => ({ code: e.code, message: e.message }));
@@ -206,6 +269,15 @@ test('a skill the project does not see or enable, another agent, or a bad timeou
     message: 'codex support is planned in #43',
   });
   expect(await refused('session-summary', { timeoutSeconds: 0 })).toMatchObject({ code: 'usage' });
+  // Counted on the line tmux gets: claude's command fits, with its redirects it does not.
+  const bare = (n: number) =>
+    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits'`;
+  const long = 'x'.repeat(11_990 - bare(0).length);
+  expect(bare(long.length)).toHaveLength(11_990);
+  expect(await refused('session-summary', { args: [long] })).toMatchObject({
+    code: 'usage',
+    message: expect.stringMatching(/^the goal makes a 12\d{3}-byte command/),
+  });
   expect(
     await mesa.sessions.run('nope', { project: 'tide' }).catch((e: { code: string }) => e.code),
   ).toBe('not_found');

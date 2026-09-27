@@ -6,6 +6,7 @@ import { findProject } from '../projects/projects.js';
 import { worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
+import { runFiles } from './run.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
@@ -20,6 +21,8 @@ export type Removed = {
   events: boolean;
   /** Its output log, `sessions/logs/<id>.log`. */
   outputLog: boolean;
+  /** A skill run's output, `sessions/runs/<id>.json` and `.err` (CONTEXT.md, Skill run). */
+  runOutput: boolean;
   /** Its tmux window, live under `force`, or left dead. */
   window: boolean;
   worktree?: string;
@@ -27,8 +30,8 @@ export type Removed = {
 };
 
 /**
- * Removes a session's record, its hook log, and its output log, with `deleteWorktree` its git
- * worktree and with `deleteBranch` its branch. A queued session is refused, to be cancelled first; a live one is
+ * Removes a session's record, its hook log, its output log, and a run's output, with
+ * `deleteWorktree` its git worktree and with `deleteBranch` its branch. A queued session is refused, to be cancelled first; a live one is
  * refused unless `force`, which closes its window first; git refuses a dirty worktree unless `force`. Every refusal comes before the record goes,
  * so a refused rm leaves the session as it was, to retry.
  */
@@ -40,6 +43,8 @@ export async function removeSession(
     profile: () => Profile;
     eventsDir: string;
     logsDir: string;
+    /** The profile's runs/, where a run's output is. */
+    runs: string;
   },
   id: string,
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
@@ -79,6 +84,7 @@ export async function removeSession(
     record: true,
     events: false,
     outputLog: false,
+    runOutput: false,
     window: false,
   };
   if (pane) {
@@ -101,6 +107,9 @@ export async function removeSession(
   const output = outputLog(deps.logsDir, id);
   removed.outputLog = existsSync(output);
   rmSync(output, { force: true });
+  const run = Object.values(runFiles(deps.runs, id));
+  removed.runOutput = run.some((f) => existsSync(f));
+  for (const f of run) rmSync(f, { force: true });
   deps.store.remove(id);
   return removed;
 }

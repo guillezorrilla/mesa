@@ -306,8 +306,8 @@ export function fakeTmux(
 }
 
 /**
- * A headless run's agent in fakeTmux (`onOpen`): writes `output` where the run's command sends
- * its stdout (none when undefined), prints `stderr` on its pane, then exits with `status`, or is
+ * A headless run's agent in fakeTmux (`onOpen`): writes `output` and `stderr` where the run's
+ * command sends its stdout and stderr (none when undefined), then exits with `status`, or is
  * killed by `signal`. A window that is not a run's is left running.
  */
 export const finishesRun =
@@ -323,10 +323,11 @@ export const finishesRun =
     stderr?: string;
   }) =>
   (w: FakeWindow) => {
-    const file = /^exec claude -p .* >'([^']+)'$/.exec(w.launch)?.[1];
-    if (!file) return;
-    if (output !== undefined) writeFileSync(file, output);
-    if (stderr !== undefined) w.typed.push(stderr);
+    const [, stdoutFile, stderrFile] =
+      /^exec claude -p .* >'([^']+)' 2>'([^']+)'$/.exec(w.launch) ?? [];
+    if (!stdoutFile || !stderrFile) return;
+    if (output !== undefined) writeFileSync(stdoutFile, output);
+    if (stderr !== undefined) writeFileSync(stderrFile, stderr);
     w.dead = true;
     if (signal) w.signal = signal;
     else w.status = status;

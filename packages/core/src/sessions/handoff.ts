@@ -7,7 +7,7 @@ import { joinWarnings } from '../receipts/recorder.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
 import { type LaunchDeps, launchProject, launchSession } from './launch.js';
-import type { SessionRecord } from './record.js';
+import { refuseRun, type SessionRecord } from './record.js';
 import { isAgentState } from './states.js';
 import type { StopOutcome } from './stop.js';
 
@@ -30,9 +30,10 @@ type HandoffDeps = LaunchDeps & {
  * Starts the successor of session `id`: on the same project, with the same agent, in the same
  * folder, taking over its worktree, with `parent` and `handoffFrom` the session, and a goal made
  * of the session's plus a line naming the note, copied to `handoffs/<successor id>.md`. Both
- * records get a `handoff` event. Every refusal comes before anything is written, and a window
- * that cannot open removes the successor and its note again. Stopping the session is the
- * caller's; `keep` only refuses a session in its own worktree, which two sessions never share.
+ * records get a `handoff` event. A skill run has nothing to hand off. Every refusal comes before
+ * anything is written, and a window that cannot open removes the successor and its note again.
+ * Stopping the session is the caller's; `keep` only refuses a session in its own worktree, which
+ * two sessions never share.
  */
 export async function handoffSession(
   deps: HandoffDeps,
@@ -40,6 +41,7 @@ export async function handoffSession(
   { note, keep = false }: { note: string; keep?: boolean },
 ): Promise<{ from: SessionRecord; to: SessionRecord; note: string; warning?: string }> {
   const from = deps.store.get(id);
+  refuseRun(from, 'has no work to hand off');
   if (!isAgentState(from.lastState.state)) {
     throw new MesaError(
       'usage',

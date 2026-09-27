@@ -2,7 +2,7 @@ import { guardrail } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Caller } from './caller.js';
-import { type SessionRecord, sessionEnded } from './record.js';
+import { refuseRun, type SessionRecord, sessionEnded } from './record.js';
 import { WAITING_STATES } from './states.js';
 import type { SessionStore } from './store.js';
 import type { TmuxBackend } from './tmux/backend.js';
@@ -64,8 +64,8 @@ function senderOf(
  * Types `prompt` into a live session's agent as one literal chunk, then one Enter (ADR-0001), and
  * adds a `send` event to its record. From another session (`from`, else the window this runs
  * in, unless `noFrom`), a header line first names the sender and how to reply, and the sender's
- * record gets a `sent` event. A session that exited is not_found; a pane running a shell, or an
- * agent waiting on a person, is a usage error; `force` sends anyway, except from another session
+ * record gets a `sent` event. A session that exited is not_found; a skill run, a pane running a
+ * shell, or an agent waiting on a person, is a usage error; `force` sends anyway, except from another session
  * into a wait, which only a person answers (ADR-0003).
  */
 export async function sendPrompt(
@@ -81,6 +81,7 @@ export async function sendPrompt(
 ): Promise<Sent> {
   if (!prompt.trim()) throw new MesaError('usage', 'nothing to send: the prompt is empty');
   const record = deps.store.get(id);
+  refuseRun(record, 'takes no prompt');
   const { sender, window } = senderOf(deps, id, { from, noFrom });
   const target = windowOf(record);
   const pane = await deps.tmux.findWindow(target);

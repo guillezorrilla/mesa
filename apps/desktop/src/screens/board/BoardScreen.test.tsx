@@ -280,24 +280,32 @@ test("a session's goal shows under its project, its first line, the whole goal o
   expect(byTestId('session-goal')).toHaveLength(1);
 });
 
-test('a headless run is badged run beside its agent, and shows its skill as its goal', async () => {
-  const run = managedRow('dddddddd', {
+test('a headless run is badged run beside its agent, shows its skill as its goal, and has no Send or Hand off', async () => {
+  const done = managedRow('dddddddd', {
     kind: 'run',
     goal: '/session-summary focus on tests',
     alive: false,
     endedAt: '2026-09-25T12:01:00.000Z',
     lastState: { state: 'done', confidence: 1, at: '2026-09-25T12:01:00.000Z', source: 'mesa' },
   });
-  const { bridge } = fakeBridge({ sessions: () => envelope([busy, run] satisfies TreeRow[]) });
+  // Live too: its agent reads no input, so there is nothing to type into it.
+  const live = managedRow('eeeeeeee', { kind: 'run', goal: '/session-summary', attention: 0.01 });
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([busy, done, live] satisfies TreeRow[]),
+  });
   const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('session-send')).toHaveLength(1);
+  expect(byTestId('session-handoff')).toHaveLength(1);
+  expect(byTestId('session-send')[0]?.closest('tr')?.textContent).toContain('bbbbbbbb');
   const [badge] = byTestId('session-run');
-  expect(byTestId('session-run')).toHaveLength(1);
+  expect(byTestId('session-run')).toHaveLength(2);
   expect(badge?.closest('tr')?.querySelector('[data-testid="session-state"]')?.textContent).toBe(
     'done 100%',
   );
   expect(badge?.closest('td')?.textContent).toBe('clauderun');
   expect(byTestId('session-goal').map((g) => g.textContent)).toEqual([
     '/session-summary focus on tests',
+    '/session-summary',
   ]);
 });
 
@@ -765,6 +773,7 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
         project: 'lantern-cove',
         record: true,
         events: true,
+        runOutput: false,
         window: false,
         worktree: worktree.path,
       }),

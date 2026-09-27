@@ -13,20 +13,26 @@ import type { SessionRecord } from './record.js';
 import { exitState } from './state.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
-import { isDeadPaneLine, type TmuxWindow } from './tmux/format.js';
+import { paneExit, type TmuxWindow } from './tmux/format.js';
 import { windowOf } from './window-name.js';
 
 // A skill run headlessly (CONTEXT.md, Skill run): a session of kind run, started through the one
-// launch sequence, whose agent prints its result into the profile's runs/ and exits. Mesa waits
-// for that, reads the result, closes the window, and ends the session done or failed.
+// launch sequence, whose agent prints its result into the profile's runs/ and exits. Whoever sees
+// the exit first, the wait in `mesa run` or tmux's pane-died hook, ends it the same way (endRun).
 
 /** How long a run may take unless told otherwise: 20 minutes. */
 export const RUN_TIMEOUT_SECONDS = 20 * 60;
 /** How often the wait looks at the run's pane. */
 const POLL_MS = 1000;
 
-/** Where a run's agent writes its stdout: `<runs>/<session id>.json`, local to the profile. */
-export const runOutput = (runs: string, id: string) => join(runs, `${id}.json`);
+/**
+ * A run's files, local to the profile: what its agent printed on stdout (its result) and on
+ * stderr, `<runs>/<session id>.json` and `.err`.
+ */
+export const runFiles = (runs: string, id: string) => ({
+  stdout: join(runs, `${id}.json`),
+  stderr: join(runs, `${id}.err`),
+});
 
 /** What a run gave back: the agent's answer, its conversation, what it cost, how long it took. */
 export type HeadlessResult = {
@@ -61,10 +67,11 @@ type RunDeps = LaunchDeps & {
 
 /**
  * Starts a skill run: a session of kind run whose window runs the agent's headless command, with
- * `/<skill> <args>` as its prompt (kept as the record's goal) and its stdout in runOutput. The
- * window's command execs the agent, so the pane's pid and exit status are the agent's. Every
- * refusal comes before anything is written: an unknown project, a skill the project does not
- * see or enable, an agent that cannot run, a timeout under one second.
+ * `/<skill> <args>` as its prompt (kept as the record's goal), stdin closed, and its stdout and
+ * stderr in runFiles. The window's command execs the agent, so the pane's pid and exit status
+ * are the agent's. Every refusal comes before anything is written: an unknown project, a skill
+ * the project does not see or enable, an agent that cannot run, a timeout under one second, a
+ * command too long for tmux.
  */
 export async function startRun(deps: RunDeps, input: RunInput) {
   const { timeoutSeconds = RUN_TIMEOUT_SECONDS } = input;
@@ -77,13 +84,18 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const prompt = [`/${input.skill}`, ...(input.args ?? [])].join(' ');
   const agentSessionId = deps.newUuid();
   const command = spec.headless.command(agentSessionId, prompt, deps.profile.config.run);
-  requireCommandFits(command);
+  const line = (id: string) => {
+    const files = runFiles(deps.runs, id);
+    return `exec ${command} </dev/null >${shellWord(files.stdout)} 2>${shellWord(files.stderr)}`;
+  };
+  // The line tmux gets, checked before anything is written: every Mesa session id is 8 characters.
+  requireCommandFits(line('xxxxxxxx'));
   mkdirSync(deps.runs, { recursive: true, mode: 0o700 });
   const parent = deps.caller().session?.id;
   return launchSession(
     deps,
     { kind: 'run', project: entry, agent, agentSessionId, goal: prompt, parent },
-    { command: (r) => `exec ${command} </dev/null >${shellWord(runOutput(deps.runs, r.id))}` },
+    { command: (r) => line(r.id) },
   );
 }
 
@@ -104,34 +116,37 @@ function requireSkill(rows: SkillRow[], skill: string, project: string) {
   }
 }
 
-type WaitDeps = {
+/** What ending a run takes: its record, its window, the clock, and its files. */
+type EndDeps = {
   store: SessionStore;
-  tmux: Pick<TmuxBackend, 'findWindow' | 'killWindow' | 'capturePane'>;
+  tmux: Pick<TmuxBackend, 'killWindow'>;
   clock: Clock;
-  sleep: (ms: number) => Promise<void>;
   runs: string;
 };
 
 /**
  * Waits for a run's agent to exit, looking at its pane every second for up to `timeoutSeconds`,
- * then reads its result, closes its window, and ends the session: `done` when the result is ok,
- * `failed` otherwise. A result that is not ok is returned, never thrown. Past the timeout the
- * window is closed, the session ended `failed`, and the wait is a `timeout` error.
+ * then ends it (endRun) and returns its result, ok or not. Past the timeout the window is closed,
+ * the session ended `failed`, and the wait is a `timeout` error.
  */
 export async function awaitRun(
-  deps: WaitDeps,
+  deps: EndDeps & {
+    tmux: Pick<TmuxBackend, 'findWindow' | 'killWindow'>;
+    sleep: (ms: number) => Promise<void>;
+  },
   run: SessionRecord,
   timeoutSeconds = RUN_TIMEOUT_SECONDS,
 ): Promise<HeadlessResult> {
   const target = windowOf(run);
   for (let waited = 0; ; waited += POLL_MS) {
     const pane = await deps.tmux.findWindow(target);
-    if (!pane || pane.dead) return finish(deps, run, pane);
+    // Read again: tmux's pane-died hook may have ended it already, keeping how it exited.
+    if (!pane || pane.dead) return endRun(deps, deps.store.get(run.id), pane);
     if (waited >= timeoutSeconds * 1000) break;
     await deps.sleep(POLL_MS);
   }
   await killIfThere(deps.tmux, target);
-  end(deps, run.id, 'failed');
+  endRecord(deps, run.id, 'failed', deps.clock().toISOString());
   throw new MesaError(
     'timeout',
     `session ${run.id} ran ${run.goal} past its ${timeoutSeconds} s timeout: its window was closed and the session marked failed`,
@@ -140,63 +155,100 @@ export async function awaitRun(
 }
 
 /**
- * The result once the pane died (`pane`) or the window went: what the agent printed, not ok when
- * it exited nonzero. Output that does not read is not ok, with why, how the agent exited, and the
- * last line it left on the pane (its stderr), read before the window closes.
+ * How a run ends, whoever sees its agent exit first: the wait in `mesa run`, or tmux's pane-died
+ * hook, which ends it when that wait is gone. Its result is read from its files and how it exited
+ * (the dead `pane`, else the exit its record keeps), its window closed, and the session ended,
+ * `done` when the result is ok and `failed` otherwise, with its exit recorded. A session already
+ * ended keeps its end, and the same result is read again.
  */
-async function finish(deps: WaitDeps, run: SessionRecord, pane?: TmuxWindow) {
-  const agent = runnableAgent(run.agent);
-  const file = runOutput(deps.runs, run.id);
-  const said = existsSync(file)
-    ? (agent?.headless.result(readFileSync(file, 'utf8')) ?? {
-        read: false as const,
-        reason: `${run.agent} has no headless result`,
-      })
-    : { read: false as const, reason: `no output at ${file}` };
-  const failed = pane?.dead && exitState(pane) === 'failed';
-  const exit = !pane
-    ? `its window closed before ${run.agent} finished`
-    : pane.deadSignal
-      ? `${run.agent} was killed by ${pane.deadSignal}`
-      : `${run.agent} exited with status ${pane.deadStatus ?? 0}`;
-  let result: HeadlessResult;
-  if (said.read) {
-    const { read: _, ...read } = said;
-    result = read.ok && failed ? { ...read, ok: false, reason: exit } : read;
-  } else {
-    const stderr = pane
-      ? await deps.tmux
-          .capturePane(windowOf(run), 30)
-          .then(lastLine)
-          .catch(() => undefined)
-      : undefined;
-    result = {
-      ok: false,
-      output: '',
-      agentSessionId: run.agentSessionId ?? '',
-      durationMs: Math.max(0, deps.clock().getTime() - Date.parse(run.startedAt)),
-      reason: [said.reason, failed || !pane ? exit : undefined, stderr].filter(Boolean).join('; '),
-    };
-  }
-  if (pane) await killIfThere(deps.tmux, windowOf(run));
-  end(deps, run.id, result.ok ? 'done' : 'failed');
+export async function endRun(
+  deps: EndDeps,
+  run: SessionRecord,
+  pane?: TmuxWindow,
+): Promise<HeadlessResult> {
+  const exited = run.events.find((e) => e.type === 'exited');
+  const exit = pane?.dead
+    ? paneExit(pane)
+    : exited && { status: exited.status, signal: exited.signal };
+  const at = run.endedAt ?? deps.clock().toISOString();
+  const result = runResult(deps.runs, run, exit, at);
+  await killIfThere(deps.tmux, windowOf(run));
+  endRecord(deps, run.id, result.ok ? 'done' : 'failed', at, exit);
   return result;
 }
 
-/** The last line a dead pane shows its process printing (a run's stderr), tmux's own left out. */
-const lastLine = (tail: string) =>
-  tail
+type Exit = { status?: number; signal?: string };
+
+/**
+ * A run's result from its files: what its agent printed, not ok when it exited nonzero or by a
+ * signal. Output that does not read is not ok, with why, how the agent exited (`exit`, none when
+ * its window went first), and the last line it printed on stderr.
+ */
+function runResult(
+  runs: string,
+  run: SessionRecord,
+  exit: Exit | undefined,
+  at: string,
+): HeadlessResult {
+  const files = runFiles(runs, run.id);
+  const said = existsSync(files.stdout)
+    ? (runnableAgent(run.agent)?.headless.result(readFileSync(files.stdout, 'utf8')) ?? {
+        read: false as const,
+        reason: `${run.agent} has no headless result`,
+      })
+    : { read: false as const, reason: `no output at ${files.stdout}` };
+  const failed =
+    exit && exitState({ deadStatus: exit.status, deadSignal: exit.signal }) === 'failed';
+  const how = !exit
+    ? `its window closed before ${run.agent} finished`
+    : exit.signal
+      ? `${run.agent} was killed by ${exit.signal}`
+      : `${run.agent} exited with status ${exit.status ?? 0}`;
+  if (said.read) {
+    const { read: _, ...read } = said;
+    return read.ok && failed ? { ...read, ok: false, reason: how } : read;
+  }
+  return {
+    ok: false,
+    output: '',
+    agentSessionId: run.agentSessionId ?? '',
+    durationMs: Math.max(0, Date.parse(at) - Date.parse(run.startedAt)),
+    reason: [said.reason, failed || !exit ? how : undefined, lastLine(files.stderr)]
+      .filter(Boolean)
+      .join('; '),
+  };
+}
+
+/** The last line in `file` that is not blank, if any. */
+function lastLine(file: string) {
+  if (!existsSync(file)) return undefined;
+  return readFileSync(file, 'utf8')
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => line && !isDeadPaneLine(line))
+    .filter(Boolean)
     .at(-1);
+}
 
-/** Ends the run's session in `state`, which Mesa read from its result, unless a stop ended it first. */
-function end(deps: Pick<WaitDeps, 'store' | 'clock'>, id: string, state: 'done' | 'failed') {
-  const at = deps.clock().toISOString();
-  deps.store.update(id, (current) =>
-    current.endedAt
-      ? {}
-      : { endedAt: at, lastState: { state, confidence: 1, at, source: 'mesa' as const } },
-  );
+/**
+ * Ends the run's session at `at` in `state`, which Mesa read from its result, recording its exit
+ * when nothing has yet; one a stop or the other ender ended first keeps its end.
+ */
+function endRecord(
+  deps: Pick<EndDeps, 'store'>,
+  id: string,
+  state: 'done' | 'failed',
+  at: string,
+  exit?: Exit,
+) {
+  deps.store.update(id, (current) => {
+    if (current.endedAt) return {};
+    const recorded = current.events.some((e) => e.type === 'exited');
+    return {
+      endedAt: at,
+      lastState: { state, confidence: 1, at, source: 'mesa' as const },
+      ...(exit && !recorded
+        ? { events: [...current.events, { type: 'exited' as const, at, ...exit }] }
+        : {}),
+    };
+  });
 }
