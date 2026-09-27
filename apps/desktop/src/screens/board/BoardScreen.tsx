@@ -18,6 +18,9 @@ import { type RowActions, SessionRow } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
 
+/** The one dialog open on the Board, if any: New session, or a row's Rename, Hand off, or Remove. */
+type OpenDialog = { kind: 'new' } | { kind: 'rename' | 'handoff' | 'remove'; row: ManagedRow };
+
 const COLUMNS = [
   'Id',
   'Project',
@@ -40,11 +43,8 @@ export function BoardScreen() {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
   const run = useRun();
-  const [newOpen, setNewOpen] = useState(false);
-  // The row a Rename or a Remove dialog is open for.
-  const [renaming, setRenaming] = useState<ManagedRow>();
-  const [handingOff, setHandingOff] = useState<ManagedRow>();
-  const [removing, setRemoving] = useState<ManagedRow>();
+  const [dialog, setDialog] = useState<OpenDialog>();
+  const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
   // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
@@ -95,9 +95,9 @@ export function BoardScreen() {
         const resumed = await run('sessions.resume', { id });
         return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
-    rename: (row) => row.managed && setRenaming(row),
-    handoff: (row) => row.managed && setHandingOff(row),
-    remove: (row) => row.managed && setRemoving(row),
+    rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
+    handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
+    remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
     adopt: (agentSessionId, project) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
@@ -108,21 +108,21 @@ export function BoardScreen() {
     act(async () => {
       const done = await run('sessions.handoff', { id, note, keep });
       if (!done) return undefined;
-      setHandingOff(undefined);
+      close();
       return said(`Handed off ${id} to ${done.to}`, done);
     });
   const rename = (id: string, name: string) =>
     act(async () => {
       const renamed = await run('sessions.rename', { id, name });
       if (!renamed) return undefined;
-      setRenaming(undefined);
+      close();
       return said(`Renamed ${id} to ${renamed.name}`, renamed);
     });
   const remove = (id: string, opts: { deleteWorktree: boolean; deleteBranch: boolean }) =>
     act(async () => {
       const removed = await run('sessions.remove', { id, ...opts });
       if (!removed) return undefined;
-      setRemoving(undefined);
+      close();
       const also = [
         removed.worktree && 'its worktree',
         removed.branch && `branch ${removed.branch}`,
@@ -134,7 +134,7 @@ export function BoardScreen() {
     act(async () => {
       const opened = await run('sessions.open', input);
       if (!opened) return undefined;
-      setNewOpen(false);
+      close();
       return said(`Opened session ${opened.id} on ${opened.project}`, opened);
     });
 
@@ -155,37 +155,37 @@ export function BoardScreen() {
             Show older
           </Label>
         </div>
-        <Button data-testid="new-session" onClick={() => setNewOpen(true)}>
+        <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
           <Plus aria-hidden />
           New session
         </Button>
       </PageHeader>
-      {newOpen && (
-        <NewSessionDialog onOpen={open} onCancel={() => setNewOpen(false)} disabled={acting} />
+      {dialog?.kind === 'new' && (
+        <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
       )}
-      {handingOff && (
+      {dialog?.kind === 'handoff' && (
         <HandoffDialog
-          row={handingOff}
+          row={dialog.row}
           disabled={acting}
-          onHandoff={(note, keep) => handoff(handingOff.id, note, keep)}
-          onCancel={() => setHandingOff(undefined)}
+          onHandoff={(note, keep) => handoff(dialog.row.id, note, keep)}
+          onCancel={close}
         />
       )}
-      {renaming && (
+      {dialog?.kind === 'rename' && (
         <RenameDialog
-          sessionId={renaming.id}
-          name={renaming.name}
+          sessionId={dialog.row.id}
+          name={dialog.row.name}
           disabled={acting}
-          onRename={(name) => rename(renaming.id, name)}
-          onCancel={() => setRenaming(undefined)}
+          onRename={(name) => rename(dialog.row.id, name)}
+          onCancel={close}
         />
       )}
-      {removing && (
+      {dialog?.kind === 'remove' && (
         <RemoveDialog
-          row={removing}
+          row={dialog.row}
           disabled={acting}
-          onRemove={(opts) => remove(removing.id, opts)}
-          onCancel={() => setRemoving(undefined)}
+          onRemove={(opts) => remove(dialog.row.id, opts)}
+          onCancel={close}
         />
       )}
       {data?.length === 0 && (
