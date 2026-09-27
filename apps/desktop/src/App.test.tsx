@@ -1,8 +1,17 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
-import { click, envelope, failure, fakeBridge, renderWithMesa, report } from '@/lib/testing';
+import { CONFIRMATION_MS } from '@/components/Toast';
+import {
+  click,
+  envelope,
+  failure,
+  fakeBridge,
+  managedRow,
+  renderWithMesa,
+  report,
+} from '@/lib/testing';
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
@@ -93,4 +102,65 @@ test('Open in Obsidian runs mesa vault open; a failure shows in the toast', asyn
   const again = await renderWithMesa(<App />, unknown.bridge);
   await click(again('open-vault')[0]);
   expect(again('toast')[0]?.textContent).toContain('Open folder as vault');
+});
+
+/** Types `prompt` into the first row's Send box and sends it. */
+async function send(byTestId: (id: string) => HTMLElement[], prompt: string) {
+  (byTestId('session-prompt')[0] as HTMLInputElement).value = prompt;
+  await click(byTestId('session-send-submit')[0]);
+}
+const toasts = (byTestId: (id: string) => HTMLElement[]) =>
+  byTestId('toast').map((t) => [t.dataset.tone, t.querySelector('pre')?.textContent]);
+
+test('a confirmation is neutral, shows every time, and goes by itself', async () => {
+  vi.useFakeTimers();
+  try {
+    const { bridge } = fakeBridge({
+      sessions: () => envelope([managedRow('aaaaaaaa')]),
+      send: () => envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5 }),
+    });
+    const byTestId = await renderWithMesa(<App />, bridge);
+    await send(byTestId, 'hello');
+    await send(byTestId, 'hello');
+    expect(toasts(byTestId)).toEqual([
+      ['confirmation', 'Sent 5 characters to aaaaaaaa'],
+      ['confirmation', 'Sent 5 characters to aaaaaaaa'],
+    ]);
+    await act(async () => vi.advanceTimersByTime(CONFIRMATION_MS));
+    expect(toasts(byTestId)).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('a failure, or a confirmation with a warning, is an alert: warm, once, and it stays', async () => {
+  vi.useFakeTimers();
+  try {
+    let fails = true;
+    const { bridge } = fakeBridge({
+      sessions: () => envelope([managedRow('aaaaaaaa')]),
+      send: () =>
+        fails
+          ? failure('session aaaaaaaa waits on a person')
+          : envelope({
+              sent: true,
+              session: 'aaaaaaaa',
+              from: null,
+              chars: 5,
+              warning: 'no receipt',
+            }),
+    });
+    const byTestId = await renderWithMesa(<App />, bridge);
+    await send(byTestId, 'hello');
+    await send(byTestId, 'hello');
+    fails = false;
+    await send(byTestId, 'hello');
+    await act(async () => vi.advanceTimersByTime(2 * CONFIRMATION_MS));
+    expect(toasts(byTestId)).toEqual([
+      ['alert', 'session aaaaaaaa waits on a person'],
+      ['alert', 'Sent 5 characters to aaaaaaaa; no receipt'],
+    ]);
+  } finally {
+    vi.useRealTimers();
+  }
 });

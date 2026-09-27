@@ -2,6 +2,7 @@ import type { ManagedRow } from '@mesa/core';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
+import type { Message } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,7 +55,7 @@ export function BoardScreen() {
 
   // Every action looks again when it ends, so the Board shows what it did.
   const { acting, act: once } = useAct();
-  const act = (action: () => Promise<string | undefined>) =>
+  const act = (action: () => Promise<Message | undefined>) =>
     once(async () => {
       try {
         return await action();
@@ -67,7 +68,7 @@ export function BoardScreen() {
     openTerminal: (id) =>
       act(async () => {
         const attached = await run('sessions.attach', { id });
-        return attached && `Opened ${attached.target} in ${attached.app}`;
+        return attached && said(`Opened ${attached.target} in ${attached.app}`);
       }),
     send: (id, form) =>
       act(async () => {
@@ -82,7 +83,7 @@ export function BoardScreen() {
       act(async () => {
         const stopped = await run('sessions.stop', { id });
         if (!stopped) return undefined;
-        if (stopped.outcome === 'already-ended') return `Session ${id} had already ended`;
+        if (stopped.outcome === 'already-ended') return said(`Session ${id} had already ended`);
         return said(
           stopped.outcome === 'cancelled'
             ? `Cancelled session ${id}: it never starts`

@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useAct } from '@/lib/useAct';
+import { useAct, warned } from '@/lib/useAct';
 import { type CommandState, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 
@@ -39,7 +39,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
       if (!changed) return undefined;
       // The doctor's own `claude hooks` row changes too.
       await Promise.all([hooks.refresh(), refresh()]);
-      return changed.warning;
+      return warned(changed.warning);
     });
   return (
     <section data-testid="doctor-panel" className="space-y-4">
