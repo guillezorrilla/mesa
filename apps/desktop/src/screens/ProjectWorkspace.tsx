@@ -16,6 +16,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { AgentField } from './board/AgentField';
 import { exited, queued } from './board/rows';
+import { GitWorkspace } from './GitWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
@@ -26,7 +27,7 @@ export function ProjectWorkspace(props: {
   onUnregistered: () => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'skills'>('overview');
+  const [tab, setTab] = useState<'overview' | 'git' | 'skills'>('overview');
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
@@ -177,7 +178,7 @@ export function ProjectWorkspace(props: {
         </ActionDialog>
       )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'skills'] as const).map((name) => (
+        {(['overview', 'git', 'skills'] as const).map((name) => (
           <button
             key={name}
             type="button"
@@ -316,6 +317,8 @@ export function ProjectWorkspace(props: {
           </section>
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
+      ) : tab === 'git' ? (
+        <GitWorkspace key={project.name} project={project.name} sessions={props.sessions} />
       ) : (
         <div className="space-y-2">
           {skills.data?.map((skill) => (

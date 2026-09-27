@@ -6,6 +6,7 @@ import type {
   Config,
   DiscoveredProject,
   DoctorReport,
+  GitStatus,
   GridGroup,
   HooksStatus,
   Opened,
@@ -51,6 +52,15 @@ const COMMANDS = {
     Recorded<{ order: string[] }>
   >(({ id, direction }) => ['board', 'move', '--', id, direction]),
   'grid.list': command<GridGroup[]>('grid'),
+  'git.status': commandWith<{ project: string; checkout?: string }, GitStatus>(
+    ({ project, checkout }) => [
+      'git',
+      'status',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [
       'grid',

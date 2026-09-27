@@ -1,5 +1,6 @@
 import { mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 
@@ -21,14 +22,7 @@ const ASK_MS = 5_000;
 
 /** One git call in `repo`. A missing or hung git throws; a failed command returns. */
 async function git(run: Runner, repo: string, args: string[], ms = ASK_MS) {
-  const res = await run('git', ['-C', repo, ...args], ms);
-  if (res.ok || res.reason === 'failed') return res;
-  throw new MesaError(
-    'internal',
-    res.reason === 'missing'
-      ? 'git not found on PATH; --branch needs it'
-      : `git did not answer within ${ms / 1000} s`,
-  );
+  return gitCommand(run, repo, args, ms, 'git not found on PATH; --branch needs it');
 }
 
 /** git's answer, or undefined when it says no. */

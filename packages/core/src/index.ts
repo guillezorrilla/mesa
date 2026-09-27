@@ -22,6 +22,8 @@ export {
   waitingOn,
 } from './display.js';
 export type { Check, DoctorReport } from './doctor.js';
+export type { Checkout } from './git/checkout.js';
+export type { GitChange, GitStatus } from './git/status.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';

@@ -40,6 +40,44 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('project Git tab reads selected checkout status through the CLI bridge', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': (args) =>
+      envelope({
+        checkout: {
+          project: 'lantern-cove',
+          path: args.includes('--checkout') ? '/h/feature' : '/h/src/lantern-cove',
+          registered: !args.includes('--checkout'),
+        },
+        branch: 'main',
+        changes: [{ path: 'changed.txt', index: ' ', workingTree: 'M' }],
+      }),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/feature', branch: 'feature' } })]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  expect(document.querySelector('[aria-label="Changed files"]')?.textContent).toContain(
+    'changed.txt',
+  );
+  expect(calls.some((args) => args.includes('status') && args.includes('lantern-cove'))).toBe(true);
+  const checkout = document.querySelector<HTMLSelectElement>('[aria-label="Checkout"]');
+  expect(checkout?.options).toHaveLength(2);
+  await act(async () => {
+    if (checkout) {
+      checkout.value = '/h/feature';
+      checkout.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  expect(calls.some((args) => args.includes('--checkout') && args.includes('/h/feature'))).toBe(
+    true,
+  );
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({
