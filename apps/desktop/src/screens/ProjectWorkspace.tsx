@@ -1,11 +1,18 @@
-import type { ProjectRow, TreeRow } from '@mesa/core';
+import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/browser';
-import { FolderGit2 } from 'lucide-react';
+import { FolderGit2, Play } from 'lucide-react';
 import { useState } from 'react';
+import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCommand } from '@/lib/useCommand';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
+import { useAct } from '@/lib/useAct';
+import { useCommand, useRun } from '@/lib/useCommand';
+import { AgentField } from './board/AgentField';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
@@ -15,8 +22,18 @@ export function ProjectWorkspace(props: {
 }) {
   const { project } = props;
   const [tab, setTab] = useState<'overview' | 'skills'>('overview');
+  const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const skills = useCommand('skills.list', { project: project.name });
+  const run = useRun();
+  const { acting, act } = useAct();
   const sessions = props.sessions.filter((s) => s.managed && s.project === project.name);
+  const open = (input: { agent?: Agent; goal?: string; branch?: string }) =>
+    act(async () => {
+      const session = await run('sessions.open', { project: project.name, ...input });
+      if (!session) return undefined;
+      props.onSession(session.id);
+      return said(`Opened session ${session.id} on ${project.name}`, session);
+    });
   return (
     <section data-testid="project-workspace" className="space-y-6">
       <div className="flex items-center gap-3">
@@ -43,6 +60,80 @@ export function ProjectWorkspace(props: {
       </nav>
       {tab === 'overview' ? (
         <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">New session</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form
+                data-testid="project-session-form"
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = event.currentTarget;
+                  const values = new FormData(form);
+                  const goal = (form.elements.namedItem('goal') as HTMLTextAreaElement).value;
+                  void open({
+                    agent: String(values.get('agent')) as Agent,
+                    goal,
+                    branch:
+                      location === 'worktree'
+                        ? String(values.get('branch') ?? '').trim()
+                        : undefined,
+                  });
+                }}
+              >
+                <AgentField defaultValue={project.agent ?? undefined} />
+                <div className="grid gap-2">
+                  <Label htmlFor="project-goal">Goal (optional)</Label>
+                  <Textarea
+                    id="project-goal"
+                    name="goal"
+                    data-testid="project-goal"
+                    rows={3}
+                    placeholder="What should the agent do?"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="session-location">Start in</Label>
+                  <NativeSelect
+                    id="session-location"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value as 'main' | 'worktree')}
+                  >
+                    <NativeSelectOption value="main">Main checkout</NativeSelectOption>
+                    <NativeSelectOption value="worktree">Own worktree</NativeSelectOption>
+                  </NativeSelect>
+                </div>
+                {location === 'worktree' && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="project-branch">Branch</Label>
+                    <Input
+                      id="project-branch"
+                      name="branch"
+                      data-testid="project-branch"
+                      required
+                      placeholder="feature/my-work"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button type="submit" disabled={!project.exists || acting}>
+                    <Play aria-hidden /> Start session
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    data-testid="quick-session"
+                    disabled={!project.exists || acting}
+                    onClick={() => void open({})}
+                  >
+                    Quick empty session
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Project</CardTitle>

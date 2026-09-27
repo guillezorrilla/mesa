@@ -4,6 +4,7 @@ import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
 import { CONFIRMATION_MS } from '@/components/Toast';
 import {
+  choose,
   click,
   envelope,
   failure,
@@ -65,6 +66,36 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
   expect(byTestId('workspace-sidebar')[0]?.dataset.collapsed).toBe('true');
   expect(byTestId('selected-session')).toHaveLength(1);
+});
+
+test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope(managedRow('newnewnew')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  const form = byTestId('project-session-form')[0] as HTMLFormElement;
+  const agent = [...form.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+  await click(agent[1]);
+  (byTestId('project-goal')[0] as HTMLTextAreaElement).value = 'Review the API\nThen test it';
+  await choose(form.querySelector('#session-location') as HTMLElement, 'worktree');
+  (byTestId('project-branch')[0] as HTMLInputElement).value = 'feature/api';
+  await act(async () => form.requestSubmit());
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'codex',
+    '--goal=Review the API\nThen test it',
+    '--branch=feature/api',
+    '--',
+    'lantern-cove',
+  ]);
+  await click(byTestId('sidebar-project')[0]);
+  await click(byTestId('quick-session')[0]);
+  expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
 });
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
