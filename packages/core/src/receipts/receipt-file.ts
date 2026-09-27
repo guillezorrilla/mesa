@@ -2,6 +2,7 @@ import { ULID_PATTERN } from '../lib/ids.js';
 import { VAULT } from '../vault/layout.js';
 
 export const RECEIPT_TYPES = ['session', 'skill', 'decision', 'action'] as const;
+export type ReceiptType = (typeof RECEIPT_TYPES)[number];
 
 /** `<started, compact>-<type>-<id>.md`: the only file name a receipt has. */
 export const RECEIPT_FILE = new RegExp(
@@ -23,10 +24,11 @@ export function receiptPath(r: { started: string; type: string; id: string }): s
 export const receiptLink = (path: string) => `[[${path.replace(/\.md$/, '')}|receipt]]`;
 
 /**
- * Newest first by start time, then by id: a ULID starts with its millisecond time, so it orders
- * receipts within the same second. Undefined for a name that is not a receipt's.
+ * What a receipt's file name says: its type, and its sort `key`, newest first by start time, then
+ * by id (a ULID starts with its millisecond time, so it orders receipts within the same second).
+ * Undefined for a name that is not a receipt's.
  */
-export function receiptSortKey(file: string): string | undefined {
+export function receiptName(file: string): { key: string; type: ReceiptType } | undefined {
   const match = file.match(RECEIPT_FILE);
-  return match ? `${match[1]}-${match[3]}` : undefined;
+  return match ? { key: `${match[1]}-${match[3]}`, type: match[2] as ReceiptType } : undefined;
 }

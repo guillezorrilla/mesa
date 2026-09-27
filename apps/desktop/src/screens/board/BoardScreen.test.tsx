@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { GuardrailCheck, TreeRow } from '@mesa/core';
+import type { TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
@@ -16,6 +16,7 @@ import {
   fakePlatform,
   fakeTerminals,
   foreignRow,
+  guardrailStopped,
   managedRow,
   PROJECTS,
   renderWithMesa,
@@ -741,47 +742,6 @@ test('a send typed with a warning says so in the toast, so it is not sent again'
   (byTestId('session-prompt')[0] as HTMLInputElement).value = 'hello';
   await click(byTestId('session-send-submit')[0]);
   expect(byTestId('toast')[0]?.textContent).toContain('do not send it again');
-});
-
-/** The envelope `mesa send --json` prints when the guardrail stops a prompt. */
-const guardrailStopped = (verdict: 'ask' | 'block', reason: string) => ({
-  ok: false,
-  error: {
-    code: 'guardrail_blocked',
-    message: reason,
-    details: {
-      verdict,
-      reason,
-      decision: {
-        questions: [
-          { kind: 'Choice', id: 'verdict', options: ['allow', 'ask', 'block'] },
-          {
-            kind: 'Noul',
-            id: 'secret-or-destructive',
-            statement: 'This text contains a secret or a destructive instruction',
-          },
-        ],
-        answers: [
-          {
-            id: 'verdict',
-            kind: 'Choice',
-            answer: verdict,
-            probabilities: { allow: 0.04, ask: 0.95, block: 0.01 },
-            confidence: 0.95,
-          },
-          {
-            id: 'secret-or-destructive',
-            kind: 'Noul',
-            answer: verdict === 'block',
-            probabilities: verdict === 'block' ? 0.95 : 0.05,
-          },
-        ],
-        backend: 'rules',
-        at: '2026-09-25T12:00:00.000Z',
-        latencyMs: 0,
-      },
-    } satisfies GuardrailCheck,
-  },
 });
 
 test("the guardrail's ask opens a dialog with its reason and decision; Send anyway sends with --yes", async () => {

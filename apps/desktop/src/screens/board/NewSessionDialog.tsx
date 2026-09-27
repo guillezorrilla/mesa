@@ -1,13 +1,13 @@
 import type { Agent } from '@mesa/core';
-import { AGENT_LABELS, AGENT_NAMES, DEFAULT_AGENT } from '@mesa/core/browser';
+import { DEFAULT_AGENT } from '@mesa/core/browser';
 import { Play } from 'lucide-react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { useCommand } from '@/lib/useCommand';
+import { AgentField } from './AgentField';
+import { ProjectSelect } from './ProjectSelect';
 
 export type NewSessionInput = { project: string; agent: Agent; goal: string; branch: string };
 
@@ -52,32 +52,13 @@ export function NewSessionDialog(props: {
     >
       <div className="grid gap-2">
         <Label htmlFor="new-session-project">Project</Label>
-        {/* ponytail: native, so the form reads it and a project whose folder is gone is a
-            disabled option; shadcn's Select when the list needs search. */}
-        <NativeSelect
+        <ProjectSelect
           id="new-session-project"
-          name="project"
           data-testid="new-session-project"
-          required
-        >
-          {projects.data?.map((p) => (
-            <NativeSelectOption key={p.name} value={p.name} disabled={!p.exists}>
-              {p.name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          projects={projects.data}
+        />
       </div>
-      <fieldset className="grid gap-2">
-        <legend className="mb-2 font-medium text-sm">Agent</legend>
-        <RadioGroup name="agent" defaultValue={DEFAULT_AGENT} className="flex gap-6">
-          {AGENT_NAMES.map((agent) => (
-            <div key={agent} className="flex items-center gap-2">
-              <RadioGroupItem id={`agent-${agent}`} value={agent} />
-              <Label htmlFor={`agent-${agent}`}>{AGENT_LABELS[agent]}</Label>
-            </div>
-          ))}
-        </RadioGroup>
-      </fieldset>
+      <AgentField />
       <div className="grid gap-2">
         <Label htmlFor="new-session-goal">Goal (optional)</Label>
         <Textarea

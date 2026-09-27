@@ -14,7 +14,7 @@ import {
   updateNote,
   writeNote,
 } from '../vault/notes.js';
-import { receiptLink, receiptPath, receiptSortKey } from './receipt-file.js';
+import { type ReceiptType, receiptLink, receiptName, receiptPath } from './receipt-file.js';
 import { type Receipt, type ReceiptInput, ReceiptSchema } from './schema.js';
 
 // Receipts in the vault's receipts/: written, closed, listed, and read back (docs/receipts.md).
@@ -63,13 +63,10 @@ export async function updateSessionReceipt(
   session: string,
   update: { ended?: Date; outputs?: Record<string, unknown>; details?: string },
 ): Promise<{ id: string; path: string } | undefined> {
-  // ponytail: reads every receipt to find the session's; index them by session if vaults grow big.
-  // The oldest: the receipt of the open or resume that started it, not the stop's own.
-  const entry = listReceipts(deps.vault, Number.POSITIVE_INFINITY)
-    .filter(
-      (e) =>
-        e.receipt.type === 'session' && e.receipt.session === session && e.receipt.status === 'ok',
-    )
+  // ponytail: reads every session receipt to find the session's; index them by session if vaults
+  // grow big. The oldest: the receipt of the open or resume that started it, not the stop's own.
+  const entry = listReceipts(deps.vault, Number.POSITIVE_INFINITY, { type: 'session', session })
+    .filter((e) => e.receipt.status === 'ok')
     .at(-1);
   if (!entry) return undefined;
   const { ended, outputs, details } = update;
@@ -90,15 +87,18 @@ export async function updateSessionReceipt(
   return { id: entry.receipt.id, path: entry.path };
 }
 
-/** Every receipt file, newest first; files whose names are not a receipt's are left out. */
-function receiptFiles(vault: string): string[] {
+/**
+ * Every receipt file, newest first, with the type its name carries; files whose names are not a
+ * receipt's are left out.
+ */
+function receiptFiles(vault: string): { path: string; type: ReceiptType }[] {
   const root = join(vault, VAULT.receipts);
   if (!existsSync(root)) return [];
   return readdirSync(root, { recursive: true, encoding: 'utf8' })
-    .map((p) => ({ p, key: receiptSortKey(basename(p)) }))
-    .filter((f): f is { p: string; key: string } => f.key !== undefined)
-    .sort((a, b) => b.key.localeCompare(a.key))
-    .map((f) => join(VAULT.receipts, f.p));
+    .map((p) => ({ p, name: receiptName(basename(p)) }))
+    .filter((f): f is { p: string; name: NonNullable<typeof f.name> } => f.name !== undefined)
+    .sort((a, b) => b.name.key.localeCompare(a.name.key))
+    .map((f) => ({ path: join(VAULT.receipts, f.p), type: f.name.type }));
 }
 
 /** A receipt body's first line: its summary. */
@@ -113,14 +113,30 @@ function readReceipt(vault: string, path: string): ReceiptEntry {
   return { path, receipt, summary: summaryOf(note.body), body: note.body };
 }
 
-/** The newest `limit` receipts with their frontmatter. */
-export const listReceipts = (vault: string, limit = DEFAULT_RECEIPT_LIMIT): ReceiptEntry[] =>
-  receiptFiles(vault)
-    .slice(0, limit)
-    .map((path) => readReceipt(vault, path));
+/** Which receipts to list: those of one `type`, of one `session`, each when given. */
+export type ReceiptFilter = { type?: ReceiptType; session?: string };
+
+/**
+ * The newest `limit` receipts that pass the filter, with their frontmatter. The type is read from
+ * each file's name, so only the receipts of that type are opened.
+ */
+export function listReceipts(
+  vault: string,
+  limit = DEFAULT_RECEIPT_LIMIT,
+  { type, session }: ReceiptFilter = {},
+): ReceiptEntry[] {
+  const found: ReceiptEntry[] = [];
+  for (const file of receiptFiles(vault)) {
+    if (found.length >= limit) break;
+    if (type !== undefined && file.type !== type) continue;
+    const entry = readReceipt(vault, file.path);
+    if (session === undefined || entry.receipt.session === session) found.push(entry);
+  }
+  return found;
+}
 
 export function showReceipt(vault: string, id: string): ReceiptEntry {
-  const path = receiptFiles(vault).find((p) => p.endsWith(`-${id}.md`));
-  if (!path) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
-  return readReceipt(vault, path);
+  const file = receiptFiles(vault).find((f) => f.path.endsWith(`-${id}.md`));
+  if (!file) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
+  return readReceipt(vault, file.path);
 }

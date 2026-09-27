@@ -1,4 +1,4 @@
-import { DEFAULT_RECEIPT_LIMIT } from '@mesa/core';
+import { DEFAULT_RECEIPT_LIMIT, RECEIPT_TYPES } from '@mesa/core';
 import { stringify } from 'yaml';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../guards.js';
@@ -6,15 +6,22 @@ import { columns } from '../output/columns.js';
 
 export const receipts = defineCommand({
   name: 'receipts',
-  summary: 'List the newest receipts in the vault, with their frontmatter',
+  summary: 'List the newest receipts in the vault, with their frontmatter; of one session or type',
   flags: {
     limit: { type: 'string', description: `How many to list (default ${DEFAULT_RECEIPT_LIMIT})` },
+    session: { type: 'string', description: 'Only the receipts of this Mesa session id' },
+    type: {
+      type: 'string',
+      description: `Only the receipts of one type: ${RECEIPT_TYPES.join(', ')}`,
+    },
   },
-  example: 'mesa receipts --limit 5',
+  example: 'mesa receipts --type skill --limit 5',
   run: ({ mesa, flags }) => {
-    const entries = mesa.receipts.list(
-      flags.limit === undefined ? undefined : wholeNumber(flags.limit, '--limit'),
-    );
+    const entries = mesa.receipts.list({
+      limit: flags.limit === undefined ? undefined : wholeNumber(flags.limit, '--limit'),
+      session: flags.session,
+      type: flags.type,
+    });
     const text = entries.length
       ? columns(
           entries.map((e) => [
