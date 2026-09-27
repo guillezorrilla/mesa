@@ -8,7 +8,8 @@ beforeEach(cli.reset);
 const { mesa } = cli;
 
 test('register, projects, unregister', async () => {
-  await mesa('init', '--vault', '/tmp/v');
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
   mkdirSync(join(cli.home, 'lantern-cove'));
   expect((await mesa('register', 'lantern-cove')).code).toBe(3);
   expect((await mesa('register', 'lantern-cove', '--create')).stdout.split('\n')[0]).toBe(
@@ -29,7 +30,11 @@ test('register, projects, unregister', async () => {
   expect((await mesa('projects')).stdout).toBe(
     `lantern-cove  ${cli.home}/lantern-cove  claude  0.5\n`,
   );
-  expect((await mesa('unregister', 'lantern-cove')).stdout).toBe('unregistered lantern-cove\n');
+  const gone = (await mesa('unregister', 'lantern-cove', '--json')).json.data;
+  expect(gone).toMatchObject({ name: 'lantern-cove', receipt: { id: expect.any(String) } });
+  const shown = (await mesa('receipts', 'show', gone.receipt.id, '--json')).json.data;
+  expect(shown.summary).toBe('Unregistered project lantern-cove');
+  expect(shown.receipt).toMatchObject({ type: 'action', project: 'lantern-cove' });
   expect((await mesa('projects')).stdout).toBe(
     'no projects registered; run mesa register <path>\n',
   );

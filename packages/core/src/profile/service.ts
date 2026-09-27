@@ -23,7 +23,17 @@ export function profileService(ctx: MesaContext) {
     config: {
       /** Redacted: key values are `***`. */
       get: () => redactConfig(ctx.open().config),
-      set: (dotted: string, value: string) => setConfigValue(paths.config, dotted, value),
+      set: (dotted: string, value: string) =>
+        record(
+          {
+            summary: () => `Set config ${dotted}`,
+            failure: `Could not set config ${dotted}`,
+            inputs: { path: dotted },
+            outputs: (r) => ({ value: r.value }),
+            changed: (r) => r.changed,
+          },
+          () => setConfigValue(paths.config, dotted, value),
+        ),
     },
   };
 }

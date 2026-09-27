@@ -14,9 +14,12 @@ beforeEach(() => {
 
 test('set rewrites one field, keeps the others and every comment, and redacts keys', () => {
   writeFileSync(file, `${readFileSync(file, 'utf8')}# my note\n`);
-  expect(setConfigValue(file, 'defaultAgent', 'codex')).toBe('codex');
-  expect(setConfigValue(file, 'decisions.threshold', '0.5')).toBe(0.5);
-  expect(setConfigValue(file, 'keys.jev', 'sk-secret')).toBe('***');
+  expect(setConfigValue(file, 'defaultAgent', 'codex')).toEqual({ value: 'codex', changed: true });
+  expect(setConfigValue(file, 'decisions.threshold', '0.5').value).toBe(0.5);
+  expect(setConfigValue(file, 'keys.jev', 'sk-secret').value).toBe('***');
+  // The same value again, or a default written out, changes nothing.
+  expect(setConfigValue(file, 'keys.jev', 'sk-secret').changed).toBe(false);
+  expect(setConfigValue(file, 'terminal.app', 'Terminal').changed).toBe(false);
 
   const text = readFileSync(file, 'utf8');
   expect(text).toContain('# my note');

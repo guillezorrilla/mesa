@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { AgentSchema, DEFAULT_AGENT } from '../agents/agents.js';
@@ -59,16 +60,24 @@ export function redactConfig(config: Config): Config {
   };
 }
 
+const valueAt = (config: Config, dotted: string) =>
+  dotted.split('.').reduce<unknown>((node, k) => (node as Record<string, unknown>)?.[k], config);
+
 /**
  * Sets one dotted path; `value` is read as YAML (`0.5`, `true`, `[a, b]`). Returns the new value,
- * redacted under `keys`.
+ * redacted under `keys`, and whether it differs from the one before (defaults included).
  */
-export function setConfigValue(file: string, dotted: string, value: string): unknown {
-  requireConfigFile(file);
-  const next = redactConfig(setYamlPath(file, ConfigSchema, dotted, parse(value)));
-  return dotted
-    .split('.')
-    .reduce<unknown>((node, k) => (node as Record<string, unknown>)?.[k], next);
+export function setConfigValue(
+  file: string,
+  dotted: string,
+  value: string,
+): { value: unknown; changed: boolean } {
+  const before = valueAt(loadConfig(file), dotted);
+  const next = setYamlPath(file, ConfigSchema, dotted, parse(value));
+  return {
+    value: valueAt(redactConfig(next), dotted),
+    changed: !isDeepStrictEqual(before, valueAt(next, dotted)),
+  };
 }
 
 /** A key's value, with an `env:VAR` reference read from `env`. */
