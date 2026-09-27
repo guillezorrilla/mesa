@@ -1,26 +1,17 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { AGENT_NAMES, AgentSchema, readyAgent } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
-import type { Runner } from '../lib/process.js';
-import { MesaError, toFail } from '../lib/result.js';
+import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
-import type { RegistryEntry } from '../projects/registry.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
-import { worktreeHolder } from './holders.js';
 import { createRecord, type LaunchDeps, launchSession } from './launch.js';
 import { isOver, type SessionRecord } from './record.js';
-import { addWorktree, removeWorktree, worktreePath } from './worktree.js';
 
-export type OpenDeps = LaunchDeps & {
-  run: Runner;
+type OpenDeps = LaunchDeps & {
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
   caller: () => Caller;
-  /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
-  syncSkills: (project: string, folder: string) => void;
 };
 
 /**
@@ -102,25 +93,11 @@ export async function openSession(
     };
     return { record: createRecord(deps, { ...session, after: waited.id, pending }) };
   }
-  const worktree =
-    input.branch === undefined
-      ? undefined
-      : await worktreeFor(deps, entry, input.branch, input.base);
-  const warning = syncSkillsInto(deps, entry.name, worktree?.path ?? entry.path);
-  try {
-    const record = await launchSession(deps, {
-      ...session,
-      ...(waited ? { after: waited.id } : {}),
-      agentSessionId,
-      command,
-      worktree,
-    });
-    return { record, ...(warning ? { warning } : {}) };
-  } catch (error) {
-    // A retry can then add it again.
-    if (worktree) await removeWorktree(deps.run, entry.path, worktree);
-    throw error;
-  }
+  return launchSession(
+    deps,
+    { ...session, ...(waited ? { after: waited.id } : {}), agentSessionId },
+    { command: () => command, branch: input.branch, base: input.base },
+  );
 }
 
 /** The session `id` a new one waits on; not_found when there is none. */
@@ -128,35 +105,4 @@ function waitedOn(deps: Pick<OpenDeps, 'store'>, id: string) {
   const found = deps.store.find(id);
   if (!found) throw new MesaError('not_found', `no session ${id} to wait on; see mesa sessions`);
   return found;
-}
-
-/**
- * Links the project's enabled skills into `folder` before its agent starts there, so it finds
- * them; a failure is the warning returned, never an error.
- */
-export function syncSkillsInto(
-  deps: Pick<OpenDeps, 'syncSkills'>,
-  project: string,
-  folder: string,
-) {
-  try {
-    deps.syncSkills(project, folder);
-    return undefined;
-  } catch (error) {
-    return `skills not synced into ${folder}: ${toFail(error).error.message}`;
-  }
-}
-
-/** A new worktree on `branch`, unless a session has the worktree there. */
-export function worktreeFor(deps: OpenDeps, entry: RegistryEntry, branch: string, base?: string) {
-  const root = join(deps.profile.paths.worktrees, entry.name);
-  const path = worktreePath(root, branch);
-  const holder = worktreeHolder(deps.store, path);
-  if (holder?.worktree && existsSync(path)) {
-    throw new MesaError(
-      'usage',
-      `session ${holder.id} has ${holder.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
-    );
-  }
-  return addWorktree(deps.run, { repo: entry.path, root, branch, base });
 }

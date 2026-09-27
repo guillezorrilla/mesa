@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { readyAgent } from '../agents/agents.js';
-import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
+import { joinWarnings } from '../receipts/recorder.js';
 import { requireOwnWorktree, resumerOf } from './holders.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
 import { ending, type SessionRecord } from './record.js';
@@ -16,7 +16,6 @@ import { windowOf } from './window-name.js';
  */
 export async function resumeSession(
   deps: LaunchDeps & {
-    run: Runner;
     tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow' | 'killWindow'>;
   },
   id: string,
@@ -55,21 +54,25 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const record = await launchSession(deps, {
-    project,
-    agent: old.agent,
-    agentSessionId: old.agentSessionId,
-    // The same conversation, so the same goal; it is not typed in again.
-    command: spec.resume(old.agentSessionId),
-    goal: old.goal,
-    // Its place in the tree too, and its folder: claude finds the conversation by its cwd.
-    parent: old.parent,
-    worktree: old.worktree,
-    cwd: old.cwd,
-    name: old.name,
-    adopted: old.adopted,
-    resumedFrom: old.id,
-  });
+  const command = spec.resume(old.agentSessionId);
+  const { record, warning } = await launchSession(
+    deps,
+    {
+      project,
+      agent: old.agent,
+      agentSessionId: old.agentSessionId,
+      // The same conversation, so the same goal; it is not typed in again.
+      goal: old.goal,
+      // Its place in the tree too, and its folder: claude finds the conversation by its cwd.
+      parent: old.parent,
+      worktree: old.worktree,
+      cwd: old.cwd,
+      name: old.name,
+      adopted: old.adopted,
+      resumedFrom: old.id,
+    },
+    { command: () => command },
+  );
   // The new session runs now, so marking the old one is best effort: a failure is a warning,
   // never a failed resume that a retry would open twice.
   const at = deps.clock().toISOString();
@@ -78,9 +81,9 @@ export async function resumeSession(
       resumedBy: record.id,
       ...ending(current, at),
     }));
-    return { record, from };
+    return { record, from, ...(warning ? { warning } : {}) };
   } catch (error) {
-    const why = toFail(error).error.message;
-    return { record, from: old, warning: `session ${id} not marked resumed: ${why}` };
+    const why = `session ${id} not marked resumed: ${toFail(error).error.message}`;
+    return { record, from: old, warning: joinWarnings(warning, why) };
   }
 }

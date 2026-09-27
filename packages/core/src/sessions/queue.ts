@@ -1,15 +1,13 @@
 import { readyAgent } from '../agents/agents.js';
+import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
-import type { RegistryEntry } from '../projects/registry.js';
-import { agentFolder, launched, openWindowOf } from './launch.js';
-import { type OpenDeps, syncSkillsInto, worktreeFor } from './open.js';
+import { type LaunchDeps, launched, startSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
 import type { TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
-import { removeWorktree, type Worktree } from './worktree.js';
 
 // Queued sessions (CONTEXT.md, Queued session): `mesa open --after` writes one; whichever signal
 // first finds the session it waits on over starts it (the SessionEnd hook, the pane-died hook, or
@@ -34,10 +32,10 @@ export const dueToStart = (store: SessionStore, over: (id: string) => boolean, n
  * Starts a queued session the way `mesa open` starts one (its agent checked, its worktree, its
  * skills, its window), exactly once: the claim is taken under the record's lock, so of two
  * signals at once, one starts it and the other gets undefined. A start that fails leaves the
- * session `failed` and ended, its new worktree removed, and throws.
+ * session `failed` and ended, its new worktree removed (startSession), and throws.
  */
 export async function startQueued(
-  deps: OpenDeps & { tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
+  deps: LaunchDeps & { newUuid: IdSource; tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
   id: string,
 ): Promise<{ record: SessionRecord; warning?: string } | undefined> {
   const now = deps.clock();
@@ -51,26 +49,22 @@ export async function startQueued(
     return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
   });
   if (!won) return undefined;
-  let entry: RegistryEntry | undefined;
-  let made: Worktree | undefined;
   try {
-    entry = findProject(deps.profile, claimed.project);
+    const entry = findProject(deps.profile, claimed.project);
     // Still a project, as open requires.
     readProjectFile(entry.path);
     const spec = await readyAgent(deps.run, claimed.agent);
     const agentSessionId = claimed.agentSessionId ?? deps.newUuid();
     const { branch, base } = claimed.pending ?? {};
-    let record = claimed;
-    // Kept on the record at once, so a start retried after a kill finds it made.
-    if (!record.worktree && branch !== undefined) {
-      made = await worktreeFor(deps, entry, branch, base);
-      record = deps.store.update(id, { worktree: made });
-    }
-    const warning = syncSkillsInto(deps, entry.name, agentFolder(record, entry));
-    // A start killed after its window opened left that window: it is this session's.
-    if (!(await deps.tmux.findWindow(windowOf(record)))) {
-      await openWindowOf(deps, record, entry, spec.start(agentSessionId, record.goal));
-    }
+    // A start killed after its window opened left that window, its worktree and skills already
+    // made: it is this session's.
+    const { warning } = (await deps.tmux.findWindow(windowOf(claimed)))
+      ? {}
+      : await startSession(deps, claimed, entry, {
+          command: (r) => spec.start(agentSessionId, r.goal),
+          branch,
+          base,
+        });
     const started = deps.store.update(id, {
       pending: undefined,
       startedAt: at,
@@ -78,11 +72,9 @@ export async function startQueued(
     });
     return { record: started, ...(warning ? { warning } : {}) };
   } catch (error) {
-    if (entry && made) await removeWorktree(deps.run, entry.path, made);
     deps.store.update(id, {
       pending: undefined,
       agentSessionId: undefined,
-      ...(made ? { worktree: undefined } : {}),
       endedAt: at,
       lastState: { state: 'failed', confidence: 1, at, source: 'mesa' },
     });
