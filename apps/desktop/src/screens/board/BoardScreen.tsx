@@ -3,7 +3,6 @@ import {
   attentionScore,
   DEFAULT_BOARD_PREFERENCES,
   isRun,
-  presentSessions,
   sessionBranch,
   sessionLabel,
 } from '@mesa/core/browser';
@@ -220,19 +219,13 @@ export function BoardScreen(
       props.onPreferencesChanged?.();
       return said(`Saved Board ${key}`, saved);
     });
-  const move = (id: string, direction: -1 | 1) => {
-    const groups = presentSessions(data ?? [], preferences);
-    const group = groups.find((group) => group.rows.some((row) => row.id === id));
-    if (!group) return;
-    const ids = groups.flatMap((g) => g.rows.filter((row) => row.managed).map((row) => row.id));
-    const index = ids.indexOf(id);
-    const managed = group.rows.filter((row) => row.managed);
-    const neighbor = managed[managed.findIndex((row) => row.id === id) + direction];
-    if (!neighbor) return;
-    const other = ids.indexOf(neighbor.id);
-    [ids[index], ids[other]] = [ids[other] as string, ids[index] as string];
-    savePreference('order', ids);
-  };
+  const move = (id: string, direction: -1 | 1) =>
+    act(async () => {
+      const moved = await run('board.move', { id, direction: direction === -1 ? 'up' : 'down' });
+      if (!moved) return undefined;
+      props.onPreferencesChanged?.();
+      return said(`Moved ${id} on Board`, moved);
+    });
   const saveGroup = (name: string) =>
     act(async () => {
       const sessions = panels.filter((id) =>
@@ -259,7 +252,8 @@ export function BoardScreen(
   const openGroup = (group: GridGroup) => {
     const available = group.sessions.filter((id) => live.has(id));
     setGridProject(group.project ?? 'all');
-    setPanels((open) => [...new Set([...open, ...available])]);
+    setPanels(available);
+    setZoomed(undefined);
     setGridNotice(
       group.sessions.length === available.length
         ? ''

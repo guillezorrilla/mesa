@@ -1,5 +1,6 @@
-import { presentSessions, sessionLabel } from '@mesa/core';
+import { MesaError, presentSessions, sessionLabel } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const board = defineCommand({
   name: 'board',
@@ -22,5 +23,22 @@ export const board = defineCommand({
         )
         .join('\n'),
     };
+  },
+});
+
+export const boardMove = defineCommand({
+  name: 'board move',
+  summary: 'Move a managed session up or down within its Board group',
+  args: ['id', 'direction'],
+  example: 'mesa board move a1b2c3d4 up',
+  run: async ({ mesa, args }) => {
+    if (args.direction !== 'up' && args.direction !== 'down') {
+      throw new MesaError('usage', 'direction must be up or down');
+    }
+    const recorded = await mesa.sessions.moveOnBoard(args.id, args.direction === 'up' ? -1 : 1);
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `moved ${args.id} ${args.direction} on Board`,
+    });
   },
 });

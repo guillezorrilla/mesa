@@ -1,7 +1,7 @@
 import type { DiscoveredProject } from '@mesa/core';
 import { repositoryUrl, sessionCount } from '@mesa/core/browser';
 import { Columns2, FolderPlus, GitFork, Play, Search, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { said, warned } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,11 @@ import { useCommand, useRun } from '@/lib/useCommand';
  * session, or view its sessions side by side.
  */
 export function ProjectsScreen(
-  props: { onRegistered?: () => void; onSelectProject?: (name: string) => void } = {},
+  props: {
+    cloneLink?: { url: string; request: number };
+    onRegistered?: () => void;
+    onSelectProject?: (name: string) => void;
+  } = {},
 ) {
   const { data: projects, refresh } = useCommand('projects.list');
   const skills = useCommand('skills.list', {});
@@ -36,6 +40,9 @@ export function ProjectsScreen(
   const [linked, setLinked] = useState(0);
   const [discovered, setDiscovered] = useState<DiscoveredProject[]>();
   const [cloneUrl, setCloneUrl] = useState('');
+  useEffect(() => {
+    if (props.cloneLink) setCloneUrl(props.cloneLink.url);
+  }, [props.cloneLink]);
   let validClone = false;
   try {
     repositoryUrl(cloneUrl);
@@ -158,6 +165,18 @@ export function ProjectsScreen(
             >
               <GitFork aria-hidden /> Clone and register
             </Button>
+            {cloneUrl && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Cancel repository checkout"
+                disabled={acting}
+                onClick={() => setCloneUrl('')}
+              >
+                <X aria-hidden />
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

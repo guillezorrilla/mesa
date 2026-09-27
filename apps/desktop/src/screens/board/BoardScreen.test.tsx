@@ -160,6 +160,10 @@ test('Board layouts, grouping and manual order persist through profile config', 
       board = { ...board, [key]: value };
       return envelope({ path: `board.${key}`, value, receipt: null });
     },
+    'board move': () => {
+      board = { ...board, order: ['bbbbbbbb', 'aaaaaaaa', 'cccccccc'] };
+      return envelope({ order: board.order, receipt: null });
+    },
     sessions: () => envelope(rows),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
@@ -182,7 +186,7 @@ test('Board layouts, grouping and manual order persist through profile config', 
       group.querySelector('h3')?.textContent?.startsWith('review'),
     )?.textContent,
   ).toContain('cccccccc');
-  expect(calls.some((args) => args.includes('board.order'))).toBe(true);
+  expect(calls.some((args) => args.join(' ') === '--json board move -- bbbbbbbb up')).toBe(true);
 });
 
 test('switching Board layouts keeps an embedded terminal attached to its session', async () => {

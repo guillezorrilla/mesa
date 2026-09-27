@@ -46,6 +46,10 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
   'config.get': command<Config>('config'),
+  'board.move': commandWith<
+    { id: string; direction: 'up' | 'down' },
+    Recorded<{ order: string[] }>
+  >(({ id, direction }) => ['board', 'move', '--', id, direction]),
   'grid.list': command<GridGroup[]>('grid'),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [

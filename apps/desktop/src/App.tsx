@@ -8,6 +8,7 @@ import { ProfileSummary } from './components/ProfileSummary';
 import { warned } from './components/Toast';
 import { Button } from './components/ui/button';
 import { WorkspaceSidebar, type WorkspaceView } from './components/WorkspaceSidebar';
+import { usePlatform } from './lib/MesaRoot';
 import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
 import { BoardScreen } from './screens/board/BoardScreen';
@@ -23,6 +24,7 @@ export function App() {
   const [sessions, setSessions] = useState<TreeRow[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newSessionRequest, setNewSessionRequest] = useState(0);
+  const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   const openSearch = () => {
@@ -30,12 +32,35 @@ export function App() {
     setSearchOpen(true);
   };
   const run = useRun();
+  const { deepLinks } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
   const projects = useCommand('projects.list');
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
+  useEffect(() => {
+    let active = true;
+    const open = (urls: string[]) => {
+      for (const url of urls) {
+        if (!url.startsWith('mesa:')) continue;
+        if (!active) return;
+        setCloneLink((last) => ({ url, request: (last?.request ?? 0) + 1 }));
+        setView({ kind: 'projects' });
+      }
+    };
+    let stop: (() => void) | undefined;
+    void deepLinks.onOpen(open).then((unlisten) => {
+      if (active) {
+        stop = unlisten;
+        void deepLinks.current().then((urls) => urls && open(urls));
+      } else unlisten();
+    });
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [deepLinks]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       const key = shortcutFromKeys(event);
@@ -127,6 +152,7 @@ export function App() {
           </div>
           {view.kind === 'projects' && (
             <ProjectsScreen
+              cloneLink={cloneLink}
               onRegistered={() => void projects.refresh()}
               onSelectProject={(name) => setView({ kind: 'project', name })}
             />

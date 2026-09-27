@@ -126,10 +126,12 @@ export const fakePlatform = ({
   folder = null,
   file = null,
   terminal = fakeTerminals().host,
+  deepLinks = { current: async () => null, onOpen: async () => () => {} },
 }: {
   folder?: string | null;
   file?: string | null;
   terminal?: TerminalHost;
+  deepLinks?: Platform['deepLinks'];
 } = {}): Platform & {
   pasteboard: string[];
 } => {
@@ -137,6 +139,7 @@ export const fakePlatform = ({
   return {
     pickFolder: async () => folder,
     pickFile: async () => file,
+    deepLinks,
     terminal,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,

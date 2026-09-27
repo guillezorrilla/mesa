@@ -117,7 +117,9 @@ test('grid project tabs, zoom and saved groups retain exact terminal clients', a
     ),
   );
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
-  expect(byTestId('grid-tile')[1]?.className).toContain('resize');
+  expect(byTestId('grid-tile')[0]?.className).toContain('resize');
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(0);
+  expect(terminals.calls).toContainEqual(['close', 't1']);
   expect(terminals.calls.filter((call) => call[0] === 'open').map((call) => call[1])).toEqual([
     'aaaaaaaa',
     'bbbbbbbb',

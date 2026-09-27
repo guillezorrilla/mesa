@@ -26,3 +26,16 @@ test('board --json uses validated profile preferences and session workflow label
     'list',
   );
 });
+
+test('board move --json persists order through core', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const first = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
+  const second = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
+  await cli.mesa('config', 'set', 'board.sort', 'manual');
+  const moved = await cli.mesa('board', 'move', first.id, 'down', '--json');
+  expect(moved.json.data.order).toEqual([second.id, first.id]);
+  expect((await cli.mesa('config', '--json')).json.data.board.order).toEqual([second.id, first.id]);
+  expect((await cli.mesa('board', 'move', first.id, 'sideways', '--json')).code).toBe(2);
+  expect((await cli.mesa('board', 'move', 'ffffffff', 'up', '--json')).code).toBe(3);
+});

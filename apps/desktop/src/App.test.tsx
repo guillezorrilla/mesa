@@ -442,3 +442,59 @@ test('a failure, or a confirmation with a warning, is an alert: warm, once, and 
     vi.useRealTimers();
   }
 });
+
+test('a native Mesa project link opens the validated clone form and waits for confirmation', async () => {
+  const link = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Flantern-cove.git';
+  let opened: (urls: string[]) => void = () => {};
+  const { bridge, calls } = fakeBridge({
+    'projects clone': () =>
+      envelope({ name: 'lantern-cove', path: '/tmp/lantern-cove', created: true, receipt: null }),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({
+      deepLinks: {
+        current: async () => [link],
+        onOpen: async (handler) => {
+          opened = handler;
+          return () => {};
+        },
+      },
+    }),
+  );
+  expect(byTestId('projects-screen')).toHaveLength(1);
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
+  expect(calls.some((args) => args[1] === 'projects' && args[2] === 'clone')).toBe(false);
+  await click(byTestId('clone-project')[0]);
+  expect(
+    calls.filter((args) => args.join(' ') === `--json projects clone -- ${link}`),
+  ).toHaveLength(1);
+  await act(async () => opened([link]));
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
+});
+
+test('a failed native project link can be opened again', async () => {
+  const link = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fretry.git';
+  const { bridge, calls } = fakeBridge({
+    'projects clone': () => failure('git clone failed: offline'),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({
+      deepLinks: {
+        current: async () => [link],
+        onOpen: async () => () => {},
+      },
+    }),
+  );
+  await click(byTestId('clone-project')[0]);
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
+  await click(byTestId('clone-project')[0]);
+  expect(
+    calls.filter((args) => args.join(' ') === `--json projects clone -- ${link}`),
+  ).toHaveLength(2);
+  await click(document.querySelector('[aria-label="Cancel repository checkout"]') as HTMLElement);
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe('');
+});

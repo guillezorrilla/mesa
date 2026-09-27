@@ -5,6 +5,7 @@ import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
+import { profileService } from '../profile/service.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
@@ -20,10 +21,12 @@ import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
 import { readGoal, sessionGoal } from './goal.js';
+import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { readHookEvents } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
+import { moveBoardSession } from './presentation.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
@@ -47,6 +50,7 @@ export function sessionsService(
   skills: Pick<ReturnType<typeof skillsService>, 'linkInto' | 'list'>,
 ) {
   const { profile, deps, paths, open, store, tmux, record, secrets, absolute } = ctx;
+  const setConfig = profileService(ctx).config.set;
   /** Where a session's context use is read: its agent's files under home, with this env. */
   const contextDeps = { store, home: deps.home, env: deps.env };
   /** What a terminal on a window takes: the user's terminal app, and a fresh view id each. */
@@ -148,10 +152,33 @@ export function sessionsService(
     return warning ? { ...ended, warning } : ended;
   };
   return {
+    grid: {
+      list: () => open().config.grid.groups,
+      save: (group: GridGroup) => {
+        const groups = saveGridGroup(open().config.grid.groups, group);
+        const recorded = setConfig('grid.groups', JSON.stringify(groups));
+        return { ...recorded, result: { groups } };
+      },
+      remove: (name: string) => {
+        const groups = removeGridGroup(open().config.grid.groups, name);
+        const recorded = setConfig('grid.groups', JSON.stringify(groups));
+        return { ...recorded, result: { groups } };
+      },
+    },
     sessions: {
       list: board,
       /** The board as a tree: children under their parent, each row with its depth. */
       tree: async (all = false) => sessionTree(await board(all)),
+      moveOnBoard: async (id: string, direction: -1 | 1) => {
+        const order = moveBoardSession(
+          await sessionTree(await board()),
+          open().config.board,
+          id,
+          direction,
+        );
+        const recorded = setConfig('board.order', JSON.stringify(order));
+        return { ...recorded, result: { order } };
+      },
       /**
        * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
        * as its first prompt, and with `branch`, in its own git worktree. The goal is read first,

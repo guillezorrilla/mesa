@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import type { TreeRow } from './board/tree.js';
-import { DEFAULT_BOARD_PREFERENCES, presentSessions } from './presentation.js';
+import { DEFAULT_BOARD_PREFERENCES, moveBoardSession, presentSessions } from './presentation.js';
 
 const rows = [
   {
@@ -62,4 +62,18 @@ test('presentation keeps the default tree, but groups and sorts alternate views 
   });
   expect(workflow.find((group) => group.key === 'review')?.rows[0]?.id).toBe('aaaaaaaa');
   expect(workflow.find((group) => group.key === 'unassigned')?.rows[0]?.id).toBe('bbbbbbbb');
+});
+
+test('manual move stays within the managed rows of its current group', () => {
+  const prefs = { ...DEFAULT_BOARD_PREFERENCES, group: 'project' as const };
+  expect(moveBoardSession(rows, prefs, 'cccccccc', -1)).toEqual([
+    'cccccccc',
+    'aaaaaaaa',
+    'bbbbbbbb',
+  ]);
+  expect(moveBoardSession(rows, prefs, 'bbbbbbbb', -1)).toEqual([
+    'aaaaaaaa',
+    'cccccccc',
+    'bbbbbbbb',
+  ]);
 });

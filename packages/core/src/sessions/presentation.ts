@@ -1,3 +1,4 @@
+import { MesaError } from '../lib/result.js';
 import type { TreeRow } from './board/tree.js';
 import { WORKFLOW_STATUSES } from './workflow-status.js';
 
@@ -68,4 +69,27 @@ export function presentSessions(
     else groups.set(key, { key, label: key, rows: [row] });
   }
   return [...groups.values()];
+}
+
+/** Move a managed session past its neighbor within its current Board group. */
+export function moveBoardSession(
+  rows: readonly TreeRow[],
+  prefs: BoardPreferences,
+  id: string,
+  direction: -1 | 1,
+): string[] {
+  const groups = presentSessions(rows, prefs);
+  const group = groups.find((item) => item.rows.some((row) => row.id === id));
+  const members = group?.rows.filter((row) => row.managed) ?? [];
+  const index = members.findIndex((row) => row.id === id);
+  if (index < 0) throw new MesaError('not_found', `no managed session ${id} on Board`);
+  const neighbor = members[index + direction];
+  const order = groups.flatMap((item) =>
+    item.rows.filter((row) => row.managed).map((row) => row.id),
+  );
+  if (!neighbor) return order;
+  const from = order.indexOf(id);
+  const to = order.indexOf(neighbor.id);
+  [order[from], order[to]] = [order[to] as string, order[from] as string];
+  return order;
 }
