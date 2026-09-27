@@ -19,8 +19,9 @@ export function skillsService(ctx: MesaContext) {
     list: (project?: string) =>
       listSkills({ library: readLibrary(libraryDir), libraryDir, ...scope(project) }),
     /**
-     * The same sync into `folder` (where a session's agent runs: the project's, or its
-     * worktree), without a receipt of its own: `mesa open` runs it before every start.
+     * The same sync into `folder` (where a session's agent runs: the project's, its worktree,
+     * or an adopted session's own), without a receipt of its own: every start of a session runs
+     * it (launch.ts).
      */
     linkInto: (project: string, folder: string) =>
       syncSkills({

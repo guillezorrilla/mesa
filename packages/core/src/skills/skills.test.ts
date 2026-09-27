@@ -7,11 +7,21 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
-import { scriptedRunner, tempDir, testDeps, thrown } from '../testing/index.js';
+import {
+  gitRepo,
+  isolateGit,
+  scriptedRunner,
+  tempDir,
+  testDeps,
+  testGit,
+  thrown,
+} from '../testing/index.js';
 import { readLibrary } from './library.js';
+
+isolateGit({ beforeAll, afterAll });
 
 /** A skill folder with the frontmatter both agents read. */
 function skill(dir: string, name: string, description = `The ${name} skill`, as = name) {
@@ -157,4 +167,14 @@ test('a skill folder that links to the other is one place: each link is made, an
     removed: ['.claude/skills/b'],
     kept: ['.claude/skills/a'],
   });
+});
+
+test('links into a folder inside the project (an adopted session in a subfolder) stay out of git too', () => {
+  const { dir, mesa } = setUp();
+  mkdirSync(join(dir, 'sub'));
+  writeFileSync(join(dir, 'sub/notes.md'), 'kept\n');
+  gitRepo(dir);
+  mesa.skills.linkInto('lantern-cove', join(dir, 'sub'));
+  expect(existsSync(join(dir, 'sub/.claude/skills/a/SKILL.md'))).toBe(true);
+  expect(testGit(dir, 'status', '--porcelain')).toBe('');
 });

@@ -5,7 +5,7 @@ import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { SessionStore } from './store.js';
 import { openInApp, type TerminalAppDeps } from './terminal-app.js';
-import { killIfThere, type TmuxBackend } from './tmux/backend.js';
+import type { TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
 
 // A project view (CONTEXT.md): a project's sessions side by side in one terminal.
@@ -33,7 +33,7 @@ export async function viewProject(
   deps: TerminalAppDeps & {
     profile: Profile;
     store: SessionStore;
-    tmux: Pick<TmuxBackend, 'listWindows' | 'openView' | 'viewAttachArgv' | 'killWindow'>;
+    tmux: Pick<TmuxBackend, 'listWindows' | 'openView' | 'viewAttachArgv' | 'closeView'>;
     /** A fresh id for each view session: the view's, and each pane's own. */
     viewId: () => string;
   },
@@ -67,7 +67,7 @@ export async function viewProject(
     await openInApp(deps, app, `view-${project}`, argv);
   } catch (error) {
     // No terminal will ever attach it, so nothing would remove it.
-    await killIfThere(deps.tmux, view);
+    await deps.tmux.closeView(view);
     throw error;
   }
   return { viewed };

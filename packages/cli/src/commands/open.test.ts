@@ -1,6 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scriptedRunner } from '@mesa/core/testing';
+import { scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -25,10 +25,9 @@ test('open prints the session id, --json the record, and --attach hands back the
   });
   const plain = await mesa('open', 'lantern-cove');
   expect(plain.stdout).toMatch(/^[0-9a-z]{8}\n$/);
-  expect(
-    JSON.parse(readFileSync(join(cli.paths.sessions, `${plain.stdout.trim()}.json`), 'utf8'))
-      .agentSessionId,
-  ).toBe('00000000-0000-4000-8000-000000000002');
+  expect(testStore(cli.home).get(plain.stdout.trim()).agentSessionId).toBe(
+    '00000000-0000-4000-8000-000000000002',
+  );
   expect(plain.exec).toBeUndefined();
 
   const attached = await mesa('open', 'lantern-cove', '--attach');

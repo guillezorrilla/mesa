@@ -27,16 +27,3 @@ export function useAct() {
   );
   return { acting, act };
 }
-
-/**
- * A confirmation; with the warning a recorded command's data carries (no receipt, a skill not
- * synced) after it, an alert, which stays, so a gap in the audit trail never goes unseen.
- */
-export const said = (message: string, data?: { warning?: string }): Message =>
-  data?.warning
-    ? { text: `${message}; ${data.warning}`, tone: 'alert' }
-    : { text: message, tone: 'confirmation' };
-
-/** A command's own warning, if it has one, as an alert. */
-export const warned = (warning: string | undefined): Message | undefined =>
-  warning ? { text: warning, tone: 'alert' } : undefined;

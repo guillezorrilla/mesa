@@ -19,6 +19,7 @@ import {
   managedRow,
   PROJECTS,
   renderWithMesa,
+  toastTexts,
 } from '@/lib/testing';
 
 test('a recorded action says its warning with its confirmation, so a missing receipt shows', async () => {
@@ -37,6 +38,35 @@ test('a recorded action says its warning with its confirmation, so a missing rec
   expect(byTestId('toast')[0]?.textContent).toContain(
     'Stopped session aaaaaaaa; no receipt: the profile has no vault yet',
   );
+});
+
+test('an action ends once the Board shows what it did, even with a look already in flight', async () => {
+  vi.useFakeTimers();
+  try {
+    let release = () => {};
+    let slow = false;
+    const { bridge, calls } = fakeBridge({
+      sessions: () =>
+        slow
+          ? new Promise((done) => (release = () => done(envelope([asking]))))
+          : envelope([asking]),
+      stop: () => envelope({ ...asking, outcome: 'exited', receipt: null }),
+    });
+    const byTestId = await renderWithMesa(<App />, bridge);
+    slow = true;
+    // The two-second look is in flight when Stop is pressed.
+    await act(async () => vi.advanceTimersByTime(2000));
+    await click(byTestId('session-stop')[0]);
+    expect(byTestId('session-stop')[0]?.hasAttribute('disabled')).toBe(true);
+    await click(byTestId('session-stop')[0]);
+    expect(calls.filter((c) => c[1] === 'stop')).toHaveLength(1);
+    // That look lands, then the one after the stop: only now does the row come back.
+    slow = false;
+    await act(async () => release());
+    expect(byTestId('session-stop')[0]?.hasAttribute('disabled')).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test('the Board is the first screen: every session by attention, with its state, confidence, and output', async () => {
@@ -404,9 +434,7 @@ test('a queued row says what it waits on and has Cancel, which stops it; it cann
   await click(inRow('row-menu'));
   await click(inRow('session-stop'));
   expect(calls.filter((c) => c[1] === 'stop')).toEqual([['--json', 'stop', '--', 'dddddddd']]);
-  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
-    'Cancelled session dddddddd: it never starts',
-  ]);
+  expect(toastTexts(byTestId)).toEqual(['Cancelled session dddddddd: it never starts']);
   expect(inRow('session-state')?.dataset.state).toBe('stopped');
   expect(inRow('session-waiting')).toBeNull();
   expect(inRow('session-stop')?.hasAttribute('disabled')).toBe(true);
@@ -548,7 +576,7 @@ test('Send on Enter, Open terminal, then Stop and Resume on the same row, each s
     ['--json', 'resume', '--', 'aaaaaaaa'],
   ]);
   expect((byTestId('session-prompt')[0] as HTMLInputElement).value).toBe('');
-  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
+  expect(toastTexts(byTestId)).toEqual([
     'Sent 5 characters to aaaaaaaa',
     'Opened lantern-cove:claude-aaaaaaaa in Terminal',
     'Stopped session aaaaaaaa',

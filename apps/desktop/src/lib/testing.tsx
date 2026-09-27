@@ -21,6 +21,13 @@ import type { Platform, TerminalHost } from './platform';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 export const envelope = (data: unknown) => ({ ok: true, data });
+
+/** The toasts showing, each as its tone and its text. */
+export const toasts = (byTestId: (id: string) => HTMLElement[]) =>
+  byTestId('toast').map((t) => [t.dataset.tone, t.querySelector('pre')?.textContent]);
+/** The toasts' texts. */
+export const toastTexts = (byTestId: (id: string) => HTMLElement[]) =>
+  byTestId('toast').map((t) => t.querySelector('pre')?.textContent);
 export const failure = (message: string) => ({ ok: false, error: { code: 'not_found', message } });
 
 /** A healthy, initialised profile with no projects: each test overrides what it varies. */
@@ -149,20 +156,13 @@ export const PROJECTS: ProjectRow[] = [
   },
   { name: 'tide', path: '/src/tide', agent: null, priority: null, skills: [], exists: false },
 ];
-export const check = (version: string): Check => ({
-  name: 'tmux',
-  ok: true,
-  status: 'ok',
-  version,
-  hint: '',
-});
-export const report = (checks: Check[]): DoctorReport => {
-  const healthy = checks.every((c) => c.ok);
-  const summary = healthy ? 'ready' : 'tmux and at least one agent (claude or codex) are required';
-  return { healthy, summary, checks };
-};
+/** A doctor report as core sends one, healthy unless told: the screens only show its verdict. */
+export const report = (
+  checks: Check[],
+  verdict: Pick<DoctorReport, 'healthy' | 'summary'> = { healthy: true, summary: 'ready' },
+): DoctorReport => ({ ...verdict, checks });
 /** Faro's part of a board row: a middling attention and an empty Decision. */
-export const placed = {
+const placed = {
   attention: 0.5,
   decision: {
     questions: [],
@@ -175,7 +175,7 @@ export const placed = {
 export const cells = (row: HTMLElement | undefined) =>
   [...(row?.querySelectorAll('td') ?? [])].map((td) => td.textContent);
 
-export type BoardRow = ManagedRow & { depth: number };
+type BoardRow = ManagedRow & { depth: number };
 /** A Mesa session row as the board receives it; `extra` varies state, attention, liveness. */
 export const managedRow = (id: string, extra: Partial<BoardRow> = {}): BoardRow => ({
   id,

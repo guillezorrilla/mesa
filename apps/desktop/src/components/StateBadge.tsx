@@ -1,4 +1,5 @@
 import type { SessionState } from '@mesa/core';
+import { percent } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
 
 /**
@@ -35,7 +36,7 @@ export function StateBadge(props: {
         props.className,
       )}
     >
-      {props.state} {Math.round(props.confidence * 100)}%
+      {props.state} {percent(props.confidence)}
     </span>
   );
 }

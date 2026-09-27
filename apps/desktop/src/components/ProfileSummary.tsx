@@ -1,7 +1,8 @@
 import type { DoctorReport } from '@mesa/core';
 import { ExternalLink } from 'lucide-react';
+import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { useAct, warned } from '@/lib/useAct';
+import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 

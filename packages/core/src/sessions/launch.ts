@@ -5,6 +5,8 @@ import type { Clock } from '../lib/clock.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
+import { readProjectFile } from '../projects/project-file.js';
+import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { windowEnv } from './caller.js';
 import { worktreeHolder } from './holders.js';
@@ -29,6 +31,15 @@ export type LaunchDeps = {
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
 };
+
+/**
+ * The registered project a session starts on, with its mesa.yaml read: a folder that is gone is
+ * not_found, never an agent started in $HOME.
+ */
+export function launchProject(profile: Profile, name: string) {
+  const entry = findProject(profile, name);
+  return { entry, project: readProjectFile(entry.path) };
+}
 
 /** Where a session's agent runs: its own folder, else its worktree, else the project's. */
 export const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: RegistryEntry) =>

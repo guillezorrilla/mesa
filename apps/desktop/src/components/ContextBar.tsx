@@ -1,3 +1,4 @@
+import { contextPercent } from '@mesa/core/browser';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -7,9 +8,8 @@ const RED = 60;
 
 /** How full a session's context is: a bar with its percent, amber from 55% and red from 60%. */
 export function ContextBar(props: { used: number; window: number }) {
-  const used = Math.min(100, Math.max(0, props.used));
   // By the percent it shows, so a bar reading 55% is never left uncoloured.
-  const shown = Math.round(used);
+  const shown = contextPercent(props.used);
   const tone = shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
   return (
     <div
@@ -19,7 +19,7 @@ export function ContextBar(props: { used: number; window: number }) {
       className="flex items-center gap-2"
     >
       <Progress
-        value={used}
+        value={shown}
         aria-label="Context used"
         className={cn(
           'h-1.5 w-16',

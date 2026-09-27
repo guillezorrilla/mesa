@@ -8,8 +8,21 @@ import { Button } from '@/components/ui/button';
  * and goes by itself; an alert (a failure or a warning) is warm, shows once however often it
  * comes, and stays until dismissed.
  */
-export type Tone = 'confirmation' | 'alert';
+type Tone = 'confirmation' | 'alert';
 export type Message = { text: string; tone: Tone };
+
+/**
+ * A confirmation; with the warning a recorded command's data carries (no receipt, a skill not
+ * synced) after it, an alert, which stays, so a gap in the audit trail never goes unseen.
+ */
+export const said = (message: string, data?: { warning?: string }): Message =>
+  data?.warning
+    ? { text: `${message}; ${data.warning}`, tone: 'alert' }
+    : { text: message, tone: 'confirmation' };
+
+/** A command's own warning, if it has one, as an alert. */
+export const warned = (warning: string | undefined): Message | undefined =>
+  warning ? { text: warning, tone: 'alert' } : undefined;
 
 // ponytail: long enough to read one line; a setting if someone reads slower.
 /** How long a confirmation stays. */

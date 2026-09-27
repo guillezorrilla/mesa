@@ -4,6 +4,17 @@ export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents/agents.js';
 export type { ClaudeHooksStatus, HooksStatus } from './agents/claude/hooks.js';
 export type { CommandReference } from './command-reference.js';
 export type { Decision } from './decisions/types.js';
+export {
+  attentionScore,
+  contextPercent,
+  duration,
+  listPrice,
+  percent,
+  sessionBranch,
+  sessionCount,
+  sessionLabel,
+  waitingOn,
+} from './display.js';
 export type { Check, DoctorReport } from './doctor.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
@@ -19,9 +30,10 @@ export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
-export type { SessionRecord, SessionState } from './sessions/record.js';
+export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type { Sent } from './sessions/send.js';
+export type { SessionState } from './sessions/states.js';
 export type { StopOutcome } from './sessions/stop.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
 export type { Viewed } from './sessions/view.js';

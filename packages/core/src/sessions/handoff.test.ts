@@ -1,7 +1,14 @@
 import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { agentWorld, gitRepo, isolateGit, projectProfile, withRealGit } from '../testing/index.js';
+import {
+  agentWorld,
+  gitRepo,
+  isolateGit,
+  profilePaths,
+  projectProfile,
+  withRealGit,
+} from '../testing/index.js';
 
 isolateGit({ beforeAll, afterAll });
 
@@ -38,7 +45,7 @@ test('--keep is refused for a session in its own worktree, before anything is wr
     code: 'usage',
   });
   expect(tmux.windows).toHaveLength(1);
-  expect(existsSync(join(home, '.mesa/default/handoffs'))).toBe(false);
+  expect(existsSync(profilePaths(home, 'default').handoffs)).toBe(false);
 });
 
 test('a window that cannot open removes the successor and its note again', async () => {
@@ -47,7 +54,7 @@ test('a window that cannot open removes the successor and its note again', async
   const a = (await mesa.sessions.open('lantern-cove', { goal: 'Tidy up' })).result;
   await expect(mesa.sessions.handoff(a.id, { note })).rejects.toMatchObject({ code: 'internal' });
   expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([a.id]);
-  expect(readdirSync(join(home, '.mesa/default/handoffs'))).toEqual([]);
+  expect(readdirSync(profilePaths(home, 'default').handoffs)).toEqual([]);
   expect((await mesa.sessions.show(a.id)).events).toEqual([]);
 });
 

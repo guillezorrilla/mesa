@@ -10,14 +10,15 @@ import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
 import { isOver } from './record.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
+import type { StopOutcome } from './stop.js';
 
 // The signals that a session ended, and what follows from each: an agent hook's payload, a tmux
 // hook's event, a stop, or a look at the board. Each starts what was queued after the session
 // (CONTEXT.md, Queued session), with its receipt; a look starts what a missed signal left
 // waiting. No daemon.
 
-/** One profile's signal entry points and the queue trigger they share, for the sessions service. */
-export function sessionSignals(
+/** One profile's signals that a session ended, and the queue trigger they share, for the sessions service. */
+export function endSignals(
   ctx: MesaContext,
   deps: {
     /** The board as it is now (listSessions), ended sessions too with `all`. */
@@ -75,7 +76,12 @@ export function sessionSignals(
   /** Starts what was queued after session `id`, which is over now. */
   const startAfter = (id: string) => startQueue((after) => after === id);
   return {
-    startAfter,
+    /**
+     * A stop's signal: a stopped session is over, so what was queued after it starts; a queued
+     * session cancelled hands its queue on instead (cancelQueued), so nothing starts.
+     */
+    stopped: async (id: string, outcome: StopOutcome) =>
+      outcome === 'cancelled' ? undefined : startAfter(id),
     /**
      * The board, once it has started what it found due: a queued session whose session is over
      * by this look, which a missed signal left waiting.

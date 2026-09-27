@@ -1,17 +1,15 @@
 import { readyAgent } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
-import { readProjectFile } from '../projects/project-file.js';
-import { findProject } from '../projects/projects.js';
-import { type LaunchDeps, launched, startSession } from './launch.js';
+import { type LaunchDeps, launched, launchProject, startSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
 import type { TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
 
 // Queued sessions (CONTEXT.md, Queued session): `mesa open --after` writes one; whichever signal
-// first finds the session it waits on over starts it (the SessionEnd hook, the pane-died hook, or
-// a look at the board). No daemon.
+// first finds the session it waits on over starts it (the SessionEnd hook, the pane-died hook,
+// its stop, or a look at the board: end-signals.ts). No daemon.
 
 // ponytail: a start killed mid-way (a SessionEnd hook gets 1.5 s) is retried by the next signal or
 // look once its claim is this old; a start still running after that could open a second window.
@@ -40,21 +38,18 @@ export async function startQueued(
 ): Promise<{ record: SessionRecord; warning?: string } | undefined> {
   const now = deps.clock();
   const at = now.toISOString();
-  let won = false;
-  // The agent session id comes with the claim, so a start retried after a kill keeps it.
+  // The agent session id comes with the claim, so a start retried after a kill keeps it; empty
+  // while the claim is not this start's.
+  let agentSessionId = '';
   const claimed = deps.store.update(id, (current) => {
     if (!startable(current, now)) return {};
-    won = true;
-    const agentSessionId = current.agentSessionId ?? deps.newUuid();
+    agentSessionId = current.agentSessionId ?? deps.newUuid();
     return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
   });
-  if (!won) return undefined;
+  if (!agentSessionId) return undefined;
   try {
-    const entry = findProject(deps.profile, claimed.project);
-    // Still a project, as open requires.
-    readProjectFile(entry.path);
+    const { entry } = launchProject(deps.profile, claimed.project);
     const spec = await readyAgent(deps.run, claimed.agent);
-    const agentSessionId = claimed.agentSessionId ?? deps.newUuid();
     const { branch, base } = claimed.pending ?? {};
     // A start killed after its window opened left that window, its worktree and skills already
     // made: it is this session's.

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { claudeTranscripts } from '../agents/claude/paths.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
@@ -119,11 +120,6 @@ export type FakeWindow = {
   typed: string[];
 };
 
-/**
- * A tmux server in memory, as a scripted runner answer: `scriptedRunner({ tmux: world.answer })`.
- * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
- * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
- */
 /** tmux's named layouts, the ones fakeTmux accepts. */
 const TMUX_LAYOUTS = [
   'even-horizontal',
@@ -133,6 +129,11 @@ const TMUX_LAYOUTS = [
   'tiled',
 ];
 
+/**
+ * A tmux server in memory, as a scripted runner answer: `scriptedRunner({ tmux: world.answer })`.
+ * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
+ * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
+ */
 export function fakeTmux(
   opts: {
     onKeys?: (window: FakeWindow, text: string) => void;
@@ -469,4 +470,28 @@ export function gitRepo(dir: string) {
   testGit(dir, 'init', '-q', '-b', 'main');
   testGit(dir, 'add', '-A');
   testGit(dir, 'commit', '-q', '-m', 'init');
+}
+
+/** A session's lock as a mesa killed while holding it leaves it; its path, for the test to remove. */
+export function staleLock(home: string, id: string, holder = 'a killed mesa', profile = 'default') {
+  const lock = join(profilePaths(home, profile).sessions, `${id}.lock`);
+  writeFileSync(lock, holder);
+  return lock;
+}
+
+/**
+ * A Claude Code transcript on disk, as it writes one: conversation `id`, run in `cwd`, which it
+ * names on a line after the first; `content` in place of those lines when given.
+ */
+export function plantTranscript(home: string, id: string, cwd: string, content?: string) {
+  const folder = join(claudeTranscripts(home), cwd.replaceAll(/[^A-Za-z0-9]/g, '-'));
+  mkdirSync(folder, { recursive: true });
+  const lines = [
+    { type: 'last-prompt', sessionId: id },
+    { type: 'user', sessionId: id, cwd, message: { role: 'user', content: 'Remember lantern' } },
+  ];
+  writeFileSync(
+    join(folder, `${id}.jsonl`),
+    content ?? lines.map((l) => JSON.stringify(l)).join('\n'),
+  );
 }

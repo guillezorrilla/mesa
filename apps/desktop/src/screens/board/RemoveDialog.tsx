@@ -1,5 +1,5 @@
 import type { ManagedRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/view';
+import { sessionLabel } from '@mesa/core/browser';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';

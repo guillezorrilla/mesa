@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
@@ -10,6 +10,7 @@ import {
   newSession,
   projectProfile,
   scriptedRunner,
+  staleLock,
   testStore,
 } from '../testing/index.js';
 import { sessionStore } from './store.js';
@@ -204,11 +205,10 @@ test('stop ends the record as it is when the stop lands, not as it was read', as
 test('resume with its old record locked still runs, warns, and is not resumed twice', async () => {
   const { home, mesa, opened } = await setUp();
   await mesa.sessions.stop(opened.id);
-  const dir = profilePaths(home, 'default').sessions;
-  writeFileSync(join(dir, `${opened.id}.lock`), 'a killed mesa');
+  const lock = staleLock(home, opened.id);
   const first = await mesa.sessions.resume(opened.id);
   expect(first.warning).toMatch(new RegExp(`^session ${opened.id} not marked resumed: session`));
-  rmSync(join(dir, `${opened.id}.lock`));
+  rmSync(lock);
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({
     code: 'usage',
     message: `session ${opened.id} was already resumed as ${first.result.record.id}; mesa resume ${first.result.record.id}`,

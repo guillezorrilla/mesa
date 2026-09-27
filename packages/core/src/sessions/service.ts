@@ -1,7 +1,6 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import { shortId } from '../lib/ids.js';
-import { toFail } from '../lib/result.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
@@ -14,8 +13,9 @@ import { sessionTree } from './board/tree.js';
 import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
+import { endSignals } from './end-signals.js';
 import { readGoal, sessionGoal } from './goal.js';
-import { handoffSession } from './handoff.js';
+import { handoffSession, stopHandedOff } from './handoff.js';
 import { readHookEvents } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
 import { removeSession } from './remove.js';
@@ -24,14 +24,8 @@ import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
-import { sessionSignals } from './signals.js';
 import { stopSession } from './stop.js';
 import { viewProject } from './view.js';
-
-// ponytail: a guess at how long a session's agent takes to finish its turn once mesa handoff
-// returns; its stop's Escape interrupts whatever it still writes, which is only its goodbye.
-/** How long a session that handed itself off keeps running before the server stops it. */
-const SELF_STOP_DELAY_S = 2;
 
 /**
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
@@ -84,8 +78,8 @@ export function sessionsService(
       },
       { all },
     );
-  const signals = sessionSignals(ctx, { look, launch: openDeps, context: contextDeps });
-  const { board } = signals;
+  const ends = endSignals(ctx, { look, launch: openDeps, context: contextDeps });
+  const { board } = ends;
   /**
    * Ends a session politely, or at once with `force`. The stop gets a session receipt of its own
    * (none when it changed nothing), and the session's opening receipt is marked ended.
@@ -107,8 +101,7 @@ export function sessionsService(
     );
     const { outcome } = recorded.result;
     if (outcome === 'already-ended') return recorded;
-    // Stopped is over: what was queued after it starts (a cancel hands its queue on instead).
-    const queue = outcome === 'cancelled' ? undefined : await signals.startAfter(id);
+    const queue = await ends.stopped(id, outcome);
     const ended = await markEnded(notes, recorded, recorded.result.record);
     const warning = joinWarnings(ended.warning, queue?.warning);
     return warning ? { ...ended, warning } : ended;
@@ -225,9 +218,7 @@ export function sessionsService(
       stop,
       /**
        * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
-       * `keep`: at once, or, when the session hands itself off from inside its own window, from
-       * the tmux server a moment later, as its own stop would kill this mesa half-way. The
-       * handoff's session receipt names both and the note.
+       * `keep` (stopHandedOff). The handoff's session receipt names both and the note.
        */
       handoff: (id: string, opts: { note: string; keep?: boolean }) => {
         const note = absolute(opts.note);
@@ -249,21 +240,20 @@ export function sessionsService(
               note,
               keep,
             });
-            if (keep) return { ...done, stop: 'kept' as const };
-            // The successor runs now: a stop that fails is a warning, never a failed handoff that
-            // a retry would start a second successor for.
-            try {
-              if (caller().session?.id === id) {
-                await tmux.runMesaLater(['stop', id], SELF_STOP_DELAY_S);
-                return { ...done, stop: 'later' as const };
-              }
-              const stopped = await stop(id);
-              const warning = joinWarnings(done.warning, stopped.warning);
-              return { ...done, stop: stopped.result.outcome, ...(warning ? { warning } : {}) };
-            } catch (error) {
-              const why = `session ${id} not stopped: ${toFail(error).error.message}; mesa stop ${id}`;
-              return { ...done, stop: 'failed' as const, warning: joinWarnings(done.warning, why) };
-            }
+            const stopped = await stopHandedOff(
+              {
+                self: caller().session?.id === id,
+                stopLater: tmux.runMesaLater,
+                stopNow: async (session) => {
+                  const { result, warning } = await stop(session);
+                  return { outcome: result.outcome, warning };
+                },
+              },
+              id,
+              keep,
+            );
+            const warning = joinWarnings(done.warning, stopped.warning);
+            return { ...done, stop: stopped.stop, ...(warning ? { warning } : {}) };
           },
         );
       },
@@ -377,8 +367,8 @@ export function sessionsService(
           app ? terminalApp() : undefined,
         ),
     },
-    hookEvent: signals.hookEvent,
-    tmuxEvent: signals.tmuxEvent,
+    hookEvent: ends.hookEvent,
+    tmuxEvent: ends.tmuxEvent,
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),
   };

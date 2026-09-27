@@ -15,7 +15,7 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@mesa/core": ["../../packages/core/src/index.ts"],
-      "@mesa/core/view": ["../../packages/core/src/view.ts"],
+      "@mesa/core/browser": ["../../packages/core/src/browser.ts"],
       "@/*": ["./src/*"]
     }
   },

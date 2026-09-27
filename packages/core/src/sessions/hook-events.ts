@@ -18,6 +18,9 @@ export type HookEvent = {
   payload: unknown;
 };
 
+/** A session's hook events log: `<events>/<Mesa session id>.jsonl`. */
+export const eventsLog = (eventsDir: string, id: string) => join(eventsDir, `${id}.jsonl`);
+
 /**
  * Appends one hook payload to its session's event log, and gives the record its agent session id
  * when that is first learned or a /clear moves it (a SessionStart with source `clear`). Undefined,
@@ -63,7 +66,7 @@ export function recordHookEvent(
   const moved = Boolean(record?.agentSessionId && agentSessionId !== record.agentSessionId);
   if (agentSessionId && moved && !cleared) return undefined;
   mkdirSync(deps.eventsDir, { recursive: true, mode: 0o700 });
-  appendFileSync(join(deps.eventsDir, `${id}.jsonl`), `${JSON.stringify(line)}\n`);
+  appendFileSync(eventsLog(deps.eventsDir, id), `${JSON.stringify(line)}\n`);
   // The record follows: to its first id (open and resume set one first, so only a record written
   // without one), or to the one a /clear moved it to. ponytail: under the record's lock, which can
   // hold a hook up to 2 s past its budget when another process has the record; it only waits on
@@ -91,7 +94,7 @@ function findRecord(store: SessionStore, id: string) {
 /** The session's hook events, oldest first; a line that does not parse is skipped. */
 export function readHookEvents(eventsDir: string, id: string): HookEvent[] {
   if (!isSessionId(id)) return [];
-  const file = join(eventsDir, `${id}.jsonl`);
+  const file = eventsLog(eventsDir, id);
   if (!existsSync(file)) return [];
   return readFileSync(file, 'utf8')
     .split('\n')
