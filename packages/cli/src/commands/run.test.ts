@@ -163,3 +163,26 @@ test('run session-summary --session writes the agent summary, linked to its rece
     outputs: { note: json.data.note },
   });
 });
+
+test('project-brief is listed and runs through the public CLI with a linked project note', async () => {
+  const brief =
+    '## Purpose\nTrack lanterns.\n\n## Stack\nTypeScript.\n\n## How to run\nRun mesa.\n\n## Open threads\nAdd alerts.';
+  cli.withTmux({
+    onOpen: finishesRun({
+      output: JSON.stringify({ ...JSON.parse(claudeResult('success')), result: brief }),
+    }),
+  });
+  const dir = await cli.withProject();
+  await mesa('config', 'set', 'skills', '[project-brief]');
+  expect((await mesa('skills', 'list', 'lantern-cove', '--json')).json.data).toContainEqual(
+    expect.objectContaining({ name: 'project-brief', source: 'mesa', enabled: true }),
+  );
+  const { json, code } = await mesa('run', 'project-brief', '--project', 'lantern-cove', '--json');
+  expect(code).toBe(0);
+  expect(json.data.note).toBe('projects/lantern-cove.md');
+  expect(readFileSync(join(cli.home, 'vault', json.data.note), 'utf8')).toContain(brief);
+  expect(
+    (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data.receipt,
+  ).toMatchObject({ type: 'skill', status: 'ok', outputs: { note: json.data.note } });
+  expect(readFileSync(join(cli.home, 'vault', json.data.note), 'utf8')).toContain(`repo: ${dir}`);
+});
