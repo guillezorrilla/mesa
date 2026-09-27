@@ -1,9 +1,9 @@
 import { readyAgent } from '../agents/agents.js';
 import { transcriptCwd } from '../agents/claude/transcripts.js';
-import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { findProject, projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
+import { joinWarnings } from '../receipts/recorder.js';
 import type { AgentProcess } from './agent-listing.js';
 import { agentSessionHolder } from './holders.js';
 import { createRecord, type LaunchDeps, launchSession } from './launch.js';
@@ -13,7 +13,6 @@ import { sessionName } from './rename.js';
 // Adopting a Claude Code session Mesa did not start (CONTEXT.md, Adopted session).
 
 type AdoptDeps = LaunchDeps & {
-  run: Runner;
   /** The live agent sessions (listAgentProcesses). */
   listing: () => Promise<AgentProcess[]>;
   /** Agent session ids other profiles' records hold. */
@@ -81,6 +80,6 @@ export async function adoptSession(
   };
   if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
   const spec = await readyAgent(deps.run, 'claude');
-  const record = await launchSession(deps, { ...s, command: spec.resume(id) });
-  return { record, warning: WARNING };
+  const { record, warning } = await launchSession(deps, s, { command: () => spec.resume(id) });
+  return { record, warning: joinWarnings(WARNING, warning) ?? WARNING };
 }

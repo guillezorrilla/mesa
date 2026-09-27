@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -178,4 +178,13 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
   const { result: resumed } = await mesa.sessions.resume(result.record.id);
   expect(resumed.record).toMatchObject({ adopted: true, name: 'docs', cwd: sub });
   expect(world.windows).toMatchObject([{ path: sub, launch: `claude --resume ${ON_DISK}` }]);
+});
+
+test('an adoption links the enabled skills into the folder it reopens in, as open does', async () => {
+  const { dir, mesa } = setUp();
+  const { result } = await mesa.sessions.adopt(LIVE);
+  expect(result.warning).toBe(WARNING);
+  for (const skill of ['mesa', 'mesa-handoff']) {
+    expect(existsSync(join(dir, '.claude/skills', skill, 'SKILL.md'))).toBe(true);
+  }
 });

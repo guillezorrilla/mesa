@@ -706,3 +706,18 @@ test('open links the enabled skills where the agent runs before its window opens
   expect(opened.result.id).toMatch(/^[0-9a-z]{8}$/);
   expect(opened.warning).toMatch(/^skills not synced into .*lantern-cove: /);
 });
+
+test('resume links the enabled skills where the conversation reopens, as open does', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world);
+  const { result: first } = await mesa.sessions.open('lantern-cove');
+  exitAll(world);
+  for (const links of ['.claude/skills', '.agents/skills']) {
+    rmSync(join(dir, links), { recursive: true, force: true });
+  }
+  const { warning } = await mesa.sessions.resume(first.id);
+  expect(warning).toBeUndefined();
+  for (const skill of ['mesa', 'mesa-handoff']) {
+    expect(existsSync(join(dir, '.claude/skills', skill, 'SKILL.md'))).toBe(true);
+  }
+});
