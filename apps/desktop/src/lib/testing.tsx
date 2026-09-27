@@ -25,6 +25,15 @@ import type { Platform, TerminalHost } from './platform';
 
 export const envelope = (data: unknown) => ({ ok: true, data });
 
+/** A bridge reply a screen test can complete after a newer request. */
+export const deferred = () => {
+  let resolve!: (value: unknown) => void;
+  const promise = new Promise<unknown>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+};
+
 /** The toasts showing, each as its tone and its text. */
 export const toasts = (byTestId: (id: string) => HTMLElement[]) =>
   byTestId('toast').map((t) => [t.dataset.tone, t.querySelector('pre')?.textContent]);
@@ -319,7 +328,9 @@ export const RUN_RECEIPT = receiptEntry(
     session: 'eeeeeeee',
     agent: 'claude',
     started: '2026-09-25T12:05',
+    ended: '2026-09-25T12:06',
     status: 'ok',
+    cost: 0.042,
     command: 'mesa run --project lantern-cove --yes -- tidy-readme "focus on tests"',
     decisions: [
       {
@@ -345,9 +356,9 @@ export const RUN_RECEIPT = receiptEntry(
       args: ['focus on tests'],
       yes: true,
     },
-    outputs: { window: 'claude-eeeeeeee', state: 'working', override: 'yes' },
+    outputs: { window: 'claude-eeeeeeee', state: 'done', durationMs: 61_000, override: 'yes' },
   },
-  'Started skill tidy-readme on lantern-cove as session eeeeeeee',
+  'Ran skill tidy-readme on lantern-cove as session eeeeeeee',
 );
 /** A session opened on the Board. */
 export const SESSION_RECEIPT = receiptEntry(

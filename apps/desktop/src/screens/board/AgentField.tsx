@@ -19,7 +19,8 @@ export function AgentField({ headless = false }: { headless?: boolean }) {
             <div key={agent} className="flex items-center gap-2">
               <RadioGroupItem id={`${id}-${agent}`} value={agent} disabled={disabled} />
               <Label htmlFor={`${id}-${agent}`} className={disabled ? 'text-muted-foreground' : ''}>
-                {AGENT_LABELS[agent]}{disabled ? ' (planned)' : ''}
+                {AGENT_LABELS[agent]}
+                {disabled ? ' (planned)' : ''}
               </Label>
             </div>
           );

@@ -4,9 +4,12 @@ import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
 import {
+  cells,
   choose,
   click,
+  deferred,
   envelope,
+  failure,
   fakeBridge,
   guardrailStopped,
   managedRow,
@@ -60,6 +63,33 @@ test('Run skill offers the enabled skills of a project whose folder is there', a
     '[role="radio"][value="codex"]',
   );
   expect(codex?.disabled).toBe(true);
+});
+
+test('changing project hides the old skills while the new list is pending or fails', async () => {
+  const next = deferred();
+  const { bridge, calls } = fakeBridge({
+    ...answers,
+    projects: () =>
+      envelope([
+        ...PROJECTS,
+        { ...PROJECTS[0], name: 'harbor-lights', path: '/src/harbor-lights' },
+      ]),
+    'skills list': (args) => (args.includes('harbor-lights') ? next.promise : envelope(SKILLS)),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('run-skill')[0]);
+  expect((byTestId('run-skill-skill')[0] as HTMLSelectElement).options).toHaveLength(2);
+
+  await choose(byTestId('run-skill-project')[0], 'harbor-lights');
+  expect((byTestId('run-skill-skill')[0] as HTMLSelectElement).options).toHaveLength(0);
+  expect(byTestId('run-skill-submit')[0]?.hasAttribute('disabled')).toBe(true);
+  await click(byTestId('run-skill-submit')[0]);
+  expect(runs(calls)).toEqual([]);
+
+  await act(async () => next.resolve(failure('skills could not be read')));
+  expect((byTestId('run-skill-skill')[0] as HTMLSelectElement).options).toHaveLength(0);
+  expect(byTestId('run-skill-submit')[0]?.hasAttribute('disabled')).toBe(true);
+  expect(runs(calls)).toEqual([]);
 });
 
 test('Run closes the dialog, the Board shows the run while it runs, and its end links to its receipt', async () => {
@@ -118,7 +148,11 @@ test('Run closes the dialog, the Board shows the run while it runs, and its end 
     expect(byTestId('receipt-details')[0]?.querySelector('h3')?.textContent).toBe(
       RUN_RECEIPT.summary,
     );
-    expect(byTestId('decision-row')).toHaveLength(2);
+    expect(byTestId('decision-row').map(cells)).toEqual([
+      ['verdictChoice', 'ask', 'ask 95%', '95%', 'rules'],
+      ['secret-or-destructiveNoul', 'no', 'yes 5%', 'none', 'rules'],
+    ]);
+    expect(byTestId('receipt-frontmatter')[0]?.textContent).toContain('2026-09-25T12:06');
   } finally {
     vi.useRealTimers();
   }
