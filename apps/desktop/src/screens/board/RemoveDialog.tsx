@@ -2,16 +2,8 @@ import type { ManagedRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/view';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { ActionDialog } from '@/components/ActionDialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
 /**
@@ -33,54 +25,52 @@ export function RemoveDialog(props: {
     ...(row.worktree && deleteBranch ? [`its branch ${row.worktree.branch}`] : []),
   ];
   return (
-    <Dialog open onOpenChange={(open) => !open && props.onCancel()}>
-      <DialogContent data-testid="remove-dialog" className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Remove {sessionLabel(row)}</DialogTitle>
-          <DialogDescription>This deletes, and cannot be undone:</DialogDescription>
-        </DialogHeader>
-        <ul data-testid="remove-list" className="list-disc space-y-1 pl-5 text-sm">
-          {goes.map((g) => (
-            <li key={g}>{g}</li>
-          ))}
-        </ul>
-        {row.worktree && (
-          <div className="grid gap-3">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="remove-worktree"
-                data-testid="remove-worktree"
-                checked={deleteWorktree}
-                onCheckedChange={(v) => setDeleteWorktree(v === true)}
-              />
-              <Label htmlFor="remove-worktree">Also remove its worktree</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="remove-branch"
-                data-testid="remove-branch"
-                checked={deleteBranch}
-                onCheckedChange={(v) => setDeleteBranch(v === true)}
-              />
-              <Label htmlFor="remove-branch">Also delete its branch</Label>
-            </div>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={props.onCancel}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            data-testid="remove-confirm"
-            disabled={props.disabled}
-            onClick={() => props.onRemove({ deleteWorktree, deleteBranch })}
-          >
+    <ActionDialog
+      testId="remove-dialog"
+      wide
+      title={`Remove ${sessionLabel(row)}`}
+      description="This deletes, and cannot be undone:"
+      submit={{
+        label: (
+          <>
             <Trash2 aria-hidden />
             Remove
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </>
+        ),
+        testId: 'remove-confirm',
+        disabled: props.disabled,
+        variant: 'destructive',
+      }}
+      onSubmit={() => props.onRemove({ deleteWorktree, deleteBranch })}
+      onCancel={props.onCancel}
+    >
+      <ul data-testid="remove-list" className="list-disc space-y-1 pl-5 text-sm">
+        {goes.map((g) => (
+          <li key={g}>{g}</li>
+        ))}
+      </ul>
+      {row.worktree && (
+        <div className="grid gap-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="remove-worktree"
+              data-testid="remove-worktree"
+              checked={deleteWorktree}
+              onCheckedChange={(v) => setDeleteWorktree(v === true)}
+            />
+            <Label htmlFor="remove-worktree">Also remove its worktree</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="remove-branch"
+              data-testid="remove-branch"
+              checked={deleteBranch}
+              onCheckedChange={(v) => setDeleteBranch(v === true)}
+            />
+            <Label htmlFor="remove-branch">Also delete its branch</Label>
+          </div>
+        </div>
+      )}
+    </ActionDialog>
   );
 }
