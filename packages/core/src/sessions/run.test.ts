@@ -34,7 +34,6 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   });
   const id = result.session;
   const output = join(profilePaths(home, 'default').runs, `${id}.json`);
-  const stderr = join(profilePaths(home, 'default').runs, `${id}.err`);
   expect(result).toEqual({
     session: id,
     ok: true,
@@ -43,15 +42,18 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
     costUsd: 0.2621986,
     durationMs: 19113,
   });
-  // stdin closed, stdout and stderr into the profile's runs/, and exec, so the pane's exit is claude's.
+  // stdin closed, stdout into the profile's runs/, and exec, so the pane's exit is claude's.
   expect(world.tmux.windows).toEqual([]);
   const launch = world.calls
     .find((c) => c.file === 'tmux' && c.args.includes('new-session'))
     ?.args.find((a) => a.startsWith('exec '));
   expect(launch).toBe(
-    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' --allowedTools 'Read' 'Bash(git log:*)' </dev/null >'${output}' 2>'${stderr}'`,
+    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' --allowedTools 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
   );
   expect(existsSync(output)).toBe(true);
+  // Logged as every window is: its pane, claude's errors, goes to its output log.
+  const log = join(profilePaths(home, 'default').logs, `${id}.log`);
+  expect(world.calls.some((c) => c.args.includes(`cat >> '${log}'`))).toBe(true);
   // The skill was linked into the folder claude ran in, as every start does.
   expect(existsSync(join(dir, '.claude/skills/session-summary/SKILL.md'))).toBe(true);
   expect(testStore(home).get(id)).toMatchObject({
@@ -105,7 +107,7 @@ test('an error claude reports, and a nonzero exit with no result, are not ok, wi
   });
   expect(testStore(first.home).get(result.session).lastState.state).toBe('failed');
 
-  // claude refused its flags: no result, its exit, and the last line it printed on stderr.
+  // claude refused its flags: no result, its exit, and the last line its pane showed, from its log.
   const refused = agentWorld({
     onOpen: finishesRun({ output: '', status: 1, stderr: "error: unknown option '--bogus'\n\n" }),
   });

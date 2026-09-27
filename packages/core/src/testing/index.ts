@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -143,7 +150,10 @@ const TMUX_LAYOUTS = [
 export function fakeTmux(
   opts: {
     onKeys?: (window: FakeWindow, text: string) => void;
-    /** Sees each window as it opens, so a test can make its agent act, say finish a run (finishesRun). */
+    /**
+     * Sees each window once the command that opened it has run (its pipe-pane too), so a test can
+     * make its agent act, say finish a run (finishesRun).
+     */
     onOpen?: (window: FakeWindow) => void;
     /** A tmux command that fails, as a broken server would (`new-session`). */
     failing?: string;
@@ -156,6 +166,8 @@ export function fakeTmux(
   const ranLater: string[] = [];
   /** A server runs once something started it; before that, tmux answers only with an error. */
   let server = false;
+  /** The windows the call being answered opened, for onOpen once it is done. */
+  const openedNow: FakeWindow[] = [];
   const noServer = () => failed('no server running on /private/tmp/tmux-501/fake');
   const failed = (detail: string): RunResult => ({ ok: false, reason: 'failed', detail });
   const flag = (args: string[], name: string) => args[args.indexOf(name) + 1] ?? '';
@@ -190,7 +202,7 @@ export function fakeTmux(
           typed: [],
         };
         windows.push(opened);
-        opts.onOpen?.(opened);
+        openedNow.push(opened);
         return ok();
       }
       case 'kill-window': {
@@ -298,17 +310,19 @@ export function fakeTmux(
     // tmux skips an empty command (a leading, trailing, or doubled `;`).
     for (const command of commands.filter((c) => c.length)) {
       result = one(command);
-      if (!result.ok) return result;
+      if (!result.ok) break;
     }
+    for (const w of openedNow.splice(0)) opts.onOpen?.(w);
     return result;
   };
   return { windows, answer, hooks, ranLater };
 }
 
 /**
- * A headless run's agent in fakeTmux (`onOpen`): writes `output` and `stderr` where the run's
- * command sends its stdout and stderr (none when undefined), then exits with `status`, or is
- * killed by `signal`. A window that is not a run's is left running.
+ * A headless run's agent in fakeTmux (`onOpen`): writes `output` where the run's command sends its
+ * stdout (none when undefined), prints `stderr` on its pane, and so into its output log when it
+ * has one, then exits with `status`, or is killed by `signal`. A window that is not a run's is
+ * left running.
  */
 export const finishesRun =
   ({
@@ -323,11 +337,15 @@ export const finishesRun =
     stderr?: string;
   }) =>
   (w: FakeWindow) => {
-    const [, stdoutFile, stderrFile] =
-      /^exec claude -p .* >'([^']+)' 2>'([^']+)'$/.exec(w.launch) ?? [];
-    if (!stdoutFile || !stderrFile) return;
-    if (output !== undefined) writeFileSync(stdoutFile, output);
-    if (stderr !== undefined) writeFileSync(stderrFile, stderr);
+    const file = /^exec claude -p .* >'([^']+)'$/.exec(w.launch)?.[1];
+    if (!file) return;
+    if (output !== undefined) writeFileSync(file, output);
+    if (stderr !== undefined) {
+      w.typed.push(stderr);
+      // pipe-pane's `cat >> '<log>'`, with tmux's `##` for a `#`.
+      const log = /^cat >> '(.+)'$/.exec(w.pipe ?? '')?.[1]?.replaceAll('##', '#');
+      if (log) appendFileSync(log, stderr);
+    }
     w.dead = true;
     if (signal) w.signal = signal;
     else w.status = status;

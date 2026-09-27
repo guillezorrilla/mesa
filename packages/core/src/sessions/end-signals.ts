@@ -126,7 +126,9 @@ export function endSignals(
       if (event !== 'pane-died') return undefined;
       const exited = await recordPaneDied({ store, tmux, clock }, project, window);
       if (!exited) return undefined;
-      if (exited.kind === 'run') await endRun({ store, tmux, clock, runs: paths.runs }, exited);
+      if (exited.kind === 'run') {
+        await endRun({ store, tmux, clock, runs: paths.runs, logs: paths.logs }, exited);
+      }
       await startAfter(exited.id);
       await markExited(ctx, exited);
       return exited;

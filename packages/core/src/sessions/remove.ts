@@ -6,7 +6,7 @@ import { findProject } from '../projects/projects.js';
 import { worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
-import { runFiles } from './run.js';
+import { runOutput } from './run.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
@@ -21,7 +21,7 @@ export type Removed = {
   events: boolean;
   /** Its output log, `sessions/logs/<id>.log`. */
   outputLog: boolean;
-  /** A skill run's output, `sessions/runs/<id>.json` and `.err` (CONTEXT.md, Skill run). */
+  /** A skill run's result, `sessions/runs/<id>.json` (CONTEXT.md, Skill run). */
   runOutput: boolean;
   /** Its tmux window, live under `force`, or left dead. */
   window: boolean;
@@ -107,9 +107,9 @@ export async function removeSession(
   const output = outputLog(deps.logsDir, id);
   removed.outputLog = existsSync(output);
   rmSync(output, { force: true });
-  const run = Object.values(runFiles(deps.runs, id));
-  removed.runOutput = run.some((f) => existsSync(f));
-  for (const f of run) rmSync(f, { force: true });
+  const result = runOutput(deps.runs, id);
+  removed.runOutput = existsSync(result);
+  rmSync(result, { force: true });
   deps.store.remove(id);
   return removed;
 }

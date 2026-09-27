@@ -195,7 +195,14 @@ export function sessionsService(
             startRun({ ...openDeps(), runs: paths.runs, skills: skills.list }, { ...opts, skill }),
         );
         const run = started.result.record;
-        const waitDeps = { store, tmux, clock: deps.clock, sleep: deps.sleep, runs: paths.runs };
+        const waitDeps = {
+          store,
+          tmux,
+          clock: deps.clock,
+          sleep: deps.sleep,
+          runs: paths.runs,
+          logs: paths.logs,
+        };
         const result = await awaitRun(waitDeps, run, opts.timeoutSeconds);
         const queue = await ends.stopped(run.id, 'exited');
         const warning = joinWarnings(started.warning, queue?.warning);

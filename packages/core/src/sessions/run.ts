@@ -9,6 +9,7 @@ import type { SkillRow } from '../skills/sync.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
 import { type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
+import { outputTail } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import { exitState } from './state.js';
 import type { SessionStore } from './store.js';
@@ -17,22 +18,17 @@ import { paneExit, type TmuxWindow } from './tmux/format.js';
 import { windowOf } from './window-name.js';
 
 // A skill run headlessly (CONTEXT.md, Skill run): a session of kind run, started through the one
-// launch sequence, whose agent prints its result into the profile's runs/ and exits. Whoever sees
-// the exit first, the wait in `mesa run` or tmux's pane-died hook, ends it the same way (endRun).
+// launch sequence, whose agent prints its result into the profile's runs/ and its errors on its
+// pane (and so in its output log), then exits. Whoever sees the exit first, the wait in `mesa run`
+// or tmux's pane-died hook, ends it the same way (endRun).
 
 /** How long a run may take unless told otherwise: 20 minutes. */
 export const RUN_TIMEOUT_SECONDS = 20 * 60;
 /** How often the wait looks at the run's pane. */
 const POLL_MS = 1000;
 
-/**
- * A run's files, local to the profile: what its agent printed on stdout (its result) and on
- * stderr, `<runs>/<session id>.json` and `.err`.
- */
-export const runFiles = (runs: string, id: string) => ({
-  stdout: join(runs, `${id}.json`),
-  stderr: join(runs, `${id}.err`),
-});
+/** Where a run's agent writes its stdout, its result: `<runs>/<session id>.json`, local to the profile. */
+export const runOutput = (runs: string, id: string) => join(runs, `${id}.json`);
 
 /** What a run gave back: the agent's answer, its conversation, what it cost, how long it took. */
 export type HeadlessResult = {
@@ -67,9 +63,9 @@ type RunDeps = LaunchDeps & {
 
 /**
  * Starts a skill run: a session of kind run whose window runs the agent's headless command, with
- * `/<skill> <args>` as its prompt (kept as the record's goal), stdin closed, and its stdout and
- * stderr in runFiles. The window's command execs the agent, so the pane's pid and exit status
- * are the agent's. Every refusal comes before anything is written: an unknown project, a skill
+ * `/<skill> <args>` as its prompt (kept as the record's goal), stdin closed, and its stdout in
+ * runOutput; its stderr stays on the pane. The window's command execs the agent, so the pane's
+ * pid and exit status are the agent's. Every refusal comes before anything is written: an unknown project, a skill
  * the project does not see or enable, an agent that cannot run, a timeout under one second, a
  * command too long for tmux.
  */
@@ -84,10 +80,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const prompt = [`/${input.skill}`, ...(input.args ?? [])].join(' ');
   const agentSessionId = deps.newUuid();
   const command = spec.headless.command(agentSessionId, prompt, deps.profile.config.run);
-  const line = (id: string) => {
-    const files = runFiles(deps.runs, id);
-    return `exec ${command} </dev/null >${shellWord(files.stdout)} 2>${shellWord(files.stderr)}`;
-  };
+  const line = (id: string) => `exec ${command} </dev/null >${shellWord(runOutput(deps.runs, id))}`;
   // The line tmux gets, checked before anything is written: every Mesa session id is 8 characters.
   requireCommandFits(line('xxxxxxxx'));
   mkdirSync(deps.runs, { recursive: true, mode: 0o700 });
@@ -116,12 +109,14 @@ function requireSkill(rows: SkillRow[], skill: string, project: string) {
   }
 }
 
-/** What ending a run takes: its record, its window, the clock, and its files. */
+/** What ending a run takes: its record, its window, the clock, and where its output is. */
 type EndDeps = {
   store: SessionStore;
   tmux: Pick<TmuxBackend, 'killWindow'>;
   clock: Clock;
+  /** The profile's runs/ (its result) and logs/ (its pane's output, errors included). */
   runs: string;
+  logs: string;
 };
 
 /**
@@ -171,7 +166,7 @@ export async function endRun(
     ? paneExit(pane)
     : exited && { status: exited.status, signal: exited.signal };
   const at = run.endedAt ?? deps.clock().toISOString();
-  const result = runResult(deps.runs, run, exit, at);
+  const result = runResult(deps, run, exit, at);
   await killIfThere(deps.tmux, windowOf(run));
   endRecord(deps, run.id, result.ok ? 'done' : 'failed', at, exit);
   return result;
@@ -182,21 +177,21 @@ type Exit = { status?: number; signal?: string };
 /**
  * A run's result from its files: what its agent printed, not ok when it exited nonzero or by a
  * signal. Output that does not read is not ok, with why, how the agent exited (`exit`, none when
- * its window went first), and the last line it printed on stderr.
+ * its window went first), and the last line its pane showed (its stderr), from its output log.
  */
 function runResult(
-  runs: string,
+  deps: Pick<EndDeps, 'runs' | 'logs'>,
   run: SessionRecord,
   exit: Exit | undefined,
   at: string,
 ): HeadlessResult {
-  const files = runFiles(runs, run.id);
-  const said = existsSync(files.stdout)
-    ? (runnableAgent(run.agent)?.headless.result(readFileSync(files.stdout, 'utf8')) ?? {
+  const file = runOutput(deps.runs, run.id);
+  const said = existsSync(file)
+    ? (runnableAgent(run.agent)?.headless.result(readFileSync(file, 'utf8')) ?? {
         read: false as const,
         reason: `${run.agent} has no headless result`,
       })
-    : { read: false as const, reason: `no output at ${files.stdout}` };
+    : { read: false as const, reason: `no output at ${file}` };
   const failed =
     exit && exitState({ deadStatus: exit.status, deadSignal: exit.signal }) === 'failed';
   const how = !exit
@@ -213,20 +208,10 @@ function runResult(
     output: '',
     agentSessionId: run.agentSessionId ?? '',
     durationMs: Math.max(0, Date.parse(at) - Date.parse(run.startedAt)),
-    reason: [said.reason, failed || !exit ? how : undefined, lastLine(files.stderr)]
+    reason: [said.reason, failed || !exit ? how : undefined, outputTail(deps.logs, run.id, 1)?.[0]]
       .filter(Boolean)
       .join('; '),
   };
-}
-
-/** The last line in `file` that is not blank, if any. */
-function lastLine(file: string) {
-  if (!existsSync(file)) return undefined;
-  return readFileSync(file, 'utf8')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .at(-1);
 }
 
 /**
