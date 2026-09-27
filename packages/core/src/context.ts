@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type { Clock } from './lib/clock.js';
 import type { IdSource } from './lib/ids.js';
 import type { Env, Runner } from './lib/process.js';
+import { redactWhole } from './lib/redact.js';
 import { type Config, resolveKey } from './profile/config.js';
 import { profilePaths } from './profile/paths.js';
 import { openProfile, type Profile } from './profile/profile.js';
@@ -96,6 +97,7 @@ export function createContext(profile: string, deps: MesaDeps) {
       clock: deps.clock,
       newId: deps.newId,
       command: (argv = deps.argv) => redactCommand(argv, secrets()),
+      redact: (text) => redactWhole(text, deps.home, secrets()),
     }),
     store: sessionStore({ dir: paths.sessions, newId: deps.newId }),
     tmux,

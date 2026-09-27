@@ -14,6 +14,7 @@ import {
   testGit,
   withRealGit,
 } from '../testing/index.js';
+import { runInput } from './run.js';
 
 isolateGit({ beforeAll, afterAll });
 
@@ -64,6 +65,10 @@ test('rm refuses a live session; --force closes its window, then removes the rec
   mkdirSync(profilePaths(home, 'default').events, { recursive: true });
   writeFileSync(events, '{}\n');
   const output = plantOutputLog(home, result.id, 'Reading the tide tables\n');
+  const runs = profilePaths(home, 'default').runs;
+  mkdirSync(runs, { recursive: true });
+  const input = runInput(runs, result.id);
+  writeFileSync(input, 'Invented summary input');
   await expect(mesa.sessions.remove(result.id)).rejects.toMatchObject({
     code: 'usage',
     message: `session ${result.id} is live: mesa stop ${result.id} first, or pass --force to close its window`,
@@ -82,6 +87,7 @@ test('rm refuses a live session; --force closes its window, then removes the rec
   expect(world.windows).toEqual([]);
   expect(existsSync(events)).toBe(false);
   expect(existsSync(output)).toBe(false);
+  expect(existsSync(input)).toBe(false);
   await expect(mesa.sessions.show(result.id)).rejects.toMatchObject({ code: 'not_found' });
   expect(listReceipts(join(home, 'vault'), 1)[0]?.receipt).toMatchObject({
     id: receipt?.id,

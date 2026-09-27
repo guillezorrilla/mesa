@@ -118,19 +118,18 @@ export function endSignals(
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
      * exit of the agent in a Mesa window, ends it when it is a skill run (endRun, as its
-     * `mesa run` would, which may be gone), starts what was queued after it, then puts its last
-     * output into its receipt (markExited); any other event, or a window no session has, is not
-     * Mesa's and records nothing (undefined).
+     * `mesa run` would, which may be gone, and which finishes its receipt), starts what was
+     * queued after it, then says in an interactive session's receipt how it ended (markExited);
+     * any other event, or a window no session has, is not Mesa's and records nothing (undefined).
      */
     tmuxEvent: async (event: string, project: string, window: string) => {
       if (event !== 'pane-died') return undefined;
       const exited = await recordPaneDied({ store, tmux, clock }, project, window);
       if (!exited) return undefined;
-      if (exited.kind === 'run') {
-        await endRun({ store, tmux, clock, runs: paths.runs, logs: paths.logs }, exited);
-      }
+      const run = exited.kind === 'run';
+      if (run) await endRun(ctx, exited);
       await startAfter(exited.id);
-      await markExited(ctx, exited);
+      if (!run) await markExited(ctx, exited);
       return exited;
     },
   };

@@ -87,3 +87,7 @@ mesa adopt 36c173f2-803e-4845-bd97-a032b37c6d6d --project lantern-cove
 ## Everything else
 
 `mesa help --agent` prints every command with its arguments, flags, and an example. Read it before a command this skill does not show, rather than guessing flags.
+
+### Summarise a session
+
+Run `mesa run session-summary --session <id> --json` to summarise its output log on its own project. Core writes `wiki/sessions/<id>.md`; the result gives `note` and the finished skill `receipt`. The source session must have nonempty output. A locked note produces a warning and stays unchanged. Only the last 1000 nonblank lines are supplied; older output is omitted. `mesa decide` also writes a receipt now, with every answer and its probabilities.

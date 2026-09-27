@@ -1,13 +1,15 @@
 import { listPrice, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
+import { recordedOutput } from '../output/recorded.js';
 
 const two = (n: number) => n.toFixed(2);
 
-/** Asks Faro directly, to see what a backend answers: nothing is recorded. */
+/** Asks Faro directly, to see what a backend answers; the answers go in a decision receipt. */
 export const decide = defineCommand({
   name: 'decide',
-  summary: 'Ask Faro the questions on stdin: {"state": ..., "questions": [Choice, Score, Noul]}',
+  summary:
+    'Ask Faro the questions on stdin: {"state": ..., "questions": [Choice, Score, Noul]}; writes a decision receipt',
   example: `echo '{"state":null,"questions":[{"kind":"Noul","id":"done","statement":"the tests pass"}]}' | mesa decide`,
   run: async ({ mesa, stdin }) => {
     let input: { state?: unknown; questions?: unknown };
@@ -16,7 +18,8 @@ export const decide = defineCommand({
     } catch {
       throw new MesaError('usage', 'stdin is not JSON: pipe {"state": ..., "questions": [...]}');
     }
-    const decision = await mesa.decide(input?.state ?? null, input?.questions);
+    const recorded = await mesa.decide(input?.state ?? null, input?.questions);
+    const decision = recorded.result;
     const lines = columns(
       decision.answers.map((a) => [
         a.id,
@@ -26,6 +29,7 @@ export const decide = defineCommand({
       ]),
     );
     const cost = listPrice(decision.costUsd);
-    return { data: decision, text: [...lines, `backend ${decision.backend}${cost}`].join('\n') };
+    const text = [...lines, `backend ${decision.backend}${cost}`].join('\n');
+    return recordedOutput(recorded, { data: decision, text });
   },
 });

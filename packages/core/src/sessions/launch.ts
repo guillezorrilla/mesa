@@ -77,6 +77,8 @@ type NewLaunch = {
   agentSessionId?: string;
   goal?: string;
   parent?: string;
+  /** The session a skill run is about (mesa run --session). */
+  about?: string;
   /** Queued after this session (mesa open --after): the record waits, with no window yet. */
   after?: string;
   pending?: SessionRecord['pending'];
@@ -219,6 +221,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
     ...(s.parent === undefined ? {} : { parent: s.parent }),
+    ...(s.about === undefined ? {} : { about: s.about }),
     ...(s.after === undefined ? {} : { after: s.after }),
     ...(s.pending === undefined ? {} : { pending: s.pending }),
     ...(s.worktree === undefined ? {} : { worktree: s.worktree }),

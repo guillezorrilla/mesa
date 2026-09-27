@@ -1,6 +1,6 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { claudeResult, finishesRun, testStore } from '@mesa/core/testing';
+import { claudeResult, finishesRun, plantOutputLog, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -141,4 +141,25 @@ test('in a strict project, run --json with no terminal is guardrail_blocked, exi
   const shown = await mesa('receipts', 'show', yes.json.data.receipt.id, '--json');
   expect(shown.json.data.receipt.outputs).toMatchObject({ override: 'yes' });
   expect(testStore(cli.home).list()).toHaveLength(1);
+});
+
+test('run session-summary --session writes the agent summary, linked to its receipt', async () => {
+  cli.withTmux({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  await withSkill();
+  const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  plantOutputLog(cli.home, opened.id, '\x1b[32mAll three lantern checks pass.\x1b[0m\n');
+  const { json, code } = await mesa('run', 'session-summary', '--session', opened.id, '--json');
+  expect(code).toBe(0);
+  expect(json.data.note).toBe(`wiki/sessions/${opened.id}.md`);
+  expect(readFileSync(join(cli.home, 'vault', json.data.note), 'utf8')).toContain(
+    json.data.output.trim(),
+  );
+  const receipt = (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data
+    .receipt;
+  expect(receipt).toMatchObject({
+    type: 'skill',
+    status: 'ok',
+    inputs: { session: opened.id },
+    outputs: { note: json.data.note },
+  });
 });

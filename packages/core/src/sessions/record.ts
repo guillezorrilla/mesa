@@ -31,6 +31,13 @@ export const SessionRecordSchema = z.strictObject({
   goal: z.string().optional(),
   /** The session this one was started from (CONTEXT.md, Parent session). */
   parent: z.string().regex(SHORT_ID).optional(),
+  /**
+   * The session a skill run is about (mesa run --session): its output log was the agent's stdin,
+   * and where the skill's output lands may name it (skills/landing.ts).
+   */
+  about: z.string().regex(SHORT_ID).optional(),
+  /** A failed run keeps its outcome when the hook and waiter both finish it. */
+  runFailure: z.string().optional(),
   /** The session it waits on, while queued, and the one it waited on after (CONTEXT.md, Queued session). */
   after: z.string().regex(SHORT_ID).optional(),
   /**
