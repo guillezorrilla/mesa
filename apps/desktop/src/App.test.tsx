@@ -40,6 +40,34 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
+  const terms = fakeTerminals();
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
+  const tabs = () => [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  expect(
+    tabs()
+      .find((tab) => tab.textContent?.includes('Sessions'))
+      ?.getAttribute('aria-selected'),
+  ).toBe('true');
+  await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  expect(document.querySelector('#session-location')).toBeNull();
+  await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
+  expect(document.querySelector('#session-location')).not.toBeNull();
+  await click(byTestId('project-active-session')[0]);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  expect(
+    tabs()
+      .find((tab) => tab.textContent?.includes('Sessions'))
+      ?.getAttribute('aria-selected'),
+  ).toBe('true');
+});
+
 test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({
@@ -88,6 +116,7 @@ test('project Overview starts worktree goals and quick empty sessions through me
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('sidebar-project')[0]);
   const form = byTestId('project-session-form')[0] as HTMLFormElement;
+  await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   const agent = [...form.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
   await click(agent[1]);
   (byTestId('project-goal')[0] as HTMLTextAreaElement).value = 'Review the API\nThen test it';

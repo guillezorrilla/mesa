@@ -43,23 +43,23 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.16 0.01 250);
+    --background: oklch(0.105 0.005 250);
     --foreground: oklch(0.93 0.005 250);
-    --card: oklch(0.2 0.012 250);
+    --card: oklch(0.145 0.008 250);
     --card-foreground: oklch(0.93 0.005 250);
-    --popover: oklch(0.2 0.012 250);
+    --popover: oklch(0.17 0.008 250);
     --popover-foreground: oklch(0.93 0.005 250);
     --primary: oklch(0.93 0.005 250);
     --primary-foreground: oklch(0.2 0.01 250);
-    --secondary: oklch(0.26 0.012 250);
+    --secondary: oklch(0.21 0.008 250);
     --secondary-foreground: oklch(0.93 0.005 250);
-    --muted: oklch(0.24 0.012 250);
+    --muted: oklch(0.19 0.008 250);
     --muted-foreground: oklch(0.68 0.012 250);
-    --accent: oklch(0.27 0.014 250);
+    --accent: oklch(0.22 0.01 250);
     --accent-foreground: oklch(0.93 0.005 250);
     --destructive: oklch(0.66 0.2 25);
-    --border: oklch(0.3 0.012 250);
-    --input: oklch(0.32 0.012 250);
+    --border: oklch(0.245 0.009 250);
+    --input: oklch(0.27 0.009 250);
     --ring: oklch(0.78 0.15 70);
     --state-working: oklch(0.7 0.12 250);
     --state-waiting: oklch(0.82 0.16 75);

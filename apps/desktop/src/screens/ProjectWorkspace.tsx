@@ -1,12 +1,12 @@
 import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/browser';
-import { ArrowDown, ArrowUp, FolderGit2, MoreHorizontal, Play } from 'lucide-react';
+import { ArrowDown, ArrowUp, Folder, MoreHorizontal, Play, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -26,11 +26,14 @@ export function ProjectWorkspace(props: {
   const { project } = props;
   const [tab, setTab] = useState<'overview' | 'skills'>('overview');
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
+  const [composerOpen, setComposerOpen] = useState(false);
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
   const skills = useCommand('skills.list', { project: project.name });
   const run = useRun();
   const { acting, act } = useAct();
   const sessions = props.sessions.filter((s) => s.managed && s.project === project.name);
+  const activeSessions = sessions.filter((s) => s.managed && s.alive);
+  const recentSessions = sessions.filter((s) => s.managed && !s.alive);
   const open = (input: { agent?: Agent; goal?: string; branch?: string }) =>
     act(async () => {
       const session = await run('sessions.open', { project: project.name, ...input });
@@ -62,10 +65,12 @@ export function ProjectWorkspace(props: {
   return (
     <section data-testid="project-workspace" className="space-y-6">
       <div className="flex items-center gap-3">
-        <FolderGit2 aria-hidden className="size-5 text-muted-foreground" />
+        <span className="flex size-10 items-center justify-center rounded-xl bg-card text-state-waiting">
+          <Folder aria-hidden className="size-5" />
+        </span>
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold tracking-tight">{project.label}</h2>
-          <p className="truncate font-mono text-xs text-muted-foreground" title={project.path}>
+          <p className="sr-only">
             {project.name} · {project.path}
           </p>
         </div>
@@ -183,43 +188,42 @@ export function ProjectWorkspace(props: {
         ))}
       </nav>
       {tab === 'overview' ? (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">New session</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form
-                data-testid="project-session-form"
-                className="space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const form = event.currentTarget;
-                  const values = new FormData(form);
-                  const goal = (form.elements.namedItem('goal') as HTMLTextAreaElement).value;
-                  void open({
-                    agent: String(values.get('agent')) as Agent,
-                    goal,
-                    branch:
-                      location === 'worktree'
-                        ? String(values.get('branch') ?? '').trim()
-                        : undefined,
-                  });
-                }}
-              >
+        <div className="space-y-8">
+          <form
+            data-testid="project-session-form"
+            className="rounded-xl border bg-card/45 p-4 focus-within:border-ring"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const form = event.currentTarget;
+              const values = new FormData(form);
+              const goal = (form.elements.namedItem('goal') as HTMLTextAreaElement).value;
+              void open({
+                agent: String(values.get('agent')) as Agent,
+                goal,
+                branch:
+                  location === 'worktree' ? String(values.get('branch') ?? '').trim() : undefined,
+              });
+            }}
+          >
+            <Label htmlFor="project-goal" className="sr-only">
+              Goal (optional)
+            </Label>
+            <Textarea
+              id="project-goal"
+              name="goal"
+              data-testid="project-goal"
+              rows={composerOpen ? 3 : 1}
+              className="min-h-12 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              placeholder="What are we shipping? Describe your goal or paste a ticket URL..."
+              onFocus={() => setComposerOpen(true)}
+            />
+            {composerOpen && (
+              <div className="mt-3 flex flex-wrap items-end gap-3 border-t pt-3">
                 <AgentField defaultValue={project.agent ?? undefined} />
-                <div className="grid gap-2">
-                  <Label htmlFor="project-goal">Goal (optional)</Label>
-                  <Textarea
-                    id="project-goal"
-                    name="goal"
-                    data-testid="project-goal"
-                    rows={3}
-                    placeholder="What should the agent do?"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="session-location">Start in</Label>
+                <div className="grid gap-1">
+                  <Label htmlFor="session-location" className="text-xs">
+                    Start in
+                  </Label>
                   <NativeSelect
                     id="session-location"
                     value={location}
@@ -230,8 +234,10 @@ export function ProjectWorkspace(props: {
                   </NativeSelect>
                 </div>
                 {location === 'worktree' && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="project-branch">Branch</Label>
+                  <div className="grid gap-1">
+                    <Label htmlFor="project-branch" className="text-xs">
+                      Branch
+                    </Label>
                     <Input
                       id="project-branch"
                       name="branch"
@@ -241,55 +247,69 @@ export function ProjectWorkspace(props: {
                     />
                   </div>
                 )}
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" disabled={!project.exists || acting}>
-                    <Play aria-hidden /> Start session
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    data-testid="quick-session"
-                    disabled={!project.exists || acting}
-                    onClick={() => void open({})}
-                  >
-                    Quick empty session
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Project</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3 text-sm">
-              <span>Agent: {project.agent ?? 'unknown'}</span>
-              <span>Priority: {project.priority ?? 'unknown'}</span>
-              {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
-            </CardContent>
-          </Card>
-          <div>
-            <h3 className="mb-3 text-sm font-semibold">Sessions</h3>
-            {sessions.length ? (
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {sessions.map((session) => (
-                  <Button
-                    key={session.id}
-                    variant="outline"
-                    className="h-auto justify-start p-3 text-left"
-                    onClick={() => props.onSession(session.id)}
-                  >
-                    <span className="truncate">{sessionLabel(session)}</span>
-                    <Badge variant="secondary" className="ml-auto">
-                      {session.lastState.state}
-                    </Badge>
-                  </Button>
-                ))}
+                <Button className="ml-auto" type="submit" disabled={!project.exists || acting}>
+                  <Play aria-hidden /> Start session
+                </Button>
               </div>
-            ) : (
+            )}
+          </form>
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Active{' '}
+              <Badge variant="secondary" className="ml-1">
+                {activeSessions.length}
+              </Badge>
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {activeSessions.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  data-testid="project-active-session"
+                  className="flex min-h-32 w-64 flex-col items-start rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+                  onClick={() => props.onSession(session.id)}
+                >
+                  <span className="text-xs text-state-idle">{session.lastState.state}</span>
+                  <span className="mt-3 truncate font-medium">{sessionLabel(session)}</span>
+                  <span className="mt-auto text-xs text-muted-foreground">{session.agent}</span>
+                </button>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                data-testid="quick-session"
+                className="h-32 w-64 border-dashed bg-transparent text-muted-foreground"
+                disabled={!project.exists || acting}
+                onClick={() => void open({})}
+              >
+                <Plus aria-hidden /> Quick empty session
+              </Button>
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Recent{' '}
+              <Badge variant="secondary" className="ml-1">
+                {recentSessions.length}
+              </Badge>
+            </h3>
+            {recentSessions.map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                className="flex w-full items-center gap-3 border-b py-2 text-left text-sm hover:text-primary"
+                onClick={() => props.onSession(session.id)}
+              >
+                <Badge variant="outline">{session.lastState.state}</Badge>
+                <span>{sessionLabel(session)}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{session.agent}</span>
+              </button>
+            ))}
+            {sessions.length === 0 && (
               <p className="text-sm text-muted-foreground">No sessions for this project yet.</p>
             )}
-          </div>
+          </section>
+          {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
       ) : (
         <div className="space-y-2">

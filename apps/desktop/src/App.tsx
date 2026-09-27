@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
-import { DEFAULT_SHORTCUTS, sessionLabel, shortcutFromKeys } from '@mesa/core/browser';
-import { Search } from 'lucide-react';
+import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
+import { Plus, Search, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { CommandPalette } from './components/CommandPalette';
 import { LogBox } from './components/LogBox';
@@ -87,37 +87,51 @@ export function App() {
   }, [searchOpen, shortcuts.search, shortcuts.board, shortcuts.newSession, canStart]);
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
-  const selectedSession =
-    view.kind === 'session' ? sessions.find((session) => session.id === view.id) : undefined;
   const sessionView = view.kind === 'session';
-  const title =
-    view.kind === 'project'
-      ? view.name
-      : view.kind === 'session'
-        ? (selectedSession && sessionLabel(selectedSession)) || view.id
-        : view.kind;
   return (
     <div className="flex h-screen min-h-[480px] flex-col">
-      <header className="z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
-        <h1 data-testid="app-name" className="font-mono font-semibold tracking-tight">
+      <header className="relative z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+        <h1 data-testid="app-name" className="flex items-center gap-2 font-semibold tracking-tight">
+          <span
+            aria-hidden
+            className="flex size-6 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground"
+          >
+            M
+          </span>
           Mesa
         </h1>
-        <span className="truncate text-sm capitalize text-muted-foreground">/ {title}</span>
-        <Button
-          variant="outline"
-          size="sm"
-          data-testid="search-trigger"
-          className="ml-auto w-44 justify-between text-muted-foreground sm:w-64"
-          onClick={openSearch}
-        >
-          <span className="flex items-center gap-2">
-            <Search aria-hidden className="size-4" /> Search Mesa
-          </span>
-          <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
-        </Button>
-        <details ref={profileMenu} className="relative">
-          <summary className="cursor-pointer rounded-md px-3 py-1.5 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
-            Profile and vault
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="search-trigger"
+            className="w-44 justify-between rounded-full bg-card/80 text-muted-foreground sm:w-72"
+            onClick={openSearch}
+          >
+            <span className="flex items-center gap-2">
+              <Search aria-hidden className="size-4" /> Search Mesa
+            </span>
+            <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
+          </Button>
+          <Button
+            variant="secondary"
+            size="icon-sm"
+            aria-label="New session"
+            disabled={!canStart}
+            onClick={() => {
+              setView({ kind: 'board' });
+              setNewSessionRequest((count) => count + 1);
+            }}
+          >
+            <Plus aria-hidden />
+          </Button>
+        </div>
+        <details ref={profileMenu} className="relative ml-auto">
+          <summary
+            aria-label="Profile and vault"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-full border bg-card text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <UserRound aria-hidden className="size-4" />
           </summary>
           <div className="absolute right-0 z-50 mt-2 w-80 space-y-3 rounded-lg border bg-popover p-4 shadow-lg">
             <ProfileSummary doctor={doctor.data} />
@@ -134,7 +148,13 @@ export function App() {
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
         />
-        <main className="min-w-0 flex-1 overflow-auto px-6 py-5">
+        <main
+          className={
+            sessionView
+              ? 'min-w-0 flex-1 overflow-hidden'
+              : 'min-w-0 flex-1 overflow-auto px-6 py-5'
+          }
+        >
           {/* The Board stays mounted so its terminal clients survive navigation. */}
           <div hidden={view.kind !== 'board' && view.kind !== 'grid' && !sessionView}>
             <BoardScreen
