@@ -31,7 +31,8 @@ type OpenDialog =
   | { kind: 'new' | 'run' }
   | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck }
-  | { kind: 'run-guardrail'; input: RunSkillInput; check: GuardrailCheck };
+  | { kind: 'run-guardrail'; input: RunSkillInput; check: GuardrailCheck }
+  | { kind: 'summary-guardrail'; id: string; check: GuardrailCheck };
 
 const COLUMNS = [
   'Id',
@@ -134,6 +135,33 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
         : undefined,
     );
   };
+  const summarise = async (id: string, yes = false) => {
+    close();
+    const ran = await call('sessions.summarise', { id, yes });
+    await look();
+    if (!ran.ok) {
+      const check = guardrailOf(ran.error);
+      if (check?.verdict === 'ask' && !yes) {
+        setDialog({ kind: 'summary-guardrail', id, check });
+        return;
+      }
+      toast(ran.error.message);
+      return;
+    }
+    const r = ran.data;
+    const message = said(
+      r.ok ? `Summarised ${id}${r.note ? ` in ${r.note}` : ''}` : `Summary failed: ${r.reason}`,
+      r,
+    );
+    const { receipt } = r;
+    toast(
+      message.text,
+      r.ok ? message.tone : 'alert',
+      receipt
+        ? { label: 'Open its receipt', onFollow: () => props.onOpenReceipt(receipt.id) }
+        : undefined,
+    );
+  };
   const actions: RowActions = {
     embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
     openTerminal: (id) =>
@@ -162,6 +190,7 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
+    summarise: (row) => row.managed && void summarise(row.id),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
     adopt: (agentSessionId, project) =>
       act(async () => {
@@ -246,6 +275,16 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
           check={dialog.check}
           disabled={false}
           onConfirm={() => runSkill(dialog.input, true)}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'summary-guardrail' && (
+        <GuardrailDialog
+          action="run"
+          about={`summarise session ${dialog.id}`}
+          check={dialog.check}
+          disabled={false}
+          onConfirm={() => summarise(dialog.id, true)}
           onCancel={close}
         />
       )}

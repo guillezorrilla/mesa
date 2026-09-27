@@ -12,7 +12,7 @@ import {
   passGuardrail,
 } from './guardrail.js';
 import { rulesBackend } from './rules.js';
-import type { DecisionRecorder, Question } from './types.js';
+import type { Decision, DecisionRecorder, Question } from './types.js';
 
 /**
  * Faro for one profile: the shared backends, the profile's view of them, `mesa decide`, and the
@@ -58,15 +58,34 @@ export function createFaro(ctx: MesaContext) {
     profile,
     /**
      * Faro, for questions from outside (mesa decide): no rules know them, so the rules backend
-     * answers evenly. Decision sites bring their own rules backend.
+     * answers evenly. Decision sites bring their own rules backend. It writes a decision receipt:
+     * the answers in its `decisions`, what it was asked (redacted) in its `inputs`, and the
+     * adapter's list price as its `cost`.
      */
-    decide: (state: unknown, questions: unknown) =>
-      // decide validates what it is given: this is the boundary it checks.
-      decide(
-        { backends: outside, profile: profile(), clock: deps.clock },
-        state,
-        questions as Question[],
-      ),
+    decide: (state: unknown, questions: unknown) => {
+      const redact = (value: unknown) => redactPayload(value, deps.home, ctx.secrets());
+      return ctx.record(
+        {
+          type: 'decision',
+          summary: (d: Decision) =>
+            `Faro answered ${d.answers.length} question${d.answers.length === 1 ? '' : 's'} (${d.backend})`,
+          failure: 'Faro could not answer',
+          inputs: { state: redact(state), questions: redact(questions) },
+          outputs: (d) => ({
+            latencyMs: d.latencyMs,
+            ...(d.fallbackReason ? { fallbackReason: redact(d.fallbackReason) } : {}),
+          }),
+          cost: (d) => d.costUsd,
+        },
+        (recorder) =>
+          // decide validates what it is given: this is the boundary it checks.
+          decide(
+            { backends: outside, profile: profile(), clock: deps.clock, recorder },
+            state,
+            questions as Question[],
+          ),
+      );
+    },
     guardrail: {
       /** The verdict on `text`, in `project` when given; recorded nowhere (mesa guardrail check). */
       check: (text: string, project?: string) =>

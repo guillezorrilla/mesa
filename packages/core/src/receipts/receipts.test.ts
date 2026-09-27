@@ -208,6 +208,7 @@ test('the recorder records success, failure, and nothing-changed, and never fail
     clock: fixedClock(),
     newId: sequentialIds(),
     command: () => 'mesa x',
+    redact: (text) => text,
   });
   const ok = record({ summary: (n: number) => `did ${n}`, failure: 'no', inputs: {} }, () => 7);
   expect(ok).toMatchObject({ result: 7, receipt: { id: expect.stringMatching(/^01TEST/) } });
@@ -238,6 +239,7 @@ test('the recorder records success, failure, and nothing-changed, and never fail
     clock: fixedClock(),
     newId: sequentialIds(),
     command: () => 'mesa x',
+    redact: (text) => text,
   });
   const warned = elsewhere({ summary: () => 'x', failure: 'x', inputs: {} }, () => 'done');
   expect(warned).toEqual({
@@ -255,6 +257,7 @@ test('every decision made during an action lands in its receipt, a failed or blo
     clock: fixedClock(),
     newId: sequentialIds(),
     command: () => 'mesa x',
+    redact: (text) => text,
   });
   const decision: Decision = {
     questions: [
@@ -312,6 +315,33 @@ test('every decision made during an action lands in its receipt, a failed or blo
   expect(byStatus.blocked?.receipt.outputs.error).not.toHaveProperty('details');
   // The Decision itself stays exact.
   expect(decision.answers[1]?.probabilities).toBe(0.9000000000000001);
+});
+
+test('standalone decision receipts redact labels without losing colliding probability entries', async () => {
+  const home = tempDir();
+  const mesa = createMesa('default', testDeps(home));
+  mesa.init({ vault: 'vault' });
+  mesa.vault.init();
+  mesa.config.set('decisions.backend', 'rules');
+  mesa.config.set('keys.first', 'tide-key-0042');
+  mesa.config.set('keys.second', 'tide-key-0043');
+  const options = ['tide-key-0042', 'tide-key-0043', '***', 'token-choice'];
+  const result = await mesa.decide({ 'tide-key-0042': home }, [
+    { kind: 'Choice', id: `${home}/tide-key-0042`, options },
+    { kind: 'Score', id: 'levels', levels: options },
+  ]);
+  const entry = showReceipt(join(home, 'vault'), result.receipt?.id ?? '');
+  const text = readFileSync(join(home, 'vault', entry.path), 'utf8');
+  expect(text).not.toContain('tide-key-0042');
+  expect(text).not.toContain('tide-key-0043');
+  expect(text).not.toContain(home);
+  for (const decision of entry.receipt.decisions) {
+    if (decision.kind === 'Noul') throw new Error('expected a distribution');
+    expect(Object.keys(decision.probabilities)).toHaveLength(4);
+    expect(Object.values(decision.probabilities)).toEqual([0.25, 0.25, 0.25, 0.25]);
+    if (decision.kind === 'Choice') expect(decision.probabilities[decision.answer]).toBe(0.25);
+  }
+  expect(result.result.answers[0]?.answer).toBe('tide-key-0042');
 });
 
 test('an env: key value is redacted in the recorded command', () => {

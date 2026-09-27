@@ -76,7 +76,7 @@ test('stop presses Escape, types /exit, waits for the pane to die, and removes t
   expect(stopped?.summary).toBe(`Stopped session ${opened.id} (exited)`);
   expect(openedReceipt?.receipt).toMatchObject({
     ended: '2026-09-24T12:00',
-    outputs: { lastState: 'done' },
+    outputs: { lastState: { state: 'done', confidence: 1 }, events: {} },
   });
   // No output log (the fake tmux writes none): its Details stay as they were.
   expect(openedReceipt?.body).toBe(
@@ -153,13 +153,22 @@ test("an agent's exit puts its last output lines in its receipt at once; the sto
   mesa.config.set('keys.tide', 'tide-key-0042');
   plantOutputLog(home, opened.id, output(home));
   const [pane] = world.windows;
-  if (pane) pane.dead = true;
+  if (pane) {
+    pane.dead = true;
+    pane.status = 3;
+  }
   expect((await mesa.tmuxEvent('pane-died', 'lantern-cove', `claude-${opened.id}`))?.id).toBe(
     opened.id,
   );
   const exited = receipts().find((e) => e.summary.startsWith('Opened'));
-  // Not stopped: the receipt has its output, but no end yet.
-  expect(exited?.receipt.ended).toBeUndefined();
+  // The receipt ended, while the interactive record waits for an explicit stop.
+  expect(exited?.receipt.ended).toBe('2026-09-24T12:00');
+  expect(exited?.receipt.status).toBe('failed');
+  expect(exited?.receipt.outputs).toMatchObject({
+    events: { exited: 1 },
+    lastState: { state: 'failed', confidence: 0.85 },
+  });
+  expect(testStore(home).get(opened.id).endedAt).toBeUndefined();
   expect(exited?.body).toContain(`## Details\n\n${details(opened.id)}\n`);
 
   plantOutputLog(home, opened.id, `${output(home)}\r\nBye`);

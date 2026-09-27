@@ -1,9 +1,10 @@
+import { existsSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
-import { redactText } from '../lib/redact.js';
+import { redactText, redactWhole } from '../lib/redact.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
@@ -22,16 +23,17 @@ import { readGoal, sessionGoal } from './goal.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { readHookEvents } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
-import { sessionLog } from './output-log.js';
+import { outputLog, sessionLog } from './output-log.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
-import { awaitRun, type RunInput, startRun } from './run.js';
+import { awaitRun, endRun, type RunInput, startRun } from './run.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
 import { viewProject } from './view.js';
+import { windowOf } from './window-name.js';
 
 /**
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
@@ -85,6 +87,10 @@ export function sessionsService(
         home: deps.home,
       },
       { all },
+    ).then((rows) =>
+      rows.map((row) =>
+        row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,
+      ),
     );
   const ends = endSignals(ctx, { look, launch: openDeps, context: contextDeps });
   const { board } = ends;
@@ -98,6 +104,7 @@ export function sessionsService(
         type: 'session',
         summary: (r) => `Stopped session ${id} (${r.outcome})`,
         failure: `Could not stop session ${id}`,
+        warning: (r) => r.warning,
         project: (r) => r.record.project,
         session: () => id,
         agent: (r) => r.record.agent,
@@ -105,12 +112,37 @@ export function sessionsService(
         outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
         changed: (r) => r.outcome !== 'already-ended',
       },
-      () => stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, { force }),
+      async () => {
+        const found = store.get(id);
+        if (found.kind !== 'run' || found.endedAt) {
+          return {
+            ...(await stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, {
+              force,
+            })),
+            warning: undefined,
+          };
+        }
+        const pane = await tmux.findWindow(windowOf(found));
+        const ended = await endRun(
+          ctx,
+          found,
+          pane,
+          pane?.dead ? undefined : 'stopped by mesa stop',
+        );
+        return {
+          record: store.get(id),
+          outcome: pane?.dead ? ('exited' as const) : ('killed' as const),
+          warning: ended.warning,
+        };
+      },
     );
     const { outcome } = recorded.result;
     if (outcome === 'already-ended') return recorded;
     const queue = await ends.stopped(id, outcome);
-    const ended = await markEnded(ctx, recorded, recorded.result.record);
+    const ended =
+      recorded.result.record.kind === 'run'
+        ? recorded
+        : await markEnded(ctx, recorded, recorded.result.record);
     const warning = joinWarnings(ended.warning, queue?.warning);
     return warning ? { ...ended, warning } : ended;
   };
@@ -172,27 +204,31 @@ export function sessionsService(
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
       },
       /**
-       * Runs a skill headlessly on a project (CONTEXT.md, Skill run), once the guardrail lets its
-       * prompt through (`yes`, `force`, and a person's `confirm` past an ask or a block), and
-       * waits up to `timeoutSeconds` for its result, which is returned, ok or not. Its start
-       * writes a skill receipt, with the guardrail's decision and the override; its end, as a
-       * stop does, starts what was queued after it.
+       * Runs a skill headlessly on a project (CONTEXT.md, Skill run), or about a session, whose
+       * output log its agent reads, once the guardrail lets its prompt through (`yes`, `force`,
+       * and a person's `confirm` past an ask or a block), and waits up to `timeoutSeconds` for
+       * its result, which is returned, ok or not, with the vault note its output became, if any.
+       * Its start writes a skill receipt, with the guardrail's decision and the override, which
+       * its end finishes (endRun); its end, as a stop does, starts what was queued after it.
        */
       run: async (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) => {
         const { force, yes, confirm, ...input } = opts;
-        const { project, agent, args = [] } = input;
+        const { project, session, agent, args = [] } = input;
+        const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
         const started = await record(
           {
             type: 'skill',
-            summary: ({ record: r }) => `Started skill ${skill} on ${r.project} as session ${r.id}`,
-            failure: `Could not run skill ${skill} on ${project}`,
+            summary: ({ record: r }) =>
+              `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
+            failure: `Could not run skill ${skill}${on}`,
             warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
             agent: (r) => r.record.agent,
             inputs: {
               skill,
-              project,
+              ...(project === undefined ? {} : { project }),
+              ...(session === undefined ? {} : { session }),
               agent: agent ?? null,
               args: args.map((a) => redactText(a, secrets())),
               ...(force ? { force } : {}),
@@ -207,22 +243,25 @@ export function sessionsService(
           (decisions: DecisionRecorder) => {
             const guard = (action: Guarded) =>
               faro.guardrail.gate(action, { force, yes, confirm }, decisions);
-            const runDeps = { ...openDeps(), runs: paths.runs, skills: skills.list, guard };
+            const runDeps = {
+              ...openDeps(),
+              runs: paths.runs,
+              logs: paths.logs,
+              redact: (text: string) => redactWhole(text, deps.home, secrets()),
+              skills: skills.list,
+              guard,
+            };
             return startRun(runDeps, { ...input, skill });
           },
         );
-        const run = started.result.record;
-        const waitDeps = {
-          store,
-          tmux,
-          clock: deps.clock,
-          sleep: deps.sleep,
-          runs: paths.runs,
-          logs: paths.logs,
-        };
-        const result = await awaitRun(waitDeps, run, input.timeoutSeconds);
+        const run = store.get(started.result.record.id);
+        // A fast hook may finish before record() writes the opening receipt. Repair it now,
+        // without depending on another asynchronous tmux look in the waiter.
+        const { result, warning: ended } = run.endedAt
+          ? await endRun(ctx, run)
+          : await awaitRun(ctx, run, input.timeoutSeconds);
         const queue = await ends.stopped(run.id, 'exited');
-        const warning = joinWarnings(started.warning, queue?.warning);
+        const warning = joinWarnings(started.warning, ended, queue?.warning);
         const { override } = started.result;
         return {
           result: { session: run.id, ...result, ...(override ? { override } : {}) },
