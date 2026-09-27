@@ -70,6 +70,44 @@ test('write then read returns the same receipt, newest first, limited', () => {
   expect(thrown(() => showReceipt(vault, '01NOPE')).code).toBe('not_found');
 });
 
+test('the list keeps only the receipts of one type or one session, newest first, limited', () => {
+  const home = tempDir();
+  // One id source, so no two receipts share an id; the clock runs on from mesa init's.
+  const newId = sequentialIds();
+  const argv = ['init', '--vault', 'vault'];
+  const mesa = createMesa('default', testDeps(home, { newId, argv }));
+  mesa.init({ vault: 'vault' });
+  const d = {
+    vault: join(home, 'vault'),
+    clock: steppingClock('2026-09-24T12:01:00.000Z', 60_000),
+    newId,
+  };
+  const session = (id: string) => ({ ...EXAMPLES.session, session: id, started: undefined });
+  const [a1, skill, a2, b1] = [
+    session('a1b2c3'),
+    { ...EXAMPLES.skill, session: 'a1b2c3' },
+    { ...EXAMPLES.decision, session: 'a1b2c3' },
+    session('d4e5f6'),
+  ].map((r) => writeReceipt(d, r).receipt.id);
+  const ids = (filter: Parameters<typeof mesa.receipts.list>[0]) =>
+    mesa.receipts.list(filter).map((e) => e.receipt.id);
+
+  expect(ids({ session: 'a1b2c3' })).toEqual([a2, skill, a1]);
+  expect(ids({ type: 'session' })).toEqual([b1, a1]);
+  expect(ids({ type: 'session', session: 'a1b2c3' })).toEqual([a1]);
+  expect(ids({ session: 'a1b2c3', limit: 2 })).toEqual([a2, skill]);
+  // mesa init's own receipt, which names no session.
+  expect(mesa.receipts.list({ type: 'action' }).map((e) => e.receipt.command)).toEqual([
+    'mesa init --vault vault',
+  ]);
+  expect(ids({ session: 'nope' })).toEqual([]);
+  expect(thrown(() => mesa.receipts.list({ type: 'job' }))).toMatchObject({
+    code: 'usage',
+    message: "a receipt's type is one of session, skill, decision, action, not job",
+  });
+  expect(thrown(() => mesa.receipts.list({ limit: 0 })).code).toBe('usage');
+});
+
 test('an invalid receipt is refused before anything is written', () => {
   const bad = { ...EXAMPLES.action, status: 'maybe' as 'ok' };
   expect(thrown(() => writeReceipt(deps(), bad)).code).toBe('invalid_config');
@@ -289,7 +327,7 @@ test('an env: key value is redacted in the recorded command', () => {
   mkdirSync(join(home, 'tide'));
   const { receipt } = again.projects.register('tide', true);
   expect(receipt).not.toBeNull();
-  const [entry] = again.receipts.list(1);
+  const [entry] = again.receipts.list({ limit: 1 });
   expect(entry?.receipt.command).toBe('mesa log "token ***"');
 });
 
