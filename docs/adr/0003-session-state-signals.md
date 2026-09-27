@@ -125,3 +125,11 @@ docs/spikes/codex.md (issue #43, codex-cli 0.154.0) recorded Codex's signals, an
 - **Not yet.** Codex sessions are not adopted, and their context use is not read.
 
 Evidence: docs/spikes/codex.md, including its "Checked in #158" section; packages/core/src/agents/codex/ and its fixtures.
+
+## Amendment 2026-09-27: Codex hooks (#159)
+
+Mesa now installs seven Codex events in `$CODEX_HOME/hooks.json`, sharing Claude's JSON editing owner. Commands keep the same Mesa-window guard and silent tail, use `hook codex`, and have no timeout. Install is byte-stable when unchanged and uninstall leaves user hooks. Only Codex's TUI grants trust: Mesa reads each handler's `trusted_hash` under its actual file, event, group, and handler position in config.toml and never passes a hook-trust bypass. This records the presence of Codex's trust decision; Mesa does not reproduce Codex's internal hash recipe.
+
+Codex's first SessionStart claims the window's record. Later events find the active record by payload `session_id`, while still requiring the calling environment to name a recorded Mesa Codex window. Unknown nested ids are dropped. A prompt-less SessionEnd logs `done` without claiming an id. The matched record id also reaches queue and receipt effects. Codex's Interrupt is `idle`, and SessionEnd is `done` regardless of reason; the other mappings and 0.95 confidence follow docs/spikes/codex.md. Claude's existing log-only fallback and `/clear` behavior stay intact.
+
+Trust is TOML, including comments and multiline strings, so the reader uses smol-toml instead of matching text. Invalid config fails closed without echoing parser excerpts that might hold keys. The existing Doctor screen and CLI show installation and each event's recorded trust. Evidence: Codex hook fixtures and tests, CLI/Doctor tests, and the live check in docs/spikes/codex.md.

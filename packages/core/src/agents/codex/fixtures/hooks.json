@@ -1,0 +1,91 @@
+[
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "SessionStart",
+    "model": "gpt-6-astra",
+    "permission_mode": "default",
+    "source": "startup"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "turn_id": "22222222-3333-4444-8555-666666666666",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "UserPromptSubmit",
+    "model": "gpt-6-astra",
+    "permission_mode": "default",
+    "prompt": "say hi"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "turn_id": "22222222-3333-4444-8555-666666666666",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "PreToolUse",
+    "model": "gpt-6-astra",
+    "permission_mode": "default",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "touch spike.txt"
+    },
+    "tool_use_id": "exec-invented"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "turn_id": "22222222-3333-4444-8555-666666666666",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "PermissionRequest",
+    "model": "gpt-6-astra",
+    "permission_mode": "default",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "touch spike.txt",
+      "description": "May I run touch spike.txt in the current directory? The filesystem sandbox is read-only."
+    }
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "turn_id": "22222222-3333-4444-8555-666666666666",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "PostToolUse",
+    "model": "gpt-6-astra",
+    "permission_mode": "default",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "touch spike.txt"
+    },
+    "tool_response": "",
+    "tool_use_id": "exec-invented"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "turn_id": "22222222-3333-4444-8555-666666666666",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "Stop",
+    "model": "gpt-6-astra",
+    "permission_mode": "default",
+    "stop_hook_active": false,
+    "last_assistant_message": "Hi!"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "turn_id": "22222222-3333-4444-8555-666666666666",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "Interrupt",
+    "model": "gpt-6-astra",
+    "permission_mode": "default"
+  },
+  {
+    "session_id": "11111111-2222-4333-8444-555555555555",
+    "transcript_path": "/Users/example/.codex/sessions/2026/09/26/rollout-invented.jsonl",
+    "cwd": "/Users/example/lantern-cove",
+    "hook_event_name": "SessionEnd",
+    "reason": "other"
+  }
+]

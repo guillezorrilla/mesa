@@ -5,6 +5,7 @@ import type { Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
 import { redactPayload } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
+import { agentSessionHolder } from './holders.js';
 import { isSessionId } from './record.js';
 import type { SessionStore } from './store.js';
 
@@ -16,6 +17,8 @@ export type HookEvent = {
   agent: Agent;
   event: string;
   agentSessionId?: string;
+  /** The record selected by the hook, also used by end-of-session effects. */
+  mesaSessionId?: string;
   payload: unknown;
 };
 
@@ -24,9 +27,9 @@ export const eventsLog = (eventsDir: string, id: string) => join(eventsDir, `${i
 
 /**
  * Appends one hook payload to its session's event log, and gives the record its agent session id
- * when that is first learned or a /clear moves it (a SessionStart with source `clear`). Undefined,
- * and nothing written, when the hook did not come from a Mesa session: no MESA_SESSION_ID, or one
- * that is not a session id, or another agent session id (a nested claude's).
+ * when that is first learned or a Claude /clear moves it. Codex claims on SessionStart only,
+ * then finds the record by payload session_id. Its environment must still name a live Mesa
+ * Codex record. Claude retains its log-only fallback for a missing record.
  */
 export function recordHookEvent(
   deps: {
@@ -41,12 +44,9 @@ export function recordHookEvent(
 ): HookEvent | undefined {
   const agent = AgentSchema.safeParse(input.agent);
   if (!agent.success || !AGENTS[agent.data].hookState) {
-    throw new MesaError(
-      'agent_unavailable',
-      `no hooks for agent ${input.agent}; Mesa reads claude's only`,
-    );
+    throw new MesaError('agent_unavailable', `no hooks for agent ${input.agent}`);
   }
-  const id = input.mesaSessionId;
+  let id = input.mesaSessionId;
   if (!id || !isSessionId(id)) return undefined;
   let payload: Record<string, unknown> = {};
   try {
@@ -56,16 +56,33 @@ export function recordHookEvent(
     // A payload that is not JSON still marks that the hook fired.
   }
   const agentSessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
+  const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : 'unknown';
+  let record = findRecord(deps.store, id);
+  if (agent.data === 'codex') {
+    // The environment is only an entry gate and the first SessionStart's claim. Once known,
+    // Codex's payload id selects its record, even when an inherited environment names another.
+    if (record?.agent !== 'codex' || record.endedAt || !agentSessionId) return undefined;
+    const matching = agentSessionHolder(
+      deps.store,
+      agentSessionId,
+      (s) => s.agent === 'codex' && !s.endedAt,
+    );
+    if (matching) record = matching;
+    else if (record.agentSessionId || !['SessionStart', 'SessionEnd'].includes(event))
+      return undefined;
+    id = record.id;
+  }
   const line: HookEvent = {
     at: deps.clock().toISOString(),
     agent: agent.data,
-    event: typeof payload.hook_event_name === 'string' ? payload.hook_event_name : 'unknown',
+    event,
+    mesaSessionId: id,
     ...(agentSessionId ? { agentSessionId } : {}),
     payload: redactPayload(payload, deps.home, deps.secrets()),
   };
-  const record = findRecord(deps.store, id);
   // A /clear starts a new conversation in the same agent: its SessionStart names the new id.
-  const cleared = line.event === 'SessionStart' && payload.source === 'clear';
+  const cleared =
+    agent.data === 'claude' && line.event === 'SessionStart' && payload.source === 'clear';
   // A claude started inside the session's claude inherits MESA_SESSION_ID; its events are not ours.
   const moved = Boolean(record?.agentSessionId && agentSessionId !== record.agentSessionId);
   if (agentSessionId && moved && !cleared) return undefined;
@@ -75,7 +92,12 @@ export function recordHookEvent(
   // without one), or to the one a /clear moved it to. ponytail: under the record's lock, which can
   // hold a hook up to 2 s past its budget when another process has the record; it only waits on
   // those rare changes.
-  if (record && agentSessionId && agentSessionId !== record.agentSessionId) {
+  if (
+    record &&
+    agentSessionId &&
+    agentSessionId !== record.agentSessionId &&
+    (agent.data === 'claude' || event === 'SessionStart')
+  ) {
     deps.store.update(id, { agentSessionId });
   }
   return line;

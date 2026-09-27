@@ -20,6 +20,15 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     'profile dir',
     'claude hooks',
     'tmux hooks',
+    ...[
+      'SessionStart',
+      'UserPromptSubmit',
+      'PermissionRequest',
+      'PostToolUse',
+      'Interrupt',
+      'Stop',
+      'SessionEnd',
+    ].map((event) => `codex hooks ${event}`),
   ]);
 
   cli.run = scriptedRunner({}, { missing: ['tmux', 'claude', 'codex'] }).run;

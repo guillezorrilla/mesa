@@ -68,6 +68,14 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       installed: true,
       stale: false,
       events: {},
+      codex: {
+        path: '/h/.codex/hooks.json',
+        installed: true,
+        stale: false,
+        events: {},
+        trusted: {},
+        hint: '',
+      },
       tmux: { socket: 'mesa-default', server: true, paneDied: true },
     } satisfies HooksStatus),
 };

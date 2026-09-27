@@ -105,7 +105,7 @@ export function endSignals(
         { store, eventsDir: paths.events, clock, home, secrets: ctx.secretsOrRefuse },
         { agent, mesaSessionId: windowId(env), payload },
       );
-      const id = windowId(env);
+      const id = event?.mesaSessionId;
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
       const ended = event?.event === 'Stop' && id ? store.find(id) : undefined;
       if (ended) refreshContext(deps.context, ended);

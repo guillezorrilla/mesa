@@ -26,11 +26,15 @@ export function requireOwnWorktree(store: SessionStore, r: SessionRecord) {
   }
 }
 
-/** The newest session that holds an agent session id (its conversation). */
-export const agentSessionHolder = (store: SessionStore, agentSessionId: string) =>
+/** The newest eligible session that holds an agent session id (its conversation). */
+export const agentSessionHolder = (
+  store: SessionStore,
+  agentSessionId: string,
+  eligible: (record: SessionRecord) => boolean = () => true,
+) =>
   store
     .list()
-    .filter((r) => r.agentSessionId === agentSessionId)
+    .filter((r) => r.agentSessionId === agentSessionId && eligible(r))
     .at(-1);
 
 /** The session `r` was resumed as: its record says so, or, when writing that failed, the record resuming it does. */

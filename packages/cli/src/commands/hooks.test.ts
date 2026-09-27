@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -12,7 +12,9 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
   expect((await mesa('hooks', 'status', '--json')).json.data.installed).toBe(false);
   const installed = await mesa('hooks', 'install', '--json');
   expect(installed.json.data).toMatchObject({ installed: true, changed: true });
-  expect((await mesa('hooks', 'install')).stdout).toBe('hooks already installed\n');
+  expect((await mesa('hooks', 'install')).stdout).toContain(
+    'hooks already installed\nThe next Codex start',
+  );
 
   // A hook from a Mesa session appends to its log; from anything else it records nothing.
   cli.stdin = JSON.stringify({ session_id: 'uuid-1', hook_event_name: 'Stop' });
@@ -31,7 +33,7 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
     event: 'Stop',
     agentSessionId: 'uuid-1',
   });
-  expect(await mesa('hook', 'codex')).toMatchObject({ code: 7 });
+  expect((await mesa('hook', 'codex', '--json')).json.data.recorded).toBe(false);
 
   cli.env = {};
   expect((await mesa('hooks', 'uninstall', '--json')).json.data).toMatchObject({
@@ -139,4 +141,90 @@ test('after a /clear, mesa sessions shows the new agent session id, not done, an
     .split('\n')
     .map((l) => JSON.parse(l).event);
   expect(events).toEqual(['SessionEnd', 'SessionStart', 'Stop']);
+});
+
+test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const installed = (await mesa('hooks', 'install', '--json')).json.data.codex;
+  expect(installed.installed).toBe(true);
+  expect(Object.values(installed.trusted)).toEqual(Array(7).fill(false));
+  expect((await mesa('hooks', 'status')).stdout).toContain('UNTRUSTED SessionStart');
+  const findings = (await mesa('doctor', '--json')).json.data.checks.filter((c: { name: string }) =>
+    c.name.startsWith('codex hooks '),
+  );
+  expect(findings).toHaveLength(7);
+  expect(
+    findings.every(
+      (c: { status: string; hint: string }) =>
+        c.status === 'warn' && c.hint.includes('Hooks need review'),
+    ),
+  ).toBe(true);
+  const id = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data.id;
+  cli.env = { ...cli.env, MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  for (const [event, state] of [
+    ['SessionStart', 'idle'],
+    ['PermissionRequest', 'waiting-permission'],
+    ['Interrupt', 'idle'],
+    ['SessionEnd', 'done'],
+  ]) {
+    cli.stdin = JSON.stringify({
+      session_id: 'invented-thread',
+      hook_event_name: event,
+      reason: 'clear',
+    });
+    expect((await mesa('hook', 'codex', '--json')).json.data).toEqual({ recorded: true, event });
+    const row = (await mesa('sessions', '--json')).json.data.find(
+      (s: { id: string }) => s.id === id,
+    );
+    expect(row).toMatchObject({
+      agentSessionId: 'invented-thread',
+      lastState: { state, source: 'hook', confidence: 0.95 },
+    });
+  }
+  const config = join(installed.path, '..', 'config.toml');
+  writeFileSync(
+    config,
+    `[hooks.state.${JSON.stringify(`${installed.path}:session_start:0:0`)}]\ntrusted_hash = "sha256:invented"\n`,
+  );
+  const trusted = (await mesa('doctor', '--json')).json.data.checks.find(
+    (c: { name: string }) => c.name === 'codex hooks SessionStart',
+  );
+  expect(trusted.status).toBe('ok');
+});
+
+test('Codex SessionEnd starts the queue of the payload-matched session', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const a = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
+  const b = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
+  const queued = (await mesa('open', 'lantern-cove', '--after', a.id, '--json')).json.data;
+  cli.env = { ...cli.env, MESA_SESSION_ID: a.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({ session_id: 'thread-a', hook_event_name: 'SessionStart' });
+  await mesa('hook', 'codex');
+  cli.env.MESA_SESSION_ID = b.id;
+  cli.stdin = JSON.stringify({
+    session_id: 'thread-a',
+    hook_event_name: 'SessionEnd',
+    reason: 'resume',
+  });
+  expect((await mesa('hook', 'codex', '--json')).json.data.recorded).toBe(true);
+  const record = JSON.parse(readFileSync(join(cli.paths.sessions, `${queued.id}.json`), 'utf8'));
+  expect(record.lastState.state).toBe('idle');
+  expect(record.pending).toBeUndefined();
+});
+
+test('broken Codex trust is a doctor warning and prevents a partial hooks install', async () => {
+  await mesa('init', '--vault', 'vault');
+  const codex = (await mesa('hooks', 'status', '--json')).json.data.codex;
+  mkdirSync(join(codex.path, '..'), { recursive: true });
+  writeFileSync(join(codex.path, '..', 'config.toml'), 'secret = "invented-secret"broken');
+  expect(await mesa('hooks', 'install', '--json')).toMatchObject({ code: 4 });
+  expect(existsSync(join(cli.home, '.claude/settings.json'))).toBe(false);
+  expect(existsSync(codex.path)).toBe(false);
+  const report = (await mesa('doctor', '--json')).json.data;
+  expect(report.checks.find((c: { name: string }) => c.name === 'codex hooks')).toMatchObject({
+    status: 'warn',
+  });
+  expect(JSON.stringify(report)).not.toContain('invented-secret');
 });

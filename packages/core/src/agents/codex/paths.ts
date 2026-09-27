@@ -12,3 +12,7 @@ export const codexSessions = (codexHome: string) => join(codexHome, 'sessions');
 /** The app-server daemon's socket, there while it runs: a plain `codex` then attaches to it. */
 export const codexDaemonSocket = (codexHome: string) =>
   join(codexHome, 'app-server-control', 'app-server-control.sock');
+
+/** User hook definitions and the config where Codex records their trust. */
+export const codexHooks = (home: string) => join(home, 'hooks.json');
+export const codexConfig = (home: string) => join(home, 'config.toml');
