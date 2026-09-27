@@ -26,9 +26,8 @@ test('open prints the session id, --json the record, and --attach hands back the
   const plain = await mesa('open', 'lantern-cove');
   expect(plain.stdout).toMatch(/^[0-9a-z]{8}\n$/);
   expect(
-    JSON.parse(
-      readFileSync(join(cli.home, `.mesa/default/sessions/${plain.stdout.trim()}.json`), 'utf8'),
-    ).agentSessionId,
+    JSON.parse(readFileSync(join(cli.paths.sessions, `${plain.stdout.trim()}.json`), 'utf8'))
+      .agentSessionId,
   ).toBe('00000000-0000-4000-8000-000000000002');
   expect(plain.exec).toBeUndefined();
 

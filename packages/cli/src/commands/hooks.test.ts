@@ -25,7 +25,7 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
     recorded: true,
     event: 'Stop',
   });
-  const log = readFileSync(join(cli.home, '.mesa/default/sessions/events/aaaaaaaa.jsonl'), 'utf8');
+  const log = readFileSync(join(cli.paths.events, 'aaaaaaaa.jsonl'), 'utf8');
   expect(JSON.parse(log)).toMatchObject({
     agent: 'claude',
     event: 'Stop',
@@ -44,13 +44,13 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
 test('a hook in a session refuses to log while config.yaml does not read, so no key leaks', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('config', 'set', 'keys.api', 'sk-live-1234');
-  const events = join(cli.home, '.mesa/default/sessions/events/aaaaaaaa.jsonl');
+  const events = join(cli.paths.events, 'aaaaaaaa.jsonl');
   cli.stdin = JSON.stringify({ hook_event_name: 'Stop', prompt: 'my key is sk-live-1234' });
   cli.env = { MESA_SESSION_ID: 'aaaaaaaa' };
   await mesa('hook', 'claude');
   expect(readFileSync(events, 'utf8')).not.toContain('sk-live-1234');
 
-  const config = join(cli.home, '.mesa/default/config.yaml');
+  const config = cli.paths.config;
   writeFileSync(config, `${readFileSync(config, 'utf8')}surprise: 1\n`);
   const before = readFileSync(events, 'utf8');
   expect(await mesa('hook', 'claude')).toMatchObject({ code: 4 });
@@ -134,10 +134,7 @@ test('after a /clear, mesa sessions shows the new agent session id, not done, an
   cli.env = {};
   const [row] = (await mesa('sessions', '--json')).json.data;
   expect(row).toMatchObject({ id: opened.id, agentSessionId: after, lastState: { state: 'idle' } });
-  const events = readFileSync(
-    join(cli.home, `.mesa/default/sessions/events/${opened.id}.jsonl`),
-    'utf8',
-  )
+  const events = readFileSync(join(cli.paths.events, `${opened.id}.jsonl`), 'utf8')
     .trim()
     .split('\n')
     .map((l) => JSON.parse(l).event);

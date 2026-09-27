@@ -27,6 +27,16 @@ export function sequentialIds(): IdSource {
   return () => `01TEST${String(++n).padStart(20, '0')}`;
 }
 
+/** Ids whose Mesa session ids (their last 8 characters) are `short`, in order: planted records keep the ids a test names. */
+export function shortIds(...short: string[]): IdSource {
+  let n = 0;
+  return () => {
+    const id = short[n++];
+    if (!id) throw new Error(`shortIds: only ${short.length} ids`);
+    return `01TEST${'0'.repeat(12)}${id.toUpperCase()}`;
+  };
+}
+
 /** UUID-shaped ids 00000000-0000-4000-8000-000000000001 and up, for claude --session-id. */
 export function sequentialUuids(): () => string {
   let n = 0;
@@ -368,9 +378,12 @@ export function thrown(fn: () => unknown): { code: string; message: string } {
   throw new Error('expected a MesaError');
 }
 
+/** Where a profile keeps its files: tests read and plant through it, never a spelled-out path. */
+export { profilePaths };
+
 /** A profile's session store under a temp home, as mesa keeps it: for reading or planting records. */
-export const testStore = (home: string, profile = 'default') =>
-  sessionStore({ dir: profilePaths(home, profile).sessions, newId: sequentialIds() });
+export const testStore = (home: string, profile = 'default', newId = sequentialIds()) =>
+  sessionStore({ dir: profilePaths(home, profile).sessions, newId });
 
 /**
  * A profile over `home` (a fresh temp dir by default) with its vault laid out and lantern-cove

@@ -30,7 +30,7 @@ test('handoff starts a successor with the goal and the note, then stops the sess
   expect(out.code).toBe(0);
   const { from, to, note: kept } = out.json.data;
   expect(from).toBe(a.id);
-  expect(kept).toBe(join(cli.home, `.mesa/default/handoffs/${to}.md`));
+  expect(kept).toBe(join(cli.paths.handoffs, `${to}.md`));
   expect(readFileSync(kept, 'utf8')).toBe(NOTE);
   const b = await show(to);
   const goal = `Count the files in docs/adr\n\nRead the handoff note at ${kept} first.`;
