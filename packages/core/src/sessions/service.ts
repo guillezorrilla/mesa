@@ -170,12 +170,15 @@ export function sessionsService(
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
       },
       /**
-       * Runs a skill headlessly on a project (CONTEXT.md, Skill run) and waits up to
-       * `timeoutSeconds` for its result, which is returned, ok or not. Its start writes a skill
-       * receipt; its end, as a stop does, starts what was queued after it.
+       * Runs a skill headlessly on a project (CONTEXT.md, Skill run), once the guardrail lets its
+       * prompt through (`yes`, `force`, and a person's `confirm` past an ask or a block), and
+       * waits up to `timeoutSeconds` for its result, which is returned, ok or not. Its start
+       * writes a skill receipt, with the guardrail's decision and the override; its end, as a
+       * stop does, starts what was queued after it.
        */
-      run: async (skill: string, opts: Omit<RunInput, 'skill'>) => {
-        const { project, agent, args = [] } = opts;
+      run: async (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) => {
+        const { force, yes, confirm, ...input } = opts;
+        const { project, agent, args = [] } = input;
         const started = await record(
           {
             type: 'skill',
@@ -190,11 +193,21 @@ export function sessionsService(
               project,
               agent: agent ?? null,
               args: args.map((a) => redactText(a, secrets())),
+              ...(force ? { force } : {}),
+              ...(yes ? { yes } : {}),
             },
-            outputs: ({ record: r }) => startedOutputs(r),
+            outputs: ({ record: r, override }) => ({
+              ...startedOutputs(r),
+              ...(override ? { override } : {}),
+            }),
           },
-          () =>
-            startRun({ ...openDeps(), runs: paths.runs, skills: skills.list }, { ...opts, skill }),
+          // Typed, so the result type comes from the action, as for one that takes nothing.
+          (decisions: DecisionRecorder) => {
+            const guard = (action: Guarded) =>
+              faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            const runDeps = { ...openDeps(), runs: paths.runs, skills: skills.list, guard };
+            return startRun(runDeps, { ...input, skill });
+          },
         );
         const run = started.result.record;
         const waitDeps = {
@@ -205,11 +218,12 @@ export function sessionsService(
           runs: paths.runs,
           logs: paths.logs,
         };
-        const result = await awaitRun(waitDeps, run, opts.timeoutSeconds);
+        const result = await awaitRun(waitDeps, run, input.timeoutSeconds);
         const queue = await ends.stopped(run.id, 'exited');
         const warning = joinWarnings(started.warning, queue?.warning);
+        const { override } = started.result;
         return {
-          result: { session: run.id, ...result },
+          result: { session: run.id, ...result, ...(override ? { override } : {}) },
           receipt: started.receipt,
           ...(warning ? { warning } : {}),
         };
