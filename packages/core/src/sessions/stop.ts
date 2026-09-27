@@ -1,4 +1,4 @@
-import { AGENTS } from '../agents/agents.js';
+import { runnableAgent } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { cancelQueued } from './queue.js';
@@ -49,8 +49,8 @@ export async function stopSession(
   let outcome: StopOutcome = 'gone';
   const first = await pane();
   if (first) {
-    const spec = AGENTS[found.agent];
-    if (!force && !first.dead && 'quit' in spec) await askToQuit(deps, target, spec.quit, pane);
+    const quit = runnableAgent(found.agent)?.quit;
+    if (!force && !first.dead && quit) await askToQuit(deps, target, quit, pane);
     const last = await pane();
     outcome = !last || last.dead ? 'exited' : 'killed';
     // A pane that exited stays, dead, under remain-on-exit; the window goes either way.

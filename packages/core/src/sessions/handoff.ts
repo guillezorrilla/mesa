@@ -3,12 +3,10 @@ import { join } from 'node:path';
 import { readyAgent } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
-import { readProjectFile } from '../projects/project-file.js';
-import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
-import { type LaunchDeps, launchSession } from './launch.js';
+import { type LaunchDeps, launchProject, launchSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import { isAgentState } from './states.js';
 import type { StopOutcome } from './stop.js';
@@ -63,9 +61,7 @@ export async function handoffSession(
     );
   }
   requireOwnWorktree(deps.store, from);
-  const entry = findProject(deps.profile, from.project);
-  // Still a project, as open requires.
-  readProjectFile(entry.path);
+  const { entry } = launchProject(deps.profile, from.project);
   const spec = await readyAgent(deps.run, from.agent);
   const agentSessionId = deps.newUuid();
   const { goal } = from;

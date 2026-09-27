@@ -1,6 +1,7 @@
+import { AGENTS } from '../../agents/agents.js';
 import { projectOf } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import { type AgentProcess, listedState } from '../agent-listing.js';
+import type { AgentProcess } from '../agent-listing.js';
 import { foreignId } from '../record.js';
 import { classifySession } from '../state.js';
 import { type ForeignRow, secondsBetween } from './rows.js';
@@ -20,7 +21,8 @@ export async function foreignRow(
   const project = projectOf(p.cwd, deps.projects);
   // ponytail: no record, so each look starts its state now and a foreign wait never climbs;
   // keep a first-seen time per pid if foreign sessions need to rank by how long they wait.
-  const last = { ...listedState(process), at: now.toISOString(), source: 'listing' as const };
+  const listed = AGENTS[process.agent].listing.state(process);
+  const last = { ...listed, at: now.toISOString(), source: 'listing' as const };
   // ponytail: rules only; with no record to keep its basis, the adapter would be asked again
   // on every look. Give foreign sessions a basis cache if they need the adapter.
   const classified = await classifySession(

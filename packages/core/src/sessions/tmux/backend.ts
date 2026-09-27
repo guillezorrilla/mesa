@@ -106,6 +106,10 @@ export function tmuxBackend({
     );
   };
 
+  /** Removes a view (openView) no terminal will attach, and the terminals in its panes with it. */
+  const closeView = async (view: WindowTarget) => {
+    await tmux(['kill-session', '-t', `=${view.project}`]);
+  };
   /**
    * The argv that shows the window in a terminal, run by the caller in its own terminal. Each
    * terminal gets its own view: a session grouped with the project's (same windows, its own
@@ -296,11 +300,12 @@ export function tmuxBackend({
       );
       const laid = await tmux(['select-layout', '-t', exact(view), layout]);
       if (!laid.ok) {
-        await tmux(['kill-session', '-t', `=${view.project}`]);
+        await closeView(view);
         throw new MesaError('usage', `tmux cannot lay out a view as ${layout}: ${laid.detail}`);
       }
       return view;
     },
+    closeView,
     /**
      * The argv that shows a view (openView) in this terminal; tmux removes the view, and the
      * terminals in its panes, when the terminal detaches. Set only once attached: a session that

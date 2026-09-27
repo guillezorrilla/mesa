@@ -22,6 +22,3 @@ export async function listAgentProcesses(run: Runner): Promise<AgentProcess[]> {
   const lists = await Promise.all(RUNNABLE_AGENTS.map((a) => AGENTS[a].listing.list(run)));
   return lists.flat();
 }
-
-/** The state a listed process's status gives, as its agent reads it. */
-export const listedState = (p: AgentProcess) => AGENTS[p.agent].listing.state(p);

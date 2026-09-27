@@ -1,11 +1,9 @@
 import { AGENT_NAMES, AgentSchema, readyAgent } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
-import { readProjectFile } from '../projects/project-file.js';
-import { findProject } from '../projects/projects.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
-import { createRecord, type LaunchDeps, launchSession } from './launch.js';
+import { createRecord, type LaunchDeps, launchProject, launchSession } from './launch.js';
 import { isOver, type SessionRecord } from './record.js';
 
 type OpenDeps = LaunchDeps & {
@@ -69,9 +67,8 @@ export async function openSession(
   }
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
-  const entry = findProject(deps.profile, input.project);
-  // Read even when --agent is given: a folder that is gone is not_found, never a claude in $HOME.
-  const project = readProjectFile(entry.path);
+  // Read even when --agent is given.
+  const { entry, project } = launchProject(deps.profile, input.project);
   const name = input.agent ?? project.agent ?? deps.profile.config.defaultAgent;
   const parsed = AgentSchema.safeParse(name);
   if (!parsed.success) {
