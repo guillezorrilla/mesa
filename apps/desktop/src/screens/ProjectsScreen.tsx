@@ -105,10 +105,23 @@ export function ProjectsScreen(
                       className="text-left underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                       onClick={() => props.onSelectProject?.(p.name)}
                     >
-                      {p.name}
+                      {p.label}
                     </button>
                   ) : (
-                    p.name
+                    p.label
+                  )}
+                  {p.label !== p.name && (
+                    <div className="font-mono text-muted-foreground text-xs">{p.name}</div>
+                  )}
+                  {p.pinned && (
+                    <Badge variant="secondary" className="ml-2">
+                      Pinned
+                    </Badge>
+                  )}
+                  {p.hidden && (
+                    <Badge variant="outline" className="ml-2">
+                      Hidden
+                    </Badge>
                   )}
                   {!p.exists && (
                     <span

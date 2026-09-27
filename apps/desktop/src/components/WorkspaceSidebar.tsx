@@ -26,7 +26,10 @@ export function WorkspaceSidebar(props: {
   onCollapse: () => void;
 }) {
   const { view, onView, collapsed } = props;
-  const registered = new Set(props.projects.map((project) => project.name));
+  const visible = props.projects
+    .filter((project) => !project.hidden)
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  const registered = new Set(visible.map((project) => project.name));
   const unassigned = props.sessions.filter(
     (session) => !session.project || !registered.has(session.project),
   );
@@ -100,10 +103,10 @@ export function WorkspaceSidebar(props: {
             <p className="px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               Projects and sessions
             </p>
-            {props.projects.length === 0 && (
-              <p className="px-2 text-sm text-muted-foreground">No projects registered</p>
+            {visible.length === 0 && (
+              <p className="px-2 text-sm text-muted-foreground">No visible projects</p>
             )}
-            {props.projects.map((project) => (
+            {visible.map((project) => (
               <div key={project.name}>
                 <Button
                   variant="ghost"
@@ -120,7 +123,7 @@ export function WorkspaceSidebar(props: {
                   onClick={() => onView({ kind: 'project', name: project.name })}
                 >
                   <FolderGit2 aria-hidden className="size-4 shrink-0" />
-                  <span className="truncate">{project.name}</span>
+                  <span className="truncate">{project.label}</span>
                 </Button>
                 <div className="ml-3 border-l pl-2">
                   {props.sessions

@@ -98,6 +98,65 @@ test('project Overview starts worktree goals and quick empty sessions through me
   expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
 });
 
+test('project controls update profile presentation and leave the slug available when hidden', async () => {
+  let rows = PROJECTS.map((row) => ({ ...row }));
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(rows),
+    'projects update': (args) => {
+      const name = args.at(-1);
+      rows = rows.map((row) =>
+        row.name === name
+          ? {
+              ...row,
+              label: args.find((arg) => arg.startsWith('--label='))?.slice(8) ?? row.label,
+              pinned: args.includes('--pinned') ? args.includes('true') : row.pinned,
+              hidden: args.includes('--hidden') ? args.includes('true') : row.hidden,
+            }
+          : row,
+      );
+      return envelope({ name, path: rows[0]?.path });
+    },
+    unregister: () => {
+      rows = rows.filter((row) => row.name !== 'lantern-cove');
+      return envelope({ name: 'lantern-cove', path: '/src/lantern-cove' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  const action = (label: string) =>
+    [...(byTestId('project-menu')[0]?.parentElement?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent?.includes(label),
+    );
+  await click(action('Rename display label'));
+  (document.querySelector('#project-label') as HTMLInputElement).value = 'Lantern Cove';
+  await click(byTestId('save-project-label')[0]);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('Lantern Cove');
+  expect(byTestId('project-workspace')[0]?.textContent).toContain(
+    'lantern-cove · /src/lantern-cove',
+  );
+  await click(action('Pin project'));
+  expect(calls).toContainEqual([
+    '--json',
+    'projects',
+    'update',
+    '--pinned',
+    'true',
+    '--',
+    'lantern-cove',
+  ]);
+  await click(action('Hide project'));
+  expect(byTestId('sidebar-project').map((element) => element.textContent)).toEqual(['tide']);
+  await click(byTestId('nav-projects')[0]);
+  expect(byTestId('project-row')[0]?.textContent).toContain('Hidden');
+  expect(byTestId('project-row')[0]?.textContent).toContain('lantern-cove');
+  await click(byTestId('project-row')[0]?.querySelector('button') as HTMLElement);
+  await click(action('Unregister project'));
+  expect(byTestId('project-unregister-dialog')).toHaveLength(1);
+  await click(byTestId('confirm-unregister-project')[0]);
+  expect(calls).toContainEqual(['--json', 'unregister', '--', 'lantern-cove']);
+  expect(byTestId('projects-screen')).toHaveLength(1);
+});
+
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
   expect(healthy('profile-summary')[0]?.textContent).toBe(

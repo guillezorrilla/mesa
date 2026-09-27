@@ -58,6 +58,22 @@ const COMMANDS = {
   ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
+  'projects.update': commandWith<
+    { name: string; label?: string; pinned?: boolean; hidden?: boolean; move?: 'up' | 'down' },
+    Recorded<{ name: string; path: string; label?: string; pinned?: boolean; hidden?: boolean }>
+  >(({ name, label, pinned, hidden, move }) => [
+    'projects',
+    'update',
+    ...(label !== undefined ? [`--label=${label}`] : []),
+    ...(pinned !== undefined ? ['--pinned', String(pinned)] : []),
+    ...(hidden !== undefined ? ['--hidden', String(hidden)] : []),
+    ...(move ? ['--move', move] : []),
+    '--',
+    name,
+  ]),
+  'projects.unregister': commandWith<{ name: string }, Recorded<{ name: string; path: string }>>(
+    ({ name }) => ['unregister', '--', name],
+  ),
   'skills.list': commandWith<{ project?: string }, SkillRow[]>(({ project }) => [
     'skills',
     'list',

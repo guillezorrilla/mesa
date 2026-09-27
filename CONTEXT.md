@@ -14,12 +14,12 @@ Not: notes folder, knowledge base, memory (memory is what the vault holds, not t
 
 ## Project
 
-A repository registered with a profile through its `mesa.yaml`: `name` (a slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`, see Guardrail), `tmux.layout` (how its Project view lays out its sessions), and extra `skills`. A project has zero or more sessions.
+A repository registered with a profile through its `mesa.yaml`: `name` (a stable slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`, see Guardrail), `tmux.layout` (how its Project view lays out its sessions), and extra `skills`. A project has zero or more sessions. Its profile-local display label can change without changing its slug or historical session links.
 Not: repo (a repo becomes a project once registered), workspace.
 
 ## Registry
 
-A profile's `registry.yaml`: one entry per project, its name and the directory holding its `mesa.yaml`. `mesa projects` reads it; `mesa register <path>` appends to it; `mesa unregister <name>` removes an entry. Both rewrite it whole, under `registry.yaml.lock`, so two at once keep both changes.
+A profile's `registry.yaml`: one entry per project, its stable name and the directory holding its `mesa.yaml`, plus optional display label, pin and hide settings. Entry order is the manual project order; pinned projects appear first in the app sidebar, and hidden projects remain manageable from Projects. `mesa projects` reads it; `mesa projects update <name>` changes presentation and order; `mesa register <path>` appends to it; `mesa unregister <name>` removes an entry without removing the folder or session history. Writes rewrite it whole under `registry.yaml.lock`, so concurrent changes keep both entries.
 Not: project list, index.
 
 ## Agent

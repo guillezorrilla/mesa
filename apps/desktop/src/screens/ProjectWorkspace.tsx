@@ -1,7 +1,8 @@
 import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/browser';
-import { FolderGit2, Play } from 'lucide-react';
+import { ArrowDown, ArrowUp, FolderGit2, MoreHorizontal, Play } from 'lucide-react';
 import { useState } from 'react';
+import { ActionDialog } from '@/components/ActionDialog';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,10 +20,13 @@ export function ProjectWorkspace(props: {
   project: ProjectRow;
   sessions: readonly TreeRow[];
   onSession: (id: string) => void;
+  onChanged: () => void;
+  onUnregistered: () => void;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<'overview' | 'skills'>('overview');
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
+  const [dialog, setDialog] = useState<'label' | 'unregister'>();
   const skills = useCommand('skills.list', { project: project.name });
   const run = useRun();
   const { acting, act } = useAct();
@@ -34,17 +38,137 @@ export function ProjectWorkspace(props: {
       props.onSession(session.id);
       return said(`Opened session ${session.id} on ${project.name}`, session);
     });
+  const update = (patch: {
+    label?: string;
+    pinned?: boolean;
+    hidden?: boolean;
+    move?: 'up' | 'down';
+  }) =>
+    act(async () => {
+      const changed = await run('projects.update', { name: project.name, ...patch });
+      if (!changed) return undefined;
+      setDialog(undefined);
+      props.onChanged();
+      return said(`Updated project ${project.name}`, changed);
+    });
+  const unregister = () =>
+    act(async () => {
+      const removed = await run('projects.unregister', { name: project.name });
+      if (!removed) return undefined;
+      setDialog(undefined);
+      props.onUnregistered();
+      return said(`Unregistered project ${project.name}`, removed);
+    });
   return (
     <section data-testid="project-workspace" className="space-y-6">
       <div className="flex items-center gap-3">
         <FolderGit2 aria-hidden className="size-5 text-muted-foreground" />
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold tracking-tight">{project.name}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-semibold tracking-tight">{project.label}</h2>
           <p className="truncate font-mono text-xs text-muted-foreground" title={project.path}>
-            {project.path}
+            {project.name} · {project.path}
           </p>
         </div>
+        <details className="relative">
+          <summary
+            data-testid="project-menu"
+            aria-label="Project actions"
+            className="flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <MoreHorizontal aria-hidden className="size-4" />
+          </summary>
+          <div className="absolute right-0 z-20 mt-1 grid w-48 gap-1 rounded-md border bg-popover p-1 shadow-lg">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              onClick={() => setDialog('label')}
+            >
+              Rename display label
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              disabled={acting}
+              onClick={() => void update({ pinned: !project.pinned })}
+            >
+              {project.pinned ? 'Unpin' : 'Pin'} project
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              disabled={acting}
+              onClick={() => void update({ hidden: !project.hidden })}
+            >
+              {project.hidden ? 'Show' : 'Hide'} project
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              disabled={acting}
+              onClick={() => void update({ move: 'up' })}
+            >
+              <ArrowUp aria-hidden /> Move up
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start"
+              disabled={acting}
+              onClick={() => void update({ move: 'down' })}
+            >
+              <ArrowDown aria-hidden /> Move down
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-start text-destructive"
+              onClick={() => setDialog('unregister')}
+            >
+              Unregister project
+            </Button>
+          </div>
+        </details>
       </div>
+      {dialog === 'label' && (
+        <ActionDialog
+          testId="project-label-dialog"
+          title="Rename display label"
+          description="The project slug and historical session links stay the same."
+          submit={{ label: 'Save label', testId: 'save-project-label', disabled: acting }}
+          onSubmit={(form) => void update({ label: String(new FormData(form).get('label') ?? '') })}
+          onCancel={() => setDialog(undefined)}
+        >
+          <Label htmlFor="project-label">Label</Label>
+          <Input
+            id="project-label"
+            name="label"
+            defaultValue={project.label}
+            required
+            maxLength={80}
+          />
+        </ActionDialog>
+      )}
+      {dialog === 'unregister' && (
+        <ActionDialog
+          testId="project-unregister-dialog"
+          title="Unregister project?"
+          description="This removes the project from this profile. It leaves the folder, mesa.yaml, and session history intact."
+          submit={{
+            label: 'Unregister',
+            testId: 'confirm-unregister-project',
+            disabled: acting,
+            variant: 'destructive',
+          }}
+          onSubmit={() => void unregister()}
+          onCancel={() => setDialog(undefined)}
+        >
+          <p className="text-sm">{project.label}</p>
+        </ActionDialog>
+      )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
         {(['overview', 'skills'] as const).map((name) => (
           <button

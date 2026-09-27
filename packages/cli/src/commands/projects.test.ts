@@ -20,11 +20,14 @@ test('register, projects, unregister', async () => {
   expect(json.data).toEqual([
     {
       name: 'lantern-cove',
+      label: 'lantern-cove',
       path: `${cli.home}/lantern-cove`,
       agent: 'claude',
       priority: 0.5,
       skills: [],
       exists: true,
+      pinned: false,
+      hidden: false,
     },
   ]);
   expect((await mesa('projects')).stdout).toBe(
@@ -38,4 +41,31 @@ test('register, projects, unregister', async () => {
   expect((await mesa('projects')).stdout).toBe(
     'no projects registered; run mesa register <path>\n',
   );
+});
+
+test('projects update changes profile presentation without renaming its slug', async () => {
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(cli.home, 'lantern-cove'));
+  await mesa('register', 'lantern-cove', '--create');
+  const changed = await mesa(
+    'projects',
+    'update',
+    'lantern-cove',
+    '--label',
+    'Lantern Cove',
+    '--pinned',
+    'true',
+    '--json',
+  );
+  expect(changed.json.data).toMatchObject({
+    name: 'lantern-cove',
+    label: 'Lantern Cove',
+    pinned: true,
+  });
+  expect((await mesa('projects', '--json')).json.data[0]).toMatchObject({
+    name: 'lantern-cove',
+    label: 'Lantern Cove',
+    pinned: true,
+  });
+  expect((await mesa('projects', 'update', 'lantern-cove', '--hidden', 'maybe')).code).toBe(2);
 });

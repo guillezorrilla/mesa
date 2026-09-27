@@ -76,6 +76,11 @@ export function App() {
                 project={project}
                 sessions={sessions}
                 onSession={(id) => setView({ kind: 'session', id })}
+                onChanged={() => void projects.refresh()}
+                onUnregistered={() => {
+                  void projects.refresh();
+                  setView({ kind: 'projects' });
+                }}
               />
             ) : projects.busy || !projects.data ? (
               <p className="text-sm text-muted-foreground">Loading project...</p>

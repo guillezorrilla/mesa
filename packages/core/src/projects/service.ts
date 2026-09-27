@@ -1,5 +1,11 @@
 import type { MesaContext } from '../context.js';
-import { listProjects, registerProject, unregisterProject } from './projects.js';
+import {
+  listProjects,
+  type ProjectUpdate,
+  registerProject,
+  unregisterProject,
+  updateProject,
+} from './projects.js';
 
 /** The profile's registered projects. */
 export function projectsService(ctx: MesaContext) {
@@ -17,6 +23,17 @@ export function projectsService(ctx: MesaContext) {
         () => registerProject(open(), { dir: absolute(dir), create }),
       ),
     list: () => listProjects(open()),
+    update: (name: string, patch: ProjectUpdate) =>
+      record(
+        {
+          summary: () => `Updated project ${name}`,
+          failure: `Could not update project ${name}`,
+          project: () => name,
+          inputs: { name, ...patch },
+          outputs: (r) => ({ label: r.label, pinned: r.pinned, hidden: r.hidden }),
+        },
+        () => updateProject(open(), name, patch),
+      ),
     unregister: (name: string) =>
       record(
         {

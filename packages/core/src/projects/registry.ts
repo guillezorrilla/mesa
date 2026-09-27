@@ -3,11 +3,25 @@ import { z } from 'zod';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
-/** One registered project: its name and the directory holding its mesa.yaml. */
-export type RegistryEntry = { name: string; path: string };
+/** Profile-local presentation metadata never changes the project's stable mesa.yaml slug. */
+export type RegistryEntry = {
+  name: string;
+  path: string;
+  label?: string;
+  pinned?: boolean;
+  hidden?: boolean;
+};
 
 const RegistrySchema = z.strictObject({
-  projects: z.array(z.strictObject({ name: z.string(), path: z.string() })),
+  projects: z.array(
+    z.strictObject({
+      name: z.string(),
+      path: z.string(),
+      label: z.string().optional(),
+      pinned: z.boolean().optional(),
+      hidden: z.boolean().optional(),
+    }),
+  ),
 });
 
 const HEADER = 'Projects registered with this profile. Managed by mesa register.';

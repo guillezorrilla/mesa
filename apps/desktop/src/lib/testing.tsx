@@ -174,13 +174,26 @@ export const choose = (select: HTMLElement | undefined, value: string) =>
 export const PROJECTS: ProjectRow[] = [
   {
     name: 'lantern-cove',
+    label: 'lantern-cove',
     path: '/src/lantern-cove',
     agent: 'claude',
     priority: 0.5,
     skills: [],
     exists: true,
+    pinned: false,
+    hidden: false,
   },
-  { name: 'tide', path: '/src/tide', agent: null, priority: null, skills: [], exists: false },
+  {
+    name: 'tide',
+    label: 'tide',
+    path: '/src/tide',
+    agent: null,
+    priority: null,
+    skills: [],
+    exists: false,
+    pinned: false,
+    hidden: false,
+  },
 ];
 /** A doctor report as core sends one, healthy unless told: the screens only show its verdict. */
 export const report = (
