@@ -101,7 +101,7 @@ function RunSkillForm(props: {
                 `No skill is enabled for ${project}: add one to the profile's skills or to its mesa.yaml.`)}
         </p>
       </div>
-      <AgentField headless />
+      <AgentField />
       <div className="grid gap-2">
         <Label htmlFor="run-skill-args">Arguments (optional)</Label>
         <Input

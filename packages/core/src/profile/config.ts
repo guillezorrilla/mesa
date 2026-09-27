@@ -25,6 +25,7 @@ const ConfigSchema = z.strictObject({
   decisions: z
     .strictObject({
       backend: DecisionsBackendSchema.default('adapter'),
+      adapter: AgentSchema.default('claude'),
       threshold: z.number().min(0).max(1).default(0.7),
     })
     .prefault({}),

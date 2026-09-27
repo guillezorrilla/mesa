@@ -43,7 +43,7 @@ const answers = {
 };
 
 test('Run skill offers the enabled skills of a project whose folder is there', async () => {
-  const { bridge } = fakeBridge(answers);
+  const { bridge, calls } = fakeBridge({ ...answers, run: () => ran({ ok: true }) });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('run-skill')[0]);
   expect(byTestId('run-skill-dialog')[0]?.dataset.state).toBe('open');
@@ -62,7 +62,18 @@ test('Run skill offers the enabled skills of a project whose folder is there', a
   const codex = byTestId('run-skill-dialog')[0]?.querySelector<HTMLButtonElement>(
     '[role="radio"][value="codex"]',
   );
-  expect(codex?.disabled).toBe(true);
+  expect(codex?.disabled).toBe(false);
+  await click(codex ?? undefined);
+  await click(byTestId('run-skill-submit')[0]);
+  expect(runs(calls)).toContainEqual([
+    'run',
+    '--project',
+    'lantern-cove',
+    '--agent',
+    'codex',
+    '--',
+    'tidy-readme',
+  ]);
 });
 
 test('Run skill offers project-brief and starts it on the selected project', async () => {

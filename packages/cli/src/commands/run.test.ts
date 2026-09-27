@@ -1,6 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { claudeResult, finishesRun, plantOutputLog, testStore } from '@mesa/core/testing';
+import {
+  claudeResult,
+  codexResult,
+  finishesRun,
+  plantOutputLog,
+  testStore,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -185,4 +191,34 @@ test('project-brief is listed and runs through the public CLI with a linked proj
     (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data.receipt,
   ).toMatchObject({ type: 'skill', status: 'ok', outputs: { note: json.data.note } });
   expect(readFileSync(join(cli.home, 'vault', json.data.note), 'utf8')).toContain(`repo: ${dir}`);
+});
+
+test('run --agent codex prints its JSON result and tokens, and sessions --all records its native thread', async () => {
+  cli.withTmux({ onOpen: finishesRun({ output: codexResult('skill-stdin') }) });
+  await withSkill();
+  const ran = await mesa(
+    'run',
+    'session-summary',
+    '--project',
+    'lantern-cove',
+    '--agent',
+    'codex',
+    '--json',
+  );
+  expect(ran.code).toBe(0);
+  expect(ran.json.data).toMatchObject({
+    ok: true,
+    output: 'LANTERN_SKILL_OK TIDE_STDIN_731',
+    agentSessionId: '00000000-0000-4000-8000-000000000002',
+    durationMs: 0,
+    usage: { input_tokens: 14851, output_tokens: 16 },
+  });
+  expect(ran.json.data).not.toHaveProperty('costUsd');
+  const rows = (await mesa('sessions', '--all', '--json')).json.data;
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({
+    kind: 'run',
+    agent: 'codex',
+    agentSessionId: ran.json.data.agentSessionId,
+  });
 });

@@ -126,6 +126,7 @@ export async function markRunEnded(
         ...end.outputs,
         agentSessionId: result.agentSessionId,
         durationMs: result.durationMs,
+        ...(result.usage ? { usage: result.usage } : {}),
         output: redact(output),
         ...(result.reason ? { reason: redact(result.reason) } : {}),
         ...(result.note ? { note: result.note } : {}),

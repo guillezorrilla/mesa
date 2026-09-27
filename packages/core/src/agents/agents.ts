@@ -12,6 +12,7 @@ import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
 import { transcriptCwd } from './claude/transcripts.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
+import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
 import { AGENT_NAMES, type Agent } from './names.js';
@@ -63,13 +64,14 @@ export const AGENTS = {
     submitDelayMs: 0,
     /** A skill run with no one at its prompt (CONTEXT.md, Skill run). */
     headless: {
+      skillPrefix: '/',
       /**
        * `prompt` through `claude -p`, its JSON result on stdout, in the conversation Mesa chose,
        * with the profile's permission mode and allowed tools (none: the mode's own). The prompt
        * and each tool are one shell word, as a rule such as `Bash(git log:*)` holds a space;
        * --allowedTools takes every word after it, so it comes last.
        */
-      command: (sessionId: string, prompt: string, may: HeadlessPermissions) =>
+      command: (sessionId: string | undefined, prompt: string, may: HeadlessPermissions) =>
         [
           'claude -p',
           shellWord(prompt),
@@ -110,8 +112,17 @@ export const AGENTS = {
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
-    /** Headless Codex runs come with #160. */
-    headless: undefined,
+    headless: {
+      skillPrefix: '$',
+      command: (
+        _sessionId: string | undefined,
+        prompt: string,
+        _may: HeadlessPermissions,
+        folder: string,
+      ) =>
+        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${shellWord(prompt)}`,
+      result: readCodexResult,
+    },
     /** Trusted hooks from the embedded Codex process. */
     hookState: codexHookState,
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },

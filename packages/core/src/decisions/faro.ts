@@ -24,6 +24,8 @@ export function createFaro(ctx: MesaContext) {
   const shared = [
     adapterBackend<unknown>({
       run: deps.run,
+      directory: ctx.paths.root,
+      agent: () => ctx.configIfAny()?.decisions.adapter ?? 'claude',
       redact: (value, maxString) => redactPayload(value, deps.home, ctx.secrets(), maxString),
     }),
   ];

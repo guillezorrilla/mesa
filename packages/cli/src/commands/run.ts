@@ -6,8 +6,8 @@ import { recordedOutput } from '../output/recorded.js';
 export const run = defineCommand({
   name: 'run',
   summary:
-    'Run a skill headlessly on a project in a new tmux window, once the guardrail allows its prompt, wait for it, and print its result, agent session id, and cost; exits 1 when the run is not ok',
-  // The skill's own words go after `--`: `/<skill> <args>` is its prompt.
+    'Run a skill headlessly on a project in a new tmux window, once the guardrail allows its prompt, wait for it, and print its result, agent session id, and cost when available; exits 1 when the run is not ok',
+  // The skill's own words go after `--`; the agent owns its invocation syntax.
   args: ['skill', 'args...'],
   flags: {
     project: { type: 'string', description: 'The registered project to run it on' },
@@ -18,7 +18,7 @@ export const run = defineCommand({
     },
     agent: {
       type: 'string',
-      description: 'claude (v1); default: the project mesa.yaml, else the profile default',
+      description: 'claude or codex; default: the project mesa.yaml, else the profile default',
     },
     timeout: {
       type: 'string',

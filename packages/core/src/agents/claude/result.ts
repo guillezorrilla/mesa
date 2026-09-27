@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AgentResult } from '../result.js';
 
 // What a headless claude prints: `claude -p --output-format json` writes one result object on
 // stdout when it is done (fixtures/results/, from Claude Code 2.1.283). Only these fields are
@@ -16,23 +17,8 @@ const ResultSchema = z.object({
   duration_ms: z.number().nonnegative(),
 });
 
-/** What a headless claude's stdout says it did: its answer and what it cost, or why there is none. */
-export type ClaudeResult =
-  | {
-      read: true;
-      ok: boolean;
-      /** Its answer, or the error it reported. */
-      output: string;
-      agentSessionId: string;
-      costUsd?: number;
-      durationMs: number;
-      /** Why it is not ok. */
-      reason?: string;
-    }
-  | { read: false; reason: string };
-
 /** Reads claude's JSON result from a headless run's stdout; never throws. */
-export function readClaudeResult(stdout: string): ClaudeResult {
+export function readClaudeResult(stdout: string): AgentResult {
   const text = stdout.trim();
   if (!text) return { read: false, reason: 'claude printed no result' };
   let raw: unknown;
