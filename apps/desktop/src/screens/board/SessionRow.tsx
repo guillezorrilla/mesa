@@ -1,4 +1,5 @@
 import type { TreeRow } from '@mesa/core';
+import { duration, sessionBranch, sessionLabel, waitingOn } from '@mesa/core/view';
 import { Download, Forward, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
 import { ContextBar } from '@/components/ContextBar';
 import { StateBadge } from '@/components/StateBadge';
@@ -9,7 +10,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { ReceivedPrompts } from './ReceivedPrompts';
 import { RowMenu } from './RowMenu';
-import { decidedBy, exited, queued, resumable, running, ticking } from './rows';
+import { decidedBy, exited, queued, resumable, ticking } from './rows';
 import { TreeToggle } from './TreeToggle';
 
 /** What a row can ask the Board to do; the Board runs one action at a time. */
@@ -44,7 +45,8 @@ export function SessionRow(props: {
 }) {
   const { row: s, below, acting, actions } = props;
   // A name a person gave it stands in for the id, which stays on hover.
-  const label = s.managed && s.name ? s.name : s.id;
+  const label = sessionLabel(s);
+  const branch = sessionBranch(s);
   return (
     <TableRow
       data-testid="session-row"
@@ -75,13 +77,13 @@ export function SessionRow(props: {
       </TableCell>
       <TableCell>
         {s.project ?? '-'}
-        {s.managed && (s.worktree ?? s.pending?.branch) && (
+        {s.managed && branch && (
           <div
             data-testid="session-branch"
             title={s.worktree?.path}
             className="max-w-80 truncate font-mono text-muted-foreground text-xs"
           >
-            {s.worktree?.branch ?? s.pending?.branch}
+            {branch}
           </div>
         )}
         {s.managed && s.goal && (
@@ -113,11 +115,11 @@ export function SessionRow(props: {
         )}
       </TableCell>
       <TableCell data-testid="session-running" className="font-mono tabular-nums">
-        {running(s.runningSeconds + (ticking(s) ? props.elapsed : 0))}
+        {duration(s.runningSeconds + (ticking(s) ? props.elapsed : 0))}
       </TableCell>
       <TableCell className="max-w-96 truncate font-mono text-muted-foreground text-xs">
         {s.managed && queued(s) ? (
-          <span data-testid="session-waiting">waiting on {s.after}</span>
+          <span data-testid="session-waiting">{waitingOn(s.after)}</span>
         ) : s.managed ? (
           (s.lastOutput ?? '')
         ) : (

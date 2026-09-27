@@ -1,4 +1,5 @@
 import { MesaError } from '@mesa/core';
+import { listPrice } from '@mesa/core/view';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 
@@ -25,8 +26,7 @@ export const decide = defineCommand({
         a.kind === 'Noul' ? `p ${two(a.probabilities)}` : `confidence ${two(a.confidence)}`,
       ]),
     );
-    const cost =
-      decision.costUsd === undefined ? '' : ` (list price $${decision.costUsd.toFixed(4)})`;
+    const cost = listPrice(decision.costUsd);
     return { data: decision, text: [...lines, `backend ${decision.backend}${cost}`].join('\n') };
   },
 });
