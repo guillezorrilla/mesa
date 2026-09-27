@@ -95,8 +95,16 @@ export const SessionRecordSchema = z.strictObject({
         /** The session that sent it (mesa send --from). */
         from: z.string().regex(SHORT_ID).optional(),
       }),
-      /** Its agent exited: tmux's pane-died hook said so (mesa hook tmux). */
-      z.strictObject({ type: z.literal('exited'), at: z.iso.datetime() }),
+      /**
+       * Its agent exited: tmux's pane-died hook said so (mesa hook tmux), or a run's end saw it
+       * (endRun), with its exit status or the signal that killed it, as the dead pane showed.
+       */
+      z.strictObject({
+        type: z.literal('exited'),
+        at: z.iso.datetime(),
+        status: z.number().int().optional(),
+        signal: z.string().optional(),
+      }),
       z.strictObject({
         type: z.literal('sent'),
         at: z.iso.datetime(),
@@ -139,6 +147,19 @@ export function ending(r: SessionRecord, at: string): Pick<SessionRecord, 'ended
     endedAt: r.endedAt ?? at,
     lastState: { state: 'done', confidence: 1, at, source: 'mesa' },
   };
+}
+
+/**
+ * A skill run (CONTEXT.md, Skill run) takes no prompt and no handoff: its agent reads no input
+ * and ends by itself. `what` is what was asked of it.
+ */
+export function refuseRun(r: Pick<SessionRecord, 'id' | 'kind'>, what: string) {
+  if (r.kind === 'run') {
+    throw new MesaError(
+      'usage',
+      `session ${r.id} is a skill run (mesa run), which ${what}: its agent reads no input and ends by itself`,
+    );
+  }
 }
 
 /** A session with no live window: nothing to attach to or type into, only to resume. */

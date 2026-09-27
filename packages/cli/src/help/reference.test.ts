@@ -16,7 +16,7 @@ const greet = defineCommand({
 const greetAt = defineCommand({
   name: 'greet at',
   summary: 'Greet someone somewhere',
-  args: ['who'],
+  args: ['who', 'words...'],
   flags: {
     place: { type: 'string', required: true, description: 'Where to greet' },
     wave: { type: 'boolean', description: 'Wave too' },

@@ -76,6 +76,7 @@ test('rm refuses a live session; --force closes its window, then removes the rec
     record: true,
     events: true,
     outputLog: true,
+    runOutput: false,
     window: true,
   });
   expect(world.windows).toEqual([]);

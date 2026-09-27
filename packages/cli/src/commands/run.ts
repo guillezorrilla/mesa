@@ -1,0 +1,40 @@
+import { duration, EXIT_CODES, listPrice } from '@mesa/core';
+import { defineCommand } from '../command.js';
+import { wholeNumber } from '../guards.js';
+import { recordedOutput } from '../output/recorded.js';
+
+export const run = defineCommand({
+  name: 'run',
+  summary:
+    'Run a skill headlessly on a project in a new tmux window, wait for it, and print its result, agent session id, and cost; exits 1 when the run is not ok',
+  // The skill's own words go after `--`: `/<skill> <args>` is its prompt.
+  args: ['skill', 'args...'],
+  flags: {
+    project: { type: 'string', required: true, description: 'The registered project to run it on' },
+    agent: {
+      type: 'string',
+      description: 'claude (v1); default: the project mesa.yaml, else the profile default',
+    },
+    timeout: {
+      type: 'string',
+      description:
+        'Seconds to wait before its window is closed and it fails with timeout (default 1200, 20 minutes)',
+    },
+  },
+  example: 'mesa run session-summary --project lantern-cove -- focus on the tests',
+  run: async ({ mesa, args, flags }) => {
+    const recorded = await mesa.sessions.run(args.skill, {
+      project: flags.project,
+      agent: flags.agent,
+      args: args.args,
+      timeoutSeconds:
+        flags.timeout === undefined ? undefined : wholeNumber(flags.timeout, '--timeout'),
+    });
+    const r = recorded.result;
+    const how = r.ok ? 'done' : `failed (${r.reason})`;
+    const took = duration(Math.round(r.durationMs / 1000));
+    const about = `${how}: session ${r.session}, agent session ${r.agentSessionId}, ${took}${listPrice(r.costUsd)}`;
+    const text = r.output ? `${r.output}\n${about}` : about;
+    return { ...recordedOutput(recorded, { data: r, text }), code: r.ok ? 0 : EXIT_CODES.internal };
+  },
+});

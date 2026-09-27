@@ -128,3 +128,34 @@ test('a required flag is checked from the declaration and shows in the usage lin
   });
   expect((await run('needs', '--to', 'x')).stdout).toBe('x\n');
 });
+
+test('a last `words...` argument takes the words left, none or many, flags after `--` too', async () => {
+  const say = defineCommand({
+    name: 'say',
+    summary: 'Say words',
+    args: ['who', 'words...'],
+    flags: { loud: { type: 'boolean', description: 'Shout' } },
+    example: 'mesa say ada -- hello',
+    run: ({ args, flags }) => ({ data: { ...args, loud: flags.loud ?? false }, text: '' }),
+  });
+  const run = async (...argv: string[]) =>
+    JSON.parse((await runCli([...argv, '--json'], { ...deps, commands: [say] })).stdout);
+  expect((await run('say', 'ada')).data).toEqual({ who: 'ada', words: [], loud: false });
+  expect((await run('say', 'ada', 'hi', 'there', '--loud')).data).toEqual({
+    who: 'ada',
+    words: ['hi', 'there'],
+    loud: true,
+  });
+  // After `--` a word that looks like a flag is a word; --json before it is still the flag.
+  const words = await runCli(['say', 'ada', '--json', '--', '--loud', '-x'], {
+    ...deps,
+    commands: [say],
+  });
+  expect(JSON.parse(words.stdout).data).toEqual({
+    who: 'ada',
+    words: ['--loud', '-x'],
+    loud: false,
+  });
+  const none = await runCli(['say'], { ...deps, commands: [say] });
+  expect(none).toMatchObject({ code: 2, stderr: 'Usage: mesa say <who> [words...] [flags]\n' });
+});

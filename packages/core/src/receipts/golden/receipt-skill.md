@@ -9,7 +9,7 @@ project: lantern-cove
 agent: claude
 started: 2026-09-24T12:00
 status: failed
-command: mesa run lantern-cove --skill tidy-readme
+command: mesa run tidy-readme --project lantern-cove
 decisions: []
 inputs:
   skill: tidy-readme

@@ -8,8 +8,8 @@ import { writeReceipt } from './store.js';
 
 /** What one action's receipt says, given the action's result. */
 type ActionSpec<T> = {
-  /** `action` unless the work is a session's. */
-  type?: 'action' | 'session';
+  /** `action` unless the work is a session's, or a skill run's. */
+  type?: 'action' | 'session' | 'skill';
   summary: (result: T) => string;
   /** The summary when the action throws. */
   failure: string;
@@ -39,7 +39,7 @@ export const joinWarnings = (...parts: (string | undefined)[]) =>
 
 /**
  * Runs actions, sync or async, and records each as a receipt (`action` unless the spec says
- * `session`). A failed action is recorded `failed` (best effort) and rethrown. A receipt never
+ * `session` or `skill`). A failed action is recorded `failed` (best effort) and rethrown. A receipt never
  * fails the action it records: when the vault cannot take one, the result carries a warning,
  * after the action's own (`warning`).
  */

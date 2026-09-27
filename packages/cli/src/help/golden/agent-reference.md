@@ -1,6 +1,6 @@
 # mesa command reference
 
-Every mesa command, generated from the CLI's own command table. In a usage line `<x>` is required and `[x]` is optional; every argument is a string.
+Every mesa command, generated from the CLI's own command table. In a usage line `<x>` is required and `[x]` is optional; every argument is a string, and `[x...]` takes the rest of the words (put `--` before them when one starts with `-`).
 
 With `--json`, a command prints one envelope on stdout: `{"ok":true,"data":...}`, or `{"ok":false,"error":{"code":...,"message":...}}`. A nonzero exit code means it failed, or that it found a problem it reports in `data`.
 
@@ -18,7 +18,7 @@ Greet someone (a fake command)
 
 Example: `mesa greet ada --loud`
 
-### `mesa greet at <who> --place <string> [--wave]`
+### `mesa greet at <who> [words...] --place <string> [--wave]`
 
 Greet someone somewhere
 

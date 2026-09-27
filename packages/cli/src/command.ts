@@ -14,17 +14,26 @@ export const GLOBAL_FLAGS: Record<string, Flag> = {
   version: { type: 'boolean', description: 'Print the version' },
 };
 
-type ArgName<S extends string> = S extends `${infer N}?` ? N : S;
+type ArgName<S extends string> = S extends `${infer N}?` ? N : S extends `${infer N}...` ? N : S;
 
-/** `path` is a required argument named path; `name?` an optional one named name. */
+/**
+ * `path` is a required argument named path; `name?` an optional one named name; `words...`, last,
+ * takes every word left, none or many (after `--`, words that start with `-` too).
+ */
 export const parseArgSpec = (spec: string) =>
-  spec.endsWith('?')
-    ? { name: spec.slice(0, -1), optional: true }
-    : { name: spec, optional: false };
+  spec.endsWith('...')
+    ? { name: spec.slice(0, -3), optional: true, rest: true }
+    : spec.endsWith('?')
+      ? { name: spec.slice(0, -1), optional: true, rest: false }
+      : { name: spec, optional: false, rest: false };
 
-/** Declared names to values: `path` is a string, `name?` is a string or undefined. */
+/** Declared names to values: `path` is a string, `name?` a string or undefined, `words...` a list. */
 type Args<A extends readonly string[]> = {
-  [K in A[number] as ArgName<K>]: K extends `${string}?` ? string | undefined : string;
+  [K in A[number] as ArgName<K>]: K extends `${string}...`
+    ? string[]
+    : K extends `${string}?`
+      ? string | undefined
+      : string;
 };
 
 /** Declared flags to values: a required string flag is a string, the rest may be undefined. */
@@ -65,7 +74,7 @@ export type Command = {
   /** One or more words (`config`, `config set`); the longest name matching the input wins. */
   name: string;
   summary: string;
-  /** Positional arguments in order; a trailing `?` marks one optional. */
+  /** Positional arguments in order; a trailing `?` marks one optional, `...` the rest of the words. */
   args?: readonly string[];
   flags?: Flags;
   /** One invocation an agent can copy; a test checks it parses as this command. */
