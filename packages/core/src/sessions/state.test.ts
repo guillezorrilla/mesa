@@ -1,11 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { claudeHookState as hookState } from '../agents/claude/hook-state.js';
 import type { FaroProfile } from '../decisions/decide.js';
 import { fixedClock } from '../testing/index.js';
-import { AGENT_STATES } from './record.js';
 import { attentionWeights, classify, classifySession, type SessionSignals } from './state.js';
+import { AGENT_STATES } from './states.js';
 
 const dir = join(import.meta.dirname, 'fixtures/state');
 const fixtures = readdirSync(dir)
@@ -144,12 +143,4 @@ test('classifySession asks the adapter only when the rules are unsure, and takes
   // The screen changes: it is asked again.
   await placed({ ...unsure, last: lastState, tail: `${unsure.tail}\n` });
   expect(calls).toHaveLength(1);
-});
-
-test('a SessionEnd from /clear or /resume gives no state: the agent goes on; any other is done', () => {
-  expect(hookState('SessionEnd', { reason: 'clear' })).toBeUndefined();
-  expect(hookState('SessionEnd', { reason: 'resume' })).toBeUndefined();
-  expect(hookState('SessionEnd', { reason: 'prompt_input_exit' })).toBe('done');
-  expect(hookState('SessionEnd', { reason: 'other' })).toBe('done');
-  expect(hookState('SessionEnd')).toBe('done');
 });

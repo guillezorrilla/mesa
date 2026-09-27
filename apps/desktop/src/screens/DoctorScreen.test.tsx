@@ -2,7 +2,15 @@
 import type { Check, TmuxWindow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { App } from '@/App';
-import { cells, check, click, envelope, fakeBridge, renderWithMesa, report } from '@/lib/testing';
+import { cells, click, envelope, fakeBridge, renderWithMesa, report } from '@/lib/testing';
+
+const check = (version: string): Check => ({
+  name: 'tmux',
+  ok: true,
+  status: 'ok',
+  version,
+  hint: '',
+});
 
 test('the Doctor screen shares the header run; Recheck runs doctor again', async () => {
   let version = 1;
@@ -99,12 +107,11 @@ test('an unhealthy report shows its summary and each row by status', async () =>
     status: 'fail',
     hint: 'install with `brew install tmux`',
   };
-  const { bridge } = fakeBridge({ doctor: () => envelope(report([missing])) });
+  const verdict = { healthy: false, summary: 'nothing can run without tmux' };
+  const { bridge } = fakeBridge({ doctor: () => envelope(report([missing], verdict)) });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-doctor')[0]);
-  expect(byTestId('doctor-summary')[0]?.textContent).toBe(
-    'tmux and at least one agent (claude or codex) are required',
-  );
+  expect(byTestId('doctor-summary')[0]?.textContent).toBe('nothing can run without tmux');
   expect(byTestId('doctor-row')[0]?.dataset.status).toBe('fail');
 });
 

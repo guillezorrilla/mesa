@@ -1,6 +1,5 @@
-import { TERMINAL_APPS } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { requireTty } from '../guards.js';
+import { APP_FLAG, requireTty } from '../guards.js';
 
 /** tmux attach needs a terminal; say so before anything prints `opened`. */
 export const attach = defineCommand({
@@ -8,10 +7,7 @@ export const attach = defineCommand({
   summary: "Attach to a session's tmux window here, or in your terminal app with --app",
   args: ['session'],
   flags: {
-    app: {
-      type: 'boolean',
-      description: `Open it in the app config terminal.app names (${TERMINAL_APPS.join(', ')})`,
-    },
+    app: APP_FLAG,
     print: {
       type: 'boolean',
       description:
@@ -24,7 +20,7 @@ export const attach = defineCommand({
       const { attached, exec = [] } = await mesa.sessions.attach(args.session, false);
       return { data: { target: attached.target, argv: exec }, text: exec.join(' ') };
     }
-    if (!flags.app) requireTty(tty);
+    if (!flags.app) requireTty(tty, 'mesa attach --app');
     const { attached, exec } = await mesa.sessions.attach(args.session, flags.app ?? false);
     const where = attached.app ? `in ${attached.app}` : 'here';
     return { data: attached, text: `attaching to ${attached.target} ${where}`, exec };

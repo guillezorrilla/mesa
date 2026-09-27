@@ -1,4 +1,5 @@
 import type { MesaContext } from '../context.js';
+import { REDACTED } from '../lib/redact.js';
 import { redactConfig, setConfigValue } from './config.js';
 import { initProfile, type ProfileInfo } from './profile.js';
 
@@ -28,6 +29,9 @@ export function profileService(ctx: MesaContext) {
           {
             summary: () => `Set config ${dotted}`,
             failure: `Could not set config ${dotted}`,
+            // The value word is always `***`: a key under a mistyped path (`key.api`) fails, and
+            // redactCommand's `keys` rule would miss it. outputs.value keeps a value that is set.
+            argv: ctx.deps.argv.map((word) => (word === value ? REDACTED : word)),
             inputs: { path: dotted },
             outputs: (r) => ({ value: r.value }),
             changed: (r) => r.changed,

@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
+import { AGENTS } from '../agents/agents.js';
 import { SPIKE_LISTING, scriptedRunner } from '../testing/index.js';
-import { listAgentProcesses, listedState } from './agent-listing.js';
+import { listAgentProcesses } from './agent-listing.js';
 
 const listing = (...rows: object[]) => JSON.stringify(rows);
 
@@ -43,7 +44,7 @@ test('listAgentProcesses is [] on a timeout, a failure, or output it cannot read
   }
 });
 
-test('listedState reads each SP-1 status as a session state at 0.85', async () => {
+test("Claude Code's listing reads each SP-1 status as a session state at 0.85", async () => {
   const run = scriptedRunner({
     claude: listing(
       SPIKE_LISTING.idle,
@@ -54,7 +55,7 @@ test('listedState reads each SP-1 status as a session state at 0.85', async () =
       { ...SPIKE_LISTING.idle, status: 'sleeping' },
     ),
   }).run;
-  expect((await listAgentProcesses(run)).map(listedState)).toEqual([
+  expect((await listAgentProcesses(run)).map(AGENTS.claude.listing.state)).toEqual([
     { state: 'idle', confidence: 0.85 },
     { state: 'waiting-permission', confidence: 0.85 },
     { state: 'waiting-question', confidence: 0.85 },

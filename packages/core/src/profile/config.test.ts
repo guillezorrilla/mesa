@@ -65,3 +65,10 @@ test('env key references resolve from the injected environment', () => {
   expect(resolveKey(config, 'plain', {})).toBe('literal');
   expect(resolveKey(config, 'missing', {})).toBeUndefined();
 });
+
+test('a set repairs a value the file holds by hand that does not validate', () => {
+  writeFileSync(file, readFileSync(file, 'utf8').replace('threshold: 0.7', 'threshold: 3'));
+  expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
+  expect(setConfigValue(file, 'decisions.threshold', '0.5')).toEqual({ value: 0.5, changed: true });
+  expect(loadConfig(file).decisions.threshold).toBe(0.5);
+});

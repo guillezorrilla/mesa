@@ -1,6 +1,7 @@
 import type { Check, DoctorReport } from '@mesa/core';
 import { RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
+import { warned } from '@/components/Toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useAct, warned } from '@/lib/useAct';
+import { useAct } from '@/lib/useAct';
 import { type CommandState, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 

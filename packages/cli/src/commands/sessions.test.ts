@@ -1,6 +1,13 @@
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, scriptedRunner, shortIds, testStore, tmuxLine } from '@mesa/core/testing';
+import {
+  newSession,
+  plantTranscript,
+  scriptedRunner,
+  shortIds,
+  testStore,
+  tmuxLine,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -167,13 +174,12 @@ test('a Stop reads the context use: mesa sessions shows ctx, mesa show --json th
   expect(await row()).toContain(' ctx - ');
   expect((await mesa('show', opened.id, '--json')).json.data.context).toBeUndefined();
 
-  const folder = join(cli.home, '.claude/projects/-src-lantern-cove');
-  mkdirSync(folder, { recursive: true });
   const fixtures = join(
     import.meta.dirname,
     '../../../core/src/agents/claude/fixtures/transcripts',
   );
-  copyFileSync(join(fixtures, 'normal-turn.jsonl'), join(folder, `${opened.agentSessionId}.jsonl`));
+  const turn = readFileSync(join(fixtures, 'normal-turn.jsonl'), 'utf8');
+  plantTranscript(cli.home, opened.agentSessionId, opened.cwd ?? '/src/lantern-cove', turn);
   cli.stdin = JSON.stringify({ session_id: opened.agentSessionId, hook_event_name: 'Stop' });
   cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
   await mesa('hook', 'claude');
@@ -187,10 +193,8 @@ test('a Stop reads the context use: mesa sessions shows ctx, mesa show --json th
   });
 
   // mesa show reads it again: after a /compact there is none until the next reply.
-  copyFileSync(
-    join(fixtures, 'after-compaction.jsonl'),
-    join(folder, `${opened.agentSessionId}.jsonl`),
-  );
+  const compacted = readFileSync(join(fixtures, 'after-compaction.jsonl'), 'utf8');
+  plantTranscript(cli.home, opened.agentSessionId, opened.cwd ?? '/src/lantern-cove', compacted);
   expect((await mesa('show', opened.id, '--json')).json.data.context).toBeUndefined();
   expect(await row()).toContain(' ctx - ');
 });

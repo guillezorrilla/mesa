@@ -65,6 +65,15 @@ test('config set leaves an action receipt with key values redacted, and none whe
   await mesa('config', 'set', 'terminal.app', 'iTerm');
   const listed = (await mesa('receipts', '--json')).json.data;
   expect(listed[0].summary).toBe('Set config terminal.app');
+
+  // A key under a mistyped path fails, and its failed receipt keeps no value either.
+  expect((await mesa('config', 'set', 'key.openai', 'sk-live-abcdef', '--json')).code).toBe(4);
+  const failed = (await mesa('receipts', '--json')).json.data;
+  expect(failed[0].receipt).toMatchObject({
+    status: 'failed',
+    command: 'mesa config set key.openai *** --json',
+  });
+  expect(JSON.stringify(failed)).not.toContain('sk-live-abcdef');
 });
 
 test('profile and version', async () => {

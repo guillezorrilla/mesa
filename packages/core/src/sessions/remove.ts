@@ -1,10 +1,10 @@
 import { existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
 import { worktreeHolder } from './holders.js';
+import { eventsLog } from './hook-events.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
@@ -90,7 +90,7 @@ export async function removeSession(
     await deleteBranch(deps.run, repo, worktree.branch);
     removed.branch = worktree.branch;
   }
-  const events = join(deps.eventsDir, `${id}.jsonl`);
+  const events = eventsLog(deps.eventsDir, id);
   removed.events = existsSync(events);
   rmSync(events, { force: true });
   deps.store.remove(id);

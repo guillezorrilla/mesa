@@ -11,6 +11,8 @@ import {
   managedRow,
   renderWithMesa,
   report,
+  toasts,
+  toastTexts,
 } from '@/lib/testing';
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
@@ -22,7 +24,13 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
   expect(healthy('doctor-health')[0]?.dataset.health).toBe('healthy');
 
   const sick = fakeBridge({
-    doctor: () => envelope(report([{ name: 'tmux', ok: false, status: 'fail', hint: '' }])),
+    doctor: () =>
+      envelope(
+        report([{ name: 'tmux', ok: false, status: 'fail', hint: '' }], {
+          healthy: false,
+          summary: 'nothing can run without tmux',
+        }),
+      ),
     'vault status': () => envelope({ path: '/h/vault', ok: false, missing: ['receipts'] }),
   });
   const byTestId = await renderWithMesa(<App />, sick.bridge);
@@ -42,8 +50,7 @@ test('every distinct failure shows once in the toast', async () => {
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  const toasts = byTestId('toast').map((t) => t.querySelector('pre')?.textContent);
-  expect(toasts.sort()).toEqual([
+  expect(toastTexts(byTestId).sort()).toEqual([
     'config.yaml not found; run mesa init --vault <path>',
     'mesa exited with code 1: boom',
   ]);
@@ -109,8 +116,6 @@ async function send(byTestId: (id: string) => HTMLElement[], prompt: string) {
   (byTestId('session-prompt')[0] as HTMLInputElement).value = prompt;
   await click(byTestId('session-send-submit')[0]);
 }
-const toasts = (byTestId: (id: string) => HTMLElement[]) =>
-  byTestId('toast').map((t) => [t.dataset.tone, t.querySelector('pre')?.textContent]);
 
 test('a confirmation is neutral, shows every time, and goes by itself', async () => {
   vi.useFakeTimers();

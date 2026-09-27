@@ -4,13 +4,8 @@ import { decide, type FaroDeps } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Backend, Decision, Question } from '../decisions/types.js';
 import type { AgentProcess } from './agent-listing.js';
-import {
-  AGENT_STATES,
-  FINAL_STATES,
-  type SessionRecord,
-  type SessionState,
-  WAITING_STATES,
-} from './record.js';
+import type { SessionRecord } from './record.js';
+import { AGENT_STATES, FINAL_STATES, type SessionState, WAITING_STATES } from './states.js';
 
 type LastState = SessionRecord['lastState'];
 
@@ -40,7 +35,7 @@ const FRESH_MS = 60_000;
 const LISTING_LAG_MS = 2_000;
 /**
  * ADR-0003's tiers; a hook older than a minute counts for less, until the listing agrees. The
- * listing's own (0.85) is `listedState`'s.
+ * listing's own (0.85) is its agent's (`AGENTS[agent].listing.state`).
  */
 const HOOK = 0.95;
 const STALE_HOOK = 0.8;

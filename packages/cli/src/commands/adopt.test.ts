@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { plantTranscript } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -13,15 +14,11 @@ test('adopt records a session found on disk and says to end it in its original t
   const dir = join(cli.home, 'src/lantern-cove');
   mkdirSync(dir, { recursive: true });
   await mesa('register', dir, '--create');
-  const folder = join(cli.home, '.claude/projects/-src-lantern-cove');
-  mkdirSync(folder, { recursive: true });
   const [first, second] = [
     '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f',
     '6c2f3a51-0d4e-4f8b-9a21-3b4c5d6e7f80',
   ];
-  for (const id of [first, second]) {
-    writeFileSync(join(folder, `${id}.jsonl`), `${JSON.stringify({ sessionId: id, cwd: dir })}\n`);
-  }
+  for (const id of [first, second]) plantTranscript(cli.home, id, dir);
   const warning = 'end the session in its original terminal first: both hold the same transcript';
   const { json } = await mesa('adopt', first, '--no-resume', '--json');
   expect(json).toMatchObject({

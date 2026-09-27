@@ -54,7 +54,10 @@ test("view shows a project's sessions side by side, laid out by its mesa.yaml", 
     'on',
   ]);
   cli.tty = false;
-  expect((await mesa('view', 'lantern-cove')).code).toBe(2);
+  expect(await mesa('view', 'lantern-cove')).toMatchObject({
+    code: 2,
+    stderr: 'not a terminal: run this in one, or use mesa view --app\n',
+  });
 });
 
 test('a layout tmux lacks, or an app that cannot open, leaves no view behind', async () => {

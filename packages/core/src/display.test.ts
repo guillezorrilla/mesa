@@ -1,6 +1,16 @@
 import { expect, test } from 'vitest';
+import {
+  attentionScore,
+  contextPercent,
+  duration,
+  listPrice,
+  percent,
+  sessionBranch,
+  sessionCount,
+  sessionLabel,
+  waitingOn,
+} from './display.js';
 import type { SessionRow } from './sessions/board/rows.js';
-import { duration, listPrice, sessionBranch, sessionLabel, waitingOn } from './view.js';
 
 // Only the fields the view reads.
 const row = (fields: object) => fields as SessionRow;
@@ -17,6 +27,7 @@ test('a row reads as its name, else its id; its branch is its worktree, else the
   expect(sessionBranch(managed({}))).toBeUndefined();
   expect(sessionBranch(foreign)).toBeUndefined();
   expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
+  expect([1, 2].map(sessionCount)).toEqual(['1 session', '2 sessions']);
 });
 
 test('durations and list prices read the same everywhere', () => {
@@ -30,4 +41,10 @@ test('durations and list prices read the same everywhere', () => {
   ]);
   expect(listPrice(0.01234)).toBe(' (list price $0.0123)');
   expect(listPrice(undefined)).toBe('');
+});
+
+test('a confidence, an attention score, and a context reading read the same everywhere', () => {
+  expect(percent(0.954)).toBe('95%');
+  expect(attentionScore(0.8333)).toBe('0.83');
+  expect([21.16, 54.5, 120, -3].map(contextPercent)).toEqual([21, 55, 100, 0]);
 });

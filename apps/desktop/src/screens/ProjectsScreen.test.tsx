@@ -10,6 +10,7 @@ import {
   fakePlatform,
   PROJECTS,
   renderWithMesa,
+  toastTexts,
 } from '@/lib/testing';
 
 test('the Projects screen lists the fixture projects, marking one whose path is gone', async () => {
@@ -150,9 +151,7 @@ test('a cancelled picker registers nothing; a failed register shows in the toast
   );
   await click(byTestId('nav-projects')[0]);
   await click(byTestId('register-folder')[0]);
-  expect(byTestId('toast').map((t) => t.querySelector('pre')?.textContent)).toEqual([
-    'already registered: tide at /src/tide',
-  ]);
+  expect(toastTexts(byTestId)).toEqual(['already registered: tide at /src/tide']);
 });
 
 test("View sessions shows the project's sessions side by side in the terminal app and says so", async () => {

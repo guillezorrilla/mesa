@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
+import { WAITING_STATES } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
-import { WAITING } from './rows';
 
 /** A row's toggle for the rows under it: how many a closed one hides, and whether one waits. */
 export function TreeToggle(props: {
@@ -9,7 +9,7 @@ export function TreeToggle(props: {
   onToggle: () => void;
 }) {
   const { below, closed } = props;
-  const waits = closed && below.some((r) => WAITING.has(r.lastState.state));
+  const waits = closed && below.some((r) => WAITING_STATES.has(r.lastState.state));
   const count = below.length === 1 ? 'the session' : `the ${below.length} sessions`;
   return (
     <button

@@ -40,3 +40,10 @@ One channel made every confirmation ("Stopped session a1b2") look like a failure
 - Each toast carries `data-tone`, so tests read the tone as they read the text.
 
 Evidence: `apps/desktop/src/App.test.tsx` "a confirmation is neutral, shows every time, and goes by itself" and "a failure, or a confirmation with a warning, is an alert: warm, once, and it stays", with vitest's fake timers; letting a confirmation dedupe or stay, or an alert go by itself, fails one of them.
+
+## Amendment 2026-09-26: one dialog frame, shadcn's native select, and the parts as they are now (#131, #149)
+
+- The project picker is shadcn's `NativeSelect` (`components/ui/native-select.tsx`), still a native `<select>`, so the form reads it and a project whose folder is gone is a disabled option. It replaces the Decision's hand-copied Input classes. It was added with `pnpm dlx shadcn@latest add native-select`, and the `cn` gotcha under Consequences applied: the registry item imported `cn` from an npm package of that name, so the import points at `@/lib/utils` and the dependency is gone. Its wrapper is `w-full`, as Input is.
+- The Board's four dialogs (New session, Hand off, Rename, Remove) share one frame, `components/ActionDialog.tsx`: a modal with a title, a description, the fields, and Cancel beside a submit that is disabled while acting. `BoardScreen` keeps one open-dialog state.
+- The Decision's lists, as the code has them now. `components/ui/`: Alert, Badge, Button, Card, Checkbox, Dialog, Input, Label, NativeSelect, Progress, RadioGroup, Table, Textarea. `components/`: ActionDialog, ContextBar, LogBox, PageHeader, ProfileSummary, StateBadge, Terminal, Toast. `screens/board/`: rows, the row and its menu, the tree toggle, received prompts, the New session, Hand off, Rename, and Remove dialogs, terminal panels, and the `useBoard` look loop.
+- What the app shares with the CLI at run time comes from core's pure entry, `@mesa/core/browser` (ADR-0008 amendment): how a row's label, branch, and numbers read, and which states are final or waiting. The app keeps no copy of those rules.
