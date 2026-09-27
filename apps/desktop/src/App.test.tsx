@@ -240,6 +240,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     sessions: { log: true },
     terminal: { app: 'Terminal' },
     shortcuts,
+    board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     keys: {},
   });

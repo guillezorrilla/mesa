@@ -1,5 +1,12 @@
-import type { GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
-import { attentionScore, isRun, sessionBranch, sessionLabel } from '@mesa/core/browser';
+import type { BoardPreferences, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import {
+  attentionScore,
+  DEFAULT_BOARD_PREFERENCES,
+  isRun,
+  presentSessions,
+  sessionBranch,
+  sessionLabel,
+} from '@mesa/core/browser';
 import {
   ArrowLeft,
   Download,
@@ -20,9 +27,10 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
+import { BoardControls } from './BoardControls';
+import { BoardLayouts } from './BoardLayouts';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
 import { LogDialog } from './LogDialog';
@@ -30,8 +38,8 @@ import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { RowMenu } from './RowMenu';
-import { exited, queued, resumable, shown } from './rows';
-import { type RowActions, SessionRow } from './SessionRow';
+import { exited, queued, resumable } from './rows';
+import type { RowActions } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
 import { WorkflowSelect } from './WorkflowSelect';
@@ -45,18 +53,6 @@ type OpenDialog =
   | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
-const COLUMNS = [
-  'Id',
-  'Project',
-  'Agent',
-  'State',
-  'Attention',
-  'Context',
-  'Running',
-  'Last output',
-  'Actions',
-];
-
 /**
  * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
  * (highest attention first, children under their parent, collapsible), with Faro's state,
@@ -69,6 +65,9 @@ export function BoardScreen(
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
     newSessionRequest?: number;
+    preferences?: BoardPreferences;
+    onPreferencesChanged?: () => void;
+    onSelectSession?: (id: string) => void;
   } = {},
 ) {
   const [ended, setEnded] = useState(false);
@@ -96,6 +95,7 @@ export function BoardScreen(
     }
   }, [data, props.selectedSession]);
   const selected = data?.find((row) => row.id === props.selectedSession);
+  const preferences = props.preferences ?? DEFAULT_BOARD_PREFERENCES;
 
   // Every action looks again when it ends, so the Board shows what it did.
   const { acting, act: once } = useAct();
@@ -205,6 +205,26 @@ export function BoardScreen(
       close();
       return said(`Opened session ${opened.id} on ${opened.project}`, opened);
     });
+  const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
+    act(async () => {
+      const saved = await run('config.set', { path: `board.${key}`, value });
+      if (!saved) return undefined;
+      props.onPreferencesChanged?.();
+      return said(`Saved Board ${key}`, saved);
+    });
+  const move = (id: string, direction: -1 | 1) => {
+    const groups = presentSessions(data ?? [], preferences);
+    const group = groups.find((group) => group.rows.some((row) => row.id === id));
+    if (!group) return;
+    const ids = groups.flatMap((g) => g.rows.filter((row) => row.managed).map((row) => row.id));
+    const index = ids.indexOf(id);
+    const managed = group.rows.filter((row) => row.managed);
+    const neighbor = managed[managed.findIndex((row) => row.id === id) + direction];
+    if (!neighbor) return;
+    const other = ids.indexOf(neighbor.id);
+    [ids[index], ids[other]] = [ids[other] as string, ids[index] as string];
+    savePreference('order', ids);
+  };
 
   return (
     <section data-testid="session-board" className="space-y-4">
@@ -239,6 +259,13 @@ export function BoardScreen(
             New session
           </Button>
         </PageHeader>
+      )}
+      {!props.selectedSession && (
+        <BoardControls
+          preferences={preferences}
+          disabled={acting}
+          onChange={(key, value) => savePreference(key, value)}
+        />
       )}
       {dialog?.kind === 'new' && (
         <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
@@ -397,31 +424,17 @@ export function BoardScreen(
               No sessions yet: start one with New session.
             </p>
           )}
-          <Card className="py-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {COLUMNS.map((c) => (
-                    <TableHead key={c}>{c}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shown(data ?? [], collapsed).map(({ row, below }) => (
-                  <SessionRow
-                    key={row.id}
-                    row={row}
-                    below={below}
-                    closed={collapsed.has(row.id)}
-                    onToggle={() => toggle(row.id)}
-                    elapsed={elapsed}
-                    acting={acting}
-                    actions={actions}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <BoardLayouts
+            rows={data ?? []}
+            preferences={preferences}
+            collapsed={collapsed}
+            toggle={toggle}
+            elapsed={elapsed}
+            acting={acting}
+            actions={actions}
+            onSelect={props.onSelectSession}
+            onMove={move}
+          />
         </>
       )}
       {panels.map((id) => (

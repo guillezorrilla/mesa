@@ -47,6 +47,16 @@ export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
 export type { SessionLog } from './sessions/output-log.js';
+export {
+  BOARD_DENSITIES,
+  BOARD_GROUPS,
+  BOARD_SORTS,
+  BOARD_VIEWS,
+  type BoardPreferences,
+  DEFAULT_BOARD_PREFERENCES,
+  type PresentationGroup,
+  presentSessions,
+} from './sessions/presentation.js';
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type { HeadlessResult } from './sessions/run.js';

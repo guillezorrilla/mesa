@@ -1,6 +1,7 @@
 import type { Command } from '../command.js';
 import { adopt } from './adopt.js';
 import { attach } from './attach.js';
+import { board } from './board.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { doctor } from './doctor.js';
@@ -40,6 +41,7 @@ import { workflow } from './workflow.js';
 export const COMMANDS: Command[] = [
   adopt,
   attach,
+  board,
   config,
   configSet,
   decide,

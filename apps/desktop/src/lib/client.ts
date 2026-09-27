@@ -46,7 +46,7 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 const COMMANDS = {
   'config.get': command<Config>('config'),
   'config.set': commandWith<
-    { path: string; value: string },
+    { path: string; value: unknown },
     Recorded<{ path: string; value: unknown }>
   >(({ path, value }) => ['config', 'set', '--', path, JSON.stringify(value)]),
   'doctor.run': command<DoctorReport>('doctor'),

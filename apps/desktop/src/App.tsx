@@ -117,6 +117,9 @@ export function App() {
               onRowsChange={setSessions}
               onBoard={() => setView({ kind: 'board' })}
               newSessionRequest={newSessionRequest}
+              preferences={config.data?.board}
+              onPreferencesChanged={() => void config.refresh()}
+              onSelectSession={(id) => setView({ kind: 'session', id })}
             />
           </div>
           {view.kind === 'projects' && (

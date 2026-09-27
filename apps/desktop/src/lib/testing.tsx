@@ -54,6 +54,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       sessions: { log: true },
       terminal: { app: 'Terminal' },
       shortcuts: { ...DEFAULT_SHORTCUTS },
+      board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
       keys: {},
     } satisfies Config),

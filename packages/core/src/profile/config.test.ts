@@ -55,6 +55,17 @@ test('an invalid value or file is invalid_config with the failing field, and the
   });
 });
 
+test('Board preferences validate manual order without touching unrelated config', () => {
+  setConfigValue(file, 'board.view', 'cards');
+  setConfigValue(file, 'board.order', '[aaaaaaaa, bbbbbbbb]');
+  expect(loadConfig(file).board).toMatchObject({ view: 'cards', order: ['aaaaaaaa', 'bbbbbbbb'] });
+  const before = readFileSync(file, 'utf8');
+  expect(thrown(() => setConfigValue(file, 'board.order', '[aaaaaaaa, aaaaaaaa]')).code).toBe(
+    'invalid_config',
+  );
+  expect(readFileSync(file, 'utf8')).toBe(before);
+});
+
 test('a YAML syntax error reports the position, never the source text', () => {
   writeFileSync(file, 'vault: /tmp/v\nkeys:\n  jev: "sk-secret\n');
   const { code, message } = thrown(() => loadConfig(file));

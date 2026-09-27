@@ -11,6 +11,13 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath } from '../lib/yaml-file.js';
+import {
+  BOARD_DENSITIES,
+  BOARD_GROUPS,
+  BOARD_SORTS,
+  BOARD_VIEWS,
+  DEFAULT_BOARD_PREFERENCES,
+} from '../sessions/presentation.js';
 import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 
 /** The terminal apps `mesa attach --app` can open. */
@@ -48,6 +55,18 @@ const ConfigSchema = z.strictObject({
         .default(DEFAULT_SHORTCUTS.newSession),
     })
     .refine((keys) => new Set(Object.values(keys)).size === 3, 'shortcuts must be unique')
+    .prefault({}),
+  board: z
+    .strictObject({
+      view: z.enum(BOARD_VIEWS).default(DEFAULT_BOARD_PREFERENCES.view),
+      group: z.enum(BOARD_GROUPS).default(DEFAULT_BOARD_PREFERENCES.group),
+      density: z.enum(BOARD_DENSITIES).default(DEFAULT_BOARD_PREFERENCES.density),
+      sort: z.enum(BOARD_SORTS).default(DEFAULT_BOARD_PREFERENCES.sort),
+      order: z
+        .array(z.string().regex(/^[0-9a-z]{8}$/))
+        .refine((ids) => new Set(ids).size === ids.length, 'ids must be unique')
+        .default([]),
+    })
     .prefault({}),
   /** How a headless run may act (mesa run): claude's --permission-mode and --allowedTools. */
   run: z

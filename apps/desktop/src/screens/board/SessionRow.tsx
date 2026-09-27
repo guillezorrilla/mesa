@@ -7,7 +7,16 @@ import {
   sessionLabel,
   waitingOn,
 } from '@mesa/core/browser';
-import { Download, Forward, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Download,
+  Forward,
+  RotateCcw,
+  Send,
+  Square,
+  SquareTerminal,
+} from 'lucide-react';
 import { ContextBar } from '@/components/ContextBar';
 import { StateBadge } from '@/components/StateBadge';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +61,7 @@ export function SessionRow(props: {
   elapsed: number;
   acting: boolean;
   actions: RowActions;
+  onMove?: (id: string, direction: -1 | 1) => void;
 }) {
   const { row: s, below, acting, actions } = props;
   // A name a person gave it stands in for the id, which stays on hover.
@@ -103,6 +113,18 @@ export function SessionRow(props: {
             className="max-w-80 truncate text-muted-foreground text-xs"
           >
             {s.goal.trim().split(/\r?\n/, 1)[0]}
+          </div>
+        )}
+        {s.managed && (s.parent || s.after || s.handoffFrom || s.resumedFrom) && (
+          <div data-testid="session-relations" className="text-muted-foreground text-xs">
+            {[
+              s.parent && `Child of ${s.parent}`,
+              s.after && `After ${s.after}`,
+              s.handoffFrom && `Handed off from ${s.handoffFrom}`,
+              s.resumedFrom && `Resumed from ${s.resumedFrom}`,
+            ]
+              .filter(Boolean)
+              .join(' / ')}
           </div>
         )}
       </TableCell>
@@ -187,6 +209,28 @@ export function SessionRow(props: {
               disabled={acting}
               onChange={(status) => actions.workflow(s.id, status)}
             />
+            {props.onMove && (
+              <div className="flex gap-1">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Move ${s.id} up`}
+                  onClick={() => props.onMove?.(s.id, -1)}
+                  disabled={acting}
+                >
+                  <ArrowUp aria-hidden />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Move ${s.id} down`}
+                  onClick={() => props.onMove?.(s.id, 1)}
+                  disabled={acting}
+                >
+                  <ArrowDown aria-hidden />
+                </Button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-1">
               <Button
                 variant="outline"

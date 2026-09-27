@@ -6,5 +6,15 @@ export { DEFAULT_SHORTCUTS, shortcutFromKeys, validShortcut } from './profile/sh
 export { repositoryUrl } from './projects/project-url.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
+export {
+  BOARD_DENSITIES,
+  BOARD_GROUPS,
+  BOARD_SORTS,
+  BOARD_VIEWS,
+  type BoardPreferences,
+  DEFAULT_BOARD_PREFERENCES,
+  type PresentationGroup,
+  presentSessions,
+} from './sessions/presentation.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
