@@ -593,7 +593,7 @@ test('Adopt on a foreign row adopts it into its project and says to end the orig
   const { bridge, calls } = fakeBridge({
     sessions: () =>
       envelope([placedForeign, { ...foreignRow, id: 'ext-7', pid: 7 }] satisfies TreeRow[]),
-    adopt: () => envelope({ record: { ...busy, id: 'eeeeeeee' }, warning }),
+    adopt: () => envelope({ ...busy, id: 'eeeeeeee', warning }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const [first, second] = byTestId('session-adopt');

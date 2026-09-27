@@ -136,7 +136,7 @@ const COMMANDS = {
   // The row's project, which the board read from its folder, so both place it alike.
   'sessions.adopt': commandWith<
     { agentSessionId: string; project?: string },
-    Recorded<{ record: SessionRecord }>
+    Recorded<SessionRecord>
   >(({ agentSessionId, project }) => [
     'adopt',
     ...(project ? ['--project', project] : []),

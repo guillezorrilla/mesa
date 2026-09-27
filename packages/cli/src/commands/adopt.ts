@@ -24,6 +24,6 @@ export const adopt = defineCommand({
     const { record } = recorded.result;
     const done = flags['no-resume'] ? 'recorded' : 'resumed in its window';
     const text = `${record.id}: adopted on ${record.project}, ${done}`;
-    return recordedOutput(recorded, { data: { record }, text });
+    return recordedOutput(recorded, { data: record, text });
   },
 });

@@ -26,13 +26,20 @@ test('adopt records a session found on disk and says to end it in its original t
   const { json } = await mesa('adopt', first, '--no-resume', '--json');
   expect(json).toMatchObject({
     ok: true,
-    data: { record: { agentSessionId: first, adopted: true, project: 'lantern-cove' }, warning },
+    data: {
+      id: expect.stringMatching(/^[0-9a-z]{8}$/),
+      agentSessionId: first,
+      adopted: true,
+      project: 'lantern-cove',
+      receipt: { id: expect.any(String) },
+      warning,
+    },
   });
   const { stdout } = await mesa('adopt', second, '--no-resume');
   expect(stdout).toMatch(
     new RegExp(`^[0-9a-z]{8}: adopted on lantern-cove, recorded\nwarning: ${warning}\n$`),
   );
   expect((await mesa('adopt', first)).stderr).toBe(
-    `Mesa has ${first} already, as session ${json.data.record.id}\n`,
+    `Mesa has ${first} already, as session ${json.data.id}\n`,
   );
 });
