@@ -14,7 +14,7 @@ import {
 } from './types.js';
 
 /** What Faro reads from the profile: `decisions.backend` and `.threshold`. */
-export type FaroProfile = Pick<Config, 'decisions'>;
+export type FaroProfile = { decisions: Pick<Config['decisions'], 'backend' | 'threshold'> };
 
 export type FaroDeps<S> = {
   /** The backends this decision site can use; its rules backend among them, or an even one. */

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AGENTS } from '../agents/agents.js';
+import { AGENTS, newSessionId } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { IdSource } from '../lib/ids.js';
@@ -44,10 +44,11 @@ export const runInput = (runs: string, id: string) => join(runs, `${id}.input`);
 /** How many of a session's last output lines a run about it is given. */
 const INPUT_LINES = 1000;
 
-/** A run's prompt, `/<skill> <args>`, which its record keeps as its goal. */
-const runPrompt = (skill: string, args: readonly string[] = []) => [`/${skill}`, ...args].join(' ');
+/** A run's native skill prompt, which its record keeps as its goal. */
+const runPrompt = (prefix: string, skill: string, args: readonly string[] = []) =>
+  [`${prefix}${skill}`, ...args].join(' ');
 /** The skill a run's record ran, from its goal (runPrompt). */
-const runSkill = (run: SessionRecord) => run.goal?.match(/^\/(\S+)/)?.[1];
+const runSkill = (run: SessionRecord) => run.goal?.match(/^[/$](\S+)/)?.[1];
 
 /** What a run gave back: the agent's answer, its conversation, what it cost, how long it took. */
 export type HeadlessResult = {
@@ -56,6 +57,8 @@ export type HeadlessResult = {
   output: string;
   agentSessionId: string;
   costUsd?: number;
+  /** Provider token counts, without an invented dollar price. */
+  usage?: Record<string, number>;
   durationMs: number;
   /** Why it is not ok: the agent's own error, its exit, or why its output does not read. */
   reason?: string;
@@ -124,12 +127,15 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   }
   requireSkill(deps.skills(entry.name), input.skill, entry.name);
   const { agent, spec } = await launchAgent(deps, project, input.agent);
-  if (!spec.headless)
-    throw new MesaError('agent_unavailable', `${agent} runs no skills headless yet`);
   const given = about && aboutInput(deps, about);
-  const prompt = runPrompt(input.skill, input.args);
-  const agentSessionId = deps.newUuid();
-  const command = spec.headless.command(agentSessionId, prompt, deps.profile.config.run);
+  const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
+  const agentSessionId = newSessionId(agent, deps.newUuid);
+  const command = spec.headless.command(
+    agentSessionId,
+    prompt,
+    deps.profile.config.run,
+    entry.path,
+  );
   const stdin = (id: string) => (given ? shellWord(runInput(deps.runs, id)) : '/dev/null');
   const line = (id: string) =>
     `exec ${command} <${stdin(id)} >${shellWord(runOutput(deps.runs, id))}`;
@@ -352,10 +358,7 @@ function runResult(
 ): HeadlessResult {
   const file = runOutput(deps.runs, run.id);
   const said = existsSync(file)
-    ? (AGENTS[run.agent].headless?.result(readFileSync(file, 'utf8')) ?? {
-        read: false as const,
-        reason: `${run.agent} has no headless result`,
-      })
+    ? AGENTS[run.agent].headless.result(readFileSync(file, 'utf8'))
     : { read: false as const, reason: `no output at ${file}` };
   const failed =
     exit && exitState({ deadStatus: exit.status, deadSignal: exit.signal }) === 'failed';
@@ -365,7 +368,11 @@ function runResult(
       ? `${run.agent} was killed by ${exit.signal}`
       : `${run.agent} exited with status ${exit.status ?? 0}`;
   if (said.read) {
-    const { read: _, ...read } = said;
+    const { read: _, ...parsed } = said;
+    const read = {
+      ...parsed,
+      durationMs: parsed.durationMs ?? Math.max(0, Date.parse(at) - Date.parse(run.startedAt)),
+    };
     return read.ok && failed ? { ...read, ok: false, reason: how } : read;
   }
   return {
@@ -397,6 +404,7 @@ function endRecord(
     const state = result.ok ? 'done' : 'failed';
     return {
       endedAt: at,
+      ...(result.agentSessionId ? { agentSessionId: result.agentSessionId } : {}),
       ...(!result.ok ? { runFailure: result.reason ?? 'run failed' } : {}),
       lastState: { state, confidence: 1, at, source: 'mesa' as const },
       ...(exit && !recorded

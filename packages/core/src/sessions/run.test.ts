@@ -6,6 +6,7 @@ import { listReceipts } from '../receipts/store.js';
 import {
   agentWorld,
   claudeResult,
+  codexResult,
   type FakeWindow,
   finishesRun,
   fixedClock,
@@ -253,7 +254,7 @@ test('past its timeout a run is killed, ended failed, and a timeout error', asyn
   });
 });
 
-test('a skill the project does not see or enable, another agent, or a bad timeout starts nothing', async () => {
+test('a skill the project does not see or enable, or a bad timeout starts nothing', async () => {
   const world = agentWorld();
   const { home, mesa } = setUp(world);
   const refused = (
@@ -277,10 +278,6 @@ test('a skill the project does not see or enable, another agent, or a bad timeou
   ).toBe(
     "skill session-summary is not enabled for lantern-cove: add it to the profile's skills (mesa config set skills) or to its mesa.yaml skills",
   );
-  expect(await refused('session-summary', { agent: 'codex' })).toMatchObject({
-    code: 'agent_unavailable',
-    message: 'codex runs no skills headless yet',
-  });
   expect(await refused('session-summary', { timeoutSeconds: 0 })).toMatchObject({ code: 'usage' });
   // Counted on the line tmux gets: claude's command fits, with its redirects it does not.
   const bare = (n: number) =>
@@ -658,4 +655,67 @@ test('a hook that finishes after the deadline look wins over the waiter timeout'
     timeoutSeconds: 1,
   });
   expect(ran.result.ok).toBe(true);
+});
+
+test('Codex uses its native skill prompt and thread, keeps tokens in the receipt, and reports failed exits', async () => {
+  for (const status of [0, 1]) {
+    let command = '';
+    const world = agentWorld({
+      onOpen: (window) => {
+        command = window.launch;
+        finishesRun({ output: codexResult('skill-stdin'), status })(window);
+      },
+    });
+    const { home, dir, mesa } = setUp(world);
+    const { result, receipt } = await mesa.sessions.run('session-summary', {
+      project: 'lantern-cove',
+      agent: 'codex',
+      args: ['focus', 'on tests'],
+    });
+    expect(result).toMatchObject({
+      ok: status === 0,
+      output: 'LANTERN_SKILL_OK TIDE_STDIN_731',
+      agentSessionId: '00000000-0000-4000-8000-000000000002',
+      durationMs: 0,
+      usage: { input_tokens: 14851, output_tokens: 16 },
+    });
+    if (status) expect(result.reason).toBe('codex exited with status 1');
+    expect(result).not.toHaveProperty('costUsd');
+    expect(command).toBe(
+      `exec codex exec --json -C '${dir}' -c approval_policy=never -c sandbox_mode=workspace-write '$session-summary focus on tests' </dev/null >'${runOutput(profilePaths(home, 'default').runs, result.session)}'`,
+    );
+    const record = testStore(home).get(result.session);
+    expect(record).toMatchObject({
+      kind: 'run',
+      agent: 'codex',
+      goal: '$session-summary focus on tests',
+      agentSessionId: result.agentSessionId,
+    });
+    const saved = listReceipts(join(home, 'vault')).find(
+      (r) => r.receipt.id === receipt?.id,
+    )?.receipt;
+    expect(saved?.outputs).toMatchObject({
+      usage: result.usage,
+      agentSessionId: result.agentSessionId,
+    });
+    expect(saved).not.toHaveProperty('cost');
+  }
+});
+
+test('a Codex startup failure includes its stderr reason, without a fabricated thread', async () => {
+  const world = agentWorld({
+    onOpen: finishesRun({ status: 1, stderr: 'Error: No such file or directory (os error 2)' }),
+  });
+  const { mesa } = setUp(world);
+  const { result } = await mesa.sessions.run('session-summary', {
+    project: 'lantern-cove',
+    agent: 'codex',
+  });
+  expect(result).toMatchObject({
+    ok: false,
+    agentSessionId: '',
+    durationMs: 0,
+    reason: expect.stringContaining('Error: No such file or directory (os error 2)'),
+  });
+  expect(result.reason).toContain('codex exited with status 1');
 });

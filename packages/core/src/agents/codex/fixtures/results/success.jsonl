@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"00000000-0000-4000-8000-000000000002"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"clamping SessionEnd hook timeout to 3s in $CODEX_HOME/config.toml"}}
+{"type":"item.completed","item":{"id":"item_1","type":"error","message":"clamping Interrupt hook timeout to 3s in $CODEX_HOME/config.toml"}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Hi!"}}
+{"type":"turn.completed","usage":{"input_tokens":18630,"cached_input_tokens":12160,"cache_write_input_tokens":0,"output_tokens":6,"reasoning_output_tokens":0}}
