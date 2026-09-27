@@ -17,6 +17,16 @@ export function projectsService(ctx: MesaContext) {
         () => registerProject(open(), { dir: absolute(dir), create }),
       ),
     list: () => listProjects(open()),
-    unregister: (name: string) => unregisterProject(open(), name),
+    unregister: (name: string) =>
+      record(
+        {
+          summary: (r) => `Unregistered project ${r.name}`,
+          failure: `Could not unregister ${name}`,
+          project: (r) => r.name,
+          inputs: { name },
+          outputs: (r) => ({ path: r.path }),
+        },
+        () => unregisterProject(open(), name),
+      ),
   };
 }

@@ -1,4 +1,5 @@
 import { defineCommand } from '../command.js';
+import { recordedOutput } from '../output/recorded.js';
 
 export const unregister = defineCommand({
   name: 'unregister',
@@ -6,7 +7,8 @@ export const unregister = defineCommand({
   args: ['name'],
   example: 'mesa unregister lantern-cove',
   run: ({ mesa, args }) => {
-    const entry = mesa.projects.unregister(args.name);
-    return { data: entry, text: `unregistered ${entry.name}` };
+    const recorded = mesa.projects.unregister(args.name);
+    const entry = recorded.result;
+    return recordedOutput(recorded, { data: entry, text: `unregistered ${entry.name}` });
   },
 });
