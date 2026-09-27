@@ -1,17 +1,18 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Agent } from '../agents/agents.js';
+import { AGENT_NAMES, type Agent, AgentSchema, readyAgent } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
-import { readProjectFile } from '../projects/project-file.js';
+import { type Project, readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { windowEnv } from './caller.js';
 import { worktreeHolder } from './holders.js';
 import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
+import { PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
 import type { TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
@@ -43,12 +44,32 @@ export function launchProject(profile: Profile, name: string) {
   return { entry, project: readProjectFile(entry.path) };
 }
 
+/**
+ * The agent a new session runs, ready to start (readyAgent): `asked`, else the project's, else
+ * the profile's default. A name Mesa does not know is agent_unavailable.
+ */
+export async function launchAgent(
+  deps: Pick<LaunchDeps, 'profile' | 'run'>,
+  project: Project,
+  asked?: string,
+) {
+  const name = asked ?? project.agent ?? deps.profile.config.defaultAgent;
+  const parsed = AgentSchema.safeParse(name);
+  if (!parsed.success) {
+    const known = AGENT_NAMES.join(', ');
+    throw new MesaError('agent_unavailable', `unknown agent ${name}; agents are ${known}`);
+  }
+  return { agent: parsed.data, spec: await readyAgent(deps.run, parsed.data) };
+}
+
 /** Where a session's agent runs: its own folder, else its worktree, else the project's. */
 export const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: RegistryEntry) =>
   r.cwd ?? r.worktree?.path ?? project.path;
 
 /** What a new session's record holds before its window opens. */
 type NewLaunch = {
+  /** A headless run (CONTEXT.md, Skill run); interactive when unset. */
+  kind?: 'run';
   project: RegistryEntry;
   agent: Agent;
   /** None while queued: a session that never ran has no conversation. */
@@ -178,19 +199,20 @@ function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, bas
 
 // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its
 // prompt, or at the trust dialog in a folder it has not seen, or works on its goal.
-/** A session's state the moment its window opens. */
-export const launched = (at: string): SessionRecord['lastState'] => ({
-  state: 'idle',
-  confidence: 0.6,
-  at,
-  source: 'mesa',
-});
+/**
+ * A session's state the moment its window opens. A headless run has no prompt to wait at: it
+ * works until its agent exits, a process fact.
+ */
+export const launched = (at: string, kind?: 'run'): SessionRecord['lastState'] =>
+  kind === 'run'
+    ? { state: 'working', confidence: PROCESS, at, source: 'mesa' }
+    : { state: 'idle', confidence: 0.6, at, source: 'mesa' };
 
 /** A session's record, named for the window it gets; with `pending`, queued, with none yet. */
 export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile'>, s: NewLaunch) {
   const now = deps.clock().toISOString();
   return deps.store.create((id) => ({
-    kind: 'interactive',
+    kind: s.kind ?? 'interactive',
     project: s.project.name,
     agent: s.agent,
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
@@ -211,7 +233,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     startedAt: now,
     lastState: s.pending
       ? { state: 'queued', confidence: 1, at: now, source: 'mesa' }
-      : launched(now),
+      : launched(now, s.kind),
     ...(s.resumedFrom ? { resumedFrom: s.resumedFrom } : {}),
   }));
 }

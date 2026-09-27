@@ -33,6 +33,7 @@ test('exit code map', () => {
     tmux_unavailable: 6,
     agent_unavailable: 7,
     locked: 8,
+    timeout: 9,
   });
   expect(exitCode(ok(null))).toBe(0);
   expect(exitCode(fail('usage', 'x'))).toBe(2);

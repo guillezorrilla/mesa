@@ -46,19 +46,21 @@ test('a pane that died sets its exit at once: done for status 0, failed otherwis
   const exited = await recordPaneDied(deps, 'lantern-cove', clean.tmux.window);
   expect(exited).toMatchObject({
     lastState: { state: 'done', confidence: 0.85, at, source: 'tmux-hook' },
-    events: [{ type: 'exited', at }],
+    // How it exited, as the dead pane shows it.
+    events: [{ type: 'exited', at, status: 0 }],
   });
   // Not stopped: the board still ranks it, shows its last screen, and offers Resume.
   expect(exited?.endedAt).toBeUndefined();
   expect((await recordPaneDied(deps, 'lantern-cove', crashed.tmux.window))?.lastState.state).toBe(
     'failed',
   );
-  expect((await recordPaneDied(deps, 'lantern-cove', killed.tmux.window))?.lastState.state).toBe(
-    'failed',
-  );
+  expect(await recordPaneDied(deps, 'lantern-cove', killed.tmux.window)).toMatchObject({
+    lastState: { state: 'failed' },
+    events: [{ type: 'exited', at, status: 0, signal: 'kill' }],
+  });
   // Once: a second hook for the same pane changes nothing.
   expect(await recordPaneDied(deps, 'lantern-cove', clean.tmux.window)).toBeUndefined();
-  expect(store.get(clean.id).events).toEqual([{ type: 'exited', at }]);
+  expect(store.get(clean.id).events).toEqual([{ type: 'exited', at, status: 0 }]);
 });
 
 test("a terminal's view names the pane's session; a window that is not Mesa's is left alone", async () => {
@@ -92,5 +94,5 @@ test('a look that saw the dead pane first still leaves the exit to the hook', as
   store.update(crashed.id, { lastState: seen });
   const exited = await recordPaneDied(deps, 'lantern-cove', crashed.tmux.window);
   expect(exited).toMatchObject({ lastState: { state: 'failed', source: 'tmux-hook' } });
-  expect(exited?.events).toEqual([{ type: 'exited', at }]);
+  expect(exited?.events).toEqual([{ type: 'exited', at, status: 1 }]);
 });

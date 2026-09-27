@@ -18,6 +18,15 @@ export type TmuxWindow = WindowTarget & {
   deadSignal?: string;
 };
 
+/** How a dead pane's process exited, as a record's `exited` event keeps it; none while it lives. */
+export const paneExit = (pane?: Pick<TmuxWindow, 'dead' | 'deadStatus' | 'deadSignal'>) =>
+  pane?.dead
+    ? {
+        ...(pane.deadStatus === undefined ? {} : { status: pane.deadStatus }),
+        ...(pane.deadSignal === undefined ? {} : { signal: pane.deadSignal }),
+      }
+    : {};
+
 // ADR-0001's list format, with the session name first for `-a`. Tabs, so a path may hold spaces.
 export const FORMAT = [
   'session_name',

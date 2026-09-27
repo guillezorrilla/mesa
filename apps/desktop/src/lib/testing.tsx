@@ -42,6 +42,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       decisions: { backend: 'adapter', threshold: 0.7 },
       sessions: { log: true },
       terminal: { app: 'Terminal' },
+      run: { permissionMode: 'acceptEdits', allowedTools: [] },
       keys: {},
     } satisfies Config),
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),

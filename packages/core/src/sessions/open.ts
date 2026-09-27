@@ -1,9 +1,14 @@
-import { AGENT_NAMES, AgentSchema, readyAgent } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
-import { createRecord, type LaunchDeps, launchProject, launchSession } from './launch.js';
+import {
+  createRecord,
+  type LaunchDeps,
+  launchAgent,
+  launchProject,
+  launchSession,
+} from './launch.js';
 import { isOver, type SessionRecord } from './record.js';
 
 type OpenDeps = LaunchDeps & {
@@ -69,14 +74,7 @@ export async function openSession(
   const parent = parentOf(deps, input);
   // Read even when --agent is given.
   const { entry, project } = launchProject(deps.profile, input.project);
-  const name = input.agent ?? project.agent ?? deps.profile.config.defaultAgent;
-  const parsed = AgentSchema.safeParse(name);
-  if (!parsed.success) {
-    const known = AGENT_NAMES.join(', ');
-    throw new MesaError('agent_unavailable', `unknown agent ${name}; agents are ${known}`);
-  }
-  const agent = parsed.data;
-  const spec = await readyAgent(deps.run, agent);
+  const { agent, spec } = await launchAgent(deps, project, input.agent);
 
   const agentSessionId = deps.newUuid();
   const command = spec.start(agentSessionId, input.goal);

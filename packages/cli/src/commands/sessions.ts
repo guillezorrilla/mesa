@@ -2,6 +2,7 @@ import {
   attentionScore,
   contextPercent,
   duration,
+  isRun,
   percent,
   sessionBranch,
   sessionLabel,
@@ -13,7 +14,7 @@ import { columns } from '../output/columns.js';
 export const sessions = defineCommand({
   name: 'sessions',
   summary:
-    'List the sessions, foreign ones too, by attention: state, confidence, attention, context use (ctx), running time, last output (or what a queued one waits on)',
+    'List the sessions, foreign ones too, by attention: agent (a headless one says run), state, confidence, attention, context use (ctx), running time, last output (or what a queued one waits on)',
   flags: {
     all: { type: 'boolean', description: 'Include sessions stopped more than a day ago' },
     tree: {
@@ -34,7 +35,8 @@ export const sessions = defineCommand({
             // A name a person gave it stands in for the id; --json keeps both.
             `${indent(s)}${sessionLabel(s)}`,
             sessionBranch(s) ? `${s.project} (${sessionBranch(s)})` : (s.project ?? '-'),
-            s.agent,
+            // A headless run says so, as the Board's badge does.
+            isRun(s) ? `${s.agent} (run)` : s.agent,
             s.lastState.state,
             percent(s.lastState.confidence),
             attentionScore(s.attention),

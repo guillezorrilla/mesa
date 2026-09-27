@@ -2,6 +2,7 @@ import type { TreeRow } from '@mesa/core';
 import {
   attentionScore,
   duration,
+  isRun,
   sessionBranch,
   sessionLabel,
   waitingOn,
@@ -36,9 +37,9 @@ export type RowActions = {
 
 /**
  * One Board row: the session's id (a live one opens its terminal here), project with its branch
- * and goal, agent, state, attention, context use, running time, last output (for a queued one,
- * the session it waits on), and its actions. A foreign session is muted, with Adopt its only
- * action.
+ * and goal, agent (a headless run badged), state, attention, context use, running time, last
+ * output (for a queued one, the session it waits on), and its actions. A foreign session is
+ * muted, with Adopt its only action.
  */
 export function SessionRow(props: {
   row: TreeRow;
@@ -103,7 +104,19 @@ export function SessionRow(props: {
           </div>
         )}
       </TableCell>
-      <TableCell className="text-muted-foreground">{s.agent}</TableCell>
+      <TableCell className="whitespace-nowrap text-muted-foreground">
+        {s.agent}
+        {isRun(s) && (
+          <Badge
+            variant="secondary"
+            data-testid="session-run"
+            title="A skill run headlessly (mesa run)"
+            className="ml-1.5"
+          >
+            run
+          </Badge>
+        )}
+      </TableCell>
       <TableCell>
         <StateBadge
           state={s.lastState.state}
@@ -136,32 +149,35 @@ export function SessionRow(props: {
       <TableCell>
         {s.managed ? (
           <div className="flex flex-col gap-1">
-            <form
-              data-testid="session-send"
-              className="flex gap-1"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!acting) actions.send(s.id, e.currentTarget);
-              }}
-            >
-              <Input
-                name="prompt"
-                data-testid="session-prompt"
-                aria-label={`Prompt for ${s.id}`}
-                placeholder="Prompt"
-                className="h-8 w-48"
-                disabled={exited(s)}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                data-testid="session-send-submit"
-                disabled={exited(s) || acting}
+            {/* A skill run's agent reads no input: nothing to send it, nothing to hand off. */}
+            {!isRun(s) && (
+              <form
+                data-testid="session-send"
+                className="flex gap-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!acting) actions.send(s.id, e.currentTarget);
+                }}
               >
-                <Send aria-hidden />
-                Send
-              </Button>
-            </form>
+                <Input
+                  name="prompt"
+                  data-testid="session-prompt"
+                  aria-label={`Prompt for ${s.id}`}
+                  placeholder="Prompt"
+                  className="h-8 w-48"
+                  disabled={exited(s)}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  data-testid="session-send-submit"
+                  disabled={exited(s) || acting}
+                >
+                  <Send aria-hidden />
+                  Send
+                </Button>
+              </form>
+            )}
             <ReceivedPrompts row={s} />
             <div className="flex flex-wrap gap-1">
               <Button
@@ -195,17 +211,19 @@ export function SessionRow(props: {
                 <RotateCcw aria-hidden />
                 Resume
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                data-testid="session-handoff"
-                title={s.goal ? 'Continue its work in a successor' : 'It has no goal to hand on'}
-                onClick={() => actions.handoff(s)}
-                disabled={exited(s) || !s.goal || acting}
-              >
-                <Forward aria-hidden />
-                Hand off
-              </Button>
+              {!isRun(s) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="session-handoff"
+                  title={s.goal ? 'Continue its work in a successor' : 'It has no goal to hand on'}
+                  onClick={() => actions.handoff(s)}
+                  disabled={exited(s) || !s.goal || acting}
+                >
+                  <Forward aria-hidden />
+                  Hand off
+                </Button>
+              )}
               <RowMenu
                 sessionId={s.id}
                 canRemove={exited(s) && !queued(s) && !acting}

@@ -13,6 +13,8 @@ export type ProfilePaths = {
   events: string;
   /** Sessions' output logs, one `<session id>.log` each: local only, never in the vault. */
   logs: string;
+  /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
+  runs: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
@@ -35,6 +37,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     sessions: join(root, 'sessions'),
     events: join(root, 'sessions', 'events'),
     logs: join(root, 'sessions', 'logs'),
+    runs: join(root, 'sessions', 'runs'),
     attachScripts: join(root, 'attach'),
     worktrees: join(root, 'worktrees'),
     handoffs: join(root, 'handoffs'),

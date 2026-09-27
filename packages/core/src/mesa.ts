@@ -26,9 +26,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     projects: projectsService(ctx),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),
-    ...sessionsService(ctx, faro, (project, folder) => {
-      skills.linkInto(project, folder);
-    }),
+    ...sessionsService(ctx, faro, skills),
     hooks: hooksService(ctx),
     skills,
     decide: faro.decide,
