@@ -61,12 +61,8 @@ export function sessionReceipt(vault: string, session: string): ReceiptEntry | u
   // ponytail: reads every receipt to find the session's; index them by session if vaults grow big.
   // The oldest: the receipt of the start, not a stop's or a send's own (a failed start names no
   // session).
-  return listReceipts(vault, Number.POSITIVE_INFINITY)
-    .filter(
-      (e) =>
-        (e.receipt.type === 'session' || e.receipt.type === 'skill') &&
-        e.receipt.session === session,
-    )
+  return listReceipts(vault, Number.POSITIVE_INFINITY, { session })
+    .filter((e) => e.receipt.type === 'session' || e.receipt.type === 'skill')
     .at(-1);
 }
 

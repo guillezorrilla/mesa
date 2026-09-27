@@ -33,8 +33,11 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
 test('decide answers the questions on stdin, rules first, then the adapter; doctor names it', async () => {
   // Before init there is nothing configured: rules answer.
   cli.stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'x', statement: 'It holds' }] });
-  expect((await mesa('decide')).stdout).toBe('x  Noul  false  p 0.50\nbackend rules\n');
+  expect((await mesa('decide')).stdout).toBe(
+    'x  Noul  false  p 0.50\nbackend rules\nwarning: no receipt: the profile has no vault yet\n',
+  );
   await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
   cli.stdin = JSON.stringify({
     state: { anything: true },
     questions: [
@@ -75,6 +78,24 @@ test('decide answers the questions on stdin, rules first, then the adapter; doct
     costUsd: 0.0021,
     at: '2026-09-24T12:00:00.000Z',
     latencyMs: 0,
+  });
+  const receipt = (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data
+    .receipt;
+  expect(receipt).toMatchObject({
+    type: 'decision',
+    status: 'ok',
+    cost: 0.0021,
+    inputs: { state: { anything: true } },
+    decisions: [
+      {
+        question: 'route',
+        answer: 'ask',
+        probabilities: { ingest: 0.2, ask: 0.8 },
+        confidence: 0.8,
+      },
+      { question: 'urgency', probabilities: { low: 0, medium: 0.4, high: 0.6 }, confidence: 0.7 },
+      { question: 'destructive', answer: false, probabilities: 0.1 },
+    ],
   });
   // A claude that cannot answer: the even rules stand, marked as a fallback.
   cli.run = scriptedRunner({}, { missing: ['claude'] }).run;

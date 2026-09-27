@@ -894,3 +894,22 @@ test("the row menu's Log shows a session's last output lines, and reads them aga
   expect(byTestId('log-said')[0]?.textContent).toMatch(/^No output log: it has not started/);
   expect(byTestId('log-lines')).toHaveLength(0);
 });
+
+test('Summarise runs on a logged session and toasts the wiki note; absent logs disable it', async () => {
+  const { bridge, calls } = fakeBridge({
+    sessions: () =>
+      envelope([
+        { ...asking, hasOutputLog: true },
+        { ...exited, hasOutputLog: false },
+      ]),
+    run: () =>
+      envelope({ ok: true, session: 'summary1', note: 'wiki/sessions/aaaaaaaa.md', receipt: null }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('row-menu')[0]);
+  await click(byTestId('session-summarise')[0]);
+  expect(calls).toContainEqual(['--json', 'run', 'session-summary', '--session', 'aaaaaaaa']);
+  expect(toastTexts(byTestId)).toContain('Summarised aaaaaaaa in wiki/sessions/aaaaaaaa.md');
+  await click(byTestId('row-menu')[1]);
+  expect(byTestId('session-summarise')[0]?.hasAttribute('disabled')).toBe(true);
+});

@@ -10,7 +10,12 @@ export const run = defineCommand({
   // The skill's own words go after `--`: `/<skill> <args>` is its prompt.
   args: ['skill', 'args...'],
   flags: {
-    project: { type: 'string', required: true, description: 'The registered project to run it on' },
+    project: { type: 'string', description: 'The registered project to run it on' },
+    session: {
+      type: 'string',
+      description:
+        'Read this session output log; use its project, and write session-summary to wiki/sessions/<id>.md',
+    },
     agent: {
       type: 'string',
       description: 'claude (v1); default: the project mesa.yaml, else the profile default',
@@ -26,10 +31,11 @@ export const run = defineCommand({
       description: 'Run past a guardrail ask (a strict project) without asking y/N',
     },
   },
-  example: 'mesa run session-summary --project lantern-cove -- focus on the tests',
+  example: 'mesa run session-summary --session a1b2c3d4',
   run: async ({ mesa, args, flags, confirm }) => {
     const recorded = await mesa.sessions.run(args.skill, {
       project: flags.project,
+      session: flags.session,
       agent: flags.agent,
       args: args.args,
       timeoutSeconds:

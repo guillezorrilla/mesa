@@ -15,8 +15,14 @@ command: mesa open lantern-cove
 decisions: []
 inputs: {}
 outputs:
-  turns: 14
-  lastState: done
+  events:
+    send: 14
+    exited: 1
+  lastState:
+    state: done
+    confidence: 0.85
+    at: 2026-09-24T11:05:00.000Z
+    source: tmux-hook
 ---
 Session a1b2c3 on lantern-cove ended done after 1 h 35 min
 

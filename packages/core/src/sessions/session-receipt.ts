@@ -60,7 +60,7 @@ function eventCounts(r: SessionRecord) {
  */
 const endOf = (ctx: ReceiptContext, r: SessionRecord) => ({
   status: r.lastState.state === 'failed' ? ('failed' as const) : ('ok' as const),
-  outputs: { lastState: r.lastState.state, events: eventCounts(r) },
+  outputs: { lastState: r.lastState, events: eventCounts(r) },
   details: outputDetails(ctx, r.id),
 });
 
@@ -87,13 +87,16 @@ export async function markEnded<T>(
 
 /**
  * Says in a session's opening receipt how it ended once its agent exited (endOf), as a stop
- * does, though the session is not stopped (pane-died), so the receipt is not marked ended. Best
+ * does, with ended on the receipt while the interactive record stays unstopped. Best
  * effort, and silent: tmux drops what its hook prints, and the stop that ends the session writes
  * it all again.
  */
 export async function markExited(ctx: ReceiptContext, exited: SessionRecord) {
   try {
-    await updateSessionReceipt(ctx.notes(), exited.id, endOf(ctx, exited));
+    await updateSessionReceipt(ctx.notes(), exited.id, {
+      ended: new Date(exited.lastState.at),
+      ...endOf(ctx, exited),
+    });
   } catch {
     // Nowhere to say it; see above.
   }

@@ -9,7 +9,7 @@ import { redactWhole } from '../lib/redact.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { sessionReceipt } from '../receipts/store.js';
-import { landOutput } from '../skills/landing.js';
+import { landingOf, landOutput } from '../skills/landing.js';
 import type { SkillRow } from '../skills/sync.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
@@ -39,7 +39,7 @@ export const runOutput = (runs: string, id: string) => join(runs, `${id}.json`);
 const runInput = (runs: string, id: string) => join(runs, `${id}.input`);
 
 // ponytail: the last 1000 lines, some 15k tokens of a claude session; the start of a longer one
-// is left out of its summary.
+// is left out of its summary. Stream the full log if summaries need the complete history.
 /** How many of a session's last output lines a run about it is given. */
 const INPUT_LINES = 1000;
 
@@ -160,7 +160,10 @@ export async function startRun(deps: RunDeps, input: RunInput) {
         command: (r) => line(r.id),
         // Once the record is written, as its id names the file.
         prepare: (r) => {
-          if (given) writeFileSync((written = runInput(deps.runs, r.id)), given, { mode: 0o600 });
+          if (given) {
+            written = runInput(deps.runs, r.id);
+            writeFileSync(written, given, { mode: 0o600 });
+          }
           return r;
         },
       },
@@ -242,8 +245,13 @@ export async function awaitRun(
     if (waited >= timeoutSeconds * 1000) break;
     await ctx.deps.sleep(POLL_MS);
   }
-  await killIfThere(ctx.tmux, target);
-  await endRun(ctx, ctx.store.get(run.id), undefined, `timed out after ${timeoutSeconds} s`);
+  const ended = await endRun(
+    ctx,
+    ctx.store.get(run.id),
+    undefined,
+    `timed out after ${timeoutSeconds} s`,
+  );
+  if (ended.result.ok) return ended; // The hook may have finished successfully after our last look.
   throw new MesaError(
     'timeout',
     `session ${run.id} ran ${run.goal} past its ${timeoutSeconds} s timeout: its window was closed and the session marked failed`,
@@ -273,10 +281,12 @@ export async function endRun(
   const at = run.endedAt ?? ctx.deps.clock().toISOString();
   const read = runResult(ctx.paths, run, exit, at);
   const result = killed ? { ...read, ok: false, reason: killed } : read;
+  // Commit the outcome before killing the pane: its hook may finish the same run immediately.
+  const ended = endRecord(ctx, run.id, result, at, exit);
   await killIfThere(ctx.tmux, windowOf(run));
-  const ended = endRecord(ctx, run.id, result.ok ? 'done' : 'failed', at, exit);
   rmSync(runInput(ctx.paths.runs, run.id), { force: true });
-  return finishRun(ctx, ended, result);
+  const final = ended.runFailure ? { ...read, ok: false, reason: ended.runFailure } : read;
+  return finishRun(ctx, ended, final);
 }
 
 /**
@@ -288,12 +298,14 @@ async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResu
   const skill = runSkill(run);
   let note: string | undefined;
   let unlanded: string | undefined;
-  if (read.ok && skill) {
+  const landed = { run: run.id, project: run.project, about: run.about };
+  if (read.ok && skill && landingOf(skill, landed)) {
     try {
       const notes = ctx.notes();
       const output = redactWhole(read.output, ctx.deps.home, ctx.secrets());
       const receipt = sessionReceipt(notes.vault, run.id)?.path;
-      const landed = { run: run.id, project: run.project, about: run.about };
+      // A fast pane-died hook can beat the start receipt. The waiter retries after it is written.
+      if (!receipt) return { result: read };
       note = await landOutput(notes, skill, landed, output, receipt);
     } catch (error) {
       unlanded = `run ${run.id}'s output not written to the vault: ${toFail(error).error.message}`;
@@ -355,15 +367,17 @@ function runResult(
 function endRecord(
   deps: Pick<EndContext, 'store'>,
   id: string,
-  state: 'done' | 'failed',
+  result: HeadlessResult,
   at: string,
   exit?: Exit,
 ) {
   return deps.store.update(id, (current) => {
     if (current.endedAt) return {};
     const recorded = current.events.some((e) => e.type === 'exited');
+    const state = result.ok ? 'done' : 'failed';
     return {
       endedAt: at,
+      ...(!result.ok ? { runFailure: result.reason ?? 'run failed' } : {}),
       lastState: { state, confidence: 1, at, source: 'mesa' as const },
       ...(exit && !recorded
         ? { events: [...current.events, { type: 'exited' as const, at, ...exit }] }

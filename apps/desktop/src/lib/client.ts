@@ -144,6 +144,10 @@ const COMMANDS = {
     { id: string; note: string; keep: boolean },
     Recorded<{ from: string; to: string; note: string }>
   >(({ id, note, keep }) => ['handoff', '--note', note, ...(keep ? ['--keep'] : []), '--', id]),
+  'sessions.summarise': commandWith<
+    { id: string; yes?: boolean },
+    Recorded<HeadlessResult & { session: string }>
+  >(({ id, yes }) => ['run', 'session-summary', '--session', id, ...(yes ? ['--yes'] : [])]),
   'sessions.logs': commandWith<{ id: string; tail: number }, SessionLog>(({ id, tail }) => [
     'logs',
     '--tail',

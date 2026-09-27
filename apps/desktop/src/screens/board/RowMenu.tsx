@@ -3,13 +3,15 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 /**
- * A row's other actions, behind a toggle: Log (its last output lines), Rename, and Remove (only
+ * A row's other actions: Log, Summarise (when it has a log), Rename, and Remove (only
  * once its agent has exited, so the app never forces a live session's window closed).
  * ponytail: a disclosure, not a dropdown menu, so it opens with a click and needs no portal.
  */
 export function RowMenu(props: {
   sessionId: string;
   canRemove: boolean;
+  canSummarise: boolean;
+  onSummarise: () => void;
   onLog: () => void;
   onRename: () => void;
   onRemove: () => void;
@@ -37,6 +39,16 @@ export function RowMenu(props: {
           <Button variant="outline" size="sm" data-testid="session-log" onClick={pick(props.onLog)}>
             <ScrollText aria-hidden />
             Log
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="session-summarise"
+            disabled={!props.canSummarise}
+            onClick={pick(props.onSummarise)}
+          >
+            <ScrollText aria-hidden />
+            Summarise
           </Button>
           <Button
             variant="outline"

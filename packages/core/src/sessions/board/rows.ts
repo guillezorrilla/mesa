@@ -10,7 +10,7 @@ import type { Placement } from '../state.js';
  * not saved; the record's own field is not written yet), whether it is alive (its tmux window exists, a pane
  * whose agent exited still does, or the agent listing names it), and how long it has run.
  */
-export type ManagedRow = SessionRecord &
+export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
   Placement & {
     managed: true;
     alive: boolean;

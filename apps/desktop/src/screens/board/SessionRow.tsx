@@ -31,6 +31,7 @@ export type RowActions = {
   /** Open the Hand off, Log, Rename, or Remove dialog for this row. */
   handoff: (row: TreeRow) => void;
   log: (row: TreeRow) => void;
+  summarise: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
   remove: (row: TreeRow) => void;
 };
@@ -228,6 +229,8 @@ export function SessionRow(props: {
                 sessionId={s.id}
                 canRemove={exited(s) && !queued(s) && !acting}
                 onLog={() => actions.log(s)}
+                canSummarise={Boolean(s.hasOutputLog)}
+                onSummarise={() => actions.summarise(s)}
                 onRename={() => actions.rename(s)}
                 onRemove={() => actions.remove(s)}
               />

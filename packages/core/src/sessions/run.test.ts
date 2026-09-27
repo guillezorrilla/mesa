@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../receipts/store.js';
@@ -7,12 +7,15 @@ import {
   claudeResult,
   type FakeWindow,
   finishesRun,
+  fixedClock,
   newSession,
+  plantOutputLog,
   profilePaths,
   projectProfile,
   shortIds,
   testStore,
 } from '../testing/index.js';
+import { readNote, writeNote } from '../vault/notes.js';
 
 const UUID = '00000000-0000-4000-8000-000000000001';
 /** lantern-cove with session-summary enabled in its mesa.yaml, and claude in the fake tmux. */
@@ -69,15 +72,20 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   expect(started?.receipt).toMatchObject({
     type: 'skill',
     status: 'ok',
+    cost: 0.2621986,
+    ended: '2026-09-24T12:00',
     project: 'lantern-cove',
     session: id,
     agent: 'claude',
     inputs: { skill: 'session-summary', agent: null, args: ['focus', 'on tests'] },
-    // As it started: a headless agent works until it exits.
+    // Finished in place, including the agent cost and the local output path.
     outputs: {
       window: `claude-${id}`,
       agentSessionId: UUID,
-      lastState: { state: 'working', confidence: 0.85 },
+      lastState: { state: 'done', confidence: 1 },
+      durationMs: 19113,
+      output: `~/.mesa/default/sessions/runs/${id}.json`,
+      events: { exited: 1 },
     },
   });
   expect(started?.summary).toBe(`Started skill session-summary on lantern-cove as session ${id}`);
@@ -337,4 +345,192 @@ test('the guardrail gates a run before anything is written: a block or an ask op
     outputs: { override: 'yes', window: `claude-${yes.result.session}` },
   });
   expect(testStore(strict.home).list()).toHaveLength(2);
+});
+
+test('session-summary reads a cleaned, redacted log on stdin and core writes its linked wiki note once', async () => {
+  const world = agentWorld();
+  let during = async () => {};
+  const { home, mesa } = setUp(world, () => during());
+  const vault = join(home, 'vault');
+  mesa.config.set('keys.tide', 'tide-key-0042');
+  const { result: about } = await mesa.sessions.open('lantern-cove', {
+    goal: 'Check lantern tides',
+  });
+  plantOutputLog(
+    home,
+    about.id,
+    `\x1b[32mThree checks pass\x1b[0m\n${home}/work tide-key-0042\n${'x'.repeat(14000)}`,
+  );
+  let input = '';
+  during = async () => {
+    const w = world.tmux.windows.find((w) => w.launch.includes(' -p ')) as FakeWindow;
+    const stdin = / <'([^']+)' >/.exec(w.launch)?.[1] ?? '';
+    input = readFileSync(stdin, 'utf8');
+    finishesRun({ output: claudeResult('success') })(w);
+    await mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
+  };
+  const { result, receipt } = await mesa.sessions.run('session-summary', { session: about.id });
+  expect(result.note).toBe(`wiki/sessions/${about.id}.md`);
+  expect(input).toContain('Three checks pass\n~/work ***');
+  expect(input).toContain('Its goal: Check lantern tides');
+  expect(input).not.toContain('\x1b');
+  expect(input.length).toBeGreaterThan(14000); // It never went on argv.
+  expect(existsSync(join(profilePaths(home, 'default').runs, `${result.session}.input`))).toBe(
+    false,
+  );
+  const note = readNote(vault, result.note ?? '');
+  expect(note.frontmatter).toMatchObject({
+    session: about.id,
+    project: 'lantern-cove',
+    run: result.session,
+    source: 'mesa',
+    receipt: expect.stringContaining(receipt?.id ?? ''),
+  });
+  expect(note.body).toBe(`${result.output.trim()}\n`);
+  const log = readFileSync(join(vault, 'log.md'), 'utf8');
+  expect(
+    log.split('\n').filter((line) => line.includes(`Summarised session ${about.id}`)),
+  ).toHaveLength(1);
+  const finished = listReceipts(vault).find((r) => r.receipt.id === receipt?.id)?.receipt;
+  expect(finished).toMatchObject({
+    status: 'ok',
+    inputs: { session: about.id, skill: 'session-summary' },
+    outputs: { note: result.note, events: { exited: 1 } },
+  });
+  expect((await mesa.sessions.list(true)).find((r) => r.id === about.id)).toMatchObject({
+    hasOutputLog: true,
+  });
+});
+
+test('session-summary refuses missing logs and unknown sessions, and preserves a locked note', async () => {
+  const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  const { home, mesa } = setUp(world);
+  const { result: about } = await mesa.sessions.open('lantern-cove');
+  await expect(mesa.sessions.run('session-summary', { session: about.id })).rejects.toThrow(
+    'has no output',
+  );
+  await expect(mesa.sessions.run('session-summary', { session: 'zzzzzzzz' })).rejects.toMatchObject(
+    { code: 'not_found' },
+  );
+  plantOutputLog(home, about.id, 'Three checks pass');
+  const vault = join(home, 'vault');
+  const path = `wiki/sessions/${about.id}.md`;
+  writeNote(
+    { vault, clock: fixedClock('2026-09-24T12:00:00Z') },
+    { path, frontmatter: { locked: true }, body: 'Keep this note.\n' },
+  );
+  const before = readFileSync(join(vault, path), 'utf8');
+  const ran = await mesa.sessions.run('session-summary', { session: about.id });
+  expect(ran.result.ok).toBe(true);
+  expect(ran.result.note).toBeUndefined();
+  expect(ran.warning).toContain('locked');
+  expect(readFileSync(join(vault, path), 'utf8')).toBe(before);
+});
+
+test('stopping a run with successful output keeps it failed when its waiter finishes later', async () => {
+  const world = agentWorld();
+  let during = async () => {};
+  const { home, mesa } = setUp(world, () => during());
+  during = async () => {
+    const run = testStore(home)
+      .list()
+      .find((r) => r.kind === 'run');
+    writeFileSync(
+      join(profilePaths(home, 'default').runs, `${run?.id}.json`),
+      claudeResult('success'),
+    );
+    await mesa.sessions.stop(run?.id ?? '', true);
+  };
+  const ran = await mesa.sessions.run('session-summary', { project: 'lantern-cove' });
+  expect(ran.result).toMatchObject({ ok: false, reason: 'stopped by mesa stop' });
+  expect(testStore(home).get(ran.result.session)).toMatchObject({
+    lastState: { state: 'failed' },
+    runFailure: 'stopped by mesa stop',
+  });
+  const receipt = listReceipts(join(home, 'vault')).find(
+    (r) => r.receipt.type === 'skill',
+  )?.receipt;
+  expect(receipt).toMatchObject({ status: 'failed', outputs: { reason: 'stopped by mesa stop' } });
+});
+
+test('a fast hook before the start receipt is written is repaired by the waiter', async () => {
+  const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  let early = async (_args: string[]) => {};
+  const { home, mesa } = projectProfile(
+    async (file, args, options) => {
+      const result = await world.run(file, args, options);
+      if (file === 'tmux' && (args.includes('new-window') || args.includes('new-session')))
+        await early([...args]);
+      return result;
+    },
+    { mesaYaml: 'name: lantern-cove\nskills: [session-summary]\n' },
+  );
+  const about = testStore(home, 'default', shortIds('abcdefgh')).create(() => newSession());
+  plantOutputLog(home, about.id, 'Three checks pass');
+  early = async () => {
+    const w = world.tmux.windows[0];
+    if (w) await mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
+  };
+  const ran = await mesa.sessions.run('session-summary', { session: about.id });
+  const note = readNote(join(home, 'vault'), ran.result.note ?? '');
+  expect(note.frontmatter.receipt).toContain(ran.receipt?.id);
+  expect(
+    listReceipts(join(home, 'vault')).find((r) => r.receipt.id === ran.receipt?.id)?.receipt,
+  ).toMatchObject({ ended: '2026-09-24T12:00', status: 'ok', outputs: { note: ran.result.note } });
+});
+
+test('a timeout keeps a successful output file failed, and non-writing skills need no vault landing', async () => {
+  const world = agentWorld();
+  const { home, mesa } = setUp(world, async () => {
+    const run = testStore(home)
+      .list()
+      .find((r) => r.kind === 'run');
+    writeFileSync(
+      join(profilePaths(home, 'default').runs, `${run?.id}.json`),
+      claudeResult('success'),
+    );
+  });
+  await expect(
+    mesa.sessions.run('session-summary', { project: 'lantern-cove', timeoutSeconds: 1 }),
+  ).rejects.toMatchObject({ code: 'timeout' });
+  const [receipt] = listReceipts(join(home, 'vault'));
+  expect(receipt?.receipt).toMatchObject({
+    status: 'failed',
+    outputs: { reason: 'timed out after 1 s' },
+  });
+  const finished = setUp(agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) }));
+  finished.mesa.config.set('vault', finished.dir);
+  const ran = await finished.mesa.sessions.run('session-summary', { project: 'lantern-cove' });
+  expect(ran.result.ok).toBe(true);
+  expect(ran.warning).not.toContain('output not written to the vault');
+  expect(ran.warning).toContain('receipt');
+});
+
+test('a hook that finishes after the deadline look wins over the waiter timeout', async () => {
+  const world = agentWorld();
+  let atDeadline = false;
+  const { mesa } = projectProfile(
+    async (file, args, options) => {
+      const result = await world.run(file, args, options);
+      if (atDeadline && file === 'tmux' && args.includes('list-windows')) {
+        atDeadline = false;
+        const w = world.tmux.windows[0] as FakeWindow;
+        finishesRun({ output: claudeResult('success') })(w);
+        await mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
+        // The waiter receives the live snapshot taken before the hook completed.
+      }
+      return result;
+    },
+    {
+      mesaYaml: 'name: lantern-cove\nskills: [session-summary]\n',
+      sleep: async () => {
+        atDeadline = true;
+      },
+    },
+  );
+  const ran = await mesa.sessions.run('session-summary', {
+    project: 'lantern-cove',
+    timeoutSeconds: 1,
+  });
+  expect(ran.result.ok).toBe(true);
 });

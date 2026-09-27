@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { receiptLink } from '../receipts/receipt-file.js';
 import { VAULT } from '../vault/layout.js';
 import { appendLog, type LockedNotesDeps, readNote, vaultFile, writeNote } from '../vault/notes.js';
@@ -55,22 +55,28 @@ export async function landOutput(
   if (!landing) return undefined;
   const { path, type } = landing;
   await withVaultLock(deps, async () => {
-    if (existsSync(vaultFile(deps.vault, path))) {
-      if (readNote(deps.vault, path).frontmatter.run === run.run) return;
-    }
     const link = receipt ? receiptLink(receipt) : undefined;
-    writeNote(deps, {
-      path,
-      frontmatter: {
-        type,
-        ...(run.about ? { session: run.about } : {}),
-        project: run.project,
-        run: run.run,
-        ...(link ? { receipt: link } : {}),
-      },
-      body: `${output.trim()}\n`,
-    });
-    appendLog(deps, `${landing.said(run)} in [[${path.replace(/\.md$/, '')}]] ${link ?? ''}`);
+    const line = `${landing.said(run)} in [[${path.replace(/\.md$/, '')}]] ${link ?? ''}`;
+    const log = vaultFile(deps.vault, VAULT.log);
+    // A completed retry must not overwrite a newer run's note either.
+    if (existsSync(log) && readFileSync(log, 'utf8').includes(line)) return;
+    const previous = existsSync(vaultFile(deps.vault, path))
+      ? readNote(deps.vault, path)
+      : undefined;
+    if (previous?.frontmatter.run !== run.run)
+      writeNote(deps, {
+        path,
+        frontmatter: {
+          type,
+          ...(run.about ? { session: run.about } : {}),
+          project: run.project,
+          run: run.run,
+          ...(link ? { receipt: link } : {}),
+        },
+        body: `${output.trim()}\n`,
+      });
+    // A crash after the note write can leave its log line missing. Repair it without a duplicate.
+    appendLog(deps, line);
   });
   return path;
 }

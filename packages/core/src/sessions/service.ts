@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
@@ -22,16 +23,17 @@ import { readGoal, sessionGoal } from './goal.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { readHookEvents } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
-import { sessionLog } from './output-log.js';
+import { outputLog, sessionLog } from './output-log.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
-import { awaitRun, type RunInput, startRun } from './run.js';
+import { awaitRun, endRun, type RunInput, startRun } from './run.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
 import { viewProject } from './view.js';
+import { windowOf } from './window-name.js';
 
 /**
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
@@ -85,6 +87,10 @@ export function sessionsService(
         home: deps.home,
       },
       { all },
+    ).then((rows) =>
+      rows.map((row) =>
+        row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,
+      ),
     );
   const ends = endSignals(ctx, { look, launch: openDeps, context: contextDeps });
   const { board } = ends;
@@ -98,6 +104,7 @@ export function sessionsService(
         type: 'session',
         summary: (r) => `Stopped session ${id} (${r.outcome})`,
         failure: `Could not stop session ${id}`,
+        warning: (r) => r.warning,
         project: (r) => r.record.project,
         session: () => id,
         agent: (r) => r.record.agent,
@@ -105,12 +112,37 @@ export function sessionsService(
         outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
         changed: (r) => r.outcome !== 'already-ended',
       },
-      () => stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, { force }),
+      async () => {
+        const found = store.get(id);
+        if (found.kind !== 'run' || found.endedAt) {
+          return {
+            ...(await stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, {
+              force,
+            })),
+            warning: undefined,
+          };
+        }
+        const pane = await tmux.findWindow(windowOf(found));
+        const ended = await endRun(
+          ctx,
+          found,
+          pane,
+          pane?.dead ? undefined : 'stopped by mesa stop',
+        );
+        return {
+          record: store.get(id),
+          outcome: pane?.dead ? ('exited' as const) : ('killed' as const),
+          warning: ended.warning,
+        };
+      },
     );
     const { outcome } = recorded.result;
     if (outcome === 'already-ended') return recorded;
     const queue = await ends.stopped(id, outcome);
-    const ended = await markEnded(ctx, recorded, recorded.result.record);
+    const ended =
+      recorded.result.record.kind === 'run'
+        ? recorded
+        : await markEnded(ctx, recorded, recorded.result.record);
     const warning = joinWarnings(ended.warning, queue?.warning);
     return warning ? { ...ended, warning } : ended;
   };
