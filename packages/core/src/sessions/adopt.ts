@@ -1,5 +1,4 @@
-import { readyAgent } from '../agents/agents.js';
-import { transcriptCwd } from '../agents/claude/transcripts.js';
+import { AGENTS, RUNNABLE_AGENTS, readyAgent } from '../agents/agents.js';
 import { MesaError } from '../lib/result.js';
 import { findProject, projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
@@ -17,8 +16,8 @@ type AdoptDeps = LaunchDeps & {
   listing: () => Promise<AgentProcess[]>;
   /** Agent session ids other profiles' records hold. */
   elsewhere: () => ReadonlySet<string>;
-  /** Where Claude Code keeps transcripts, `~/.claude/projects/<folder>/<id>.jsonl`. */
-  transcripts: string;
+  /** Where each agent keeps its transcripts (Claude Code: `~/.claude/projects/<folder>/<id>.jsonl`). */
+  home: string;
 };
 
 /** Said with every adoption: two agents writing one transcript would interleave it. */
@@ -47,13 +46,13 @@ export async function adoptSession(
     throw new MesaError('usage', `another profile's session has ${id} already`);
   }
   const live = (await deps.listing()).find((p) => p.agentSessionId === id);
-  const cwd = live?.cwd ?? transcriptCwd(deps.transcripts, id);
-  if (cwd === undefined) {
-    throw new MesaError(
-      'not_found',
-      `no Claude Code session ${id}, live or in ${deps.transcripts}`,
-    );
+  const ran = live ?? onDisk(deps.home, id);
+  if (ran === undefined) {
+    const agents = RUNNABLE_AGENTS.map((a) => AGENTS[a].label).join(' or ');
+    const dirs = RUNNABLE_AGENTS.map((a) => AGENTS[a].transcripts.dir(deps.home)).join(', ');
+    throw new MesaError('not_found', `no ${agents} session ${id}, live or in ${dirs}`);
   }
+  const { agent, cwd } = ran;
   const found = projectOf(cwd, readRegistry(deps.profile.paths.registry));
   if (found && input.project !== undefined && input.project !== found) {
     throw new MesaError(
@@ -71,7 +70,7 @@ export async function adoptSession(
   const project = findProject(deps.profile, name);
   const s = {
     project,
-    agent: 'claude' as const,
+    agent,
     agentSessionId: id,
     adopted: true as const,
     // Where claude finds the conversation, when it is not the project's own folder.
@@ -79,7 +78,16 @@ export async function adoptSession(
     ...named,
   };
   if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
-  const spec = await readyAgent(deps.run, 'claude');
+  const spec = await readyAgent(deps.run, agent);
   const { record, warning } = await launchSession(deps, s, { command: () => spec.resume(id) });
   return { record, warning: joinWarnings(WARNING, warning) ?? WARNING };
+}
+
+/** The agent whose transcripts hold conversation `id`, and the folder it ran in. */
+function onDisk(home: string, id: string) {
+  for (const agent of RUNNABLE_AGENTS) {
+    const cwd = AGENTS[agent].transcripts.cwdOf(home, id);
+    if (cwd !== undefined) return { agent, cwd };
+  }
+  return undefined;
 }

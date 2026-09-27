@@ -1,8 +1,8 @@
 import { projectOf } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import type { AgentProcess } from '../agent-listing.js';
+import { type AgentProcess, listedState } from '../agent-listing.js';
 import { foreignId } from '../record.js';
-import { classifySession, listedState } from '../state.js';
+import { classifySession } from '../state.js';
 import { type ForeignRow, secondsBetween } from './rows.js';
 
 /** A foreign session's board row: its project from its folder, its state from the listing alone. */

@@ -1,3 +1,4 @@
+import { runnableAgent } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import { toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
@@ -9,7 +10,6 @@ import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
 import { isOver } from './record.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
-import { hookState } from './state.js';
 
 // The signals that a session ended, and what follows from each: an agent hook's payload, a tmux
 // hook's event, a stop, or a look at the board. Each starts what was queued after the session
@@ -102,7 +102,8 @@ export function sessionSignals(
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
       const ended = event?.event === 'Stop' && id ? store.find(id) : undefined;
       if (ended) refreshContext(deps.context, ended);
-      if (event?.event === 'SessionEnd' && id && hookState(event.event, event.payload)) {
+      const state = event && runnableAgent(event.agent)?.hookState(event.event, event.payload);
+      if (event?.event === 'SessionEnd' && id && state) {
         await startAfter(id);
       }
       return event;

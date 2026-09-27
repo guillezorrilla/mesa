@@ -1,14 +1,9 @@
+import { runnableAgent } from '../../agents/agents.js';
 import { MesaError } from '../../lib/result.js';
 import type { AgentProcess } from '../agent-listing.js';
 import type { HookEvent } from '../hook-events.js';
 import { FINAL_STATES, isAgentState, type SessionRecord } from '../record.js';
-import {
-  classifySession,
-  hookState,
-  lastOutputLine,
-  type Placement,
-  type SessionSignals,
-} from '../state.js';
+import { classifySession, type Placement, type SessionSignals } from '../state.js';
 import type { SessionStore } from '../store.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
@@ -60,12 +55,13 @@ export async function managedRow(
   seen: { now: Date; window?: TmuxWindow; listedAs?: AgentProcess; children: string[] },
 ): Promise<ManagedRow> {
   const { now, window, listedAs } = seen;
+  const reader = runnableAgent(found.agent);
   // A stopped session keeps its state, so its hook log is not read.
   const event = found.endedAt
     ? undefined
     : deps
         .events(found.id)
-        .filter((e) => hookState(e.event, e.payload))
+        .filter((e) => reader?.hookState(e.event, e.payload))
         .at(-1);
   const signals: SessionSignals = {
     now: now.toISOString(),
@@ -94,7 +90,7 @@ export async function managedRow(
       ? await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined)
       : undefined;
   if (tail !== undefined && !window?.dead && !event && !listedAs) signals.tail = tail;
-  const lastOutput = tail === undefined ? undefined : lastOutputLine(tail);
+  const lastOutput = tail === undefined ? undefined : reader?.screen.lastLine(tail);
   // Queued, or cancelled before it ran: Mesa's own state, with no agent for Faro to read.
   const ran = isAgentState(found.lastState.state);
   const classified: Placement = ran
