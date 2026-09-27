@@ -719,3 +719,39 @@ test('a Codex startup failure includes its stderr reason, without a fabricated t
   });
   expect(result.reason).toContain('codex exited with status 1');
 });
+
+test('a timed out run releases its queued child before reporting the timeout', async () => {
+  const world = agentWorld();
+  let child: string | undefined;
+  const { home, mesa } = setUp(world, async () => {
+    if (child) return;
+    const parent = testStore(home).list()[0];
+    const queued = await mesa.sessions.open('lantern-cove', { after: parent?.id });
+    child = queued.result.id;
+    expect(queued.result.lastState.state).toBe('queued');
+  });
+  await expect(
+    mesa.sessions.run('session-summary', { project: 'lantern-cove', timeoutSeconds: 1 }),
+  ).rejects.toMatchObject({ code: 'timeout' });
+  expect(testStore(home).get(child ?? '').lastState.state).toBe('idle');
+  expect(world.tmux.windows.map((w) => w.window)).toEqual([`claude-${child}`]);
+});
+
+test('the Board finishes an orphaned run when its waiter and exit hook are gone', async () => {
+  const world = agentWorld();
+  const { home, mesa } = setUp(world, async () => {
+    finishesRun({ output: claudeResult('success') })(world.tmux.windows[0] as FakeWindow);
+    throw new Error('mesa run was killed');
+  });
+  await expect(mesa.sessions.run('session-summary', { project: 'lantern-cove' })).rejects.toThrow(
+    'mesa run was killed',
+  );
+  const [orphan] = testStore(home).list();
+  expect(orphan?.endedAt).toBeUndefined();
+  const row = (await mesa.sessions.list()).find((r) => r.id === orphan?.id);
+  expect(row).toMatchObject({ endedAt: expect.any(String), lastState: { state: 'done' } });
+  expect(world.tmux.windows).toEqual([]);
+  expect(
+    listReceipts(join(home, 'vault')).find((e) => e.receipt.session === orphan?.id)?.receipt,
+  ).toMatchObject({ ended: '2026-09-24T12:00', status: 'ok', cost: expect.any(Number) });
+});

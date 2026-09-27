@@ -7,8 +7,8 @@ import { paneExit, VIEW_PREFIX } from './tmux/format.js';
 import { idOfWindow, windowOf } from './window-name.js';
 
 /**
- * tmux's pane-died hook, through `mesa hook tmux pane-died <project> <window>`: the agent in a
- * Mesa window exited. Its state is known at once, `done` for exit status 0 and `failed` for
+ * A dead pane seen by the Board, or tmux's pane-died hook through
+ * `mesa hook tmux pane-died <project> <window>`: the agent in a Mesa window exited. Its state is known at once, `done` for exit status 0 and `failed` for
  * another status or a signal, as a look reads a dead pane (state.ts), with an `exited`
  * event that keeps the status or the signal. It is not stopped: `endedAt` is left to stop and resume, so the board still ranks it,
  * shows its last screen, and offers Resume (the owner's call, ADR-0003 amendment).
@@ -24,6 +24,7 @@ export async function recordPaneDied(
   deps: { store: SessionStore; tmux: Pick<TmuxBackend, 'findWindow'>; clock: Clock },
   project: string,
   window: string,
+  source: 'tmux-hook' | 'tmux' = 'tmux-hook',
 ): Promise<SessionRecord | undefined> {
   const id = idOfWindow(window);
   const found = id ? deps.store.find(id) : undefined;
@@ -34,13 +35,14 @@ export async function recordPaneDied(
   if (!found || !ours || !shown || recorded(found)) return undefined;
   // The project's own session: a view's name lists no windows of its own.
   const pane = await deps.tmux.findWindow(windowOf(found));
+  if (pane && !pane.dead) return undefined;
   const at = deps.clock().toISOString();
   const exited = { type: 'exited', at, ...paneExit(pane) } as const;
   const lastState = {
     state: pane?.dead ? exitState(pane) : 'done',
     confidence: PROCESS,
     at,
-    source: 'tmux-hook',
+    source,
   } as const;
   let wrote = false;
   const record = deps.store.update(found.id, (current) => {

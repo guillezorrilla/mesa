@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { fixedClock, memoryRecorder } from '../testing/index.js';
+import { fixedClock, memoryRecorder, scriptedRunner, tempDir } from '../testing/index.js';
+import { adapterBackend } from './adapter.js';
 import type { FaroProfile } from './decide.js';
 import {
   checkGuardrail,
@@ -180,3 +181,25 @@ test('an allow passes; a block passes only --force; an ask passes --yes, --force
     'Project lighthouse has guardrail: strict. Send it?',
   ]);
 });
+
+test.each(['', '\n-----END OPENSSH PRIVATE KEY-----\nkeep this suffix'])(
+  'the adapter prompt masks the complete private key, with terminator %j',
+  async (end) => {
+    const body = 'invented-private-material';
+    const runner = scriptedRunner({
+      claude: () => ({ ok: false, reason: 'missing', detail: 'offline' }),
+    });
+    const adapter = adapterBackend({ run: runner.run, directory: tempDir(), redact: (v) => v });
+    const result = await check(`inspect ${FAKE.privateKey}\n${body}${end}`, undefined, {
+      shared: [adapter],
+      profile: profile(0.99),
+    });
+    expect(result).toMatchObject({ verdict: 'block', decision: { backend: 'rules-fallback' } });
+    expect(runner.calls).toHaveLength(1);
+    const prompt = runner.calls[0]?.args[1];
+    expect(prompt).toContain('inspect ***');
+    expect(prompt).not.toContain(body);
+    expect(prompt).not.toContain('-----');
+    if (end) expect(prompt).toContain('keep this suffix');
+  },
+);

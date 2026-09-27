@@ -18,7 +18,11 @@ export const SECRET_PATTERNS: readonly Pattern[] = [
   { name: 'a Slack token', matches: /\bxox[abprs]-[A-Za-z0-9-]{10,}/ },
   { name: 'a Stripe secret key', matches: /\b[rs]k_live_[A-Za-z0-9]{20,}/ },
   { name: 'a Google API key', matches: /\bAIza[\w-]{35}(?![\w-])/ },
-  { name: 'a private key', matches: /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/ },
+  {
+    name: 'a private key',
+    // An incomplete paste is still secret: mask through its matching end marker, or all the rest.
+    matches: /-----BEGIN ((?:[A-Z0-9]+ )*PRIVATE KEY)-----[\s\S]*?(?:-----END \1-----|$)/,
+  },
 ];
 
 /**

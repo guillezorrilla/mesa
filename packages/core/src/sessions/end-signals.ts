@@ -8,7 +8,7 @@ import { refreshContext } from './context-use.js';
 import { recordHookEvent } from './hook-events.js';
 import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
-import { isOver } from './record.js';
+import { isOver, type SessionRecord } from './record.js';
 import { endRun } from './run.js';
 import { markEnded, markExited, startedOutputs } from './session-receipt.js';
 import type { StopOutcome } from './stop.js';
@@ -76,6 +76,9 @@ export function endSignals(
   };
   /** Starts what was queued after session `id`, which is over now. */
   const startAfter = (id: string) => startQueue((after) => after === id);
+  /** The shared receipt completion for a process exit, however it was detected. */
+  const finishExit = (exited: SessionRecord) =>
+    exited.kind === 'run' ? endRun(ctx, exited) : markExited(ctx, exited);
   return {
     /**
      * A stop's signal: a stopped session is over, so what was queued after it starts; a queued
@@ -89,11 +92,26 @@ export function endSignals(
      */
     board: async (all = false) => {
       const rows = await deps.look(all);
+      let finishedRun = false;
+      for (const row of rows) {
+        if (!row.managed || row.endedAt || !isOver(row)) continue;
+        const exited =
+          (await recordPaneDied(
+            { store, tmux, clock },
+            row.tmux.session,
+            row.tmux.window,
+            'tmux',
+          )) ?? store.find(row.id);
+        // The signal may have saved the exit but missed its receipt (or beaten its creation).
+        if (!exited || exited.endedAt || !exited.events.some((e) => e.type === 'exited')) continue;
+        await finishExit(exited);
+        finishedRun ||= exited.kind === 'run';
+      }
       const overNow = (id: string) => {
         const row = rows.find((r) => r.id === id);
         return row?.managed ? isOver(row) : overOrGone(id);
       };
-      return (await startQueue(overNow)).started ? deps.look(all) : rows;
+      return (await startQueue(overNow)).started || finishedRun ? deps.look(all) : rows;
     },
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop reads the
@@ -118,18 +136,16 @@ export function endSignals(
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
      * exit of the agent in a Mesa window, ends it when it is a skill run (endRun, as its
-     * `mesa run` would, which may be gone, and which finishes its receipt), starts what was
-     * queued after it, then says in an interactive session's receipt how it ended (markExited);
+     * `mesa run` would, which may be gone), finishes its receipt, and starts what was queued
+     * after it. An interactive receipt ends through markExited, without stopping its record;
      * any other event, or a window no session has, is not Mesa's and records nothing (undefined).
      */
     tmuxEvent: async (event: string, project: string, window: string) => {
       if (event !== 'pane-died') return undefined;
       const exited = await recordPaneDied({ store, tmux, clock }, project, window);
       if (!exited) return undefined;
-      const run = exited.kind === 'run';
-      if (run) await endRun(ctx, exited);
+      await finishExit(exited);
       await startAfter(exited.id);
-      if (!run) await markExited(ctx, exited);
       return exited;
     },
   };
