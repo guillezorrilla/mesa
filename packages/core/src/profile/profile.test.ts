@@ -23,6 +23,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     runs: '/h/.mesa/work/sessions/runs',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
+    checkouts: '/h/.mesa/work/checkouts',
     handoffs: '/h/.mesa/work/handoffs',
     tmuxSocket: 'mesa-work',
   });

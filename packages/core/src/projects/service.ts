@@ -1,4 +1,7 @@
 import type { MesaContext } from '../context.js';
+import { cloneProject } from './clone.js';
+import { discoverProjects } from './discover.js';
+import { repositoryUrl } from './project-url.js';
 import {
   listProjects,
   type ProjectUpdate,
@@ -23,6 +26,21 @@ export function projectsService(ctx: MesaContext) {
         () => registerProject(open(), { dir: absolute(dir), create }),
       ),
     list: () => listProjects(open()),
+    discover: (root: string) => discoverProjects(open(), absolute(root)),
+    clone: (input: string) => {
+      const source = repositoryUrl(input);
+      return record(
+        {
+          summary: (r) => `Cloned project ${r.project.name}`,
+          failure: 'Could not clone project',
+          project: (r) => r.project.name,
+          argv: ctx.deps.argv.map((word) => (word === input ? '[repository URL]' : word)),
+          inputs: { slug: source.slug },
+          outputs: (r) => ({ path: r.path, wroteMesaYaml: r.created }),
+        },
+        () => cloneProject(open(), ctx.deps.run, source),
+      );
+    },
     update: (name: string, patch: ProjectUpdate) =>
       record(
         {

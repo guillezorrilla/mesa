@@ -19,6 +19,8 @@ export type ProfilePaths = {
   attachScripts: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
   worktrees: string;
+  /** Repositories cloned from a URL for this profile. */
+  checkouts: string;
   /** Handoff notes, `<successor id>.md` each (CONTEXT.md, Handoff). */
   handoffs: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
@@ -40,6 +42,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     runs: join(root, 'sessions', 'runs'),
     attachScripts: join(root, 'attach'),
     worktrees: join(root, 'worktrees'),
+    checkouts: join(root, 'checkouts'),
     handoffs: join(root, 'handoffs'),
     tmuxSocket: `mesa-${profile}`,
   };

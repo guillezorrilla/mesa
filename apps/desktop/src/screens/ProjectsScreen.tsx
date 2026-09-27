@@ -1,11 +1,13 @@
-import { sessionCount } from '@mesa/core/browser';
-import { Columns2, FolderPlus, Play, Sparkles } from 'lucide-react';
+import type { DiscoveredProject } from '@mesa/core';
+import { repositoryUrl, sessionCount } from '@mesa/core/browser';
+import { Columns2, FolderPlus, GitFork, Play, Search, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { said, warned } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -32,6 +34,15 @@ export function ProjectsScreen(
   const { acting, act } = useAct();
   // Sync and open both link skills into a project: its Skills column reads again after either.
   const [linked, setLinked] = useState(0);
+  const [discovered, setDiscovered] = useState<DiscoveredProject[]>();
+  const [cloneUrl, setCloneUrl] = useState('');
+  let validClone = false;
+  try {
+    repositoryUrl(cloneUrl);
+    validClone = true;
+  } catch {
+    // The field is not ready; core validates again before git runs.
+  }
 
   const openSession = (project: string) =>
     act(async () => {
@@ -75,14 +86,133 @@ export function ProjectsScreen(
       return warned(registered.warning);
     });
 
+  const discover = () =>
+    act(async () => {
+      const root = await platform.pickFolder();
+      if (!root) return undefined;
+      const found = await run('projects.discover', { path: root });
+      if (found) setDiscovered(found);
+      return undefined;
+    });
+
+  const importProject = (candidate: DiscoveredProject) =>
+    act(async () => {
+      const registered = await run('projects.register', { path: candidate.path });
+      if (!registered) return undefined;
+      await refresh();
+      props.onRegistered?.();
+      setDiscovered((was) =>
+        was?.map((row) => (row.path === candidate.path ? { ...row, registered: true } : row)),
+      );
+      return said(`Imported project ${registered.name ?? candidate.name}`, registered);
+    });
+
+  const clone = () =>
+    act(async () => {
+      const cloned = await run('projects.clone', { url: cloneUrl.trim() });
+      if (!cloned) return undefined;
+      setCloneUrl('');
+      await refresh();
+      props.onRegistered?.();
+      return said(`Cloned project ${cloned.name}`, cloned);
+    });
+
   return (
     <section data-testid="projects-screen" className="space-y-4">
       <PageHeader title="Projects" description="The repositories this profile has registered.">
+        <Button
+          variant="outline"
+          data-testid="discover-projects"
+          onClick={discover}
+          disabled={acting}
+        >
+          <Search aria-hidden /> Discover folders
+        </Button>
         <Button data-testid="register-folder" onClick={registerFolder} disabled={acting}>
           <FolderPlus aria-hidden />
           Register folder
         </Button>
       </PageHeader>
+      <Card>
+        <CardContent>
+          <form
+            className="flex flex-wrap gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (validClone) void clone();
+            }}
+          >
+            <Input
+              data-testid="repository-url"
+              aria-label="Repository URL or Mesa project link"
+              value={cloneUrl}
+              onInput={(event) => setCloneUrl(event.currentTarget.value)}
+              placeholder="HTTPS, SSH, or mesa://clone?url=..."
+              className="min-w-64 flex-1 font-mono"
+            />
+            <Button
+              type="submit"
+              variant="outline"
+              data-testid="clone-project"
+              disabled={!validClone || acting}
+            >
+              <GitFork aria-hidden /> Clone and register
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      {discovered && (
+        <Card data-testid="discovered-projects">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Found nearby projects</CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Dismiss discovered projects"
+              onClick={() => setDiscovered(undefined)}
+            >
+              <X aria-hidden />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {discovered.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No projects found within three folder levels.
+              </p>
+            )}
+            {discovered.map((candidate) => (
+              <div
+                key={candidate.path}
+                data-testid="discovered-project"
+                className="flex items-center gap-3 rounded-md border p-2 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{candidate.name}</div>
+                  <div
+                    className="truncate font-mono text-muted-foreground text-xs"
+                    title={candidate.path}
+                  >
+                    {candidate.path}
+                  </div>
+                  {candidate.error && <p className="text-destructive text-xs">{candidate.error}</p>}
+                </div>
+                {candidate.registered ? (
+                  <Badge variant="secondary">Registered</Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={acting || Boolean(candidate.error)}
+                    onClick={() => importProject(candidate)}
+                  >
+                    Import
+                  </Button>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       <Card className="py-0">
         <Table>
           <TableHeader>

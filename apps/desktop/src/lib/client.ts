@@ -4,6 +4,7 @@ import type {
   ClaudeHooksStatus,
   CommandReference,
   Config,
+  DiscoveredProject,
   DoctorReport,
   HooksStatus,
   Opened,
@@ -62,6 +63,16 @@ const COMMANDS = {
   ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
+  'projects.discover': commandWith<{ path: string }, DiscoveredProject[]>(({ path }) => [
+    'projects',
+    'discover',
+    '--',
+    path,
+  ]),
+  'projects.clone': commandWith<
+    { url: string },
+    Recorded<Project & { path: string; created: boolean; url: string }>
+  >(({ url }) => ['projects', 'clone', '--', url]),
   'projects.update': commandWith<
     { name: string; label?: string; pinned?: boolean; hidden?: boolean; move?: 'up' | 'down' },
     Recorded<{ name: string; path: string; label?: string; pinned?: boolean; hidden?: boolean }>

@@ -14,7 +14,7 @@ Not: notes folder, knowledge base, memory (memory is what the vault holds, not t
 
 ## Project
 
-A repository registered with a profile through its `mesa.yaml`: `name` (a stable slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`, see Guardrail), `tmux.layout` (how its Project view lays out its sessions), and extra `skills`. A project has zero or more sessions. Its profile-local display label can change without changing its slug or historical session links.
+A repository registered with a profile through its `mesa.yaml`: `name` (a stable slug, unique in the profile), preferred `agent`, `priority` (0 to 1, feeds the attention score), `guardrail` (`normal` or `strict`, see Guardrail), `tmux.layout` (how its Project view lays out its sessions), and extra `skills`. A project has zero or more sessions. Its profile-local display label can change without changing its slug or historical session links. `mesa projects discover <folder>` scans at most three levels, 500 folders and 100 local Git or configured project candidates for selective import through `mesa register`. `mesa projects clone <url>` accepts a validated HTTPS or SSH URL, or a `mesa://clone?url=<encoded-url>` link, clones under `~/.mesa/<profile>/checkouts/`, then registers it; a failed clone removes only its new checkout.
 Not: repo (a repo becomes a project once registered), workspace.
 
 ## Registry

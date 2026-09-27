@@ -15,7 +15,7 @@ import { log } from './log.js';
 import { logs } from './logs.js';
 import { open } from './open.js';
 import { profile } from './profile.js';
-import { projects, projectsUpdate } from './projects.js';
+import { projects, projectsClone, projectsDiscover, projectsUpdate } from './projects.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
@@ -58,6 +58,8 @@ export const COMMANDS: Command[] = [
   open,
   profile,
   projects,
+  projectsClone,
+  projectsDiscover,
   projectsUpdate,
   receipts,
   receiptsShow,

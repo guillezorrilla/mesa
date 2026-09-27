@@ -54,3 +54,36 @@ export const projectsUpdate = defineCommand({
     });
   },
 });
+
+export const projectsDiscover = defineCommand({
+  name: 'projects discover',
+  summary: 'Find local Git repositories or mesa.yaml projects under a folder, within three levels',
+  args: ['path'],
+  example: 'mesa projects discover ~/src',
+  run: ({ mesa, args }) => {
+    const rows = mesa.projects.discover(args.path);
+    return {
+      data: rows,
+      text: rows.length
+        ? columns(
+            rows.map((row) => [row.name, row.path, row.registered ? '(registered)' : '']),
+          ).join('\n')
+        : 'no projects found',
+    };
+  },
+});
+
+export const projectsClone = defineCommand({
+  name: 'projects clone',
+  summary: 'Clone an HTTPS/SSH repository or Mesa project link into this profile and register it',
+  args: ['url'],
+  example: 'mesa projects clone https://example.com/team/lantern-cove.git',
+  run: async ({ mesa, args }) => {
+    const recorded = await mesa.projects.clone(args.url);
+    const { project, path, created } = recorded.result;
+    return recordedOutput(recorded, {
+      data: { ...project, path, created, url: recorded.result.url },
+      text: `cloned ${project.name} at ${path}`,
+    });
+  },
+});

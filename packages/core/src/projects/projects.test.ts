@@ -5,6 +5,7 @@ import { beforeEach, expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { initProfile, openProfile, type Profile } from '../profile/profile.js';
 import { tempDir, thrown } from '../testing/index.js';
+import { discoverProjects } from './discover.js';
 import { slugify } from './project-file.js';
 import { listProjects, registerProject, unregisterProject, updateProject } from './projects.js';
 
@@ -126,6 +127,29 @@ test('profile-local labels, pins, hiding, and order preserve stable slugs and pr
   expect(thrown(() => updateProject(profile, 'one', { label: 'line\nbreak' })).code).toBe('usage');
   expect(thrown(() => updateProject(profile, 'unknown', { hidden: true })).code).toBe('not_found');
   expect(listProjects(profile)[0]?.label).toBe('The First');
+});
+
+test('local discovery is bounded to projects and leaves their folders untouched', () => {
+  const rootPath = folder('scan');
+  const configured = folder('scan/known', 'name: custom-slug\n');
+  const git = folder('scan/nearby');
+  mkdirSync(join(git, '.git'));
+  folder('scan/ordinary');
+  const deep = folder('scan/a/b/c/d');
+  mkdirSync(join(deep, '.git'));
+  registerProject(profile, { dir: configured });
+  expect(
+    discoverProjects(profile, rootPath).map((row) => [
+      row.path,
+      row.name,
+      row.configured,
+      row.registered,
+    ]),
+  ).toEqual([
+    [configured, 'custom-slug', true, true],
+    [git, 'nearby', false, false],
+  ]);
+  expect(thrown(() => discoverProjects(profile, join(root, 'absent'))).code).toBe('not_found');
 });
 
 test('slugify', () => {
