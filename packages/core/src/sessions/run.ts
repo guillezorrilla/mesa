@@ -7,6 +7,7 @@ import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { redactWhole } from '../lib/redact.js';
 import { MesaError, toFail } from '../lib/result.js';
+import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { sessionReceipt } from '../receipts/store.js';
 import { landingOf, landOutput } from '../skills/landing.js';
@@ -220,7 +221,7 @@ function requireSkill(rows: SkillRow[], skill: string, project: string) {
  * logs/ (its pane's output, errors included), and the vault and the secrets its receipt and the
  * note its output becomes are written with.
  */
-type EndContext = Pick<MesaContext, 'store' | 'paths' | 'notes' | 'secrets' | 'deps'> & {
+type EndContext = Pick<MesaContext, 'store' | 'paths' | 'notes' | 'secrets' | 'deps' | 'open'> & {
   tmux: Pick<TmuxBackend, 'killWindow'>;
 };
 
@@ -317,7 +318,15 @@ async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResu
       const receipt = sessionReceipt(notes.vault, run.id)?.path;
       // A fast pane-died hook can beat the start receipt. The waiter retries after it is written.
       if (!receipt) return { result: read };
-      note = await landOutput(notes, skill, landed, output, receipt);
+      note = await landOutput(
+        notes,
+        skill,
+        skill === 'project-brief'
+          ? { ...landed, repo: findProject(ctx.open(), run.project).path }
+          : landed,
+        output,
+        receipt,
+      );
     } catch (error) {
       unlanded = `run ${run.id}'s output not written to the vault: ${toFail(error).error.message}`;
     }

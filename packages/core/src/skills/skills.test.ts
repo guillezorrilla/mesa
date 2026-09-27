@@ -55,9 +55,10 @@ function setUp() {
   return { home, library, dir, mesa };
 }
 
-test('every skill Mesa ships has the frontmatter both agents read; session-summary is one', () => {
+test('every skill Mesa ships has the frontmatter both agents read; both landing skills are present', () => {
   const shipped = readLibrary(testDeps(tempDir()).skillsDir);
   expect(shipped.map((s) => s.name)).toContain('session-summary');
+  expect(shipped.map((s) => s.name)).toContain('project-brief');
   for (const s of shipped) expect(s.description.length).toBeGreaterThan(20);
 });
 
