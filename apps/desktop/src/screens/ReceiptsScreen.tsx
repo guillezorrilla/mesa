@@ -146,7 +146,8 @@ export function ReceiptsScreen(props: {
                   data-testid="receipt-row"
                   data-status={r.status}
                   data-state={r.id === props.selected ? 'selected' : undefined}
-                  className="relative"
+                  className="cursor-pointer"
+                  onClick={() => props.onSelect(r.id)}
                 >
                   <TableCell className="font-mono text-muted-foreground text-xs">
                     {started(r.started)}
@@ -165,12 +166,11 @@ export function ReceiptsScreen(props: {
                     {r.decisions.length}
                   </TableCell>
                   <TableCell className="max-w-96 truncate">
-                    {/* Stretched over the row, so the whole row selects it. */}
+                    {/* Button activation bubbles to the row, just like a click on any cell. */}
                     <button
                       type="button"
                       data-testid="receipt-open"
-                      className="text-left after:absolute after:inset-0 hover:underline focus-visible:underline focus-visible:outline-none"
-                      onClick={() => props.onSelect(r.id)}
+                      className="text-left hover:underline focus-visible:underline focus-visible:outline-none"
                     >
                       {summary}
                     </button>
