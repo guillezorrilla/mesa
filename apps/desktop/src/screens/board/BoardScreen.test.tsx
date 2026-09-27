@@ -187,6 +187,27 @@ test('clicking a live session opens its terminal here; two at once; Close ends o
   expect(calls.some((c) => c[1] === 'stop')).toBe(false);
 });
 
+test('another screen hides the Board without closing its terminals or its Show older', async () => {
+  const terms = fakeTerminals();
+  const platform = fakePlatform({ terminal: terms.host });
+  const { bridge } = fakeBridge({
+    sessions: () => envelope([asking, busy]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  await click(byTestId('embed-terminal')[0]);
+  await click(byTestId('embed-terminal')[1]);
+  await click(byTestId('sessions-ended')[0]);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('session-board')[0]?.closest('[hidden]')).not.toBeNull();
+  await click(byTestId('nav-board')[0]);
+  expect(byTestId('session-board')[0]?.closest('[hidden]')).toBeNull();
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  expect(terms.calls.filter((c) => c[0] === 'close')).toEqual([]);
+  expect(byTestId('sessions-ended')[0]?.getAttribute('data-state')).toBe('checked');
+});
+
 test('New session opens a dialog, and Open starts the picked project with the picked agent', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

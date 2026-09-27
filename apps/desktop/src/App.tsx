@@ -62,7 +62,11 @@ export function App() {
         </div>
       </header>
       <main className="flex-1 px-6 py-5">
-        {screen === 'Board' && <BoardScreen />}
+        {/* Hidden, not unmounted: its terminals, Show older, and collapsed rows survive a look at
+            another screen (CONTEXT.md, Board). */}
+        <div hidden={screen !== 'Board'}>
+          <BoardScreen />
+        </div>
         {screen === 'Projects' && <ProjectsScreen />}
         {screen === 'Receipts' && <ReceiptsScreen />}
         {screen === 'Doctor' && <DoctorScreen doctor={doctor} />}
