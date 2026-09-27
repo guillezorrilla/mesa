@@ -1,6 +1,6 @@
+import { duration, sessionBranch, sessionLabel, waitingOn } from '@mesa/core/view';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
-import { duration } from '../output/duration.js';
 
 export const sessions = defineCommand({
   name: 'sessions',
@@ -24,10 +24,8 @@ export const sessions = defineCommand({
       ? columns(
           rows.map((s) => [
             // A name a person gave it stands in for the id; --json keeps both.
-            `${indent(s)}${s.managed && s.name ? s.name : s.id}`,
-            s.managed && (s.worktree ?? s.pending?.branch)
-              ? `${s.project} (${s.worktree?.branch ?? s.pending?.branch})`
-              : (s.project ?? '-'),
+            `${indent(s)}${sessionLabel(s)}`,
+            sessionBranch(s) ? `${s.project} (${sessionBranch(s)})` : (s.project ?? '-'),
             s.agent,
             s.lastState.state,
             `${Math.round(s.lastState.confidence * 100)}%`,
@@ -38,7 +36,7 @@ export const sessions = defineCommand({
             !s.managed
               ? 'not managed by mesa'
               : s.lastState.state === 'queued'
-                ? `waiting on ${s.after}`
+                ? waitingOn(s.after)
                 : (s.lastOutput ?? ''),
           ]),
         ).join('\n')

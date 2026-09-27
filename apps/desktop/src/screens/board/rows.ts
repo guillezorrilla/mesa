@@ -1,24 +1,16 @@
 import type { SessionRow, SessionState, TreeRow } from '@mesa/core';
+import { listPrice } from '@mesa/core/view';
 
 // What the Board derives from a row: pure, so every piece of the Board reads it the same way.
-
-// ponytail: a copy of duration() in packages/cli/src/output/duration.ts, since the app bundles no
-// CLI or core code; change both together, or share one pure module if a third copy appears.
-export const running = (seconds: number) => {
-  const [h, m, s] = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60];
-  const two = (n: number) => String(n).padStart(2, '0');
-  if (h) return `${h}h${two(m)}m`;
-  return m ? `${m}m${two(s)}s` : `${s}s`;
-};
+// How a row's label, branch, and numbers read is core's view (`@mesa/core/view`), which the CLI
+// shares.
 
 /**
  * Who placed the row: Faro's backend, and the adapter's list price when it answered; Mesa, for a
  * session that never ran.
  */
 export const decidedBy = (d?: { backend: string; costUsd?: number }) =>
-  d
-    ? `decided by ${d.backend}${d.costUsd === undefined ? '' : ` (list price $${d.costUsd.toFixed(4)})`}`
-    : 'set by Mesa: its agent has not run';
+  d ? `decided by ${d.backend}${listPrice(d.costUsd)}` : 'set by Mesa: its agent has not run';
 
 // ponytail: core's FINAL_STATES and WAITING_STATES, copied: the app imports core's types only (it
 // reaches Mesa through the bridge), and typing them as SessionState makes a renamed state fail

@@ -5,6 +5,7 @@
     "noEmit": true,
     "paths": {
       "@mesa/core/testing": ["../core/src/testing/index.ts"],
+      "@mesa/core/view": ["../core/src/view.ts"],
       "@mesa/core": ["../core/src/index.ts"]
     }
   },

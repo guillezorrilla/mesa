@@ -1,0 +1,33 @@
+import { expect, test } from 'vitest';
+import type { SessionRow } from './sessions/board/rows.js';
+import { duration, listPrice, sessionBranch, sessionLabel, waitingOn } from './view.js';
+
+// Only the fields the view reads.
+const row = (fields: object) => fields as SessionRow;
+const managed = (fields: object) => row({ managed: true, id: 'a1b2c3d4', ...fields });
+const foreign = row({ managed: false, id: 'ext-4200' });
+
+test('a row reads as its name, else its id; its branch is its worktree, else the one it waits for', () => {
+  expect(sessionLabel(managed({ name: 'tide notes' }))).toBe('tide notes');
+  expect(sessionLabel(managed({}))).toBe('a1b2c3d4');
+  expect(sessionLabel(foreign)).toBe('ext-4200');
+  const worktree = { path: '/w/try-x', branch: 'try/x' };
+  expect(sessionBranch(managed({ worktree, pending: { branch: 'later' } }))).toBe('try/x');
+  expect(sessionBranch(managed({ pending: { branch: 'later' } }))).toBe('later');
+  expect(sessionBranch(managed({}))).toBeUndefined();
+  expect(sessionBranch(foreign)).toBeUndefined();
+  expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
+});
+
+test('durations and list prices read the same everywhere', () => {
+  expect([0, 42, 60, 303, 3600, 7620].map(duration)).toEqual([
+    '0s',
+    '42s',
+    '1m00s',
+    '5m03s',
+    '1h00m',
+    '2h07m',
+  ]);
+  expect(listPrice(0.01234)).toBe(' (list price $0.0123)');
+  expect(listPrice(undefined)).toBe('');
+});
