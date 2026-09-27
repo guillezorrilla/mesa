@@ -430,6 +430,84 @@ test('session-summary refuses missing logs and unknown sessions, and preserves a
   expect(readFileSync(join(vault, path), 'utf8')).toBe(before);
 });
 
+test('project-brief lands fixture output, refreshes generated sections, and keeps user blocks', async () => {
+  let now = '2026-09-24T12:00:00Z';
+  let brief =
+    '## Purpose\nA lantern scheduler.\n\n## Stack\nTypeScript.\n\n## How to run\nRun mesa.\n\n## Open threads\nAdd alerts.';
+  const world = agentWorld({
+    onOpen: (window) =>
+      finishesRun({
+        output: JSON.stringify({ ...JSON.parse(claudeResult('success')), result: brief }),
+      })(window),
+  });
+  const { home, dir, mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [project-brief]\n',
+    clock: () => new Date(now),
+  });
+  const vault = join(home, 'vault');
+  const path = 'projects/lantern-cove.md';
+  const first = await mesa.sessions.run('project-brief', { project: 'lantern-cove' });
+  expect(first.result.note).toBe(path);
+  expect(existsSync(join(dir, '.claude/skills/project-brief/SKILL.md'))).toBe(true);
+  expect(readNote(vault, path)).toMatchObject({
+    frontmatter: {
+      type: 'project',
+      repo: dir,
+      updated: '2026-09-24T12:00',
+      run: first.result.session,
+    },
+    body: `${brief}\n`,
+  });
+  const kept = '<!-- keep -->\n## My notes\nKeep  spaces and café.\n<!-- keep -->';
+  const secondKept = '<!-- keep -->\n## More notes\nSecond block.\n<!-- keep -->';
+  writeFileSync(
+    join(vault, path),
+    `${readFileSync(join(vault, path), 'utf8')}\n${kept}\n\n${secondKept}\n`,
+  );
+  now = '2026-09-25T13:30:00Z';
+  brief =
+    '## Purpose\nA better lantern scheduler.\n\n## Stack\nTypeScript.\n\n## How to run\nRun mesa.\n\n## Open threads\nAdd alarms.';
+  const second = await mesa.sessions.run('project-brief', { project: 'lantern-cove' });
+  const note = readNote(vault, path);
+  expect(note.frontmatter).toMatchObject({
+    type: 'project',
+    repo: dir,
+    updated: '2026-09-25T13:30',
+    run: second.result.session,
+  });
+  expect(note.body).toBe(`${brief}\n\n${kept}\n\n${secondKept}\n`);
+  expect(note.body).not.toContain('Add alerts.');
+  expect(readFileSync(join(vault, 'log.md'), 'utf8').match(/Updated project brief/g)).toHaveLength(
+    2,
+  );
+  expect(
+    listReceipts(vault).find((entry) => entry.receipt.id === second.receipt?.id)?.receipt,
+  ).toMatchObject({
+    type: 'skill',
+    status: 'ok',
+    outputs: { note: path },
+  });
+});
+
+test('project-brief leaves an existing note unchanged on malformed keep markers', async () => {
+  const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
+  const { home, mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [project-brief]\n',
+  });
+  const path = join(home, 'vault/projects/lantern-cove.md');
+  const first = await mesa.sessions.run('project-brief', { project: 'lantern-cove' });
+  expect(first.result.note).toBe('projects/lantern-cove.md');
+  const original = readFileSync(path, 'utf8');
+  for (const marker of ['<!-- keep -->', '<!-- keep start -->']) {
+    writeFileSync(path, `${original}\n${marker}\nMy notes.\n`);
+    const before = readFileSync(path, 'utf8');
+    const retry = await mesa.sessions.run('project-brief', { project: 'lantern-cove' });
+    expect(retry.result.note).toBeUndefined();
+    expect(retry.warning).toContain('marker');
+    expect(readFileSync(path, 'utf8')).toBe(before);
+  }
+});
+
 test('stopping a run with successful output keeps it failed when its waiter finishes later', async () => {
   const world = agentWorld();
   let during = async () => {};

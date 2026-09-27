@@ -65,6 +65,31 @@ test('Run skill offers the enabled skills of a project whose folder is there', a
   expect(codex?.disabled).toBe(true);
 });
 
+test('Run skill offers project-brief and starts it on the selected project', async () => {
+  const { bridge, calls } = fakeBridge({
+    ...answers,
+    'skills list': () =>
+      envelope([
+        ...SKILLS,
+        {
+          name: 'project-brief',
+          source: 'mesa',
+          enabled: true,
+          description: 'Describe a registered project',
+        },
+      ]),
+    run: () => ran({ ok: true }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('run-skill')[0]);
+  await choose(byTestId('run-skill-skill')[0], 'project-brief');
+  expect(byTestId('run-skill-about')[0]?.textContent).toBe('Describe a registered project');
+  await click(byTestId('run-skill-submit')[0]);
+  expect(runs(calls)).toEqual([
+    ['run', '--project', 'lantern-cove', '--agent', 'claude', '--', 'project-brief'],
+  ]);
+});
+
 test('changing project hides the old skills while the new list is pending or fails', async () => {
   const next = deferred();
   const { bridge, calls } = fakeBridge({
