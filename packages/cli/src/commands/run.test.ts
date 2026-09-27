@@ -35,10 +35,10 @@ test('run prints the result, its session, and cost; --json the result; sessions 
     data: {
       session: id,
       ok: true,
-      output: expect.stringMatching(/^\*\*Goal:\*\* Tidy/),
+      output: expect.stringMatching(/^The session had no work to summarise/),
       agentSessionId: UUID,
-      costUsd: 0.0421,
-      durationMs: 8421,
+      costUsd: 0.2621986,
+      durationMs: 19113,
       receipt: { id: expect.stringMatching(/^01TEST/), path: expect.stringContaining('-skill-') },
     },
   });
@@ -52,7 +52,7 @@ test('run prints the result, its session, and cost; --json the result; sessions 
     .find((r) => r.id !== id)?.id;
   // The agent session id is the one claude's result names (the fixture's).
   expect(plain.stdout.split('\n').slice(-2)).toEqual([
-    `done: session ${second}, agent session ${UUID}, 8s (list price $0.0421)`,
+    `done: session ${second}, agent session ${UUID}, 19s (list price $0.2622)`,
     '',
   ]);
 

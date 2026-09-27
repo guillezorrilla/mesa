@@ -2,13 +2,23 @@
   "type": "result",
   "subtype": "success",
   "is_error": false,
-  "duration_ms": 8421,
-  "duration_api_ms": 7960,
-  "num_turns": 3,
-  "result": "**Goal:** Tidy the lantern-cove README.\n**Done:** Merged the two install sections (README.md, one commit).\n**Left:** Nothing.",
+  "duration_ms": 19113,
+  "duration_api_ms": 18373,
+  "num_turns": 5,
+  "result": "The session had no work to summarise, and I couldn't run git or the goal lookup, so this is built from the startup snapshot only.\n\n- **Goal:** Unknown. `/session-summary` was the first prompt in this session. `mesa goal lantern-cove` needed approval and didn't run, so I couldn't read the goal the session started with.\n- **Done:** Nothing. No commits, no file edits and no PRs came from this session.\n- **Assumed:**\n  - The repo is on `main` at `fbaf9ab` (\"Say how to run it\"), after `966a361` (\"Add the tide table and README\"). Both commits were already there when the session started, so they aren't this session's work. This comes from the startup snapshot; `git log` needed approval and didn't run.\n  - `mesa.yaml` is untracked. I read it: `name: lantern-cove`, `priority: 0.5`, `guardrail: normal`. I don't know whether it's meant to be committed.\n- **Left:**\n  - **You:** approve `git log` and `mesa goal`, or say what this session was for. Without either, a summary can only restate the startup snapshot.\n  - **You:** decide whether `mesa.yaml` should be committed or ignored.\n- **Decisions:** None.\n\nTo get a summary that means something, run `/session-summary` at the end of a session that has done some work, and allow `git log` and `git diff --stat`.",
   "stop_reason": "end_turn",
+  "terminal_reason": "completed",
   "session_id": "00000000-0000-4000-8000-000000000001",
-  "total_cost_usd": 0.0421,
-  "permission_denials": [],
+  "total_cost_usd": 0.2621986,
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01TEST0000000000000000001",
+      "tool_input": {
+        "command": "git log --stat -5",
+        "description": "Show recent commits with changed files"
+      }
+    }
+  ],
   "uuid": "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b"
 }

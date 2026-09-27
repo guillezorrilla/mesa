@@ -335,9 +335,9 @@ export const finishesRun =
 
 /**
  * `claude -p --output-format json` results, as a run's output file holds them
- * (agents/claude/fixtures/results/): `not-logged-in` recorded from Claude Code 2.1.283 with a
- * temp HOME, `success` shaped after it with invented text and cost, since the recording home had
- * no login.
+ * (agents/claude/fixtures/results/), recorded from Claude Code 2.1.283, trimmed, their ids
+ * invented: `success`, a real session-summary run on an invented repo, and `not-logged-in`, from
+ * a HOME with no login.
  */
 export const claudeResult = (name: 'success' | 'not-logged-in') =>
   readFileSync(

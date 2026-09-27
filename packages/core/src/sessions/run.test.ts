@@ -38,10 +38,10 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   expect(result).toEqual({
     session: id,
     ok: true,
-    output: expect.stringMatching(/^\*\*Goal:\*\* Tidy/),
+    output: expect.stringMatching(/^The session had no work to summarise/),
     agentSessionId: UUID,
-    costUsd: 0.0421,
-    durationMs: 8421,
+    costUsd: 0.2621986,
+    durationMs: 19113,
   });
   // stdin closed, stdout and stderr into the profile's runs/, and exec, so the pane's exit is claude's.
   expect(world.tmux.windows).toEqual([]);
@@ -134,7 +134,7 @@ test('an error claude reports, and a nonzero exit with no result, are not ok, wi
   const exited = await odd.mesa.sessions.run('session-summary', { project: 'lantern-cove' });
   expect(exited.result).toMatchObject({
     ok: false,
-    output: expect.stringMatching(/^\*\*Goal/),
+    output: expect.stringMatching(/^The session had no work to summarise/),
     reason: 'claude exited with status 3',
   });
 });

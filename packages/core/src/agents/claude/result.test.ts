@@ -8,10 +8,10 @@ test('a finished run: its answer, conversation, cost, and duration', () => {
   expect(readClaudeResult(claudeResult('success'))).toEqual({
     read: true,
     ok: true,
-    output: expect.stringMatching(/^\*\*Goal:\*\* Tidy the lantern-cove README\./),
+    output: expect.stringMatching(/^The session had no work to summarise/),
     agentSessionId: ID,
-    costUsd: 0.0421,
-    durationMs: 8421,
+    costUsd: 0.2621986,
+    durationMs: 19113,
   });
 });
 
@@ -34,7 +34,7 @@ test('an error claude reports is not ok, with its own words as the reason', () =
     ok: false,
     output: '',
     agentSessionId: ID,
-    durationMs: 8421,
+    durationMs: 19113,
     reason: 'claude stopped before it finished (error_max_turns)',
   });
 });
