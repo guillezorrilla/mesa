@@ -13,11 +13,10 @@ const questions: Question[] = [
 const rules = rulesBackend<State>([
   { when: (s) => s.idle, answer: () => ({ state: { idle: 1 }, stuck: 0.8 }) },
 ]);
-const profile = (backend: 'rules' | 'adapter' | 'jev', keys: string[] = []): FaroProfile => ({
+const profile = (backend: Backend['name']): FaroProfile => ({
   decisions: { backend, threshold: 0.7 },
-  hasKey: (name) => keys.includes(name),
 });
-/** A stand-in for a backend not built yet: answers `working`, or whatever `answer` gives. */
+/** A stand-in for the backend the profile names: answers whatever `answer` gives. */
 const fake = (name: Backend['name'], answer: () => Promise<unknown>): Backend<State> => ({
   name,
   answer,
@@ -62,12 +61,11 @@ test('decide returns a Decision from the rules backend and records it; a failing
   });
 });
 
-test('the profile names the backend: used when this site has it, else rules; jev needs a key', () => {
-  const all = [rules, fake('adapter', working), fake('jev', working)];
+test('the profile names the backend: used when this site has it, else rules', () => {
+  const all = [rules, fake('adapter', working)];
   expect(selectBackend(all, profile('adapter')).name).toBe('adapter');
+  expect(selectBackend(all, profile('rules')).name).toBe('rules');
   expect(selectBackend([rules], profile('adapter')).name).toBe('rules');
-  expect(selectBackend(all, profile('jev')).name).toBe('rules');
-  expect(selectBackend(all, profile('jev', ['jev'])).name).toBe('jev');
   expect(selectBackend([], profile('rules')).name).toBe('rules');
 });
 

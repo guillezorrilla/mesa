@@ -160,7 +160,7 @@ Not: the AI, the brain, the classifier.
 
 ## Backend
 
-A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules`, `adapter`, `jev`) and the **session backend** (`tmux`). Say which one.
+A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules` or `adapter`) and the **session backend** (`tmux`). Say which one.
 Not: provider, driver, engine.
 
 ## Guardrail

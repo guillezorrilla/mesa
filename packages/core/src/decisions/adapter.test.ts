@@ -26,7 +26,6 @@ const redact = (value: unknown, maxString?: number) =>
   redactPayload(value, HOME, ['sk-invented-0000'], maxString);
 const profile: FaroProfile = {
   decisions: { backend: 'adapter', threshold: 0.7 },
-  hasKey: () => false,
 };
 
 const STATES = ['working', 'waiting-permission', 'waiting-question', 'idle', 'done', 'failed'];

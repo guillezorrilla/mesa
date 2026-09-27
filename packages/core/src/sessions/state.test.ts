@@ -12,7 +12,6 @@ const fixtures = readdirSync(dir)
   .map((f) => ({ name: f, ...JSON.parse(readFileSync(join(dir, f), 'utf8')) }));
 const profile: FaroProfile = {
   decisions: { backend: 'rules', threshold: 0.7 },
-  hasKey: () => false,
 };
 const deps = { profile, clock: fixedClock() };
 
@@ -112,7 +111,6 @@ test('classifySession asks the adapter only when the rules are unsure, and takes
   };
   const adapterProfile: FaroProfile = {
     decisions: { backend: 'adapter', threshold: 0.7 },
-    hasKey: () => false,
   };
   const sure = fixtures.find((f) => f.name === 'permission-request-fresh.json')
     ?.input as SessionSignals;

@@ -4,7 +4,7 @@
 
 - `types.ts`: the questions (`Choice`, `Score`, `Noul`), `Answer`, `Decision`, `Backend`, and `DecisionRecorder`.
 - `rules.ts`: `rulesBackend(rules, fallback)`, deterministic and always available. The first rule whose `when(state)` holds weighs the questions by id. The backend normalises the weights, so probabilities always sum to 1.
-- `decide.ts`: `decide` validates the questions, and the site's rules answer first. The backend the profile names (`decisions.backend`) is asked only when the least sure answer is below `decisions.threshold` (ADR-0003). That backend must be available at this site, and `jev` also needs a `jev` key. Its answers stand only when they parse and fit the questions; otherwise the rules' answers stand. Rules that throw give even answers. The Decision then goes to `deps.recorder`, and a failed record never fails the decision.
+- `decide.ts`: `decide` validates the questions, and the site's rules answer first. The backend the profile names (`decisions.backend`: `rules` or `adapter`) is asked only when the least sure answer is below `decisions.threshold` (ADR-0003). That backend must be available at this site. Its answers stand only when they parse and fit the questions; otherwise the rules' answers stand. Rules that throw give even answers. The Decision then goes to `deps.recorder`, and a failed record never fails the decision.
 - `adapter.ts`: `adapterBackend`, the shared backend that answers when rules are unsure. It runs Claude Code headless on the subscription:
 
   ```
@@ -15,7 +15,7 @@
 
 Every decision site brings its own rules backend; the adapter backend is shared. `mesa decide` asks from the command line: questions no rules know, so the answers are even.
 
-In the examples, `profile` is Faro's view of the profile (`FaroProfile`: its `decisions` settings and `hasKey`), which `createFaro` (`faro.ts`) builds for each profile, and `clock` is the injected clock.
+In the examples, `profile` is Faro's view of the profile (`FaroProfile`: its `decisions` settings), which `createFaro` (`faro.ts`) builds for each profile, and `clock` is the injected clock.
 
 ## Choice: pick one of 2 to 255 options
 
