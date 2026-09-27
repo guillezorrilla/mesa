@@ -22,7 +22,7 @@ const ListingSchema = z.array(
 const LISTING_TIMEOUT_MS = 2000;
 
 /** The live Claude Code processes, or `[]` when the listing fails, times out, or does not parse. */
-export async function listClaudeProcesses(run: Runner): Promise<AgentProcess[]> {
+export async function listClaudeProcesses({ run }: { run: Runner }): Promise<AgentProcess[]> {
   const res = await run('claude', ['agents', '--json'], LISTING_TIMEOUT_MS);
   if (!res.ok) return [];
   let raw: unknown;
@@ -60,7 +60,7 @@ export function claudeListedState(p: Pick<AgentProcess, 'status' | 'waitingFor'>
   state: SessionState;
   confidence: number;
 } {
-  const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : p.status];
+  const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : (p.status ?? '')];
   if (state) return { state, confidence: 0.85 };
   return p.status === 'waiting'
     ? { state: 'waiting-question', confidence: 0.6 }

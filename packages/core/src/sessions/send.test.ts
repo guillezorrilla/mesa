@@ -2,10 +2,12 @@ import { spawn } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import type { Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  agentWorld,
   CLAUDE_VERSION,
   fakeTmux,
   projectProfile,
@@ -448,4 +450,24 @@ test('a config.yaml that does not read still lets a prompt through: only the rec
   const { result } = await mesa.sessions.send(opened.id, 'still here');
   expect(result.sent).toBe(true);
   expect(window.typed).toEqual(['still here']);
+});
+
+test("send pauses 0.3 s between the text and its Enter for codex; claude's Enter follows at once", async () => {
+  const log: string[] = [];
+  const world = agentWorld();
+  const run: Runner = (file, args, ms) => {
+    if (args[4] === 'send-keys') log.push(`keys ${args.at(-1)}`);
+    return world.run(file, args, ms);
+  };
+  const { mesa } = projectProfile(run, { sleep: async (ms) => void log.push(`sleep ${ms}`) });
+  for (const agent of ['codex', 'claude']) {
+    const { result: opened } = await mesa.sessions.open('lantern-cove', { agent });
+    log.length = 0;
+    await mesa.sessions.send(opened.id, 'say hi');
+    expect(log, agent).toEqual(
+      agent === 'codex'
+        ? ['keys say hi', 'sleep 300', 'keys Enter']
+        : ['keys say hi', 'keys Enter'],
+    );
+  }
 });

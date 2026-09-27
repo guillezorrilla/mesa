@@ -268,7 +268,7 @@ test('a skill the project does not see or enable, another agent, or a bad timeou
   );
   expect(await refused('session-summary', { agent: 'codex' })).toMatchObject({
     code: 'agent_unavailable',
-    message: 'codex support is planned in #43',
+    message: 'codex runs no skills headless yet',
   });
   expect(await refused('session-summary', { timeoutSeconds: 0 })).toMatchObject({ code: 'usage' });
   // Counted on the line tmux gets: claude's command fits, with its redirects it does not.

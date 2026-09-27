@@ -1,9 +1,11 @@
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  agentWorld,
   CLAUDE_VERSION,
   type FakeWindow,
   fakeTmux,
@@ -317,4 +319,30 @@ test('resume goes on when the dead window it removes has gone already', async ()
   if (window) window.dead = true;
   const { result } = await mesa.sessions.resume(opened.id);
   expect(result.record.resumedFrom).toBe(opened.id);
+});
+
+test("stop types /exit into codex 0.3 s before its Enter; claude's Enter follows at once", async () => {
+  const log: string[] = [];
+  const world = agentWorld({
+    onKeys: (w, text) => {
+      if (text === '/exit') w.dead = true;
+    },
+  });
+  const run: Runner = (file, args, ms) => {
+    if (args[4] === 'send-keys') log.push(`keys ${args.at(-1)}`);
+    return world.run(file, args, ms);
+  };
+  const { mesa } = projectProfile(run, { sleep: async (ms) => void log.push(`sleep ${ms}`) });
+  for (const agent of ['codex', 'claude']) {
+    const { result: opened } = await mesa.sessions.open('lantern-cove', { agent });
+    log.length = 0;
+    expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
+    // The first pause lets the Escape land alone; codex's second keeps its Enter from being
+    // read as part of a paste (docs/spikes/codex.md).
+    expect(log, agent).toEqual(
+      agent === 'codex'
+        ? ['keys Escape', 'sleep 300', 'keys /exit', 'sleep 300', 'keys Enter']
+        : ['keys Escape', 'sleep 300', 'keys /exit', 'keys Enter'],
+    );
+  }
 });

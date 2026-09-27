@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  codexWorld,
   fakeTmux,
   newSession,
   plantTranscript,
@@ -172,4 +173,17 @@ test('an adoption links the enabled skills into the folder it reopens in, as ope
   for (const skill of ['mesa', 'mesa-handoff']) {
     expect(existsSync(join(dir, '.claude/skills', skill, 'SKILL.md'))).toBe(true);
   }
+});
+
+test('a listed Codex session is not adopted: Mesa adopts Claude Code sessions only', async () => {
+  const codex = codexWorld();
+  const { run } = scriptedRunner({ claude: '[]' });
+  const { mesa, dir, home } = projectProfile(run, { env: codex.env });
+  const thread = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  codex.rollout({ id: thread, cwd: dir, startedAt: '2026-09-24T11:58:00.000Z' });
+  await expect(mesa.sessions.adopt(thread)).rejects.toMatchObject({
+    code: 'usage',
+    message: `${thread} is a Codex session; Mesa adopts Claude Code sessions`,
+  });
+  expect(testStore(home).list()).toEqual([]);
 });

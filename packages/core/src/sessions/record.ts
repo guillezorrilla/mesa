@@ -12,8 +12,12 @@ export const isSessionId = (id: string) => SHORT_ID.test(id);
 const FOREIGN = 'ext-';
 /** An id on a foreign session's board row, which no record has. */
 export const isForeignId = (id: string) => id.startsWith(FOREIGN);
-/** A foreign session's board id (CONTEXT.md): no record has it, so every lookup refuses it. */
-export const foreignId = (pid: number) => `${FOREIGN}${pid}` as const;
+/**
+ * A foreign session's board id (CONTEXT.md): `ext-<pid>`, or `ext-<agent session id>` from a
+ * listing that names no process (Codex's). No record has it, so every lookup refuses it.
+ */
+export const foreignId = (p: { pid?: number; agentSessionId: string }) =>
+  `${FOREIGN}${p.pid ?? p.agentSessionId}` as const;
 
 export const SessionRecordSchema = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
@@ -21,7 +25,7 @@ export const SessionRecordSchema = z.strictObject({
   kind: z.enum(['interactive', 'run']),
   project: z.string(),
   agent: AgentSchema,
-  /** Claude Code's session UUID. */
+  /** Claude Code's session UUID, or Codex's thread id. */
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
   goal: z.string().optional(),

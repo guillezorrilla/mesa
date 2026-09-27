@@ -5,8 +5,9 @@ import { windowOf } from '../window-name.js';
 
 /**
  * Which record each listed process runs as. A stopped session runs nowhere, so only open ones can
- * be a listed process. By pid first: a /clear gives the agent a new session id in the same
- * window. A resumed conversation keeps its id, so the newest open record holding it wins.
+ * be a listed process. By pid first, when the listing names one: a /clear gives the agent a new
+ * session id in the same window. A resumed conversation keeps its id, so the newest open record
+ * holding it wins.
  */
 export function matchListed(
   records: readonly SessionRecord[],
@@ -20,7 +21,8 @@ export function matchListed(
     open.flatMap((r) => (r.agentSessionId ? [[r.agentSessionId, r.id] as const] : [])),
   );
   /** The record a listed process runs as, if any. */
-  const runs = (p: AgentProcess) => byPane.get(p.pid) ?? byAgentSession.get(p.agentSessionId);
+  const runs = (p: AgentProcess) =>
+    (p.pid === undefined ? undefined : byPane.get(p.pid)) ?? byAgentSession.get(p.agentSessionId);
   const byRecord = new Map(
     listed.flatMap((p) => {
       const id = runs(p);

@@ -115,3 +115,14 @@ test('doctor reports Claude settings that do not read as a warning, not a failur
     hint: expect.stringMatching(/^cannot read Claude Code's settings: /),
   });
 });
+
+test('doctor warns while a Codex app-server daemon runs in CODEX_HOME', async () => {
+  const codexHome = join(cli.home, 'codex-home');
+  cli.env = { CODEX_HOME: codexHome };
+  expect((await mesa('doctor')).stdout).not.toContain('codex daemon');
+  mkdirSync(join(codexHome, 'app-server-control'), { recursive: true });
+  writeFileSync(join(codexHome, 'app-server-control/app-server-control.sock'), '');
+  const warned = await mesa('doctor');
+  expect(warned.code).toBe(0);
+  expect(warned.stdout).toMatch(/\nwarn {2}codex daemon .* a Codex app-server daemon runs/);
+});

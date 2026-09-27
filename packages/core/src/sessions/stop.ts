@@ -1,4 +1,4 @@
-import { runnableAgent } from '../agents/agents.js';
+import { AGENTS, type AgentSpec } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { cancelQueued } from './queue.js';
@@ -49,8 +49,7 @@ export async function stopSession(
   let outcome: StopOutcome = 'gone';
   const first = await pane();
   if (first) {
-    const quit = runnableAgent(found.agent)?.quit;
-    if (!force && !first.dead && quit) await askToQuit(deps, target, quit, pane);
+    if (!force && !first.dead) await askToQuit(deps, target, AGENTS[found.agent], pane);
     const last = await pane();
     outcome = !last || last.dead ? 'exited' : 'killed';
     // A pane that exited stays, dead, under remain-on-exit; the window goes either way.
@@ -61,11 +60,14 @@ export async function stopSession(
   return { record, outcome };
 }
 
-/** Escape, then the quit command, then up to POLITE_WAIT_MS for the pane to die or vanish. */
+/**
+ * Escape, then the agent's quit command (its Enter after the pause the agent needs), then up to
+ * POLITE_WAIT_MS for the pane to die or vanish.
+ */
 async function askToQuit(
   deps: StopDeps,
   target: WindowTarget,
-  quit: string,
+  { quit, submitDelayMs }: Pick<AgentSpec, 'quit' | 'submitDelayMs'>,
   pane: () => Promise<{ dead: boolean } | undefined>,
 ) {
   try {
@@ -73,7 +75,7 @@ async function askToQuit(
     // quit command would otherwise answer.
     await deps.tmux.pressKey(target, 'Escape');
     await deps.sleep(ESCAPE_SETTLE_MS);
-    await deps.tmux.sendText(target, quit);
+    await deps.tmux.sendText(target, quit, { submitDelayMs });
   } catch (error) {
     // No agent to ask (the pane runs a shell): the caller kills the window.
     if (error instanceof MesaError && error.code === 'agent_unavailable') return;

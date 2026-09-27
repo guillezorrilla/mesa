@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { runnableAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
@@ -81,6 +81,8 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const { entry, project } = launchProject(deps.profile, input.project);
   requireSkill(deps.skills(entry.name), input.skill, entry.name);
   const { agent, spec } = await launchAgent(deps, project, input.agent);
+  if (!spec.headless)
+    throw new MesaError('agent_unavailable', `${agent} runs no skills headless yet`);
   const prompt = [`/${input.skill}`, ...(input.args ?? [])].join(' ');
   const agentSessionId = deps.newUuid();
   const command = spec.headless.command(agentSessionId, prompt, deps.profile.config.run);
@@ -199,7 +201,7 @@ function runResult(
 ): HeadlessResult {
   const file = runOutput(deps.runs, run.id);
   const said = existsSync(file)
-    ? (runnableAgent(run.agent)?.headless.result(readFileSync(file, 'utf8')) ?? {
+    ? (AGENTS[run.agent].headless?.result(readFileSync(file, 'utf8')) ?? {
         read: false as const,
         reason: `${run.agent} has no headless result`,
       })

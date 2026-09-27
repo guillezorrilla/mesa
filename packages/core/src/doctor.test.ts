@@ -84,3 +84,20 @@ test('timeout: a hung agent is not ok, one agent is enough, and none is unhealth
   expect(byName(none.checks).claude?.status).toBe('fail');
   expect(byName(none.checks).codex?.status).toBe('fail');
 });
+
+test("a Codex app-server daemon's socket is a warning, and no row while none runs", async () => {
+  const { home, obsidian } = setup(['registered']);
+  const { run } = scriptedRunner(VERSIONS);
+  const socket = join(home, '.codex/app-server-control/app-server-control.sock');
+  const doctor = () => runDoctor({ run, obsidian, profileDir: home, codexDaemon: socket });
+  expect(byName((await doctor()).checks)['codex daemon']).toBeUndefined();
+  touch(socket);
+  const report = await doctor();
+  expect(report.healthy).toBe(true);
+  expect(byName(report.checks)['codex daemon']).toMatchObject({
+    ok: false,
+    status: 'warn',
+    path: socket,
+    hint: expect.stringContaining('Mesa keeps its codex windows off it'),
+  });
+});

@@ -1,4 +1,4 @@
-import { runnableAgent } from '../../agents/agents.js';
+import { AGENTS } from '../../agents/agents.js';
 import { MesaError } from '../../lib/result.js';
 import type { AgentProcess } from '../agent-listing.js';
 import type { HookEvent } from '../hook-events.js';
@@ -12,10 +12,11 @@ import { windowOf } from '../window-name.js';
 import { type ManagedRow, secondsBetween } from './rows.js';
 
 /**
- * Saves what a look learned onto the record as it is now: a new state, or the agent session id a
- * /clear moved it to. A session a stop ended since keeps the stop's. A record another process
- * holds locked (busy, or a lock left by a killed mesa) is not waited for or written: this look
- * still shows what it learned, and the next one tries again.
+ * Saves what a look learned onto the record as it is now: a new state, or an agent session id (the
+ * one a /clear moved it to, or the one its agent picked). A stopped session keeps the stop's
+ * state, and takes only an id it has none of, one its agent picked before the stop. A record
+ * another process holds locked (busy, or a lock left by a killed mesa) is not waited for or
+ * written: this look still shows what it learned, and the next one tries again.
  */
 function saveLook(
   store: SessionStore,
@@ -23,7 +24,10 @@ function saveLook(
   learned: Partial<Pick<SessionRecord, 'lastState' | 'agentSessionId'>>,
 ): SessionRecord {
   try {
-    return store.update(found.id, (current) => (current.endedAt ? {} : learned), {
+    const { agentSessionId: id } = learned;
+    const stopped = (current: SessionRecord) =>
+      id && !current.agentSessionId ? { agentSessionId: id } : {};
+    return store.update(found.id, (current) => (current.endedAt ? stopped(current) : learned), {
       wait: false,
     });
   } catch (error) {
@@ -37,10 +41,12 @@ function saveLook(
 
 /**
  * A Mesa session's board row, from what one look saw of it (its window, the process the listing
- * names for it, its children): Faro classifies it from its latest hook event, its listing, its
- * window, and (only when neither of the first two speaks) its tail, and a new state, or the agent
- * session id a /clear moved it to, is saved to the record. A queued session, and one cancelled
- * before it ran, keeps Mesa's state, at no attention.
+ * names for it, the agent session id read for an agent that picks its own, its children): Faro
+ * classifies it from its latest hook event, its listing, its window, and (only when neither of
+ * the first two speaks) its tail, and a new state, or an agent session id (the one a /clear moved
+ * it to, or the one read), is saved to the record. A listing row that gives no state (Codex's)
+ * says nothing: not the state, and not that the session is alive. A queued session, and one
+ * cancelled before it ran, keeps Mesa's state, at no attention.
  */
 export async function managedRow(
   deps: {
@@ -53,16 +59,23 @@ export async function managedRow(
     faro: Parameters<typeof classifySession>[0];
   },
   found: SessionRecord,
-  seen: { now: Date; window?: TmuxWindow; listedAs?: AgentProcess; children: string[] },
+  seen: {
+    now: Date;
+    window?: TmuxWindow;
+    listedAs?: AgentProcess;
+    agentSessionId?: string;
+    children: string[];
+  },
 ): Promise<ManagedRow> {
   const { now, window, listedAs } = seen;
-  const reader = runnableAgent(found.agent);
+  const reader = AGENTS[found.agent];
+  const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, so its hook log is not read.
   const event = found.endedAt
     ? undefined
     : deps
         .events(found.id)
-        .filter((e) => reader?.hookState(e.event, e.payload))
+        .filter((e) => reader.hookState?.(e.event, e.payload))
         .at(-1);
   const signals: SessionSignals = {
     now: now.toISOString(),
@@ -70,7 +83,7 @@ export async function managedRow(
     last: found.lastState,
     ended: Boolean(found.endedAt),
     ...(event ? { event } : {}),
-    ...(listedAs ? { listed: listedAs } : {}),
+    ...(listed ? { listed } : {}),
     window: window
       ? {
           exists: true,
@@ -90,8 +103,8 @@ export async function managedRow(
     window && !found.endedAt
       ? await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined)
       : undefined;
-  if (tail !== undefined && !window?.dead && !event && !listedAs) signals.tail = tail;
-  const lastOutput = tail === undefined ? undefined : reader?.screen.lastLine(tail);
+  if (tail !== undefined && !window?.dead && !event && !listed) signals.tail = tail;
+  const lastOutput = tail === undefined ? undefined : reader.screen.lastLine(tail);
   // Queued, or cancelled before it ran: Mesa's own state, with no agent for Faro to read.
   const ran = isAgentState(found.lastState.state);
   const classified: Placement = ran
@@ -101,12 +114,15 @@ export async function managedRow(
   const next = classified.lastState;
   const changed = next.state !== state || next.source !== source || next.basis !== basis;
   // Listed by its pane's pid under another id: a /clear started a new conversation there.
-  const moved = listedAs?.agentSessionId && listedAs.agentSessionId !== found.agentSessionId;
+  const moved =
+    listed && listed.agentSessionId !== found.agentSessionId ? listed.agentSessionId : undefined;
+  // Else the one read for an agent that picks its own (Codex).
+  const agentSessionId = moved ?? seen.agentSessionId;
   const learned = {
     ...(changed ? { lastState: next } : {}),
-    ...(moved ? { agentSessionId: listedAs.agentSessionId } : {}),
+    ...(agentSessionId ? { agentSessionId } : {}),
   };
-  const record = changed || moved ? saveLook(deps.store, found, learned) : found;
+  const record = changed || agentSessionId ? saveLook(deps.store, found, learned) : found;
   // An ended session stops the clock when it ended, or when it was seen to; one that never
   // ran has none.
   const end =
@@ -117,11 +133,11 @@ export async function managedRow(
     ...classified,
     managed: true,
     children: seen.children,
-    alive: window !== undefined || listedAs !== undefined,
+    alive: window !== undefined || listed !== undefined,
     runningSeconds: ran
       ? secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime())
       : 0,
-    ...(listedAs ? { agentStatus: listedAs.status } : {}),
+    ...(listed?.status === undefined ? {} : { agentStatus: listed.status }),
     ...(lastOutput ? { lastOutput } : {}),
   };
 }

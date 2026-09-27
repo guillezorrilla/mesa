@@ -5,19 +5,23 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { claudeTranscripts } from '../agents/claude/paths.js';
+import { codexSessions } from '../agents/codex/paths.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
 import { execRunner, type Runner, type RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { localDay } from '../lib/time.js';
 import { createMesa, type MesaDeps } from '../mesa.js';
 import { profilePaths } from '../profile/paths.js';
+import type { ListingDeps } from '../sessions/agent-listing.js';
 import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
@@ -376,22 +380,84 @@ export function seededRandom(seed: number): () => number {
 
 /** What `claude --version` answers in tests. */
 export const CLAUDE_VERSION = '2.1.282 (Claude Code)';
+/** What `codex --version` answers in tests (docs/spikes/codex.md). */
+export const CODEX_VERSION = 'codex-cli 0.154.0';
+
+/** A Codex thread's rollout as Codex writes it (agents/codex/fixtures/rollouts/tui.jsonl). */
+const ROLLOUT = readFileSync(
+  fileURLToPath(new URL('../agents/codex/fixtures/rollouts/tui.jsonl', import.meta.url)),
+  'utf8',
+);
 
 /**
- * claude and a tmux server in memory, as one scripted runner: `claude: false` leaves claude
- * uninstalled, and the rest shapes the fake tmux (fakeTmux).
+ * Codex's home in a temp folder: `env` puts it in the deps as `CODEX_HOME`, and `rollout` plants
+ * a thread's rollout there, in its start's local-date folder, named as Codex names it, with the
+ * fixture's lines under a first line naming `id`, `cwd`, and `startedAt`. `originator` is
+ * `codex-tui` (an interactive codex) unless `codex_exec`; the file was last written at
+ * `writtenAt`, else at `startedAt`.
+ */
+export function codexWorld() {
+  const home = tempDir('codex-');
+  const rollout = (t: {
+    id: string;
+    cwd: string;
+    startedAt: string;
+    originator?: string;
+    writtenAt?: string;
+  }) => {
+    const start = new Date(t.startedAt);
+    const time = start.toTimeString().slice(0, 8).replaceAll(':', '-');
+    const dir = join(codexSessions(home), ...localDay(start).split('-'));
+    const file = join(dir, `rollout-${localDay(start)}T${time}-${t.id}.jsonl`);
+    const [meta = '', ...rest] = ROLLOUT.trimEnd().split('\n');
+    const first = JSON.parse(meta);
+    first.payload = {
+      ...first.payload,
+      session_id: t.id,
+      id: t.id,
+      cwd: t.cwd,
+      timestamp: t.startedAt,
+      originator: t.originator ?? 'codex-tui',
+    };
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, [JSON.stringify(first), ...rest].join('\n'));
+    const written = new Date(t.writtenAt ?? t.startedAt);
+    utimesSync(file, written, written);
+    return file;
+  };
+  return { home, env: { CODEX_HOME: home }, rollout };
+}
+
+/**
+ * claude, codex, and a tmux server in memory, as one scripted runner, and Codex's home
+ * (codexWorld): `claude: false` or `codex: false` leaves that agent uninstalled, and the rest
+ * shapes the fake tmux (fakeTmux).
  */
 export function agentWorld({
   claude = true,
+  codex = true,
   ...tmuxOpts
-}: Parameters<typeof fakeTmux>[0] & { claude?: boolean } = {}) {
+}: Parameters<typeof fakeTmux>[0] & { claude?: boolean; codex?: boolean } = {}) {
   const tmux = fakeTmux(tmuxOpts);
+  const missing = [...(claude ? [] : ['claude']), ...(codex ? [] : ['codex'])];
   const scripted = scriptedRunner(
-    { claude: CLAUDE_VERSION, tmux: tmux.answer },
-    { missing: claude ? [] : ['claude'] },
+    { claude: CLAUDE_VERSION, codex: CODEX_VERSION, tmux: tmux.answer },
+    { missing },
   );
-  return { ...scripted, tmux };
+  return { ...scripted, tmux, codex: codexWorld() };
 }
+
+/**
+ * What the agent listings read (listAgentProcesses): claude's from `run`, Codex's from an empty
+ * home of its own, at the fixed clock's time, unless `over` says otherwise.
+ */
+export const listingDeps = (run: Runner, over: Partial<ListingDeps> = {}): ListingDeps => ({
+  run,
+  env: { CODEX_HOME: tempDir('codex-') },
+  home: tempDir(),
+  clock: fixedClock(),
+  ...over,
+});
 
 /**
  * One `list-windows` line in Mesa's format (sessions/tmux/format.ts), as tmux prints it: a live

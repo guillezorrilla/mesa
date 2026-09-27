@@ -73,7 +73,7 @@ export function sessionsService(
       {
         store,
         tmux,
-        listing: () => listAgentProcesses(deps.run),
+        listing: () => listAgentProcesses(deps),
         projects: readRegistry(paths.registry),
         elsewhere: () => otherProfilesSessions(deps.home, profile),
         events: (id) => readHookEvents(paths.events, id),
@@ -81,6 +81,8 @@ export function sessionsService(
         faro: faro.profile(),
         backends: faro.shared,
         clock: deps.clock,
+        env: deps.env,
+        home: deps.home,
       },
       { all },
     );
@@ -415,7 +417,7 @@ export function sessionsService(
             adoptSession(
               {
                 ...openDeps(),
-                listing: () => listAgentProcesses(deps.run),
+                listing: () => listAgentProcesses(deps),
                 elsewhere: () => otherProfilesSessions(deps.home, profile),
                 home: deps.home,
               },

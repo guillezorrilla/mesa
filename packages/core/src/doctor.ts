@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import { AGENT_NAMES, agentBinary } from './agents/agents.js';
+import { agentBinary } from './agents/agents.js';
 import type { ClaudeHooksStatus, TmuxHookStatus } from './agents/claude/hooks.js';
+import { AGENT_NAMES } from './agents/names.js';
 import type { BackendName } from './decisions/types.js';
 import { type Binary, CHECK_TIMEOUT_MS, firstVersion, probe } from './lib/probe.js';
 import type { Runner } from './lib/process.js';
@@ -103,6 +104,18 @@ function tmuxHookCheck(status: TmuxHookStatus): Finding {
   return { name, ok: status.paneDied, hint };
 }
 
+/**
+ * A Codex app-server daemon, while its socket is there: a warning, as a plain `codex` attaches to
+ * it and runs its hooks there, with the daemon's environment. Mesa's own codex windows keep off it
+ * (ADR-0003 amendment). None while no daemon runs.
+ */
+function codexDaemonCheck(socket: string | undefined): Finding[] {
+  if (socket === undefined || !existsSync(socket)) return [];
+  const hint =
+    'a Codex app-server daemon runs: Mesa keeps its codex windows off it with a -c override, but a codex started without one attaches to it';
+  return [{ name: 'codex daemon', ok: false, path: socket, hint }];
+}
+
 function profileDirCheck(dir: string): Finding {
   const ok = existsSync(dir);
   return {
@@ -115,7 +128,8 @@ function profileDirCheck(dir: string): Finding {
 
 /**
  * Presence and version of every external dependency, the profile directory, the decisions
- * backend, and both kinds of hook (Claude Code's and the tmux server's pane-died).
+ * backend, both kinds of hook (Claude Code's and the tmux server's pane-died), and a Codex
+ * app-server daemon, when one runs.
  */
 export async function runDoctor(deps: {
   run: Runner;
@@ -125,6 +139,8 @@ export async function runDoctor(deps: {
   decisions?: DecisionsInUse;
   /** Mesa's two kinds of hook, read side by side with the other checks. */
   hooks?: { claude: () => ClaudeHooksStatus; tmux: () => Promise<TmuxHookStatus> };
+  /** Where a Codex app-server daemon's socket is while it runs. */
+  codexDaemon?: string;
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(BINARIES.map(async (b) => ({ role: b.role, check: await probe(deps.run, b) }))),
@@ -141,6 +157,7 @@ export async function runDoctor(deps: {
       profileDirCheck(deps.profileDir),
       ...decisionsCheck(deps.decisions),
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
+      ...codexDaemonCheck(deps.codexDaemon),
     ].map((c) => ({
       ...c,
       status: statusOf(c.ok, false),
