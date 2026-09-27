@@ -5,6 +5,7 @@ import type { Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
 import { redactPayload } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
+import { agentSessionHolder } from './holders.js';
 import { isSessionId } from './record.js';
 import type { SessionStore } from './store.js';
 
@@ -61,10 +62,11 @@ export function recordHookEvent(
     // The environment is only an entry gate and the first SessionStart's claim. Once known,
     // Codex's payload id selects its record, even when an inherited environment names another.
     if (record?.agent !== 'codex' || record.endedAt || !agentSessionId) return undefined;
-    const matching = deps.store
-      .list()
-      .reverse()
-      .find((s) => s.agent === 'codex' && !s.endedAt && s.agentSessionId === agentSessionId);
+    const matching = agentSessionHolder(
+      deps.store,
+      agentSessionId,
+      (s) => s.agent === 'codex' && !s.endedAt,
+    );
     if (matching) record = matching;
     else if (record.agentSessionId || !['SessionStart', 'SessionEnd'].includes(event))
       return undefined;
