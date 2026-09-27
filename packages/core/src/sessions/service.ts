@@ -1,5 +1,7 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
+import type { Guarded, Overrides } from '../decisions/guardrail.js';
+import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
 import { redactText } from '../lib/redact.js';
 import { projectPriorities } from '../projects/projects.js';
@@ -324,14 +326,16 @@ export function sessionsService(
       },
       /**
        * Types a prompt into a live session's agent, from another session (`from`, else the window
-       * this runs in) when there is one; an action receipt keeps its first 80 chars.
+       * this runs in) when there is one, once the guardrail lets it (`yes`, `force`, and a
+       * person's `confirm` past an ask or a block); an action receipt keeps its first 80 chars,
+       * the guardrail's decision, and the override.
        */
       send: (
         id: string,
         prompt: string,
-        opts: { force?: boolean; from?: string; noFrom?: boolean } = {},
+        opts: { from?: string; noFrom?: boolean } & Overrides = {},
       ) => {
-        const { force = false, from, noFrom } = opts;
+        const { force = false, yes, confirm, from, noFrom } = opts;
         const kept = receiptText(prompt, deps.argv, secrets());
         return record(
           {
@@ -346,17 +350,26 @@ export function sessionsService(
               session: id,
               prompt: kept.short,
               force,
+              ...(yes ? { yes } : {}),
               ...(from === undefined ? {} : { from }),
               ...(noFrom ? { noFrom } : {}),
             },
-            outputs: (r) => ({ chars: r.chars, from: r.from }),
+            outputs: (r) => ({
+              chars: r.chars,
+              from: r.from,
+              ...(r.override ? { override: r.override } : {}),
+            }),
           },
-          () =>
-            sendPrompt({ store, tmux, clock: deps.clock, caller }, id, prompt, {
+          // Typed, so the result type comes from the action, as for one that takes nothing.
+          (decisions: DecisionRecorder) => {
+            const guard = (action: Guarded) =>
+              faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
               force,
               from,
               noFrom,
-            }),
+            });
+          },
         );
       },
       /**

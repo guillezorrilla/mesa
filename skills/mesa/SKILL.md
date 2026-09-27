@@ -41,6 +41,15 @@ Reply to a session that messaged you with the command its header names:
 mesa send a1b2c3d4 "The tide-table test; it needed a fixed clock"
 ```
 
+Every prompt you send passes Mesa's guardrail first. It blocks a prompt that holds a secret or a destructive command (`rm -rf`, `git push --force`, `DROP TABLE`, and the like), and in a project set to `guardrail: strict` it asks first. Either way `mesa send` exits 5 (`guardrail_blocked`), and with `--json` the error says which (`error.details.verdict`: `ask` or `block`) and why (`error.details.reason`). Check a prompt beforehand with `mesa guardrail check "<prompt>" --project <project> --json`.
+
+- On `ask`, send it again with `--yes` once you are sure it is the prompt you mean.
+- On `block`, send a prompt without the secret or the command. `--force` sends the original anyway, and its receipt records the override, so keep it for a prompt a person asked you to send as it is.
+
+```sh
+mesa send b2c3d4e5 "Rebase onto main and rerun the tide tests" --yes
+```
+
 Check state before you act: `waiting-permission` or `waiting-question` means a person must answer that session, and Mesa refuses a prompt from you into it.
 
 ```sh

@@ -14,7 +14,10 @@ import {
 import { type CliDeps, runCli } from './cli.js';
 import { COMMANDS } from './commands/index.js';
 
-/** CliDeps over a temp home: every real command, no terminal, empty stdin, unless told otherwise. */
+/**
+ * CliDeps over a temp home: every real command, no terminal (so no one to confirm), empty stdin,
+ * unless told otherwise.
+ */
 export const cliDeps = (
   home: string,
   { mesa = {}, ...rest }: Partial<Omit<CliDeps, 'mesa'>> & { mesa?: Partial<MesaDeps> } = {},
@@ -42,6 +45,10 @@ export function cliHarness() {
     tty: true,
     /** What the next invocations read on stdin. */
     stdin: '',
+    /** What the person at the terminal answers a y/N question with; undefined: no one to ask. */
+    answer: undefined as boolean | undefined,
+    /** Every y/N question the invocations asked, in order. */
+    asked: [] as string[],
     /** The environment of the next invocations (MESA_SESSION_ID for a hook). */
     env: {} as Record<string, string>,
     /** Where the default profile keeps its files under this home. */
@@ -55,17 +62,25 @@ export function cliHarness() {
       h.newUuid = sequentialUuids();
       h.tty = true;
       h.stdin = '';
+      h.answer = undefined;
+      h.asked = [];
       h.env = {};
       h.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: CLAUDE_VERSION }).run;
     },
     mesa: async (...argv: string[]) => {
       // An empty home is the repo's folder: a file that forgot beforeEach(cli.reset) would write there.
       if (!h.home) throw new Error('cliHarness: run beforeEach(cli.reset) first');
+      const { answer } = h;
+      const confirm = async (question: string) => {
+        h.asked.push(question);
+        return answer === true;
+      };
       const out = await runCli(
         argv,
         cliDeps(h.home, {
           tty: h.tty,
           stdin: async () => h.stdin,
+          ...(answer === undefined ? {} : { confirm }),
           mesa: { run: h.run, argv, newId: h.newId, newUuid: h.newUuid, env: h.env },
         }),
       );

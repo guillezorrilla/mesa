@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
-import { AnswerSchema, DecidedBySchema } from '../decisions/types.js';
+import { AnswerSchema, DecidedBySchema, type Decision } from '../decisions/types.js';
 import { ULID } from '../lib/ids.js';
 import { NoteTimeSchema } from '../lib/time.js';
 import { RECEIPT_TYPES } from './receipt-file.js';
@@ -20,6 +20,10 @@ const DecisionSchema = z.discriminatedUnion('kind', [
   recorded(score),
   recorded(noul),
 ]);
+
+/** A Decision as a receipt keeps it: one entry per answer, with the backend that answered. */
+export const decisionEntries = ({ answers, backend }: Decision): z.input<typeof DecisionSchema>[] =>
+  answers.map(({ id, ...answer }) => ({ question: id, ...answer, backend }));
 
 /** The receipt frontmatter, documented field by field in docs/receipts.md. */
 export const ReceiptSchema = z.strictObject({

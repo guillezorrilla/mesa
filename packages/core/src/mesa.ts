@@ -30,6 +30,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     hooks: hooksService(ctx),
     skills,
     decide: faro.decide,
+    guardrail: { check: faro.guardrail.check },
     doctor: () =>
       runDoctor({
         run: deps.run,
