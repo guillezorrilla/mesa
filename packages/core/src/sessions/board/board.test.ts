@@ -29,7 +29,7 @@ const screenless = (windows: string) => (args: string[]) =>
 const noSignals = {
   events: () => [],
   priorityOf: () => 0.5,
-  faro: { decisions: { backend: 'rules' as const, threshold: 0.7 }, hasKey: () => false },
+  faro: { decisions: { backend: 'rules' as const, threshold: 0.7 } },
 };
 const noListing = {
   ...noSignals,

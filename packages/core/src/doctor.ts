@@ -58,22 +58,14 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding
   return { ...base, ok: true, version, path, registered, hint };
 }
 
-/**
- * The decisions backend the profile names, the one rules defer to when unsure (the named one,
- * else rules while it is unavailable), and the confidence below which they do.
- */
-type DecisionsInUse = { named: BackendName; active: BackendName; threshold: number };
+/** The decisions backend the profile names, and the confidence below which rules defer to it. */
+type DecisionsInUse = { named: BackendName; threshold: number };
 
 function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   if (!decisions) return [];
-  const { named, active, threshold } = decisions;
-  const hint =
-    named !== active
-      ? `${named} is not available; decisions use ${active}`
-      : active === 'rules'
-        ? ''
-        : `rules first; ${active} below confidence ${threshold}`;
-  return [{ name: 'decisions', ok: true, version: active, hint }];
+  const { named, threshold } = decisions;
+  const hint = named === 'rules' ? '' : `rules first; ${named} below confidence ${threshold}`;
+  return [{ name: 'decisions', ok: true, version: named, hint }];
 }
 
 /** Mesa's Claude Code hooks: a warning with its fix when missing, or when settings do not read. */

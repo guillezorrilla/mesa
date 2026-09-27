@@ -46,6 +46,13 @@ test('an invalid value or file is invalid_config with the failing field, and the
     code: 'invalid_config',
     message: `${file}: vault: must be an absolute path`,
   });
+
+  // Jev was dropped (ADR-0004): naming it is an error with the field and the backends it takes.
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: jev\n');
+  expect(thrown(() => loadConfig(file))).toEqual({
+    code: 'invalid_config',
+    message: `${file}: decisions.backend: Invalid option: expected one of "rules"|"adapter"`,
+  });
 });
 
 test('a YAML syntax error reports the position, never the source text', () => {
@@ -57,11 +64,11 @@ test('a YAML syntax error reports the position, never the source text', () => {
 });
 
 test('env key references resolve from the injected environment', () => {
-  setConfigValue(file, 'keys.jev', 'env:JEV_KEY');
+  setConfigValue(file, 'keys.maps', 'env:MAPS_KEY');
   setConfigValue(file, 'keys.plain', 'literal');
   const config = loadConfig(file);
-  expect(resolveKey(config, 'jev', { JEV_KEY: 'from-env' })).toBe('from-env');
-  expect(resolveKey(config, 'jev', {})).toBeUndefined();
+  expect(resolveKey(config, 'maps', { MAPS_KEY: 'from-env' })).toBe('from-env');
+  expect(resolveKey(config, 'maps', {})).toBeUndefined();
   expect(resolveKey(config, 'plain', {})).toBe('literal');
   expect(resolveKey(config, 'missing', {})).toBeUndefined();
 });
