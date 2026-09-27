@@ -166,3 +166,36 @@ test('installing the hooks from the Doctor panel runs doctor again, so its row a
   await click(byTestId('hooks-install')[0]);
   expect(doctorRuns()).toBe(before + 1);
 });
+
+test('Doctor shows each Codex trust state and installs when only Claude hooks exist', async () => {
+  let installed = false;
+  const { bridge, calls } = fakeBridge({
+    'hooks status': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: true,
+        stale: false,
+        events: {},
+        codex: {
+          path: '/h/.codex/hooks.json',
+          installed,
+          stale: false,
+          events: { SessionStart: installed, Stop: installed },
+          trusted: { SessionStart: false, Stop: true },
+          hint: 'Start Codex and review hooks in Hooks need review.',
+        },
+      }),
+    'hooks install': () => {
+      installed = true;
+      return envelope({ changed: true });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('codex-hooks-status')[0]?.textContent).toContain('SessionStart: Not installed');
+  await click(byTestId('hooks-install')[0]);
+  expect(calls).toContainEqual(['--json', 'hooks', 'install']);
+  expect(byTestId('codex-hooks-status')[0]?.textContent).toContain('SessionStart: Untrusted');
+  expect(byTestId('codex-hooks-status')[0]?.textContent).toContain('Stop: Trusted');
+  expect(byTestId('codex-hooks-status')[0]?.textContent).toContain('Hooks need review');
+});

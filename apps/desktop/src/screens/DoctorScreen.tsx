@@ -32,13 +32,14 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
   const { data, busy, refresh } = doctor;
   const windows = useCommand('windows.list');
   const hooks = useCommand('hooks.status');
+  const hooksInstalled = hooks.data?.installed && hooks.data.codex?.installed !== false;
   const run = useRun();
   const { acting, act } = useAct();
   const change = (name: 'hooks.install' | 'hooks.uninstall') =>
     act(async () => {
       const changed = await run(name);
       if (!changed) return undefined;
-      // The doctor's own `claude hooks` row changes too.
+      // The doctor's own hook rows change too.
       await Promise.all([hooks.refresh(), refresh()]);
       return warned(changed.warning);
     });
@@ -89,7 +90,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Claude Code hooks</CardTitle>
+            <CardTitle className="text-base">Agent hooks</CardTitle>
           </CardHeader>
           <CardContent>
             {hooks.data && (
@@ -104,15 +105,33 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
                   variant="outline"
                   size="sm"
                   className="ml-2"
-                  data-testid={hooks.data.installed ? 'hooks-uninstall' : 'hooks-install'}
-                  onClick={() =>
-                    change(hooks.data?.installed ? 'hooks.uninstall' : 'hooks.install')
-                  }
+                  data-testid={hooksInstalled ? 'hooks-uninstall' : 'hooks-install'}
+                  onClick={() => change(hooksInstalled ? 'hooks.uninstall' : 'hooks.install')}
                   disabled={hooks.busy || acting}
                 >
-                  {hooks.data.installed ? 'Uninstall' : 'Install'}
+                  {hooksInstalled ? 'Uninstall' : 'Install'}
                 </Button>
               </p>
+            )}
+            {hooks.data?.codex && (
+              <div data-testid="codex-hooks-status" className="mt-3 text-sm">
+                <p>
+                  Codex: <span className="font-mono text-xs">{hooks.data.codex.path}</span>
+                </p>
+                <ul>
+                  {Object.entries(hooks.data.codex.events).map(([event, installed]) => (
+                    <li key={event}>
+                      {event}:{' '}
+                      {!installed
+                        ? 'Not installed'
+                        : hooks.data?.codex.trusted[event]
+                          ? 'Trusted'
+                          : 'Untrusted'}
+                    </li>
+                  ))}
+                </ul>
+                <p>{hooks.data.codex.hint}</p>
+              </div>
             )}
           </CardContent>
         </Card>

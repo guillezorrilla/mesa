@@ -285,7 +285,7 @@ The owner's decisions after the spike (#43's comments) split this into #158 (int
 - A failed turn in the interactive TUI, and whether any hook marks it.
 - A question wait (`request_user_input`) and its hook, if any.
 - PreCompact, PostCompact, SubagentStart, SubagentStop payloads.
-- The trust flow for `$CODEX_HOME/hooks.json`, and whether an unknown event key such as `Notification` is ignored or rejected.
+- Whether an unknown event key such as `Notification` is ignored or rejected. The hooks.json trust flow was checked in #159 below.
 - The `trusted_hash` recipe, reproduced offline.
 - `item.started` / `item.updated` exec lines, and exec items for a command or a file change.
 - An `active` thread status over the daemon's JSON-RPC.
@@ -301,3 +301,16 @@ Run on 2026-09-26 with the same `codex-cli 0.154.0`, a temp `CODEX_HOME` holding
 - `mesa stop` quit with `/exit` (outcome `exited`, about 1 s); `mesa resume` ran `codex -c mesa.embedded=true resume <thread id> -C '<folder>'`, which reopened the conversation with its earlier turns on screen.
 - `--` before the goal makes a word Codex knows as a subcommand a prompt: `codex -c mesa.embedded=true -c model="<no such model>" -- review` opened the TUI with `review` as its first prompt (rejected by the model check, at no cost), where `codex review` runs a review.
 - With a daemon started by `codex app-server daemon start` (in a `CODEX_HOME` short enough for the socket path: a long one failed with `path must be shorter than SUN_LEN`), `codex -c mesa.embedded=true` showed no `← for agents` footer and its `/exit` closed the pane, while a plain `codex` beside it attached (`· ← for agents`). The unknown `mesa.embedded` key printed no warning. `mesa doctor` warned `codex daemon` while the socket was there.
+
+## Checked in #159
+
+Run on 2026-09-27 with the installed `codex-cli 0.157.1`. A throwaway HOME and CODEX_HOME held invented `lantern-cove`, one copied auth.json (mode 0600), a separate Mesa profile, and its own tmux socket. The real user hook/config files were never edited. The temp config set low reasoning effort, on-request approvals, and a read-only sandbox, with no hook trust entries.
+
+- Built Mesa ran `hooks install` twice. The second run changed no bytes in hooks.json; there was exactly one Mesa handler for each of the seven events, no timeout. Status showed all seven untrusted and explained the next-start review.
+- `mesa open lantern-cove --agent codex --goal "Say only hi."` opened the embedded TUI at folder trust. Computer-use access to Terminal was denied, so the owner attached to this exact throwaway socket and completed folder/hook trust in the TUI, then reported done. No agent sent trust keystrokes, fabricated trust entries, or bypassed hook trust.
+- The TUI answered `hi`. Its real hook log contained SessionStart, UserPromptSubmit, and Stop, in that order, under one thread id. SessionStart filled the Mesa record's agentSessionId. `mesa show --json` subsequently returned `idle`, source `hook`, confidence 0.8 because the Stop was more than a minute old (ADR-0003's aging rule).
+- Codex wrote seven trusted_hash records whose source was the canonical hooks.json path. On macOS a `/tmp/...` CODEX_HOME becomes `/private/tmp/...` in those keys. This live finding added realpath-based lookup and a symlink-home regression test. After that fix, `hooks status --json` reported every event trusted, and Doctor's seven Codex rows were all `ok`.
+- The deliberately minimal environment initially omitted LANG. tmux then replaced the tab separators in list-windows output with underscores, causing the existing window parser to report `Invalid time value`. Adding `LANG=en_US.UTF-8` to the inspection environment restored the ordinary tab output and public `show` flow. No unrelated tmux change is included here.
+- Cleanup killed only the throwaway tmux server, deleted the auth copy and entire temp home/profile/project, and checked that the auth/root no longer existed and that listing the socket exited 1. The real default Mesa profile, vault, and Codex settings were untouched.
+
+Limits: the owner performed the review interaction; its screen was not captured after computer-use was denied. The live run exercised SessionStart, UserPromptSubmit, and Stop, not all seven event deliveries. PermissionRequest, PostToolUse, Interrupt, prompt-less SessionEnd, and arbitrary SessionEnd reasons are covered by invented spike-shaped fixtures. The TUI showed two warnings whose details were not opened. Trust status reads Codex's recorded trusted_hash at each actual Mesa handler position; it does not reproduce or verify Codex's internal hash recipe, so a later external edit can require Codex review even while an older hash remains recorded.
