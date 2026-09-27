@@ -63,6 +63,16 @@ export function redactConfig(config: Config): Config {
 const valueAt = (config: Config, dotted: string) =>
   dotted.split('.').reduce<unknown>((node, k) => (node as Record<string, unknown>)?.[k], config);
 
+/** The value at `dotted` now; none in a file that does not validate, which a set may repair. */
+function currentValue(file: string, dotted: string): unknown {
+  try {
+    return valueAt(loadConfig(file), dotted);
+  } catch (error) {
+    if (error instanceof MesaError && error.code === 'invalid_config') return undefined;
+    throw error;
+  }
+}
+
 /**
  * Sets one dotted path; `value` is read as YAML (`0.5`, `true`, `[a, b]`). Returns the new value,
  * redacted under `keys`, and whether it differs from the one before (defaults included).
@@ -72,7 +82,7 @@ export function setConfigValue(
   dotted: string,
   value: string,
 ): { value: unknown; changed: boolean } {
-  const before = valueAt(loadConfig(file), dotted);
+  const before = currentValue(file, dotted);
   const next = setYamlPath(file, ConfigSchema, dotted, parse(value));
   return {
     value: valueAt(redactConfig(next), dotted),
