@@ -1,6 +1,6 @@
 import type { SessionRow } from './sessions/board/rows.js';
 
-// How Mesa shows a session row and its numbers to a person, the same in `mesa sessions` and on
+// How Mesa shows a session row, its numbers, and its log to a person, the same in the CLI and on
 // the Board. Pure, and with type imports only, so the app bundles it (`@mesa/core/browser`).
 
 /** A session's name when a person gave it one, else its id. */
@@ -15,6 +15,10 @@ export const sessionCount = (n: number) => `${n} session${n === 1 ? '' : 's'}`;
 
 /** What a queued session shows in place of its output. */
 export const waitingOn = (after: string | undefined) => `waiting on ${after}`;
+
+/** Why a session may have no output log, as `mesa logs` and the Board's Log say it. */
+export const NO_OUTPUT_LOG =
+  'it has not started, or config sessions.log was off when it did, or it started before Mesa kept output logs';
 
 /** Seconds as `42s`, `5m03s`, or `2h07m`. */
 export function duration(seconds: number): string {

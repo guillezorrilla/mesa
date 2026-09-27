@@ -10,6 +10,7 @@ import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { windowEnv } from './caller.js';
 import { worktreeHolder } from './holders.js';
+import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
 import type { TmuxBackend } from './tmux/backend.js';
@@ -18,7 +19,8 @@ import { addWorktree, removeWorktree, type Worktree, worktreePath } from './work
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
-// in, then its window; and when the window cannot open, what the launch made removed again.
+// in, then its window, with its output log; and when the window cannot open, what the launch made
+// removed again.
 
 export type LaunchDeps = {
   profile: Profile;
@@ -76,8 +78,9 @@ type Start = {
  * Starts the agent of a session already written: its worktree first when `branch` is asked for
  * and it has none (kept on the record at once, so a start retried after a kill finds it), then
  * its folder checked, the project's enabled skills linked into it (a failure is the warning
- * returned, never an error), and `command` run in its window. When anything fails, the worktree
- * it made is removed again, and dropped from the record, so a retry can add it again.
+ * returned, never an error), and `command` run in its window, whose output goes to the session's
+ * output log while the config's `sessions.log` is on. When anything fails, the worktree it made
+ * is removed again, and dropped from the record, so a retry can add it again.
  */
 export async function startSession(
   deps: LaunchDeps,
@@ -94,6 +97,7 @@ export async function startSession(
     }
     const cwd = agentFolder(record, project);
     const warning = syncSkillsInto(deps, project.name, cwd);
+    const { paths, config } = deps.profile;
     await deps.tmux.openWindow({
       project: project.name,
       window: record.tmux.window,
@@ -101,6 +105,7 @@ export async function startSession(
       cwd,
       command: start.command(record),
       env: windowEnv(record.id, deps.profileName),
+      ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {

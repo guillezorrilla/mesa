@@ -18,6 +18,7 @@ import { readGoal, sessionGoal } from './goal.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { readHookEvents } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
+import { sessionLog } from './output-log.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
@@ -37,7 +38,7 @@ export function sessionsService(
   /** Links a project's enabled skills into a folder (the skills service's). */
   syncSkills: (project: string, folder: string) => void,
 ) {
-  const { profile, deps, paths, open, store, tmux, record, secrets, absolute, notes } = ctx;
+  const { profile, deps, paths, open, store, tmux, record, secrets, absolute } = ctx;
   /** Where a session's context use is read: its agent's files under home, with this env. */
   const contextDeps = { store, home: deps.home, env: deps.env };
   /** What a terminal on a window takes: the user's terminal app, and a fresh view id each. */
@@ -102,7 +103,7 @@ export function sessionsService(
     const { outcome } = recorded.result;
     if (outcome === 'already-ended') return recorded;
     const queue = await ends.stopped(id, outcome);
-    const ended = await markEnded(notes, recorded, recorded.result.record);
+    const ended = await markEnded(ctx, recorded, recorded.result.record);
     const warning = joinWarnings(ended.warning, queue?.warning);
     return warning ? { ...ended, warning } : ended;
   };
@@ -166,6 +167,14 @@ export function sessionsService(
       /** A session's goal, or not_found when it was started without one. */
       goal: (id: string) => sessionGoal(store, id),
       /**
+       * A session's output as plain text, its last `tail` lines when given (sessionLog); not_found
+       * for an unknown id.
+       */
+      logs: (id: string, tail?: number) => {
+        store.get(id);
+        return sessionLog(paths.logs, id, tail);
+      },
+      /**
        * One session's record, its context use read now, with `alive` as the board reads it;
        * not_found for an unknown id.
        */
@@ -190,8 +199,8 @@ export function sessionsService(
           () => renameSession(store, id, name),
         ),
       /**
-       * Removes a session's record and hook log, and with the flags its worktree and branch; a
-       * live one only with `force`. The session receipt says what went.
+       * Removes a session's record, hook log, and output log, and with the flags its worktree and
+       * branch; a live one only with `force`. The session receipt says what went.
        */
       remove: (
         id: string,
@@ -210,7 +219,14 @@ export function sessionsService(
           },
           () =>
             removeSession(
-              { store, tmux, run: deps.run, profile: open, eventsDir: paths.events },
+              {
+                store,
+                tmux,
+                run: deps.run,
+                profile: open,
+                eventsDir: paths.events,
+                logsDir: paths.logs,
+              },
               id,
               opts,
             ),
@@ -349,7 +365,7 @@ export function sessionsService(
             }),
           },
           () => resumeSession(openDeps(), id),
-        ).then((recorded) => markEnded(notes, recorded, recorded.result.from)),
+        ).then((recorded) => markEnded(ctx, recorded, recorded.result.from)),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),

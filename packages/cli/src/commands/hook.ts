@@ -2,7 +2,7 @@ import { defineCommand } from '../command.js';
 
 /**
  * Run by tmux's pane-died hook, never by hand: the agent in a Mesa window exited, so what was
- * queued after its session starts.
+ * queued after its session starts, and its receipt gets its last output lines.
  */
 export const hookTmux = defineCommand({
   name: 'hook tmux',

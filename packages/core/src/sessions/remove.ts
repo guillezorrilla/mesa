@@ -5,6 +5,7 @@ import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
 import { worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
+import { outputLog } from './output-log.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
@@ -17,6 +18,8 @@ export type Removed = {
   record: true;
   /** Its hook log, `sessions/events/<id>.jsonl`. */
   events: boolean;
+  /** Its output log, `sessions/logs/<id>.log`. */
+  outputLog: boolean;
   /** Its tmux window, live under `force`, or left dead. */
   window: boolean;
   worktree?: string;
@@ -24,8 +27,8 @@ export type Removed = {
 };
 
 /**
- * Removes a session's record and its hook log, with `deleteWorktree` its git worktree and with
- * `deleteBranch` its branch. A queued session is refused, to be cancelled first; a live one is
+ * Removes a session's record, its hook log, and its output log, with `deleteWorktree` its git
+ * worktree and with `deleteBranch` its branch. A queued session is refused, to be cancelled first; a live one is
  * refused unless `force`, which closes its window first; git refuses a dirty worktree unless `force`. Every refusal comes before the record goes,
  * so a refused rm leaves the session as it was, to retry.
  */
@@ -36,6 +39,7 @@ export async function removeSession(
     run: Runner;
     profile: () => Profile;
     eventsDir: string;
+    logsDir: string;
   },
   id: string,
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
@@ -74,6 +78,7 @@ export async function removeSession(
     project: record.project,
     record: true,
     events: false,
+    outputLog: false,
     window: false,
   };
   if (pane) {
@@ -93,6 +98,9 @@ export async function removeSession(
   const events = eventsLog(deps.eventsDir, id);
   removed.events = existsSync(events);
   rmSync(events, { force: true });
+  const output = outputLog(deps.logsDir, id);
+  removed.outputLog = existsSync(output);
+  rmSync(output, { force: true });
   deps.store.remove(id);
   return removed;
 }

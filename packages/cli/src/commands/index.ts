@@ -11,6 +11,7 @@ import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { init } from './init.js';
 import { log } from './log.js';
+import { logs } from './logs.js';
 import { open } from './open.js';
 import { profile } from './profile.js';
 import { projects } from './projects.js';
@@ -49,6 +50,7 @@ export const COMMANDS: Command[] = [
   hooksUninstall,
   init,
   log,
+  logs,
   open,
   profile,
   projects,
