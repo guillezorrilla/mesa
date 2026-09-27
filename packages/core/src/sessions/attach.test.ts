@@ -2,7 +2,14 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
-import { newSession, scriptedRunner, tempDir, testDeps, testStore } from '../testing/index.js';
+import {
+  newSession,
+  profilePaths,
+  scriptedRunner,
+  tempDir,
+  testDeps,
+  testStore,
+} from '../testing/index.js';
 
 const ATTACH = [
   'tmux',
@@ -75,7 +82,7 @@ test('--app with any terminal.app (Terminal by default) opens a one-line script 
     const { attached, exec } = await mesa.sessions.attach(id, true);
     expect(attached.app).toBe(app);
     expect(exec).toBeUndefined();
-    const script = join(home, `.mesa/default/attach/${id}.command`);
+    const script = join(profilePaths(home, 'default').attachScripts, `${id}.command`);
     expect(calls.at(-1)).toMatchObject({ file: 'open', args: ['-a', app, script] });
     // The app may start without Homebrew on PATH, so the script carries the caller's.
     expect(readFileSync(script, 'utf8')).toMatch(

@@ -1,14 +1,18 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   fakeTmux,
+  newSession,
+  plantTranscript,
   projectProfile,
   scriptedRunner,
   sequentialIds,
+  shortIds,
   testDeps,
+  testStore,
 } from '../testing/index.js';
 
 const LIVE = '36c173f2-803e-4845-bd97-a032b37c6d6d';
@@ -37,17 +41,6 @@ function setUp(listed?: { sessionId: string; cwd: string }[]) {
   const made = projectProfile(scripted.run, { newId: sequentialIds() });
   dir = made.dir;
   return { ...made, world };
-}
-
-/** A transcript on disk, as Claude Code writes one: its folder on a line after the first. */
-function transcript(home: string, id: string, cwd: string) {
-  const folder = join(home, '.claude/projects', cwd.replaceAll(/[^A-Za-z0-9]/g, '-'));
-  mkdirSync(folder, { recursive: true });
-  const lines = [
-    { type: 'last-prompt', sessionId: id },
-    { type: 'user', sessionId: id, cwd, message: { role: 'user', content: 'Remember lantern' } },
-  ];
-  writeFileSync(join(folder, `${id}.jsonl`), lines.map((l) => JSON.stringify(l)).join('\n'));
 }
 
 test('a live session is adopted into the project its folder is in, and reopened there', async () => {
@@ -87,7 +80,7 @@ test('a session on disk is found by its transcript, and reopened in the folder i
   const { home, dir, mesa, world } = setUp([]);
   const sub = join(dir, 'docs');
   mkdirSync(sub);
-  transcript(home, ON_DISK, sub);
+  plantTranscript(home, ON_DISK, sub);
   const { result } = await mesa.sessions.adopt(ON_DISK);
   // Inside lantern-cove, but not its folder: claude finds the conversation only in its own.
   expect(result.record).toMatchObject({ project: 'lantern-cove', cwd: sub });
@@ -98,7 +91,7 @@ test('--project places a session no registered project holds; a clash or none is
   const { home, mesa } = setUp([]);
   const elsewhere = join(home, 'scratch');
   mkdirSync(elsewhere);
-  transcript(home, ON_DISK, elsewhere);
+  plantTranscript(home, ON_DISK, elsewhere);
   await expect(mesa.sessions.adopt(ON_DISK)).rejects.toMatchObject({
     code: 'not_found',
     message: `no registered project holds ${elsewhere}: register it, or pass --project`,
@@ -141,21 +134,13 @@ test('an unknown or malformed id, a blank name, or another profile holding it is
   // The work profile adopted it first.
   const work = createMesa('work', testDeps(home, { run: scriptedRunner().run }));
   work.init({ vault: 'vault' });
-  mkdirSync(join(home, '.mesa/work/sessions'), { recursive: true });
-  writeFileSync(
-    join(home, '.mesa/work/sessions/wwwwwwww.json'),
-    JSON.stringify({
-      id: 'wwwwwwww',
-      kind: 'interactive',
-      project: 'lantern-cove',
-      agent: 'claude',
-      agentSessionId: LIVE,
-      tmux: { socket: 'mesa-work', session: 'lantern-cove', window: 'claude-wwwwwwww' },
-      startedAt: '2026-09-24T12:00:00.000Z',
+  testStore(home, 'work', shortIds('wwwwwwww')).create(() => ({
+    ...newSession({
       lastState: { state: 'idle', confidence: 0.6, at: '2026-09-24T12:00:00.000Z', source: 'mesa' },
-      events: [],
     }),
-  );
+    agentSessionId: LIVE,
+    tmux: { socket: 'mesa-work', session: 'lantern-cove', window: 'claude-wwwwwwww' },
+  }));
   await expect(mesa.sessions.adopt(LIVE)).rejects.toMatchObject({
     code: 'usage',
     message: `another profile's session has ${LIVE} already`,
@@ -167,7 +152,7 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
   const { home, dir, mesa, world } = setUp([]);
   const sub = join(dir, 'docs');
   mkdirSync(sub);
-  transcript(home, ON_DISK, sub);
+  plantTranscript(home, ON_DISK, sub);
   const { result } = await mesa.sessions.adopt(ON_DISK, { noResume: true, name: 'docs' });
   expect(result.warning).toBe(WARNING);
   expect(world.windows).toEqual([]);

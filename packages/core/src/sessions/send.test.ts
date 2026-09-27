@@ -11,6 +11,7 @@ import {
   projectProfile,
   scriptedRunner,
   sequentialIds,
+  staleLock,
   tempDir,
   testDeps,
   testStore,
@@ -275,14 +276,14 @@ test('events are best effort once the prompt is typed: a locked receiver warns a
   const { home, mesa, opened: a } = await setUp();
   const { result: b } = await mesa.sessions.open('lantern-cove');
   const dir = profilePaths(home, 'default').sessions;
-  writeFileSync(join(dir, `${b.id}.lock`), 'a killed mesa');
+  const lock = staleLock(home, b.id);
   const { result, receipt } = await mesa.sessions.send(b.id, 'typed anyway', { from: a.id });
   expect(result).toMatchObject({ sent: true, from: a.id });
   expect(result.warning).toBe(
     `the prompt was typed, but no send event on ${b.id} (its record is locked by another mesa process); no sent event on ${a.id}; do not send it again`,
   );
   expect(receipt).not.toBeNull();
-  rmSync(join(dir, `${b.id}.lock`));
+  rmSync(lock);
   const store = sessionStore({ dir, newId: () => 'x' });
   // No `sent` on the sender without its `send` on the receiver.
   expect(store.get(b.id).events).toEqual([]);
@@ -358,7 +359,7 @@ test('any error writing events after typing is a warning, and any Mesa window co
 
 test('a config.yaml that does not read still lets a prompt through: only the receipt is lost', async () => {
   const { home, mesa, window, opened } = await setUp();
-  const config = join(home, '.mesa/default/config.yaml');
+  const config = profilePaths(home, 'default').config;
   writeFileSync(config, `${readFileSync(config, 'utf8')}surprise: 1\n`);
   const { result } = await mesa.sessions.send(opened.id, 'still here');
   expect(result.sent).toBe(true);

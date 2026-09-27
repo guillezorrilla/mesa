@@ -1,5 +1,6 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { staleLock } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -55,11 +56,11 @@ test('a send typed with a warning keeps it beside a receipt warning in --json', 
   mkdirSync(join(cli.home, 'src/lantern-cove'), { recursive: true });
   await mesa('register', '--create', join(cli.home, 'src/lantern-cove'));
   const b = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
-  writeFileSync(join(cli.paths.sessions, `${b}.lock`), 'a killed mesa');
+  const lock = staleLock(cli.home, b);
   const sent = await mesa('send', b, 'hello', '--json');
   expect(sent.code).toBe(0);
   expect(sent.json.data.warning).toMatch(
     /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
   );
-  rmSync(join(cli.paths.sessions, `${b}.lock`));
+  rmSync(lock);
 });

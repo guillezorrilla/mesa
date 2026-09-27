@@ -9,6 +9,7 @@ import {
   agentWorld,
   gitRepo,
   isolateGit,
+  profilePaths,
   projectProfile,
   sequentialIds,
   tempDir,
@@ -367,7 +368,7 @@ const cwdOf = (world: ReturnType<typeof agentWorld>) => {
 
 /** Where Mesa puts lantern-cove's worktree for a branch. */
 const worktreeAt = (home: string, folder: string) =>
-  join(home, '.mesa/default/worktrees/lantern-cove', folder);
+  join(profilePaths(home, 'default').worktrees, 'lantern-cove', folder);
 
 /** The branch's upstream, or undefined when it tracks nothing. */
 const upstreamOf = (dir: string, branch: string) => {
@@ -643,7 +644,7 @@ test('every refusal before the window comes before the worktree, and a missing g
     long.mesa.sessions.open('lantern-cove', { branch: 'b', goal: 'x'.repeat(12_000) }),
   ).rejects.toMatchObject({ code: 'usage' });
   for (const { home, dir } of [noClaude, long]) {
-    expect(existsSync(join(home, '.mesa/default/worktrees'))).toBe(false);
+    expect(existsSync(profilePaths(home, 'default').worktrees)).toBe(false);
     expect(testGit(dir, 'branch', '--list', 'b')).toBe('');
   }
 
