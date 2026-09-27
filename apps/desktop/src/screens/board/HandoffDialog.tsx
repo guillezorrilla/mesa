@@ -1,4 +1,5 @@
 import type { ManagedRow } from '@mesa/core';
+import { sessionLabel } from '@mesa/core/view';
 import { FileText } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export function HandoffDialog(props: {
     <Dialog open onOpenChange={(open) => !open && props.onCancel()}>
       <DialogContent data-testid="handoff-dialog" className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Hand off {row.name ?? row.id}</DialogTitle>
+          <DialogTitle>Hand off {sessionLabel(row)}</DialogTitle>
           <DialogDescription>
             A successor starts on {row.project} with its goal and your note, and reads the note
             first.

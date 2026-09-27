@@ -1,4 +1,5 @@
 import type { ManagedRow } from '@mesa/core';
+import { sessionLabel } from '@mesa/core/view';
 import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,7 @@ export function RemoveDialog(props: {
     <Dialog open onOpenChange={(open) => !open && props.onCancel()}>
       <DialogContent data-testid="remove-dialog" className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Remove {row.name ?? row.id}</DialogTitle>
+          <DialogTitle>Remove {sessionLabel(row)}</DialogTitle>
           <DialogDescription>This deletes, and cannot be undone:</DialogDescription>
         </DialogHeader>
         <ul data-testid="remove-list" className="list-disc space-y-1 pl-5 text-sm">
