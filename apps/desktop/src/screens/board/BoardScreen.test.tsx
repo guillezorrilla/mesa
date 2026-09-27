@@ -39,6 +39,35 @@ test('a recorded action says its warning with its confirmation, so a missing rec
   );
 });
 
+test('an action ends once the Board shows what it did, even with a look already in flight', async () => {
+  vi.useFakeTimers();
+  try {
+    let release = () => {};
+    let slow = false;
+    const { bridge, calls } = fakeBridge({
+      sessions: () =>
+        slow
+          ? new Promise((done) => (release = () => done(envelope([asking]))))
+          : envelope([asking]),
+      stop: () => envelope({ ...asking, outcome: 'exited', receipt: null }),
+    });
+    const byTestId = await renderWithMesa(<App />, bridge);
+    slow = true;
+    // The two-second look is in flight when Stop is pressed.
+    await act(async () => vi.advanceTimersByTime(2000));
+    await click(byTestId('session-stop')[0]);
+    expect(byTestId('session-stop')[0]?.hasAttribute('disabled')).toBe(true);
+    await click(byTestId('session-stop')[0]);
+    expect(calls.filter((c) => c[1] === 'stop')).toHaveLength(1);
+    // That look lands, then the one after the stop: only now does the row come back.
+    slow = false;
+    await act(async () => release());
+    expect(byTestId('session-stop')[0]?.hasAttribute('disabled')).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test('the Board is the first screen: every session by attention, with its state, confidence, and output', async () => {
   const { bridge } = fakeBridge({
     // mesa sends the board in its order (attention, children under their parent); the Board keeps it.
