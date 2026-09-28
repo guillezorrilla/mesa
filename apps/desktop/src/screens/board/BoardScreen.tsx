@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Send,
   Square,
+  TerminalSquare,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
@@ -53,6 +54,7 @@ type OpenDialog =
       kind: 'new';
       project?: string;
       general?: boolean;
+      parent?: string;
       location?: 'main' | 'worktree' | 'terminal';
     }
   | { kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive'; row: ManagedRow }
@@ -243,7 +245,8 @@ export function BoardScreen(
   const leaveClosedSession = (id: string) => {
     const next = data?.find((row) => row.id !== id && row.managed && !exited(row));
     if (next) props.onSelectSession?.(next.id);
-    else if (selected?.project) props.onProject?.(selected.project);
+    else if (selected?.project && selected.project !== GENERAL_PROJECT)
+      props.onProject?.(selected.project);
     else props.onBoard?.();
   };
   const archive = (id: string) =>
@@ -269,6 +272,17 @@ export function BoardScreen(
       close();
       props.onSelectSession?.(opened.id);
       return said(`Opened session ${opened.id} on ${projectLabel(opened.project)}`, opened);
+    });
+  const openChildTerminal = (row: ManagedRow) =>
+    act(async () => {
+      const opened = await run('sessions.open', {
+        ...(row.project === GENERAL_PROJECT ? { general: true } : { project: row.project }),
+        terminal: true,
+        parent: row.id,
+      });
+      if (!opened) return undefined;
+      props.onSelectSession?.(opened.id);
+      return said(`Opened child terminal ${opened.id}`, opened);
     });
   const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
     act(async () => {
@@ -334,7 +348,7 @@ export function BoardScreen(
             size="sm"
             className="px-0 text-muted-foreground"
             onClick={() =>
-              selected?.project && props.onProject
+              selected?.project && selected.project !== GENERAL_PROJECT && props.onProject
                 ? props.onProject(selected.project)
                 : props.onBoard?.()
             }
@@ -378,6 +392,31 @@ export function BoardScreen(
                   >
                     <ExternalLink aria-hidden /> Open in terminal app
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openChildTerminal(selected)}
+                    disabled={exited(selected) || acting}
+                  >
+                    <TerminalSquare aria-hidden /> New terminal session
+                  </Button>
+                  {selected.project !== GENERAL_PROJECT && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setDialog({
+                          kind: 'new',
+                          project: selected.project,
+                          parent: selected.id,
+                          location: 'worktree',
+                        })
+                      }
+                      disabled={exited(selected) || acting}
+                    >
+                      <Plus aria-hidden /> New child worktree session
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -526,6 +565,7 @@ export function BoardScreen(
           key={`${dialog.project ?? ''}-${dialog.location ?? ''}`}
           project={dialog.project}
           general={dialog.general}
+          parent={dialog.parent}
           location={dialog.location}
           onOpen={open}
           onCancel={close}

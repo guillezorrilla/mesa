@@ -81,6 +81,15 @@ test('open --terminal starts a plain shell session with no coding agent conversa
   });
 });
 
+test('open --terminal --parent keeps the child link in JSON', async () => {
+  cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const parent = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const child = (await mesa('open', 'lantern-cove', '--terminal', '--parent', parent.id, '--json'))
+    .json.data;
+  expect(child).toMatchObject({ parent: parent.id, project: 'lantern-cove', kind: 'terminal' });
+});
+
 test('open --general --json starts without a registered project', async () => {
   const world = cli.withTmux();
   await mesa('init', '--vault', 'vault');

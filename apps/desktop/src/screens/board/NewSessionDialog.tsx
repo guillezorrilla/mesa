@@ -16,6 +16,7 @@ export type NewSessionInput = {
   goal?: string;
   branch: string;
   terminal?: boolean;
+  parent?: string;
 };
 
 /**
@@ -28,6 +29,7 @@ export function NewSessionDialog(props: {
   disabled: boolean;
   project?: string;
   general?: boolean;
+  parent?: string;
   location?: 'main' | 'worktree' | 'terminal';
 }) {
   const projects = useCommand('projects.list');
@@ -73,6 +75,7 @@ export function NewSessionDialog(props: {
           goal: goal?.value,
           branch: props.general ? '' : String(data.get('branch') ?? ''),
           terminal: props.location === 'terminal',
+          ...(props.parent ? { parent: props.parent } : {}),
         });
       }}
       onCancel={props.onCancel}
@@ -84,12 +87,22 @@ export function NewSessionDialog(props: {
       ) : (
         <div className="grid gap-2">
           <Label htmlFor="new-session-project">Project</Label>
-          <ProjectSelect
-            id="new-session-project"
-            data-testid="new-session-project"
-            projects={projects.data}
-            defaultValue={props.project}
-          />
+          {props.parent ? (
+            <Input
+              id="new-session-project"
+              name="project"
+              data-testid="new-session-project"
+              value={props.project}
+              readOnly
+            />
+          ) : (
+            <ProjectSelect
+              id="new-session-project"
+              data-testid="new-session-project"
+              projects={projects.data}
+              defaultValue={props.project}
+            />
+          )}
         </div>
       )}
       {props.location !== 'terminal' && (

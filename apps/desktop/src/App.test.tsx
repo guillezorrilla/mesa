@@ -982,10 +982,13 @@ test('project session menu offers three real launch paths and closes after choos
 });
 
 test('global New session offers General without a registered project', async () => {
+  const generalRow = managedRow('gener001', { project: '__mesa_general__', cwd: '/h' });
   const { bridge, calls } = fakeBridge({
     projects: () => envelope([]),
     config: () => envelope({ defaultAgent: 'codex', shortcuts: DEFAULT_SHORTCUTS }),
-    open: () => envelope(managedRow('gener001', { project: '__mesa_general__', cwd: '/h' })),
+    sessions: () => envelope([generalRow]),
+    open: () => envelope(generalRow),
+    archive: () => envelope({ ...generalRow, archivedAt: '2026-09-27T12:00:00.000Z' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
@@ -1005,6 +1008,68 @@ test('global New session offers General without a registered project', async () 
     'codex',
     '--general',
     '--',
+  ]);
+  await click(
+    [...(byTestId('selected-session')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'General',
+    ),
+  );
+  expect(byTestId('selected-session')).toHaveLength(0);
+  expect(byTestId('project-workspace')).toHaveLength(0);
+  await click(byTestId('sidebar-session')[0]);
+  await click(document.querySelector('[aria-label="Archive Session (gener001)"]') as HTMLElement);
+  await click(byTestId('archive-confirm')[0]);
+  expect(byTestId('selected-session')).toHaveLength(0);
+  expect(byTestId('project-workspace')).toHaveLength(0);
+});
+
+test('selected session actions launch a child terminal and a child worktree', async () => {
+  const parent = managedRow('parent01', {
+    worktree: { path: '/h/worktrees/feature', branch: 'feature' },
+  });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([parent]),
+    open: () => envelope(managedRow('child001', { kind: 'terminal', agent: 'terminal' })),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const actions = () => document.querySelector('[aria-label="Session actions"]') as HTMLElement;
+  await click(actions());
+  await click(
+    [...(actions().parentElement?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes('New terminal session'),
+    ),
+  );
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--parent',
+    parent.id,
+    '--terminal',
+    '--',
+    'lantern-cove',
+  ]);
+
+  await click(byTestId('sidebar-session')[0]);
+  await click(actions());
+  await click(
+    [...(actions().parentElement?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes('New child worktree session'),
+    ),
+  );
+  expect((byTestId('new-session-project')[0] as HTMLInputElement).value).toBe('lantern-cove');
+  (byTestId('new-session-branch')[0] as HTMLInputElement).value = 'child-branch';
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--parent',
+    parent.id,
+    '--agent',
+    'claude',
+    '--branch=child-branch',
+    '--',
+    'lantern-cove',
   ]);
 });
 

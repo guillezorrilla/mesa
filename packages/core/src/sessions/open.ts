@@ -3,9 +3,11 @@ import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Caller } from './caller.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits } from './goal.js';
 import {
   createRecord,
+  folderOf,
   type LaunchDeps,
   launchAgent,
   launchProject,
@@ -87,6 +89,14 @@ export async function openSession(
     if (input.agent || input.goal || input.after)
       throw new MesaError('usage', '--terminal cannot use --agent, --goal, or --after');
     const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
+    const parent = parentOf(deps, input);
+    const from = parent ? deps.store.get(parent) : undefined;
+    const cwd =
+      !input.branch && from?.project === (entry?.name ?? GENERAL_PROJECT)
+        ? folderOf(from, entry)
+        : input.general
+          ? deps.home
+          : undefined;
     const command = `exec ${shellWord(deps.shell)} -l`;
     requireCommandFits(command);
     return launchSession(
@@ -94,9 +104,9 @@ export async function openSession(
       {
         kind: 'terminal',
         project: entry,
-        ...(input.general ? { cwd: deps.home } : {}),
+        ...(cwd ? { cwd } : {}),
         agent: 'terminal',
-        parent: parentOf(deps, input),
+        parent,
         name: 'Terminal',
       },
       { command: () => command, branch: input.branch, base: input.base },

@@ -80,6 +80,8 @@ Not: transfer, fork, relay.
 
 A session with no registered project. `mesa open --general [--terminal]` starts in the profile home folder, records that absolute `cwd`, and groups its tmux window under the reserved `__mesa_general__` name, outside valid project slugs. It uses the profile default agent unless one is selected, without reading a project `mesa.yaml` or linking project skills into home. The app shows it under General. It can be resumed and managed by session id. Project worktrees, skill runs, queues, and handoff require a registered project. Provider trust and permission prompts are left to the provider.
 
+`mesa open <project> --terminal --parent <id>` starts a separate child shell in that parent's actual cwd when it belongs to the same project, including a worktree. `mesa open --general --terminal --parent <id>` does the same for a General parent. The selected session's app actions can open that child terminal or a new child worktree session on its project.
+
 ## Worktree
 
 A Git linked checkout of a registered project, created for a session with `mesa open <project> --branch <name>` or manually with `mesa worktrees create <project> <branch>`. The project must be the repository's top folder. The Worktrees tab and `mesa worktrees list <project> --json` show Git's linked checkouts, their state, and unfinished Mesa session holders. A manual worktree has no session holder until a session uses it. Without `--branch`, a session runs in the project's main checkout.

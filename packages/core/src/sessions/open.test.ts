@@ -169,6 +169,35 @@ test('General opens in the profile home without project skills, and can resume o
   ).rejects.toMatchObject({ code: 'usage' });
 });
 
+test('a child terminal starts in its parent worktree', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world);
+  gitRepo(dir);
+  const parent = (await mesa.sessions.open('lantern-cove', { branch: 'feature' })).result;
+  const child = (await mesa.sessions.open('lantern-cove', { terminal: true, parent: parent.id }))
+    .result;
+  expect(child).toMatchObject({
+    kind: 'terminal',
+    parent: parent.id,
+    cwd: parent.worktree?.path,
+    project: 'lantern-cove',
+  });
+  const opened = world.calls.find((call) => call.args.includes('new-window'))?.args ?? [];
+  expect(opened.slice(opened.indexOf('-c'), opened.indexOf('-c') + 2)).toEqual([
+    '-c',
+    parent.worktree?.path,
+  ]);
+  const branched = (
+    await mesa.sessions.open('lantern-cove', {
+      terminal: true,
+      parent: parent.id,
+      branch: 'child-branch',
+    })
+  ).result;
+  expect(branched.worktree?.branch).toBe('child-branch');
+  expect(branched.cwd).toBeUndefined();
+});
+
 test("with config sessions.log off, a window's output is not piped to a log", async () => {
   const world = agentWorld();
   const { home, mesa } = await setUp(world);
