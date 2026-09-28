@@ -277,6 +277,10 @@ test('project Git remote panel shows its upstream and confirms an explicit push'
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git branches': () =>
+      envelope({ checkout, branches: [{ name: 'main', oid: 'abc', current: true }] }),
+    'git stashes': () => envelope({ checkout, stashes: [] }),
+    'git graph': () => envelope({ checkout, rows: [], commits: 0 }),
     'git tracking': () =>
       envelope({ checkout, branch: 'main', remote: 'origin', upstream: 'main' }),
     'git push': () =>
@@ -299,7 +303,22 @@ test('project Git remote panel shows its upstream and confirms an explicit push'
   );
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Branches',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Stashes',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
       (button) => button.textContent === 'Remote',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Graph',
     ),
   );
   expect(document.querySelector('[aria-label="Git sync"]')?.textContent).toContain(
@@ -313,6 +332,10 @@ test('project Git remote panel shows its upstream and confirms an explicit push'
   expect(byTestId('git-sync-dialog')[0]?.textContent).toContain('without force');
   await click(byTestId('confirm-git-sync')[0]);
   expect(calls.some((args) => args.includes('push') && args.includes('--yes'))).toBe(true);
+  expect(document.querySelectorAll('[aria-label="Git sync"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[aria-label="Git graph"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[aria-label="Local branches"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[aria-label="Git stashes"]')).toHaveLength(1);
 });
 
 test('project Git graph filters a branch and compares a selected commit', async () => {

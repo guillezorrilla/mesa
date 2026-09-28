@@ -196,7 +196,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       </form>
       {diffPath !== null && (
         <GitDiffView
-          key={`${checkout}:${diffPath}:${revision}`}
+          key={`diff:${checkout}:${diffPath}:${revision}`}
           project={props.project}
           checkout={checkout || undefined}
           path={diffPath || undefined}
@@ -205,7 +205,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       )}
       {showBranches && (
         <GitBranches
-          key={checkout}
+          key={`branches:${checkout}`}
           project={props.project}
           checkout={checkout || undefined}
           onChanged={() => {
@@ -216,7 +216,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       )}
       {showStashes && (
         <GitStashes
-          key={checkout}
+          key={`stashes:${checkout}`}
           project={props.project}
           checkout={checkout || undefined}
           onChanged={() => {
@@ -227,7 +227,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       )}
       {showSync && (
         <GitSyncPanel
-          key={`${checkout}:${revision}`}
+          key={`sync:${checkout}:${revision}`}
           project={props.project}
           checkout={checkout || undefined}
           onChanged={() => {
@@ -238,7 +238,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       )}
       {showGraph && (
         <GitHistory
-          key={`${checkout}:${revision}`}
+          key={`graph:${checkout}:${revision}`}
           project={props.project}
           checkout={checkout || undefined}
         />
