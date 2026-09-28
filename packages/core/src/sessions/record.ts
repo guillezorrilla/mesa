@@ -100,6 +100,8 @@ const SessionRecordFields = z.strictObject({
       window: z.number().int().positive(),
       at: z.iso.datetime({ offset: true }),
       source: z.literal('transcript'),
+      /** The model that produced this reading, when the native transcript names it. */
+      model: z.string().optional(),
     })
     .optional(),
   /**

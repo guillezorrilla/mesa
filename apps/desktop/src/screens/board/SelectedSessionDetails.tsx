@@ -47,7 +47,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dt className="text-muted-foreground">Working Dir</dt>
             <dd className="break-all font-mono">{cwd ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Model</dt>
-            <dd>Unknown</dd>
+            <dd>{context?.model ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Effort</dt>
             <dd>Unknown</dd>
             <dt className="text-muted-foreground">Status</dt>

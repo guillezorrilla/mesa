@@ -190,6 +190,7 @@ test('a Stop reads the context use: mesa sessions shows ctx, mesa show --json th
     window: 200_000,
     at: '2026-09-25T10:00:09.000Z',
     source: 'transcript',
+    model: 'claude-haiku-4-5-20251001',
   });
 
   // mesa show reads it again: after a /compact there is none until the next reply.

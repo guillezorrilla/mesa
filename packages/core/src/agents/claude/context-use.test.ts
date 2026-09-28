@@ -25,6 +25,7 @@ test('a normal turn: the main chain last reply input tokens, in percent of its w
     window: 200_000,
     at: '2026-09-25T10:00:09.000Z',
     source: 'transcript',
+    model: 'claude-haiku-4-5-20251001',
   });
 });
 
