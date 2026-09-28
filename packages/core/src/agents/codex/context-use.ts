@@ -45,11 +45,41 @@ function usageIn(line: string): ContextUse | undefined {
   }
 }
 
+/** Model and effort of the turn that produced a later token-count reading. */
+function turnIn(line: string): Pick<ContextUse, 'model' | 'effort'> | undefined {
+  if (!line.includes('"turn_context"')) return undefined;
+  try {
+    const entry = JSON.parse(line) as {
+      type?: unknown;
+      payload?: { model?: unknown; effort?: unknown };
+    };
+    if (entry.type !== 'turn_context') return undefined;
+    const model = entry.payload?.model;
+    const effort = entry.payload?.effort;
+    return {
+      ...(typeof model === 'string' && model ? { model } : {}),
+      ...(typeof effort === 'string' && effort ? { effort } : {}),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 /** Context use from the exact thread's rollout; unknown until a completed turn records usage. */
 export function codexContext(
   deps: { env: Env; home: string },
   agentSessionId: string,
 ): ContextUse | undefined {
   const file = rolloutForThread(deps, agentSessionId);
-  return file ? lastMatchingLine(file, usageIn) : undefined;
+  if (!file) return undefined;
+  let usage: ContextUse | undefined;
+  const withTurn = lastMatchingLine(file, (line) => {
+    if (!usage) {
+      usage = usageIn(line);
+      return undefined;
+    }
+    const turn = turnIn(line);
+    return turn ? { ...usage, ...turn } : undefined;
+  });
+  return withTurn ?? usage;
 }

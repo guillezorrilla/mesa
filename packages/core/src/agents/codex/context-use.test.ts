@@ -16,6 +16,14 @@ test('Codex context reads the last native per-turn input and window from its exa
     file,
     `\n${JSON.stringify({
       timestamp: AT,
+      type: 'turn_context',
+      payload: { model: 'gpt-6-sol', effort: 'xhigh' },
+    })}\n`,
+  );
+  appendFileSync(
+    file,
+    `\n${JSON.stringify({
+      timestamp: AT,
       type: 'event_msg',
       payload: {
         type: 'token_count',
@@ -32,6 +40,8 @@ test('Codex context reads the last native per-turn input and window from its exa
     window: 258400,
     at: AT,
     source: 'transcript',
+    model: 'gpt-6-sol',
+    effort: 'xhigh',
   });
   appendFileSync(file, '\n{"type":"event_msg","payload":{"type":"token_count","info":{}}}\n');
   expect(codexContext(deps, ID)?.used).toBe(10.04);

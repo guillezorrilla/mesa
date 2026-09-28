@@ -49,7 +49,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dt className="text-muted-foreground">Model</dt>
             <dd>{context?.model ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Effort</dt>
-            <dd>Unknown</dd>
+            <dd>{context?.effort ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Status</dt>
             <dd>{row.lastState.state}</dd>
             <dt className="text-muted-foreground">Created</dt>

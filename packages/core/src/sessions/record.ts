@@ -111,6 +111,8 @@ const SessionRecordFields = z.strictObject({
       source: z.literal('transcript'),
       /** The model that produced this reading, when the native transcript names it. */
       model: z.string().optional(),
+      /** The native per-turn reasoning effort, when recorded with this reading. */
+      effort: z.string().optional(),
     })
     .optional(),
   /**

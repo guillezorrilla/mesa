@@ -957,6 +957,7 @@ test('selected session details read native context by exact id and keep unknown 
                 at: '2026-09-27T12:01:00.000Z',
                 source: 'transcript',
                 model: 'claude-opus-5-5',
+                effort: 'xhigh',
               },
             }
           : row,
@@ -968,7 +969,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(calls).toContainEqual(['--json', 'show', '--', 'aaaaaaaa']);
   expect(details?.textContent).toContain('/src/lantern-cove');
   expect(details?.textContent).toContain('Modelclaude-opus-5-5');
-  expect(details?.textContent).toContain('EffortUnknown');
+  expect(details?.textContent).toContain('Effortxhigh');
   expect(details?.textContent).toContain('10.04% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
   expect(
@@ -979,6 +980,7 @@ test('selected session details read native context by exact id and keep unknown 
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
   expect(details?.textContent).toContain('ContextUnknown');
   expect(details?.textContent).toContain('ModelUnknown');
+  expect(details?.textContent).toContain('EffortUnknown');
   expect(
     document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
   ).toBe('img');

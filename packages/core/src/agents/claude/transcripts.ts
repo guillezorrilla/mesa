@@ -81,7 +81,7 @@ export function claudeHistory(transcripts: string) {
 }
 
 /** The usage Claude Code recorded for the context of its last reply. */
-type LastUsage = { model: string; tokens: number; at: string };
+type LastUsage = { model: string; tokens: number; at: string; effort?: string };
 
 /**
  * The last main-chain assistant message's usage, read from the end of the transcript (one can
@@ -104,6 +104,8 @@ function usageIn(line: string): LastUsage | 'compacted' | undefined {
     subtype?: unknown;
     isSidechain?: unknown;
     timestamp?: unknown;
+    effort?: unknown;
+    perTurnEffort?: unknown;
     message?: { model?: unknown; usage?: Record<string, unknown> };
   };
   try {
@@ -117,6 +119,7 @@ function usageIn(line: string): LastUsage | 'compacted' | undefined {
   const count = (key: string) => (typeof usage[key] === 'number' ? (usage[key] as number) : 0);
   const { model } = entry.message ?? {};
   if (typeof model !== 'string' || typeof entry.timestamp !== 'string') return undefined;
+  const effort = entry.perTurnEffort ?? entry.effort;
   return {
     model,
     tokens:
@@ -124,5 +127,6 @@ function usageIn(line: string): LastUsage | 'compacted' | undefined {
       count('cache_creation_input_tokens') +
       count('cache_read_input_tokens'),
     at: entry.timestamp,
+    ...(typeof effort === 'string' && effort ? { effort } : {}),
   };
 }
