@@ -128,3 +128,68 @@ test('rerun setup targets the ready linked checkout through the CLI bridge', asy
     '/tmp/feature',
   ]);
 });
+
+test('recycle previews exact path, cancellation is read-only, and confirmation sends its token', async () => {
+  const { bridge, calls } = fakeBridge({
+    'worktrees list': () =>
+      envelope([
+        { path: '/tmp/feature', branch: 'feature', main: false, state: 'ready', holders: [] },
+      ]),
+    'worktrees preview': () =>
+      envelope({
+        action: 'recycle',
+        project: 'lantern-cove',
+        token: 'preview-token',
+        paths: ['/tmp/feature'],
+        branch: 'feature',
+        head: 'abc123',
+        state: 'ready',
+        holders: [],
+        changes: ['?? draft.txt'],
+        ignored: [],
+        unpublished: true,
+        destination: '/tmp/recycle/feature',
+        allowed: true,
+        reasons: [],
+      }),
+    'worktrees apply': () =>
+      envelope({
+        action: 'recycle',
+        paths: ['/tmp/feature'],
+        destination: '/tmp/recycle/feature',
+        receipt: null,
+      }),
+  });
+  const byTestId = await renderWithMesa(
+    <WorktreesWorkspace project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  const recycle = () =>
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Recycle',
+    );
+  await click(recycle());
+  expect(byTestId('worktree-action-dialog')[0]?.textContent).toContain('/tmp/recycle/feature');
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '[data-testid="worktree-action-dialog"] button',
+      ),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(calls.some((args) => args[2] === 'apply')).toBe(false);
+  await click(recycle());
+  await click(byTestId('confirm-worktree-action')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'worktrees',
+    'apply',
+    '--action',
+    'recycle',
+    '--token',
+    'preview-token',
+    '--',
+    'lantern-cove',
+    '/tmp/feature',
+  ]);
+});

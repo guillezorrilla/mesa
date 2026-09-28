@@ -4,6 +4,7 @@ import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { createWorktree, worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
+import { applyWorktreeAction, previewWorktreeAction, type WorktreeAction } from './lifecycle.js';
 
 export function worktreesService(ctx: MesaContext) {
   return {
@@ -47,6 +48,32 @@ export function worktreesService(ctx: MesaContext) {
             'setup',
           );
         },
+      ),
+    preview: (project: string, action: WorktreeAction, selected?: string) =>
+      previewWorktreeAction(ctx.open(), ctx.deps.run, ctx.store, project, action, selected),
+    apply: (project: string, action: WorktreeAction, token: string, selected?: string) =>
+      ctx.record(
+        {
+          summary: (result) => `${action} worktrees in ${project}: ${result.paths.length} changed`,
+          failure: `Could not ${action} worktrees in ${project}`,
+          project: () => project,
+          inputs: { project, action, selected, token },
+          outputs: (result) => ({ ...result }),
+          warning: (result) =>
+            result.remaining?.length
+              ? `${result.remaining.length} stale worktree registrations remain; inspect them again`
+              : undefined,
+        },
+        () =>
+          applyWorktreeAction(
+            ctx.open(),
+            ctx.deps.run,
+            ctx.store,
+            project,
+            action,
+            token,
+            selected,
+          ),
       ),
   };
 }

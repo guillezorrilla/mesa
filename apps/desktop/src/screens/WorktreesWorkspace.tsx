@@ -1,4 +1,4 @@
-import type { Config, WorktreeRow } from '@mesa/core';
+import type { Config, WorktreeAction, WorktreePreview, WorktreeRow } from '@mesa/core';
 import { FolderGit2, Plus, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -28,6 +28,7 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
   const run = useRun();
   const { acting, act } = useAct();
   const [createOpen, setCreateOpen] = useState(false);
+  const [preview, setPreview] = useState<WorktreePreview | null>(null);
   const [settings, setSettings] = useState<Config['worktrees']>(DEFAULT_SETTINGS);
   useEffect(() => {
     if (config.data) setSettings(config.data.worktrees);
@@ -56,6 +57,26 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
       const result = await run('worktrees.rerun', { project: props.project, checkout: path });
       return result ? said(`Setup completed in ${path}`, result) : undefined;
     });
+  const showPreview = (action: WorktreeAction, checkout?: string) =>
+    act(async () => {
+      const result = await run('worktrees.preview', { project: props.project, action, checkout });
+      if (result) setPreview(result);
+      return undefined;
+    });
+  const applyPreview = () =>
+    act(async () => {
+      if (!preview) return undefined;
+      const result = await run('worktrees.apply', {
+        project: props.project,
+        action: preview.action,
+        token: preview.token,
+        checkout: preview.action === 'cleanup' ? undefined : preview.paths[0],
+      });
+      if (!result) return undefined;
+      setPreview(null);
+      await worktrees.refresh();
+      return said(`${preview.action} completed`, result);
+    });
   const [branch, setBranch] = useState('');
   const [holder, setHolder] = useState('');
   const [state, setState] = useState<WorktreeRow['state'] | 'all'>('all');
@@ -68,6 +89,15 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
   return (
     <section data-testid="worktrees-workspace" className="space-y-4" aria-label="Worktrees">
       <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={acting}
+          onClick={() => void showPreview('cleanup')}
+        >
+          Clean stale
+        </Button>
         <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
           <Plus aria-hidden /> New worktree
         </Button>
@@ -216,7 +246,7 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
           value={state}
           onChange={(event) => setState(event.target.value as WorktreeRow['state'] | 'all')}
         >
-          {(['all', 'ready', 'locked', 'stale', 'detached'] as const).map((value) => (
+          {(['all', 'ready', 'locked', 'stale', 'detached', 'recycled'] as const).map((value) => (
             <NativeSelectOption key={value} value={value}>
               {value}
             </NativeSelectOption>
@@ -272,6 +302,30 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
                   Rerun setup
                 </Button>
               ) : null}
+              {!row.main && (row.state === 'ready' || row.state === 'recycled') ? (
+                <>
+                  {row.state === 'ready' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={acting}
+                      onClick={() => void showPreview('recycle', row.path)}
+                    >
+                      Recycle
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={acting}
+                    onClick={() => void showPreview('remove', row.path)}
+                  >
+                    Remove
+                  </Button>
+                </>
+              ) : null}
             </div>
           </article>
         ))}
@@ -304,6 +358,56 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
           />
           <Label htmlFor="new-worktree-base">Base (new branch only)</Label>
           <Input id="new-worktree-base" name="base" placeholder={settings.base ?? 'Automatic'} />
+        </ActionDialog>
+      )}
+      {preview && (
+        <ActionDialog
+          testId="worktree-action-dialog"
+          title={`${preview.action} worktree${preview.paths.length === 1 ? '' : 's'}`}
+          description="Mesa will recheck this preview immediately before acting."
+          submit={{
+            label: preview.action,
+            testId: 'confirm-worktree-action',
+            disabled: acting || !preview.allowed,
+          }}
+          onCancel={() => setPreview(null)}
+          onSubmit={() => void applyPreview()}
+        >
+          <div className="max-h-64 space-y-2 overflow-auto text-xs">
+            {preview.paths.map((path) => (
+              <p key={path} className="break-all font-mono">
+                {path}
+              </p>
+            ))}
+            {preview.destination && (
+              <p className="break-all">Recycle destination: {preview.destination}</p>
+            )}
+            {preview.branch && (
+              <p>
+                Branch: {preview.branch} at {preview.head}
+              </p>
+            )}
+            {preview.upstream && (
+              <p>
+                Upstream: {preview.upstream}, ahead {preview.ahead ?? 0}
+              </p>
+            )}
+            {preview.unpublished && <p>Unpublished branch commits or detached HEAD</p>}
+            {preview.teardown?.length ? <p>Teardown argv: {preview.teardown.join(' ')}</p> : null}
+            {preview.holders.length > 0 && <p>Session references: {preview.holders.join(', ')}</p>}
+            {preview.changes.length > 0 && (
+              <p>Changed or untracked: {preview.changes.join(', ')}</p>
+            )}
+            {preview.ignored.length > 0 && <p>Ignored: {preview.ignored.join(', ')}</p>}
+            {preview.reasons.map((reason) => (
+              <p key={reason} className="text-destructive">
+                {reason}
+              </p>
+            ))}
+            {preview.action === 'remove' && (
+              <p>The branch remains. Configured teardown runs first.</p>
+            )}
+          </div>
         </ActionDialog>
       )}
     </section>

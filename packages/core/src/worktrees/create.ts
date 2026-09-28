@@ -121,7 +121,7 @@ export async function worktreeCommand(
   if (!result.ok)
     throw new MesaError(
       'usage',
-      `${kind} failed in ${path}: ${result.detail}; the worktree is still there`,
+      `${kind} failed in ${path}: ${result.detail}; checkout ${lstatSync(path, { throwIfNoEntry: false }) ? 'remains' : 'is missing'}`,
     );
   return { path, ran: true as const };
 }

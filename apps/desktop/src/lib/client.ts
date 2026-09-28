@@ -45,6 +45,8 @@ import type {
   WorkflowStatus,
   WorkspaceFile,
   Worktree,
+  WorktreeAction,
+  WorktreePreview,
   WorktreeRow,
 } from '@mesa/core';
 
@@ -141,6 +143,38 @@ const COMMANDS = {
     { project: string; checkout: string },
     Recorded<{ path: string; ran: true }>
   >(({ project, checkout }) => ['worktrees', 'rerun', '--', project, checkout]),
+  'worktrees.preview': commandWith<
+    { project: string; action: WorktreeAction; checkout?: string },
+    WorktreePreview
+  >(({ project, action, checkout }) => [
+    'worktrees',
+    'preview',
+    '--action',
+    action,
+    '--',
+    project,
+    ...(checkout ? [checkout] : []),
+  ]),
+  'worktrees.apply': commandWith<
+    { project: string; action: WorktreeAction; token: string; checkout?: string },
+    Recorded<{
+      action: WorktreeAction;
+      paths: string[];
+      destination?: string;
+      remaining?: string[];
+      teardownRan?: boolean;
+    }>
+  >(({ project, action, token, checkout }) => [
+    'worktrees',
+    'apply',
+    '--action',
+    action,
+    '--token',
+    token,
+    '--',
+    project,
+    ...(checkout ? [checkout] : []),
+  ]),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },
     Recorded<FileChange>

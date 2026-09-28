@@ -210,11 +210,229 @@ test('configured setup runs in the checkout, reruns there, and leaves a failed c
   await cli.mesa('config', 'set', 'worktrees.setup', '["/usr/bin/false"]');
   const failed = await cli.mesa('worktrees', 'create', 'lantern-cove', 'failed', '--json');
   expect(failed.code).toBe(2);
-  expect(failed.json.error.message).toContain('the worktree is still there');
+  expect(failed.json.error.message).toContain('checkout remains');
   expect(existsSync(join(cli.paths.worktrees, 'lantern-cove', 'failed'))).toBe(true);
   expect((await cli.mesa('worktrees', 'list', 'lantern-cove', '--json')).json.data).toEqual(
     expect.arrayContaining([expect.objectContaining({ branch: 'failed', state: 'ready' })]),
   );
+});
+
+test('remove rechecks changed files, current sessions, teardown output, and the preview token', async () => {
+  const repo = await creationRepo();
+  const created = await cli.mesa('worktrees', 'create', 'lantern-cove', 'remove-me', '--json');
+  const path = created.json.data.path as string;
+  const preview = async () =>
+    (await cli.mesa('worktrees', 'preview', 'lantern-cove', path, '--action', 'remove', '--json'))
+      .json.data;
+  const apply = (token: string) =>
+    cli.mesa(
+      'worktrees',
+      'apply',
+      'lantern-cove',
+      path,
+      '--action',
+      'remove',
+      '--token',
+      token,
+      '--json',
+    );
+  const clean = await preview();
+  expect(clean).toMatchObject({ allowed: true, paths: [path], branch: 'remove-me' });
+  expect((await apply('wrong-token')).code).toBe(2);
+  writeFileSync(join(path, 'draft.txt'), 'keep this');
+  expect((await apply(clean.token)).code).toBe(2);
+  expect((await preview()).reasons).toContain('worktree has changed or untracked files');
+  expect(existsSync(join(path, 'draft.txt'))).toBe(true);
+  rmSync(join(path, 'draft.txt'));
+  mkdirSync(join(path, 'cache'));
+  writeFileSync(join(path, 'cache', 'local.txt'), 'ignored data');
+  expect((await preview()).reasons).toContain('worktree has ignored files');
+  rmSync(join(path, 'cache'), { recursive: true });
+
+  const store = testStore(cli.home, 'default', shortIds('cccccccc'));
+  const beforeHolder = await preview();
+  store.create(() => newSession({ worktree: { path, branch: 'remove-me' } }));
+  expect((await apply(beforeHolder.token)).code).toBe(2);
+  expect((await preview()).reasons).toContain('a session still references this worktree');
+  store.remove('cccccccc');
+
+  const original = cli.run;
+  cli.run = (file, args, ms, options) => {
+    if (file === '/usr/bin/touch') {
+      writeFileSync(join(options?.cwd ?? '', args[0] ?? ''), 'teardown output');
+      return Promise.resolve({ ok: true, stdout: '' });
+    }
+    if (file === '/usr/bin/true') return Promise.resolve({ ok: true, stdout: '' });
+    return original(file, args, ms, options);
+  };
+  await cli.mesa('config', 'set', 'worktrees.teardown', '["/usr/bin/touch", "left.txt"]');
+  const withTeardown = await preview();
+  expect((await apply(withTeardown.token)).json.error.message).toContain('teardown ran');
+  expect(existsSync(join(path, 'left.txt'))).toBe(true);
+  rmSync(join(path, 'left.txt'));
+  await cli.mesa('config', 'set', 'worktrees.teardown', '["/usr/bin/true"]');
+  const final = await preview();
+  const removed = await apply(final.token);
+  expect(removed.code, removed.stdout).toBe(0);
+  expect(removed.json.data).toMatchObject({ action: 'remove', paths: [path], teardownRan: true });
+  expect(existsSync(path)).toBe(false);
+  expect(
+    execFileSync('git', ['-C', repo, 'branch', '--list', 'remove-me'], { encoding: 'utf8' }),
+  ).toContain('remove-me');
+});
+
+test('recycle preserves dirty and unpublished work, and cleanup prunes only missing registrations', async () => {
+  const repo = await creationRepo();
+  const dirty = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'dirty', '--json')).json.data
+    .path as string;
+  writeFileSync(join(dirty, 'draft.txt'), 'untracked');
+  writeFileSync(join(dirty, 'src', 'app.ts'), 'new commit\n');
+  execFileSync('git', ['-C', dirty, 'add', 'src/app.ts']);
+  execFileSync('git', [
+    '-C',
+    dirty,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '-qm',
+    'new work',
+  ]);
+  const remove = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    dirty,
+    '--action',
+    'remove',
+    '--json',
+  );
+  expect(remove.json.data.allowed).toBe(false);
+  expect(remove.json.data.unpublished).toBe(true);
+  const recycle = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    dirty,
+    '--action',
+    'recycle',
+    '--json',
+  );
+  expect(recycle.json.data.allowed).toBe(true);
+  const moved = await cli.mesa(
+    'worktrees',
+    'apply',
+    'lantern-cove',
+    dirty,
+    '--action',
+    'recycle',
+    '--token',
+    recycle.json.data.token,
+    '--json',
+  );
+  expect(moved.code, moved.stdout).toBe(0);
+  const destination = moved.json.data.destination as string;
+  expect(readFileSync(join(destination, 'draft.txt'), 'utf8')).toBe('untracked');
+  expect(existsSync(dirty)).toBe(false);
+  expect(
+    (await cli.mesa('worktrees', 'list', 'lantern-cove', '--state', 'recycled', '--json')).json
+      .data,
+  ).toEqual(
+    expect.arrayContaining([expect.objectContaining({ path: destination, branch: 'dirty' })]),
+  );
+
+  const stale = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'stale', '--json')).json.data
+    .path as string;
+  rmSync(stale, { recursive: true });
+  const first = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    '--action',
+    'cleanup',
+    '--json',
+  );
+  expect(first.json.data).toMatchObject({ allowed: true, paths: [stale] });
+  const store = testStore(cli.home, 'default', shortIds('dddddddd'));
+  store.create(() => newSession({ worktree: { path: stale, branch: 'stale' } }));
+  expect(
+    (
+      await cli.mesa(
+        'worktrees',
+        'apply',
+        'lantern-cove',
+        '--action',
+        'cleanup',
+        '--token',
+        first.json.data.token,
+      )
+    ).code,
+  ).toBe(2);
+  store.remove('dddddddd');
+  const fresh = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    '--action',
+    'cleanup',
+    '--json',
+  );
+  const cleaned = await cli.mesa(
+    'worktrees',
+    'apply',
+    'lantern-cove',
+    '--action',
+    'cleanup',
+    '--token',
+    fresh.json.data.token,
+    '--json',
+  );
+  expect(cleaned.code, cleaned.stdout).toBe(0);
+  expect(cleaned.json.data).toMatchObject({ paths: [stale], remaining: [] });
+  expect(
+    execFileSync('git', ['-C', repo, 'worktree', 'list', '--porcelain'], { encoding: 'utf8' }),
+  ).not.toContain(stale);
+  expect(existsSync(join(destination, 'draft.txt'))).toBe(true);
+});
+
+test('a branch moved after preview cannot be removed with the old token', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'moving', '--json')).json.data
+    .path as string;
+  const before = (
+    await cli.mesa('worktrees', 'preview', 'lantern-cove', path, '--action', 'remove', '--json')
+  ).json.data;
+  execFileSync('git', [
+    '-C',
+    path,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '--allow-empty',
+    '-qm',
+    'local work',
+  ]);
+  const refused = await cli.mesa(
+    'worktrees',
+    'apply',
+    'lantern-cove',
+    path,
+    '--action',
+    'remove',
+    '--token',
+    before.token,
+    '--json',
+  );
+  expect(refused.code).toBe(2);
+  expect(refused.json.error.message).toContain('changed since preview');
+  const after = (
+    await cli.mesa('worktrees', 'preview', 'lantern-cove', path, '--action', 'remove', '--json')
+  ).json.data;
+  expect(after.unpublished).toBe(true);
+  expect(existsSync(path)).toBe(true);
 });
 
 test('custom location and fetched base are shared settings; failed carryover preserves source', async () => {

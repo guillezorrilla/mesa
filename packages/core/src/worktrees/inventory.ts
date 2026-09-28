@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
 import { gitWorktrees, resolveCheckout } from '../git/checkout.js';
 import type { Runner } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
@@ -10,7 +11,7 @@ export type WorktreeRow = {
   branch?: string;
   head?: string;
   main: boolean;
-  state: 'ready' | 'locked' | 'stale' | 'detached';
+  state: 'ready' | 'locked' | 'stale' | 'detached' | 'recycled';
   holders: { id: string; name?: string; state: string; at: string }[];
 };
 export type WorktreeFilter = { branch?: string; holder?: string; state?: WorktreeRow['state'] };
@@ -47,9 +48,11 @@ export async function listWorktrees(
             ? 'stale'
             : row.locked !== undefined
               ? 'locked'
-              : row.detached
-                ? 'detached'
-                : 'ready',
+              : path.startsWith(`${join(profile.paths.root, 'recycle')}/`)
+                ? 'recycled'
+                : row.detached
+                  ? 'detached'
+                  : 'ready',
         holders,
       };
     })
