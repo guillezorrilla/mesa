@@ -137,6 +137,10 @@ const COMMANDS = {
     project,
     branch,
   ]),
+  'worktrees.rerun': commandWith<
+    { project: string; checkout: string },
+    Recorded<{ path: string; ran: true }>
+  >(({ project, checkout }) => ['worktrees', 'rerun', '--', project, checkout]),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },
     Recorded<FileChange>

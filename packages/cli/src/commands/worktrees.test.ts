@@ -177,6 +177,46 @@ test('manual creation keeps profile default and applies sibling, nested, sparse,
   expect(readFileSync(join(repo, '.git', 'info', 'exclude'), 'utf8')).toContain('/.mesa-worktrees');
 });
 
+test('configured setup runs in the checkout, reruns there, and leaves a failed checkout intact', async () => {
+  const repo = await creationRepo();
+  const prior = cli.run;
+  const calls: string[] = [];
+  cli.run = (file, args, ms, options) => {
+    if (file === '/usr/bin/touch') {
+      calls.push(options?.cwd ?? '');
+      writeFileSync(join(options?.cwd ?? '', args[0] ?? ''), 'setup ran');
+      return Promise.resolve({ ok: true, stdout: '' });
+    }
+    if (file === '/usr/bin/false')
+      return Promise.resolve({ ok: false, reason: 'failed', detail: 'setup failed' });
+    return prior(file, args, ms, options);
+  };
+  expect(
+    (await cli.mesa('config', 'set', 'worktrees.setup', '["/usr/bin/touch", "ready"]')).code,
+  ).toBe(0);
+  const created = await cli.mesa('worktrees', 'create', 'lantern-cove', 'setup', '--json');
+  expect(created.code, created.stdout).toBe(0);
+  const path = created.json.data.path as string;
+  expect(calls).toEqual([path]);
+  expect(readFileSync(join(path, 'ready'), 'utf8')).toBe('setup ran');
+  rmSync(join(path, 'ready'));
+  const rerun = await cli.mesa('worktrees', 'rerun', 'lantern-cove', path, '--json');
+  expect(rerun.code, rerun.stdout).toBe(0);
+  expect(rerun.json.data).toMatchObject({ path, ran: true });
+  expect(calls).toEqual([path, path]);
+  expect(existsSync(join(path, 'ready'))).toBe(true);
+  expect((await cli.mesa('worktrees', 'rerun', 'lantern-cove', repo)).code).toBe(2);
+
+  await cli.mesa('config', 'set', 'worktrees.setup', '["/usr/bin/false"]');
+  const failed = await cli.mesa('worktrees', 'create', 'lantern-cove', 'failed', '--json');
+  expect(failed.code).toBe(2);
+  expect(failed.json.error.message).toContain('the worktree is still there');
+  expect(existsSync(join(cli.paths.worktrees, 'lantern-cove', 'failed'))).toBe(true);
+  expect((await cli.mesa('worktrees', 'list', 'lantern-cove', '--json')).json.data).toEqual(
+    expect.arrayContaining([expect.objectContaining({ branch: 'failed', state: 'ready' })]),
+  );
+});
+
 test('custom location and fetched base are shared settings; failed carryover preserves source', async () => {
   const repo = await creationRepo();
   const origin = join(cli.home, 'origin.git');

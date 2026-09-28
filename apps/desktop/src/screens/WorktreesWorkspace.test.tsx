@@ -92,3 +92,39 @@ test('worktree settings and manual creation call the same profile CLI surface', 
   ).toBe(true);
   expect(byTestId('worktree-create-dialog')).toHaveLength(0);
 });
+
+test('rerun setup targets the ready linked checkout through the CLI bridge', async () => {
+  const { bridge, calls } = fakeBridge({
+    config: () =>
+      envelope({
+        worktrees: {
+          location: 'profile',
+          fetch: false,
+          sparseDirectories: [],
+          carryIgnoredDirectories: [],
+          setup: ['/usr/bin/touch', 'ready'],
+          teardown: [],
+        },
+      }),
+    'worktrees list': () =>
+      envelope([
+        { path: '/tmp/repo', branch: 'main', main: true, state: 'ready', holders: [] },
+        { path: '/tmp/feature', branch: 'feature', main: false, state: 'ready', holders: [] },
+      ]),
+    'worktrees rerun': () => envelope({ path: '/tmp/feature', ran: true, receipt: null }),
+  });
+  await renderWithMesa(<WorktreesWorkspace project="lantern-cove" onSession={() => {}} />, bridge);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes('Rerun setup'),
+    ),
+  );
+  expect(calls).toContainEqual([
+    '--json',
+    'worktrees',
+    'rerun',
+    '--',
+    'lantern-cove',
+    '/tmp/feature',
+  ]);
+});

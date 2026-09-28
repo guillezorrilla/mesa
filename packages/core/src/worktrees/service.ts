@@ -1,6 +1,8 @@
 import type { MesaContext } from '../context.js';
+import { resolveCheckout } from '../git/checkout.js';
+import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
-import { createWorktree } from './create.js';
+import { createWorktree, worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
 
 export function worktreesService(ctx: MesaContext) {
@@ -24,6 +26,27 @@ export function worktreesService(ctx: MesaContext) {
             branch,
             base,
           ),
+      ),
+    rerun: (project: string, selected: string) =>
+      ctx.record(
+        {
+          summary: () => `Reran worktree setup in ${project}`,
+          failure: `Could not rerun worktree setup in ${project}`,
+          project: () => project,
+          inputs: { project, selected },
+        },
+        async () => {
+          const profile = ctx.open();
+          const checkout = await resolveCheckout(profile, ctx.deps.run, project, selected);
+          if (checkout.registered)
+            throw new MesaError('usage', 'worktree setup can only rerun in a linked worktree');
+          return worktreeCommand(
+            ctx.deps.run,
+            checkout.path,
+            profile.config.worktrees.setup,
+            'setup',
+          );
+        },
       ),
   };
 }

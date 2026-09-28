@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS: Config['worktrees'] = {
   fetch: false,
   sparseDirectories: [],
   carryIgnoredDirectories: [],
+  setup: [],
+  teardown: [],
 };
 
 /** Git inventory with the current profile's unfinished session holders. */
@@ -48,6 +50,11 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
       if (!result) return undefined;
       await config.refresh();
       return said('Saved worktree settings', result);
+    });
+  const rerun = (path: string) =>
+    act(async () => {
+      const result = await run('worktrees.rerun', { project: props.project, checkout: path });
+      return result ? said(`Setup completed in ${path}`, result) : undefined;
     });
   const [branch, setBranch] = useState('');
   const [holder, setHolder] = useState('');
@@ -151,6 +158,29 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
               }
             />
           </div>
+          <div className="space-y-1">
+            <Label htmlFor="worktree-setup">Setup argv, one argument per line</Label>
+            <Textarea
+              id="worktree-setup"
+              value={settings.setup.join('\n')}
+              onChange={(event) =>
+                setSettings({ ...settings, setup: event.target.value.split('\n').filter(Boolean) })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="worktree-teardown">Teardown argv, one argument per line</Label>
+            <Textarea
+              id="worktree-teardown"
+              value={settings.teardown.join('\n')}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  teardown: event.target.value.split('\n').filter(Boolean),
+                })
+              }
+            />
+          </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Only named ignored directories are copied; none are carried by default.
@@ -231,6 +261,17 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
               {!row.holders.length && (
                 <span className="text-xs text-muted-foreground">No session holder</span>
               )}
+              {!row.main && row.state === 'ready' && config.data?.worktrees.setup.length ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={acting}
+                  onClick={() => void rerun(row.path)}
+                >
+                  Rerun setup
+                </Button>
+              ) : null}
             </div>
           </article>
         ))}

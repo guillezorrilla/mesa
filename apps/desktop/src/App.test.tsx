@@ -958,6 +958,8 @@ test('shortcut settings validate conflicts and update the active profile key', a
       fetch: false,
       sparseDirectories: [],
       carryIgnoredDirectories: [],
+      setup: [],
+      teardown: [],
     },
     shortcuts,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },

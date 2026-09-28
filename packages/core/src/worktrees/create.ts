@@ -24,7 +24,10 @@ export async function sessionWorktree(
   const path = worktreePath(worktreeRoot(profile, project), branch);
   const present = lstatSync(path, { throwIfNoEntry: false });
   if (!present)
-    return { worktree: await createWorktree(profile, run, store, project, branch, base), created: true };
+    return {
+      worktree: await createWorktree(profile, run, store, project, branch, base),
+      created: true,
+    };
   const taken = () =>
     new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   if (present.isSymbolicLink() || !present.isDirectory()) throw taken();
@@ -101,7 +104,26 @@ export async function createWorktree(
     }
     throw error;
   }
+  // Setup may write user data. If it fails, leave the linked checkout for an explicit rerun.
+  if (settings.setup.length) await worktreeCommand(run, worktree.path, settings.setup, 'setup');
   return worktree;
+}
+
+/** Run an explicitly configured command in a selected worktree, without a shell. */
+export async function worktreeCommand(
+  run: Runner,
+  path: string,
+  argv: string[],
+  kind: 'setup' | 'teardown',
+) {
+  if (!argv.length) throw new MesaError('usage', `no worktree ${kind} command is configured`);
+  const result = await run(argv[0] as string, argv.slice(1), 120_000, { cwd: path });
+  if (!result.ok)
+    throw new MesaError(
+      'usage',
+      `${kind} failed in ${path}: ${result.detail}; the worktree is still there`,
+    );
+  return { path, ran: true as const };
 }
 
 async function carryIgnoredDirectory(

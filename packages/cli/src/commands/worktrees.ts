@@ -17,6 +17,20 @@ export const worktreesCreate = defineCommand({
   },
 });
 
+export const worktreesRerun = defineCommand({
+  name: 'worktrees rerun',
+  summary: 'Rerun the configured setup in a linked worktree',
+  args: ['project', 'checkout'],
+  example: 'mesa worktrees rerun lantern-cove /path/to/worktree',
+  run: async ({ mesa, args }) => {
+    const recorded = await mesa.worktrees.rerun(args.project, args.checkout);
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `setup completed in ${recorded.result.path}`,
+    });
+  },
+});
+
 export const worktreesList = defineCommand({
   name: 'worktrees list',
   summary: 'List Git worktrees and their current Mesa session holders',

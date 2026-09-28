@@ -91,6 +91,8 @@ test('worktree settings retain the profile default and reject unsafe directories
     fetch: false,
     sparseDirectories: [],
     carryIgnoredDirectories: [],
+    setup: [],
+    teardown: [],
   });
   expect(setConfigValue(file, 'worktrees.location', 'nested').value).toBe('nested');
   expect(setConfigValue(file, 'worktrees.sparseDirectories', '[src, docs]').value).toEqual([

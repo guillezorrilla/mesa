@@ -68,7 +68,7 @@ import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
 import { view } from './view.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
-import { worktreesCreate, worktreesList } from './worktrees.js';
+import { worktreesCreate, worktreesList, worktreesRerun } from './worktrees.js';
 
 // Every mesa subcommand, in help order. A command lives in the file named for its first word
 // (`hooks install` in hooks.ts), and has one entry here.
@@ -154,4 +154,5 @@ export const COMMANDS: Command[] = [
   workflow,
   worktreesCreate,
   worktreesList,
+  worktreesRerun,
 ];

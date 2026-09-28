@@ -116,7 +116,8 @@ export async function startSession(
   try {
     if (!record.worktree && start.branch !== undefined) {
       const selected = await worktreeFor(deps, project, start.branch, start.base);
-      if (selected.created) made = selected.worktree;
+      // A configured setup can create user data. A failed agent launch must leave it intact.
+      if (selected.created && !deps.profile.config.worktrees.setup.length) made = selected.worktree;
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     const cwd = agentFolder(record, project);

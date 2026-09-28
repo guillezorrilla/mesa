@@ -74,6 +74,8 @@ const ConfigSchema = z.strictObject({
       fetch: z.boolean().default(false),
       sparseDirectories: z.array(relativeDirectory).default([]),
       carryIgnoredDirectories: z.array(relativeDirectory).default([]),
+      setup: z.array(z.string().min(1)).max(32).default([]),
+      teardown: z.array(z.string().min(1)).max(32).default([]),
     })
     .refine(
       (settings) => settings.location !== 'custom' || settings.customRoot,
