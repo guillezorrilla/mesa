@@ -10,7 +10,9 @@ import type {
   GitBranch,
   GitBranchAction,
   GitCommit,
+  GitComparison,
   GitDiff,
+  GitGraph,
   GitPathAction,
   GitStatus,
   GitSync,
@@ -251,6 +253,28 @@ const COMMANDS = {
       project,
     ],
   ),
+  'git.graph': commandWith<{ project: string; checkout?: string; branch?: string }, GitGraph>(
+    ({ project, checkout, branch }) => [
+      'git',
+      'graph',
+      ...(checkout ? ['--checkout', checkout] : []),
+      ...(branch ? ['--branch', branch] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.compare': commandWith<
+    { project: string; checkout?: string; base: string; head: string },
+    GitComparison
+  >(({ project, checkout, base, head }) => [
+    'git',
+    'compare',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    base,
+    head,
+  ]),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [
       'grid',

@@ -315,6 +315,89 @@ test('project Git remote panel shows its upstream and confirms an explicit push'
   expect(calls.some((args) => args.includes('push') && args.includes('--yes'))).toBe(true);
 });
 
+test('project Git graph filters a branch and compares a selected commit', async () => {
+  const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
+  const feature = {
+    oid: 'f'.repeat(40),
+    parents: ['a'.repeat(40)],
+    subject: 'Feature commit',
+    author: 'Test',
+    authoredAt: '2026-09-27T12:00:00Z',
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git branches': () =>
+      envelope({
+        checkout,
+        branches: [
+          { name: 'main', oid: 'a', current: true },
+          { name: 'feature', oid: feature.oid, current: false },
+        ],
+      }),
+    'git graph': (args) =>
+      envelope({
+        checkout,
+        branch: args.includes('--branch') ? 'feature' : undefined,
+        rows: args.includes('--branch')
+          ? [{ graph: '* ', commit: feature }]
+          : [
+              { graph: '* ', commit: feature },
+              { graph: '* ', commit: { ...feature, oid: 'a'.repeat(40), subject: 'Main commit' } },
+            ],
+        commits: args.includes('--branch') ? 1 : 2,
+      }),
+    'git compare': () =>
+      envelope({
+        checkout,
+        base: 'a'.repeat(40),
+        head: feature.oid,
+        behind: 1,
+        ahead: 1,
+        patch: '+feature\n',
+        rows: [{ kind: 'change', left: '', right: 'feature' }],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Graph',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Commits"]')?.textContent).toContain('Main commit');
+  await choose(document.querySelector('[aria-label="Graph branch"]') ?? undefined, 'feature');
+  expect(document.querySelector('[aria-label="Commits"]')?.textContent).not.toContain(
+    'Main commit',
+  );
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Commits"] button') ?? undefined,
+  );
+  const base = document.querySelector<HTMLInputElement>('[aria-label="Compare base"]');
+  await act(async () => {
+    if (base) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(base, 'main');
+      base.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git graph"] button')].find(
+      (button) => button.textContent === 'Compare',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git comparison"]')?.textContent).toContain(
+    '1 behind, 1 ahead',
+  );
+  expect(
+    calls.some(
+      (args) => args.includes('compare') && args.includes('main') && args.includes(feature.oid),
+    ),
+  ).toBe(true);
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({

@@ -330,3 +330,68 @@ test('explicit push and fast-forward pull use the selected upstream and preserve
     localHead,
   );
 });
+
+test('commit graph filters local branches and compares divergent refs', async () => {
+  const repo = await cli.withProject();
+  writeFileSync(join(repo, 'base.txt'), 'base\n');
+  gitRepo(repo);
+  cli.run = withRealGit(cli.run);
+  execFileSync('git', ['-C', repo, 'switch', '-q', '-c', 'feature']);
+  writeFileSync(join(repo, 'feature.txt'), 'feature\n');
+  execFileSync('git', ['-C', repo, 'add', '.']);
+  execFileSync('git', [
+    '-C',
+    repo,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '-qm',
+    'feature work',
+  ]);
+  execFileSync('git', ['-C', repo, 'switch', '-q', 'main']);
+  writeFileSync(join(repo, 'main.txt'), 'main\n');
+  execFileSync('git', ['-C', repo, 'add', '.']);
+  execFileSync('git', [
+    '-C',
+    repo,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '-qm',
+    'main work',
+  ]);
+
+  const all = await cli.mesa('git', 'graph', 'lantern-cove', '--json');
+  expect(all.code, all.stdout).toBe(0);
+  expect(all.json.data.commits).toBe(3);
+  expect(all.json.data.rows).toContainEqual(
+    expect.objectContaining({
+      commit: expect.objectContaining({ subject: 'feature work', parents: [expect.any(String)] }),
+    }),
+  );
+  expect(all.json.data.rows.some((row: { graph: string }) => row.graph.includes('*'))).toBe(true);
+  const filtered = await cli.mesa('git', 'graph', 'lantern-cove', '--branch', 'feature', '--json');
+  expect(filtered.json.data.commits).toBe(2);
+  expect(
+    filtered.json.data.rows.some(
+      (row: { commit?: { subject: string } }) => row.commit?.subject === 'main work',
+    ),
+  ).toBe(false);
+  expect((await cli.mesa('git', 'graph', 'lantern-cove', '--branch', 'gone')).code).toBe(3);
+
+  const compared = await cli.mesa('git', 'compare', 'lantern-cove', 'main', 'feature', '--json');
+  expect(compared.code, compared.stdout).toBe(0);
+  expect(compared.json.data).toMatchObject({
+    behind: 1,
+    ahead: 1,
+    rows: expect.arrayContaining([{ kind: 'change', left: '', right: 'feature' }]),
+  });
+  expect(compared.json.data.patch).toContain('feature.txt');
+  expect((await cli.mesa('git', 'compare', '--', 'lantern-cove', '--help', 'feature')).code).toBe(
+    2,
+  );
+});

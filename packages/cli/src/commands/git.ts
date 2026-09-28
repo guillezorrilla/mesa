@@ -7,7 +7,7 @@ export const gitStatus = defineCommand({
   summary: 'Show changes in a registered project or one of its worktrees',
   args: ['project'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git status lantern-cove --json',
+  example: 'mesa git status lantern-cove',
   run: async ({ mesa, args, flags }) => {
     const status = await mesa.git.status(args.project, flags.checkout);
     const changes = columns(
@@ -31,7 +31,7 @@ export const gitDiff = defineCommand({
     checkout: { type: 'string', description: 'Select a linked worktree path' },
     staged: { type: 'boolean', description: 'Show staged changes' },
   },
-  example: 'mesa git diff lantern-cove README.md --staged --json',
+  example: 'mesa git diff lantern-cove README.md --staged',
   run: async ({ mesa, args, flags }) => {
     const diff = await mesa.git.diff(args.project, {
       checkout: flags.checkout,
@@ -47,7 +47,7 @@ export const gitStage = defineCommand({
   summary: 'Stage one literal path in a project checkout',
   args: ['project', 'path'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git stage lantern-cove README.md --json',
+  example: 'mesa git stage lantern-cove README.md',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.stage(args.project, args.path, flags.checkout);
     return recordedOutput(recorded, { data: recorded.result, text: `staged ${args.path}` });
@@ -59,7 +59,7 @@ export const gitUnstage = defineCommand({
   summary: 'Unstage one literal path without changing the working file',
   args: ['project', 'path'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git unstage lantern-cove README.md --json',
+  example: 'mesa git unstage lantern-cove README.md',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.unstage(args.project, args.path, flags.checkout);
     return recordedOutput(recorded, { data: recorded.result, text: `unstaged ${args.path}` });
@@ -74,7 +74,7 @@ export const gitCommit = defineCommand({
     checkout: { type: 'string', description: 'Select a linked worktree path' },
     message: { type: 'string', required: true, description: 'Commit message' },
   },
-  example: 'mesa git commit lantern-cove --message "Update README" --json',
+  example: 'mesa git commit lantern-cove --message "Update README"',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.commit(args.project, flags.message, flags.checkout);
     return recordedOutput(recorded, {
@@ -89,7 +89,7 @@ export const gitBranches = defineCommand({
   summary: 'List local branches and the worktree using each one',
   args: ['project'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git branches lantern-cove --json',
+  example: 'mesa git branches lantern-cove',
   run: async ({ mesa, args, flags }) => {
     const listed = await mesa.git.branches(args.project, flags.checkout);
     return {
@@ -117,7 +117,7 @@ export const gitBranchCreate = defineCommand({
     checkout: { type: 'string', description: 'Select a linked worktree path' },
     base: { type: 'string', description: 'Start from this commit ref (default: HEAD)' },
   },
-  example: 'mesa git branch create lantern-cove feature/readme --json',
+  example: 'mesa git branch create lantern-cove feature/readme',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.branchCreate(
       args.project,
@@ -134,7 +134,7 @@ export const gitBranchCheckout = defineCommand({
   summary: 'Switch the selected checkout to a local branch when no session holds it',
   args: ['project', 'name'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git branch checkout lantern-cove feature/readme --json',
+  example: 'mesa git branch checkout lantern-cove feature/readme',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.branchCheckout(args.project, args.name, flags.checkout);
     return recordedOutput(recorded, {
@@ -149,7 +149,7 @@ export const gitBranchDelete = defineCommand({
   summary: 'Delete a fully merged local branch that no worktree uses',
   args: ['project', 'name'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git branch delete lantern-cove feature/readme --json',
+  example: 'mesa git branch delete lantern-cove feature/readme',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.branchDelete(args.project, args.name, flags.checkout);
     return recordedOutput(recorded, { data: recorded.result, text: `deleted branch ${args.name}` });
@@ -161,7 +161,7 @@ export const gitStashes = defineCommand({
   summary: 'List saved stashes for the selected project checkout',
   args: ['project'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git stashes lantern-cove --json',
+  example: 'mesa git stashes lantern-cove',
   run: async ({ mesa, args, flags }) => {
     const listed = await mesa.git.stashes(args.project, flags.checkout);
     return {
@@ -183,7 +183,7 @@ export const gitStashCreate = defineCommand({
     checkout: { type: 'string', description: 'Select a linked worktree path' },
     message: { type: 'string', description: 'Optional stash message' },
   },
-  example: 'mesa git stash create lantern-cove --message "Before sync" --json',
+  example: 'mesa git stash create lantern-cove --message "Before sync"',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.stashCreate(args.project, flags.checkout, flags.message);
     return recordedOutput(recorded, {
@@ -200,7 +200,7 @@ export const gitStashApply = defineCommand({
   summary: 'Apply a saved stash and keep it',
   args: ['project', 'ref'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: "mesa git stash apply lantern-cove 'stash@{0}' --json",
+  example: "mesa git stash apply lantern-cove 'stash@{0}'",
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.stashApply(args.project, args.ref, flags.checkout);
     return recordedOutput(recorded, {
@@ -215,7 +215,7 @@ export const gitStashPop = defineCommand({
   summary: 'Apply a saved stash, then drop it only on success',
   args: ['project', 'ref'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: "mesa git stash pop lantern-cove 'stash@{0}' --json",
+  example: "mesa git stash pop lantern-cove 'stash@{0}'",
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.stashPop(args.project, args.ref, flags.checkout);
     return recordedOutput(recorded, {
@@ -230,7 +230,7 @@ export const gitStashDrop = defineCommand({
   summary: 'Delete an explicitly selected saved stash',
   args: ['project', 'ref'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: "mesa git stash drop lantern-cove 'stash@{0}' --json",
+  example: "mesa git stash drop lantern-cove 'stash@{0}'",
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.git.stashDrop(args.project, args.ref, flags.checkout);
     return recordedOutput(recorded, { data: recorded.result, text: `dropped ${args.ref}` });
@@ -242,7 +242,7 @@ export const gitTracking = defineCommand({
   summary: 'Show the selected branch and its configured remote upstream',
   args: ['project'],
   flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
-  example: 'mesa git tracking lantern-cove --json',
+  example: 'mesa git tracking lantern-cove',
   run: async ({ mesa, args, flags }) => {
     const target = await mesa.git.tracking(args.project, flags.checkout);
     return { data: target, text: `${target.branch} tracks ${target.remote}/${target.upstream}` };
@@ -259,7 +259,7 @@ export const gitPush = defineCommand({
   summary: "Explicitly push HEAD to the selected branch's configured upstream without force",
   args: ['project'],
   flags: syncFlags,
-  example: 'mesa git push lantern-cove --json',
+  example: 'mesa git push lantern-cove',
   run: async ({ mesa, args, flags, confirm }) => {
     const recorded = await mesa.git.push(args.project, flags.checkout, { yes: flags.yes, confirm });
     return recordedOutput(recorded, {
@@ -274,12 +274,51 @@ export const gitPull = defineCommand({
   summary: "Explicitly pull a fast-forward from the selected branch's configured upstream",
   args: ['project'],
   flags: syncFlags,
-  example: 'mesa git pull lantern-cove --json',
+  example: 'mesa git pull lantern-cove',
   run: async ({ mesa, args, flags, confirm }) => {
     const recorded = await mesa.git.pull(args.project, flags.checkout, { yes: flags.yes, confirm });
     return recordedOutput(recorded, {
       data: recorded.result,
       text: `pulled ${recorded.result.remote}/${recorded.result.upstream} into ${recorded.result.branch}`,
     });
+  },
+});
+
+export const gitGraph = defineCommand({
+  name: 'git graph',
+  summary: 'Show up to 100 commits in all local branches or one selected branch',
+  args: ['project'],
+  flags: {
+    checkout: { type: 'string', description: 'Select a linked worktree path' },
+    branch: { type: 'string', description: 'Filter to one local branch' },
+  },
+  example: 'mesa git graph lantern-cove --branch main',
+  run: async ({ mesa, args, flags }) => {
+    const graph = await mesa.git.graph(args.project, flags.checkout, flags.branch);
+    return {
+      data: graph,
+      text:
+        graph.rows
+          .map(
+            (row) =>
+              `${row.graph}${row.commit ? `${row.commit.oid.slice(0, 7)} ${row.commit.subject}` : ''}`,
+          )
+          .join('\n') || 'no commits',
+    };
+  },
+});
+
+export const gitCompare = defineCommand({
+  name: 'git compare',
+  summary: 'Compare two commit refs with divergence counts and a patch',
+  args: ['project', 'base', 'head'],
+  flags: { checkout: { type: 'string', description: 'Select a linked worktree path' } },
+  example: 'mesa git compare lantern-cove main feature/readme',
+  run: async ({ mesa, args, flags }) => {
+    const compared = await mesa.git.compare(args.project, args.base, args.head, flags.checkout);
+    return {
+      data: compared,
+      text: `${compared.behind} behind, ${compared.ahead} ahead\n${compared.patch}`,
+    };
   },
 });

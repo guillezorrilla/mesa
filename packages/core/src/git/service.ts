@@ -4,6 +4,7 @@ import type { Overrides } from '../decisions/guardrail.js';
 import { changeGitBranch, type GitBranchAction, listGitBranches } from './branches.js';
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
+import { compareGitRefs, readGitGraph } from './history.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -127,6 +128,17 @@ export function gitService(ctx: MesaContext, faro: Faro) {
         ),
     );
   return {
+    graph: (project: string, checkout?: string, branch?: string) =>
+      readGitGraph(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout), branch),
+    compare: (project: string, base: string, head: string, checkout?: string) =>
+      compareGitRefs(
+        ctx.open(),
+        ctx.deps.run,
+        project,
+        base,
+        head,
+        checkout && ctx.absolute(checkout),
+      ),
     tracking: (project: string, checkout?: string) =>
       gitTracking(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
     push: (project: string, checkout?: string, overrides?: Overrides) =>

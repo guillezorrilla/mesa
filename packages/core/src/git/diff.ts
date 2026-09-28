@@ -15,7 +15,7 @@ export type GitDiff = {
 };
 
 /** Align consecutive removed and added lines for the side-by-side view. */
-function diffRows(patch: string): DiffRow[] {
+export function diffRows(patch: string): DiffRow[] {
   const lines = patch.replace(/\n$/, '').split('\n');
   if (!patch) return [];
   const rows: DiffRow[] = [];

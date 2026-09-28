@@ -10,6 +10,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { GitBranches } from './GitBranches';
 import { GitDiffView } from './GitDiffView';
+import { GitHistory } from './GitHistory';
 import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
 
@@ -22,6 +23,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
   const [showBranches, setShowBranches] = useState(false);
   const [showStashes, setShowStashes] = useState(false);
   const [showSync, setShowSync] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
   const run = useRun();
   const { acting, act } = useAct();
   const paths = [
@@ -104,6 +106,9 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowSync((last) => !last)}>
           Remote
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowGraph((last) => !last)}>
+          Graph
         </Button>
       </div>
       {status.data && (
@@ -229,6 +234,13 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
             void status.refresh();
             setRevision((last) => last + 1);
           }}
+        />
+      )}
+      {showGraph && (
+        <GitHistory
+          key={`${checkout}:${revision}`}
+          project={props.project}
+          checkout={checkout || undefined}
         />
       )}
     </section>
