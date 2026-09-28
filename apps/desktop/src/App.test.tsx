@@ -855,6 +855,26 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   expect(byTestId('grid-toolbar')).toHaveLength(1);
 });
 
+test('Sessions sidebar shows a branch and lets each card compact without losing selection', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', { worktree: { path: '/h/worktrees/feature', branch: 'feature' } }),
+      ]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const card = () => byTestId('sidebar-session')[0];
+  expect(card()?.textContent).toContain('feature');
+  expect(card()?.textContent).toContain('working');
+  await click(document.querySelector('[aria-label="Compact Session card"]') as HTMLElement);
+  expect(card()?.textContent).toBe('Session');
+  expect(byTestId('selected-session')).toHaveLength(1);
+  await click(document.querySelector('[aria-label="Expand Session card"]') as HTMLElement);
+  expect(card()?.textContent).toContain('feature');
+  expect(card()?.textContent).toContain('working');
+});
+
 test('session close opens archive confirmation and archives only after confirmation', async () => {
   let archived = false;
   const { bridge, calls } = fakeBridge({

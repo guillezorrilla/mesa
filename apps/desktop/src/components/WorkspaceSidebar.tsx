@@ -4,8 +4,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronsDown,
+  ChevronsUp,
   CircleHelp,
+  Clock3,
   Folder,
+  GitBranch,
   Grid2X2,
   Keyboard,
   LayoutDashboard,
@@ -37,6 +41,7 @@ export function WorkspaceSidebar(props: {
 }) {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
+  const [compactSessions, setCompactSessions] = useState<string[]>([]);
   const lastProject = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (view.kind === 'project') lastProject.current = view.name;
@@ -73,13 +78,14 @@ export function WorkspaceSidebar(props: {
     );
   };
   const sessionItem = (session: TreeRow) => (
-    <div key={session.id} className="group relative">
+    <div key={session.id} className="group relative mb-1">
       <button
         type="button"
         data-testid="sidebar-session"
         aria-current={view.kind === 'session' && view.id === session.id ? 'page' : undefined}
         className={cn(
-          'mb-1 flex min-h-14 w-full flex-col justify-center gap-1 rounded-md border border-transparent px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+          'flex w-full flex-col justify-center gap-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+          compactSessions.includes(session.id) ? 'min-h-9' : 'min-h-14',
           view.kind === 'session' && view.id === session.id && 'border-orange-500 bg-orange-500/15',
         )}
         title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}`}
@@ -88,6 +94,8 @@ export function WorkspaceSidebar(props: {
         <span className="flex w-full min-w-0 items-center gap-2 font-medium">
           {session.managed && session.kind === 'terminal' ? (
             <TerminalSquare aria-hidden className="size-3.5 shrink-0 text-state-working" />
+          ) : session.lastState.state === 'idle' ? (
+            <Clock3 aria-hidden className="size-3.5 shrink-0 text-state-waiting" />
           ) : (
             <span
               aria-hidden
@@ -103,16 +111,43 @@ export function WorkspaceSidebar(props: {
             {session.managed && !session.name ? 'Session' : sessionLabel(session)}
           </span>
         </span>
-        <span
-          className={cn(
-            'pl-4 font-mono text-[11px] text-muted-foreground',
-            session.lastState.state === 'working' && 'text-state-working',
-            WAITING_STATES.has(session.lastState.state) && 'text-state-waiting',
-            session.lastState.state === 'failed' && 'text-state-failed',
-          )}
-        >
-          {session.lastState.state}
-        </span>
+        {!compactSessions.includes(session.id) && (
+          <>
+            {session.managed && session.worktree && (
+              <span className="flex min-w-0 items-center gap-1 pl-4 font-mono text-[11px] text-state-working">
+                <GitBranch aria-hidden className="size-3 shrink-0" />
+                <span className="truncate">{session.worktree.branch}</span>
+              </span>
+            )}
+            <span
+              className={cn(
+                'pl-4 font-mono text-[11px] text-muted-foreground',
+                WAITING_STATES.has(session.lastState.state) && 'text-state-waiting',
+                session.lastState.state === 'failed' && 'text-state-failed',
+              )}
+            >
+              {session.lastState.state}
+            </span>
+          </>
+        )}
+      </button>
+      <button
+        type="button"
+        aria-label={`${compactSessions.includes(session.id) ? 'Expand' : 'Compact'} ${session.managed && !session.name ? 'Session' : sessionLabel(session)} card`}
+        className="absolute right-8 top-2 hidden rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:block group-hover:block"
+        onClick={() =>
+          setCompactSessions((current) =>
+            current.includes(session.id)
+              ? current.filter((id) => id !== session.id)
+              : [...current, session.id],
+          )
+        }
+      >
+        {compactSessions.includes(session.id) ? (
+          <ChevronsDown aria-hidden className="size-3.5" />
+        ) : (
+          <ChevronsUp aria-hidden className="size-3.5" />
+        )}
       </button>
       {session.managed && (
         <button
