@@ -116,7 +116,7 @@ test('files tree, search, exact line read, and revision-aware edits use one sele
     '--json',
   );
   expect(saved.code).toBe(0);
-  expect(saved.json.data.receipt.id).toBeTypeOf('string');
+  expect(saved.json.data.receipt).toBeNull();
   expect(readFileSync(join(repo, 'docs', 'guide.md'), 'utf8')).toBe('# New\nbody\n');
   expect(
     (await cli.mesa('files', 'delete', 'lantern-cove', 'docs/guide.md', '--revision', fresh)).code,
@@ -248,7 +248,7 @@ test('terminal links stay in the managed session checkout and external argv neve
   );
   expect(opened.code, opened.stdout).toBe(0);
   expect(editorArgs).toEqual([`${repo}/docs/guide.md:2`]);
-  expect(opened.json.data.receipt.id).toBeTypeOf('string');
+  expect(opened.json.data.receipt).toBeNull();
   expect(
     (await cli.mesa('config', 'set', 'editor.external', `["${localScript}","{file}"]`)).code,
   ).toBe(0);

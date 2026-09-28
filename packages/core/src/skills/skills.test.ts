@@ -102,13 +102,13 @@ test('sync links the enabled skills into both folders, then unlinks only its own
     expect(lstatSync(join(dir, link)).isSymbolicLink()).toBe(true);
   }
   expect(readlinkSync(join(dir, '.claude/skills/a'))).toBe(join(library, 'a'));
-  const [entry] = listReceipts(join(home, 'vault'), 1);
-  expect(entry?.receipt).toMatchObject({ id: receipt?.id, status: 'ok', project: 'lantern-cove' });
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   // Again: nothing to do, and no receipt for it.
   expect(mesa.skills.sync('lantern-cove').result.kept).toHaveLength(4);
   expect(
     listReceipts(join(home, 'vault'), 50).filter((e) => e.summary.startsWith('Synced')),
-  ).toHaveLength(1);
+  ).toHaveLength(0);
 
   // b is no longer enabled (the project drops it): Mesa's links go, nothing else.
   writeFileSync(join(dir, 'mesa.yaml'), 'name: lantern-cove\n');

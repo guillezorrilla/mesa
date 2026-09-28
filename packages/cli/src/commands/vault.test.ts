@@ -9,16 +9,13 @@ const { mesa } = cli;
 
 test('vault init lays out the vault once; vault status finds what is missing', async () => {
   await mesa('init', '--vault', 'vault');
-  // mesa init already wrote its receipt, so receipts/ exists and vault init adds the rest.
+  // Routine setup leaves no receipt.
   expect((await mesa('vault', 'init')).stdout).toBe(
-    `created log.md, AGENTS.md, index.md, raw, wiki, projects, daily in ${cli.home}/vault\n`,
+    `created log.md, AGENTS.md, index.md, raw, wiki, projects, receipts, daily in ${cli.home}/vault\n`,
   );
   const log = readFileSync(join(cli.home, 'vault/log.md'), 'utf8').split('\n');
   expect(log[0]).toBe('- 2026-09-24T12:00:00.000Z vault initialised by mesa');
-  // vault init's own receipt, linked from the log.
-  expect(log[1]).toMatch(
-    /^- 2026-09-24T12:00:00\.000Z Laid out the vault: .* \[\[receipts\/2026\/09\/20260924T120000Z-action-01TEST\d+\|receipt\]\]$/,
-  );
+  expect(log[1]).toBe('');
   expect((await mesa('vault', 'init')).stdout).toBe('vault already initialised\n');
   expect((await mesa('vault', 'status', '--json')).json.data).toEqual({
     path: `${cli.home}/vault`,
@@ -62,7 +59,7 @@ test('log appends to log.md and to the daily note it creates', async () => {
   expect((await mesa('log')).code).toBe(2);
 });
 
-test('init, register, and vault init each leave an action receipt; receipts lists and shows them', async () => {
+test('init, register, and vault init leave no routine receipt; receipts still validates queries', async () => {
   await mesa('init', '--vault', 'vault');
   mkdirSync(join(cli.home, 'tide'));
   await mesa('register', 'tide', '--create');
@@ -70,24 +67,7 @@ test('init, register, and vault init each leave an action receipt; receipts list
   await mesa('vault', 'init'); // nothing to do: no receipt
 
   const listed = await mesa('receipts', '--json', '--limit', '20');
-  const kinds = listed.json.data.map(
-    (e: { receipt: { type: string; command: string } }) => e.receipt,
-  );
-  expect(kinds.map((r: { type: string }) => r.type)).toEqual(['action', 'action', 'action']);
-  expect(kinds.map((r: { command: string }) => r.command).sort()).toEqual([
-    'mesa init --vault vault',
-    'mesa register tide --create',
-    'mesa vault init',
-  ]);
-  const first = listed.json.data[0];
-  expect(first.receipt).toMatchObject({
-    profile: 'default',
-    status: 'ok',
-    id: expect.stringMatching(/^01TEST/),
-  });
-
-  const shown = await mesa('receipts', 'show', first.receipt.id, '--json');
-  expect(shown.json.data.receipt).toEqual(first.receipt);
+  expect(listed.json.data).toEqual([]);
   expect((await mesa('receipts', 'show', '01NOPE')).code).toBe(3);
   expect(await mesa('receipts', '--limit', 'zero')).toMatchObject({
     code: 2,
@@ -97,36 +77,29 @@ test('init, register, and vault init each leave an action receipt; receipts list
     code: 2,
     stderr: 'the limit must be a positive whole number, not 0\n',
   });
-  expect((await mesa('receipts', '--limit', '1', '--json')).json.data).toHaveLength(1);
+  expect((await mesa('receipts', '--limit', '1', '--json')).json.data).toEqual([]);
 });
 
-test('a vault path that is not a vault gets no receipt, only a warning; a failed register is recorded', async () => {
+test('a vault path that is not a vault omits routine receipts without warnings', async () => {
   mkdirSync(join(cli.home, 'repo/.git'), { recursive: true });
   writeFileSync(join(cli.home, 'repo/README.md'), 'a repo\n');
   const out = await mesa('init', '--vault', 'repo');
   expect(out.code).toBe(0);
-  expect(out.stdout).toContain(
-    `warning: no receipt: ${cli.home}/repo is not a vault; run mesa vault init`,
-  );
+  expect(out.stdout).not.toContain('warning:');
   expect(() => readFileSync(join(cli.home, 'repo/receipts'))).toThrow();
   const json = await mesa('--profile', 'json', 'init', '--vault', 'repo', '--json');
   expect(json.json.data).toMatchObject({
     receipt: null,
-    warning: expect.stringContaining('is not a vault'),
   });
 
   await mesa('--profile', 'work', 'init', '--vault', 'vault');
   mkdirSync(join(cli.home, 'nomesa'));
   expect((await mesa('--profile', 'work', 'register', 'nomesa')).code).toBe(3);
   const listed = await mesa('--profile', 'work', 'receipts', '--json');
-  const failed = listed.json.data.find(
-    (e: { receipt: { status: string } }) => e.receipt.status === 'failed',
-  );
-  expect(failed.receipt.outputs.error.code).toBe('not_found');
-  expect(failed.summary).toBe(`Could not register ${cli.home}/nomesa`);
+  expect(listed.json.data).toEqual([]);
 });
 
-test('a receipt problem never changes the outcome of the action it records', async () => {
+test('a routine action stays quiet when vault history cannot be written', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('vault', 'init');
   mkdirSync(join(cli.home, 'tide'));
@@ -135,7 +108,7 @@ test('a receipt problem never changes the outcome of the action it records', asy
     const ok = await mesa('register', 'tide', '--create');
     expect(ok.code).toBe(0);
     expect(ok.stdout).toContain('registered tide');
-    expect(ok.stdout).toContain('warning: no receipt:');
+    expect(ok.stdout).not.toContain('warning:');
     const missing = await mesa('register', 'nowhere');
     expect(missing.code).toBe(3); // the real error, not the receipt's
   } finally {

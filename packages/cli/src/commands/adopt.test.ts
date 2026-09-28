@@ -28,7 +28,7 @@ test('adopt records a session found on disk and says to end it in its original t
       agentSessionId: first,
       adopted: true,
       project: 'lantern-cove',
-      receipt: { id: expect.any(String) },
+      receipt: null,
       warning,
     },
   });

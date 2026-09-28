@@ -20,6 +20,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
   ) =>
     ctx.record(
       {
+        kind: 'guardrail',
         summary: (result: GitSync) =>
           `${action} ${result.branch} ${action === 'push' ? 'to' : 'from'} ${result.remote}/${result.upstream}`,
         failure: `Could not ${action} ${project}`,

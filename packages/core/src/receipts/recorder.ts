@@ -4,11 +4,14 @@ import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
 import { toFail } from '../lib/result.js';
 import { acceptsMesaWrites } from '../vault/vault.js';
+import { keepFailure, keepSuccess, type RecordKind } from './policy.js';
 import { decisionEntries, type ReceiptInput } from './schema.js';
 import { writeReceipt } from './store.js';
 
 /** What one action's receipt says, given the action's result. */
 type ActionSpec<T> = {
+  /** Only a deliberate decision, material guardrail intervention, or actual vault change is knowledge. */
+  kind?: RecordKind;
   /** `action` unless the work is a session's, a skill run's, or a decision asked for itself. */
   type?: 'action' | 'session' | 'skill' | 'decision';
   summary: (result: T) => string;
@@ -21,6 +24,8 @@ type ActionSpec<T> = {
   project?: (result: T) => string | undefined;
   session?: (result: T) => string | undefined;
   agent?: (result: T) => Agent | undefined;
+  /** Context known before an action returns, retained when a guardrail blocks it. */
+  scope?: { project?: string; session?: string; agent?: Agent; actor?: string };
   /** What the work cost in US dollars, for information (an adapter decision's list price). */
   cost?: (result: T) => number | undefined;
   /** False when the action changed nothing: then no receipt. */
@@ -29,7 +34,7 @@ type ActionSpec<T> = {
   warning?: (result: T) => string | undefined;
 };
 
-/** The action's result, the receipt it left (if any), and why there is none when writing failed. */
+/** The action's result, its optional knowledge entry, and any operational warning. */
 export type Recorded<T> = {
   result: T;
   receipt: { id: string; path: string } | null;
@@ -41,11 +46,9 @@ export const joinWarnings = (...parts: (string | undefined)[]) =>
   parts.filter(Boolean).join('; ') || undefined;
 
 /**
- * Runs actions, sync or async, and records each as a receipt (`action` unless the spec says
- * `session`, `skill`, or `decision`). Each action is handed a DecisionRecorder: every Faro decision made on it
- * lands in the receipt's `decisions`. A failed action is recorded `failed`, or `blocked` when a
- * guardrail stopped it (best effort), and rethrown. A receipt never fails the action it records:
- * when the vault cannot take one, the result carries a warning, after the action's own (`warning`).
+ * Runs actions, sync or async, and keeps only knowledge selected by the recording policy.
+ * Faro decisions made during a kept action land in its receipt. A required receipt never fails
+ * the action it records: a write failure becomes a warning.
  */
 export function actionRecorder(deps: {
   profile: string;
@@ -91,9 +94,12 @@ export function actionRecorder(deps: {
   const failed = <T>(spec: ActionSpec<T>, error: unknown, made: readonly Decision[]) => {
     // The code and message: a guardrail's details are its decision, in `decisions` already.
     const { code, message } = toFail(error).error;
+    if (!keepFailure(spec.kind, code)) return error;
     write(
       {
         type: spec.type ?? 'action',
+        kind: spec.kind,
+        ...spec.scope,
         status: code === 'guardrail_blocked' ? 'blocked' : 'failed',
         summary: spec.failure,
         inputs: spec.inputs,
@@ -106,20 +112,26 @@ export function actionRecorder(deps: {
   };
   const succeeded = <T>(spec: ActionSpec<T>, result: T, made: readonly Decision[]): Recorded<T> => {
     const own = spec.warning?.(result);
-    if (spec.changed && !spec.changed(result)) {
+    if (!spec.kind || (spec.changed && !spec.changed(result))) {
+      return { result, receipt: null, ...(own ? { warning: own } : {}) };
+    }
+    const outputs = spec.outputs?.(result) ?? {};
+    if (!keepSuccess(spec.kind, outputs)) {
       return { result, receipt: null, ...(own ? { warning: own } : {}) };
     }
     const written = write(
       {
         type: spec.type ?? 'action',
+        kind: spec.kind,
         status: 'ok',
         summary: spec.summary(result),
-        project: spec.project?.(result),
-        session: spec.session?.(result),
-        agent: spec.agent?.(result),
+        project: spec.project?.(result) ?? spec.scope?.project,
+        session: spec.session?.(result) ?? spec.scope?.session,
+        agent: spec.agent?.(result) ?? spec.scope?.agent,
+        actor: spec.scope?.actor,
         cost: spec.cost?.(result),
         inputs: spec.inputs,
-        outputs: spec.outputs?.(result) ?? {},
+        outputs,
       },
       made,
       spec.argv,

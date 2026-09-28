@@ -3,16 +3,12 @@ import { redactWhole } from '../lib/redact.js';
 import { toFail } from '../lib/result.js';
 import { joinWarnings, type Recorded } from '../receipts/recorder.js';
 import { sessionReceipt, updateSessionReceipt } from '../receipts/store.js';
-import { outputLog, outputTail } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import type { HeadlessResult } from './run.js';
 
 // What a session's receipt says: the one its start wrote, and its end, marked on it later.
 
-/** How many of a session's last output lines its receipt keeps in its Details. */
-const RECEIPT_LINES = 200;
-
-/** What updating a session receipt reads: the vault, the output logs, and what to redact. */
+/** What updating a historical session receipt reads. */
 type ReceiptContext = Pick<MesaContext, 'notes' | 'paths' | 'secrets' | 'deps'>;
 
 /** What a session receipt says of a session that started: its window, conversation, and place. */
@@ -28,24 +24,6 @@ export const startedOutputs = (r: SessionRecord) => ({
 const redactor = (ctx: ReceiptContext) => (text: string) =>
   redactWhole(text, ctx.deps.home, ctx.secrets());
 
-/**
- * A receipt's Details for session `id`'s output: its last RECEIPT_LINES lines (outputTail), the
- * home folder and the profile's key values redacted, in a fence longer than any run of backticks
- * in them, so Obsidian renders none of it. Undefined when it has no output log, or no lines in it.
- */
-function outputDetails(ctx: ReceiptContext, id: string) {
-  const lines = outputTail(ctx.paths.logs, id, RECEIPT_LINES);
-  if (!lines?.length) return undefined;
-  const redact = redactor(ctx);
-  const text = redact(lines.join('\n'));
-  const longest = Math.max(2, ...(text.match(/`+/g) ?? []).map((run) => run.length));
-  const fence = '`'.repeat(longest + 1);
-  const where = redact(outputLog(ctx.paths.logs, id));
-  const last = lines.length === 1 ? 'line' : `${lines.length} lines`;
-  const said = `The last ${last} of its output; the whole log stays on this machine, at ${where}.`;
-  return `${said}\n\n${fence}text\n${text}\n${fence}`;
-}
-
 /** How many of each event a session's record keeps: `{ send: 2, exited: 1 }` (CONTEXT.md, Session). */
 function eventCounts(r: SessionRecord) {
   const counts: Record<string, number> = {};
@@ -56,12 +34,11 @@ function eventCounts(r: SessionRecord) {
 /**
  * What a session's receipt says once its agent is through (stopped, or seen to exit): `failed`
  * when the session failed, else `ok`; its last state and its event counts as outputs; and its
- * last output lines as its Details.
+ * local output remains under the profile, not in the vault.
  */
-const endOf = (ctx: ReceiptContext, r: SessionRecord) => ({
+const endOf = (r: SessionRecord) => ({
   status: r.lastState.state === 'failed' ? ('failed' as const) : ('ok' as const),
   outputs: { lastState: r.lastState, events: eventCounts(r) },
-  details: outputDetails(ctx, r.id),
 });
 
 /**
@@ -73,11 +50,12 @@ export async function markEnded<T>(
   recorded: Recorded<T>,
   ended: SessionRecord,
 ): Promise<Recorded<T>> {
+  if (!recorded.receipt) return recorded;
   try {
     // Read inside the guard: a vault path that does not read is a warning too.
     const vault = ctx.notes();
     const at = new Date(ended.endedAt ?? vault.clock());
-    await updateSessionReceipt(vault, ended.id, { ended: at, ...endOf(ctx, ended) });
+    await updateSessionReceipt(vault, ended.id, { ended: at, ...endOf(ended) });
     return recorded;
   } catch (error) {
     const why = `session ${ended.id}'s receipt not marked ended: ${toFail(error).error.message}`;
@@ -97,7 +75,7 @@ export async function markExited(ctx: ReceiptContext, exited: SessionRecord) {
     if (sessionReceipt(notes.vault, exited.id)?.receipt.ended) return;
     await updateSessionReceipt(notes, exited.id, {
       ended: new Date(exited.lastState.at),
-      ...endOf(ctx, exited),
+      ...endOf(exited),
     });
   } catch {
     // Nowhere to say it; see above.
@@ -109,7 +87,7 @@ export async function markExited(ctx: ReceiptContext, exited: SessionRecord) {
  * `failed` as the result is, `cost` its list price, and as outputs its last state and event
  * counts, its conversation, how long it took, where its result is (`output`, in the profile's
  * runs/, the home folder as ~), why it is not ok, and the vault note its output became; its last
- * output lines (its stderr) as its Details. A warning when it cannot; never throws.
+ * output remains local to the profile. A warning when it cannot; never throws.
  */
 export async function markRunEnded(
   ctx: ReceiptContext,
@@ -118,8 +96,9 @@ export async function markRunEnded(
   output: string,
 ): Promise<string | undefined> {
   try {
+    if (!sessionReceipt(ctx.notes().vault, run.id)) return undefined;
     const redact = redactor(ctx);
-    const end = endOf(ctx, run);
+    const end = endOf(run);
     await updateSessionReceipt(ctx.notes(), run.id, {
       ended: new Date(run.endedAt ?? ctx.deps.clock()),
       status: result.ok ? 'ok' : 'failed',
@@ -133,7 +112,6 @@ export async function markRunEnded(
         ...(result.reason ? { reason: redact(result.reason) } : {}),
         ...(result.note ? { note: result.note } : {}),
       },
-      details: end.details,
     });
     return undefined;
   } catch (error) {

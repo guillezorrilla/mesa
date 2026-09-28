@@ -47,7 +47,7 @@ test('run prints the result, its session, and cost; --json the result; sessions 
       agentSessionId: UUID,
       costUsd: 0.2621986,
       durationMs: 19113,
-      receipt: { id: expect.stringMatching(/^01TEST/), path: expect.stringContaining('-skill-') },
+      receipt: null,
     },
   });
   // The words after `--` are the skill's, flags or not.
@@ -132,7 +132,12 @@ test('in a strict project, run --json with no terminal is guardrail_blocked, exi
   expect(world.windows).toEqual([]);
   expect(testStore(cli.home).list()).toEqual([]);
   const [blocked] = (await mesa('receipts', '--json', '--limit', '1')).json.data;
-  expect(blocked.receipt).toMatchObject({ type: 'skill', status: 'blocked' });
+  expect(blocked.receipt).toMatchObject({
+    type: 'skill',
+    kind: 'guardrail',
+    project: 'lantern-cove',
+    status: 'blocked',
+  });
 
   const destructive = await run('--', 'rm', '-rf', '/');
   expect(destructive).toMatchObject({
@@ -163,10 +168,10 @@ test('run session-summary --session writes the agent summary, linked to its rece
   const receipt = (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data
     .receipt;
   expect(receipt).toMatchObject({
-    type: 'skill',
+    kind: 'vault-change',
     status: 'ok',
-    inputs: { session: opened.id },
-    outputs: { note: json.data.note },
+    inputs: { skill: 'session-summary', target: json.data.note },
+    outputs: { target: json.data.note },
   });
 });
 
@@ -189,7 +194,7 @@ test('project-brief is listed and runs through the public CLI with a linked proj
   expect(readFileSync(join(cli.home, 'vault', json.data.note), 'utf8')).toContain(brief);
   expect(
     (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data.receipt,
-  ).toMatchObject({ type: 'skill', status: 'ok', outputs: { note: json.data.note } });
+  ).toMatchObject({ kind: 'vault-change', status: 'ok', outputs: { target: json.data.note } });
   expect(readFileSync(join(cli.home, 'vault', json.data.note), 'utf8')).toContain(`repo: ${dir}`);
 });
 

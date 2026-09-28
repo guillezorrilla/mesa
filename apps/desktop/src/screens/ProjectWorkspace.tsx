@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -448,6 +449,7 @@ export function ProjectWorkspace(props: {
               <p className="text-sm text-muted-foreground">No sessions for this project yet.</p>
             )}
           </section>
+          <KnowledgeContext project={project.name} />
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
       ) : tab === 'git' ? (

@@ -42,3 +42,7 @@ A codebase review (issues #101 to #106) found `createMesa` at 554 lines holding 
 ## Amendment 2026-09-26: core publishes three entries (#126, #149)
 
 `@mesa/core` is the Node entry, which the CLI uses (the app reaches it only through the `mesa` CLI, ADR-0007, and imports its types); `@mesa/core/testing` is the test seams (ADR-0008's real-but-controlled implementations); and `@mesa/core/browser` (`packages/core/src/browser.ts`) is what the app may bundle at run time. The browser entry re-exports only modules with type imports and no Node code: `display.ts` (a row's label, branch, waiting-on, a duration, a list price, confidence, attention, and context percents, and a session count), `sessions/states.ts` (the session states and the final and waiting sets, which `record.ts`'s schema reads), and `receipts/receipt-file.ts`'s receipt types, whose imports (the ULID pattern and the vault layout) are pure too (#33). The app's other imports from core are types. Nothing checks that the browser entry stays pure yet: a runtime Node import there would fail only the app's build.
+
+## Amendment 2026-09-27: recording policy has one owner (#274)
+
+`receipts/policy.ts` selects deliberate decisions, material guardrail interventions, and actual vault changes. The shared recorder returns `receipt: null` silently when it omits a routine action; failures to write a selected receipt remain warnings. Core receipt reads own the project, session, kind, and type filters; the CLI and app call those reads rather than filtering their own copies.

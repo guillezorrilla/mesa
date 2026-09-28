@@ -34,7 +34,7 @@ async function setUp() {
   return { home, mesa, within, world, window, opened, calls: scripted.calls };
 }
 
-test('send types the prompt, records a send event, and writes an action receipt', async () => {
+test('send types the prompt and records a local event without vault history', async () => {
   const { home, mesa, window, opened } = await setUp();
   const prompt = `say hello ${'and more '.repeat(12)}`;
   const { result, receipt } = await mesa.sessions.send(opened.id, prompt);
@@ -45,22 +45,8 @@ test('send types the prompt, records a send event, and writes an action receipt'
   expect(row?.managed && row.events).toEqual([
     { type: 'send', at: '2026-09-24T12:00:00.000Z', chars: prompt.length },
   ]);
-  const [latest] = listReceipts(join(home, 'vault'), 1);
-  expect(latest?.receipt).toMatchObject({
-    id: receipt?.id,
-    type: 'action',
-    status: 'ok',
-    session: opened.id,
-    project: 'lantern-cove',
-    inputs: { session: opened.id, prompt: prompt.slice(0, 80), force: false },
-    outputs: { chars: prompt.length },
-    // The guardrail's allow, with its probabilities.
-    decisions: [
-      { question: 'verdict', kind: 'Choice', answer: 'allow', backend: 'rules' },
-      { question: 'secret-or-destructive', kind: 'Noul', answer: false, probabilities: 0.05 },
-    ],
-  });
-  expect(latest?.receipt.outputs).not.toHaveProperty('override');
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
 test('a destructive prompt is blocked with its decision in a blocked receipt; --force sends it, noted', async () => {
@@ -231,8 +217,7 @@ test('a session sends to another: a header names the sender and how to reply; bo
   expect(events(a.id)).toEqual([
     { type: 'sent', at: '2026-09-24T12:00:00.000Z', chars: 29, to: b.id },
   ]);
-  const [latest] = listReceipts(join(home, 'vault'), 1);
-  expect(latest?.receipt.inputs).toMatchObject({ session: b.id, from: a.id });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
 test('the sender defaults to the window it runs in; unknown or self is refused; none sends as before', async () => {
@@ -367,7 +352,7 @@ test('events are best effort once the prompt is typed: a locked receiver warns a
   expect(result.warning).toBe(
     `the prompt was typed, but no send event on ${b.id} (its record is locked by another mesa process); no sent event on ${a.id}; do not send it again`,
   );
-  expect(receipt).not.toBeNull();
+  expect(receipt).toBeNull();
   rmSync(lock);
   const store = sessionStore({ dir, newId: () => 'x' });
   // No `sent` on the sender without its `send` on the receiver.
@@ -375,12 +360,12 @@ test('events are best effort once the prompt is typed: a locked receiver warns a
   expect(store.get(a.id).events).toEqual([]);
 });
 
-test('--no-from is kept in the receipt', async () => {
+test('--no-from sends without a sender or vault receipt', async () => {
   const { home, mesa, opened } = await setUp();
-  await mesa.sessions.send(opened.id, 'as a person', { noFrom: true });
-  const [latest] = listReceipts(join(home, 'vault'), 1);
-  expect(latest?.receipt.inputs).toMatchObject({ noFrom: true });
-  expect(latest?.receipt.outputs).toMatchObject({ from: null });
+  const { result, receipt } = await mesa.sessions.send(opened.id, 'as a person', { noFrom: true });
+  expect(result.from).toBeNull();
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
 test('a function patch runs under the lock; an update waits while another process holds it', async () => {

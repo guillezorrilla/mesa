@@ -48,11 +48,8 @@ test('rename stores the name and the board carries it; a blank one is refused', 
   expect(renamed.name).toBe('tide tables');
   const [row] = await mesa.sessions.list();
   expect(row).toMatchObject({ id: result.id, name: 'tide tables' });
-  expect(listReceipts(join(home, 'vault'), 1)[0]?.receipt).toMatchObject({
-    id: receipt?.id,
-    type: 'session',
-    outputs: { name: 'tide tables' },
-  });
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   expect(() => mesa.sessions.rename(result.id, ' ')).toThrow(
     expect.objectContaining({ code: 'usage', message: 'the name is empty' }),
   );
@@ -105,11 +102,8 @@ test('rm refuses a live session; --force closes its window, then removes the rec
   expect(existsSync(output)).toBe(false);
   expect(existsSync(input)).toBe(false);
   await expect(mesa.sessions.show(result.id)).rejects.toMatchObject({ code: 'not_found' });
-  expect(listReceipts(join(home, 'vault'), 1)[0]?.receipt).toMatchObject({
-    id: receipt?.id,
-    session: result.id,
-    project: 'lantern-cove',
-  });
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
 test('--delete-worktree removes a clean worktree, refuses a dirty one unless --force; --delete-branch deletes it', async () => {

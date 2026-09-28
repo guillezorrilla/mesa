@@ -13,6 +13,7 @@ import {
   Square,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { PageHeader } from '@/components/PageHeader';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -409,6 +410,9 @@ export function BoardScreen(
                       </Button>
                     </form>
                   )}
+                  <div className="max-h-64 w-full overflow-auto">
+                    <KnowledgeContext session={selected.id} />
+                  </div>
                 </div>
               ) : (
                 <Button

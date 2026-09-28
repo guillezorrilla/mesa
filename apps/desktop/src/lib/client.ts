@@ -27,6 +27,7 @@ import type {
   ProfileInfo,
   Project,
   ProjectRow,
+  ReceiptEntry,
   Removed,
   RepositoryInsight,
   Result,
@@ -482,6 +483,16 @@ const COMMANDS = {
     text,
   ]),
   'profile.get': command<ProfileInfo>('profile'),
+  'receipts.list': commandWith<
+    { project?: string; session?: string; kind: 'decision' | 'guardrail' | 'vault-change' },
+    ReceiptEntry[]
+  >(({ project, session, kind }) => [
+    'receipts',
+    '--kind',
+    kind,
+    ...(project ? ['--project', project] : []),
+    ...(session ? ['--session', session] : []),
+  ]),
   'projects.list': command<ProjectRow[]>('projects'),
   'projects.discover': commandWith<{ path: string }, DiscoveredProject[]>(({ path }) => [
     'projects',
@@ -633,6 +644,12 @@ const COMMANDS = {
   ]),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
+  'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [
+    'vault',
+    'open',
+    '--',
+    note,
+  ]),
   'vault.status': command<VaultStatus>('vault', 'status'),
   'windows.list': command<TmuxWindow[]>('windows'),
 };
