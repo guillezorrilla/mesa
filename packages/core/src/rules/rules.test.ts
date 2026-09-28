@@ -14,6 +14,8 @@ test('rules inventory reads native scopes and saves only current writable files'
   writeFileSync(join(dir, 'AGENTS.md'), 'Project instructions\n');
   writeFileSync(join(dir, '.agents/rules/ui.md'), 'UI rule\n');
   writeFileSync(join(home, '.claude/rules/global.md'), 'Global rule\n');
+  mkdirSync(join(home, '.gemini/config'), { recursive: true });
+  writeFileSync(join(home, '.gemini/config/AGENTS.md'), 'Antigravity global rule\n');
   writeFileSync(
     join(home, '.gemini/antigravity-cli/plugins/example/rules/plugin.md'),
     'Plugin rule\n',
@@ -42,6 +44,12 @@ test('rules inventory reads native scopes and saves only current writable files'
   );
   expect(rows).toContainEqual(
     expect.objectContaining({ name: 'plugin.md', scope: 'plugin', writable: false }),
+  );
+  expect(rows).toContainEqual(
+    expect.objectContaining({
+      id: join(home, '.gemini/config/AGENTS.md'),
+      providers: ['antigravity'],
+    }),
   );
   expect(rows).toContainEqual(expect.objectContaining({ name: 'GEMINI.md', writable: false }));
   const id = join(dir, 'AGENTS.md');

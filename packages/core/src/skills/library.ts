@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
@@ -22,9 +22,11 @@ export type LibrarySkill = { name: string; description: string; path: string };
 export function readSkill(folder: string): { name: string; description: string } | undefined {
   const file = join(folder, SKILL_FILE);
   if (!existsSync(file)) return undefined;
-  const parsed = SkillFrontmatterSchema.safeParse(
-    parseNote(readFileSync(file, 'utf8')).frontmatter,
-  );
+  const frontmatter = parseNote(readFileSync(file, 'utf8')).frontmatter;
+  const parsed = SkillFrontmatterSchema.safeParse({
+    ...frontmatter,
+    name: frontmatter.name ?? basename(folder),
+  });
   return parsed.success ? parsed.data : undefined;
 }
 

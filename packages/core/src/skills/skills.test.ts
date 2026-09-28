@@ -121,6 +121,30 @@ test('inventory keeps native sources and same-name conflicts visible without cha
   expect(existsSync(join(dir, '.claude/skills/shared/SKILL.md'))).toBe(true);
 });
 
+test('inventory distinguishes malformed folders and lists nested support files in CLI roots', () => {
+  const { home, dir, mesa } = setUp();
+  skill(join(dir, '.agent/skills'), 'legacy');
+  mkdirSync(join(dir, '.agents/skills/unnamed'), { recursive: true });
+  writeFileSync(
+    join(dir, '.agents/skills/unnamed/SKILL.md'),
+    '---\ndescription: A provider skill without a name field.\n---\n',
+  );
+  mkdirSync(join(dir, '.agent/skills/legacy/references/deep'), { recursive: true });
+  writeFileSync(join(dir, '.agent/skills/legacy/references/deep/example.md'), 'invented\n');
+  mkdirSync(join(home, '.agents/skills/broken'), { recursive: true });
+  writeFileSync(join(home, '.agents/skills/broken/SKILL.md'), 'invalid frontmatter\n');
+  const rows = mesa.skills.inventory('lantern-cove');
+  expect(rows.find((row) => row.name === 'legacy')).toMatchObject({
+    providers: ['antigravity'],
+    supportFiles: ['references/deep/example.md'],
+  });
+  expect(rows.find((row) => row.name === 'broken')).toMatchObject({
+    enabled: false,
+    invalidReason: 'SKILL.md has invalid metadata',
+  });
+  expect(rows.find((row) => row.name === 'unnamed')).toMatchObject({ enabled: true });
+});
+
 test('skill documents use the checked editor and reject stale or read-only writes', () => {
   const { home, dir, mesa } = setUp();
   skill(join(dir, '.claude/skills'), 'own');

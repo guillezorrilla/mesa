@@ -145,7 +145,13 @@ export function SkillsWorkspace(props: {
                   <FileText aria-hidden className="size-4 text-ring" />
                   <span className="min-w-0 flex-1 truncate font-medium">{row.name}</span>
                   <Badge variant={row.enabled ? 'secondary' : 'outline'}>
-                    {row.enabled ? 'Enabled' : 'Off'}
+                    {row.invalidReason
+                      ? 'Invalid'
+                      : row.source === 'mesa'
+                        ? row.enabled
+                          ? 'Enabled'
+                          : 'Off'
+                        : 'Available'}
                   </Badge>
                 </div>
                 <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -193,6 +199,7 @@ export function SkillsWorkspace(props: {
           {selected.readOnlyReason && (
             <p className="text-xs">Read-only: {selected.readOnlyReason}</p>
           )}
+          {selected.invalidReason && <p className="text-xs">{selected.invalidReason}</p>}
           {selected.enabled && selected.source === 'mesa' && !inProfile && (
             <p className="text-xs">Enabled by the project's mesa.yaml skill policy.</p>
           )}

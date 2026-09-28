@@ -90,12 +90,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   useEffect(() => {
     if (startOnBoard || openedInitialSession.current || !projects.data || sessions.length === 0)
       return;
-    openedInitialSession.current = true;
     const first = sessions.find((session) => session.managed && !session.endedAt);
-    if (first)
-      setView((current) =>
-        current.kind === 'board' ? { kind: 'session', id: first.id } : current,
-      );
+    if (!first) return;
+    openedInitialSession.current = true;
+    setView((current) => (current.kind === 'board' ? { kind: 'session', id: first.id } : current));
   }, [projects.data, sessions, startOnBoard]);
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;

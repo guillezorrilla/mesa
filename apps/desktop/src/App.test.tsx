@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Config } from '@mesa/core';
+import type { Config, TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
@@ -1001,6 +1001,20 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
+});
+
+test('Sessions selects a newly discovered managed session after initially seeing only foreign rows', async () => {
+  let rows: TreeRow[] = [foreignRow];
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(rows),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('selected-session')).toHaveLength(0);
+  rows = [foreignRow, managedRow('aaaaaaaa')];
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 2100)));
+  expect(byTestId('selected-session')).toHaveLength(1);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
 });
 
 test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {

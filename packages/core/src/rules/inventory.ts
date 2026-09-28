@@ -32,6 +32,8 @@ export function ruleInventory(home: string, projectDir?: string): RuleRow[] {
     { path: join(home, '.claude/CLAUDE.md'), scope: 'global', providers: ['claude'] },
     { path: join(home, '.gemini/AGENTS.md'), scope: 'global', providers: ['antigravity'] },
     { path: join(home, '.gemini/GEMINI.md'), scope: 'global', providers: ['antigravity'] },
+    { path: join(home, '.gemini/config/AGENTS.md'), scope: 'global', providers: ['antigravity'] },
+    { path: join(home, '.gemini/config/GEMINI.md'), scope: 'global', providers: ['antigravity'] },
     ...files(join(home, '.claude/rules')).map((path) => ({
       path,
       scope: 'global' as const,
@@ -56,6 +58,8 @@ export function ruleInventory(home: string, projectDir?: string): RuleRow[] {
         providers: ['claude', 'codex', 'antigravity'],
       },
       { path: join(projectDir, 'GEMINI.md'), scope: 'project', providers: ['antigravity'] },
+      { path: join(projectDir, '.agents/AGENTS.md'), scope: 'project', providers: ['antigravity'] },
+      { path: join(projectDir, '.agents/GEMINI.md'), scope: 'project', providers: ['antigravity'] },
       { path: join(projectDir, 'CLAUDE.md'), scope: 'project', providers: ['claude'] },
       { path: join(projectDir, '.claude/CLAUDE.md'), scope: 'project', providers: ['claude'] },
       ...files(join(projectDir, '.claude/rules')).map((path) => ({
@@ -64,6 +68,11 @@ export function ruleInventory(home: string, projectDir?: string): RuleRow[] {
         providers: ['claude' as const],
       })),
       ...files(join(projectDir, '.agents/rules')).map((path) => ({
+        path,
+        scope: 'project' as const,
+        providers: ['antigravity' as const],
+      })),
+      ...files(join(projectDir, '.agent/rules')).map((path) => ({
         path,
         scope: 'project' as const,
         providers: ['antigravity' as const],

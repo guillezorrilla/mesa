@@ -14,6 +14,7 @@ export type SkillInventoryRow = Omit<SkillRow, 'source'> & {
   supportFiles: string[];
   writable: boolean;
   readOnlyReason?: string;
+  invalidReason?: string;
   conflicts: string[];
 };
 
@@ -33,16 +34,16 @@ const entries = (folder: string) => {
 
 function supportFiles(folder: string): string[] {
   const files: string[] = [];
-  for (const entry of entries(folder)) {
-    if (entry.name === 'SKILL.md' || entry.isSymbolicLink()) continue;
-    if (entry.isFile()) files.push(entry.name);
-    if (entry.isDirectory()) {
-      for (const child of entries(join(folder, entry.name))) {
-        if (child.isFile()) files.push(`${entry.name}/${child.name}`);
-        if (files.length >= 32) return files.sort();
-      }
+  const pending = [''];
+  while (pending.length && files.length < 32) {
+    const prefix = pending.shift() as string;
+    for (const entry of entries(join(folder, prefix))) {
+      const path = join(prefix, entry.name);
+      if (path === 'SKILL.md' || entry.isSymbolicLink()) continue;
+      if (entry.isFile()) files.push(path);
+      if (entry.isDirectory()) pending.push(path);
+      if (files.length >= 32) break;
     }
-    if (files.length >= 32) break;
   }
   return files.sort();
 }
@@ -65,6 +66,7 @@ function nativeRoots(home: string, projectDir?: string): Root[] {
         scope: 'project',
         providers: ['codex', 'antigravity'],
       },
+      { path: join(projectDir, '.agent/skills'), scope: 'project', providers: ['antigravity'] },
     );
   }
   const plugins = join(home, '.gemini/antigravity-cli/plugins');
@@ -125,11 +127,14 @@ export function skillInventory(input: {
       const file = join(path, 'SKILL.md');
       const fileIsRegular = lstatSync(file, { throwIfNoEntry: false })?.isFile() ?? false;
       let skill: ReturnType<typeof readSkill>;
+      let invalidReason: string | undefined;
       try {
         if (fileIsRegular) skill = readSkill(path);
       } catch {
-        // One unreadable or malformed provider skill must not hide the rest of the inventory.
+        invalidReason = 'SKILL.md has invalid metadata';
       }
+      if (fileIsRegular && !skill) invalidReason = 'SKILL.md has invalid metadata';
+      if (!fileIsRegular) invalidReason = 'Missing or linked SKILL.md';
       const writable = root.scope !== 'plugin' && !entry.isSymbolicLink() && fileIsRegular;
       const row: SkillInventoryRow = {
         id: path,
@@ -140,6 +145,7 @@ export function skillInventory(input: {
         path,
         providers: [...root.providers],
         enabled: Boolean(skill),
+        ...(invalidReason ? { invalidReason } : {}),
         supportFiles: supportFiles(path),
         writable,
         ...(!writable
