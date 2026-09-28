@@ -38,6 +38,7 @@ export type RowActions = {
   send: (id: string, form: HTMLFormElement) => void;
   openTerminal: (id: string) => void;
   stop: (id: string) => void;
+  stopDescendants: (row: TreeRow) => void;
   resume: (id: string) => void;
   adopt: (agentSessionId: string, project?: string) => void;
   /** Open the Hand off, Log, Rename, or Remove dialog for this row. */
@@ -47,6 +48,7 @@ export type RowActions = {
   dependency: (row: TreeRow) => void;
   forceStart: (id: string) => void;
   remove: (row: TreeRow) => void;
+  removeDescendants: (row: TreeRow) => void;
   unarchive: (id: string) => void;
   workflow: (id: string, status: WorkflowStatus | 'clear') => void;
 };
@@ -263,6 +265,17 @@ export function SessionRow(props: {
                 <Square aria-hidden />
                 {queued(s) ? 'Cancel' : 'Stop'}
               </Button>
+              {s.children.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="session-stop-descendants"
+                  onClick={() => actions.stopDescendants(s)}
+                  disabled={acting}
+                >
+                  Stop descendants
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -304,6 +317,9 @@ export function SessionRow(props: {
                 onRename={() => actions.rename(s)}
                 onDependency={() => actions.dependency(s)}
                 onRemove={() => actions.remove(s)}
+                onRemoveDescendants={
+                  s.children.length > 0 ? () => actions.removeDescendants(s) : undefined
+                }
                 onUnarchive={s.archivedAt ? () => actions.unarchive(s.id) : undefined}
               />
             </div>

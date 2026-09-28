@@ -1091,6 +1091,70 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
   expect(byTestId('remove-dialog')).toHaveLength(0);
 });
 
+test('confirmed descendant actions preview the full family and report each result', async () => {
+  const parent = { ...asking, children: ['bbbbbbbb'] };
+  const child = { ...busy, parent: parent.id, depth: 1 };
+  let rows: TreeRow[] = [parent, child];
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope(rows),
+    stop: () => {
+      rows = rows.map((row) =>
+        row.managed ? { ...row, alive: false, endedAt: '2026-09-25T13:00:00.000Z' } : row,
+      );
+      return envelope({
+        root: parent.id,
+        items: [
+          { id: child.id, ok: true, result: { outcome: 'killed' } },
+          { id: parent.id, ok: true, result: { outcome: 'killed' } },
+        ],
+      });
+    },
+    rm: () =>
+      envelope({
+        root: parent.id,
+        items: [
+          { id: child.id, ok: false, error: { code: 'usage', message: 'worktree is dirty' } },
+          {
+            id: parent.id,
+            ok: false,
+            skipped: true,
+            error: { code: 'usage', message: 'descendant did not complete' },
+          },
+        ],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  await click(byTestId('session-stop-descendants')[0]);
+  expect(byTestId('descendant-list')[0]?.textContent).toContain(child.id);
+  expect(byTestId('descendant-list')[0]?.textContent?.indexOf(child.id)).toBeLessThan(
+    byTestId('descendant-list')[0]?.textContent?.indexOf(parent.id) ?? 0,
+  );
+  await click(byTestId('descendant-confirm')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'stop',
+    '--descendants',
+    `--expect=${child.id},${parent.id}`,
+    '--',
+    parent.id,
+  ]);
+  expect(byTestId('toast')[0]?.textContent).toContain(`${child.id}: killed`);
+  await click(byTestId('row-menu')[0]);
+  await click(byTestId('session-remove-descendants')[0]);
+  await click(byTestId('descendant-confirm')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'rm',
+    '--descendants',
+    `--expect=${child.id},${parent.id}`,
+    '--',
+    parent.id,
+  ]);
+  expect(byTestId('toast').some((toast) => toast.textContent?.includes('worktree is dirty'))).toBe(
+    true,
+  );
+});
+
 test("the row menu's Log shows a session's last output lines, and reads them again on Refresh", async () => {
   let lines = ['Reading the tide tables', 'High water 06:12'];
   const { bridge, calls } = fakeBridge({

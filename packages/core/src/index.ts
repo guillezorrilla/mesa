@@ -59,6 +59,7 @@ export { type SearchHit, searchWorkspace } from './search/search.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
+export type { DescendantResult } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';

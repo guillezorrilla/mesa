@@ -40,6 +40,7 @@ import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
 import { DependencyDialog } from './DependencyDialog';
+import { DescendantDialog } from './DescendantDialog';
 import { ForkDialog } from './ForkDialog';
 import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
@@ -68,7 +69,16 @@ type OpenDialog =
       location?: 'main' | 'worktree' | 'terminal';
     }
   | {
-      kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive' | 'fork' | 'dependency';
+      kind:
+        | 'rename'
+        | 'handoff'
+        | 'log'
+        | 'remove'
+        | 'archive'
+        | 'fork'
+        | 'dependency'
+        | 'stop-descendants'
+        | 'remove-descendants';
       row: ManagedRow;
     }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
@@ -202,6 +212,7 @@ export function BoardScreen(
           stopped,
         );
       }),
+    stopDescendants: (row) => row.managed && setDialog({ kind: 'stop-descendants', row }),
     resume: (id) =>
       once(async () => {
         const resumed = await run('sessions.resume', { id });
@@ -219,6 +230,7 @@ export function BoardScreen(
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
+    removeDescendants: (row) => row.managed && setDialog({ kind: 'remove-descendants', row }),
     unarchive: (id) =>
       act(async () => {
         const restored = await run('sessions.unarchive', { id });
@@ -278,6 +290,31 @@ export function BoardScreen(
       ];
       const extra = also.filter(Boolean).join(' and ');
       return said(`Removed session ${id}${extra ? ` with ${extra}` : ''}`, removed);
+    });
+  const cascade = (
+    kind: 'stop' | 'remove',
+    id: string,
+    expected: string[],
+    options: { deleteWorktree: boolean; deleteBranch: boolean },
+  ) =>
+    act(async () => {
+      const result =
+        kind === 'stop'
+          ? await run('sessions.stopDescendants', { id, expected })
+          : await run('sessions.removeDescendants', { id, expected, ...options });
+      if (!result) return undefined;
+      close();
+      const lines = result.items.map((item) =>
+        item.ok
+          ? `${item.id}: ${'outcome' in item.result ? item.result.outcome : 'removed'}${item.result.warning ? `; ${item.result.warning}` : ''}`
+          : `${item.id}: ${item.skipped ? 'skipped, ' : ''}${item.error.message}`,
+      );
+      return {
+        text: lines.join('\n'),
+        tone: result.items.some((item) => !item.ok || (item.ok && item.result.warning))
+          ? 'alert'
+          : 'confirmation',
+      };
     });
   const leaveClosedSession = (id: string) => {
     const next = data?.find((row) => row.id !== id && row.managed && !exited(row));
@@ -476,6 +513,16 @@ export function BoardScreen(
                   >
                     <Square aria-hidden /> {queued(selected) ? 'Cancel' : 'Stop'}
                   </Button>
+                  {selected.children.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={acting}
+                      onClick={() => actions.stopDescendants(selected)}
+                    >
+                      <Square aria-hidden /> Stop descendants
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -545,6 +592,11 @@ export function BoardScreen(
                     onRename={() => actions.rename(selected)}
                     onDependency={() => actions.dependency(selected)}
                     onRemove={() => actions.remove(selected)}
+                    onRemoveDescendants={
+                      selected.children.length > 0
+                        ? () => actions.removeDescendants(selected)
+                        : undefined
+                    }
                   />
                   {!isRun(selected) && selected.kind !== 'terminal' && !exited(selected) && (
                     <form
@@ -716,6 +768,22 @@ export function BoardScreen(
           row={dialog.row}
           disabled={acting}
           onRemove={(opts) => remove(dialog.row.id, opts)}
+          onCancel={close}
+        />
+      )}
+      {(dialog?.kind === 'stop-descendants' || dialog?.kind === 'remove-descendants') && (
+        <DescendantDialog
+          row={dialog.row}
+          action={dialog.kind === 'stop-descendants' ? 'stop' : 'remove'}
+          disabled={acting}
+          onConfirm={(ids, options) =>
+            cascade(
+              dialog.kind === 'stop-descendants' ? 'stop' : 'remove',
+              dialog.row.id,
+              ids,
+              options,
+            )
+          }
           onCancel={close}
         />
       )}

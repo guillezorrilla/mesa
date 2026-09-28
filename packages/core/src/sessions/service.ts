@@ -21,6 +21,7 @@ import { sessionTree } from './board/tree.js';
 import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
+import { applyDescendants } from './descendants.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
 import { forkSession } from './fork.js';
@@ -192,6 +193,36 @@ export function sessionsService(
     const warning = joinWarnings(ended.warning, queue?.warning);
     return warning ? { ...ended, warning } : ended;
   };
+  const remove = (
+    id: string,
+    opts: { force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean } = {},
+  ) =>
+    record(
+      {
+        type: 'session',
+        summary: (r) =>
+          `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
+        failure: `Could not remove session ${id}`,
+        project: (r) => projectScope(r.project),
+        session: () => id,
+        inputs: { id, ...opts },
+        outputs: (r) => r,
+      },
+      () =>
+        removeSession(
+          {
+            store,
+            tmux,
+            run: deps.run,
+            profile: open,
+            eventsDir: paths.events,
+            logsDir: paths.logs,
+            runs: paths.runs,
+          },
+          id,
+          opts,
+        ),
+    );
   return {
     grid: {
       list: () => open().config.grid.groups,
@@ -436,35 +467,25 @@ export function sessionsService(
        * Removes a session's record, hook log, output log, and a run's output, and with the flags
        * its worktree and branch; a live one only with `force`. The session receipt says what went.
        */
-      remove: (
+      remove,
+      removeDescendants: (
         id: string,
         opts: { force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean } = {},
+        expected?: readonly string[],
       ) =>
-        record(
-          {
-            type: 'session',
-            summary: (r) =>
-              `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
-            failure: `Could not remove session ${id}`,
-            project: (r) => projectScope(r.project),
-            session: () => id,
-            inputs: { id, ...opts },
-            outputs: (r) => r,
+        applyDescendants(
+          store.list(),
+          id,
+          async (session) => {
+            const recorded = await remove(session.id, {
+              force: opts.force,
+              ...(session.worktree
+                ? { deleteWorktree: opts.deleteWorktree, deleteBranch: opts.deleteBranch }
+                : {}),
+            });
+            return { ...recorded.result, receipt: recorded.receipt, warning: recorded.warning };
           },
-          () =>
-            removeSession(
-              {
-                store,
-                tmux,
-                run: deps.run,
-                profile: open,
-                eventsDir: paths.events,
-                logsDir: paths.logs,
-                runs: paths.runs,
-              },
-              id,
-              opts,
-            ),
+          expected,
         ),
       archive: async (id: string) => {
         const found = store.get(id);
@@ -505,6 +526,20 @@ export function sessionsService(
         );
       },
       stop,
+      stopDescendants: (id: string, force = false, expected?: readonly string[]) =>
+        applyDescendants(
+          store.list(),
+          id,
+          async (session) => {
+            const recorded = await stop(session.id, force);
+            return {
+              outcome: recorded.result.outcome,
+              receipt: recorded.receipt,
+              warning: recorded.warning,
+            };
+          },
+          expected,
+        ),
       /**
        * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
        * `keep` (stopHandedOff). The handoff's session receipt names both and the note.

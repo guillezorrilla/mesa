@@ -14,6 +14,7 @@ export function RowMenu(props: {
   onRename: () => void;
   onDependency: () => void;
   onRemove: () => void;
+  onRemoveDescendants?: () => void;
   onUnarchive?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -69,6 +70,17 @@ export function RowMenu(props: {
             <Trash2 aria-hidden />
             Remove
           </Button>
+          {props.onRemoveDescendants && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="session-remove-descendants"
+              onClick={pick(props.onRemoveDescendants)}
+            >
+              <Trash2 aria-hidden />
+              Remove descendants
+            </Button>
+          )}
           {props.onUnarchive && (
             <Button
               variant="outline"

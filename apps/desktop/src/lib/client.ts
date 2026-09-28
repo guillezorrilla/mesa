@@ -6,6 +6,7 @@ import type {
   CommandReference,
   Config,
   ConversationSearch,
+  DescendantResult,
   DiscoveredProject,
   DoctorReport,
   FileChange,
@@ -584,6 +585,22 @@ const COMMANDS = {
   'sessions.stop': commandWith<{ id: string }, Recorded<SessionRecord & { outcome: StopOutcome }>>(
     ({ id }) => ['stop', '--', id],
   ),
+  'sessions.stopDescendants': commandWith<
+    { id: string; expected: string[] },
+    DescendantResult<{ outcome: StopOutcome; warning?: string }>
+  >(({ id, expected }) => ['stop', '--descendants', `--expect=${expected.join(',')}`, '--', id]),
+  'sessions.removeDescendants': commandWith<
+    { id: string; expected: string[]; deleteWorktree?: boolean; deleteBranch?: boolean },
+    DescendantResult<Removed & { warning?: string }>
+  >(({ id, expected, deleteWorktree, deleteBranch }) => [
+    'rm',
+    '--descendants',
+    `--expect=${expected.join(',')}`,
+    ...(deleteWorktree ? ['--delete-worktree'] : []),
+    ...(deleteBranch ? ['--delete-branch'] : []),
+    '--',
+    id,
+  ]),
   'sessions.resume': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'resume',
     '--',
