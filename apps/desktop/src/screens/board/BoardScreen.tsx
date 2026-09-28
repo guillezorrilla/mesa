@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ContextBar } from '@/components/ContextBar';
+import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { PageHeader } from '@/components/PageHeader';
 import { StateBadge } from '@/components/StateBadge';
 import { type Message, said } from '@/components/Toast';
@@ -527,6 +528,11 @@ export function BoardScreen(
           />
         </>
       ) : null}
+      {props.selectedSession && selected?.managed && (
+        <div className="max-h-44 shrink-0 overflow-auto px-4">
+          <KnowledgeContext session={props.selectedSession} />
+        </div>
+      )}
       {props.gridMode && panels.length === 0 && (
         <p className="text-muted-foreground text-sm">
           No tiles open. Choose a live session or reopen a saved group.

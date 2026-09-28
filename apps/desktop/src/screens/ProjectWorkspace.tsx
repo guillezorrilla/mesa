@@ -3,6 +3,7 @@ import { sessionLabel } from '@mesa/core/browser';
 import { ArrowDown, ArrowUp, Folder, MoreHorizontal, Play, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
@@ -314,6 +315,7 @@ export function ProjectWorkspace(props: {
               <p className="text-sm text-muted-foreground">No sessions for this project yet.</p>
             )}
           </section>
+          <KnowledgeContext project={project.name} />
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
       ) : (

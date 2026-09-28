@@ -40,6 +40,71 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('project and session show scoped decisions and note changes with exact Obsidian targets', async () => {
+  const decision = {
+    path: 'receipts/decision.md',
+    summary: 'Chose the release plan',
+    receipt: {
+      id: '01TEST00000000000000000001',
+      kind: 'decision',
+      status: 'ok',
+      started: '2026-09-24T12:00',
+      inputs: { rationale: 'The migration must stay reversible' },
+      outputs: {},
+      decisions: [{ question: 'ship', answer: 'yes' }],
+    },
+  };
+  const change = {
+    path: 'receipts/change.md',
+    summary: 'Updated project brief',
+    receipt: {
+      id: '01TEST00000000000000000002',
+      kind: 'vault-change',
+      status: 'ok',
+      started: '2026-09-24T12:01',
+      inputs: {},
+      outputs: { target: 'projects/lantern-cove.md' },
+      decisions: [],
+    },
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    receipts: (args) =>
+      envelope(
+        args.includes('--session')
+          ? args.includes('decision')
+            ? [decision]
+            : []
+          : args.includes('decision')
+            ? [decision]
+            : args.includes('vault-change')
+              ? [change]
+              : [],
+      ),
+    'vault open': () => envelope({ opened: true, method: 'uri', target: 'obsidian://open' }),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({ terminal: fakeTerminals().host }),
+  );
+  await click(byTestId('sidebar-project')[0]);
+  expect(byTestId('knowledge-context')[0]?.textContent).toContain(
+    'The migration must stay reversible',
+  );
+  expect(byTestId('knowledge-context')[0]?.textContent).toContain('projects/lantern-cove.md');
+  await click(
+    byTestId('knowledge-context')[0]?.querySelector<HTMLButtonElement>(
+      '[aria-label="Open projects/lantern-cove.md in Obsidian"]',
+    ) ?? undefined,
+  );
+  expect(calls).toContainEqual(['--json', 'vault', 'open', '--', 'projects/lantern-cove.md']);
+  await click(byTestId('project-active-session')[0]);
+  expect(byTestId('knowledge-context')[0]?.textContent).toContain('Chose the release plan');
+  expect(byTestId('knowledge-context')[0]?.textContent).not.toContain('Updated project brief');
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({
