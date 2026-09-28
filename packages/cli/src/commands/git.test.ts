@@ -2,13 +2,102 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execRunner } from '@mesa/core';
-import { gitRepo, isolateGit, withRealGit } from '@mesa/core/testing';
+import {
+  gitRepo,
+  isolateGit,
+  newSession,
+  shortIds,
+  testStore,
+  withRealGit,
+} from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
 isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
+
+test('insight keeps local Git facts when gh is missing and links PRs by session branch when available', async () => {
+  const repo = await cli.withProject();
+  gitRepo(repo);
+  const linked = join(cli.home, 'feature');
+  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', linked]);
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
+  store.create(() => newSession({ worktree: { path: linked, branch: 'feature' } }));
+  const native = withRealGit(cli.run);
+  const ghCalls: { args: string[]; cwd?: string }[] = [];
+  cli.run = (file, args, ms, options) => {
+    if (file !== 'gh') return native(file, args, ms, options);
+    ghCalls.push({ args, cwd: options?.cwd });
+    if (args[0] === '--version')
+      return Promise.resolve({ ok: true, stdout: 'gh version 2.test\n' });
+    return Promise.resolve({
+      ok: true,
+      stdout: JSON.stringify([
+        {
+          number: 42,
+          title: 'Feature',
+          url: 'https://github.com/example/repo/pull/42',
+          state: 'MERGED',
+          isDraft: false,
+          headRefName: 'feature',
+          updatedAt: '2026-09-27T00:00:00Z',
+          mergedAt: '2026-09-27T00:00:00Z',
+          closedAt: '2026-09-27T00:00:00Z',
+        },
+        {
+          number: 43,
+          title: 'Other',
+          url: 'https://github.com/example/repo/pull/43',
+          state: 'OPEN',
+          isDraft: false,
+          headRefName: 'other',
+          updatedAt: '2026-09-27T00:00:00Z',
+          mergedAt: null,
+          closedAt: null,
+        },
+      ]),
+    });
+  };
+  const found = await cli.mesa('git', 'insight', 'lantern-cove', '--json');
+  expect(found.code, found.stdout).toBe(0);
+  expect(found.json.data).toMatchObject({
+    local: { source: 'git', branch: 'main', worktrees: 2, observedAt: expect.any(String) },
+    pullRequests: {
+      source: 'gh',
+      availability: 'available',
+      searched: true,
+      version: 'gh version 2.test',
+      matches: [{ number: 42, state: 'MERGED', sessionIds: ['aaaaaaaa'], linkedBy: 'branch-name' }],
+    },
+  });
+  expect(ghCalls.map((call) => call.args[0])).toEqual(['--version', 'pr']);
+  expect(ghCalls[1]?.cwd).toBe(repo);
+  cli.run = (file, args, ms, options) =>
+    file === 'gh'
+      ? Promise.resolve({ ok: false, reason: 'missing', detail: 'missing' })
+      : native(file, args, ms, options);
+  const missing = await cli.mesa('git', 'insight', 'lantern-cove', '--json');
+  expect(missing.code).toBe(0);
+  expect(missing.json.data).toMatchObject({
+    local: { source: 'git', worktrees: 2 },
+    pullRequests: { availability: 'missing', searched: false, matches: [] },
+  });
+  cli.run = (file, args, ms, options) => {
+    if (file !== 'gh') return native(file, args, ms, options);
+    return args[0] === '--version'
+      ? Promise.resolve({ ok: true, stdout: 'gh version 2.test\n' })
+      : Promise.resolve({ ok: false, reason: 'failed', detail: 'not authenticated' });
+  };
+  const unavailable = await cli.mesa('git', 'insight', 'lantern-cove', '--json');
+  expect(unavailable.code).toBe(0);
+  expect(unavailable.json.data.pullRequests).toMatchObject({
+    availability: 'unavailable',
+    unavailableReason: 'failed',
+    searched: true,
+    matches: [],
+  });
+});
 
 test('git status uses the registered checkout, linked worktrees, and literal NUL paths', async () => {
   const repo = join(cli.home, 'lantern-cove');

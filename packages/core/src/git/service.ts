@@ -5,6 +5,7 @@ import { changeGitBranch, type GitBranchAction, listGitBranches } from './branch
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
 import { compareGitRefs, readGitGraph } from './history.js';
+import { readRepositoryInsight } from './insight.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -128,6 +129,15 @@ export function gitService(ctx: MesaContext, faro: Faro) {
         ),
     );
   return {
+    insight: (project: string, checkout?: string) =>
+      readRepositoryInsight(
+        ctx.open(),
+        ctx.deps.run,
+        ctx.store,
+        ctx.deps.clock,
+        project,
+        checkout && ctx.absolute(checkout),
+      ),
     graph: (project: string, checkout?: string, branch?: string) =>
       readGitGraph(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout), branch),
     compare: (project: string, base: string, head: string, checkout?: string) =>

@@ -11,6 +11,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { GitBranches } from './GitBranches';
 import { GitDiffView } from './GitDiffView';
 import { GitHistory } from './GitHistory';
+import { GitInsight } from './GitInsight';
 import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
 
@@ -24,6 +25,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
   const [showStashes, setShowStashes] = useState(false);
   const [showSync, setShowSync] = useState(false);
   const [showGraph, setShowGraph] = useState(false);
+  const [showInsight, setShowInsight] = useState(false);
   const run = useRun();
   const { acting, act } = useAct();
   const paths = [
@@ -109,6 +111,9 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowGraph((last) => !last)}>
           Graph
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowInsight((last) => !last)}>
+          Insights
         </Button>
       </div>
       {status.data && (
@@ -239,6 +244,13 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       {showGraph && (
         <GitHistory
           key={`graph:${checkout}:${revision}`}
+          project={props.project}
+          checkout={checkout || undefined}
+        />
+      )}
+      {showInsight && (
+        <GitInsight
+          key={`insight:${checkout}`}
           project={props.project}
           checkout={checkout || undefined}
         />

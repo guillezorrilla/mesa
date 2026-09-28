@@ -28,6 +28,7 @@ import type {
   Project,
   ProjectRow,
   Removed,
+  RepositoryInsight,
   Result,
   Sent,
   SessionLog,
@@ -68,6 +69,15 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
+  'git.insight': commandWith<{ project: string; checkout?: string }, RepositoryInsight>(
+    ({ project, checkout }) => [
+      'git',
+      'insight',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
   'config.get': command<Config>('config'),
   'board.move': commandWith<
     { id: string; direction: 'up' | 'down' },
