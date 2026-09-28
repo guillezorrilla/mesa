@@ -103,18 +103,10 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     '-u',
     'MESA_PROFILE',
   ]);
-  // The record is saved, and the session receipt names it.
+  // The local record is saved without adding routine history to the vault.
   expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([first.id]);
-  const [entry] = listReceipts(join(home, 'vault'), 1);
-  expect(entry?.receipt).toMatchObject({
-    id: receipt?.id,
-    type: 'session',
-    status: 'ok',
-    project: 'lantern-cove',
-    session: first.id,
-    agent: 'claude',
-    outputs: { window: `claude-${first.id}`, agentSessionId: first.agentSessionId },
-  });
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 
   const { result: second } = await mesa.sessions.open('lantern-cove');
   const added = world.calls.find((c) => c.args.includes('new-window'))?.args;
@@ -197,8 +189,7 @@ test('an unknown project, a missing claude, or a failed window leaves no session
     code: 'internal',
   });
   expect(await broken.mesa.sessions.list()).toEqual([]);
-  const [entry] = listReceipts(join(broken.home, 'vault'), 1);
-  expect(entry?.receipt).toMatchObject({ type: 'session', status: 'failed' });
+  expect(listReceipts(join(broken.home, 'vault'))).toEqual([]);
 });
 
 test('a project whose folder is gone is not_found, even with --agent', async () => {
@@ -260,7 +251,7 @@ test('a goal is the first prompt: one shell word after the session id, kept on t
   );
 });
 
-test('the receipt keeps the goal first 80 characters, keys redacted, in its command too', async () => {
+test('opening with a secret goal keeps it local and creates no vault receipt', async () => {
   // A key in the goal, and a character outside the BMP at the cut: the cut counts characters.
   // 40 characters once redacted, 39 more, then the rocket as character 80.
   const goal = `Deploy with sk-live-1234 and write the notes for ${'n'.repeat(39)}🚀 then stop and report back`;
@@ -273,17 +264,17 @@ test('the receipt keeps the goal first 80 characters, keys redacted, in its comm
     ],
     [['open', 'lantern-cove', `--goal=${goal}`], `mesa open lantern-cove "--goal=${short}"`],
   ];
-  for (const [argv, command] of forms) {
+  for (const [argv] of forms) {
     const { home, mesa } = await setUp(agentWorld(), { argv });
     mesa.config.set('keys.jev', 'sk-live-1234');
-    await mesa.sessions.open('lantern-cove', { goal });
-    const [entry] = listReceipts(join(home, 'vault'), 1);
-    expect(entry?.receipt.inputs).toEqual({ project: 'lantern-cove', agent: null, goal: short });
-    expect(entry?.receipt.command).toBe(command);
+    const { result, receipt } = await mesa.sessions.open('lantern-cove', { goal });
+    expect(result.goal).toBe(goal);
+    expect(receipt).toBeNull();
+    expect(listReceipts(join(home, 'vault'))).toEqual([]);
   }
 });
 
-test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt and no session', async () => {
+test('a goal file is read as UTF-8; a bad goal is refused without vault history', async () => {
   const world = agentWorld();
   const { home, mesa } = await setUp(world);
   const file = join(home, 'goal.md');
@@ -323,14 +314,10 @@ test('a goal file is read as UTF-8; a bad goal is refused with a failed receipt 
       'the goal makes a 12059-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
     ],
   ];
-  const failedBefore = listReceipts(join(home, 'vault'), 50).filter(
-    (e) => e.receipt.status === 'failed',
-  ).length;
   for (const [opts, code, message] of cases) {
     await expect(mesa.sessions.open('lantern-cove', opts)).rejects.toMatchObject({ code, message });
   }
-  const failed = listReceipts(join(home, 'vault'), 50).filter((e) => e.receipt.status === 'failed');
-  expect(failed.length - failedBefore).toBe(cases.length);
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([result.id, withBom.id]);
 });
 
@@ -358,15 +345,11 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
   // The window's session alone, as the issue's test plan types it, is enough.
   const bare = await within({ MESA_SESSION_ID: a.id }).sessions.open('lantern-cove');
   expect(bare.result.parent).toBe(a.id);
-  // The receipt says what was asked and what parent it got.
-  const receiptOf = () => listReceipts(join(home, 'vault'), 1)[0]?.receipt;
-  expect(receiptOf()).toMatchObject({ inputs: {}, outputs: { parent: a.id } });
-  expect(receiptOf()?.inputs).not.toHaveProperty('parent');
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   const { result: explicit } = await inside.sessions.open('lantern-cove', { parent: child.id });
   expect(explicit.parent).toBe(child.id);
   const { result: none } = await inside.sessions.open('lantern-cove', { noParent: true });
   expect(none.parent).toBeUndefined();
-  expect(receiptOf()).toMatchObject({ inputs: { noParent: true }, outputs: { parent: null } });
   // Another profile's window, an empty id, or a removed session: no parent, and no error.
   for (const env of [
     { MESA_SESSION_ID: a.id, MESA_PROFILE: 'work' },
@@ -381,8 +364,7 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
     code: 'not_found',
     message: 'no session zzzzzzzz to be the parent; see mesa sessions, or pass --no-parent',
   });
-  const [refused] = listReceipts(join(home, 'vault'), 1);
-  expect(refused?.receipt).toMatchObject({ status: 'failed', inputs: { parent: 'zzzzzzzz' } });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   await expect(
     inside.sessions.open('lantern-cove', { parent: a.id, noParent: true }),
   ).rejects.toMatchObject({ code: 'usage', message: 'pass --parent or --no-parent, not both' });
@@ -425,11 +407,7 @@ test('--branch starts the agent in a new worktree under the profile, from the de
   expect(testGit(dir, 'worktree', 'list', '--porcelain')).toContain(
     `worktree ${path}\nHEAD ${testGit(dir, 'rev-parse', 'main')}\nbranch refs/heads/try/worktree`,
   );
-  const [entry] = listReceipts(join(home, 'vault'), 1);
-  expect(entry?.receipt).toMatchObject({
-    inputs: { branch: 'try/worktree' },
-    outputs: { worktree: result.worktree },
-  });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   // The board shows it; a resume runs in the same worktree, where claude keeps the conversation.
   const [row] = await mesa.sessions.list();
   expect(row).toMatchObject({ managed: true, worktree: result.worktree });
@@ -530,8 +508,7 @@ test('a non-git project, a branch in use, or a bad branch or base is usage with 
       new RegExp(`^${dir} is not a git repository: fatal: not a git repository`),
     ),
   });
-  const [refused] = listReceipts(join(home, 'vault'), 1);
-  expect(refused?.receipt).toMatchObject({ status: 'failed', inputs: { branch: 'x' } });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 
   gitRepo(dir);
   // main is checked out in the project folder.

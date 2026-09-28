@@ -11,7 +11,7 @@ test('grid save/list/remove --json keeps session records and isolates profiles',
   const saved = await cli.mesa('grid', 'save', 'Review', id, '--project', 'lantern-cove', '--json');
   expect(saved.json.data).toMatchObject({
     groups: [{ name: 'Review', project: 'lantern-cove', sessions: [id] }],
-    receipt: { id: expect.any(String) },
+    receipt: null,
   });
   expect((await cli.mesa('grid', '--json')).json.data).toEqual(saved.json.data.groups);
   await cli.mesa('init', '--profile', 'other', '--vault', 'other-vault');

@@ -1,4 +1,11 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { localDay } from '../lib/time.js';
@@ -58,6 +65,17 @@ test('a note with locked: true is never replaced', () => {
     thrown(() => writeNote(deps, { path: 'wiki/keep.md', frontmatter: {}, body: 'x' })).code,
   ).toBe('locked');
   expect(readNote(deps.vault, 'wiki/keep.md').body).toBe('mine\n');
+});
+
+test('a note path through a symlink cannot write outside the vault', () => {
+  const outside = tempDir();
+  symlinkSync(outside, join(vault, 'wiki/elsewhere'));
+  const deps = { vault, clock: fixedClock() };
+  expect(
+    thrown(() => writeNote(deps, { path: 'wiki/elsewhere/out.md', frontmatter: {}, body: 'x' }))
+      .code,
+  ).toBe('usage');
+  expect(existsSync(join(outside, 'out.md'))).toBe(false);
 });
 
 test('appendLog appends "- <ISO> <line>" to log.md; it needs an initialised vault', () => {

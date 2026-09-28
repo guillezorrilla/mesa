@@ -3,6 +3,7 @@ import { AgentSchema } from '../agents/agents.js';
 import { AnswerSchema, DecidedBySchema, type Decision } from '../decisions/types.js';
 import { ULID } from '../lib/ids.js';
 import { NoteTimeSchema } from '../lib/time.js';
+import { RECORD_KINDS } from './policy.js';
 import { RECEIPT_TYPES } from './receipt-file.js';
 
 /**
@@ -83,6 +84,7 @@ function redactedLabels(labels: string[], redact: (text: string) => string) {
 /** The receipt frontmatter, documented field by field in docs/receipts.md. */
 export const ReceiptSchema = z.strictObject({
   type: z.enum(RECEIPT_TYPES),
+  kind: z.enum(RECORD_KINDS).optional(),
   id: z.string().regex(ULID, 'must be a ULID'),
   profile: z.string(),
   project: z.string().optional(),

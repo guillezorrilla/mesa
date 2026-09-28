@@ -1,5 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
+import { RECORD_KINDS, type RecordKind } from './policy.js';
 import { RECEIPT_TYPES, type ReceiptType } from './receipt-file.js';
 import { listReceipts, showReceipt } from './store.js';
 
@@ -9,8 +10,16 @@ export const receiptsService = (ctx: MesaContext) => ({
    * The newest `limit` (a positive whole number, else usage), or the store's default number; only
    * those of `type` (one of RECEIPT_TYPES, else usage) and of `session`, each when given.
    */
-  list: (filter: { limit?: number; type?: string; session?: string } = {}) => {
-    const { limit, type, session } = filter;
+  list: (
+    filter: {
+      limit?: number;
+      type?: string;
+      session?: string;
+      project?: string;
+      kind?: string;
+    } = {},
+  ) => {
+    const { limit, type, session, project, kind } = filter;
     if (limit !== undefined && (!Number.isInteger(limit) || limit < 1)) {
       throw new MesaError('usage', `the limit must be a positive whole number, not ${limit}`);
     }
@@ -18,7 +27,18 @@ export const receiptsService = (ctx: MesaContext) => ({
       const types = RECEIPT_TYPES.join(', ');
       throw new MesaError('usage', `a receipt's type is one of ${types}, not ${type}`);
     }
-    return listReceipts(ctx.vaultOf(), limit, { type: type as ReceiptType | undefined, session });
+    if (kind !== undefined && !RECORD_KINDS.includes(kind as RecordKind)) {
+      throw new MesaError(
+        'usage',
+        `a receipt's kind is one of ${RECORD_KINDS.join(', ')}, not ${kind}`,
+      );
+    }
+    return listReceipts(ctx.vaultOf(), limit, {
+      type: type as ReceiptType | undefined,
+      session,
+      project,
+      kind: kind as RecordKind | undefined,
+    });
   },
   show: (id: string) => showReceipt(ctx.vaultOf(), id),
 });

@@ -245,6 +245,7 @@ export function sessionsService(
         const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
         const started = await record(
           {
+            kind: 'guardrail',
             type: 'skill',
             summary: ({ record: r }) =>
               `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
@@ -283,8 +284,8 @@ export function sessionsService(
           },
         );
         const run = store.get(started.result.record.id);
-        // A fast hook may finish before record() writes the opening receipt. Repair it now,
-        // without depending on another asynchronous tmux look in the waiter.
+        // A fast hook may finish before record() writes a guardrail override receipt. Complete
+        // the run from its persisted record without depending on another tmux look.
         let finished: RunEnd;
         let queue: Awaited<ReturnType<typeof ends.stopped>>;
         try {
@@ -295,12 +296,12 @@ export function sessionsService(
           // A timeout commits the failed end before throwing; its queue must still start.
           if (store.find(run.id)?.endedAt) queue = await ends.stopped(run.id, 'exited');
         }
-        const { result, warning: ended } = finished;
+        const { result, receipt: landedReceipt, warning: ended } = finished;
         const warning = joinWarnings(started.warning, ended, queue?.warning);
         const { override } = started.result;
         return {
           result: { session: run.id, ...result, ...(override ? { override } : {}) },
-          receipt: started.receipt,
+          receipt: landedReceipt ?? started.receipt,
           ...(warning ? { warning } : {}),
         };
       },
@@ -442,6 +443,7 @@ export function sessionsService(
         const kept = receiptText(prompt, deps.argv, secrets());
         return record(
           {
+            kind: 'guardrail',
             argv: kept.argv,
             summary: (r) =>
               `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,

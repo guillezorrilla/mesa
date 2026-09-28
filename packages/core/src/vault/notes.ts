@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { Clock } from '../lib/clock.js';
@@ -26,6 +26,14 @@ export function vaultFile(vault: string, path: string): string {
   const inside = relative(vault, file);
   if (!inside || inside.startsWith('..') || isAbsolute(inside)) {
     throw new MesaError('usage', `note path ${path} is outside the vault`);
+  }
+  if (existsSync(vault)) {
+    let existing = file;
+    while (!existsSync(existing)) existing = dirname(existing);
+    const real = relative(realpathSync(vault), realpathSync(existing));
+    if (real.startsWith('..') || isAbsolute(real)) {
+      throw new MesaError('usage', `note path ${path} is outside the vault`);
+    }
   }
   return file;
 }

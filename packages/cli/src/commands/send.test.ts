@@ -49,9 +49,9 @@ test('send --from, or from inside a window, adds the sender; --json prints {sent
   });
 });
 
-test('a send typed with a warning keeps it beside a receipt warning in --json', async () => {
+test('a send typed with a warning remains actionable without a routine receipt warning', async () => {
   cli.withTmux();
-  // No vault layout, so every receipt warns too.
+  // No vault layout is needed for a routine send.
   await mesa('init', '--vault', 'vault');
   mkdirSync(join(cli.home, 'src/lantern-cove'), { recursive: true });
   await mesa('register', '--create', join(cli.home, 'src/lantern-cove'));
@@ -60,7 +60,7 @@ test('a send typed with a warning keeps it beside a receipt warning in --json', 
   const sent = await mesa('send', b, 'hello', '--json');
   expect(sent.code).toBe(0);
   expect(sent.json.data.warning).toMatch(
-    /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
+    /^the prompt was typed, but no send event on .*; do not send it again$/,
   );
   rmSync(lock);
 });

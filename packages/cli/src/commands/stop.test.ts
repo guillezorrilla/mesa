@@ -22,7 +22,7 @@ test('stop and resume print the updated and the new record', async () => {
     outcome: 'exited',
     endedAt: '2026-09-24T12:00:00.000Z',
     lastState: { state: 'done' },
-    receipt: { id: expect.stringMatching(/^01TEST/) },
+    receipt: null,
   });
   expect((await mesa('stop', id)).stdout).toBe(`session ${id} had already ended\n`);
 

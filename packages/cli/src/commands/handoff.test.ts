@@ -55,11 +55,7 @@ test('handoff starts a successor with the goal and the note, then stops the sess
     `Count the files in docs/adr\n\nRead the handoff note at ${c.note} first.`,
   );
   const receipts = (await mesa('receipts', '--json', '--limit', '20')).json.data;
-  expect(
-    receipts.find((r: { summary: string }) => r.summary.startsWith(`Handed off session ${a.id}`)),
-  ).toMatchObject({
-    receipt: { type: 'session', session: a.id },
-  });
+  expect(receipts).toEqual([]);
 });
 
 test('a session handing itself off is stopped by the tmux server a moment later', async () => {

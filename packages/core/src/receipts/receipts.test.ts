@@ -96,10 +96,7 @@ test('the list keeps only the receipts of one type or one session, newest first,
   expect(ids({ type: 'session' })).toEqual([b1, a1]);
   expect(ids({ type: 'session', session: 'a1b2c3' })).toEqual([a1]);
   expect(ids({ session: 'a1b2c3', limit: 2 })).toEqual([a2, skill]);
-  // mesa init's own receipt, which names no session.
-  expect(mesa.receipts.list({ type: 'action' }).map((e) => e.receipt.command)).toEqual([
-    'mesa init --vault vault',
-  ]);
+  expect(mesa.receipts.list({ type: 'action' })).toEqual([]);
   expect(ids({ session: 'nope' })).toEqual([]);
   expect(thrown(() => mesa.receipts.list({ type: 'job' }))).toMatchObject({
     code: 'usage',
@@ -201,7 +198,7 @@ test('within one second, receipts sort by time, and stray files are skipped', ()
   expect(listReceipts(vault).map((e) => e.receipt.id)).toEqual([late.receipt.id, early.receipt.id]);
 });
 
-test('the recorder records success, failure, and nothing-changed, and never fails the action', () => {
+test('the recorder keeps meaningful success and blocked decisions, and never fails the action', () => {
   const record = actionRecorder({
     profile: 'default',
     vault: () => vault,
@@ -210,20 +207,28 @@ test('the recorder records success, failure, and nothing-changed, and never fail
     command: () => 'mesa x',
     redact: (text) => text,
   });
-  const ok = record({ summary: (n: number) => `did ${n}`, failure: 'no', inputs: {} }, () => 7);
+  const ok = record(
+    { kind: 'decision', summary: (n: number) => `did ${n}`, failure: 'no', inputs: {} },
+    () => 7,
+  );
   expect(ok).toMatchObject({ result: 7, receipt: { id: expect.stringMatching(/^01TEST/) } });
 
   const boom = () =>
-    record({ summary: () => 'x', failure: 'Could not do it', inputs: { a: 1 } }, () => {
-      throw new Error('boom');
-    });
-  expect(boom).toThrow('boom');
-  const [failed] = listReceipts(vault).filter((e) => e.receipt.status === 'failed');
+    record(
+      { kind: 'guardrail', summary: () => 'x', failure: 'Could not do it', inputs: { a: 1 } },
+      () => {
+        throw new MesaError('guardrail_blocked', 'blocked');
+      },
+    );
+  expect(boom).toThrow('blocked');
+  const [failed] = listReceipts(vault).filter((e) => e.receipt.status === 'blocked');
   expect(failed?.summary).toBe('Could not do it');
-  expect(failed?.receipt.outputs).toEqual({ error: { code: 'internal', message: 'boom' } });
+  expect(failed?.receipt.outputs).toEqual({
+    error: { code: 'guardrail_blocked', message: 'blocked' },
+  });
 
   const none = record(
-    { summary: () => 'x', failure: 'x', inputs: {}, changed: () => false },
+    { kind: 'vault-change', summary: () => 'x', failure: 'x', inputs: {}, changed: () => false },
     () => 1,
   );
   expect(none).toEqual({ result: 1, receipt: null });
@@ -241,13 +246,67 @@ test('the recorder records success, failure, and nothing-changed, and never fail
     command: () => 'mesa x',
     redact: (text) => text,
   });
-  const warned = elsewhere({ summary: () => 'x', failure: 'x', inputs: {} }, () => 'done');
+  const warned = elsewhere(
+    { kind: 'decision', summary: () => 'x', failure: 'x', inputs: {} },
+    () => 'done',
+  );
   expect(warned).toEqual({
     result: 'done',
     receipt: null,
     warning: `no receipt: ${repo} is not a vault; run mesa vault init`,
   });
   expect(() => readFileSync(join(repo, 'receipts'))).toThrow();
+});
+
+test('routine actions leave no knowledge entry; deliberate decisions and guardrail overrides do', () => {
+  initVault({ path: vault, clock: fixedClock() });
+  const record = actionRecorder({
+    profile: 'default',
+    vault: () => vault,
+    clock: fixedClock(),
+    newId: sequentialIds(),
+    command: () => 'mesa x',
+    redact: (text) => text,
+  });
+  const routine = record({ summary: () => 'opened', failure: 'not opened', inputs: {} }, () => 1);
+  expect(routine).toEqual({ result: 1, receipt: null });
+  expect(listReceipts(vault)).toEqual([]);
+
+  const decision = record(
+    {
+      kind: 'decision',
+      type: 'decision',
+      summary: () => 'decided',
+      failure: 'not decided',
+      inputs: {},
+    },
+    () => 2,
+  );
+  expect(decision.receipt?.path).toContain('decision');
+
+  const allowed = record(
+    {
+      kind: 'guardrail',
+      summary: () => 'sent',
+      failure: 'not sent',
+      inputs: {},
+      outputs: () => ({}),
+    },
+    () => 3,
+  );
+  expect(allowed.receipt).toBeNull();
+  const override = record(
+    {
+      kind: 'guardrail',
+      summary: () => 'sent after override',
+      failure: 'not sent',
+      inputs: {},
+      outputs: () => ({ override: 'yes' }),
+    },
+    () => 4,
+  );
+  expect(override.receipt?.path).toContain('action');
+  expect(listReceipts(vault).map((entry) => entry.receipt.kind)).toEqual(['guardrail', 'decision']);
 });
 
 test('every decision made during an action lands in its receipt, a failed or blocked one too, to 6 decimals', () => {
@@ -290,8 +349,13 @@ test('every decision made during an action lands in its receipt, a failed or blo
     },
     { question: 'harmful', kind: 'Noul', answer: true, probabilities: 0.9, backend: 'rules' },
   ];
-  const spec = { summary: () => 'did it', failure: 'Could not', inputs: {} };
-  record(spec, (decisions) => decisions.record(decision));
+  const spec = {
+    kind: 'guardrail' as const,
+    summary: () => 'did it',
+    failure: 'Could not',
+    inputs: {},
+  };
+  record({ ...spec, kind: 'decision' }, (decisions) => decisions.record(decision));
   expect(() =>
     record(spec, (decisions) => {
       decisions.record(decision);
@@ -306,7 +370,7 @@ test('every decision made during an action lands in its receipt, a failed or blo
   ).toThrow('boom');
   const byStatus = Object.fromEntries(listReceipts(vault).map((e) => [e.receipt.status, e]));
   expect(byStatus.ok?.receipt.decisions).toEqual(entries);
-  expect(byStatus.failed?.receipt.decisions).toEqual(entries);
+  expect(byStatus.failed).toBeUndefined();
   // Blocked, with the code and message only: the details are the decision, kept above.
   expect(byStatus.blocked?.receipt).toMatchObject({
     decisions: entries,
@@ -344,7 +408,7 @@ test('standalone decision receipts redact labels without losing colliding probab
   expect(result.result.answers[0]?.answer).toBe('tide-key-0042');
 });
 
-test('an env: key value is redacted in the recorded command', () => {
+test('an env: key value is redacted in a retained decision command', async () => {
   const home = tempDir();
   const argv = ['init', '--vault', 'vault'];
   const mesa = createMesa('default', testDeps(home, { argv, env: { JEV: 'sk-from-env' } }));
@@ -354,8 +418,9 @@ test('an env: key value is redacted in the recorded command', () => {
     'default',
     testDeps(home, { argv: ['log', 'token sk-from-env'], env: { JEV: 'sk-from-env' } }),
   );
-  mkdirSync(join(home, 'tide'));
-  const { receipt } = again.projects.register('tide', true);
+  const { receipt } = await again.decide({ text: 'sk-from-env' }, [
+    { kind: 'Noul', id: 'safe', statement: 'safe' },
+  ]);
   expect(receipt).not.toBeNull();
   const [entry] = again.receipts.list({ limit: 1 });
   expect(entry?.receipt.command).toBe('mesa log "token ***"');
