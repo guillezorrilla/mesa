@@ -16,6 +16,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { AgentField } from './board/AgentField';
 import { exited, queued } from './board/rows';
+import { FilesWorkspace } from './FilesWorkspace';
 import { GitWorkspace } from './GitWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
@@ -25,9 +26,12 @@ export function ProjectWorkspace(props: {
   onSession: (id: string) => void;
   onChanged: () => void;
   onUnregistered: () => void;
+  filesDirty: boolean;
+  onFilesDirtyChange: (dirty: boolean) => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'git' | 'skills'>('overview');
+  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'skills'>('overview');
+  const [pendingTab, setPendingTab] = useState<typeof tab>();
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
@@ -177,14 +181,38 @@ export function ProjectWorkspace(props: {
           <p className="text-sm">{project.label}</p>
         </ActionDialog>
       )}
+      {pendingTab && (
+        <ActionDialog
+          testId="file-leave-dialog"
+          title="Discard unsaved file changes?"
+          description="Save or discard the open file before leaving Files."
+          submit={{
+            label: 'Discard changes',
+            testId: 'confirm-file-leave',
+            disabled: false,
+            variant: 'destructive',
+          }}
+          onSubmit={() => {
+            props.onFilesDirtyChange(false);
+            setTab(pendingTab);
+            setPendingTab(undefined);
+          }}
+          onCancel={() => setPendingTab(undefined)}
+        >
+          <p className="text-sm">Unsaved edits will be lost.</p>
+        </ActionDialog>
+      )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'git', 'skills'] as const).map((name) => (
+        {(['overview', 'git', 'files', 'skills'] as const).map((name) => (
           <button
             key={name}
             type="button"
             aria-current={tab === name ? 'page' : undefined}
             className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-primary aria-[current=page]:text-foreground"
-            onClick={() => setTab(name)}
+            onClick={() => {
+              if (tab === 'files' && props.filesDirty && name !== tab) setPendingTab(name);
+              else setTab(name);
+            }}
           >
             {name}
           </button>
@@ -319,6 +347,13 @@ export function ProjectWorkspace(props: {
         </div>
       ) : tab === 'git' ? (
         <GitWorkspace key={project.name} project={project.name} sessions={props.sessions} />
+      ) : tab === 'files' ? (
+        <FilesWorkspace
+          key={project.name}
+          project={project.name}
+          sessions={props.sessions}
+          onDirtyChange={props.onFilesDirtyChange}
+        />
       ) : (
         <div className="space-y-2">
           {skills.data?.map((skill) => (

@@ -6,6 +6,15 @@ import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { doctor } from './doctor.js';
 import {
+  filesCreate,
+  filesDelete,
+  filesRead,
+  filesRename,
+  filesSearch,
+  filesTree,
+  filesWrite,
+} from './files.js';
+import {
   gitBranchCheckout,
   gitBranchCreate,
   gitBranchDelete,
@@ -69,6 +78,13 @@ export const COMMANDS: Command[] = [
   configSet,
   decide,
   doctor,
+  filesCreate,
+  filesDelete,
+  filesRead,
+  filesRename,
+  filesSearch,
+  filesTree,
+  filesWrite,
   goal,
   gitBranchCheckout,
   gitBranchCreate,

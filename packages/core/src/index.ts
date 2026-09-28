@@ -22,6 +22,8 @@ export {
   waitingOn,
 } from './display.js';
 export type { Check, DoctorReport } from './doctor.js';
+export type { FileEntry, FileHit, FileSearch, FileTree } from './files/browse.js';
+export type { FileChange, WorkspaceFile } from './files/editor.js';
 export type { GitBranch, GitBranchAction } from './git/branches.js';
 export type { GitCommit, GitPathAction } from './git/changes.js';
 export type { Checkout } from './git/checkout.js';

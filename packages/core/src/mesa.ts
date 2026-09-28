@@ -5,6 +5,7 @@ import { hooksService } from './agents/hooks-service.js';
 import { createContext, type MesaDeps } from './context.js';
 import { createFaro } from './decisions/faro.js';
 import { runDoctor } from './doctor.js';
+import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
@@ -28,6 +29,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   return {
     ...profileApi,
     projects: projectsService(ctx),
+    files: filesService(ctx),
     git: gitService(ctx, faro),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),

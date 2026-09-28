@@ -7,6 +7,9 @@ import type {
   Config,
   DiscoveredProject,
   DoctorReport,
+  FileChange,
+  FileSearch,
+  FileTree,
   GitBranch,
   GitBranchAction,
   GitCommit,
@@ -39,6 +42,7 @@ import type {
   VaultStatus,
   Viewed,
   WorkflowStatus,
+  WorkspaceFile,
 } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
@@ -65,6 +69,92 @@ const COMMANDS = {
     Recorded<{ order: string[] }>
   >(({ id, direction }) => ['board', 'move', '--', id, direction]),
   'grid.list': command<GridGroup[]>('grid'),
+  'files.tree': commandWith<{ project: string; checkout?: string }, FileTree>(
+    ({ project, checkout }) => [
+      'files',
+      'tree',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'files.search': commandWith<
+    { project: string; checkout?: string; query: string; content?: boolean },
+    FileSearch
+  >(({ project, checkout, query, content }) => [
+    'files',
+    'search',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(content ? ['--content'] : []),
+    '--',
+    project,
+    query,
+  ]),
+  'files.read': commandWith<
+    { project: string; checkout?: string; path: string; line?: number },
+    WorkspaceFile & { targetLine?: number }
+  >(({ project, checkout, path, line }) => [
+    'files',
+    'read',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(line ? ['--line', String(line)] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'files.write': commandWith<
+    { project: string; checkout?: string; path: string; text: string; revision: string },
+    Recorded<FileChange>
+  >(({ project, checkout, path, text, revision }) => [
+    'files',
+    'write',
+    ...(checkout ? ['--checkout', checkout] : []),
+    `--text=${text}`,
+    '--revision',
+    revision,
+    '--',
+    project,
+    path,
+  ]),
+  'files.create': commandWith<
+    { project: string; checkout?: string; path: string; text?: string },
+    Recorded<FileChange>
+  >(({ project, checkout, path, text }) => [
+    'files',
+    'create',
+    ...(checkout ? ['--checkout', checkout] : []),
+    `--text=${text ?? ''}`,
+    '--',
+    project,
+    path,
+  ]),
+  'files.rename': commandWith<
+    { project: string; checkout?: string; from: string; path: string; revision: string },
+    Recorded<FileChange>
+  >(({ project, checkout, from, path, revision }) => [
+    'files',
+    'rename',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--revision',
+    revision,
+    '--',
+    project,
+    from,
+    path,
+  ]),
+  'files.delete': commandWith<
+    { project: string; checkout?: string; path: string; revision: string },
+    Recorded<FileChange>
+  >(({ project, checkout, path, revision }) => [
+    'files',
+    'delete',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--revision',
+    revision,
+    '--',
+    project,
+    path,
+  ]),
   'git.status': commandWith<{ project: string; checkout?: string }, GitStatus>(
     ({ project, checkout }) => [
       'git',

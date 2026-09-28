@@ -99,6 +99,260 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
   );
 });
 
+test('project Files tab edits through the bridge, previews inert Markdown, and protects dirty navigation', async () => {
+  let text = '# Guide\nsecond line\n';
+  let revision = 'a'.repeat(64);
+  const checkout = { project: 'lantern-cove', path: '/src/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'files tree': () =>
+      envelope({
+        checkout,
+        entries: [
+          { path: 'docs', kind: 'directory', depth: 0 },
+          { path: 'docs/guide.md', kind: 'file', depth: 1 },
+        ],
+        truncated: false,
+      }),
+    'files read': () =>
+      envelope({
+        checkout,
+        path: 'docs/guide.md',
+        text,
+        revision,
+        lines: text.split('\n').length,
+        targetLine: 2,
+      }),
+    'files write': (args) => {
+      text = (args.find((arg) => arg.startsWith('--text=')) ?? '').slice(7);
+      revision = 'b'.repeat(64);
+      return envelope({
+        checkout,
+        path: 'docs/guide.md',
+        revision,
+        action: 'write',
+        receipt: null,
+      });
+    },
+    'files search': () =>
+      envelope({
+        checkout,
+        query: 'second',
+        mode: 'content',
+        hits: [{ path: 'docs/guide.md', line: 2, preview: 'second line' }],
+        truncated: false,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'files',
+    ),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="File tree"] button')].find(
+      (button) => button.textContent === 'guide.md',
+    ),
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe(text);
+  await act(async () => {
+    const editor = byTestId('file-editor-text')[0] as HTMLTextAreaElement;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+      editor,
+      '# Edited\n<script>alert(1)</script>\n![remote](https://example.com/track.png)',
+    );
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'git',
+    ),
+  );
+  expect(byTestId('file-leave-dialog')).toHaveLength(1);
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-testid="file-leave-dialog"] button'),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  await click(byTestId('nav-projects')[0]);
+  expect(byTestId('file-navigation-dialog')).toHaveLength(1);
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '[data-testid="file-navigation-dialog"] button',
+      ),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Preview',
+    ),
+  );
+  expect(byTestId('markdown-preview')[0]?.querySelector('h1')?.textContent).toBe('Edited');
+  expect(byTestId('markdown-preview')[0]?.querySelector('script,img')).toBeNull();
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Save',
+    ),
+  );
+  expect(
+    calls.some(
+      (args) => args[1] === 'files' && args[2] === 'write' && args.includes('a'.repeat(64)),
+    ),
+  ).toBe(true);
+  expect(text).toContain('# Edited');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Close',
+    ),
+  );
+  expect(byTestId('file-editor-text')).toHaveLength(0);
+});
+
+test('project Files tab searches, jumps to an exact line, and exposes checked file mutations', async () => {
+  const checkout = { project: 'lantern-cove', path: '/src/lantern-cove', registered: true };
+  const files = new Map([['docs/guide.md', 'first\nsecond line\n']]);
+  const revision = 'a'.repeat(64);
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'files tree': () =>
+      envelope({
+        checkout,
+        entries: [
+          { path: 'docs', kind: 'directory', depth: 0 },
+          ...[...files.keys()].map((path) => ({ path, kind: 'file', depth: 1 })),
+        ],
+        truncated: false,
+      }),
+    'files read': (args) => {
+      const path = args.at(-1) ?? '';
+      const text = files.get(path) ?? '';
+      const lineFlag = args.indexOf('--line');
+      return envelope({
+        checkout,
+        path,
+        text,
+        revision,
+        lines: text.split('\n').length,
+        ...(lineFlag > 0 ? { targetLine: Number(args[lineFlag + 1]) } : {}),
+      });
+    },
+    'files search': () =>
+      envelope({
+        checkout,
+        query: 'second',
+        mode: 'content',
+        hits: [{ path: 'docs/guide.md', line: 2, preview: 'second line' }],
+        truncated: false,
+      }),
+    'files create': (args) => {
+      const path = args.at(-1) ?? '';
+      files.set(path, '');
+      return envelope({ checkout, path, revision, action: 'create', receipt: null });
+    },
+    'files rename': (args) => {
+      const from = args.at(-2) ?? '';
+      const path = args.at(-1) ?? '';
+      files.set(path, files.get(from) ?? '');
+      files.delete(from);
+      return envelope({ checkout, from, path, revision, action: 'rename', receipt: null });
+    },
+    'files delete': (args) => {
+      const path = args.at(-1) ?? '';
+      files.delete(path);
+      return envelope({ checkout, path, action: 'delete', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'files',
+    ),
+  );
+  const treeRows = [
+    ...document.querySelectorAll<HTMLButtonElement>(
+      '[aria-label="File tree"] button[data-file-row]',
+    ),
+  ];
+  treeRows[0]?.focus();
+  await act(async () =>
+    treeRows[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })),
+  );
+  expect(document.activeElement).toBe(treeRows[1]);
+  await choose(document.querySelector('[aria-label="File search mode"]') ?? undefined, 'content');
+  await act(async () => {
+    const input = document.querySelector<HTMLInputElement>('[aria-label="Search files"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+      input,
+      'second',
+    );
+    input?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Run file search"]') ?? undefined,
+  );
+  await click(
+    document.querySelector<HTMLButtonElement>(
+      '[aria-label="File search results"] button:nth-child(2)',
+    ) ?? undefined,
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).selectionStart).toBe(6);
+  const goTo = document.querySelector<HTMLInputElement>('[aria-label="Go to file and line"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+      goTo,
+      'docs/guide.md:2',
+    );
+    goTo?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Go to file',
+    ),
+  );
+  expect(
+    calls.some(
+      (args) =>
+        args[1] === 'files' && args[2] === 'read' && args.includes('--line') && args.includes('2'),
+    ),
+  ).toBe(true);
+  await click(document.querySelector<HTMLButtonElement>('[aria-label="Create file"]') ?? undefined);
+  (document.querySelector('#new-file-path') as HTMLInputElement).value = 'docs/new.md';
+  await click(byTestId('confirm-file-create')[0]);
+  expect(files.has('docs/new.md')).toBe(true);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Rename',
+    ),
+  );
+  (document.querySelector('#rename-file-path') as HTMLInputElement).value = 'docs/renamed.md';
+  await click(byTestId('confirm-file-rename')[0]);
+  expect(files.has('docs/renamed.md')).toBe(true);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Delete',
+    ),
+  );
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-testid="file-delete-dialog"] button'),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(files.has('docs/renamed.md')).toBe(true);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Delete',
+    ),
+  );
+  await click(byTestId('confirm-file-delete')[0]);
+  expect(files.has('docs/renamed.md')).toBe(false);
+});
+
 test('project Git actions stage, unstage and commit through the CLI bridge', async () => {
   let staged = false;
   let committed = false;
