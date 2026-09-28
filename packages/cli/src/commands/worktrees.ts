@@ -1,5 +1,21 @@
 import { MesaError, type WorktreeRow } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { recordedOutput } from '../output/recorded.js';
+
+export const worktreesCreate = defineCommand({
+  name: 'worktrees create',
+  summary: "Create a linked worktree using this profile's location and carryover settings",
+  args: ['project', 'branch'],
+  flags: { base: { type: 'string', description: 'Start a new branch from this ref' } },
+  example: 'mesa worktrees create lantern-cove feature',
+  run: async ({ mesa, args, flags }) => {
+    const recorded = await mesa.worktrees.create(args.project, args.branch, flags.base);
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `created ${recorded.result.path}`,
+    });
+  },
+});
 
 export const worktreesList = defineCommand({
   name: 'worktrees list',

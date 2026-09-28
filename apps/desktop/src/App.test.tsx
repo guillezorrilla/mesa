@@ -953,6 +953,12 @@ test('shortcut settings validate conflicts and update the active profile key', a
     sessions: { log: true },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
+    worktrees: {
+      location: 'profile',
+      fetch: false,
+      sparseDirectories: [],
+      carryIgnoredDirectories: [],
+    },
     shortcuts,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },

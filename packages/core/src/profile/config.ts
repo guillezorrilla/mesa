@@ -7,6 +7,7 @@ import { AgentSchema, CLAUDE_PERMISSION_MODES } from '../agents/agents.js';
 import { DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsBackendSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
+import { relativeFilePath } from '../files/path.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
@@ -24,6 +25,15 @@ import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 /** The terminal apps `mesa attach --app` can open. */
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
+
+const relativeDirectory = z.string().refine((value) => {
+  try {
+    relativeFilePath(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, 'must be a repository-relative directory');
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 const ConfigSchema = z.strictObject({
@@ -55,6 +65,20 @@ const ConfigSchema = z.strictObject({
         )
         .default([]),
     })
+    .prefault({}),
+  worktrees: z
+    .strictObject({
+      location: z.enum(['profile', 'sibling', 'nested', 'custom']).default('profile'),
+      customRoot: z.string().refine(isAbsolute, 'must be an absolute path').optional(),
+      base: z.string().min(1).optional(),
+      fetch: z.boolean().default(false),
+      sparseDirectories: z.array(relativeDirectory).default([]),
+      carryIgnoredDirectories: z.array(relativeDirectory).default([]),
+    })
+    .refine(
+      (settings) => settings.location !== 'custom' || settings.customRoot,
+      'customRoot is required for custom location',
+    )
     .prefault({}),
   shortcuts: z
     .strictObject({

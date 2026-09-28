@@ -54,6 +54,12 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       sessions: { log: true },
       terminal: { app: 'Terminal' },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
+      worktrees: {
+        location: 'profile',
+        fetch: false,
+        sparseDirectories: [],
+        carryIgnoredDirectories: [],
+      },
       shortcuts: { ...DEFAULT_SHORTCUTS },
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
       grid: { groups: [] },

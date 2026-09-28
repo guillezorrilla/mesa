@@ -1,8 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
-// Mesa's skill links are this machine's (absolute paths into its Mesa checkout), so git ignores
-// them through the repository's own, uncommitted exclude file, shared by all its worktrees.
+// Mesa's local skill links and nested worktrees are ignored through the repository's own,
+// uncommitted exclude file, shared by all its worktrees.
 
 /**
  * The repository `folder` is in, its top (the folder holding `.git`, walking up), and its exclude
@@ -29,8 +29,7 @@ function repositoryOf(folder: string): { top: string; file: string } | undefined
 /**
  * Adds each of `paths` (relative to `folder`, such as `.claude/skills/mesa`) to the exclude file of
  * the repository `folder` is in, once, from its top (`/sub/.claude/skills/mesa` for a session
- * that runs in `sub`), so git neither shows nor counts them: a worktree with only Mesa's links in
- * it is clean. A folder in no repository is left alone.
+ * that runs in `sub`), so git neither shows nor counts them. A folder in no repository is left alone.
  * ponytail: lines stay after their link goes; an ignored path that is not there costs nothing.
  */
 export function excludeFromGit(folder: string, paths: readonly string[]) {
@@ -48,4 +47,4 @@ export function excludeFromGit(folder: string, paths: readonly string[]) {
   appendFileSync(file, `${lead}${header}${lines.join('\n')}\n`);
 }
 
-const HEADER = "# Mesa's skill links (mesa skills sync)";
+const HEADER = '# Mesa local paths';

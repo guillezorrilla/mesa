@@ -44,6 +44,7 @@ import type {
   Viewed,
   WorkflowStatus,
   WorkspaceFile,
+  Worktree,
   WorktreeRow,
 } from '@mesa/core';
 
@@ -124,6 +125,17 @@ const COMMANDS = {
     'list',
     '--',
     project,
+  ]),
+  'worktrees.create': commandWith<
+    { project: string; branch: string; base?: string },
+    Recorded<Worktree>
+  >(({ project, branch, base }) => [
+    'worktrees',
+    'create',
+    ...(base ? ['--base', base] : []),
+    '--',
+    project,
+    branch,
   ]),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },

@@ -78,6 +78,7 @@ export type { StopOutcome } from './sessions/stop.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
 export type { Viewed } from './sessions/view.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
+export type { Worktree } from './sessions/worktree.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';

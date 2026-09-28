@@ -1,5 +1,4 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { AgentSchema, readyAgent } from '../agents/agents.js';
 import { AGENT_NAMES, type Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
@@ -9,15 +8,15 @@ import type { Profile } from '../profile/profile.js';
 import { type Project, readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
+import { sessionWorktree } from '../worktrees/create.js';
 import { windowEnv } from './caller.js';
-import { worktreeHolder } from './holders.js';
 import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import { PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
 import type { TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
-import { addWorktree, removeWorktree, type Worktree, worktreePath } from './worktree.js';
+import { removeWorktree, type Worktree } from './worktree.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
@@ -188,16 +187,7 @@ function syncSkillsInto(deps: Pick<LaunchDeps, 'syncSkills'>, project: string, f
 
 /** A new worktree on `branch`, unless a session has the worktree there. */
 function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, base?: string) {
-  const root = join(deps.profile.paths.worktrees, entry.name);
-  const path = worktreePath(root, branch);
-  const holder = worktreeHolder(deps.store, path);
-  if (holder?.worktree && existsSync(path)) {
-    throw new MesaError(
-      'usage',
-      `session ${holder.id} has ${holder.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
-    );
-  }
-  return addWorktree(deps.run, { repo: entry.path, root, branch, base });
+  return sessionWorktree(deps.profile, deps.run, deps.store, entry, branch, base);
 }
 
 // ponytail: a guess until Faro (#25) classifies it on the next look: a fresh claude waits at its

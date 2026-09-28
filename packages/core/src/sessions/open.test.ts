@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
@@ -437,6 +437,21 @@ test('--branch starts the agent in a new worktree under the profile, from the de
   const { result: resumed } = await mesa.sessions.resume(result.id);
   expect(resumed.record.worktree).toEqual(result.worktree);
   expect(cwdOf(world)).toBe(path);
+});
+
+test('session branch creation follows the same configured sibling location as manual worktrees', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world);
+  gitRepo(dir);
+  mesa.config.set('worktrees.location', 'sibling');
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'shared-setting' });
+  const path = join(dirname(dir), '.mesa-worktrees', 'default', 'lantern-cove', 'shared-setting');
+  expect(result.worktree?.path).toBe(path);
+  expect(cwdOf(world)).toBe(path);
+  const { result: manual } = await mesa.worktrees.create('lantern-cove', 'manual');
+  const { result: attached } = await mesa.sessions.open('lantern-cove', { branch: 'manual' });
+  expect(attached.worktree).toEqual({ path: manual.path, branch: 'manual' });
+  expect(cwdOf(world)).toBe(manual.path);
 });
 
 test("with an origin, a new branch starts from origin's HEAD, tracking nothing, or from its branch there, tracking it", async () => {

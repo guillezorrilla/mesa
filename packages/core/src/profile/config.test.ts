@@ -77,10 +77,33 @@ test('editor preferences and external argv validate before saving', () => {
     '["sh", "-c", "{file}"]',
     '["/bin/sh", "-c", "{file}{file}"]',
     '["/bin/sh", "-c"]',
-  ]) {
+  ] as const) {
     expect(thrown(() => setConfigValue(file, 'editor.external', value)).code).toBe(
       'invalid_config',
     );
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  }
+});
+
+test('worktree settings retain the profile default and reject unsafe directories', () => {
+  expect(loadConfig(file).worktrees).toEqual({
+    location: 'profile',
+    fetch: false,
+    sparseDirectories: [],
+    carryIgnoredDirectories: [],
+  });
+  expect(setConfigValue(file, 'worktrees.location', 'nested').value).toBe('nested');
+  expect(setConfigValue(file, 'worktrees.sparseDirectories', '[src, docs]').value).toEqual([
+    'src',
+    'docs',
+  ]);
+  const before = readFileSync(file, 'utf8');
+  for (const [path, value] of [
+    ['worktrees.location', 'custom'],
+    ['worktrees.sparseDirectories', '["../outside"]'],
+    ['worktrees.carryIgnoredDirectories', '[".git/objects"]'],
+  ] as const) {
+    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
     expect(readFileSync(file, 'utf8')).toBe(before);
   }
 });

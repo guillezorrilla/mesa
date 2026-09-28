@@ -1,4 +1,4 @@
-import { lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { MesaError } from '../lib/result.js';
 
@@ -8,7 +8,7 @@ export function relativeFilePath(path: string): string {
     !path ||
     path.startsWith('/') ||
     path.includes('\0') ||
-    path.split('/').some((part) => !part || part === '.' || part === '..')
+    path.split('/').some((part) => !part || part === '.' || part === '..' || part === '.git')
   ) {
     throw new MesaError('usage', 'path must be a repository-relative file');
   }
@@ -17,7 +17,6 @@ export function relativeFilePath(path: string): string {
 
 export function checkedFilePath(root: string, path: string, create = false): string {
   const parts = relativeFilePath(path).split('/');
-  if (parts.includes('.git')) throw new MesaError('usage', 'Git internals cannot be edited');
   const canonicalRoot = realpathSync.native(root);
   let parent = canonicalRoot;
   for (const [index, part] of parts.entries()) {
@@ -48,4 +47,26 @@ export function checkedFilePath(root: string, path: string, create = false): str
     }
   }
   return join(parent, parts.at(-1) as string);
+}
+
+/** Creates only missing parent directories, refusing links or a path outside this checkout. */
+export function createCheckedFilePath(root: string, path: string): string {
+  const parts = relativeFilePath(path).split('/');
+  const canonicalRoot = realpathSync.native(root);
+  let parent = canonicalRoot;
+  for (const part of parts.slice(0, -1)) {
+    const target = join(parent, part);
+    try {
+      mkdirSync(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    const stat = lstatSync(target);
+    if (!stat.isDirectory() || stat.isSymbolicLink())
+      throw new MesaError('usage', `${path} has an unsafe parent`);
+    parent = realpathSync.native(target);
+    if (parent !== canonicalRoot && !parent.startsWith(`${canonicalRoot}/`))
+      throw new MesaError('usage', `${path} leaves the checkout`);
+  }
+  return checkedFilePath(root, path, true);
 }

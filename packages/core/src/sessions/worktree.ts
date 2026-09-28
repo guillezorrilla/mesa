@@ -68,7 +68,14 @@ export const worktreePath = (root: string, branch: string) =>
  */
 export async function addWorktree(
   run: Runner,
-  input: { repo: string; root: string; branch: string; base?: string },
+  input: {
+    repo: string;
+    root: string;
+    branch: string;
+    base?: string;
+    defaultBase?: string;
+    fetch?: boolean;
+  },
 ): Promise<Worktree> {
   const { repo, branch } = input;
   const below = await must(
@@ -87,6 +94,14 @@ export async function addWorktree(
   if ((await ask(run, repo, ['check-ref-format', '--branch', branch])) !== branch) {
     throw new MesaError('usage', `${branch} is not a valid branch name`);
   }
+  if (input.fetch)
+    await must(
+      run,
+      repo,
+      ['fetch', '--all', '--prune'],
+      'cannot fetch before worktree creation',
+      ADD_MS,
+    );
   const local = await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`]);
   if (local !== undefined && input.base !== undefined) {
     throw new MesaError(
@@ -95,7 +110,9 @@ export async function addWorktree(
     );
   }
   const base =
-    local === undefined ? (input.base ?? (await defaultBase(run, repo, branch))) : undefined;
+    local === undefined
+      ? (input.base ?? input.defaultBase ?? (await defaultBase(run, repo, branch)))
+      : undefined;
   const path = worktreePath(input.root, branch);
   mkdirSync(input.root, { recursive: true });
   // Before the claim, so a registration at the path after it can only be this call's. git lists

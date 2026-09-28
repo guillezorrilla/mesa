@@ -44,6 +44,12 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     sessions: { log: true },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
+    worktrees: {
+      location: 'profile',
+      fetch: false,
+      sparseDirectories: [],
+      carryIgnoredDirectories: [],
+    },
     shortcuts: DEFAULT_SHORTCUTS,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },

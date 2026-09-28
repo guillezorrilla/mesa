@@ -1,15 +1,54 @@
-import type { WorktreeRow } from '@mesa/core';
-import { FolderGit2, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import type { Config, WorktreeRow } from '@mesa/core';
+import { FolderGit2, Plus, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ActionDialog } from '@/components/ActionDialog';
+import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { useCommand } from '@/lib/useCommand';
+import { Textarea } from '@/components/ui/textarea';
+import { useAct } from '@/lib/useAct';
+import { useCommand, useRun } from '@/lib/useCommand';
+
+const DEFAULT_SETTINGS: Config['worktrees'] = {
+  location: 'profile',
+  fetch: false,
+  sparseDirectories: [],
+  carryIgnoredDirectories: [],
+};
 
 /** Git inventory with the current profile's unfinished session holders. */
 export function WorktreesWorkspace(props: { project: string; onSession: (id: string) => void }) {
   const worktrees = useCommand('worktrees.list', { project: props.project });
+  const config = useCommand('config.get');
+  const run = useRun();
+  const { acting, act } = useAct();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [settings, setSettings] = useState<Config['worktrees']>(DEFAULT_SETTINGS);
+  useEffect(() => {
+    if (config.data) setSettings(config.data.worktrees);
+  }, [config.data]);
+  const create = (branch: string, base: string) =>
+    act(async () => {
+      const result = await run('worktrees.create', {
+        project: props.project,
+        branch,
+        base: base || undefined,
+      });
+      if (!result) return undefined;
+      setCreateOpen(false);
+      await worktrees.refresh();
+      return said(`Created ${branch} worktree`, result);
+    });
+  const saveSettings = () =>
+    act(async () => {
+      const result = await run('config.set', { path: 'worktrees', value: settings });
+      if (!result) return undefined;
+      await config.refresh();
+      return said('Saved worktree settings', result);
+    });
   const [branch, setBranch] = useState('');
   const [holder, setHolder] = useState('');
   const [state, setState] = useState<WorktreeRow['state'] | 'all'>('all');
@@ -21,6 +60,112 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
   );
   return (
     <section data-testid="worktrees-workspace" className="space-y-4" aria-label="Worktrees">
+      <div className="flex justify-end">
+        <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus aria-hidden /> New worktree
+        </Button>
+      </div>
+      <details className="rounded-lg border bg-card/40 p-4">
+        <summary className="cursor-pointer text-sm font-medium">Worktree settings</summary>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="worktree-location">Location</Label>
+            <NativeSelect
+              id="worktree-location"
+              value={settings.location}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  location: event.target.value as Config['worktrees']['location'],
+                })
+              }
+            >
+              {(['profile', 'sibling', 'nested', 'custom'] as const).map((location) => (
+                <NativeSelectOption key={location} value={location}>
+                  {location}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          {settings.location === 'custom' && (
+            <div className="space-y-1">
+              <Label htmlFor="worktree-custom-root">Custom root</Label>
+              <Input
+                id="worktree-custom-root"
+                value={settings.customRoot ?? ''}
+                onChange={(event) =>
+                  setSettings({ ...settings, customRoot: event.target.value || undefined })
+                }
+                placeholder="/absolute/path/outside/project"
+              />
+            </div>
+          )}
+          <div className="space-y-1">
+            <Label htmlFor="worktree-base">Default base for new branches</Label>
+            <Input
+              id="worktree-base"
+              value={settings.base ?? ''}
+              onChange={(event) =>
+                setSettings({ ...settings, base: event.target.value || undefined })
+              }
+              placeholder="Current branch or origin/HEAD"
+            />
+          </div>
+          <label className="flex items-center gap-2 self-end text-sm">
+            <input
+              type="checkbox"
+              checked={settings.fetch}
+              onChange={(event) => setSettings({ ...settings, fetch: event.target.checked })}
+            />
+            Fetch remotes before creating
+          </label>
+          <div className="space-y-1">
+            <Label htmlFor="worktree-sparse">Sparse checkout directories, one per line</Label>
+            <Textarea
+              id="worktree-sparse"
+              value={settings.sparseDirectories.join('\n')}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  sparseDirectories: event.target.value
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="worktree-carry">Ignored directories to copy, one per line</Label>
+            <Textarea
+              id="worktree-carry"
+              value={settings.carryIgnoredDirectories.join('\n')}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  carryIgnoredDirectories: event.target.value
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter(Boolean),
+                })
+              }
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Only named ignored directories are copied; none are carried by default.
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mt-3"
+          disabled={acting || (settings.location === 'custom' && !settings.customRoot)}
+          onClick={() => void saveSettings()}
+        >
+          Save settings
+        </Button>
+      </details>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="Filter worktree branch"
@@ -92,6 +237,33 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
       </div>
       {!visible.length && !worktrees.busy && (
         <p className="text-sm text-muted-foreground">No worktrees match.</p>
+      )}
+      {createOpen && (
+        <ActionDialog
+          testId="worktree-create-dialog"
+          title="Create worktree"
+          description="Create a branch checkout using this profile's saved worktree settings."
+          submit={{ label: 'Create', testId: 'confirm-worktree-create', disabled: acting }}
+          onCancel={() => setCreateOpen(false)}
+          onSubmit={(form) => {
+            const values = new FormData(form);
+            void create(
+              String(values.get('branch') ?? '').trim(),
+              String(values.get('base') ?? '').trim(),
+            );
+          }}
+        >
+          <Label htmlFor="new-worktree-branch">Branch</Label>
+          <Input
+            id="new-worktree-branch"
+            name="branch"
+            required
+            autoFocus
+            placeholder="feature/name"
+          />
+          <Label htmlFor="new-worktree-base">Base (new branch only)</Label>
+          <Input id="new-worktree-base" name="base" placeholder={settings.base ?? 'Automatic'} />
+        </ActionDialog>
       )}
     </section>
   );
