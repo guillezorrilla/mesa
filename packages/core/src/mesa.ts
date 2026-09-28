@@ -5,12 +5,15 @@ import { hooksService } from './agents/hooks-service.js';
 import { createContext, type MesaDeps } from './context.js';
 import { createFaro } from './decisions/faro.js';
 import { runDoctor } from './doctor.js';
+import { filesService } from './files/service.js';
+import { gitService } from './git/service.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { receiptsService } from './receipts/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { vaultService } from './vault/service.js';
+import { worktreesService } from './worktrees/service.js';
 
 export type { MesaDeps } from './context.js';
 
@@ -27,6 +30,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
   return {
     ...profileApi,
     projects: projectsService(ctx),
+    files: filesService(ctx),
+    worktrees: worktreesService(ctx),
+    git: gitService(ctx, faro),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),
     ...sessionsService(ctx, faro, skills),

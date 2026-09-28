@@ -66,6 +66,50 @@ test('Board preferences validate manual order without touching unrelated config'
   expect(readFileSync(file, 'utf8')).toBe(before);
 });
 
+test('editor preferences and external argv validate before saving', () => {
+  expect(setConfigValue(file, 'editor.vim', 'true').value).toBe(true);
+  expect(setConfigValue(file, 'editor.tabSize', '4').value).toBe(4);
+  expect(
+    setConfigValue(file, 'editor.external', '["/usr/bin/open", "-a", "TextEdit", "{file}"]').value,
+  ).toEqual(['/usr/bin/open', '-a', 'TextEdit', '{file}']);
+  const before = readFileSync(file, 'utf8');
+  for (const value of [
+    '["sh", "-c", "{file}"]',
+    '["/bin/sh", "-c", "{file}{file}"]',
+    '["/bin/sh", "-c"]',
+  ] as const) {
+    expect(thrown(() => setConfigValue(file, 'editor.external', value)).code).toBe(
+      'invalid_config',
+    );
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  }
+});
+
+test('worktree settings retain the profile default and reject unsafe directories', () => {
+  expect(loadConfig(file).worktrees).toEqual({
+    location: 'profile',
+    fetch: false,
+    sparseDirectories: [],
+    carryIgnoredDirectories: [],
+    setup: [],
+    teardown: [],
+  });
+  expect(setConfigValue(file, 'worktrees.location', 'nested').value).toBe('nested');
+  expect(setConfigValue(file, 'worktrees.sparseDirectories', '[src, docs]').value).toEqual([
+    'src',
+    'docs',
+  ]);
+  const before = readFileSync(file, 'utf8');
+  for (const [path, value] of [
+    ['worktrees.location', 'custom'],
+    ['worktrees.sparseDirectories', '["../outside"]'],
+    ['worktrees.carryIgnoredDirectories', '[".git/objects"]'],
+  ] as const) {
+    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  }
+});
+
 test('a YAML syntax error reports the position, never the source text', () => {
   writeFileSync(file, 'vault: /tmp/v\nkeys:\n  jev: "sk-secret\n');
   const { code, message } = thrown(() => loadConfig(file));

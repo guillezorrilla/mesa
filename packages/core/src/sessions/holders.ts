@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import { MesaError } from '../lib/result.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -10,6 +11,28 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .list()
     .filter((r) => r.worktree?.path === path)
     .at(-1);
+
+/** An unfinished session using a checkout, including a session in a folder below its root. */
+export const checkoutHolders = (
+  records: readonly SessionRecord[],
+  project: string,
+  root: string,
+  path: string,
+) =>
+  records.filter((r) => {
+    if (r.project !== project || r.endedAt) return false;
+    const held = r.worktree?.path ?? r.cwd ?? root;
+    let cwd: string;
+    try {
+      cwd = realpathSync.native(held);
+    } catch {
+      cwd = held;
+    }
+    return cwd === path || cwd.startsWith(`${path}/`);
+  });
+
+export const checkoutHolder = (store: SessionStore, project: string, root: string, path: string) =>
+  checkoutHolders(store.list(), project, root, path).at(-1);
 
 /**
  * Refuses `r`'s worktree once a newer session has it (a resume or a handoff took it over): two

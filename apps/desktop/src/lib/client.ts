@@ -1,11 +1,26 @@
 import type {
   Agent,
   Attached,
+  Checkout,
   ClaudeHooksStatus,
   CommandReference,
   Config,
   DiscoveredProject,
   DoctorReport,
+  FileChange,
+  FileLink,
+  FileSearch,
+  FileTree,
+  GitBranch,
+  GitBranchAction,
+  GitCommit,
+  GitComparison,
+  GitDiff,
+  GitGraph,
+  GitPathAction,
+  GitStatus,
+  GitSync,
+  GitTracking,
   GridGroup,
   HooksStatus,
   Opened,
@@ -14,18 +29,27 @@ import type {
   ProjectRow,
   ReceiptEntry,
   Removed,
+  RepositoryInsight,
   Result,
   Sent,
   SessionLog,
   SessionRecord,
   SkillRow,
   SkillSync,
+  StashAction,
+  StashCreated,
+  StashEntry,
   StopOutcome,
   TmuxWindow,
   TreeRow,
   VaultStatus,
   Viewed,
   WorkflowStatus,
+  WorkspaceFile,
+  Worktree,
+  WorktreeAction,
+  WorktreePreview,
+  WorktreeRow,
 } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
@@ -46,12 +70,385 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
+  'git.insight': commandWith<{ project: string; checkout?: string }, RepositoryInsight>(
+    ({ project, checkout }) => [
+      'git',
+      'insight',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
   'config.get': command<Config>('config'),
   'board.move': commandWith<
     { id: string; direction: 'up' | 'down' },
     Recorded<{ order: string[] }>
   >(({ id, direction }) => ['board', 'move', '--', id, direction]),
   'grid.list': command<GridGroup[]>('grid'),
+  'files.tree': commandWith<{ project: string; checkout?: string }, FileTree>(
+    ({ project, checkout }) => [
+      'files',
+      'tree',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'files.search': commandWith<
+    { project: string; checkout?: string; query: string; content?: boolean },
+    FileSearch
+  >(({ project, checkout, query, content }) => [
+    'files',
+    'search',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(content ? ['--content'] : []),
+    '--',
+    project,
+    query,
+  ]),
+  'files.read': commandWith<
+    { project: string; checkout?: string; path: string; line?: number },
+    WorkspaceFile & { targetLine?: number }
+  >(({ project, checkout, path, line }) => [
+    'files',
+    'read',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(line ? ['--line', String(line)] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'files.open': commandWith<
+    { project: string; checkout?: string; path: string; line?: number },
+    Recorded<{ checkout: Checkout; path: string; line: number; opened: boolean }>
+  >(({ project, checkout, path, line }) => [
+    'files',
+    'open',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(line ? ['--line', String(line)] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'files.link': commandWith<{ session: string; target: string }, FileLink>(
+    ({ session, target }) => ['files', 'link', '--', session, target],
+  ),
+  'worktrees.list': commandWith<{ project: string }, WorktreeRow[]>(({ project }) => [
+    'worktrees',
+    'list',
+    '--',
+    project,
+  ]),
+  'worktrees.create': commandWith<
+    { project: string; branch: string; base?: string },
+    Recorded<Worktree>
+  >(({ project, branch, base }) => [
+    'worktrees',
+    'create',
+    ...(base ? ['--base', base] : []),
+    '--',
+    project,
+    branch,
+  ]),
+  'worktrees.rerun': commandWith<
+    { project: string; checkout: string },
+    Recorded<{ path: string; ran: true }>
+  >(({ project, checkout }) => ['worktrees', 'rerun', '--', project, checkout]),
+  'worktrees.preview': commandWith<
+    { project: string; action: WorktreeAction; checkout?: string },
+    WorktreePreview
+  >(({ project, action, checkout }) => [
+    'worktrees',
+    'preview',
+    '--action',
+    action,
+    '--',
+    project,
+    ...(checkout ? [checkout] : []),
+  ]),
+  'worktrees.apply': commandWith<
+    { project: string; action: WorktreeAction; token: string; checkout?: string },
+    Recorded<{
+      action: WorktreeAction;
+      paths: string[];
+      destination?: string;
+      remaining?: string[];
+      teardownRan?: boolean;
+    }>
+  >(({ project, action, token, checkout }) => [
+    'worktrees',
+    'apply',
+    '--action',
+    action,
+    '--token',
+    token,
+    '--',
+    project,
+    ...(checkout ? [checkout] : []),
+  ]),
+  'files.write': commandWith<
+    { project: string; checkout?: string; path: string; text: string; revision: string },
+    Recorded<FileChange>
+  >(({ project, checkout, path, text, revision }) => [
+    'files',
+    'write',
+    ...(checkout ? ['--checkout', checkout] : []),
+    `--text=${text}`,
+    '--revision',
+    revision,
+    '--',
+    project,
+    path,
+  ]),
+  'files.create': commandWith<
+    { project: string; checkout?: string; path: string; text?: string },
+    Recorded<FileChange>
+  >(({ project, checkout, path, text }) => [
+    'files',
+    'create',
+    ...(checkout ? ['--checkout', checkout] : []),
+    `--text=${text ?? ''}`,
+    '--',
+    project,
+    path,
+  ]),
+  'files.rename': commandWith<
+    { project: string; checkout?: string; from: string; path: string; revision: string },
+    Recorded<FileChange>
+  >(({ project, checkout, from, path, revision }) => [
+    'files',
+    'rename',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--revision',
+    revision,
+    '--',
+    project,
+    from,
+    path,
+  ]),
+  'files.delete': commandWith<
+    { project: string; checkout?: string; path: string; revision: string },
+    Recorded<FileChange>
+  >(({ project, checkout, path, revision }) => [
+    'files',
+    'delete',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--revision',
+    revision,
+    '--',
+    project,
+    path,
+  ]),
+  'git.status': commandWith<{ project: string; checkout?: string }, GitStatus>(
+    ({ project, checkout }) => [
+      'git',
+      'status',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.diff': commandWith<
+    { project: string; checkout?: string; path?: string; staged?: boolean },
+    GitDiff
+  >(({ project, checkout, path, staged }) => [
+    'git',
+    'diff',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(staged ? ['--staged'] : []),
+    '--',
+    project,
+    ...(path ? [path] : []),
+  ]),
+  'git.stage': commandWith<
+    { project: string; checkout?: string; path: string },
+    Recorded<GitPathAction>
+  >(({ project, checkout, path }) => [
+    'git',
+    'stage',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'git.unstage': commandWith<
+    { project: string; checkout?: string; path: string },
+    Recorded<GitPathAction>
+  >(({ project, checkout, path }) => [
+    'git',
+    'unstage',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'git.commit': commandWith<
+    { project: string; checkout?: string; message: string },
+    Recorded<GitCommit>
+  >(({ project, checkout, message }) => [
+    'git',
+    'commit',
+    ...(checkout ? ['--checkout', checkout] : []),
+    `--message=${message}`,
+    '--',
+    project,
+  ]),
+  'git.branches': commandWith<
+    { project: string; checkout?: string },
+    { checkout: Checkout; branches: GitBranch[] }
+  >(({ project, checkout }) => [
+    'git',
+    'branches',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+  ]),
+  'git.branchCreate': commandWith<
+    { project: string; checkout?: string; name: string; base?: string },
+    Recorded<GitBranchAction>
+  >(({ project, checkout, name, base }) => [
+    'git',
+    'branch',
+    'create',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(base ? ['--base', base] : []),
+    '--',
+    project,
+    name,
+  ]),
+  'git.branchCheckout': commandWith<
+    { project: string; checkout?: string; name: string },
+    Recorded<GitBranchAction>
+  >(({ project, checkout, name }) => [
+    'git',
+    'branch',
+    'checkout',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    name,
+  ]),
+  'git.branchDelete': commandWith<
+    { project: string; checkout?: string; name: string },
+    Recorded<GitBranchAction>
+  >(({ project, checkout, name }) => [
+    'git',
+    'branch',
+    'delete',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    name,
+  ]),
+  'git.stashes': commandWith<
+    { project: string; checkout?: string },
+    { checkout: Checkout; stashes: StashEntry[] }
+  >(({ project, checkout }) => [
+    'git',
+    'stashes',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+  ]),
+  'git.stashCreate': commandWith<
+    { project: string; checkout?: string; message?: string },
+    Recorded<StashCreated>
+  >(({ project, checkout, message }) => [
+    'git',
+    'stash',
+    'create',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(message ? [`--message=${message}`] : []),
+    '--',
+    project,
+  ]),
+  'git.stashApply': commandWith<
+    { project: string; checkout?: string; ref: string },
+    Recorded<StashAction>
+  >(({ project, checkout, ref }) => [
+    'git',
+    'stash',
+    'apply',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    ref,
+  ]),
+  'git.stashPop': commandWith<
+    { project: string; checkout?: string; ref: string },
+    Recorded<StashAction>
+  >(({ project, checkout, ref }) => [
+    'git',
+    'stash',
+    'pop',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    ref,
+  ]),
+  'git.stashDrop': commandWith<
+    { project: string; checkout?: string; ref: string },
+    Recorded<StashAction>
+  >(({ project, checkout, ref }) => [
+    'git',
+    'stash',
+    'drop',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    ref,
+  ]),
+  'git.tracking': commandWith<{ project: string; checkout?: string }, GitTracking>(
+    ({ project, checkout }) => [
+      'git',
+      'tracking',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.push': commandWith<{ project: string; checkout?: string }, Recorded<GitSync>>(
+    ({ project, checkout }) => [
+      'git',
+      'push',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--yes',
+      '--',
+      project,
+    ],
+  ),
+  'git.pull': commandWith<{ project: string; checkout?: string }, Recorded<GitSync>>(
+    ({ project, checkout }) => [
+      'git',
+      'pull',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--yes',
+      '--',
+      project,
+    ],
+  ),
+  'git.graph': commandWith<{ project: string; checkout?: string; branch?: string }, GitGraph>(
+    ({ project, checkout, branch }) => [
+      'git',
+      'graph',
+      ...(checkout ? ['--checkout', checkout] : []),
+      ...(branch ? ['--branch', branch] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.compare': commandWith<
+    { project: string; checkout?: string; base: string; head: string },
+    GitComparison
+  >(({ project, checkout, base, head }) => [
+    'git',
+    'compare',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    base,
+    head,
+  ]),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [
       'grid',

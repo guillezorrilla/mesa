@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
@@ -417,6 +417,41 @@ test('--branch starts the agent in a new worktree under the profile, from the de
   expect(cwdOf(world)).toBe(path);
 });
 
+test('session branch creation follows the same configured sibling location as manual worktrees', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world);
+  gitRepo(dir);
+  mesa.config.set('worktrees.location', 'sibling');
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'shared-setting' });
+  const path = join(dirname(dir), '.mesa-worktrees', 'default', 'lantern-cove', 'shared-setting');
+  expect(result.worktree?.path).toBe(path);
+  expect(cwdOf(world)).toBe(path);
+  const { result: manual } = await mesa.worktrees.create('lantern-cove', 'manual');
+  const { result: attached } = await mesa.sessions.open('lantern-cove', { branch: 'manual' });
+  expect(attached.worktree).toEqual({ path: manual.path, branch: 'manual' });
+  expect(cwdOf(world)).toBe(manual.path);
+});
+
+test('a failed session launch preserves data written by configured worktree setup', async () => {
+  const world = agentWorld({ failing: 'new-session' });
+  const original = withGit(world);
+  const run: Runner = (file, args, ms, options) => {
+    if (file === '/usr/bin/touch') {
+      writeFileSync(join(options?.cwd ?? '', args[0] ?? ''), 'setup data');
+      return Promise.resolve({ ok: true, stdout: '' });
+    }
+    return original(file, args, ms, options);
+  };
+  const { home, dir, mesa } = await setUp(world, { run });
+  gitRepo(dir);
+  mesa.config.set('worktrees.setup', '["/usr/bin/touch", "keep.txt"]');
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'with-setup' })).rejects.toMatchObject({
+    code: 'internal',
+  });
+  expect(readFileSync(join(worktreeAt(home, 'with-setup'), 'keep.txt'), 'utf8')).toBe('setup data');
+  expect(await mesa.sessions.list()).toEqual([]);
+});
+
 test("with an origin, a new branch starts from origin's HEAD, tracking nothing, or from its branch there, tracking it", async () => {
   const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);
@@ -639,7 +674,16 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
     expect(existsSync(worktreeAt(again.home, branch))).toBe(false);
   }
   expect(testGit(again.dir, 'worktree', 'list', '--porcelain')).not.toContain('.mesa');
-  expect(testGit(again.dir, 'branch', '--list', 'fresh', 'kept')).toBe('kept');
+  const { result: manual } = await again.mesa.worktrees.create('lantern-cove', 'manual');
+  writeFileSync(join(manual.path, 'keep.txt'), 'personal work');
+  await expect(
+    again.mesa.sessions.open('lantern-cove', { branch: 'manual' }),
+  ).rejects.toMatchObject({
+    code: 'internal',
+  });
+  expect(existsSync(join(manual.path, 'keep.txt'))).toBe(true);
+  expect(testGit(again.dir, 'branch', '--list', 'manual')).toBe('+ manual');
+  expect(testGit(again.dir, 'branch', '--list', 'fresh', 'kept', 'manual')).toBe('kept\n+ manual');
   expect(await again.mesa.sessions.list()).toEqual([]);
 });
 

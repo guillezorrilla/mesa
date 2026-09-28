@@ -53,6 +53,15 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
       terminal: { app: 'Terminal' },
+      editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
+      worktrees: {
+        location: 'profile',
+        fetch: false,
+        sparseDirectories: [],
+        carryIgnoredDirectories: [],
+        setup: [],
+        teardown: [],
+      },
       shortcuts: { ...DEFAULT_SHORTCUTS },
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
       grid: { groups: [] },
@@ -89,8 +98,9 @@ export function fakeBridge(answers: Record<string, (args: string[]) => unknown> 
   const calls: string[][] = [];
   const bridge: Bridge = async (args) => {
     calls.push(args);
-    // The two-word command first (`vault status`), then the one-word one (`doctor`).
-    const answer = all[`${args[1]} ${args[2]}`] ?? all[args[1] ?? ''];
+    // Longest command first (`git branch create`, `vault status`, then `doctor`).
+    const answer =
+      all[`${args[1]} ${args[2]} ${args[3]}`] ?? all[`${args[1]} ${args[2]}`] ?? all[args[1] ?? ''];
     if (!answer) throw new Error(`no fake answer for ${args.join(' ')}`);
     return answer(args);
   };

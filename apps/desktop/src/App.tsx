@@ -1,7 +1,8 @@
 import type { TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { Plus, Search, UserRound } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActionDialog } from './components/ActionDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
@@ -20,18 +21,45 @@ import { ShortcutSettings } from './screens/ShortcutSettings';
 
 export function App() {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
+  const [filesDirty, setFilesDirty] = useState(false);
+  const [pendingView, setPendingView] = useState<WorkspaceView>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState<TreeRow[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newSessionRequest, setNewSessionRequest] = useState(0);
+  const [pendingNewSession, setPendingNewSession] = useState(false);
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
+  const navigate = useCallback(
+    (next: WorkspaceView) => {
+      if (
+        filesDirty &&
+        view.kind === 'project' &&
+        (next.kind !== 'project' || next.name !== view.name)
+      )
+        setPendingView(next);
+      else setView(next);
+    },
+    [filesDirty, view],
+  );
+  const navigateRef = useRef(navigate);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  });
   const openSearch = () => {
     searchReturnFocus.current = document.activeElement as HTMLElement;
     setSearchOpen(true);
   };
   const run = useRun();
+  const openFileLink = useCallback(
+    (session: string, target: string) => {
+      void run('files.link', { session, target }).then((file) => {
+        if (file) navigate({ kind: 'project', name: file.project, file });
+      });
+    },
+    [navigate, run],
+  );
   const { deepLinks } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
@@ -39,6 +67,15 @@ export function App() {
   const projects = useCommand('projects.list');
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
+  const requestNewSession = useCallback(() => {
+    if (filesDirty && view.kind === 'project') {
+      setPendingNewSession(true);
+      setPendingView({ kind: 'board' });
+    } else {
+      setView({ kind: 'board' });
+      setNewSessionRequest((count) => count + 1);
+    }
+  }, [filesDirty, view]);
   useEffect(() => {
     let active = true;
     const open = (urls: string[]) => {
@@ -46,7 +83,7 @@ export function App() {
         if (!url.startsWith('mesa:')) continue;
         if (!active) return;
         setCloneLink((last) => ({ url, request: (last?.request ?? 0) + 1 }));
-        setView({ kind: 'projects' });
+        navigateRef.current({ kind: 'projects' });
       }
     };
     let stop: (() => void) | undefined;
@@ -73,18 +110,25 @@ export function App() {
         }
       } else if (key === shortcuts.board) {
         event.preventDefault();
-        setView({ kind: 'board' });
+        navigate({ kind: 'board' });
       } else if (key === shortcuts.newSession) {
         event.preventDefault();
         if (canStart) {
-          setView({ kind: 'board' });
-          setNewSessionRequest((count) => count + 1);
+          requestNewSession();
         }
       }
     };
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);
-  }, [searchOpen, shortcuts.search, shortcuts.board, shortcuts.newSession, canStart]);
+  }, [
+    searchOpen,
+    shortcuts.search,
+    shortcuts.board,
+    shortcuts.newSession,
+    canStart,
+    navigate,
+    requestNewSession,
+  ]);
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
   const sessionView = view.kind === 'session';
@@ -118,10 +162,7 @@ export function App() {
             size="icon-sm"
             aria-label="New session"
             disabled={!canStart}
-            onClick={() => {
-              setView({ kind: 'board' });
-              setNewSessionRequest((count) => count + 1);
-            }}
+            onClick={requestNewSession}
           >
             <Plus aria-hidden />
           </Button>
@@ -142,7 +183,7 @@ export function App() {
       <div className="flex min-h-0 flex-1">
         <WorkspaceSidebar
           view={view}
-          onView={setView}
+          onView={navigate}
           projects={projects.data ?? []}
           sessions={sessions}
           collapsed={sidebarCollapsed}
@@ -163,18 +204,19 @@ export function App() {
               onGridGroupsChanged={() => void config.refresh()}
               selectedSession={view.kind === 'session' ? view.id : undefined}
               onRowsChange={setSessions}
-              onBoard={() => setView({ kind: 'board' })}
+              onBoard={() => navigate({ kind: 'board' })}
               newSessionRequest={newSessionRequest}
               preferences={config.data?.board}
               onPreferencesChanged={() => void config.refresh()}
-              onSelectSession={(id) => setView({ kind: 'session', id })}
+              onSelectSession={(id) => navigate({ kind: 'session', id })}
+              onFileLink={openFileLink}
             />
           </div>
           {view.kind === 'projects' && (
             <ProjectsScreen
               cloneLink={cloneLink}
               onRegistered={() => void projects.refresh()}
-              onSelectProject={(name) => setView({ kind: 'project', name })}
+              onSelectProject={(name) => navigate({ kind: 'project', name })}
             />
           )}
           {view.kind === 'project' &&
@@ -182,12 +224,15 @@ export function App() {
               <ProjectWorkspace
                 key={project.name}
                 project={project}
+                filesDirty={filesDirty}
+                file={view.file}
+                onFilesDirtyChange={setFilesDirty}
                 sessions={sessions}
-                onSession={(id) => setView({ kind: 'session', id })}
+                onSession={(id) => navigate({ kind: 'session', id })}
                 onChanged={() => void projects.refresh()}
                 onUnregistered={() => {
                   void projects.refresh();
-                  setView({ kind: 'projects' });
+                  navigate({ kind: 'projects' });
                 }}
               />
             ) : projects.busy || !projects.data ? (
@@ -214,11 +259,10 @@ export function App() {
         sessions={sessions}
         returnFocus={searchReturnFocus.current}
         onSelect={(hit) => {
-          if (hit.kind === 'project') setView({ kind: 'project', name: hit.id });
-          else if (hit.kind === 'session') setView({ kind: 'session', id: hit.id });
+          if (hit.kind === 'project') navigate({ kind: 'project', name: hit.id });
+          else if (hit.kind === 'session') navigate({ kind: 'session', id: hit.id });
           else if (hit.id === 'new-session') {
-            setView({ kind: 'board' });
-            setNewSessionRequest((count) => count + 1);
+            requestNewSession();
           } else if (hit.id === 'open-vault') {
             void act(async () => warned((await run('vault.open'))?.warning));
           } else if (hit.id === 'profile') {
@@ -234,11 +278,37 @@ export function App() {
               destination === 'help' ||
               destination === 'shortcuts'
             ) {
-              setView({ kind: destination });
+              navigate({ kind: destination });
             }
           }
         }}
       />
+      {pendingView && (
+        <ActionDialog
+          testId="file-navigation-dialog"
+          title="Discard unsaved file changes?"
+          description="Save or discard the open file before leaving this project."
+          submit={{
+            label: 'Discard changes',
+            testId: 'confirm-file-navigation',
+            disabled: false,
+            variant: 'destructive',
+          }}
+          onSubmit={() => {
+            setFilesDirty(false);
+            setView(pendingView);
+            if (pendingNewSession) setNewSessionRequest((count) => count + 1);
+            setPendingNewSession(false);
+            setPendingView(undefined);
+          }}
+          onCancel={() => {
+            setPendingView(undefined);
+            setPendingNewSession(false);
+          }}
+        >
+          <p className="text-sm">Unsaved edits will be lost.</p>
+        </ActionDialog>
+      )}
     </div>
   );
 }

@@ -5,6 +5,39 @@ import { board, boardMove } from './board.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { doctor } from './doctor.js';
+import {
+  filesCreate,
+  filesDelete,
+  filesLink,
+  filesOpen,
+  filesRead,
+  filesRename,
+  filesSearch,
+  filesTree,
+  filesWrite,
+} from './files.js';
+import {
+  gitBranchCheckout,
+  gitBranchCreate,
+  gitBranchDelete,
+  gitBranches,
+  gitCommit,
+  gitCompare,
+  gitDiff,
+  gitGraph,
+  gitInsight,
+  gitPull,
+  gitPush,
+  gitStage,
+  gitStashApply,
+  gitStashCreate,
+  gitStashDrop,
+  gitStashes,
+  gitStashPop,
+  gitStatus,
+  gitTracking,
+  gitUnstage,
+} from './git.js';
 import { goal } from './goal.js';
 import { grid, gridRemove, gridSave } from './grid.js';
 import { guardrailCheck } from './guardrail.js';
@@ -36,6 +69,13 @@ import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
 import { view } from './view.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
+import {
+  worktreesApply,
+  worktreesCreate,
+  worktreesList,
+  worktreesPreview,
+  worktreesRerun,
+} from './worktrees.js';
 
 // Every mesa subcommand, in help order. A command lives in the file named for its first word
 // (`hooks install` in hooks.ts), and has one entry here.
@@ -48,7 +88,36 @@ export const COMMANDS: Command[] = [
   configSet,
   decide,
   doctor,
+  filesCreate,
+  filesDelete,
+  filesLink,
+  filesOpen,
+  filesRead,
+  filesRename,
+  filesSearch,
+  filesTree,
+  filesWrite,
   goal,
+  gitBranchCheckout,
+  gitBranchCreate,
+  gitBranchDelete,
+  gitBranches,
+  gitCommit,
+  gitCompare,
+  gitDiff,
+  gitGraph,
+  gitInsight,
+  gitPull,
+  gitPush,
+  gitStage,
+  gitStashApply,
+  gitStashCreate,
+  gitStashDrop,
+  gitStashPop,
+  gitStashes,
+  gitStatus,
+  gitTracking,
+  gitUnstage,
   grid,
   gridSave,
   gridRemove,
@@ -91,4 +160,9 @@ export const COMMANDS: Command[] = [
   view,
   windows,
   workflow,
+  worktreesCreate,
+  worktreesList,
+  worktreesRerun,
+  worktreesPreview,
+  worktreesApply,
 ];

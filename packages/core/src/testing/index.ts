@@ -616,8 +616,8 @@ export function isolateGit({
 /** `run` with the real git in it, for the temp repositories; the rest stays as `run` answers. */
 export const withRealGit =
   (run: Runner): Runner =>
-  (file, args, ms) =>
-    file === 'git' ? execRunner(file, args, ms) : run(file, args, ms);
+  (file, args, ms, options) =>
+    file === 'git' ? execRunner(file, args, ms, options) : run(file, args, ms, options);
 
 /** git in `dir`, as a person would type it, its output trimmed. */
 export const testGit = (dir: string, ...args: string[]) =>

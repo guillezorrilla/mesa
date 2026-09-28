@@ -9,7 +9,7 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
-import { excludeFromGit } from './git-exclude.js';
+import { excludeFromGit } from '../git/exclude.js';
 import { type LibrarySkill, readSkill } from './library.js';
 
 /** Where each agent looks for a project's skills: Claude Code's, then Codex's. */
