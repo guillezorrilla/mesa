@@ -21,3 +21,22 @@ export const gitStatus = defineCommand({
     };
   },
 });
+
+export const gitDiff = defineCommand({
+  name: 'git diff',
+  summary: 'Show a working or staged diff in a selected project checkout',
+  args: ['project', 'path?'],
+  flags: {
+    checkout: { type: 'string', description: 'Select a linked worktree path' },
+    staged: { type: 'boolean', description: 'Show staged changes' },
+  },
+  example: 'mesa git diff lantern-cove README.md --staged --json',
+  run: async ({ mesa, args, flags }) => {
+    const diff = await mesa.git.diff(args.project, {
+      checkout: flags.checkout,
+      path: args.path,
+      staged: flags.staged,
+    });
+    return { data: diff, text: diff.patch || 'no changes' };
+  },
+});

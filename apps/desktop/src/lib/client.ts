@@ -6,6 +6,7 @@ import type {
   Config,
   DiscoveredProject,
   DoctorReport,
+  GitDiff,
   GitStatus,
   GridGroup,
   HooksStatus,
@@ -61,6 +62,18 @@ const COMMANDS = {
       project,
     ],
   ),
+  'git.diff': commandWith<
+    { project: string; checkout?: string; path?: string; staged?: boolean },
+    GitDiff
+  >(({ project, checkout, path, staged }) => [
+    'git',
+    'diff',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(staged ? ['--staged'] : []),
+    '--',
+    project,
+    ...(path ? [path] : []),
+  ]),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [
       'grid',

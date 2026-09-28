@@ -5,7 +5,7 @@ import { board, boardMove } from './board.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { doctor } from './doctor.js';
-import { gitStatus } from './git.js';
+import { gitDiff, gitStatus } from './git.js';
 import { goal } from './goal.js';
 import { grid, gridRemove, gridSave } from './grid.js';
 import { guardrailCheck } from './guardrail.js';
@@ -50,6 +50,7 @@ export const COMMANDS: Command[] = [
   decide,
   doctor,
   goal,
+  gitDiff,
   gitStatus,
   grid,
   gridSave,

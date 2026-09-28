@@ -53,6 +53,17 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
         branch: 'main',
         changes: [{ path: 'changed.txt', index: ' ', workingTree: 'M' }],
       }),
+    'git diff': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        staged: false,
+        path: 'changed.txt',
+        patch: '@@ -1 +1 @@\n-old\n+new\n',
+        rows: [
+          { kind: 'meta', left: '@@ -1 +1 @@', right: '@@ -1 +1 @@' },
+          { kind: 'change', left: 'old', right: 'new' },
+        ],
+      }),
     sessions: () =>
       envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/feature', branch: 'feature' } })]),
   });
@@ -64,6 +75,16 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
   expect(document.querySelector('[aria-label="Changed files"]')?.textContent).toContain(
     'changed.txt',
   );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Changed files"] button')][0],
+  );
+  expect(byTestId('git-inline-diff')[0]?.textContent).toContain('+new');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git diff"] button')].find(
+      (button) => button.textContent === 'Side by side',
+    ),
+  );
+  expect(byTestId('git-side-diff')[0]?.textContent).toContain('oldnew');
   expect(calls.some((args) => args.includes('status') && args.includes('lantern-cove'))).toBe(true);
   const checkout = document.querySelector<HTMLSelectElement>('[aria-label="Checkout"]');
   expect(checkout?.options).toHaveLength(2);

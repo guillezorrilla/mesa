@@ -5,10 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useCommand } from '@/lib/useCommand';
+import { GitDiffView } from './GitDiffView';
 
 /** Read-only Git view for the registered checkout and session worktrees. */
 export function GitWorkspace(props: { project: string; sessions: readonly TreeRow[] }) {
   const [checkout, setCheckout] = useState('');
+  const [diffPath, setDiffPath] = useState<string | null>(null);
   const paths = [
     ...new Set(
       props.sessions.flatMap((row) =>
@@ -44,6 +46,9 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
         >
           <RefreshCw aria-hidden /> Refresh
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setDiffPath('')}>
+          View diff
+        </Button>
       </div>
       {status.data && (
         <>
@@ -70,9 +75,13 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
                     {change.index}
                     {change.workingTree}
                   </span>
-                  <span className="min-w-0 break-all font-mono">
+                  <button
+                    type="button"
+                    className="min-w-0 break-all text-left font-mono hover:text-primary"
+                    onClick={() => setDiffPath(change.path)}
+                  >
                     {change.oldPath ? `${change.oldPath} -> ${change.path}` : change.path}
-                  </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -83,6 +92,14 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       )}
       {!status.data && status.busy && (
         <p className="text-sm text-muted-foreground">Loading Git status...</p>
+      )}
+      {diffPath !== null && (
+        <GitDiffView
+          project={props.project}
+          checkout={checkout || undefined}
+          path={diffPath || undefined}
+          onClose={() => setDiffPath(null)}
+        />
       )}
     </section>
   );
