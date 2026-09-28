@@ -3,7 +3,7 @@ import type { Env } from '../../lib/process.js';
 import type { ContextUse } from '../../sessions/record.js';
 import { rolloutForThread } from './rollouts.js';
 
-/** Codex 0.157.1's last completed turn usage, not cumulative thread billing. */
+/** Codex 0.157.1's last usage snapshot, not cumulative thread billing. */
 function usageIn(line: string): ContextUse | undefined {
   if (!line.includes('"token_count"')) return undefined;
   try {
@@ -13,12 +13,14 @@ function usageIn(line: string): ContextUse | undefined {
       payload?: {
         type?: unknown;
         info?: {
-          last_token_usage?: { input_tokens?: unknown };
+          last_token_usage?: { input_tokens?: unknown; total_tokens?: unknown };
           model_context_window?: unknown;
         };
       };
     };
-    const input = entry.payload?.info?.last_token_usage?.input_tokens;
+    const last = entry.payload?.info?.last_token_usage;
+    // A compaction event resets input_tokens to zero and puts the compacted context in total_tokens.
+    const input = last?.total_tokens ?? last?.input_tokens;
     const window = entry.payload?.info?.model_context_window;
     if (
       entry.type !== 'event_msg' ||

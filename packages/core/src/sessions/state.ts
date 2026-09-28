@@ -174,9 +174,12 @@ export async function classifySession(
   signals: SessionSignals,
 ): Promise<Required<Placement>> {
   const basis = basisOf(signals);
-  // Antigravity has no qualified hook or process state feed. Its visible TUI markers are safer
-  // than an adapter guess, which can turn an idle prompt into a false human wait.
-  const allowAdapter = signals.agent !== 'antigravity';
+  // An explicit Codex idle/working/gate marker is more reliable than an adapter guess. In a
+  // live Codex pane the adapter mistook "? for shortcuts" for a question after the turn ended.
+  // Antigravity has no qualified semantic feed, so never ask the adapter for its TUI state.
+  const allowAdapter =
+    signals.agent !== 'antigravity' &&
+    !(signals.agent === 'codex' && signals.tail && AGENTS.codex.screen.state(signals.tail));
   const known = allowAdapter && signals.last.source === 'adapter' && signals.last.basis === basis;
   const backends = [stateRules, ...(allowAdapter && !known ? (deps.backends ?? []) : [])];
   const decision = await decide({ ...deps, backends }, signals, STATE_QUESTIONS);
