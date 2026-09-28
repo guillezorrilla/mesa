@@ -62,3 +62,7 @@ The #33 screens above described the earlier five-screen app. The Xirp parity bri
 ## Amendment 2026-09-27: knowledge stays in project and session context (#274)
 
 Project and session workspaces show filtered decision, guardrail, and vault-change receipts through the same CLI read used by `mesa receipts`. A vault-change row opens its exact note in Obsidian. Routine session activity has no receipt row, and no global feed was added.
+
+## Amendment 2026-09-28: session selection and archive action (#265)
+
+The Xirp-style sidebar uses the existing warm `--ring` interaction accent for the selected tab and session, and the archive confirmation uses it with a dark foreground token. Session state badges still use the `--state-*` tokens; waiting remains the only warm state. App menus use the shared shadcn DropdownMenu primitive.

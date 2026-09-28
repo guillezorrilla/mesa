@@ -1,5 +1,5 @@
 import type { Agent } from '@mesa/core';
-import { DEFAULT_AGENT, supportsPlanStart } from '@mesa/core/browser';
+import { DEFAULT_AGENT, supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
 import { Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -82,7 +82,8 @@ export function NewSessionDialog(props: {
               ? undefined
               : (String(data.get('agent') ?? DEFAULT_AGENT) as Agent),
           mode: supportsPlanStart(agent) && data.get('mode') === 'plan' ? 'plan' : undefined,
-          background: agent === 'claude' && data.get('background') === 'on',
+          background:
+            supportsAgentCapability(agent, 'background') && data.get('background') === 'on',
           goal: goal?.value,
           branch: props.general ? '' : String(data.get('branch') ?? ''),
           terminal: props.location === 'terminal',

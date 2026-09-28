@@ -1188,14 +1188,14 @@ test('project session menu offers three real launch paths and closes after choos
   const byTestId = await renderWithMesa(<App />, bridge);
   const menu = document.querySelector('[aria-label="New session in lantern-cove"]') as HTMLElement;
   await click(menu);
-  const options = [...(menu.parentElement?.querySelectorAll('button') ?? [])];
+  const options = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
   expect(options.map((button) => button.textContent)).toEqual([
     'New session',
     'New terminal session',
     'New worktree session',
   ]);
   await click(options[1]);
-  expect((menu.parentElement as HTMLDetailsElement).open).toBe(false);
+  expect(menu.getAttribute('aria-expanded')).toBe('false');
   await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
@@ -1220,7 +1220,7 @@ test('global New session offers General without a registered project', async () 
   const byTestId = await renderWithMesa(<App />, bridge);
   const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
   await click(menu);
-  const general = [...(menu.parentElement?.querySelectorAll('button') ?? [])].find((button) =>
+  const general = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((button) =>
     button.textContent?.includes('General Session'),
   );
   await click(general);

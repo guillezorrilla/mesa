@@ -20,6 +20,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { exited, queued, recoverable } from '@/screens/board/rows';
 
@@ -87,7 +93,7 @@ export function WorkspaceSidebar(props: {
         className={cn(
           'flex w-full flex-col justify-center gap-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
           compactSessions.includes(session.id) ? 'min-h-9' : 'min-h-14',
-          view.kind === 'session' && view.id === session.id && 'border-orange-500 bg-orange-500/15',
+          view.kind === 'session' && view.id === session.id && 'border-ring bg-ring/15',
         )}
         title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}`}
         onClick={() => onView({ kind: 'session', id: session.id })}
@@ -177,7 +183,7 @@ export function WorkspaceSidebar(props: {
               aria-selected={!projectTab}
               className={cn(
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
-                !projectTab && 'border-orange-600 text-foreground',
+                !projectTab && 'border-ring text-foreground',
               )}
               onClick={() => {
                 const first = view.kind === 'session' ? view.id : (active[0] ?? stranded[0])?.id;
@@ -193,7 +199,7 @@ export function WorkspaceSidebar(props: {
               aria-selected={projectTab}
               className={cn(
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
-                projectTab && 'border-orange-600 text-foreground',
+                projectTab && 'border-ring text-foreground',
               )}
               onClick={() =>
                 onView(
@@ -295,24 +301,23 @@ export function WorkspaceSidebar(props: {
                     <Folder aria-hidden className="size-3.5 shrink-0" />
                     <span className="truncate">{project.label}</span>
                   </button>
-                  <details className="relative">
-                    <summary
-                      aria-label={`New session in ${project.label}`}
-                      className="flex size-6 cursor-pointer items-center justify-center rounded hover:bg-accent"
-                    >
-                      <Plus aria-hidden className="size-3.5" />
-                    </summary>
-                    <div className="absolute left-full top-0 z-30 ml-1 w-52 rounded-md border bg-popover p-1 shadow-lg">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="size-6"
+                        aria-label={`New session in ${project.label}`}
+                      >
+                        <Plus aria-hidden className="size-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-52">
                       {(['main', 'terminal', 'worktree'] as const).map((kind) => (
-                        <button
+                        <DropdownMenuItem
                           key={kind}
-                          type="button"
-                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
-                          onClick={(event) => {
-                            const menu = event.currentTarget.closest('details');
-                            if (menu) menu.open = false;
-                            props.onNewSession?.(project.name, kind);
-                          }}
+                          className="text-xs"
+                          onSelect={() => props.onNewSession?.(project.name, kind)}
                         >
                           {kind === 'terminal' ? (
                             <TerminalSquare aria-hidden className="size-3.5" />
@@ -324,10 +329,10 @@ export function WorkspaceSidebar(props: {
                             : kind === 'terminal'
                               ? 'New terminal session'
                               : 'New worktree session'}
-                        </button>
+                        </DropdownMenuItem>
                       ))}
-                    </div>
-                  </details>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 {!closedProjects.includes(project.name) && (
                   <div className="mt-1 space-y-1 px-1">

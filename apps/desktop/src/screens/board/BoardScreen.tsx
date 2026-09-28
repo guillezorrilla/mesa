@@ -12,6 +12,7 @@ import {
   isRun,
   projectLabel,
   sessionLabel,
+  supportsAgentCapability,
 } from '@mesa/core/browser';
 import {
   Archive,
@@ -551,7 +552,8 @@ export function BoardScreen(
                   )}
                   {selected.kind === 'interactive' &&
                     !selected.background &&
-                    (selected.agent === 'claude' || selected.agent === 'codex') && (
+                    selected.agent !== 'terminal' &&
+                    supportsAgentCapability(selected.agent, 'fork') && (
                       <>
                         <Button
                           variant="outline"

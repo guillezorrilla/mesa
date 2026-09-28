@@ -24,8 +24,10 @@ Not: project list, index.
 
 ## Agent
 
-The CLI coding agent a session runs: `claude` (Claude Code), `codex` (Codex CLI), or `antigravity` (Antigravity CLI, executable `agy`). All run interactively in a Mesa window and can run skills headlessly. Claude Code and Codex report states through hooks (ADR-0003); Antigravity exposes only qualified TUI state markers and a private per-session log for its native conversation ID after the first prompt. Antigravity context use, and Codex and Antigravity adoption, are not read yet.
+The CLI coding agent a session runs: `claude` (Claude Code), `codex` (Codex CLI), or `antigravity` (Antigravity CLI, executable `agy`). All run interactively in a Mesa window and can run skills headlessly. Claude Code and Codex report states through hooks (ADR-0003); Antigravity exposes only qualified TUI state markers and a private per-session log for its native conversation ID after the first prompt. Antigravity context use and adoption are not read yet; Codex adoption reads native interactive rollouts.
 Not: model, assistant, bot.
+
+`mesa agents --json` reports each provider's native-operation catalog alongside Doctor's current installed/version probe. The catalog names the version used for P4 qualification and marks native operations Mesa does not support; a differing installed version is reported, not silently treated as qualified. The desktop Doctor screen shows the same catalog. This does not change a provider's native permissions or update behavior.
 
 ## Session
 

@@ -19,7 +19,7 @@ import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
-import { AGENT_NAMES, type Agent } from './names.js';
+import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
@@ -174,7 +174,7 @@ export type AgentSpec = (typeof AGENTS)[Agent];
 /** An agent's binary, as doctor and a session's start probe it. */
 export function agentBinary(name: Agent): Binary {
   return {
-    name: name === 'antigravity' ? 'agy' : name,
+    name: AGENT_EXECUTABLES[name],
     args: AGENTS[name].versionArgs,
     role: 'agent',
     install: AGENTS[name].install,

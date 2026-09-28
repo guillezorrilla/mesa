@@ -495,7 +495,7 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
   const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
   await click(menu);
   await click(
-    [...(menu.parentElement?.querySelectorAll('button') ?? [])].find(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
       (button) => button.textContent === 'lantern-cove',
     ),
   );
@@ -536,7 +536,7 @@ test('New session passes a branch with --branch, trimmed; a blank one passes non
   const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
   await click(menu);
   await click(
-    [...(menu.parentElement?.querySelectorAll('button') ?? [])].find(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
       (button) => button.textContent === 'lantern-cove',
     ),
   );

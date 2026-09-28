@@ -2,7 +2,7 @@ import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
-import { supportsPlanStart } from '../agents/names.js';
+import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
 import { GENERAL_PROJECT } from './general.js';
 import { FINAL_STATES, SESSION_STATES } from './states.js';
@@ -166,7 +166,8 @@ export const SessionRecordSchema = SessionRecordFields.refine(
     (record.kind === 'terminal') === (record.agent === 'terminal') &&
     (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
     (record.mode !== 'plan' || (record.agent !== 'terminal' && supportsPlanStart(record.agent))) &&
-    (!record.background || record.agent === 'claude') &&
+    (!record.background ||
+      (record.agent !== 'terminal' && supportsAgentCapability(record.agent, 'background'))) &&
     (!record.backgroundId || record.background) &&
     (record.project !== GENERAL_PROJECT ||
       (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)),

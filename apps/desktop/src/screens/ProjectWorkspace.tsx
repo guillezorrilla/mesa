@@ -4,8 +4,8 @@ import {
   duration,
   sessionBranch,
   sessionLabel,
+  supportsAgentCapability,
   supportsPlanStart,
-  WAITING_STATES,
 } from '@mesa/core/browser';
 import {
   ArrowDown,
@@ -22,6 +22,7 @@ import {
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
+import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,6 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { cn } from '@/lib/utils';
 import { AgentField } from './board/AgentField';
 import { BackgroundField } from './board/BackgroundField';
 import { exited, queued } from './board/rows';
@@ -117,7 +117,7 @@ export function ProjectWorkspace(props: {
   return (
     <section data-testid="project-workspace" className="space-y-6">
       <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-card text-orange-500">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-card text-ring">
           <Folder aria-hidden className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -253,7 +253,7 @@ export function ProjectWorkspace(props: {
             key={name}
             type="button"
             aria-current={tab === name ? 'page' : undefined}
-            className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-sky-400 aria-[current=page]:text-foreground"
+            className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-state-working aria-[current=page]:text-foreground"
             onClick={() => {
               if (tab === 'files' && props.filesDirty && name !== tab) setPendingTab(name);
               else setTab(name);
@@ -279,7 +279,9 @@ export function ProjectWorkspace(props: {
                   supportsPlanStart(selectedAgent) && values.get('mode') === 'plan'
                     ? 'plan'
                     : undefined,
-                background: selectedAgent === 'claude' && values.get('background') === 'on',
+                background:
+                  supportsAgentCapability(selectedAgent, 'background') &&
+                  values.get('background') === 'on',
                 goal,
                 branch:
                   location === 'worktree' ? String(values.get('branch') ?? '').trim() : undefined,
@@ -342,7 +344,7 @@ export function ProjectWorkspace(props: {
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Active{' '}
-              <Badge variant="secondary" className="ml-1 bg-emerald-900/40 text-emerald-400">
+              <Badge variant="secondary" className="ml-1 bg-state-idle/20 text-state-idle">
                 {activeSessions.length}
               </Badge>
             </h3>
@@ -356,21 +358,15 @@ export function ProjectWorkspace(props: {
                   className="flex min-h-24 w-[252px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
-                  <span
-                    data-state={session.lastState.state}
-                    className={cn(
-                      'font-mono text-xs text-state-idle',
-                      session.lastState.state === 'working' && 'text-state-working',
-                      WAITING_STATES.has(session.lastState.state) && 'text-state-waiting',
-                      session.lastState.state === 'failed' && 'text-state-failed',
-                    )}
-                  >
-                    ◉ {session.lastState.state}
-                  </span>
+                  <StateBadge
+                    state={session.lastState.state}
+                    confidence={session.lastState.confidence}
+                    compact
+                  />
                   <span className="w-full truncate text-sm font-medium">
                     {session.name ?? 'Session'}
                   </span>
-                  <span className="flex w-full min-w-0 items-center gap-1 truncate font-mono text-xs text-sky-500">
+                  <span className="flex w-full min-w-0 items-center gap-1 truncate font-mono text-xs text-state-working">
                     <GitBranch aria-hidden className="size-3" />{' '}
                     {sessionBranch(session) ??
                       worktrees.data?.find((tree) => tree.main)?.branch ??
@@ -448,7 +444,7 @@ export function ProjectWorkspace(props: {
                       <Folder aria-hidden className="size-3" />
                       {tree.main ? 'main' : tree.path.split('/').at(-1)}
                     </span>
-                    <span className="flex items-center gap-1 font-mono text-sky-500">
+                    <span className="flex items-center gap-1 font-mono text-state-working">
                       <GitBranch aria-hidden className="size-3" />
                       {tree.branch ?? 'detached'}
                     </span>

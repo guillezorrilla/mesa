@@ -1,5 +1,5 @@
 import { newSessionId, startCommand } from '../agents/agents.js';
-import { supportsPlanStart } from '../agents/names.js';
+import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
@@ -130,7 +130,7 @@ export async function openSession(
   if (input.mode === 'plan' && !supportsPlanStart(agent)) {
     throw new MesaError('usage', `${agent} has no qualified plan startup mode`);
   }
-  if (input.background && agent !== 'claude') {
+  if (input.background && !supportsAgentCapability(agent, 'background')) {
     throw new MesaError('usage', `${agent} has no qualified native background mode`);
   }
 

@@ -8,6 +8,14 @@ import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
 import { warned } from './components/Toast';
 import { Button } from './components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './components/ui/dropdown-menu';
 import { WorkspaceSidebar, type WorkspaceView } from './components/WorkspaceSidebar';
 import { usePlatform } from './lib/MesaRoot';
 import { useAct } from './lib/useAct';
@@ -193,62 +201,46 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
             </span>
             <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
           </Button>
-          <details className="relative">
-            <summary
-              aria-label="New session"
-              className="flex size-8 cursor-pointer items-center justify-center rounded-md bg-secondary hover:bg-accent"
-            >
-              <Plus aria-hidden className="size-4" />
-            </summary>
-            <div className="absolute left-0 z-50 mt-2 w-60 rounded-md border bg-popover p-1 shadow-lg">
-              <p className="px-2 py-1 text-xs text-muted-foreground">Recent projects</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon-sm" aria-label="New session">
+                <Plus aria-hidden className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-60">
+              <DropdownMenuLabel>Recent projects</DropdownMenuLabel>
               {projects.data
                 ?.filter((entry) => entry.exists)
                 .map((entry) => (
-                  <button
+                  <DropdownMenuItem
                     key={entry.name}
-                    type="button"
-                    className="flex w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                    onClick={(event) => {
-                      const menu = event.currentTarget.closest('details');
-                      if (menu) menu.open = false;
-                      requestNewSession({ project: entry.name });
-                    }}
+                    onSelect={() => requestNewSession({ project: entry.name })}
                   >
                     {entry.label}
-                  </button>
+                  </DropdownMenuItem>
                 ))}
               {canStart && (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                  onClick={(event) => {
-                    const menu = event.currentTarget.closest('details');
-                    if (menu) menu.open = false;
+                <DropdownMenuItem
+                  onSelect={() =>
                     requestNewSession({
                       project: project?.name ?? projects.data?.find((entry) => entry.exists)?.name,
                       location: 'terminal',
-                    });
-                  }}
+                    })
+                  }
                 >
                   <TerminalSquare aria-hidden className="size-4" /> Open terminal
-                </button>
+                </DropdownMenuItem>
               )}
-              <div className="my-1 border-t" />
-              <button
-                type="button"
-                className="flex w-full flex-col rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
-                onClick={(event) => {
-                  const menu = event.currentTarget.closest('details');
-                  if (menu) menu.open = false;
-                  requestNewSession({ general: true });
-                }}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="flex-col items-start gap-0"
+                onSelect={() => requestNewSession({ general: true })}
               >
                 General Session{' '}
                 <span className="text-xs text-muted-foreground">No project context</span>
-              </button>
-            </div>
-          </details>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <details ref={profileMenu} className="relative ml-auto">
           <summary

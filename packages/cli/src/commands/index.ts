@@ -1,5 +1,6 @@
 import type { Command } from '../command.js';
 import { adopt } from './adopt.js';
+import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { board, boardMove } from './board.js';
@@ -87,6 +88,7 @@ import {
 // (`hooks install` in hooks.ts), and has one entry here.
 export const COMMANDS: Command[] = [
   adopt,
+  agents,
   archive,
   attach,
   board,

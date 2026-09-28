@@ -1,5 +1,5 @@
 import type { SessionState } from '@mesa/core';
-import { percent } from '@mesa/core/browser';
+import { percent, WAITING_STATES } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
 
 /**
@@ -24,6 +24,7 @@ export function StateBadge(props: {
   confidence: number;
   title?: string;
   className?: string;
+  compact?: boolean;
 }) {
   return (
     <span
@@ -33,10 +34,12 @@ export function StateBadge(props: {
       className={cn(
         'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-xs ring-1 ring-inset',
         TONE[props.state],
+        props.compact && 'bg-transparent px-0 py-0 ring-0',
+        props.compact && WAITING_STATES.has(props.state) && 'text-state-waiting',
         props.className,
       )}
     >
-      {props.state} {percent(props.confidence)}
+      {props.compact ? `◉ ${props.state}` : `${props.state} ${percent(props.confidence)}`}
     </span>
   );
 }

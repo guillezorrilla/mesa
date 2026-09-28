@@ -49,7 +49,7 @@ export function ArchiveDialog(props: {
             <Button
               type="button"
               data-testid="archive-confirm"
-              className="bg-[#d0aa36] text-black hover:bg-[#e0bb47]"
+              className="bg-ring text-archive-foreground hover:bg-ring/80"
               disabled={props.disabled}
               onClick={props.onArchive}
             >

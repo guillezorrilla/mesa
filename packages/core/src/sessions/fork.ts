@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { AGENTS, readyAgent } from '../agents/agents.js';
+import { supportsAgentCapability } from '../agents/names.js';
 import { gitCommand } from '../git/command.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
@@ -17,7 +18,8 @@ export async function forkSession(
   if (
     source.kind !== 'interactive' ||
     source.background ||
-    (agent !== 'claude' && agent !== 'codex')
+    agent === 'terminal' ||
+    !supportsAgentCapability(agent, 'fork')
   ) {
     throw new MesaError('usage', `session ${id} has no qualified native fork`);
   }
@@ -36,6 +38,8 @@ export async function forkSession(
     throw new MesaError('not_found', `session ${id}'s folder ${folder} is gone`);
   }
   await readyAgent(deps.run, agent);
+  const native = AGENTS[agent];
+  if (!('fork' in native)) throw new MesaError('internal', `${agent} has no native fork command`);
   let base = opts.base;
   if (opts.branch && !base && project) {
     const existing = await gitCommand(deps.run, project.path, [
@@ -60,7 +64,7 @@ export async function forkSession(
       ...(!opts.branch ? { cwd: folder } : {}),
     },
     {
-      command: (record) => AGENTS[agent].fork(nativeId, folderOf(record, project), source.mode),
+      command: (record) => native.fork(nativeId, folderOf(record, project), source.mode),
       branch: opts.branch,
       base,
     },

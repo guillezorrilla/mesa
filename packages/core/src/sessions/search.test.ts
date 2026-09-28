@@ -19,6 +19,14 @@ test('bounded native search finds user and assistant text but omits provider ins
         message: { role: 'user', content: 'Find the harbor tide' },
       }),
       JSON.stringify({
+        type: 'user',
+        cwd: dir,
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', content: 'harbor tide tool result' }],
+        },
+      }),
+      JSON.stringify({
         type: 'assistant',
         cwd: dir,
         isSidechain: true,
@@ -48,6 +56,7 @@ test('bounded native search finds user and assistant text but omits provider ins
       ['claude', 'user', claudeId],
     ]),
   );
+  expect(result.hits.some((hit) => hit.excerpt.includes('harbor tide tool result'))).toBe(true);
   expect(result.hits.map((hit) => hit.excerpt)).not.toContain('secret tide');
   expect(result.filesSearched).toBe(2);
   expect(result.truncated).toBe(false);
