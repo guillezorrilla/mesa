@@ -180,7 +180,7 @@ export function SessionRow(props: {
         {s.managed ? (
           <div className="flex flex-col gap-1">
             {/* A skill run's agent reads no input: nothing to send it, nothing to hand off. */}
-            {!isRun(s) && (
+            {!isRun(s) && s.kind !== 'terminal' && (
               <form
                 data-testid="session-send"
                 className="flex gap-1"
@@ -269,7 +269,7 @@ export function SessionRow(props: {
                 <RotateCcw aria-hidden />
                 Resume
               </Button>
-              {!isRun(s) && (
+              {!isRun(s) && s.kind !== 'terminal' && (
                 <Button
                   variant="outline"
                   size="sm"

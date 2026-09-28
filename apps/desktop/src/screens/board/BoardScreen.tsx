@@ -381,7 +381,7 @@ export function BoardScreen(
                   >
                     <RotateCcw aria-hidden /> Resume
                   </Button>
-                  {!isRun(selected) && (
+                  {!isRun(selected) && selected.kind !== 'terminal' && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -398,7 +398,7 @@ export function BoardScreen(
                     onRename={() => actions.rename(selected)}
                     onRemove={() => actions.remove(selected)}
                   />
-                  {!isRun(selected) && !exited(selected) && (
+                  {!isRun(selected) && selected.kind !== 'terminal' && !exited(selected) && (
                     <form
                       className="flex min-w-48 flex-1 gap-2"
                       onSubmit={(event) => {

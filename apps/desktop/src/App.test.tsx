@@ -939,6 +939,20 @@ test('quick terminal tile opens a plain terminal in the selected project', async
   ]);
 });
 
+test('a plain terminal opens in Sessions without coding-agent send or handoff controls', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('term0001', { kind: 'terminal', agent: 'terminal' })]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('terminal-term0001')).toHaveLength(1);
+  await click(document.querySelector('[aria-label="Session actions"]') as HTMLElement);
+  expect(document.querySelector('[aria-label="Prompt for term0001"]')).toBeNull();
+  await click(byTestId('nav-board')[0]);
+  expect(byTestId('session-send')).toHaveLength(0);
+  expect(byTestId('session-handoff')).toHaveLength(0);
+});
+
 test('project session menu offers three real launch paths and closes after choosing one', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
