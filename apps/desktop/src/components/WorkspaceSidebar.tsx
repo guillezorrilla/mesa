@@ -78,9 +78,7 @@ export function WorkspaceSidebar(props: {
         aria-current={view.kind === 'session' && view.id === session.id ? 'page' : undefined}
         className={cn(
           'mb-1 flex min-h-14 w-full flex-col justify-center gap-1 rounded-md border border-transparent px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
-          view.kind === 'session' &&
-            view.id === session.id &&
-            'border-state-waiting bg-state-waiting/15',
+          view.kind === 'session' && view.id === session.id && 'border-orange-500 bg-orange-500/15',
         )}
         title={`${session.project ?? 'General'}: ${sessionLabel(session)}: ${session.lastState.state}`}
         onClick={() => onView({ kind: 'session', id: session.id })}
@@ -141,7 +139,7 @@ export function WorkspaceSidebar(props: {
               aria-selected={!projectTab}
               className={cn(
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
-                !projectTab && 'border-primary text-foreground',
+                !projectTab && 'border-orange-600 text-foreground',
               )}
               onClick={() => {
                 const first = view.kind === 'session' ? view.id : active[0]?.id;
@@ -156,7 +154,7 @@ export function WorkspaceSidebar(props: {
               aria-selected={projectTab}
               className={cn(
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
-                projectTab && 'border-primary text-foreground',
+                projectTab && 'border-orange-600 text-foreground',
               )}
               onClick={() =>
                 onView(

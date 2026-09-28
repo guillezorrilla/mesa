@@ -859,7 +859,10 @@ test('session close opens archive confirmation and archives only after confirmat
   let archived = false;
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
-    sessions: () => envelope(archived ? [] : [managedRow('aaaaaaaa')]),
+    sessions: () =>
+      envelope(
+        archived ? [managedRow('bbbbbbbb')] : [managedRow('aaaaaaaa'), managedRow('bbbbbbbb')],
+      ),
     archive: () => {
       archived = true;
       return envelope({ ...managedRow('aaaaaaaa'), archivedAt: '2026-09-27T12:00:00.000Z' });
@@ -881,7 +884,8 @@ test('session close opens archive confirmation and archives only after confirmat
   await click(byTestId('archive-confirm')[0]);
   expect(calls).toContainEqual(['--json', 'archive', '--', 'aaaaaaaa']);
   expect(byTestId('archive-dialog')).toHaveLength(0);
-  expect(byTestId('sidebar-session')).toHaveLength(0);
+  expect(byTestId('sidebar-session')).toHaveLength(1);
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
 });
 
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {

@@ -93,7 +93,7 @@ export function ProjectWorkspace(props: {
   return (
     <section data-testid="project-workspace" className="space-y-6">
       <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-card text-state-waiting">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-card text-orange-500">
           <Folder aria-hidden className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
@@ -229,7 +229,7 @@ export function ProjectWorkspace(props: {
             key={name}
             type="button"
             aria-current={tab === name ? 'page' : undefined}
-            className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-primary aria-[current=page]:text-foreground"
+            className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-sky-400 aria-[current=page]:text-foreground"
             onClick={() => {
               if (tab === 'files' && props.filesDirty && name !== tab) setPendingTab(name);
               else setTab(name);
@@ -308,11 +308,11 @@ export function ProjectWorkspace(props: {
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Active{' '}
-              <Badge variant="secondary" className="ml-1">
+              <Badge variant="secondary" className="ml-1 bg-emerald-900/40 text-emerald-400">
                 {activeSessions.length}
               </Badge>
             </h3>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+            <div className="grid max-w-[960px] grid-cols-[repeat(auto-fill,minmax(260px,310px))] gap-3">
               {activeSessions.map((session) => (
                 <button
                   key={session.id}

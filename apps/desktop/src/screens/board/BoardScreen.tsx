@@ -227,12 +227,18 @@ export function BoardScreen(
       const extra = also.filter(Boolean).join(' and ');
       return said(`Removed session ${id}${extra ? ` with ${extra}` : ''}`, removed);
     });
+  const leaveClosedSession = (id: string) => {
+    const next = data?.find((row) => row.id !== id && row.managed && !exited(row));
+    if (next) props.onSelectSession?.(next.id);
+    else if (selected?.project) props.onProject?.(selected.project);
+    else props.onBoard?.();
+  };
   const archive = (id: string) =>
     act(async () => {
       const archived = await run('sessions.archive', { id });
       if (!archived) return undefined;
       close();
-      props.onBoard?.();
+      leaveClosedSession(id);
       return said(`Archived session ${id}`, archived);
     });
   const deletePermanently = (id: string) =>
@@ -240,7 +246,7 @@ export function BoardScreen(
       const removed = await run('sessions.remove', { id, force: true });
       if (!removed) return undefined;
       close();
-      props.onBoard?.();
+      leaveClosedSession(id);
       return said(`Deleted session ${id}`, removed);
     });
   const open = (input: NewSessionInput) =>
