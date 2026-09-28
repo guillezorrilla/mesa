@@ -38,6 +38,27 @@ test('the successor takes over the worktree: its window runs there, and the sess
   await expect(mesa.sessions.resume(a.id)).rejects.toMatchObject({ code: 'usage' });
 });
 
+test('an explicit target agent takes the same checkout and goal with its own startup defaults', async () => {
+  const { tmux, mesa, note } = setUp();
+  const source = (
+    await mesa.sessions.open('lantern-cove', {
+      goal: 'Tidy up',
+      branch: 'tidy',
+      mode: 'plan',
+    })
+  ).result;
+  const { result } = await mesa.sessions.handoff(source.id, { note, agent: 'codex' });
+  expect(result.to).toMatchObject({ agent: 'codex', parent: source.id, handoffFrom: source.id });
+  expect(result.to.worktree).toEqual(source.worktree);
+  expect(result.to.mode).toBeUndefined();
+  expect(result.to.background).toBeUndefined();
+  expect(result.to.agentSessionId).toBeUndefined();
+  expect(tmux.windows.find((window) => window.window === `codex-${result.to.id}`)?.path).toBe(
+    source.worktree?.path,
+  );
+  expect((await mesa.sessions.show(source.id)).endedAt).toEqual(expect.any(String));
+});
+
 test('--keep is refused for a session in its own worktree, before anything is written', async () => {
   const { tmux, home, mesa, note } = setUp();
   const a = (await mesa.sessions.open('lantern-cove', { goal: 'Tidy up', branch: 'tidy' })).result;
@@ -52,10 +73,13 @@ test('a window that cannot open removes the successor and its note again', async
   // The first window comes with its tmux session (new-session); the successor's is a new-window.
   const { home, mesa, note } = setUp('new-window');
   const a = (await mesa.sessions.open('lantern-cove', { goal: 'Tidy up' })).result;
-  await expect(mesa.sessions.handoff(a.id, { note })).rejects.toMatchObject({ code: 'internal' });
+  await expect(mesa.sessions.handoff(a.id, { note, agent: 'codex' })).rejects.toMatchObject({
+    code: 'internal',
+  });
   expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([a.id]);
   expect(readdirSync(profilePaths(home, 'default').handoffs)).toEqual([]);
   expect((await mesa.sessions.show(a.id)).events).toEqual([]);
+  expect((await mesa.sessions.show(a.id)).endedAt).toBeUndefined();
 });
 
 test('a successor whose folder is gone is not_found, never an agent started in $HOME', async () => {

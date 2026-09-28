@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
+import { AgentSchema, newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
@@ -28,7 +28,7 @@ type HandoffDeps = LaunchDeps & {
 };
 
 /**
- * Starts the successor of session `id`: on the same project, with the same agent, in the same
+ * Starts the successor of session `id`: on the same project, with the chosen agent, in the same
  * folder, taking over its worktree, with `parent` and `handoffFrom` the session, and a goal made
  * of the session's plus a line naming the note, copied to `handoffs/<successor id>.md`. Both
  * records get a `handoff` event. A skill run has nothing to hand off. Every refusal comes before
@@ -39,7 +39,7 @@ type HandoffDeps = LaunchDeps & {
 export async function handoffSession(
   deps: HandoffDeps,
   id: string,
-  { note, keep = false }: { note: string; keep?: boolean },
+  { note, keep = false, agent: requested }: { note: string; keep?: boolean; agent?: string },
 ): Promise<{ from: SessionRecord; to: SessionRecord; note: string; warning?: string }> {
   const from = deps.store.get(id);
   if (from.project === GENERAL_PROJECT)
@@ -49,7 +49,15 @@ export async function handoffSession(
       'usage',
       `session ${id} is a plain terminal; it has no agent work to hand off`,
     );
-  const agent = from.agent;
+  const chosen = requested === undefined ? undefined : AgentSchema.safeParse(requested);
+  if (chosen && !chosen.success)
+    throw new MesaError(
+      'usage',
+      `unknown handoff agent ${requested}; use claude, codex, or antigravity`,
+    );
+  const agent = chosen?.data ?? from.agent;
+  const mode = requested === undefined ? from.mode : undefined;
+  const background = requested === undefined ? from.background : undefined;
   refuseRun(from, 'has no work to hand off');
   if (!isAgentState(from.lastState.state)) {
     throw new MesaError(
@@ -73,19 +81,19 @@ export async function handoffSession(
   }
   requireOwnWorktree(deps.store, from);
   const { entry } = launchProject(deps.profile, from.project);
-  await readyAgent(deps.run, from.agent);
-  const agentSessionId = from.background ? undefined : newSessionId(from.agent, deps.newUuid);
+  await readyAgent(deps.run, agent);
+  const agentSessionId = background ? undefined : newSessionId(agent, deps.newUuid);
   const { goal } = from;
   // Checked before anything is written, with a note path as long as the successor's will be.
   const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
-  if (!from.background)
+  if (!background)
     requireCommandFits(
-      startCommand(from.agent, {
+      startCommand(agent, {
         id: 'xxxxxxxx',
         logs: deps.profile.paths.logs,
         agentSessionId,
         goal: placeholder,
-        mode: from.mode,
+        mode,
       }),
     );
   const at = deps.clock().toISOString();
@@ -95,9 +103,9 @@ export async function handoffSession(
     deps,
     {
       project: entry,
-      agent: from.agent,
-      mode: from.mode,
-      background: from.background,
+      agent,
+      mode,
+      background,
       agentSessionId,
       parent: id,
       ...(worktree ? { worktree } : {}),

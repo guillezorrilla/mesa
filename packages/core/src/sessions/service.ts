@@ -509,7 +509,7 @@ export function sessionsService(
        * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
        * `keep` (stopHandedOff). The handoff's session receipt names both and the note.
        */
-      handoff: (id: string, opts: { note: string; keep?: boolean }) => {
+      handoff: (id: string, opts: { note: string; keep?: boolean; agent?: string }) => {
         const note = absolute(opts.note);
         const keep = opts.keep ?? false;
         return record(
@@ -521,13 +521,14 @@ export function sessionsService(
             project: (r) => projectScope(r.to.project),
             session: () => id,
             agent: (r) => recordAgent(r.to),
-            inputs: { id, note, keep },
+            inputs: { id, note, keep, ...(opts.agent ? { agent: opts.agent } : {}) },
             outputs: (r) => ({ from: id, to: r.to.id, note: r.note, stop: r.stop }),
           },
           async () => {
             const done = await handoffSession({ ...openDeps(), handoffs: paths.handoffs }, id, {
               note,
               keep,
+              agent: opts.agent,
             });
             const stopped = await stopHandedOff(
               {

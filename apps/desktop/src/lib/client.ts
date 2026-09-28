@@ -608,9 +608,17 @@ const COMMANDS = {
     id,
   ]),
   'sessions.handoff': commandWith<
-    { id: string; note: string; keep: boolean },
+    { id: string; note: string; keep: boolean; agent?: string },
     Recorded<{ from: string; to: string; note: string }>
-  >(({ id, note, keep }) => ['handoff', '--note', note, ...(keep ? ['--keep'] : []), '--', id]),
+  >(({ id, note, keep, agent }) => [
+    'handoff',
+    '--note',
+    note,
+    ...(keep ? ['--keep'] : []),
+    ...(agent ? ['--agent', agent] : []),
+    '--',
+    id,
+  ]),
   'sessions.logs': commandWith<{ id: string; tail: number }, SessionLog>(({ id, tail }) => [
     'logs',
     '--tail',

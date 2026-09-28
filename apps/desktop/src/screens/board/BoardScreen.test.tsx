@@ -780,10 +780,11 @@ test('Hand off asks for the note, then hands the session off; one without a goal
   expect(byTestId('handoff-submit')[0]?.hasAttribute('disabled')).toBe(true);
   await click(byTestId('handoff-pick')[0]);
   expect(byTestId('handoff-note')[0]?.textContent).toBe('/h/note.md');
+  await choose(byTestId('handoff-agent')[0], 'codex');
   await click(byTestId('handoff-keep')[0]);
   await click(byTestId('handoff-submit')[0]);
   expect(calls.filter((c) => c[1] === 'handoff')).toEqual([
-    ['--json', 'handoff', '--note', '/h/note.md', '--keep', '--', 'bbbbbbbb'],
+    ['--json', 'handoff', '--note', '/h/note.md', '--keep', '--agent', 'codex', '--', 'bbbbbbbb'],
   ]);
   expect(byTestId('toast')[0]?.textContent).toContain('Handed off bbbbbbbb to eeeeeeee');
   expect(byTestId('handoff-dialog')).toHaveLength(0);

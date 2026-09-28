@@ -236,9 +236,9 @@ export function BoardScreen(
         return adopted && said(`Adopted as ${adopted.id}`, adopted);
       }),
   };
-  const handoff = (id: string, note: string, keep: boolean) =>
+  const handoff = (id: string, note: string, keep: boolean, agent?: string) =>
     act(async () => {
-      const done = await run('sessions.handoff', { id, note, keep });
+      const done = await run('sessions.handoff', { id, note, keep, agent });
       if (!done) return undefined;
       close();
       return said(`Handed off ${id} to ${done.to}`, done);
@@ -665,7 +665,7 @@ export function BoardScreen(
         <HandoffDialog
           row={dialog.row}
           disabled={acting}
-          onHandoff={(note, keep) => handoff(dialog.row.id, note, keep)}
+          onHandoff={(note, keep, agent) => handoff(dialog.row.id, note, keep, agent)}
           onCancel={close}
         />
       )}
