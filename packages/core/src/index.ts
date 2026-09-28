@@ -22,6 +22,18 @@ export {
   waitingOn,
 } from './display.js';
 export type { Check, DoctorReport } from './doctor.js';
+export type { FileEntry, FileHit, FileSearch, FileTree } from './files/browse.js';
+export type { FileChange, WorkspaceFile } from './files/editor.js';
+export type { FileLink } from './files/link.js';
+export type { GitBranch, GitBranchAction } from './git/branches.js';
+export type { GitCommit, GitPathAction } from './git/changes.js';
+export type { Checkout } from './git/checkout.js';
+export type { DiffRow, GitDiff } from './git/diff.js';
+export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
+export type { RepositoryInsight } from './git/insight.js';
+export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
+export type { GitChange, GitStatus } from './git/status.js';
+export type { GitSync, GitTracking } from './git/sync.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';
@@ -67,6 +79,9 @@ export type { StopOutcome } from './sessions/stop.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
 export type { Viewed } from './sessions/view.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
+export type { Worktree } from './sessions/worktree.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';
+export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
+export type { WorktreeAction, WorktreePreview } from './worktrees/lifecycle.js';

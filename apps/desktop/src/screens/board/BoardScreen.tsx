@@ -68,6 +68,7 @@ export function BoardScreen(
     preferences?: BoardPreferences;
     onPreferencesChanged?: () => void;
     onSelectSession?: (id: string) => void;
+    onFileLink?: (session: string, target: string) => void;
     gridMode?: boolean;
     gridGroups?: GridGroup[];
     onGridGroupsChanged?: () => void;
@@ -566,6 +567,7 @@ export function BoardScreen(
           >
             <TerminalPanel
               sessionId={id}
+              onFileLink={props.onFileLink}
               busy={acting}
               onOpenExternal={() => actions.openTerminal(id)}
               onClose={() => {

@@ -9,6 +9,7 @@ export function TerminalPanel(props: {
   busy: boolean;
   onOpenExternal: () => void;
   onClose: () => void;
+  onFileLink?: (session: string, target: string) => void;
   grid?: boolean;
   selected?: boolean;
   zoomed?: boolean;
@@ -61,7 +62,11 @@ export function TerminalPanel(props: {
           </div>
         </CardHeader>
       )}
-      <Terminal sessionId={props.sessionId} fill={props.grid || props.selected} />
+      <Terminal
+        sessionId={props.sessionId}
+        fill={props.grid || props.selected}
+        onFileLink={props.onFileLink}
+      />
     </Card>
   );
 }

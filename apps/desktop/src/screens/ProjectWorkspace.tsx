@@ -1,7 +1,7 @@
 import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/browser';
 import { ArrowDown, ArrowUp, Folder, MoreHorizontal, Play, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
@@ -16,6 +16,9 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { AgentField } from './board/AgentField';
 import { exited, queued } from './board/rows';
+import { FilesWorkspace } from './FilesWorkspace';
+import { GitWorkspace } from './GitWorkspace';
+import { WorktreesWorkspace } from './WorktreesWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
@@ -24,9 +27,16 @@ export function ProjectWorkspace(props: {
   onSession: (id: string) => void;
   onChanged: () => void;
   onUnregistered: () => void;
+  filesDirty: boolean;
+  file?: { checkout: string; path: string; line: number };
+  onFilesDirtyChange: (dirty: boolean) => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'skills'>('overview');
+  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills'>('overview');
+  useEffect(() => {
+    if (props.file) setTab('files');
+  }, [props.file]);
+  const [pendingTab, setPendingTab] = useState<typeof tab>();
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
@@ -176,14 +186,38 @@ export function ProjectWorkspace(props: {
           <p className="text-sm">{project.label}</p>
         </ActionDialog>
       )}
+      {pendingTab && (
+        <ActionDialog
+          testId="file-leave-dialog"
+          title="Discard unsaved file changes?"
+          description="Save or discard the open file before leaving Files."
+          submit={{
+            label: 'Discard changes',
+            testId: 'confirm-file-leave',
+            disabled: false,
+            variant: 'destructive',
+          }}
+          onSubmit={() => {
+            props.onFilesDirtyChange(false);
+            setTab(pendingTab);
+            setPendingTab(undefined);
+          }}
+          onCancel={() => setPendingTab(undefined)}
+        >
+          <p className="text-sm">Unsaved edits will be lost.</p>
+        </ActionDialog>
+      )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'skills'] as const).map((name) => (
+        {(['overview', 'git', 'files', 'worktrees', 'skills'] as const).map((name) => (
           <button
             key={name}
             type="button"
             aria-current={tab === name ? 'page' : undefined}
             className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-primary aria-[current=page]:text-foreground"
-            onClick={() => setTab(name)}
+            onClick={() => {
+              if (tab === 'files' && props.filesDirty && name !== tab) setPendingTab(name);
+              else setTab(name);
+            }}
           >
             {name}
           </button>
@@ -316,6 +350,17 @@ export function ProjectWorkspace(props: {
           </section>
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
+      ) : tab === 'git' ? (
+        <GitWorkspace key={project.name} project={project.name} />
+      ) : tab === 'files' ? (
+        <FilesWorkspace
+          key={project.name}
+          project={project.name}
+          onDirtyChange={props.onFilesDirtyChange}
+          target={props.file}
+        />
+      ) : tab === 'worktrees' ? (
+        <WorktreesWorkspace project={project.name} onSession={props.onSession} />
       ) : (
         <div className="space-y-2">
           {skills.data?.map((skill) => (

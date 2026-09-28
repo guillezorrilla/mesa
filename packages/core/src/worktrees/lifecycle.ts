@@ -1,0 +1,290 @@
+import { createHash } from 'node:crypto';
+import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
+import { basename, isAbsolute, join } from 'node:path';
+import { gitCommand } from '../git/command.js';
+import type { Runner } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
+import type { Profile } from '../profile/profile.js';
+import { checkoutHolders } from '../sessions/holders.js';
+import type { SessionStore } from '../sessions/store.js';
+import { worktreeCommand } from './create.js';
+import { listWorktrees, type WorktreeRow } from './inventory.js';
+
+export type WorktreeAction = 'remove' | 'recycle' | 'cleanup';
+export type WorktreePreview = {
+  action: WorktreeAction;
+  project: string;
+  token: string;
+  paths: string[];
+  branch?: string;
+  head?: string;
+  state?: WorktreeRow['state'];
+  holders: string[];
+  changes: string[];
+  ignored: string[];
+  upstream?: string;
+  ahead?: number;
+  unpublished: boolean;
+  teardown?: string[];
+  destination?: string;
+  allowed: boolean;
+  reasons: string[];
+};
+
+async function requireGit(run: Runner, repo: string, args: string[]) {
+  const result = await gitCommand(run, repo, args, 60_000);
+  if (!result.ok) throw new MesaError('usage', `git ${args[0]} failed: ${result.detail}`);
+  return result.stdout;
+}
+
+const fingerprint = (facts: unknown) =>
+  createHash('sha256').update(JSON.stringify(facts)).digest('hex');
+
+const present = (path: string) => Boolean(lstatSync(path, { throwIfNoEntry: false }));
+
+/** Preview the exact Git registration and local work that an action would affect. */
+export async function previewWorktreeAction(
+  profile: Profile,
+  run: Runner,
+  store: SessionStore,
+  project: string,
+  action: WorktreeAction,
+  selected?: string,
+): Promise<WorktreePreview> {
+  const rows = await listWorktrees(profile, run, store, project);
+  const root = rows.find((row) => row.main)?.path;
+  if (!root) throw new MesaError('usage', `${project} has no main checkout`);
+  if (action === 'cleanup') {
+    const stale = rows.filter((row) => row.state === 'stale' && !present(row.path));
+    const paths = stale.map((row) => row.path).sort();
+    const holders = stale.flatMap((row) => references(store, project, root, row.path));
+    const reasons = [
+      ...(!paths.length ? ['no missing worktrees to clean'] : []),
+      ...(holders.length ? ['a session still references a missing worktree'] : []),
+    ];
+    const facts = {
+      action,
+      project,
+      rows: rows.map(({ path, head, branch, state }) => ({ path, head, branch, state })),
+      paths,
+      holders,
+    };
+    return {
+      action,
+      project,
+      token: fingerprint(facts),
+      paths,
+      holders,
+      changes: [],
+      ignored: [],
+      unpublished: false,
+      allowed: !reasons.length,
+      reasons,
+    };
+  }
+  if (!selected || !isAbsolute(selected))
+    throw new MesaError('usage', 'select an absolute linked worktree path');
+  let path: string;
+  try {
+    path = realpathSync.native(selected);
+  } catch {
+    throw new MesaError('not_found', `worktree ${selected} is unavailable`);
+  }
+  const row = rows.find((candidate) => candidate.path === path);
+  if (!row || row.main) throw new MesaError('usage', `${path} is not a linked project worktree`);
+  const stat = lstatSync(path);
+  const holders = references(store, project, root, path);
+  const status = await requireGit(run, path, [
+    'status',
+    '--porcelain=v1',
+    '-z',
+    '--untracked-files=all',
+  ]);
+  const ignoredOutput = await requireGit(run, path, [
+    'ls-files',
+    '--others',
+    '--ignored',
+    '--exclude-standard',
+    '-z',
+  ]);
+  const changes = status.split('\0').filter(Boolean);
+  const ignored = ignoredOutput.split('\0').filter(Boolean);
+  const branch = row.branch;
+  const upstream = branch
+    ? (
+        await requireGit(run, root, [
+          'for-each-ref',
+          '--format=%(upstream:short)',
+          `refs/heads/${branch}`,
+        ])
+      ).trim()
+    : '';
+  const ahead =
+    upstream && branch
+      ? Number(
+          (await requireGit(run, root, ['rev-list', '--count', `${upstream}..${branch}`])).trim(),
+        )
+      : undefined;
+  const containing = row.head
+    ? (
+        await requireGit(run, root, [
+          'for-each-ref',
+          `--contains=${row.head}`,
+          '--format=%(refname)',
+          'refs/remotes',
+        ])
+      )
+        .split('\n')
+        .filter(Boolean)
+    : [];
+  const unpublished = (ahead ?? 0) > 0 || !branch || containing.length === 0;
+  const facts = {
+    action,
+    project,
+    path,
+    branch,
+    head: row.head,
+    state: row.state,
+    inode: stat.ino,
+    device: stat.dev,
+    holders,
+    status,
+    ignoredOutput,
+    upstream,
+    ahead,
+    unpublished,
+    teardown: action === 'remove' ? profile.config.worktrees.teardown : undefined,
+  };
+  const token = fingerprint(facts);
+  const destination =
+    action === 'recycle'
+      ? join(profile.paths.root, 'recycle', project, `${basename(path)}-${token.slice(0, 12)}`)
+      : undefined;
+  const reasons = [
+    ...(row.state !== 'ready' &&
+    row.state !== 'detached' &&
+    !(action === 'remove' && row.state === 'recycled')
+      ? [`worktree is ${row.state}`]
+      : []),
+    ...(holders.length ? ['a session still references this worktree'] : []),
+    ...(action === 'remove' && changes.length ? ['worktree has changed or untracked files'] : []),
+    ...(action === 'remove' && ignored.length ? ['worktree has ignored files'] : []),
+    ...(action === 'remove' && unpublished
+      ? ['branch has unpublished commits or is detached']
+      : []),
+    ...(destination && present(destination) ? ['recycle destination already exists'] : []),
+  ];
+  return {
+    action,
+    project,
+    token,
+    paths: [path],
+    ...(branch ? { branch } : {}),
+    ...(row.head ? { head: row.head } : {}),
+    state: row.state,
+    holders,
+    changes,
+    ignored,
+    ...(upstream ? { upstream } : {}),
+    ...(ahead === undefined ? {} : { ahead }),
+    unpublished,
+    ...(action === 'remove' ? { teardown: profile.config.worktrees.teardown } : {}),
+    ...(destination ? { destination } : {}),
+    allowed: !reasons.length,
+    reasons,
+  };
+}
+
+function references(store: SessionStore, project: string, root: string, path: string) {
+  const records = store.list();
+  const live = checkoutHolders(records, project, root, path).map((record) => record.id);
+  const retained = records.flatMap((record) => {
+    if (record.project !== project || !record.worktree) return [];
+    let held = record.worktree.path;
+    try {
+      held = realpathSync.native(held);
+    } catch {
+      /* A stale worktree has no real path. */
+    }
+    return held === path ? [record.id] : [];
+  });
+  return [...new Set([...live, ...retained])].sort();
+}
+
+/** A stale preview is re-read immediately before Git can prune its registrations. */
+export async function applyWorktreeAction(
+  profile: Profile,
+  run: Runner,
+  store: SessionStore,
+  project: string,
+  action: WorktreeAction,
+  token: string,
+  selected?: string,
+) {
+  const preview = await previewWorktreeAction(profile, run, store, project, action, selected);
+  if (preview.token !== token)
+    throw new MesaError('usage', 'worktree changed since preview; inspect it again');
+  if (!preview.allowed) throw new MesaError('usage', preview.reasons.join('; '));
+  const root = (await listWorktrees(profile, run, store, project)).find((row) => row.main)?.path;
+  if (!root) throw new MesaError('usage', `${project} has no main checkout`);
+  if (action === 'cleanup') {
+    await requireGit(run, root, ['worktree', 'prune', '--expire', 'now']);
+    const remaining = (await listWorktrees(profile, run, store, project))
+      .filter((row) => preview.paths.includes(row.path))
+      .map((row) => row.path);
+    return { action, paths: preview.paths.filter((path) => !remaining.includes(path)), remaining };
+  }
+  const path = preview.paths[0] as string;
+  if (action === 'remove') {
+    let teardownRan = false;
+    if (profile.config.worktrees.teardown.length) {
+      await worktreeCommand(run, path, profile.config.worktrees.teardown, 'teardown');
+      teardownRan = true;
+      const after = await previewWorktreeAction(profile, run, store, project, action, path);
+      if (!after.allowed || after.changes.length || after.ignored.length)
+        throw new MesaError('usage', `teardown ran, but ${path} changed; worktree preserved`);
+    }
+    try {
+      await requireGit(run, root, ['worktree', 'remove', '--', path]);
+    } catch (error) {
+      throw new MesaError(
+        'usage',
+        `${teardownRan ? 'teardown ran, but ' : ''}${String(error)}; ${await partialState(profile, run, store, project, path)}`,
+      );
+    }
+    return { action, paths: [path], branch: preview.branch, teardownRan };
+  }
+  const destination = preview.destination as string;
+  mkdirSync(join(profile.paths.root, 'recycle', project), { recursive: true });
+  if (present(destination))
+    throw new MesaError('usage', 'recycle destination appeared; preview again');
+  try {
+    await requireGit(run, root, ['worktree', 'move', '--', path, destination]);
+  } catch (error) {
+    throw new MesaError(
+      'usage',
+      `${String(error)}; ${await partialState(profile, run, store, project, path, destination)}`,
+    );
+  }
+  return { action, paths: [path], destination, branch: preview.branch };
+}
+
+async function partialState(
+  profile: Profile,
+  run: Runner,
+  store: SessionStore,
+  project: string,
+  source: string,
+  destination?: string,
+) {
+  let registration = 'registration unknown';
+  try {
+    const row = (await listWorktrees(profile, run, store, project)).find(
+      (entry) => entry.path === source || entry.path === destination,
+    );
+    registration = row ? `Git registers ${row.path}` : 'Git has no registration at either path';
+  } catch {
+    /* Git may be unavailable after a partial operation. */
+  }
+  return `source ${present(source) ? 'present' : 'missing'}${destination ? `, destination ${present(destination) ? 'present' : 'missing'}` : ''}; ${registration}`;
+}
