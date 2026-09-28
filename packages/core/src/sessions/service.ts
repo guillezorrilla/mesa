@@ -6,6 +6,7 @@ import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
+import { MesaError } from '../lib/result.js';
 import { profileService } from '../profile/service.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
@@ -19,6 +20,7 @@ import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
+import { changeDependencies } from './dependencies.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
 import { forkSession } from './fork.js';
@@ -32,6 +34,7 @@ import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
 import { moveBoardSession } from './presentation.js';
+import { startQueued } from './queue.js';
 import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
@@ -671,6 +674,49 @@ export function sessionsService(
             outputs: (r) => ({ window: r.record.tmux.window, parent: id }),
           },
           () => forkSession(openDeps(), id, opts),
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
+      dependencies: (id: string, change: { parent?: string | null; after?: string }) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Updated dependencies of session ${r.record.id}`,
+            failure: `Could not update dependencies of session ${id}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: () => id,
+            inputs: { id, ...change },
+            outputs: (r) => ({ parent: r.record.parent ?? null, after: r.record.after ?? null }),
+          },
+          async () => {
+            const changed = changeDependencies(store, id, change);
+            if (change.after && isOver(store.get(change.after))) {
+              const started = await startQueued(openDeps(), id, change.after);
+              return { record: started?.record ?? store.get(id), warning: started?.warning };
+            }
+            return { record: changed, warning: undefined };
+          },
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
+      forceStart: (id: string) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Started queued session ${r.record.id} now`,
+            failure: `Could not force-start session ${id}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: () => id,
+            inputs: { id, force: true },
+            outputs: (r) => startedOutputs(r.record),
+          },
+          async () => {
+            const queued = store.get(id);
+            if (queued.lastState.state !== 'queued') {
+              throw new MesaError('usage', `session ${id} is not queued`);
+            }
+            const started = await startQueued(openDeps(), id);
+            if (!started) throw new MesaError('usage', `session ${id} is already starting`);
+            return { record: store.update(id, { after: undefined }), warning: started.warning };
+          },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>

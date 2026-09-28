@@ -5,6 +5,7 @@ import { attach } from './attach.js';
 import { board, boardMove } from './board.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
+import { dependency } from './dependency.js';
 import { doctor } from './doctor.js';
 import {
   filesCreate,
@@ -17,6 +18,7 @@ import {
   filesTree,
   filesWrite,
 } from './files.js';
+import { forceStart } from './force-start.js';
 import { fork } from './fork.js';
 import {
   gitBranchCheckout,
@@ -91,6 +93,7 @@ export const COMMANDS: Command[] = [
   boardMove,
   config,
   configSet,
+  dependency,
   decide,
   doctor,
   filesCreate,
@@ -103,6 +106,7 @@ export const COMMANDS: Command[] = [
   filesTree,
   filesWrite,
   fork,
+  forceStart,
   goal,
   gitBranchCheckout,
   gitBranchCreate,

@@ -44,6 +44,8 @@ export type RowActions = {
   handoff: (row: TreeRow) => void;
   log: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
+  dependency: (row: TreeRow) => void;
+  forceStart: (id: string) => void;
   remove: (row: TreeRow) => void;
   unarchive: (id: string) => void;
   workflow: (id: string, status: WorkflowStatus | 'clear') => void;
@@ -271,6 +273,17 @@ export function SessionRow(props: {
                 <RotateCcw aria-hidden />
                 Resume
               </Button>
+              {queued(s) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="session-force-start"
+                  onClick={() => actions.forceStart(s.id)}
+                  disabled={acting}
+                >
+                  Start now
+                </Button>
+              )}
               {!isRun(s) && s.kind !== 'terminal' && s.project !== GENERAL_PROJECT && (
                 <Button
                   variant="outline"
@@ -289,6 +302,7 @@ export function SessionRow(props: {
                 canRemove={exited(s) && !queued(s) && !acting}
                 onLog={() => actions.log(s)}
                 onRename={() => actions.rename(s)}
+                onDependency={() => actions.dependency(s)}
                 onRemove={() => actions.remove(s)}
                 onUnarchive={s.archivedAt ? () => actions.unarchive(s.id) : undefined}
               />

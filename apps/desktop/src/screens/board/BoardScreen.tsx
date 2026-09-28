@@ -39,6 +39,7 @@ import { useCall, useRun } from '@/lib/useCommand';
 import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
+import { DependencyDialog } from './DependencyDialog';
 import { ForkDialog } from './ForkDialog';
 import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
@@ -66,7 +67,10 @@ type OpenDialog =
       parent?: string;
       location?: 'main' | 'worktree' | 'terminal';
     }
-  | { kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive' | 'fork'; row: ManagedRow }
+  | {
+      kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive' | 'fork' | 'dependency';
+      row: ManagedRow;
+    }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 /**
@@ -204,6 +208,12 @@ export function BoardScreen(
         return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
+    dependency: (row) => row.managed && setDialog({ kind: 'dependency', row }),
+    forceStart: (id) =>
+      act(async () => {
+        const started = await run('sessions.forceStart', { id });
+        return started && said(`Started queued session ${id}`, started);
+      }),
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
@@ -240,6 +250,13 @@ export function BoardScreen(
       close();
       props.onSelectSession?.(created.id);
       return said(`Forked session ${id} as ${created.id}`, created);
+    });
+  const saveDependency = (id: string, change: { parent?: string | null; after?: string }) =>
+    act(async () => {
+      const changed = await run('sessions.dependencies', { id, ...change });
+      if (!changed) return undefined;
+      close();
+      return said(`Updated dependencies of session ${id}`, changed);
     });
   const rename = (id: string, name: string) =>
     act(async () => {
@@ -462,6 +479,24 @@ export function BoardScreen(
                   >
                     <RotateCcw aria-hidden /> Resume
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.dependency(selected)}
+                    disabled={acting}
+                  >
+                    Set dependency
+                  </Button>
+                  {queued(selected) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => actions.forceStart(selected.id)}
+                      disabled={acting}
+                    >
+                      Start now
+                    </Button>
+                  )}
                   {selected.kind === 'interactive' &&
                     !selected.background &&
                     (selected.agent === 'claude' || selected.agent === 'codex') && (
@@ -503,6 +538,7 @@ export function BoardScreen(
                     canRemove={exited(selected) && !queued(selected) && !acting}
                     onLog={() => actions.log(selected)}
                     onRename={() => actions.rename(selected)}
+                    onDependency={() => actions.dependency(selected)}
                     onRemove={() => actions.remove(selected)}
                   />
                   {!isRun(selected) && selected.kind !== 'terminal' && !exited(selected) && (
@@ -638,6 +674,15 @@ export function BoardScreen(
           sessionId={dialog.row.id}
           disabled={acting}
           onFork={(branch) => fork(dialog.row.id, branch)}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'dependency' && (
+        <DependencyDialog
+          row={dialog.row}
+          rows={data ?? []}
+          disabled={acting}
+          onSave={(change) => saveDependency(dialog.row.id, change)}
           onCancel={close}
         />
       )}

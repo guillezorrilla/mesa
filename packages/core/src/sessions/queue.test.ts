@@ -61,6 +61,14 @@ test('a claim is left alone for 30 s, then taken again: a start killed mid-way i
   expect(windows()).toHaveLength(1);
 });
 
+test('a stale completion signal cannot start a session after its wait target changed', async () => {
+  const { deps, store, b, windows } = await setUp();
+  store.update(b.id, { after: 'newwait1' });
+  expect(await startQueued(deps, b.id, b.after)).toBeUndefined();
+  expect(windows()).toHaveLength(0);
+  expect((await startQueued(deps, b.id, 'newwait1'))?.record.lastState.state).toBe('idle');
+});
+
 test('a start retried after one killed once its window opened keeps that window and its id', async () => {
   const { deps, store, b, windows } = await setUp();
   // The killed start: claimed with its id, its window open, the record never finished.

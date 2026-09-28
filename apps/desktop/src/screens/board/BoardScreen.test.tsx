@@ -647,6 +647,59 @@ test('a queued row says what it waits on and has Cancel, which stops it; it cann
   expect(inRow('session-resume')?.hasAttribute('disabled')).toBe(true);
 });
 
+test('dependency controls keep the tree parent separate from a queued wait, with Start now explicit', async () => {
+  const at = '2026-09-25T12:00:00.000Z';
+  let row = managedRow('dddddddd', {
+    agentSessionId: undefined,
+    parent: 'aaaaaaaa',
+    after: 'aaaaaaaa',
+    pending: {},
+    alive: false,
+    lastState: { state: 'queued', confidence: 1, at, source: 'mesa' },
+  });
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([asking, busy, row] satisfies TreeRow[]),
+    dependency: (args) => {
+      row = {
+        ...row,
+        ...(args.includes('--parent') ? { parent: undefined } : {}),
+        ...(args.includes('--after') ? { after: 'bbbbbbbb' } : {}),
+      };
+      return envelope(row);
+    },
+    'force-start': () => {
+      row = {
+        ...row,
+        after: undefined,
+        pending: undefined,
+        alive: true,
+        lastState: { state: 'idle', confidence: 1, at, source: 'mesa' },
+      };
+      return envelope(row);
+    },
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  await click(byTestId('row-menu')[2]);
+  await click(byTestId('session-dependency')[0]);
+  expect(byTestId('dependency-dialog')[0]?.textContent).toContain(
+    'Parent places a session in the tree',
+  );
+  expect((byTestId('dependency-after')[0] as HTMLSelectElement).value).toBe('aaaaaaaa');
+  await choose(byTestId('dependency-parent')[0], 'none');
+  await click(byTestId('dependency-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'dependency', '--parent', 'none', '--', 'dddddddd']);
+  expect(row.after).toBe('aaaaaaaa');
+  await click(byTestId('row-menu')[2]);
+  await click(byTestId('session-dependency')[0]);
+  await choose(byTestId('dependency-after')[0], 'bbbbbbbb');
+  await click(byTestId('dependency-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'dependency', '--after', 'bbbbbbbb', '--', 'dddddddd']);
+  expect(row.parent).toBeUndefined();
+  await click(byTestId('session-force-start')[0]);
+  expect(calls).toContainEqual(['--json', 'force-start', '--', 'dddddddd']);
+  expect(byTestId('session-force-start')).toHaveLength(0);
+});
+
 test('after a /clear moves its agent session id, the row keeps its state and actions', async () => {
   vi.useFakeTimers();
   try {

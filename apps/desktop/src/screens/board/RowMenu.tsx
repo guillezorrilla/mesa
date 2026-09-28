@@ -1,4 +1,4 @@
-import { Ellipsis, Pencil, RotateCcw, ScrollText, Trash2 } from 'lucide-react';
+import { Ellipsis, Link2, Pencil, RotateCcw, ScrollText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -12,6 +12,7 @@ export function RowMenu(props: {
   canRemove: boolean;
   onLog: () => void;
   onRename: () => void;
+  onDependency: () => void;
   onRemove: () => void;
   onUnarchive?: () => void;
 }) {
@@ -47,6 +48,15 @@ export function RowMenu(props: {
           >
             <Pencil aria-hidden />
             Rename
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="session-dependency"
+            onClick={pick(props.onDependency)}
+          >
+            <Link2 aria-hidden />
+            Set dependency
           </Button>
           <Button
             variant="outline"

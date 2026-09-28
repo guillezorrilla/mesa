@@ -592,6 +592,21 @@ const COMMANDS = {
   'sessions.fork': commandWith<{ id: string; branch?: string }, Recorded<SessionRecord>>(
     ({ id, branch }) => ['fork', ...(branch ? [`--branch=${branch}`] : []), '--', id],
   ),
+  'sessions.dependencies': commandWith<
+    { id: string; parent?: string | null; after?: string },
+    Recorded<SessionRecord>
+  >(({ id, parent, after }) => [
+    'dependency',
+    ...(parent === undefined ? [] : ['--parent', parent ?? 'none']),
+    ...(after === undefined ? [] : ['--after', after]),
+    '--',
+    id,
+  ]),
+  'sessions.forceStart': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'force-start',
+    '--',
+    id,
+  ]),
   'sessions.handoff': commandWith<
     { id: string; note: string; keep: boolean },
     Recorded<{ from: string; to: string; note: string }>

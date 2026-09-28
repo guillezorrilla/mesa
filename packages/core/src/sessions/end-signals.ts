@@ -55,7 +55,7 @@ export function endSignals(
             changed: (r) => r !== undefined,
             warning: (r) => r?.warning,
           },
-          () => startQueued(deps.launch(), queued.id),
+          () => startQueued(deps.launch(), queued.id, queued.after),
         );
         started ||= Boolean(recorded.result);
         warnings.push(recorded.warning);
