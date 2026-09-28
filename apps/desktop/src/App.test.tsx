@@ -64,6 +64,11 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
           { kind: 'change', left: 'old', right: 'new' },
         ],
       }),
+    'worktrees list': () =>
+      envelope([
+        { path: '/h/src/lantern-cove', main: true, state: 'ready', holders: [] },
+        { path: '/h/feature', main: false, state: 'ready', holders: [] },
+      ]),
     sessions: () =>
       envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/feature', branch: 'feature' } })]),
   });

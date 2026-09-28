@@ -226,6 +226,18 @@ test('unstage in an unborn repository keeps the working file', async () => {
   expect((await cli.mesa('git', 'commit', 'lantern-cove', '--message', ' ')).code).toBe(2);
 });
 
+test('an untracked path displayed by status can be staged', async () => {
+  const repo = await cli.withProject();
+  gitRepo(repo);
+  mkdirSync(join(repo, 'new-directory'));
+  writeFileSync(join(repo, 'new-directory', 'first.txt'), 'preserved\n');
+  cli.run = withRealGit(cli.run);
+  const status = await cli.mesa('git', 'status', 'lantern-cove', '--json');
+  const path = status.json.data.changes[0].path as string;
+  expect(path).toBe('new-directory/first.txt');
+  expect((await cli.mesa('git', 'stage', 'lantern-cove', path)).code).toBe(0);
+});
+
 test('branch checkout refuses a live session holder', async () => {
   const repo = await cli.withProject();
   gitRepo(repo);

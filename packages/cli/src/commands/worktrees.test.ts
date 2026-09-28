@@ -219,6 +219,10 @@ test('configured setup runs in the checkout, reruns there, and leaves a failed c
 
 test('remove rechecks changed files, current sessions, teardown output, and the preview token', async () => {
   const repo = await creationRepo();
+  const remote = join(cli.home, 'published.git');
+  execFileSync('git', ['init', '--bare', '-q', remote]);
+  execFileSync('git', ['-C', repo, 'remote', 'add', 'origin', remote]);
+  execFileSync('git', ['-C', repo, 'push', '-q', 'origin', 'main']);
   const created = await cli.mesa('worktrees', 'create', 'lantern-cove', 'remove-me', '--json');
   const path = created.json.data.path as string;
   const preview = async () =>
@@ -432,6 +436,38 @@ test('a branch moved after preview cannot be removed with the old token', async 
     await cli.mesa('worktrees', 'preview', 'lantern-cove', path, '--action', 'remove', '--json')
   ).json.data;
   expect(after.unpublished).toBe(true);
+  expect(existsSync(path)).toBe(true);
+});
+
+test('a local branch does not make unpushed work appear published', async () => {
+  const repo = await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'local-only', '--json')).json
+    .data.path as string;
+  execFileSync('git', [
+    '-C',
+    path,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '--allow-empty',
+    '-qm',
+    'unpublished work',
+  ]);
+  const head = execFileSync('git', ['-C', path, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  execFileSync('git', ['-C', repo, 'update-ref', 'refs/heads/main', head]);
+  const preview = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    path,
+    '--action',
+    'remove',
+    '--json',
+  );
+  expect(preview.json.data.unpublished).toBe(true);
+  expect(preview.json.data.allowed).toBe(false);
   expect(existsSync(path)).toBe(true);
 });
 

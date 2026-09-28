@@ -49,7 +49,7 @@ test('the Insights control explicitly reads source, freshness, and branch-matche
         },
       }),
   });
-  await renderWithMesa(<GitWorkspace project="lantern-cove" sessions={[]} />, bridge);
+  await renderWithMesa(<GitWorkspace project="lantern-cove" />, bridge);
   expect(calls.some((args) => args[1] === 'git' && args[2] === 'insight')).toBe(false);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
@@ -64,5 +64,25 @@ test('the Insights control explicitly reads source, freshness, and branch-matche
   expect(text).toContain('sessions aaaaaaaa');
   expect(document.querySelector('[aria-label="Repository insight"] a')?.getAttribute('href')).toBe(
     'https://github.com/example/repo/pull/42',
+  );
+});
+
+test('a manual worktree without a session is selectable for Git', async () => {
+  const { bridge } = fakeBridge({
+    'worktrees list': () =>
+      envelope([
+        { path: '/tmp/repo', main: true, state: 'ready', holders: [] },
+        { path: '/tmp/manual', main: false, state: 'ready', holders: [] },
+      ]),
+    'git status': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/tmp/repo', registered: true },
+        branch: 'main',
+        changes: [],
+      }),
+  });
+  await renderWithMesa(<GitWorkspace project="lantern-cove" />, bridge);
+  expect(document.querySelector('select[aria-label="Checkout"]')?.textContent).toContain(
+    '/tmp/manual',
   );
 });

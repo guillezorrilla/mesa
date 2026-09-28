@@ -351,12 +351,11 @@ export function ProjectWorkspace(props: {
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
       ) : tab === 'git' ? (
-        <GitWorkspace key={project.name} project={project.name} sessions={props.sessions} />
+        <GitWorkspace key={project.name} project={project.name} />
       ) : tab === 'files' ? (
         <FilesWorkspace
           key={project.name}
           project={project.name}
-          sessions={props.sessions}
           onDirtyChange={props.onFilesDirtyChange}
           target={props.file}
         />

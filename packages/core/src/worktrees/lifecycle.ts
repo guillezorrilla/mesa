@@ -131,15 +131,13 @@ export async function previewWorktreeAction(
           'for-each-ref',
           `--contains=${row.head}`,
           '--format=%(refname)',
-          'refs/heads',
           'refs/remotes',
         ])
       )
         .split('\n')
         .filter(Boolean)
     : [];
-  const unpublished =
-    (ahead ?? 0) > 0 || !branch || !containing.some((ref) => ref !== `refs/heads/${branch}`);
+  const unpublished = (ahead ?? 0) > 0 || !branch || containing.length === 0;
   const facts = {
     action,
     project,

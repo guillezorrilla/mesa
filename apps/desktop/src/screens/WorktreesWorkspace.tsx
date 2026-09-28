@@ -5,6 +5,7 @@ import { ActionDialog } from '@/components/ActionDialog';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -148,14 +149,14 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
               placeholder="Current branch or origin/HEAD"
             />
           </div>
-          <label className="flex items-center gap-2 self-end text-sm">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-2 self-end text-sm">
+            <Checkbox
+              id="worktree-fetch"
               checked={settings.fetch}
-              onChange={(event) => setSettings({ ...settings, fetch: event.target.checked })}
+              onCheckedChange={(checked) => setSettings({ ...settings, fetch: checked === true })}
             />
-            Fetch remotes before creating
-          </label>
+            <Label htmlFor="worktree-fetch">Fetch remotes before creating</Label>
+          </div>
           <div className="space-y-1">
             <Label htmlFor="worktree-sparse">Sparse checkout directories, one per line</Label>
             <Textarea

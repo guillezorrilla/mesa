@@ -1,4 +1,3 @@
-import type { TreeRow } from '@mesa/core';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { said } from '@/components/Toast';
@@ -7,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
+import { useCheckoutPaths } from '@/lib/useCheckoutPaths';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { GitBranches } from './GitBranches';
 import { GitDiffView } from './GitDiffView';
@@ -16,7 +16,7 @@ import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
 
 /** Git changes for the registered checkout and session worktrees. */
-export function GitWorkspace(props: { project: string; sessions: readonly TreeRow[] }) {
+export function GitWorkspace(props: { project: string }) {
   const [checkout, setCheckout] = useState('');
   const [diffPath, setDiffPath] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
@@ -28,13 +28,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
   const [showInsight, setShowInsight] = useState(false);
   const run = useRun();
   const { acting, act } = useAct();
-  const paths = [
-    ...new Set(
-      props.sessions.flatMap((row) =>
-        row.managed && row.project === props.project && row.worktree ? [row.worktree.path] : [],
-      ),
-    ),
-  ];
+  const paths = useCheckoutPaths(props.project);
   const status = useCommand('git.status', {
     project: props.project,
     checkout: checkout || undefined,

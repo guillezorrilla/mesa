@@ -20,7 +20,7 @@ test('a late file read cannot replace the newer selection', async () => {
     'files read': (args) => new Promise((resolve) => pending.set(args.at(-1) ?? '', resolve)),
   });
   const byTestId = await renderWithMesa(
-    <FilesWorkspace project="lantern-cove" sessions={[]} onDirtyChange={() => {}} />,
+    <FilesWorkspace project="lantern-cove" onDirtyChange={() => {}} />,
     bridge,
   );
   const rows = [...document.querySelectorAll<HTMLButtonElement>('[aria-label="File tree"] button')];
@@ -51,7 +51,6 @@ test('a terminal file target selects its checkout and exact line', async () => {
   const byTestId = await renderWithMesa(
     <FilesWorkspace
       project="lantern-cove"
-      sessions={[]}
       onDirtyChange={() => {}}
       target={{ checkout: '/tmp/feature', path: 'docs/guide.md', line: 2 }}
     />,
@@ -67,4 +66,24 @@ test('a terminal file target selects its checkout and exact line', async () => {
     ),
   ).toBe(true);
   expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).selectionStart).toBe(4);
+});
+
+test('a manual worktree without a session is selectable for Files', async () => {
+  const { bridge } = fakeBridge({
+    'worktrees list': () =>
+      envelope([
+        { path: '/tmp/repo', main: true, state: 'ready', holders: [] },
+        { path: '/tmp/manual', main: false, state: 'ready', holders: [] },
+      ]),
+    'files tree': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/tmp/repo', registered: true },
+        entries: [],
+        truncated: false,
+      }),
+  });
+  await renderWithMesa(<FilesWorkspace project="lantern-cove" onDirtyChange={() => {}} />, bridge);
+  expect(document.querySelector('select[aria-label="Files checkout"]')?.textContent).toContain(
+    '/tmp/manual',
+  );
 });

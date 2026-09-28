@@ -1,14 +1,16 @@
-import type { Config, FileHit, TreeRow, WorkspaceFile } from '@mesa/core';
+import type { Config, FileHit, WorkspaceFile } from '@mesa/core';
 import { File, Folder, FolderOpen, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { FileEditor } from '@/components/FileEditor';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
+import { useCheckoutPaths } from '@/lib/useCheckoutPaths';
 import { useCommand, useRun } from '@/lib/useCommand';
 
 type Pending =
@@ -29,7 +31,6 @@ const DEFAULT_EDITOR: Config['editor'] = {
 /** Xirp-style two-pane repository browser over the same checked file commands as the CLI. */
 export function FilesWorkspace(props: {
   project: string;
-  sessions: readonly TreeRow[];
   onDirtyChange: (dirty: boolean) => void;
   target?: { checkout: string; path: string; line: number };
 }) {
@@ -71,13 +72,7 @@ export function FilesWorkspace(props: {
     window.addEventListener('beforeunload', preventClose);
     return () => window.removeEventListener('beforeunload', preventClose);
   }, [dirty]);
-  const paths = [
-    ...new Set(
-      props.sessions.flatMap((row) =>
-        row.managed && row.project === props.project && row.worktree ? [row.worktree.path] : [],
-      ),
-    ),
-  ];
+  const paths = useCheckoutPaths(props.project);
   const load = async (path: string, line?: number, selected = checkout) => {
     const request = ++loadRequest.current;
     const file = await run('files.read', {
@@ -425,24 +420,24 @@ export function FilesWorkspace(props: {
                 </NativeSelectOption>
               ))}
             </NativeSelect>
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-1">
+              <Checkbox
+                id="editor-word-wrap"
                 checked={preferences.wordWrap}
                 disabled={acting}
-                onChange={(event) => void savePreference('wordWrap', event.target.checked)}
+                onCheckedChange={(checked) => void savePreference('wordWrap', checked === true)}
               />
-              Wrap lines
-            </label>
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
+              <Label htmlFor="editor-word-wrap">Wrap lines</Label>
+            </div>
+            <div className="flex items-center gap-1">
+              <Checkbox
+                id="editor-vim"
                 checked={preferences.vim}
                 disabled={acting}
-                onChange={(event) => void savePreference('vim', event.target.checked)}
+                onCheckedChange={(checked) => void savePreference('vim', checked === true)}
               />
-              Vim mode
-            </label>
+              <Label htmlFor="editor-vim">Vim mode</Label>
+            </div>
           </div>
           <form
             className="mt-3 flex gap-2"

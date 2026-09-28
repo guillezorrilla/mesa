@@ -38,7 +38,7 @@ export async function readGitStatus(
   const checkout = await resolveCheckout(profile, run, project, selected);
   const [branch, status] = await Promise.all([
     gitCommand(run, checkout.path, ['symbolic-ref', '--quiet', '--short', 'HEAD']),
-    gitCommand(run, checkout.path, ['status', '--porcelain=v1', '-z', '--untracked-files=normal']),
+    gitCommand(run, checkout.path, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
   ]);
   if (!status.ok) throw new MesaError('usage', `cannot read Git status: ${status.detail}`);
   return {
