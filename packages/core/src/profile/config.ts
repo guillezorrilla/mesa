@@ -11,6 +11,14 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath } from '../lib/yaml-file.js';
+import {
+  BOARD_DENSITIES,
+  BOARD_GROUPS,
+  BOARD_SORTS,
+  BOARD_VIEWS,
+  DEFAULT_BOARD_PREFERENCES,
+} from '../sessions/presentation.js';
+import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 
 /** The terminal apps `mesa attach --app` can open. */
 export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
@@ -31,6 +39,53 @@ const ConfigSchema = z.strictObject({
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
   terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
+  shortcuts: z
+    .strictObject({
+      search: z
+        .string()
+        .refine(validShortcut, 'must be Mod plus a letter or digit')
+        .default(DEFAULT_SHORTCUTS.search),
+      board: z
+        .string()
+        .refine(validShortcut, 'must be Mod plus a letter or digit')
+        .default(DEFAULT_SHORTCUTS.board),
+      newSession: z
+        .string()
+        .refine(validShortcut, 'must be Mod plus a letter or digit')
+        .default(DEFAULT_SHORTCUTS.newSession),
+    })
+    .refine((keys) => new Set(Object.values(keys)).size === 3, 'shortcuts must be unique')
+    .prefault({}),
+  board: z
+    .strictObject({
+      view: z.enum(BOARD_VIEWS).default(DEFAULT_BOARD_PREFERENCES.view),
+      group: z.enum(BOARD_GROUPS).default(DEFAULT_BOARD_PREFERENCES.group),
+      density: z.enum(BOARD_DENSITIES).default(DEFAULT_BOARD_PREFERENCES.density),
+      sort: z.enum(BOARD_SORTS).default(DEFAULT_BOARD_PREFERENCES.sort),
+      order: z
+        .array(z.string().regex(/^[0-9a-z]{8}$/))
+        .refine((ids) => new Set(ids).size === ids.length, 'ids must be unique')
+        .default([]),
+    })
+    .prefault({}),
+  grid: z
+    .strictObject({
+      groups: z
+        .array(
+          z.strictObject({
+            name: z.string().trim().min(1).max(60),
+            project: z.string().optional(),
+            sessions: z.array(z.string().regex(/^[0-9a-z]{8}$/)).min(1),
+          }),
+        )
+        .refine(
+          (groups) =>
+            new Set(groups.map((group) => group.name.toLowerCase())).size === groups.length,
+          'grid group names must be unique',
+        )
+        .default([]),
+    })
+    .prefault({}),
   /** How a headless run may act (mesa run): claude's --permission-mode and --allowedTools. */
   run: z
     .strictObject({

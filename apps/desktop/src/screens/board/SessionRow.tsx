@@ -1,4 +1,4 @@
-import type { TreeRow } from '@mesa/core';
+import type { TreeRow, WorkflowStatus } from '@mesa/core';
 import {
   attentionScore,
   duration,
@@ -7,7 +7,16 @@ import {
   sessionLabel,
   waitingOn,
 } from '@mesa/core/browser';
-import { Download, Forward, RotateCcw, Send, Square, SquareTerminal } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  Download,
+  Forward,
+  RotateCcw,
+  Send,
+  Square,
+  SquareTerminal,
+} from 'lucide-react';
 import { ContextBar } from '@/components/ContextBar';
 import { StateBadge } from '@/components/StateBadge';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +28,7 @@ import { ReceivedPrompts } from './ReceivedPrompts';
 import { RowMenu } from './RowMenu';
 import { decidedBy, exited, queued, resumable, ticking } from './rows';
 import { TreeToggle } from './TreeToggle';
+import { WorkflowSelect } from './WorkflowSelect';
 
 /** What a row can ask the Board to do; the Board runs one action at a time. */
 export type RowActions = {
@@ -31,9 +41,9 @@ export type RowActions = {
   /** Open the Hand off, Log, Rename, or Remove dialog for this row. */
   handoff: (row: TreeRow) => void;
   log: (row: TreeRow) => void;
-  summarise: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
   remove: (row: TreeRow) => void;
+  workflow: (id: string, status: WorkflowStatus | 'clear') => void;
 };
 
 /**
@@ -51,6 +61,7 @@ export function SessionRow(props: {
   elapsed: number;
   acting: boolean;
   actions: RowActions;
+  onMove?: (id: string, direction: -1 | 1) => void;
 }) {
   const { row: s, below, acting, actions } = props;
   // A name a person gave it stands in for the id, which stays on hover.
@@ -102,6 +113,18 @@ export function SessionRow(props: {
             className="max-w-80 truncate text-muted-foreground text-xs"
           >
             {s.goal.trim().split(/\r?\n/, 1)[0]}
+          </div>
+        )}
+        {s.managed && (s.parent || s.after || s.handoffFrom || s.resumedFrom) && (
+          <div data-testid="session-relations" className="text-muted-foreground text-xs">
+            {[
+              s.parent && `Child of ${s.parent}`,
+              s.after && `After ${s.after}`,
+              s.handoffFrom && `Handed off from ${s.handoffFrom}`,
+              s.resumedFrom && `Resumed from ${s.resumedFrom}`,
+            ]
+              .filter(Boolean)
+              .join(' / ')}
           </div>
         )}
       </TableCell>
@@ -180,6 +203,34 @@ export function SessionRow(props: {
               </form>
             )}
             <ReceivedPrompts row={s} />
+            <WorkflowSelect
+              id={s.id}
+              status={s.workflowStatus}
+              disabled={acting}
+              onChange={(status) => actions.workflow(s.id, status)}
+            />
+            {props.onMove && (
+              <div className="flex gap-1">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Move ${s.id} up`}
+                  onClick={() => props.onMove?.(s.id, -1)}
+                  disabled={acting}
+                >
+                  <ArrowUp aria-hidden />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`Move ${s.id} down`}
+                  onClick={() => props.onMove?.(s.id, 1)}
+                  disabled={acting}
+                >
+                  <ArrowDown aria-hidden />
+                </Button>
+              </div>
+            )}
             <div className="flex flex-wrap gap-1">
               <Button
                 variant="outline"
@@ -229,8 +280,6 @@ export function SessionRow(props: {
                 sessionId={s.id}
                 canRemove={exited(s) && !queued(s) && !acting}
                 onLog={() => actions.log(s)}
-                canSummarise={Boolean(s.hasOutputLog)}
-                onSummarise={() => actions.summarise(s)}
                 onRename={() => actions.rename(s)}
                 onRemove={() => actions.remove(s)}
               />

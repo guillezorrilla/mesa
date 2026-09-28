@@ -1,72 +1,108 @@
-import type { GuardrailCheck, ManagedRow } from '@mesa/core';
-import { Play, Plus } from 'lucide-react';
-import { useState } from 'react';
+import type { BoardPreferences, GridGroup, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import {
+  attentionScore,
+  DEFAULT_BOARD_PREFERENCES,
+  isRun,
+  sessionBranch,
+  sessionLabel,
+} from '@mesa/core/browser';
+import {
+  ArrowLeft,
+  Download,
+  ExternalLink,
+  Forward,
+  Plus,
+  RotateCcw,
+  Send,
+  Square,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ContextBar } from '@/components/ContextBar';
 import { PageHeader } from '@/components/PageHeader';
-import { type Message, said, useToast } from '@/components/Toast';
+import { StateBadge } from '@/components/StateBadge';
+import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
+import { BoardControls } from './BoardControls';
+import { BoardLayouts } from './BoardLayouts';
+import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
 import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
-import { RunSkillDialog, type RunSkillInput } from './RunSkillDialog';
-import { exited, shown } from './rows';
-import { type RowActions, SessionRow } from './SessionRow';
+import { RowMenu } from './RowMenu';
+import { exited, queued, resumable } from './rows';
+import type { RowActions } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
+import { WorkflowSelect } from './WorkflowSelect';
 
 /**
- * The one dialog open on the Board, if any: New session, Run skill, a row's Rename, Hand off,
- * Log, or Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once
- * the prompt goes) or on a skill run.
+ * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
+ * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
-  | { kind: 'new' | 'run' }
+  | { kind: 'new' }
   | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
-  | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck }
-  | { kind: 'run-guardrail'; input: RunSkillInput; check: GuardrailCheck }
-  | { kind: 'summary-guardrail'; id: string; check: GuardrailCheck };
-
-const COLUMNS = [
-  'Id',
-  'Project',
-  'Agent',
-  'State',
-  'Attention',
-  'Context',
-  'Running',
-  'Last output',
-  'Actions',
-];
+  | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 /**
  * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
  * (highest attention first, children under their parent, collapsible), with Faro's state,
  * confidence, and attention, the running time, and the last output line. It looks again every
- * two seconds and after every action; a live session's terminal opens under it. A skill run's
- * toast links to its receipt through `onOpenReceipt`.
+ * two seconds and after every action; a live session's terminal opens under it.
  */
-export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
+export function BoardScreen(
+  props: {
+    selectedSession?: string;
+    onRowsChange?: (rows: TreeRow[]) => void;
+    onBoard?: () => void;
+    newSessionRequest?: number;
+    preferences?: BoardPreferences;
+    onPreferencesChanged?: () => void;
+    onSelectSession?: (id: string) => void;
+    gridMode?: boolean;
+    gridGroups?: GridGroup[];
+    onGridGroupsChanged?: () => void;
+  } = {},
+) {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
+  useEffect(() => {
+    if (data) props.onRowsChange?.(data);
+  }, [data, props.onRowsChange]);
   const run = useRun();
   const call = useCall();
-  const toast = useToast();
   const [dialog, setDialog] = useState<OpenDialog>();
+  useEffect(() => {
+    if (props.newSessionRequest) setDialog({ kind: 'new' });
+  }, [props.newSessionRequest]);
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
+  const [gridProject, setGridProject] = useState('all');
+  const [zoomed, setZoomed] = useState<string>();
+  const [gridNotice, setGridNotice] = useState('');
   // A panel goes with its session: once it is not live (stopped, resumed, exited), tmux would
   // show the view another window of the project.
   const live = new Set((data ?? []).filter((s) => s.managed && !exited(s)).map((s) => s.id));
+  const gridLive = (data ?? []).filter((s): s is ManagedRow & TreeRow => s.managed && !exited(s));
   if (data && panels.some((id) => !live.has(id))) setPanels(panels.filter((id) => live.has(id)));
+  useEffect(() => {
+    const id = props.selectedSession;
+    if (id && data?.some((row) => row.id === id && row.managed && !exited(row))) {
+      setPanels((open) => (open.includes(id) ? open : [...open, id]));
+    }
+  }, [data, props.selectedSession]);
+  const selected = data?.find((row) => row.id === props.selectedSession);
+  const preferences = props.preferences ?? DEFAULT_BOARD_PREFERENCES;
 
   // Every action looks again when it ends, so the Board shows what it did.
   const { acting, act: once } = useAct();
@@ -100,68 +136,6 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
       close();
       return { text: check ? `Not sent to ${id}: ${check.reason}` : error.message, tone: 'alert' };
     });
-  /**
-   * Runs a skill, which takes minutes: the dialog closes at once, the Board's looks show the run's
-   * row meanwhile, and the other actions stay free. The guardrail answers before the run starts:
-   * its ask opens its dialog, whose Run anyway runs it again with `yes`, and its block is said in
-   * the toast. The run's end is said in a toast, done or failed, linking to its receipt.
-   */
-  const runSkill = async (input: RunSkillInput, yes = false) => {
-    close();
-    const ran = await call('skills.run', { ...input, yes });
-    await look();
-    if (!ran.ok) {
-      const check = guardrailOf(ran.error);
-      if (check?.verdict === 'ask' && !yes) {
-        setDialog({ kind: 'run-guardrail', input, check });
-        return;
-      }
-      toast(
-        check
-          ? `Did not run ${input.skill} on ${input.project}: ${check.reason}`
-          : ran.error.message,
-      );
-      return;
-    }
-    const r = ran.data;
-    const how = r.ok ? 'done' : `failed (${r.reason})`;
-    const message = said(`Ran ${input.skill} on ${input.project} as ${r.session}: ${how}`, r);
-    const { receipt } = r;
-    toast(
-      message.text,
-      r.ok ? message.tone : 'alert',
-      receipt
-        ? { label: 'Open its receipt', onFollow: () => props.onOpenReceipt(receipt.id) }
-        : undefined,
-    );
-  };
-  const summarise = async (id: string, yes = false) => {
-    close();
-    const ran = await call('sessions.summarise', { id, yes });
-    await look();
-    if (!ran.ok) {
-      const check = guardrailOf(ran.error);
-      if (check?.verdict === 'ask' && !yes) {
-        setDialog({ kind: 'summary-guardrail', id, check });
-        return;
-      }
-      toast(ran.error.message);
-      return;
-    }
-    const r = ran.data;
-    const message = said(
-      r.ok ? `Summarised ${id}${r.note ? ` in ${r.note}` : ''}` : `Summary failed: ${r.reason}`,
-      r,
-    );
-    const { receipt } = r;
-    toast(
-      message.text,
-      r.ok ? message.tone : 'alert',
-      receipt
-        ? { label: 'Open its receipt', onFollow: () => props.onOpenReceipt(receipt.id) }
-        : undefined,
-    );
-  };
   const actions: RowActions = {
     embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
     openTerminal: (id) =>
@@ -190,8 +164,15 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
-    summarise: (row) => row.managed && void summarise(row.id),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
+    workflow: (id, status) =>
+      act(async () => {
+        const changed = await run('sessions.workflow', { id, status });
+        return (
+          changed &&
+          said(`Session ${id} workflow: ${changed.workflowStatus ?? 'unassigned'}`, changed)
+        );
+      }),
     adopt: (agentSessionId, project) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
@@ -231,62 +212,145 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
       close();
       return said(`Opened session ${opened.id} on ${opened.project}`, opened);
     });
+  const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
+    act(async () => {
+      const saved = await run('config.set', { path: `board.${key}`, value });
+      if (!saved) return undefined;
+      props.onPreferencesChanged?.();
+      return said(`Saved Board ${key}`, saved);
+    });
+  const move = (id: string, direction: -1 | 1) =>
+    act(async () => {
+      const moved = await run('board.move', { id, direction: direction === -1 ? 'up' : 'down' });
+      if (!moved) return undefined;
+      props.onPreferencesChanged?.();
+      return said(`Moved ${id} on Board`, moved);
+    });
+  const saveGroup = (name: string) =>
+    act(async () => {
+      const sessions = panels.filter((id) =>
+        gridLive.some(
+          (row) => row.id === id && (gridProject === 'all' || row.project === gridProject),
+        ),
+      );
+      const saved = await run('grid.save', {
+        name,
+        project: gridProject === 'all' ? undefined : gridProject,
+        sessions,
+      });
+      if (!saved) return undefined;
+      props.onGridGroupsChanged?.();
+      return said(`Saved grid group ${name}`, saved);
+    });
+  const removeGroup = (name: string) =>
+    act(async () => {
+      const removed = await run('grid.remove', { name });
+      if (!removed) return undefined;
+      props.onGridGroupsChanged?.();
+      return said(`Removed grid group ${name}; sessions kept`, removed);
+    });
+  const openGroup = (group: GridGroup) => {
+    const available = group.sessions.filter((id) => live.has(id));
+    setGridProject(group.project ?? 'all');
+    setPanels(available);
+    setZoomed(undefined);
+    setGridNotice(
+      group.sessions.length === available.length
+        ? ''
+        : `${group.sessions.length - available.length} saved session(s) are unavailable; the group was kept.`,
+    );
+  };
 
   return (
-    <section data-testid="session-board" className="space-y-4">
-      <PageHeader
-        title="Board"
-        description="Every session, the ones waiting on you first; children sit under their parent."
-      >
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Checkbox
-            id="sessions-ended"
-            data-testid="sessions-ended"
-            checked={ended}
-            onCheckedChange={(checked) => setEnded(checked === true)}
-          />
-          <Label htmlFor="sessions-ended" className="font-normal">
-            Show older
-          </Label>
+    <section
+      data-testid="session-board"
+      className={props.selectedSession ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
+    >
+      {props.selectedSession ? (
+        <div className="flex min-h-12 items-center gap-2 border-b px-4 text-sm">
+          <Button variant="ghost" size="icon-sm" aria-label="All sessions" onClick={props.onBoard}>
+            <ArrowLeft aria-hidden />
+          </Button>
+          <span className="text-muted-foreground">{selected?.project ?? 'General'} /</span>
+          <span className="truncate font-medium">
+            {selected ? sessionLabel(selected) : props.selectedSession}
+          </span>
+          <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
         </div>
-        <Button
-          variant="outline"
-          data-testid="run-skill"
-          onClick={() => setDialog({ kind: 'run' })}
+      ) : props.gridMode ? (
+        <PageHeader
+          title="Terminal grid"
+          description="Live sessions in separate tiles, grouped by project."
         >
-          <Play aria-hidden />
-          Run skill
-        </Button>
-        <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
-          <Plus aria-hidden />
-          New session
-        </Button>
-      </PageHeader>
+          <Button variant="outline" onClick={props.onBoard}>
+            <ArrowLeft aria-hidden /> Board
+          </Button>
+        </PageHeader>
+      ) : (
+        <PageHeader
+          title="Board"
+          description="Every session, the ones waiting on you first; children sit under their parent."
+        >
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Checkbox
+              id="sessions-ended"
+              data-testid="sessions-ended"
+              checked={ended}
+              onCheckedChange={(checked) => setEnded(checked === true)}
+            />
+            <Label htmlFor="sessions-ended" className="font-normal">
+              Show older
+            </Label>
+          </div>
+          <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
+            <Plus aria-hidden />
+            New session
+          </Button>
+        </PageHeader>
+      )}
+      {!props.selectedSession && !props.gridMode && (
+        <BoardControls
+          preferences={preferences}
+          disabled={acting}
+          onChange={(key, value) => savePreference(key, value)}
+        />
+      )}
+      {props.gridMode && (
+        <>
+          <GridToolbar
+            live={gridLive}
+            panels={panels}
+            groups={props.gridGroups ?? []}
+            project={gridProject}
+            busy={acting}
+            onProject={(project) => {
+              setGridProject(project);
+              setZoomed(undefined);
+            }}
+            onAdd={(id) => setPanels((open) => (open.includes(id) ? open : [...open, id]))}
+            onAddProject={() =>
+              setPanels((open) => [
+                ...new Set([
+                  ...open,
+                  ...gridLive
+                    .filter((row) => gridProject === 'all' || row.project === gridProject)
+                    .map((row) => row.id),
+                ]),
+              ])
+            }
+            onSave={saveGroup}
+            onOpenGroup={openGroup}
+            onRemoveGroup={removeGroup}
+          />
+          {gridNotice && (
+            <p role="status" className="text-muted-foreground text-sm">
+              {gridNotice}
+            </p>
+          )}
+        </>
+      )}
       {dialog?.kind === 'new' && (
         <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
-      )}
-      {dialog?.kind === 'run' && (
-        <RunSkillDialog onRun={(input) => runSkill(input)} onCancel={close} />
-      )}
-      {dialog?.kind === 'run-guardrail' && (
-        <GuardrailDialog
-          action="run"
-          about={`/${dialog.input.skill} runs on ${dialog.input.project}`}
-          check={dialog.check}
-          disabled={false}
-          onConfirm={() => runSkill(dialog.input, true)}
-          onCancel={close}
-        />
-      )}
-      {dialog?.kind === 'summary-guardrail' && (
-        <GuardrailDialog
-          action="run"
-          about={`summarise session ${dialog.id}`}
-          check={dialog.check}
-          disabled={false}
-          onConfirm={() => summarise(dialog.id, true)}
-          onCancel={close}
-        />
       )}
       {dialog?.kind === 'handoff' && (
         <HandoffDialog
@@ -324,45 +388,198 @@ export function BoardScreen(props: { onOpenReceipt: (id: string) => void }) {
           onCancel={close}
         />
       )}
-      {data?.length === 0 && (
-        <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
-          No sessions yet: start one with New session.
+      {props.selectedSession ? (
+        selected ? (
+          <Card
+            data-testid="selected-session"
+            className="relative gap-0 rounded-none border-x-0 border-t-0 bg-background px-4 py-2"
+          >
+            <div className="flex flex-wrap items-center gap-3 pr-28 text-sm">
+              <StateBadge
+                state={selected.lastState.state}
+                confidence={selected.lastState.confidence}
+              />
+              <span className="text-muted-foreground">
+                Attention {attentionScore(selected.attention)}
+              </span>
+              {selected.managed && selected.context && (
+                <ContextBar used={selected.context.used} window={selected.context.window} />
+              )}
+              {selected.managed && sessionBranch(selected) && (
+                <span className="font-mono text-muted-foreground">{sessionBranch(selected)}</span>
+              )}
+              {selected.managed && (
+                <WorkflowSelect
+                  id={selected.id}
+                  status={selected.workflowStatus}
+                  disabled={acting}
+                  onChange={(status) => actions.workflow(selected.id, status)}
+                />
+              )}
+            </div>
+            <details className="absolute right-4 top-1.5 z-20">
+              <summary className="cursor-pointer rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
+                Session actions
+              </summary>
+              {selected.managed ? (
+                <div className="absolute right-0 mt-2 flex w-80 flex-wrap items-center gap-2 rounded-lg border bg-popover p-3 shadow-lg">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.openTerminal(selected.id)}
+                    disabled={!selected.alive || acting}
+                  >
+                    <ExternalLink aria-hidden />
+                    Open in terminal app
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.stop(selected.id)}
+                    disabled={!(selected.alive || queued(selected)) || acting}
+                  >
+                    <Square aria-hidden />
+                    {queued(selected) ? 'Cancel' : 'Stop'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.resume(selected.id)}
+                    disabled={!resumable(selected) || acting}
+                  >
+                    <RotateCcw aria-hidden />
+                    Resume
+                  </Button>
+                  {!isRun(selected) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => actions.handoff(selected)}
+                      disabled={exited(selected) || !selected.goal || acting}
+                    >
+                      <Forward aria-hidden />
+                      Hand off
+                    </Button>
+                  )}
+                  <RowMenu
+                    sessionId={selected.id}
+                    canRemove={exited(selected) && !queued(selected) && !acting}
+                    onLog={() => actions.log(selected)}
+                    onRename={() => actions.rename(selected)}
+                    onRemove={() => actions.remove(selected)}
+                  />
+                  {!isRun(selected) && !exited(selected) && (
+                    <form
+                      className="flex min-w-48 flex-1 gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!acting) actions.send(selected.id, event.currentTarget);
+                      }}
+                    >
+                      <Input
+                        name="prompt"
+                        aria-label={`Prompt for ${selected.id}`}
+                        placeholder="Message session"
+                      />
+                      <Button type="submit" size="sm" disabled={acting}>
+                        <Send aria-hidden />
+                        Send
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    actions.adopt(selected.agentSessionId, selected.project ?? undefined)
+                  }
+                >
+                  <Download aria-hidden />
+                  Adopt
+                </Button>
+              )}
+            </details>
+          </Card>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {data ? 'Session unavailable. Open Board to choose another.' : 'Loading session...'}
+          </p>
+        )
+      ) : !props.gridMode ? (
+        <>
+          {data?.length === 0 && (
+            <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
+              No sessions yet: start one with New session.
+            </p>
+          )}
+          <BoardLayouts
+            rows={data ?? []}
+            preferences={preferences}
+            collapsed={collapsed}
+            toggle={toggle}
+            elapsed={elapsed}
+            acting={acting}
+            actions={actions}
+            onSelect={props.onSelectSession}
+            onMove={move}
+          />
+        </>
+      ) : null}
+      {props.gridMode && panels.length === 0 && (
+        <p className="text-muted-foreground text-sm">
+          No tiles open. Choose a live session or reopen a saved group.
         </p>
       )}
-      <Card className="py-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {COLUMNS.map((c) => (
-                <TableHead key={c}>{c}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown(data ?? [], collapsed).map(({ row, below }) => (
-              <SessionRow
-                key={row.id}
-                row={row}
-                below={below}
-                closed={collapsed.has(row.id)}
-                onToggle={() => toggle(row.id)}
-                elapsed={elapsed}
-                acting={acting}
-                actions={actions}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-      {panels.map((id) => (
-        <TerminalPanel
-          key={id}
-          sessionId={id}
-          busy={acting}
-          onOpenExternal={() => actions.openTerminal(id)}
-          onClose={() => setPanels((open) => open.filter((p) => p !== id))}
-        />
-      ))}
+      <div
+        className={
+          props.selectedSession
+            ? 'min-h-0 flex-1'
+            : props.gridMode
+              ? 'grid gap-3 lg:grid-cols-2'
+              : 'space-y-4'
+        }
+      >
+        {panels.map((id) => (
+          <div
+            key={id}
+            data-testid={props.gridMode ? 'grid-tile' : undefined}
+            hidden={
+              props.selectedSession
+                ? id !== props.selectedSession
+                : props.gridMode
+                  ? (gridProject !== 'all' &&
+                      !gridLive.some((row) => row.id === id && row.project === gridProject)) ||
+                    (Boolean(zoomed) && zoomed !== id)
+                  : false
+            }
+            className={
+              props.selectedSession
+                ? 'h-full'
+                : props.gridMode
+                  ? zoomed === id
+                    ? 'col-span-full h-[70vh] min-w-[320px]'
+                    : 'h-[380px] min-w-[320px] resize overflow-auto'
+                  : undefined
+            }
+          >
+            <TerminalPanel
+              sessionId={id}
+              busy={acting}
+              onOpenExternal={() => actions.openTerminal(id)}
+              onClose={() => {
+                setPanels((open) => open.filter((p) => p !== id));
+                setZoomed((current) => (current === id ? undefined : current));
+              }}
+              grid={props.gridMode}
+              selected={Boolean(props.selectedSession)}
+              zoomed={zoomed === id}
+              onZoom={() => setZoomed((current) => (current === id ? undefined : id))}
+            />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

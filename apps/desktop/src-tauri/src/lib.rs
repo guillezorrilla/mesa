@@ -16,6 +16,7 @@ async fn run_mesa(args: Vec<String>) -> Result<Value, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
         .invoke_handler(tauri::generate_handler![
             run_mesa,

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
-import type { TreeRow } from '@mesa/core';
+import type { BoardPreferences, TreeRow } from '@mesa/core';
+import { DEFAULT_BOARD_PREFERENCES, DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
@@ -7,6 +8,7 @@ import {
   asking,
   busy,
   cells,
+  choose,
   click,
   deadPane,
   envelope,
@@ -121,6 +123,94 @@ test('the Board is the first screen: every session by attention, with its state,
 
   const empty = await renderWithMesa(<App />, fakeBridge().bridge);
   expect(empty('sessions-empty')).toHaveLength(1);
+});
+
+test('workflow selection uses its own command and leaves Faro state visible', async () => {
+  let status: 'review' | undefined;
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([{ ...asking, workflowStatus: status }]),
+    workflow: (args) => {
+      status = args.at(-1) as 'review';
+      return envelope({ ...asking, workflowStatus: status, receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const select = byTestId('session-workflow')[0] as HTMLSelectElement;
+  await act(async () => {
+    select.value = 'review';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(calls.some((args) => args.join(' ') === '--json workflow -- aaaaaaaa review')).toBe(true);
+  expect((byTestId('session-workflow')[0] as HTMLSelectElement).value).toBe('review');
+  expect(byTestId('session-state')[0]?.dataset.state).toBe('waiting-permission');
+});
+
+test('Board layouts, grouping and manual order persist through profile config', async () => {
+  let board: BoardPreferences = { ...DEFAULT_BOARD_PREFERENCES };
+  const rows = [
+    asking,
+    { ...busy, parent: asking.id },
+    { ...exited, project: 'tide', workflowStatus: 'review' as const },
+  ];
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope({ shortcuts: DEFAULT_SHORTCUTS, board }),
+    'config set': (args) => {
+      const key = args.at(-2)?.replace('board.', '') as keyof BoardPreferences;
+      const value = JSON.parse(args.at(-1) ?? 'null');
+      board = { ...board, [key]: value };
+      return envelope({ path: `board.${key}`, value, receipt: null });
+    },
+    'board move': () => {
+      board = { ...board, order: ['bbbbbbbb', 'aaaaaaaa', 'cccccccc'] };
+      return envelope({ order: board.order, receipt: null });
+    },
+    sessions: () => envelope(rows),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await choose(byTestId('board-view')[0], 'cards');
+  expect(byTestId('session-card')).toHaveLength(3);
+  expect(byTestId('session-relations')[0]?.textContent).toContain('Child of aaaaaaaa');
+  await choose(byTestId('board-sort')[0], 'manual');
+  await click(document.querySelector('[aria-label="Move bbbbbbbb up"]') as HTMLElement);
+  expect(byTestId('session-card').map((card) => card.querySelector('button')?.textContent)).toEqual(
+    ['bbbbbbbb', 'aaaaaaaa', 'cccccccc'],
+  );
+  await choose(byTestId('board-group-select')[0], 'project');
+  expect(byTestId('board-group')).toHaveLength(2);
+  await choose(byTestId('board-density')[0], 'compact');
+  expect(byTestId('board-layout')[0]?.dataset.density).toBe('compact');
+  await choose(byTestId('board-view')[0], 'workflow');
+  expect(byTestId('board-group')).toHaveLength(6);
+  expect(
+    byTestId('board-group').find((group) =>
+      group.querySelector('h3')?.textContent?.startsWith('review'),
+    )?.textContent,
+  ).toContain('cccccccc');
+  expect(calls.some((args) => args.join(' ') === '--json board move -- bbbbbbbb up')).toBe(true);
+});
+
+test('switching Board layouts keeps an embedded terminal attached to its session', async () => {
+  const terms = fakeTerminals();
+  let board: BoardPreferences = { ...DEFAULT_BOARD_PREFERENCES };
+  const { bridge } = fakeBridge({
+    config: () => envelope({ shortcuts: DEFAULT_SHORTCUTS, board }),
+    'config set': (args) => {
+      const key = args.at(-2)?.replace('board.', '') as keyof BoardPreferences;
+      const value = JSON.parse(args.at(-1) ?? 'null');
+      board = { ...board, [key]: value };
+      return envelope({ path: `board.${key}`, value, receipt: null });
+    },
+    sessions: () => envelope([asking]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
+  await click(byTestId('embed-terminal')[0]);
+  await act(async () => new Promise((done) => setTimeout(done, 20)));
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  await choose(byTestId('board-view')[0], 'cards');
+  await choose(byTestId('board-view')[0], 'workflow');
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  expect(terms.calls.filter((call) => call[0] === 'close')).toEqual([]);
 });
 
 test('the Board looks again every two seconds, one look at a time, and its clock ticks every second', async () => {
@@ -895,21 +985,11 @@ test("the row menu's Log shows a session's last output lines, and reads them aga
   expect(byTestId('log-lines')).toHaveLength(0);
 });
 
-test('Summarise runs on a logged session and toasts the wiki note; absent logs disable it', async () => {
-  const { bridge, calls } = fakeBridge({
-    sessions: () =>
-      envelope([
-        { ...asking, hasOutputLog: true },
-        { ...exited, hasOutputLog: false },
-      ]),
-    run: () =>
-      envelope({ ok: true, session: 'summary1', note: 'wiki/sessions/aaaaaaaa.md', receipt: null }),
-  });
+test('skills launch in the terminal, and historical receipts have no primary app page', async () => {
+  const { bridge } = fakeBridge({ sessions: () => envelope([asking]) });
   const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('run-skill')).toHaveLength(0);
+  expect(byTestId('nav-receipts')).toHaveLength(0);
   await click(byTestId('row-menu')[0]);
-  await click(byTestId('session-summarise')[0]);
-  expect(calls).toContainEqual(['--json', 'run', 'session-summary', '--session', 'aaaaaaaa']);
-  expect(toastTexts(byTestId)).toContain('Summarised aaaaaaaa in wiki/sessions/aaaaaaaa.md');
-  await click(byTestId('row-menu')[1]);
-  expect(byTestId('session-summarise')[0]?.hasAttribute('disabled')).toBe(true);
+  expect(byTestId('session-summarise')).toHaveLength(0);
 });

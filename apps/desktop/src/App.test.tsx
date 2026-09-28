@@ -1,19 +1,360 @@
 // @vitest-environment happy-dom
+import type { Config } from '@mesa/core';
+import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
 import { CONFIRMATION_MS } from '@/components/Toast';
 import {
+  choose,
   click,
   envelope,
   failure,
   fakeBridge,
+  fakePlatform,
+  fakeTerminals,
   managedRow,
+  PROJECTS,
   renderWithMesa,
   report,
   toasts,
   toastTexts,
 } from '@/lib/testing';
+
+test('sidebar opens a project workspace and its Skills tab', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('/src/lantern-cove');
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('aaaaaaaa');
+  await click(
+    [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent?.toLowerCase() === 'skills',
+    ),
+  );
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('No skills found.');
+  await click(byTestId('nav-projects')[0]);
+  expect(byTestId('projects-screen')).toHaveLength(1);
+});
+
+test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
+  const terms = fakeTerminals();
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', {
+          lastState: {
+            state: 'waiting-permission',
+            confidence: 0.9,
+            at: '2026-09-25T12:00:00.000Z',
+            source: 'hook',
+          },
+        }),
+        managedRow('finished', {
+          lastState: {
+            state: 'failed',
+            confidence: 0.9,
+            at: '2026-09-25T12:00:00.000Z',
+            source: 'hook',
+          },
+        }),
+        managedRow('queuedone', {
+          alive: false,
+          lastState: {
+            state: 'queued',
+            confidence: 1,
+            at: '2026-09-25T12:00:00.000Z',
+            source: 'mesa',
+          },
+        }),
+      ]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
+  const tabs = () => [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+  expect(
+    tabs()
+      .find((tab) => tab.textContent?.includes('Sessions'))
+      ?.getAttribute('aria-selected'),
+  ).toBe('true');
+  await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  expect(byTestId('project-active-session')).toHaveLength(2);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('finished');
+  expect(byTestId('project-active-session')[1]?.textContent).toContain('queuedone');
+  expect(
+    byTestId('project-active-session')[0]?.querySelector('[data-state="waiting-permission"]'),
+  ).not.toBeNull();
+  expect(document.querySelector('#session-location')).toBeNull();
+  await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
+  expect(document.querySelector('#session-location')).not.toBeNull();
+  await click(byTestId('project-active-session')[0]);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  expect(
+    tabs()
+      .find((tab) => tab.textContent?.includes('Sessions'))
+      ?.getAttribute('aria-selected'),
+  ).toBe('true');
+  await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  await click(byTestId('sidebar-project')[1]);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
+  await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
+  await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
+});
+
+test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {
+  const terms = fakeTerminals();
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb', { project: 'other' })]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
+  expect(byTestId('sidebar-session').map((item) => item.textContent)).toEqual([
+    'aaaaaaaa',
+    'bbbbbbbb',
+  ]);
+  await click(byTestId('sidebar-session')[1]);
+  expect(byTestId('session-board')[0]?.textContent).toContain('bbbbbbbb');
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  expect(terms.calls.filter((call) => call[0] === 'open').map((call) => call[1])).toEqual([
+    'bbbbbbbb',
+  ]);
+  await click(byTestId('nav-doctor')[0]);
+  await click(byTestId('nav-board')[0]);
+  await click(byTestId('sidebar-session')[1]);
+  expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
+  expect(terms.calls.filter((call) => call[0] === 'close')).toEqual([]);
+  expect(terms.calls.filter((call) => call[0] === 'open')).toHaveLength(1);
+  await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
+  expect(byTestId('workspace-sidebar')[0]?.dataset.collapsed).toBe('true');
+  expect(byTestId('selected-session')).toHaveLength(1);
+  await click(byTestId('search-trigger')[0]);
+  const grid = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    grid.value = 'Open Grid View';
+    grid.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => {
+    grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('grid-toolbar')).toHaveLength(1);
+});
+
+test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope(managedRow('newnewnew')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  const form = byTestId('project-session-form')[0] as HTMLFormElement;
+  await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
+  const agent = [...form.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+  await click(agent[1]);
+  (byTestId('project-goal')[0] as HTMLTextAreaElement).value = 'Review the API\nThen test it';
+  await choose(form.querySelector('#session-location') as HTMLElement, 'worktree');
+  (byTestId('project-branch')[0] as HTMLInputElement).value = 'feature/api';
+  await act(async () => form.requestSubmit());
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'codex',
+    '--goal=Review the API\nThen test it',
+    '--branch=feature/api',
+    '--',
+    'lantern-cove',
+  ]);
+  await click(byTestId('sidebar-project')[0]);
+  await click(byTestId('quick-session')[0]);
+  expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
+});
+
+test('project controls update profile presentation and leave the slug available when hidden', async () => {
+  let rows = PROJECTS.map((row) => ({ ...row }));
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(rows),
+    'projects update': (args) => {
+      const name = args.at(-1);
+      rows = rows.map((row) =>
+        row.name === name
+          ? {
+              ...row,
+              label: args.find((arg) => arg.startsWith('--label='))?.slice(8) ?? row.label,
+              pinned: args.includes('--pinned') ? args.includes('true') : row.pinned,
+              hidden: args.includes('--hidden') ? args.includes('true') : row.hidden,
+            }
+          : row,
+      );
+      return envelope({ name, path: rows[0]?.path });
+    },
+    unregister: () => {
+      rows = rows.filter((row) => row.name !== 'lantern-cove');
+      return envelope({ name: 'lantern-cove', path: '/src/lantern-cove' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  const action = (label: string) =>
+    [...(byTestId('project-menu')[0]?.parentElement?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent?.includes(label),
+    );
+  await click(action('Rename display label'));
+  (document.querySelector('#project-label') as HTMLInputElement).value = 'Lantern Cove';
+  await click(byTestId('save-project-label')[0]);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('Lantern Cove');
+  expect(byTestId('project-workspace')[0]?.textContent).toContain(
+    'lantern-cove · /src/lantern-cove',
+  );
+  await click(action('Pin project'));
+  expect(calls).toContainEqual([
+    '--json',
+    'projects',
+    'update',
+    '--pinned',
+    'true',
+    '--',
+    'lantern-cove',
+  ]);
+  await click(action('Hide project'));
+  expect(byTestId('sidebar-project').map((element) => element.textContent)).toEqual(['tide']);
+  await click(byTestId('nav-projects')[0]);
+  expect(byTestId('project-row')[0]?.textContent).toContain('Hidden');
+  expect(byTestId('project-row')[0]?.textContent).toContain('lantern-cove');
+  await click(byTestId('project-row')[0]?.querySelector('button') as HTMLElement);
+  await click(action('Unregister project'));
+  expect(byTestId('project-unregister-dialog')).toHaveLength(1);
+  await click(byTestId('confirm-unregister-project')[0]);
+  expect(calls).toContainEqual(['--json', 'unregister', '--', 'lantern-cove']);
+  expect(byTestId('projects-screen')).toHaveLength(1);
+});
+
+test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Enter', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(1);
+  const input = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    input.value = 'lantern';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(byTestId('palette-hit').map((hit) => hit.textContent)).toEqual([
+    'lantern-covelantern-cove · /src/lantern-cove',
+    'aaaaaaaalantern-cove · claude · working',
+  ]);
+  await act(async () => {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  await click(byTestId('search-trigger')[0]);
+  const again = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    again.value = 'lantern';
+    again.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => {
+    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  });
+  await act(async () => {
+    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('selected-session')).toHaveLength(1);
+});
+
+test('Search Mesa shows no matches and Escape returns keyboard focus', async () => {
+  const byTestId = await renderWithMesa(<App />, fakeBridge().bridge);
+  const trigger = byTestId('search-trigger')[0];
+  trigger?.focus();
+  await click(trigger);
+  const input = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    input.value = 'nothing-matches';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(byTestId('palette-empty')).toHaveLength(1);
+  await act(async () => {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(0);
+  expect(document.activeElement).toBe(trigger);
+});
+
+test('Search Mesa disables New session when no project can start, and opens it when one can', async () => {
+  const empty = await renderWithMesa(<App />, fakeBridge().bridge);
+  await click(empty('search-trigger')[0]);
+  expect(
+    empty('palette-hit')
+      .find((hit) => hit.textContent?.includes('New session'))
+      ?.hasAttribute('disabled'),
+  ).toBe(true);
+  const { bridge } = fakeBridge({ projects: () => envelope(PROJECTS) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('search-trigger')[0]);
+  await click(byTestId('palette-hit').find((hit) => hit.textContent?.includes('New session')));
+  expect(byTestId('new-session-dialog')).toHaveLength(1);
+});
+
+test('shortcut settings validate conflicts and update the active profile key', async () => {
+  let shortcuts = { ...DEFAULT_SHORTCUTS } as Config['shortcuts'];
+  const config = (): Config => ({
+    vault: '/h/vault',
+    defaultAgent: 'claude',
+    skills: [],
+    decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
+    sessions: { log: true },
+    terminal: { app: 'Terminal' },
+    shortcuts,
+    board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
+    grid: { groups: [] },
+    run: { permissionMode: 'acceptEdits', allowedTools: [] },
+    keys: {},
+  });
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config()),
+    'config set': (args) => {
+      const value = JSON.parse(args.at(-1) ?? '""');
+      shortcuts = { ...shortcuts, search: value };
+      return envelope({ path: 'shortcuts.search', value });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-shortcuts')[0]);
+  const input = byTestId('shortcut-search')[0] as HTMLInputElement;
+  const type = async (value: string) =>
+    act(async () => {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  await type('Mod+Q');
+  expect(byTestId('save-shortcut-search')[0]?.hasAttribute('disabled')).toBe(true);
+  await type('Mod+1');
+  expect(byTestId('save-shortcut-search')[0]?.hasAttribute('disabled')).toBe(true);
+  await type('Mod+P');
+  await click(byTestId('save-shortcut-search')[0]);
+  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'shortcuts.search', '"Mod+P"']);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(0);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', metaKey: true }));
+  });
+  expect(byTestId('command-palette')).toHaveLength(1);
+});
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
@@ -168,4 +509,60 @@ test('a failure, or a confirmation with a warning, is an alert: warm, once, and 
   } finally {
     vi.useRealTimers();
   }
+});
+
+test('a native Mesa project link opens the validated clone form and waits for confirmation', async () => {
+  const link = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Flantern-cove.git';
+  let opened: (urls: string[]) => void = () => {};
+  const { bridge, calls } = fakeBridge({
+    'projects clone': () =>
+      envelope({ name: 'lantern-cove', path: '/tmp/lantern-cove', created: true, receipt: null }),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({
+      deepLinks: {
+        current: async () => [link],
+        onOpen: async (handler) => {
+          opened = handler;
+          return () => {};
+        },
+      },
+    }),
+  );
+  expect(byTestId('projects-screen')).toHaveLength(1);
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
+  expect(calls.some((args) => args[1] === 'projects' && args[2] === 'clone')).toBe(false);
+  await click(byTestId('clone-project')[0]);
+  expect(
+    calls.filter((args) => args.join(' ') === `--json projects clone -- ${link}`),
+  ).toHaveLength(1);
+  await act(async () => opened([link]));
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
+});
+
+test('a failed native project link can be opened again', async () => {
+  const link = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fretry.git';
+  const { bridge, calls } = fakeBridge({
+    'projects clone': () => failure('git clone failed: offline'),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({
+      deepLinks: {
+        current: async () => [link],
+        onOpen: async () => () => {},
+      },
+    }),
+  );
+  await click(byTestId('clone-project')[0]);
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
+  await click(byTestId('clone-project')[0]);
+  expect(
+    calls.filter((args) => args.join(' ') === `--json projects clone -- ${link}`),
+  ).toHaveLength(2);
+  await click(document.querySelector('[aria-label="Cancel repository checkout"]') as HTMLElement);
+  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe('');
 });

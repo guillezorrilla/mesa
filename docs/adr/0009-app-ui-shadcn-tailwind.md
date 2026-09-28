@@ -54,3 +54,7 @@ Evidence: `apps/desktop/src/App.test.tsx` "a confirmation is neutral, shows ever
 - The Receipts screen is one file, `screens/ReceiptsScreen.tsx`: the list (a Table) with its type (NativeSelect) and session (Input, applied on Enter) filters, and beside it the receipt selected, with its frontmatter and a decisions table, each answer's top probability as a Progress bar. A status wears the theme's colours: failed the failed state's, blocked (the guardrail's) the warm wait colour.
 - `screens/board/` adds the Run skill dialog, over ActionDialog like the others, and the two fields it shares with New session: `AgentField` and `ProjectSelect`. The guardrail's dialog serves Send and Run skill alike.
 - The Board runs a skill outside `useAct`'s one-at-a-time lock: a run takes minutes, and the Board's other actions stay free meanwhile.
+
+## Amendment 2026-09-27: workspace navigation replaces the Run skill and Receipts screens (#268)
+
+The #33 screens above described the earlier five-screen app. The the reference app parity brief for #268 changes that navigation: the app now opens with a project and session workspace, a Search Mesa palette, and Board/Grid views. The Run skill dialog and top-level Receipts screen are removed from the app. Skills still run through session terminal invocation and the core/CLI APIs; receipts remain available through core and `mesa receipts`. A later receipts task (#274) owns any new app receipt presentation. Shared shadcn components and the theme decision remain in force.

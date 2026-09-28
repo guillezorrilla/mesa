@@ -4,6 +4,7 @@ import { tempDir, thrown } from '../testing/index.js';
 import { loadConfig } from './config.js';
 import { profilePaths } from './paths.js';
 import { initProfile, openProfile, resolveProfileName } from './profile.js';
+import { DEFAULT_SHORTCUTS } from './shortcuts.js';
 
 test('the flag wins over MESA_PROFILE, which wins over default', () => {
   expect(resolveProfileName('personal', { MESA_PROFILE: 'work' })).toBe('personal');
@@ -22,6 +23,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     runs: '/h/.mesa/work/sessions/runs',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
+    checkouts: '/h/.mesa/work/checkouts',
     handoffs: '/h/.mesa/work/handoffs',
     tmuxSocket: 'mesa-work',
   });
@@ -41,6 +43,9 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },
+    shortcuts: DEFAULT_SHORTCUTS,
+    board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
+    grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     keys: {},
   });

@@ -10,7 +10,7 @@ export const guardrailOf = (error: { code: string; details?: unknown }) =>
 /** The first letter up. */
 const upper = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 
-/** What the guardrail stopped: a row's Send, or a Run skill. Its submit says to do it anyway. */
+/** What the guardrail stopped on a row's Send. Its submit says to do it anyway. */
 const ACTIONS = {
   send: { label: 'Send anyway', icon: Send },
   run: { label: 'Run anyway', icon: Play },

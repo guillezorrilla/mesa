@@ -5,6 +5,9 @@ import { AgentSchema } from '../agents/agents.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
+import { slugify } from './slug.js';
+
+export { slugify } from './slug.js';
 
 /** A project's priority when its mesa.yaml gives none, or it cannot be read: the middle. */
 export const DEFAULT_PRIORITY = 0.5;
@@ -26,12 +29,6 @@ const ProjectSchema = z.strictObject({
 export type Project = z.infer<typeof ProjectSchema>;
 
 export const projectFile = (dir: string) => join(dir, PROJECT_FILE);
-
-export const slugify = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 
 export function readProjectFile(dir: string): Project {
   const file = projectFile(dir);

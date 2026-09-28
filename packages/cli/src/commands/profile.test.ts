@@ -39,6 +39,10 @@ test('config prints redacted, config set writes one field', async () => {
     keys: { jev: '***' },
   });
   expect((await mesa('config', 'set', 'decisions.threshold', '3')).code).toBe(4);
+  expect((await mesa('config', 'set', 'shortcuts.search', 'Mod+P', '--json')).json.data.value).toBe(
+    'Mod+P',
+  );
+  expect((await mesa('config', 'set', 'shortcuts.board', 'Mod+P')).code).toBe(4);
   expect((await mesa('config', 'set', 'onlypath')).code).toBe(2);
   expect((await mesa('--profile', 'none', 'config')).code).toBe(3);
 });

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fromBase64 } from './bytes';
 import type { Bridge } from './client';
@@ -10,6 +11,7 @@ export const tauriBridge: Bridge = (args) => invoke('run_mesa', { args });
 
 /** The real platform: Tauri's native dialogs, the Rust terminals, and the pasteboard. */
 export const tauriPlatform: Platform = {
+  deepLinks: { current: getCurrent, onOpen: onOpenUrl },
   pickFolder: async () => {
     const picked = await open({ directory: true });
     return typeof picked === 'string' ? picked : null;

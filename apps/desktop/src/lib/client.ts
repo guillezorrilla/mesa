@@ -4,14 +4,14 @@ import type {
   ClaudeHooksStatus,
   CommandReference,
   Config,
+  DiscoveredProject,
   DoctorReport,
-  HeadlessResult,
+  GridGroup,
   HooksStatus,
   Opened,
   ProfileInfo,
   Project,
   ProjectRow,
-  ReceiptEntry,
   Removed,
   Result,
   Sent,
@@ -24,6 +24,7 @@ import type {
   TreeRow,
   VaultStatus,
   Viewed,
+  WorkflowStatus,
 } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
@@ -45,6 +46,31 @@ type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?:
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
   'config.get': command<Config>('config'),
+  'board.move': commandWith<
+    { id: string; direction: 'up' | 'down' },
+    Recorded<{ order: string[] }>
+  >(({ id, direction }) => ['board', 'move', '--', id, direction]),
+  'grid.list': command<GridGroup[]>('grid'),
+  'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
+    ({ name, project, sessions }) => [
+      'grid',
+      'save',
+      ...(project ? ['--project', project] : []),
+      '--',
+      name,
+      ...sessions,
+    ],
+  ),
+  'grid.remove': commandWith<{ name: string }, Recorded<{ groups: GridGroup[] }>>(({ name }) => [
+    'grid',
+    'remove',
+    '--',
+    name,
+  ]),
+  'config.set': commandWith<
+    { path: string; value: unknown },
+    Recorded<{ path: string; value: unknown }>
+  >(({ path, value }) => ['config', 'set', '--', path, JSON.stringify(value)]),
   'doctor.run': command<DoctorReport>('doctor'),
   'help.reference': command<CommandReference[]>('help', '--agent'),
   'hooks.status': command<HooksStatus>('hooks', 'status'),
@@ -60,6 +86,32 @@ const COMMANDS = {
   ]),
   'profile.get': command<ProfileInfo>('profile'),
   'projects.list': command<ProjectRow[]>('projects'),
+  'projects.discover': commandWith<{ path: string }, DiscoveredProject[]>(({ path }) => [
+    'projects',
+    'discover',
+    '--',
+    path,
+  ]),
+  'projects.clone': commandWith<
+    { url: string },
+    Recorded<Project & { path: string; created: boolean; url: string }>
+  >(({ url }) => ['projects', 'clone', '--', url]),
+  'projects.update': commandWith<
+    { name: string; label?: string; pinned?: boolean; hidden?: boolean; move?: 'up' | 'down' },
+    Recorded<{ name: string; path: string; label?: string; pinned?: boolean; hidden?: boolean }>
+  >(({ name, label, pinned, hidden, move }) => [
+    'projects',
+    'update',
+    ...(label !== undefined ? [`--label=${label}`] : []),
+    ...(pinned !== undefined ? ['--pinned', String(pinned)] : []),
+    ...(hidden !== undefined ? ['--hidden', String(hidden)] : []),
+    ...(move ? ['--move', move] : []),
+    '--',
+    name,
+  ]),
+  'projects.unregister': commandWith<{ name: string }, Recorded<{ name: string; path: string }>>(
+    ({ name }) => ['unregister', '--', name],
+  ),
   'skills.list': commandWith<{ project?: string }, SkillRow[]>(({ project }) => [
     'skills',
     'list',
@@ -68,19 +120,6 @@ const COMMANDS = {
   // A skill run (CONTEXT.md, Skill run), which resolves when the run ends: minutes. The skill's
   // words go after `--` as one, so words starting with `-` are its own. `--yes` answers a
   // guardrail's ask; the app never passes `--force`, so a block is final here.
-  'skills.run': commandWith<
-    { skill: string; project: string; agent?: Agent; args?: string; yes?: boolean },
-    Recorded<HeadlessResult & { session: string }>
-  >(({ skill, project, agent, args, yes }) => [
-    'run',
-    '--project',
-    project,
-    ...(agent ? ['--agent', agent] : []),
-    ...(yes ? ['--yes'] : []),
-    '--',
-    skill,
-    ...(args?.trim() ? [args.trim()] : []),
-  ]),
   'skills.sync': commandWith<{ project: string }, Recorded<SkillSync>>(({ project }) => [
     'skills',
     'sync',
@@ -92,21 +131,6 @@ const COMMANDS = {
     { path: string },
     Recorded<Project & { path: string; created: boolean }>
   >(({ path }) => ['register', '--create', '--', path]),
-  // `--session=` so a value starting with `-` reaches mesa as the value.
-  'receipts.list': commandWith<{ limit?: number; type?: string; session?: string }, ReceiptEntry[]>(
-    ({ limit, type, session }) => [
-      'receipts',
-      ...(limit ? ['--limit', String(limit)] : []),
-      ...(type ? ['--type', type] : []),
-      ...(session ? [`--session=${session}`] : []),
-    ],
-  ),
-  'receipts.get': commandWith<{ id: string }, ReceiptEntry>(({ id }) => [
-    'receipts',
-    'show',
-    '--',
-    id,
-  ]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
   'sessions.send': commandWith<
@@ -121,6 +145,10 @@ const COMMANDS = {
   'sessions.rename': commandWith<{ id: string; name: string }, Recorded<SessionRecord>>(
     ({ id, name }) => ['rename', '--', id, name],
   ),
+  'sessions.workflow': commandWith<
+    { id: string; status: WorkflowStatus | 'clear' },
+    Recorded<SessionRecord>
+  >(({ id, status }) => ['workflow', '--', id, status]),
   // The app removes an ended session only, so never with --force.
   'sessions.remove': commandWith<
     { id: string; deleteWorktree?: boolean; deleteBranch?: boolean },
@@ -144,10 +172,6 @@ const COMMANDS = {
     { id: string; note: string; keep: boolean },
     Recorded<{ from: string; to: string; note: string }>
   >(({ id, note, keep }) => ['handoff', '--note', note, ...(keep ? ['--keep'] : []), '--', id]),
-  'sessions.summarise': commandWith<
-    { id: string; yes?: boolean },
-    Recorded<HeadlessResult & { session: string }>
-  >(({ id, yes }) => ['run', 'session-summary', '--session', id, ...(yes ? ['--yes'] : [])]),
   'sessions.logs': commandWith<{ id: string; tail: number }, SessionLog>(({ id, tail }) => [
     'logs',
     '--tail',

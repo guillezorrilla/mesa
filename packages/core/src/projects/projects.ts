@@ -14,6 +14,7 @@ import { findClash, type RegistryEntry, readRegistry, updateRegistry } from './r
 
 export type ProjectRow = {
   name: string;
+  label: string;
   path: string;
   /** The project's preferred agent, else the profile's default. */
   agent: string | null;
@@ -21,6 +22,15 @@ export type ProjectRow = {
   skills: string[];
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
   exists: boolean;
+  pinned: boolean;
+  hidden: boolean;
+};
+
+export type ProjectUpdate = {
+  label?: string;
+  pinned?: boolean;
+  hidden?: boolean;
+  move?: 'up' | 'down';
 };
 
 /**
@@ -50,14 +60,67 @@ export function registerProject(
 }
 
 export function listProjects(profile: Profile): ProjectRow[] {
-  return readRegistry(profile.paths.registry).map(({ name, path }) => {
+  return readRegistry(profile.paths.registry).map(({ name, path, label, pinned, hidden }) => {
+    const display = {
+      name,
+      label: label ?? name,
+      path,
+      pinned: pinned ?? false,
+      hidden: hidden ?? false,
+    };
     if (!existsSync(projectFile(path))) {
-      return { name, path, agent: null, priority: null, skills: [], exists: false };
+      return { ...display, agent: null, priority: null, skills: [], exists: false };
     }
     const p = readProjectFile(path);
     const agent = p.agent ?? profile.config.defaultAgent;
-    return { name, path, agent, priority: p.priority, skills: p.skills ?? [], exists: true };
+    return { ...display, agent, priority: p.priority, skills: p.skills ?? [], exists: true };
   });
+}
+
+/** Change only profile-local presentation; never rename mesa.yaml or historical session links. */
+export function updateProject(profile: Profile, name: string, patch: ProjectUpdate): RegistryEntry {
+  if (!Object.keys(patch).length) throw new MesaError('usage', 'set a label, pin, hide, or move');
+  const label = patch.label?.trim();
+  if (
+    patch.label !== undefined &&
+    (!label ||
+      label.length > 80 ||
+      [...label].some(
+        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+      ))
+  ) {
+    throw new MesaError('usage', 'project label must be 1-80 characters on one line');
+  }
+  let updated: RegistryEntry | undefined;
+  updateRegistry(profile.paths.registry, (entries) => {
+    const index = entries.findIndex((entry) => entry.name === name);
+    if (index < 0) throw new MesaError('not_found', `no project named ${name}; see mesa projects`);
+    const next = [...entries];
+    const original = next[index];
+    if (!original) throw new MesaError('internal', 'project registry changed while updating');
+    updated = {
+      ...original,
+      ...(label !== undefined ? { label } : {}),
+      ...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
+      ...(patch.hidden !== undefined ? { hidden: patch.hidden } : {}),
+    };
+    next[index] = updated;
+    if (patch.move) {
+      const step = patch.move === 'up' ? -1 : 1;
+      let neighbor = index + step;
+      while (next[neighbor] && Boolean(next[neighbor]?.pinned) !== Boolean(updated.pinned)) {
+        neighbor += step;
+      }
+      const peer = next[neighbor];
+      if (peer) {
+        next[index] = peer;
+        next[neighbor] = updated;
+      }
+    }
+    return next;
+  });
+  if (!updated) throw new MesaError('internal', 'project registry update produced no result');
+  return updated;
 }
 
 /** The registry entry named `name`; not_found otherwise. */
