@@ -2,7 +2,7 @@
 
 import { getCM } from '@replit/codemirror-vim';
 import { EditorView } from 'codemirror';
-import { act } from 'react';
+import { act, useState } from 'react';
 import { expect, test } from 'vitest';
 import { fakeBridge, renderWithMesa } from '@/lib/testing';
 import { FileEditor } from './FileEditor';
@@ -34,4 +34,35 @@ test('Vim normal mode moves by lines without editing the file', async () => {
   expect(editor?.state.doc.toString()).toBe('one\ntwo\n');
   expect(editor?.state.selection.main.head).toBeGreaterThan(0);
   expect(changed).toBe('');
+});
+
+test('Vim keeps unsaved text when display preferences rebuild its view', async () => {
+  function Harness() {
+    const [value, setValue] = useState('first');
+    const [fontSize, setFontSize] = useState(13);
+    return (
+      <>
+        <button type="button" onClick={() => setFontSize(14)}>
+          Larger
+        </button>
+        <FileEditor
+          path="draft.txt"
+          value={value}
+          initialText="first"
+          onChange={setValue}
+          preferences={{ fontSize, tabSize: 2, wordWrap: false, vim: true, external: [] }}
+        />
+      </>
+    );
+  }
+  const { bridge } = fakeBridge();
+  const byTestId = await renderWithMesa(<Harness />, bridge);
+  const current = () =>
+    EditorView.findFromDOM(
+      byTestId('file-editor-vim')[0]?.querySelector('.cm-editor') as HTMLElement,
+    );
+  await act(async () => current()?.dispatch({ changes: { from: 0, to: 5, insert: 'unsaved' } }));
+  expect(current()?.state.doc.toString()).toBe('unsaved');
+  await act(async () => document.querySelector('button')?.click());
+  expect(current()?.state.doc.toString()).toBe('unsaved');
 });

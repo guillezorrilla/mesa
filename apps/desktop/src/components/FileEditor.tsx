@@ -124,14 +124,15 @@ function VimEditor(props: {
   const host = useRef<HTMLFieldSetElement>(null);
   const view = useRef<EditorView>(null);
   const onChange = useRef(props.onChange);
-  const initialText = useRef(props.value).current;
+  const currentText = useRef(props.value);
+  currentText.current = props.value;
   const { fontSize, tabSize, wordWrap } = props.preferences;
   onChange.current = props.onChange;
   useEffect(() => {
     if (!host.current) return;
     const editor = new EditorView({
       parent: host.current,
-      doc: initialText,
+      doc: currentText.current,
       extensions: [
         vim({ status: true }),
         basicSetup,
@@ -157,7 +158,7 @@ function VimEditor(props: {
       view.current = null;
       editor.destroy();
     };
-  }, [fontSize, initialText, tabSize, wordWrap]);
+  }, [fontSize, tabSize, wordWrap]);
   useEffect(() => {
     const editor = view.current;
     if (!editor || editor.state.doc.toString() === props.value) return;
