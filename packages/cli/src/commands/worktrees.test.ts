@@ -119,7 +119,7 @@ test('manual creation keeps profile default and applies sibling, nested, sparse,
   const made = await cli.mesa('worktrees', 'create', 'lantern-cove', 'default', '--json');
   expect(made.code, made.stdout).toBe(0);
   expect(made.json.data.path).toBe(join(cli.paths.worktrees, 'lantern-cove', 'default'));
-  expect(made.json.data.receipt.id).toBeTypeOf('string');
+  expect(made.json.data.receipt).toBeNull();
   await cli.mesa('--profile', 'other', 'init', '--vault', 'other-vault');
   await cli.mesa('--profile', 'other', 'vault', 'init');
   await cli.mesa('--profile', 'other', 'register', repo);

@@ -1,7 +1,10 @@
 import type { MesaContext } from '../context.js';
 import { redactPayload } from '../lib/redact.js';
+import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
+import { findProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
+import { callerOf } from '../sessions/caller.js';
 import { adapterBackend } from './adapter.js';
 import { decide, type FaroProfile } from './decide.js';
 import {
@@ -64,15 +67,45 @@ export function createFaro(ctx: MesaContext) {
      * the answers in its `decisions`, what it was asked (redacted) in its `inputs`, and the
      * adapter's list price as its `cost`.
      */
-    decide: (state: unknown, questions: unknown) => {
+    decide: (
+      state: unknown,
+      questions: unknown,
+      context: { project?: string; session?: string; rationale?: string } = {},
+    ) => {
+      const actor = callerOf({ store: ctx.store, env: deps.env, profileName: ctx.profile }).session;
+      const session = context.session
+        ? ctx.store.get(context.session)
+        : context.project === actor?.project
+          ? actor
+          : undefined;
+      const project = context.project ?? session?.project;
+      if (project) findProject(ctx.open(), project);
+      if (session && context.project && session.project !== context.project) {
+        throw new MesaError(
+          'usage',
+          `session ${session.id} is on ${session.project}, not ${context.project}`,
+        );
+      }
+      const rationale = context.rationale?.trim();
+      if (project && !rationale)
+        throw new MesaError('usage', 'a project decision needs a rationale');
       const redact = (value: unknown) => redactPayload(value, deps.home, ctx.secrets());
       return ctx.record(
         {
+          kind: 'decision',
           type: 'decision',
           summary: (d: Decision) =>
             `Faro answered ${d.answers.length} question${d.answers.length === 1 ? '' : 's'} (${d.backend})`,
           failure: 'Faro could not answer',
-          inputs: { state: redact(state), questions: redact(questions) },
+          project: () => project,
+          session: () => session?.id,
+          agent: () => session?.agent,
+          scope: { actor: actor?.id },
+          inputs: {
+            state: redact(state),
+            questions: redact(questions),
+            ...(rationale ? { rationale: redact(rationale) } : {}),
+          },
           outputs: (d) => ({
             latencyMs: d.latencyMs,
             ...(d.fallbackReason ? { fallbackReason: redact(d.fallbackReason) } : {}),

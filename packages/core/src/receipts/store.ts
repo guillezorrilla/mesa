@@ -131,7 +131,12 @@ function readReceipt(vault: string, path: string): ReceiptEntry {
 }
 
 /** Which receipts to list: those of one `type`, of one `session`, each when given. */
-export type ReceiptFilter = { type?: ReceiptType; session?: string };
+export type ReceiptFilter = {
+  type?: ReceiptType;
+  session?: string;
+  project?: string;
+  kind?: Receipt['kind'];
+};
 
 /**
  * The newest `limit` receipts that pass the filter, with their frontmatter. The type is read from
@@ -140,14 +145,17 @@ export type ReceiptFilter = { type?: ReceiptType; session?: string };
 export function listReceipts(
   vault: string,
   limit = DEFAULT_RECEIPT_LIMIT,
-  { type, session }: ReceiptFilter = {},
+  { type, session, project, kind }: ReceiptFilter = {},
 ): ReceiptEntry[] {
   const found: ReceiptEntry[] = [];
   for (const file of receiptFiles(vault)) {
     if (found.length >= limit) break;
     if (type !== undefined && file.type !== type) continue;
     const entry = readReceipt(vault, file.path);
-    if (session === undefined || entry.receipt.session === session) found.push(entry);
+    if (session !== undefined && entry.receipt.session !== session) continue;
+    if (project !== undefined && entry.receipt.project !== project) continue;
+    if (kind !== undefined && entry.receipt.kind !== kind) continue;
+    found.push(entry);
   }
   return found;
 }

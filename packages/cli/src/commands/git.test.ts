@@ -159,7 +159,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   expect(added.json.data).toMatchObject({
     path: 'README.md',
     action: 'stage',
-    receipt: { id: expect.any(String) },
+    receipt: null,
   });
   expect(
     (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes,
@@ -180,7 +180,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   expect(committed.json.data).toMatchObject({
     oid: expect.any(String),
     summary: 'Update README',
-    receipt: { id: expect.any(String) },
+    receipt: null,
   });
   expect((await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes).toEqual([
     expect.objectContaining({ path: 'untracked space.txt', index: '?', workingTree: '?' }),
@@ -287,7 +287,7 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
   expect(saved.json.data).toMatchObject({
     created: true,
     oid: expect.any(String),
-    receipt: { id: expect.any(String) },
+    receipt: null,
   });
   const listed = await cli.mesa('git', 'stashes', 'lantern-cove', '--json');
   expect(listed.json.data.stashes).toContainEqual(

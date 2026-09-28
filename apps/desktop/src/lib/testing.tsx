@@ -71,6 +71,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),
   doctor: () => envelope({ healthy: true, summary: 'ready', checks: [] } satisfies DoctorReport),
   projects: () => envelope([] satisfies ProjectRow[]),
+  receipts: () => envelope([]),
   sessions: () => envelope([] satisfies SessionRow[]),
   windows: () => envelope([] satisfies TmuxWindow[]),
   'hooks status': () =>

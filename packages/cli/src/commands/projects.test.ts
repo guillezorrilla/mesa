@@ -34,10 +34,8 @@ test('register, projects, unregister', async () => {
     `lantern-cove  ${cli.home}/lantern-cove  claude  0.5\n`,
   );
   const gone = (await mesa('unregister', 'lantern-cove', '--json')).json.data;
-  expect(gone).toMatchObject({ name: 'lantern-cove', receipt: { id: expect.any(String) } });
-  const shown = (await mesa('receipts', 'show', gone.receipt.id, '--json')).json.data;
-  expect(shown.summary).toBe('Unregistered project lantern-cove');
-  expect(shown.receipt).toMatchObject({ type: 'action', project: 'lantern-cove' });
+  expect(gone).toMatchObject({ name: 'lantern-cove', receipt: null });
+  expect((await mesa('receipts', '--json')).json.data).toEqual([]);
   expect((await mesa('projects')).stdout).toBe(
     'no projects registered; run mesa register <path>\n',
   );

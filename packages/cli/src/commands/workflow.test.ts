@@ -12,7 +12,7 @@ test('workflow --json sets and clears a durable label without changing agent sta
   expect(changed.json.data).toMatchObject({
     workflowStatus: 'review',
     lastState: opened.lastState,
-    receipt: { id: expect.any(String) },
+    receipt: null,
   });
   expect((await cli.mesa('sessions', '--json')).json.data[0].workflowStatus).toBe('review');
   const cleared = await cli.mesa('workflow', opened.id, 'clear', '--json');

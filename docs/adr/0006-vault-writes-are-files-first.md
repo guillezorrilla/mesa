@@ -32,3 +32,7 @@ docs/spikes/obsidian-cli.md (issue #15, Obsidian 1.13.7, installer 1.12.7) repla
 
 Unchanged: the vault is written as files, and `.obsidian/` stays Obsidian's (Obsidian creates it the first time it opens a vault). A vault is added to Obsidian's list only through the app ("Open folder as vault"); `obsidian://open?path=<folder>` on an unknown folder shows a "Vault not found" modal, so `mesa vault open` checks Obsidian's `obsidian.json` (read-only) first. The same alert appears for `vault=<unknown name>`, and while it is up the app answers no CLI call and refuses to quit.
 
+
+## Amendment 2026-09-27: substantive note changes produce knowledge (#274)
+
+The file writer remains the authority for vault notes. A completed skill run records a `vault-change` receipt only when its target note body changes, after the note write succeeds, under the vault lock. Repeated completion and an identical body from another run add no history. The receipt links the exact note; raw terminal output stays in the profile's local files. The shared note path guard rejects symlink paths that leave the vault.

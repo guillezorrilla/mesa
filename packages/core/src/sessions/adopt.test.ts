@@ -60,15 +60,8 @@ test('a live session is adopted into the project its folder is in, and reopened 
   expect(world.windows).toMatchObject([
     { window: result.record.tmux.window, path: dir, launch: `claude --resume ${LIVE}` },
   ]);
-  const [entry] = listReceipts(join(home, 'vault'), 1);
-  expect(entry?.receipt).toMatchObject({
-    id: receipt?.id,
-    type: 'session',
-    status: 'ok',
-    session: result.record.id,
-    inputs: { agentSessionId: LIVE, name: 'tide notes' },
-    outputs: { resumed: true },
-  });
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 
   // Mesa has it now, so a second adoption names the session.
   await expect(mesa.sessions.adopt(LIVE)).rejects.toMatchObject({
@@ -129,8 +122,7 @@ test('an unknown or malformed id, a blank name, or another profile holding it is
     code: 'usage',
     message: 'the name is empty',
   });
-  const [refused] = listReceipts(join(home, 'vault'), 1);
-  expect(refused?.receipt).toMatchObject({ type: 'session', status: 'failed' });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 
   // The work profile adopted it first.
   const work = createMesa('work', testDeps(home, { run: scriptedRunner().run }));
@@ -157,9 +149,7 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
   const { result } = await mesa.sessions.adopt(ON_DISK, { noResume: true, name: 'docs' });
   expect(result.warning).toBe(WARNING);
   expect(world.windows).toEqual([]);
-  expect(listReceipts(join(home, 'vault'), 1)[0]?.receipt).toMatchObject({
-    outputs: { resumed: false },
-  });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 
   const { result: resumed } = await mesa.sessions.resume(result.record.id);
   expect(resumed.record).toMatchObject({ adopted: true, name: 'docs', cwd: sub });

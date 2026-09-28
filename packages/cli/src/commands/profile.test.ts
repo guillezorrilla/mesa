@@ -10,10 +10,7 @@ const { mesa } = cli;
 test('init, then a second init, then a second profile', async () => {
   const first = (await mesa('init', '--vault', 'vault')).stdout;
   expect(first.split('\n')[0]).toBe(`initialised profile default at ${cli.paths.config}`);
-  // The receipt is written; its log.md line waits for mesa vault init.
-  expect(first).toContain(
-    `warning: no log line: ${cli.home}/vault/log.md not found; run mesa vault init`,
-  );
+  expect(first).not.toContain('warning:');
   expect(readFileSync(cli.paths.config, 'utf8')).toContain(`vault: ${cli.home}/vault`);
   expect((await mesa('init', '--vault', 'vault')).stdout).toBe(
     'profile default already initialised\n',
@@ -47,36 +44,26 @@ test('config prints redacted, config set writes one field', async () => {
   expect((await mesa('--profile', 'none', 'config')).code).toBe(3);
 });
 
-test('config set leaves an action receipt with key values redacted, and none when unchanged', async () => {
+test('config set redacts key values without routine vault history', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('vault', 'init');
   const set = (await mesa('config', 'set', 'keys.api', 'sk-x', '--json')).json.data;
   expect(set).toMatchObject({
     path: 'keys.api',
     value: '***',
-    receipt: { id: expect.any(String) },
+    receipt: null,
   });
-  const shown = (await mesa('receipts', 'show', set.receipt.id, '--json')).json.data;
-  expect(shown.summary).toBe('Set config keys.api');
-  expect(shown.receipt).toMatchObject({
-    type: 'action',
-    command: 'mesa config set keys.api *** --json',
-    outputs: { value: '***' },
-  });
-  expect(JSON.stringify(shown)).not.toContain('sk-x');
+  expect(JSON.stringify(set)).not.toContain('sk-x');
   expect((await mesa('config', 'set', 'keys.api', 'sk-x', '--json')).json.data.receipt).toBeNull();
 
   await mesa('config', 'set', 'terminal.app', 'iTerm');
   const listed = (await mesa('receipts', '--json')).json.data;
-  expect(listed[0].summary).toBe('Set config terminal.app');
+  expect(listed).toEqual([]);
 
-  // A key under a mistyped path fails, and its failed receipt keeps no value either.
+  // A key under a mistyped path fails without leaking the value into history.
   expect((await mesa('config', 'set', 'key.openai', 'sk-live-abcdef', '--json')).code).toBe(4);
   const failed = (await mesa('receipts', '--json')).json.data;
-  expect(failed[0].receipt).toMatchObject({
-    status: 'failed',
-    command: 'mesa config set key.openai *** --json',
-  });
+  expect(failed).toEqual([]);
   expect(JSON.stringify(failed)).not.toContain('sk-live-abcdef');
 });
 

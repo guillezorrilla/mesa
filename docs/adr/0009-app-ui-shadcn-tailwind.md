@@ -57,4 +57,8 @@ Evidence: `apps/desktop/src/App.test.tsx` "a confirmation is neutral, shows ever
 
 ## Amendment 2026-09-27: workspace navigation replaces the Run skill and Receipts screens (#268)
 
-The #33 screens above described the earlier five-screen app. The Xirp parity brief for #268 changes that navigation: the app now opens with a project and session workspace, a Search Mesa palette, and Board/Grid views. The Run skill dialog and top-level Receipts screen are removed from the app. Skills still run through session terminal invocation and the core/CLI APIs; receipts remain available through core and `mesa receipts`. A later receipts task (#274) owns any new app receipt presentation. Shared shadcn components and the theme decision remain in force.
+The #33 screens above described the earlier five-screen app. The Xirp parity brief for #268 changes that navigation: the app now opens with a project and session workspace, a Search Mesa palette, and Board/Grid views. The Run skill dialog and top-level Receipts screen are removed from the app. Skills still run through session terminal invocation and the core/CLI APIs; receipts remain available through core and `mesa receipts`. Shared shadcn components and the theme decision remain in force.
+
+## Amendment 2026-09-27: knowledge stays in project and session context (#274)
+
+Project and session workspaces show filtered decision, guardrail, and vault-change receipts through the same CLI read used by `mesa receipts`. A vault-change row opens its exact note in Obsidian. Routine session activity has no receipt row, and no global feed was added.

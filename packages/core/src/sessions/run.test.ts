@@ -71,28 +71,8 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
     lastState: { state: 'done', confidence: 1, source: 'mesa' },
     events: [{ type: 'exited', at: expect.any(String), status: 0 }],
   });
-  const [started] = listReceipts(join(home, 'vault'));
-  expect(started?.path).toBe(receipt?.path);
-  expect(started?.receipt).toMatchObject({
-    type: 'skill',
-    status: 'ok',
-    cost: 0.2621986,
-    ended: '2026-09-24T12:00',
-    project: 'lantern-cove',
-    session: id,
-    agent: 'claude',
-    inputs: { skill: 'session-summary', agent: null, args: ['focus', 'on tests'] },
-    // Finished in place, including the agent cost and the local output path.
-    outputs: {
-      window: `claude-${id}`,
-      agentSessionId: UUID,
-      lastState: { state: 'done', confidence: 1 },
-      durationMs: 19113,
-      output: `~/.mesa/default/sessions/runs/${id}.json`,
-      events: { exited: 1 },
-    },
-  });
-  expect(started?.summary).toBe(`Started skill session-summary on lantern-cove as session ${id}`);
+  expect(receipt).toBeNull();
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   // On the board beside live sessions: a run, done.
   const [row] = await mesa.sessions.list(true);
   expect(row).toMatchObject({ id, kind: 'run', lastState: { state: 'done' } });
@@ -293,7 +273,7 @@ test('a skill the project does not see or enable, or a bad timeout starts nothin
   ).toBe('not_found');
   expect(world.tmux.windows).toEqual([]);
   expect(testStore(home).list()).toEqual([]);
-  expect(listReceipts(join(home, 'vault')).map((r) => r.receipt.status)).toContain('failed');
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
 test('the guardrail gates a run before anything is written: a block or an ask opens nothing; --yes and --force run it', async () => {
@@ -384,7 +364,6 @@ test('session-summary reads a cleaned, redacted log on stdin and core writes its
     project: 'lantern-cove',
     run: result.session,
     source: 'mesa',
-    receipt: expect.stringContaining(receipt?.id ?? ''),
   });
   expect(note.body).toBe(`${result.output.trim()}\n`);
   const log = readFileSync(join(vault, 'log.md'), 'utf8');
@@ -394,8 +373,11 @@ test('session-summary reads a cleaned, redacted log on stdin and core writes its
   const finished = listReceipts(vault).find((r) => r.receipt.id === receipt?.id)?.receipt;
   expect(finished).toMatchObject({
     status: 'ok',
-    inputs: { session: about.id, skill: 'session-summary' },
-    outputs: { note: result.note, events: { exited: 1 } },
+    kind: 'vault-change',
+    project: 'lantern-cove',
+    session: about.id,
+    inputs: { run: result.session, skill: 'session-summary', target: result.note },
+    outputs: { target: result.note },
   });
   expect((await mesa.sessions.list(true)).find((r) => r.id === about.id)).toMatchObject({
     hasOutputLog: true,
@@ -423,8 +405,10 @@ test('session-summary refuses missing logs and unknown sessions, and preserves a
   const ran = await mesa.sessions.run('session-summary', { session: about.id });
   expect(ran.result.ok).toBe(true);
   expect(ran.result.note).toBeUndefined();
+  expect(ran.receipt).toBeNull();
   expect(ran.warning).toContain('locked');
   expect(readFileSync(join(vault, path), 'utf8')).toBe(before);
+  expect(listReceipts(vault)).toEqual([]);
 });
 
 test('project-brief lands fixture output, refreshes generated sections, and keeps user blocks', async () => {
@@ -480,9 +464,9 @@ test('project-brief lands fixture output, refreshes generated sections, and keep
   expect(
     listReceipts(vault).find((entry) => entry.receipt.id === second.receipt?.id)?.receipt,
   ).toMatchObject({
-    type: 'skill',
+    kind: 'vault-change',
     status: 'ok',
-    outputs: { note: path },
+    outputs: { target: path },
   });
 });
 
@@ -525,13 +509,10 @@ test('stopping a run with successful output keeps it failed when its waiter fini
     lastState: { state: 'failed' },
     runFailure: 'stopped by mesa stop',
   });
-  const receipt = listReceipts(join(home, 'vault')).find(
-    (r) => r.receipt.type === 'skill',
-  )?.receipt;
-  expect(receipt).toMatchObject({ status: 'failed', outputs: { reason: 'stopped by mesa stop' } });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });
 
-test('a fast hook is repaired as soon as its start receipt exists, without polling again', async () => {
+test('a fast hook lands a note once without polling again or a start receipt', async () => {
   const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
   let early = async (_args: string[]) => {};
   let endedEarly = false;
@@ -555,10 +536,10 @@ test('a fast hook is repaired as soon as its start receipt exists, without polli
   };
   const ran = await mesa.sessions.run('session-summary', { session: about.id });
   const note = readNote(join(home, 'vault'), ran.result.note ?? '');
-  expect(note.frontmatter.receipt).toContain(ran.receipt?.id);
+  expect(note.frontmatter.run).toBe(ran.result.session);
   expect(
     listReceipts(join(home, 'vault')).find((r) => r.receipt.id === ran.receipt?.id)?.receipt,
-  ).toMatchObject({ ended: '2026-09-24T12:00', status: 'ok', outputs: { note: ran.result.note } });
+  ).toMatchObject({ kind: 'vault-change', status: 'ok', outputs: { target: ran.result.note } });
 });
 
 test('a successful completion committed after the timeout read supplies the winning result', async () => {
@@ -615,17 +596,12 @@ test('a timeout keeps a successful output file failed, and non-writing skills ne
   await expect(
     mesa.sessions.run('session-summary', { project: 'lantern-cove', timeoutSeconds: 1 }),
   ).rejects.toMatchObject({ code: 'timeout' });
-  const [receipt] = listReceipts(join(home, 'vault'));
-  expect(receipt?.receipt).toMatchObject({
-    status: 'failed',
-    outputs: { reason: 'timed out after 1 s' },
-  });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
   const finished = setUp(agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) }));
   finished.mesa.config.set('vault', finished.dir);
   const ran = await finished.mesa.sessions.run('session-summary', { project: 'lantern-cove' });
   expect(ran.result.ok).toBe(true);
-  expect(ran.warning).not.toContain('output not written to the vault');
-  expect(ran.warning).toContain('receipt');
+  expect(ran.warning).toBeUndefined();
 });
 
 test('a hook that finishes after the deadline look wins over the waiter timeout', async () => {
@@ -657,7 +633,7 @@ test('a hook that finishes after the deadline look wins over the waiter timeout'
   expect(ran.result.ok).toBe(true);
 });
 
-test('Codex uses its native skill prompt and thread, keeps tokens in the receipt, and reports failed exits', async () => {
+test('Codex uses its native skill prompt and thread, keeps tokens locally, and reports failed exits', async () => {
   for (const status of [0, 1]) {
     let command = '';
     const world = agentWorld({
@@ -691,14 +667,8 @@ test('Codex uses its native skill prompt and thread, keeps tokens in the receipt
       goal: '$session-summary focus on tests',
       agentSessionId: result.agentSessionId,
     });
-    const saved = listReceipts(join(home, 'vault')).find(
-      (r) => r.receipt.id === receipt?.id,
-    )?.receipt;
-    expect(saved?.outputs).toMatchObject({
-      usage: result.usage,
-      agentSessionId: result.agentSessionId,
-    });
-    expect(saved).not.toHaveProperty('cost');
+    expect(receipt).toBeNull();
+    expect(listReceipts(join(home, 'vault'))).toEqual([]);
   }
 });
 
@@ -751,7 +721,5 @@ test('the Board finishes an orphaned run when its waiter and exit hook are gone'
   const row = (await mesa.sessions.list()).find((r) => r.id === orphan?.id);
   expect(row).toMatchObject({ endedAt: expect.any(String), lastState: { state: 'done' } });
   expect(world.tmux.windows).toEqual([]);
-  expect(
-    listReceipts(join(home, 'vault')).find((e) => e.receipt.session === orphan?.id)?.receipt,
-  ).toMatchObject({ ended: '2026-09-24T12:00', status: 'ok', cost: expect.any(Number) });
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });

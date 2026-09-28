@@ -1,4 +1,4 @@
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
@@ -65,23 +65,8 @@ test('stop presses Escape, types /exit, waits for the pane to die, and removes t
     endedAt: '2026-09-24T12:00:00.000Z',
     lastState: { state: 'done', confidence: 1, source: 'mesa' },
   });
-  // The stop has its own receipt; the opening one is marked ended.
-  const [stopped, openedReceipt] = receipts();
-  expect(stopped?.receipt).toMatchObject({
-    id: receipt?.id,
-    status: 'ok',
-    session: opened.id,
-    outputs: { outcome: 'exited', lastState: 'done' },
-  });
-  expect(stopped?.summary).toBe(`Stopped session ${opened.id} (exited)`);
-  expect(openedReceipt?.receipt).toMatchObject({
-    ended: '2026-09-24T12:00',
-    outputs: { lastState: { state: 'done', confidence: 1 }, events: {} },
-  });
-  // No output log (the fake tmux writes none): its Details stay as they were.
-  expect(openedReceipt?.body).toBe(
-    `Opened session ${opened.id} on lantern-cove\n\n## Details\n\nNone.\n`,
-  );
+  expect(receipt).toBeNull();
+  expect(receipts()).toEqual([]);
 });
 
 /** 250 lines of output as a terminal writes them, the last two naming the home folder and a key. */
@@ -92,63 +77,31 @@ const output = (home: string) =>
     'Used tide-key-0042 in ```js fetch()```',
   ].join('\r\n');
 
-/** The Details a session receipt gets for `output`: its last 200 lines, redacted, fenced. */
-const details = (id: string) =>
-  [
-    `The last 200 lines of its output; the whole log stays on this machine, at ~/.mesa/default/sessions/logs/${id}.log.`,
-    '',
-    '````text',
-    ...Array.from({ length: 198 }, (_, n) => `line ${n + 51}`),
-    'Wrote ~/src/lantern-cove/tides.md',
-    'Used *** in ```js fetch()```',
-    '````',
-  ].join('\n');
-
-test("stop copies the last 200 lines of the session's output, redacted, into its receipt's Details", async () => {
+test('stop leaves terminal output local and no transcript in the vault', async () => {
   const { home, mesa, opened, receipts } = await setUp();
   mesa.config.set('keys.tide', 'tide-key-0042');
   plantOutputLog(home, opened.id, output(home));
   await mesa.sessions.stop(opened.id);
-  const openedReceipt = receipts().find((e) => e.summary.startsWith('Opened'));
-  expect(openedReceipt?.receipt.ended).toBe('2026-09-24T12:00');
-  expect(openedReceipt?.body).toBe(
-    `Opened session ${opened.id} on lantern-cove\n\n## Details\n\n${details(opened.id)}\n`,
-  );
+  expect(receipts()).toEqual([]);
+  expect(mesa.sessions.logs(opened.id).lines.join('\n')).toContain('Used tide-key-0042');
 });
 
-test("resume copies the old session's output into its receipt; none, or an empty log, keeps None.", async () => {
+test('resume retains the old local output without creating a vault receipt', async () => {
   const { home, mesa, world, opened, receipts } = await setUp();
   plantOutputLog(home, opened.id, 'All tests pass.\r\n');
   const [pane] = world.windows;
   if (pane) pane.dead = true;
   const { result } = await mesa.sessions.resume(opened.id);
-  const body = (id: string) =>
-    receipts().find((e) => e.receipt.session === id && e.summary.startsWith('Opened'))?.body;
-  expect(body(opened.id)).toBe(
-    [
-      `Opened session ${opened.id} on lantern-cove`,
-      '',
-      '## Details',
-      '',
-      `The last line of its output; the whole log stays on this machine, at ~/.mesa/default/sessions/logs/${opened.id}.log.`,
-      '',
-      '```text',
-      'All tests pass.',
-      '```',
-      '',
-    ].join('\n'),
-  );
+  expect(mesa.sessions.logs(opened.id).lines).toContain('All tests pass.');
 
   // Its successor's log is there, and empty: nothing to copy.
   const next = result.record.id;
   plantOutputLog(home, next, '\x1b[2J\r\n');
   await mesa.sessions.stop(next);
-  expect(
-    receipts().find((e) => e.summary.startsWith(`Resumed session ${opened.id}`))?.body,
-  ).toMatch(/## Details\n\nNone\.\n$/);
+  expect(receipts()).toEqual([]);
 });
 
-test("an agent's exit puts its last output lines in its receipt at once; the stop after it, again", async () => {
+test("an agent's exit updates its local state without copying output to the vault", async () => {
   const { home, mesa, world, opened, receipts } = await setUp();
   mesa.config.set('keys.tide', 'tide-key-0042');
   plantOutputLog(home, opened.id, output(home));
@@ -160,23 +113,14 @@ test("an agent's exit puts its last output lines in its receipt at once; the sto
   expect((await mesa.tmuxEvent('pane-died', 'lantern-cove', `claude-${opened.id}`))?.id).toBe(
     opened.id,
   );
-  const exited = receipts().find((e) => e.summary.startsWith('Opened'));
-  // The receipt ended, while the interactive record waits for an explicit stop.
-  expect(exited?.receipt.ended).toBe('2026-09-24T12:00');
-  expect(exited?.receipt.status).toBe('failed');
-  expect(exited?.receipt.outputs).toMatchObject({
-    events: { exited: 1 },
-    lastState: { state: 'failed', confidence: 0.85 },
-  });
+  expect(testStore(home).get(opened.id).lastState.state).toBe('failed');
   expect(testStore(home).get(opened.id).endedAt).toBeUndefined();
-  expect(exited?.body).toContain(`## Details\n\n${details(opened.id)}\n`);
+  expect(receipts()).toEqual([]);
 
   plantOutputLog(home, opened.id, `${output(home)}\r\nBye`);
   await mesa.sessions.stop(opened.id);
-  const stopped = receipts().find((e) => e.summary.startsWith('Opened'));
-  expect(stopped?.receipt.ended).toBe('2026-09-24T12:00');
-  expect(stopped?.body).toMatch(/Used \*\*\* in ```js fetch\(\)```\nBye\n````\n$/);
-  expect(stopped?.body.match(/## Details/g)).toHaveLength(1);
+  expect(receipts()).toEqual([]);
+  expect(mesa.sessions.logs(opened.id).lines).toContain('Bye');
 });
 
 test('an agent that ignores /exit is killed after 5 s', async () => {
@@ -250,10 +194,7 @@ test('resume reopens the conversation with claude --resume in a new window, link
       launch: `claude --resume ${opened.agentSessionId}`,
     },
   ]);
-  expect(receipts()[0]?.receipt).toMatchObject({
-    session: result.record.id,
-    outputs: { resumedFrom: opened.id },
-  });
+  expect(receipts()).toEqual([]);
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({
     code: 'usage',
     message: `session ${opened.id} was already resumed as ${result.record.id}; mesa resume ${result.record.id}`,
@@ -273,8 +214,7 @@ test('resume refuses a live session, clears a dead window, and needs an agent se
   const { result } = await exited.mesa.sessions.resume(exited.opened.id);
   expect(exited.world.windows.map((w) => w.window)).toEqual([`claude-${result.record.id}`]);
   expect(result.from.endedAt).toBe('2026-09-24T12:00:00.000Z');
-  // The old session's opening receipt is marked ended by the resume.
-  expect(exited.receipts().at(-1)?.receipt.ended).toBe('2026-09-24T12:00');
+  expect(exited.receipts()).toEqual([]);
 
   const store = sessionStore({
     dir: profilePaths(exited.home, 'default').sessions,
@@ -352,7 +292,7 @@ test("stop types /exit into codex 0.3 s before its Enter; claude's Enter follows
 });
 
 test.each(['dead pane', 'missing window'])(
-  'the Board finishes a receipt after a missed exit hook: %s',
+  'the Board updates local state without a receipt after a missed exit hook: %s',
   async (signal) => {
     const { home, mesa, world, opened, receipts } = await setUp();
     mesa.config.set('keys.tide', 'tide-key-0042');
@@ -363,30 +303,17 @@ test.each(['dead pane', 'missing window'])(
     for (let look = 0; look < 2; look++) {
       const rows = await mesa.sessions.list(true);
       expect(rows.find((r) => r.id === opened.id)?.lastState.state).toBe(state);
-      const exited = receipts().find((e) => e.summary.startsWith('Opened'));
-      expect(exited?.receipt).toMatchObject({
-        ended: '2026-09-24T12:00',
-        status: state === 'failed' ? 'failed' : 'ok',
-        outputs: { lastState: { state }, events: { exited: 1 } },
-      });
-      expect(exited?.body).toContain(`## Details\n\n${details(opened.id)}\n`);
+      expect(receipts()).toEqual([]);
       expect(testStore(home).get(opened.id).endedAt).toBeUndefined();
     }
   },
 );
 
-test('a Board look repairs an exit recorded before its opening receipt was available', async () => {
-  const { home, mesa, world, receipts } = await setUp();
-  const file = join(home, 'vault', receipts()[0]?.path ?? '');
-  const opening = readFileSync(file);
-  rmSync(file);
+test('a Board look repairs a missed exit without a vault entry', async () => {
+  const { home, mesa, world, opened, receipts } = await setUp();
   Object.assign(world.windows[0] ?? {}, { dead: true, status: 2 });
   await mesa.sessions.list();
-  writeFileSync(file, opening);
   await mesa.sessions.list();
-  expect(receipts()[0]?.receipt).toMatchObject({
-    ended: '2026-09-24T12:00',
-    status: 'failed',
-    outputs: { events: { exited: 1 } },
-  });
+  expect(testStore(home).get(opened.id).lastState.state).toBe('failed');
+  expect(receipts()).toEqual([]);
 });
