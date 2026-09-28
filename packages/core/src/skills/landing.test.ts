@@ -41,6 +41,7 @@ test('a landing repairs its log after an interrupted write, then retries cannot 
   const written = readFileSync(join(vault, path), 'utf8');
   await landOutput(deps, 'session-summary', first, 'Different output on retry');
   expect(readFileSync(join(vault, path), 'utf8')).toBe(written);
+  expect(readFileSync(join(vault, 'log.md'), 'utf8').match(/Summarised session/g)).toHaveLength(1);
   await landOutput(deps, 'session-summary', { ...first, run: 'second12' }, 'Second summary');
   await landOutput(deps, 'session-summary', first, 'Old retry');
   expect(readNote(vault, path).body).toBe('Second summary\n');

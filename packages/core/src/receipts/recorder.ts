@@ -24,6 +24,8 @@ type ActionSpec<T> = {
   project?: (result: T) => string | undefined;
   session?: (result: T) => string | undefined;
   agent?: (result: T) => Agent | undefined;
+  /** Context known before an action returns, retained when a guardrail blocks it. */
+  scope?: { project?: string; session?: string; agent?: Agent; actor?: string };
   /** What the work cost in US dollars, for information (an adapter decision's list price). */
   cost?: (result: T) => number | undefined;
   /** False when the action changed nothing: then no receipt. */
@@ -97,6 +99,7 @@ export function actionRecorder(deps: {
       {
         type: spec.type ?? 'action',
         kind: spec.kind,
+        ...spec.scope,
         status: code === 'guardrail_blocked' ? 'blocked' : 'failed',
         summary: spec.failure,
         inputs: spec.inputs,
@@ -122,9 +125,10 @@ export function actionRecorder(deps: {
         kind: spec.kind,
         status: 'ok',
         summary: spec.summary(result),
-        project: spec.project?.(result),
-        session: spec.session?.(result),
-        agent: spec.agent?.(result),
+        project: spec.project?.(result) ?? spec.scope?.project,
+        session: spec.session?.(result) ?? spec.scope?.session,
+        agent: spec.agent?.(result) ?? spec.scope?.agent,
+        actor: spec.scope?.actor,
         cost: spec.cost?.(result),
         inputs: spec.inputs,
         outputs,

@@ -132,7 +132,12 @@ test('in a strict project, run --json with no terminal is guardrail_blocked, exi
   expect(world.windows).toEqual([]);
   expect(testStore(cli.home).list()).toEqual([]);
   const [blocked] = (await mesa('receipts', '--json', '--limit', '1')).json.data;
-  expect(blocked.receipt).toMatchObject({ type: 'skill', status: 'blocked' });
+  expect(blocked.receipt).toMatchObject({
+    type: 'skill',
+    kind: 'guardrail',
+    project: 'lantern-cove',
+    status: 'blocked',
+  });
 
   const destructive = await run('--', 'rm', '-rf', '/');
   expect(destructive).toMatchObject({

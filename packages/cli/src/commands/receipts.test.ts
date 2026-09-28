@@ -69,3 +69,26 @@ test('historical receipts without a kind remain readable', async () => {
   expect((await listed('--type', 'decision')).map((receipt) => receipt.kind)).toEqual([undefined]);
   expect(await listed('--kind', 'decision')).toEqual([]);
 });
+
+test('a project decision from a Mesa session keeps its known caller', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const session = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  await mesa('config', 'set', 'decisions.backend', 'rules');
+  cli.env = { MESA_SESSION_ID: session, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'ship', statement: 'Ready' }] });
+  const decided = await mesa(
+    'decide',
+    '--project',
+    'lantern-cove',
+    '--rationale',
+    'The migration can be rolled back',
+    '--json',
+  );
+  expect(decided.json.data.receipt).not.toBeNull();
+  expect((await listed('--session', session, '--kind', 'decision'))[0]).toMatchObject({
+    project: 'lantern-cove',
+    session,
+    actor: session,
+  });
+});

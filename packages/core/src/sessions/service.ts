@@ -236,17 +236,23 @@ export function sessionsService(
        * output log its agent reads, once the guardrail lets its prompt through (`yes`, `force`,
        * and a person's `confirm` past an ask or a block), and waits up to `timeoutSeconds` for
        * its result, which is returned, ok or not, with the vault note its output became, if any.
-       * Its start writes a skill receipt, with the guardrail's decision and the override, which
-       * its end finishes (endRun); its end, as a stop does, starts what was queued after it.
+       * A blocked or overridden guardrail keeps its decision; a changed vault note keeps a
+       * separate receipt. Its end, as a stop does, starts what was queued after it.
        */
       run: async (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) => {
         const { force, yes, confirm, ...input } = opts;
         const { project, session, agent, args = [] } = input;
         const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
+        const about = session ? store.find(session) : undefined;
         const started = await record(
           {
             kind: 'guardrail',
             type: 'skill',
+            scope: {
+              project: project ?? about?.project,
+              session: about?.id,
+              actor: caller().session?.id,
+            },
             summary: ({ record: r }) =>
               `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
             failure: `Could not run skill ${skill}${on}`,
@@ -431,8 +437,8 @@ export function sessionsService(
       /**
        * Types a prompt into a live session's agent, from another session (`from`, else the window
        * this runs in) when there is one, once the guardrail lets it (`yes`, `force`, and a
-       * person's `confirm` past an ask or a block); an action receipt keeps its first 80 chars,
-       * the guardrail's decision, and the override.
+       * person's `confirm` past an ask or a block). A blocked or overridden guardrail keeps its
+       * decision and the prompt's first 80 characters.
        */
       send: (
         id: string,
@@ -441,9 +447,16 @@ export function sessionsService(
       ) => {
         const { force = false, yes, confirm, from, noFrom } = opts;
         const kept = receiptText(prompt, deps.argv, secrets());
+        const target = store.find(id);
         return record(
           {
             kind: 'guardrail',
+            scope: {
+              project: target?.project,
+              session: target?.id,
+              agent: target?.agent,
+              actor: caller().session?.id,
+            },
             argv: kept.argv,
             summary: (r) =>
               `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,

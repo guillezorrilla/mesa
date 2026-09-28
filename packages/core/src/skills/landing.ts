@@ -124,6 +124,7 @@ export async function landOutput(
         project: () => run.project,
         session: () => run.about,
         agent: () => run.agent,
+        scope: { actor: run.run },
         inputs: { skill, run: run.run, target: path },
         outputs: () => ({ target: path, link: target }),
       },

@@ -405,8 +405,10 @@ test('session-summary refuses missing logs and unknown sessions, and preserves a
   const ran = await mesa.sessions.run('session-summary', { session: about.id });
   expect(ran.result.ok).toBe(true);
   expect(ran.result.note).toBeUndefined();
+  expect(ran.receipt).toBeNull();
   expect(ran.warning).toContain('locked');
   expect(readFileSync(join(vault, path), 'utf8')).toBe(before);
+  expect(listReceipts(vault)).toEqual([]);
 });
 
 test('project-brief lands fixture output, refreshes generated sections, and keeps user blocks', async () => {

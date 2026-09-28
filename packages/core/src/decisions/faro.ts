@@ -4,6 +4,7 @@ import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
+import { callerOf } from '../sessions/caller.js';
 import { adapterBackend } from './adapter.js';
 import { decide, type FaroProfile } from './decide.js';
 import {
@@ -71,7 +72,12 @@ export function createFaro(ctx: MesaContext) {
       questions: unknown,
       context: { project?: string; session?: string; rationale?: string } = {},
     ) => {
-      const session = context.session ? ctx.store.get(context.session) : undefined;
+      const actor = callerOf({ store: ctx.store, env: deps.env, profileName: ctx.profile }).session;
+      const session = context.session
+        ? ctx.store.get(context.session)
+        : context.project === actor?.project
+          ? actor
+          : undefined;
       const project = context.project ?? session?.project;
       if (project) findProject(ctx.open(), project);
       if (session && context.project && session.project !== context.project) {
@@ -94,6 +100,7 @@ export function createFaro(ctx: MesaContext) {
           project: () => project,
           session: () => session?.id,
           agent: () => session?.agent,
+          scope: { actor: actor?.id },
           inputs: {
             state: redact(state),
             questions: redact(questions),

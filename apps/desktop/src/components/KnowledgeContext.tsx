@@ -55,7 +55,8 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
               <p className="font-medium">{entry.summary}</p>
               {detail && <p className="text-muted-foreground">{detail}</p>}
               <p className="text-xs text-muted-foreground">
-                {entry.receipt.started} · {entry.receipt.status} · {target}
+                {entry.receipt.started} · {entry.receipt.status}
+                {entry.receipt.actor ? ` · by ${entry.receipt.actor}` : ''} · {target}
               </p>
             </div>
             <Button

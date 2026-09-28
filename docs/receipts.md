@@ -6,7 +6,7 @@ A receipt is a Markdown note in the profile vault's `receipts/`. Since #274, new
 
 ## What is kept
 
-- `mesa decide --project <slug> --rationale <text>` records the questions, answers, probabilities, and rationale. `--session <id>` narrows it to that project session. A decision without project context is still available through the CLI; it does not appear in a project context.
+- `mesa decide --project <slug> --rationale <text>` records the questions, answers, probabilities, and rationale. `--session <id>` narrows it to that project session; inside a Mesa session of the named project, the caller is used when `--session` is absent. A decision without project context is still available through the CLI; it does not appear in a project context.
 - `mesa send` and `mesa run` record guardrail blocks and explicit `--yes`, interactive confirmation, or `--force` overrides. Ordinary allows create no receipt. The receipt keeps the guardrail decisions and override, not a raw terminal tail.
 - A completed `session-summary` or `project-brief` run records a `vault-change` only when its target note body changes. Its `inputs.target` and `outputs.target` name the exact vault-relative note, such as `wiki/sessions/a1b2c3d4.md`. The note and receipt are linked from `log.md`. Duplicate completion, an identical body from another run, and a failed or locked note write add no history.
 
@@ -26,6 +26,7 @@ Session records and run outputs remain under `~/.mesa/<profile>/sessions/`. Thei
 | `profile` | yes | The profile the receipt belongs to |
 | `project` | no | The registered project's name |
 | `session` | no | The Mesa session id |
+| `actor` | no | The calling Mesa session id when known; for a vault change, the run session id |
 | `agent` | no | `claude` or `codex` |
 | `started` | yes | When the work started, in local time as `YYYY-MM-DDTHH:mm`, the form Obsidian infers as a Date & Time property (with seconds it infers text). The file name keeps the seconds. Receipts written before this form (#61) hold ISO UTC (`2026-09-24T12:00:00.000Z`); both are read |
 | `ended` | no | When it ended, in the same form, for work that spans time (a session) |

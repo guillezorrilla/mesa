@@ -89,6 +89,7 @@ export const ReceiptSchema = z.strictObject({
   profile: z.string(),
   project: z.string().optional(),
   session: z.string().optional(),
+  actor: z.string().optional(),
   agent: AgentSchema.optional(),
   started: NoteTimeSchema,
   ended: NoteTimeSchema.optional(),
