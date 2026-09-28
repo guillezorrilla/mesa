@@ -424,6 +424,13 @@ export function ProjectWorkspace(props: {
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="flex h-12 min-w-24 items-center justify-center gap-2 rounded-md border border-dashed px-4 text-xs text-muted-foreground hover:bg-accent"
+                onClick={() => setTab('worktrees')}
+              >
+                <Plus aria-hidden className="size-3.5" /> New
+              </button>
             </section>
           )}
           <section className="space-y-3">

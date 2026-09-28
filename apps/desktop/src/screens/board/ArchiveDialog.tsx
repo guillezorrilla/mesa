@@ -19,7 +19,7 @@ export function ArchiveDialog(props: {
 }) {
   return (
     <Dialog open onOpenChange={(open) => !open && props.onCancel()}>
-      <DialogContent data-testid="archive-dialog" className="sm:max-w-md">
+      <DialogContent data-testid="archive-dialog" className="bg-card sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Archive this session?</DialogTitle>
           <DialogDescription>
@@ -44,6 +44,7 @@ export function ArchiveDialog(props: {
             <Button
               type="button"
               data-testid="archive-confirm"
+              className="bg-[#d0aa36] text-black hover:bg-[#e0bb47]"
               disabled={props.disabled}
               onClick={props.onArchive}
             >
