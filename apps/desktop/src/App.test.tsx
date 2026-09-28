@@ -40,6 +40,646 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('project Git tab reads selected checkout status through the CLI bridge', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': (args) =>
+      envelope({
+        checkout: {
+          project: 'lantern-cove',
+          path: args.includes('--checkout') ? '/h/feature' : '/h/src/lantern-cove',
+          registered: !args.includes('--checkout'),
+        },
+        branch: 'main',
+        changes: [{ path: 'changed.txt', index: ' ', workingTree: 'M' }],
+      }),
+    'git diff': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        staged: false,
+        path: 'changed.txt',
+        patch: '@@ -1 +1 @@\n-old\n+new\n',
+        rows: [
+          { kind: 'meta', left: '@@ -1 +1 @@', right: '@@ -1 +1 @@' },
+          { kind: 'change', left: 'old', right: 'new' },
+        ],
+      }),
+    'worktrees list': () =>
+      envelope([
+        { path: '/h/src/lantern-cove', main: true, state: 'ready', holders: [] },
+        { path: '/h/feature', main: false, state: 'ready', holders: [] },
+      ]),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/feature', branch: 'feature' } })]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  expect(document.querySelector('[aria-label="Changed files"]')?.textContent).toContain(
+    'changed.txt',
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Changed files"] button')][0],
+  );
+  expect(byTestId('git-inline-diff')[0]?.textContent).toContain('+new');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git diff"] button')].find(
+      (button) => button.textContent === 'Side by side',
+    ),
+  );
+  expect(byTestId('git-side-diff')[0]?.textContent).toContain('oldnew');
+  expect(calls.some((args) => args.includes('status') && args.includes('lantern-cove'))).toBe(true);
+  const checkout = document.querySelector<HTMLSelectElement>('[aria-label="Checkout"]');
+  expect(checkout?.options).toHaveLength(2);
+  await act(async () => {
+    if (checkout) {
+      checkout.value = '/h/feature';
+      checkout.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  expect(calls.some((args) => args.includes('--checkout') && args.includes('/h/feature'))).toBe(
+    true,
+  );
+});
+
+test('project Files tab edits through the bridge, previews inert Markdown, and protects dirty navigation', async () => {
+  let text = '# Guide\nsecond line\n';
+  let revision = 'a'.repeat(64);
+  const checkout = { project: 'lantern-cove', path: '/src/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'files tree': () =>
+      envelope({
+        checkout,
+        entries: [
+          { path: 'docs', kind: 'directory', depth: 0 },
+          { path: 'docs/guide.md', kind: 'file', depth: 1 },
+        ],
+        truncated: false,
+      }),
+    'files read': () =>
+      envelope({
+        checkout,
+        path: 'docs/guide.md',
+        text,
+        revision,
+        lines: text.split('\n').length,
+        targetLine: 2,
+      }),
+    'files write': (args) => {
+      text = (args.find((arg) => arg.startsWith('--text=')) ?? '').slice(7);
+      revision = 'b'.repeat(64);
+      return envelope({
+        checkout,
+        path: 'docs/guide.md',
+        revision,
+        action: 'write',
+        receipt: null,
+      });
+    },
+    'files search': () =>
+      envelope({
+        checkout,
+        query: 'second',
+        mode: 'content',
+        hits: [{ path: 'docs/guide.md', line: 2, preview: 'second line' }],
+        truncated: false,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'files',
+    ),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="File tree"] button')].find(
+      (button) => button.textContent === 'guide.md',
+    ),
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe(text);
+  await act(async () => {
+    const editor = byTestId('file-editor-text')[0] as HTMLTextAreaElement;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+      editor,
+      '# Edited\n<script>alert(1)</script>\n![remote](https://example.com/track.png)',
+    );
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'git',
+    ),
+  );
+  expect(byTestId('file-leave-dialog')).toHaveLength(1);
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-testid="file-leave-dialog"] button'),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  await click(byTestId('nav-projects')[0]);
+  expect(byTestId('file-navigation-dialog')).toHaveLength(1);
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '[data-testid="file-navigation-dialog"] button',
+      ),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Preview',
+    ),
+  );
+  expect(byTestId('markdown-preview')[0]?.querySelector('h1')?.textContent).toBe('Edited');
+  expect(byTestId('markdown-preview')[0]?.querySelector('script,img')).toBeNull();
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Save',
+    ),
+  );
+  expect(
+    calls.some(
+      (args) => args[1] === 'files' && args[2] === 'write' && args.includes('a'.repeat(64)),
+    ),
+  ).toBe(true);
+  expect(text).toContain('# Edited');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Close',
+    ),
+  );
+  expect(byTestId('file-editor-text')).toHaveLength(0);
+});
+
+test('project Files tab searches, jumps to an exact line, and exposes checked file mutations', async () => {
+  const checkout = { project: 'lantern-cove', path: '/src/lantern-cove', registered: true };
+  const files = new Map([['docs/guide.md', 'first\nsecond line\n']]);
+  const revision = 'a'.repeat(64);
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'files tree': () =>
+      envelope({
+        checkout,
+        entries: [
+          { path: 'docs', kind: 'directory', depth: 0 },
+          ...[...files.keys()].map((path) => ({ path, kind: 'file', depth: 1 })),
+        ],
+        truncated: false,
+      }),
+    'files read': (args) => {
+      const path = args.at(-1) ?? '';
+      const text = files.get(path) ?? '';
+      const lineFlag = args.indexOf('--line');
+      return envelope({
+        checkout,
+        path,
+        text,
+        revision,
+        lines: text.split('\n').length,
+        ...(lineFlag > 0 ? { targetLine: Number(args[lineFlag + 1]) } : {}),
+      });
+    },
+    'files search': () =>
+      envelope({
+        checkout,
+        query: 'second',
+        mode: 'content',
+        hits: [{ path: 'docs/guide.md', line: 2, preview: 'second line' }],
+        truncated: false,
+      }),
+    'files create': (args) => {
+      const path = args.at(-1) ?? '';
+      files.set(path, '');
+      return envelope({ checkout, path, revision, action: 'create', receipt: null });
+    },
+    'files rename': (args) => {
+      const from = args.at(-2) ?? '';
+      const path = args.at(-1) ?? '';
+      files.set(path, files.get(from) ?? '');
+      files.delete(from);
+      return envelope({ checkout, from, path, revision, action: 'rename', receipt: null });
+    },
+    'files delete': (args) => {
+      const path = args.at(-1) ?? '';
+      files.delete(path);
+      return envelope({ checkout, path, action: 'delete', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'files',
+    ),
+  );
+  const treeRows = [
+    ...document.querySelectorAll<HTMLButtonElement>(
+      '[aria-label="File tree"] button[data-file-row]',
+    ),
+  ];
+  treeRows[0]?.focus();
+  await act(async () =>
+    treeRows[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })),
+  );
+  expect(document.activeElement).toBe(treeRows[1]);
+  await choose(document.querySelector('[aria-label="File search mode"]') ?? undefined, 'content');
+  await act(async () => {
+    const input = document.querySelector<HTMLInputElement>('[aria-label="Search files"]');
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+      input,
+      'second',
+    );
+    input?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Run file search"]') ?? undefined,
+  );
+  await click(
+    document.querySelector<HTMLButtonElement>(
+      '[aria-label="File search results"] button:nth-child(2)',
+    ) ?? undefined,
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).selectionStart).toBe(6);
+  const goTo = document.querySelector<HTMLInputElement>('[aria-label="Go to file and line"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+      goTo,
+      'docs/guide.md:2',
+    );
+    goTo?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Go to file',
+    ),
+  );
+  expect(
+    calls.some(
+      (args) =>
+        args[1] === 'files' && args[2] === 'read' && args.includes('--line') && args.includes('2'),
+    ),
+  ).toBe(true);
+  await click(document.querySelector<HTMLButtonElement>('[aria-label="Create file"]') ?? undefined);
+  (document.querySelector('#new-file-path') as HTMLInputElement).value = 'docs/new.md';
+  await click(byTestId('confirm-file-create')[0]);
+  expect(files.has('docs/new.md')).toBe(true);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Rename',
+    ),
+  );
+  (document.querySelector('#rename-file-path') as HTMLInputElement).value = 'docs/renamed.md';
+  await click(byTestId('confirm-file-rename')[0]);
+  expect(files.has('docs/renamed.md')).toBe(true);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Delete',
+    ),
+  );
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-testid="file-delete-dialog"] button'),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(files.has('docs/renamed.md')).toBe(true);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Delete',
+    ),
+  );
+  await click(byTestId('confirm-file-delete')[0]);
+  expect(files.has('docs/renamed.md')).toBe(false);
+});
+
+test('project Git actions stage, unstage and commit through the CLI bridge', async () => {
+  let staged = false;
+  let committed = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        branch: 'main',
+        changes: committed
+          ? []
+          : [{ path: 'note.txt', index: staged ? 'A' : '?', workingTree: staged ? ' ' : '?' }],
+      }),
+    'git stage': () => {
+      staged = true;
+      return envelope({ path: 'note.txt', action: 'stage', receipt: null });
+    },
+    'git unstage': () => {
+      staged = false;
+      return envelope({ path: 'note.txt', action: 'unstage', receipt: null });
+    },
+    'git commit': () => {
+      committed = true;
+      return envelope({ oid: 'abcdef0123456789', summary: 'Add note', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  const action = (label: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === label,
+    );
+  await click(action('Stage'));
+  expect(action('Unstage')).toBeDefined();
+  await click(action('Unstage'));
+  expect(action('Stage')).toBeDefined();
+  await click(action('Stage'));
+  const message = document.querySelector<HTMLInputElement>('[aria-label="Commit message"]');
+  await act(async () => {
+    if (message) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        message,
+        'Add note',
+      );
+      message.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  expect(action('Commit staged')?.disabled).toBe(false);
+  await click(action('Commit staged'));
+  expect(document.querySelector('[aria-label="Git status"]')?.textContent).toContain(
+    'Working tree clean.',
+  );
+  expect(calls.some((args) => args.includes('commit') && args.includes('--message=Add note'))).toBe(
+    true,
+  );
+});
+
+test('project Git branch panel creates and confirms deletion through the CLI bridge', async () => {
+  let created = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        branch: 'main',
+        changes: [],
+      }),
+    'git branches': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        branches: [
+          { name: 'main', oid: 'abc', current: true, checkedOutAt: '/h/src/lantern-cove' },
+          ...(created ? [{ name: 'next', oid: 'abc', current: false }] : []),
+        ],
+      }),
+    'git branch create': () => {
+      created = true;
+      return envelope({ name: 'next', action: 'create', receipt: null });
+    },
+    'git branch delete': () => {
+      created = false;
+      return envelope({ name: 'next', action: 'delete', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Branches',
+    ),
+  );
+  const name = document.querySelector<HTMLInputElement>('[aria-label="New branch name"]');
+  await act(async () => {
+    if (name) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(name, 'next');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Local branches"] button')].find(
+      (button) => button.textContent === 'Create branch',
+    ),
+  );
+  expect(calls.some((args) => args.includes('create') && args.includes('next'))).toBe(true);
+  expect(document.querySelector('[aria-label="Local branches"]')?.textContent).toContain('next');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Local branches"] button')].find(
+      (button) => button.textContent === 'Delete',
+    ),
+  );
+  expect(byTestId('git-delete-branch-dialog')).toHaveLength(1);
+  await click(byTestId('confirm-git-delete-branch')[0]);
+  expect(calls.some((args) => args.includes('delete') && args.includes('next'))).toBe(true);
+});
+
+test('project Git stash panel saves changes and confirms a drop through the CLI bridge', async () => {
+  let saved = false;
+  const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git stashes': () =>
+      envelope({
+        checkout,
+        stashes: saved ? [{ ref: 'stash@{0}', oid: 'abc', message: 'On main: saved' }] : [],
+      }),
+    'git stash create': () => {
+      saved = true;
+      return envelope({ checkout, created: true, oid: 'abc', receipt: null });
+    },
+    'git stash drop': () => {
+      saved = false;
+      return envelope({ checkout, action: 'drop', ref: 'stash@{0}', oid: 'abc', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Stashes',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain(
+    'No saved stashes.',
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git stashes"] button')].find(
+      (button) => button.textContent === 'Stash changes',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain('stash@{0}');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git stashes"] button')].find(
+      (button) => button.textContent === 'Drop',
+    ),
+  );
+  expect(byTestId('git-drop-stash-dialog')).toHaveLength(1);
+  await click(byTestId('confirm-git-drop-stash')[0]);
+  expect(calls.some((args) => args.includes('drop') && args.includes('stash@{0}'))).toBe(true);
+  expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain(
+    'No saved stashes.',
+  );
+});
+
+test('project Git remote panel shows its upstream and confirms an explicit push', async () => {
+  const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git branches': () =>
+      envelope({ checkout, branches: [{ name: 'main', oid: 'abc', current: true }] }),
+    'git stashes': () => envelope({ checkout, stashes: [] }),
+    'git graph': () => envelope({ checkout, rows: [], commits: 0 }),
+    'git tracking': () =>
+      envelope({ checkout, branch: 'main', remote: 'origin', upstream: 'main' }),
+    'git push': () =>
+      envelope({
+        checkout,
+        branch: 'main',
+        remote: 'origin',
+        upstream: 'main',
+        action: 'push',
+        before: 'abc',
+        after: 'abc',
+        output: '',
+        receipt: null,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Branches',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Stashes',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Remote',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Graph',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git sync"]')?.textContent).toContain(
+    'main tracks origin/main',
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git sync"] button')].find(
+      (button) => button.textContent === 'Push',
+    ),
+  );
+  expect(byTestId('git-sync-dialog')[0]?.textContent).toContain('without force');
+  await click(byTestId('confirm-git-sync')[0]);
+  expect(calls.some((args) => args.includes('push') && args.includes('--yes'))).toBe(true);
+  expect(document.querySelectorAll('[aria-label="Git sync"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[aria-label="Git graph"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[aria-label="Local branches"]')).toHaveLength(1);
+  expect(document.querySelectorAll('[aria-label="Git stashes"]')).toHaveLength(1);
+});
+
+test('project Git graph filters a branch and compares a selected commit', async () => {
+  const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
+  const feature = {
+    oid: 'f'.repeat(40),
+    parents: ['a'.repeat(40)],
+    subject: 'Feature commit',
+    author: 'Test',
+    authoredAt: '2026-09-27T12:00:00Z',
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git branches': () =>
+      envelope({
+        checkout,
+        branches: [
+          { name: 'main', oid: 'a', current: true },
+          { name: 'feature', oid: feature.oid, current: false },
+        ],
+      }),
+    'git graph': (args) =>
+      envelope({
+        checkout,
+        branch: args.includes('--branch') ? 'feature' : undefined,
+        rows: args.includes('--branch')
+          ? [{ graph: '* ', commit: feature }]
+          : [
+              { graph: '* ', commit: feature },
+              { graph: '* ', commit: { ...feature, oid: 'a'.repeat(40), subject: 'Main commit' } },
+            ],
+        commits: args.includes('--branch') ? 1 : 2,
+      }),
+    'git compare': () =>
+      envelope({
+        checkout,
+        base: 'a'.repeat(40),
+        head: feature.oid,
+        behind: 1,
+        ahead: 1,
+        patch: '+feature\n',
+        rows: [{ kind: 'change', left: '', right: 'feature' }],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Graph',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Commits"]')?.textContent).toContain('Main commit');
+  await choose(document.querySelector('[aria-label="Graph branch"]') ?? undefined, 'feature');
+  expect(document.querySelector('[aria-label="Commits"]')?.textContent).not.toContain(
+    'Main commit',
+  );
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Commits"] button') ?? undefined,
+  );
+  const base = document.querySelector<HTMLInputElement>('[aria-label="Compare base"]');
+  await act(async () => {
+    if (base) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(base, 'main');
+      base.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git graph"] button')].find(
+      (button) => button.textContent === 'Compare',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git comparison"]')?.textContent).toContain(
+    '1 behind, 1 ahead',
+  );
+  expect(
+    calls.some(
+      (args) => args.includes('compare') && args.includes('main') && args.includes(feature.oid),
+    ),
+  ).toBe(true);
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({
@@ -317,6 +957,15 @@ test('shortcut settings validate conflicts and update the active profile key', a
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },
+    editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
+    worktrees: {
+      location: 'profile',
+      fetch: false,
+      sparseDirectories: [],
+      carryIgnoredDirectories: [],
+      setup: [],
+      teardown: [],
+    },
     shortcuts,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },

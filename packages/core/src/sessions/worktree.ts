@@ -1,5 +1,6 @@
 import { mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
+import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 
@@ -21,14 +22,7 @@ const ASK_MS = 5_000;
 
 /** One git call in `repo`. A missing or hung git throws; a failed command returns. */
 async function git(run: Runner, repo: string, args: string[], ms = ASK_MS) {
-  const res = await run('git', ['-C', repo, ...args], ms);
-  if (res.ok || res.reason === 'failed') return res;
-  throw new MesaError(
-    'internal',
-    res.reason === 'missing'
-      ? 'git not found on PATH; --branch needs it'
-      : `git did not answer within ${ms / 1000} s`,
-  );
+  return gitCommand(run, repo, args, ms, 'git not found on PATH; --branch needs it');
 }
 
 /** git's answer, or undefined when it says no. */
@@ -74,7 +68,14 @@ export const worktreePath = (root: string, branch: string) =>
  */
 export async function addWorktree(
   run: Runner,
-  input: { repo: string; root: string; branch: string; base?: string },
+  input: {
+    repo: string;
+    root: string;
+    branch: string;
+    base?: string;
+    defaultBase?: string;
+    fetch?: boolean;
+  },
 ): Promise<Worktree> {
   const { repo, branch } = input;
   const below = await must(
@@ -93,6 +94,14 @@ export async function addWorktree(
   if ((await ask(run, repo, ['check-ref-format', '--branch', branch])) !== branch) {
     throw new MesaError('usage', `${branch} is not a valid branch name`);
   }
+  if (input.fetch)
+    await must(
+      run,
+      repo,
+      ['fetch', '--all', '--prune'],
+      'cannot fetch before worktree creation',
+      ADD_MS,
+    );
   const local = await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`]);
   if (local !== undefined && input.base !== undefined) {
     throw new MesaError(
@@ -101,7 +110,9 @@ export async function addWorktree(
     );
   }
   const base =
-    local === undefined ? (input.base ?? (await defaultBase(run, repo, branch))) : undefined;
+    local === undefined
+      ? (input.base ?? input.defaultBase ?? (await defaultBase(run, repo, branch)))
+      : undefined;
   const path = worktreePath(input.root, branch);
   mkdirSync(input.root, { recursive: true });
   // Before the claim, so a registration at the path after it can only be this call's. git lists

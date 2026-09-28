@@ -28,8 +28,14 @@ const osc52Text = (data: string) => {
  * drag, with `mouse on`) arrives as OSC 52 and goes to the pasteboard; Cmd+V is the webview's
  * own paste. Unmounting closes only the tmux client.
  */
-export function Terminal(props: { sessionId: string; fill?: boolean }) {
+export function Terminal(props: {
+  sessionId: string;
+  fill?: boolean;
+  onFileLink?: (session: string, target: string) => void;
+}) {
   const host = useRef<HTMLDivElement>(null);
+  const onFileLink = useRef(props.onFileLink);
+  onFileLink.current = props.onFileLink;
   const platform = usePlatform();
   const run = useRun();
   useEffect(() => {
@@ -70,6 +76,30 @@ export function Terminal(props: { sessionId: string; fill?: boolean }) {
       if (text !== null) clipboard.write(text).catch(() => {});
       return true;
     });
+    const links = term.registerLinkProvider({
+      provideLinks(lineNumber, callback) {
+        const text = term.buffer.active.getLine(lineNumber - 1)?.translateToString(true) ?? '';
+        const matches = [
+          ...text.matchAll(
+            /(?:^|[\s('"`])((?:\/?[\w.@+-]+\/)*[\w.@+-]+\.[\w+-]+:\d+(?::\d+)?)(?=$|[\s),;])/g,
+          ),
+        ];
+        callback(
+          matches.map((match) => {
+            const target = match[1] as string;
+            const start = (match.index ?? 0) + match[0].indexOf(target) + 1;
+            return {
+              text: target,
+              range: {
+                start: { x: start, y: lineNumber },
+                end: { x: start + target.length - 1, y: lineNumber },
+              },
+              activate: () => onFileLink.current?.(props.sessionId, target),
+            };
+          }),
+        );
+      },
+    });
     term.onData((data) => {
       // After the attach ended, a keystroke has nowhere to go.
       if (termId) terminal.write(termId, data).catch(() => {});
@@ -100,6 +130,7 @@ export function Terminal(props: { sessionId: string; fill?: boolean }) {
       closed = true;
       observer.disconnect();
       for (const off of offs) off();
+      links.dispose();
       if (termId) terminal.close(termId);
       term.dispose();
     };
