@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import { MesaError } from '../lib/result.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -20,7 +21,13 @@ export const checkoutHolders = (
 ) =>
   records.filter((r) => {
     if (r.project !== project || r.endedAt) return false;
-    const cwd = r.worktree?.path ?? r.cwd ?? root;
+    const held = r.worktree?.path ?? r.cwd ?? root;
+    let cwd: string;
+    try {
+      cwd = realpathSync.native(held);
+    } catch {
+      cwd = held;
+    }
     return cwd === path || cwd.startsWith(`${path}/`);
   });
 

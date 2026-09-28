@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isolateGit, newSession, shortIds, testStore, withRealGit } from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
@@ -12,6 +12,7 @@ beforeEach(cli.reset);
 test('worktree inventory filters Git state and actual profile session holders', async () => {
   const repo = join(cli.home, 'lantern-cove');
   const linked = join(cli.home, 'feature');
+  const aliased = join(cli.home, 'feature-alias');
   mkdirSync(repo);
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   await cli.mesa('init', '--vault', 'vault');
@@ -31,10 +32,13 @@ test('worktree inventory filters Git state and actual profile session holders', 
     'first',
   ]);
   execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', linked]);
+  symlinkSync(linked, aliased);
   cli.run = withRealGit(cli.run);
   const store = testStore(cli.home, 'default', shortIds('aaaaaaaa', 'bbbbbbbb'));
   store.create(() => newSession());
-  store.create(() => newSession({ worktree: { path: linked, branch: 'feature' }, name: 'Review' }));
+  store.create(() =>
+    newSession({ worktree: { path: aliased, branch: 'feature' }, name: 'Review' }),
+  );
 
   const listed = await cli.mesa('worktrees', 'list', 'lantern-cove', '--json');
   expect(listed.code, listed.stdout).toBe(0);
