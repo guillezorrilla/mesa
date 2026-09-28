@@ -1,9 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
+import { AgentSchema, newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
 import { type LaunchDeps, launchProject, launchSession } from './launch.js';
@@ -27,7 +28,7 @@ type HandoffDeps = LaunchDeps & {
 };
 
 /**
- * Starts the successor of session `id`: on the same project, with the same agent, in the same
+ * Starts the successor of session `id`: on the same project, with the chosen agent, in the same
  * folder, taking over its worktree, with `parent` and `handoffFrom` the session, and a goal made
  * of the session's plus a line naming the note, copied to `handoffs/<successor id>.md`. Both
  * records get a `handoff` event. A skill run has nothing to hand off. Every refusal comes before
@@ -38,9 +39,25 @@ type HandoffDeps = LaunchDeps & {
 export async function handoffSession(
   deps: HandoffDeps,
   id: string,
-  { note, keep = false }: { note: string; keep?: boolean },
+  { note, keep = false, agent: requested }: { note: string; keep?: boolean; agent?: string },
 ): Promise<{ from: SessionRecord; to: SessionRecord; note: string; warning?: string }> {
   const from = deps.store.get(id);
+  if (from.project === GENERAL_PROJECT)
+    throw new MesaError('usage', `session ${id} is General; handoff requires a project`);
+  if (from.agent === 'terminal')
+    throw new MesaError(
+      'usage',
+      `session ${id} is a plain terminal; it has no agent work to hand off`,
+    );
+  const chosen = requested === undefined ? undefined : AgentSchema.safeParse(requested);
+  if (chosen && !chosen.success)
+    throw new MesaError(
+      'usage',
+      `unknown handoff agent ${requested}; use claude, codex, or antigravity`,
+    );
+  const agent = chosen?.data ?? from.agent;
+  const mode = requested === undefined ? from.mode : undefined;
+  const background = requested === undefined ? from.background : undefined;
   refuseRun(from, 'has no work to hand off');
   if (!isAgentState(from.lastState.state)) {
     throw new MesaError(
@@ -64,12 +81,21 @@ export async function handoffSession(
   }
   requireOwnWorktree(deps.store, from);
   const { entry } = launchProject(deps.profile, from.project);
-  await readyAgent(deps.run, from.agent);
-  const agentSessionId = newSessionId(from.agent, deps.newUuid);
+  await readyAgent(deps.run, agent);
+  const agentSessionId = background ? undefined : newSessionId(agent, deps.newUuid);
   const { goal } = from;
   // Checked before anything is written, with a note path as long as the successor's will be.
   const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
-  requireCommandFits(startCommand(from.agent, { agentSessionId, goal: placeholder }));
+  if (!background)
+    requireCommandFits(
+      startCommand(agent, {
+        id: 'xxxxxxxx',
+        logs: deps.profile.paths.logs,
+        agentSessionId,
+        goal: placeholder,
+        mode,
+      }),
+    );
   const at = deps.clock().toISOString();
   // The note is copied once the successor has its id, and removed again with it.
   let path = '';
@@ -77,7 +103,9 @@ export async function handoffSession(
     deps,
     {
       project: entry,
-      agent: from.agent,
+      agent,
+      mode,
+      background,
       agentSessionId,
       parent: id,
       ...(worktree ? { worktree } : {}),
@@ -94,7 +122,7 @@ export async function handoffSession(
           events: [{ type: 'handoff', at, from: id, note: path }],
         });
       },
-      command: (successor) => startCommand(from.agent, successor),
+      command: (successor) => startCommand(agent, { ...successor, logs: deps.profile.paths.logs }),
     },
   ).catch((error) => {
     if (path) rmSync(path, { force: true });

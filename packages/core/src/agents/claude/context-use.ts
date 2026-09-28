@@ -65,5 +65,12 @@ export function claudeContext(
   const held = HOLDS_TO_200K.some((name) => on(deps.env[name]) || on(settings[name]));
   const window = held ? Math.min(native, DEFAULT_WINDOW) : native;
   const used = Math.round((10_000 * usage.tokens) / window) / 100;
-  return { used, window, at: usage.at, source: 'transcript' };
+  return {
+    used,
+    window,
+    at: usage.at,
+    source: 'transcript',
+    model: usage.model,
+    ...(usage.effort ? { effort: usage.effort } : {}),
+  };
 }

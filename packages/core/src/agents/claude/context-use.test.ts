@@ -25,6 +25,26 @@ test('a normal turn: the main chain last reply input tokens, in percent of its w
     window: 200_000,
     at: '2026-09-25T10:00:09.000Z',
     source: 'transcript',
+    model: 'claude-haiku-4-5-20251001',
+  });
+});
+
+test('the reply carries its native per-turn effort with the model and usage', () => {
+  const home = homeWith();
+  writeFileSync(
+    join(claudeTranscripts(home), '-src-lantern-cove', `${ID}.jsonl`),
+    `${JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-09-25T10:00:09.000Z',
+      effort: 'high',
+      perTurnEffort: 'xhigh',
+      message: { model: 'claude-opus-5-5', usage: { input_tokens: 50_000 } },
+    })}\n`,
+  );
+  expect(claudeContext({ home, env: {} }, ID)).toMatchObject({
+    used: 5,
+    model: 'claude-opus-5-5',
+    effort: 'xhigh',
   });
 });
 

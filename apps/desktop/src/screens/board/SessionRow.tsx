@@ -2,7 +2,9 @@ import type { TreeRow, WorkflowStatus } from '@mesa/core';
 import {
   attentionScore,
   duration,
+  GENERAL_PROJECT,
   isRun,
+  projectLabel,
   sessionBranch,
   sessionLabel,
   waitingOn,
@@ -36,13 +38,18 @@ export type RowActions = {
   send: (id: string, form: HTMLFormElement) => void;
   openTerminal: (id: string) => void;
   stop: (id: string) => void;
+  stopDescendants: (row: TreeRow) => void;
   resume: (id: string) => void;
   adopt: (agentSessionId: string, project?: string) => void;
   /** Open the Hand off, Log, Rename, or Remove dialog for this row. */
   handoff: (row: TreeRow) => void;
   log: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
+  dependency: (row: TreeRow) => void;
+  forceStart: (id: string) => void;
   remove: (row: TreeRow) => void;
+  removeDescendants: (row: TreeRow) => void;
+  unarchive: (id: string) => void;
   workflow: (id: string, status: WorkflowStatus | 'clear') => void;
 };
 
@@ -94,9 +101,14 @@ export function SessionRow(props: {
         ) : (
           <span title={s.managed && s.name ? s.id : undefined}>{label}</span>
         )}
+        {s.managed && s.archivedAt && (
+          <Badge variant="outline" className="ml-2">
+            archived
+          </Badge>
+        )}
       </TableCell>
       <TableCell>
-        {s.project ?? '-'}
+        {s.project ? projectLabel(s.project) : '-'}
         {s.managed && branch && (
           <div
             data-testid="session-branch"
@@ -174,7 +186,7 @@ export function SessionRow(props: {
         {s.managed ? (
           <div className="flex flex-col gap-1">
             {/* A skill run's agent reads no input: nothing to send it, nothing to hand off. */}
-            {!isRun(s) && (
+            {!isRun(s) && s.kind !== 'terminal' && (
               <form
                 data-testid="session-send"
                 className="flex gap-1"
@@ -253,6 +265,17 @@ export function SessionRow(props: {
                 <Square aria-hidden />
                 {queued(s) ? 'Cancel' : 'Stop'}
               </Button>
+              {s.children.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="session-stop-descendants"
+                  onClick={() => actions.stopDescendants(s)}
+                  disabled={acting}
+                >
+                  Stop descendants
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -263,7 +286,18 @@ export function SessionRow(props: {
                 <RotateCcw aria-hidden />
                 Resume
               </Button>
-              {!isRun(s) && (
+              {queued(s) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="session-force-start"
+                  onClick={() => actions.forceStart(s.id)}
+                  disabled={acting}
+                >
+                  Start now
+                </Button>
+              )}
+              {!isRun(s) && s.kind !== 'terminal' && s.project !== GENERAL_PROJECT && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -281,7 +315,12 @@ export function SessionRow(props: {
                 canRemove={exited(s) && !queued(s) && !acting}
                 onLog={() => actions.log(s)}
                 onRename={() => actions.rename(s)}
+                onDependency={() => actions.dependency(s)}
                 onRemove={() => actions.remove(s)}
+                onRemoveDescendants={
+                  s.children.length > 0 ? () => actions.removeDescendants(s) : undefined
+                }
+                onUnarchive={s.archivedAt ? () => actions.unarchive(s.id) : undefined}
               />
             </div>
           </div>

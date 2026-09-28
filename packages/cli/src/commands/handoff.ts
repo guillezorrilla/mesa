@@ -16,12 +16,14 @@ export const handoff = defineCommand({
       type: 'boolean',
       description: 'Leave the session running (not one in its own worktree)',
     },
+    agent: { type: 'string', description: 'Target agent: claude, codex, or antigravity' },
   },
   example: 'mesa handoff $MESA_SESSION_ID --note handoff.md',
   run: async ({ mesa, args, flags }) => {
     const recorded = await mesa.sessions.handoff(args.session, {
       note: flags.note,
       keep: flags.keep ?? false,
+      agent: flags.agent,
     });
     const { from, to, note, stop } = recorded.result;
     const stopped =

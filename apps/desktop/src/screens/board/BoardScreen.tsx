@@ -1,36 +1,48 @@
-import type { BoardPreferences, GridGroup, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import type {
+  BoardPreferences,
+  GridGroup,
+  GuardrailCheck,
+  ManagedRow,
+  ProjectRow,
+  TreeRow,
+} from '@mesa/core';
 import {
-  attentionScore,
   DEFAULT_BOARD_PREFERENCES,
+  GENERAL_PROJECT,
   isRun,
-  sessionBranch,
+  projectLabel,
   sessionLabel,
+  supportsAgentCapability,
 } from '@mesa/core/browser';
 import {
+  Archive,
   ArrowLeft,
   Download,
   ExternalLink,
   Forward,
+  MoreVertical,
   Plus,
   RotateCcw,
   Send,
   Square,
+  TerminalSquare,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { ContextBar } from '@/components/ContextBar';
+import { useEffect, useRef, useState } from 'react';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { PageHeader } from '@/components/PageHeader';
-import { StateBadge } from '@/components/StateBadge';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
+import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
+import { DependencyDialog } from './DependencyDialog';
+import { DescendantDialog } from './DescendantDialog';
+import { ForkDialog } from './ForkDialog';
 import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
@@ -39,19 +51,37 @@ import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { RowMenu } from './RowMenu';
-import { exited, queued, resumable } from './rows';
+import { exited, queued, recoverable, resumable } from './rows';
+import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { RowActions } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
-import { WorkflowSelect } from './WorkflowSelect';
 
 /**
  * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
  * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
-  | { kind: 'new' }
-  | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
+  | {
+      kind: 'new';
+      project?: string;
+      general?: boolean;
+      parent?: string;
+      location?: 'main' | 'worktree' | 'terminal';
+    }
+  | {
+      kind:
+        | 'rename'
+        | 'handoff'
+        | 'log'
+        | 'remove'
+        | 'archive'
+        | 'fork'
+        | 'dependency'
+        | 'stop-descendants'
+        | 'remove-descendants';
+      row: ManagedRow;
+    }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 /**
@@ -63,9 +93,17 @@ type OpenDialog =
 export function BoardScreen(
   props: {
     selectedSession?: string;
+    projects?: readonly ProjectRow[];
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
-    newSessionRequest?: number;
+    onProject?: (project: string) => void;
+    newSessionRequest?: {
+      count: number;
+      project?: string;
+      general?: boolean;
+      location?: 'main' | 'worktree' | 'terminal';
+    };
+    archiveSessionRequest?: { count: number; id: string };
     preferences?: BoardPreferences;
     onPreferencesChanged?: () => void;
     onSelectSession?: (id: string) => void;
@@ -83,9 +121,26 @@ export function BoardScreen(
   const run = useRun();
   const call = useCall();
   const [dialog, setDialog] = useState<OpenDialog>();
+  const handledArchiveRequest = useRef(0);
   useEffect(() => {
-    if (props.newSessionRequest) setDialog({ kind: 'new' });
+    if (props.newSessionRequest?.count)
+      setDialog({
+        kind: 'new',
+        project: props.newSessionRequest.project,
+        general: props.newSessionRequest.general,
+        location: props.newSessionRequest.location,
+      });
   }, [props.newSessionRequest]);
+  useEffect(() => {
+    const id = props.archiveSessionRequest?.id;
+    const row = data?.find(
+      (session): session is ManagedRow & TreeRow => session.id === id && session.managed,
+    );
+    if (row && props.archiveSessionRequest?.count !== handledArchiveRequest.current) {
+      handledArchiveRequest.current = props.archiveSessionRequest?.count ?? 0;
+      setDialog({ kind: 'archive', row });
+    }
+  }, [props.archiveSessionRequest, data]);
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
@@ -158,15 +213,30 @@ export function BoardScreen(
           stopped,
         );
       }),
+    stopDescendants: (row) => row.managed && setDialog({ kind: 'stop-descendants', row }),
     resume: (id) =>
-      act(async () => {
+      once(async () => {
         const resumed = await run('sessions.resume', { id });
+        await look();
+        if (resumed && props.selectedSession === id) props.onSelectSession?.(resumed.id);
         return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
+    dependency: (row) => row.managed && setDialog({ kind: 'dependency', row }),
+    forceStart: (id) =>
+      act(async () => {
+        const started = await run('sessions.forceStart', { id });
+        return started && said(`Started queued session ${id}`, started);
+      }),
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
+    removeDescendants: (row) => row.managed && setDialog({ kind: 'remove-descendants', row }),
+    unarchive: (id) =>
+      act(async () => {
+        const restored = await run('sessions.unarchive', { id });
+        return restored && said(`Unarchived session ${id}`, restored);
+      }),
     workflow: (id, status) =>
       act(async () => {
         const changed = await run('sessions.workflow', { id, status });
@@ -181,12 +251,27 @@ export function BoardScreen(
         return adopted && said(`Adopted as ${adopted.id}`, adopted);
       }),
   };
-  const handoff = (id: string, note: string, keep: boolean) =>
+  const handoff = (id: string, note: string, keep: boolean, agent?: string) =>
     act(async () => {
-      const done = await run('sessions.handoff', { id, note, keep });
+      const done = await run('sessions.handoff', { id, note, keep, agent });
       if (!done) return undefined;
       close();
       return said(`Handed off ${id} to ${done.to}`, done);
+    });
+  const fork = (id: string, branch?: string) =>
+    act(async () => {
+      const created = await run('sessions.fork', { id, branch });
+      if (!created) return undefined;
+      close();
+      props.onSelectSession?.(created.id);
+      return said(`Forked session ${id} as ${created.id}`, created);
+    });
+  const saveDependency = (id: string, change: { parent?: string | null; after?: string }) =>
+    act(async () => {
+      const changed = await run('sessions.dependencies', { id, ...change });
+      if (!changed) return undefined;
+      close();
+      return said(`Updated dependencies of session ${id}`, changed);
     });
   const rename = (id: string, name: string) =>
     act(async () => {
@@ -207,12 +292,74 @@ export function BoardScreen(
       const extra = also.filter(Boolean).join(' and ');
       return said(`Removed session ${id}${extra ? ` with ${extra}` : ''}`, removed);
     });
-  const open = (input: NewSessionInput) =>
+  const cascade = (
+    kind: 'stop' | 'remove',
+    id: string,
+    expected: string[],
+    options: { deleteWorktree: boolean; deleteBranch: boolean },
+  ) =>
     act(async () => {
+      const result =
+        kind === 'stop'
+          ? await run('sessions.stopDescendants', { id, expected })
+          : await run('sessions.removeDescendants', { id, expected, ...options });
+      if (!result) return undefined;
+      close();
+      const lines = result.items.map((item) =>
+        item.ok
+          ? `${item.id}: ${'outcome' in item.result ? item.result.outcome : 'removed'}${item.result.warning ? `; ${item.result.warning}` : ''}`
+          : `${item.id}: ${item.skipped ? 'skipped, ' : ''}${item.error.message}`,
+      );
+      return {
+        text: lines.join('\n'),
+        tone: result.items.some((item) => !item.ok || (item.ok && item.result.warning))
+          ? 'alert'
+          : 'confirmation',
+      };
+    });
+  const leaveClosedSession = (id: string) => {
+    const next = data?.find((row) => row.id !== id && row.managed && !exited(row));
+    if (next) props.onSelectSession?.(next.id);
+    else if (selected?.project && selected.project !== GENERAL_PROJECT)
+      props.onProject?.(selected.project);
+    else props.onBoard?.();
+  };
+  const archive = (id: string) =>
+    act(async () => {
+      const archived = await run('sessions.archive', { id });
+      if (!archived) return undefined;
+      close();
+      leaveClosedSession(id);
+      return said(`Archived session ${id}`, archived);
+    });
+  const deletePermanently = (id: string) =>
+    act(async () => {
+      const removed = await run('sessions.remove', { id, force: true });
+      if (!removed) return undefined;
+      close();
+      leaveClosedSession(id);
+      return said(`Deleted session ${id}`, removed);
+    });
+  const open = (input: NewSessionInput) =>
+    once(async () => {
       const opened = await run('sessions.open', input);
+      await look();
       if (!opened) return undefined;
       close();
-      return said(`Opened session ${opened.id} on ${opened.project}`, opened);
+      props.onSelectSession?.(opened.id);
+      return said(`Opened session ${opened.id} on ${projectLabel(opened.project)}`, opened);
+    });
+  const openChildTerminal = (row: ManagedRow) =>
+    once(async () => {
+      const opened = await run('sessions.open', {
+        ...(row.project === GENERAL_PROJECT ? { general: true } : { project: row.project }),
+        terminal: true,
+        parent: row.id,
+      });
+      await look();
+      if (!opened) return undefined;
+      props.onSelectSession?.(opened.id);
+      return said(`Opened child terminal ${opened.id}`, opened);
     });
   const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
     act(async () => {
@@ -269,15 +416,225 @@ export function BoardScreen(
       className={props.selectedSession ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
     >
       {props.selectedSession ? (
-        <div className="flex min-h-12 items-center gap-2 border-b px-4 text-sm">
-          <Button variant="ghost" size="icon-sm" aria-label="All sessions" onClick={props.onBoard}>
-            <ArrowLeft aria-hidden />
+        <div
+          data-testid="selected-session"
+          className="flex min-h-12 shrink-0 items-center gap-2 border-b bg-card/40 px-4 text-sm"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0 text-muted-foreground"
+            onClick={() =>
+              selected?.project && selected.project !== GENERAL_PROJECT && props.onProject
+                ? props.onProject(selected.project)
+                : props.onBoard?.()
+            }
+          >
+            {projectLabel(selected?.project ?? null)}
           </Button>
-          <span className="text-muted-foreground">{selected?.project ?? 'General'} /</span>
+          <span className="text-muted-foreground">/</span>
           <span className="truncate font-medium">
-            {selected ? sessionLabel(selected) : props.selectedSession}
+            {selected
+              ? selected.managed && !selected.name
+                ? 'Session'
+                : sessionLabel(selected)
+              : props.selectedSession}
           </span>
+          {selected?.managed && (
+            <SelectedSessionDetails
+              key={selected.id}
+              row={selected}
+              projectPath={
+                props.projects?.find((project) => project.name === selected.project)?.path
+              }
+            />
+          )}
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
+          {selected && recoverable(selected) && (
+            <span className="text-xs text-state-waiting">Terminal ended</span>
+          )}
+          {selected?.managed && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Archive session"
+              onClick={() => setDialog({ kind: 'archive', row: selected })}
+            >
+              <Archive aria-hidden />
+            </Button>
+          )}
+          {selected && (
+            <details className="relative z-20">
+              <summary
+                aria-label="Session actions"
+                className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <MoreVertical aria-hidden className="size-4" />
+              </summary>
+              {selected.managed ? (
+                <div className="absolute right-0 mt-2 flex w-80 flex-wrap items-center gap-2 rounded-lg border bg-popover p-3 shadow-lg">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.openTerminal(selected.id)}
+                    disabled={!selected.alive || acting}
+                  >
+                    <ExternalLink aria-hidden /> Open in terminal app
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openChildTerminal(selected)}
+                    disabled={exited(selected) || acting}
+                  >
+                    <TerminalSquare aria-hidden /> New terminal session
+                  </Button>
+                  {selected.project !== GENERAL_PROJECT && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setDialog({
+                          kind: 'new',
+                          project: selected.project,
+                          parent: selected.id,
+                          location: 'worktree',
+                        })
+                      }
+                      disabled={exited(selected) || acting}
+                    >
+                      <Plus aria-hidden /> New child worktree session
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.stop(selected.id)}
+                    disabled={!(selected.alive || queued(selected)) || acting}
+                  >
+                    <Square aria-hidden /> {queued(selected) ? 'Cancel' : 'Stop'}
+                  </Button>
+                  {selected.children.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={acting}
+                      onClick={() => actions.stopDescendants(selected)}
+                    >
+                      <Square aria-hidden /> Stop descendants
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.resume(selected.id)}
+                    disabled={!resumable(selected) || acting}
+                  >
+                    <RotateCcw aria-hidden /> Resume
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.dependency(selected)}
+                    disabled={acting}
+                  >
+                    Set dependency
+                  </Button>
+                  {queued(selected) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => actions.forceStart(selected.id)}
+                      disabled={acting}
+                    >
+                      Start now
+                    </Button>
+                  )}
+                  {selected.kind === 'interactive' &&
+                    !selected.background &&
+                    selected.agent !== 'terminal' &&
+                    supportsAgentCapability(selected.agent, 'fork') && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fork(selected.id)}
+                          disabled={!selected.agentSessionId || acting}
+                        >
+                          <Plus aria-hidden /> Fork session
+                        </Button>
+                        {selected.project !== GENERAL_PROJECT && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDialog({ kind: 'fork', row: selected })}
+                            disabled={!selected.agentSessionId || acting}
+                          >
+                            <Plus aria-hidden /> Fork into worktree
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  {!isRun(selected) &&
+                    selected.kind !== 'terminal' &&
+                    selected.project !== GENERAL_PROJECT && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => actions.handoff(selected)}
+                        disabled={exited(selected) || !selected.goal || acting}
+                      >
+                        <Forward aria-hidden /> Hand off
+                      </Button>
+                    )}
+                  <RowMenu
+                    sessionId={selected.id}
+                    canRemove={exited(selected) && !queued(selected) && !acting}
+                    onLog={() => actions.log(selected)}
+                    onRename={() => actions.rename(selected)}
+                    onDependency={() => actions.dependency(selected)}
+                    onRemove={() => actions.remove(selected)}
+                    onRemoveDescendants={
+                      selected.children.length > 0
+                        ? () => actions.removeDescendants(selected)
+                        : undefined
+                    }
+                  />
+                  {!isRun(selected) && selected.kind !== 'terminal' && !exited(selected) && (
+                    <form
+                      className="flex min-w-48 flex-1 gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!acting) actions.send(selected.id, event.currentTarget);
+                      }}
+                    >
+                      <Input
+                        name="prompt"
+                        aria-label={`Prompt for ${selected.id}`}
+                        placeholder="Message session"
+                      />
+                      <Button type="submit" size="sm" disabled={acting}>
+                        <Send aria-hidden /> Send
+                      </Button>
+                    </form>
+                  )}
+                  <div className="max-h-64 w-full overflow-auto">
+                    <KnowledgeContext session={selected.id} />
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    actions.adopt(selected.agentSessionId, selected.project ?? undefined)
+                  }
+                >
+                  <Download aria-hidden /> Adopt
+                </Button>
+              )}
+            </details>
+          )}
         </div>
       ) : props.gridMode ? (
         <PageHeader
@@ -352,13 +709,39 @@ export function BoardScreen(
         </>
       )}
       {dialog?.kind === 'new' && (
-        <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
+        <NewSessionDialog
+          key={`${dialog.project ?? ''}-${dialog.location ?? ''}`}
+          project={dialog.project}
+          general={dialog.general}
+          parent={dialog.parent}
+          location={dialog.location}
+          onOpen={open}
+          onCancel={close}
+          disabled={acting}
+        />
       )}
       {dialog?.kind === 'handoff' && (
         <HandoffDialog
           row={dialog.row}
           disabled={acting}
-          onHandoff={(note, keep) => handoff(dialog.row.id, note, keep)}
+          onHandoff={(note, keep, agent) => handoff(dialog.row.id, note, keep, agent)}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'fork' && (
+        <ForkDialog
+          sessionId={dialog.row.id}
+          disabled={acting}
+          onFork={(branch) => fork(dialog.row.id, branch)}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'dependency' && (
+        <DependencyDialog
+          row={dialog.row}
+          rows={data ?? []}
+          disabled={acting}
+          onSave={(change) => saveDependency(dialog.row.id, change)}
           onCancel={close}
         />
       )}
@@ -390,124 +773,61 @@ export function BoardScreen(
           onCancel={close}
         />
       )}
+      {(dialog?.kind === 'stop-descendants' || dialog?.kind === 'remove-descendants') && (
+        <DescendantDialog
+          row={dialog.row}
+          action={dialog.kind === 'stop-descendants' ? 'stop' : 'remove'}
+          disabled={acting}
+          onConfirm={(ids, options) =>
+            cascade(
+              dialog.kind === 'stop-descendants' ? 'stop' : 'remove',
+              dialog.row.id,
+              ids,
+              options,
+            )
+          }
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'archive' && (
+        <ArchiveDialog
+          row={dialog.row}
+          disabled={acting}
+          onArchive={() => archive(dialog.row.id)}
+          onDelete={() => deletePermanently(dialog.row.id)}
+          onCancel={close}
+        />
+      )}
       {props.selectedSession ? (
-        selected ? (
-          <Card
-            data-testid="selected-session"
-            className="relative gap-0 rounded-none border-x-0 border-t-0 bg-background px-4 py-2"
+        selected && recoverable(selected) ? (
+          <div
+            data-testid="session-recovery"
+            className="m-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4 text-sm"
           >
-            <div className="flex flex-wrap items-center gap-3 pr-28 text-sm">
-              <StateBadge
-                state={selected.lastState.state}
-                confidence={selected.lastState.confidence}
-              />
-              <span className="text-muted-foreground">
-                Attention {attentionScore(selected.attention)}
-              </span>
-              {selected.managed && selected.context && (
-                <ContextBar used={selected.context.used} window={selected.context.window} />
-              )}
-              {selected.managed && sessionBranch(selected) && (
-                <span className="font-mono text-muted-foreground">{sessionBranch(selected)}</span>
-              )}
-              {selected.managed && (
-                <WorkflowSelect
-                  id={selected.id}
-                  status={selected.workflowStatus}
-                  disabled={acting}
-                  onChange={(status) => actions.workflow(selected.id, status)}
-                />
-              )}
-            </div>
-            <details className="absolute right-4 top-1.5 z-20">
-              <summary className="cursor-pointer rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
-                Session actions
-              </summary>
-              {selected.managed ? (
-                <div className="absolute right-0 mt-2 flex w-80 flex-wrap items-center gap-2 rounded-lg border bg-popover p-3 shadow-lg">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.openTerminal(selected.id)}
-                    disabled={!selected.alive || acting}
-                  >
-                    <ExternalLink aria-hidden />
-                    Open in terminal app
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.stop(selected.id)}
-                    disabled={!(selected.alive || queued(selected)) || acting}
-                  >
-                    <Square aria-hidden />
-                    {queued(selected) ? 'Cancel' : 'Stop'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.resume(selected.id)}
-                    disabled={!resumable(selected) || acting}
-                  >
-                    <RotateCcw aria-hidden />
-                    Resume
-                  </Button>
-                  {!isRun(selected) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => actions.handoff(selected)}
-                      disabled={exited(selected) || !selected.goal || acting}
-                    >
-                      <Forward aria-hidden />
-                      Hand off
-                    </Button>
-                  )}
-                  <RowMenu
-                    sessionId={selected.id}
-                    canRemove={exited(selected) && !queued(selected) && !acting}
-                    onLog={() => actions.log(selected)}
-                    onRename={() => actions.rename(selected)}
-                    onRemove={() => actions.remove(selected)}
-                  />
-                  {!isRun(selected) && !exited(selected) && (
-                    <form
-                      className="flex min-w-48 flex-1 gap-2"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (!acting) actions.send(selected.id, event.currentTarget);
-                      }}
-                    >
-                      <Input
-                        name="prompt"
-                        aria-label={`Prompt for ${selected.id}`}
-                        placeholder="Message session"
-                      />
-                      <Button type="submit" size="sm" disabled={acting}>
-                        <Send aria-hidden />
-                        Send
-                      </Button>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    actions.adopt(selected.agentSessionId, selected.project ?? undefined)
-                  }
-                >
-                  <Download aria-hidden />
-                  Adopt
-                </Button>
-              )}
-            </details>
-          </Card>
+            <p className="flex-1">
+              This session's terminal ended. Its record and logs remain available.
+            </p>
+            {resumable(selected) && (
+              <Button disabled={acting} onClick={() => actions.resume(selected.id)}>
+                <RotateCcw aria-hidden /> Restore
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              disabled={acting}
+              onClick={() => setDialog({ kind: 'archive', row: selected })}
+            >
+              Dismiss
+            </Button>
+          </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {data ? 'Session unavailable. Open Board to choose another.' : 'Loading session...'}
-          </p>
+          !selected && (
+            <p className="p-4 text-sm text-muted-foreground">
+              {data
+                ? 'Session unavailable. Open Sessions to choose another.'
+                : 'Loading session...'}
+            </p>
+          )
         )
       ) : !props.gridMode ? (
         <>
@@ -529,11 +849,6 @@ export function BoardScreen(
           />
         </>
       ) : null}
-      {props.selectedSession && selected?.managed && (
-        <div className="max-h-44 shrink-0 overflow-auto px-4">
-          <KnowledgeContext session={props.selectedSession} />
-        </div>
-      )}
       {props.gridMode && panels.length === 0 && (
         <p className="text-muted-foreground text-sm">
           No tiles open. Choose a live session or reopen a saved group.

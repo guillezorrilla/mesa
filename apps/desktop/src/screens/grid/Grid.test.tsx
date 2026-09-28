@@ -40,7 +40,7 @@ test('grid project tabs, zoom and saved groups retain exact terminal clients', a
     },
   });
   const byTestId = await renderWithMesa(
-    <App />,
+    <App startOnBoard />,
     bridge,
     fakePlatform({ terminal: terminals.host }),
   );

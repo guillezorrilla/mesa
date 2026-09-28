@@ -12,7 +12,7 @@ export type Runner = (
   file: string,
   args: string[],
   timeoutMs: number,
-  options?: { cwd?: string },
+  options?: { cwd?: string; env?: Env },
 ) => Promise<RunResult>;
 
 export const execRunner: Runner = (file, args, timeoutMs, options) =>
@@ -20,14 +20,18 @@ export const execRunner: Runner = (file, args, timeoutMs, options) =>
     const child = execFile(
       file,
       args,
-      { timeout: timeoutMs, cwd: options?.cwd },
+      { timeout: timeoutMs, cwd: options?.cwd, env: options?.env as NodeJS.ProcessEnv | undefined },
       (error, stdout, stderr) => {
         if (!error) return resolve({ ok: true, stdout });
         const code = (error as NodeJS.ErrnoException).code;
         if (code === 'ENOENT')
           return resolve({ ok: false, reason: 'missing', detail: error.message });
         if (error.killed) return resolve({ ok: false, reason: 'timeout', detail: error.message });
-        resolve({ ok: false, reason: 'failed', detail: (stderr || error.message).trim() });
+        resolve({
+          ok: false,
+          reason: 'failed',
+          detail: (stderr || stdout || error.message).trim(),
+        });
       },
     );
     // Runner has no stdin input: providers such as codex exec must see EOF immediately.

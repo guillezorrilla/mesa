@@ -35,19 +35,29 @@ export const dueToStart = (store: SessionStore, over: (id: string) => boolean, n
 export async function startQueued(
   deps: LaunchDeps & { newUuid: IdSource; tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
   id: string,
+  expectedAfter?: string,
 ): Promise<{ record: SessionRecord; warning?: string } | undefined> {
   const now = deps.clock();
   const at = now.toISOString();
   // The agent session id Mesa picks comes with the claim, so a start retried after a kill keeps
   // it; an agent that picks its own gets none.
   let claimedHere = false;
-  const claimed = deps.store.update(id, (current) => {
-    if (!startable(current, now)) return {};
-    claimedHere = true;
-    const agentSessionId = current.agentSessionId ?? newSessionId(current.agent, deps.newUuid);
-    return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
-  });
+  const claimed = deps.store.withDependencyLock(() =>
+    deps.store.update(id, (current) => {
+      if (!startable(current, now) || (expectedAfter && current.after !== expectedAfter)) return {};
+      if (current.agent === 'terminal')
+        throw new MesaError('usage', 'plain terminal sessions cannot be queued');
+      claimedHere = true;
+      const agentSessionId = current.background
+        ? undefined
+        : (current.agentSessionId ?? newSessionId(current.agent, deps.newUuid));
+      return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
+    }),
+  );
   if (!claimedHere) return undefined;
+  if (claimed.agent === 'terminal')
+    throw new MesaError('usage', 'plain terminal sessions cannot be queued');
+  const agent = claimed.agent;
   try {
     const { entry } = launchProject(deps.profile, claimed.project);
     await readyAgent(deps.run, claimed.agent);
@@ -57,7 +67,7 @@ export async function startQueued(
     const { warning } = (await deps.tmux.findWindow(windowOf(claimed)))
       ? {}
       : await startSession(deps, claimed, entry, {
-          command: (r) => startCommand(r.agent, r),
+          command: (r) => startCommand(agent, { ...r, logs: deps.profile.paths.logs }),
           branch,
           base,
         });
@@ -84,21 +94,23 @@ export async function startQueued(
  * while a signal is starting it.
  */
 export function cancelQueued(store: SessionStore, id: string, now: Date): SessionRecord {
-  const at = now.toISOString();
-  const cancelled = store.update(id, (current) => {
-    if (!startable(current, now)) {
-      throw new MesaError('usage', `session ${id} is starting; stop it once it runs`);
+  return store.withDependencyLock(() => {
+    const at = now.toISOString();
+    const cancelled = store.update(id, (current) => {
+      if (!startable(current, now)) {
+        throw new MesaError('usage', `session ${id} is starting; stop it once it runs`);
+      }
+      return {
+        pending: undefined,
+        agentSessionId: undefined,
+        endedAt: at,
+        lastState: { state: 'stopped', confidence: 1, at, source: 'mesa' },
+      };
+    });
+    const waitsOnIt = (r: SessionRecord) => r.after === id && r.lastState.state === 'queued';
+    for (const next of store.list().filter(waitsOnIt)) {
+      store.update(next.id, (current) => (waitsOnIt(current) ? { after: cancelled.after } : {}));
     }
-    return {
-      pending: undefined,
-      agentSessionId: undefined,
-      endedAt: at,
-      lastState: { state: 'stopped', confidence: 1, at, source: 'mesa' },
-    };
+    return cancelled;
   });
-  const waitsOnIt = (r: SessionRecord) => r.after === id && r.lastState.state === 'queued';
-  for (const next of store.list().filter(waitsOnIt)) {
-    store.update(next.id, (current) => (waitsOnIt(current) ? { after: cancelled.after } : {}));
-  }
-  return cancelled;
 }

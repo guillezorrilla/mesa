@@ -60,6 +60,11 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
   };
 
   return {
+    /** Serializes dependency edits and queue cancellation across Mesa processes. */
+    withDependencyLock: <T>(fn: () => T): T => {
+      const lock = join(dir, '.dependencies.lock');
+      return withLockSync(lock, fn, () => lockedBy('session dependencies', lock, 'session'));
+    },
     /** A new record with a fresh id, which `build` may use (the window is named after it). */
     create: (build: (id: string) => NewSession): SessionRecord => {
       const id = shortId(newId);

@@ -4,6 +4,7 @@ import {
   duration,
   isRun,
   percent,
+  projectLabel,
   sessionBranch,
   sessionLabel,
   waitingOn,
@@ -34,7 +35,11 @@ export const sessions = defineCommand({
           rows.map((s) => [
             // A name a person gave it stands in for the id; --json keeps both.
             `${indent(s)}${sessionLabel(s)}`,
-            sessionBranch(s) ? `${s.project} (${sessionBranch(s)})` : (s.project ?? '-'),
+            sessionBranch(s)
+              ? `${projectLabel(s.project)} (${sessionBranch(s)})`
+              : s.project
+                ? projectLabel(s.project)
+                : '-',
             // A headless run says so, as the Board's badge does.
             isRun(s) ? `${s.agent} (run)` : s.agent,
             s.lastState.state,

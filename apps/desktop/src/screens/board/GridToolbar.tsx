@@ -1,4 +1,5 @@
 import type { GridGroup, ManagedRow } from '@mesa/core';
+import { projectLabel } from '@mesa/core/browser';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ export function GridToolbar(props: {
             aria-selected={props.project === project}
             onClick={() => props.onProject(project)}
           >
-            {project === 'all' ? 'All projects' : project}
+            {project === 'all' ? 'All projects' : projectLabel(project)}
           </Button>
         ))}
       </div>
@@ -63,7 +64,7 @@ export function GridToolbar(props: {
           <option value="">Choose live session</option>
           {available.map((row) => (
             <option key={row.id} value={row.id}>
-              {row.name ?? row.id} ({row.project})
+              {row.name ?? row.id} ({projectLabel(row.project)})
             </option>
           ))}
         </select>

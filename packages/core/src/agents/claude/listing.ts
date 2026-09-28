@@ -3,17 +3,19 @@ import type { Runner } from '../../lib/process.js';
 import type { AgentProcess } from '../../sessions/agent-listing.js';
 import type { SessionState } from '../../sessions/states.js';
 
-// Claude Code's agent listing, ADR-0003's second signal: `claude agents --json` names every live
-// Claude Code session on the machine, Mesa's and the owner's alike (docs/spikes/state-signals.md).
+// Claude Code's agent listing, ADR-0003's second signal: `claude agents --json --all` names
+// live sessions and stopped background handles, Mesa's and the owner's alike.
 
 const ListingSchema = z.array(
   z.object({
-    pid: z.number().int().positive(),
+    pid: z.number().int().positive().optional(),
     cwd: z.string(),
     // Epoch ms; the cap is the largest a Date takes, so toISOString never throws.
     startedAt: z.number().nonnegative().max(8.64e15),
     sessionId: z.string(),
-    status: z.string(),
+    id: z.string().optional(),
+    state: z.string().optional(),
+    status: z.string().optional(),
     waitingFor: z.string().optional(),
   }),
 );
@@ -21,9 +23,9 @@ const ListingSchema = z.array(
 /** Each call took about 0.5 s in the spike; a slow or broken listing must not hold the board up. */
 const LISTING_TIMEOUT_MS = 2000;
 
-/** The live Claude Code processes, or `[]` when the listing fails, times out, or does not parse. */
+/** Claude Code sessions, or `[]` when the listing fails, times out, or does not parse. */
 export async function listClaudeProcesses({ run }: { run: Runner }): Promise<AgentProcess[]> {
-  const res = await run('claude', ['agents', '--json'], LISTING_TIMEOUT_MS);
+  const res = await run('claude', ['agents', '--json', '--all'], LISTING_TIMEOUT_MS);
   if (!res.ok) return [];
   let raw: unknown;
   try {
@@ -35,11 +37,13 @@ export async function listClaudeProcesses({ run }: { run: Runner }): Promise<Age
   if (!parsed.success) return [];
   return parsed.data.map((p) => ({
     agent: 'claude',
-    pid: p.pid,
+    ...(p.pid ? { pid: p.pid } : {}),
     cwd: p.cwd,
     agentSessionId: p.sessionId,
+    ...(p.id ? { backgroundId: p.id } : {}),
+    ...(p.state ? { nativeState: p.state } : {}),
     startedAt: new Date(p.startedAt).toISOString(),
-    status: p.status,
+    ...(p.status ? { status: p.status } : {}),
     ...(p.waitingFor === undefined ? {} : { waitingFor: p.waitingFor }),
   }));
 }
@@ -56,10 +60,11 @@ const LISTED: Record<string, SessionState> = {
  * The state the listing alone gives, at ADR-0003's 0.85. A wait it cannot name still needs a
  * person (0.6); a status it has never shown is a guess at `working` (0.5).
  */
-export function claudeListedState(p: Pick<AgentProcess, 'status' | 'waitingFor'>): {
+export function claudeListedState(p: Pick<AgentProcess, 'status' | 'waitingFor' | 'nativeState'>): {
   state: SessionState;
   confidence: number;
 } {
+  if (p.nativeState === 'stopped') return { state: 'done', confidence: 0.85 };
   const state = LISTED[p.waitingFor ? `${p.status}:${p.waitingFor}` : (p.status ?? '')];
   if (state) return { state, confidence: 0.85 };
   return p.status === 'waiting'

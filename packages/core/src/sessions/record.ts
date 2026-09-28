@@ -1,6 +1,10 @@
+import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
+import type { Agent } from '../agents/names.js';
+import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
+import { GENERAL_PROJECT } from './general.js';
 import { FINAL_STATES, SESSION_STATES } from './states.js';
 import { WORKFLOW_STATUSES } from './workflow-status.js';
 
@@ -20,12 +24,21 @@ export const isForeignId = (id: string) => id.startsWith(FOREIGN);
 export const foreignId = (p: { pid?: number; agentSessionId: string }) =>
   `${FOREIGN}${p.pid ?? p.agentSessionId}` as const;
 
-export const SessionRecordSchema = z.strictObject({
+const SessionRecordFields = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
   id: z.string().regex(SHORT_ID),
-  kind: z.enum(['interactive', 'run']),
+  kind: z.enum(['interactive', 'run', 'terminal']),
+  /** A reserved name for profile-owned General sessions, otherwise a registered project. */
   project: z.string(),
-  agent: AgentSchema,
+  agent: z.union([AgentSchema, z.literal('terminal')]),
+  /** Native startup mode; absent keeps the provider's own default. */
+  mode: z.literal('plan').optional(),
+  /** Claude's native background handle; its terminal is only a view of that process. */
+  backgroundId: z
+    .string()
+    .regex(/^[0-9a-f]{8}$/)
+    .optional(),
+  background: z.literal(true).optional(),
   /** Claude Code's session UUID, or Codex's thread id. */
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
@@ -71,6 +84,8 @@ export const SessionRecordSchema = z.strictObject({
   tmux: z.strictObject({ socket: z.string(), session: z.string(), window: z.string() }),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),
+  /** Hidden from the active board while retaining the record and logs for later review. */
+  archivedAt: z.iso.datetime().optional(),
   lastState: z.strictObject({
     state: z.enum(SESSION_STATES),
     confidence: z.number().min(0).max(1),
@@ -94,6 +109,10 @@ export const SessionRecordSchema = z.strictObject({
       window: z.number().int().positive(),
       at: z.iso.datetime({ offset: true }),
       source: z.literal('transcript'),
+      /** The model that produced this reading, when the native transcript names it. */
+      model: z.string().optional(),
+      /** The native per-turn reasoning effort, when recorded with this reading. */
+      effort: z.string().optional(),
     })
     .optional(),
   /**
@@ -141,7 +160,23 @@ export const SessionRecordSchema = z.strictObject({
   resumedFrom: z.string().optional(),
   resumedBy: z.string().optional(),
 });
+
+export const SessionRecordSchema = SessionRecordFields.refine(
+  (record) =>
+    (record.kind === 'terminal') === (record.agent === 'terminal') &&
+    (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
+    (record.mode !== 'plan' || (record.agent !== 'terminal' && supportsPlanStart(record.agent))) &&
+    (!record.background ||
+      (record.agent !== 'terminal' && supportsAgentCapability(record.agent, 'background'))) &&
+    (!record.backgroundId || record.background) &&
+    (record.project !== GENERAL_PROJECT ||
+      (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)),
+  'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree',
+);
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+/** A plain terminal has no coding agent or provider conversation. */
+export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
+  record.agent === 'terminal' ? undefined : record.agent;
 export type ContextUse = NonNullable<SessionRecord['context']>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 

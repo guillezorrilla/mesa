@@ -83,6 +83,32 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   expect(existsSync(output)).toBe(false);
 });
 
+test('Antigravity headless soft denial fails rather than landing an empty project brief', async () => {
+  const output = JSON.stringify({
+    conversation_id: UUID,
+    status: 'SUCCESS',
+    response: '',
+    duration_seconds: 7.261,
+    usage: { input_tokens: 30884, output_tokens: 704 },
+  });
+  const world = agentWorld({ onOpen: finishesRun({ output }) });
+  const { home, mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [project-brief]\n',
+  });
+  const { result } = await mesa.sessions.run('project-brief', {
+    project: 'lantern-cove',
+    agent: 'antigravity',
+  });
+  expect(result).toMatchObject({
+    ok: false,
+    agentSessionId: UUID,
+    reason: 'agy returned no response; check its stderr for denied tools',
+  });
+  expect(result.note).toBeUndefined();
+  expect(testStore(home).get(result.session).lastState.state).toBe('failed');
+  expect(existsSync(join(home, 'vault/projects/lantern-cove.md'))).toBe(false);
+});
+
 test('an error claude reports, and a nonzero exit with no result, are not ok, with the reason', async () => {
   const reported = agentWorld({
     onOpen: finishesRun({ output: claudeResult('not-logged-in'), status: 1 }),

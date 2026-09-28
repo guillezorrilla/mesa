@@ -1,9 +1,11 @@
 import { existsSync, rmSync } from 'node:fs';
+import { antigravityLog } from '../agents/antigravity/log.js';
+import { stopClaudeBackground } from '../agents/claude/background.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
-import { worktreeHolder } from './holders.js';
+import { checkoutHolders, worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
 import { runInput, runOutput } from './run.js';
@@ -56,6 +58,12 @@ export async function removeSession(
   }
   const target = windowOf(record);
   const pane = await deps.tmux.findWindow(target);
+  if (record.backgroundId && !record.endedAt && !force) {
+    throw new MesaError(
+      'usage',
+      `session ${id} may still run in Claude's background: mesa stop ${id} first`,
+    );
+  }
   if (pane && !pane.dead && !force) {
     throw new MesaError(
       'usage',
@@ -78,6 +86,18 @@ export async function removeSession(
     worktree && (dropWorktree || dropBranch)
       ? findProject(deps.profile(), record.project).path
       : '';
+  const usingCheckout =
+    dropWorktree && worktree
+      ? checkoutHolders(deps.store.list(), record.project, repo, worktree.path).find(
+          (session) => session.id !== id,
+        )
+      : undefined;
+  if (usingCheckout) {
+    throw new MesaError(
+      'usage',
+      `session ${usingCheckout.id} still uses the worktree at ${worktree?.path}; stop it first`,
+    );
+  }
   const removed: Removed = {
     id,
     project: record.project,
@@ -88,8 +108,12 @@ export async function removeSession(
     window: false,
   };
   if (pane) {
+    if (record.backgroundId && !record.endedAt)
+      await stopClaudeBackground(deps.run, record.backgroundId);
     await killIfThere(deps.tmux, target);
     removed.window = true;
+  } else if (record.backgroundId && !record.endedAt) {
+    await stopClaudeBackground(deps.run, record.backgroundId);
   }
   if (worktree && dropWorktree) {
     if (existsSync(worktree.path)) await deleteWorktree(deps.run, repo, worktree, { force });
@@ -107,6 +131,7 @@ export async function removeSession(
   const output = outputLog(deps.logsDir, id);
   removed.outputLog = existsSync(output);
   rmSync(output, { force: true });
+  rmSync(antigravityLog(deps.logsDir, id), { force: true });
   const result = runOutput(deps.runs, id);
   removed.runOutput = existsSync(result);
   rmSync(result, { force: true });

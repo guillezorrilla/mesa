@@ -1,3 +1,4 @@
+import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -13,9 +14,39 @@ export const rm = defineCommand({
     },
     'delete-worktree': { type: 'boolean', description: 'Also remove its git worktree' },
     'delete-branch': { type: 'boolean', description: 'Also delete its branch' },
+    descendants: {
+      type: 'boolean',
+      description: 'Also remove every parent-linked descendant, child first',
+    },
+    expect: {
+      type: 'string',
+      description: 'Require these confirmed descendant IDs, comma separated',
+    },
   },
   example: 'mesa rm a1b2c3d4 --delete-worktree --delete-branch',
   run: async ({ mesa, args, flags }) => {
+    if (flags.expect && !flags.descendants)
+      throw new MesaError('usage', '--expect requires --descendants');
+    if (flags.descendants && !flags.expect)
+      throw new MesaError('usage', '--descendants requires --expect with the confirmed IDs');
+    if (flags.descendants) {
+      const data = await mesa.sessions.removeDescendants(
+        args.session,
+        {
+          force: flags.force,
+          deleteWorktree: flags['delete-worktree'],
+          deleteBranch: flags['delete-branch'],
+        },
+        flags.expect?.split(','),
+      );
+      return {
+        data,
+        text: data.items
+          .map((item) => `${item.id}: ${item.ok ? 'removed' : item.error.message}`)
+          .join('\n'),
+        code: data.items.some((item) => !item.ok) ? 2 : 0,
+      };
+    }
     const recorded = await mesa.sessions.remove(args.session, {
       force: flags.force,
       deleteWorktree: flags['delete-worktree'],

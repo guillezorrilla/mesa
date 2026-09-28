@@ -52,3 +52,35 @@ test('stop and resume print the updated and the new record', async () => {
   );
   // Each locked record is waited for, about 2 s, before the warning.
 }, 15_000);
+
+test('stop and rm descendants require the confirmed IDs and report each item', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const parent = (await mesa('open', 'lantern-cove')).stdout.trim();
+  const child = (await mesa('open', 'lantern-cove', '--parent', parent)).stdout.trim();
+  expect((await mesa('stop', parent, '--descendants', '--json')).json.error.message).toContain(
+    '--expect',
+  );
+  expect((await mesa('rm', parent, '--descendants', '--json')).json.error.message).toContain(
+    '--expect',
+  );
+  const mismatched = await mesa('stop', parent, '--descendants', '--expect=wrong', '--json');
+  expect(mismatched.code).toBe(2);
+  expect(mismatched.json.error.message).toContain('descendants changed');
+  const expected = `--expect=${child},${parent}`;
+  const stopped = await mesa('stop', parent, '--descendants', expected, '--force', '--json');
+  expect(
+    stopped.json.data.items.map((item: { id: string; ok: boolean }) => [item.id, item.ok]),
+  ).toEqual([
+    [child, true],
+    [parent, true],
+  ]);
+  const removed = await mesa('rm', parent, '--descendants', expected, '--json');
+  expect(
+    removed.json.data.items.map((item: { id: string; ok: boolean }) => [item.id, item.ok]),
+  ).toEqual([
+    [child, true],
+    [parent, true],
+  ]);
+  expect((await mesa('sessions', '--all', '--json')).json.data).toEqual([]);
+});

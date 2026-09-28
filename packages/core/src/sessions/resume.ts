@@ -1,8 +1,10 @@
 import { existsSync } from 'node:fs';
 import { readyAgent } from '../agents/agents.js';
+import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireOwnWorktree, resumerOf } from './holders.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
 import { ending, type SessionRecord } from './record.js';
@@ -22,10 +24,13 @@ export async function resumeSession(
   id: string,
 ): Promise<{ record: SessionRecord; from: SessionRecord; warning?: string }> {
   const old = deps.store.get(id);
-  if (!old.agentSessionId) {
+  if (old.agent === 'terminal')
+    throw new MesaError('usage', `session ${id} is a plain terminal; open a new one instead`);
+  const agentId = old.backgroundId ?? old.agentSessionId;
+  if (!agentId) {
     throw new MesaError(
       'not_found',
-      `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project}`,
+      `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project === GENERAL_PROJECT ? '--general' : old.project}`,
     );
   }
   const resumedBy = resumerOf(deps.store, old);
@@ -36,7 +41,7 @@ export async function resumeSession(
     );
   }
   const spec = await readyAgent(deps.run, old.agent);
-  const project = findProject(deps.profile, old.project);
+  const project = old.project === GENERAL_PROJECT ? null : findProject(deps.profile, old.project);
   // tmux would start a window whose folder is gone in $HOME, where claude has no such conversation.
   const folder = folderOf(old, project);
   if (!existsSync(folder)) {
@@ -55,12 +60,17 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const command = spec.resume(old.agentSessionId, folder);
+  const command = old.backgroundId
+    ? claudeBackgroundAttach(old.backgroundId)
+    : spec.resume(agentId, folder, old.mode);
   const { record, warning } = await launchSession(
     deps,
     {
       project,
       agent: old.agent,
+      mode: old.mode,
+      background: old.background,
+      backgroundId: old.backgroundId,
       agentSessionId: old.agentSessionId,
       // The same conversation, so the same goal; it is not typed in again.
       goal: old.goal,

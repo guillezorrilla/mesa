@@ -3,6 +3,9 @@ import type { IdSource } from '../lib/ids.js';
 import { type Binary, probe } from '../lib/probe.js';
 import { type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.js';
+import { readAntigravityResult } from './antigravity/result.js';
+import { antigravityLastOutputLine, antigravityScreenState } from './antigravity/screen.js';
 import { claudeContext } from './claude/context-use.js';
 import { claudeHookState } from './claude/hook-state.js';
 import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
@@ -10,12 +13,13 @@ import { claudeTranscripts } from './claude/paths.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
 import { transcriptCwd } from './claude/transcripts.js';
+import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
-import { AGENT_NAMES, type Agent } from './names.js';
+import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
@@ -54,10 +58,13 @@ export const AGENTS = {
     /** None: claude takes the agent session id Mesa picks (newSessionId) with --session-id. */
     ownSessionId: undefined,
     /** The command a Mesa window runs, under the id Mesa chose, with the goal as the first prompt. */
-    start: (sessionId: string, goal?: string) =>
-      `claude --session-id ${sessionId}${goalWord(goal)}`,
+    start: (sessionId: string, goal?: string, mode?: 'plan') =>
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${goalWord(goal)}`,
     /** Reopens that conversation; run in the recorded project folder, which keys transcripts. */
-    resume: (sessionId: string) => `claude --resume ${sessionId}`,
+    resume: (sessionId: string, _folder: string, mode?: 'plan') =>
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}`,
+    fork: (sessionId: string, _folder: string, mode?: 'plan') =>
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -107,8 +114,10 @@ export const AGENTS = {
     start: (goal?: string) =>
       `codex ${CODEX_EMBEDDED}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /** Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. */
-    resume: (sessionId: string, folder: string) =>
+    resume: (sessionId: string, folder: string, _mode?: 'plan') =>
       `codex ${CODEX_EMBEDDED} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+    fork: (sessionId: string, folder: string) =>
+      `codex ${CODEX_EMBEDDED} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
@@ -128,7 +137,30 @@ export const AGENTS = {
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
     listing: { list: listCodexSessions, state: () => undefined },
-    /** Not read for Codex yet: context use, and adoption. */
+    /** Last native per-turn token usage and context window from the exact rollout. */
+    context: codexContext,
+    transcripts: undefined,
+  },
+  antigravity: {
+    versionArgs: ['--version'],
+    install: 'https://antigravity.google/docs/cli/install/',
+    /** The first prompt writes the native ID to this window's unique CLI log. */
+    ownSessionId: antigravitySessionId,
+    start: (goal: string | undefined, log: string, mode?: 'plan') =>
+      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
+    resume: (sessionId: string, _folder: string, mode?: 'plan') =>
+      `agy --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}`,
+    quit: '/exit',
+    submitDelayMs: 300,
+    headless: {
+      skillPrefix: '/',
+      command: (_sessionId: string | undefined, prompt: string, _may: HeadlessPermissions) =>
+        `agy --print ${shellWord(prompt)} --output-format json`,
+      result: readAntigravityResult,
+    },
+    hookState: undefined,
+    screen: { state: antigravityScreenState, lastLine: antigravityLastOutputLine },
+    listing: { list: async () => [], state: () => undefined },
     context: undefined,
     transcripts: undefined,
   },
@@ -141,7 +173,12 @@ export type AgentSpec = (typeof AGENTS)[Agent];
 
 /** An agent's binary, as doctor and a session's start probe it. */
 export function agentBinary(name: Agent): Binary {
-  return { name, args: AGENTS[name].versionArgs, role: 'agent', install: AGENTS[name].install };
+  return {
+    name: AGENT_EXECUTABLES[name],
+    args: AGENTS[name].versionArgs,
+    role: 'agent',
+    install: AGENTS[name].install,
+  };
 }
 
 /**
@@ -155,13 +192,19 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take.
  */
-export function startCommand(agent: Agent, s: { agentSessionId?: string; goal?: string }) {
-  const spec = AGENTS[agent];
-  if (spec.ownSessionId) return spec.start(s.goal);
+export function startCommand(
+  agent: Agent,
+  s: { id?: string; logs?: string; agentSessionId?: string; goal?: string; mode?: 'plan' },
+) {
+  if (agent === 'antigravity') {
+    if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
+    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id), s.mode);
+  }
+  if (agent === 'codex') return AGENTS.codex.start(s.goal);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return spec.start(s.agentSessionId, s.goal);
+  return AGENTS.claude.start(s.agentSessionId, s.goal, s.mode);
 }
 
 /** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */

@@ -54,6 +54,8 @@ export async function listSessions(
     /** Where an agent that picks its own session id keeps its files (Codex: `CODEX_HOME`). */
     env: Env;
     home: string;
+    /** Per-window provider logs, when a provider exposes no public live ID event. */
+    logs?: string;
   },
   { all = false } = {},
 ): Promise<SessionRow[]> {
@@ -62,7 +64,7 @@ export async function listSessions(
     !r.endedAt || now.getTime() - Date.parse(r.endedAt) < RECENT_MS;
   // Oldest first (the store's order), so `children` is too.
   const every = deps.store.list();
-  const records = every.filter((r) => all || recent(r));
+  const records = every.filter((r) => all || (!r.archivedAt && recent(r)));
   const children = new Map<string, string[]>();
   for (const r of every) {
     if (!r.parent) continue;
@@ -104,7 +106,7 @@ export async function listSessions(
     ),
   );
   const foreign = listed
-    .filter((p) => !runs(p) && !elsewhere.has(p.agentSessionId))
+    .filter((p) => p.nativeState !== 'stopped' && !runs(p) && !elsewhere.has(p.agentSessionId))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
     .map((process) => foreignRow({ ...deps, faro }, process, now));
   const rows: SessionRow[] = [...managed, ...(await Promise.all(foreign))];

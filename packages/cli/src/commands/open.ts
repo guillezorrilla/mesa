@@ -5,13 +5,21 @@ import { recordedOutput } from '../output/recorded.js';
 export const open = defineCommand({
   name: 'open',
   summary: 'Start an agent session for a project in a new tmux window',
-  args: ['project'],
+  args: ['project?'],
   flags: {
+    general: { type: 'boolean', description: 'Start without a project in the profile home folder' },
     agent: {
       type: 'string',
-      description: 'claude or codex; default: the project mesa.yaml, else the profile default',
+      description:
+        'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
+    terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },
+    background: { type: 'boolean', description: 'Run Claude in its native background mode' },
+    mode: {
+      type: 'string',
+      description: 'Native startup mode: plan (Claude Code, Antigravity CLI)',
+    },
     goal: {
       type: 'string',
       description: "The agent's first prompt; one starting /goal runs Claude Code's goal command",
@@ -44,6 +52,8 @@ export const open = defineCommand({
     if (flags.attach) requireTty(tty, 'mesa attach --app');
     const recorded = await mesa.sessions.open(args.project, {
       agent: flags.agent,
+      mode: flags.mode,
+      background: flags.background,
       goal: flags.goal,
       goalFile: flags['goal-file'],
       parent: flags.parent,
@@ -51,6 +61,8 @@ export const open = defineCommand({
       after: flags.after,
       branch: flags.branch,
       base: flags.base,
+      terminal: flags.terminal,
+      general: flags.general,
     });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;

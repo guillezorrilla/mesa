@@ -5,7 +5,7 @@ import { listAgentProcesses } from './agent-listing.js';
 
 const listing = (...rows: object[]) => JSON.stringify(rows);
 
-test('listAgentProcesses parses claude agents --json with a 2 second timeout', async () => {
+test('listAgentProcesses parses claude agents --json --all with a 2 second timeout', async () => {
   const { run, calls } = scriptedRunner({ claude: listing(SPIKE_LISTING.idle) });
   expect(await listAgentProcesses(listingDeps(run))).toEqual([
     {
@@ -17,12 +17,28 @@ test('listAgentProcesses parses claude agents --json with a 2 second timeout', a
       status: 'idle',
     },
   ]);
-  expect(calls).toEqual([{ file: 'claude', args: ['agents', '--json'], timeoutMs: 2000 }]);
+  expect(calls).toEqual([{ file: 'claude', args: ['agents', '--json', '--all'], timeoutMs: 2000 }]);
 
   const waiting = scriptedRunner({ claude: listing(SPIKE_LISTING.permission) }).run;
   expect(await listAgentProcesses(listingDeps(waiting))).toMatchObject([
     { status: 'waiting', waitingFor: 'permission prompt' },
   ]);
+});
+
+test('Claude background listing keeps the handle and distinguishes a stopped process', async () => {
+  const stopped = {
+    id: 'abcdef12',
+    kind: 'background',
+    cwd: '/src/lantern-cove',
+    startedAt: 1790251200000,
+    sessionId: 'abcdef12-0000-4000-8000-000000000001',
+    state: 'stopped',
+  };
+  const processes = await listAgentProcesses(
+    listingDeps(scriptedRunner({ claude: listing(stopped) }).run),
+  );
+  expect(processes).toMatchObject([{ backgroundId: 'abcdef12', nativeState: 'stopped' }]);
+  expect(processes.map(AGENTS.claude.listing.state)).toEqual([{ state: 'done', confidence: 0.85 }]);
 });
 
 test('listAgentProcesses is [] on a timeout, a failure, or output it cannot read', async () => {

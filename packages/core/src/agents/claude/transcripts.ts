@@ -1,6 +1,7 @@
-import { closeSync, existsSync, fstatSync, openSync, readdirSync, readSync } from 'node:fs';
+import { type Dirent, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileHead } from '../../lib/file-head.js';
+import { lastMatchingLine } from '../../lib/file-tail.js';
 
 // Claude Code's transcripts, `<transcripts>/<folder>/<agent session id>.jsonl`: what Mesa reads
 // from them.
@@ -21,6 +22,10 @@ export function transcriptFile(transcripts: string, id: string): string | undefi
 export function transcriptCwd(transcripts: string, id: string): string | undefined {
   const file = transcriptFile(transcripts, id);
   if (!file) return undefined;
+  return cwdIn(file);
+}
+
+function cwdIn(file: string): string | undefined {
   for (const line of fileHead(file, HEAD_BYTES).split('\n')) {
     try {
       const cwd = (JSON.parse(line) as { cwd?: unknown }).cwd;
@@ -32,10 +37,51 @@ export function transcriptCwd(transcripts: string, id: string): string | undefin
   return undefined;
 }
 
-/** The usage Claude Code recorded for the context of its last reply. */
-type LastUsage = { model: string; tokens: number; at: string };
+/** Native Claude conversations on disk, newest activity first. */
+export function claudeHistory(transcripts: string) {
+  if (!existsSync(transcripts)) return [];
+  const rows: { agent: 'claude'; id: string; cwd: string; updatedAt: string }[] = [];
+  let folders: Dirent[];
+  try {
+    folders = readdirSync(transcripts, { withFileTypes: true });
+  } catch {
+    return rows;
+  }
+  for (const folder of folders) {
+    if (!folder.isDirectory()) continue;
+    const dir = join(transcripts, folder.name);
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (
+        !entry.isFile() ||
+        !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.jsonl$/.test(entry.name)
+      )
+        continue;
+      const file = join(dir, entry.name);
+      try {
+        const cwd = cwdIn(file);
+        if (cwd)
+          rows.push({
+            agent: 'claude',
+            id: entry.name.slice(0, -6),
+            cwd,
+            updatedAt: statSync(file).mtime.toISOString(),
+          });
+      } catch {
+        // A transcript may disappear while native history is read.
+      }
+    }
+  }
+  return rows;
+}
 
-const TAIL_CHUNK = 1 << 16;
+/** The usage Claude Code recorded for the context of its last reply. */
+type LastUsage = { model: string; tokens: number; at: string; effort?: string };
 
 /**
  * The last main-chain assistant message's usage, read from the end of the transcript (one can
@@ -45,34 +91,8 @@ const TAIL_CHUNK = 1 << 16;
  * `type`, `subtype`, `isSidechain`, `timestamp`, `message.model`, and `message.usage`.
  */
 export function lastUsage(file: string): LastUsage | undefined {
-  const fd = openSync(file, 'r');
-  try {
-    let end = fstatSync(fd).size;
-    // The bytes read but not yet taken as whole lines, from `end` on.
-    let rest = Buffer.alloc(0);
-    while (end > 0) {
-      const start = Math.max(0, end - TAIL_CHUNK);
-      const chunk = Buffer.alloc(end - start);
-      readSync(fd, chunk, 0, chunk.length, start);
-      end = start;
-      rest = Buffer.concat([chunk, rest]);
-      // Before the first newline is part of a line that may start earlier, unless the file does.
-      const cut = end > 0 ? rest.indexOf(0x0a) : -1;
-      if (end > 0 && cut === -1) continue;
-      const lines = rest
-        .subarray(cut + 1)
-        .toString('utf8')
-        .split('\n');
-      for (const line of lines.reverse()) {
-        const found = usageIn(line);
-        if (found) return found === 'compacted' ? undefined : found;
-      }
-      rest = rest.subarray(0, Math.max(cut, 0));
-    }
-    return undefined;
-  } finally {
-    closeSync(fd);
-  }
+  const found = lastMatchingLine(file, usageIn);
+  return found === 'compacted' ? undefined : found;
 }
 
 /** What one transcript line says about context use: a reading, a compaction, or nothing. */
@@ -84,6 +104,8 @@ function usageIn(line: string): LastUsage | 'compacted' | undefined {
     subtype?: unknown;
     isSidechain?: unknown;
     timestamp?: unknown;
+    effort?: unknown;
+    perTurnEffort?: unknown;
     message?: { model?: unknown; usage?: Record<string, unknown> };
   };
   try {
@@ -97,6 +119,7 @@ function usageIn(line: string): LastUsage | 'compacted' | undefined {
   const count = (key: string) => (typeof usage[key] === 'number' ? (usage[key] as number) : 0);
   const { model } = entry.message ?? {};
   if (typeof model !== 'string' || typeof entry.timestamp !== 'string') return undefined;
+  const effort = entry.perTurnEffort ?? entry.effort;
   return {
     model,
     tokens:
@@ -104,5 +127,6 @@ function usageIn(line: string): LastUsage | 'compacted' | undefined {
       count('cache_creation_input_tokens') +
       count('cache_read_input_tokens'),
     at: entry.timestamp,
+    ...(typeof effort === 'string' && effort ? { effort } : {}),
   };
 }

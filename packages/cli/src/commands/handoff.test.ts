@@ -72,6 +72,18 @@ test('a session handing itself off is stopped by the tmux server a moment later'
   ]);
 });
 
+test('--agent chooses a different native provider without carrying source mode', async () => {
+  const { note, open, show } = await handoffWorld();
+  const source = await open('--goal', 'Count files', '--mode', 'plan');
+  const out = await mesa('handoff', source.id, '--note', note, '--agent', 'codex', '--json');
+  expect(out.code).toBe(0);
+  const target = await show(out.json.data.to);
+  expect(target.agent).toBe('codex');
+  expect(target.mode).toBeUndefined();
+  expect(target.goal).toContain('Count files');
+  expect((await show(source.id)).endedAt).toEqual(expect.any(String));
+});
+
 test('--keep leaves the session running; no goal is usage, a missing note not_found', async () => {
   const { world, note, window, open, show } = await handoffWorld();
   const a = await open('--goal', 'Count the files');

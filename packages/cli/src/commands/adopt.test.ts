@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { plantTranscript } from '@mesa/core/testing';
+import { codexWorld, plantTranscript } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -39,4 +39,17 @@ test('adopt records a session found on disk and says to end it in its original t
   expect((await mesa('adopt', first)).stderr).toBe(
     `Mesa has ${first} already, as session ${json.data.id}\n`,
   );
+});
+
+test('adopt --json imports an older Codex rollout without copying its native transcript', async () => {
+  const dir = await cli.withProject();
+  const codex = codexWorld();
+  cli.env = codex.env;
+  const id = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  codex.rollout({ id, cwd: dir, startedAt: '2026-09-20T11:58:00.000Z' });
+  const { json } = await mesa('adopt', id, '--no-resume', '--json');
+  expect(json).toMatchObject({
+    ok: true,
+    data: { agent: 'codex', agentSessionId: id, project: 'lantern-cove', adopted: true },
+  });
 });

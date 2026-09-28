@@ -5,6 +5,8 @@ import type {
   ClaudeHooksStatus,
   CommandReference,
   Config,
+  ConversationSearch,
+  DescendantResult,
   DiscoveredProject,
   DoctorReport,
   FileChange,
@@ -23,6 +25,7 @@ import type {
   GitTracking,
   GridGroup,
   HooksStatus,
+  NativeHistory,
   Opened,
   ProfileInfo,
   Project,
@@ -559,27 +562,80 @@ const COMMANDS = {
   >(({ id, status }) => ['workflow', '--', id, status]),
   // The app removes an ended session only, so never with --force.
   'sessions.remove': commandWith<
-    { id: string; deleteWorktree?: boolean; deleteBranch?: boolean },
+    { id: string; force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean },
     Recorded<Removed>
-  >(({ id, deleteWorktree, deleteBranch }) => [
+  >(({ id, force, deleteWorktree, deleteBranch }) => [
     'rm',
+    ...(force ? ['--force'] : []),
     ...(deleteWorktree ? ['--delete-worktree'] : []),
     ...(deleteBranch ? ['--delete-branch'] : []),
+    '--',
+    id,
+  ]),
+  'sessions.archive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'archive',
+    '--',
+    id,
+  ]),
+  'sessions.unarchive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'unarchive',
     '--',
     id,
   ]),
   'sessions.stop': commandWith<{ id: string }, Recorded<SessionRecord & { outcome: StopOutcome }>>(
     ({ id }) => ['stop', '--', id],
   ),
+  'sessions.stopDescendants': commandWith<
+    { id: string; expected: string[] },
+    DescendantResult<{ outcome: StopOutcome; warning?: string }>
+  >(({ id, expected }) => ['stop', '--descendants', `--expect=${expected.join(',')}`, '--', id]),
+  'sessions.removeDescendants': commandWith<
+    { id: string; expected: string[]; deleteWorktree?: boolean; deleteBranch?: boolean },
+    DescendantResult<Removed & { warning?: string }>
+  >(({ id, expected, deleteWorktree, deleteBranch }) => [
+    'rm',
+    '--descendants',
+    `--expect=${expected.join(',')}`,
+    ...(deleteWorktree ? ['--delete-worktree'] : []),
+    ...(deleteBranch ? ['--delete-branch'] : []),
+    '--',
+    id,
+  ]),
   'sessions.resume': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'resume',
     '--',
     id,
   ]),
+  'sessions.fork': commandWith<{ id: string; branch?: string }, Recorded<SessionRecord>>(
+    ({ id, branch }) => ['fork', ...(branch ? [`--branch=${branch}`] : []), '--', id],
+  ),
+  'sessions.dependencies': commandWith<
+    { id: string; parent?: string | null; after?: string },
+    Recorded<SessionRecord>
+  >(({ id, parent, after }) => [
+    'dependency',
+    ...(parent === undefined ? [] : ['--parent', parent ?? 'none']),
+    ...(after === undefined ? [] : ['--after', after]),
+    '--',
+    id,
+  ]),
+  'sessions.forceStart': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'force-start',
+    '--',
+    id,
+  ]),
   'sessions.handoff': commandWith<
-    { id: string; note: string; keep: boolean },
+    { id: string; note: string; keep: boolean; agent?: string },
     Recorded<{ from: string; to: string; note: string }>
-  >(({ id, note, keep }) => ['handoff', '--note', note, ...(keep ? ['--keep'] : []), '--', id]),
+  >(({ id, note, keep, agent }) => [
+    'handoff',
+    '--note',
+    note,
+    ...(keep ? ['--keep'] : []),
+    ...(agent ? ['--agent', agent] : []),
+    '--',
+    id,
+  ]),
   'sessions.logs': commandWith<{ id: string; tail: number }, SessionLog>(({ id, tail }) => [
     'logs',
     '--tail',
@@ -605,20 +661,39 @@ const COMMANDS = {
     '--',
     project,
   ]),
+  'sessions.show': commandWith<{ id: string }, SessionRecord & { alive: boolean }>(({ id }) => [
+    'show',
+    '--',
+    id,
+  ]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
   // session starting a child, even when the app itself was started inside a Mesa window.
   'sessions.open': commandWith<
-    { project: string; agent?: Agent; goal?: string; branch?: string },
+    {
+      project?: string;
+      general?: boolean;
+      agent?: Agent;
+      mode?: 'plan';
+      background?: boolean;
+      goal?: string;
+      branch?: string;
+      terminal?: boolean;
+      parent?: string;
+    },
     Recorded<SessionRecord>
-  >(({ project, agent, goal, branch }) => [
+  >(({ project, general, agent, mode, background, goal, branch, terminal, parent }) => [
     'open',
-    '--no-parent',
+    ...(parent ? ['--parent', parent] : ['--no-parent']),
     ...(agent ? ['--agent', agent] : []),
+    ...(mode ? ['--mode', mode] : []),
+    ...(background ? ['--background'] : []),
     ...(goal?.trim() ? [`--goal=${goal}`] : []),
     ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
+    ...(terminal ? ['--terminal'] : []),
+    ...(general ? ['--general'] : []),
     '--',
-    project,
+    ...(project ? [project] : []),
   ]),
   // The row's project, which the board read from its folder, so both place it alike.
   'sessions.adopt': commandWith<
@@ -630,6 +705,14 @@ const COMMANDS = {
     '--',
     agentSessionId,
   ]),
+  'sessions.history': commandWith<{ project: string }, NativeHistory>(({ project }) => [
+    'history',
+    '--',
+    project,
+  ]),
+  'sessions.search': commandWith<{ project: string; query: string }, ConversationSearch>(
+    ({ project, query }) => ['history', 'search', '--', project, query],
+  ),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
   'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [

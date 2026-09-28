@@ -3,8 +3,7 @@ import { recordedOutput } from '../output/recorded.js';
 
 export const adopt = defineCommand({
   name: 'adopt',
-  summary:
-    'Adopt a foreign session (a Claude Code session Mesa did not start) and reopen it in a Mesa window',
+  summary: 'Import a Claude Code or Codex conversation and reopen it in a Mesa window',
   args: ['agentSessionId'],
   flags: {
     project: {
