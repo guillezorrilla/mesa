@@ -8,7 +8,7 @@ import { refreshContext } from './context-use.js';
 import { recordHookEvent } from './hook-events.js';
 import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
-import { isOver, type SessionRecord } from './record.js';
+import { isOver, recordAgent, type SessionRecord } from './record.js';
 import { endRun } from './run.js';
 import { markEnded, markExited, startedOutputs } from './session-receipt.js';
 import type { StopOutcome } from './stop.js';
@@ -49,7 +49,7 @@ export function endSignals(
             failure: `Could not start queued session ${queued.id}`,
             project: () => queued.project,
             session: () => queued.id,
-            agent: () => queued.agent,
+            agent: () => recordAgent(queued),
             inputs: { id: queued.id, after: queued.after },
             outputs: (r) => (r ? startedOutputs(r.record) : {}),
             changed: (r) => r !== undefined,

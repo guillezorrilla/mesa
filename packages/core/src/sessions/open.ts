@@ -1,5 +1,6 @@
 import { newSessionId, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
+import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Caller } from './caller.js';
 import { requireCommandFits } from './goal.js';
@@ -16,6 +17,7 @@ type OpenDeps = LaunchDeps & {
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
   caller: () => Caller;
+  shell: string;
 };
 
 /**
@@ -54,6 +56,8 @@ export type OpenInput = {
   /** Its own git worktree on this branch (CONTEXT.md, Worktree), started from `base` if new. */
   branch?: string;
   base?: string;
+  /** A shell in the project checkout, with no coding agent or provider conversation. */
+  terminal?: boolean;
 };
 
 /**
@@ -70,6 +74,24 @@ export async function openSession(
 ): Promise<{ record: SessionRecord; warning?: string }> {
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
+  }
+  if (input.terminal) {
+    if (input.agent || input.goal || input.after)
+      throw new MesaError('usage', '--terminal cannot use --agent, --goal, or --after');
+    const { entry } = launchProject(deps.profile, input.project);
+    const command = `exec ${shellWord(deps.shell)} -l`;
+    requireCommandFits(command);
+    return launchSession(
+      deps,
+      {
+        kind: 'terminal',
+        project: entry,
+        agent: 'terminal',
+        parent: parentOf(deps, input),
+        name: 'Terminal',
+      },
+      { command: () => command, branch: input.branch, base: input.base },
+    );
   }
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);

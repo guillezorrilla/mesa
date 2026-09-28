@@ -69,9 +69,9 @@ export const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: Re
 /** What a new session's record holds before its window opens. */
 type NewLaunch = {
   /** A headless run (CONTEXT.md, Skill run); interactive when unset. */
-  kind?: 'run';
+  kind?: 'run' | 'terminal';
   project: RegistryEntry;
-  agent: Agent;
+  agent: Agent | 'terminal';
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
   goal?: string;
@@ -121,7 +121,8 @@ export async function startSession(
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     const cwd = agentFolder(record, project);
-    const warning = syncSkillsInto(deps, project.name, cwd);
+    const warning =
+      record.kind === 'terminal' ? undefined : syncSkillsInto(deps, project.name, cwd);
     const { paths, config } = deps.profile;
     await deps.tmux.openWindow({
       project: project.name,
@@ -198,8 +199,8 @@ function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, bas
  * A session's state the moment its window opens. A headless run has no prompt to wait at: it
  * works until its agent exits, a process fact.
  */
-export const launched = (at: string, kind?: 'run'): SessionRecord['lastState'] =>
-  kind === 'run'
+export const launched = (at: string, kind?: 'run' | 'terminal'): SessionRecord['lastState'] =>
+  kind === 'run' || kind === 'terminal'
     ? { state: 'working', confidence: PROCESS, at, source: 'mesa' }
     : { state: 'idle', confidence: 0.6, at, source: 'mesa' };
 

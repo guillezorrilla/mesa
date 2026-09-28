@@ -43,11 +43,16 @@ export async function startQueued(
   let claimedHere = false;
   const claimed = deps.store.update(id, (current) => {
     if (!startable(current, now)) return {};
+    if (current.agent === 'terminal')
+      throw new MesaError('usage', 'plain terminal sessions cannot be queued');
     claimedHere = true;
     const agentSessionId = current.agentSessionId ?? newSessionId(current.agent, deps.newUuid);
     return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
   });
   if (!claimedHere) return undefined;
+  if (claimed.agent === 'terminal')
+    throw new MesaError('usage', 'plain terminal sessions cannot be queued');
+  const agent = claimed.agent;
   try {
     const { entry } = launchProject(deps.profile, claimed.project);
     await readyAgent(deps.run, claimed.agent);
@@ -57,7 +62,7 @@ export async function startQueued(
     const { warning } = (await deps.tmux.findWindow(windowOf(claimed)))
       ? {}
       : await startSession(deps, claimed, entry, {
-          command: (r) => startCommand(r.agent, r),
+          command: (r) => startCommand(agent, r),
           branch,
           base,
         });

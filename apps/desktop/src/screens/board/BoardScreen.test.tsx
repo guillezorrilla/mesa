@@ -37,7 +37,7 @@ test('a recorded action says its warning with its confirmation, so a missing rec
         warning: 'no receipt: the profile has no vault yet',
       }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('session-stop')[0]);
   expect(byTestId('toast')[0]?.textContent).toContain(
     'Stopped session aaaaaaaa; no receipt: the profile has no vault yet',
@@ -56,7 +56,7 @@ test('an action ends once the Board shows what it did, even with a look already 
           : envelope([asking]),
       stop: () => envelope({ ...asking, outcome: 'exited', receipt: null }),
     });
-    const byTestId = await renderWithMesa(<App />, bridge);
+    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
     slow = true;
     // The two-second look is in flight when Stop is pressed.
     await act(async () => vi.advanceTimersByTime(2000));
@@ -78,7 +78,7 @@ test('the Board is the first screen: every session by attention, with its state,
     // mesa sends the board in its order (attention, children under their parent); the Board keeps it.
     sessions: () => envelope([asking, foreignRow, exited, deadPane, busy] satisfies TreeRow[]),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(byTestId('session-board')).toHaveLength(1);
   expect(byTestId('session-row').map((r) => cells(r).slice(0, 8))).toEqual([
     [
@@ -121,7 +121,7 @@ test('the Board is the first screen: every session by attention, with its state,
   expect(enabled('session-stop')).toEqual([true, false, true, true]);
   expect(enabled('open-terminal')).toEqual([true, false, true, true]);
 
-  const empty = await renderWithMesa(<App />, fakeBridge().bridge);
+  const empty = await renderWithMesa(<App startOnBoard />, fakeBridge().bridge);
   expect(empty('sessions-empty')).toHaveLength(1);
 });
 
@@ -134,7 +134,7 @@ test('workflow selection uses its own command and leaves Faro state visible', as
       return envelope({ ...asking, workflowStatus: status, receipt: null });
     },
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const select = byTestId('session-workflow')[0] as HTMLSelectElement;
   await act(async () => {
     select.value = 'review';
@@ -166,7 +166,7 @@ test('Board layouts, grouping and manual order persist through profile config', 
     },
     sessions: () => envelope(rows),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await choose(byTestId('board-view')[0], 'cards');
   expect(byTestId('session-card')).toHaveLength(3);
   expect(byTestId('session-relations')[0]?.textContent).toContain('Child of aaaaaaaa');
@@ -203,7 +203,11 @@ test('switching Board layouts keeps an embedded terminal attached to its session
     sessions: () => envelope([asking]),
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({ terminal: terms.host }),
+  );
   await click(byTestId('embed-terminal')[0]);
   await act(async () => new Promise((done) => setTimeout(done, 20)));
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
@@ -224,7 +228,7 @@ test('the Board looks again every two seconds, one look at a time, and its clock
           ? new Promise((done) => (release = () => done(envelope([asking]))))
           : envelope([asking]),
     });
-    const byTestId = await renderWithMesa(<App />, bridge);
+    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
     const looks = () => calls.filter((c) => c[1] === 'sessions').length;
     expect(looks()).toBe(1);
     await act(async () => vi.advanceTimersByTime(1000));
@@ -252,7 +256,7 @@ test('a late reply for the other list never lands: Show older wins', async () =>
         ? envelope([asking, exited])
         : new Promise((done) => (release = () => done(envelope([busy])))),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('sessions-ended')[0]);
   await act(async () => release());
   expect(calls.filter((c) => c[1] === 'sessions').at(-1)).toEqual([
@@ -264,6 +268,20 @@ test('a late reply for the other list never lands: Show older wins', async () =>
   expect(byTestId('session-row').map((r) => cells(r)[0])).toEqual(['aaaaaaaa', 'cccccccc']);
 });
 
+test('Show older lets an archived session be restored without restarting it', async () => {
+  const archived = { ...exited, archivedAt: '2026-09-25T12:02:00.000Z' };
+  const { bridge, calls } = fakeBridge({
+    sessions: (args) => envelope(args.includes('--all') ? [archived] : []),
+    unarchive: () => envelope({ ...archived, archivedAt: undefined }),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  await click(byTestId('sessions-ended')[0]);
+  expect(byTestId('session-row')[0]?.textContent).toContain('archived');
+  await click(byTestId('row-menu')[0]);
+  await click(byTestId('session-unarchive')[0]);
+  expect(calls).toContainEqual(['--json', 'unarchive', '--', archived.id]);
+});
+
 test('clicking a live session opens its terminal here; two at once; Close ends only the client', async () => {
   const terms = fakeTerminals();
   const platform = fakePlatform({ terminal: terms.host });
@@ -273,7 +291,7 @@ test('clicking a live session opens its terminal here; two at once; Close ends o
     attach: () =>
       envelope({ opened: true, target: 'lantern-cove:claude-aaaaaaaa', app: 'Terminal' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge, platform);
   // Only live Mesa sessions can embed: the exited one has no link.
   expect(byTestId('embed-terminal').map((b) => b.textContent)).toEqual(['aaaaaaaa', 'bbbbbbbb']);
   await click(byTestId('embed-terminal')[0]);
@@ -316,7 +334,7 @@ test('another screen hides the Board without closing its terminals or its Show o
     sessions: () => envelope([asking, busy]),
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge, platform);
   await click(byTestId('embed-terminal')[0]);
   await click(byTestId('embed-terminal')[1]);
   await click(byTestId('sessions-ended')[0]);
@@ -335,7 +353,7 @@ test('New session opens a dialog, and Open starts the picked project with the pi
     projects: () => envelope(PROJECTS),
     open: () => envelope({ ...busy, id: 'dddddddd' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('new-session')[0]);
   const dialog = byTestId('new-session-dialog')[0];
   // A Radix dialog: open is its data-state, not the native open attribute.
@@ -371,7 +389,7 @@ test('New session opens a dialog, and Open starts the picked project with the pi
 test("a session's goal shows under its project, its first line, the whole goal on hover", async () => {
   const withGoal = { ...busy, goal: '/goal Keep going until green\nthen stop' };
   const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies TreeRow[]) });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const [goal] = byTestId('session-goal');
   expect(goal?.textContent).toBe('/goal Keep going until green');
   expect(goal?.title).toBe('/goal Keep going until green\nthen stop');
@@ -391,7 +409,7 @@ test('a headless run is badged run beside its agent, shows its skill as its goal
   const { bridge } = fakeBridge({
     sessions: () => envelope([busy, done, live] satisfies TreeRow[]),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(byTestId('session-send')).toHaveLength(1);
   expect(byTestId('session-handoff')).toHaveLength(1);
   expect(byTestId('session-send')[0]?.closest('tr')?.textContent).toContain('bbbbbbbb');
@@ -412,7 +430,7 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
     projects: () => envelope(PROJECTS),
     open: () => envelope({ ...busy, id: 'dddddddd' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('new-session')[0]);
   const goal = byTestId('new-session-goal')[0] as HTMLTextAreaElement;
   expect(goal.tagName).toBe('TEXTAREA');
@@ -429,7 +447,8 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
     'lantern-cove',
   ]);
 
-  await click(byTestId('new-session')[0]);
+  expect(byTestId('selected-session')).toHaveLength(1);
+  await click(document.querySelector('[aria-label="New session"]') as HTMLElement);
   (byTestId('new-session-goal')[0] as HTMLTextAreaElement).value = ' \n ';
   await click(byTestId('new-session-submit')[0]);
   expect(calls.filter((c) => c[1] === 'open').at(-1)).toEqual([
@@ -448,7 +467,7 @@ test('New session passes a branch with --branch, trimmed; a blank one passes non
     projects: () => envelope(PROJECTS),
     open: () => envelope({ ...busy, id: 'dddddddd' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('new-session')[0]);
   (byTestId('new-session-branch')[0] as HTMLInputElement).value = ' try/worktree ';
   await click(byTestId('new-session-submit')[0]);
@@ -463,7 +482,8 @@ test('New session passes a branch with --branch, trimmed; a blank one passes non
     'lantern-cove',
   ]);
 
-  await click(byTestId('new-session')[0]);
+  expect(byTestId('selected-session')).toHaveLength(1);
+  await click(document.querySelector('[aria-label="New session"]') as HTMLElement);
   (byTestId('new-session-branch')[0] as HTMLInputElement).value = '  ';
   await click(byTestId('new-session-submit')[0]);
   expect(calls.filter((c) => c[1] === 'open').at(-1)).not.toContainEqual(
@@ -479,7 +499,7 @@ test('Adopt on a foreign row adopts it into its project and says to end the orig
       envelope([placedForeign, { ...foreignRow, id: 'ext-7', pid: 7 }] satisfies TreeRow[]),
     adopt: () => envelope({ ...busy, id: 'eeeeeeee', warning }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const [first, second] = byTestId('session-adopt');
   await click(first);
   expect(calls).toContainEqual([
@@ -506,7 +526,7 @@ test("a session's branch shows under its project, its worktree on hover", async 
   const { bridge } = fakeBridge({
     sessions: () => envelope([{ ...busy, worktree }, asking] satisfies TreeRow[]),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const [branch] = byTestId('session-branch');
   expect(branch?.textContent).toBe('try/x');
   expect(branch?.title).toBe(worktree.path);
@@ -545,7 +565,7 @@ test('a queued row says what it waits on and has Cancel, which stops it; it cann
       return envelope({ ...queuedRow, outcome: 'cancelled' });
     },
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const row = () => byTestId('session-row')[1] as HTMLElement;
   const inRow = (id: string) => row().querySelector(`[data-testid="${id}"]`) as HTMLElement;
   expect(inRow('session-waiting')?.textContent).toBe('waiting on aaaaaaaa');
@@ -576,7 +596,7 @@ test('after a /clear moves its agent session id, the row keeps its state and act
     const { bridge } = fakeBridge({
       sessions: () => envelope([cleared ? { ...busy, agentSessionId: after } : busy]),
     });
-    const byTestId = await renderWithMesa(<App />, bridge);
+    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
     const seen = () => ({
       rows: byTestId('session-row').length,
       state: byTestId('session-state')[0]?.dataset.state,
@@ -620,7 +640,7 @@ test('each row shows its context use as a bar: amber from 55%, red from 60%, a d
         managedRow('dddddddd', { attention: 0.2 }),
       ] satisfies TreeRow[]),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const cells = byTestId('session-context');
   // By the percent shown: 54.5 reads 55%, so it is amber.
   expect(cells.map((c) => c.textContent)).toEqual(['54%', '55%', '60%', '-']);
@@ -636,7 +656,11 @@ test('Hand off asks for the note, then hands the session off; one without a goal
     handoff: () =>
       envelope({ from: 'bbbbbbbb', to: 'eeeeeeee', note: '/h/.mesa/default/handoffs/eeeeeeee.md' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ file: '/h/note.md' }));
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({ file: '/h/note.md' }),
+  );
   const [handoff, none] = byTestId('session-handoff');
   expect(none?.hasAttribute('disabled')).toBe(true);
   await click(handoff);
@@ -659,7 +683,11 @@ test('a session in its own worktree cannot be kept running when it hands off', a
     sessions: () => envelope([{ ...busy, goal: 'Tidy up', worktree }] satisfies TreeRow[]),
     handoff: () => envelope({ from: 'bbbbbbbb', to: 'eeeeeeee', note: '/n.md' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ file: '/h/note.md' }));
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({ file: '/h/note.md' }),
+  );
   await click(byTestId('session-handoff')[0]);
   expect(byTestId('handoff-keep')[0]?.hasAttribute('disabled')).toBe(true);
   await click(byTestId('handoff-pick')[0]);
@@ -685,7 +713,7 @@ test('Send on Enter, Open terminal, then Stop and Resume on the same row, each s
     attach: () =>
       envelope({ opened: true, target: 'lantern-cove:claude-aaaaaaaa', app: 'Terminal' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const box = byTestId('session-prompt')[0] as HTMLInputElement;
   box.value = 'hello';
   // Enter in the field submits its form (requestSubmit is what the browser does on Enter).
@@ -716,11 +744,11 @@ test('a failed action or look shows its error in the toast', async () => {
     sessions: () => envelope([asking]),
     attach: () => failure('session ended; use mesa resume'),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('open-terminal')[0]);
   expect(byTestId('toast')[0]?.textContent).toContain('session ended; use mesa resume');
   const broken = await renderWithMesa(
-    <App />,
+    <App startOnBoard />,
     fakeBridge({ sessions: () => failure('tmux is not answering') }).bridge,
   );
   expect(broken('toast')[0]?.textContent).toContain('tmux is not answering');
@@ -745,7 +773,7 @@ test('a child row sits under its parent; a toggle hides the rows under it and sa
   const { bridge, calls } = fakeBridge({
     sessions: () => envelope([parent, child, waiting, loose, quiet]),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(calls).toContainEqual(['--json', 'sessions', '--tree']);
   const rows = () => byTestId('session-row').map((r) => [cells(r)[0], r.dataset.depth]);
   const toggles = () => byTestId('session-toggle');
@@ -794,7 +822,7 @@ test("a session's received prompts list each one with its sender, newest first",
   });
   const quiet = managedRow('cccccccc');
   const { bridge } = fakeBridge({ sessions: () => envelope([reply, quiet]) });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(byTestId('session-received')).toHaveLength(1);
   expect(byTestId('session-received')[0]?.querySelector('summary')?.textContent).toBe(
     'Received (2)',
@@ -810,7 +838,7 @@ test('a prompt received today shows its time alone', async () => {
     events: [{ type: 'send', at: new Date().toISOString(), chars: 5 }],
   });
   const { bridge } = fakeBridge({ sessions: () => envelope([today]) });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const [prompt] = byTestId('received-prompt');
   expect(prompt?.textContent).toMatch(/^from a person, 5 characters, \S+/);
   expect(prompt?.textContent).not.toMatch(/\d{4}/);
@@ -828,7 +856,7 @@ test('a send typed with a warning says so in the toast, so it is not sent again'
         warning: 'the prompt was typed, but no send event on aaaaaaaa (x); do not send it again',
       }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   (byTestId('session-prompt')[0] as HTMLInputElement).value = 'hello';
   await click(byTestId('session-send-submit')[0]);
   expect(byTestId('toast')[0]?.textContent).toContain('do not send it again');
@@ -842,7 +870,7 @@ test("the guardrail's ask opens a dialog with its reason and decision; Send anyw
         ? envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5, override: 'yes' })
         : guardrailStopped('ask', 'project lantern-cove has guardrail: strict'),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const box = () => byTestId('session-prompt')[0] as HTMLInputElement;
   box().value = 'hello';
   await click(byTestId('session-send-submit')[0]);
@@ -879,7 +907,7 @@ test("the guardrail's block is said in the toast, with no way past it in the app
     sessions: () => envelope([managedRow('aaaaaaaa')]),
     send: () => guardrailStopped('block', 'the text holds a destructive command (rm -rf)'),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   (byTestId('session-prompt')[0] as HTMLInputElement).value = 'run rm -rf /';
   await click(byTestId('session-send-submit')[0]);
   expect(byTestId('guardrail-dialog')).toEqual([]);
@@ -900,7 +928,7 @@ test("the row menu's Rename names a session; the Board shows the name in place o
       return envelope(named);
     },
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const menu = byTestId('row-menu')[0];
   expect(menu?.getAttribute('aria-label')).toBe('More actions for bbbbbbbb');
   await click(menu);
@@ -932,7 +960,7 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
         worktree: worktree.path,
       }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const [liveMenu, endedMenu] = byTestId('row-menu');
   await click(liveMenu);
   // A live one is stopped first: the app never forces its window closed.
@@ -961,7 +989,7 @@ test("the row menu's Log shows a session's last output lines, and reads them aga
           : { session: 'cccccccc', path: null, lines: [] },
       ),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   const [liveMenu, endedMenu] = byTestId('row-menu');
   await click(liveMenu);
   await click(byTestId('session-log')[0]);
@@ -987,7 +1015,7 @@ test("the row menu's Log shows a session's last output lines, and reads them aga
 
 test('skills launch in the terminal, and historical receipts have no primary app page', async () => {
   const { bridge } = fakeBridge({ sessions: () => envelope([asking]) });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(byTestId('run-skill')).toHaveLength(0);
   expect(byTestId('nav-receipts')).toHaveLength(0);
   await click(byTestId('row-menu')[0]);

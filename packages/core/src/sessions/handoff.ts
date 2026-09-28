@@ -41,6 +41,12 @@ export async function handoffSession(
   { note, keep = false }: { note: string; keep?: boolean },
 ): Promise<{ from: SessionRecord; to: SessionRecord; note: string; warning?: string }> {
   const from = deps.store.get(id);
+  if (from.agent === 'terminal')
+    throw new MesaError(
+      'usage',
+      `session ${id} is a plain terminal; it has no agent work to hand off`,
+    );
+  const agent = from.agent;
   refuseRun(from, 'has no work to hand off');
   if (!isAgentState(from.lastState.state)) {
     throw new MesaError(
@@ -94,7 +100,7 @@ export async function handoffSession(
           events: [{ type: 'handoff', at, from: id, note: path }],
         });
       },
-      command: (successor) => startCommand(from.agent, successor),
+      command: (successor) => startCommand(agent, successor),
     },
   ).catch((error) => {
     if (path) rmSync(path, { force: true });

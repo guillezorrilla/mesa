@@ -87,6 +87,8 @@ export async function sendPrompt(
 ): Promise<Sent> {
   if (!prompt.trim()) throw new MesaError('usage', 'nothing to send: the prompt is empty');
   const record = deps.store.get(id);
+  if (record.agent === 'terminal')
+    throw new MesaError('usage', `session ${id} is a plain terminal; type into it directly`);
   refuseRun(record, 'takes no prompt');
   const { sender, window } = senderOf(deps, id, { from, noFrom });
   const target = windowOf(record);

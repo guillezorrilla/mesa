@@ -19,15 +19,27 @@ import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { ShortcutSettings } from './screens/ShortcutSettings';
 
-export function App() {
+export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
   const [filesDirty, setFilesDirty] = useState(false);
   const [pendingView, setPendingView] = useState<WorkspaceView>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState<TreeRow[]>([]);
+  const openedInitialSession = useRef(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [newSessionRequest, setNewSessionRequest] = useState(0);
-  const [pendingNewSession, setPendingNewSession] = useState(false);
+  const [newSessionRequest, setNewSessionRequest] = useState<{
+    count: number;
+    project?: string;
+    location?: 'main' | 'worktree' | 'terminal';
+  }>({ count: 0 });
+  const [archiveSessionRequest, setArchiveSessionRequest] = useState<{
+    count: number;
+    id: string;
+  }>();
+  const [pendingNewSession, setPendingNewSession] = useState<{
+    project?: string;
+    location?: 'main' | 'worktree' | 'terminal';
+  }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
@@ -65,17 +77,30 @@ export function App() {
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
   const projects = useCommand('projects.list');
+  useEffect(() => {
+    if (startOnBoard || openedInitialSession.current || !projects.data || sessions.length === 0)
+      return;
+    openedInitialSession.current = true;
+    const first = sessions.find((session) => session.managed && !session.endedAt) ?? sessions[0];
+    if (first)
+      setView((current) =>
+        current.kind === 'board' ? { kind: 'session', id: first.id } : current,
+      );
+  }, [projects.data, sessions, startOnBoard]);
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
-  const requestNewSession = useCallback(() => {
-    if (filesDirty && view.kind === 'project') {
-      setPendingNewSession(true);
-      setPendingView({ kind: 'board' });
-    } else {
-      setView({ kind: 'board' });
-      setNewSessionRequest((count) => count + 1);
-    }
-  }, [filesDirty, view]);
+  const requestNewSession = useCallback(
+    (preset: { project?: string; location?: 'main' | 'worktree' | 'terminal' } = {}) => {
+      if (filesDirty && view.kind === 'project') {
+        setPendingNewSession(preset);
+        setPendingView({ kind: 'board' });
+      } else {
+        setView({ kind: 'board' });
+        setNewSessionRequest((request) => ({ count: request.count + 1, ...preset }));
+      }
+    },
+    [filesDirty, view],
+  );
   useEffect(() => {
     let active = true;
     const open = (urls: string[]) => {
@@ -162,7 +187,7 @@ export function App() {
             size="icon-sm"
             aria-label="New session"
             disabled={!canStart}
-            onClick={requestNewSession}
+            onClick={() => requestNewSession()}
           >
             <Plus aria-hidden />
           </Button>
@@ -188,6 +213,11 @@ export function App() {
           sessions={sessions}
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
+          onNewSession={(project, location) => requestNewSession({ project, location })}
+          onArchiveSession={(id) => {
+            navigate({ kind: 'session', id });
+            setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, id }));
+          }}
         />
         <main
           className={
@@ -197,7 +227,10 @@ export function App() {
           }
         >
           {/* The Board stays mounted so its terminal clients survive navigation. */}
-          <div hidden={view.kind !== 'board' && view.kind !== 'grid' && !sessionView}>
+          <div
+            hidden={view.kind !== 'board' && view.kind !== 'grid' && !sessionView}
+            className={sessionView ? 'h-full' : undefined}
+          >
             <BoardScreen
               gridMode={view.kind === 'grid'}
               gridGroups={config.data?.grid?.groups}
@@ -205,7 +238,9 @@ export function App() {
               selectedSession={view.kind === 'session' ? view.id : undefined}
               onRowsChange={setSessions}
               onBoard={() => navigate({ kind: 'board' })}
+              onProject={(name) => navigate({ kind: 'project', name })}
               newSessionRequest={newSessionRequest}
+              archiveSessionRequest={archiveSessionRequest}
               preferences={config.data?.board}
               onPreferencesChanged={() => void config.refresh()}
               onSelectSession={(id) => navigate({ kind: 'session', id })}
@@ -229,6 +264,7 @@ export function App() {
                 onFilesDirtyChange={setFilesDirty}
                 sessions={sessions}
                 onSession={(id) => navigate({ kind: 'session', id })}
+                onNewSession={(project, location) => requestNewSession({ project, location })}
                 onChanged={() => void projects.refresh()}
                 onUnregistered={() => {
                   void projects.refresh();
@@ -297,13 +333,17 @@ export function App() {
           onSubmit={() => {
             setFilesDirty(false);
             setView(pendingView);
-            if (pendingNewSession) setNewSessionRequest((count) => count + 1);
-            setPendingNewSession(false);
+            if (pendingNewSession)
+              setNewSessionRequest((request) => ({
+                count: request.count + 1,
+                ...pendingNewSession,
+              }));
+            setPendingNewSession(undefined);
             setPendingView(undefined);
           }}
           onCancel={() => {
             setPendingView(undefined);
-            setPendingNewSession(false);
+            setPendingNewSession(undefined);
           }}
         >
           <p className="text-sm">Unsaved edits will be lost.</p>

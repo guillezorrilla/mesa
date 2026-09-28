@@ -27,6 +27,7 @@ import { readHookEvents } from './hook-events.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
 import { moveBoardSession } from './presentation.js';
+import { recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
@@ -73,6 +74,7 @@ export function sessionsService(
     newUuid: deps.newUuid,
     caller,
     syncSkills: skills.linkInto,
+    shell: deps.env.SHELL || '/bin/zsh',
   });
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const look = (all = false) =>
@@ -112,7 +114,7 @@ export function sessionsService(
         warning: (r) => r.warning,
         project: (r) => r.record.project,
         session: () => id,
-        agent: (r) => r.record.agent,
+        agent: (r) => recordAgent(r.record),
         inputs: { id, force },
         outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
         changed: (r) => r.outcome !== 'already-ended',
@@ -186,7 +188,7 @@ export function sessionsService(
        * action, as every refusal does.
        */
       open: (project: string, opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {}) => {
-        const { agent, parent, noParent, after, branch, base } = opts;
+        const { agent, parent, noParent, after, branch, base, terminal } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -211,7 +213,7 @@ export function sessionsService(
             warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: {
               project,
               agent: agent ?? null,
@@ -221,12 +223,13 @@ export function sessionsService(
               ...(after === undefined ? {} : { after }),
               ...(branch === undefined ? {} : { branch }),
               ...(base === undefined ? {} : { base }),
+              ...(terminal ? { terminal: true } : {}),
             },
             outputs: ({ record: r }) => startedOutputs(r),
           },
           async () => {
             if (refused) throw refused;
-            const input = { project, agent, goal, parent, noParent, after, branch, base };
+            const input = { project, agent, goal, parent, noParent, after, branch, base, terminal };
             return openSession(openDeps(), input);
           },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
@@ -252,7 +255,7 @@ export function sessionsService(
             warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: {
               skill,
               ...(project === undefined ? {} : { project }),
@@ -385,6 +388,44 @@ export function sessionsService(
               opts,
             ),
         ),
+      archive: async (id: string) => {
+        const found = store.get(id);
+        if (!found.archivedAt && !found.endedAt) await stop(id, true);
+        return record(
+          {
+            type: 'session',
+            summary: () => `Archived session ${id}`,
+            failure: `Could not archive session ${id}`,
+            project: (r) => r.project,
+            session: () => id,
+            agent: (r) => recordAgent(r),
+            inputs: { id },
+            outputs: (r) => ({ archivedAt: r.archivedAt }),
+            changed: () => !found.archivedAt,
+          },
+          () =>
+            store.update(id, (current) => ({
+              archivedAt: current.archivedAt ?? deps.clock().toISOString(),
+            })),
+        );
+      },
+      unarchive: (id: string) => {
+        const found = store.get(id);
+        return record(
+          {
+            type: 'session',
+            summary: () => `Unarchived session ${id}`,
+            failure: `Could not unarchive session ${id}`,
+            project: (r) => r.project,
+            session: () => id,
+            agent: (r) => recordAgent(r),
+            inputs: { id },
+            outputs: () => ({ archivedAt: null }),
+            changed: () => Boolean(found.archivedAt),
+          },
+          () => store.update(id, { archivedAt: undefined }),
+        );
+      },
       stop,
       /**
        * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
@@ -401,7 +442,7 @@ export function sessionsService(
             warning: (r) => r.warning,
             project: (r) => r.to.project,
             session: () => id,
-            agent: (r) => r.to.agent,
+            agent: (r) => recordAgent(r.to),
             inputs: { id, note, keep },
             outputs: (r) => ({ from: id, to: r.to.id, note: r.note, stop: r.stop }),
           },
@@ -492,7 +533,7 @@ export function sessionsService(
             warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: { agentSessionId, ...opts },
             outputs: ({ record: r }) => ({
               window: r.tmux.window,
@@ -521,7 +562,7 @@ export function sessionsService(
             warning: (r) => r.warning,
             project: (r) => r.record.project,
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: { id },
             outputs: (r) => ({
               window: r.record.tmux.window,

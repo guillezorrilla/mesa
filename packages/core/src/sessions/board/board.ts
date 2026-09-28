@@ -62,7 +62,7 @@ export async function listSessions(
     !r.endedAt || now.getTime() - Date.parse(r.endedAt) < RECENT_MS;
   // Oldest first (the store's order), so `children` is too.
   const every = deps.store.list();
-  const records = every.filter((r) => all || recent(r));
+  const records = every.filter((r) => all || (!r.archivedAt && recent(r)));
   const children = new Map<string, string[]>();
   for (const r of every) {
     if (!r.parent) continue;

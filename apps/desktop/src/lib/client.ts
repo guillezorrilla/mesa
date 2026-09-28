@@ -548,12 +548,23 @@ const COMMANDS = {
   >(({ id, status }) => ['workflow', '--', id, status]),
   // The app removes an ended session only, so never with --force.
   'sessions.remove': commandWith<
-    { id: string; deleteWorktree?: boolean; deleteBranch?: boolean },
+    { id: string; force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean },
     Recorded<Removed>
-  >(({ id, deleteWorktree, deleteBranch }) => [
+  >(({ id, force, deleteWorktree, deleteBranch }) => [
     'rm',
+    ...(force ? ['--force'] : []),
     ...(deleteWorktree ? ['--delete-worktree'] : []),
     ...(deleteBranch ? ['--delete-branch'] : []),
+    '--',
+    id,
+  ]),
+  'sessions.archive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'archive',
+    '--',
+    id,
+  ]),
+  'sessions.unarchive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
+    'unarchive',
     '--',
     id,
   ]),
@@ -598,14 +609,15 @@ const COMMANDS = {
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
   // session starting a child, even when the app itself was started inside a Mesa window.
   'sessions.open': commandWith<
-    { project: string; agent?: Agent; goal?: string; branch?: string },
+    { project: string; agent?: Agent; goal?: string; branch?: string; terminal?: boolean },
     Recorded<SessionRecord>
-  >(({ project, agent, goal, branch }) => [
+  >(({ project, agent, goal, branch, terminal }) => [
     'open',
     '--no-parent',
     ...(agent ? ['--agent', agent] : []),
     ...(goal?.trim() ? [`--goal=${goal}`] : []),
     ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
+    ...(terminal ? ['--terminal'] : []),
     '--',
     project,
   ]),

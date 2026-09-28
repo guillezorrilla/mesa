@@ -1,9 +1,19 @@
-import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/browser';
-import { ArrowDown, ArrowUp, Folder, MoreHorizontal, Play, Plus } from 'lucide-react';
+import type { Agent, ManagedRow, ProjectRow, TreeRow } from '@mesa/core';
+import { duration, sessionBranch, sessionLabel, WAITING_STATES } from '@mesa/core/browser';
+import {
+  ArrowDown,
+  ArrowUp,
+  Clock3,
+  Folder,
+  FolderGit2,
+  GitBranch,
+  MoreHorizontal,
+  Play,
+  Plus,
+  TerminalSquare,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
-import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +24,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Textarea } from '@/components/ui/textarea';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
 import { AgentField } from './board/AgentField';
 import { exited, queued } from './board/rows';
 import { FilesWorkspace } from './FilesWorkspace';
@@ -30,6 +41,7 @@ export function ProjectWorkspace(props: {
   filesDirty: boolean;
   file?: { checkout: string; path: string; line: number };
   onFilesDirtyChange: (dirty: boolean) => void;
+  onNewSession: (project: string, kind: 'main' | 'worktree' | 'terminal') => void;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills'>('overview');
@@ -41,9 +53,12 @@ export function ProjectWorkspace(props: {
   const [composerOpen, setComposerOpen] = useState(false);
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
   const skills = useCommand('skills.list', { project: project.name });
+  const worktrees = useCommand('worktrees.list', { project: project.name });
   const run = useRun();
   const { acting, act } = useAct();
-  const sessions = props.sessions.filter((s) => s.managed && s.project === project.name);
+  const sessions = props.sessions.filter(
+    (s): s is TreeRow & ManagedRow => s.managed && s.project === project.name,
+  );
   const activeSessions = sessions.filter((s) => !exited(s) || queued(s));
   const recentSessions = sessions.filter((s) => exited(s) && !queued(s));
   const open = (input: { agent?: Agent; goal?: string; branch?: string }) =>
@@ -296,35 +311,120 @@ export function ProjectWorkspace(props: {
                 {activeSessions.length}
               </Badge>
             </h3>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
               {activeSessions.map((session) => (
                 <button
                   key={session.id}
                   type="button"
                   data-testid="project-active-session"
-                  className="flex min-h-32 w-64 flex-col items-start rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+                  aria-label={`Open ${session.name ?? 'Session'} (${session.id})`}
+                  className="flex min-h-32 min-w-0 flex-col items-start gap-2 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
-                  <StateBadge
-                    state={session.lastState.state}
-                    confidence={session.lastState.confidence}
-                  />
-                  <span className="mt-3 truncate font-medium">{sessionLabel(session)}</span>
-                  <span className="mt-auto text-xs text-muted-foreground">{session.agent}</span>
+                  <span
+                    data-state={session.lastState.state}
+                    className={cn(
+                      'font-mono text-xs text-state-idle',
+                      session.lastState.state === 'working' && 'text-state-working',
+                      WAITING_STATES.has(session.lastState.state) && 'text-state-waiting',
+                      session.lastState.state === 'failed' && 'text-state-failed',
+                    )}
+                  >
+                    ◉ {session.lastState.state}
+                  </span>
+                  <span className="w-full truncate text-sm font-medium">
+                    {session.name ?? 'Session'}
+                  </span>
+                  <span className="flex w-full min-w-0 items-center gap-1 truncate font-mono text-xs text-sky-500">
+                    <GitBranch aria-hidden className="size-3" />{' '}
+                    {sessionBranch(session) ??
+                      worktrees.data?.find((tree) => tree.main)?.branch ??
+                      'branch unknown'}
+                  </span>
+                  <span className="mt-auto flex w-full items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {session.context ? `${Math.round(session.context.used)}%` : 'Context unknown'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock3 aria-hidden className="size-3" />
+                      {duration(session.runningSeconds)}
+                    </span>
+                  </span>
                 </button>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                data-testid="quick-session"
-                className="h-32 w-64 border-dashed bg-transparent text-muted-foreground"
-                disabled={!project.exists || acting}
-                onClick={() => void open({})}
-              >
-                <Plus aria-hidden /> Quick empty session
-              </Button>
+              <div className="group relative flex min-h-20 items-stretch rounded-lg border border-dashed text-muted-foreground">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  data-testid="quick-session"
+                  className="absolute inset-0 h-full w-full group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:opacity-0"
+                  disabled={!project.exists || acting}
+                  onClick={() => void open({})}
+                >
+                  <Plus aria-hidden /> Quick empty session
+                </Button>
+                <div className="z-10 hidden w-full grid-cols-3 bg-card group-hover:grid group-focus-within:grid">
+                  {(['main', 'worktree', 'terminal'] as const).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      data-testid={`quick-${kind}`}
+                      className="flex flex-col items-center justify-center gap-1 border-r border-dashed text-xs last:border-r-0 hover:bg-accent"
+                      disabled={!project.exists || acting}
+                      onClick={() =>
+                        kind === 'main' ? void open({}) : props.onNewSession(project.name, kind)
+                      }
+                    >
+                      {kind === 'terminal' ? (
+                        <TerminalSquare aria-hidden className="size-4" />
+                      ) : kind === 'worktree' ? (
+                        <FolderGit2 aria-hidden className="size-4" />
+                      ) : (
+                        <Plus aria-hidden className="size-4" />
+                      )}
+                      {kind === 'main' ? 'Main' : kind === 'worktree' ? 'Worktree' : 'Terminal'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
+          {worktrees.data && worktrees.data.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <FolderGit2 aria-hidden className="size-4" /> Worktrees ({worktrees.data.length})
+                <button
+                  type="button"
+                  className="font-normal normal-case hover:text-foreground"
+                  onClick={() => setTab('worktrees')}
+                >
+                  Manage
+                </button>
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                {worktrees.data.map((tree) => (
+                  <button
+                    key={tree.path}
+                    type="button"
+                    className="flex min-w-36 flex-col items-start gap-1 rounded-md border bg-card/40 p-3 text-left text-xs hover:border-ring"
+                    onClick={() => setTab('worktrees')}
+                  >
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Folder aria-hidden className="size-3" />
+                      {tree.main ? 'main' : tree.path.split('/').at(-1)}
+                    </span>
+                    <span className="flex items-center gap-1 font-mono text-sky-500">
+                      <GitBranch aria-hidden className="size-3" />
+                      {tree.branch ?? 'detached'}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {tree.holders.length ? `${tree.holders.length} session(s)` : tree.state}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Recent{' '}

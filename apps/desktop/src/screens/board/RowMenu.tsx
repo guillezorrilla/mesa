@@ -1,4 +1,4 @@
-import { Ellipsis, Pencil, ScrollText, Trash2 } from 'lucide-react';
+import { Ellipsis, Pencil, RotateCcw, ScrollText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -13,6 +13,7 @@ export function RowMenu(props: {
   onLog: () => void;
   onRename: () => void;
   onRemove: () => void;
+  onUnarchive?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const pick = (action: () => void) => () => {
@@ -58,6 +59,17 @@ export function RowMenu(props: {
             <Trash2 aria-hidden />
             Remove
           </Button>
+          {props.onUnarchive && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="session-unarchive"
+              onClick={pick(props.onUnarchive)}
+            >
+              <RotateCcw aria-hidden />
+              Unarchive
+            </Button>
+          )}
         </>
       )}
     </div>

@@ -1,33 +1,27 @@
 import type { BoardPreferences, GridGroup, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import { DEFAULT_BOARD_PREFERENCES, isRun, sessionLabel } from '@mesa/core/browser';
 import {
-  attentionScore,
-  DEFAULT_BOARD_PREFERENCES,
-  isRun,
-  sessionBranch,
-  sessionLabel,
-} from '@mesa/core/browser';
-import {
+  Archive,
   ArrowLeft,
   Download,
   ExternalLink,
   Forward,
+  MoreVertical,
   Plus,
   RotateCcw,
   Send,
   Square,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { ContextBar } from '@/components/ContextBar';
+import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
-import { StateBadge } from '@/components/StateBadge';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
+import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
 import { GridToolbar } from './GridToolbar';
@@ -42,15 +36,14 @@ import { exited, queued, resumable } from './rows';
 import type { RowActions } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
-import { WorkflowSelect } from './WorkflowSelect';
 
 /**
  * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
  * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
-  | { kind: 'new' }
-  | { kind: 'rename' | 'handoff' | 'log' | 'remove'; row: ManagedRow }
+  | { kind: 'new'; project?: string; location?: 'main' | 'worktree' | 'terminal' }
+  | { kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive'; row: ManagedRow }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 /**
@@ -64,7 +57,13 @@ export function BoardScreen(
     selectedSession?: string;
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
-    newSessionRequest?: number;
+    onProject?: (project: string) => void;
+    newSessionRequest?: {
+      count: number;
+      project?: string;
+      location?: 'main' | 'worktree' | 'terminal';
+    };
+    archiveSessionRequest?: { count: number; id: string };
     preferences?: BoardPreferences;
     onPreferencesChanged?: () => void;
     onSelectSession?: (id: string) => void;
@@ -82,9 +81,25 @@ export function BoardScreen(
   const run = useRun();
   const call = useCall();
   const [dialog, setDialog] = useState<OpenDialog>();
+  const handledArchiveRequest = useRef(0);
   useEffect(() => {
-    if (props.newSessionRequest) setDialog({ kind: 'new' });
+    if (props.newSessionRequest?.count)
+      setDialog({
+        kind: 'new',
+        project: props.newSessionRequest.project,
+        location: props.newSessionRequest.location,
+      });
   }, [props.newSessionRequest]);
+  useEffect(() => {
+    const id = props.archiveSessionRequest?.id;
+    const row = data?.find(
+      (session): session is ManagedRow & TreeRow => session.id === id && session.managed,
+    );
+    if (row && props.archiveSessionRequest?.count !== handledArchiveRequest.current) {
+      handledArchiveRequest.current = props.archiveSessionRequest?.count ?? 0;
+      setDialog({ kind: 'archive', row });
+    }
+  }, [props.archiveSessionRequest, data]);
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
@@ -166,6 +181,11 @@ export function BoardScreen(
     handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
     log: (row) => row.managed && setDialog({ kind: 'log', row }),
     remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
+    unarchive: (id) =>
+      act(async () => {
+        const restored = await run('sessions.unarchive', { id });
+        return restored && said(`Unarchived session ${id}`, restored);
+      }),
     workflow: (id, status) =>
       act(async () => {
         const changed = await run('sessions.workflow', { id, status });
@@ -206,11 +226,28 @@ export function BoardScreen(
       const extra = also.filter(Boolean).join(' and ');
       return said(`Removed session ${id}${extra ? ` with ${extra}` : ''}`, removed);
     });
+  const archive = (id: string) =>
+    act(async () => {
+      const archived = await run('sessions.archive', { id });
+      if (!archived) return undefined;
+      close();
+      props.onBoard?.();
+      return said(`Archived session ${id}`, archived);
+    });
+  const deletePermanently = (id: string) =>
+    act(async () => {
+      const removed = await run('sessions.remove', { id, force: true });
+      if (!removed) return undefined;
+      close();
+      props.onBoard?.();
+      return said(`Deleted session ${id}`, removed);
+    });
   const open = (input: NewSessionInput) =>
     act(async () => {
       const opened = await run('sessions.open', input);
       if (!opened) return undefined;
       close();
+      props.onSelectSession?.(opened.id);
       return said(`Opened session ${opened.id} on ${opened.project}`, opened);
     });
   const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
@@ -268,15 +305,124 @@ export function BoardScreen(
       className={props.selectedSession ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
     >
       {props.selectedSession ? (
-        <div className="flex min-h-12 items-center gap-2 border-b px-4 text-sm">
-          <Button variant="ghost" size="icon-sm" aria-label="All sessions" onClick={props.onBoard}>
-            <ArrowLeft aria-hidden />
+        <div
+          data-testid="selected-session"
+          className="flex min-h-12 shrink-0 items-center gap-2 border-b bg-card/40 px-4 text-sm"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-0 text-muted-foreground"
+            onClick={() =>
+              selected?.project && props.onProject
+                ? props.onProject(selected.project)
+                : props.onBoard?.()
+            }
+          >
+            {selected?.project ?? 'General'}
           </Button>
-          <span className="text-muted-foreground">{selected?.project ?? 'General'} /</span>
+          <span className="text-muted-foreground">/</span>
           <span className="truncate font-medium">
-            {selected ? sessionLabel(selected) : props.selectedSession}
+            {selected
+              ? selected.managed && !selected.name
+                ? 'Session'
+                : sessionLabel(selected)
+              : props.selectedSession}
           </span>
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
+          {selected?.managed && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Archive session"
+              onClick={() => setDialog({ kind: 'archive', row: selected })}
+            >
+              <Archive aria-hidden />
+            </Button>
+          )}
+          {selected && (
+            <details className="relative z-20">
+              <summary
+                aria-label="Session actions"
+                className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <MoreVertical aria-hidden className="size-4" />
+              </summary>
+              {selected.managed ? (
+                <div className="absolute right-0 mt-2 flex w-80 flex-wrap items-center gap-2 rounded-lg border bg-popover p-3 shadow-lg">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.openTerminal(selected.id)}
+                    disabled={!selected.alive || acting}
+                  >
+                    <ExternalLink aria-hidden /> Open in terminal app
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.stop(selected.id)}
+                    disabled={!(selected.alive || queued(selected)) || acting}
+                  >
+                    <Square aria-hidden /> {queued(selected) ? 'Cancel' : 'Stop'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => actions.resume(selected.id)}
+                    disabled={!resumable(selected) || acting}
+                  >
+                    <RotateCcw aria-hidden /> Resume
+                  </Button>
+                  {!isRun(selected) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => actions.handoff(selected)}
+                      disabled={exited(selected) || !selected.goal || acting}
+                    >
+                      <Forward aria-hidden /> Hand off
+                    </Button>
+                  )}
+                  <RowMenu
+                    sessionId={selected.id}
+                    canRemove={exited(selected) && !queued(selected) && !acting}
+                    onLog={() => actions.log(selected)}
+                    onRename={() => actions.rename(selected)}
+                    onRemove={() => actions.remove(selected)}
+                  />
+                  {!isRun(selected) && !exited(selected) && (
+                    <form
+                      className="flex min-w-48 flex-1 gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!acting) actions.send(selected.id, event.currentTarget);
+                      }}
+                    >
+                      <Input
+                        name="prompt"
+                        aria-label={`Prompt for ${selected.id}`}
+                        placeholder="Message session"
+                      />
+                      <Button type="submit" size="sm" disabled={acting}>
+                        <Send aria-hidden /> Send
+                      </Button>
+                    </form>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    actions.adopt(selected.agentSessionId, selected.project ?? undefined)
+                  }
+                >
+                  <Download aria-hidden /> Adopt
+                </Button>
+              )}
+            </details>
+          )}
         </div>
       ) : props.gridMode ? (
         <PageHeader
@@ -351,7 +497,14 @@ export function BoardScreen(
         </>
       )}
       {dialog?.kind === 'new' && (
-        <NewSessionDialog onOpen={open} onCancel={close} disabled={acting} />
+        <NewSessionDialog
+          key={`${dialog.project ?? ''}-${dialog.location ?? ''}`}
+          project={dialog.project}
+          location={dialog.location}
+          onOpen={open}
+          onCancel={close}
+          disabled={acting}
+        />
       )}
       {dialog?.kind === 'handoff' && (
         <HandoffDialog
@@ -389,123 +542,19 @@ export function BoardScreen(
           onCancel={close}
         />
       )}
+      {dialog?.kind === 'archive' && (
+        <ArchiveDialog
+          row={dialog.row}
+          disabled={acting}
+          onArchive={() => archive(dialog.row.id)}
+          onDelete={() => deletePermanently(dialog.row.id)}
+          onCancel={close}
+        />
+      )}
       {props.selectedSession ? (
-        selected ? (
-          <Card
-            data-testid="selected-session"
-            className="relative gap-0 rounded-none border-x-0 border-t-0 bg-background px-4 py-2"
-          >
-            <div className="flex flex-wrap items-center gap-3 pr-28 text-sm">
-              <StateBadge
-                state={selected.lastState.state}
-                confidence={selected.lastState.confidence}
-              />
-              <span className="text-muted-foreground">
-                Attention {attentionScore(selected.attention)}
-              </span>
-              {selected.managed && selected.context && (
-                <ContextBar used={selected.context.used} window={selected.context.window} />
-              )}
-              {selected.managed && sessionBranch(selected) && (
-                <span className="font-mono text-muted-foreground">{sessionBranch(selected)}</span>
-              )}
-              {selected.managed && (
-                <WorkflowSelect
-                  id={selected.id}
-                  status={selected.workflowStatus}
-                  disabled={acting}
-                  onChange={(status) => actions.workflow(selected.id, status)}
-                />
-              )}
-            </div>
-            <details className="absolute right-4 top-1.5 z-20">
-              <summary className="cursor-pointer rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring">
-                Session actions
-              </summary>
-              {selected.managed ? (
-                <div className="absolute right-0 mt-2 flex w-80 flex-wrap items-center gap-2 rounded-lg border bg-popover p-3 shadow-lg">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.openTerminal(selected.id)}
-                    disabled={!selected.alive || acting}
-                  >
-                    <ExternalLink aria-hidden />
-                    Open in terminal app
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.stop(selected.id)}
-                    disabled={!(selected.alive || queued(selected)) || acting}
-                  >
-                    <Square aria-hidden />
-                    {queued(selected) ? 'Cancel' : 'Stop'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => actions.resume(selected.id)}
-                    disabled={!resumable(selected) || acting}
-                  >
-                    <RotateCcw aria-hidden />
-                    Resume
-                  </Button>
-                  {!isRun(selected) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => actions.handoff(selected)}
-                      disabled={exited(selected) || !selected.goal || acting}
-                    >
-                      <Forward aria-hidden />
-                      Hand off
-                    </Button>
-                  )}
-                  <RowMenu
-                    sessionId={selected.id}
-                    canRemove={exited(selected) && !queued(selected) && !acting}
-                    onLog={() => actions.log(selected)}
-                    onRename={() => actions.rename(selected)}
-                    onRemove={() => actions.remove(selected)}
-                  />
-                  {!isRun(selected) && !exited(selected) && (
-                    <form
-                      className="flex min-w-48 flex-1 gap-2"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (!acting) actions.send(selected.id, event.currentTarget);
-                      }}
-                    >
-                      <Input
-                        name="prompt"
-                        aria-label={`Prompt for ${selected.id}`}
-                        placeholder="Message session"
-                      />
-                      <Button type="submit" size="sm" disabled={acting}>
-                        <Send aria-hidden />
-                        Send
-                      </Button>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    actions.adopt(selected.agentSessionId, selected.project ?? undefined)
-                  }
-                >
-                  <Download aria-hidden />
-                  Adopt
-                </Button>
-              )}
-            </details>
-          </Card>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {data ? 'Session unavailable. Open Board to choose another.' : 'Loading session...'}
+        !selected && (
+          <p className="p-4 text-sm text-muted-foreground">
+            {data ? 'Session unavailable. Open Sessions to choose another.' : 'Loading session...'}
           </p>
         )
       ) : !props.gridMode ? (

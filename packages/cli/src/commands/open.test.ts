@@ -60,6 +60,27 @@ test('open prints the session id, --json the record, and --attach hands back the
   expect(codex).not.toHaveProperty('agentSessionId');
 });
 
+test('open --terminal starts a plain shell session with no coding agent conversation', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const opened = (await mesa('open', 'lantern-cove', '--terminal', '--json')).json.data;
+  expect(opened).toMatchObject({ kind: 'terminal', agent: 'terminal', project: 'lantern-cove' });
+  expect(opened.agentSessionId).toBeUndefined();
+  expect(world.windows.at(-1)?.launch).toBe("exec '/bin/zsh' -l");
+  expect((await mesa('sessions', '--json')).json.data).toEqual([
+    expect.objectContaining({
+      id: opened.id,
+      kind: 'terminal',
+      lastState: expect.objectContaining({ state: 'working' }),
+    }),
+  ]);
+  expect(await mesa('send', opened.id, 'hello')).toMatchObject({ code: 2 });
+  expect(await mesa('resume', opened.id)).toMatchObject({ code: 2 });
+  expect(await mesa('open', 'lantern-cove', '--terminal', '--agent', 'claude')).toMatchObject({
+    code: 2,
+  });
+});
+
 test('open --goal and --goal-file start with a goal; mesa goal prints it', async () => {
   const world = cli.withTmux();
   await cli.withProject({ layOut: false });

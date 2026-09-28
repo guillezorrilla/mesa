@@ -13,6 +13,7 @@ export function refreshContext(
   deps: { store: SessionStore; home: string; env: Env },
   record: SessionRecord,
 ): SessionRecord {
+  if (record.agent === 'terminal') return record;
   const read = AGENTS[record.agent].context;
   if (!read || !record.agentSessionId) return record;
   try {

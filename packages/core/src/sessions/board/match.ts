@@ -15,7 +15,9 @@ export function matchListed(
   listed: readonly AgentProcess[],
 ) {
   const open = records.filter((r) => !r.endedAt);
-  const byWindow = new Map(open.map((r) => [targetLabel(windowOf(r)), r.id]));
+  const byWindow = new Map(
+    open.filter((r) => r.agent !== 'terminal').map((r) => [targetLabel(windowOf(r)), r.id]),
+  );
   const byPane = new Map(windows.map((w) => [w.panePid, byWindow.get(targetLabel(w))]));
   const byAgentSession = new Map(
     open.flatMap((r) => (r.agentSessionId ? [[r.agentSessionId, r.id] as const] : [])),

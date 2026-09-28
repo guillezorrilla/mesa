@@ -22,6 +22,8 @@ export async function resumeSession(
   id: string,
 ): Promise<{ record: SessionRecord; from: SessionRecord; warning?: string }> {
   const old = deps.store.get(id);
+  if (old.agent === 'terminal')
+    throw new MesaError('usage', `session ${id} is a plain terminal; open a new one instead`);
   if (!old.agentSessionId) {
     throw new MesaError(
       'not_found',

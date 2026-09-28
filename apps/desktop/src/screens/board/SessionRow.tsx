@@ -43,6 +43,7 @@ export type RowActions = {
   log: (row: TreeRow) => void;
   rename: (row: TreeRow) => void;
   remove: (row: TreeRow) => void;
+  unarchive: (id: string) => void;
   workflow: (id: string, status: WorkflowStatus | 'clear') => void;
 };
 
@@ -93,6 +94,11 @@ export function SessionRow(props: {
           </button>
         ) : (
           <span title={s.managed && s.name ? s.id : undefined}>{label}</span>
+        )}
+        {s.managed && s.archivedAt && (
+          <Badge variant="outline" className="ml-2">
+            archived
+          </Badge>
         )}
       </TableCell>
       <TableCell>
@@ -282,6 +288,7 @@ export function SessionRow(props: {
                 onLog={() => actions.log(s)}
                 onRename={() => actions.rename(s)}
                 onRemove={() => actions.remove(s)}
+                onUnarchive={s.archivedAt ? () => actions.unarchive(s.id) : undefined}
               />
             </div>
           </div>

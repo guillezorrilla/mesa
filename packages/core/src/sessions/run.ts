@@ -356,6 +356,8 @@ function runResult(
   exit: Exit | undefined,
   at: string,
 ): HeadlessResult {
+  if (run.agent === 'terminal')
+    throw new MesaError('usage', `session ${run.id} is not a skill run`);
   const file = runOutput(deps.runs, run.id);
   const said = existsSync(file)
     ? AGENTS[run.agent].headless.result(readFileSync(file, 'utf8'))

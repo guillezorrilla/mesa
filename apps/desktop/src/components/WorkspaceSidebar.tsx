@@ -1,6 +1,7 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
 import { sessionLabel, WAITING_STATES } from '@mesa/core/browser';
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -10,8 +11,10 @@ import {
   LayoutDashboard,
   Plus,
   Stethoscope,
+  TerminalSquare,
+  X,
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { exited, queued } from '@/screens/board/rows';
@@ -29,8 +32,11 @@ export function WorkspaceSidebar(props: {
   sessions: readonly TreeRow[];
   collapsed: boolean;
   onCollapse: () => void;
+  onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal') => void;
+  onArchiveSession?: (id: string) => void;
 }) {
   const { view, onView, collapsed } = props;
+  const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const lastProject = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (view.kind === 'project') lastProject.current = view.name;
@@ -63,29 +69,60 @@ export function WorkspaceSidebar(props: {
     );
   };
   const sessionItem = (session: TreeRow) => (
-    <button
-      key={session.id}
-      type="button"
-      data-testid="sidebar-session"
-      aria-current={view.kind === 'session' && view.id === session.id ? 'page' : undefined}
-      className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
-        view.kind === 'session' && view.id === session.id && 'bg-accent',
-      )}
-      title={`${session.project ?? 'General'}: ${sessionLabel(session)}: ${session.lastState.state}`}
-      onClick={() => onView({ kind: 'session', id: session.id })}
-    >
-      <span
-        aria-hidden
+    <div key={session.id} className="group relative">
+      <button
+        type="button"
+        data-testid="sidebar-session"
+        aria-current={view.kind === 'session' && view.id === session.id ? 'page' : undefined}
         className={cn(
-          'size-1.5 shrink-0 rounded-full bg-state-idle',
-          WAITING_STATES.has(session.lastState.state) && 'bg-state-waiting',
-          session.lastState.state === 'working' && 'bg-state-working',
-          session.lastState.state === 'failed' && 'bg-state-failed',
+          'mb-1 flex min-h-14 w-full flex-col justify-center gap-1 rounded-md border border-transparent px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+          view.kind === 'session' &&
+            view.id === session.id &&
+            'border-state-waiting bg-state-waiting/15',
         )}
-      />
-      <span className="min-w-0 flex-1 truncate">{sessionLabel(session)}</span>
-    </button>
+        title={`${session.project ?? 'General'}: ${sessionLabel(session)}: ${session.lastState.state}`}
+        onClick={() => onView({ kind: 'session', id: session.id })}
+      >
+        <span className="flex w-full min-w-0 items-center gap-2 font-medium">
+          {session.managed && session.kind === 'terminal' ? (
+            <TerminalSquare aria-hidden className="size-3.5 shrink-0 text-state-working" />
+          ) : (
+            <span
+              aria-hidden
+              className={cn(
+                'size-2 shrink-0 rounded-full border border-state-idle',
+                WAITING_STATES.has(session.lastState.state) && 'border-state-waiting',
+                session.lastState.state === 'working' && 'border-state-working',
+                session.lastState.state === 'failed' && 'border-state-failed',
+              )}
+            />
+          )}
+          <span className="truncate">
+            {session.managed && !session.name ? 'Session' : sessionLabel(session)}
+          </span>
+        </span>
+        <span
+          className={cn(
+            'pl-4 font-mono text-[11px] text-muted-foreground',
+            session.lastState.state === 'working' && 'text-state-working',
+            WAITING_STATES.has(session.lastState.state) && 'text-state-waiting',
+            session.lastState.state === 'failed' && 'text-state-failed',
+          )}
+        >
+          {session.lastState.state}
+        </span>
+      </button>
+      {session.managed && (
+        <button
+          type="button"
+          aria-label={`Archive ${session.name ?? 'Session'} (${session.id})`}
+          className="absolute right-2 top-2 hidden rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:block group-hover:block"
+          onClick={() => props.onArchiveSession?.(session.id)}
+        >
+          <X aria-hidden className="size-3.5" />
+        </button>
+      )}
+    </div>
   );
   return (
     <aside
@@ -104,7 +141,10 @@ export function WorkspaceSidebar(props: {
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
                 !projectTab && 'border-primary text-foreground',
               )}
-              onClick={() => onView({ kind: 'board' })}
+              onClick={() => {
+                const first = view.kind === 'session' ? view.id : active[0]?.id;
+                onView(first ? { kind: 'session', id: first } : { kind: 'board' });
+              }}
             >
               Sessions <span className="rounded bg-muted px-1">{active.length}</span>
             </button>
@@ -185,35 +225,82 @@ export function WorkspaceSidebar(props: {
           </>
         ) : (
           <>
-            <div className="mb-2 flex items-center justify-between px-2">
-              <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Sessions
-              </span>
-              <div className="flex gap-1">
-                {item('Board', LayoutDashboard, { kind: 'board' })}
-                {item('Grid', Grid2X2, { kind: 'grid' })}
-              </div>
-            </div>
             {visible.map((project) => (
               <div key={project.name} className="mb-3">
-                <button
-                  type="button"
-                  data-testid="sidebar-project"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs text-muted-foreground hover:bg-accent"
-                  onClick={() => onView({ kind: 'project', name: project.name })}
-                >
-                  <Folder aria-hidden className="size-3.5" />
-                  <span className="truncate">{project.label}</span>
-                </button>
-                <div className="ml-3 border-l pl-1">
-                  {active.filter((session) => session.project === project.name).map(sessionItem)}
+                <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
+                  <button
+                    type="button"
+                    aria-label={`${closedProjects.includes(project.name) ? 'Expand' : 'Collapse'} ${project.label} sessions`}
+                    aria-expanded={!closedProjects.includes(project.name)}
+                    className="rounded p-1 hover:bg-accent"
+                    onClick={() =>
+                      setClosedProjects((current) =>
+                        current.includes(project.name)
+                          ? current.filter((name) => name !== project.name)
+                          : [...current, project.name],
+                      )
+                    }
+                  >
+                    {closedProjects.includes(project.name) ? (
+                      <ChevronRight aria-hidden className="size-3" />
+                    ) : (
+                      <ChevronDown aria-hidden className="size-3" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="sidebar-project"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left hover:text-foreground"
+                    onClick={() => onView({ kind: 'project', name: project.name })}
+                  >
+                    <Folder aria-hidden className="size-3.5 shrink-0" />
+                    <span className="truncate">{project.label}</span>
+                  </button>
+                  <details className="relative">
+                    <summary
+                      aria-label={`New session in ${project.label}`}
+                      className="flex size-6 cursor-pointer items-center justify-center rounded hover:bg-accent"
+                    >
+                      <Plus aria-hidden className="size-3.5" />
+                    </summary>
+                    <div className="absolute left-full top-0 z-30 ml-1 w-52 rounded-md border bg-popover p-1 shadow-lg">
+                      {(['main', 'terminal', 'worktree'] as const).map((kind) => (
+                        <button
+                          key={kind}
+                          type="button"
+                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                          onClick={(event) => {
+                            const menu = event.currentTarget.closest('details');
+                            if (menu) menu.open = false;
+                            props.onNewSession?.(project.name, kind);
+                          }}
+                        >
+                          {kind === 'terminal' ? (
+                            <TerminalSquare aria-hidden className="size-3.5" />
+                          ) : (
+                            <Plus aria-hidden className="size-3.5" />
+                          )}
+                          {kind === 'main'
+                            ? 'New session'
+                            : kind === 'terminal'
+                              ? 'New terminal session'
+                              : 'New worktree session'}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
                 </div>
+                {!closedProjects.includes(project.name) && (
+                  <div className="mt-1 space-y-1 px-1">
+                    {active.filter((session) => session.project === project.name).map(sessionItem)}
+                  </div>
+                )}
               </div>
             ))}
             {unassigned.length > 0 && (
               <div>
                 <p className="px-2 text-xs text-muted-foreground">General and other</p>
-                <div className="ml-3 border-l pl-1">{unassigned.map(sessionItem)}</div>
+                <div className="px-1">{unassigned.map(sessionItem)}</div>
               </div>
             )}
             {active.length === 0 && (
@@ -223,6 +310,8 @@ export function WorkspaceSidebar(props: {
         )}
       </nav>
       <div className="flex justify-around border-t px-2 py-2">
+        {item('Board', LayoutDashboard, { kind: 'board' })}
+        {item('Grid', Grid2X2, { kind: 'grid' })}
         {item('Projects', Folder, { kind: 'projects' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
         {item('Shortcuts', Keyboard, { kind: 'shortcuts' })}

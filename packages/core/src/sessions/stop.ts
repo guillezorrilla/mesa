@@ -49,7 +49,8 @@ export async function stopSession(
   let outcome: StopOutcome = 'gone';
   const first = await pane();
   if (first) {
-    if (!force && !first.dead) await askToQuit(deps, target, AGENTS[found.agent], pane);
+    if (!force && !first.dead && found.agent !== 'terminal')
+      await askToQuit(deps, target, AGENTS[found.agent], pane);
     const last = await pane();
     outcome = !last || last.dead ? 'exited' : 'killed';
     // A pane that exited stays, dead, under remain-on-exit; the window goes either way.

@@ -1,5 +1,6 @@
 import type { Command } from '../command.js';
 import { adopt } from './adopt.js';
+import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { board, boardMove } from './board.js';
 import { config, configSet } from './config.js';
@@ -64,6 +65,7 @@ import { sessions } from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsSync } from './skills.js';
 import { stop } from './stop.js';
+import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
 import { view } from './view.js';
@@ -81,6 +83,7 @@ import {
 // (`hooks install` in hooks.ts), and has one entry here.
 export const COMMANDS: Command[] = [
   adopt,
+  archive,
   attach,
   board,
   boardMove,
@@ -154,6 +157,7 @@ export const COMMANDS: Command[] = [
   skillsSync,
   stop,
   unregister,
+  unarchive,
   vaultInit,
   vaultOpen,
   vaultStatus,

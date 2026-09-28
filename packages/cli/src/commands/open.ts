@@ -12,6 +12,7 @@ export const open = defineCommand({
       description: 'claude or codex; default: the project mesa.yaml, else the profile default',
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
+    terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },
     goal: {
       type: 'string',
       description: "The agent's first prompt; one starting /goal runs Claude Code's goal command",
@@ -51,6 +52,7 @@ export const open = defineCommand({
       after: flags.after,
       branch: flags.branch,
       base: flags.base,
+      terminal: flags.terminal,
     });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;

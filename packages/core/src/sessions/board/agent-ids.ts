@@ -20,9 +20,10 @@ export function ownSessionIds(
   const held = new Set(taken);
   const read = new Map<string, string>();
   const unread = records
-    .filter((r) => !r.agentSessionId && isAgentState(r.lastState.state))
+    .filter((r) => r.agent !== 'terminal' && !r.agentSessionId && isAgentState(r.lastState.state))
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   for (const r of unread) {
+    if (r.agent === 'terminal') continue;
     const own = AGENTS[r.agent].ownSessionId;
     const project = deps.projects.find((p) => p.name === r.project);
     if (!own || !project) continue;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
+import type { Agent } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
 import { FINAL_STATES, SESSION_STATES } from './states.js';
 import { WORKFLOW_STATUSES } from './workflow-status.js';
@@ -20,12 +21,12 @@ export const isForeignId = (id: string) => id.startsWith(FOREIGN);
 export const foreignId = (p: { pid?: number; agentSessionId: string }) =>
   `${FOREIGN}${p.pid ?? p.agentSessionId}` as const;
 
-export const SessionRecordSchema = z.strictObject({
+const SessionRecordFields = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
   id: z.string().regex(SHORT_ID),
-  kind: z.enum(['interactive', 'run']),
+  kind: z.enum(['interactive', 'run', 'terminal']),
   project: z.string(),
-  agent: AgentSchema,
+  agent: z.union([AgentSchema, z.literal('terminal')]),
   /** Claude Code's session UUID, or Codex's thread id. */
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
@@ -71,6 +72,8 @@ export const SessionRecordSchema = z.strictObject({
   tmux: z.strictObject({ socket: z.string(), session: z.string(), window: z.string() }),
   startedAt: z.iso.datetime(),
   endedAt: z.iso.datetime().optional(),
+  /** Hidden from the active board while retaining the record and logs for later review. */
+  archivedAt: z.iso.datetime().optional(),
   lastState: z.strictObject({
     state: z.enum(SESSION_STATES),
     confidence: z.number().min(0).max(1),
@@ -141,7 +144,17 @@ export const SessionRecordSchema = z.strictObject({
   resumedFrom: z.string().optional(),
   resumedBy: z.string().optional(),
 });
+
+export const SessionRecordSchema = SessionRecordFields.refine(
+  (record) =>
+    (record.kind === 'terminal') === (record.agent === 'terminal') &&
+    (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)),
+  'plain terminal records must use kind and agent terminal together',
+);
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+/** A plain terminal has no coding agent or provider conversation. */
+export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
+  record.agent === 'terminal' ? undefined : record.agent;
 export type ContextUse = NonNullable<SessionRecord['context']>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 

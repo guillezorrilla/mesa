@@ -68,6 +68,41 @@ export async function managedRow(
   },
 ): Promise<ManagedRow> {
   const { now, window, listedAs } = seen;
+  if (found.agent === 'terminal') {
+    const state = found.endedAt
+      ? found.lastState.state
+      : window && !window.dead
+        ? 'working'
+        : 'done';
+    const lastState =
+      state === found.lastState.state
+        ? found.lastState
+        : {
+            state,
+            confidence: 1,
+            at: now.toISOString(),
+            source: 'tmux' as const,
+          };
+    const record =
+      lastState === found.lastState ? found : saveLook(deps.store, found, { lastState });
+    const tail =
+      window && !found.endedAt
+        ? await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined)
+        : undefined;
+    return {
+      ...record,
+      lastState,
+      attention: 0,
+      managed: true,
+      children: seen.children,
+      alive: Boolean(window && !window.dead),
+      runningSeconds: secondsBetween(
+        record.startedAt,
+        record.endedAt ? Date.parse(record.endedAt) : now.getTime(),
+      ),
+      ...(tail ? { lastOutput: tail.trimEnd().split('\n').at(-1) } : {}),
+    };
+  }
   const reader = AGENTS[found.agent];
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, so its hook log is not read.

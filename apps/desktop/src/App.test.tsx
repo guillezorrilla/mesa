@@ -29,7 +29,7 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('sidebar-project')[0]);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('/src/lantern-cove');
-  expect(byTestId('project-workspace')[0]?.textContent).toContain('aaaaaaaa');
+  expect(byTestId('project-active-session')[0]?.getAttribute('aria-label')).toContain('aaaaaaaa');
   await click(
     [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent?.toLowerCase() === 'skills',
@@ -725,7 +725,7 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   expect(byTestId('project-workspace')).toHaveLength(1);
   expect(byTestId('project-active-session')).toHaveLength(2);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('finished');
-  expect(byTestId('project-active-session')[1]?.textContent).toContain('queuedone');
+  expect(byTestId('project-active-session')[1]?.getAttribute('aria-label')).toContain('queuedone');
   expect(
     byTestId('project-active-session')[0]?.querySelector('[data-state="waiting-permission"]'),
   ).not.toBeNull();
@@ -757,13 +757,14 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
   expect(byTestId('sidebar-session').map((item) => item.textContent)).toEqual([
-    'aaaaaaaa',
-    'bbbbbbbb',
+    'Sessionworking',
+    'Sessionworking',
   ]);
   await click(byTestId('sidebar-session')[1]);
-  expect(byTestId('session-board')[0]?.textContent).toContain('bbbbbbbb');
+  expect(byTestId('selected-session')[0]?.textContent).toContain('Session');
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
   expect(terms.calls.filter((call) => call[0] === 'open').map((call) => call[1])).toEqual([
+    'aaaaaaaa',
     'bbbbbbbb',
   ]);
   await click(byTestId('nav-doctor')[0]);
@@ -771,7 +772,7 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   await click(byTestId('sidebar-session')[1]);
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
   expect(terms.calls.filter((call) => call[0] === 'close')).toEqual([]);
-  expect(terms.calls.filter((call) => call[0] === 'open')).toHaveLength(1);
+  expect(terms.calls.filter((call) => call[0] === 'open')).toHaveLength(2);
   await click(document.querySelector('[aria-label="Collapse sidebar"]') as HTMLElement);
   expect(byTestId('workspace-sidebar')[0]?.dataset.collapsed).toBe('true');
   expect(byTestId('selected-session')).toHaveLength(1);
@@ -785,6 +786,35 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
     grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   });
   expect(byTestId('grid-toolbar')).toHaveLength(1);
+});
+
+test('session close opens archive confirmation and archives only after confirmation', async () => {
+  let archived = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(archived ? [] : [managedRow('aaaaaaaa')]),
+    archive: () => {
+      archived = true;
+      return envelope({ ...managedRow('aaaaaaaa'), archivedAt: '2026-09-27T12:00:00.000Z' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const close = () =>
+    document.querySelector('[aria-label="Archive Session (aaaaaaaa)"]') as HTMLElement;
+  await click(close());
+  expect(byTestId('archive-dialog')[0]?.textContent).toContain('Archive this session?');
+  expect(calls.some((args) => args.includes('archive'))).toBe(false);
+  await click(
+    [...(byTestId('archive-dialog')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Cancel',
+    ),
+  );
+  expect(byTestId('archive-dialog')).toHaveLength(0);
+  await click(close());
+  await click(byTestId('archive-confirm')[0]);
+  expect(calls).toContainEqual(['--json', 'archive', '--', 'aaaaaaaa']);
+  expect(byTestId('archive-dialog')).toHaveLength(0);
+  expect(byTestId('sidebar-session')).toHaveLength(0);
 });
 
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
@@ -814,8 +844,56 @@ test('project Overview starts worktree goals and quick empty sessions through me
     'lantern-cove',
   ]);
   await click(byTestId('sidebar-project')[0]);
-  await click(byTestId('quick-session')[0]);
+  await click(byTestId('quick-main')[0]);
   expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
+});
+
+test('quick terminal tile opens a plain terminal in the selected project', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope(managedRow('term0001', { kind: 'terminal', agent: 'terminal' })),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(byTestId('quick-terminal')[0]);
+  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New terminal session');
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--terminal',
+    '--',
+    'lantern-cove',
+  ]);
+});
+
+test('project session menu offers three real launch paths and closes after choosing one', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope(managedRow('term0001', { kind: 'terminal', agent: 'terminal' })),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const menu = document.querySelector('[aria-label="New session in lantern-cove"]') as HTMLElement;
+  await click(menu);
+  const options = [...(menu.parentElement?.querySelectorAll('button') ?? [])];
+  expect(options.map((button) => button.textContent)).toEqual([
+    'New session',
+    'New terminal session',
+    'New worktree session',
+  ]);
+  await click(options[1]);
+  expect((menu.parentElement as HTMLDetailsElement).open).toBe(false);
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--terminal',
+    '--',
+    'lantern-cove',
+  ]);
+  expect(byTestId('selected-session')).toHaveLength(1);
 });
 
 test('project controls update profile presentation and leave the slug available when hidden', async () => {
@@ -1114,7 +1192,7 @@ test('a confirmation is neutral, shows every time, and goes by itself', async ()
       sessions: () => envelope([managedRow('aaaaaaaa')]),
       send: () => envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5 }),
     });
-    const byTestId = await renderWithMesa(<App />, bridge);
+    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
     await send(byTestId, 'hello');
     await send(byTestId, 'hello');
     expect(toasts(byTestId)).toEqual([
@@ -1145,7 +1223,7 @@ test('a failure, or a confirmation with a warning, is an alert: warm, once, and 
               warning: 'no receipt',
             }),
     });
-    const byTestId = await renderWithMesa(<App />, bridge);
+    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
     await send(byTestId, 'hello');
     await send(byTestId, 'hello');
     fails = false;
