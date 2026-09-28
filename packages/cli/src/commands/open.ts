@@ -15,6 +15,7 @@ export const open = defineCommand({
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
     terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },
+    background: { type: 'boolean', description: 'Run Claude in its native background mode' },
     mode: {
       type: 'string',
       description: 'Native startup mode: plan (Claude Code, Antigravity CLI)',
@@ -52,6 +53,7 @@ export const open = defineCommand({
     const recorded = await mesa.sessions.open(args.project, {
       agent: flags.agent,
       mode: flags.mode,
+      background: flags.background,
       goal: flags.goal,
       goalFile: flags['goal-file'],
       parent: flags.parent,

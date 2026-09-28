@@ -74,19 +74,20 @@ export async function handoffSession(
   requireOwnWorktree(deps.store, from);
   const { entry } = launchProject(deps.profile, from.project);
   await readyAgent(deps.run, from.agent);
-  const agentSessionId = newSessionId(from.agent, deps.newUuid);
+  const agentSessionId = from.background ? undefined : newSessionId(from.agent, deps.newUuid);
   const { goal } = from;
   // Checked before anything is written, with a note path as long as the successor's will be.
   const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
-  requireCommandFits(
-    startCommand(from.agent, {
-      id: 'xxxxxxxx',
-      logs: deps.profile.paths.logs,
-      agentSessionId,
-      goal: placeholder,
-      mode: from.mode,
-    }),
-  );
+  if (!from.background)
+    requireCommandFits(
+      startCommand(from.agent, {
+        id: 'xxxxxxxx',
+        logs: deps.profile.paths.logs,
+        agentSessionId,
+        goal: placeholder,
+        mode: from.mode,
+      }),
+    );
   const at = deps.clock().toISOString();
   // The note is copied once the successor has its id, and removed again with it.
   let path = '';
@@ -96,6 +97,7 @@ export async function handoffSession(
       project: entry,
       agent: from.agent,
       mode: from.mode,
+      background: from.background,
       agentSessionId,
       parent: id,
       ...(worktree ? { worktree } : {}),

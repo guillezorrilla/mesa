@@ -106,7 +106,7 @@ export async function listSessions(
     ),
   );
   const foreign = listed
-    .filter((p) => !runs(p) && !elsewhere.has(p.agentSessionId))
+    .filter((p) => p.nativeState !== 'stopped' && !runs(p) && !elsewhere.has(p.agentSessionId))
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
     .map((process) => foreignRow({ ...deps, faro }, process, now));
   const rows: SessionRow[] = [...managed, ...(await Promise.all(foreign))];

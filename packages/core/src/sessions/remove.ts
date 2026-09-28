@@ -1,5 +1,6 @@
 import { existsSync, rmSync } from 'node:fs';
 import { antigravityLog } from '../agents/antigravity/log.js';
+import { stopClaudeBackground } from '../agents/claude/background.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -57,6 +58,12 @@ export async function removeSession(
   }
   const target = windowOf(record);
   const pane = await deps.tmux.findWindow(target);
+  if (record.backgroundId && !record.endedAt && !force) {
+    throw new MesaError(
+      'usage',
+      `session ${id} may still run in Claude's background: mesa stop ${id} first`,
+    );
+  }
   if (pane && !pane.dead && !force) {
     throw new MesaError(
       'usage',
@@ -89,8 +96,12 @@ export async function removeSession(
     window: false,
   };
   if (pane) {
+    if (record.backgroundId && !record.endedAt)
+      await stopClaudeBackground(deps.run, record.backgroundId);
     await killIfThere(deps.tmux, target);
     removed.window = true;
+  } else if (record.backgroundId && !record.endedAt) {
+    await stopClaudeBackground(deps.run, record.backgroundId);
   }
   if (worktree && dropWorktree) {
     if (existsSync(worktree.path)) await deleteWorktree(deps.run, repo, worktree, { force });

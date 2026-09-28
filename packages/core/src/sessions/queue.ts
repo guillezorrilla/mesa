@@ -46,7 +46,9 @@ export async function startQueued(
     if (current.agent === 'terminal')
       throw new MesaError('usage', 'plain terminal sessions cannot be queued');
     claimedHere = true;
-    const agentSessionId = current.agentSessionId ?? newSessionId(current.agent, deps.newUuid);
+    const agentSessionId = current.background
+      ? undefined
+      : (current.agentSessionId ?? newSessionId(current.agent, deps.newUuid));
     return { pending: { ...current.pending, claimedAt: at }, agentSessionId };
   });
   if (!claimedHere) return undefined;

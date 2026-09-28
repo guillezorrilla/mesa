@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
@@ -20,15 +21,16 @@ import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
-import { projectLabel, projectScope } from './general.js';
+import { GENERAL_PROJECT, projectLabel, projectScope } from './general.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { readHookEvents } from './hook-events.js';
+import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
 import { moveBoardSession } from './presentation.js';
-import { recordAgent } from './record.js';
+import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
@@ -37,6 +39,7 @@ import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
+import { killIfThere } from './tmux/backend.js';
 import { viewProject } from './view.js';
 import { windowOf } from './window-name.js';
 import { setWorkflowStatus } from './workflow.js';
@@ -71,6 +74,7 @@ export function sessionsService(
     store,
     tmux,
     run: deps.run,
+    env: deps.env,
     clock: deps.clock,
     newUuid: deps.newUuid,
     caller,
@@ -78,6 +82,21 @@ export function sessionsService(
     shell: deps.env.SHELL || '/bin/zsh',
     home: deps.home,
   });
+  /** A closed tmux view does not end its Claude background process; recreate it on demand. */
+  const ensureBackgroundView = async (id: string) => {
+    const found = store.get(id);
+    const nativeId = found.backgroundId;
+    if (!nativeId || found.endedAt || isOver(found)) return;
+    const target = windowOf(found);
+    const pane = await tmux.findWindow(target);
+    if (pane && !pane.dead) return;
+    if (pane) await killIfThere(tmux, target);
+    const project =
+      found.project === GENERAL_PROJECT ? null : launchProject(open(), found.project).entry;
+    await startSession(openDeps(), found, project, {
+      command: () => claudeBackgroundAttach(nativeId),
+    });
+  };
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const look = (all = false) =>
     listSessions(
@@ -126,9 +145,13 @@ export function sessionsService(
         const found = store.get(id);
         if (found.kind !== 'run' || found.endedAt) {
           return {
-            ...(await stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, {
-              force,
-            })),
+            ...(await stopSession(
+              { store, tmux, run: deps.run, clock: deps.clock, sleep: deps.sleep },
+              id,
+              {
+                force,
+              },
+            )),
             warning: undefined,
           };
         }
@@ -194,7 +217,18 @@ export function sessionsService(
         project: string | undefined,
         opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {},
       ) => {
-        const { agent, mode, parent, noParent, after, branch, base, terminal, general } = opts;
+        const {
+          agent,
+          mode,
+          background,
+          parent,
+          noParent,
+          after,
+          branch,
+          base,
+          terminal,
+          general,
+        } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -225,6 +259,7 @@ export function sessionsService(
               ...(general ? { general: true } : {}),
               agent: agent ?? null,
               ...(mode === undefined ? {} : { mode }),
+              ...(background ? { background: true } : {}),
               ...(kept ? { goal: kept.short } : {}),
               ...(parent === undefined ? {} : { parent }),
               ...(noParent ? { noParent } : {}),
@@ -242,6 +277,7 @@ export function sessionsService(
               general,
               agent,
               mode,
+              background,
               goal,
               parent,
               noParent,
@@ -542,9 +578,10 @@ export function sessionsService(
             }),
           },
           // Typed, so the result type comes from the action, as for one that takes nothing.
-          (decisions: DecisionRecorder) => {
+          async (decisions: DecisionRecorder) => {
             const guard = (action: Guarded) =>
               faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            await ensureBackgroundView(id);
             return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
               force,
               from,
@@ -614,8 +651,10 @@ export function sessionsService(
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),
       /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
-      attach: (id: string, app = false) =>
-        attachSession({ store, tmux, ...terminal }, id, app ? terminalApp() : undefined),
+      attach: async (id: string, app = false) => {
+        await ensureBackgroundView(id);
+        return attachSession({ store, tmux, ...terminal }, id, app ? terminalApp() : undefined);
+      },
       /**
        * Shows a project's sessions side by side in one terminal, laid out by its mesa.yaml
        * `tmux.layout` (CONTEXT.md, Project view): here (the argv to exec), or in `terminal.app`.

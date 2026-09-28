@@ -1,5 +1,7 @@
 import { AGENTS, type AgentSpec } from '../agents/agents.js';
+import { stopClaudeBackground } from '../agents/claude/background.js';
 import type { Clock } from '../lib/clock.js';
+import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { cancelQueued } from './queue.js';
 import { ending, type SessionRecord } from './record.js';
@@ -25,6 +27,7 @@ type StopDeps = {
   tmux: Pick<TmuxBackend, 'findWindow' | 'pressKey' | 'sendText' | 'killWindow'>;
   clock: Clock;
   sleep: (ms: number) => Promise<void>;
+  run: Runner;
 };
 
 /**
@@ -48,6 +51,15 @@ export async function stopSession(
 
   let outcome: StopOutcome = 'gone';
   const first = await pane();
+  if (found.backgroundId) {
+    await stopClaudeBackground(deps.run, found.backgroundId);
+    if (first) await killIfThere(deps.tmux, target);
+    const at = deps.clock().toISOString();
+    return {
+      record: deps.store.update(id, (current) => ending(current, at)),
+      outcome: 'exited',
+    };
+  }
   if (first) {
     if (!force && !first.dead && found.agent !== 'terminal')
       await askToQuit(deps, target, AGENTS[found.agent], pane);

@@ -92,6 +92,26 @@ test('open --mode plan reports native Plan in JSON and passes the provider start
   });
 });
 
+test('open --background returns Claude native handle and attaches its terminal view', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const base = cli.run;
+  cli.run = (file, args, ms, options) =>
+    file === 'claude' && args[0] === '--bg'
+      ? Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' })
+      : base(file, args, ms, options);
+  const opened = await mesa('open', 'lantern-cove', '--background', '--mode', 'plan', '--json');
+  expect(opened.json.data).toMatchObject({
+    background: true,
+    backgroundId: 'abcdef12',
+    mode: 'plan',
+  });
+  expect(world.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect(await mesa('open', 'lantern-cove', '--agent', 'codex', '--background')).toMatchObject({
+    code: 2,
+  });
+});
+
 test('open --terminal --parent keeps the child link in JSON', async () => {
   cli.withTmux();
   await cli.withProject({ layOut: false });

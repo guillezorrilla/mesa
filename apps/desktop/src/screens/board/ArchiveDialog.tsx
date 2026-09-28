@@ -23,8 +23,9 @@ export function ArchiveDialog(props: {
         <DialogHeader>
           <DialogTitle>Archive this session?</DialogTitle>
           <DialogDescription>
-            This will terminate "{props.row.name ?? 'Untitled session'}" and its tmux process. This
-            action cannot be undone.
+            This will terminate "{props.row.name ?? 'Untitled session'}" and its{' '}
+            {props.row.background ? 'Claude background process and tmux view' : 'tmux process'}.
+            This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-between">

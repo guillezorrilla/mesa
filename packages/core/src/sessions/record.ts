@@ -33,6 +33,12 @@ const SessionRecordFields = z.strictObject({
   agent: z.union([AgentSchema, z.literal('terminal')]),
   /** Native startup mode; absent keeps the provider's own default. */
   mode: z.literal('plan').optional(),
+  /** Claude's native background handle; its terminal is only a view of that process. */
+  backgroundId: z
+    .string()
+    .regex(/^[0-9a-f]{8}$/)
+    .optional(),
+  background: z.literal(true).optional(),
   /** Claude Code's session UUID, or Codex's thread id. */
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
@@ -158,6 +164,8 @@ export const SessionRecordSchema = SessionRecordFields.refine(
     (record.kind === 'terminal') === (record.agent === 'terminal') &&
     (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
     (record.mode !== 'plan' || (record.agent !== 'terminal' && supportsPlanStart(record.agent))) &&
+    (!record.background || record.agent === 'claude') &&
+    (!record.backgroundId || record.background) &&
     (record.project !== GENERAL_PROJECT ||
       (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)),
   'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree',

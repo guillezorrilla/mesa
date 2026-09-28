@@ -22,9 +22,15 @@ export function matchListed(
   const byAgentSession = new Map(
     open.flatMap((r) => (r.agentSessionId ? [[r.agentSessionId, r.id] as const] : [])),
   );
+  const byBackground = new Map(
+    open.flatMap((r) => (r.backgroundId ? [[r.backgroundId, r.id] as const] : [])),
+  );
   /** The record a listed process runs as, if any. */
   const runs = (p: AgentProcess) =>
-    (p.pid === undefined ? undefined : byPane.get(p.pid)) ?? byAgentSession.get(p.agentSessionId);
+    p.backgroundId
+      ? byBackground.get(p.backgroundId)
+      : ((p.pid === undefined ? undefined : byPane.get(p.pid)) ??
+        byAgentSession.get(p.agentSessionId));
   const byRecord = new Map(
     listed.flatMap((p) => {
       const id = runs(p);

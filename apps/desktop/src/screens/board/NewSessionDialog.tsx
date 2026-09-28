@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCommand } from '@/lib/useCommand';
 import { AgentField } from './AgentField';
+import { BackgroundField } from './BackgroundField';
 import { ProjectSelect } from './ProjectSelect';
 import { SessionModeField } from './SessionModeField';
 
@@ -16,6 +17,7 @@ export type NewSessionInput = {
   general?: boolean;
   agent?: Agent;
   mode?: 'plan';
+  background?: boolean;
   goal?: string;
   branch: string;
   terminal?: boolean;
@@ -80,6 +82,7 @@ export function NewSessionDialog(props: {
               ? undefined
               : (String(data.get('agent') ?? DEFAULT_AGENT) as Agent),
           mode: supportsPlanStart(agent) && data.get('mode') === 'plan' ? 'plan' : undefined,
+          background: agent === 'claude' && data.get('background') === 'on',
           goal: goal?.value,
           branch: props.general ? '' : String(data.get('branch') ?? ''),
           terminal: props.location === 'terminal',
@@ -121,6 +124,7 @@ export function NewSessionDialog(props: {
         />
       )}
       {props.location !== 'terminal' && <SessionModeField agent={agent} />}
+      {props.location !== 'terminal' && <BackgroundField agent={agent} />}
       {props.location !== 'terminal' && (
         <div className="grid gap-2">
           <Label htmlFor="new-session-goal">Goal (optional)</Label>

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { readyAgent } from '../agents/agents.js';
+import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
@@ -25,7 +26,8 @@ export async function resumeSession(
   const old = deps.store.get(id);
   if (old.agent === 'terminal')
     throw new MesaError('usage', `session ${id} is a plain terminal; open a new one instead`);
-  if (!old.agentSessionId) {
+  const agentId = old.backgroundId ?? old.agentSessionId;
+  if (!agentId) {
     throw new MesaError(
       'not_found',
       `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project === GENERAL_PROJECT ? '--general' : old.project}`,
@@ -58,13 +60,17 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const command = spec.resume(old.agentSessionId, folder, old.mode);
+  const command = old.backgroundId
+    ? claudeBackgroundAttach(old.backgroundId)
+    : spec.resume(agentId, folder, old.mode);
   const { record, warning } = await launchSession(
     deps,
     {
       project,
       agent: old.agent,
       mode: old.mode,
+      background: old.background,
+      backgroundId: old.backgroundId,
       agentSessionId: old.agentSessionId,
       // The same conversation, so the same goal; it is not typed in again.
       goal: old.goal,

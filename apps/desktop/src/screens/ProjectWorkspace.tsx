@@ -34,6 +34,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { AgentField } from './board/AgentField';
+import { BackgroundField } from './board/BackgroundField';
 import { exited, queued } from './board/rows';
 import { SessionModeField } from './board/SessionModeField';
 import { FilesWorkspace } from './FilesWorkspace';
@@ -77,7 +78,13 @@ export function ProjectWorkspace(props: {
   );
   const activeSessions = sessions.filter((s) => !exited(s) || queued(s));
   const recentSessions = sessions.filter((s) => exited(s) && !queued(s));
-  const open = (input: { agent?: Agent; mode?: 'plan'; goal?: string; branch?: string }) =>
+  const open = (input: {
+    agent?: Agent;
+    mode?: 'plan';
+    background?: boolean;
+    goal?: string;
+    branch?: string;
+  }) =>
     act(async () => {
       const session = await run('sessions.open', { project: project.name, ...input });
       if (!session) return undefined;
@@ -270,6 +277,7 @@ export function ProjectWorkspace(props: {
                   supportsPlanStart(selectedAgent) && values.get('mode') === 'plan'
                     ? 'plan'
                     : undefined,
+                background: selectedAgent === 'claude' && values.get('background') === 'on',
                 goal,
                 branch:
                   location === 'worktree' ? String(values.get('branch') ?? '').trim() : undefined,
@@ -295,6 +303,7 @@ export function ProjectWorkspace(props: {
                   onValueChange={setSelectedAgent}
                 />
                 <SessionModeField agent={selectedAgent} />
+                <BackgroundField agent={selectedAgent} />
                 <div className="grid gap-1">
                   <Label htmlFor="session-location" className="text-xs">
                     Start in

@@ -993,6 +993,7 @@ test('project composer passes Plan only for a provider with a native startup mod
   const form = byTestId('project-session-form')[0] as HTMLFormElement;
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   await choose(byTestId('session-mode')[0], 'plan');
+  await click(byTestId('session-background')[0]);
   await act(async () => form.requestSubmit());
   expect(calls.filter((args) => args.includes('open')).at(-1)).toEqual([
     '--json',
@@ -1002,6 +1003,7 @@ test('project composer passes Plan only for a provider with a native startup mod
     'claude',
     '--mode',
     'plan',
+    '--background',
     '--',
     'lantern-cove',
   ]);

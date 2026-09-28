@@ -54,6 +54,8 @@ export type OpenInput = {
   general?: boolean;
   agent?: string;
   mode?: string;
+  /** Keep a Claude session running when its terminal view closes. */
+  background?: boolean;
   goal?: string;
   parent?: string;
   noParent?: boolean;
@@ -91,8 +93,11 @@ export async function openSession(
     throw new MesaError('usage', `unknown session mode ${input.mode}; use plan`);
   }
   if (input.terminal) {
-    if (input.agent || input.goal || input.after || input.mode)
-      throw new MesaError('usage', '--terminal cannot use --agent, --goal, --after, or --mode');
+    if (input.agent || input.goal || input.after || input.mode || input.background)
+      throw new MesaError(
+        'usage',
+        '--terminal cannot use --agent, --goal, --after, --mode, or --background',
+      );
     const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
     const parent = parentOf(deps, input);
     const from = parent ? deps.store.get(parent) : undefined;
@@ -125,8 +130,11 @@ export async function openSession(
   if (input.mode === 'plan' && !supportsPlanStart(agent)) {
     throw new MesaError('usage', `${agent} has no qualified plan startup mode`);
   }
+  if (input.background && agent !== 'claude') {
+    throw new MesaError('usage', `${agent} has no qualified native background mode`);
+  }
 
-  const agentSessionId = newSessionId(agent, deps.newUuid);
+  const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
   const command = (id: string) =>
     startCommand(agent, {
       id,
@@ -135,11 +143,12 @@ export async function openSession(
       goal: input.goal,
       mode: input.mode === 'plan' ? 'plan' : undefined,
     });
-  requireCommandFits(command('xxxxxxxx'));
+  if (!input.background) requireCommandFits(command('xxxxxxxx'));
   const session = {
     project: selected?.entry ?? null,
     agent,
     ...(input.mode === 'plan' ? { mode: 'plan' as const } : {}),
+    ...(input.background ? { background: true as const } : {}),
     goal: input.goal,
     parent,
     ...(input.general ? { cwd: deps.home } : {}),

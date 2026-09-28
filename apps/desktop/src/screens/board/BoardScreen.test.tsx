@@ -395,6 +395,7 @@ test('New session starts Claude Code in native Plan mode when selected', async (
   const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   await click(byTestId('new-session')[0]);
   await choose(byTestId('session-mode')[0], 'plan');
+  await click(byTestId('session-background')[0]);
   await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
@@ -404,6 +405,7 @@ test('New session starts Claude Code in native Plan mode when selected', async (
     'claude',
     '--mode',
     'plan',
+    '--background',
     '--',
     'lantern-cove',
   ]);

@@ -1,8 +1,13 @@
 import { existsSync } from 'node:fs';
 import { AgentSchema, readyAgent } from '../agents/agents.js';
+import {
+  claudeBackgroundAttach,
+  startClaudeBackground,
+  stopClaudeBackground,
+} from '../agents/claude/background.js';
 import { AGENT_NAMES, type Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
-import type { Runner } from '../lib/process.js';
+import type { Env, Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { type Project, readProjectFile } from '../projects/project-file.js';
@@ -15,7 +20,7 @@ import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import { PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
-import type { TmuxBackend } from './tmux/backend.js';
+import { nestedAgentVars, type TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
 import { removeWorktree, type Worktree } from './worktree.js';
 
@@ -31,6 +36,7 @@ export type LaunchDeps = {
   store: SessionStore;
   tmux: Pick<TmuxBackend, 'openWindow'>;
   run: Runner;
+  env: Env;
   clock: Clock;
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
@@ -80,6 +86,8 @@ type NewLaunch = {
   project: RegistryEntry | null;
   agent: Agent | 'terminal';
   mode?: 'plan';
+  background?: true;
+  backgroundId?: string;
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
   goal?: string;
@@ -121,6 +129,7 @@ export async function startSession(
 ): Promise<{ record: SessionRecord; warning?: string }> {
   let record = written;
   let made: Worktree | undefined;
+  let backgroundId: string | undefined;
   try {
     if (!record.worktree && start.branch !== undefined) {
       if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
@@ -132,18 +141,30 @@ export async function startSession(
     const cwd = agentFolder(record, project);
     const warning =
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd);
+    if (record.background && !record.backgroundId) {
+      const env = { ...deps.env };
+      for (const key of nestedAgentVars(deps.env)) delete env[key];
+      backgroundId = await startClaudeBackground(deps.run, cwd, record.goal, record.mode, {
+        ...env,
+        ...windowEnv(record.id, deps.profileName),
+      });
+      record = deps.store.update(record.id, { backgroundId });
+    }
     const { paths, config } = deps.profile;
     await deps.tmux.openWindow({
       project: record.tmux.session,
       window: record.tmux.window,
       // claude keys its transcripts by cwd.
       cwd,
-      command: start.command(record),
+      command: record.backgroundId
+        ? claudeBackgroundAttach(record.backgroundId)
+        : start.command(record),
       env: windowEnv(record.id, deps.profileName),
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
+    if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);
     if (made && project) {
       await removeWorktree(deps.run, project.path, made);
       deps.store.update(record.id, { worktree: undefined });
@@ -221,6 +242,8 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     project: s.project?.name ?? GENERAL_PROJECT,
     agent: s.agent,
     ...(s.mode ? { mode: s.mode } : {}),
+    ...(s.background ? { background: true as const } : {}),
+    ...(s.backgroundId ? { backgroundId: s.backgroundId } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
     ...(s.parent === undefined ? {} : { parent: s.parent }),

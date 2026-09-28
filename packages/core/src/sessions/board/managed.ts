@@ -115,6 +115,7 @@ export async function managedRow(
   const signals: SessionSignals = {
     now: now.toISOString(),
     agent: found.agent,
+    background: found.background,
     last: found.lastState,
     ended: Boolean(found.endedAt),
     ...(event ? { event } : {}),
@@ -168,11 +169,12 @@ export async function managedRow(
     ...classified,
     managed: true,
     children: seen.children,
-    alive: window !== undefined || listed !== undefined,
+    alive: listed?.nativeState === 'stopped' ? false : window !== undefined || listed !== undefined,
     runningSeconds: ran
       ? secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime())
       : 0,
     ...(listed?.status === undefined ? {} : { agentStatus: listed.status }),
+    ...(listed?.nativeState === undefined ? {} : { nativeState: listed.nativeState }),
     ...(lastOutput ? { lastOutput } : {}),
   };
 }

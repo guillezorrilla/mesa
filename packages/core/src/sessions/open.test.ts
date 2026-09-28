@@ -197,6 +197,82 @@ test('Plan starts in the provider native mode and survives resume; unsupported a
   expect(world.tmux.windows.at(-1)?.launch).toContain(' --permission-mode plan');
 });
 
+test('Claude background keeps its native process when the terminal closes, then stops and resumes it', async () => {
+  const world = agentWorld();
+  const base = withGit(world);
+  let native = 'active';
+  let launchEnv: Env | undefined;
+  const run: Runner = (file, args, ms, options) => {
+    if (file === 'claude' && args[0] === '--bg') {
+      launchEnv = options?.env;
+      expect(args).toEqual(['--bg', '--permission-mode', 'plan', 'Read the project']);
+      return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
+    }
+    if (file === 'claude' && args[0] === 'stop') {
+      expect(args).toEqual(['stop', 'abcdef12']);
+      native = 'stopped';
+      return Promise.resolve({ ok: true, stdout: 'stopped abcdef12\n' });
+    }
+    if (file === 'claude' && args[0] === 'agents') {
+      return Promise.resolve({
+        ok: true,
+        stdout: JSON.stringify([
+          {
+            id: 'abcdef12',
+            kind: 'background',
+            cwd: options?.cwd ?? '',
+            sessionId: 'abcdef12-0000-4000-8000-000000000001',
+            startedAt: 1790251200000,
+            ...(native === 'stopped'
+              ? { state: 'stopped' }
+              : { pid: 1234, status: 'idle', state: 'done' }),
+          },
+        ]),
+      });
+    }
+    return base(file, args, ms, options);
+  };
+  const { mesa } = await setUp(world, { run, env: { CLAUDECODE: '1' } });
+  const opened = (
+    await mesa.sessions.open('lantern-cove', {
+      background: true,
+      mode: 'plan',
+      goal: 'Read the project',
+    })
+  ).result;
+  expect(opened).toMatchObject({ background: true, backgroundId: 'abcdef12', mode: 'plan' });
+  expect(opened.agentSessionId).toBeUndefined();
+  expect(launchEnv).toMatchObject({ MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' });
+  expect(launchEnv).not.toHaveProperty('CLAUDECODE');
+  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  exitAll(world);
+  const row = (await mesa.sessions.list()).find((s) => s.id === opened.id);
+  expect(row).toMatchObject({
+    alive: true,
+    lastState: { state: 'idle' },
+    agentSessionId: 'abcdef12-0000-4000-8000-000000000001',
+  });
+  expect((await mesa.sessions.attach(opened.id)).attached.opened).toBe(true);
+  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
+  const resumed = (await mesa.sessions.resume(opened.id)).result.record;
+  expect(resumed).toMatchObject({
+    background: true,
+    backgroundId: 'abcdef12',
+    resumedFrom: opened.id,
+  });
+  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  exitAll(world);
+  const ended = (await mesa.sessions.list()).find((s) => s.id === resumed.id);
+  expect(ended).toMatchObject({ alive: false, lastState: { state: 'done' } });
+  expect(ended?.managed && ended.events.some((event) => event.type === 'exited')).toBe(true);
+  await mesa.sessions.remove(resumed.id, { force: true });
+  expect((await mesa.sessions.list(true)).some((session) => session.id === resumed.id)).toBe(false);
+  await expect(
+    mesa.sessions.open('lantern-cove', { agent: 'codex', background: true }),
+  ).rejects.toMatchObject({ code: 'usage' });
+});
+
 test('a child terminal starts in its parent worktree', async () => {
   const world = agentWorld();
   const { dir, mesa } = await setUp(world);

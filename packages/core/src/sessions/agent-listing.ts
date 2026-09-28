@@ -4,7 +4,7 @@ import type { Clock } from '../lib/clock.js';
 import type { Env, Runner } from '../lib/process.js';
 
 // Agent listings, ADR-0003's second signal: each agent Mesa runs lists its sessions on the
-// machine, Mesa's and the owner's alike (Claude Code's live processes: agents/claude/listing.ts;
+// machine, Mesa's and the owner's alike (Claude Code's process list: agents/claude/listing.ts;
 // Codex's recently written rollouts: agents/codex/listing.ts).
 
 /** One listed agent session, keyed by its agent session id (the listing's `name` changes). */
@@ -14,6 +14,10 @@ export type AgentProcess = {
   pid?: number;
   cwd: string;
   agentSessionId: string;
+  /** Claude's short background handle, when this is a native background session. */
+  backgroundId?: string;
+  /** Native process lifecycle, distinct from its idle/busy turn status. */
+  nativeState?: string;
   startedAt: string;
   /**
    * `idle`, `busy`, or `waiting`; kept as the listing says it, so a new status still lists. None

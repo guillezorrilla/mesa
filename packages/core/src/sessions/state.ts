@@ -15,6 +15,7 @@ export type SessionSignals = {
   /** ISO: when the board looks. */
   now: string;
   agent: Agent;
+  background?: boolean;
   /** Where the session was last seen, and since when. */
   last: LastState;
   /** Stopped by Mesa: its last state stands. */
@@ -69,6 +70,8 @@ export function classify(s: SessionSignals): LastState {
   const fromHook = s.event && reader.hookState?.(s.event.event, s.event.payload);
   const listing = s.listed && reader.listing.state(s.listed);
   if (s.window && (!s.window.exists || s.window.dead) && !listing) {
+    // A background pane is only a view, and a failed listing proves nothing about the agent.
+    if (s.background) return s.last;
     if (FINAL_STATES.has(s.last.state)) return s.last;
     if (s.event && (fromHook === 'done' || fromHook === 'failed')) {
       return { state: fromHook, confidence: HOOK, source: 'hook', at: s.event.at };

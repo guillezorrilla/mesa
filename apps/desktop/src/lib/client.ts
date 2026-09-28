@@ -630,17 +630,19 @@ const COMMANDS = {
       general?: boolean;
       agent?: Agent;
       mode?: 'plan';
+      background?: boolean;
       goal?: string;
       branch?: string;
       terminal?: boolean;
       parent?: string;
     },
     Recorded<SessionRecord>
-  >(({ project, general, agent, mode, goal, branch, terminal, parent }) => [
+  >(({ project, general, agent, mode, background, goal, branch, terminal, parent }) => [
     'open',
     ...(parent ? ['--parent', parent] : ['--no-parent']),
     ...(agent ? ['--agent', agent] : []),
     ...(mode ? ['--mode', mode] : []),
+    ...(background ? ['--background'] : []),
     ...(goal?.trim() ? [`--goal=${goal}`] : []),
     ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
     ...(terminal ? ['--terminal'] : []),

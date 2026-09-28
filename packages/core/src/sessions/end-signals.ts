@@ -95,6 +95,18 @@ export function endSignals(
       let finishedRun = false;
       for (const row of rows) {
         if (!row.managed || row.endedAt || !isOver(row)) continue;
+        if (row.backgroundId) {
+          if (row.nativeState !== 'stopped') continue;
+          let newlyExited = false;
+          const exited = store.update(row.id, (current) => {
+            if (current.events.some((event) => event.type === 'exited')) return {};
+            newlyExited = true;
+            return { events: [...current.events, { type: 'exited', at: clock().toISOString() }] };
+          });
+          await markExited(ctx, exited);
+          finishedRun ||= newlyExited;
+          continue;
+        }
         const exited =
           (await recordPaneDied(
             { store, tmux, clock },
