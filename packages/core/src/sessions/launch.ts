@@ -115,8 +115,9 @@ export async function startSession(
   let made: Worktree | undefined;
   try {
     if (!record.worktree && start.branch !== undefined) {
-      made = await worktreeFor(deps, project, start.branch, start.base);
-      record = deps.store.update(record.id, { worktree: made });
+      const selected = await worktreeFor(deps, project, start.branch, start.base);
+      if (selected.created) made = selected.worktree;
+      record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     const cwd = agentFolder(record, project);
     const warning = syncSkillsInto(deps, project.name, cwd);

@@ -23,7 +23,8 @@ export async function sessionWorktree(
 ) {
   const path = worktreePath(worktreeRoot(profile, project), branch);
   const present = lstatSync(path, { throwIfNoEntry: false });
-  if (!present) return createWorktree(profile, run, store, project, branch, base);
+  if (!present)
+    return { worktree: await createWorktree(profile, run, store, project, branch, base), created: true };
   const taken = () =>
     new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   if (present.isSymbolicLink() || !present.isDirectory()) throw taken();
@@ -45,7 +46,7 @@ export async function sessionWorktree(
   if (linked.branch !== branch)
     throw new MesaError('usage', `${path} is not ${branch}'s linked worktree`);
   const checkout = await resolveCheckout(profile, run, project.name, path);
-  return { path: checkout.path, branch };
+  return { worktree: { path: checkout.path, branch }, created: false };
 }
 
 /** Manual and session worktrees take one profile policy, with explicit branch/base overrides. */

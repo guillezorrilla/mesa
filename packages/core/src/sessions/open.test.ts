@@ -677,7 +677,14 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
     expect(existsSync(worktreeAt(again.home, branch))).toBe(false);
   }
   expect(testGit(again.dir, 'worktree', 'list', '--porcelain')).not.toContain('.mesa');
-  expect(testGit(again.dir, 'branch', '--list', 'fresh', 'kept')).toBe('kept');
+  const { result: manual } = await again.mesa.worktrees.create('lantern-cove', 'manual');
+  writeFileSync(join(manual.path, 'keep.txt'), 'personal work');
+  await expect(again.mesa.sessions.open('lantern-cove', { branch: 'manual' })).rejects.toMatchObject({
+    code: 'internal',
+  });
+  expect(existsSync(join(manual.path, 'keep.txt'))).toBe(true);
+  expect(testGit(again.dir, 'branch', '--list', 'manual')).toBe('+ manual');
+  expect(testGit(again.dir, 'branch', '--list', 'fresh', 'kept', 'manual')).toBe('kept\n+ manual');
   expect(await again.mesa.sessions.list()).toEqual([]);
 });
 
