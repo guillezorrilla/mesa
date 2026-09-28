@@ -41,6 +41,44 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('project native history imports a Codex conversation through the existing session action', async () => {
+  const nativeId = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([]),
+    history: () =>
+      envelope({
+        rows: [
+          {
+            agent: 'codex',
+            id: nativeId,
+            cwd: '/src/lantern-cove',
+            updatedAt: '2026-09-20T12:00:00.000Z',
+          },
+        ],
+        total: 1,
+        unsupported: [{ agent: 'antigravity', reason: 'No qualified native CLI history source' }],
+      }),
+    adopt: () => envelope({ ...managedRow('eeeeeeee'), id: 'eeeeeeee' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Native history',
+    ),
+  );
+  expect(byTestId('native-history')[0]?.textContent).toContain(nativeId);
+  await click(
+    [...(byTestId('native-history')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Import',
+    ),
+  );
+  expect(byTestId('native-import-dialog')[0]?.textContent).toContain('End the session');
+  await click(byTestId('native-import-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'adopt', '--project', 'lantern-cove', '--', nativeId]);
+});
+
 test('project and session show scoped decisions and note changes with exact Obsidian targets', async () => {
   const decision = {
     path: 'receipts/decision.md',

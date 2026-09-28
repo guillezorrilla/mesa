@@ -1,0 +1,28 @@
+import { codexWorld, plantTranscript } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
+import { cliHarness } from '../testing.js';
+
+const cli = cliHarness();
+beforeEach(cli.reset);
+
+test('history --json exposes native identities and the unsupported provider', async () => {
+  const dir = await cli.withProject();
+  const codex = codexWorld();
+  cli.env = codex.env;
+  const claudeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  const codexId = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  plantTranscript(cli.home, claudeId, dir);
+  codex.rollout({ id: codexId, cwd: dir, startedAt: '2026-09-20T11:58:00.000Z' });
+  const { json } = await cli.mesa('history', 'lantern-cove', '--json');
+  expect(json).toMatchObject({
+    ok: true,
+    data: {
+      total: 2,
+      rows: expect.arrayContaining([
+        expect.objectContaining({ agent: 'claude', id: claudeId, cwd: dir }),
+        expect.objectContaining({ agent: 'codex', id: codexId, cwd: dir }),
+      ]),
+      unsupported: [{ agent: 'antigravity', reason: expect.any(String) }],
+    },
+  });
+});

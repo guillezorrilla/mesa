@@ -61,6 +61,7 @@ export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.j
 export type { TreeRow } from './sessions/board/tree.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
+export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
 export type { SessionLog } from './sessions/output-log.js';
 export {
   BOARD_DENSITIES,

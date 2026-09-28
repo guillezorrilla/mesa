@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { type Dirent, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileHead } from '../../lib/file-head.js';
 import { lastMatchingLine } from '../../lib/file-tail.js';
@@ -22,6 +22,10 @@ export function transcriptFile(transcripts: string, id: string): string | undefi
 export function transcriptCwd(transcripts: string, id: string): string | undefined {
   const file = transcriptFile(transcripts, id);
   if (!file) return undefined;
+  return cwdIn(file);
+}
+
+function cwdIn(file: string): string | undefined {
   for (const line of fileHead(file, HEAD_BYTES).split('\n')) {
     try {
       const cwd = (JSON.parse(line) as { cwd?: unknown }).cwd;
@@ -31,6 +35,49 @@ export function transcriptCwd(transcripts: string, id: string): string | undefin
     }
   }
   return undefined;
+}
+
+/** Native Claude conversations on disk, newest activity first. */
+export function claudeHistory(transcripts: string) {
+  if (!existsSync(transcripts)) return [];
+  const rows: { agent: 'claude'; id: string; cwd: string; updatedAt: string }[] = [];
+  let folders: Dirent[];
+  try {
+    folders = readdirSync(transcripts, { withFileTypes: true });
+  } catch {
+    return rows;
+  }
+  for (const folder of folders) {
+    if (!folder.isDirectory()) continue;
+    const dir = join(transcripts, folder.name);
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (
+        !entry.isFile() ||
+        !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.jsonl$/.test(entry.name)
+      )
+        continue;
+      const file = join(dir, entry.name);
+      try {
+        const cwd = cwdIn(file);
+        if (cwd)
+          rows.push({
+            agent: 'claude',
+            id: entry.name.slice(0, -6),
+            cwd,
+            updatedAt: statSync(file).mtime.toISOString(),
+          });
+      } catch {
+        // A transcript may disappear while native history is read.
+      }
+    }
+  }
+  return rows;
 }
 
 /** The usage Claude Code recorded for the context of its last reply. */

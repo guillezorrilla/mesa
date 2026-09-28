@@ -39,6 +39,7 @@ import { exited, queued } from './board/rows';
 import { SessionModeField } from './board/SessionModeField';
 import { FilesWorkspace } from './FilesWorkspace';
 import { GitWorkspace } from './GitWorkspace';
+import { NativeHistory } from './NativeHistory';
 import { WorktreesWorkspace } from './WorktreesWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
@@ -61,6 +62,7 @@ export function ProjectWorkspace(props: {
   const [pendingTab, setPendingTab] = useState<typeof tab>();
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent>(
     (project.agent as Agent | undefined) ?? DEFAULT_AGENT,
   );
@@ -466,12 +468,24 @@ export function ProjectWorkspace(props: {
             </section>
           )}
           <section className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Recent{' '}
-              <Badge variant="secondary" className="ml-1">
-                {recentSessions.length}
-              </Badge>
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Recent{' '}
+                <Badge variant="secondary" className="ml-1">
+                  {recentSessions.length}
+                </Badge>
+              </h3>
+              <Button size="sm" variant="ghost" onClick={() => setHistoryOpen((open) => !open)}>
+                {historyOpen ? 'Hide' : 'Native history'}
+              </Button>
+            </div>
+            {historyOpen && (
+              <NativeHistory
+                key={project.name}
+                project={project.name}
+                onSession={props.onSession}
+              />
+            )}
             {recentSessions.map((session) => (
               <button
                 key={session.id}

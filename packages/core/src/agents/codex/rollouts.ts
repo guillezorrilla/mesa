@@ -61,6 +61,28 @@ export function rolloutForThread(deps: { env: Env; home: string }, id: string) {
   return rolloutFiles(deps).find((file) => basename(file).endsWith(`-${id}.jsonl`));
 }
 
+/** The exact interactive thread's native folder, including an older rollout. */
+export function threadForId(deps: { env: Env; home: string }, id: string): CodexThread | undefined {
+  const file = rolloutForThread(deps, id);
+  const thread = file ? threadOf(file) : undefined;
+  return thread?.id === id ? thread : undefined;
+}
+
+/** Native interactive Codex conversations on disk, including older rollouts. */
+export function codexHistory(deps: { env: Env; home: string }) {
+  return rolloutFiles(deps).flatMap((file) => {
+    const thread = threadOf(file);
+    if (!thread) return [];
+    try {
+      return [
+        { agent: 'codex' as const, ...thread, updatedAt: statSync(file).mtime.toISOString() },
+      ];
+    } catch {
+      return [];
+    }
+  });
+}
+
 /** An interactive thread's rollout, read from its first line; none for anything else. */
 function threadOf(file: string): CodexThread | undefined {
   try {

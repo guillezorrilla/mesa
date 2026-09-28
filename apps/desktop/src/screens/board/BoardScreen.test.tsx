@@ -547,12 +547,15 @@ test('New session passes a branch with --branch, trimmed; a blank one passes non
   );
 });
 
-test('Adopt on a foreign row adopts it into its project and says to end the original', async () => {
+test('Adopt on Claude and Codex foreign rows uses the same native import action', async () => {
   const warning = 'end the session in its original terminal first: both hold the same transcript';
   const placedForeign = { ...foreignRow, project: 'lantern-cove' };
   const { bridge, calls } = fakeBridge({
     sessions: () =>
-      envelope([placedForeign, { ...foreignRow, id: 'ext-7', pid: 7 }] satisfies TreeRow[]),
+      envelope([
+        placedForeign,
+        { ...foreignRow, id: 'ext-7', pid: 7, agent: 'codex' },
+      ] satisfies TreeRow[]),
     adopt: () => envelope({ ...busy, id: 'eeeeeeee', warning }),
   });
   const byTestId = await renderWithMesa(<App startOnBoard />, bridge);

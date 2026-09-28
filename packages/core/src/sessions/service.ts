@@ -25,6 +25,7 @@ import { GENERAL_PROJECT, projectLabel, projectScope } from './general.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
+import { nativeHistory } from './history.js';
 import { readHookEvents } from './hook-events.js';
 import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
@@ -591,7 +592,7 @@ export function sessionsService(
         );
       },
       /**
-       * Adopts a Claude Code session Mesa did not start: a record for it, and, unless
+       * Adopts a Claude Code or Codex session Mesa did not start: a record for it, and, unless
        * `noResume`, its conversation reopened in a Mesa window. Its warning is always said.
        */
       adopt: (
@@ -602,8 +603,8 @@ export function sessionsService(
           {
             type: 'session',
             summary: ({ record: r }) =>
-              `Adopted Claude Code session ${agentSessionId} as ${r.id} on ${r.project}`,
-            failure: `Could not adopt Claude Code session ${agentSessionId}`,
+              `Adopted ${r.agent} session ${agentSessionId} as ${r.id} on ${r.project}`,
+            failure: `Could not adopt native session ${agentSessionId}`,
             warning: (r) => r.warning,
             project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
@@ -664,6 +665,18 @@ export function sessionsService(
           { profile: open(), store, tmux, ...terminal },
           project,
           app ? terminalApp() : undefined,
+        ),
+      /** Native provider conversations on disk for a project, with import ownership. */
+      history: (project: string) =>
+        nativeHistory(
+          {
+            profile: open(),
+            store,
+            home: deps.home,
+            env: deps.env,
+            elsewhere: () => otherProfilesSessions(deps.home, profile),
+          },
+          project,
         ),
     },
     hookEvent: ends.hookEvent,
