@@ -387,6 +387,47 @@ test('New session opens a dialog, and Open starts the picked project with the pi
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session dddddddd on lantern-cove');
 });
 
+test('New session starts Claude Code in native Plan mode when selected', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope({ ...busy, id: 'dddddddd' }),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  await click(byTestId('new-session')[0]);
+  await choose(byTestId('session-mode')[0], 'plan');
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'claude',
+    '--mode',
+    'plan',
+    '--',
+    'lantern-cove',
+  ]);
+});
+
+test('New session loads its row before switching to the terminal', async () => {
+  const opened = managedRow('newnewnew');
+  let rows = [busy];
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(rows),
+    open: () => {
+      rows = [busy, opened];
+      return envelope(opened);
+    },
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  await click(byTestId('new-session')[0]);
+  await click(byTestId('new-session-submit')[0]);
+  expect(byTestId('selected-session')).toHaveLength(1);
+  expect(byTestId('terminal-newnewnew')).toHaveLength(1);
+  expect(document.body.textContent).not.toContain('Session unavailable');
+});
+
 test("a session's goal shows under its project, its first line, the whole goal on hover", async () => {
   const withGoal = { ...busy, goal: '/goal Keep going until green\nthen stop' };
   const { bridge } = fakeBridge({ sessions: () => envelope([withGoal] satisfies TreeRow[]) });

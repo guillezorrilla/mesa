@@ -84,6 +84,7 @@ export async function handoffSession(
       logs: deps.profile.paths.logs,
       agentSessionId,
       goal: placeholder,
+      mode: from.mode,
     }),
   );
   const at = deps.clock().toISOString();
@@ -94,6 +95,7 @@ export async function handoffSession(
     {
       project: entry,
       agent: from.agent,
+      mode: from.mode,
       agentSessionId,
       parent: id,
       ...(worktree ? { worktree } : {}),

@@ -1,6 +1,7 @@
 import type { Agent } from '@mesa/core';
-import { DEFAULT_AGENT } from '@mesa/core/browser';
+import { DEFAULT_AGENT, supportsPlanStart } from '@mesa/core/browser';
 import { Play } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,11 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useCommand } from '@/lib/useCommand';
 import { AgentField } from './AgentField';
 import { ProjectSelect } from './ProjectSelect';
+import { SessionModeField } from './SessionModeField';
 
 export type NewSessionInput = {
   project?: string;
   general?: boolean;
   agent?: Agent;
+  mode?: 'plan';
   goal?: string;
   branch: string;
   terminal?: boolean;
@@ -34,6 +37,10 @@ export function NewSessionDialog(props: {
 }) {
   const projects = useCommand('projects.list');
   const config = useCommand('config.get');
+  const [agent, setAgent] = useState<Agent>(DEFAULT_AGENT);
+  useEffect(() => {
+    setAgent(props.general ? (config.data?.defaultAgent ?? DEFAULT_AGENT) : DEFAULT_AGENT);
+  }, [props.general, config.data?.defaultAgent]);
   return (
     <ActionDialog
       testId="new-session-dialog"
@@ -72,6 +79,7 @@ export function NewSessionDialog(props: {
             props.location === 'terminal'
               ? undefined
               : (String(data.get('agent') ?? DEFAULT_AGENT) as Agent),
+          mode: supportsPlanStart(agent) && data.get('mode') === 'plan' ? 'plan' : undefined,
           goal: goal?.value,
           branch: props.general ? '' : String(data.get('branch') ?? ''),
           terminal: props.location === 'terminal',
@@ -109,8 +117,10 @@ export function NewSessionDialog(props: {
         <AgentField
           key={props.general ? config.data?.defaultAgent : 'project'}
           defaultValue={props.general ? config.data?.defaultAgent : undefined}
+          onValueChange={setAgent}
         />
       )}
+      {props.location !== 'terminal' && <SessionModeField agent={agent} />}
       {props.location !== 'terminal' && (
         <div className="grid gap-2">
           <Label htmlFor="new-session-goal">Goal (optional)</Label>

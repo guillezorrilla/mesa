@@ -1,4 +1,5 @@
 import { newSessionId, startCommand } from '../agents/agents.js';
+import { supportsPlanStart } from '../agents/names.js';
 import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
@@ -52,6 +53,7 @@ export type OpenInput = {
   project?: string;
   general?: boolean;
   agent?: string;
+  mode?: string;
   goal?: string;
   parent?: string;
   noParent?: boolean;
@@ -85,9 +87,12 @@ export async function openSession(
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
   }
+  if (input.mode !== undefined && input.mode !== 'plan') {
+    throw new MesaError('usage', `unknown session mode ${input.mode}; use plan`);
+  }
   if (input.terminal) {
-    if (input.agent || input.goal || input.after)
-      throw new MesaError('usage', '--terminal cannot use --agent, --goal, or --after');
+    if (input.agent || input.goal || input.after || input.mode)
+      throw new MesaError('usage', '--terminal cannot use --agent, --goal, --after, or --mode');
     const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
     const parent = parentOf(deps, input);
     const from = parent ? deps.store.get(parent) : undefined;
@@ -117,14 +122,24 @@ export async function openSession(
   // Read even when --agent is given.
   const selected = input.project ? launchProject(deps.profile, input.project) : null;
   const { agent } = await launchAgent(deps, selected?.project, input.agent);
+  if (input.mode === 'plan' && !supportsPlanStart(agent)) {
+    throw new MesaError('usage', `${agent} has no qualified plan startup mode`);
+  }
 
   const agentSessionId = newSessionId(agent, deps.newUuid);
   const command = (id: string) =>
-    startCommand(agent, { id, logs: deps.profile.paths.logs, agentSessionId, goal: input.goal });
+    startCommand(agent, {
+      id,
+      logs: deps.profile.paths.logs,
+      agentSessionId,
+      goal: input.goal,
+      mode: input.mode === 'plan' ? 'plan' : undefined,
+    });
   requireCommandFits(command('xxxxxxxx'));
   const session = {
     project: selected?.entry ?? null,
     agent,
+    ...(input.mode === 'plan' ? { mode: 'plan' as const } : {}),
     goal: input.goal,
     parent,
     ...(input.general ? { cwd: deps.home } : {}),

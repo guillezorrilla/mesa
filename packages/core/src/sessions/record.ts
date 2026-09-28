@@ -2,6 +2,7 @@ import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
+import { supportsPlanStart } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
 import { GENERAL_PROJECT } from './general.js';
 import { FINAL_STATES, SESSION_STATES } from './states.js';
@@ -30,6 +31,8 @@ const SessionRecordFields = z.strictObject({
   /** A reserved name for profile-owned General sessions, otherwise a registered project. */
   project: z.string(),
   agent: z.union([AgentSchema, z.literal('terminal')]),
+  /** Native startup mode; absent keeps the provider's own default. */
+  mode: z.literal('plan').optional(),
   /** Claude Code's session UUID, or Codex's thread id. */
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
@@ -154,6 +157,7 @@ export const SessionRecordSchema = SessionRecordFields.refine(
   (record) =>
     (record.kind === 'terminal') === (record.agent === 'terminal') &&
     (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
+    (record.mode !== 'plan' || (record.agent !== 'terminal' && supportsPlanStart(record.agent))) &&
     (record.project !== GENERAL_PROJECT ||
       (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)),
   'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree',

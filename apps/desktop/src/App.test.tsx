@@ -983,6 +983,33 @@ test('project Overview starts worktree goals and quick empty sessions through me
   expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
 });
 
+test('project composer passes Plan only for a provider with a native startup mode', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope(managedRow('newnewnew')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  const form = byTestId('project-session-form')[0] as HTMLFormElement;
+  await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
+  await choose(byTestId('session-mode')[0], 'plan');
+  await act(async () => form.requestSubmit());
+  expect(calls.filter((args) => args.includes('open')).at(-1)).toEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'claude',
+    '--mode',
+    'plan',
+    '--',
+    'lantern-cove',
+  ]);
+  const agents = [...form.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+  await click(agents[1]);
+  expect(byTestId('session-mode')).toHaveLength(0);
+});
+
 test('quick terminal tile opens a plain terminal in the selected project', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

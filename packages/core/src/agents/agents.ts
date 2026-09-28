@@ -58,10 +58,11 @@ export const AGENTS = {
     /** None: claude takes the agent session id Mesa picks (newSessionId) with --session-id. */
     ownSessionId: undefined,
     /** The command a Mesa window runs, under the id Mesa chose, with the goal as the first prompt. */
-    start: (sessionId: string, goal?: string) =>
-      `claude --session-id ${sessionId}${goalWord(goal)}`,
+    start: (sessionId: string, goal?: string, mode?: 'plan') =>
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${goalWord(goal)}`,
     /** Reopens that conversation; run in the recorded project folder, which keys transcripts. */
-    resume: (sessionId: string) => `claude --resume ${sessionId}`,
+    resume: (sessionId: string, _folder: string, mode?: 'plan') =>
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -111,7 +112,7 @@ export const AGENTS = {
     start: (goal?: string) =>
       `codex ${CODEX_EMBEDDED}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /** Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. */
-    resume: (sessionId: string, folder: string) =>
+    resume: (sessionId: string, folder: string, _mode?: 'plan') =>
       `codex ${CODEX_EMBEDDED} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
@@ -141,9 +142,10 @@ export const AGENTS = {
     install: 'https://antigravity.google/docs/cli/install/',
     /** The first prompt writes the native ID to this window's unique CLI log. */
     ownSessionId: antigravitySessionId,
-    start: (goal: string | undefined, log: string) =>
-      `umask 077; exec agy --log-file ${shellWord(log)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
-    resume: (sessionId: string) => `agy --conversation ${shellWord(sessionId)}`,
+    start: (goal: string | undefined, log: string, mode?: 'plan') =>
+      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
+    resume: (sessionId: string, _folder: string, mode?: 'plan') =>
+      `agy --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}`,
     quit: '/exit',
     submitDelayMs: 300,
     headless: {
@@ -188,17 +190,17 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
  */
 export function startCommand(
   agent: Agent,
-  s: { id?: string; logs?: string; agentSessionId?: string; goal?: string },
+  s: { id?: string; logs?: string; agentSessionId?: string; goal?: string; mode?: 'plan' },
 ) {
   if (agent === 'antigravity') {
     if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
-    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id));
+    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id), s.mode);
   }
   if (agent === 'codex') return AGENTS.codex.start(s.goal);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, s.goal);
+  return AGENTS.claude.start(s.agentSessionId, s.goal, s.mode);
 }
 
 /** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */

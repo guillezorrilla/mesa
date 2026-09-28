@@ -81,6 +81,17 @@ test('open --terminal starts a plain shell session with no coding agent conversa
   });
 });
 
+test('open --mode plan reports native Plan in JSON and passes the provider startup flag', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const opened = await mesa('open', 'lantern-cove', '--mode', 'plan', '--json');
+  expect(opened.json.data.mode).toBe('plan');
+  expect(world.windows.at(-1)?.launch).toContain(' --permission-mode plan');
+  expect(await mesa('open', 'lantern-cove', '--agent', 'codex', '--mode', 'plan')).toMatchObject({
+    code: 2,
+  });
+});
+
 test('open --terminal --parent keeps the child link in JSON', async () => {
   cli.withTmux();
   await cli.withProject({ layOut: false });

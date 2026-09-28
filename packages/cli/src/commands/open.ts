@@ -15,6 +15,10 @@ export const open = defineCommand({
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
     terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },
+    mode: {
+      type: 'string',
+      description: 'Native startup mode: plan (Claude Code, Antigravity CLI)',
+    },
     goal: {
       type: 'string',
       description: "The agent's first prompt; one starting /goal runs Claude Code's goal command",
@@ -47,6 +51,7 @@ export const open = defineCommand({
     if (flags.attach) requireTty(tty, 'mesa attach --app');
     const recorded = await mesa.sessions.open(args.project, {
       agent: flags.agent,
+      mode: flags.mode,
       goal: flags.goal,
       goalFile: flags['goal-file'],
       parent: flags.parent,

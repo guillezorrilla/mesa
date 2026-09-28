@@ -4,7 +4,7 @@
 export type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 export type { CodexHooksStatus } from './agents/codex/hooks.js';
 export type { HooksStatus } from './agents/hooks-service.js';
-export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents/names.js';
+export { AGENT_NAMES, type Agent, DEFAULT_AGENT, supportsPlanStart } from './agents/names.js';
 export type { CommandReference } from './command-reference.js';
 export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { Decision } from './decisions/types.js';

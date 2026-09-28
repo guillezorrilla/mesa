@@ -58,12 +58,13 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const command = spec.resume(old.agentSessionId, folder);
+  const command = spec.resume(old.agentSessionId, folder, old.mode);
   const { record, warning } = await launchSession(
     deps,
     {
       project,
       agent: old.agent,
+      mode: old.mode,
       agentSessionId: old.agentSessionId,
       // The same conversation, so the same goal; it is not typed in again.
       goal: old.goal,

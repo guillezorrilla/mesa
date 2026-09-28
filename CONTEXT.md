@@ -33,6 +33,10 @@ One process in a registered project or the profile-owned General group, an agent
 Not: task, job, run (`kind: run` qualifies a session, it is not another name for one), thread (thread is Codex's word for its own id).
 
 
+## Native startup mode
+
+`mesa open --mode plan` starts Claude Code with `--permission-mode plan` or Antigravity CLI with `--mode=plan`. The session record keeps `mode: plan`; queued starts, resume, and handoff retain it. With no mode, the provider uses its own default. Codex CLI and plain terminals refuse `--mode plan` because they have no qualified Plan startup flag. The desktop New session dialog and project composer offer Plan only for providers that support it.
+
 ## Plain terminal session
 
 `mesa open <project> --terminal` starts the profile's login shell in a project checkout, or in its own worktree with `--branch`. It uses `kind: terminal` and `agent: terminal` in the session record, with no agent session id, goal, provider, context use, or skill links. The Board observes its tmux window directly; it does not ask Faro to infer a coding-agent state. Attach and stop work as for other windows. Send, resume, and handoff refuse it because there is no coding-agent conversation. The app's quick Terminal choice uses this path.

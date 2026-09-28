@@ -169,6 +169,34 @@ test('General opens in the profile home without project skills, and can resume o
   ).rejects.toMatchObject({ code: 'usage' });
 });
 
+test('Plan starts in the provider native mode and survives resume; unsupported agents are refused', async () => {
+  const world = agentWorld();
+  const { mesa } = await setUp(world);
+  const claude = (await mesa.sessions.open('lantern-cove', { mode: 'plan' })).result;
+  expect(claude.mode).toBe('plan');
+  expect(world.tmux.windows.at(-1)?.launch).toContain(' --permission-mode plan');
+
+  const antigravity = (
+    await mesa.sessions.open('lantern-cove', { agent: 'antigravity', mode: 'plan' })
+  ).result;
+  expect(antigravity.mode).toBe('plan');
+  expect(world.tmux.windows.at(-1)?.launch).toContain(' --mode=plan');
+  await expect(
+    mesa.sessions.open('lantern-cove', { agent: 'codex', mode: 'plan' }),
+  ).rejects.toMatchObject({ code: 'usage' });
+  await expect(
+    mesa.sessions.open('lantern-cove', { terminal: true, mode: 'plan' }),
+  ).rejects.toMatchObject({ code: 'usage' });
+  await expect(mesa.sessions.open('lantern-cove', { mode: 'fast' })).rejects.toMatchObject({
+    code: 'usage',
+  });
+
+  exitAll(world);
+  const resumed = (await mesa.sessions.resume(claude.id)).result.record;
+  expect(resumed.mode).toBe('plan');
+  expect(world.tmux.windows.at(-1)?.launch).toContain(' --permission-mode plan');
+});
+
 test('a child terminal starts in its parent worktree', async () => {
   const world = agentWorld();
   const { dir, mesa } = await setUp(world);

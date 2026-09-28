@@ -1,5 +1,12 @@
 import type { Agent, ManagedRow, ProjectRow, TreeRow } from '@mesa/core';
-import { duration, sessionBranch, sessionLabel, WAITING_STATES } from '@mesa/core/browser';
+import {
+  DEFAULT_AGENT,
+  duration,
+  sessionBranch,
+  sessionLabel,
+  supportsPlanStart,
+  WAITING_STATES,
+} from '@mesa/core/browser';
 import {
   ArrowDown,
   ArrowUp,
@@ -28,6 +35,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { AgentField } from './board/AgentField';
 import { exited, queued } from './board/rows';
+import { SessionModeField } from './board/SessionModeField';
 import { FilesWorkspace } from './FilesWorkspace';
 import { GitWorkspace } from './GitWorkspace';
 import { WorktreesWorkspace } from './WorktreesWorkspace';
@@ -52,6 +60,13 @@ export function ProjectWorkspace(props: {
   const [pendingTab, setPendingTab] = useState<typeof tab>();
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<Agent>(
+    (project.agent as Agent | undefined) ?? DEFAULT_AGENT,
+  );
+  useEffect(
+    () => setSelectedAgent((project.agent as Agent | undefined) ?? DEFAULT_AGENT),
+    [project.agent],
+  );
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
   const skills = useCommand('skills.list', { project: project.name });
   const worktrees = useCommand('worktrees.list', { project: project.name });
@@ -62,7 +77,7 @@ export function ProjectWorkspace(props: {
   );
   const activeSessions = sessions.filter((s) => !exited(s) || queued(s));
   const recentSessions = sessions.filter((s) => exited(s) && !queued(s));
-  const open = (input: { agent?: Agent; goal?: string; branch?: string }) =>
+  const open = (input: { agent?: Agent; mode?: 'plan'; goal?: string; branch?: string }) =>
     act(async () => {
       const session = await run('sessions.open', { project: project.name, ...input });
       if (!session) return undefined;
@@ -251,6 +266,10 @@ export function ProjectWorkspace(props: {
               const goal = (form.elements.namedItem('goal') as HTMLTextAreaElement).value;
               void open({
                 agent: String(values.get('agent')) as Agent,
+                mode:
+                  supportsPlanStart(selectedAgent) && values.get('mode') === 'plan'
+                    ? 'plan'
+                    : undefined,
                 goal,
                 branch:
                   location === 'worktree' ? String(values.get('branch') ?? '').trim() : undefined,
@@ -271,7 +290,11 @@ export function ProjectWorkspace(props: {
             />
             {composerOpen && (
               <div className="mt-3 flex flex-wrap items-end gap-3 border-t pt-3">
-                <AgentField defaultValue={project.agent ?? undefined} />
+                <AgentField
+                  defaultValue={project.agent ?? undefined}
+                  onValueChange={setSelectedAgent}
+                />
+                <SessionModeField agent={selectedAgent} />
                 <div className="grid gap-1">
                   <Label htmlFor="session-location" className="text-xs">
                     Start in

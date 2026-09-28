@@ -79,6 +79,7 @@ type NewLaunch = {
   kind?: 'run' | 'terminal';
   project: RegistryEntry | null;
   agent: Agent | 'terminal';
+  mode?: 'plan';
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
   goal?: string;
@@ -219,6 +220,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     kind: s.kind ?? 'interactive',
     project: s.project?.name ?? GENERAL_PROJECT,
     agent: s.agent,
+    ...(s.mode ? { mode: s.mode } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
     ...(s.parent === undefined ? {} : { parent: s.parent }),

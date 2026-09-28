@@ -11,3 +11,4 @@ export const AGENT_LABELS = {
 export type Agent = keyof typeof AGENT_LABELS;
 export const AGENT_NAMES = Object.keys(AGENT_LABELS) as [Agent, ...Agent[]];
 export const DEFAULT_AGENT: Agent = 'claude';
+export const supportsPlanStart = (agent: Agent) => agent === 'claude' || agent === 'antigravity';

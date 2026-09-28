@@ -194,7 +194,7 @@ export function sessionsService(
         project: string | undefined,
         opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {},
       ) => {
-        const { agent, parent, noParent, after, branch, base, terminal, general } = opts;
+        const { agent, mode, parent, noParent, after, branch, base, terminal, general } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -224,6 +224,7 @@ export function sessionsService(
               ...(project === undefined ? {} : { project }),
               ...(general ? { general: true } : {}),
               agent: agent ?? null,
+              ...(mode === undefined ? {} : { mode }),
               ...(kept ? { goal: kept.short } : {}),
               ...(parent === undefined ? {} : { parent }),
               ...(noParent ? { noParent } : {}),
@@ -240,6 +241,7 @@ export function sessionsService(
               project,
               general,
               agent,
+              mode,
               goal,
               parent,
               noParent,
