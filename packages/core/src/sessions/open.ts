@@ -100,8 +100,9 @@ export async function openSession(
   const { agent } = await launchAgent(deps, project, input.agent);
 
   const agentSessionId = newSessionId(agent, deps.newUuid);
-  const command = startCommand(agent, { agentSessionId, goal: input.goal });
-  requireCommandFits(command);
+  const command = (id: string) =>
+    startCommand(agent, { id, logs: deps.profile.paths.logs, agentSessionId, goal: input.goal });
+  requireCommandFits(command('xxxxxxxx'));
   const session = { project: entry, agent, goal: input.goal, parent };
   if (waited && !isOver(waited)) {
     const { branch, base } = input;
@@ -114,7 +115,7 @@ export async function openSession(
   return launchSession(
     deps,
     { ...session, ...(waited ? { after: waited.id } : {}), agentSessionId },
-    { command: () => command, branch: input.branch, base: input.base },
+    { command: (record) => command(record.id), branch: input.branch, base: input.base },
   );
 }
 

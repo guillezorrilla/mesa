@@ -13,7 +13,7 @@ import { isAgentState } from '../states.js';
  * started after its own window opened.
  */
 export function ownSessionIds(
-  deps: { env: Env; home: string; projects: readonly RegistryEntry[] },
+  deps: { env: Env; home: string; logs?: string; projects: readonly RegistryEntry[] },
   records: readonly SessionRecord[],
   taken: ReadonlySet<string>,
 ): Map<string, string> {
@@ -28,7 +28,7 @@ export function ownSessionIds(
     const project = deps.projects.find((p) => p.name === r.project);
     if (!own || !project) continue;
     const folder = folderOf(r, project);
-    const id = own(deps, { folder, since: r.startedAt, until: r.endedAt }, held);
+    const id = own(deps, { id: r.id, folder, since: r.startedAt, until: r.endedAt }, held);
     if (id) {
       held.add(id);
       read.set(r.id, id);

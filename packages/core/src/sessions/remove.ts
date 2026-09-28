@@ -1,4 +1,5 @@
 import { existsSync, rmSync } from 'node:fs';
+import { antigravityLog } from '../agents/antigravity/log.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -107,6 +108,7 @@ export async function removeSession(
   const output = outputLog(deps.logsDir, id);
   removed.outputLog = existsSync(output);
   rmSync(output, { force: true });
+  rmSync(antigravityLog(deps.logsDir, id), { force: true });
   const result = runOutput(deps.runs, id);
   removed.runOutput = existsSync(result);
   rmSync(result, { force: true });

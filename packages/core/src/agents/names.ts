@@ -2,7 +2,11 @@
 // (@mesa/core/browser) for its New session dialog; what each one runs and reads is AGENTS
 // (agents.ts).
 
-export const AGENT_LABELS = { claude: 'Claude Code', codex: 'Codex' } as const;
+export const AGENT_LABELS = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  antigravity: 'Antigravity CLI',
+} as const;
 
 export type Agent = keyof typeof AGENT_LABELS;
 export const AGENT_NAMES = Object.keys(AGENT_LABELS) as [Agent, ...Agent[]];

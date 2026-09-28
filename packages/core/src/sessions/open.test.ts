@@ -141,7 +141,7 @@ test('the agent comes from the flag, else mesa.yaml, else the profile', async ()
   );
   await expect(mesa.sessions.open('lantern-cove', { agent: 'gpt' })).rejects.toMatchObject({
     code: 'agent_unavailable',
-    message: 'unknown agent gpt; agents are claude, codex',
+    message: 'unknown agent gpt; agents are claude, codex, antigravity',
   });
 
   const plain = await setUp(agentWorld({ codex: false }));
@@ -168,6 +168,40 @@ test('open starts codex embedded, its goal after --, in window codex-<id>, with 
 
   await mesa.sessions.open('lantern-cove', { agent: 'codex' });
   expect(launched(world)).toBe('codex -c mesa.embedded=true');
+});
+
+test('Antigravity opens with a private per-session log and reads its native ID after the first prompt', async () => {
+  const world = agentWorld();
+  const { mesa, home } = await setUp(world);
+  const { result: first } = await mesa.sessions.open('lantern-cove', {
+    agent: 'antigravity',
+    goal: 'Reply ALIVE',
+  });
+  const firstLog = join(profilePaths(home, 'default').logs, `${first.id}.agy.log`);
+  expect(launched(world)).toBe(
+    `umask 077; exec agy --log-file '${firstLog}' --prompt-interactive 'Reply ALIVE'`,
+  );
+  expect(first).not.toHaveProperty('agentSessionId');
+  const { result: second } = await mesa.sessions.open('lantern-cove', { agent: 'antigravity' });
+  const secondLog = join(profilePaths(home, 'default').logs, `${second.id}.agy.log`);
+  expect(launched(world)).toBe(`umask 077; exec agy --log-file '${secondLog}'`);
+  writeFileSync(firstLog, 'Created conversation 002f58d1-9e29-4682-9bc1-3a2dc5da1115\n');
+  writeFileSync(secondLog, 'Created conversation cd66cf01-f466-4c11-8f12-a8fd0885d9f4\n');
+  const rows = await mesa.sessions.list();
+  expect(rows.find((row) => row.id === first.id)?.agentSessionId).toBe(
+    '002f58d1-9e29-4682-9bc1-3a2dc5da1115',
+  );
+  expect(rows.find((row) => row.id === second.id)?.agentSessionId).toBe(
+    'cd66cf01-f466-4c11-8f12-a8fd0885d9f4',
+  );
+});
+
+test('an unavailable Antigravity CLI points to its native installation instructions', async () => {
+  const { mesa } = await setUp(agentWorld({ antigravity: false }));
+  await expect(mesa.sessions.open('lantern-cove', { agent: 'antigravity' })).rejects.toMatchObject({
+    code: 'agent_unavailable',
+    message: expect.stringContaining('https://antigravity.google/docs/cli/install/'),
+  });
 });
 
 test('an unknown project, a missing claude, or a failed window leaves no session', async () => {

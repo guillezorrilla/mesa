@@ -62,7 +62,7 @@ export async function startQueued(
     const { warning } = (await deps.tmux.findWindow(windowOf(claimed)))
       ? {}
       : await startSession(deps, claimed, entry, {
-          command: (r) => startCommand(agent, r),
+          command: (r) => startCommand(agent, { ...r, logs: deps.profile.paths.logs }),
           branch,
           base,
         });

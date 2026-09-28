@@ -18,7 +18,8 @@ export const run = defineCommand({
     },
     agent: {
       type: 'string',
-      description: 'claude or codex; default: the project mesa.yaml, else the profile default',
+      description:
+        'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
     },
     timeout: {
       type: 'string',

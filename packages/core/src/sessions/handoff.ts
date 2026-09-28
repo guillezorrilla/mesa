@@ -75,7 +75,14 @@ export async function handoffSession(
   const { goal } = from;
   // Checked before anything is written, with a note path as long as the successor's will be.
   const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
-  requireCommandFits(startCommand(from.agent, { agentSessionId, goal: placeholder }));
+  requireCommandFits(
+    startCommand(from.agent, {
+      id: 'xxxxxxxx',
+      logs: deps.profile.paths.logs,
+      agentSessionId,
+      goal: placeholder,
+    }),
+  );
   const at = deps.clock().toISOString();
   // The note is copied once the successor has its id, and removed again with it.
   let path = '';
@@ -100,7 +107,7 @@ export async function handoffSession(
           events: [{ type: 'handoff', at, from: id, note: path }],
         });
       },
-      command: (successor) => startCommand(agent, successor),
+      command: (successor) => startCommand(agent, { ...successor, logs: deps.profile.paths.logs }),
     },
   ).catch((error) => {
     if (path) rmSync(path, { force: true });

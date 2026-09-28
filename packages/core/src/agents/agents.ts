@@ -3,6 +3,9 @@ import type { IdSource } from '../lib/ids.js';
 import { type Binary, probe } from '../lib/probe.js';
 import { type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.js';
+import { readAntigravityResult } from './antigravity/result.js';
+import { antigravityLastOutputLine, antigravityScreenState } from './antigravity/screen.js';
 import { claudeContext } from './claude/context-use.js';
 import { claudeHookState } from './claude/hook-state.js';
 import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
@@ -132,6 +135,28 @@ export const AGENTS = {
     context: undefined,
     transcripts: undefined,
   },
+  antigravity: {
+    versionArgs: ['--version'],
+    install: 'https://antigravity.google/docs/cli/install/',
+    /** The first prompt writes the native ID to this window's unique CLI log. */
+    ownSessionId: antigravitySessionId,
+    start: (goal: string | undefined, log: string) =>
+      `umask 077; exec agy --log-file ${shellWord(log)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
+    resume: (sessionId: string) => `agy --conversation ${shellWord(sessionId)}`,
+    quit: '/exit',
+    submitDelayMs: 300,
+    headless: {
+      skillPrefix: '/',
+      command: (_sessionId: string | undefined, prompt: string, _may: HeadlessPermissions) =>
+        `agy --print ${shellWord(prompt)} --output-format json`,
+      result: readAntigravityResult,
+    },
+    hookState: undefined,
+    screen: { state: antigravityScreenState, lastLine: antigravityLastOutputLine },
+    listing: { list: async () => [], state: () => undefined },
+    context: undefined,
+    transcripts: undefined,
+  },
 } as const satisfies Record<Agent, object>;
 
 export const AgentSchema = z.enum(AGENT_NAMES);
@@ -141,7 +166,12 @@ export type AgentSpec = (typeof AGENTS)[Agent];
 
 /** An agent's binary, as doctor and a session's start probe it. */
 export function agentBinary(name: Agent): Binary {
-  return { name, args: AGENTS[name].versionArgs, role: 'agent', install: AGENTS[name].install };
+  return {
+    name: name === 'antigravity' ? 'agy' : name,
+    args: AGENTS[name].versionArgs,
+    role: 'agent',
+    install: AGENTS[name].install,
+  };
 }
 
 /**
@@ -155,13 +185,19 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take.
  */
-export function startCommand(agent: Agent, s: { agentSessionId?: string; goal?: string }) {
-  const spec = AGENTS[agent];
-  if (spec.ownSessionId) return spec.start(s.goal);
+export function startCommand(
+  agent: Agent,
+  s: { id?: string; logs?: string; agentSessionId?: string; goal?: string },
+) {
+  if (agent === 'antigravity') {
+    if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
+    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id));
+  }
+  if (agent === 'codex') return AGENTS.codex.start(s.goal);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return spec.start(s.agentSessionId, s.goal);
+  return AGENTS.claude.start(s.agentSessionId, s.goal);
 }
 
 /** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */

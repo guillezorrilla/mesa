@@ -92,6 +92,7 @@ export function sessionsService(
         clock: deps.clock,
         env: deps.env,
         home: deps.home,
+        logs: paths.logs,
       },
       { all },
     ).then((rows) =>

@@ -16,6 +16,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     'tmux',
     'claude',
     'codex',
+    'agy',
     'obsidian',
     'profile dir',
     'claude hooks',
@@ -31,7 +32,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
     ].map((event) => `codex hooks ${event}`),
   ]);
 
-  cli.run = scriptedRunner({}, { missing: ['tmux', 'claude', 'codex'] }).run;
+  cli.run = scriptedRunner({}, { missing: ['tmux', 'claude', 'codex', 'agy'] }).run;
   const sick = await mesa('doctor');
   expect(sick.code).toBe(3);
   expect(sick.stdout).toMatch(/^FAIL {2}tmux/);

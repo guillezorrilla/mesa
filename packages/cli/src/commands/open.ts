@@ -9,7 +9,8 @@ export const open = defineCommand({
   flags: {
     agent: {
       type: 'string',
-      description: 'claude or codex; default: the project mesa.yaml, else the profile default',
+      description:
+        'claude, codex, or antigravity; default: the project mesa.yaml, else the profile default',
     },
     attach: { type: 'boolean', description: 'Attach this terminal to the new window' },
     terminal: { type: 'boolean', description: 'Start a plain shell session with no coding agent' },

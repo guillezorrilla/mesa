@@ -54,6 +54,8 @@ export async function listSessions(
     /** Where an agent that picks its own session id keeps its files (Codex: `CODEX_HOME`). */
     env: Env;
     home: string;
+    /** Per-window provider logs, when a provider exposes no public live ID event. */
+    logs?: string;
   },
   { all = false } = {},
 ): Promise<SessionRow[]> {

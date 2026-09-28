@@ -142,3 +142,34 @@ test('classifySession asks the adapter only when the rules are unsure, and takes
   await placed({ ...unsure, last: lastState, tail: `${unsure.tail}\n` });
   expect(calls).toHaveLength(1);
 });
+
+test('Antigravity idle TUI stays idle even when the profile adapter would guess a wait', async () => {
+  const signals: SessionSignals = {
+    now: '2026-09-24T12:00:00.000Z',
+    agent: 'antigravity',
+    last: {
+      state: 'waiting-question',
+      confidence: 0.62,
+      at: '2026-09-24T11:59:00.000Z',
+      source: 'adapter',
+      basis: 'old',
+    },
+    ended: false,
+    window: { exists: true, dead: false },
+    tail: '>\n? for shortcuts',
+    priority: 0.5,
+  };
+  const answer = async () => {
+    throw new Error('adapter must not run');
+  };
+  const placed = await classifySession(
+    {
+      profile: { decisions: { backend: 'adapter', threshold: 0.7 } },
+      clock: fixedClock(),
+      backends: [{ name: 'adapter', answer }],
+    },
+    signals,
+  );
+  expect(placed.lastState).toMatchObject({ state: 'idle', source: 'tmux' });
+  expect(placed.decision.backend).toBe('rules');
+});

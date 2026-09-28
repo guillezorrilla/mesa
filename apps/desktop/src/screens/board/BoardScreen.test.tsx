@@ -369,6 +369,7 @@ test('New session opens a dialog, and Open starts the picked project with the pi
   expect(agents.map((a) => [a.value, a.disabled, a.getAttribute('aria-checked')])).toEqual([
     ['claude', false, 'true'],
     ['codex', false, 'false'],
+    ['antigravity', false, 'false'],
   ]);
   expect(dialog?.textContent).toContain('Codex');
   await click(agents[1]);
