@@ -272,6 +272,49 @@ test('project Git stash panel saves changes and confirms a drop through the CLI 
   );
 });
 
+test('project Git remote panel shows its upstream and confirms an explicit push', async () => {
+  const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git tracking': () =>
+      envelope({ checkout, branch: 'main', remote: 'origin', upstream: 'main' }),
+    'git push': () =>
+      envelope({
+        checkout,
+        branch: 'main',
+        remote: 'origin',
+        upstream: 'main',
+        action: 'push',
+        before: 'abc',
+        after: 'abc',
+        output: '',
+        receipt: null,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Remote',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git sync"]')?.textContent).toContain(
+    'main tracks origin/main',
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git sync"] button')].find(
+      (button) => button.textContent === 'Push',
+    ),
+  );
+  expect(byTestId('git-sync-dialog')[0]?.textContent).toContain('without force');
+  await click(byTestId('confirm-git-sync')[0]);
+  expect(calls.some((args) => args.includes('push') && args.includes('--yes'))).toBe(true);
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({

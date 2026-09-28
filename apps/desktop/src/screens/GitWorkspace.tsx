@@ -11,6 +11,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { GitBranches } from './GitBranches';
 import { GitDiffView } from './GitDiffView';
 import { GitStashes } from './GitStashes';
+import { GitSyncPanel } from './GitSyncPanel';
 
 /** Git changes for the registered checkout and session worktrees. */
 export function GitWorkspace(props: { project: string; sessions: readonly TreeRow[] }) {
@@ -20,6 +21,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
   const [message, setMessage] = useState('');
   const [showBranches, setShowBranches] = useState(false);
   const [showStashes, setShowStashes] = useState(false);
+  const [showSync, setShowSync] = useState(false);
   const run = useRun();
   const { acting, act } = useAct();
   const paths = [
@@ -99,6 +101,9 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
         </Button>
         <Button variant="outline" size="sm" onClick={() => setShowStashes((last) => !last)}>
           Stashes
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowSync((last) => !last)}>
+          Remote
         </Button>
       </div>
       {status.data && (
@@ -207,6 +212,17 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
       {showStashes && (
         <GitStashes
           key={checkout}
+          project={props.project}
+          checkout={checkout || undefined}
+          onChanged={() => {
+            void status.refresh();
+            setRevision((last) => last + 1);
+          }}
+        />
+      )}
+      {showSync && (
+        <GitSyncPanel
+          key={`${checkout}:${revision}`}
           project={props.project}
           checkout={checkout || undefined}
           onChanged={() => {

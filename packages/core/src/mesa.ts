@@ -28,7 +28,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   return {
     ...profileApi,
     projects: projectsService(ctx),
-    git: gitService(ctx),
+    git: gitService(ctx, faro),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),
     ...sessionsService(ctx, faro, skills),

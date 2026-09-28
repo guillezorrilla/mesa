@@ -235,3 +235,98 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
   ).toHaveLength(0);
   expect((await cli.mesa('git', 'stash', 'apply', 'lantern-cove', '--bad-ref')).code).toBe(2);
 });
+
+test('explicit push and fast-forward pull use the selected upstream and preserve rejected work', async () => {
+  const repo = await cli.withProject();
+  writeFileSync(join(repo, 'note.txt'), 'base\n');
+  gitRepo(repo);
+  execFileSync('git', ['-C', repo, 'config', 'user.name', 'Test']);
+  execFileSync('git', ['-C', repo, 'config', 'user.email', 'test@example.com']);
+  cli.run = withRealGit(cli.run);
+  expect((await cli.mesa('git', 'tracking', 'lantern-cove')).code).toBe(2);
+  const remote = join(cli.home, 'origin.git');
+  execFileSync('git', ['init', '--bare', '-q', remote]);
+  execFileSync('git', ['--git-dir', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main']);
+  execFileSync('git', ['-C', repo, 'remote', 'add', 'origin', remote]);
+  execFileSync('git', ['-C', repo, 'push', '-q', '-u', 'origin', 'main']);
+  expect((await cli.mesa('git', 'tracking', 'lantern-cove', '--json')).json.data).toMatchObject({
+    branch: 'main',
+    remote: 'origin',
+    upstream: 'main',
+  });
+
+  writeFileSync(join(repo, 'note.txt'), 'local\n');
+  execFileSync('git', ['-C', repo, 'add', 'note.txt']);
+  execFileSync('git', ['-C', repo, 'commit', '-qm', 'local']);
+  writeFileSync(join(repo, 'mesa.yaml'), 'name: lantern-cove\nguardrail: strict\n');
+  const blocked = await cli.mesa('git', 'push', 'lantern-cove', '--json');
+  expect(blocked.code).toBe(5);
+  expect(blocked.json.error.details.verdict).toBe('ask');
+  expect(
+    execFileSync('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/main'], {
+      encoding: 'utf8',
+    }).trim(),
+  ).not.toBe(execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim());
+  const pushed = await cli.mesa('git', 'push', 'lantern-cove', '--yes', '--json');
+  expect(pushed.code, pushed.stdout).toBe(0);
+  expect(pushed.json.data).toMatchObject({
+    action: 'push',
+    remote: 'origin',
+    upstream: 'main',
+    override: 'yes',
+    receipt: { id: expect.any(String) },
+  });
+  execFileSync('git', ['-C', repo, 'restore', '--', 'mesa.yaml']);
+
+  const peer = join(cli.home, 'peer');
+  execFileSync('git', ['clone', '-q', remote, peer]);
+  writeFileSync(join(peer, 'peer.txt'), 'peer change\n');
+  execFileSync('git', ['-C', peer, 'add', '.']);
+  execFileSync('git', [
+    '-C',
+    peer,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '-qm',
+    'peer',
+  ]);
+  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main']);
+  writeFileSync(join(repo, 'dirty.txt'), 'keep me\n');
+  expect((await cli.mesa('git', 'pull', 'lantern-cove', '--yes')).code).toBe(2);
+  expect(readFileSync(join(repo, 'dirty.txt'), 'utf8')).toBe('keep me\n');
+  execFileSync('git', ['-C', repo, 'clean', '-fq']);
+  const pulled = await cli.mesa('git', 'pull', 'lantern-cove', '--yes', '--json');
+  expect(pulled.code, pulled.stdout).toBe(0);
+  expect(pulled.json.data.before).not.toBe(pulled.json.data.after);
+  expect(readFileSync(join(repo, 'peer.txt'), 'utf8')).toBe('peer change\n');
+
+  writeFileSync(join(repo, 'local.txt'), 'local again\n');
+  execFileSync('git', ['-C', repo, 'add', '.']);
+  execFileSync('git', ['-C', repo, 'commit', '-qm', 'local again']);
+  writeFileSync(join(peer, 'peer2.txt'), 'remote again\n');
+  execFileSync('git', ['-C', peer, 'add', '.']);
+  execFileSync('git', [
+    '-C',
+    peer,
+    '-c',
+    'user.name=Test',
+    '-c',
+    'user.email=test@example.com',
+    'commit',
+    '-qm',
+    'peer again',
+  ]);
+  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main']);
+  const localHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
+  expect((await cli.mesa('git', 'push', 'lantern-cove', '--yes')).code).toBe(2);
+  expect(execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' })).toBe(
+    localHead,
+  );
+  expect((await cli.mesa('git', 'pull', 'lantern-cove', '--yes')).code).toBe(2);
+  expect(execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' })).toBe(
+    localHead,
+  );
+});

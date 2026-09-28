@@ -1,12 +1,59 @@
 import type { MesaContext } from '../context.js';
+import type { Faro } from '../decisions/faro.js';
+import type { Overrides } from '../decisions/guardrail.js';
 import { changeGitBranch, type GitBranchAction, listGitBranches } from './branches.js';
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
+import { type GitSync, gitTracking, syncGit } from './sync.js';
 
 /** The registered project's selected checkout is the owner of Git reads and actions. */
-export function gitService(ctx: MesaContext) {
+export function gitService(ctx: MesaContext, faro: Faro) {
+  const sync = (
+    project: string,
+    checkout: string | undefined,
+    action: GitSync['action'],
+    overrides: Overrides = {},
+  ) =>
+    ctx.record(
+      {
+        summary: (result: GitSync) =>
+          `${action} ${result.branch} ${action === 'push' ? 'to' : 'from'} ${result.remote}/${result.upstream}`,
+        failure: `Could not ${action} ${project}`,
+        project: () => project,
+        inputs: { project, checkout, action, yes: Boolean(overrides.yes) },
+        outputs: (result: GitSync) => ({
+          remote: result.remote,
+          upstream: result.upstream,
+          before: result.before,
+          after: result.after,
+          ...(result.override ? { override: result.override } : {}),
+        }),
+      },
+      async (decisions) => {
+        const target = await gitTracking(
+          ctx.open(),
+          ctx.deps.run,
+          project,
+          checkout && ctx.absolute(checkout),
+        );
+        const override = await faro.guardrail.gate(
+          {
+            action,
+            target: `${target.remote}/${target.upstream}`,
+            text: `git ${action} ${target.remote} ${target.upstream}`,
+            project,
+          },
+          overrides,
+          decisions,
+        );
+        return {
+          ...(await syncGit(ctx.deps.run, target, action)),
+          ...(override ? { override } : {}),
+        };
+      },
+    );
   const stash = (
     project: string,
     checkout: string | undefined,
@@ -80,6 +127,12 @@ export function gitService(ctx: MesaContext) {
         ),
     );
   return {
+    tracking: (project: string, checkout?: string) =>
+      gitTracking(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
+    push: (project: string, checkout?: string, overrides?: Overrides) =>
+      sync(project, checkout, 'push', overrides),
+    pull: (project: string, checkout?: string, overrides?: Overrides) =>
+      sync(project, checkout, 'pull', overrides),
     stashes: (project: string, checkout?: string) =>
       listGitStashes(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
     stashCreate: (project: string, checkout?: string, message?: string) =>

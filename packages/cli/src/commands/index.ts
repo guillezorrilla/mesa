@@ -12,6 +12,8 @@ import {
   gitBranches,
   gitCommit,
   gitDiff,
+  gitPull,
+  gitPush,
   gitStage,
   gitStashApply,
   gitStashCreate,
@@ -19,6 +21,7 @@ import {
   gitStashes,
   gitStashPop,
   gitStatus,
+  gitTracking,
   gitUnstage,
 } from './git.js';
 import { goal } from './goal.js';
@@ -71,6 +74,8 @@ export const COMMANDS: Command[] = [
   gitBranches,
   gitCommit,
   gitDiff,
+  gitPull,
+  gitPush,
   gitStage,
   gitStashApply,
   gitStashCreate,
@@ -78,6 +83,7 @@ export const COMMANDS: Command[] = [
   gitStashPop,
   gitStashes,
   gitStatus,
+  gitTracking,
   gitUnstage,
   grid,
   gridSave,

@@ -13,6 +13,8 @@ import type {
   GitDiff,
   GitPathAction,
   GitStatus,
+  GitSync,
+  GitTracking,
   GridGroup,
   HooksStatus,
   Opened,
@@ -220,6 +222,35 @@ const COMMANDS = {
     project,
     ref,
   ]),
+  'git.tracking': commandWith<{ project: string; checkout?: string }, GitTracking>(
+    ({ project, checkout }) => [
+      'git',
+      'tracking',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--',
+      project,
+    ],
+  ),
+  'git.push': commandWith<{ project: string; checkout?: string }, Recorded<GitSync>>(
+    ({ project, checkout }) => [
+      'git',
+      'push',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--yes',
+      '--',
+      project,
+    ],
+  ),
+  'git.pull': commandWith<{ project: string; checkout?: string }, Recorded<GitSync>>(
+    ({ project, checkout }) => [
+      'git',
+      'pull',
+      ...(checkout ? ['--checkout', checkout] : []),
+      '--yes',
+      '--',
+      project,
+    ],
+  ),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [
       'grid',
