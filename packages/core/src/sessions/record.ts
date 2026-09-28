@@ -1,7 +1,9 @@
+import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
+import { GENERAL_PROJECT } from './general.js';
 import { FINAL_STATES, SESSION_STATES } from './states.js';
 import { WORKFLOW_STATUSES } from './workflow-status.js';
 
@@ -25,6 +27,7 @@ const SessionRecordFields = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
   id: z.string().regex(SHORT_ID),
   kind: z.enum(['interactive', 'run', 'terminal']),
+  /** A reserved name for profile-owned General sessions, otherwise a registered project. */
   project: z.string(),
   agent: z.union([AgentSchema, z.literal('terminal')]),
   /** Claude Code's session UUID, or Codex's thread id. */
@@ -148,8 +151,10 @@ const SessionRecordFields = z.strictObject({
 export const SessionRecordSchema = SessionRecordFields.refine(
   (record) =>
     (record.kind === 'terminal') === (record.agent === 'terminal') &&
-    (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)),
-  'plain terminal records must use kind and agent terminal together',
+    (record.kind !== 'terminal' || (!record.agentSessionId && !record.goal)) &&
+    (record.project !== GENERAL_PROJECT ||
+      (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)),
+  'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree',
 );
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 /** A plain terminal has no coding agent or provider conversation. */

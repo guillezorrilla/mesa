@@ -620,17 +620,25 @@ const COMMANDS = {
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
   // session starting a child, even when the app itself was started inside a Mesa window.
   'sessions.open': commandWith<
-    { project: string; agent?: Agent; goal?: string; branch?: string; terminal?: boolean },
+    {
+      project?: string;
+      general?: boolean;
+      agent?: Agent;
+      goal?: string;
+      branch?: string;
+      terminal?: boolean;
+    },
     Recorded<SessionRecord>
-  >(({ project, agent, goal, branch, terminal }) => [
+  >(({ project, general, agent, goal, branch, terminal }) => [
     'open',
     '--no-parent',
     ...(agent ? ['--agent', agent] : []),
     ...(goal?.trim() ? [`--goal=${goal}`] : []),
     ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
     ...(terminal ? ['--terminal'] : []),
+    ...(general ? ['--general'] : []),
     '--',
-    project,
+    ...(project ? [project] : []),
   ]),
   // The row's project, which the board read from its folder, so both place it alike.
   'sessions.adopt': commandWith<

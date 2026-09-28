@@ -449,7 +449,13 @@ test('New session passes a multi-line goal with --goal; a blank one passes none'
   ]);
 
   expect(byTestId('selected-session')).toHaveLength(1);
-  await click(document.querySelector('[aria-label="New session"]') as HTMLElement);
+  const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
+  await click(menu);
+  await click(
+    [...(menu.parentElement?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'lantern-cove',
+    ),
+  );
   (byTestId('new-session-goal')[0] as HTMLTextAreaElement).value = ' \n ';
   await click(byTestId('new-session-submit')[0]);
   expect(calls.filter((c) => c[1] === 'open').at(-1)).toEqual([
@@ -484,7 +490,13 @@ test('New session passes a branch with --branch, trimmed; a blank one passes non
   ]);
 
   expect(byTestId('selected-session')).toHaveLength(1);
-  await click(document.querySelector('[aria-label="New session"]') as HTMLElement);
+  const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
+  await click(menu);
+  await click(
+    [...(menu.parentElement?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'lantern-cove',
+    ),
+  );
   (byTestId('new-session-branch')[0] as HTMLInputElement).value = '  ';
   await click(byTestId('new-session-submit')[0]);
   expect(calls.filter((c) => c[1] === 'open').at(-1)).not.toContainEqual(

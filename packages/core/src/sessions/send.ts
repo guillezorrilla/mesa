@@ -3,6 +3,7 @@ import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Caller } from './caller.js';
+import { projectLabel, projectScope } from './general.js';
 import { refuseRun, type SessionRecord, sessionEnded } from './record.js';
 import { WAITING_STATES } from './states.js';
 import type { SessionStore } from './store.js';
@@ -28,7 +29,7 @@ const charCount = (text: string) => Array.from(text).length;
 
 /** The line a prompt from another session starts with: who sent it, and how to answer. */
 const header = (sender: SessionRecord) =>
-  `[mesa] from session ${sender.id} (${sender.project}). Reply with: mesa send ${sender.id} "<reply>"`;
+  `[mesa] from session ${sender.id} (${projectLabel(sender.project)}). Reply with: mesa send ${sender.id} "<reply>"`;
 
 /**
  * Who a prompt is from. `window` is the Mesa session whose window this runs in (the caller),
@@ -119,7 +120,7 @@ export async function sendPrompt(
     action: 'send',
     target: id,
     text: prompt,
-    project: record.project,
+    project: projectScope(record.project),
   });
 
   try {

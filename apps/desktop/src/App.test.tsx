@@ -981,6 +981,33 @@ test('project session menu offers three real launch paths and closes after choos
   expect(byTestId('selected-session')).toHaveLength(1);
 });
 
+test('global New session offers General without a registered project', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope([]),
+    config: () => envelope({ defaultAgent: 'codex', shortcuts: DEFAULT_SHORTCUTS }),
+    open: () => envelope(managedRow('gener001', { project: '__mesa_general__', cwd: '/h' })),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
+  await click(menu);
+  const general = [...(menu.parentElement?.querySelectorAll('button') ?? [])].find((button) =>
+    button.textContent?.includes('General Session'),
+  );
+  await click(general);
+  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('General session');
+  expect(byTestId('new-session-project')).toHaveLength(0);
+  await click(byTestId('new-session-submit')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'codex',
+    '--general',
+    '--',
+  ]);
+});
+
 test('project controls update profile presentation and leave the slug available when hidden', async () => {
   let rows = PROJECTS.map((row) => ({ ...row }));
   const { bridge, calls } = fakeBridge({

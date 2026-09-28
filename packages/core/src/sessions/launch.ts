@@ -10,6 +10,7 @@ import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { sessionWorktree } from '../worktrees/create.js';
 import { windowEnv } from './caller.js';
+import { GENERAL_PROJECT } from './general.js';
 import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import { PROCESS } from './state.js';
@@ -50,10 +51,10 @@ export function launchProject(profile: Profile, name: string) {
  */
 export async function launchAgent(
   deps: Pick<LaunchDeps, 'profile' | 'run'>,
-  project: Project,
+  project?: Project,
   asked?: string,
 ) {
-  const name = asked ?? project.agent ?? deps.profile.config.defaultAgent;
+  const name = asked ?? project?.agent ?? deps.profile.config.defaultAgent;
   const parsed = AgentSchema.safeParse(name);
   if (!parsed.success) {
     const known = AGENT_NAMES.join(', ');
@@ -63,14 +64,20 @@ export async function launchAgent(
 }
 
 /** Where a session's agent runs: its own folder, else its worktree, else the project's. */
-export const folderOf = (r: Pick<SessionRecord, 'cwd' | 'worktree'>, project: RegistryEntry) =>
-  r.cwd ?? r.worktree?.path ?? project.path;
+export const folderOf = (
+  r: Pick<SessionRecord, 'cwd' | 'worktree'>,
+  project: RegistryEntry | null,
+) => {
+  const folder = r.cwd ?? r.worktree?.path ?? project?.path;
+  if (!folder) throw new MesaError('usage', 'General session has no working folder');
+  return folder;
+};
 
 /** What a new session's record holds before its window opens. */
 type NewLaunch = {
   /** A headless run (CONTEXT.md, Skill run); interactive when unset. */
   kind?: 'run' | 'terminal';
-  project: RegistryEntry;
+  project: RegistryEntry | null;
   agent: Agent | 'terminal';
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
@@ -108,13 +115,14 @@ type Start = {
 export async function startSession(
   deps: LaunchDeps,
   written: SessionRecord,
-  project: RegistryEntry,
+  project: RegistryEntry | null,
   start: Start,
 ): Promise<{ record: SessionRecord; warning?: string }> {
   let record = written;
   let made: Worktree | undefined;
   try {
     if (!record.worktree && start.branch !== undefined) {
+      if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
       const selected = await worktreeFor(deps, project, start.branch, start.base);
       // A configured setup can create user data. A failed agent launch must leave it intact.
       if (selected.created && !deps.profile.config.worktrees.setup.length) made = selected.worktree;
@@ -122,10 +130,10 @@ export async function startSession(
     }
     const cwd = agentFolder(record, project);
     const warning =
-      record.kind === 'terminal' ? undefined : syncSkillsInto(deps, project.name, cwd);
+      record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd);
     const { paths, config } = deps.profile;
     await deps.tmux.openWindow({
-      project: project.name,
+      project: record.tmux.session,
       window: record.tmux.window,
       // claude keys its transcripts by cwd.
       cwd,
@@ -135,7 +143,7 @@ export async function startSession(
     });
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
-    if (made) {
+    if (made && project) {
       await removeWorktree(deps.run, project.path, made);
       deps.store.update(record.id, { worktree: undefined });
     }
@@ -167,7 +175,7 @@ export async function launchSession(
  * The folder a session's agent runs in, which must still be there: not_found when it is gone, as
  * tmux would start the agent in $HOME, and a skills sync would make the folder again.
  */
-function agentFolder(record: SessionRecord, project: RegistryEntry) {
+function agentFolder(record: SessionRecord, project: RegistryEntry | null) {
   const folder = folderOf(record, project);
   if (!existsSync(folder)) {
     throw new MesaError('not_found', `${folder} is gone: its agent has nowhere to run`);
@@ -209,7 +217,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
   const now = deps.clock().toISOString();
   return deps.store.create((id) => ({
     kind: s.kind ?? 'interactive',
-    project: s.project.name,
+    project: s.project?.name ?? GENERAL_PROJECT,
     agent: s.agent,
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
@@ -224,7 +232,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,
-      session: s.project.name,
+      session: s.project?.name ?? GENERAL_PROJECT,
       window: windowName(s.agent, id),
     },
     startedAt: now,

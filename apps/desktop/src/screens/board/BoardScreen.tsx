@@ -1,5 +1,11 @@
 import type { BoardPreferences, GridGroup, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
-import { DEFAULT_BOARD_PREFERENCES, isRun, sessionLabel } from '@mesa/core/browser';
+import {
+  DEFAULT_BOARD_PREFERENCES,
+  GENERAL_PROJECT,
+  isRun,
+  projectLabel,
+  sessionLabel,
+} from '@mesa/core/browser';
 import {
   Archive,
   ArrowLeft,
@@ -43,7 +49,12 @@ import { useBoard } from './useBoard';
  * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
-  | { kind: 'new'; project?: string; location?: 'main' | 'worktree' | 'terminal' }
+  | {
+      kind: 'new';
+      project?: string;
+      general?: boolean;
+      location?: 'main' | 'worktree' | 'terminal';
+    }
   | { kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive'; row: ManagedRow }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
@@ -62,6 +73,7 @@ export function BoardScreen(
     newSessionRequest?: {
       count: number;
       project?: string;
+      general?: boolean;
       location?: 'main' | 'worktree' | 'terminal';
     };
     archiveSessionRequest?: { count: number; id: string };
@@ -88,6 +100,7 @@ export function BoardScreen(
       setDialog({
         kind: 'new',
         project: props.newSessionRequest.project,
+        general: props.newSessionRequest.general,
         location: props.newSessionRequest.location,
       });
   }, [props.newSessionRequest]);
@@ -255,7 +268,7 @@ export function BoardScreen(
       if (!opened) return undefined;
       close();
       props.onSelectSession?.(opened.id);
-      return said(`Opened session ${opened.id} on ${opened.project}`, opened);
+      return said(`Opened session ${opened.id} on ${projectLabel(opened.project)}`, opened);
     });
   const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
     act(async () => {
@@ -326,7 +339,7 @@ export function BoardScreen(
                 : props.onBoard?.()
             }
           >
-            {selected?.project ?? 'General'}
+            {projectLabel(selected?.project ?? null)}
           </Button>
           <span className="text-muted-foreground">/</span>
           <span className="truncate font-medium">
@@ -381,16 +394,18 @@ export function BoardScreen(
                   >
                     <RotateCcw aria-hidden /> Resume
                   </Button>
-                  {!isRun(selected) && selected.kind !== 'terminal' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => actions.handoff(selected)}
-                      disabled={exited(selected) || !selected.goal || acting}
-                    >
-                      <Forward aria-hidden /> Hand off
-                    </Button>
-                  )}
+                  {!isRun(selected) &&
+                    selected.kind !== 'terminal' &&
+                    selected.project !== GENERAL_PROJECT && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => actions.handoff(selected)}
+                        disabled={exited(selected) || !selected.goal || acting}
+                      >
+                        <Forward aria-hidden /> Hand off
+                      </Button>
+                    )}
                   <RowMenu
                     sessionId={selected.id}
                     canRemove={exited(selected) && !queued(selected) && !acting}
@@ -510,6 +525,7 @@ export function BoardScreen(
         <NewSessionDialog
           key={`${dialog.project ?? ''}-${dialog.location ?? ''}`}
           project={dialog.project}
+          general={dialog.general}
           location={dialog.location}
           onOpen={open}
           onCancel={close}

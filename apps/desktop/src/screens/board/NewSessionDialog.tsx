@@ -10,7 +10,8 @@ import { AgentField } from './AgentField';
 import { ProjectSelect } from './ProjectSelect';
 
 export type NewSessionInput = {
-  project: string;
+  project?: string;
+  general?: boolean;
   agent?: Agent;
   goal?: string;
   branch: string;
@@ -26,9 +27,11 @@ export function NewSessionDialog(props: {
   onCancel: () => void;
   disabled: boolean;
   project?: string;
+  general?: boolean;
   location?: 'main' | 'worktree' | 'terminal';
 }) {
   const projects = useCommand('projects.list');
+  const config = useCommand('config.get');
   return (
     <ActionDialog
       testId="new-session-dialog"
@@ -43,7 +46,9 @@ export function NewSessionDialog(props: {
       description={
         props.location === 'terminal'
           ? 'Starts a shell in the project checkout, without a coding agent.'
-          : "Starts an agent in the project's tmux session."
+          : props.general
+            ? 'Starts an agent without a project in your home folder.'
+            : "Starts an agent in the project's tmux session."
       }
       submit={{
         label: (
@@ -60,28 +65,39 @@ export function NewSessionDialog(props: {
         // The textarea's own value: form data may turn its newlines into CRLF.
         const goal = form.elements.namedItem('goal') as HTMLTextAreaElement | null;
         props.onOpen({
-          project: String(data.get('project') ?? ''),
+          ...(props.general ? { general: true } : { project: String(data.get('project') ?? '') }),
           agent:
             props.location === 'terminal'
               ? undefined
               : (String(data.get('agent') ?? DEFAULT_AGENT) as Agent),
           goal: goal?.value,
-          branch: String(data.get('branch') ?? ''),
+          branch: props.general ? '' : String(data.get('branch') ?? ''),
           terminal: props.location === 'terminal',
         });
       }}
       onCancel={props.onCancel}
     >
-      <div className="grid gap-2">
-        <Label htmlFor="new-session-project">Project</Label>
-        <ProjectSelect
-          id="new-session-project"
-          data-testid="new-session-project"
-          projects={projects.data}
-          defaultValue={props.project}
+      {props.general ? (
+        <p className="text-sm text-muted-foreground">
+          General session in your home folder. Your agent handles its own trust prompt.
+        </p>
+      ) : (
+        <div className="grid gap-2">
+          <Label htmlFor="new-session-project">Project</Label>
+          <ProjectSelect
+            id="new-session-project"
+            data-testid="new-session-project"
+            projects={projects.data}
+            defaultValue={props.project}
+          />
+        </div>
+      )}
+      {props.location !== 'terminal' && (
+        <AgentField
+          key={props.general ? config.data?.defaultAgent : 'project'}
+          defaultValue={props.general ? config.data?.defaultAgent : undefined}
         />
-      </div>
-      {props.location !== 'terminal' && <AgentField />}
+      )}
       {props.location !== 'terminal' && (
         <div className="grid gap-2">
           <Label htmlFor="new-session-goal">Goal (optional)</Label>
@@ -94,19 +110,21 @@ export function NewSessionDialog(props: {
           />
         </div>
       )}
-      <div className="grid gap-2">
-        <Label htmlFor="new-session-branch">
-          Branch {props.location === 'worktree' ? '(required for worktree)' : '(optional)'}
-        </Label>
-        <Input
-          id="new-session-branch"
-          name="branch"
-          required={props.location === 'worktree'}
-          data-testid="new-session-branch"
-          className="font-mono"
-          placeholder="Its own git worktree on this branch, new or existing"
-        />
-      </div>
+      {!props.general && (
+        <div className="grid gap-2">
+          <Label htmlFor="new-session-branch">
+            Branch {props.location === 'worktree' ? '(required for worktree)' : '(optional)'}
+          </Label>
+          <Input
+            id="new-session-branch"
+            name="branch"
+            required={props.location === 'worktree'}
+            data-testid="new-session-branch"
+            className="font-mono"
+            placeholder="Its own git worktree on this branch, new or existing"
+          />
+        </div>
+      )}
     </ActionDialog>
   );
 }

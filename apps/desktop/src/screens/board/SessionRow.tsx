@@ -2,7 +2,9 @@ import type { TreeRow, WorkflowStatus } from '@mesa/core';
 import {
   attentionScore,
   duration,
+  GENERAL_PROJECT,
   isRun,
+  projectLabel,
   sessionBranch,
   sessionLabel,
   waitingOn,
@@ -102,7 +104,7 @@ export function SessionRow(props: {
         )}
       </TableCell>
       <TableCell>
-        {s.project ?? '-'}
+        {s.project ? projectLabel(s.project) : '-'}
         {s.managed && branch && (
           <div
             data-testid="session-branch"
@@ -269,7 +271,7 @@ export function SessionRow(props: {
                 <RotateCcw aria-hidden />
                 Resume
               </Button>
-              {!isRun(s) && s.kind !== 'terminal' && (
+              {!isRun(s) && s.kind !== 'terminal' && s.project !== GENERAL_PROJECT && (
                 <Button
                   variant="outline"
                   size="sm"

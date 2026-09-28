@@ -5,8 +5,9 @@ import { recordedOutput } from '../output/recorded.js';
 export const open = defineCommand({
   name: 'open',
   summary: 'Start an agent session for a project in a new tmux window',
-  args: ['project'],
+  args: ['project?'],
   flags: {
+    general: { type: 'boolean', description: 'Start without a project in the profile home folder' },
     agent: {
       type: 'string',
       description:
@@ -54,6 +55,7 @@ export const open = defineCommand({
       branch: flags.branch,
       base: flags.base,
       terminal: flags.terminal,
+      general: flags.general,
     });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;

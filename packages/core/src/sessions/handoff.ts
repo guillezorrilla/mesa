@@ -4,6 +4,7 @@ import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
 import { type LaunchDeps, launchProject, launchSession } from './launch.js';
@@ -41,6 +42,8 @@ export async function handoffSession(
   { note, keep = false }: { note: string; keep?: boolean },
 ): Promise<{ from: SessionRecord; to: SessionRecord; note: string; warning?: string }> {
   const from = deps.store.get(id);
+  if (from.project === GENERAL_PROJECT)
+    throw new MesaError('usage', `session ${id} is General; handoff requires a project`);
   if (from.agent === 'terminal')
     throw new MesaError(
       'usage',

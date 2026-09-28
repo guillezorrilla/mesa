@@ -25,6 +25,7 @@ import {
   testGit,
   withRealGit,
 } from '../testing/index.js';
+import { GENERAL_PROJECT } from './general.js';
 
 /** Every agent in the fake tmux exits, its pane dead, as a session's must before it resumes. */
 const exitAll = (world: ReturnType<typeof agentWorld>) => {
@@ -128,6 +129,44 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     `claude-${second.id}`,
   ]);
   expect(second.id).not.toBe(first.id);
+});
+
+test('General opens in the profile home without project skills, and can resume or open a plain terminal', async () => {
+  const world = agentWorld();
+  const { home, mesa } = await setUp(world);
+  const { result: first } = await mesa.sessions.open(undefined, { general: true });
+  expect(first).toMatchObject({ project: GENERAL_PROJECT, cwd: home, agent: 'claude' });
+  expect(first.tmux.session).toBe(GENERAL_PROJECT);
+  expect(world.tmux.windows[0]).toMatchObject({ project: GENERAL_PROJECT });
+  const started = world.calls.find((call) => call.args.includes('new-session'))?.args ?? [];
+  expect(started.slice(started.indexOf('-c'), started.indexOf('-c') + 2)).toEqual(['-c', home]);
+  expect(existsSync(join(home, '.claude/skills/mesa/SKILL.md'))).toBe(false);
+  expect((await mesa.sessions.list()).find((row) => row.id === first.id)?.project).toBe(
+    GENERAL_PROJECT,
+  );
+
+  exitAll(world);
+  const resumed = (await mesa.sessions.resume(first.id)).result;
+  expect(resumed.record).toMatchObject({
+    project: GENERAL_PROJECT,
+    cwd: home,
+    resumedFrom: first.id,
+  });
+  const terminal = (await mesa.sessions.open(undefined, { general: true, terminal: true })).result;
+  expect(terminal).toMatchObject({
+    project: GENERAL_PROJECT,
+    cwd: home,
+    kind: 'terminal',
+    agent: 'terminal',
+  });
+  expect(terminal.agentSessionId).toBeUndefined();
+  await expect(mesa.sessions.open(undefined)).rejects.toMatchObject({ code: 'usage' });
+  await expect(mesa.sessions.open('lantern-cove', { general: true })).rejects.toMatchObject({
+    code: 'usage',
+  });
+  await expect(
+    mesa.sessions.open(undefined, { general: true, branch: 'branch' }),
+  ).rejects.toMatchObject({ code: 'usage' });
 });
 
 test("with config sessions.log off, a window's output is not piped to a log", async () => {

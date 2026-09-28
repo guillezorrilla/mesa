@@ -12,6 +12,7 @@ import { joinWarnings } from '../receipts/recorder.js';
 import { landingOf, landOutput } from '../skills/landing.js';
 import type { SkillRow } from '../skills/sync.js';
 import type { Caller } from './caller.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits } from './goal.js';
 import { type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
 import { outputTail } from './output-log.js';
@@ -109,6 +110,9 @@ export async function startRun(deps: RunDeps, input: RunInput) {
     throw new MesaError('usage', `the timeout is whole seconds, 1 or more, not ${timeoutSeconds}`);
   }
   const about = input.session === undefined ? undefined : deps.store.get(input.session);
+  if (about?.project === GENERAL_PROJECT) {
+    throw new MesaError('usage', `session ${about.id} is General; skill runs require a project`);
+  }
   const named = input.project ?? about?.project;
   if (named === undefined) {
     throw new MesaError(

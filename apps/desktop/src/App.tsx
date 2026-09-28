@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
-import { Plus, Search, UserRound } from 'lucide-react';
+import { Plus, Search, TerminalSquare, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from './components/ActionDialog';
 import { CommandPalette } from './components/CommandPalette';
@@ -30,6 +30,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [newSessionRequest, setNewSessionRequest] = useState<{
     count: number;
     project?: string;
+    general?: boolean;
     location?: 'main' | 'worktree' | 'terminal';
   }>({ count: 0 });
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<{
@@ -38,6 +39,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   }>();
   const [pendingNewSession, setPendingNewSession] = useState<{
     project?: string;
+    general?: boolean;
     location?: 'main' | 'worktree' | 'terminal';
   }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
@@ -90,7 +92,13 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
   const requestNewSession = useCallback(
-    (preset: { project?: string; location?: 'main' | 'worktree' | 'terminal' } = {}) => {
+    (
+      preset: {
+        project?: string;
+        general?: boolean;
+        location?: 'main' | 'worktree' | 'terminal';
+      } = {},
+    ) => {
       if (filesDirty && view.kind === 'project') {
         setPendingNewSession(preset);
         setPendingView({ kind: 'board' });
@@ -182,15 +190,62 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
             </span>
             <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
           </Button>
-          <Button
-            variant="secondary"
-            size="icon-sm"
-            aria-label="New session"
-            disabled={!canStart}
-            onClick={() => requestNewSession()}
-          >
-            <Plus aria-hidden />
-          </Button>
+          <details className="relative">
+            <summary
+              aria-label="New session"
+              className="flex size-8 cursor-pointer items-center justify-center rounded-md bg-secondary hover:bg-accent"
+            >
+              <Plus aria-hidden className="size-4" />
+            </summary>
+            <div className="absolute left-0 z-50 mt-2 w-60 rounded-md border bg-popover p-1 shadow-lg">
+              <p className="px-2 py-1 text-xs text-muted-foreground">Recent projects</p>
+              {projects.data
+                ?.filter((entry) => entry.exists)
+                .map((entry) => (
+                  <button
+                    key={entry.name}
+                    type="button"
+                    className="flex w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    onClick={(event) => {
+                      const menu = event.currentTarget.closest('details');
+                      if (menu) menu.open = false;
+                      requestNewSession({ project: entry.name });
+                    }}
+                  >
+                    {entry.label}
+                  </button>
+                ))}
+              {canStart && (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                  onClick={(event) => {
+                    const menu = event.currentTarget.closest('details');
+                    if (menu) menu.open = false;
+                    requestNewSession({
+                      project: project?.name ?? projects.data?.find((entry) => entry.exists)?.name,
+                      location: 'terminal',
+                    });
+                  }}
+                >
+                  <TerminalSquare aria-hidden className="size-4" /> Open terminal
+                </button>
+              )}
+              <div className="my-1 border-t" />
+              <button
+                type="button"
+                className="flex w-full flex-col rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                onClick={(event) => {
+                  const menu = event.currentTarget.closest('details');
+                  if (menu) menu.open = false;
+                  requestNewSession({ general: true });
+                }}
+              >
+                General Session{' '}
+                <span className="text-xs text-muted-foreground">No project context</span>
+              </button>
+            </div>
+          </details>
         </div>
         <details ref={profileMenu} className="relative ml-auto">
           <summary

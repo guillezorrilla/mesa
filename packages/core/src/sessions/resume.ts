@@ -3,6 +3,7 @@ import { readyAgent } from '../agents/agents.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireOwnWorktree, resumerOf } from './holders.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
 import { ending, type SessionRecord } from './record.js';
@@ -27,7 +28,7 @@ export async function resumeSession(
   if (!old.agentSessionId) {
     throw new MesaError(
       'not_found',
-      `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project}`,
+      `session ${id} has no agent session id to resume; start a new one with mesa open ${old.project === GENERAL_PROJECT ? '--general' : old.project}`,
     );
   }
   const resumedBy = resumerOf(deps.store, old);
@@ -38,7 +39,7 @@ export async function resumeSession(
     );
   }
   const spec = await readyAgent(deps.run, old.agent);
-  const project = findProject(deps.profile, old.project);
+  const project = old.project === GENERAL_PROJECT ? null : findProject(deps.profile, old.project);
   // tmux would start a window whose folder is gone in $HOME, where claude has no such conversation.
   const folder = folderOf(old, project);
   if (!existsSync(folder)) {

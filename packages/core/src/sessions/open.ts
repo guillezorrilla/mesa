@@ -14,6 +14,7 @@ import {
 import { isOver, type SessionRecord } from './record.js';
 
 type OpenDeps = LaunchDeps & {
+  home: string;
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
   caller: () => Caller;
@@ -46,7 +47,8 @@ function parentOf(
 
 /** What `mesa open` asks for, the goal already read (readGoal). */
 export type OpenInput = {
-  project: string;
+  project?: string;
+  general?: boolean;
   agent?: string;
   goal?: string;
   parent?: string;
@@ -72,13 +74,19 @@ export async function openSession(
   deps: OpenDeps,
   input: OpenInput,
 ): Promise<{ record: SessionRecord; warning?: string }> {
+  if (Boolean(input.project) === Boolean(input.general)) {
+    throw new MesaError('usage', 'pass a project or --general, not both');
+  }
+  if (input.general && (input.branch || input.base || input.after)) {
+    throw new MesaError('usage', 'General sessions cannot use --branch, --base, or --after');
+  }
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
   }
   if (input.terminal) {
     if (input.agent || input.goal || input.after)
       throw new MesaError('usage', '--terminal cannot use --agent, --goal, or --after');
-    const { entry } = launchProject(deps.profile, input.project);
+    const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
     const command = `exec ${shellWord(deps.shell)} -l`;
     requireCommandFits(command);
     return launchSession(
@@ -86,6 +94,7 @@ export async function openSession(
       {
         kind: 'terminal',
         project: entry,
+        ...(input.general ? { cwd: deps.home } : {}),
         agent: 'terminal',
         parent: parentOf(deps, input),
         name: 'Terminal',
@@ -96,14 +105,20 @@ export async function openSession(
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
   // Read even when --agent is given.
-  const { entry, project } = launchProject(deps.profile, input.project);
-  const { agent } = await launchAgent(deps, project, input.agent);
+  const selected = input.project ? launchProject(deps.profile, input.project) : null;
+  const { agent } = await launchAgent(deps, selected?.project, input.agent);
 
   const agentSessionId = newSessionId(agent, deps.newUuid);
   const command = (id: string) =>
     startCommand(agent, { id, logs: deps.profile.paths.logs, agentSessionId, goal: input.goal });
   requireCommandFits(command('xxxxxxxx'));
-  const session = { project: entry, agent, goal: input.goal, parent };
+  const session = {
+    project: selected?.entry ?? null,
+    agent,
+    goal: input.goal,
+    parent,
+    ...(input.general ? { cwd: deps.home } : {}),
+  };
   if (waited && !isOver(waited)) {
     const { branch, base } = input;
     const pending = {

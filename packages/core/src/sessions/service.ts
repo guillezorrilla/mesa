@@ -20,6 +20,7 @@ import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
+import { projectLabel, projectScope } from './general.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
@@ -75,6 +76,7 @@ export function sessionsService(
     caller,
     syncSkills: skills.linkInto,
     shell: deps.env.SHELL || '/bin/zsh',
+    home: deps.home,
   });
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const look = (all = false) =>
@@ -113,7 +115,7 @@ export function sessionsService(
         summary: (r) => `Stopped session ${id} (${r.outcome})`,
         failure: `Could not stop session ${id}`,
         warning: (r) => r.warning,
-        project: (r) => r.record.project,
+        project: (r) => projectScope(r.record.project),
         session: () => id,
         agent: (r) => recordAgent(r.record),
         inputs: { id, force },
@@ -188,8 +190,11 @@ export function sessionsService(
        * so the receipt keeps it (receiptText); one Mesa cannot take fails inside the recorded
        * action, as every refusal does.
        */
-      open: (project: string, opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {}) => {
-        const { agent, parent, noParent, after, branch, base, terminal } = opts;
+      open: (
+        project: string | undefined,
+        opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {},
+      ) => {
+        const { agent, parent, noParent, after, branch, base, terminal, general } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -208,15 +213,16 @@ export function sessionsService(
             ...(kept ? { argv: kept.argv } : {}),
             summary: ({ record: r }) =>
               r.lastState.state === 'queued'
-                ? `Queued session ${r.id} on ${r.project} after ${r.after}`
-                : `Opened session ${r.id} on ${r.project}`,
-            failure: `Could not open a session on ${project}`,
+                ? `Queued session ${r.id} on ${projectLabel(r.project)} after ${r.after}`
+                : `Opened session ${r.id} on ${projectLabel(r.project)}`,
+            failure: `Could not open a session on ${project ?? 'General'}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
             agent: (r) => recordAgent(r.record),
             inputs: {
-              project,
+              ...(project === undefined ? {} : { project }),
+              ...(general ? { general: true } : {}),
               agent: agent ?? null,
               ...(kept ? { goal: kept.short } : {}),
               ...(parent === undefined ? {} : { parent }),
@@ -230,7 +236,18 @@ export function sessionsService(
           },
           async () => {
             if (refused) throw refused;
-            const input = { project, agent, goal, parent, noParent, after, branch, base, terminal };
+            const input = {
+              project,
+              general,
+              agent,
+              goal,
+              parent,
+              noParent,
+              after,
+              branch,
+              base,
+              terminal,
+            };
             return openSession(openDeps(), input);
           },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
@@ -261,7 +278,7 @@ export function sessionsService(
               `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
             failure: `Could not run skill ${skill}${on}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
             agent: (r) => recordAgent(r.record),
             inputs: {
@@ -344,7 +361,7 @@ export function sessionsService(
             type: 'session',
             summary: (r) => `Renamed session ${id} to ${r.name}`,
             failure: `Could not rename session ${id}`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: { id, name },
             outputs: (r) => ({ name: r.name }),
@@ -357,7 +374,7 @@ export function sessionsService(
             type: 'session',
             summary: (r) => `Set session ${id} workflow to ${r.workflowStatus ?? 'unassigned'}`,
             failure: `Could not set session ${id} workflow`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: { id, status },
             outputs: (r) => ({ workflowStatus: r.workflowStatus ?? null }),
@@ -378,7 +395,7 @@ export function sessionsService(
             summary: (r) =>
               `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
             failure: `Could not remove session ${id}`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: { id, ...opts },
             outputs: (r) => r,
@@ -406,7 +423,7 @@ export function sessionsService(
             type: 'session',
             summary: () => `Archived session ${id}`,
             failure: `Could not archive session ${id}`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             agent: (r) => recordAgent(r),
             inputs: { id },
@@ -426,7 +443,7 @@ export function sessionsService(
             type: 'session',
             summary: () => `Unarchived session ${id}`,
             failure: `Could not unarchive session ${id}`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             agent: (r) => recordAgent(r),
             inputs: { id },
@@ -450,7 +467,7 @@ export function sessionsService(
             summary: (r) => `Handed off session ${id} to ${r.to.id} (${r.stop})`,
             failure: `Could not hand off session ${id}`,
             warning: (r) => r.warning,
-            project: (r) => r.to.project,
+            project: (r) => projectScope(r.to.project),
             session: () => id,
             agent: (r) => recordAgent(r.to),
             inputs: { id, note, keep },
@@ -506,7 +523,7 @@ export function sessionsService(
               `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,
             failure: `Could not send to session ${id}`,
             warning: (r) => r.warning,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: {
               session: id,
@@ -549,7 +566,7 @@ export function sessionsService(
               `Adopted Claude Code session ${agentSessionId} as ${r.id} on ${r.project}`,
             failure: `Could not adopt Claude Code session ${agentSessionId}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
             agent: (r) => recordAgent(r.record),
             inputs: { agentSessionId, ...opts },
@@ -575,10 +592,11 @@ export function sessionsService(
         record(
           {
             type: 'session',
-            summary: (r) => `Resumed session ${r.from.id} as ${r.record.id} on ${r.record.project}`,
+            summary: (r) =>
+              `Resumed session ${r.from.id} as ${r.record.id} on ${projectLabel(r.record.project)}`,
             failure: `Could not resume session ${id}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
             agent: (r) => recordAgent(r.record),
             inputs: { id },

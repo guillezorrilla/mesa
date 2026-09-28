@@ -1,5 +1,5 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
-import { sessionLabel, WAITING_STATES } from '@mesa/core/browser';
+import { GENERAL_PROJECT, projectLabel, sessionLabel, WAITING_STATES } from '@mesa/core/browser';
 import {
   ChevronDown,
   ChevronLeft,
@@ -51,6 +51,8 @@ export function WorkspaceSidebar(props: {
   const unassigned = active.filter(
     (session) => !session.project || !registered.has(session.project),
   );
+  const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
+  const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
   const projectTab = view.kind === 'project' || view.kind === 'projects';
   const selectedProject =
     visible.find((project) => project.name === lastProject.current) ?? visible[0];
@@ -80,7 +82,7 @@ export function WorkspaceSidebar(props: {
           'mb-1 flex min-h-14 w-full flex-col justify-center gap-1 rounded-md border border-transparent px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
           view.kind === 'session' && view.id === session.id && 'border-orange-500 bg-orange-500/15',
         )}
-        title={`${session.project ?? 'General'}: ${sessionLabel(session)}: ${session.lastState.state}`}
+        title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}`}
         onClick={() => onView({ kind: 'session', id: session.id })}
       >
         <span className="flex w-full min-w-0 items-center gap-2 font-medium">
@@ -297,10 +299,16 @@ export function WorkspaceSidebar(props: {
                 )}
               </div>
             ))}
-            {unassigned.length > 0 && (
+            {general.length > 0 && (
               <div>
-                <p className="px-2 text-xs text-muted-foreground">General and other</p>
-                <div className="px-1">{unassigned.map(sessionItem)}</div>
+                <p className="px-2 text-xs text-muted-foreground">General</p>
+                <div className="px-1">{general.map(sessionItem)}</div>
+              </div>
+            )}
+            {other.length > 0 && (
+              <div>
+                <p className="px-2 text-xs text-muted-foreground">Other</p>
+                <div className="px-1">{other.map(sessionItem)}</div>
               </div>
             )}
             {active.length === 0 && (

@@ -1,6 +1,7 @@
 import { AGENTS } from '../../agents/agents.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
+import { GENERAL_PROJECT } from '../general.js';
 import { folderOf } from '../launch.js';
 import type { SessionRecord } from '../record.js';
 import { isAgentState } from '../states.js';
@@ -26,8 +27,8 @@ export function ownSessionIds(
     if (r.agent === 'terminal') continue;
     const own = AGENTS[r.agent].ownSessionId;
     const project = deps.projects.find((p) => p.name === r.project);
-    if (!own || !project) continue;
-    const folder = folderOf(r, project);
+    if (!own || (!project && r.project !== GENERAL_PROJECT)) continue;
+    const folder = folderOf(r, project ?? null);
     const id = own(deps, { id: r.id, folder, since: r.startedAt, until: r.endedAt }, held);
     if (id) {
       held.add(id);

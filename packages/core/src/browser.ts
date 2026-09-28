@@ -6,6 +6,7 @@ export { DEFAULT_SHORTCUTS, shortcutFromKeys, validShortcut } from './profile/sh
 export { repositoryUrl } from './projects/project-url.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
+export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export {
   BOARD_DENSITIES,
   BOARD_GROUPS,
