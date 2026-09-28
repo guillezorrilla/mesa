@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execRunner } from '@mesa/core';
-import { isolateGit } from '@mesa/core/testing';
+import { isolateGit, withRealGit } from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -16,6 +16,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   mkdirSync(repo);
   execFileSync('git', ['init', '-q', repo]);
   await cli.mesa('init', '--vault', 'vault');
+  await cli.mesa('vault', 'init');
   await cli.mesa('register', '--create', repo);
   writeFileSync(join(repo, 'before.txt'), 'before\n');
   writeFileSync(join(repo, 'README.md'), 'old\n');
@@ -65,6 +66,36 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   const staged = await cli.mesa('git', 'diff', 'lantern-cove', '--staged', '--json');
   expect(staged.json.data.staged).toBe(true);
   expect(staged.json.data.patch).toContain('rename to');
+  const added = await cli.mesa('git', 'stage', 'lantern-cove', 'README.md', '--json');
+  expect(added.json.data).toMatchObject({
+    path: 'README.md',
+    action: 'stage',
+    receipt: { id: expect.any(String) },
+  });
+  expect(
+    (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes,
+  ).toContainEqual(expect.objectContaining({ path: 'README.md', index: 'M', workingTree: ' ' }));
+  expect((await cli.mesa('git', 'unstage', 'lantern-cove', 'README.md', '--json')).code).toBe(0);
+  expect(
+    (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes,
+  ).toContainEqual(expect.objectContaining({ path: 'README.md', index: ' ', workingTree: 'M' }));
+  await cli.mesa('git', 'stage', 'lantern-cove', 'README.md');
+  const committed = await cli.mesa(
+    'git',
+    'commit',
+    'lantern-cove',
+    '--message',
+    'Update README',
+    '--json',
+  );
+  expect(committed.json.data).toMatchObject({
+    oid: expect.any(String),
+    summary: 'Update README',
+    receipt: { id: expect.any(String) },
+  });
+  expect((await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes).toEqual([
+    expect.objectContaining({ path: 'untracked space.txt', index: '?', workingTree: '?' }),
+  ]);
   const worktree = await cli.mesa('git', 'status', 'lantern-cove', '--checkout', linked, '--json');
   expect(worktree.json.data).toMatchObject({
     checkout: { path: linked, registered: false },
@@ -73,4 +104,17 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   expect((await cli.mesa('git', 'status', 'lantern-cove', '--checkout', cli.home)).code).toBe(2);
   await cli.mesa('--profile', 'other', 'init', '--vault', 'vault-other');
   expect((await cli.mesa('--profile', 'other', 'git', 'status', 'lantern-cove')).code).toBe(3);
+});
+
+test('unstage in an unborn repository keeps the working file', async () => {
+  const repo = await cli.withProject();
+  execFileSync('git', ['init', '-q', repo]);
+  writeFileSync(join(repo, 'first.txt'), 'preserved\n');
+  cli.run = withRealGit(cli.run);
+  expect((await cli.mesa('git', 'stage', 'lantern-cove', 'first.txt')).code).toBe(0);
+  expect((await cli.mesa('git', 'unstage', 'lantern-cove', 'first.txt')).code).toBe(0);
+  expect(
+    (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes,
+  ).toContainEqual(expect.objectContaining({ path: 'first.txt', index: '?', workingTree: '?' }));
+  expect((await cli.mesa('git', 'commit', 'lantern-cove', '--message', ' ')).code).toBe(2);
 });

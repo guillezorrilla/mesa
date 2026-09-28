@@ -99,6 +99,66 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
   );
 });
 
+test('project Git actions stage, unstage and commit through the CLI bridge', async () => {
+  let staged = false;
+  let committed = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        branch: 'main',
+        changes: committed
+          ? []
+          : [{ path: 'note.txt', index: staged ? 'A' : '?', workingTree: staged ? ' ' : '?' }],
+      }),
+    'git stage': () => {
+      staged = true;
+      return envelope({ path: 'note.txt', action: 'stage', receipt: null });
+    },
+    'git unstage': () => {
+      staged = false;
+      return envelope({ path: 'note.txt', action: 'unstage', receipt: null });
+    },
+    'git commit': () => {
+      committed = true;
+      return envelope({ oid: 'abcdef0123456789', summary: 'Add note', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  const action = (label: string) =>
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === label,
+    );
+  await click(action('Stage'));
+  expect(action('Unstage')).toBeDefined();
+  await click(action('Unstage'));
+  expect(action('Stage')).toBeDefined();
+  await click(action('Stage'));
+  const message = document.querySelector<HTMLInputElement>('[aria-label="Commit message"]');
+  await act(async () => {
+    if (message) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        message,
+        'Add note',
+      );
+      message.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  expect(action('Commit staged')?.disabled).toBe(false);
+  await click(action('Commit staged'));
+  expect(document.querySelector('[aria-label="Git status"]')?.textContent).toContain(
+    'Working tree clean.',
+  );
+  expect(calls.some((args) => args.includes('commit') && args.includes('--message=Add note'))).toBe(
+    true,
+  );
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({

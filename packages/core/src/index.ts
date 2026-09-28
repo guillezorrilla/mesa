@@ -22,6 +22,7 @@ export {
   waitingOn,
 } from './display.js';
 export type { Check, DoctorReport } from './doctor.js';
+export type { GitCommit, GitPathAction } from './git/changes.js';
 export type { Checkout } from './git/checkout.js';
 export type { DiffRow, GitDiff } from './git/diff.js';
 export type { GitChange, GitStatus } from './git/status.js';

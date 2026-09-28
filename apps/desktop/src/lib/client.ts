@@ -6,7 +6,9 @@ import type {
   Config,
   DiscoveredProject,
   DoctorReport,
+  GitCommit,
   GitDiff,
+  GitPathAction,
   GitStatus,
   GridGroup,
   HooksStatus,
@@ -73,6 +75,39 @@ const COMMANDS = {
     '--',
     project,
     ...(path ? [path] : []),
+  ]),
+  'git.stage': commandWith<
+    { project: string; checkout?: string; path: string },
+    Recorded<GitPathAction>
+  >(({ project, checkout, path }) => [
+    'git',
+    'stage',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'git.unstage': commandWith<
+    { project: string; checkout?: string; path: string },
+    Recorded<GitPathAction>
+  >(({ project, checkout, path }) => [
+    'git',
+    'unstage',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'git.commit': commandWith<
+    { project: string; checkout?: string; message: string },
+    Recorded<GitCommit>
+  >(({ project, checkout, message }) => [
+    'git',
+    'commit',
+    ...(checkout ? ['--checkout', checkout] : []),
+    `--message=${message}`,
+    '--',
+    project,
   ]),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [
