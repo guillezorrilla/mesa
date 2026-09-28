@@ -291,6 +291,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               gridGroups={config.data?.grid?.groups}
               onGridGroupsChanged={() => void config.refresh()}
               selectedSession={view.kind === 'session' ? view.id : undefined}
+              projects={projects.data}
               onRowsChange={setSessions}
               onBoard={() => navigate({ kind: 'board' })}
               onProject={(name) => navigate({ kind: 'project', name })}

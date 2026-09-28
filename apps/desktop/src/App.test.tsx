@@ -875,6 +875,48 @@ test('Sessions sidebar shows a branch and lets each card compact without losing 
   expect(card()?.textContent).toContain('working');
 });
 
+test('selected session details read native context by exact id and keep unknown facts honest', async () => {
+  const row = managedRow('aaaaaaaa');
+  let reading = true;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope(
+        reading
+          ? {
+              ...row,
+              context: {
+                used: 10.04,
+                window: 258400,
+                at: '2026-09-27T12:01:00.000Z',
+                source: 'transcript',
+              },
+            }
+          : row,
+      ),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  const details = byTestId('selected-session-details')[0];
+  expect(calls).toContainEqual(['--json', 'show', '--', 'aaaaaaaa']);
+  expect(details?.textContent).toContain('/src/lantern-cove');
+  expect(details?.textContent).toContain('ModelUnknown');
+  expect(details?.textContent).toContain('EffortUnknown');
+  expect(details?.textContent).toContain('10.04% of 258,400 tokens');
+  expect(details?.textContent).toContain('transcript');
+  expect(
+    document.querySelector('[aria-label="Context window: 10.04%"]')?.getAttribute('role'),
+  ).toBe('progressbar');
+  reading = false;
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(details?.textContent).toContain('ContextUnknown');
+  expect(
+    document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
+  ).toBe('img');
+});
+
 test('session close opens archive confirmation and archives only after confirmation', async () => {
   let archived = false;
   const { bridge, calls } = fakeBridge({

@@ -1,4 +1,11 @@
-import type { BoardPreferences, GridGroup, GuardrailCheck, ManagedRow, TreeRow } from '@mesa/core';
+import type {
+  BoardPreferences,
+  GridGroup,
+  GuardrailCheck,
+  ManagedRow,
+  ProjectRow,
+  TreeRow,
+} from '@mesa/core';
 import {
   DEFAULT_BOARD_PREFERENCES,
   GENERAL_PROJECT,
@@ -41,6 +48,7 @@ import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { RowMenu } from './RowMenu';
 import { exited, queued, resumable } from './rows';
+import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { RowActions } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
@@ -69,6 +77,7 @@ type OpenDialog =
 export function BoardScreen(
   props: {
     selectedSession?: string;
+    projects?: readonly ProjectRow[];
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
     onProject?: (project: string) => void;
@@ -363,6 +372,15 @@ export function BoardScreen(
                 : sessionLabel(selected)
               : props.selectedSession}
           </span>
+          {selected?.managed && (
+            <SelectedSessionDetails
+              key={selected.id}
+              row={selected}
+              projectPath={
+                props.projects?.find((project) => project.name === selected.project)?.path
+              }
+            />
+          )}
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
           {selected?.managed && (
             <Button
