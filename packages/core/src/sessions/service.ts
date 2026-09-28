@@ -37,6 +37,7 @@ import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
+import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
@@ -82,6 +83,13 @@ export function sessionsService(
     syncSkills: skills.linkInto,
     shell: deps.env.SHELL || '/bin/zsh',
     home: deps.home,
+  });
+  const nativeDeps = () => ({
+    profile: open(),
+    store,
+    home: deps.home,
+    env: deps.env,
+    elsewhere: () => otherProfilesSessions(deps.home, profile),
   });
   /** A closed tmux view does not end its Claude background process; recreate it on demand. */
   const ensureBackgroundView = async (id: string) => {
@@ -667,17 +675,9 @@ export function sessionsService(
           app ? terminalApp() : undefined,
         ),
       /** Native provider conversations on disk for a project, with import ownership. */
-      history: (project: string) =>
-        nativeHistory(
-          {
-            profile: open(),
-            store,
-            home: deps.home,
-            env: deps.env,
-            elsewhere: () => otherProfilesSessions(deps.home, profile),
-          },
-          project,
-        ),
+      history: (project: string) => nativeHistory(nativeDeps(), project),
+      /** Bounded local text search over native provider conversations. */
+      search: (project: string, query: string) => searchConversations(nativeDeps(), project, query),
     },
     hookEvent: ends.hookEvent,
     tmuxEvent: ends.tmuxEvent,

@@ -27,16 +27,15 @@ const UNSUPPORTED = [
 ];
 
 /** Latest native conversations for a registered project, including those Mesa has not imported. */
-export function nativeHistory(
-  deps: {
-    profile: Profile;
-    store: SessionStore;
-    home: string;
-    env: Env;
-    elsewhere: () => ReadonlySet<string>;
-  },
-  project: string,
-): NativeHistory {
+export type NativeHistoryDeps = {
+  profile: Profile;
+  store: SessionStore;
+  home: string;
+  env: Env;
+  elsewhere: () => ReadonlySet<string>;
+};
+
+export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeHistory {
   const root = findProject(deps.profile, project).path;
   const imported = new Map(
     deps.store

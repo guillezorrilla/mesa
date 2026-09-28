@@ -5,6 +5,7 @@ import type {
   ClaudeHooksStatus,
   CommandReference,
   Config,
+  ConversationSearch,
   DiscoveredProject,
   DoctorReport,
   FileChange,
@@ -666,6 +667,9 @@ const COMMANDS = {
     '--',
     project,
   ]),
+  'sessions.search': commandWith<{ project: string; query: string }, ConversationSearch>(
+    ({ project, query }) => ['history', 'search', '--', project, query],
+  ),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
   'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [

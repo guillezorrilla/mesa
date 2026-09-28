@@ -59,6 +59,21 @@ test('project native history imports a Codex conversation through the existing s
         total: 1,
         unsupported: [{ agent: 'antigravity', reason: 'No qualified native CLI history source' }],
       }),
+    'history search': () =>
+      envelope({
+        hits: [
+          {
+            agent: 'codex',
+            id: nativeId,
+            cwd: '/src/lantern-cove',
+            role: 'user',
+            excerpt: 'Find harbor charts',
+          },
+        ],
+        filesSearched: 1,
+        truncated: false,
+        unsupported: [{ agent: 'antigravity', reason: 'No qualified native CLI history source' }],
+      }),
     adopt: () => envelope({ ...managedRow('eeeeeeee'), id: 'eeeeeeee' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
@@ -69,6 +84,18 @@ test('project native history imports a Codex conversation through the existing s
     ),
   );
   expect(byTestId('native-history')[0]?.textContent).toContain(nativeId);
+  await act(async () => {
+    const query = byTestId('native-history-query')[0] as HTMLInputElement;
+    query.value = 'harbor';
+    query.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [...(byTestId('native-history')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Search',
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'history', 'search', '--', 'lantern-cove', 'harbor']);
+  expect(byTestId('native-history-results')[0]?.textContent).toContain('Find harbor charts');
   await click(
     [...(byTestId('native-history')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent === 'Import',

@@ -76,6 +76,7 @@ export {
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type { HeadlessResult } from './sessions/run.js';
+export type { ConversationHit, ConversationSearch } from './sessions/search.js';
 export type { Sent } from './sessions/send.js';
 export type { SessionState } from './sessions/states.js';
 export type { StopOutcome } from './sessions/stop.js';

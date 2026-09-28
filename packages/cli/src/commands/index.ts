@@ -44,7 +44,7 @@ import { grid, gridRemove, gridSave } from './grid.js';
 import { guardrailCheck } from './guardrail.js';
 import { handoff } from './handoff.js';
 import { help } from './help.js';
-import { history } from './history.js';
+import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { init } from './init.js';
@@ -128,6 +128,7 @@ export const COMMANDS: Command[] = [
   guardrailCheck,
   handoff,
   history,
+  historySearch,
   help,
   hook,
   hookTmux,
