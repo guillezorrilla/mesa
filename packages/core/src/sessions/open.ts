@@ -1,10 +1,14 @@
 import { newSessionId, startCommand } from '../agents/agents.js';
+import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import type { IdSource } from '../lib/ids.js';
+import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Caller } from './caller.js';
+import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits } from './goal.js';
 import {
   createRecord,
+  folderOf,
   type LaunchDeps,
   launchAgent,
   launchProject,
@@ -13,9 +17,11 @@ import {
 import { isOver, type SessionRecord } from './record.js';
 
 type OpenDeps = LaunchDeps & {
+  home: string;
   newUuid: IdSource;
   /** Who runs this mesa: the window's session is the default parent. */
   caller: () => Caller;
+  shell: string;
 };
 
 /**
@@ -44,8 +50,12 @@ function parentOf(
 
 /** What `mesa open` asks for, the goal already read (readGoal). */
 export type OpenInput = {
-  project: string;
+  project?: string;
+  general?: boolean;
   agent?: string;
+  mode?: string;
+  /** Keep a Claude session running when its terminal view closes. */
+  background?: boolean;
   goal?: string;
   parent?: string;
   noParent?: boolean;
@@ -54,6 +64,8 @@ export type OpenInput = {
   /** Its own git worktree on this branch (CONTEXT.md, Worktree), started from `base` if new. */
   branch?: string;
   base?: string;
+  /** A shell in the project checkout, with no coding agent or provider conversation. */
+  terminal?: boolean;
 };
 
 /**
@@ -68,19 +80,79 @@ export async function openSession(
   deps: OpenDeps,
   input: OpenInput,
 ): Promise<{ record: SessionRecord; warning?: string }> {
+  if (Boolean(input.project) === Boolean(input.general)) {
+    throw new MesaError('usage', 'pass a project or --general, not both');
+  }
+  if (input.general && (input.branch || input.base || input.after)) {
+    throw new MesaError('usage', 'General sessions cannot use --branch, --base, or --after');
+  }
   if (input.base !== undefined && input.branch === undefined) {
     throw new MesaError('usage', '--base needs --branch');
+  }
+  if (input.mode !== undefined && input.mode !== 'plan') {
+    throw new MesaError('usage', `unknown session mode ${input.mode}; use plan`);
+  }
+  if (input.terminal) {
+    if (input.agent || input.goal || input.after || input.mode || input.background)
+      throw new MesaError(
+        'usage',
+        '--terminal cannot use --agent, --goal, --after, --mode, or --background',
+      );
+    const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
+    const parent = parentOf(deps, input);
+    const from = parent ? deps.store.get(parent) : undefined;
+    const cwd =
+      !input.branch && from?.project === (entry?.name ?? GENERAL_PROJECT)
+        ? folderOf(from, entry)
+        : input.general
+          ? deps.home
+          : undefined;
+    const command = `exec ${shellWord(deps.shell)} -l`;
+    requireCommandFits(command);
+    return launchSession(
+      deps,
+      {
+        kind: 'terminal',
+        project: entry,
+        ...(cwd ? { cwd } : {}),
+        agent: 'terminal',
+        parent,
+        name: 'Terminal',
+      },
+      { command: () => command, branch: input.branch, base: input.base },
+    );
   }
   const waited = input.after === undefined ? undefined : waitedOn(deps, input.after);
   const parent = parentOf(deps, input);
   // Read even when --agent is given.
-  const { entry, project } = launchProject(deps.profile, input.project);
-  const { agent } = await launchAgent(deps, project, input.agent);
+  const selected = input.project ? launchProject(deps.profile, input.project) : null;
+  const { agent } = await launchAgent(deps, selected?.project, input.agent);
+  if (input.mode === 'plan' && !supportsPlanStart(agent)) {
+    throw new MesaError('usage', `${agent} has no qualified plan startup mode`);
+  }
+  if (input.background && !supportsAgentCapability(agent, 'background')) {
+    throw new MesaError('usage', `${agent} has no qualified native background mode`);
+  }
 
-  const agentSessionId = newSessionId(agent, deps.newUuid);
-  const command = startCommand(agent, { agentSessionId, goal: input.goal });
-  requireCommandFits(command);
-  const session = { project: entry, agent, goal: input.goal, parent };
+  const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
+  const command = (id: string) =>
+    startCommand(agent, {
+      id,
+      logs: deps.profile.paths.logs,
+      agentSessionId,
+      goal: input.goal,
+      mode: input.mode === 'plan' ? 'plan' : undefined,
+    });
+  if (!input.background) requireCommandFits(command('xxxxxxxx'));
+  const session = {
+    project: selected?.entry ?? null,
+    agent,
+    ...(input.mode === 'plan' ? { mode: 'plan' as const } : {}),
+    ...(input.background ? { background: true as const } : {}),
+    goal: input.goal,
+    parent,
+    ...(input.general ? { cwd: deps.home } : {}),
+  };
   if (waited && !isOver(waited)) {
     const { branch, base } = input;
     const pending = {
@@ -92,7 +164,7 @@ export async function openSession(
   return launchSession(
     deps,
     { ...session, ...(waited ? { after: waited.id } : {}), agentSessionId },
-    { command: () => command, branch: input.branch, base: input.base },
+    { command: (record) => command(record.id), branch: input.branch, base: input.base },
   );
 }
 

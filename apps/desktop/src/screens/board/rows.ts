@@ -1,4 +1,4 @@
-import type { SessionRow, TreeRow } from '@mesa/core';
+import type { ManagedRow, SessionRow, TreeRow } from '@mesa/core';
 import { FINAL_STATES, listPrice } from '@mesa/core/browser';
 
 // What the Board derives from a row: pure, so every piece of the Board reads it the same way.
@@ -21,6 +21,15 @@ export const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.en
 /** A Mesa session whose agent has exited and whose conversation can reopen. */
 export const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;
+/** A saved run with no usable terminal that has not been explicitly ended or hidden. */
+export const recoverable = (s: SessionRow): s is ManagedRow =>
+  s.managed &&
+  exited(s) &&
+  !s.backgroundId &&
+  !s.endedAt &&
+  !s.archivedAt &&
+  !s.resumedBy &&
+  !queued(s);
 
 /**
  * The rows to show, each with the rows below it in the tree (the deeper ones right after it). A

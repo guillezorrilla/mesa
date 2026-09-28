@@ -13,8 +13,10 @@
     "windows": [
       {
         "title": "Mesa",
-        "width": 1000,
-        "height": 700
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "width": 1300,
+        "height": 750
       }
     ],
     "security": {

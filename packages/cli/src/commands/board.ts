@@ -1,4 +1,4 @@
-import { MesaError, presentSessions, sessionLabel } from '@mesa/core';
+import { MesaError, presentSessions, projectLabel, sessionLabel } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -17,7 +17,7 @@ export const board = defineCommand({
             group.label,
             ...group.rows.map(
               (row) =>
-                `  ${sessionLabel(row)}  ${row.project ?? '-'}  ${row.managed ? (row.workflowStatus ?? 'unassigned') : 'not managed'}  ${row.lastState.state}`,
+                `  ${sessionLabel(row)}  ${row.project ? projectLabel(row.project) : '-'}  ${row.managed ? (row.workflowStatus ?? 'unassigned') : 'not managed'}  ${row.lastState.state}`,
             ),
           ].join('\n'),
         )

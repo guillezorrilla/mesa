@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { codexHome, codexSessions } from '../agents/codex/paths.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
@@ -110,12 +111,12 @@ test('an unknown or malformed id, a blank name, or another profile holding it is
   const { home, mesa } = setUp();
   await expect(mesa.sessions.adopt(ON_DISK)).rejects.toMatchObject({
     code: 'not_found',
-    message: `no Claude Code session ${ON_DISK}, live or in ${join(home, '.claude/projects')}`,
+    message: `no Claude Code or Codex session ${ON_DISK}, live or in ${join(home, '.claude/projects')}, ${codexSessions(codexHome({}, home))}`,
   });
   for (const id of ['../../etc/passwd', LIVE.toUpperCase(), 'a1b2c3d4']) {
     await expect(mesa.sessions.adopt(id)).rejects.toMatchObject({
       code: 'usage',
-      message: `${id} is not a Claude Code session id (a lowercase UUID)`,
+      message: `${id} is not a native session id (a lowercase UUID)`,
     });
   }
   await expect(mesa.sessions.adopt(LIVE, { name: ' ' })).rejects.toMatchObject({
@@ -165,15 +166,37 @@ test('an adoption links the enabled skills into the folder it reopens in, as ope
   }
 });
 
-test('a listed Codex session is not adopted: Mesa adopts Claude Code sessions only', async () => {
+test('an older Codex rollout is imported with its native id and actual cwd', async () => {
+  const codex = codexWorld();
+  const { run } = scriptedRunner({ claude: '[]' });
+  const { mesa, dir } = projectProfile(run, { env: codex.env });
+  const thread = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  const sub = join(dir, 'docs');
+  mkdirSync(sub);
+  codex.rollout({ id: thread, cwd: sub, startedAt: '2026-09-20T11:58:00.000Z' });
+  const { result } = await mesa.sessions.adopt(thread);
+  expect(result.record).toMatchObject({
+    agent: 'codex',
+    agentSessionId: thread,
+    project: 'lantern-cove',
+    cwd: sub,
+    adopted: true,
+  });
+  expect(result.warning).toBe(WARNING);
+  expect(await mesa.sessions.show(result.record.id)).toMatchObject({ agentSessionId: thread });
+});
+
+test('a headless Codex rollout is not imported as an interactive conversation', async () => {
   const codex = codexWorld();
   const { run } = scriptedRunner({ claude: '[]' });
   const { mesa, dir, home } = projectProfile(run, { env: codex.env });
   const thread = '01a0e14e-be41-72f1-a81b-e25d2198602a';
-  codex.rollout({ id: thread, cwd: dir, startedAt: '2026-09-24T11:58:00.000Z' });
-  await expect(mesa.sessions.adopt(thread)).rejects.toMatchObject({
-    code: 'usage',
-    message: `${thread} is a Codex session; Mesa adopts Claude Code sessions`,
+  codex.rollout({
+    id: thread,
+    cwd: dir,
+    startedAt: '2026-09-20T11:58:00.000Z',
+    originator: 'codex_exec',
   });
+  await expect(mesa.sessions.adopt(thread)).rejects.toMatchObject({ code: 'not_found' });
   expect(testStore(home).list()).toEqual([]);
 });

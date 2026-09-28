@@ -68,6 +68,41 @@ export async function managedRow(
   },
 ): Promise<ManagedRow> {
   const { now, window, listedAs } = seen;
+  if (found.agent === 'terminal') {
+    const state = found.endedAt
+      ? found.lastState.state
+      : window && !window.dead
+        ? 'working'
+        : 'done';
+    const lastState =
+      state === found.lastState.state
+        ? found.lastState
+        : {
+            state,
+            confidence: 1,
+            at: now.toISOString(),
+            source: 'tmux' as const,
+          };
+    const record =
+      lastState === found.lastState ? found : saveLook(deps.store, found, { lastState });
+    const tail =
+      window && !found.endedAt
+        ? await deps.tmux.capturePane(windowOf(found), 30).catch(() => undefined)
+        : undefined;
+    return {
+      ...record,
+      lastState,
+      attention: 0,
+      managed: true,
+      children: seen.children,
+      alive: Boolean(window && !window.dead),
+      runningSeconds: secondsBetween(
+        record.startedAt,
+        record.endedAt ? Date.parse(record.endedAt) : now.getTime(),
+      ),
+      ...(tail ? { lastOutput: tail.trimEnd().split('\n').at(-1) } : {}),
+    };
+  }
   const reader = AGENTS[found.agent];
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, so its hook log is not read.
@@ -80,6 +115,7 @@ export async function managedRow(
   const signals: SessionSignals = {
     now: now.toISOString(),
     agent: found.agent,
+    background: found.background,
     last: found.lastState,
     ended: Boolean(found.endedAt),
     ...(event ? { event } : {}),
@@ -133,11 +169,12 @@ export async function managedRow(
     ...classified,
     managed: true,
     children: seen.children,
-    alive: window !== undefined || listed !== undefined,
+    alive: listed?.nativeState === 'stopped' ? false : window !== undefined || listed !== undefined,
     runningSeconds: ran
       ? secondsBetween(record.startedAt, end ? Date.parse(end) : now.getTime())
       : 0,
     ...(listed?.status === undefined ? {} : { agentStatus: listed.status }),
+    ...(listed?.nativeState === undefined ? {} : { nativeState: listed.nativeState }),
     ...(lastOutput ? { lastOutput } : {}),
   };
 }

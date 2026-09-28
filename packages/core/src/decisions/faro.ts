@@ -5,6 +5,7 @@ import { readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { callerOf } from '../sessions/caller.js';
+import { recordAgent } from '../sessions/record.js';
 import { adapterBackend } from './adapter.js';
 import { decide, type FaroProfile } from './decide.js';
 import {
@@ -99,7 +100,7 @@ export function createFaro(ctx: MesaContext) {
           failure: 'Faro could not answer',
           project: () => project,
           session: () => session?.id,
-          agent: () => session?.agent,
+          agent: () => (session ? recordAgent(session) : undefined),
           scope: { actor: actor?.id },
           inputs: {
             state: redact(state),

@@ -1,9 +1,12 @@
 import type { Command } from '../command.js';
 import { adopt } from './adopt.js';
+import { agents } from './agents.js';
+import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { board, boardMove } from './board.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
+import { dependency } from './dependency.js';
 import { doctor } from './doctor.js';
 import {
   filesCreate,
@@ -16,6 +19,8 @@ import {
   filesTree,
   filesWrite,
 } from './files.js';
+import { forceStart } from './force-start.js';
+import { fork } from './fork.js';
 import {
   gitBranchCheckout,
   gitBranchCreate,
@@ -43,6 +48,7 @@ import { grid, gridRemove, gridSave } from './grid.js';
 import { guardrailCheck } from './guardrail.js';
 import { handoff } from './handoff.js';
 import { help } from './help.js';
+import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { init } from './init.js';
@@ -64,6 +70,7 @@ import { sessions } from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsSync } from './skills.js';
 import { stop } from './stop.js';
+import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
 import { view } from './view.js';
@@ -81,11 +88,14 @@ import {
 // (`hooks install` in hooks.ts), and has one entry here.
 export const COMMANDS: Command[] = [
   adopt,
+  agents,
+  archive,
   attach,
   board,
   boardMove,
   config,
   configSet,
+  dependency,
   decide,
   doctor,
   filesCreate,
@@ -97,6 +107,8 @@ export const COMMANDS: Command[] = [
   filesSearch,
   filesTree,
   filesWrite,
+  fork,
+  forceStart,
   goal,
   gitBranchCheckout,
   gitBranchCreate,
@@ -123,6 +135,8 @@ export const COMMANDS: Command[] = [
   gridRemove,
   guardrailCheck,
   handoff,
+  history,
+  historySearch,
   help,
   hook,
   hookTmux,
@@ -154,6 +168,7 @@ export const COMMANDS: Command[] = [
   skillsSync,
   stop,
   unregister,
+  unarchive,
   vaultInit,
   vaultOpen,
   vaultStatus,

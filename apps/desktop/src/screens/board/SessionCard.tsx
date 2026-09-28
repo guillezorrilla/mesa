@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/browser';
+import { projectLabel, sessionLabel } from '@mesa/core/browser';
 import { ArrowDown, ArrowUp, Download, SquareTerminal } from 'lucide-react';
 import { StateBadge } from '@/components/StateBadge';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,7 @@ export function SessionCard(props: {
         <StateBadge state={row.lastState.state} confidence={row.lastState.confidence} />
       </div>
       <p className="truncate text-muted-foreground text-xs">
-        {row.project ?? 'General'} / {row.agent}
+        {projectLabel(row.project)} / {row.agent}
       </p>
       {row.managed && row.goal && <p className="line-clamp-2 text-sm">{row.goal}</p>}
       {relations.length > 0 && (

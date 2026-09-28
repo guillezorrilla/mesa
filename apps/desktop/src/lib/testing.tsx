@@ -178,7 +178,13 @@ export async function renderWithMesa(ui: ReactNode, bridge: Bridge, platform = f
   return (id: string) => [...document.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)];
 }
 
-export const click = (element: HTMLElement | undefined) => act(async () => element?.click());
+export const click = (element: HTMLElement | undefined) =>
+  act(async () => {
+    element?.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }),
+    );
+    element?.click();
+  });
 
 /** Picks `value` in a select as a person does: the change event React's onChange reads. */
 export const choose = (select: HTMLElement | undefined, value: string) =>

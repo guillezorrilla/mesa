@@ -17,6 +17,7 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     runningSeconds: number;
     /** The agent listing's status (`idle`, `busy`, `waiting`), while it lists the session. */
     agentStatus?: string;
+    nativeState?: string;
     /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
     children: string[];
   };

@@ -60,6 +60,87 @@ test('open prints the session id, --json the record, and --attach hands back the
   expect(codex).not.toHaveProperty('agentSessionId');
 });
 
+test('open --terminal starts a plain shell session with no coding agent conversation', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const opened = (await mesa('open', 'lantern-cove', '--terminal', '--json')).json.data;
+  expect(opened).toMatchObject({ kind: 'terminal', agent: 'terminal', project: 'lantern-cove' });
+  expect(opened.agentSessionId).toBeUndefined();
+  expect(world.windows.at(-1)?.launch).toBe("exec '/bin/zsh' -l");
+  expect((await mesa('sessions', '--json')).json.data).toEqual([
+    expect.objectContaining({
+      id: opened.id,
+      kind: 'terminal',
+      lastState: expect.objectContaining({ state: 'working' }),
+    }),
+  ]);
+  expect(await mesa('send', opened.id, 'hello')).toMatchObject({ code: 2 });
+  expect(await mesa('resume', opened.id)).toMatchObject({ code: 2 });
+  expect(await mesa('open', 'lantern-cove', '--terminal', '--agent', 'claude')).toMatchObject({
+    code: 2,
+  });
+});
+
+test('open --mode plan reports native Plan in JSON and passes the provider startup flag', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const opened = await mesa('open', 'lantern-cove', '--mode', 'plan', '--json');
+  expect(opened.json.data.mode).toBe('plan');
+  expect(world.windows.at(-1)?.launch).toContain(' --permission-mode plan');
+  expect(await mesa('open', 'lantern-cove', '--agent', 'codex', '--mode', 'plan')).toMatchObject({
+    code: 2,
+  });
+});
+
+test('open --background returns Claude native handle and attaches its terminal view', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const base = cli.run;
+  cli.run = (file, args, ms, options) =>
+    file === 'claude' && args[0] === '--bg'
+      ? Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' })
+      : base(file, args, ms, options);
+  const opened = await mesa('open', 'lantern-cove', '--background', '--mode', 'plan', '--json');
+  expect(opened.json.data).toMatchObject({
+    background: true,
+    backgroundId: 'abcdef12',
+    mode: 'plan',
+  });
+  expect(world.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect(await mesa('open', 'lantern-cove', '--agent', 'codex', '--background')).toMatchObject({
+    code: 2,
+  });
+});
+
+test('open --terminal --parent keeps the child link in JSON', async () => {
+  cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const parent = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  const child = (await mesa('open', 'lantern-cove', '--terminal', '--parent', parent.id, '--json'))
+    .json.data;
+  expect(child).toMatchObject({ parent: parent.id, project: 'lantern-cove', kind: 'terminal' });
+});
+
+test('open --general --json starts without a registered project', async () => {
+  const world = cli.withTmux();
+  await mesa('init', '--vault', 'vault');
+  const opened = await mesa('open', '--general', '--json');
+  expect(opened.code).toBe(0);
+  expect(opened.json.data).toMatchObject({
+    project: '__mesa_general__',
+    cwd: cli.home,
+    tmux: { session: '__mesa_general__' },
+  });
+  expect(world.windows.at(-1)?.project).toBe('__mesa_general__');
+  expect((await mesa('open', '--general', '--terminal', '--json')).json.data).toMatchObject({
+    project: '__mesa_general__',
+    kind: 'terminal',
+    agent: 'terminal',
+  });
+  expect((await mesa('open', '--json')).code).toBe(2);
+  expect((await mesa('open', 'lantern-cove', '--general', '--json')).code).toBe(2);
+});
+
 test('open --goal and --goal-file start with a goal; mesa goal prints it', async () => {
   const world = cli.withTmux();
   await cli.withProject({ layOut: false });

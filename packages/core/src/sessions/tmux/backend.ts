@@ -36,7 +36,7 @@ type WindowSpec = WindowTarget & {
 };
 
 /** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
-const nestedAgentVars = (env: Env) =>
+export const nestedAgentVars = (env: Env) =>
   Object.keys(env).filter(
     (name) => name === 'CLAUDECODE' || name === 'CLAUDE_PID' || name.startsWith('CLAUDE_CODE_'),
   );

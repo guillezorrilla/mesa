@@ -26,5 +26,8 @@ export async function probe(run: Runner, b: Binary): Promise<Probe> {
     timeout: `${command} did not answer within ${CHECK_TIMEOUT_MS / 1000} s`,
     failed: `${command} failed: ${res.detail}`,
   }[res.reason];
-  return { name: b.name, ok: false, hint: `${why}; install with \`${b.install}\`` };
+  const install = b.install.startsWith('https://')
+    ? `see ${b.install} to install`
+    : `install with \`${b.install}\``;
+  return { name: b.name, ok: false, hint: `${why}; ${install}` };
 }

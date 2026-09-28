@@ -1,6 +1,7 @@
 import { AGENTS } from '../../agents/agents.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
+import { GENERAL_PROJECT } from '../general.js';
 import { folderOf } from '../launch.js';
 import type { SessionRecord } from '../record.js';
 import { isAgentState } from '../states.js';
@@ -13,21 +14,22 @@ import { isAgentState } from '../states.js';
  * started after its own window opened.
  */
 export function ownSessionIds(
-  deps: { env: Env; home: string; projects: readonly RegistryEntry[] },
+  deps: { env: Env; home: string; logs?: string; projects: readonly RegistryEntry[] },
   records: readonly SessionRecord[],
   taken: ReadonlySet<string>,
 ): Map<string, string> {
   const held = new Set(taken);
   const read = new Map<string, string>();
   const unread = records
-    .filter((r) => !r.agentSessionId && isAgentState(r.lastState.state))
+    .filter((r) => r.agent !== 'terminal' && !r.agentSessionId && isAgentState(r.lastState.state))
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   for (const r of unread) {
+    if (r.agent === 'terminal') continue;
     const own = AGENTS[r.agent].ownSessionId;
     const project = deps.projects.find((p) => p.name === r.project);
-    if (!own || !project) continue;
-    const folder = folderOf(r, project);
-    const id = own(deps, { folder, since: r.startedAt, until: r.endedAt }, held);
+    if (!own || (!project && r.project !== GENERAL_PROJECT)) continue;
+    const folder = folderOf(r, project ?? null);
+    const id = own(deps, { id: r.id, folder, since: r.startedAt, until: r.endedAt }, held);
     if (id) {
       held.add(id);
       read.set(r.id, id);

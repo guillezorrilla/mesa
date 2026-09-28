@@ -15,6 +15,7 @@ export type SessionSignals = {
   /** ISO: when the board looks. */
   now: string;
   agent: Agent;
+  background?: boolean;
   /** Where the session was last seen, and since when. */
   last: LastState;
   /** Stopped by Mesa: its last state stands. */
@@ -69,6 +70,8 @@ export function classify(s: SessionSignals): LastState {
   const fromHook = s.event && reader.hookState?.(s.event.event, s.event.payload);
   const listing = s.listed && reader.listing.state(s.listed);
   if (s.window && (!s.window.exists || s.window.dead) && !listing) {
+    // A background pane is only a view, and a failed listing proves nothing about the agent.
+    if (s.background) return s.last;
     if (FINAL_STATES.has(s.last.state)) return s.last;
     if (s.event && (fromHook === 'done' || fromHook === 'failed')) {
       return { state: fromHook, confidence: HOOK, source: 'hook', at: s.event.at };
@@ -171,8 +174,14 @@ export async function classifySession(
   signals: SessionSignals,
 ): Promise<Required<Placement>> {
   const basis = basisOf(signals);
-  const known = signals.last.source === 'adapter' && signals.last.basis === basis;
-  const backends = [stateRules, ...(known ? [] : (deps.backends ?? []))];
+  // An explicit Codex idle/working/gate marker is more reliable than an adapter guess. In a
+  // live Codex pane the adapter mistook "? for shortcuts" for a question after the turn ended.
+  // Antigravity has no qualified semantic feed, so never ask the adapter for its TUI state.
+  const allowAdapter =
+    signals.agent !== 'antigravity' &&
+    !(signals.agent === 'codex' && signals.tail && AGENTS.codex.screen.state(signals.tail));
+  const known = allowAdapter && signals.last.source === 'adapter' && signals.last.basis === basis;
+  const backends = [stateRules, ...(allowAdapter && !known ? (deps.backends ?? []) : [])];
   const decision = await decide({ ...deps, backends }, signals, STATE_QUESTIONS);
   const [state] = decision.answers;
   const adapted = decision.backend === 'adapter' && state?.kind === 'Choice' ? state : undefined;

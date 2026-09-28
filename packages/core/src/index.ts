@@ -4,7 +4,17 @@
 export type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 export type { CodexHooksStatus } from './agents/codex/hooks.js';
 export type { HooksStatus } from './agents/hooks-service.js';
-export { AGENT_NAMES, type Agent, DEFAULT_AGENT } from './agents/names.js';
+export {
+  AGENT_CAPABILITIES,
+  AGENT_EXECUTABLES,
+  AGENT_NAMES,
+  type Agent,
+  type AgentCapability,
+  agentCapabilityReport,
+  DEFAULT_AGENT,
+  supportsAgentCapability,
+  supportsPlanStart,
+} from './agents/names.js';
 export type { CommandReference } from './command-reference.js';
 export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { Decision } from './decisions/types.js';
@@ -59,7 +69,10 @@ export { type SearchHit, searchWorkspace } from './search/search.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
+export type { DescendantResult } from './sessions/descendants.js';
+export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
+export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
 export type { SessionLog } from './sessions/output-log.js';
 export {
   BOARD_DENSITIES,
@@ -74,6 +87,7 @@ export {
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type { HeadlessResult } from './sessions/run.js';
+export type { ConversationHit, ConversationSearch } from './sessions/search.js';
 export type { Sent } from './sessions/send.js';
 export type { SessionState } from './sessions/states.js';
 export type { StopOutcome } from './sessions/stop.js';

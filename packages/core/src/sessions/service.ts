@@ -1,10 +1,12 @@
 import { existsSync } from 'node:fs';
+import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
 import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
+import { MesaError } from '../lib/result.js';
 import { profileService } from '../profile/service.js';
 import { projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
@@ -18,23 +20,33 @@ import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
+import { changeDependencies } from './dependencies.js';
+import { applyDescendants } from './descendants.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
+import { forkSession } from './fork.js';
+import { GENERAL_PROJECT, projectLabel, projectScope } from './general.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
+import { nativeHistory } from './history.js';
 import { readHookEvents } from './hook-events.js';
+import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
 import { moveBoardSession } from './presentation.js';
+import { startQueued } from './queue.js';
+import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
 import { resumeSession } from './resume.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
+import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
+import { killIfThere } from './tmux/backend.js';
 import { viewProject } from './view.js';
 import { windowOf } from './window-name.js';
 import { setWorkflowStatus } from './workflow.js';
@@ -69,11 +81,36 @@ export function sessionsService(
     store,
     tmux,
     run: deps.run,
+    env: deps.env,
     clock: deps.clock,
     newUuid: deps.newUuid,
     caller,
     syncSkills: skills.linkInto,
+    shell: deps.env.SHELL || '/bin/zsh',
+    home: deps.home,
   });
+  const nativeDeps = () => ({
+    profile: open(),
+    store,
+    home: deps.home,
+    env: deps.env,
+    elsewhere: () => otherProfilesSessions(deps.home, profile),
+  });
+  /** A closed tmux view does not end its Claude background process; recreate it on demand. */
+  const ensureBackgroundView = async (id: string) => {
+    const found = store.get(id);
+    const nativeId = found.backgroundId;
+    if (!nativeId || found.endedAt || isOver(found)) return;
+    const target = windowOf(found);
+    const pane = await tmux.findWindow(target);
+    if (pane && !pane.dead) return;
+    if (pane) await killIfThere(tmux, target);
+    const project =
+      found.project === GENERAL_PROJECT ? null : launchProject(open(), found.project).entry;
+    await startSession(openDeps(), found, project, {
+      command: () => claudeBackgroundAttach(nativeId),
+    });
+  };
   /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
   const look = (all = false) =>
     listSessions(
@@ -90,6 +127,7 @@ export function sessionsService(
         clock: deps.clock,
         env: deps.env,
         home: deps.home,
+        logs: paths.logs,
       },
       { all },
     ).then((rows) =>
@@ -110,9 +148,9 @@ export function sessionsService(
         summary: (r) => `Stopped session ${id} (${r.outcome})`,
         failure: `Could not stop session ${id}`,
         warning: (r) => r.warning,
-        project: (r) => r.record.project,
+        project: (r) => projectScope(r.record.project),
         session: () => id,
-        agent: (r) => r.record.agent,
+        agent: (r) => recordAgent(r.record),
         inputs: { id, force },
         outputs: (r) => ({ outcome: r.outcome, lastState: r.record.lastState.state }),
         changed: (r) => r.outcome !== 'already-ended',
@@ -121,9 +159,13 @@ export function sessionsService(
         const found = store.get(id);
         if (found.kind !== 'run' || found.endedAt) {
           return {
-            ...(await stopSession({ store, tmux, clock: deps.clock, sleep: deps.sleep }, id, {
-              force,
-            })),
+            ...(await stopSession(
+              { store, tmux, run: deps.run, clock: deps.clock, sleep: deps.sleep },
+              id,
+              {
+                force,
+              },
+            )),
             warning: undefined,
           };
         }
@@ -151,6 +193,36 @@ export function sessionsService(
     const warning = joinWarnings(ended.warning, queue?.warning);
     return warning ? { ...ended, warning } : ended;
   };
+  const remove = (
+    id: string,
+    opts: { force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean } = {},
+  ) =>
+    record(
+      {
+        type: 'session',
+        summary: (r) =>
+          `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
+        failure: `Could not remove session ${id}`,
+        project: (r) => projectScope(r.project),
+        session: () => id,
+        inputs: { id, ...opts },
+        outputs: (r) => r,
+      },
+      () =>
+        removeSession(
+          {
+            store,
+            tmux,
+            run: deps.run,
+            profile: open,
+            eventsDir: paths.events,
+            logsDir: paths.logs,
+            runs: paths.runs,
+          },
+          id,
+          opts,
+        ),
+    );
   return {
     grid: {
       list: () => open().config.grid.groups,
@@ -185,8 +257,22 @@ export function sessionsService(
        * so the receipt keeps it (receiptText); one Mesa cannot take fails inside the recorded
        * action, as every refusal does.
        */
-      open: (project: string, opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {}) => {
-        const { agent, parent, noParent, after, branch, base } = opts;
+      open: (
+        project: string | undefined,
+        opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {},
+      ) => {
+        const {
+          agent,
+          mode,
+          background,
+          parent,
+          noParent,
+          after,
+          branch,
+          base,
+          terminal,
+          general,
+        } = opts;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -205,28 +291,45 @@ export function sessionsService(
             ...(kept ? { argv: kept.argv } : {}),
             summary: ({ record: r }) =>
               r.lastState.state === 'queued'
-                ? `Queued session ${r.id} on ${r.project} after ${r.after}`
-                : `Opened session ${r.id} on ${r.project}`,
-            failure: `Could not open a session on ${project}`,
+                ? `Queued session ${r.id} on ${projectLabel(r.project)} after ${r.after}`
+                : `Opened session ${r.id} on ${projectLabel(r.project)}`,
+            failure: `Could not open a session on ${project ?? 'General'}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: {
-              project,
+              ...(project === undefined ? {} : { project }),
+              ...(general ? { general: true } : {}),
               agent: agent ?? null,
+              ...(mode === undefined ? {} : { mode }),
+              ...(background ? { background: true } : {}),
               ...(kept ? { goal: kept.short } : {}),
               ...(parent === undefined ? {} : { parent }),
               ...(noParent ? { noParent } : {}),
               ...(after === undefined ? {} : { after }),
               ...(branch === undefined ? {} : { branch }),
               ...(base === undefined ? {} : { base }),
+              ...(terminal ? { terminal: true } : {}),
             },
             outputs: ({ record: r }) => startedOutputs(r),
           },
           async () => {
             if (refused) throw refused;
-            const input = { project, agent, goal, parent, noParent, after, branch, base };
+            const input = {
+              project,
+              general,
+              agent,
+              mode,
+              background,
+              goal,
+              parent,
+              noParent,
+              after,
+              branch,
+              base,
+              terminal,
+            };
             return openSession(openDeps(), input);
           },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
@@ -257,9 +360,9 @@ export function sessionsService(
               `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
             failure: `Could not run skill ${skill}${on}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: {
               skill,
               ...(project === undefined ? {} : { project }),
@@ -326,8 +429,10 @@ export function sessionsService(
        * not_found for an unknown id.
        */
       show: async (id: string) => {
-        refreshContext(contextDeps, store.get(id));
+        store.get(id);
         const row = (await board(true)).find((r) => r.id === id);
+        // The look may have learned a provider-owned ID before its context can be read.
+        refreshContext(contextDeps, store.get(id));
         // Read again: the look may have saved a new state, or started it from its queue.
         return { ...store.get(id), alive: row?.alive ?? false };
       },
@@ -338,7 +443,7 @@ export function sessionsService(
             type: 'session',
             summary: (r) => `Renamed session ${id} to ${r.name}`,
             failure: `Could not rename session ${id}`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: { id, name },
             outputs: (r) => ({ name: r.name }),
@@ -351,7 +456,7 @@ export function sessionsService(
             type: 'session',
             summary: (r) => `Set session ${id} workflow to ${r.workflowStatus ?? 'unassigned'}`,
             failure: `Could not set session ${id} workflow`,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: { id, status },
             outputs: (r) => ({ workflowStatus: r.workflowStatus ?? null }),
@@ -362,42 +467,84 @@ export function sessionsService(
        * Removes a session's record, hook log, output log, and a run's output, and with the flags
        * its worktree and branch; a live one only with `force`. The session receipt says what went.
        */
-      remove: (
+      remove,
+      removeDescendants: (
         id: string,
         opts: { force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean } = {},
+        expected?: readonly string[],
       ) =>
-        record(
+        applyDescendants(
+          store.list(),
+          id,
+          async (session) => {
+            const recorded = await remove(session.id, {
+              force: opts.force,
+              ...(session.worktree
+                ? { deleteWorktree: opts.deleteWorktree, deleteBranch: opts.deleteBranch }
+                : {}),
+            });
+            return { ...recorded.result, receipt: recorded.receipt, warning: recorded.warning };
+          },
+          expected,
+        ),
+      archive: async (id: string) => {
+        const found = store.get(id);
+        if (!found.archivedAt && !found.endedAt) await stop(id, true);
+        return record(
           {
             type: 'session',
-            summary: (r) =>
-              `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
-            failure: `Could not remove session ${id}`,
-            project: (r) => r.project,
+            summary: () => `Archived session ${id}`,
+            failure: `Could not archive session ${id}`,
+            project: (r) => projectScope(r.project),
             session: () => id,
-            inputs: { id, ...opts },
-            outputs: (r) => r,
+            agent: (r) => recordAgent(r),
+            inputs: { id },
+            outputs: (r) => ({ archivedAt: r.archivedAt }),
+            changed: () => !found.archivedAt,
           },
           () =>
-            removeSession(
-              {
-                store,
-                tmux,
-                run: deps.run,
-                profile: open,
-                eventsDir: paths.events,
-                logsDir: paths.logs,
-                runs: paths.runs,
-              },
-              id,
-              opts,
-            ),
-        ),
+            store.update(id, (current) => ({
+              archivedAt: current.archivedAt ?? deps.clock().toISOString(),
+            })),
+        );
+      },
+      unarchive: (id: string) => {
+        const found = store.get(id);
+        return record(
+          {
+            type: 'session',
+            summary: () => `Unarchived session ${id}`,
+            failure: `Could not unarchive session ${id}`,
+            project: (r) => projectScope(r.project),
+            session: () => id,
+            agent: (r) => recordAgent(r),
+            inputs: { id },
+            outputs: () => ({ archivedAt: null }),
+            changed: () => Boolean(found.archivedAt),
+          },
+          () => store.update(id, { archivedAt: undefined }),
+        );
+      },
       stop,
+      stopDescendants: (id: string, force = false, expected?: readonly string[]) =>
+        applyDescendants(
+          store.list(),
+          id,
+          async (session) => {
+            const recorded = await stop(session.id, force);
+            return {
+              outcome: recorded.result.outcome,
+              receipt: recorded.receipt,
+              warning: recorded.warning,
+            };
+          },
+          expected,
+        ),
       /**
        * Continues a session's work in a successor (CONTEXT.md, Handoff), then stops it unless
        * `keep` (stopHandedOff). The handoff's session receipt names both and the note.
        */
-      handoff: (id: string, opts: { note: string; keep?: boolean }) => {
+      handoff: (id: string, opts: { note: string; keep?: boolean; agent?: string }) => {
         const note = absolute(opts.note);
         const keep = opts.keep ?? false;
         return record(
@@ -406,16 +553,17 @@ export function sessionsService(
             summary: (r) => `Handed off session ${id} to ${r.to.id} (${r.stop})`,
             failure: `Could not hand off session ${id}`,
             warning: (r) => r.warning,
-            project: (r) => r.to.project,
+            project: (r) => projectScope(r.to.project),
             session: () => id,
-            agent: (r) => r.to.agent,
-            inputs: { id, note, keep },
+            agent: (r) => recordAgent(r.to),
+            inputs: { id, note, keep, ...(opts.agent ? { agent: opts.agent } : {}) },
             outputs: (r) => ({ from: id, to: r.to.id, note: r.note, stop: r.stop }),
           },
           async () => {
             const done = await handoffSession({ ...openDeps(), handoffs: paths.handoffs }, id, {
               note,
               keep,
+              agent: opts.agent,
             });
             const stopped = await stopHandedOff(
               {
@@ -454,7 +602,7 @@ export function sessionsService(
             scope: {
               project: target?.project,
               session: target?.id,
-              agent: target?.agent,
+              agent: target ? recordAgent(target) : undefined,
               actor: caller().session?.id,
             },
             argv: kept.argv,
@@ -462,7 +610,7 @@ export function sessionsService(
               `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,
             failure: `Could not send to session ${id}`,
             warning: (r) => r.warning,
-            project: (r) => r.project,
+            project: (r) => projectScope(r.project),
             session: () => id,
             inputs: {
               session: id,
@@ -479,9 +627,10 @@ export function sessionsService(
             }),
           },
           // Typed, so the result type comes from the action, as for one that takes nothing.
-          (decisions: DecisionRecorder) => {
+          async (decisions: DecisionRecorder) => {
             const guard = (action: Guarded) =>
               faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            await ensureBackgroundView(id);
             return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
               force,
               from,
@@ -491,7 +640,7 @@ export function sessionsService(
         );
       },
       /**
-       * Adopts a Claude Code session Mesa did not start: a record for it, and, unless
+       * Adopts a Claude Code or Codex session Mesa did not start: a record for it, and, unless
        * `noResume`, its conversation reopened in a Mesa window. Its warning is always said.
        */
       adopt: (
@@ -502,12 +651,12 @@ export function sessionsService(
           {
             type: 'session',
             summary: ({ record: r }) =>
-              `Adopted Claude Code session ${agentSessionId} as ${r.id} on ${r.project}`,
-            failure: `Could not adopt Claude Code session ${agentSessionId}`,
+              `Adopted ${r.agent} session ${agentSessionId} as ${r.id} on ${r.project}`,
+            failure: `Could not adopt native session ${agentSessionId}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: { agentSessionId, ...opts },
             outputs: ({ record: r }) => ({
               window: r.tmux.window,
@@ -531,12 +680,13 @@ export function sessionsService(
         record(
           {
             type: 'session',
-            summary: (r) => `Resumed session ${r.from.id} as ${r.record.id} on ${r.record.project}`,
+            summary: (r) =>
+              `Resumed session ${r.from.id} as ${r.record.id} on ${projectLabel(r.record.project)}`,
             failure: `Could not resume session ${id}`,
             warning: (r) => r.warning,
-            project: (r) => r.record.project,
+            project: (r) => projectScope(r.record.project),
             session: (r) => r.record.id,
-            agent: (r) => r.record.agent,
+            agent: (r) => recordAgent(r.record),
             inputs: { id },
             outputs: (r) => ({
               window: r.record.tmux.window,
@@ -546,12 +696,72 @@ export function sessionsService(
           },
           () => resumeSession(openDeps(), id),
         ).then((recorded) => markEnded(ctx, recorded, recorded.result.from)),
+      fork: (id: string, opts: { branch?: string; base?: string } = {}) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Forked session ${id} as ${r.record.id}`,
+            failure: `Could not fork session ${id}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: (r) => r.record.id,
+            agent: (r) => recordAgent(r.record),
+            inputs: { id, ...opts },
+            outputs: (r) => ({ window: r.record.tmux.window, parent: id }),
+          },
+          () => forkSession(openDeps(), id, opts),
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
+      dependencies: (id: string, change: { parent?: string | null; after?: string }) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Updated dependencies of session ${r.record.id}`,
+            failure: `Could not update dependencies of session ${id}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: () => id,
+            inputs: { id, ...change },
+            outputs: (r) => ({ parent: r.record.parent ?? null, after: r.record.after ?? null }),
+          },
+          async () => {
+            const changed = changeDependencies(store, id, change);
+            if (change.after && isOver(store.get(change.after))) {
+              const started = await startQueued(openDeps(), id, change.after);
+              return { record: started?.record ?? store.get(id), warning: started?.warning };
+            }
+            return { record: changed, warning: undefined };
+          },
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
+      forceStart: (id: string) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Started queued session ${r.record.id} now`,
+            failure: `Could not force-start session ${id}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: () => id,
+            inputs: { id, force: true },
+            outputs: (r) => startedOutputs(r.record),
+          },
+          async () => {
+            const queued = store.get(id);
+            if (queued.lastState.state !== 'queued') {
+              throw new MesaError('usage', `session ${id} is not queued`);
+            }
+            const started = await startQueued(openDeps(), id);
+            if (!started) throw new MesaError('usage', `session ${id} is already starting`);
+            return { record: store.update(id, { after: undefined }), warning: started.warning };
+          },
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),
       /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
-      attach: (id: string, app = false) =>
-        attachSession({ store, tmux, ...terminal }, id, app ? terminalApp() : undefined),
+      attach: async (id: string, app = false) => {
+        await ensureBackgroundView(id);
+        return attachSession({ store, tmux, ...terminal }, id, app ? terminalApp() : undefined);
+      },
       /**
        * Shows a project's sessions side by side in one terminal, laid out by its mesa.yaml
        * `tmux.layout` (CONTEXT.md, Project view): here (the argv to exec), or in `terminal.app`.
@@ -562,6 +772,10 @@ export function sessionsService(
           project,
           app ? terminalApp() : undefined,
         ),
+      /** Native provider conversations on disk for a project, with import ownership. */
+      history: (project: string) => nativeHistory(nativeDeps(), project),
+      /** Bounded local text search over native provider conversations. */
+      search: (project: string, query: string) => searchConversations(nativeDeps(), project, query),
     },
     hookEvent: ends.hookEvent,
     tmuxEvent: ends.tmuxEvent,

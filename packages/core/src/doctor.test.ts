@@ -53,7 +53,9 @@ test('missing: no tmux is unhealthy with a Homebrew hint; a bundle-only Obsidian
   const c = byName(report.checks);
 
   expect(report.healthy).toBe(false);
-  expect(report.summary).toBe('tmux and at least one agent (claude or codex) are required');
+  expect(report.summary).toBe(
+    'tmux and at least one agent (claude or codex or antigravity) are required',
+  );
   expect(c.tmux).toMatchObject({ ok: false, status: 'fail' });
   // One agent answered, so the missing one only warns.
   expect(c.codex).toMatchObject({ ok: false, status: 'warn' });
@@ -75,7 +77,7 @@ test('timeout: a hung agent is not ok, one agent is enough, and none is unhealth
   expect(one.healthy).toBe(true);
 
   const none = await runDoctor({
-    run: scriptedRunner(VERSIONS, { missing: ['codex'], slow: ['claude'] }).run,
+    run: scriptedRunner(VERSIONS, { missing: ['codex', 'agy'], slow: ['claude'] }).run,
     obsidian,
     profileDir: home,
   });
@@ -83,6 +85,7 @@ test('timeout: a hung agent is not ok, one agent is enough, and none is unhealth
   // No agent answered: every agent row is a failure, so the labels match the verdict.
   expect(byName(none.checks).claude?.status).toBe('fail');
   expect(byName(none.checks).codex?.status).toBe('fail');
+  expect(byName(none.checks).agy?.status).toBe('fail');
 });
 
 test("a Codex app-server daemon's socket is a warning, and no row while none runs", async () => {

@@ -30,6 +30,7 @@ async function setUp({ claude = true } = {}) {
     store,
     tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
     run,
+    env: {},
     clock: fixedClock(now),
     newUuid: sequentialUuids(),
     caller: () => ({ inMesaWindow: false }),
@@ -58,6 +59,14 @@ test('a claim is left alone for 30 s, then taken again: a start killed mid-way i
   claimed('2026-09-24T11:59:30.000Z');
   expect((await startQueued(deps, b.id))?.record.lastState.state).toBe('idle');
   expect(windows()).toHaveLength(1);
+});
+
+test('a stale completion signal cannot start a session after its wait target changed', async () => {
+  const { deps, store, b, windows } = await setUp();
+  store.update(b.id, { after: 'newwait1' });
+  expect(await startQueued(deps, b.id, b.after)).toBeUndefined();
+  expect(windows()).toHaveLength(0);
+  expect((await startQueued(deps, b.id, 'newwait1'))?.record.lastState.state).toBe('idle');
 });
 
 test('a start retried after one killed once its window opened keeps that window and its id', async () => {

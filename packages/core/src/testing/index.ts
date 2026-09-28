@@ -341,7 +341,7 @@ export const finishesRun =
     stderr?: string;
   }) =>
   (w: FakeWindow) => {
-    const file = /^exec (?:claude -p|codex exec) .* >'([^']+)'$/.exec(w.launch)?.[1];
+    const file = /^exec (?:claude -p|codex exec|agy --print) .* >'([^']+)'$/.exec(w.launch)?.[1];
     if (!file) return;
     if (output !== undefined) writeFileSync(file, output);
     if (stderr !== undefined) {
@@ -436,19 +436,27 @@ export function codexWorld() {
 }
 
 /**
- * claude, codex, and a tmux server in memory, as one scripted runner, and Codex's home
- * (codexWorld): `claude: false` or `codex: false` leaves that agent uninstalled, and the rest
- * shapes the fake tmux (fakeTmux).
+ * Coding agents and a tmux server in memory, as one scripted runner, and Codex's home
+ * (codexWorld): an agent set to false is uninstalled, and the rest shapes fakeTmux.
  */
 export function agentWorld({
   claude = true,
   codex = true,
+  antigravity = true,
   ...tmuxOpts
-}: Parameters<typeof fakeTmux>[0] & { claude?: boolean; codex?: boolean } = {}) {
+}: Parameters<typeof fakeTmux>[0] & {
+  claude?: boolean;
+  codex?: boolean;
+  antigravity?: boolean;
+} = {}) {
   const tmux = fakeTmux(tmuxOpts);
-  const missing = [...(claude ? [] : ['claude']), ...(codex ? [] : ['codex'])];
+  const missing = [
+    ...(claude ? [] : ['claude']),
+    ...(codex ? [] : ['codex']),
+    ...(antigravity ? [] : ['agy']),
+  ];
   const scripted = scriptedRunner(
-    { claude: CLAUDE_VERSION, codex: CODEX_VERSION, tmux: tmux.answer },
+    { claude: CLAUDE_VERSION, codex: CODEX_VERSION, agy: '1.2.12', tmux: tmux.answer },
     { missing },
   );
   return { ...scripted, tmux, codex: codexWorld() };

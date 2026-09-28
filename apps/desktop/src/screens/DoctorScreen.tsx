@@ -1,4 +1,10 @@
 import type { Check, DoctorReport } from '@mesa/core';
+import {
+  AGENT_CAPABILITIES,
+  AGENT_LABELS,
+  AGENT_NAMES,
+  agentCapabilityReport,
+} from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { warned } from '@/components/Toast';
@@ -30,6 +36,7 @@ const TONE: Record<Check['status'], string> = {
  */
 export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> }) {
   const { data, busy, refresh } = doctor;
+  const agents = data ? agentCapabilityReport(data.checks) : undefined;
   const windows = useCommand('windows.list');
   const hooks = useCommand('hooks.status');
   const hooksInstalled = hooks.data?.installed && hooks.data.codex?.installed !== false;
@@ -87,6 +94,48 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           </TableBody>
         </Table>
       </Card>
+      {agents && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Coding agents</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {AGENT_NAMES.map((agent) => {
+              const row = agents[agent];
+              const operations = Object.entries(AGENT_CAPABILITIES[agent]).filter(
+                (entry): entry is [string, boolean] => typeof entry[1] === 'boolean',
+              );
+              return (
+                <div key={agent} data-testid="agent-capability">
+                  <p className="font-medium">{AGENT_LABELS[agent]}</p>
+                  <p className="text-muted-foreground">
+                    {row.installed
+                      ? `Installed ${row.version ?? 'version unknown'}`
+                      : 'Not installed'}
+                    {row.installed && !row.matchesVerifiedVersion
+                      ? `; differs from tested ${row.verifiedVersion}`
+                      : ''}
+                    .
+                  </p>
+                  <p className="text-muted-foreground">
+                    Qualified on {row.verifiedVersion}:{' '}
+                    {operations
+                      .filter(([, supported]) => supported)
+                      .map(([name]) => name)
+                      .join(', ')}
+                    . Unsupported natively:{' '}
+                    {operations
+                      .filter(([, supported]) => !supported)
+                      .map(([name]) => name)
+                      .join(', ') || 'none'}
+                    .
+                  </p>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>

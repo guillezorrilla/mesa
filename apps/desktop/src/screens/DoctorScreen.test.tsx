@@ -27,6 +27,19 @@ test('the Doctor screen shares the header run; Recheck runs doctor again', async
   expect(calls.filter((c) => c[1] === 'windows')).toHaveLength(2);
 });
 
+test('Doctor shows installed and qualified versions with unsupported native operations', async () => {
+  const claude: Check = { name: 'claude', ok: true, status: 'ok', version: '2.1.284', hint: '' };
+  const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.7c'), claude])) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  const rows = byTestId('agent-capability').map((row) => row.textContent);
+  expect(rows[0]).toContain('Installed 2.1.284.Qualified on 2.1.284:');
+  expect(rows[1]).toContain('Not installed.Qualified on 0.157.1:');
+  expect(rows[2]).toContain(
+    'Unsupported natively: background, fork, adopt, history, search, context.',
+  );
+});
+
 test('the Doctor screen shows which decisions backend Faro uses', async () => {
   const decisions: Check = {
     name: 'decisions',

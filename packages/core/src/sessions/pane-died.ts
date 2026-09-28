@@ -33,6 +33,8 @@ export async function recordPaneDied(
   const recorded = (r: SessionRecord) =>
     Boolean(r.endedAt) || r.events.some((e) => e.type === 'exited');
   if (!found || !ours || !shown || recorded(found)) return undefined;
+  // The pane is only a view: Claude's background process may still be running.
+  if (found.backgroundId) return undefined;
   // The project's own session: a view's name lists no windows of its own.
   const pane = await deps.tmux.findWindow(windowOf(found));
   if (pane && !pane.dead) return undefined;

@@ -1,8 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import type { Runner } from '../lib/process.js';
+import type { Env, Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
@@ -17,6 +25,7 @@ import {
   testGit,
   withRealGit,
 } from '../testing/index.js';
+import { GENERAL_PROJECT } from './general.js';
 
 /** Every agent in the fake tmux exits, its pane dead, as a session's must before it resumes. */
 const exitAll = (world: ReturnType<typeof agentWorld>) => {
@@ -39,12 +48,13 @@ async function setUp(
     argv = ['open'],
     run = withGit(world),
     linkedHome = false,
-  }: { mesaYaml?: string; argv?: string[]; run?: Runner; linkedHome?: boolean } = {},
+    env,
+  }: { mesaYaml?: string; argv?: string[]; run?: Runner; linkedHome?: boolean; env?: Env } = {},
 ) {
   // A home reached through a symlink, as the paths Mesa builds are then not the real ones.
   const home = linkedHome ? join(tempDir(), 'home') : tempDir();
   if (linkedHome) symlinkSync(tempDir(), home);
-  return projectProfile(run, { home, mesaYaml, argv, newId });
+  return projectProfile(run, { home, mesaYaml, argv, newId, ...(env ? { env } : {}) });
 }
 
 test('open starts claude with its session id in a new tmux session, then in a new window', async () => {
@@ -121,6 +131,177 @@ test('open starts claude with its session id in a new tmux session, then in a ne
   expect(second.id).not.toBe(first.id);
 });
 
+test('General opens in the profile home without project skills, and can resume or open a plain terminal', async () => {
+  const world = agentWorld();
+  const { home, mesa } = await setUp(world);
+  const { result: first } = await mesa.sessions.open(undefined, { general: true });
+  expect(first).toMatchObject({ project: GENERAL_PROJECT, cwd: home, agent: 'claude' });
+  expect(first.tmux.session).toBe(GENERAL_PROJECT);
+  expect(world.tmux.windows[0]).toMatchObject({ project: GENERAL_PROJECT });
+  const started = world.calls.find((call) => call.args.includes('new-session'))?.args ?? [];
+  expect(started.slice(started.indexOf('-c'), started.indexOf('-c') + 2)).toEqual(['-c', home]);
+  expect(existsSync(join(home, '.claude/skills/mesa/SKILL.md'))).toBe(false);
+  expect((await mesa.sessions.list()).find((row) => row.id === first.id)?.project).toBe(
+    GENERAL_PROJECT,
+  );
+
+  exitAll(world);
+  const resumed = (await mesa.sessions.resume(first.id)).result;
+  expect(resumed.record).toMatchObject({
+    project: GENERAL_PROJECT,
+    cwd: home,
+    resumedFrom: first.id,
+  });
+  const terminal = (await mesa.sessions.open(undefined, { general: true, terminal: true })).result;
+  expect(terminal).toMatchObject({
+    project: GENERAL_PROJECT,
+    cwd: home,
+    kind: 'terminal',
+    agent: 'terminal',
+  });
+  expect(terminal.agentSessionId).toBeUndefined();
+  await expect(mesa.sessions.open(undefined)).rejects.toMatchObject({ code: 'usage' });
+  await expect(mesa.sessions.open('lantern-cove', { general: true })).rejects.toMatchObject({
+    code: 'usage',
+  });
+  await expect(
+    mesa.sessions.open(undefined, { general: true, branch: 'branch' }),
+  ).rejects.toMatchObject({ code: 'usage' });
+});
+
+test('Plan starts in the provider native mode and survives resume; unsupported agents are refused', async () => {
+  const world = agentWorld();
+  const { mesa } = await setUp(world);
+  const claude = (await mesa.sessions.open('lantern-cove', { mode: 'plan' })).result;
+  expect(claude.mode).toBe('plan');
+  expect(world.tmux.windows.at(-1)?.launch).toContain(' --permission-mode plan');
+
+  const antigravity = (
+    await mesa.sessions.open('lantern-cove', { agent: 'antigravity', mode: 'plan' })
+  ).result;
+  expect(antigravity.mode).toBe('plan');
+  expect(world.tmux.windows.at(-1)?.launch).toContain(' --mode=plan');
+  await expect(
+    mesa.sessions.open('lantern-cove', { agent: 'codex', mode: 'plan' }),
+  ).rejects.toMatchObject({ code: 'usage' });
+  await expect(
+    mesa.sessions.open('lantern-cove', { terminal: true, mode: 'plan' }),
+  ).rejects.toMatchObject({ code: 'usage' });
+  await expect(mesa.sessions.open('lantern-cove', { mode: 'fast' })).rejects.toMatchObject({
+    code: 'usage',
+  });
+
+  exitAll(world);
+  const resumed = (await mesa.sessions.resume(claude.id)).result.record;
+  expect(resumed.mode).toBe('plan');
+  expect(world.tmux.windows.at(-1)?.launch).toContain(' --permission-mode plan');
+});
+
+test('Claude background keeps its native process when the terminal closes, then stops and resumes it', async () => {
+  const world = agentWorld();
+  const base = withGit(world);
+  let native = 'active';
+  let launchEnv: Env | undefined;
+  const run: Runner = (file, args, ms, options) => {
+    if (file === 'claude' && args[0] === '--bg') {
+      launchEnv = options?.env;
+      expect(args).toEqual(['--bg', '--permission-mode', 'plan', 'Read the project']);
+      return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
+    }
+    if (file === 'claude' && args[0] === 'stop') {
+      expect(args).toEqual(['stop', 'abcdef12']);
+      native = 'stopped';
+      return Promise.resolve({ ok: true, stdout: 'stopped abcdef12\n' });
+    }
+    if (file === 'claude' && args[0] === 'agents') {
+      return Promise.resolve({
+        ok: true,
+        stdout: JSON.stringify([
+          {
+            id: 'abcdef12',
+            kind: 'background',
+            cwd: options?.cwd ?? '',
+            sessionId: 'abcdef12-0000-4000-8000-000000000001',
+            startedAt: 1790251200000,
+            ...(native === 'stopped'
+              ? { state: 'stopped' }
+              : { pid: 1234, status: 'idle', state: 'done' }),
+          },
+        ]),
+      });
+    }
+    return base(file, args, ms, options);
+  };
+  const { mesa } = await setUp(world, { run, env: { CLAUDECODE: '1' } });
+  const opened = (
+    await mesa.sessions.open('lantern-cove', {
+      background: true,
+      mode: 'plan',
+      goal: 'Read the project',
+    })
+  ).result;
+  expect(opened).toMatchObject({ background: true, backgroundId: 'abcdef12', mode: 'plan' });
+  expect(opened.agentSessionId).toBeUndefined();
+  expect(launchEnv).toMatchObject({ MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' });
+  expect(launchEnv).not.toHaveProperty('CLAUDECODE');
+  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  exitAll(world);
+  const row = (await mesa.sessions.list()).find((s) => s.id === opened.id);
+  expect(row).toMatchObject({
+    alive: true,
+    lastState: { state: 'idle' },
+    agentSessionId: 'abcdef12-0000-4000-8000-000000000001',
+  });
+  expect((await mesa.sessions.attach(opened.id)).attached.opened).toBe(true);
+  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
+  const resumed = (await mesa.sessions.resume(opened.id)).result.record;
+  expect(resumed).toMatchObject({
+    background: true,
+    backgroundId: 'abcdef12',
+    resumedFrom: opened.id,
+  });
+  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  exitAll(world);
+  const ended = (await mesa.sessions.list()).find((s) => s.id === resumed.id);
+  expect(ended).toMatchObject({ alive: false, lastState: { state: 'done' } });
+  expect(ended?.managed && ended.events.some((event) => event.type === 'exited')).toBe(true);
+  await mesa.sessions.remove(resumed.id, { force: true });
+  expect((await mesa.sessions.list(true)).some((session) => session.id === resumed.id)).toBe(false);
+  await expect(
+    mesa.sessions.open('lantern-cove', { agent: 'codex', background: true }),
+  ).rejects.toMatchObject({ code: 'usage' });
+});
+
+test('a child terminal starts in its parent worktree', async () => {
+  const world = agentWorld();
+  const { dir, mesa } = await setUp(world);
+  gitRepo(dir);
+  const parent = (await mesa.sessions.open('lantern-cove', { branch: 'feature' })).result;
+  const child = (await mesa.sessions.open('lantern-cove', { terminal: true, parent: parent.id }))
+    .result;
+  expect(child).toMatchObject({
+    kind: 'terminal',
+    parent: parent.id,
+    cwd: parent.worktree?.path,
+    project: 'lantern-cove',
+  });
+  const opened = world.calls.find((call) => call.args.includes('new-window'))?.args ?? [];
+  expect(opened.slice(opened.indexOf('-c'), opened.indexOf('-c') + 2)).toEqual([
+    '-c',
+    parent.worktree?.path,
+  ]);
+  const branched = (
+    await mesa.sessions.open('lantern-cove', {
+      terminal: true,
+      parent: parent.id,
+      branch: 'child-branch',
+    })
+  ).result;
+  expect(branched.worktree?.branch).toBe('child-branch');
+  expect(branched.cwd).toBeUndefined();
+});
+
 test("with config sessions.log off, a window's output is not piped to a log", async () => {
   const world = agentWorld();
   const { home, mesa } = await setUp(world);
@@ -141,7 +322,7 @@ test('the agent comes from the flag, else mesa.yaml, else the profile', async ()
   );
   await expect(mesa.sessions.open('lantern-cove', { agent: 'gpt' })).rejects.toMatchObject({
     code: 'agent_unavailable',
-    message: 'unknown agent gpt; agents are claude, codex',
+    message: 'unknown agent gpt; agents are claude, codex, antigravity',
   });
 
   const plain = await setUp(agentWorld({ codex: false }));
@@ -168,6 +349,68 @@ test('open starts codex embedded, its goal after --, in window codex-<id>, with 
 
   await mesa.sessions.open('lantern-cove', { agent: 'codex' });
   expect(launched(world)).toBe('codex -c mesa.embedded=true');
+});
+
+test('show learns a Codex thread ID and its native context reading in the same look', async () => {
+  const world = agentWorld();
+  const { mesa, dir } = await setUp(world, { env: world.codex.env });
+  const { result } = await mesa.sessions.open('lantern-cove', { agent: 'codex' });
+  const id = '01a0e693-6c67-71d0-8cd9-e0ace3513477';
+  const at = new Date(Date.parse(result.startedAt) + 1000).toISOString();
+  const file = world.codex.rollout({ id, cwd: dir, startedAt: at });
+  appendFileSync(
+    file,
+    `\n${JSON.stringify({
+      timestamp: at,
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          last_token_usage: { input_tokens: 25942, cached_input_tokens: 12544 },
+          model_context_window: 258400,
+        },
+      },
+    })}\n`,
+  );
+  const shown = await mesa.sessions.show(result.id);
+  expect(shown).toMatchObject({
+    agentSessionId: id,
+    context: { used: 10.04, window: 258400, at, source: 'transcript' },
+  });
+});
+
+test('Antigravity opens with a private per-session log and reads its native ID after the first prompt', async () => {
+  const world = agentWorld();
+  const { mesa, home } = await setUp(world);
+  const { result: first } = await mesa.sessions.open('lantern-cove', {
+    agent: 'antigravity',
+    goal: 'Reply ALIVE',
+  });
+  const firstLog = join(profilePaths(home, 'default').logs, `${first.id}.agy.log`);
+  expect(launched(world)).toBe(
+    `umask 077; exec agy --log-file '${firstLog}' --prompt-interactive 'Reply ALIVE'`,
+  );
+  expect(first).not.toHaveProperty('agentSessionId');
+  const { result: second } = await mesa.sessions.open('lantern-cove', { agent: 'antigravity' });
+  const secondLog = join(profilePaths(home, 'default').logs, `${second.id}.agy.log`);
+  expect(launched(world)).toBe(`umask 077; exec agy --log-file '${secondLog}'`);
+  writeFileSync(firstLog, 'Created conversation 002f58d1-9e29-4682-9bc1-3a2dc5da1115\n');
+  writeFileSync(secondLog, 'Created conversation cd66cf01-f466-4c11-8f12-a8fd0885d9f4\n');
+  const rows = await mesa.sessions.list();
+  expect(rows.find((row) => row.id === first.id)?.agentSessionId).toBe(
+    '002f58d1-9e29-4682-9bc1-3a2dc5da1115',
+  );
+  expect(rows.find((row) => row.id === second.id)?.agentSessionId).toBe(
+    'cd66cf01-f466-4c11-8f12-a8fd0885d9f4',
+  );
+});
+
+test('an unavailable Antigravity CLI points to its native installation instructions', async () => {
+  const { mesa } = await setUp(agentWorld({ antigravity: false }));
+  await expect(mesa.sessions.open('lantern-cove', { agent: 'antigravity' })).rejects.toMatchObject({
+    code: 'agent_unavailable',
+    message: expect.stringContaining('https://antigravity.google/docs/cli/install/'),
+  });
 });
 
 test('an unknown project, a missing claude, or a failed window leaves no session', async () => {
