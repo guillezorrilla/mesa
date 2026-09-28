@@ -2,10 +2,34 @@ import type { MesaContext } from '../context.js';
 import { changeGitBranch, type GitBranchAction, listGitBranches } from './branches.js';
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
+import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 
 /** The registered project's selected checkout is the owner of Git reads and actions. */
 export function gitService(ctx: MesaContext) {
+  const stash = (
+    project: string,
+    checkout: string | undefined,
+    ref: string,
+    action: StashAction['action'],
+  ) =>
+    ctx.record(
+      {
+        summary: () => `${action} stash ${ref} in ${project}`,
+        failure: `Could not ${action} stash ${ref} in ${project}`,
+        project: () => project,
+        inputs: { project, checkout, ref, action },
+      },
+      () =>
+        changeGitStash(
+          ctx.open(),
+          ctx.deps.run,
+          project,
+          checkout && ctx.absolute(checkout),
+          ref,
+          action,
+        ),
+    );
   const branch = (
     project: string,
     checkout: string | undefined,
@@ -56,6 +80,33 @@ export function gitService(ctx: MesaContext) {
         ),
     );
   return {
+    stashes: (project: string, checkout?: string) =>
+      listGitStashes(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
+    stashCreate: (project: string, checkout?: string, message?: string) =>
+      ctx.record(
+        {
+          summary: () => `Stashed changes in ${project}`,
+          failure: `Could not stash changes in ${project}`,
+          project: () => project,
+          inputs: { project, checkout, message },
+          outputs: (result) => ({ oid: result.oid }),
+          changed: (result) => result.created,
+        },
+        () =>
+          createGitStash(
+            ctx.open(),
+            ctx.deps.run,
+            project,
+            checkout && ctx.absolute(checkout),
+            message,
+          ),
+      ),
+    stashApply: (project: string, ref: string, checkout?: string) =>
+      stash(project, checkout, ref, 'apply'),
+    stashPop: (project: string, ref: string, checkout?: string) =>
+      stash(project, checkout, ref, 'pop'),
+    stashDrop: (project: string, ref: string, checkout?: string) =>
+      stash(project, checkout, ref, 'drop'),
     branches: (project: string, checkout?: string) =>
       listGitBranches(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
     branchCreate: (project: string, name: string, checkout?: string, base?: string) =>

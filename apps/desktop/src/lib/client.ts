@@ -26,6 +26,9 @@ import type {
   SessionRecord,
   SkillRow,
   SkillSync,
+  StashAction,
+  StashCreated,
+  StashEntry,
   StopOutcome,
   TmuxWindow,
   TreeRow,
@@ -158,6 +161,64 @@ const COMMANDS = {
     '--',
     project,
     name,
+  ]),
+  'git.stashes': commandWith<
+    { project: string; checkout?: string },
+    { checkout: Checkout; stashes: StashEntry[] }
+  >(({ project, checkout }) => [
+    'git',
+    'stashes',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+  ]),
+  'git.stashCreate': commandWith<
+    { project: string; checkout?: string; message?: string },
+    Recorded<StashCreated>
+  >(({ project, checkout, message }) => [
+    'git',
+    'stash',
+    'create',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(message ? [`--message=${message}`] : []),
+    '--',
+    project,
+  ]),
+  'git.stashApply': commandWith<
+    { project: string; checkout?: string; ref: string },
+    Recorded<StashAction>
+  >(({ project, checkout, ref }) => [
+    'git',
+    'stash',
+    'apply',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    ref,
+  ]),
+  'git.stashPop': commandWith<
+    { project: string; checkout?: string; ref: string },
+    Recorded<StashAction>
+  >(({ project, checkout, ref }) => [
+    'git',
+    'stash',
+    'pop',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    ref,
+  ]),
+  'git.stashDrop': commandWith<
+    { project: string; checkout?: string; ref: string },
+    Recorded<StashAction>
+  >(({ project, checkout, ref }) => [
+    'git',
+    'stash',
+    'drop',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    ref,
   ]),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [

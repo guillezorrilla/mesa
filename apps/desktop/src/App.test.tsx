@@ -220,6 +220,58 @@ test('project Git branch panel creates and confirms deletion through the CLI bri
   expect(calls.some((args) => args.includes('delete') && args.includes('next'))).toBe(true);
 });
 
+test('project Git stash panel saves changes and confirms a drop through the CLI bridge', async () => {
+  let saved = false;
+  const checkout = { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => envelope({ checkout, branch: 'main', changes: [] }),
+    'git stashes': () =>
+      envelope({
+        checkout,
+        stashes: saved ? [{ ref: 'stash@{0}', oid: 'abc', message: 'On main: saved' }] : [],
+      }),
+    'git stash create': () => {
+      saved = true;
+      return envelope({ checkout, created: true, oid: 'abc', receipt: null });
+    },
+    'git stash drop': () => {
+      saved = false;
+      return envelope({ checkout, action: 'drop', ref: 'stash@{0}', oid: 'abc', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Stashes',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain(
+    'No saved stashes.',
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git stashes"] button')].find(
+      (button) => button.textContent === 'Stash changes',
+    ),
+  );
+  expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain('stash@{0}');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git stashes"] button')].find(
+      (button) => button.textContent === 'Drop',
+    ),
+  );
+  expect(byTestId('git-drop-stash-dialog')).toHaveLength(1);
+  await click(byTestId('confirm-git-drop-stash')[0]);
+  expect(calls.some((args) => args.includes('drop') && args.includes('stash@{0}'))).toBe(true);
+  expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain(
+    'No saved stashes.',
+  );
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({

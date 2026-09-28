@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execRunner } from '@mesa/core';
 import { gitRepo, isolateGit, withRealGit } from '@mesa/core/testing';
@@ -159,4 +159,79 @@ test('branch checkout refuses a live session holder', async () => {
   expect(
     (await cli.mesa('git', 'branches', 'lantern-cove', '--json')).json.data.branches,
   ).toContainEqual(expect.objectContaining({ name: 'main', current: true }));
+});
+
+test('stash actions save, apply, pop and drop without losing a conflicting stash', async () => {
+  const repo = await cli.withProject();
+  writeFileSync(join(repo, 'note.txt'), 'base\n');
+  gitRepo(repo);
+  execFileSync('git', ['-C', repo, 'config', 'user.name', 'Test']);
+  execFileSync('git', ['-C', repo, 'config', 'user.email', 'test@example.com']);
+  cli.run = withRealGit(cli.run);
+
+  const empty = await cli.mesa('git', 'stash', 'create', 'lantern-cove', '--json');
+  expect(empty.json.data).toMatchObject({ created: false, receipt: null });
+  writeFileSync(join(repo, 'note.txt'), 'saved\n');
+  writeFileSync(join(repo, 'untracked name.txt'), 'extra\n');
+  const saved = await cli.mesa(
+    'git',
+    'stash',
+    'create',
+    'lantern-cove',
+    '--message',
+    'Before edit',
+    '--json',
+  );
+  expect(saved.code, saved.stdout).toBe(0);
+  expect(saved.json.data).toMatchObject({
+    created: true,
+    oid: expect.any(String),
+    receipt: { id: expect.any(String) },
+  });
+  const listed = await cli.mesa('git', 'stashes', 'lantern-cove', '--json');
+  expect(listed.json.data.stashes).toContainEqual(
+    expect.objectContaining({
+      ref: 'stash@{0}',
+      oid: saved.json.data.oid,
+      message: expect.stringContaining('Before edit'),
+    }),
+  );
+  expect(readFileSync(join(repo, 'note.txt'), 'utf8')).toBe('base\n');
+
+  const applied = await cli.mesa('git', 'stash', 'apply', 'lantern-cove', 'stash@{0}', '--json');
+  expect(applied.code, applied.stdout).toBe(0);
+  expect(readFileSync(join(repo, 'note.txt'), 'utf8')).toBe('saved\n');
+  expect(readFileSync(join(repo, 'untracked name.txt'), 'utf8')).toBe('extra\n');
+  expect(
+    (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
+  ).toHaveLength(1);
+
+  execFileSync('git', ['-C', repo, 'reset', '--hard', '-q']);
+  execFileSync('git', ['-C', repo, 'clean', '-fq']);
+  writeFileSync(join(repo, 'note.txt'), 'conflicting local edit\n');
+  const refused = await cli.mesa('git', 'stash', 'pop', 'lantern-cove', 'stash@{0}', '--json');
+  expect(refused.code).toBe(2);
+  expect(readFileSync(join(repo, 'note.txt'), 'utf8')).toBe('conflicting local edit\n');
+  expect(
+    (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
+  ).toHaveLength(1);
+
+  execFileSync('git', ['-C', repo, 'reset', '--hard', '-q']);
+  execFileSync('git', ['-C', repo, 'clean', '-fq']);
+  const popped = await cli.mesa('git', 'stash', 'pop', 'lantern-cove', 'stash@{0}', '--json');
+  expect(popped.code, popped.stdout).toBe(0);
+  expect(readFileSync(join(repo, 'note.txt'), 'utf8')).toBe('saved\n');
+  expect(
+    (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
+  ).toHaveLength(0);
+
+  const again = await cli.mesa('git', 'stash', 'create', 'lantern-cove', '--json');
+  expect(again.json.data.created).toBe(true);
+  expect((await cli.mesa('git', 'stash', 'drop', 'lantern-cove', 'stash@{0}', '--json')).code).toBe(
+    0,
+  );
+  expect(
+    (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
+  ).toHaveLength(0);
+  expect((await cli.mesa('git', 'stash', 'apply', 'lantern-cove', '--bad-ref')).code).toBe(2);
 });
