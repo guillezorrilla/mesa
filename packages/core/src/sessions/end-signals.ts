@@ -1,11 +1,13 @@
 import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import { toFail } from '../lib/result.js';
+import { readRegistry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { SessionRow } from './board/rows.js';
 import { windowId } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { recordHookEvent } from './hook-events.js';
+import { mesaPointer } from './instructions.js';
 import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
 import { isOver, recordAgent, type SessionRecord } from './record.js';
@@ -143,7 +145,19 @@ export function endSignals(
       if (event?.event === 'SessionEnd' && id && state) {
         await startAfter(id);
       }
-      return event;
+      if (event?.event !== 'SessionStart' || !id) return event;
+      const started = store.find(id);
+      if (
+        !started ||
+        started.agent !== event.agent ||
+        started.endedAt ||
+        !event.agentSessionId ||
+        started.agentSessionId !== event.agentSessionId
+      )
+        return event;
+      const project = readRegistry(paths.registry).find((entry) => entry.name === started.project);
+      const cwd = started.cwd ?? started.worktree?.path ?? project?.path;
+      return cwd ? { ...event, instruction: mesaPointer(started, ctx.profile, cwd) } : event;
     },
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the

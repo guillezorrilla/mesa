@@ -26,7 +26,7 @@ test('install twice is byte-stable, guarded, without timeout; uninstall leaves u
       hooks: [
         {
           type: 'command',
-          command: `[ -z "$MESA_SESSION_ID" ] || '/opt/node/bin/node' '/src/mesa/packages/cli/dist/mesa.js' hook codex >/dev/null 2>&1 || true`,
+          command: hookCommand(SELF, 'codex', event),
         },
       ],
     });

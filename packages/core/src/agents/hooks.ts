@@ -13,21 +13,23 @@ type Group = { matcher?: string; hooks?: Hook[] };
 type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 
 const GUARD = `[ -z "$${SESSION_ID_VAR}" ] || `;
-const tail = (agent: Agent) => ` hook ${agent} >/dev/null 2>&1 || true`;
+const tail = (agent: Agent, event?: string) =>
+  ` hook ${agent} ${event === 'SessionStart' ? '2>/dev/null' : '>/dev/null 2>&1'} || true`;
 /** A hook entry Mesa wrote: exactly its guard and its tail, whatever mesa path sits between. */
 const isMesaHook = (h: Hook, agent: Agent) =>
-  typeof h.command === 'string' && h.command.startsWith(GUARD) && h.command.endsWith(tail(agent));
+  typeof h.command === 'string' &&
+  h.command.startsWith(GUARD) &&
+  [tail(agent), tail(agent, 'SessionStart')].some((end) => h.command?.endsWith(end));
 
 /**
  * The hook's command line. Outside a Mesa session it is a no-op in the shell itself, so the user's
- * other Claude sessions never start node. Its output is dropped (SessionStart and
- * UserPromptSubmit add stdout to Claude's context) and its status is always 0 (exit 2 would block
- * a tool call).
+ * other sessions never start node. Only SessionStart passes stdout into provider context; other
+ * hook output is dropped. Its status is always 0 (exit 2 would block a tool call).
  */
 // ponytail: synchronous, about 0.1 s of node per event inside Mesa sessions only; add "async": true
 // if that shows, and order events by their `at` then.
-export const hookCommand = (self: readonly string[], agent: Agent) =>
-  `${GUARD}${self.map(shellWord).join(' ')}${tail(agent)}`;
+export const hookCommand = (self: readonly string[], agent: Agent, event?: string) =>
+  `${GUARD}${self.map(shellWord).join(' ')}${tail(agent, event)}`;
 
 /** One agent's hook file, containing only the events Mesa owns. */
 export type HookFile = {
@@ -97,15 +99,14 @@ const mesaHooks = (settings: Settings, event: string, agent: Agent) =>
 export function hooksStatus(file: HookFile, self: readonly string[]): HookFileStatus {
   const { path, agent } = file;
   const { settings } = read(path);
-  const command = hookCommand(self, file.agent);
   const events = Object.fromEntries(
     file.events.map(({ event }) => [
       event,
-      mesaHooks(settings, event, agent).some((h) => h.command === command),
+      mesaHooks(settings, event, agent).some((h) => h.command === hookCommand(self, agent, event)),
     ]),
   );
   const stale = file.events.some(({ event }) =>
-    mesaHooks(settings, event, agent).some((h) => h.command !== command),
+    mesaHooks(settings, event, agent).some((h) => h.command !== hookCommand(self, agent, event)),
   );
   return { path, installed: Object.values(events).every(Boolean), stale, events };
 }
@@ -126,7 +127,7 @@ export function installHooks(
   for (const { event, matcher } of file.events) {
     const group: Group = {
       ...(matcher ? { matcher } : {}),
-      hooks: [{ type: 'command', command: hookCommand(self, file.agent) }],
+      hooks: [{ type: 'command', command: hookCommand(self, file.agent, event) }],
     };
     hooks[event] = [...(hooks[event] ?? []), group];
   }
@@ -151,12 +152,13 @@ export function uninstallHooks(
 /** Locations of this mesa's handlers, including user groups and handlers before them. */
 export function hookPositions(file: HookFile, self: readonly string[]) {
   const { settings } = read(file.path);
-  const command = hookCommand(self, file.agent);
   return Object.fromEntries(
     file.events.map(({ event }) => [
       event,
       (settings.hooks?.[event] ?? []).flatMap((group, g) =>
-        (group.hooks ?? []).flatMap((hook, h) => (hook.command === command ? [`${g}:${h}`] : [])),
+        (group.hooks ?? []).flatMap((hook, h) =>
+          hook.command === hookCommand(self, file.agent, event) ? [`${g}:${h}`] : [],
+        ),
       ),
     ]),
   );

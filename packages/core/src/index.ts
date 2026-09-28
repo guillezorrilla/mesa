@@ -74,6 +74,7 @@ export type { DescendantResult } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
+export type { InstructionStatus } from './sessions/instructions.js';
 export type { SessionLog } from './sessions/output-log.js';
 export {
   BOARD_DENSITIES,

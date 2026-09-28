@@ -25,6 +25,7 @@ import type {
   GitTracking,
   GridGroup,
   HooksStatus,
+  InstructionStatus,
   NativeHistory,
   Opened,
   ProfileInfo,
@@ -711,11 +712,10 @@ const COMMANDS = {
     '--',
     project,
   ]),
-  'sessions.show': commandWith<{ id: string }, SessionRecord & { alive: boolean }>(({ id }) => [
-    'show',
-    '--',
-    id,
-  ]),
+  'sessions.show': commandWith<
+    { id: string },
+    SessionRecord & { alive: boolean; instructions: InstructionStatus }
+  >(({ id }) => ['show', '--', id]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
   // session starting a child, even when the app itself was started inside a Mesa window.

@@ -45,10 +45,13 @@ test('install adds one Mesa entry per event, beside the user hooks, and twice ch
   const settings = JSON.parse(readFileSync(path, 'utf8'));
   for (const { event, matcher } of HOOK_EVENTS) {
     const mesa = settings.hooks[event].filter((g: { hooks: { command: string }[] }) =>
-      g.hooks.some((h) => h.command === hookCommand(SELF)),
+      g.hooks.some((h) => h.command === hookCommand(SELF, event)),
     );
     expect(mesa).toEqual([
-      { ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: hookCommand(SELF) }] },
+      {
+        ...(matcher ? { matcher } : {}),
+        hooks: [{ type: 'command', command: hookCommand(SELF, event) }],
+      },
     ]);
   }
   // The user's own entries come first, as they were.
@@ -85,6 +88,7 @@ test('the hook is a no-op outside a Mesa session, silent, and never fails its ca
   expect(hookCommand(['/a b/node', "/it's/mesa.js"])).toBe(
     `[ -z "$MESA_SESSION_ID" ] || '/a b/node' '/it'\\''s/mesa.js' hook claude >/dev/null 2>&1 || true`,
   );
+  expect(hookCommand(SELF, 'SessionStart')).toContain('hook claude 2>/dev/null || true');
 });
 
 test('settings that are not JSON are an error and are left untouched', () => {

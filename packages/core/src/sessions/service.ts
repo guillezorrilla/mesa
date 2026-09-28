@@ -31,6 +31,7 @@ import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { nativeHistory } from './history.js';
 import { readHookEvents } from './hook-events.js';
+import { instructionStatus } from './instructions.js';
 import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
@@ -434,7 +435,12 @@ export function sessionsService(
         // The look may have learned a provider-owned ID before its context can be read.
         refreshContext(contextDeps, store.get(id));
         // Read again: the look may have saved a new state, or started it from its queue.
-        return { ...store.get(id), alive: row?.alive ?? false };
+        const current = store.get(id);
+        return {
+          ...current,
+          alive: row?.alive ?? false,
+          instructions: instructionStatus(current.agent, deps.home, deps.env, deps.self),
+        };
       },
       /** Gives a session the name a person calls it by; the board shows it in place of the id. */
       rename: (id: string, name: string) =>

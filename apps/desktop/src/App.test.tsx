@@ -1075,6 +1075,7 @@ test('selected session details read native context by exact id and keep unknown 
         reading
           ? {
               ...row,
+              instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
               context: {
                 used: 10.04,
                 window: 258400,
@@ -1084,7 +1085,10 @@ test('selected session details read native context by exact id and keep unknown 
                 effort: 'xhigh',
               },
             }
-          : row,
+          : {
+              ...row,
+              instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+            },
       ),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
@@ -1094,6 +1098,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('/src/lantern-cove');
   expect(details?.textContent).toContain('Modelclaude-opus-5-5');
   expect(details?.textContent).toContain('Effortxhigh');
+  expect(details?.textContent).toContain('Instructionsconfigured: SessionStart hook is configured');
   expect(details?.textContent).toContain('10.04% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
   expect(
@@ -1105,6 +1110,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('ContextUnknown');
   expect(details?.textContent).toContain('ModelUnknown');
   expect(details?.textContent).toContain('EffortUnknown');
+  expect(details?.textContent).toContain('Instructionsmissing: Run mesa hooks install');
   expect(
     document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
   ).toBe('img');

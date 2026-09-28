@@ -43,6 +43,31 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
   expect(readFileSync(join(cli.home, '.claude/settings.json'), 'utf8')).toBe('{}\n');
 });
 
+test('SessionStart gives only the owning native session a bounded Mesa pointer', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('missing');
+  await mesa('hooks', 'install');
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('configured');
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId,
+    hook_event_name: 'SessionStart',
+    source: 'startup',
+  });
+  const start = await mesa('hook', 'claude');
+  expect(start.stdout).toContain(
+    `Mesa session ${opened.id}; profile default; project lantern-cove;`,
+  );
+  expect(start.stdout).toContain(`mesa show ${opened.id} --json`);
+  expect(start.stdout).toContain('Invoke skills in this terminal with /skill-name');
+  cli.stdin = JSON.stringify({ session_id: opened.agentSessionId, hook_event_name: 'Stop' });
+  expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
+  cli.stdin = JSON.stringify({ session_id: 'another-agent', hook_event_name: 'SessionStart' });
+  expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
+});
+
 test('a hook in a session refuses to log while config.yaml does not read, so no key leaks', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('config', 'set', 'keys.api', 'sk-live-1234');
@@ -161,6 +186,7 @@ test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', as
     ),
   ).toBe(true);
   const id = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data.id;
+  expect((await mesa('show', id, '--json')).json.data.instructions.state).toBe('conflicting');
   cli.env = { ...cli.env, MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
   for (const [event, state] of [
     ['SessionStart', 'idle'],
