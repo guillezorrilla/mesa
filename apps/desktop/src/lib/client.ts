@@ -589,6 +589,9 @@ const COMMANDS = {
     '--',
     id,
   ]),
+  'sessions.fork': commandWith<{ id: string; branch?: string }, Recorded<SessionRecord>>(
+    ({ id, branch }) => ['fork', ...(branch ? [`--branch=${branch}`] : []), '--', id],
+  ),
   'sessions.handoff': commandWith<
     { id: string; note: string; keep: boolean },
     Recorded<{ from: string; to: string; note: string }>

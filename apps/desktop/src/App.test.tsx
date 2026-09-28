@@ -1231,6 +1231,36 @@ test('selected session actions launch a child terminal and a child worktree', as
   ]);
 });
 
+test('selected session can fork its native conversation in place or into a worktree', async () => {
+  const source = managedRow('parent01');
+  const rows = [source];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(rows),
+    fork: () => {
+      const created = managedRow('fork0001', { parent: source.id });
+      rows.push(created);
+      return envelope(created);
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const actions = () => document.querySelector('[aria-label="Session actions"]') as HTMLElement;
+  const action = (label: string) =>
+    [...(actions().parentElement?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes(label),
+    );
+  await click(actions());
+  await click(action('Fork session'));
+  expect(calls).toContainEqual(['--json', 'fork', '--', source.id]);
+  await click(byTestId('sidebar-session')[0]);
+  await click(actions());
+  await click(action('Fork into worktree'));
+  expect(byTestId('fork-dialog')).toHaveLength(1);
+  (byTestId('fork-branch')[0] as HTMLInputElement).value = 'try/fork';
+  await click(byTestId('fork-submit')[0]);
+  expect(calls).toContainEqual(['--json', 'fork', '--branch=try/fork', '--', source.id]);
+});
+
 test('project controls update profile presentation and leave the slug available when hidden', async () => {
   let rows = PROJECTS.map((row) => ({ ...row }));
   const { bridge, calls } = fakeBridge({

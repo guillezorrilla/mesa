@@ -21,6 +21,7 @@ import { callerOf } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
+import { forkSession } from './fork.js';
 import { GENERAL_PROJECT, projectLabel, projectScope } from './general.js';
 import { readGoal, sessionGoal } from './goal.js';
 import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
@@ -656,6 +657,21 @@ export function sessionsService(
           },
           () => resumeSession(openDeps(), id),
         ).then((recorded) => markEnded(ctx, recorded, recorded.result.from)),
+      fork: (id: string, opts: { branch?: string; base?: string } = {}) =>
+        record(
+          {
+            type: 'session',
+            summary: (r) => `Forked session ${id} as ${r.record.id}`,
+            failure: `Could not fork session ${id}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: (r) => r.record.id,
+            agent: (r) => recordAgent(r.record),
+            inputs: { id, ...opts },
+            outputs: (r) => ({ window: r.record.tmux.window, parent: id }),
+          },
+          () => forkSession(openDeps(), id, opts),
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),

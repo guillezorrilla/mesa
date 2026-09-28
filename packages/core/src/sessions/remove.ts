@@ -5,7 +5,7 @@ import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
-import { worktreeHolder } from './holders.js';
+import { checkoutHolders, worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
 import { runInput, runOutput } from './run.js';
@@ -86,6 +86,18 @@ export async function removeSession(
     worktree && (dropWorktree || dropBranch)
       ? findProject(deps.profile(), record.project).path
       : '';
+  const usingCheckout =
+    dropWorktree && worktree
+      ? checkoutHolders(deps.store.list(), record.project, repo, worktree.path).find(
+          (session) => session.id !== id,
+        )
+      : undefined;
+  if (usingCheckout) {
+    throw new MesaError(
+      'usage',
+      `session ${usingCheckout.id} still uses the worktree at ${worktree?.path}; stop it first`,
+    );
+  }
   const removed: Removed = {
     id,
     project: record.project,

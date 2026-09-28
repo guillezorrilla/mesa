@@ -39,6 +39,7 @@ import { useCall, useRun } from '@/lib/useCommand';
 import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
+import { ForkDialog } from './ForkDialog';
 import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
@@ -65,7 +66,7 @@ type OpenDialog =
       parent?: string;
       location?: 'main' | 'worktree' | 'terminal';
     }
-  | { kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive'; row: ManagedRow }
+  | { kind: 'rename' | 'handoff' | 'log' | 'remove' | 'archive' | 'fork'; row: ManagedRow }
   | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
 
 /**
@@ -231,6 +232,14 @@ export function BoardScreen(
       if (!done) return undefined;
       close();
       return said(`Handed off ${id} to ${done.to}`, done);
+    });
+  const fork = (id: string, branch?: string) =>
+    act(async () => {
+      const created = await run('sessions.fork', { id, branch });
+      if (!created) return undefined;
+      close();
+      props.onSelectSession?.(created.id);
+      return said(`Forked session ${id} as ${created.id}`, created);
     });
   const rename = (id: string, name: string) =>
     act(async () => {
@@ -453,6 +462,30 @@ export function BoardScreen(
                   >
                     <RotateCcw aria-hidden /> Resume
                   </Button>
+                  {selected.kind === 'interactive' &&
+                    !selected.background &&
+                    (selected.agent === 'claude' || selected.agent === 'codex') && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fork(selected.id)}
+                          disabled={!selected.agentSessionId || acting}
+                        >
+                          <Plus aria-hidden /> Fork session
+                        </Button>
+                        {selected.project !== GENERAL_PROJECT && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDialog({ kind: 'fork', row: selected })}
+                            disabled={!selected.agentSessionId || acting}
+                          >
+                            <Plus aria-hidden /> Fork into worktree
+                          </Button>
+                        )}
+                      </>
+                    )}
                   {!isRun(selected) &&
                     selected.kind !== 'terminal' &&
                     selected.project !== GENERAL_PROJECT && (
@@ -597,6 +630,14 @@ export function BoardScreen(
           row={dialog.row}
           disabled={acting}
           onHandoff={(note, keep) => handoff(dialog.row.id, note, keep)}
+          onCancel={close}
+        />
+      )}
+      {dialog?.kind === 'fork' && (
+        <ForkDialog
+          sessionId={dialog.row.id}
+          disabled={acting}
+          onFork={(branch) => fork(dialog.row.id, branch)}
           onCancel={close}
         />
       )}

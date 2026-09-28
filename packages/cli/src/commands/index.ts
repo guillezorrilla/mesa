@@ -17,6 +17,7 @@ import {
   filesTree,
   filesWrite,
 } from './files.js';
+import { fork } from './fork.js';
 import {
   gitBranchCheckout,
   gitBranchCreate,
@@ -101,6 +102,7 @@ export const COMMANDS: Command[] = [
   filesSearch,
   filesTree,
   filesWrite,
+  fork,
   goal,
   gitBranchCheckout,
   gitBranchCreate,

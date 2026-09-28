@@ -63,6 +63,8 @@ export const AGENTS = {
     /** Reopens that conversation; run in the recorded project folder, which keys transcripts. */
     resume: (sessionId: string, _folder: string, mode?: 'plan') =>
       `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}`,
+    fork: (sessionId: string, _folder: string, mode?: 'plan') =>
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -114,6 +116,8 @@ export const AGENTS = {
     /** Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. */
     resume: (sessionId: string, folder: string, _mode?: 'plan') =>
       `codex ${CODEX_EMBEDDED} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+    fork: (sessionId: string, folder: string) =>
+      `codex ${CODEX_EMBEDDED} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
