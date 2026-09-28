@@ -18,6 +18,7 @@ import { AgentField } from './board/AgentField';
 import { exited, queued } from './board/rows';
 import { FilesWorkspace } from './FilesWorkspace';
 import { GitWorkspace } from './GitWorkspace';
+import { WorktreesWorkspace } from './WorktreesWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
@@ -31,7 +32,7 @@ export function ProjectWorkspace(props: {
   onFilesDirtyChange: (dirty: boolean) => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'skills'>('overview');
+  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills'>('overview');
   useEffect(() => {
     if (props.file) setTab('files');
   }, [props.file]);
@@ -207,7 +208,7 @@ export function ProjectWorkspace(props: {
         </ActionDialog>
       )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'git', 'files', 'skills'] as const).map((name) => (
+        {(['overview', 'git', 'files', 'worktrees', 'skills'] as const).map((name) => (
           <button
             key={name}
             type="button"
@@ -359,6 +360,8 @@ export function ProjectWorkspace(props: {
           onDirtyChange={props.onFilesDirtyChange}
           target={props.file}
         />
+      ) : tab === 'worktrees' ? (
+        <WorktreesWorkspace project={project.name} onSession={props.onSession} />
       ) : (
         <div className="space-y-2">
           {skills.data?.map((skill) => (

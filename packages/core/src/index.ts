@@ -81,3 +81,4 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-stat
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';
+export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';

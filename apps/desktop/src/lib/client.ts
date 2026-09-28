@@ -44,6 +44,7 @@ import type {
   Viewed,
   WorkflowStatus,
   WorkspaceFile,
+  WorktreeRow,
 } from '@mesa/core';
 
 /** Sends one mesa argv and resolves with the envelope it printed. The seam between the renderer and the CLI. */
@@ -118,6 +119,12 @@ const COMMANDS = {
   'files.link': commandWith<{ session: string; target: string }, FileLink>(
     ({ session, target }) => ['files', 'link', '--', session, target],
   ),
+  'worktrees.list': commandWith<{ project: string }, WorktreeRow[]>(({ project }) => [
+    'worktrees',
+    'list',
+    '--',
+    project,
+  ]),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },
     Recorded<FileChange>

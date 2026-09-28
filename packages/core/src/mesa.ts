@@ -13,6 +13,7 @@ import { receiptsService } from './receipts/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { vaultService } from './vault/service.js';
+import { worktreesService } from './worktrees/service.js';
 
 export type { MesaDeps } from './context.js';
 
@@ -30,6 +31,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     projects: projectsService(ctx),
     files: filesService(ctx),
+    worktrees: worktreesService(ctx),
     git: gitService(ctx, faro),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),

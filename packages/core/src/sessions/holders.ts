@@ -12,15 +12,20 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .at(-1);
 
 /** An unfinished session using a checkout, including a session in a folder below its root. */
+export const checkoutHolders = (
+  records: readonly SessionRecord[],
+  project: string,
+  root: string,
+  path: string,
+) =>
+  records.filter((r) => {
+    if (r.project !== project || r.endedAt) return false;
+    const cwd = r.worktree?.path ?? r.cwd ?? root;
+    return cwd === path || cwd.startsWith(`${path}/`);
+  });
+
 export const checkoutHolder = (store: SessionStore, project: string, root: string, path: string) =>
-  store
-    .list()
-    .filter((r) => {
-      if (r.project !== project || r.endedAt) return false;
-      const cwd = r.worktree?.path ?? r.cwd ?? root;
-      return cwd === path || cwd.startsWith(`${path}/`);
-    })
-    .at(-1);
+  checkoutHolders(store.list(), project, root, path).at(-1);
 
 /**
  * Refuses `r`'s worktree once a newer session has it (a resume or a handoff took it over): two
