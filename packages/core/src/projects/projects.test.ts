@@ -5,8 +5,9 @@ import { beforeEach, expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { initProfile, openProfile, type Profile } from '../profile/profile.js';
 import { tempDir, thrown } from '../testing/index.js';
+import { discoverProjects } from './discover.js';
 import { slugify } from './project-file.js';
-import { listProjects, registerProject, unregisterProject } from './projects.js';
+import { listProjects, registerProject, unregisterProject, updateProject } from './projects.js';
 
 let root: string;
 let profile: Profile;
@@ -35,7 +36,17 @@ test('create writes a minimal mesa.yaml named after the folder and registers it'
     'name: lantern-cove\npriority: 0.5\nguardrail: normal\n',
   );
   expect(listProjects(profile)).toEqual([
-    { name: 'lantern-cove', path: dir, agent: 'claude', priority: 0.5, skills: [], exists: true },
+    {
+      name: 'lantern-cove',
+      label: 'lantern-cove',
+      path: dir,
+      agent: 'claude',
+      priority: 0.5,
+      skills: [],
+      exists: true,
+      pinned: false,
+      hidden: false,
+    },
   ]);
 });
 
@@ -72,7 +83,17 @@ test('a moved project shows exists: false; an invalid mesa.yaml is invalid_confi
   registerProject(profile, { dir });
   rmSync(dir, { recursive: true });
   expect(listProjects(profile)).toEqual([
-    { name: 'gone', path: dir, agent: null, priority: null, skills: [], exists: false },
+    {
+      name: 'gone',
+      label: 'gone',
+      path: dir,
+      agent: null,
+      priority: null,
+      skills: [],
+      exists: false,
+      pinned: false,
+      hidden: false,
+    },
   ]);
   expect(thrown(() => registerProject(profile, { dir: join(root, 'nowhere') })).code).toBe(
     'not_found',
@@ -87,6 +108,48 @@ test('unregister removes the entry by name', () => {
   expect(unregisterProject(profile, 'one').name).toBe('one');
   expect(listProjects(profile).map((p) => p.name)).toEqual(['two']);
   expect(thrown(() => unregisterProject(profile, 'one')).code).toBe('not_found');
+});
+
+test('profile-local labels, pins, hiding, and order preserve stable slugs and project files', () => {
+  const one = folder('one', 'name: one\n');
+  registerProject(profile, { dir: one });
+  registerProject(profile, { dir: folder('two', 'name: two\n') });
+  registerProject(profile, { dir: folder('three', 'name: three\n') });
+  updateProject(profile, 'one', { label: 'The First', pinned: true });
+  updateProject(profile, 'three', { hidden: true, move: 'up' });
+  expect(listProjects(profile).map((p) => [p.name, p.label, p.pinned, p.hidden])).toEqual([
+    ['one', 'The First', true, false],
+    ['three', 'three', false, true],
+    ['two', 'two', false, false],
+  ]);
+  expect(readFileSync(join(one, 'mesa.yaml'), 'utf8')).toBe('name: one\n');
+  expect(thrown(() => updateProject(profile, 'one', { label: '  ' })).code).toBe('usage');
+  expect(thrown(() => updateProject(profile, 'one', { label: 'line\nbreak' })).code).toBe('usage');
+  expect(thrown(() => updateProject(profile, 'unknown', { hidden: true })).code).toBe('not_found');
+  expect(listProjects(profile)[0]?.label).toBe('The First');
+});
+
+test('local discovery is bounded to projects and leaves their folders untouched', () => {
+  const rootPath = folder('scan');
+  const configured = folder('scan/known', 'name: custom-slug\n');
+  const git = folder('scan/nearby');
+  mkdirSync(join(git, '.git'));
+  folder('scan/ordinary');
+  const deep = folder('scan/a/b/c/d');
+  mkdirSync(join(deep, '.git'));
+  registerProject(profile, { dir: configured });
+  expect(
+    discoverProjects(profile, rootPath).map((row) => [
+      row.path,
+      row.name,
+      row.configured,
+      row.registered,
+    ]),
+  ).toEqual([
+    [configured, 'custom-slug', true, true],
+    [git, 'nearby', false, false],
+  ]);
+  expect(thrown(() => discoverProjects(profile, join(root, 'absent'))).code).toBe('not_found');
 });
 
 test('slugify', () => {

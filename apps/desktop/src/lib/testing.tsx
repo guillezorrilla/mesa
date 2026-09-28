@@ -8,12 +8,11 @@ import type {
   ManagedRow,
   ProfileInfo,
   ProjectRow,
-  ReceiptEntry,
   SessionRow,
-  SkillRow,
   TmuxWindow,
   VaultStatus,
 } from '@mesa/core';
+import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Bridge } from './client';
@@ -54,6 +53,9 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
       terminal: { app: 'Terminal' },
+      shortcuts: { ...DEFAULT_SHORTCUTS },
+      board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
+      grid: { groups: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
       keys: {},
     } satisfies Config),
@@ -124,10 +126,12 @@ export const fakePlatform = ({
   folder = null,
   file = null,
   terminal = fakeTerminals().host,
+  deepLinks = { current: async () => null, onOpen: async () => () => {} },
 }: {
   folder?: string | null;
   file?: string | null;
   terminal?: TerminalHost;
+  deepLinks?: Platform['deepLinks'];
 } = {}): Platform & {
   pasteboard: string[];
 } => {
@@ -135,6 +139,7 @@ export const fakePlatform = ({
   return {
     pickFolder: async () => folder,
     pickFile: async () => file,
+    deepLinks,
     terminal,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,
@@ -176,13 +181,26 @@ export const choose = (select: HTMLElement | undefined, value: string) =>
 export const PROJECTS: ProjectRow[] = [
   {
     name: 'lantern-cove',
+    label: 'lantern-cove',
     path: '/src/lantern-cove',
     agent: 'claude',
     priority: 0.5,
     skills: [],
     exists: true,
+    pinned: false,
+    hidden: false,
   },
-  { name: 'tide', path: '/src/tide', agent: null, priority: null, skills: [], exists: false },
+  {
+    name: 'tide',
+    label: 'tide',
+    path: '/src/tide',
+    agent: null,
+    priority: null,
+    skills: [],
+    exists: false,
+    pinned: false,
+    hidden: false,
+  },
 ];
 /** A doctor report as core sends one, healthy unless told: the screens only show its verdict. */
 export const report = (
@@ -302,127 +320,5 @@ export const guardrailStopped = (verdict: 'ask' | 'block', reason: string) => ({
         latencyMs: 0,
       },
     } satisfies GuardrailCheck,
-  },
-});
-
-/** Skills a project sees, as `mesa skills list <project>` prints them: two enabled, one not. */
-export const SKILLS: SkillRow[] = [
-  {
-    name: 'session-summary',
-    source: 'mesa',
-    enabled: true,
-    description: 'Summarise what a session did into the vault',
-  },
-  { name: 'mesa-handoff', source: 'mesa', enabled: false, description: 'Hand a session off' },
-  { name: 'tidy-readme', source: 'repo', enabled: true, description: 'Tidy the README' },
-];
-
-type Receipt = ReceiptEntry['receipt'];
-/** A receipt as `mesa receipts --json` lists it and `mesa receipts show` prints it. */
-const receiptEntry = (receipt: Receipt, summary: string): ReceiptEntry => ({
-  path: `receipts/2026/09/${receipt.started.replace(/[-:]/g, '')}00Z-${receipt.type}-${receipt.id}.md`,
-  receipt,
-  summary,
-  body: `${summary}\n\n## Details\n\nNone.\n`,
-});
-
-/** A skill run on a strict project, which the guardrail asked about and `--yes` let through. */
-export const RUN_RECEIPT = receiptEntry(
-  {
-    type: 'skill',
-    id: '01TEST00000000000000000003',
-    profile: 'default',
-    project: 'lantern-cove',
-    session: 'eeeeeeee',
-    agent: 'claude',
-    started: '2026-09-25T12:05',
-    ended: '2026-09-25T12:06',
-    status: 'ok',
-    cost: 0.042,
-    command: 'mesa run --project lantern-cove --yes -- tidy-readme "focus on tests"',
-    decisions: [
-      {
-        question: 'verdict',
-        kind: 'Choice',
-        answer: 'ask',
-        probabilities: { allow: 0.04, ask: 0.95, block: 0.01 },
-        confidence: 0.95,
-        backend: 'rules',
-      },
-      {
-        question: 'secret-or-destructive',
-        kind: 'Noul',
-        answer: false,
-        probabilities: 0.05,
-        backend: 'rules',
-      },
-    ],
-    inputs: {
-      skill: 'tidy-readme',
-      project: 'lantern-cove',
-      agent: 'claude',
-      args: ['focus on tests'],
-      yes: true,
-    },
-    outputs: { window: 'claude-eeeeeeee', state: 'done', durationMs: 61_000, override: 'yes' },
-  },
-  'Ran skill tidy-readme on lantern-cove as session eeeeeeee',
-);
-/** A session opened on the Board. */
-export const SESSION_RECEIPT = receiptEntry(
-  {
-    type: 'session',
-    id: '01TEST00000000000000000002',
-    profile: 'default',
-    project: 'lantern-cove',
-    session: 'bbbbbbbb',
-    agent: 'claude',
-    started: '2026-09-25T12:00',
-    ended: '2026-09-25T12:03',
-    status: 'ok',
-    command: 'mesa open --no-parent --agent claude -- lantern-cove',
-    decisions: [],
-    inputs: { project: 'lantern-cove', agent: 'claude' },
-    outputs: { window: 'claude-bbbbbbbb' },
-  },
-  'Opened session bbbbbbbb on lantern-cove',
-);
-/** A project registered, which failed. */
-export const ACTION_RECEIPT = receiptEntry(
-  {
-    type: 'action',
-    id: '01TEST00000000000000000001',
-    profile: 'default',
-    started: '2026-09-25T11:58',
-    status: 'failed',
-    command: 'mesa register --create -- /src/tide',
-    decisions: [],
-    inputs: { dir: '/src/tide', create: true },
-    outputs: { error: { code: 'not_found', message: 'no folder /src/tide' } },
-  },
-  'Could not register /src/tide',
-);
-/** The three receipts, newest first. */
-export const RECEIPTS = [RUN_RECEIPT, SESSION_RECEIPT, ACTION_RECEIPT];
-
-/**
- * Answers for `mesa receipts` (newest first, of its --type and --session) and `mesa receipts
- * show <id>`, over `entries`.
- */
-export const receiptAnswers = (entries: ReceiptEntry[] = RECEIPTS) => ({
-  receipts: (args: string[]) => {
-    const type = args[args.indexOf('--type') + 1];
-    const session = args.find((a) => a.startsWith('--session='))?.slice('--session='.length);
-    return envelope(
-      entries.filter(
-        (e) =>
-          (!args.includes('--type') || e.receipt.type === type) &&
-          (session === undefined || e.receipt.session === session),
-      ),
-    );
-  },
-  'receipts show': (args: string[]) => {
-    const entry = entries.find((e) => e.receipt.id === args.at(-1));
-    return entry ? envelope(entry) : failure(`no receipt with id ${args.at(-1)}`);
   },
 });

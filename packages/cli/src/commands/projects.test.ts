@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -20,11 +20,14 @@ test('register, projects, unregister', async () => {
   expect(json.data).toEqual([
     {
       name: 'lantern-cove',
+      label: 'lantern-cove',
       path: `${cli.home}/lantern-cove`,
       agent: 'claude',
       priority: 0.5,
       skills: [],
       exists: true,
+      pinned: false,
+      hidden: false,
     },
   ]);
   expect((await mesa('projects')).stdout).toBe(
@@ -38,4 +41,61 @@ test('register, projects, unregister', async () => {
   expect((await mesa('projects')).stdout).toBe(
     'no projects registered; run mesa register <path>\n',
   );
+});
+
+test('projects update changes profile presentation without renaming its slug', async () => {
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(cli.home, 'lantern-cove'));
+  await mesa('register', 'lantern-cove', '--create');
+  const changed = await mesa(
+    'projects',
+    'update',
+    'lantern-cove',
+    '--label',
+    'Lantern Cove',
+    '--pinned',
+    'true',
+    '--json',
+  );
+  expect(changed.json.data).toMatchObject({
+    name: 'lantern-cove',
+    label: 'Lantern Cove',
+    pinned: true,
+  });
+  expect((await mesa('projects', '--json')).json.data[0]).toMatchObject({
+    name: 'lantern-cove',
+    label: 'Lantern Cove',
+    pinned: true,
+  });
+  expect((await mesa('projects', 'update', 'lantern-cove', '--hidden', 'maybe')).code).toBe(2);
+});
+
+test('projects discover --json reports registered candidates under a chosen root', async () => {
+  await mesa('init', '--vault', 'vault');
+  const path = join(cli.home, 'src', 'lantern-cove');
+  mkdirSync(path, { recursive: true });
+  await mesa('register', path, '--create');
+  const found = await mesa('projects', 'discover', join(cli.home, 'src'), '--json');
+  expect(found.json.data).toEqual([
+    { path, name: 'lantern-cove', configured: true, registered: true },
+  ]);
+});
+
+test('projects clone --json validates and registers a checkout through the injected runner', async () => {
+  await mesa('init', '--vault', 'vault');
+  const native = cli.run;
+  cli.run = async (file, args, timeout) => {
+    if (file !== 'git') return native(file, args, timeout);
+    writeFileSync(join(args[3] ?? '', 'README.md'), 'Invented content');
+    return { ok: true, stdout: '' };
+  };
+  const url = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Fnew-repo.git';
+  const cloned = await mesa('projects', 'clone', url, '--json');
+  expect(cloned.json.data).toMatchObject({
+    name: 'new-repo',
+    path: join(cli.paths.checkouts, 'new-repo'),
+    url: 'https://example.com/team/new-repo.git',
+  });
+  expect((await mesa('projects', '--json')).json.data[0].name).toBe('new-repo');
+  expect((await mesa('projects', 'clone', 'file:///tmp/repo', '--json')).code).toBe(2);
 });

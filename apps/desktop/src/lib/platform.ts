@@ -20,6 +20,10 @@ export type Platform = {
   pickFolder: () => Promise<string | null>;
   /** A file the user picks (a handoff note), or null when they cancel. */
   pickFile: () => Promise<string | null>;
+  deepLinks: {
+    current: () => Promise<string[] | null>;
+    onOpen: (handler: (urls: string[]) => void) => Promise<() => void>;
+  };
   terminal: TerminalHost;
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
    * needs no seam: Cmd+V fires a paste event that xterm handles. */

@@ -3,13 +3,13 @@ import { useId } from 'react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-/** The agent a new session or a skill run gets, as the form's `agent`. */
-export function AgentField() {
+/** The agent a new session gets, as the form's `agent`. */
+export function AgentField({ defaultValue = DEFAULT_AGENT }: { defaultValue?: string }) {
   const id = useId();
   return (
     <fieldset className="grid gap-2">
       <legend className="mb-2 font-medium text-sm">Agent</legend>
-      <RadioGroup name="agent" defaultValue={DEFAULT_AGENT} className="flex gap-6">
+      <RadioGroup name="agent" defaultValue={defaultValue} className="flex gap-6">
         {AGENT_NAMES.map((agent) => {
           return (
             <div key={agent} className="flex items-center gap-2">

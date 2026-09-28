@@ -28,7 +28,7 @@ const osc52Text = (data: string) => {
  * drag, with `mouse on`) arrives as OSC 52 and goes to the pasteboard; Cmd+V is the webview's
  * own paste. Unmounting closes only the tmux client.
  */
-export function Terminal(props: { sessionId: string }) {
+export function Terminal(props: { sessionId: string; fill?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const platform = usePlatform();
   const run = useRun();
@@ -107,7 +107,7 @@ export function Terminal(props: { sessionId: string }) {
   return (
     <div
       ref={host}
-      className="h-[420px] bg-black p-1"
+      className={props.fill ? 'min-h-[240px] flex-1 bg-black p-1' : 'h-[420px] bg-black p-1'}
       data-testid={`terminal-${props.sessionId}`}
     />
   );

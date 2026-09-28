@@ -55,6 +55,17 @@ test('an invalid value or file is invalid_config with the failing field, and the
   });
 });
 
+test('Board preferences validate manual order without touching unrelated config', () => {
+  setConfigValue(file, 'board.view', 'cards');
+  setConfigValue(file, 'board.order', '[aaaaaaaa, bbbbbbbb]');
+  expect(loadConfig(file).board).toMatchObject({ view: 'cards', order: ['aaaaaaaa', 'bbbbbbbb'] });
+  const before = readFileSync(file, 'utf8');
+  expect(thrown(() => setConfigValue(file, 'board.order', '[aaaaaaaa, aaaaaaaa]')).code).toBe(
+    'invalid_config',
+  );
+  expect(readFileSync(file, 'utf8')).toBe(before);
+});
+
 test('a YAML syntax error reports the position, never the source text', () => {
   writeFileSync(file, 'vault: /tmp/v\nkeys:\n  jev: "sk-secret\n');
   const { code, message } = thrown(() => loadConfig(file));
@@ -78,4 +89,19 @@ test('a set repairs a value the file holds by hand that does not validate', () =
   expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
   expect(setConfigValue(file, 'decisions.threshold', '0.5')).toEqual({ value: 0.5, changed: true });
   expect(loadConfig(file).decisions.threshold).toBe(0.5);
+});
+
+test('shortcut values are canonical, unique, and never take reserved window keys', () => {
+  expect(loadConfig(file).shortcuts).toEqual({
+    search: 'Mod+K',
+    board: 'Mod+1',
+    newSession: 'Mod+N',
+  });
+  expect(setConfigValue(file, 'shortcuts.search', 'Mod+Shift+P').value).toBe('Mod+Shift+P');
+  for (const value of ['Mod+Q', 'Mod+1', 'K', 'Mod+shift+P']) {
+    expect(thrown(() => setConfigValue(file, 'shortcuts.search', value)).code).toBe(
+      'invalid_config',
+    );
+  }
+  expect(loadConfig(file).shortcuts.search).toBe('Mod+Shift+P');
 });

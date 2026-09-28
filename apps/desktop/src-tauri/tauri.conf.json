@@ -21,6 +21,9 @@
       "csp": null
     }
   },
+  "plugins": {
+    "deep-link": { "desktop": { "schemes": ["mesa"] } }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

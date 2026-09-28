@@ -154,6 +154,58 @@ test('a cancelled picker registers nothing; a failed register shows in the toast
   expect(toastTexts(byTestId)).toEqual(['already registered: tide at /src/tide']);
 });
 
+test('Discover folders imports only the selected unregistered project', async () => {
+  let registered = false;
+  const candidate = {
+    name: 'lantern-cove',
+    path: '/src/lantern-cove',
+    configured: false,
+    registered: false,
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(registered ? PROJECTS.slice(0, 1) : []),
+    'projects discover': () => envelope([candidate]),
+    register: () => {
+      registered = true;
+      return envelope({ name: 'lantern-cove', path: candidate.path, created: true });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ folder: '/src' }));
+  await click(byTestId('nav-projects')[0]);
+  await click(byTestId('discover-projects')[0]);
+  expect(calls).toContainEqual(['--json', 'projects', 'discover', '--', '/src']);
+  expect(byTestId('discovered-project')).toHaveLength(1);
+  await click(byTestId('discovered-project')[0]?.querySelector('button') as HTMLElement);
+  expect(calls).toContainEqual(['--json', 'register', '--create', '--', '/src/lantern-cove']);
+  expect(byTestId('project-row')).toHaveLength(1);
+  expect(byTestId('discovered-project')[0]?.textContent).toContain('Registered');
+});
+
+test('repository link checkout validates before calling mesa and refreshes Projects', async () => {
+  let registered = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(registered ? PROJECTS.slice(0, 1) : []),
+    'projects clone': () => {
+      registered = true;
+      return envelope({ name: 'lantern-cove', path: '/src/lantern-cove', created: true });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-projects')[0]);
+  const input = byTestId('repository-url')[0] as HTMLInputElement;
+  const type = async (value: string) => {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  await type('file:///tmp/repo');
+  expect(byTestId('clone-project')[0]?.hasAttribute('disabled')).toBe(true);
+  const link = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Flantern-cove.git';
+  await type(link);
+  await click(byTestId('clone-project')[0]);
+  expect(calls).toContainEqual(['--json', 'projects', 'clone', '--', link]);
+  expect(byTestId('project-row')).toHaveLength(1);
+});
+
 test("View sessions shows the project's sessions side by side in the terminal app and says so", async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

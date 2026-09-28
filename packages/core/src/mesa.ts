@@ -23,8 +23,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const ctx = createContext(profile, deps);
   const faro = createFaro(ctx);
   const skills = skillsService(ctx);
+  const profileApi = profileService(ctx);
   return {
-    ...profileService(ctx),
+    ...profileApi,
     projects: projectsService(ctx),
     ...vaultService(ctx),
     receipts: receiptsService(ctx),

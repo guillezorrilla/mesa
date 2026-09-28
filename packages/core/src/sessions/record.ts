@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import { MesaError } from '../lib/result.js';
 import { FINAL_STATES, SESSION_STATES } from './states.js';
+import { WORKFLOW_STATUSES } from './workflow-status.js';
 
 // A session record's shape and the rules on it (CONTEXT.md, Session); the store keeps them.
 
@@ -54,6 +55,8 @@ export const SessionRecordSchema = z.strictObject({
     .optional(),
   /** What a person calls it (mesa rename, mesa adopt --name). */
   name: z.string().optional(),
+  /** A person's workflow label, independent of Faro's observed agent state. */
+  workflowStatus: z.enum(WORKFLOW_STATUSES).optional(),
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
   adopted: z.literal(true).optional(),
   /**
