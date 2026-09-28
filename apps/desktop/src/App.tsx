@@ -52,6 +52,14 @@ export function App() {
     setSearchOpen(true);
   };
   const run = useRun();
+  const openFileLink = useCallback(
+    (session: string, target: string) => {
+      void run('files.link', { session, target }).then((file) => {
+        if (file) navigate({ kind: 'project', name: file.project, file });
+      });
+    },
+    [navigate, run],
+  );
   const { deepLinks } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
@@ -201,6 +209,7 @@ export function App() {
               preferences={config.data?.board}
               onPreferencesChanged={() => void config.refresh()}
               onSelectSession={(id) => navigate({ kind: 'session', id })}
+              onFileLink={openFileLink}
             />
           </div>
           {view.kind === 'projects' && (
@@ -216,6 +225,7 @@ export function App() {
                 key={project.name}
                 project={project}
                 filesDirty={filesDirty}
+                file={view.file}
                 onFilesDirtyChange={setFilesDirty}
                 sessions={sessions}
                 onSession={(id) => navigate({ kind: 'session', id })}

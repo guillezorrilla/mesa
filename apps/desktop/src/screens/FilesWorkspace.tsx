@@ -1,4 +1,4 @@
-import type { FileHit, TreeRow, WorkspaceFile } from '@mesa/core';
+import type { Config, FileHit, TreeRow, WorkspaceFile } from '@mesa/core';
 import { File, Folder, FolderOpen, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -13,15 +13,25 @@ import { useCommand, useRun } from '@/lib/useCommand';
 
 type Pending =
   | { kind: 'open'; path: string; line?: number }
+  | { kind: 'link'; checkout: string; path: string; line: number }
   | { kind: 'checkout'; path: string }
   | { kind: 'close' }
   | { kind: 'reload' };
+
+const DEFAULT_EDITOR: Config['editor'] = {
+  fontSize: 13,
+  tabSize: 2,
+  wordWrap: false,
+  vim: false,
+  external: [],
+};
 
 /** Xirp-style two-pane repository browser over the same checked file commands as the CLI. */
 export function FilesWorkspace(props: {
   project: string;
   sessions: readonly TreeRow[];
   onDirtyChange: (dirty: boolean) => void;
+  target?: { checkout: string; path: string; line: number };
 }) {
   const [checkout, setCheckout] = useState('');
   const [opened, setOpened] = useState<(WorkspaceFile & { targetLine?: number }) | null>(null);
@@ -37,7 +47,15 @@ export function FilesWorkspace(props: {
   const [pending, setPending] = useState<Pending>();
   const loadRequest = useRef(0);
   const run = useRun();
+  const config = useCommand('config.get');
+  const preferences = config.data?.editor ?? DEFAULT_EDITOR;
+  const [externalDraft, setExternalDraft] = useState('');
+  const [externalError, setExternalError] = useState('');
   const { acting, act } = useAct();
+  useEffect(() => {
+    setExternalDraft(JSON.stringify(preferences.external));
+    setExternalError('');
+  }, [preferences.external]);
   const tree = useCommand('files.tree', {
     project: props.project,
     checkout: checkout || undefined,
@@ -60,11 +78,11 @@ export function FilesWorkspace(props: {
       ),
     ),
   ];
-  const load = async (path: string, line?: number) => {
+  const load = async (path: string, line?: number, selected = checkout) => {
     const request = ++loadRequest.current;
     const file = await run('files.read', {
       project: props.project,
-      checkout: checkout || undefined,
+      checkout: selected || undefined,
       path,
       line,
     });
@@ -85,6 +103,12 @@ export function FilesWorkspace(props: {
     setDialog(undefined);
     setPending(undefined);
     if (next.kind === 'open') await load(next.path, next.line);
+    if (next.kind === 'link') {
+      loadRequest.current++;
+      setCheckout(next.checkout);
+      setHits(null);
+      await load(next.path, next.line, next.checkout);
+    }
     if (next.kind === 'checkout') {
       loadRequest.current++;
       setCheckout(next.path);
@@ -97,6 +121,13 @@ export function FilesWorkspace(props: {
     }
     if (next.kind === 'reload' && opened) await load(opened.path, opened.targetLine);
   };
+  const linkRequest = useRef(request);
+  useEffect(() => {
+    linkRequest.current = request;
+  });
+  useEffect(() => {
+    if (props.target) linkRequest.current({ kind: 'link', ...props.target });
+  }, [props.target]);
   const save = () =>
     act(async () => {
       if (!opened) return undefined;
@@ -116,6 +147,13 @@ export function FilesWorkspace(props: {
       });
       await tree.refresh();
       return said(`Saved ${opened.path}`, result);
+    });
+  const savePreference = (path: keyof Config['editor'], value: unknown) =>
+    act(async () => {
+      const result = await run('config.set', { path: `editor.${path}`, value });
+      if (!result) return undefined;
+      await config.refresh();
+      return said(`Saved editor ${path}`, result);
     });
   const search = () =>
     act(async () => {
@@ -356,6 +394,93 @@ export function FilesWorkspace(props: {
         )}
       </div>
       <div className="min-w-0 rounded-lg border bg-card/40 p-4">
+        <details className="mb-4 rounded-md border p-2 text-xs">
+          <summary className="cursor-pointer font-medium">Editor settings</summary>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Label htmlFor="editor-font-size">Font size</Label>
+            <NativeSelect
+              id="editor-font-size"
+              aria-label="Editor font size"
+              value={preferences.fontSize}
+              disabled={acting}
+              onChange={(event) => void savePreference('fontSize', Number(event.target.value))}
+            >
+              {[10, 11, 12, 13, 14, 16, 18, 20, 24].map((size) => (
+                <NativeSelectOption key={size} value={size}>
+                  {size}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <Label htmlFor="editor-tab-size">Tab size</Label>
+            <NativeSelect
+              id="editor-tab-size"
+              aria-label="Editor tab size"
+              value={preferences.tabSize}
+              disabled={acting}
+              onChange={(event) => void savePreference('tabSize', Number(event.target.value))}
+            >
+              {[2, 4, 8].map((size) => (
+                <NativeSelectOption key={size} value={size}>
+                  {size}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={preferences.wordWrap}
+                disabled={acting}
+                onChange={(event) => void savePreference('wordWrap', event.target.checked)}
+              />
+              Wrap lines
+            </label>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={preferences.vim}
+                disabled={acting}
+                onChange={(event) => void savePreference('vim', event.target.checked)}
+              />
+              Vim mode
+            </label>
+          </div>
+          <form
+            className="mt-3 flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              try {
+                const parsed: unknown = JSON.parse(externalDraft);
+                if (!Array.isArray(parsed) || !parsed.every((arg) => typeof arg === 'string'))
+                  throw new Error('Enter a JSON array of argument strings.');
+                void savePreference('external', parsed);
+              } catch {
+                setExternalError('Enter a JSON array of argument strings.');
+              }
+            }}
+          >
+            <Input
+              aria-label="External editor argv"
+              className="min-w-0 flex-1 font-mono"
+              value={externalDraft}
+              onChange={(event) => {
+                setExternalDraft(event.target.value);
+                setExternalError('');
+              }}
+              placeholder='["/usr/bin/open","-a","TextEdit","{file}"]'
+            />
+            <Button type="submit" size="sm" variant="outline" disabled={acting}>
+              Save argv
+            </Button>
+          </form>
+          {externalError && (
+            <p role="alert" className="mt-1 text-destructive">
+              {externalError}
+            </p>
+          )}
+          <p className="mt-1 text-muted-foreground">
+            Absolute executable, with a {'{file}'} argument and optional {'{line}'}.
+          </p>
+        </details>
         <form
           className="mb-4 flex gap-2"
           onSubmit={(event) => {
@@ -380,6 +505,25 @@ export function FilesWorkspace(props: {
                 {opened.path}
                 {dirty ? ' *' : ''}
               </h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={acting || !preferences.external.length}
+                onClick={() =>
+                  void act(async () => {
+                    const result = await run('files.open', {
+                      project: props.project,
+                      checkout: checkout || undefined,
+                      path: opened.path,
+                      line: opened.targetLine,
+                    });
+                    return result && said(`Opened ${opened.path} externally`, result);
+                  })
+                }
+              >
+                Open externally
+              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -424,12 +568,13 @@ export function FilesWorkspace(props: {
               </Button>
             </div>
             <FileEditor
-              key={`${opened.path}:${openCount}`}
+              key={`${opened.path}:${openCount}:${preferences.fontSize}:${preferences.tabSize}:${preferences.wordWrap}:${preferences.vim}`}
               path={opened.path}
               value={draft}
               initialText={opened.text}
               onChange={setDraft}
               targetLine={opened.targetLine}
+              preferences={preferences}
             />
             <p className="font-mono text-xs text-muted-foreground">
               {opened.lines} lines · revision {opened.revision.slice(0, 12)}

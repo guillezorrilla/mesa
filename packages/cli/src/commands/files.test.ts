@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isolateGit, withRealGit } from '@mesa/core/testing';
+import { isolateGit, newSession, shortIds, testStore, withRealGit } from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -196,4 +196,67 @@ test('files tree, search, exact line read, and revision-aware edits use one sele
   expect(linkedRead.json.data.text).toBe('# Guide\nsecond line\n');
   await cli.mesa('--profile', 'other', 'init', '--vault', 'other-vault');
   expect((await cli.mesa('--profile', 'other', 'files', 'tree', 'lantern-cove')).code).toBe(3);
+});
+
+test('terminal links stay in the managed session checkout and external argv never runs a repository script', async () => {
+  const repo = join(cli.home, 'lantern-cove');
+  mkdirSync(repo);
+  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  await cli.mesa('init', '--vault', 'vault');
+  await cli.mesa('vault', 'init');
+  await cli.mesa('register', '--create', repo);
+  mkdirSync(join(repo, 'docs'));
+  writeFileSync(join(repo, 'docs', 'guide.md'), '# Guide\nline two\n');
+  const localScript = join(repo, 'editor');
+  writeFileSync(localScript, '#!/bin/sh\nexit 0\n');
+  chmodSync(localScript, 0o755);
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
+  store.create(() => newSession());
+  const git = withRealGit(cli.run);
+  let editorArgs: string[] = [];
+  cli.run = (file, args, ms) => {
+    if (file !== '/usr/bin/true') return git(file, args, ms);
+    editorArgs = args;
+    return Promise.resolve({ ok: true, stdout: '' });
+  };
+
+  const linked = await cli.mesa('files', 'link', 'aaaaaaaa', 'docs/guide.md:2', '--json');
+  expect(linked.json.data).toEqual({
+    project: 'lantern-cove',
+    checkout: repo,
+    path: 'docs/guide.md',
+    line: 2,
+  });
+  expect(
+    (await cli.mesa('files', 'link', 'aaaaaaaa', `${repo}/docs/guide.md:2`, '--json')).code,
+  ).toBe(0);
+  expect((await cli.mesa('files', 'link', 'aaaaaaaa', '../outside:1')).code).toBe(2);
+  expect((await cli.mesa('files', 'link', 'aaaaaaaa', 'docs/guide.md:9')).code).toBe(2);
+  expect((await cli.mesa('files', 'link', 'ext-111', 'docs/guide.md:1')).code).toBe(3);
+
+  expect(
+    (await cli.mesa('config', 'set', 'editor.external', '["/usr/bin/true","{file}:{line}"]')).code,
+  ).toBe(0);
+  const opened = await cli.mesa(
+    'files',
+    'open',
+    'lantern-cove',
+    'docs/guide.md',
+    '--line',
+    '2',
+    '--json',
+  );
+  expect(opened.code, opened.stdout).toBe(0);
+  expect(editorArgs).toEqual([`${repo}/docs/guide.md:2`]);
+  expect(opened.json.data.receipt.id).toBeTypeOf('string');
+  expect(
+    (await cli.mesa('config', 'set', 'editor.external', `["${localScript}","{file}"]`)).code,
+  ).toBe(0);
+  expect((await cli.mesa('files', 'open', 'lantern-cove', 'docs/guide.md')).code).toBe(2);
+  expect(editorArgs).toEqual([`${repo}/docs/guide.md:2`]);
+
+  await cli.mesa('--profile', 'other', 'init', '--vault', 'other-vault');
+  expect(
+    (await cli.mesa('--profile', 'other', 'files', 'link', 'aaaaaaaa', 'docs/guide.md:1')).code,
+  ).toBe(3);
 });

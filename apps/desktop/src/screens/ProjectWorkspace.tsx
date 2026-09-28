@@ -1,7 +1,7 @@
 import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/browser';
 import { ArrowDown, ArrowUp, Folder, MoreHorizontal, Play, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
@@ -27,10 +27,14 @@ export function ProjectWorkspace(props: {
   onChanged: () => void;
   onUnregistered: () => void;
   filesDirty: boolean;
+  file?: { checkout: string; path: string; line: number };
   onFilesDirtyChange: (dirty: boolean) => void;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'skills'>('overview');
+  useEffect(() => {
+    if (props.file) setTab('files');
+  }, [props.file]);
   const [pendingTab, setPendingTab] = useState<typeof tab>();
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
@@ -353,6 +357,7 @@ export function ProjectWorkspace(props: {
           project={project.name}
           sessions={props.sessions}
           onDirtyChange={props.onFilesDirtyChange}
+          target={props.file}
         />
       ) : (
         <div className="space-y-2">

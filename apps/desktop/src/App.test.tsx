@@ -952,6 +952,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },
+    editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     shortcuts,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },

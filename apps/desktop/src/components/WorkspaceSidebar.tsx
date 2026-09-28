@@ -18,7 +18,7 @@ import { exited, queued } from '@/screens/board/rows';
 
 export type WorkspaceView =
   | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
-  | { kind: 'project'; name: string }
+  | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 
 /** Project and session navigation for the active profile. Session state still comes from the Board. */

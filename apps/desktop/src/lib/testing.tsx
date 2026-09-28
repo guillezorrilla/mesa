@@ -53,6 +53,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
       terminal: { app: 'Terminal' },
+      editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       shortcuts: { ...DEFAULT_SHORTCUTS },
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
       grid: { groups: [] },

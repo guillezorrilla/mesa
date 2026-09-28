@@ -43,6 +43,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     terminal: { app: 'Terminal' },
+    editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     shortcuts: DEFAULT_SHORTCUTS,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },

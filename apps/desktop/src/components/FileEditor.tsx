@@ -1,3 +1,7 @@
+import { EditorState } from '@codemirror/state';
+import type { Config } from '@mesa/core';
+import { vim } from '@replit/codemirror-vim';
+import { basicSetup, EditorView } from 'codemirror';
 import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
@@ -10,11 +14,12 @@ export function FileEditor(props: {
   initialText: string;
   onChange: (text: string) => void;
   targetLine?: number;
+  preferences: Config['editor'];
 }) {
   const [preview, setPreview] = useState(false);
   const textArea = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
-    if (!props.targetLine || preview) return;
+    if (!props.targetLine || preview || props.preferences.vim) return;
     const position =
       props.initialText
         .split('\n')
@@ -22,7 +27,7 @@ export function FileEditor(props: {
         .join('\n').length + (props.targetLine > 1 ? 1 : 0);
     textArea.current?.focus();
     textArea.current?.setSelectionRange(position, position);
-  }, [props.targetLine, props.initialText, preview]);
+  }, [props.targetLine, props.initialText, props.preferences.vim, preview]);
   const markdown = /\.md(?:own)?$/i.test(props.path);
   return (
     <div className="min-h-0 flex-1 space-y-3">
@@ -78,17 +83,96 @@ export function FileEditor(props: {
             {props.value}
           </Markdown>
         </div>
+      ) : props.preferences.vim ? (
+        <VimEditor {...props} />
       ) : (
         <Textarea
           ref={textArea}
           data-testid="file-editor-text"
           aria-label={`Edit ${props.path}`}
-          className="min-h-96 resize-y font-mono text-xs"
+          className="min-h-96 resize-y font-mono"
+          style={{
+            fontSize: props.preferences.fontSize,
+            tabSize: props.preferences.tabSize,
+            whiteSpace: props.preferences.wordWrap ? 'pre-wrap' : 'pre',
+          }}
           spellCheck={false}
           value={props.value}
           onChange={(event) => props.onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Tab') return;
+            event.preventDefault();
+            const input = event.currentTarget;
+            const next = `${props.value.slice(0, input.selectionStart)}${' '.repeat(props.preferences.tabSize)}${props.value.slice(input.selectionEnd)}`;
+            const position = input.selectionStart + props.preferences.tabSize;
+            props.onChange(next);
+            requestAnimationFrame(() => input.setSelectionRange(position, position));
+          }}
         />
       )}
     </div>
+  );
+}
+
+function VimEditor(props: {
+  path: string;
+  value: string;
+  onChange: (text: string) => void;
+  targetLine?: number;
+  preferences: Config['editor'];
+}) {
+  const host = useRef<HTMLFieldSetElement>(null);
+  const view = useRef<EditorView>(null);
+  const onChange = useRef(props.onChange);
+  const initialText = useRef(props.value).current;
+  const { fontSize, tabSize, wordWrap } = props.preferences;
+  onChange.current = props.onChange;
+  useEffect(() => {
+    if (!host.current) return;
+    const editor = new EditorView({
+      parent: host.current,
+      doc: initialText,
+      extensions: [
+        vim({ status: true }),
+        basicSetup,
+        EditorState.tabSize.of(tabSize),
+        ...(wordWrap ? [EditorView.lineWrapping] : []),
+        EditorView.theme({
+          '&': {
+            fontSize: `${fontSize}px`,
+            minHeight: '24rem',
+            backgroundColor: 'var(--background)',
+            color: 'var(--foreground)',
+          },
+          '.cm-gutters': { backgroundColor: 'var(--card)', color: 'var(--muted-foreground)' },
+          '.cm-scroller': { fontFamily: 'monospace' },
+        }),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) onChange.current(update.state.doc.toString());
+        }),
+      ],
+    });
+    view.current = editor;
+    return () => {
+      view.current = null;
+      editor.destroy();
+    };
+  }, [fontSize, initialText, tabSize, wordWrap]);
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor || editor.state.doc.toString() === props.value) return;
+    editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: props.value } });
+  }, [props.value]);
+  useEffect(() => {
+    const editor = view.current;
+    if (!editor || !props.targetLine || props.targetLine > editor.state.doc.lines) return;
+    const at = editor.state.doc.line(props.targetLine).from;
+    editor.dispatch({ selection: { anchor: at }, scrollIntoView: true });
+    editor.focus();
+  }, [props.targetLine]);
+  return (
+    <fieldset ref={host} data-testid="file-editor-vim">
+      <legend className="sr-only">Edit {props.path}</legend>
+    </fieldset>
   );
 }

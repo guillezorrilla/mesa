@@ -8,6 +8,7 @@ import type {
   DiscoveredProject,
   DoctorReport,
   FileChange,
+  FileLink,
   FileSearch,
   FileTree,
   GitBranch,
@@ -102,6 +103,21 @@ const COMMANDS = {
     project,
     path,
   ]),
+  'files.open': commandWith<
+    { project: string; checkout?: string; path: string; line?: number },
+    Recorded<{ checkout: Checkout; path: string; line: number; opened: boolean }>
+  >(({ project, checkout, path, line }) => [
+    'files',
+    'open',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(line ? ['--line', String(line)] : []),
+    '--',
+    project,
+    path,
+  ]),
+  'files.link': commandWith<{ session: string; target: string }, FileLink>(
+    ({ session, target }) => ['files', 'link', '--', session, target],
+  ),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },
     Recorded<FileChange>

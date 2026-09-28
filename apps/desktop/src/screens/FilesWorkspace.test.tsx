@@ -33,3 +33,38 @@ test('a late file read cannot replace the newer selection', async () => {
   await act(async () => pending.get('a.md')?.(answer('a.md')));
   expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('b.md');
 });
+
+test('a terminal file target selects its checkout and exact line', async () => {
+  const checkout = { project: 'lantern-cove', path: '/tmp/feature', registered: false };
+  const { bridge, calls } = fakeBridge({
+    'files tree': () => envelope({ checkout, entries: [], truncated: false }),
+    'files read': () =>
+      envelope({
+        checkout,
+        path: 'docs/guide.md',
+        text: 'one\ntwo\n',
+        revision: 'a'.repeat(64),
+        lines: 3,
+        targetLine: 2,
+      }),
+  });
+  const byTestId = await renderWithMesa(
+    <FilesWorkspace
+      project="lantern-cove"
+      sessions={[]}
+      onDirtyChange={() => {}}
+      target={{ checkout: '/tmp/feature', path: 'docs/guide.md', line: 2 }}
+    />,
+    bridge,
+  );
+  expect(
+    calls.some(
+      (args) =>
+        args[1] === 'files' &&
+        args[2] === 'read' &&
+        args.includes('/tmp/feature') &&
+        args.includes('2'),
+    ),
+  ).toBe(true);
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).selectionStart).toBe(4);
+});

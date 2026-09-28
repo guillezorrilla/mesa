@@ -8,17 +8,37 @@ import {
   renameWorkspaceFile,
   writeWorkspaceFile,
 } from './editor.js';
+import { openExternalFile } from './external.js';
+import { resolveSessionFileLink } from './link.js';
 
 /** Repository file operations share the selected-checkout and checked-path owners. */
 export function filesService(ctx: MesaContext) {
   const checkout = (project: string, selected?: string) =>
     resolveCheckout(ctx.open(), ctx.deps.run, project, selected && ctx.absolute(selected));
   return {
+    link: (sessionId: string, target: string) => resolveSessionFileLink(ctx, sessionId, target),
     tree: async (project: string, selected?: string) => fileTree(await checkout(project, selected)),
     search: async (project: string, query: string, mode: 'name' | 'content', selected?: string) =>
       searchFiles(await checkout(project, selected), query, mode),
     read: async (project: string, path: string, selected?: string, line?: number) =>
       readWorkspaceFile(await checkout(project, selected), path, line),
+    open: async (project: string, path: string, selected?: string, line?: number) =>
+      ctx.record(
+        {
+          summary: () => `Opened ${path} in external editor`,
+          failure: `Could not open ${path} in external editor`,
+          project: () => project,
+          inputs: { project, path, checkout: selected, line },
+        },
+        async () =>
+          openExternalFile(
+            await checkout(project, selected),
+            path,
+            line,
+            ctx.open().config.editor.external,
+            ctx.deps.run,
+          ),
+      ),
     write: async (
       project: string,
       path: string,

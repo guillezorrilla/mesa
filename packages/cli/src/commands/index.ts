@@ -8,6 +8,8 @@ import { doctor } from './doctor.js';
 import {
   filesCreate,
   filesDelete,
+  filesLink,
+  filesOpen,
   filesRead,
   filesRename,
   filesSearch,
@@ -80,6 +82,8 @@ export const COMMANDS: Command[] = [
   doctor,
   filesCreate,
   filesDelete,
+  filesLink,
+  filesOpen,
   filesRead,
   filesRename,
   filesSearch,

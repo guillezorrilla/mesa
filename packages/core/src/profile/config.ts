@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { AgentSchema, CLAUDE_PERMISSION_MODES } from '../agents/agents.js';
 import { DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsBackendSchema } from '../decisions/types.js';
+import { validExternalArgv } from '../files/external.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
@@ -39,6 +40,22 @@ const ConfigSchema = z.strictObject({
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
   terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
+  editor: z
+    .strictObject({
+      fontSize: z.number().int().min(10).max(24).default(13),
+      tabSize: z.number().int().min(2).max(8).default(2),
+      wordWrap: z.boolean().default(false),
+      vim: z.boolean().default(false),
+      external: z
+        .array(z.string().min(1))
+        .max(16)
+        .refine(
+          (argv) => !argv.length || validExternalArgv(argv),
+          'must be an absolute executable argv with one {file} argument',
+        )
+        .default([]),
+    })
+    .prefault({}),
   shortcuts: z
     .strictObject({
       search: z
