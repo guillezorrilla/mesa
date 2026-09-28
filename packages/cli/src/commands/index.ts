@@ -63,12 +63,13 @@ import { rename } from './rename.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
 import { rm } from './rm.js';
+import { rulesList, rulesRead, rulesWrite } from './rules.js';
 import { run } from './run.js';
 import { search } from './search.js';
 import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { show } from './show.js';
-import { skillsList, skillsSync } from './skills.js';
+import { skillsList, skillsRead, skillsSync, skillsWrite } from './skills.js';
 import { stop } from './stop.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
@@ -156,6 +157,9 @@ export const COMMANDS: Command[] = [
   receiptsShow,
   register,
   rename,
+  rulesList,
+  rulesRead,
+  rulesWrite,
   resize,
   resume,
   rm,
@@ -165,7 +169,9 @@ export const COMMANDS: Command[] = [
   sessions,
   show,
   skillsList,
+  skillsRead,
   skillsSync,
+  skillsWrite,
   stop,
   unregister,
   unarchive,

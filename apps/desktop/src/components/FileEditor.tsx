@@ -15,8 +15,9 @@ export function FileEditor(props: {
   onChange: (text: string) => void;
   targetLine?: number;
   preferences: Config['editor'];
+  readOnly?: boolean;
 }) {
-  const [preview, setPreview] = useState(false);
+  const [preview, setPreview] = useState(Boolean(props.readOnly));
   const textArea = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!props.targetLine || preview || props.preferences.vim) return;
@@ -83,7 +84,7 @@ export function FileEditor(props: {
             {props.value}
           </Markdown>
         </div>
-      ) : props.preferences.vim ? (
+      ) : props.preferences.vim && !props.readOnly ? (
         <VimEditor {...props} />
       ) : (
         <Textarea
@@ -97,6 +98,7 @@ export function FileEditor(props: {
             whiteSpace: props.preferences.wordWrap ? 'pre-wrap' : 'pre',
           }}
           spellCheck={false}
+          readOnly={props.readOnly}
           value={props.value}
           onChange={(event) => props.onChange(event.target.value)}
           onKeyDown={(event) => {

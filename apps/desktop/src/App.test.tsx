@@ -41,6 +41,130 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('project Skills and Rules tabs preview and save only through their checked commands', async () => {
+  const skillId = '/src/lantern-cove/.claude/skills/sunset-map';
+  const ruleId = '/src/lantern-cove/AGENTS.md';
+  const revision = 'a'.repeat(64);
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([]),
+    'skills list': () =>
+      envelope([
+        {
+          id: skillId,
+          path: skillId,
+          name: 'sunset-map',
+          description: 'Fictional map',
+          source: 'repo',
+          scope: 'project',
+          providers: ['claude'],
+          enabled: true,
+          supportFiles: ['reference.md'],
+          writable: true,
+          conflicts: [],
+        },
+      ]),
+    'skills read': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: skillId, registered: false },
+        path: 'SKILL.md',
+        text: '# Sunset map\n',
+        revision,
+        lines: 2,
+      }),
+    'skills write': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: skillId, registered: false },
+        path: 'SKILL.md',
+        action: 'write',
+        revision: 'b'.repeat(64),
+        receipt: null,
+      }),
+    'rules list': () =>
+      envelope([
+        {
+          id: ruleId,
+          path: ruleId,
+          name: 'AGENTS.md',
+          scope: 'project',
+          providers: ['claude', 'codex', 'antigravity'],
+          writable: true,
+        },
+      ]),
+    'rules read': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/src/lantern-cove', registered: false },
+        path: 'AGENTS.md',
+        text: '# Rules\n',
+        revision,
+        lines: 2,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'skills',
+    ),
+  );
+  expect(byTestId('skills-workspace')[0]?.textContent).toContain('sunset-map');
+  expect(byTestId('skills-workspace')[0]?.textContent).not.toContain('Run skill');
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('sunset-map')),
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Sunset map\n');
+  await act(async () => {
+    const editor = byTestId('file-editor-text')[0] as HTMLTextAreaElement;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+      editor,
+      '# Updated map\n',
+    );
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent === 'Save'),
+  );
+  expect(calls).toContainEqual([
+    '--json',
+    'skills',
+    'write',
+    '--project',
+    'lantern-cove',
+    '--file',
+    'SKILL.md',
+    '--text=# Updated map\n',
+    '--revision',
+    revision,
+    '--',
+    skillId,
+  ]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'rules',
+    ),
+  );
+  expect(byTestId('rules-workspace')[0]?.textContent).toContain('AGENTS.md');
+  await click(
+    [...(byTestId('rules-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+      (b) => b.textContent?.includes('AGENTS.md'),
+    ),
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Rules\n');
+  expect(calls).toContainEqual([
+    '--json',
+    'rules',
+    'read',
+    '--project',
+    'lantern-cove',
+    '--',
+    ruleId,
+  ]);
+});
+
 test('project native history imports a Codex conversation through the existing session action', async () => {
   const nativeId = '01a0e14e-be41-72f1-a81b-e25d2198602a';
   const { bridge, calls } = fakeBridge({

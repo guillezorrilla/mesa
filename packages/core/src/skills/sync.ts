@@ -90,7 +90,12 @@ export function listSkills(input: {
       const entry = join(folder, name);
       if (seen.has(name) || isMesaLink(entry, input.libraryDir)) continue;
       seen.add(name);
-      const own = readSkill(entry);
+      let own: ReturnType<typeof readSkill>;
+      try {
+        own = readSkill(entry);
+      } catch {
+        // A broken user-owned skill stays visible without hiding the rest of the list.
+      }
       rows.push({ name, source: 'repo', enabled: true, description: own?.description ?? '' });
     }
   }

@@ -93,5 +93,6 @@ mod tests {
             .to_string_lossy()
             .into_owned();
         assert!(script.ends_with("packages/cli/dist/mesa.js"), "{script}");
+        assert!(std::path::Path::new(&script).is_file(), "{script}");
     }
 }
