@@ -159,6 +159,67 @@ test('project Git actions stage, unstage and commit through the CLI bridge', asy
   );
 });
 
+test('project Git branch panel creates and confirms deletion through the CLI bridge', async () => {
+  let created = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        branch: 'main',
+        changes: [],
+      }),
+    'git branches': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/h/src/lantern-cove', registered: true },
+        branches: [
+          { name: 'main', oid: 'abc', current: true, checkedOutAt: '/h/src/lantern-cove' },
+          ...(created ? [{ name: 'next', oid: 'abc', current: false }] : []),
+        ],
+      }),
+    'git branch create': () => {
+      created = true;
+      return envelope({ name: 'next', action: 'create', receipt: null });
+    },
+    'git branch delete': () => {
+      created = false;
+      return envelope({ name: 'next', action: 'delete', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git status"] button')].find(
+      (button) => button.textContent === 'Branches',
+    ),
+  );
+  const name = document.querySelector<HTMLInputElement>('[aria-label="New branch name"]');
+  await act(async () => {
+    if (name) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(name, 'next');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Local branches"] button')].find(
+      (button) => button.textContent === 'Create branch',
+    ),
+  );
+  expect(calls.some((args) => args.includes('create') && args.includes('next'))).toBe(true);
+  expect(document.querySelector('[aria-label="Local branches"]')?.textContent).toContain('next');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Local branches"] button')].find(
+      (button) => button.textContent === 'Delete',
+    ),
+  );
+  expect(byTestId('git-delete-branch-dialog')).toHaveLength(1);
+  await click(byTestId('confirm-git-delete-branch')[0]);
+  expect(calls.some((args) => args.includes('delete') && args.includes('next'))).toBe(true);
+});
+
 test('Sessions and Projects tabs keep the same live session and expand the goal composer in place', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({

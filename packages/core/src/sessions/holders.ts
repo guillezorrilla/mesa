@@ -11,6 +11,17 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .filter((r) => r.worktree?.path === path)
     .at(-1);
 
+/** An unfinished session using a checkout, including a session in a folder below its root. */
+export const checkoutHolder = (store: SessionStore, project: string, root: string, path: string) =>
+  store
+    .list()
+    .filter((r) => {
+      if (r.project !== project || r.endedAt) return false;
+      const cwd = r.worktree?.path ?? r.cwd ?? root;
+      return cwd === path || cwd.startsWith(`${path}/`);
+    })
+    .at(-1);
+
 /**
  * Refuses `r`'s worktree once a newer session has it (a resume or a handoff took it over): two
  * sessions never share one. A session without a worktree passes.

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { GitBranches } from './GitBranches';
 import { GitDiffView } from './GitDiffView';
 
 /** Git changes for the registered checkout and session worktrees. */
@@ -16,6 +17,7 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
   const [diffPath, setDiffPath] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [message, setMessage] = useState('');
+  const [showBranches, setShowBranches] = useState(false);
   const run = useRun();
   const { acting, act } = useAct();
   const paths = [
@@ -89,6 +91,9 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
         </Button>
         <Button variant="outline" size="sm" onClick={() => setDiffPath('')}>
           View diff
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setShowBranches((last) => !last)}>
+          Branches
         </Button>
       </div>
       {status.data && (
@@ -181,6 +186,17 @@ export function GitWorkspace(props: { project: string; sessions: readonly TreeRo
           checkout={checkout || undefined}
           path={diffPath || undefined}
           onClose={() => setDiffPath(null)}
+        />
+      )}
+      {showBranches && (
+        <GitBranches
+          key={checkout}
+          project={props.project}
+          checkout={checkout || undefined}
+          onChanged={() => {
+            void status.refresh();
+            setRevision((last) => last + 1);
+          }}
         />
       )}
     </section>

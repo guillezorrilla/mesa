@@ -6,6 +6,15 @@ import { findProject } from '../projects/projects.js';
 import { gitCommand } from './command.js';
 
 export type Checkout = { project: string; path: string; registered: boolean };
+export type GitWorktree = {
+  path: string;
+  head?: string;
+  branch?: string;
+  detached?: boolean;
+  locked?: string;
+  prunable?: string;
+  bare?: boolean;
+};
 
 function realPath(path: string): string {
   try {
@@ -13,6 +22,28 @@ function realPath(path: string): string {
   } catch {
     throw new MesaError('not_found', `checkout ${path} is unavailable`);
   }
+}
+
+/** Git's stable NUL-delimited worktree inventory, including stale and locked records. */
+export async function gitWorktrees(run: Runner, root: string): Promise<GitWorktree[]> {
+  const listed = await gitCommand(run, root, ['worktree', 'list', '--porcelain', '-z']);
+  if (!listed.ok) throw new MesaError('usage', `cannot list worktrees: ${listed.detail}`);
+  const rows: GitWorktree[] = [];
+  let row: GitWorktree | undefined;
+  for (const field of listed.stdout.split('\0')) {
+    if (!field) {
+      if (row) rows.push(row);
+      row = undefined;
+    } else if (field.startsWith('worktree ')) row = { path: field.slice(9) };
+    else if (row && field.startsWith('HEAD ')) row.head = field.slice(5);
+    else if (row && field.startsWith('branch refs/heads/')) row.branch = field.slice(18);
+    else if (row && field === 'detached') row.detached = true;
+    else if (row && field === 'bare') row.bare = true;
+    else if (row && field.startsWith('locked')) row.locked = field.slice(7);
+    else if (row && field.startsWith('prunable')) row.prunable = field.slice(9);
+  }
+  if (row) rows.push(row);
+  return rows;
 }
 
 /** Only the registered project's root or one of Git's linked worktrees is selectable. */
@@ -28,19 +59,14 @@ export async function resolveCheckout(
     throw new MesaError('usage', `${root} is not the top folder of a Git repository`);
   }
   const path = selected ? realPath(selected) : root;
-  const listed = await gitCommand(run, root, ['worktree', 'list', '--porcelain', '-z']);
-  if (!listed.ok) throw new MesaError('usage', `cannot list worktrees: ${listed.detail}`);
-  const paths = listed.stdout
-    .split('\0')
-    .filter((field) => field.startsWith('worktree '))
-    .flatMap((field) => {
-      // Git can still list a prunable worktree whose folder is already gone.
-      try {
-        return [realpathSync.native(field.slice('worktree '.length))];
-      } catch {
-        return [];
-      }
-    });
+  const paths = (await gitWorktrees(run, root)).flatMap((worktree) => {
+    // Git can still list a prunable worktree whose folder is already gone.
+    try {
+      return [realpathSync.native(worktree.path)];
+    } catch {
+      return [];
+    }
+  });
   if (!paths.includes(path)) {
     throw new MesaError('usage', `${path} is not a worktree of project ${project}`);
   }

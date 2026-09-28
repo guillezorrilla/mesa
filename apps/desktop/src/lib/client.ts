@@ -1,11 +1,14 @@
 import type {
   Agent,
   Attached,
+  Checkout,
   ClaudeHooksStatus,
   CommandReference,
   Config,
   DiscoveredProject,
   DoctorReport,
+  GitBranch,
+  GitBranchAction,
   GitCommit,
   GitDiff,
   GitPathAction,
@@ -108,6 +111,53 @@ const COMMANDS = {
     `--message=${message}`,
     '--',
     project,
+  ]),
+  'git.branches': commandWith<
+    { project: string; checkout?: string },
+    { checkout: Checkout; branches: GitBranch[] }
+  >(({ project, checkout }) => [
+    'git',
+    'branches',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+  ]),
+  'git.branchCreate': commandWith<
+    { project: string; checkout?: string; name: string; base?: string },
+    Recorded<GitBranchAction>
+  >(({ project, checkout, name, base }) => [
+    'git',
+    'branch',
+    'create',
+    ...(checkout ? ['--checkout', checkout] : []),
+    ...(base ? ['--base', base] : []),
+    '--',
+    project,
+    name,
+  ]),
+  'git.branchCheckout': commandWith<
+    { project: string; checkout?: string; name: string },
+    Recorded<GitBranchAction>
+  >(({ project, checkout, name }) => [
+    'git',
+    'branch',
+    'checkout',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    name,
+  ]),
+  'git.branchDelete': commandWith<
+    { project: string; checkout?: string; name: string },
+    Recorded<GitBranchAction>
+  >(({ project, checkout, name }) => [
+    'git',
+    'branch',
+    'delete',
+    ...(checkout ? ['--checkout', checkout] : []),
+    '--',
+    project,
+    name,
   ]),
   'grid.save': commandWith<GridGroup, Recorded<{ groups: GridGroup[] }>>(
     ({ name, project, sessions }) => [

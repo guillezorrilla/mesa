@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execRunner } from '@mesa/core';
-import { isolateGit, withRealGit } from '@mesa/core/testing';
+import { gitRepo, isolateGit, withRealGit } from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -14,7 +14,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   const repo = join(cli.home, 'lantern-cove');
   const linked = join(cli.home, 'feature checkout');
   mkdirSync(repo);
-  execFileSync('git', ['init', '-q', repo]);
+  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   await cli.mesa('init', '--vault', 'vault');
   await cli.mesa('vault', 'init');
   await cli.mesa('register', '--create', repo);
@@ -96,6 +96,24 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   expect((await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes).toEqual([
     expect.objectContaining({ path: 'untracked space.txt', index: '?', workingTree: '?' }),
   ]);
+  const branches = await cli.mesa('git', 'branches', 'lantern-cove', '--json');
+  expect(branches.json.data.branches).toContainEqual(
+    expect.objectContaining({ name: 'feature', checkedOutAt: linked, current: false }),
+  );
+  const created = await cli.mesa('git', 'branch', 'create', 'lantern-cove', 'docs/readme');
+  expect(created.code, created.stdout).toBe(0);
+  expect((await cli.mesa('git', 'branch', 'checkout', 'lantern-cove', 'docs/readme')).code).toBe(0);
+  expect(
+    (await cli.mesa('git', 'branches', 'lantern-cove', '--json')).json.data.branches,
+  ).toContainEqual(expect.objectContaining({ name: 'docs/readme', current: true }));
+  expect((await cli.mesa('git', 'branch', 'checkout', 'lantern-cove', 'main')).code).toBe(0);
+  expect((await cli.mesa('git', 'branch', 'delete', 'lantern-cove', 'docs/readme')).code).toBe(0);
+  expect((await cli.mesa('git', 'branch', 'delete', 'lantern-cove', 'feature')).code).toBe(2);
+  expect(
+    (await cli.mesa('git', 'branches', 'lantern-cove', '--json')).json.data.branches.map(
+      (row: { name: string }) => row.name,
+    ),
+  ).toContain('feature');
   const worktree = await cli.mesa('git', 'status', 'lantern-cove', '--checkout', linked, '--json');
   expect(worktree.json.data).toMatchObject({
     checkout: { path: linked, registered: false },
@@ -117,4 +135,28 @@ test('unstage in an unborn repository keeps the working file', async () => {
     (await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes,
   ).toContainEqual(expect.objectContaining({ path: 'first.txt', index: '?', workingTree: '?' }));
   expect((await cli.mesa('git', 'commit', 'lantern-cove', '--message', ' ')).code).toBe(2);
+});
+
+test('branch checkout refuses a live session holder', async () => {
+  const repo = await cli.withProject();
+  gitRepo(repo);
+  cli.withTmux();
+  cli.run = withRealGit(cli.run);
+  expect((await cli.mesa('git', 'branch', 'create', 'lantern-cove', 'next')).code).toBe(0);
+  const opened = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--agent',
+    'claude',
+    '--goal',
+    'wait here',
+    '--json',
+  );
+  expect(opened.code).toBe(0);
+  const switched = await cli.mesa('git', 'branch', 'checkout', 'lantern-cove', 'next', '--json');
+  expect(switched.code).toBe(2);
+  expect(switched.json.error.message).toContain(`session ${opened.json.data.id} still uses`);
+  expect(
+    (await cli.mesa('git', 'branches', 'lantern-cove', '--json')).json.data.branches,
+  ).toContainEqual(expect.objectContaining({ name: 'main', current: true }));
 });
