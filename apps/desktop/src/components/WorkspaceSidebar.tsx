@@ -45,7 +45,9 @@ export function WorkspaceSidebar(props: {
     .filter((project) => !project.hidden)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const registered = new Set(visible.map((project) => project.name));
-  const active = props.sessions.filter((session) => !exited(session) || queued(session));
+  const active = props.sessions.filter(
+    (session) => session.managed && (!exited(session) || queued(session)),
+  );
   const unassigned = active.filter(
     (session) => !session.project || !registered.has(session.project),
   );

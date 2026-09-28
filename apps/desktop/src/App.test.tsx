@@ -13,6 +13,7 @@ import {
   fakeBridge,
   fakePlatform,
   fakeTerminals,
+  foreignRow,
   managedRow,
   PROJECTS,
   renderWithMesa,
@@ -752,7 +753,7 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () =>
-      envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb', { project: 'other' })]),
+      envelope([managedRow('aaaaaaaa'), foreignRow, managedRow('bbbbbbbb', { project: 'other' })]),
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));

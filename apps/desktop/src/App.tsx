@@ -81,7 +81,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     if (startOnBoard || openedInitialSession.current || !projects.data || sessions.length === 0)
       return;
     openedInitialSession.current = true;
-    const first = sessions.find((session) => session.managed && !session.endedAt) ?? sessions[0];
+    const first = sessions.find((session) => session.managed && !session.endedAt);
     if (first)
       setView((current) =>
         current.kind === 'board' ? { kind: 'session', id: first.id } : current,
