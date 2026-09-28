@@ -1019,6 +1019,73 @@ test('session close opens archive confirmation and archives only after confirmat
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
 });
 
+test('Sessions offers restore or dismiss for saved runs whose terminal ended', async () => {
+  const ended = (id: string, extra: Partial<ReturnType<typeof managedRow>> = {}) =>
+    managedRow(id, {
+      ...extra,
+      alive: false,
+      lastState: {
+        state: 'done',
+        confidence: 1,
+        at: '2026-09-27T12:00:00.000Z',
+        source: 'tmux',
+      },
+    });
+  let restored = false;
+  let dismissed = false;
+  const next = managedRow('cccccccc', { resumedFrom: 'aaaaaaaa' });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([
+        ...(restored ? [next] : [ended('aaaaaaaa')]),
+        ...(dismissed
+          ? []
+          : [
+              ended('bbbbbbbb', { kind: 'terminal', agent: 'terminal', agentSessionId: undefined }),
+            ]),
+        ended('dddddddd', { background: true, backgroundId: 'native-background' }),
+      ]),
+    resume: () => {
+      restored = true;
+      return envelope(next);
+    },
+    archive: () => {
+      dismissed = true;
+      return envelope({ ...ended('bbbbbbbb'), archivedAt: '2026-09-27T12:01:00.000Z' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('recoverable-sessions')[0]?.textContent).toContain('Session');
+  expect(
+    byTestId('recoverable-sessions')[0]?.querySelectorAll('[data-testid="sidebar-session"]'),
+  ).toHaveLength(2);
+  expect(byTestId('session-recovery')[0]?.textContent).toContain('Restore');
+  await click(
+    [...(byTestId('session-recovery')[0]?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes('Restore'),
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'resume', '--', 'aaaaaaaa']);
+  expect(byTestId('terminal-cccccccc')).toHaveLength(1);
+  await click(
+    byTestId('recoverable-sessions')[0]?.querySelector<HTMLElement>(
+      '[data-testid="sidebar-session"]',
+    ) ?? undefined,
+  );
+  expect(byTestId('session-recovery')[0]?.textContent).not.toContain('Restore');
+  await click(
+    [...(byTestId('session-recovery')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Dismiss',
+    ),
+  );
+  expect(byTestId('archive-dialog')[0]?.textContent).toContain('Its record and logs stay');
+  expect(calls).not.toContainEqual(['--json', 'archive', '--', 'bbbbbbbb']);
+  await click(byTestId('archive-confirm')[0]);
+  expect(calls).toContainEqual(['--json', 'archive', '--', 'bbbbbbbb']);
+  expect(byTestId('recoverable-sessions')).toHaveLength(0);
+});
+
 test('project Overview starts worktree goals and quick empty sessions through mesa open', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),

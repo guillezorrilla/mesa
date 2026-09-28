@@ -21,7 +21,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { exited, queued } from '@/screens/board/rows';
+import { exited, queued, recoverable } from '@/screens/board/rows';
 
 export type WorkspaceView =
   | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
@@ -53,6 +53,7 @@ export function WorkspaceSidebar(props: {
   const active = props.sessions.filter(
     (session) => session.managed && (!exited(session) || queued(session)),
   );
+  const stranded = props.sessions.filter(recoverable);
   const unassigned = active.filter(
     (session) => !session.project || !registered.has(session.project),
   );
@@ -179,11 +180,12 @@ export function WorkspaceSidebar(props: {
                 !projectTab && 'border-orange-600 text-foreground',
               )}
               onClick={() => {
-                const first = view.kind === 'session' ? view.id : active[0]?.id;
+                const first = view.kind === 'session' ? view.id : (active[0] ?? stranded[0])?.id;
                 onView(first ? { kind: 'session', id: first } : { kind: 'board' });
               }}
             >
-              Sessions <span className="rounded bg-muted px-1">{active.length}</span>
+              Sessions{' '}
+              <span className="rounded bg-muted px-1">{active.length + stranded.length}</span>
             </button>
             <button
               type="button"
@@ -346,7 +348,13 @@ export function WorkspaceSidebar(props: {
                 <div className="px-1">{other.map(sessionItem)}</div>
               </div>
             )}
-            {active.length === 0 && (
+            {stranded.length > 0 && (
+              <div data-testid="recoverable-sessions" className="mt-4">
+                <p className="px-2 text-xs font-medium text-state-waiting">Recoverable</p>
+                <div className="px-1">{stranded.map(sessionItem)}</div>
+              </div>
+            )}
+            {active.length + stranded.length === 0 && (
               <p className="px-2 text-xs text-muted-foreground">No active sessions</p>
             )}
           </>

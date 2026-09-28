@@ -49,7 +49,7 @@ import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { RowMenu } from './RowMenu';
-import { exited, queued, resumable } from './rows';
+import { exited, queued, recoverable, resumable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { RowActions } from './SessionRow';
 import { TerminalPanel } from './TerminalPanel';
@@ -203,8 +203,10 @@ export function BoardScreen(
         );
       }),
     resume: (id) =>
-      act(async () => {
+      once(async () => {
         const resumed = await run('sessions.resume', { id });
+        await look();
+        if (resumed && props.selectedSession === id) props.onSelectSession?.(resumed.id);
         return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
@@ -410,6 +412,9 @@ export function BoardScreen(
             />
           )}
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
+          {selected && recoverable(selected) && (
+            <span className="text-xs text-state-waiting">Terminal ended</span>
+          )}
           {selected?.managed && (
             <Button
               variant="ghost"
@@ -724,10 +729,35 @@ export function BoardScreen(
         />
       )}
       {props.selectedSession ? (
-        !selected && (
-          <p className="p-4 text-sm text-muted-foreground">
-            {data ? 'Session unavailable. Open Sessions to choose another.' : 'Loading session...'}
-          </p>
+        selected && recoverable(selected) ? (
+          <div
+            data-testid="session-recovery"
+            className="m-4 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4 text-sm"
+          >
+            <p className="flex-1">
+              This session's terminal ended. Its record and logs remain available.
+            </p>
+            {resumable(selected) && (
+              <Button disabled={acting} onClick={() => actions.resume(selected.id)}>
+                <RotateCcw aria-hidden /> Restore
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              disabled={acting}
+              onClick={() => setDialog({ kind: 'archive', row: selected })}
+            >
+              Dismiss
+            </Button>
+          </div>
+        ) : (
+          !selected && (
+            <p className="p-4 text-sm text-muted-foreground">
+              {data
+                ? 'Session unavailable. Open Sessions to choose another.'
+                : 'Loading session...'}
+            </p>
+          )
         )
       ) : !props.gridMode ? (
         <>

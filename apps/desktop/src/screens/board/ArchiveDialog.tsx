@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { recoverable } from './rows';
 
 /** A deliberate end that keeps history, or a separate permanent removal. */
 export function ArchiveDialog(props: {
@@ -17,27 +18,30 @@ export function ArchiveDialog(props: {
   onDelete: () => void;
   onCancel: () => void;
 }) {
+  const dismiss = recoverable(props.row);
   return (
     <Dialog open onOpenChange={(open) => !open && props.onCancel()}>
       <DialogContent data-testid="archive-dialog" className="bg-card sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Archive this session?</DialogTitle>
+          <DialogTitle>{dismiss ? 'Dismiss this session?' : 'Archive this session?'}</DialogTitle>
           <DialogDescription>
-            This will terminate "{props.row.name ?? 'Untitled session'}" and its{' '}
-            {props.row.background ? 'Claude background process and tmux view' : 'tmux process'}.
-            This action cannot be undone.
+            {dismiss
+              ? 'This hides the ended session from Sessions. Its record and logs stay in the archive.'
+              : `This will terminate "${props.row.name ?? 'Untitled session'}" and its ${props.row.background ? 'Claude background process and tmux view' : 'tmux process'}. This action cannot be undone.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-destructive"
-            disabled={props.disabled}
-            onClick={props.onDelete}
-          >
-            Delete permanently
-          </Button>
+          {!dismiss && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive"
+              disabled={props.disabled}
+              onClick={props.onDelete}
+            >
+              Delete permanently
+            </Button>
+          )}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={props.onCancel}>
               Cancel
@@ -49,7 +53,7 @@ export function ArchiveDialog(props: {
               disabled={props.disabled}
               onClick={props.onArchive}
             >
-              Archive session
+              {dismiss ? 'Dismiss session' : 'Archive session'}
             </Button>
           </div>
         </DialogFooter>

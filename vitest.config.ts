@@ -17,6 +17,8 @@ export default defineConfig({
   test: {
     // Local-time frontmatter (Obsidian's Date & Time) is golden-tested, so every machine runs in UTC.
     env: { TZ: 'UTC' },
+    // CLI and worktree tests spawn many git processes; five seconds flakes under desktop load.
+    testTimeout: 15000,
     include: [
       'packages/*/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.ts',
