@@ -275,20 +275,22 @@ export function BoardScreen(
       return said(`Deleted session ${id}`, removed);
     });
   const open = (input: NewSessionInput) =>
-    act(async () => {
+    once(async () => {
       const opened = await run('sessions.open', input);
+      await look();
       if (!opened) return undefined;
       close();
       props.onSelectSession?.(opened.id);
       return said(`Opened session ${opened.id} on ${projectLabel(opened.project)}`, opened);
     });
   const openChildTerminal = (row: ManagedRow) =>
-    act(async () => {
+    once(async () => {
       const opened = await run('sessions.open', {
         ...(row.project === GENERAL_PROJECT ? { general: true } : { project: row.project }),
         terminal: true,
         parent: row.id,
       });
+      await look();
       if (!opened) return undefined;
       props.onSelectSession?.(opened.id);
       return said(`Opened child terminal ${opened.id}`, opened);

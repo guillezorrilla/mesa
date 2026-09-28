@@ -335,14 +335,14 @@ export function ProjectWorkspace(props: {
                 {activeSessions.length}
               </Badge>
             </h3>
-            <div className="grid max-w-[960px] grid-cols-[repeat(auto-fill,minmax(260px,310px))] gap-3">
+            <div className="flex max-w-[960px] flex-wrap gap-3">
               {activeSessions.map((session) => (
                 <button
                   key={session.id}
                   type="button"
                   data-testid="project-active-session"
                   aria-label={`Open ${session.name ?? 'Session'} (${session.id})`}
-                  className="flex min-h-32 min-w-0 flex-col items-start gap-2 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+                  className="flex min-h-24 w-[252px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
                   <span
@@ -376,40 +376,40 @@ export function ProjectWorkspace(props: {
                   </span>
                 </button>
               ))}
-              <div className="group relative flex min-h-20 items-stretch rounded-lg border border-dashed text-muted-foreground">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  data-testid="quick-session"
-                  className="absolute inset-0 h-full w-full group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:opacity-0"
-                  disabled={!project.exists || acting}
-                  onClick={() => void open({})}
-                >
-                  <Plus aria-hidden /> Quick empty session
-                </Button>
-                <div className="z-10 hidden w-full grid-cols-3 bg-card group-hover:grid group-focus-within:grid">
-                  {(['main', 'worktree', 'terminal'] as const).map((kind) => (
-                    <button
-                      key={kind}
-                      type="button"
-                      data-testid={`quick-${kind}`}
-                      className="flex flex-col items-center justify-center gap-1 border-r border-dashed text-xs last:border-r-0 hover:bg-accent"
-                      disabled={!project.exists || acting}
-                      onClick={() =>
-                        kind === 'main' ? void open({}) : props.onNewSession(project.name, kind)
-                      }
-                    >
-                      {kind === 'terminal' ? (
-                        <TerminalSquare aria-hidden className="size-4" />
-                      ) : kind === 'worktree' ? (
-                        <FolderGit2 aria-hidden className="size-4" />
-                      ) : (
-                        <Plus aria-hidden className="size-4" />
-                      )}
-                      {kind === 'main' ? 'Main' : kind === 'worktree' ? 'Worktree' : 'Terminal'}
-                    </button>
-                  ))}
-                </div>
+            </div>
+            <div className="group relative flex min-h-16 w-[252px] items-stretch rounded-lg border border-dashed text-muted-foreground">
+              <Button
+                type="button"
+                variant="ghost"
+                data-testid="quick-session"
+                className="absolute inset-0 h-full w-full group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:opacity-0"
+                disabled={!project.exists || acting}
+                onClick={() => void open({})}
+              >
+                <Plus aria-hidden /> Quick empty session
+              </Button>
+              <div className="z-10 hidden w-full grid-cols-3 bg-card group-hover:grid group-focus-within:grid">
+                {(['main', 'worktree', 'terminal'] as const).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    data-testid={`quick-${kind}`}
+                    className="flex flex-col items-center justify-center gap-1 border-r border-dashed text-xs last:border-r-0 hover:bg-accent"
+                    disabled={!project.exists || acting}
+                    onClick={() =>
+                      kind === 'main' ? void open({}) : props.onNewSession(project.name, kind)
+                    }
+                  >
+                    {kind === 'terminal' ? (
+                      <TerminalSquare aria-hidden className="size-4" />
+                    ) : kind === 'worktree' ? (
+                      <FolderGit2 aria-hidden className="size-4" />
+                    ) : (
+                      <Plus aria-hidden className="size-4" />
+                    )}
+                    {kind === 'main' ? 'Main' : kind === 'worktree' ? 'Worktree' : 'Terminal'}
+                  </button>
+                ))}
               </div>
             </div>
           </section>

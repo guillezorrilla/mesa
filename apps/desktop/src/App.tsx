@@ -167,7 +167,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const sessionView = view.kind === 'session';
   return (
     <div className="flex h-screen min-h-[480px] flex-col">
-      <header className="relative z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4">
+      <header
+        data-tauri-drag-region
+        className="relative z-40 flex h-12 shrink-0 items-center gap-3 border-b bg-background pr-4 pl-20"
+      >
         <h1 data-testid="app-name" className="flex items-center gap-2 font-semibold tracking-tight">
           <span
             aria-hidden
@@ -177,7 +180,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           </span>
           Mesa
         </h1>
-        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3">
+        <div className="absolute left-[53%] flex -translate-x-1/2 items-center gap-3">
           <Button
             variant="outline"
             size="sm"
