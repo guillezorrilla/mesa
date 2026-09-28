@@ -9,7 +9,6 @@ import { redactWhole } from '../lib/redact.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
-import { sessionReceipt } from '../receipts/store.js';
 import { landingOf, landOutput } from '../skills/landing.js';
 import type { SkillRow } from '../skills/sync.js';
 import type { Caller } from './caller.js';
@@ -26,8 +25,7 @@ import { windowOf } from './window-name.js';
 // A skill run headlessly (CONTEXT.md, Skill run): a session of kind run, started through the one
 // launch sequence, whose agent prints its result into the profile's runs/ and its errors on its
 // pane (and so in its output log), then exits. Whoever sees the exit first, the wait in `mesa run`
-// or tmux's pane-died hook, ends it the same way (endRun): its record, its receipt, and where its
-// skill's output lands.
+// or tmux's pane-died hook, ends it the same way (endRun): its record and where its output lands.
 
 /** How long a run may take unless told otherwise: 20 minutes. */
 export const RUN_TIMEOUT_SECONDS = 20 * 60;
@@ -224,15 +222,22 @@ function requireSkill(rows: SkillRow[], skill: string, project: string) {
 
 /**
  * What ending a run takes: its record and window, the clock, the profile's runs/ (its result) and
- * logs/ (its pane's output, errors included), and the vault and the secrets its receipt and the
- * note its output becomes are written with.
+ * logs/ (its pane's output, errors included), and the vault and secrets used when its output
+ * becomes a note.
  */
-type EndContext = Pick<MesaContext, 'store' | 'paths' | 'notes' | 'secrets' | 'deps' | 'open'> & {
+type EndContext = Pick<
+  MesaContext,
+  'store' | 'paths' | 'notes' | 'secrets' | 'deps' | 'open' | 'record'
+> & {
   tmux: Pick<TmuxBackend, 'killWindow'>;
 };
 
 /** How a run ended: its result, and what its end could not record (endRun). */
-export type RunEnd = { result: HeadlessResult; warning?: string };
+export type RunEnd = {
+  result: HeadlessResult;
+  receipt?: { id: string; path: string } | null;
+  warning?: string;
+};
 
 /**
  * Waits for a run's agent to exit, looking at its pane every second for up to `timeoutSeconds`,
@@ -304,16 +309,18 @@ export async function endRun(
 
 /**
  * What a run's end records, best effort: its output, when ok and redacted, as the vault note its
- * skill's output becomes (landOutput), linking its receipt; then that receipt finished
- * (markRunEnded). What could not be recorded is the warning.
+ * skill's output becomes (landOutput), with a receipt only for a changed note. A historical
+ * opening receipt, when present, is finished by markRunEnded. Failures become warnings.
  */
 async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResult) {
   const skill = runSkill(run);
   let note: string | undefined;
+  let receipt: RunEnd['receipt'];
   let unlanded: string | undefined;
   const landed = {
     run: run.id,
     project: run.project,
+    agent: run.agent,
     about: run.about,
     endedAt: run.endedAt ?? run.startedAt,
   };
@@ -321,18 +328,17 @@ async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResu
     try {
       const notes = ctx.notes();
       const output = redactWhole(read.output, ctx.deps.home, ctx.secrets());
-      const receipt = sessionReceipt(notes.vault, run.id)?.path;
-      // A fast pane-died hook can beat the start receipt. The waiter retries after it is written.
-      if (!receipt) return { result: read };
-      note = await landOutput(
-        notes,
+      const landedNote = await landOutput(
+        { ...notes, record: ctx.record },
         skill,
         skill === 'project-brief'
           ? { ...landed, repo: findProject(ctx.open(), run.project).path }
           : landed,
         output,
-        receipt,
       );
+      note = landedNote?.path;
+      receipt = landedNote?.receipt;
+      unlanded = landedNote?.warning;
     } catch (error) {
       unlanded = `run ${run.id}'s output not written to the vault: ${toFail(error).error.message}`;
     }
@@ -340,7 +346,7 @@ async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResu
   const result = note ? { ...read, note } : read;
   const unfinished = await markRunEnded(ctx, run, result, runOutput(ctx.paths.runs, run.id));
   const warning = joinWarnings(unlanded, unfinished);
-  return { result, ...(warning ? { warning } : {}) };
+  return { result, ...(receipt ? { receipt } : {}), ...(warning ? { warning } : {}) };
 }
 
 type Exit = { status?: number; signal?: string };

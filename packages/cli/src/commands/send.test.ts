@@ -49,9 +49,9 @@ test('send --from, or from inside a window, adds the sender; --json prints {sent
   });
 });
 
-test('a send typed with a warning keeps it beside a receipt warning in --json', async () => {
+test('a send typed with a warning remains actionable without a routine receipt warning', async () => {
   cli.withTmux();
-  // No vault layout, so every receipt warns too.
+  // No vault layout is needed for a routine send.
   await mesa('init', '--vault', 'vault');
   mkdirSync(join(cli.home, 'src/lantern-cove'), { recursive: true });
   await mesa('register', '--create', join(cli.home, 'src/lantern-cove'));
@@ -60,19 +60,36 @@ test('a send typed with a warning keeps it beside a receipt warning in --json', 
   const sent = await mesa('send', b, 'hello', '--json');
   expect(sent.code).toBe(0);
   expect(sent.json.data.warning).toMatch(
-    /^the prompt was typed, but no send event on .*; do not send it again; no log line: /,
+    /^the prompt was typed, but no send event on .*; do not send it again$/,
   );
   rmSync(lock);
 });
 
 test('a destructive prompt is blocked with exit 5; --force sends it', async () => {
   const world = cli.withTmux();
-  await cli.withProject({ layOut: false });
+  await cli.withProject();
   const id = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
   expect(await mesa('send', id, 'run rm -rf /')).toMatchObject({
     code: 5,
     stderr:
       'blocked: the text holds a destructive command (rm -rf); pass --force to send it anyway\n',
+  });
+  const scoped = await mesa(
+    'receipts',
+    '--project',
+    'lantern-cove',
+    '--session',
+    id,
+    '--kind',
+    'guardrail',
+    '--json',
+  );
+  expect(scoped.json.data).toHaveLength(1);
+  expect(scoped.json.data[0].receipt).toMatchObject({
+    project: 'lantern-cove',
+    session: id,
+    agent: 'claude',
+    status: 'blocked',
   });
   // --yes does not pass a block, and a person is never asked about one.
   cli.answer = true;
