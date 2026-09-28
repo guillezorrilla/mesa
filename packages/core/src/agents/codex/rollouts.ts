@@ -33,7 +33,7 @@ export type CodexThread = { id: string; cwd: string; startedAt: string };
  * Rollouts written at or after `since`. A resumed thread stays in its original date folder.
  * ponytail: stats every rollout on each look; add an mtime index if large histories slow the Board.
  */
-function rollouts(deps: { env: Env; home: string }, since: number) {
+function rolloutFiles(deps: { env: Env; home: string }) {
   const sessions = codexSessions(codexHome(deps.env, deps.home));
   let names: string[];
   try {
@@ -43,14 +43,22 @@ function rollouts(deps: { env: Env; home: string }, since: number) {
   }
   return names
     .filter((name) => /^rollout-.*\.jsonl$/.test(basename(name)))
-    .map((name) => join(sessions, name))
-    .filter((file) => {
-      try {
-        return (statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0) >= since;
-      } catch {
-        return false;
-      }
-    });
+    .map((name) => join(sessions, name));
+}
+
+function rollouts(deps: { env: Env; home: string }, since: number) {
+  return rolloutFiles(deps).filter((file) => {
+    try {
+      return (statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0) >= since;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** The stored rollout for an exact native thread ID, regardless of its original date folder. */
+export function rolloutForThread(deps: { env: Env; home: string }, id: string) {
+  return rolloutFiles(deps).find((file) => basename(file).endsWith(`-${id}.jsonl`));
 }
 
 /** An interactive thread's rollout, read from its first line; none for anything else. */

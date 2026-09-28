@@ -1,6 +1,7 @@
-import { closeSync, existsSync, fstatSync, openSync, readdirSync, readSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileHead } from '../../lib/file-head.js';
+import { lastMatchingLine } from '../../lib/file-tail.js';
 
 // Claude Code's transcripts, `<transcripts>/<folder>/<agent session id>.jsonl`: what Mesa reads
 // from them.
@@ -35,8 +36,6 @@ export function transcriptCwd(transcripts: string, id: string): string | undefin
 /** The usage Claude Code recorded for the context of its last reply. */
 type LastUsage = { model: string; tokens: number; at: string };
 
-const TAIL_CHUNK = 1 << 16;
-
 /**
  * The last main-chain assistant message's usage, read from the end of the transcript (one can
  * reach megabytes): its input, cache-creation, and cache-read tokens summed, as the status line
@@ -45,34 +44,8 @@ const TAIL_CHUNK = 1 << 16;
  * `type`, `subtype`, `isSidechain`, `timestamp`, `message.model`, and `message.usage`.
  */
 export function lastUsage(file: string): LastUsage | undefined {
-  const fd = openSync(file, 'r');
-  try {
-    let end = fstatSync(fd).size;
-    // The bytes read but not yet taken as whole lines, from `end` on.
-    let rest = Buffer.alloc(0);
-    while (end > 0) {
-      const start = Math.max(0, end - TAIL_CHUNK);
-      const chunk = Buffer.alloc(end - start);
-      readSync(fd, chunk, 0, chunk.length, start);
-      end = start;
-      rest = Buffer.concat([chunk, rest]);
-      // Before the first newline is part of a line that may start earlier, unless the file does.
-      const cut = end > 0 ? rest.indexOf(0x0a) : -1;
-      if (end > 0 && cut === -1) continue;
-      const lines = rest
-        .subarray(cut + 1)
-        .toString('utf8')
-        .split('\n');
-      for (const line of lines.reverse()) {
-        const found = usageIn(line);
-        if (found) return found === 'compacted' ? undefined : found;
-      }
-      rest = rest.subarray(0, Math.max(cut, 0));
-    }
-    return undefined;
-  } finally {
-    closeSync(fd);
-  }
+  const found = lastMatchingLine(file, usageIn);
+  return found === 'compacted' ? undefined : found;
 }
 
 /** What one transcript line says about context use: a reading, a compaction, or nothing. */

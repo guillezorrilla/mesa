@@ -13,6 +13,7 @@ import { claudeTranscripts } from './claude/paths.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
 import { transcriptCwd } from './claude/transcripts.js';
+import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
@@ -131,8 +132,8 @@ export const AGENTS = {
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
     listing: { list: listCodexSessions, state: () => undefined },
-    /** Not read for Codex yet: context use, and adoption. */
-    context: undefined,
+    /** Last native per-turn token usage and context window from the exact rollout. */
+    context: codexContext,
     transcripts: undefined,
   },
   antigravity: {

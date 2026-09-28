@@ -24,7 +24,7 @@ Not: project list, index.
 
 ## Agent
 
-The CLI coding agent a session runs: `claude` (Claude Code), `codex` (Codex CLI), or `antigravity` (Antigravity CLI, executable `agy`). All run interactively in a Mesa window and can run skills headlessly. Claude Code and Codex report states through hooks (ADR-0003); Antigravity exposes only qualified TUI state markers and a private per-session log for its native conversation ID after the first prompt. Codex and Antigravity context use and adoption are not read yet.
+The CLI coding agent a session runs: `claude` (Claude Code), `codex` (Codex CLI), or `antigravity` (Antigravity CLI, executable `agy`). All run interactively in a Mesa window and can run skills headlessly. Claude Code and Codex report states through hooks (ADR-0003); Antigravity exposes only qualified TUI state markers and a private per-session log for its native conversation ID after the first prompt. Antigravity context use, and Codex and Antigravity adoption, are not read yet.
 Not: model, assistant, bot.
 
 ## Session
@@ -138,6 +138,8 @@ Not: status, phase, mode.
 ## Context use
 
 How much of its context window a session has used, as the record's `context: {used, window, at, source}`: `used` in percent of `window` tokens, as of its agent's reply at `at`, with `source: transcript` (docs/spikes/context-use.md, ADR-0003's #70 amendment). Mesa reads the Claude Code transcript of the session's agent session id from its end: the last main-chain assistant message's input, cache-creation, and cache-read tokens, as the status line counts them; it reads no message content. `window` is the model's native window, from its id: 1M for Opus 4.7 and later, Sonnet 5 and later, and Fable, 200k for other Claude models, held to 200k when `CLAUDE_CODE_DISABLE_1M_CONTEXT` or a third-party provider (`CLAUDE_CODE_USE_BEDROCK`, `_VERTEX`, `_FOUNDRY`) is set in the environment claude runs with or in Claude Code's settings `env`. The field is absent while there is no reading: no transcript, no reply yet, a compaction since the last reply, or a model whose window Mesa does not know. Each Stop hook (`mesa hook claude`) reads it, and `mesa show` reads it again; a reading taken at a Stop can trail by one request, and one taken at rest is exact to the status line's rounding. `mesa sessions` shows it as `ctx <n>%` (`ctx -` with none), and the Board as a bar, amber from 55% and red from 60%.
+Codex reads the exact native thread rollout's last `token_count.info.last_token_usage.input_tokens` against that event's `model_context_window`, recording the event timestamp and `source: transcript`. Cached input is already part of `input_tokens` and is not added again. `mesa show` refreshes context after it learns a new native thread ID. With no completed turn or no recorded window, context is unknown; Antigravity context use is unsupported.
+
 Not: context (alone, which the Composition root avoids), tokens, usage.
 
 ## Attention score

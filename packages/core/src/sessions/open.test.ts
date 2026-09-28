@@ -1,8 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import type { Runner } from '../lib/process.js';
+import type { Env, Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
@@ -39,12 +47,13 @@ async function setUp(
     argv = ['open'],
     run = withGit(world),
     linkedHome = false,
-  }: { mesaYaml?: string; argv?: string[]; run?: Runner; linkedHome?: boolean } = {},
+    env,
+  }: { mesaYaml?: string; argv?: string[]; run?: Runner; linkedHome?: boolean; env?: Env } = {},
 ) {
   // A home reached through a symlink, as the paths Mesa builds are then not the real ones.
   const home = linkedHome ? join(tempDir(), 'home') : tempDir();
   if (linkedHome) symlinkSync(tempDir(), home);
-  return projectProfile(run, { home, mesaYaml, argv, newId });
+  return projectProfile(run, { home, mesaYaml, argv, newId, ...(env ? { env } : {}) });
 }
 
 test('open starts claude with its session id in a new tmux session, then in a new window', async () => {
@@ -168,6 +177,34 @@ test('open starts codex embedded, its goal after --, in window codex-<id>, with 
 
   await mesa.sessions.open('lantern-cove', { agent: 'codex' });
   expect(launched(world)).toBe('codex -c mesa.embedded=true');
+});
+
+test('show learns a Codex thread ID and its native context reading in the same look', async () => {
+  const world = agentWorld();
+  const { mesa, dir } = await setUp(world, { env: world.codex.env });
+  const { result } = await mesa.sessions.open('lantern-cove', { agent: 'codex' });
+  const id = '01a0e693-6c67-71d0-8cd9-e0ace3513477';
+  const at = new Date(Date.parse(result.startedAt) + 1000).toISOString();
+  const file = world.codex.rollout({ id, cwd: dir, startedAt: at });
+  appendFileSync(
+    file,
+    `\n${JSON.stringify({
+      timestamp: at,
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          last_token_usage: { input_tokens: 25942, cached_input_tokens: 12544 },
+          model_context_window: 258400,
+        },
+      },
+    })}\n`,
+  );
+  const shown = await mesa.sessions.show(result.id);
+  expect(shown).toMatchObject({
+    agentSessionId: id,
+    context: { used: 10.04, window: 258400, at, source: 'transcript' },
+  });
 });
 
 test('Antigravity opens with a private per-session log and reads its native ID after the first prompt', async () => {

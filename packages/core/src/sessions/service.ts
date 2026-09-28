@@ -330,8 +330,10 @@ export function sessionsService(
        * not_found for an unknown id.
        */
       show: async (id: string) => {
-        refreshContext(contextDeps, store.get(id));
+        store.get(id);
         const row = (await board(true)).find((r) => r.id === id);
+        // The look may have learned a provider-owned ID before its context can be read.
+        refreshContext(contextDeps, store.get(id));
         // Read again: the look may have saved a new state, or started it from its queue.
         return { ...store.get(id), alive: row?.alive ?? false };
       },
