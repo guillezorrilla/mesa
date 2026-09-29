@@ -1235,6 +1235,80 @@ test('selected session details read native context by exact id and keep unknown 
   ).toBe('img');
 });
 
+test('selected-session image preview can be removed or sent only to the selected Claude session', async () => {
+  const path = '/tmp/invented.png';
+  const image = {
+    profile: 'default',
+    session: 'aaaaaaaa',
+    path,
+    name: 'invented.png',
+    mime: 'image/png',
+    bytes: 68,
+    revision: 'a'.repeat(64),
+    dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb')]),
+    'image preview': () => envelope(image),
+    'image send': () => envelope({ sent: true, session: 'aaaaaaaa', chars: 90 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ file: path }));
+  await click(document.querySelector('[aria-label="Attach image"]') as HTMLElement);
+  expect(calls).toContainEqual(['--json', 'image', 'preview', '--', 'aaaaaaaa', path]);
+  expect(document.querySelector('img[alt="Selected image: invented.png"]')).not.toBeNull();
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Remove image',
+    ),
+  );
+  expect(document.querySelector('img[alt="Selected image: invented.png"]')).toBeNull();
+  expect(calls.some((args) => args[1] === 'image' && args[2] === 'send')).toBe(false);
+
+  await click(document.querySelector('[aria-label="Attach image"]') as HTMLElement);
+  await click(byTestId('sidebar-session')[1]);
+  expect(document.querySelector('img[alt="Selected image: invented.png"]')).toBeNull();
+  await click(byTestId('sidebar-session')[0]);
+  await click(document.querySelector('[aria-label="Attach image"]') as HTMLElement);
+  const form = document.querySelector('[aria-label="Prompt for aaaaaaaa"]')?.closest('form');
+  expect(form).not.toBeNull();
+  await act(async () => form?.requestSubmit());
+  expect(calls).toContainEqual([
+    '--json',
+    'image',
+    'send',
+    '--no-from',
+    '--revision',
+    image.revision,
+    '--profile',
+    'default',
+    '--',
+    'aaaaaaaa',
+    path,
+  ]);
+  expect(document.querySelector('img[alt="Selected image: invented.png"]')).toBeNull();
+});
+
+test('switching sessions while the image picker is open discards the old selection', async () => {
+  let chooseFile!: (path: string) => void;
+  const file = new Promise<string>((resolve) => {
+    chooseFile = resolve;
+  });
+  const path = '/tmp/old-session.png';
+  const platform = { ...fakePlatform(), pickFile: () => file };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  await click(document.querySelector('[aria-label="Attach image"]') as HTMLElement);
+  await click(byTestId('sidebar-session')[1]);
+  await act(async () => chooseFile(path));
+  await click(byTestId('sidebar-session')[0]);
+  expect(calls.some((args) => args[1] === 'image')).toBe(false);
+  expect(document.querySelector('img[alt="Selected image: old-session.png"]')).toBeNull();
+});
+
 test('session close opens archive confirmation and archives only after confirmation', async () => {
   let archived = false;
   const { bridge, calls } = fakeBridge({

@@ -37,6 +37,7 @@ import type {
   Result,
   RuleRow,
   Sent,
+  SessionImage,
   SessionLog,
   SessionRecord,
   SkillInventoryRow,
@@ -613,6 +614,30 @@ const COMMANDS = {
   >(({ path }) => ['register', '--create', '--', path]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
+  'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [
+    'image',
+    'preview',
+    '--',
+    id,
+    path,
+  ]),
+  'image.send': commandWith<
+    { image: SessionImage; note: string; yes?: boolean },
+    Recorded<Omit<Sent, 'project'>>
+  >(({ image, note, yes }) => [
+    'image',
+    'send',
+    '--no-from',
+    '--revision',
+    image.revision,
+    '--profile',
+    image.profile,
+    ...(note ? [`--note=${note}`] : []),
+    ...(yes ? ['--yes'] : []),
+    '--',
+    image.session,
+    image.path,
+  ]),
   'sessions.send': commandWith<
     { id: string; prompt: string; yes?: boolean },
     Recorded<Omit<Sent, 'project'>>
