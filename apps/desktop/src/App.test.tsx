@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import type { Config, TreeRow } from '@mesa/core';
-import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
@@ -1161,7 +1161,7 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   expect(byTestId('grid-toolbar')).toHaveLength(1);
 });
 
-test('Sessions sidebar shows a branch and lets each card compact without losing selection', async () => {
+test('Sessions sidebar shows a branch, compact control, and child action', async () => {
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () =>
@@ -1179,6 +1179,51 @@ test('Sessions sidebar shows a branch and lets each card compact without losing 
   await click(document.querySelector('[aria-label="Expand Session card"]') as HTMLElement);
   expect(card()?.textContent).toContain('feature');
   expect(card()?.textContent).toContain('working');
+  await click(
+    document.querySelector(
+      '[aria-label="New child session from Session (aaaaaaaa)"]',
+    ) as HTMLElement,
+  );
+  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New worktree session');
+  expect((byTestId('new-session-project')[0] as HTMLInputElement).readOnly).toBe(true);
+});
+
+test('Sessions sidebar menu opens the selected session dependency editor', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(
+    document.querySelector('[aria-label="More actions for Session (aaaaaaaa)"]') as HTMLElement,
+  );
+  const options = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  expect(options.map((item) => item.textContent)).toEqual([
+    'New terminal session',
+    'New child worktree session',
+    'Set dependency',
+  ]);
+  await click(options[2]);
+  expect(byTestId('dependency-dialog')[0]?.textContent).toContain('Set dependency for aaaaaaaa');
+});
+
+test('General session menu can start a child terminal without a project', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa', { project: GENERAL_PROJECT })]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(
+    document.querySelector('[aria-label="More actions for Session (aaaaaaaa)"]') as HTMLElement,
+  );
+  const options = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  expect(options.map((item) => item.textContent)).toEqual([
+    'New terminal session',
+    'Set dependency',
+  ]);
+  await click(options[0]);
+  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New terminal session');
+  expect(byTestId('new-session-project')).toHaveLength(0);
 });
 
 test('selected session details read native context by exact id and keep unknown facts honest', async () => {
