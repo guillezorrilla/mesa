@@ -71,6 +71,10 @@ export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
 export type {
+  BrowserAnnotationInput,
+  BrowserAnnotationPreview,
+} from './sessions/browser-annotation.js';
+export type {
   ChangeReview,
   ChangeReviewInput,
   ChangeReviewPreview,

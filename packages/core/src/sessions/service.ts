@@ -18,6 +18,8 @@ import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
+import { openBrowserExternal } from './browser-address.js';
+import { previewBrowserAnnotation } from './browser-annotation.js';
 import { callerOf } from './caller.js';
 import { changeReview, previewChangeReview } from './change-review.js';
 import { refreshContext } from './context-use.js';
@@ -348,6 +350,26 @@ export function sessionsService(
             id,
             'change',
             () => previewChangeReview({ profile, store, open, run: deps.run }, id, input),
+            opts,
+          ),
+      },
+      browser: {
+        external: (url: string) => openBrowserExternal(url, deps.run),
+        preview: (id: string, input: Parameters<typeof previewBrowserAnnotation>[2]) =>
+          previewBrowserAnnotation({ profile, store }, id, input),
+        send: (
+          id: string,
+          input: Parameters<typeof previewBrowserAnnotation>[2] & {
+            source: string;
+            revision: string;
+          },
+          opts: { noFrom?: boolean } & Overrides = {},
+        ) =>
+          sendReview(
+            { store, clock: deps.clock, send },
+            id,
+            'browser',
+            () => previewBrowserAnnotation({ profile, store }, id, input),
             opts,
           ),
       },

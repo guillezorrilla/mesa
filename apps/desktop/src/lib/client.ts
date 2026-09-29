@@ -1,6 +1,8 @@
 import type {
   Agent,
   Attached,
+  BrowserAnnotationInput,
+  BrowserAnnotationPreview,
   ChangeReview,
   ChangeReviewInput,
   ChangeReviewPreview,
@@ -103,6 +105,15 @@ const reviewFlags = (selection: ReviewSelection) => [
   `--comment=${selection.comment}`,
 ];
 type ChangeSelection = ChangeReviewInput & { id: string };
+type BrowserSelection = BrowserAnnotationInput & { id: string };
+const browserFlags = (selection: BrowserSelection) => [
+  `--url=${selection.url}`,
+  `--title=${selection.title}`,
+  `--selector=${selection.selector}`,
+  `--text=${selection.text}`,
+  `--comment=${selection.comment}`,
+  `--selection-profile=${selection.profile}`,
+];
 const changeFlags = (selection: ChangeSelection) => [
   `--path=${selection.path}`,
   ...(selection.staged ? ['--staged'] : []),
@@ -119,6 +130,12 @@ const changeFlags = (selection: ChangeSelection) => [
 
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
+  'browser.external': commandWith<{ url: string }, { url: string; opened: true }>(({ url }) => [
+    'browser',
+    'external',
+    '--',
+    url,
+  ]),
   'git.insight': commandWith<{ project: string; checkout?: string }, RepositoryInsight>(
     ({ project, checkout }) => [
       'git',
@@ -691,6 +708,25 @@ const COMMANDS = {
       selection.id,
     ],
   ),
+  'browser.annotatePreview': commandWith<BrowserSelection, BrowserAnnotationPreview>(
+    (selection) => ['browser', 'annotate-preview', ...browserFlags(selection), '--', selection.id],
+  ),
+  'browser.annotateSend': commandWith<
+    BrowserSelection & { source: string; revision: string; yes?: boolean },
+    ResponseReviewDelivery
+  >((selection) => [
+    'browser',
+    'annotate-send',
+    '--no-from',
+    ...browserFlags(selection),
+    '--source',
+    selection.source,
+    '--revision',
+    selection.revision,
+    ...(selection.yes ? ['--yes'] : []),
+    '--',
+    selection.id,
+  ]),
   'review.preview': commandWith<ReviewSelection, ResponseReviewPreview>((selection) => [
     'review',
     'preview',
