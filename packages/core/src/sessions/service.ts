@@ -42,6 +42,7 @@ import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
+import { previewResponseReview, sessionResponses } from './responses.js';
 import { resumeSession } from './resume.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
 import { searchConversations } from './search.js';
@@ -259,6 +260,12 @@ export function sessionsService(
             expectedProfile,
             note,
           ),
+      },
+      responses: {
+        list: (id: string) =>
+          sessionResponses({ profile, store, home: deps.home, env: deps.env }, id),
+        preview: (id: string, input: Parameters<typeof previewResponseReview>[2]) =>
+          previewResponseReview({ profile, store, home: deps.home, env: deps.env }, id, input),
       },
       /** The board as a tree: children under their parent, each row with its depth. */
       tree: async (all = false) => sessionTree(await board(all)),

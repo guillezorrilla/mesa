@@ -34,12 +34,14 @@ import type {
   ReceiptEntry,
   Removed,
   RepositoryInsight,
+  ResponseReviewPreview,
   Result,
   RuleRow,
   Sent,
   SessionImage,
   SessionLog,
   SessionRecord,
+  SessionResponses,
   SkillInventoryRow,
   SkillSync,
   StashAction,
@@ -73,6 +75,29 @@ const commandWith = <Args, Data>(argv: (args: Args) => string[]): Spec<Args, Dat
  * (recordedOutput in the CLI puts both there).
  */
 type Recorded<T> = T & { receipt: { id: string; path: string } | null; warning?: string };
+
+type ReviewSelection = {
+  id: string;
+  profile: string;
+  source: string;
+  revision: string;
+  start: number;
+  end: number;
+  comment: string;
+};
+const reviewFlags = (selection: ReviewSelection) => [
+  '--source',
+  selection.source,
+  '--revision',
+  selection.revision,
+  '--selection-profile',
+  selection.profile,
+  '--start',
+  String(selection.start),
+  '--end',
+  String(selection.end),
+  `--comment=${selection.comment}`,
+];
 
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
@@ -614,6 +639,30 @@ const COMMANDS = {
   >(({ path }) => ['register', '--create', '--', path]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
+  'review.responses': commandWith<{ id: string }, SessionResponses>(({ id }) => [
+    'review',
+    'responses',
+    '--',
+    id,
+  ]),
+  'review.preview': commandWith<ReviewSelection, ResponseReviewPreview>((selection) => [
+    'review',
+    'preview',
+    ...reviewFlags(selection),
+    '--',
+    selection.id,
+  ]),
+  'review.send': commandWith<ReviewSelection & { yes?: boolean }, Recorded<Omit<Sent, 'project'>>>(
+    (selection) => [
+      'review',
+      'send',
+      '--no-from',
+      ...reviewFlags(selection),
+      ...(selection.yes ? ['--yes'] : []),
+      '--',
+      selection.id,
+    ],
+  ),
   'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [
     'image',
     'preview',

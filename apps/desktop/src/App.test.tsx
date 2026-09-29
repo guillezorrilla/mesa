@@ -1289,6 +1289,85 @@ test('selected-session image preview can be removed or sent only to the selected
   expect(document.querySelector('img[alt="Selected image: invented.png"]')).toBeNull();
 });
 
+test('selected session reviews an exact native response passage beside its running terminal', async () => {
+  const row = {
+    profile: 'default',
+    session: 'aaaaaaaa',
+    agent: 'claude',
+    nativeSessionId: 'invented-native-id',
+    source: 'a'.repeat(64),
+    revision: 'b'.repeat(64),
+    text: 'A violet otter.',
+    truncated: false,
+  };
+  const preview = {
+    target: 'aaaaaaaa',
+    source: row.source,
+    revision: row.revision,
+    passage: 'violet otter',
+    comment: 'Check this claim.',
+    prompt: 'Review this exact passage',
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    'review responses': () => envelope({ rows: [row], truncated: false }),
+    'review preview': () => envelope(preview),
+    'review send': () =>
+      envelope({ sent: true, session: 'aaaaaaaa', chars: preview.prompt.length }),
+  });
+  const platform = fakePlatform();
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  await click(document.querySelector('[aria-label="Review responses"]') as HTMLElement);
+  expect(byTestId('terminal-panel')).toHaveLength(1);
+  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
+  expect(review.textContent).toContain('A violet otter.');
+  await click(review.querySelector('[aria-label="Copy response"]') as HTMLElement);
+  expect(platform.pasteboard).toEqual(['A violet otter.']);
+  await click(
+    [...review.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'A violet otter.',
+    ),
+  );
+  const passage = review.querySelector('#review-response-text') as HTMLTextAreaElement;
+  await act(async () => {
+    passage.focus();
+    passage.setSelectionRange(2, 14);
+    passage.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowRight' }));
+  });
+  const comment = review.querySelector('#review-comment') as HTMLTextAreaElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+      comment,
+      'Check this claim.',
+    );
+    comment.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(review.textContent).toContain('Selected characters: 12');
+  expect(comment.value).toBe('Check this claim.');
+  const previewButton = [...review.querySelectorAll<HTMLButtonElement>('button')].find(
+    (button) => button.textContent === 'Preview review',
+  );
+  expect(previewButton?.disabled).toBe(false);
+  await click(previewButton);
+  expect(byTestId('response-review-preview')[0]?.textContent).toContain(preview.prompt);
+  await click(
+    [...review.querySelectorAll<HTMLButtonElement>('button')].find((button) =>
+      button.textContent?.includes('Send review'),
+    ),
+  );
+  expect(
+    calls.some(
+      (args) =>
+        args[1] === 'review' &&
+        args[2] === 'send' &&
+        args.includes('--selection-profile') &&
+        args.includes('aaaaaaaa'),
+    ),
+  ).toBe(true);
+  expect(byTestId('response-review-preview')[0]?.textContent).toContain('Delivered');
+});
+
 test('switching sessions while the image picker is open discards the old selection', async () => {
   let chooseFile!: (path: string) => void;
   const file = new Promise<string>((resolve) => {
