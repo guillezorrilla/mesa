@@ -36,6 +36,12 @@ test('review responses, preview and send use the public CLI and guarded send pat
   const preview = await cli.mesa('review', 'preview', opened.id, ...flags, '--json');
   expect(preview.json.data).toMatchObject({ passage: 'violet otter', target: opened.id });
   const sent = await cli.mesa('review', 'send', opened.id, ...flags, '--no-from', '--json');
-  expect(sent.json.data).toMatchObject({ sent: true, session: opened.id });
+  expect(sent.json.data).toMatchObject({ status: 'delivered', target: opened.id });
+  expect(
+    (await cli.mesa('review', 'send', opened.id, ...flags, '--no-from', '--json')).json.data,
+  ).toMatchObject({
+    status: 'delivered',
+    already: true,
+  });
   expect(world.windows[0]?.typed).toEqual([preview.json.data.prompt]);
 });

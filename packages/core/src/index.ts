@@ -91,7 +91,9 @@ export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type {
   NativeResponse,
+  ResponseReviewDelivery,
   ResponseReviewPreview,
+  SavedReview,
   SessionResponses,
 } from './sessions/responses.js';
 export type { HeadlessResult } from './sessions/run.js';

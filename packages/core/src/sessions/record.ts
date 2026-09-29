@@ -144,6 +144,17 @@ const SessionRecordFields = z.strictObject({
         chars: z.number(),
         to: z.string().regex(SHORT_ID),
       }),
+      z.strictObject({
+        type: z.literal('review'),
+        at: z.iso.datetime(),
+        id: z.string().regex(/^[0-9a-f]{64}$/),
+        source: z.string().regex(/^[0-9a-f]{64}$/),
+        revision: z.string().regex(/^[0-9a-f]{64}$/),
+        passage: z.string(),
+        comment: z.string(),
+        status: z.enum(['pending', 'delivered', 'failed', 'uncertain']),
+        reason: z.string().optional(),
+      }),
       /** Handed off (mesa handoff): to its successor, or, on the successor, from the session. */
       z.strictObject({
         type: z.literal('handoff'),

@@ -34,6 +34,7 @@ import type {
   ReceiptEntry,
   Removed,
   RepositoryInsight,
+  ResponseReviewDelivery,
   ResponseReviewPreview,
   Result,
   RuleRow,
@@ -652,7 +653,7 @@ const COMMANDS = {
     '--',
     selection.id,
   ]),
-  'review.send': commandWith<ReviewSelection & { yes?: boolean }, Recorded<Omit<Sent, 'project'>>>(
+  'review.send': commandWith<ReviewSelection & { yes?: boolean }, ResponseReviewDelivery>(
     (selection) => [
       'review',
       'send',
