@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { tempDir, thrown } from '../../testing/index.js';
@@ -33,9 +33,32 @@ test('a name collision and invalid JSON never overwrite user configuration', () 
   writeFileSync(path, collision);
   expect(thrown(() => installHooks(home, SELF))).toMatchObject({ code: 'invalid_config' });
   expect(readFileSync(path, 'utf8')).toBe(collision);
+  const mixed = `${JSON.stringify({
+    'mesa-session-instructions': {
+      PreInvocation: [{ type: 'command', command: hookCommand(SELF) }],
+      Stop: [{ command: 'say mine' }],
+    },
+  })}\n`;
+  writeFileSync(path, mixed);
+  expect(thrown(() => uninstallHooks(home, SELF))).toMatchObject({ code: 'invalid_config' });
+  expect(readFileSync(path, 'utf8')).toBe(mixed);
   writeFileSync(path, '{broken');
   expect(thrown(() => installHooks(home, SELF))).toMatchObject({ code: 'invalid_config' });
   expect(readFileSync(path, 'utf8')).toBe('{broken');
+});
+
+test('uninstall removes only a hooks file Mesa created', () => {
+  const home = tempDir();
+  const path = join(home, '.gemini/config/hooks.json');
+  installHooks(home, SELF);
+  expect(existsSync(path)).toBe(true);
+  uninstallHooks(home, SELF);
+  expect(existsSync(path)).toBe(false);
+
+  writeFileSync(path, '{}\n');
+  installHooks(home, SELF);
+  uninstallHooks(home, SELF);
+  expect(readFileSync(path, 'utf8')).toBe('{}\n');
 });
 
 test('the global hook returns empty JSON outside a Mesa session without starting the CLI', () => {

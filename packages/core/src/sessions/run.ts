@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, newSessionId } from '../agents/agents.js';
-import { antigravityLog } from '../agents/antigravity/log.js';
+import { antigravityLog, prepareAntigravityLog } from '../agents/antigravity/log.js';
 import type { MesaContext } from '../context.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { IdSource } from '../lib/ids.js';
@@ -173,6 +173,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
         command: (r) => line(r.id),
         // Once the record is written, as its id names the file.
         prepare: (r) => {
+          if (agent === 'antigravity') prepareAntigravityLog(deps.logs, r.id);
           if (given) {
             written = runInput(deps.runs, r.id);
             writeFileSync(written, given, { mode: 0o600 });

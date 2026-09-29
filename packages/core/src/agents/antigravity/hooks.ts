@@ -1,3 +1,4 @@
+import { existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
@@ -5,6 +6,7 @@ import { SESSION_ID_VAR } from '../../sessions/caller.js';
 import { read, write } from '../hooks.js';
 
 const NAME = 'mesa-session-instructions';
+const CREATED_FILE = 'Mesa created this hooks file';
 const path = (home: string) => join(home, '.gemini', 'config', 'hooks.json');
 
 /** Antigravity's global hook is inert outside a Mesa window and always returns valid hook JSON. */
@@ -13,12 +15,18 @@ export const hookCommand = (self: readonly string[]) =>
 
 function owned(
   entry: unknown,
-): entry is { enabled?: boolean; PreInvocation: { command: string }[] } {
+): entry is { enabled?: boolean; description?: string; PreInvocation: { command: string }[] } {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
-  const handlers = (entry as Record<string, unknown>).PreInvocation;
+  const fields = entry as Record<string, unknown>;
+  const handlers = fields.PreInvocation;
   return (
+    Object.keys(fields).every((key) => ['PreInvocation', 'enabled', 'description'].includes(key)) &&
+    (fields.enabled === undefined || typeof fields.enabled === 'boolean') &&
+    (fields.description === undefined || fields.description === CREATED_FILE) &&
     Array.isArray(handlers) &&
     handlers.length === 1 &&
+    handlers[0]?.type === 'command' &&
+    Object.keys(handlers[0]).every((key) => ['type', 'command'].includes(key)) &&
     typeof handlers[0]?.command === 'string' &&
     handlers[0].command.startsWith(`[ -z "$${SESSION_ID_VAR}" ] && printf '{}' || `) &&
     handlers[0].command.endsWith(" hook antigravity 2>/dev/null || printf '{}'")
@@ -52,10 +60,15 @@ export function hooksStatus(home: string, self: readonly string[]) {
 export function installHooks(home: string, self: readonly string[]) {
   const status = hooksStatus(home, self);
   if (status.installed) return { ...status, changed: false };
-  const { file, loaded } = config(home);
+  const { file, loaded, entry } = config(home);
   write(file, loaded, {
     ...loaded.settings,
-    [NAME]: { PreInvocation: [{ type: 'command', command: hookCommand(self) }] },
+    [NAME]: {
+      ...(entry?.description === CREATED_FILE || !existsSync(file)
+        ? { description: CREATED_FILE }
+        : {}),
+      PreInvocation: [{ type: 'command', command: hookCommand(self) }],
+    },
   });
   return { ...hooksStatus(home, self), changed: true };
 }
@@ -64,6 +77,7 @@ export function uninstallHooks(home: string, self: readonly string[]) {
   const { file, loaded, entry } = config(home);
   if (!entry) return { ...hooksStatus(home, self), changed: false };
   const { [NAME]: _, ...settings } = loaded.settings;
-  write(file, loaded, settings);
+  if (entry.description === CREATED_FILE && Object.keys(settings).length === 0) unlinkSync(file);
+  else write(file, loaded, settings);
   return { ...hooksStatus(home, self), changed: true };
 }
