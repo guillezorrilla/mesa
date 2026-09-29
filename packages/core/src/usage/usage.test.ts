@@ -22,7 +22,8 @@ test('Claude repeated message updates count once, survive removal, and stay in t
     clock: fixedClock('2026-09-24T12:10:00.000Z'),
   });
   const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
-  const record = testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  const store = testStore(home);
+  const record = store.create(() => newSession({ agentSessionId: nativeId }));
   const message = (output: number) =>
     JSON.stringify({
       type: 'assistant',
@@ -81,7 +82,17 @@ test('Claude repeated message updates count once, survive removal, and stay in t
     { period: 'month', thresholdUsd: 0.0001, knownCostUsd: 0.000167 },
   ]);
   expect((await mesa.usage.list(record.id)).alerts).toEqual([]);
-  testStore(home).remove(record.id);
+  store.create(() => newSession({ agent: 'codex' }));
+  const incomplete = await mesa.usage.list();
+  expect(incomplete.unknown).toHaveLength(1);
+  expect(incomplete.periods.today).toMatchObject({ input: null, estimatedCostUsd: null });
+  expect(incomplete.daily.at(-1)?.totals.estimatedCostUsd).toBeNull();
+  expect(incomplete.alerts).toContainEqual({
+    period: 'today',
+    thresholdUsd: 0.0001,
+    knownCostUsd: 0.000167,
+  });
+  store.remove(record.id);
   expect((await mesa.usage.list()).rows).toEqual(first.rows);
   expect((await createMesa('other', testDeps(home)).usage.list()).rows).toEqual([]);
 });

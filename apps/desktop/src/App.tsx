@@ -6,7 +6,7 @@ import { ActionDialog } from './components/ActionDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
-import { warned } from './components/Toast';
+import { useToast, warned } from './components/Toast';
 import { Button } from './components/ui/button';
 import {
   DropdownMenu,
@@ -77,6 +77,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     setSearchOpen(true);
   };
   const run = useRun();
+  const toast = useToast();
   const openFileLink = useCallback(
     (session: string, target: string) => {
       void run('files.link', { session, target }).then((file) => {
@@ -118,6 +119,31 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     },
     [filesDirty, view],
   );
+  useEffect(() => {
+    let active = true;
+    const announced = new Set<string>();
+    const check = async () => {
+      const report = await run('usage.list');
+      if (!active || !report) return;
+      const day = new Date().toISOString().slice(0, 10);
+      for (const alert of report.alerts) {
+        const key = `${alert.period}:${alert.period === 'month' ? day.slice(0, 7) : day}:${alert.thresholdUsd}`;
+        if (announced.has(key)) continue;
+        announced.add(key);
+        toast(
+          `Known estimated ${alert.period === 'month' ? 'calendar month' : alert.period} cost reached your $${alert.thresholdUsd.toFixed(2)} alert. Agents keep running.`,
+          'alert',
+          { label: 'Open Usage', onFollow: () => navigateRef.current({ kind: 'usage' }) },
+        );
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 300_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [run, toast]);
   useEffect(() => {
     let active = true;
     const open = (urls: string[]) => {

@@ -1,7 +1,9 @@
+import { appendFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
-import { recordHookEvent } from '../sessions/hook-events.js';
+import { eventsLog, recordHookEvent } from '../sessions/hook-events.js';
 import {
   newSession,
   profilePaths,
@@ -122,4 +124,21 @@ test('quiet delivery digests new notices once and respects each kind across rest
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
   setConfigValue(paths.config, 'notifications.finished', 'sound');
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+});
+
+test('inbox reads a bounded hook tail while retaining the newest notice', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const session = testStore(home).create(() => newSession());
+  const file = eventsLog(profilePaths(home, 'default').events, session.id);
+  mkdirSync(dirname(file), { recursive: true });
+  const event = (at: string, name: string, payload: object = {}) =>
+    `${JSON.stringify({ at, agent: 'claude', event: name, payload })}\n`;
+  appendFileSync(file, event('2026-09-24T12:00:00.000Z', 'Stop'));
+  appendFileSync(
+    file,
+    event('2026-09-24T12:00:01.000Z', 'PostToolUse', { filler: 'x'.repeat(128 * 1024) }),
+  );
+  appendFileSync(file, event('2026-09-24T12:00:02.000Z', 'Stop'));
+  expect(mesa.notifications.list().map((item) => item.at)).toEqual(['2026-09-24T12:00:02.000Z']);
 });

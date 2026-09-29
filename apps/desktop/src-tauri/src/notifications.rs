@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 
 use block2::DynBlock;
@@ -23,6 +25,7 @@ pub enum Target {
 }
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
+static PROFILE: OnceLock<String> = OnceLock::new();
 static OPENED: Mutex<Option<Target>> = Mutex::new(None);
 
 define_class!(
@@ -55,14 +58,20 @@ define_class!(
                 == unsafe { UNNotificationDefaultActionIdentifier.to_string() }
             {
                 let id = response.notification().request().identifier().to_string();
-                if let (Some(app), Some(target)) = (APP.get(), target_from_id(&id)) {
-                    *OPENED.lock().expect("notification target lock poisoned") =
-                        Some(target.clone());
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
+                if let (Some(app), Some(current), Some((profile, target))) =
+                    (APP.get(), PROFILE.get(), target_from_id(&id))
+                {
+                    if &profile == current {
+                        *OPENED.lock().expect("notification target lock poisoned") =
+                            Some(target.clone());
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                        let _ = app.emit("notification-open", target);
+                    } else if let Err(error) = open_profile_notice(&profile, &id) {
+                        eprintln!("cannot open notification profile {profile}: {error}");
                     }
-                    let _ = app.emit("notification-open", target);
                 }
             }
             completion.call(());
@@ -70,8 +79,14 @@ define_class!(
     }
 );
 
-pub fn install(app: AppHandle) {
+pub fn install(app: AppHandle, profile: String, initial_notice: Option<String>) {
     let _ = APP.set(app);
+    let _ = PROFILE.set(profile.clone());
+    if let Some((origin, target)) = initial_notice.as_deref().and_then(target_from_id) {
+        if origin == profile {
+            *OPENED.lock().expect("notification target lock poisoned") = Some(target);
+        }
+    }
     static DELEGATE: OnceLock<Retained<MesaNotificationDelegate>> = OnceLock::new();
     let delegate = DELEGATE.get_or_init(|| {
         let allocated = MesaNotificationDelegate::alloc().set_ivars(());
@@ -81,29 +96,54 @@ pub fn install(app: AppHandle) {
         .setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&**delegate)));
 }
 
-fn notification_id(id: &str, target: &Target) -> String {
-    match target {
-        Target::Session { id: session } => format!("mesa/session/{session}/{id}"),
-        Target::Inbox => format!("mesa/inbox/{id}"),
-        Target::Doctor => format!("mesa/doctor/{id}"),
-    }
+fn notification_id(profile: &str, id: &str, target: &Target) -> String {
+    format!(
+        "mesa:{}",
+        serde_json::to_string(&(profile, id, target)).expect("string target")
+    )
 }
 
-fn target_from_id(id: &str) -> Option<Target> {
-    let rest = id.strip_prefix("mesa/")?;
-    if let Some(session) = rest.strip_prefix("session/") {
-        let (id, _) = session.split_once('/')?;
-        if valid_session_id(id) {
-            return Some(Target::Session { id: id.into() });
+fn target_from_id(id: &str) -> Option<(String, Target)> {
+    let (profile, notice, target): (String, String, Target) =
+        serde_json::from_str(id.strip_prefix("mesa:")?).ok()?;
+    if profile.is_empty() || profile.len() > 100 || notice.is_empty() || notice.len() > 100 {
+        return None;
+    }
+    if let Target::Session { id } = &target {
+        if !valid_session_id(id) {
+            return None;
         }
     }
-    if rest.starts_with("inbox/") {
-        return Some(Target::Inbox);
+    Some((profile, target))
+}
+
+fn open_profile_notice(profile: &str, id: &str) -> Result<(), String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    if let Some(bundle) = executable
+        .ancestors()
+        .find(|path| path.extension() == Some(OsStr::new("app")))
+    {
+        let status = Command::new("/usr/bin/open")
+            .arg("-n")
+            .arg("-a")
+            .arg(bundle)
+            .arg("--env")
+            .arg(format!("MESA_PROFILE={profile}"))
+            .arg("--env")
+            .arg(format!("MESA_OPEN_NOTIFICATION={id}"))
+            .status()
+            .map_err(|error| error.to_string())?;
+        if !status.success() {
+            return Err(format!("open exited with {status}"));
+        }
+    } else {
+        Command::new(executable)
+            .env("MESA_PROFILE", profile)
+            .env("MESA_OPEN_NOTIFICATION", id)
+            .spawn()
+            .map_err(|error| error.to_string())?;
     }
-    if rest.starts_with("doctor/") {
-        return Some(Target::Doctor);
-    }
-    None
+    Ok(())
 }
 
 fn valid_session_id(id: &str) -> bool {
@@ -182,7 +222,8 @@ pub async fn notification_send(
     ) {
         return Err("notification permission is not granted".into());
     }
-    let native_id = notification_id(&id, &target);
+    let profile = PROFILE.get().ok_or("notification profile is unavailable")?;
+    let native_id = notification_id(profile, &id, &target);
     let mut notification = Notification::new()
         .id(&native_id)
         .title(title)
@@ -203,8 +244,13 @@ mod tests {
         let target = Target::Session {
             id: "4x16xscr".into(),
         };
-        let id = notification_id("2026-09-29T01:00:00Z:abc", &target);
-        assert!(matches!(target_from_id(&id), Some(Target::Session { id }) if id == "4x16xscr"));
-        assert!(target_from_id("mesa/session/../../bad").is_none());
+        let id = notification_id("work", "2026-09-29T01:00:00Z:abc", &target);
+        assert!(
+            matches!(target_from_id(&id), Some((profile, Target::Session { id })) if profile == "work" && id == "4x16xscr")
+        );
+        assert!(target_from_id(
+            "mesa:[\"work\",\"notice\",{\"kind\":\"session\",\"id\":\"../bad\"}]"
+        )
+        .is_none());
     }
 }

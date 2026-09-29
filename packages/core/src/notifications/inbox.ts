@@ -140,7 +140,7 @@ export function inbox(ctx: MesaContext) {
   };
   const list = (): InboxItem[] => {
     const entries: Candidate[] = ctx.store.list().flatMap((record) =>
-      readHookEvents(ctx.paths.events, record.id).flatMap((event) => {
+      readHookEvents(ctx.paths.events, record.id, 128 * 1024).flatMap((event) => {
         const item = itemFor(record.id, event);
         return item ? [item] : [];
       }),
@@ -170,7 +170,7 @@ export function inbox(ctx: MesaContext) {
       last.set(entry.fingerprint, at);
     }
     const state = read();
-    // ponytail: only the latest 500 events are shown; index hook logs if large profiles need more.
+    // ponytail: read the tail of each log; index hooks if 128 KiB per session misses useful history.
     return distinct
       .slice(-500)
       .filter((entry) => !state.cleared.includes(`${entry.at}:${entry.fingerprint}`))

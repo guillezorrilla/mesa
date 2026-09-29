@@ -18,7 +18,8 @@ export function usageService(ctx: MesaContext) {
     list: async (session?: string) => {
       const fresh: UsageRecord[] = [];
       const unknown: { session: string; reason: string }[] = [];
-      for (const record of ctx.store.list()) {
+      const records = ctx.store.list();
+      for (const record of records) {
         if (session && record.id !== session) continue;
         if (record.agent === 'terminal') continue;
         const nativeIds = new Set([
@@ -66,7 +67,17 @@ export function usageService(ctx: MesaContext) {
         }
       }
       const rows = ledger.merge(fresh).filter((row) => !session || row.session === session);
-      const summary = summarizeUsage(rows, ctx.deps.clock());
+      const now = ctx.deps.clock();
+      const unknownIds = new Set(unknown.map((item) => item.session));
+      const summary = summarizeUsage(
+        rows,
+        now,
+        records.filter((record) => unknownIds.has(record.id)),
+      );
+      const known = summarizeUsage(
+        rows.filter((row) => row.estimatedCostUsd !== null),
+        now,
+      );
       const config = existsSync(ctx.paths.config) ? loadConfig(ctx.paths.config).usage : undefined;
       const alerts = (
         [
@@ -75,7 +86,7 @@ export function usageService(ctx: MesaContext) {
           ['month', config?.monthlyAlertUsd ?? 0],
         ] as const
       ).flatMap(([period, thresholdUsd]) => {
-        const knownCostUsd = summary.periods[period].estimatedCostUsd;
+        const knownCostUsd = known.periods[period].estimatedCostUsd;
         return !session && thresholdUsd > 0 && knownCostUsd !== null && knownCostUsd >= thresholdUsd
           ? [{ period, thresholdUsd, knownCostUsd }]
           : [];
