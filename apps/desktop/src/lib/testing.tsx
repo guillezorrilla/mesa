@@ -17,7 +17,7 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Bridge } from './client';
 import { MesaRoot } from './MesaRoot';
-import type { Platform, TerminalHost } from './platform';
+import type { BrowserHost, Platform, TerminalHost } from './platform';
 
 // React needs this flag to run act() outside a test renderer.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -138,11 +138,26 @@ export const fakePlatform = ({
   folder = null,
   file = null,
   terminal = fakeTerminals().host,
+  browser = {
+    owner: async () => ({ pid: 42, socket: '/tmp/mesa-browser-42.sock' }),
+    open: async () => 'browser-test',
+    navigate: async () => {},
+    bounds: async () => {},
+    close: async () => {},
+    probe: async () => ({ url: 'https://example.test/', title: 'Example', heading: 'Example' }),
+    back: async () => {},
+    forward: async () => {},
+    reload: async () => {},
+    pickStart: async () => {},
+    pickResult: async () => null,
+    onLoad: async () => () => {},
+  },
   deepLinks = { current: async () => null, onOpen: async () => () => {} },
 }: {
   folder?: string | null;
   file?: string | null;
   terminal?: TerminalHost;
+  browser?: BrowserHost;
   deepLinks?: Platform['deepLinks'];
 } = {}): Platform & {
   pasteboard: string[];
@@ -153,6 +168,7 @@ export const fakePlatform = ({
     pickFile: async () => file,
     deepLinks,
     terminal,
+    browser,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,
   };

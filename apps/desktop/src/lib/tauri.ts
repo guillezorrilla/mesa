@@ -4,10 +4,24 @@ import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fromBase64 } from './bytes';
 import type { Bridge } from './client';
-import type { Platform } from './platform';
+import type { BrowserSelection, Platform } from './platform';
 
 /** The real bridge: the Rust `run_mesa` command, which spawns the mesa CLI. */
 export const tauriBridge: Bridge = (args) => invoke('run_mesa', { args });
+
+const browserLifecycle = new Map<string, Promise<unknown>>();
+function withBrowserLifecycle<T>(sessionId: string, task: () => Promise<T>): Promise<T> {
+  const next = (browserLifecycle.get(sessionId) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(task);
+  browserLifecycle.set(sessionId, next);
+  void next
+    .finally(() => {
+      if (browserLifecycle.get(sessionId) === next) browserLifecycle.delete(sessionId);
+    })
+    .catch(() => undefined);
+  return next;
+}
 
 /** The real platform: Tauri's native dialogs, the Rust terminals, and the pasteboard. */
 export const tauriPlatform: Platform = {
@@ -29,6 +43,41 @@ export const tauriPlatform: Platform = {
       listen<string>(`term://data/${termId}`, (e) => listener(fromBase64(e.payload))),
     onExit: (termId, listener) => listen(`term://exit/${termId}`, () => listener()),
     ready: (termId) => invoke('term_ready', { termId }),
+  },
+  browser: {
+    owner: () => invoke('browser_owner'),
+    open: (sessionId, url, bounds) =>
+      withBrowserLifecycle(sessionId, () =>
+        invoke('browser_open', { session: sessionId, url, ...bounds }),
+      ),
+    navigate: (sessionId, url) =>
+      withBrowserLifecycle(sessionId, () =>
+        invoke('browser_navigate', { session: sessionId, url }),
+      ),
+    bounds: (sessionId, bounds) =>
+      withBrowserLifecycle(sessionId, () =>
+        invoke('browser_bounds', { session: sessionId, ...bounds }),
+      ),
+    close: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_close', { session: sessionId })),
+    probe: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_probe', { session: sessionId })),
+    back: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_back', { session: sessionId })),
+    forward: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_forward', { session: sessionId })),
+    reload: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_reload', { session: sessionId })),
+    pickStart: (sessionId) =>
+      withBrowserLifecycle(sessionId, () => invoke('browser_pick_start', { session: sessionId })),
+    pickResult: (sessionId) =>
+      withBrowserLifecycle(sessionId, () =>
+        invoke<BrowserSelection | null>('browser_pick_result', { session: sessionId }),
+      ),
+    onLoad: (listener) =>
+      listen<{ session: string; url: string }>('browser://load', (event) =>
+        listener(event.payload),
+      ),
   },
   clipboard: { write: (text) => invoke('clipboard_write', { text }) },
 };

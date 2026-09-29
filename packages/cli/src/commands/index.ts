@@ -4,6 +4,13 @@ import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { board, boardMove } from './board.js';
+import {
+  browserAnnotationPreview,
+  browserAnnotationSend,
+  browserClear,
+  browserExternal,
+  browserSelect,
+} from './browser.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { dependency } from './dependency.js';
@@ -51,6 +58,7 @@ import { help } from './help.js';
 import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
+import { imagePreview, imageSend } from './image.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
@@ -62,6 +70,14 @@ import { register } from './register.js';
 import { rename } from './rename.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
+import {
+  reviewChangePreview,
+  reviewChangeSend,
+  reviewChanges,
+  reviewPreview,
+  reviewResponses,
+  reviewSend,
+} from './review.js';
 import { rm } from './rm.js';
 import { rulesList, rulesRead, rulesWrite } from './rules.js';
 import { run } from './run.js';
@@ -94,6 +110,11 @@ export const COMMANDS: Command[] = [
   attach,
   board,
   boardMove,
+  browserAnnotationPreview,
+  browserAnnotationSend,
+  browserSelect,
+  browserClear,
+  browserExternal,
   config,
   configSet,
   dependency,
@@ -144,6 +165,8 @@ export const COMMANDS: Command[] = [
   hooksInstall,
   hooksStatus,
   hooksUninstall,
+  imagePreview,
+  imageSend,
   init,
   log,
   logs,
@@ -157,6 +180,12 @@ export const COMMANDS: Command[] = [
   receiptsShow,
   register,
   rename,
+  reviewResponses,
+  reviewPreview,
+  reviewSend,
+  reviewChanges,
+  reviewChangePreview,
+  reviewChangeSend,
   rulesList,
   rulesRead,
   rulesWrite,

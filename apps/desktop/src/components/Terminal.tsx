@@ -31,10 +31,13 @@ export function Terminal(props: {
   sessionId: string;
   fill?: boolean;
   onFileLink?: (session: string, target: string) => void;
+  onWebLink?: (session: string, url: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const onFileLink = useRef(props.onFileLink);
   onFileLink.current = props.onFileLink;
+  const onWebLink = useRef(props.onWebLink);
+  onWebLink.current = props.onWebLink;
   const platform = usePlatform();
   const run = useRun();
   useEffect(() => {
@@ -76,25 +79,42 @@ export function Terminal(props: {
     const links = term.registerLinkProvider({
       provideLinks(lineNumber, callback) {
         const text = term.buffer.active.getLine(lineNumber - 1)?.translateToString(true) ?? '';
+        const web = [...text.matchAll(/https?:\/\/[^\s<>"'`]+/g)].map((match) => {
+          const target = match[0].replace(/[),.;!?\]}]+$/, '');
+          const start = (match.index ?? 0) + 1;
+          return {
+            text: target,
+            range: {
+              start: { x: start, y: lineNumber },
+              end: { x: start + target.length - 1, y: lineNumber },
+            },
+            activate: () => onWebLink.current?.(props.sessionId, target),
+          };
+        });
         const matches = [
           ...text.matchAll(
             /(?:^|[\s('"`])((?:\/?[\w.@+-]+\/)*[\w.@+-]+\.[\w+-]+:\d+(?::\d+)?)(?=$|[\s),;])/g,
           ),
         ];
-        callback(
-          matches.map((match) => {
+        callback([
+          ...web,
+          ...matches.flatMap((match) => {
             const target = match[1] as string;
             const start = (match.index ?? 0) + match[0].indexOf(target) + 1;
-            return {
-              text: target,
-              range: {
-                start: { x: start, y: lineNumber },
-                end: { x: start + target.length - 1, y: lineNumber },
+            if (web.some((link) => start >= link.range.start.x && start <= link.range.end.x))
+              return [];
+            return [
+              {
+                text: target,
+                range: {
+                  start: { x: start, y: lineNumber },
+                  end: { x: start + target.length - 1, y: lineNumber },
+                },
+                activate: () => onFileLink.current?.(props.sessionId, target),
               },
-              activate: () => onFileLink.current?.(props.sessionId, target),
-            };
+            ];
           }),
-        );
+        ]);
       },
     });
     term.onData((data) => {
