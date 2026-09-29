@@ -7,12 +7,14 @@ import { createFaro } from './decisions/faro.js';
 import { runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
+import { inbox } from './notifications/inbox.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { receiptsService } from './receipts/service.js';
 import { rulesService } from './rules/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
+import { usageService } from './usage/service.js';
 import { vaultService } from './vault/service.js';
 import { worktreesService } from './worktrees/service.js';
 
@@ -39,6 +41,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...sessionsService(ctx, faro, skills),
     hooks: hooksService(ctx),
     skills,
+    usage: usageService(ctx),
+    notifications: inbox(ctx),
     rules: rulesService(ctx),
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },

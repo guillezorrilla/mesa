@@ -1,0 +1,49 @@
+import { expect, test } from 'vitest';
+import { createMesa } from '../mesa.js';
+import { recordHookEvent } from '../sessions/hook-events.js';
+import {
+  newSession,
+  profilePaths,
+  projectProfile,
+  scriptedRunner,
+  testDeps,
+  testStore,
+} from '../testing/index.js';
+
+test('inbox deduplicates a question pair, keeps child alerts separate, and survives restart', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const store = testStore(home);
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  const session = store.create(() => newSession({ agentSessionId: nativeId }));
+  let second = 0;
+  const deps = {
+    store,
+    eventsDir: profilePaths(home, 'default').events,
+    clock: () => new Date(`2026-09-24T12:00:${String(second++).padStart(2, '0')}.000Z`),
+    home,
+    secrets: () => [],
+  };
+  const hook = (event: string, extra: Record<string, unknown> = {}) =>
+    recordHookEvent(deps, {
+      agent: 'claude',
+      mesaSessionId: session.id,
+      payload: JSON.stringify({ session_id: nativeId, hook_event_name: event, ...extra }),
+    });
+  hook('PreToolUse', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
+  hook('PermissionRequest', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
+  hook('PermissionRequest', { agent_id: 'agent-lantern', tool_name: 'Bash' });
+  hook('Stop');
+
+  const first = mesa.notifications.list();
+  expect(first.map((item) => item.kind)).toEqual(['finished', 'subagent', 'input-required']);
+  expect(first.every((item) => item.target.id === session.id && !item.read)).toBe(true);
+  const firstId = first[0]?.id;
+  if (!firstId) throw new Error('expected a finished inbox item');
+  mesa.notifications.markRead(firstId);
+  const restarted = createMesa('default', testDeps(home));
+  expect(restarted.notifications.list()[0]).toMatchObject({ id: firstId, read: true });
+  restarted.notifications.clear(firstId);
+  expect(restarted.notifications.list()).toHaveLength(2);
+  expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
+});

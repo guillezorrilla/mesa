@@ -49,6 +49,7 @@ export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
+export type { InboxItem } from './notifications/inbox.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
 export {
@@ -99,6 +100,7 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-stat
 export type { Worktree } from './sessions/worktree.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
+export type { UsageRecord, UsageReport } from './usage/records.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';

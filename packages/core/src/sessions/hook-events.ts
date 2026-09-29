@@ -22,6 +22,10 @@ export type HookEvent = {
   payload: unknown;
 };
 
+/** Claude marks hooks fired inside a subagent with agent_id; they are not parent state signals. */
+export const parentHook = (event: HookEvent) =>
+  !event.payload || typeof event.payload !== 'object' || !('agent_id' in event.payload);
+
 /** A session's hook events log: `<events>/<Mesa session id>.jsonl`. */
 export const eventsLog = (eventsDir: string, id: string) => join(eventsDir, `${id}.jsonl`);
 

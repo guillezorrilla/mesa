@@ -21,6 +21,8 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     events: '/h/.mesa/work/sessions/events',
     logs: '/h/.mesa/work/sessions/logs',
     runs: '/h/.mesa/work/sessions/runs',
+    usage: '/h/.mesa/work/usage.json',
+    notifications: '/h/.mesa/work/notifications.json',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
     checkouts: '/h/.mesa/work/checkouts',

@@ -223,12 +223,12 @@ test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', as
   await cli.withProject();
   const installed = (await mesa('hooks', 'install', '--json')).json.data.codex;
   expect(installed.installed).toBe(true);
-  expect(Object.values(installed.trusted)).toEqual(Array(7).fill(false));
+  expect(Object.values(installed.trusted)).toEqual(Array(9).fill(false));
   expect((await mesa('hooks', 'status')).stdout).toContain('UNTRUSTED SessionStart');
   const findings = (await mesa('doctor', '--json')).json.data.checks.filter((c: { name: string }) =>
     c.name.startsWith('codex hooks '),
   );
-  expect(findings).toHaveLength(7);
+  expect(findings).toHaveLength(9);
   expect(
     findings.every(
       (c: { status: string; hint: string }) =>
