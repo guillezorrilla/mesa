@@ -63,7 +63,14 @@ import { register } from './register.js';
 import { rename } from './rename.js';
 import { resize } from './resize.js';
 import { resume } from './resume.js';
-import { reviewPreview, reviewResponses, reviewSend } from './review.js';
+import {
+  reviewChangePreview,
+  reviewChangeSend,
+  reviewChanges,
+  reviewPreview,
+  reviewResponses,
+  reviewSend,
+} from './review.js';
 import { rm } from './rm.js';
 import { rulesList, rulesRead, rulesWrite } from './rules.js';
 import { run } from './run.js';
@@ -164,6 +171,9 @@ export const COMMANDS: Command[] = [
   reviewResponses,
   reviewPreview,
   reviewSend,
+  reviewChanges,
+  reviewChangePreview,
+  reviewChangeSend,
   rulesList,
   rulesRead,
   rulesWrite,

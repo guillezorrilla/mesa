@@ -1368,6 +1368,85 @@ test('selected session reviews an exact native response passage beside its runni
   expect(byTestId('response-review-preview')[0]?.textContent).toContain('Delivered');
 });
 
+test('selected session reviews a Git hunk beside its running terminal', async () => {
+  const change = {
+    profile: 'default',
+    session: 'aaaaaaaa',
+    project: 'lantern-cove',
+    checkout: '/tmp/lantern-cove',
+    path: 'review.txt',
+    staged: false,
+    base: 'a'.repeat(40),
+    source: 'b'.repeat(64),
+    revision: 'c'.repeat(64),
+    hunks: [{ index: 0, header: '@@ -1 +1 @@', text: '@@ -1 +1 @@\n-before\n+after\n' }],
+  };
+  const preview = {
+    id: 'd'.repeat(64),
+    target: 'aaaaaaaa',
+    source: change.source,
+    revision: change.revision,
+    passage: change.hunks[0]?.text,
+    comment: 'Please check this edit.',
+    prompt: 'Review this exact Git hunk',
+    path: change.path,
+    base: change.base,
+    staged: false,
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    'review responses': () => envelope({ rows: [], reviews: [], truncated: false }),
+    'git status': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/tmp/lantern-cove', registered: true },
+        branch: 'main',
+        changes: [{ path: 'review.txt', index: ' ', workingTree: 'M' }],
+      }),
+    'review changes': () => envelope(change),
+    'review change-preview': () => envelope(preview),
+    'review change-send': () =>
+      envelope({ id: preview.id, target: 'aaaaaaaa', status: 'delivered' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Review responses"]') as HTMLElement);
+  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
+  await click(
+    [...review.querySelectorAll('button')].find((button) => button.textContent === 'Changes'),
+  );
+  await click(
+    [...review.querySelectorAll('button')].find((button) => button.textContent === 'review.txt'),
+  );
+  await click(
+    [...review.querySelectorAll('button')].find((button) => button.textContent === '@@ -1 +1 @@'),
+  );
+  const comment = review.querySelector('#change-review-comment') as HTMLTextAreaElement;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+      comment,
+      'Please check this edit.',
+    );
+    comment.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [...review.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Preview review',
+    ),
+  );
+  expect(byTestId('change-review-preview')[0]?.textContent).toContain(preview.prompt);
+  await click(
+    [...review.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Send review'),
+    ),
+  );
+  expect(
+    calls.some(
+      (args) => args[1] === 'review' && args[2] === 'change-send' && args.includes('aaaaaaaa'),
+    ),
+  ).toBe(true);
+  expect(byTestId('terminal-panel')).toHaveLength(1);
+});
+
 test('switching sessions while the image picker is open discards the old selection', async () => {
   let chooseFile!: (path: string) => void;
   const file = new Promise<string>((resolve) => {

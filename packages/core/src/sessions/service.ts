@@ -19,6 +19,7 @@ import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { callerOf } from './caller.js';
+import { changeReview, previewChangeReview } from './change-review.js';
 import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
 import { applyDescendants } from './descendants.js';
@@ -42,8 +43,9 @@ import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
-import { previewResponseReview, sendResponseReview, sessionResponses } from './responses.js';
+import { previewResponseReview, sessionResponses } from './responses.js';
 import { resumeSession } from './resume.js';
+import { sendReview } from './reviews.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
 import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
@@ -322,10 +324,30 @@ export function sessionsService(
           input: Parameters<typeof previewResponseReview>[2],
           opts: { noFrom?: boolean } & Overrides = {},
         ) =>
-          sendResponseReview(
-            { profile, store, home: deps.home, env: deps.env, clock: deps.clock, send },
+          sendReview(
+            { store, clock: deps.clock, send },
             id,
-            input,
+            'response',
+            () =>
+              previewResponseReview({ profile, store, home: deps.home, env: deps.env }, id, input),
+            opts,
+          ),
+      },
+      changes: {
+        read: (id: string, path: string, staged = false) =>
+          changeReview({ profile, store, open, run: deps.run }, id, path, staged),
+        preview: (id: string, input: Parameters<typeof previewChangeReview>[2]) =>
+          previewChangeReview({ profile, store, open, run: deps.run }, id, input),
+        send: (
+          id: string,
+          input: Parameters<typeof previewChangeReview>[2],
+          opts: { noFrom?: boolean } & Overrides = {},
+        ) =>
+          sendReview(
+            { store, clock: deps.clock, send },
+            id,
+            'change',
+            () => previewChangeReview({ profile, store, open, run: deps.run }, id, input),
             opts,
           ),
       },

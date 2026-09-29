@@ -70,6 +70,11 @@ export { type SearchHit, searchWorkspace } from './search/search.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
+export type {
+  ChangeReview,
+  ChangeReviewInput,
+  ChangeReviewPreview,
+} from './sessions/change-review.js';
 export type { DescendantResult } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
@@ -91,11 +96,10 @@ export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type {
   NativeResponse,
-  ResponseReviewDelivery,
   ResponseReviewPreview,
-  SavedReview,
   SessionResponses,
 } from './sessions/responses.js';
+export type { ReviewDelivery as ResponseReviewDelivery, SavedReview } from './sessions/reviews.js';
 export type { HeadlessResult } from './sessions/run.js';
 export type { ConversationHit, ConversationSearch } from './sessions/search.js';
 export type { Sent } from './sessions/send.js';
