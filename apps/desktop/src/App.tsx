@@ -1,5 +1,5 @@
 import type { TreeRow } from '@mesa/core';
-import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
+import { DEFAULT_APPEARANCE, DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { Plus, Search, TerminalSquare, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from './components/ActionDialog';
@@ -21,22 +21,31 @@ import { usePlatform } from './lib/MesaRoot';
 import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
+import { BackupScreen } from './screens/BackupScreen';
 import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { HelpScreen } from './screens/HelpScreen';
 import { InboxScreen } from './screens/InboxScreen';
+import { PreferencesScreen } from './screens/PreferencesScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
+import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
 import { ShortcutSettings } from './screens/ShortcutSettings';
+import { TourScreen } from './screens/TourScreen';
 import { UsageScreen } from './screens/UsageScreen';
 
 export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
   const [filesDirty, setFilesDirty] = useState(false);
+  const [quitOpen, setQuitOpen] = useState(false);
+  const closing = useRef(false);
+  const approvedClose = useRef(false);
+  const cancelClose = useRef(false);
   const [pendingView, setPendingView] = useState<WorkspaceView>();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sessions, setSessions] = useState<TreeRow[]>([]);
   const openedInitialSession = useRef(false);
+  const openedInitialTour = useRef(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [newSessionRequest, setNewSessionRequest] = useState<{
     count: number;
@@ -47,6 +56,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<{
     count: number;
     id: string;
+  }>();
+  const [promptInsertRequest, setPromptInsertRequest] = useState<{
+    session: string;
+    text: string;
   }>();
   const [pendingNewSession, setPendingNewSession] = useState<{
     project?: string;
@@ -86,19 +99,101 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     },
     [navigate, run],
   );
-  const { deepLinks, notifications } = usePlatform();
+  const { deepLinks, notifications, lifecycle } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
+  const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
   useEffect(() => {
-    if (startOnBoard || openedInitialSession.current || !projects.data || sessions.length === 0)
+    if (!config.data || openedInitialTour.current) return;
+    openedInitialTour.current = true;
+    if (config.data.onboarding?.status === 'active')
+      setView((current) => (current.kind === 'board' ? { kind: 'tour' } : current));
+  }, [config.data]);
+  const finishQuit = useCallback(async () => {
+    if (closing.current) return;
+    closing.current = true;
+    try {
+      if (config.data?.application?.backupOnClose && !(await run('backup.create'))) return;
+      if (cancelClose.current) return;
+      approvedClose.current = true;
+      await lifecycle.close();
+      setQuitOpen(false);
+    } catch (error) {
+      toast(
+        `Could not close Mesa: ${error instanceof Error ? error.message : String(error)}`,
+        'alert',
+      );
+    } finally {
+      approvedClose.current = false;
+      closing.current = false;
+    }
+  }, [config.data?.application?.backupOnClose, lifecycle, run, toast]);
+  useEffect(() => {
+    if (!config.data) return;
+    let active = true;
+    let stop: (() => void) | undefined;
+    void lifecycle
+      .onCloseRequested((event) => {
+        if (approvedClose.current) return;
+        event.preventDefault();
+        cancelClose.current = false;
+        if (config.data?.application?.warnBeforeQuit ?? true) setQuitOpen(true);
+        else void finishQuit();
+      })
+      .then((unlisten) => {
+        if (active) stop = unlisten;
+        else unlisten();
+      });
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, [config.data?.application?.warnBeforeQuit, config.data, lifecycle, finishQuit]);
+  const appearance = config.data?.appearance ?? DEFAULT_APPEARANCE;
+  useEffect(() => {
+    const root = document.documentElement;
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      root.dataset.theme =
+        appearance.theme === 'system' ? (media?.matches ? 'dark' : 'light') : appearance.theme;
+    };
+    applyTheme();
+    media?.addEventListener('change', applyTheme);
+    root.dataset.font = appearance.font;
+    root.dataset.density = appearance.density;
+    root.dataset.colorVision = appearance.colorVision;
+    root.style.fontSize = `${appearance.fontSize}px`;
+    return () => {
+      media?.removeEventListener('change', applyTheme);
+      delete root.dataset.theme;
+      delete root.dataset.font;
+      delete root.dataset.density;
+      delete root.dataset.colorVision;
+      root.style.removeProperty('font-size');
+    };
+  }, [
+    appearance.theme,
+    appearance.font,
+    appearance.fontSize,
+    appearance.density,
+    appearance.colorVision,
+  ]);
+  useEffect(() => {
+    if (
+      startOnBoard ||
+      config.data?.onboarding?.status === 'active' ||
+      openedInitialSession.current ||
+      !projects.data ||
+      sessions.length === 0
+    )
       return;
     const first = sessions.find((session) => session.managed && !session.endedAt);
     if (!first) return;
     openedInitialSession.current = true;
     setView((current) => (current.kind === 'board' ? { kind: 'session', id: first.id } : current));
-  }, [projects.data, sessions, startOnBoard]);
+  }, [projects.data, sessions, startOnBoard, config.data?.onboarding?.status]);
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
   const requestNewSession = useCallback(
@@ -362,6 +457,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               newSessionRequest={newSessionRequest}
               archiveSessionRequest={archiveSessionRequest}
               preferences={config.data?.board}
+              terminalPreferences={config.data?.terminal}
+              savedPrompts={prompts.data}
+              promptInsertRequest={promptInsertRequest}
               onPreferencesChanged={() => void config.refresh()}
               onSelectSession={(id) => navigate({ kind: 'session', id })}
               onFileLink={openFileLink}
@@ -410,6 +508,40 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
             />
           )}
           {view.kind === 'help' && <HelpScreen />}
+          {view.kind === 'preferences' && (
+            <PreferencesScreen
+              config={config.data}
+              onChanged={() => void config.refresh()}
+              onNavigate={(kind) => navigate({ kind })}
+              onReplayTour={() =>
+                void act(async () => {
+                  if (
+                    !(await run('config.set', {
+                      path: 'onboarding',
+                      value: { status: 'active', step: 0 },
+                    }))
+                  )
+                    return undefined;
+                  await config.refresh();
+                  navigate({ kind: 'tour' });
+                  return undefined;
+                })
+              }
+            />
+          )}
+          {view.kind === 'prompts' && (
+            <SavedPromptsScreen prompts={prompts.data} onChanged={() => void prompts.refresh()} />
+          )}
+          {view.kind === 'backup' && <BackupScreen />}
+          {view.kind === 'tour' && config.data && (
+            <TourScreen
+              state={config.data.onboarding}
+              onChanged={() => void config.refresh()}
+              onFinish={() => navigate({ kind: 'board' })}
+              onNavigate={(kind) => navigate({ kind })}
+              onSearch={openSearch}
+            />
+          )}
           {view.kind === 'shortcuts' && (
             <ShortcutSettings
               shortcuts={config.data?.shortcuts}
@@ -423,11 +555,15 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
         onClose={() => setSearchOpen(false)}
         projects={projects.data ?? []}
         sessions={sessions}
+        prompts={view.kind === 'session' ? prompts.data : undefined}
         returnFocus={searchReturnFocus.current}
         onSelect={(hit) => {
           if (hit.kind === 'project') navigate({ kind: 'project', name: hit.id });
           else if (hit.kind === 'session') navigate({ kind: 'session', id: hit.id });
-          else if (hit.id === 'new-session') {
+          else if (hit.kind === 'prompt' && view.kind === 'session') {
+            const saved = prompts.data?.find((prompt) => prompt.name === hit.id);
+            if (saved) setPromptInsertRequest({ session: view.id, text: saved.text });
+          } else if (hit.id === 'new-session') {
             requestNewSession();
           } else if (hit.id === 'open-vault') {
             void act(async () => warned((await run('vault.open'))?.warning));
@@ -444,6 +580,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               destination === 'usage' ||
               destination === 'inbox' ||
               destination === 'help' ||
+              destination === 'preferences' ||
+              destination === 'prompts' ||
+              destination === 'backup' ||
               destination === 'shortcuts'
             ) {
               navigate({ kind: destination });
@@ -479,6 +618,24 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           }}
         >
           <p className="text-sm">Unsaved edits will be lost.</p>
+        </ActionDialog>
+      )}
+      {quitOpen && (
+        <ActionDialog
+          testId="quit-dialog"
+          title="Quit Mesa?"
+          description="Agent sessions keep running after the app closes."
+          submit={{ label: 'Quit Mesa', testId: 'confirm-quit', disabled: closing.current }}
+          onSubmit={() => {
+            cancelClose.current = false;
+            void finishQuit();
+          }}
+          onCancel={() => {
+            cancelClose.current = true;
+            setQuitOpen(false);
+          }}
+        >
+          <p className="text-sm">You can return to your sessions when you reopen Mesa.</p>
         </ActionDialog>
       )}
     </div>

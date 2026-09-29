@@ -63,6 +63,7 @@ export type { DiscoveredProject } from './projects/discover.js';
 export type { Project } from './projects/project-file.js';
 export { repositoryUrl } from './projects/project-url.js';
 export type { ProjectRow } from './projects/projects.js';
+export type { SavedPrompt } from './prompts/prompts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export type { Recorded } from './receipts/recorder.js';

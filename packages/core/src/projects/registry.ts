@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { parseWith } from '../lib/schema.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
 /** Profile-local presentation metadata never changes the project's stable mesa.yaml slug. */
@@ -25,6 +26,8 @@ const RegistrySchema = z.strictObject({
 });
 
 const HEADER = 'Projects registered with this profile. Managed by mesa register.';
+export const parseRegistryEntries = (input: unknown, file: string): RegistryEntry[] =>
+  parseWith(RegistrySchema.shape.projects, input, file);
 
 export const readRegistry = (file: string): RegistryEntry[] =>
   existsSync(file) ? readYaml(file, RegistrySchema).projects : [];

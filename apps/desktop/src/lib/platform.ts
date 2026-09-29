@@ -50,6 +50,12 @@ export type BrowserHost = {
 
 /** What the app asks of the OS itself, apart from mesa: dialogs, terminals, the pasteboard. A seam like the bridge. */
 export type Platform = {
+  lifecycle: {
+    onCloseRequested: (
+      handler: (event: { preventDefault: () => void }) => void,
+    ) => Promise<() => void>;
+    close: () => Promise<void>;
+  };
   /** A folder the user picks, or null when they cancel. */
   pickFolder: () => Promise<string | null>;
   /** A file the user picks (a handoff note), or null when they cancel. */

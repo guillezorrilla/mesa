@@ -1957,7 +1957,27 @@ test('shortcut settings validate conflicts and update the active profile key', a
       subagent: 'silent',
       doctor: 'silent',
     },
-    terminal: { app: 'Terminal' },
+    application: { warnBeforeQuit: true, backupOnClose: false },
+    onboarding: { status: 'complete', step: 0 },
+    appearance: {
+      theme: 'system',
+      font: 'plex',
+      fontSize: 16,
+      density: 'comfortable',
+      colorVision: 'normal',
+    },
+    terminal: {
+      app: 'Terminal',
+      theme: 'follow',
+      fontSize: 13,
+      fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+      optionAsMeta: false,
+      naturalSelection: false,
+      scrollSpeed: 3,
+      extraSubmitKey: 'none',
+      newlineKey: 'native',
+      wezTermNewTab: false,
+    },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
       location: 'profile',
@@ -2004,6 +2024,147 @@ test('shortcut settings validate conflicts and update the active profile key', a
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', metaKey: true }));
   });
   expect(byTestId('command-palette')).toHaveLength(1);
+});
+
+test('appearance preference saves through config and updates the live app theme', async () => {
+  const baseline = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+  let config = baseline.data;
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config),
+    'config set': (args) => {
+      const value = JSON.parse(args.at(-1) ?? '""');
+      config = { ...config, appearance: { ...config.appearance, theme: value } };
+      return envelope({ path: 'appearance.theme', value });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-preferences')[0]);
+  const theme = document.getElementById('appearance-theme') as HTMLSelectElement;
+  await act(async () => {
+    theme.value = 'dark';
+    theme.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'appearance.theme', '"dark"']);
+  expect(document.documentElement.dataset.theme).toBe('dark');
+});
+
+test('palette inserts a saved multiline prompt in the selected session without sending it', async () => {
+  const text = 'Review this change\n\n  Keep the indentation.\n';
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    prompts: () => envelope([{ name: 'Review', text }]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('selected-session')).toHaveLength(1);
+  await click(byTestId('search-trigger')[0]);
+  await click(
+    byTestId('palette-hit').find((hit) => hit.textContent?.includes('Insert saved prompt')),
+  );
+  expect((document.querySelector('textarea[name="prompt"]') as HTMLTextAreaElement).value).toBe(
+    text,
+  );
+  expect(calls.some((args) => args.includes('send'))).toBe(false);
+});
+
+test('a saved prompt fills a new Claude session goal byte for byte without starting it', async () => {
+  const text = 'First instruction\n\n  Keep this indentation.\n';
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    prompts: () => envelope([{ name: 'Review', text }]),
+    open: () => envelope(managedRow('aaaaaaaa')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="New session in lantern-cove"]') as HTMLElement);
+  await click([...document.querySelectorAll<HTMLElement>('[role="menuitem"]')][0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('button')].find(
+      (button) => button.textContent === 'Saved prompts',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent === 'Review',
+    ),
+  );
+  expect((byTestId('new-session-goal')[0] as HTMLTextAreaElement).value).toBe(text);
+  expect(calls.some((args) => args[1] === 'open')).toBe(false);
+  await click(byTestId('new-session-submit')[0]);
+  const opened = calls.find((args) => args[1] === 'open');
+  expect(opened).toContain(`--goal=${text}`);
+});
+
+test('quitting can be cancelled, and a failed close-time backup keeps the app open', async () => {
+  const baseline = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+  const config = { ...baseline.data, application: { warnBeforeQuit: true, backupOnClose: true } };
+  let backupFails = true;
+  let requestClose: ((event: { preventDefault: () => void }) => void) | undefined;
+  let closes = 0;
+  const platform = fakePlatform({
+    lifecycle: {
+      onCloseRequested: async (handler) => {
+        requestClose = handler;
+        return () => {};
+      },
+      close: async () => {
+        closes++;
+      },
+    },
+  });
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config),
+    'backup create': () =>
+      backupFails ? failure('backup failed') : envelope({ path: '/invented/backup.json' }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  const request = async () => act(async () => requestClose?.({ preventDefault: () => {} }));
+  await request();
+  expect(byTestId('quit-dialog')).toHaveLength(1);
+  await click(byTestId('quit-dialog')[0]?.querySelector('button') ?? undefined);
+  expect(byTestId('quit-dialog')).toHaveLength(0);
+  expect(closes).toBe(0);
+  expect(calls.some((args) => args.includes('backup'))).toBe(false);
+  await request();
+  await click(byTestId('confirm-quit')[0]);
+  expect(closes).toBe(0);
+  expect(byTestId('quit-dialog')).toHaveLength(1);
+  backupFails = false;
+  await click(byTestId('confirm-quit')[0]);
+  expect(closes).toBe(1);
+  expect(calls.filter((args) => args.includes('backup'))).toHaveLength(2);
+});
+
+test('welcome tour resumes, skips, and replays without starting an agent', async () => {
+  const baseline = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+  let config = { ...baseline.data, onboarding: { status: 'active' as const, step: 1 } };
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config),
+    'config set': (args) => {
+      const path = args.at(-2) ?? '';
+      const value = JSON.parse(args.at(-1) ?? 'null');
+      config = {
+        ...config,
+        onboarding:
+          path === 'onboarding'
+            ? value
+            : { ...config.onboarding, [path.split('.').at(-1) ?? '']: value },
+      };
+      return envelope({ path, value });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 2 of 3');
+  const buttons = (testId: string) => [...(byTestId(testId)[0]?.querySelectorAll('button') ?? [])];
+  await click(buttons('welcome-tour').find((button) => button.textContent === 'Next'));
+  expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 3 of 3');
+  await click(buttons('welcome-tour').find((button) => button.textContent === 'Skip tour'));
+  expect(byTestId('welcome-tour')).toHaveLength(0);
+  await click(byTestId('nav-preferences')[0]);
+  await click(
+    buttons('preferences').find((button) => button.textContent === 'Replay welcome tour'),
+  );
+  expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 1 of 3');
+  expect(calls.some((args) => args.includes('open'))).toBe(false);
 });
 
 test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {

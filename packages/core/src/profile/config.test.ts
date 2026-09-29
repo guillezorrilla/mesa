@@ -99,6 +99,26 @@ test('editor preferences and external argv validate before saving', () => {
   }
 });
 
+test('appearance and terminal preferences validate in the profile config', () => {
+  expect(loadConfig(file)).toMatchObject({
+    appearance: { theme: 'system', fontSize: 16, colorVision: 'normal' },
+    terminal: { app: 'Terminal', theme: 'follow', fontSize: 13, scrollSpeed: 3 },
+  });
+  expect(setConfigValue(file, 'appearance.theme', 'dark').value).toBe('dark');
+  expect(setConfigValue(file, 'appearance.colorVision', 'red-green').value).toBe('red-green');
+  expect(setConfigValue(file, 'terminal.optionAsMeta', 'true').value).toBe(true);
+  const before = readFileSync(file, 'utf8');
+  for (const [path, value] of [
+    ['appearance.fontSize', '7'],
+    ['appearance.colorVision', 'unknown'],
+    ['terminal.scrollSpeed', '21'],
+    ['terminal.fontFamily', '""'],
+  ] as const) {
+    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  }
+});
+
 test('worktree settings retain the profile default and reject unsafe directories', () => {
   expect(loadConfig(file).worktrees).toEqual({
     location: 'profile',
