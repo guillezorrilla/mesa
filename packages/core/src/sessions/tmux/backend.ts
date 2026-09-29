@@ -42,7 +42,8 @@ export const nestedAgentVars = (env: Env) =>
   );
 
 /** tmux's answers when there is nothing to list; `no current target` is a server with no sessions. */
-const NOTHING_THERE = /no server running|error connecting to|can't find session|no current target/;
+const NOTHING_THERE =
+  /no server running|error connecting to .*\(No such file or directory\)|can't find session|no current target/;
 
 export function tmuxBackend({
   run,
