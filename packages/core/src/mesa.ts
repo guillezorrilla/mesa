@@ -1,3 +1,4 @@
+import { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
 import { hooksStatus } from './agents/claude/hooks.js';
 import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
 import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
@@ -63,6 +64,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         hooks: {
           claude: () => hooksStatus(deps.home, deps.self),
           codex: () => codexHooksStatus(codexHome(deps.env, deps.home), deps.self),
+          antigravity: () => antigravityHooksStatus(deps.home, deps.self),
           tmux: ctx.tmuxHook,
         },
         codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),

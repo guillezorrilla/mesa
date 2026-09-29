@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { antigravitySessionId } from '../agents/antigravity/log.js';
 import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
@@ -596,6 +597,10 @@ export function sessionsService(
         refreshContext(contextDeps, store.get(id));
         // Read again: the look may have saved a new state, or started it from its queue.
         const current = store.get(id);
+        const latestAntigravityId =
+          current.agent === 'antigravity'
+            ? antigravitySessionId({ logs: paths.logs }, current, new Set(), true)
+            : undefined;
         return {
           ...current,
           alive: row?.alive ?? false,
@@ -606,7 +611,12 @@ export function sessionsService(
             deps.self,
             readHookEvents(paths.events, id).some(
               (event) => event.event === 'SessionIdentityChanged',
-            ),
+            ) ||
+              Boolean(
+                current.agentSessionId &&
+                  latestAntigravityId &&
+                  latestAntigravityId !== current.agentSessionId,
+              ),
           ),
         };
       },
@@ -919,6 +929,7 @@ export function sessionsService(
       search: (project: string, query: string) => searchConversations(nativeDeps(), project, query),
     },
     hookEvent: ends.hookEvent,
+    antigravityInstruction: ends.antigravityInstruction,
     tmuxEvent: ends.tmuxEvent,
     /** The windows on the profile's tmux server, or one project's. */
     windows: (project?: string) => tmux.listWindows(project),

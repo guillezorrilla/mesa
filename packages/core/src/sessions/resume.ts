@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { readyAgent } from '../agents/agents.js';
+import { AGENTS, readyAgent } from '../agents/agents.js';
+import { prepareAntigravityLog } from '../agents/antigravity/log.js';
 import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
@@ -60,9 +61,6 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const command = old.backgroundId
-    ? claudeBackgroundAttach(old.backgroundId)
-    : spec.resume(agentId, folder, old.mode);
   const { record, warning } = await launchSession(
     deps,
     {
@@ -82,7 +80,18 @@ export async function resumeSession(
       adopted: old.adopted,
       resumedFrom: old.id,
     },
-    { command: () => command },
+    {
+      command: (record) => {
+        if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
+        if (old.agent === 'antigravity')
+          return AGENTS.antigravity.resume(
+            agentId,
+            prepareAntigravityLog(deps.profile.paths.logs, record.id),
+            old.mode,
+          );
+        return spec.resume(agentId, folder, old.mode);
+      },
+    },
   );
   // The new session runs now, so marking the old one is best effort: a failure is a warning,
   // never a failed resume that a retry would open twice.

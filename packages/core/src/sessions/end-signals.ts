@@ -1,10 +1,11 @@
 import { AGENTS } from '../agents/agents.js';
+import { antigravitySessionId } from '../agents/antigravity/log.js';
 import type { MesaContext } from '../context.js';
 import { toFail } from '../lib/result.js';
 import { readRegistry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { SessionRow } from './board/rows.js';
-import { windowId } from './caller.js';
+import { callerOf, windowId } from './caller.js';
 import { refreshContext } from './context-use.js';
 import { parentHook, recordHookEvent } from './hook-events.js';
 import { mesaPointer } from './instructions.js';
@@ -159,6 +160,31 @@ export function endSignals(
       const project = readRegistry(paths.registry).find((entry) => entry.name === started.project);
       const cwd = started.cwd ?? started.worktree?.path ?? project?.path;
       return cwd ? { ...event, instruction: mesaPointer(started, ctx.profile, cwd) } : event;
+    },
+    /** Transient Antigravity instruction, only for the native conversation owned by this window. */
+    antigravityInstruction: (payload: string) => {
+      const started = callerOf({ store, env, profileName: ctx.profile }).session;
+      if (started?.agent !== 'antigravity' || started.endedAt) return undefined;
+      let conversationId: unknown;
+      try {
+        conversationId = JSON.parse(payload)?.conversationId;
+      } catch {
+        return undefined;
+      }
+      const ownedId =
+        started.agentSessionId ?? antigravitySessionId({ logs: paths.logs }, started, new Set());
+      if (!ownedId || conversationId !== ownedId) return undefined;
+      const project = readRegistry(paths.registry).find((entry) => entry.name === started.project);
+      const cwd = started.cwd ?? started.worktree?.path ?? project?.path;
+      if (!cwd) return undefined;
+      const owner = started.agentSessionId
+        ? started
+        : store.update(started.id, (current) =>
+            current.agentSessionId || current.endedAt ? {} : { agentSessionId: ownedId },
+          );
+      return !owner.endedAt && owner.agentSessionId === ownedId
+        ? mesaPointer(owner, ctx.profile, cwd)
+        : undefined;
     },
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the

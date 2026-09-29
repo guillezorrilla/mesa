@@ -46,12 +46,14 @@ export type HookFileStatus = {
 
 type Loaded = { settings: Settings; newline: boolean; indent: string };
 
-function read(path: string): Loaded {
+export function read(path: string): Loaded {
   if (!existsSync(path)) return { settings: {}, newline: true, indent: '  ' };
   const text = readFileSync(path, 'utf8');
   try {
     const indent = /\n([ \t]+)\S/.exec(text)?.[1] ?? '  ';
-    return { settings: JSON.parse(text) as Settings, newline: text.endsWith('\n'), indent };
+    const settings: unknown = JSON.parse(text);
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new Error();
+    return { settings: settings as Settings, newline: text.endsWith('\n'), indent };
   } catch {
     throw new MesaError('invalid_config', `${path}: not valid JSON; fix it before Mesa edits it`);
   }
@@ -62,7 +64,7 @@ function read(path: string): Loaded {
  * ponytail: JSON.parse drops number forms (1.0) and \u escapes, so only a file JSON.stringify could
  * have written (as Claude writes it) keeps every byte.
  */
-function write(path: string, loaded: Loaded, settings: Settings) {
+export function write(path: string, loaded: Loaded, settings: Settings) {
   mkdirSync(dirname(path), { recursive: true });
   const target = existsSync(path) ? realpathSync(path) : path;
   const mode = existsSync(target) ? statSync(target).mode & 0o777 : 0o600;

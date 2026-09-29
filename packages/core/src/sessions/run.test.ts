@@ -109,6 +109,37 @@ test('Antigravity headless soft denial fails rather than landing an empty projec
   expect(existsSync(join(home, 'vault/projects/lantern-cove.md'))).toBe(false);
 });
 
+test('Antigravity prepares its private log with session output logging off', async () => {
+  const world = agentWorld({
+    onOpen: finishesRun({
+      output: JSON.stringify({
+        conversation_id: UUID,
+        status: 'SUCCESS',
+        response: 'Done',
+        duration_seconds: 1,
+        usage: {},
+      }),
+    }),
+  });
+  const { home, mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [project-brief]\n',
+  });
+  mesa.config.set('sessions.log', 'false');
+  const { result } = await mesa.sessions.run('project-brief', {
+    project: 'lantern-cove',
+    agent: 'antigravity',
+  });
+  const log = join(profilePaths(home, 'default').logs, `${result.session}.agy.log`);
+  expect(existsSync(profilePaths(home, 'default').logs)).toBe(true);
+  expect(
+    world.calls.some(
+      (call) =>
+        call.args.includes('new-session') &&
+        call.args.some((arg) => arg.includes(`--log-file '${log}'`)),
+    ),
+  ).toBe(true);
+});
+
 test('an error claude reports, and a nonzero exit with no result, are not ok, with the reason', async () => {
   const reported = agentWorld({
     onOpen: finishesRun({ output: claudeResult('not-logged-in'), status: 1 }),

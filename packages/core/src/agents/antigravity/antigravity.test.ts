@@ -20,6 +20,12 @@ test('one window reads only its own native conversation ID, even in a shared che
   expect(read('bbbbbbbb')).toBe(B);
   expect(read('aaaaaaaa', [A])).toBeUndefined();
   expect(read('cccccccc')).toBeUndefined();
+  writeFileSync(
+    antigravityLog(logs, 'aaaaaaaa'),
+    `Created conversation ${A}\nCreated conversation ${B}\n`,
+  );
+  expect(read('aaaaaaaa')).toBe(A);
+  expect(antigravitySessionId({ logs }, { id: 'aaaaaaaa' }, new Set(), true)).toBe(B);
   writeFileSync(antigravityLog(logs, 'dddddddd'), 'Created conversation x; echo injected\n');
   expect(read('dddddddd')).toBeUndefined();
 });

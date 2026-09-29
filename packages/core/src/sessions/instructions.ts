@@ -1,3 +1,4 @@
+import { hooksStatus as antigravityHooks } from '../agents/antigravity/hooks.js';
 import { hooksStatus as claudeHooks } from '../agents/claude/hooks.js';
 import { hooksStatus as codexHooks } from '../agents/codex/hooks.js';
 import { codexHome } from '../agents/codex/paths.js';
@@ -10,7 +11,7 @@ export type InstructionStatus = {
   reason: string;
 };
 
-/** Current native SessionStart hook configuration, not proof that a provider consumed a pointer. */
+/** Current native instruction hook configuration, not proof that a provider consumed a pointer. */
 export function instructionStatus(
   agent: SessionRecord['agent'],
   home: string,
@@ -23,9 +24,14 @@ export function instructionStatus(
       state: 'conflicting',
       reason: 'Native conversation changed after /clear; reopen through Mesa',
     };
-  if (agent !== 'claude' && agent !== 'codex')
-    return { state: 'unsupported', reason: 'No qualified native instruction hook' };
   try {
+    if (agent === 'antigravity') {
+      const hooks = antigravityHooks(home, self);
+      if (hooks.stale) return { state: 'conflicting', reason: 'Mesa PreInvocation hook is stale' };
+      return hooks.installed
+        ? { state: 'configured', reason: 'PreInvocation hook is configured' }
+        : { state: 'missing', reason: 'Run mesa hooks install' };
+    }
     const codex = agent === 'codex' ? codexHooks(codexHome(env, home), self) : undefined;
     const hooks = codex ?? claudeHooks(home, self);
     if (hooks.stale) return { state: 'conflicting', reason: 'Mesa SessionStart hook is stale' };
@@ -38,7 +44,7 @@ export function instructionStatus(
   }
 }
 
-/** A bounded SessionStart supplement; native provider and repository instructions stay intact. */
+/** A bounded native hook supplement; provider and repository instructions stay intact. */
 export function mesaPointer(record: SessionRecord, profile: string, cwd: string): string {
   const prefix = record.agent === 'codex' ? '$' : '/';
   const skills =

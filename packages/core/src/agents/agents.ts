@@ -148,14 +148,18 @@ export const AGENTS = {
     ownSessionId: antigravitySessionId,
     start: (goal: string | undefined, log: string, mode?: 'plan') =>
       `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
-    resume: (sessionId: string, _folder: string, mode?: 'plan') =>
-      `agy --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}`,
+    resume: (sessionId: string, log: string, mode?: 'plan') =>
+      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}`,
     quit: '/exit',
     submitDelayMs: 300,
     headless: {
       skillPrefix: '/',
-      command: (_sessionId: string | undefined, prompt: string, _may: HeadlessPermissions) =>
-        `agy --print ${shellWord(prompt)} --output-format json`,
+      command: (
+        _sessionId: string | undefined,
+        prompt: string,
+        _may: HeadlessPermissions,
+        log: string,
+      ) => `agy --log-file ${shellWord(log)} --print ${shellWord(prompt)} --output-format json`,
       result: readAntigravityResult,
     },
     hookState: undefined,
