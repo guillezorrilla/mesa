@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { MesaDeps, Runner } from '@mesa/core';
+import type { BrowserPageSelection, MesaDeps, Runner } from '@mesa/core';
 import {
   CLAUDE_VERSION,
   fakeTmux,
@@ -51,6 +51,10 @@ export function cliHarness() {
     asked: [] as string[],
     /** The environment of the next invocations (MESA_SESSION_ID for a hook). */
     env: {} as Record<string, string>,
+    browserSelection: async (
+      _pid: number,
+      _session: string,
+    ): Promise<BrowserPageSelection | undefined> => undefined,
     /** Where the default profile keeps its files under this home. */
     get paths() {
       return profilePaths(h.home, 'default');
@@ -65,6 +69,7 @@ export function cliHarness() {
       h.answer = undefined;
       h.asked = [];
       h.env = {};
+      h.browserSelection = async () => undefined;
       h.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: CLAUDE_VERSION }).run;
     },
     mesa: async (...argv: string[]) => {
@@ -81,7 +86,14 @@ export function cliHarness() {
           tty: h.tty,
           stdin: async () => h.stdin,
           ...(answer === undefined ? {} : { confirm }),
-          mesa: { run: h.run, argv, newId: h.newId, newUuid: h.newUuid, env: h.env },
+          mesa: {
+            run: h.run,
+            argv,
+            newId: h.newId,
+            newUuid: h.newUuid,
+            env: h.env,
+            browserSelection: h.browserSelection,
+          },
         }),
       );
       return { ...out, json: out.stdout.startsWith('{') ? JSON.parse(out.stdout) : undefined };

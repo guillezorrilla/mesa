@@ -19,6 +19,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
+        .setup(|app| {
+            browser::serve_selection(app.handle())?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             run_mesa,
             terminal::term_open,

@@ -529,6 +529,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   env: {},
   run: scriptedRunner().run,
   processAlive: () => true,
+  browserSelection: async () => undefined,
   argv: ['test'],
   // The repo's own library: tests that need another pass their own.
   skillsDir: fileURLToPath(new URL('../../../../skills', import.meta.url)),

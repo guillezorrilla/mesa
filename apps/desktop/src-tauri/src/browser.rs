@@ -1,4 +1,6 @@
 use serde::Serialize;
+use std::io::{Read, Write};
+use std::os::unix::{fs::PermissionsExt, net::UnixListener};
 use std::sync::mpsc;
 use std::time::Duration;
 use tauri::{
@@ -15,6 +17,39 @@ struct BrowserLoad {
 #[tauri::command]
 pub fn browser_owner_pid() -> u32 {
     std::process::id()
+}
+
+/// Local CLI calls use the same live DOM check as the desktop send button.
+pub fn serve_selection(app: &AppHandle) -> std::io::Result<()> {
+    let path = std::env::temp_dir().join(format!("mesa-browser-{}.sock", std::process::id()));
+    if path.exists() {
+        std::fs::remove_file(&path)?;
+    }
+    let listener = UnixListener::bind(&path)?;
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        for incoming in listener.incoming() {
+            let Ok(mut stream) = incoming else { continue };
+            let _ = stream.set_read_timeout(Some(Duration::from_secs(3)));
+            let _ = stream.set_write_timeout(Some(Duration::from_secs(3)));
+            let mut request = Vec::new();
+            let result = Read::take(&mut stream, 64)
+                .read_to_end(&mut request)
+                .ok()
+                .and_then(|_| serde_json::from_slice::<String>(&request).ok())
+                .and_then(|session| {
+                    tauri::async_runtime::block_on(browser_pick_result(app.clone(), session)).ok()
+                })
+                .flatten();
+            let _ = stream.write_all(
+                serde_json::to_string(&result)
+                    .unwrap_or_else(|_| "null".into())
+                    .as_bytes(),
+            );
+        }
+    });
+    Ok(())
 }
 
 fn label(session: &str) -> Result<String, String> {

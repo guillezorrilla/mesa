@@ -73,6 +73,7 @@ export type { TreeRow } from './sessions/board/tree.js';
 export type {
   BrowserAnnotationInput,
   BrowserAnnotationPreview,
+  BrowserPageSelection,
 } from './sessions/browser-annotation.js';
 export type {
   ChangeReview,
