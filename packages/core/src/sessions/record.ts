@@ -105,6 +105,7 @@ const SessionRecordFields = z.strictObject({
       source: z.string().regex(/^[0-9a-f]{64}$/),
       revision: z.string().regex(/^[0-9a-f]{64}$/),
       ownerPid: z.number().int().positive(),
+      ownerSocket: z.string().optional(),
     })
     .optional(),
   /**

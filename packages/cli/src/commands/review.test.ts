@@ -139,11 +139,19 @@ test('browser annotation previews bounded page context and sends once to the sel
     ...flags.filter((_, index) => index !== 8 && index !== 9),
     '--owner-pid',
     '42',
+    '--owner-socket',
+    '/tmp/mesa-browser-42.sock',
     '--json',
   );
   expect(selected.json.data).toMatchObject({
     source: expect.any(String),
     revision: expect.any(String),
+  });
+  cli.browserSelection = async () => ({
+    url: 'https://example.com/spec',
+    title: 'Invented spec',
+    selector: 'main > h1',
+    text: 'Violet otter',
   });
   const preview = await cli.mesa('browser', 'annotate-preview', opened.id, ...flags, '--json');
   expect(preview.json.data).toMatchObject({ target: opened.id, passage: 'Violet otter' });

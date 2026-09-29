@@ -15,13 +15,17 @@ struct BrowserLoad {
 }
 
 #[tauri::command]
-pub fn browser_owner_pid() -> u32 {
-    std::process::id()
+pub fn browser_owner() -> serde_json::Value {
+    serde_json::json!({"pid": std::process::id(), "socket": socket_path()})
+}
+
+fn socket_path() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("mesa-browser-{}.sock", std::process::id()))
 }
 
 /// Local CLI calls use the same live DOM check as the desktop send button.
 pub fn serve_selection(app: &AppHandle) -> std::io::Result<()> {
-    let path = std::env::temp_dir().join(format!("mesa-browser-{}.sock", std::process::id()));
+    let path = socket_path();
     if path.exists() {
         std::fs::remove_file(&path)?;
     }

@@ -371,13 +371,14 @@ export function BrowserPanel({
                       if (generation !== selectionGeneration.current) return;
                       const profileName = profile.data?.profile;
                       if (!profileName) throw new Error('Mesa profile is unavailable');
-                      const ownerPid = await platform.browser.ownerPid();
+                      const owner = await platform.browser.owner();
                       if (generation !== selectionGeneration.current) return;
                       const registered = await queueSelection(sessionId, () =>
                         call('browser.select', {
                           id: sessionId,
                           profile: profileName,
-                          ownerPid,
+                          ownerPid: owner.pid,
+                          ownerSocket: owner.socket,
                           ...result,
                         }),
                       );

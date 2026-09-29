@@ -715,7 +715,7 @@ const COMMANDS = {
     (selection) => ['browser', 'annotate-preview', ...browserFlags(selection), '--', selection.id],
   ),
   'browser.select': commandWith<
-    Omit<BrowserSelection, 'comment'> & { ownerPid: number },
+    Omit<BrowserSelection, 'comment'> & { ownerPid: number; ownerSocket: string },
     { source: string; revision: string }
   >((selection) => [
     'browser',
@@ -723,6 +723,8 @@ const COMMANDS = {
     ...browserSelectionFlags(selection),
     '--owner-pid',
     String(selection.ownerPid),
+    '--owner-socket',
+    selection.ownerSocket,
     '--',
     selection.id,
   ]),

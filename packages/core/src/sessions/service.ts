@@ -20,9 +20,9 @@ import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { openBrowserExternal } from './browser-address.js';
 import {
+  type BrowserAnnotationInput,
   clearBrowserElement,
   liveBrowserAnnotation,
-  previewBrowserAnnotation,
   selectBrowserElement,
 } from './browser-annotation.js';
 import { callerOf } from './caller.js';
@@ -363,11 +363,20 @@ export function sessionsService(
         select: (id: string, input: Parameters<typeof selectBrowserElement>[2]) =>
           selectBrowserElement({ profile, store }, id, input),
         clear: (id: string) => clearBrowserElement({ store }, id),
-        preview: (id: string, input: Parameters<typeof previewBrowserAnnotation>[2]) =>
-          previewBrowserAnnotation({ profile, store, processAlive: deps.processAlive }, id, input),
+        preview: (id: string, input: BrowserAnnotationInput) =>
+          liveBrowserAnnotation(
+            {
+              profile,
+              store,
+              processAlive: deps.processAlive,
+              liveSelection: deps.browserSelection,
+            },
+            id,
+            input,
+          ),
         send: (
           id: string,
-          input: Parameters<typeof previewBrowserAnnotation>[2] & {
+          input: BrowserAnnotationInput & {
             source: string;
             revision: string;
           },
