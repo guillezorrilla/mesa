@@ -15,6 +15,7 @@ import {
   Grid2X2,
   Keyboard,
   LayoutDashboard,
+  MoreVertical,
   Plus,
   Settings2,
   Stethoscope,
@@ -59,8 +60,9 @@ export function WorkspaceSidebar(props: {
   sessions: readonly TreeRow[];
   collapsed: boolean;
   onCollapse: () => void;
-  onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal') => void;
+  onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal', parent?: string) => void;
   onArchiveSession?: (id: string) => void;
+  onDependencySession?: (id: string) => void;
 }) {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
@@ -155,10 +157,20 @@ export function WorkspaceSidebar(props: {
           </>
         )}
       </button>
+      {session.managed && session.project !== GENERAL_PROJECT && (
+        <button
+          type="button"
+          aria-label={`New child session from ${session.name ?? 'Session'} (${session.id})`}
+          className="pointer-events-none absolute -left-2.5 top-2 rounded-full border bg-card p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+          onClick={() => props.onNewSession?.(session.project, 'worktree', session.id)}
+        >
+          <Plus aria-hidden className="size-3.5" />
+        </button>
+      )}
       <button
         type="button"
         aria-label={`${compactSessions.includes(session.id) ? 'Expand' : 'Compact'} ${session.managed && !session.name ? 'Session' : sessionLabel(session)} card`}
-        className="absolute right-8 top-2 hidden rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:block group-hover:block"
+        className="pointer-events-none absolute right-8 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
         onClick={() =>
           setCompactSessions((current) =>
             current.includes(session.id)
@@ -174,14 +186,44 @@ export function WorkspaceSidebar(props: {
         )}
       </button>
       {session.managed && (
-        <button
-          type="button"
-          aria-label={`Archive ${session.name ?? 'Session'} (${session.id})`}
-          className="absolute right-2 top-2 hidden rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:block group-hover:block"
-          onClick={() => props.onArchiveSession?.(session.id)}
-        >
-          <X aria-hidden className="size-3.5" />
-        </button>
+        <>
+          <button
+            type="button"
+            aria-label={`Archive ${session.name ?? 'Session'} (${session.id})`}
+            className="pointer-events-none absolute right-2 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+            onClick={() => props.onArchiveSession?.(session.id)}
+          >
+            <X aria-hidden className="size-3.5" />
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`More actions for ${session.name ?? 'Session'} (${session.id})`}
+                className="pointer-events-none absolute right-14 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
+              >
+                <MoreVertical aria-hidden className="size-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="start">
+              <DropdownMenuItem
+                onSelect={() => props.onNewSession?.(session.project, 'terminal', session.id)}
+              >
+                New terminal session
+              </DropdownMenuItem>
+              {session.project !== GENERAL_PROJECT && (
+                <DropdownMenuItem
+                  onSelect={() => props.onNewSession?.(session.project, 'worktree', session.id)}
+                >
+                  New child worktree session
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => props.onDependencySession?.(session.id)}>
+                Set dependency
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
       )}
     </div>
   );

@@ -119,8 +119,10 @@ export function BoardScreen(
       project?: string;
       general?: boolean;
       location?: 'main' | 'worktree' | 'terminal';
+      parent?: string;
     };
     archiveSessionRequest?: { count: number; id: string };
+    dependencySessionRequest?: { count: number; id: string };
     preferences?: BoardPreferences;
     terminalPreferences?: Config['terminal'];
     savedPrompts?: readonly SavedPrompt[];
@@ -149,6 +151,7 @@ export function BoardScreen(
   const [pendingBrowser, setPendingBrowser] = useState<{ session: string; url: string }>();
   const selectionVersion = useRef(0);
   const handledArchiveRequest = useRef(0);
+  const handledDependencyRequest = useRef(0);
   useEffect(() => {
     if (props.newSessionRequest?.count)
       setDialog({
@@ -156,6 +159,7 @@ export function BoardScreen(
         project: props.newSessionRequest.project,
         general: props.newSessionRequest.general,
         location: props.newSessionRequest.location,
+        parent: props.newSessionRequest.parent,
       });
   }, [props.newSessionRequest]);
   useEffect(() => {
@@ -168,6 +172,16 @@ export function BoardScreen(
       setDialog({ kind: 'archive', row });
     }
   }, [props.archiveSessionRequest, data]);
+  useEffect(() => {
+    const id = props.dependencySessionRequest?.id;
+    const row = data?.find(
+      (session): session is ManagedRow & TreeRow => session.id === id && session.managed,
+    );
+    if (row && props.dependencySessionRequest?.count !== handledDependencyRequest.current) {
+      handledDependencyRequest.current = props.dependencySessionRequest?.count ?? 0;
+      setDialog({ kind: 'dependency', row });
+    }
+  }, [props.dependencySessionRequest, data]);
   const close = () => setDialog(undefined);
   // Embedded terminals, one panel per session, in the order opened; several at once.
   const [panels, setPanels] = useState<string[]>([]);
