@@ -19,8 +19,9 @@ const tokens = (value: number | null) => (value === null ? 'Unknown' : value.toL
 const dollars = (value: number | null) =>
   value === null ? 'Unknown' : value > 0 && value < 0.0001 ? '<$0.0001' : `$${value.toFixed(4)}`;
 
-export function UsageScreen() {
+export function UsageScreen({ onSession }: { onSession: (id: string) => void }) {
   const usage = useCommand('usage.list');
+  const rewind = useCommand('rewind.week');
   const config = useCommand('config.get');
   const run = useRun();
   const report = usage.data;
@@ -51,7 +52,11 @@ export function UsageScreen() {
         title="Usage"
         description="Native provider tokens. Costs are standard API list-price estimates, not billing."
       >
-        <Button variant="outline" onClick={() => void usage.refresh()} disabled={usage.busy}>
+        <Button
+          variant="outline"
+          onClick={() => void Promise.all([usage.refresh(), rewind.refresh()])}
+          disabled={usage.busy || rewind.busy}
+        >
           <RefreshCw aria-hidden className={usage.busy ? 'animate-spin' : undefined} />
           {usage.busy ? 'Reading...' : 'Refresh'}
         </Button>
@@ -189,6 +194,51 @@ export function UsageScreen() {
       </Card>
       {report?.rows.length === 0 && (
         <p className="text-muted-foreground text-sm">No qualified native usage yet.</p>
+      )}
+      {rewind.data && (
+        <Card className="gap-3 p-4 text-sm" data-testid="weekly-rewind">
+          <h3 className="font-medium">Weekly Rewind</h3>
+          <p className="text-muted-foreground">
+            {rewind.data.from} to {rewind.data.through} ({rewind.data.timezone}). Seven local
+            calendar days.
+          </p>
+          <p>
+            {rewind.data.notes.length} meaningful notes, {rewind.data.sessions.length} ended
+            sessions. {tokens(rewind.data.usage.input)} input and {tokens(rewind.data.usage.output)}{' '}
+            output tokens, {dollars(rewind.data.usage.estimatedCostUsd)} estimated cost.
+          </p>
+          <div className="max-h-64 space-y-2 overflow-y-auto">
+            {rewind.data.notes.map((note) => (
+              <div key={note.id}>
+                <Button
+                  variant="link"
+                  className="h-auto p-0 text-left"
+                  onClick={() => void run('vault.openNote', { note: note.path })}
+                >
+                  {note.summary}
+                </Button>
+                <p className="text-muted-foreground text-xs">
+                  {note.kind} · {note.path}
+                </p>
+              </div>
+            ))}
+            {rewind.data.sessions.map((session) => (
+              <div key={session.id}>
+                <Button variant="link" className="h-auto p-0" onClick={() => onSession(session.id)}>
+                  {session.name}
+                </Button>
+                <p className="text-muted-foreground text-xs">
+                  {session.project} · {session.agent} · {session.state}
+                </p>
+              </div>
+            ))}
+          </div>
+          {rewind.data.missing.map((reason) => (
+            <p key={reason} className="text-muted-foreground">
+              Missing data: {reason}
+            </p>
+          ))}
+        </Card>
       )}
       {config.data && (
         <Card className="p-4 text-sm">

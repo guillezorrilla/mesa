@@ -371,7 +371,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               </p>
             ))}
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
-          {view.kind === 'usage' && <UsageScreen />}
+          {view.kind === 'usage' && (
+            <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
+          )}
           {view.kind === 'inbox' && (
             <InboxScreen
               onSession={(id) => navigate({ kind: 'session', id })}
