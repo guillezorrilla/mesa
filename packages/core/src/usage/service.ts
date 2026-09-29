@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { transcriptFile } from '../agents/claude/transcripts.js';
 import { rolloutForThread } from '../agents/codex/rollouts.js';
@@ -8,7 +8,7 @@ import { readHookEvents } from '../sessions/hook-events.js';
 import { claudeUsage } from './claude.js';
 import { codexUsage } from './codex.js';
 import type { UsageRecord } from './records.js';
-import { usageStore } from './store.js';
+import { type SourceStamp, usageStore } from './store.js';
 import { summarizeUsage } from './summary.js';
 
 /** Syncs only this profile's sessions into its ledger; removed sessions keep their past usage. */
@@ -18,15 +18,23 @@ export function usageService(ctx: MesaContext) {
     list: async (session?: string) => {
       const fresh: UsageRecord[] = [];
       const unknown: { session: string; reason: string }[] = [];
+      const cached = ledger.read();
+      const scanned: Record<string, SourceStamp> = {};
       const records = ctx.store.list();
       for (const record of records) {
         if (session && record.id !== session) continue;
         if (record.agent === 'terminal') continue;
+        const previous = Object.values(cached.sources).filter(
+          (source) => source.session === record.id,
+        );
         const nativeIds = new Set([
           ...(record.agentSessionId ? [record.agentSessionId] : []),
-          ...readHookEvents(ctx.paths.events, record.id)
-            .filter((event) => event.agent === record.agent)
-            .flatMap((event) => (event.agentSessionId ? [event.agentSessionId] : [])),
+          ...previous.map((source) => source.nativeSessionId),
+          ...(!previous.length
+            ? readHookEvents(ctx.paths.events, record.id)
+                .filter((event) => event.agent === record.agent)
+                .flatMap((event) => (event.agentSessionId ? [event.agentSessionId] : []))
+            : []),
         ]);
         if (nativeIds.size === 0) {
           unknown.push({ session: record.id, reason: 'native session id is not available' });
@@ -44,6 +52,25 @@ export function usageService(ctx: MesaContext) {
             continue;
           }
           try {
+            const stat = statSync(file);
+            const stamp: SourceStamp = {
+              session: record.id,
+              nativeSessionId: nativeId,
+              file,
+              size: stat.size,
+              mtimeMs: stat.mtimeMs,
+              reader: 1,
+            };
+            const key = `${record.id}:${nativeId}`;
+            const prior = cached.sources[key];
+            if (
+              prior &&
+              prior.file === file &&
+              prior.size === stamp.size &&
+              prior.mtimeMs === stamp.mtimeMs &&
+              prior.reader === stamp.reader
+            )
+              continue;
             const readings =
               record.agent === 'claude'
                 ? await claudeUsage(file, record.id, nativeId)
@@ -61,12 +88,15 @@ export function usageService(ctx: MesaContext) {
                   (!until || Date.parse(row.at) < Date.parse(until)),
               ),
             );
+            scanned[key] = stamp;
           } catch {
             unknown.push({ session: record.id, reason: 'native usage file could not be read' });
           }
         }
       }
-      const rows = ledger.merge(fresh).filter((row) => !session || row.session === session);
+      const rows = ledger
+        .merge(fresh, scanned)
+        .filter((row) => !session || row.session === session);
       const now = ctx.deps.clock();
       const unknownIds = new Set(unknown.map((item) => item.session));
       const summary = summarizeUsage(

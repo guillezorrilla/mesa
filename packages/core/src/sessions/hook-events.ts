@@ -168,11 +168,55 @@ export function readHookEvents(eventsDir: string, id: string, maxBytes?: number)
     text = text.slice(text.indexOf('\n') + 1);
   } else text = readFileSync(file, 'utf8');
   return text.split('\n').flatMap((line) => {
-    try {
-      const e = JSON.parse(line);
-      return typeof e?.event === 'string' && typeof e.at === 'string' ? [e as HookEvent] : [];
-    } catch {
-      return [];
-    }
+    const event = parseHookEvent(line);
+    return event ? [event] : [];
   });
+}
+
+function parseHookEvent(line: string): HookEvent | undefined {
+  try {
+    const event = JSON.parse(line);
+    return typeof event?.event === 'string' && typeof event.at === 'string'
+      ? (event as HookEvent)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Reads only complete lines appended since an inbox checkpoint, without loading the whole log. */
+export function scanHookEvents(
+  eventsDir: string,
+  id: string,
+  offset: number,
+  onEvent: (event: HookEvent) => void,
+): number {
+  if (!isSessionId(id)) return offset;
+  const file = eventsLog(eventsDir, id);
+  if (!existsSync(file)) return offset;
+  const size = statSync(file).size;
+  let position = offset <= size ? offset : 0;
+  let complete = position;
+  let pending = Buffer.alloc(0);
+  const fd = openSync(file, 'r');
+  try {
+    while (position < size) {
+      const buffer = Buffer.alloc(Math.min(64 * 1024, size - position));
+      const count = readSync(fd, buffer, 0, buffer.length, position);
+      if (count === 0) break;
+      position += count;
+      const chunk = Buffer.concat([pending, buffer.subarray(0, count)]);
+      let start = 0;
+      for (let end = chunk.indexOf(10, start); end !== -1; end = chunk.indexOf(10, start)) {
+        const event = parseHookEvent(chunk.subarray(start, end).toString('utf8'));
+        if (event) onEvent(event);
+        start = end + 1;
+      }
+      pending = chunk.subarray(start);
+      complete = position - pending.length;
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return complete;
 }

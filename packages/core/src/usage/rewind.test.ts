@@ -36,6 +36,7 @@ test('weekly rewind keeps meaningful notes and outcomes within local days and na
   write('decision', '2026-09-24T10:00:00.000Z', 'other');
   const store = testStore(home);
   const session = store.create(() => newSession({ startedAt: '2026-09-24T10:00:00.000Z' }));
+  const longRunning = store.create(() => newSession({ startedAt: '2026-09-01T10:00:00.000Z' }));
   store.update(session.id, { endedAt: '2026-09-24T11:30:00.000Z' });
 
   const report = await mesa.rewind.week();
@@ -44,6 +45,7 @@ test('weekly rewind keeps meaningful notes and outcomes within local days and na
   expect(report.sessions.map((row) => row.id)).toEqual([session.id]);
   expect(report.usage.estimatedCostUsd).toBeNull();
   expect(report.missing).toContain(`${session.id}: native session id is not available`);
+  expect(report.missing).toContain(`${longRunning.id}: native session id is not available`);
   expect((await createMesa('default', testDeps(home, { clock })).rewind.week()).notes).toEqual(
     report.notes,
   );

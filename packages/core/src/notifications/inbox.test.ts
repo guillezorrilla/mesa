@@ -116,6 +116,7 @@ test('quiet delivery digests new notices once and respects each kind across rest
   const plan = mesa.notifications.delivery();
   expect(plan).toMatchObject({ kind: 'digest', title: '2 Mesa notices', sound: true });
   if (plan.kind === 'none') throw new Error('expected digest');
+  expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual(plan);
   mesa.notifications.markDelivered(plan.ids);
   expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual({ kind: 'none' });
 
@@ -126,7 +127,7 @@ test('quiet delivery digests new notices once and respects each kind across rest
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
 });
 
-test('inbox reads a bounded hook tail while retaining the newest notice', () => {
+test('inbox keeps unread notices when later hooks exceed a bounded scan window', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
   const session = testStore(home).create(() => newSession());
@@ -135,10 +136,15 @@ test('inbox reads a bounded hook tail while retaining the newest notice', () => 
   const event = (at: string, name: string, payload: object = {}) =>
     `${JSON.stringify({ at, agent: 'claude', event: name, payload })}\n`;
   appendFileSync(file, event('2026-09-24T12:00:00.000Z', 'Stop'));
+  expect(mesa.notifications.list().map((item) => item.at)).toEqual(['2026-09-24T12:00:00.000Z']);
   appendFileSync(
     file,
     event('2026-09-24T12:00:01.000Z', 'PostToolUse', { filler: 'x'.repeat(128 * 1024) }),
   );
   appendFileSync(file, event('2026-09-24T12:00:02.000Z', 'Stop'));
-  expect(mesa.notifications.list().map((item) => item.at)).toEqual(['2026-09-24T12:00:02.000Z']);
+  expect(
+    createMesa('default', testDeps(home))
+      .notifications.list()
+      .map((item) => item.at),
+  ).toEqual(['2026-09-24T12:00:02.000Z', '2026-09-24T12:00:00.000Z']);
 });

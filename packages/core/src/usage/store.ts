@@ -15,7 +15,7 @@ const Tokens = z.strictObject({
   cacheWrite5m: z.number().int().nonnegative().nullable(),
   cacheWrite1h: z.number().int().nonnegative().nullable(),
 });
-const Ledger = z.array(
+const Rows = z.array(
   z.strictObject({
     id: z.string(),
     session: z.string(),
@@ -29,36 +29,54 @@ const Ledger = z.array(
     estimatedCostUsd: z.number().nonnegative().nullable(),
   }),
 );
+const Source = z.strictObject({
+  session: z.string(),
+  nativeSessionId: z.string(),
+  file: z.string(),
+  size: z.number().int(),
+  mtimeMs: z.number(),
+  reader: z.literal(1),
+});
+export type SourceStamp = z.infer<typeof Source>;
+const Ledger = z.strictObject({
+  rows: Rows,
+  sources: z.record(z.string(), Source),
+});
+type Ledger = z.infer<typeof Ledger>;
 
-/** One small profile-local ledger; repeated native reads replace rows by stable source ID. */
+/** One profile-local ledger; unchanged native files keep their normalized rows. */
 export function usageStore(file: string) {
-  const read = (): UsageRecord[] => {
-    if (!existsSync(file)) return [];
+  const read = (): Ledger => {
+    if (!existsSync(file)) return { rows: [], sources: {} };
     let raw: unknown;
     try {
       raw = JSON.parse(readFileSync(file, 'utf8'));
     } catch {
       throw new MesaError('invalid_config', `${file}: usage ledger is not valid JSON`);
     }
-    return parseWith(Ledger, raw, file);
+    // Earlier P4 ledgers were arrays; preserve their rows and scan sources once to add stamps.
+    return Array.isArray(raw)
+      ? { rows: parseWith(Rows, raw, file), sources: {} }
+      : parseWith(Ledger, raw, file);
   };
   return {
     read,
     /** ponytail: rewrites the local ledger; use an indexed store if profiles reach huge histories. */
-    merge: (fresh: UsageRecord[]) => {
+    merge: (fresh: UsageRecord[], sources: Record<string, SourceStamp>) => {
       mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
       const lock = `${file}.lock`;
       return withLockSync(
         lock,
         () => {
           const old = read();
-          const rows = new Map(old.map((row) => [row.id, row]));
+          const rows = new Map(old.rows.map((row) => [row.id, row]));
           for (const row of fresh) rows.set(row.id, row);
           const merged = [...rows.values()].sort(
             (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
           );
-          if (JSON.stringify(old) !== JSON.stringify(merged))
-            writeFileAtomic(file, `${JSON.stringify(merged, null, 2)}\n`, 0o600);
+          const next = { rows: merged, sources: { ...old.sources, ...sources } };
+          if (JSON.stringify(old) !== JSON.stringify(next))
+            writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
           return merged;
         },
         () => lockedBy('usage ledger', lock, 'usage'),
