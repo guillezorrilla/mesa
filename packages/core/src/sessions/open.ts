@@ -13,6 +13,7 @@ import {
   launchAgent,
   launchProject,
   launchSession,
+  sessionWindowCommand,
 } from './launch.js';
 import { isOver, type SessionRecord } from './record.js';
 
@@ -143,7 +144,8 @@ export async function openSession(
       goal: input.goal,
       mode: input.mode === 'plan' ? 'plan' : undefined,
     });
-  if (!input.background) requireCommandFits(command('xxxxxxxx'));
+  if (!input.background)
+    requireCommandFits(sessionWindowCommand(agent, 'interactive', command('xxxxxxxx')));
   const session = {
     project: selected?.entry ?? null,
     agent,

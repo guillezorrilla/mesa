@@ -113,6 +113,17 @@ type Start = {
   base?: string;
 };
 
+/** The command tmux receives, including Claude's color and process-identity setup. */
+export function sessionWindowCommand(
+  agent: SessionRecord['agent'],
+  kind: SessionRecord['kind'],
+  command: string,
+) {
+  return agent === 'claude' && kind === 'interactive'
+    ? `unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
+    : command;
+}
+
 /**
  * Starts the agent of a session already written: its worktree first when `branch` is asked for
  * and it has none (kept on the record at once, so a start retried after a kill finds it), then
@@ -144,6 +155,7 @@ export async function startSession(
     if (record.background && !record.backgroundId) {
       const env = { ...deps.env };
       for (const key of nestedAgentVars(deps.env)) delete env[key];
+      delete env.NO_COLOR;
       backgroundId = await startClaudeBackground(deps.run, cwd, record.goal, record.mode, {
         ...env,
         ...windowEnv(record.id, deps.profileName),
@@ -151,14 +163,15 @@ export async function startSession(
       record = deps.store.update(record.id, { backgroundId });
     }
     const { paths, config } = deps.profile;
+    const command = record.backgroundId
+      ? claudeBackgroundAttach(record.backgroundId)
+      : start.command(record);
     await deps.tmux.openWindow({
       project: record.tmux.session,
       window: record.tmux.window,
       // claude keys its transcripts by cwd.
       cwd,
-      command: record.backgroundId
-        ? claudeBackgroundAttach(record.backgroundId)
-        : start.command(record),
+      command: sessionWindowCommand(record.agent, record.kind, command),
       env: windowEnv(record.id, deps.profileName),
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });

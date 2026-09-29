@@ -7,7 +7,7 @@ import { joinWarnings } from '../receipts/recorder.js';
 import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
-import { type LaunchDeps, launchProject, launchSession } from './launch.js';
+import { type LaunchDeps, launchProject, launchSession, sessionWindowCommand } from './launch.js';
 import { refuseRun, type SessionRecord } from './record.js';
 import { isAgentState } from './states.js';
 import type { StopOutcome } from './stop.js';
@@ -88,13 +88,17 @@ export async function handoffSession(
   const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
   if (!background)
     requireCommandFits(
-      startCommand(agent, {
-        id: 'xxxxxxxx',
-        logs: deps.profile.paths.logs,
-        agentSessionId,
-        goal: placeholder,
-        mode,
-      }),
+      sessionWindowCommand(
+        agent,
+        'interactive',
+        startCommand(agent, {
+          id: 'xxxxxxxx',
+          logs: deps.profile.paths.logs,
+          agentSessionId,
+          goal: placeholder,
+          mode,
+        }),
+      ),
     );
   const at = deps.clock().toISOString();
   // The note is copied once the successor has its id, and removed again with it.

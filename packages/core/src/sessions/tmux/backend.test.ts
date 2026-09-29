@@ -20,7 +20,12 @@ const raw = async (...args: string[]) => {
 
 // The server starts under a Claude Code parent's variables, which the backend must keep away
 // from its windows. `env` sets them for the tmux process, as a real parent would.
-const PARENT = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'parent', CLAUDE_PID: '42' };
+const PARENT = {
+  CLAUDECODE: '1',
+  CLAUDE_CODE_SESSION_ID: 'parent',
+  CLAUDE_PID: '42',
+  NO_COLOR: '1',
+};
 const underParent: Runner = (file, args, timeoutMs) =>
   execRunner(
     'env',
@@ -56,10 +61,11 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
   test("openWindow creates the project's tmux session, then adds windows to it, with Mesa options", async () => {
     const first = lantern('claude-aaaaaa');
-    const probe = 'echo "cc=[$CLAUDECODE] id=$MESA_SESSION_ID term=$TERM"; exec cat';
+    const probe =
+      'echo "cc=[$CLAUDECODE] color=[$NO_COLOR] id=$MESA_SESSION_ID term=$TERM"; exec cat';
     expect(await open(first, `sh -c '${probe}'`, { MESA_SESSION_ID: 'm1' })).toEqual(first);
     expect(await eventually(() => tmux.capturePane(first, 5), /id=m1/)).toBe(
-      'cc=[] id=m1 term=tmux-256color',
+      'cc=[] color=[1] id=m1 term=tmux-256color',
     );
     expect(
       await raw('display-message', '-p', '-t', 'lantern:0', '#{remain-on-exit} #{history_limit}'),
@@ -90,7 +96,13 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
   test('sendText types the text then Enter into a live agent', async () => {
     const target = lantern('claude-send01');
-    await open(target, 'cat');
+    await open(target, 'unset NO_COLOR; exec cat');
+    expect(
+      await eventually(
+        () => raw('display-message', '-p', '-t', exact(target), '#{pane_current_command}'),
+        /cat/,
+      ),
+    ).toBe('cat');
     await tmux.sendText(target, '-n hello');
     // cat echoes the typed line, then prints it back after Enter.
     expect(await eventually(() => tmux.capturePane(target, 5), /hello\n-n hello/)).toBe(
@@ -380,7 +392,7 @@ test('a sandbox-denied tmux socket is an error, never an exited session', async 
   });
 });
 
-test('the server drops only the variables that make claude think it is nested', async () => {
+test('the server drops nesting flags without clearing other environment', async () => {
   const { run, calls } = scriptedRunner();
   const env = { ...PARENT, CLAUDE_CONFIG_DIR: '/c', HOME: '/h' };
   await tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env }).ensureServer();

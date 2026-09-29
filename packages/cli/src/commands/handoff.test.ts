@@ -43,7 +43,9 @@ test('handoff starts a successor with the goal and the note, then stops the sess
   });
   expect(b.events).toEqual([{ type: 'handoff', at: expect.any(String), from: a.id, note: kept }]);
   // The successor's command line: its own session id, then the goal as one shell word.
-  expect(window(to)?.launch).toBe(`claude --session-id ${b.agentSessionId} '${goal}'`);
+  expect(window(to)?.launch).toBe(
+    `unset NO_COLOR; exec claude --session-id ${b.agentSessionId} '${goal}'`,
+  );
   // Stopped from outside its window: at once.
   expect(window(a.id)).toBeUndefined();
   const old = await show(a.id);
