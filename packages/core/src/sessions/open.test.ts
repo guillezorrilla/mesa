@@ -557,12 +557,18 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
       // 4000 three-byte characters: 4002 UTF-16 units quoted, but 12002 bytes.
       { goal: '日'.repeat(4000) },
       'usage',
-      'the goal makes a 12059-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
+      'the goal makes a 12080-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
     ],
   ];
   for (const [opts, code, message] of cases) {
     await expect(mesa.sessions.open('lantern-cove', opts)).rejects.toMatchObject({ code, message });
   }
+  await expect(
+    mesa.sessions.open('lantern-cove', { goal: 'x'.repeat(11_930) }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('over the 12000 Mesa passes to tmux'),
+  });
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
   expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([result.id, withBom.id]);
 });

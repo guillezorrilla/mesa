@@ -113,6 +113,17 @@ type Start = {
   base?: string;
 };
 
+/** The command tmux receives, including Claude's color and process-identity setup. */
+export function sessionWindowCommand(
+  agent: SessionRecord['agent'],
+  kind: SessionRecord['kind'],
+  command: string,
+) {
+  return agent === 'claude' && kind === 'interactive'
+    ? `unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
+    : command;
+}
+
 /**
  * Starts the agent of a session already written: its worktree first when `branch` is asked for
  * and it has none (kept on the record at once, so a start retried after a kill finds it), then
@@ -160,10 +171,7 @@ export async function startSession(
       window: record.tmux.window,
       // claude keys its transcripts by cwd.
       cwd,
-      command:
-        record.agent === 'claude' && record.kind === 'interactive'
-          ? `unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
-          : command,
+      command: sessionWindowCommand(record.agent, record.kind, command),
       env: windowEnv(record.id, deps.profileName),
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });
