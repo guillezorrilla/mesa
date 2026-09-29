@@ -35,6 +35,7 @@ export const tauriPlatform: Platform = {
       listen('notification-open', (event) =>
         handler(event.payload as Parameters<typeof handler>[0]),
       ),
+    takeOpened: () => invoke('notification_take_opened'),
   },
   pickFolder: async () => {
     const picked = await open({ directory: true });

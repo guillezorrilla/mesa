@@ -175,6 +175,7 @@ export const fakePlatform = ({
     }),
     send: async () => {},
     onOpen: async () => () => {},
+    takeOpened: async () => null,
   },
 }: {
   folder?: string | null;

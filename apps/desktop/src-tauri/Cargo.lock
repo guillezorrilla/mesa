@@ -1900,7 +1900,11 @@ name = "mesa-desktop"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "block2",
  "mac-usernotifications",
+ "objc2",
+ "objc2-foundation",
+ "objc2-user-notifications",
  "portable-pty",
  "serde",
  "serde_json",
