@@ -66,6 +66,20 @@ test('Board preferences validate manual order without touching unrelated config'
   expect(readFileSync(file, 'utf8')).toBe(before);
 });
 
+test('usage alert thresholds default off and reject negative budgets', () => {
+  expect(loadConfig(file).usage).toEqual({
+    dailyAlertUsd: 0,
+    weeklyAlertUsd: 0,
+    monthlyAlertUsd: 0,
+  });
+  expect(setConfigValue(file, 'usage.dailyAlertUsd', '2.5').value).toBe(2.5);
+  const before = readFileSync(file, 'utf8');
+  expect(thrown(() => setConfigValue(file, 'usage.weeklyAlertUsd', '-1')).code).toBe(
+    'invalid_config',
+  );
+  expect(readFileSync(file, 'utf8')).toBe(before);
+});
+
 test('editor preferences and external argv validate before saving', () => {
   expect(setConfigValue(file, 'editor.vim', 'true').value).toBe(true);
   expect(setConfigValue(file, 'editor.tabSize', '4').value).toBe(4);

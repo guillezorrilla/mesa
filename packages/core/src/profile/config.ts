@@ -49,6 +49,22 @@ const ConfigSchema = z.strictObject({
     })
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
+  usage: z
+    .strictObject({
+      dailyAlertUsd: z.number().finite().nonnegative().default(0),
+      weeklyAlertUsd: z.number().finite().nonnegative().default(0),
+      monthlyAlertUsd: z.number().finite().nonnegative().default(0),
+    })
+    .prefault({}),
+  notifications: z
+    .strictObject({
+      quiet: z.boolean().default(false),
+      inputRequired: z.enum(['off', 'silent', 'sound']).default('sound'),
+      finished: z.enum(['off', 'silent', 'sound']).default('silent'),
+      subagent: z.enum(['off', 'silent', 'sound']).default('silent'),
+      doctor: z.enum(['off', 'silent', 'sound']).default('silent'),
+    })
+    .prefault({}),
   terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
   editor: z
     .strictObject({

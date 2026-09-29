@@ -6,11 +6,13 @@ import {
   agentCapabilityReport,
 } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { warned } from '@/components/Toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -38,6 +40,12 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
   const { data, busy, refresh } = doctor;
   const agents = data ? agentCapabilityReport(data.checks) : undefined;
   const windows = useCommand('windows.list');
+  const [eventFilter, setEventFilter] = useState('');
+  const diagnostics = useCommand('diagnostics.list', { event: eventFilter });
+  useEffect(() => {
+    const timer = setInterval(() => void diagnostics.refresh(), 5_000);
+    return () => clearInterval(timer);
+  }, [diagnostics.refresh]);
   const hooks = useCommand('hooks.status');
   const hooksInstalled = hooks.data?.installed && hooks.data.codex?.installed !== false;
   const run = useRun();
@@ -56,7 +64,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
         <Button
           variant="outline"
           data-testid="doctor-recheck"
-          onClick={() => Promise.all([refresh(), windows.refresh()])}
+          onClick={() => Promise.all([refresh(), windows.refresh(), diagnostics.refresh()])}
           disabled={busy || windows.busy}
         >
           <RefreshCw aria-hidden className={cn(busy && 'animate-spin')} />
@@ -204,6 +212,33 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           </CardContent>
         </Card>
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Recent local diagnostics</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-muted-foreground text-xs">
+            Hook event names only. Provider content stays in local session logs.
+          </p>
+          <Input
+            aria-label="Filter diagnostic events"
+            placeholder="Filter event name"
+            value={eventFilter}
+            onChange={(event) => setEventFilter(event.target.value)}
+          />
+          <p className="text-muted-foreground text-xs">
+            Showing {diagnostics.data?.events.length ?? 0} of {diagnostics.data?.total ?? 0} recent
+            matching events, newest first. Refreshes every 5 seconds.
+          </p>
+          <div className="max-h-64 overflow-auto">
+            {diagnostics.data?.events.map((item) => (
+              <p key={item.id} className="font-mono text-xs">
+                {new Date(item.at).toLocaleString()} {item.session} {item.agent} {item.event}
+              </p>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </section>
   );
 }

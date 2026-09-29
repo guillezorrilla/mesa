@@ -6,7 +6,7 @@ import { ActionDialog } from './components/ActionDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
-import { warned } from './components/Toast';
+import { useToast, warned } from './components/Toast';
 import { Button } from './components/ui/button';
 import {
   DropdownMenu,
@@ -18,14 +18,17 @@ import {
 } from './components/ui/dropdown-menu';
 import { WorkspaceSidebar, type WorkspaceView } from './components/WorkspaceSidebar';
 import { usePlatform } from './lib/MesaRoot';
+import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
 import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { HelpScreen } from './screens/HelpScreen';
+import { InboxScreen } from './screens/InboxScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { ShortcutSettings } from './screens/ShortcutSettings';
+import { UsageScreen } from './screens/UsageScreen';
 
 export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
@@ -74,6 +77,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     setSearchOpen(true);
   };
   const run = useRun();
+  const toast = useToast();
   const openFileLink = useCallback(
     (session: string, target: string) => {
       void run('files.link', { session, target }).then((file) => {
@@ -82,7 +86,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     },
     [navigate, run],
   );
-  const { deepLinks } = usePlatform();
+  const { deepLinks, notifications } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
@@ -117,6 +121,31 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   );
   useEffect(() => {
     let active = true;
+    const announced = new Set<string>();
+    const check = async () => {
+      const report = await run('usage.list', {});
+      if (!active || !report) return;
+      const day = new Date().toISOString().slice(0, 10);
+      for (const alert of report.alerts) {
+        const key = `${alert.period}:${alert.period === 'month' ? day.slice(0, 7) : day}:${alert.thresholdUsd}`;
+        if (announced.has(key)) continue;
+        announced.add(key);
+        toast(
+          `Known estimated ${alert.period === 'month' ? 'calendar month' : alert.period} cost reached your $${alert.thresholdUsd.toFixed(2)} alert. Agents keep running.`,
+          'alert',
+          { label: 'Open Usage', onFollow: () => navigateRef.current({ kind: 'usage' }) },
+        );
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), 300_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [run, toast]);
+  useEffect(() => {
+    let active = true;
     const open = (urls: string[]) => {
       for (const url of urls) {
         if (!url.startsWith('mesa:')) continue;
@@ -137,6 +166,48 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       stop?.();
     };
   }, [deepLinks]);
+  useEffect(() => {
+    let active = true;
+    let busy = false;
+    const deliver = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const status = await notifications.status();
+        if (!active || !['authorized', 'provisional', 'ephemeral'].includes(status.authorization))
+          return;
+        const plan = await run('notifications.delivery');
+        if (!active || !plan || plan.kind === 'none') return;
+        await notifications.send(plan);
+        if (active) await run('notifications.delivered', { ids: plan.ids });
+      } catch {
+        // A failed native send stays pending for the next poll.
+      } finally {
+        busy = false;
+      }
+    };
+    void deliver();
+    const timer = window.setInterval(() => void deliver(), 5_000);
+    let stop: (() => void) | undefined;
+    const open = (target: NativeNotice['target']) => {
+      if (active)
+        navigateRef.current(
+          target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: target.kind },
+        );
+    };
+    void notifications.onOpen(open).then(async (unlisten) => {
+      if (active) {
+        stop = unlisten;
+        const target = await notifications.takeOpened();
+        if (target) open(target);
+      } else unlisten();
+    });
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      stop?.();
+    };
+  }, [notifications, run]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       const key = shortcutFromKeys(event);
@@ -329,6 +400,15 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               </p>
             ))}
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
+          {view.kind === 'usage' && (
+            <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
+          )}
+          {view.kind === 'inbox' && (
+            <InboxScreen
+              onSession={(id) => navigate({ kind: 'session', id })}
+              onDoctor={() => navigate({ kind: 'doctor' })}
+            />
+          )}
           {view.kind === 'help' && <HelpScreen />}
           {view.kind === 'shortcuts' && (
             <ShortcutSettings
@@ -361,6 +441,8 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               destination === 'grid' ||
               destination === 'projects' ||
               destination === 'doctor' ||
+              destination === 'usage' ||
+              destination === 'inbox' ||
               destination === 'help' ||
               destination === 'shortcuts'
             ) {

@@ -1,6 +1,8 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT, projectLabel, sessionLabel, WAITING_STATES } from '@mesa/core/browser';
 import {
+  Bell,
+  ChartNoAxesCombined,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -30,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { exited, queued, recoverable } from '@/screens/board/rows';
 
 export type WorkspaceView =
-  | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' }
+  | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' | 'usage' | 'inbox' }
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 
@@ -369,6 +371,8 @@ export function WorkspaceSidebar(props: {
         {item('Board', LayoutDashboard, { kind: 'board' })}
         {item('Grid', Grid2X2, { kind: 'grid' })}
         {item('Projects', Folder, { kind: 'projects' })}
+        {item('Usage', ChartNoAxesCombined, { kind: 'usage' })}
+        {item('Inbox', Bell, { kind: 'inbox' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
         {item('Shortcuts', Keyboard, { kind: 'shortcuts' })}
         {item('Help', CircleHelp, { kind: 'help' })}
