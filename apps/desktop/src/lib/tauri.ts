@@ -26,6 +26,17 @@ function withBrowserLifecycle<T>(sessionId: string, task: () => Promise<T>): Pro
 /** The real platform: Tauri's native dialogs, the Rust terminals, and the pasteboard. */
 export const tauriPlatform: Platform = {
   deepLinks: { current: getCurrent, onOpen: onOpenUrl },
+  notifications: {
+    status: () => invoke('notification_status'),
+    requestPermission: () => invoke('notification_request_permission'),
+    send: ({ id, title, body, sound, target }) =>
+      invoke('notification_send', { id, title, body, sound, target }),
+    onOpen: (handler) =>
+      listen('notification-open', (event) =>
+        handler(event.payload as Parameters<typeof handler>[0]),
+      ),
+    takeOpened: () => invoke('notification_take_opened'),
+  },
   pickFolder: async () => {
     const picked = await open({ directory: true });
     return typeof picked === 'string' ? picked : null;

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import type { Check, TmuxWindow } from '@mesa/core';
+import { act } from 'react';
 import { expect, test } from 'vitest';
 import { App } from '@/App';
 import { cells, click, envelope, fakeBridge, renderWithMesa, report } from '@/lib/testing';
@@ -25,6 +26,28 @@ test('the Doctor screen shares the header run; Recheck runs doctor again', async
   expect(byTestId('doctor-row')[0]?.textContent).toBe('tmux✓3.2');
   expect(calls.filter((c) => c[1] === 'doctor')).toHaveLength(2);
   expect(calls.filter((c) => c[1] === 'windows')).toHaveLength(2);
+});
+
+test('Doctor shows bounded diagnostic event names and filters through the CLI bridge', async () => {
+  const { bridge, calls } = fakeBridge({
+    diagnostics: (args) =>
+      envelope({
+        total: args.includes('--event') ? 1 : 2,
+        limit: 100,
+        events: [
+          { at: '2026-09-24T12:00:00.000Z', session: 'aaaaaaaa', agent: 'claude', event: 'Stop' },
+        ],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('doctor-panel')[0]?.textContent).toContain('aaaaaaaa claude Stop');
+  const input = document.querySelector<HTMLInputElement>('[aria-label="Filter diagnostic events"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'Stop');
+    input?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(calls.some((args) => args.includes('diagnostics') && args.includes('--event'))).toBe(true);
 });
 
 test('Doctor shows installed and qualified versions with unsupported native operations', async () => {

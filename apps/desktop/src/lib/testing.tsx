@@ -10,6 +10,7 @@ import type {
   ProjectRow,
   SessionRow,
   TmuxWindow,
+  UsageReport,
   VaultStatus,
 } from '@mesa/core';
 import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
@@ -53,6 +54,14 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       skills: [],
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
+      usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
+      notifications: {
+        quiet: false,
+        inputRequired: 'sound',
+        finished: 'silent',
+        subagent: 'silent',
+        doctor: 'silent',
+      },
       terminal: { app: 'Terminal' },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {
@@ -71,9 +80,28 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
     } satisfies Config),
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),
   doctor: () => envelope({ healthy: true, summary: 'ready', checks: [] } satisfies DoctorReport),
+  diagnostics: () => envelope({ events: [], total: 0, limit: 100 }),
   projects: () => envelope([] satisfies ProjectRow[]),
   receipts: () => envelope([]),
   sessions: () => envelope([] satisfies SessionRow[]),
+  usage: () => {
+    const zero = {
+      events: 0,
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      estimatedCostUsd: 0,
+    };
+    return envelope({
+      rows: [],
+      unknown: [],
+      periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
+      daily: [],
+      breakdown: [],
+      alerts: [],
+    } satisfies UsageReport);
+  },
   windows: () => envelope([] satisfies TmuxWindow[]),
   'hooks status': () =>
     envelope({
@@ -153,12 +181,28 @@ export const fakePlatform = ({
     onLoad: async () => () => {},
   },
   deepLinks = { current: async () => null, onOpen: async () => () => {} },
+  notifications = {
+    status: async () => ({
+      authorization: 'not-determined' as const,
+      alertsEnabled: false,
+      soundsEnabled: false,
+    }),
+    requestPermission: async () => ({
+      authorization: 'authorized' as const,
+      alertsEnabled: true,
+      soundsEnabled: true,
+    }),
+    send: async () => {},
+    onOpen: async () => () => {},
+    takeOpened: async () => null,
+  },
 }: {
   folder?: string | null;
   file?: string | null;
   terminal?: TerminalHost;
   browser?: BrowserHost;
   deepLinks?: Platform['deepLinks'];
+  notifications?: Platform['notifications'];
 } = {}): Platform & {
   pasteboard: string[];
 } => {
@@ -167,6 +211,7 @@ export const fakePlatform = ({
     pickFolder: async () => folder,
     pickFile: async () => file,
     deepLinks,
+    notifications,
     terminal,
     browser,
     clipboard: { write: async (text) => void pasteboard.push(text) },

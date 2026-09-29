@@ -1949,6 +1949,14 @@ test('shortcut settings validate conflicts and update the active profile key', a
     skills: [],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
+    usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
+    notifications: {
+      quiet: false,
+      inputRequired: 'sound',
+      finished: 'silent',
+      subagent: 'silent',
+      doctor: 'silent',
+    },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
@@ -2207,4 +2215,131 @@ test('a failed native project link can be opened again', async () => {
   ).toHaveLength(2);
   await click(document.querySelector('[aria-label="Cancel repository checkout"]') as HTMLElement);
   expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe('');
+});
+
+test('authorized native delivery and a click from before app launch open the exact session', async () => {
+  const target = { kind: 'session' as const, id: 'aaaaaaaa' };
+  const notice = {
+    kind: 'notice' as const,
+    id: '2026-09-24T12:00:01.000Z:abc123',
+    ids: ['2026-09-24T12:00:01.000Z:abc123'],
+    title: 'Session turn finished',
+    body: 'Session aaaaaaaa',
+    sound: false,
+    target,
+  };
+  const sent: string[] = [];
+  let opened:
+    | ((destination: typeof target | { kind: 'inbox' } | { kind: 'doctor' }) => void)
+    | undefined;
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    'notifications delivery': () => envelope(notice),
+    'notifications delivered': () => envelope({ ids: notice.ids, delivered: true }),
+  });
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({
+      notifications: {
+        status: async () => ({
+          authorization: 'authorized',
+          alertsEnabled: true,
+          soundsEnabled: true,
+        }),
+        requestPermission: async () => {
+          throw new Error('permission must be requested by a person');
+        },
+        send: async (item) => void sent.push(item.id),
+        onOpen: async (handler) => {
+          opened = handler;
+          return () => {};
+        },
+        takeOpened: async () => target,
+      },
+    }),
+  );
+  expect(sent).toEqual([notice.id]);
+  expect(calls.some((args) => args[1] === 'notifications' && args[2] === 'delivered')).toBe(true);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  await act(async () => opened?.(target));
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  await act(async () => opened?.({ kind: 'doctor' }));
+  expect(byTestId('doctor-panel')).toHaveLength(1);
+});
+
+test('a dismissed macOS notification request remains optional', async () => {
+  const status = {
+    authorization: 'not-determined' as const,
+    alertsEnabled: false,
+    soundsEnabled: false,
+  };
+  let requests = 0;
+  const { bridge } = fakeBridge({ 'notifications list': () => envelope([]) });
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({
+      notifications: {
+        status: async () => status,
+        requestPermission: async () => {
+          requests++;
+          throw new Error('notification permission was not granted');
+        },
+        send: async () => {},
+        onOpen: async () => () => {},
+        takeOpened: async () => null,
+      },
+    }),
+  );
+  await click(byTestId('nav-inbox')[0]);
+  expect(requests).toBe(0);
+  await click(
+    [...document.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Enable notifications',
+    ),
+  );
+  expect(requests).toBe(1);
+  expect(byTestId('inbox-panel')[0]?.textContent).toContain(
+    'notification permission was not granted',
+  );
+  expect(byTestId('inbox-panel')[0]?.textContent).toContain('Enable notifications');
+});
+
+test('a usage threshold alerts during session work and opens Usage', async () => {
+  const zero = {
+    events: 0,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    estimatedCostUsd: 0,
+  };
+  const { bridge } = fakeBridge({
+    usage: () =>
+      envelope({
+        rows: [],
+        unknown: [],
+        periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
+        daily: [],
+        breakdown: [],
+        alerts: [{ period: 'today', thresholdUsd: 1, knownCostUsd: 1.5 }],
+      }),
+    rewind: () =>
+      envelope({
+        from: '2026-09-22',
+        through: '2026-09-29',
+        timezone: 'UTC',
+        notes: [],
+        sessions: [],
+        usage: zero,
+        missing: [],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  expect(toastTexts(byTestId)).toContain(
+    'Known estimated today cost reached your $1.00 alert. Agents keep running.',
+  );
+  await click(byTestId('toast-link')[0]);
+  expect(byTestId('usage-panel')).toHaveLength(1);
 });

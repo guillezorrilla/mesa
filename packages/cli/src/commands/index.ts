@@ -14,6 +14,7 @@ import {
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { dependency } from './dependency.js';
+import { diagnostics } from './diagnostics.js';
 import { doctor } from './doctor.js';
 import {
   filesCreate,
@@ -62,6 +63,13 @@ import { imagePreview, imageSend } from './image.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
+import {
+  notifications,
+  notificationsClear,
+  notificationsDelivered,
+  notificationsDelivery,
+  notificationsRead,
+} from './notifications.js';
 import { open } from './open.js';
 import { profile } from './profile.js';
 import { projects, projectsClone, projectsDiscover, projectsUpdate } from './projects.js';
@@ -78,6 +86,7 @@ import {
   reviewResponses,
   reviewSend,
 } from './review.js';
+import { rewind } from './rewind.js';
 import { rm } from './rm.js';
 import { rulesList, rulesRead, rulesWrite } from './rules.js';
 import { run } from './run.js';
@@ -89,6 +98,7 @@ import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './sk
 import { stop } from './stop.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
+import { usage } from './usage.js';
 import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
 import { view } from './view.js';
 import { windows } from './windows.js';
@@ -119,6 +129,7 @@ export const COMMANDS: Command[] = [
   configSet,
   dependency,
   decide,
+  diagnostics,
   doctor,
   filesCreate,
   filesDelete,
@@ -170,6 +181,11 @@ export const COMMANDS: Command[] = [
   init,
   log,
   logs,
+  notifications,
+  notificationsRead,
+  notificationsClear,
+  notificationsDelivery,
+  notificationsDelivered,
   open,
   profile,
   projects,
@@ -180,6 +196,7 @@ export const COMMANDS: Command[] = [
   receiptsShow,
   register,
   rename,
+  rewind,
   reviewResponses,
   reviewPreview,
   reviewSend,
@@ -205,6 +222,7 @@ export const COMMANDS: Command[] = [
   stop,
   unregister,
   unarchive,
+  usage,
   vaultInit,
   vaultOpen,
   vaultStatus,

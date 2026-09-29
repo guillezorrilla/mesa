@@ -1,4 +1,13 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, AgentSchema } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
@@ -21,6 +30,10 @@ export type HookEvent = {
   mesaSessionId?: string;
   payload: unknown;
 };
+
+/** Claude marks hooks fired inside a subagent with agent_id; they are not parent state signals. */
+export const parentHook = (event: HookEvent) =>
+  !event.payload || typeof event.payload !== 'object' || !('agent_id' in event.payload);
 
 /** A session's hook events log: `<events>/<Mesa session id>.jsonl`. */
 export const eventsLog = (eventsDir: string, id: string) => join(eventsDir, `${id}.jsonl`);
@@ -131,20 +144,91 @@ function findRecord(store: SessionStore, id: string) {
   }
 }
 
-// ponytail: reads the whole log; read its tail instead if long sessions make it slow.
-/** The session's hook events, oldest first; a line that does not parse is skipped. */
-export function readHookEvents(eventsDir: string, id: string): HookEvent[] {
+/** The session's hook events, oldest first; a bounded read drops an incomplete first line. */
+export function readHookEvents(eventsDir: string, id: string, maxBytes?: number): HookEvent[] {
   if (!isSessionId(id)) return [];
   const file = eventsLog(eventsDir, id);
   if (!existsSync(file)) return [];
-  return readFileSync(file, 'utf8')
-    .split('\n')
-    .flatMap((line) => {
-      try {
-        const e = JSON.parse(line);
-        return typeof e?.event === 'string' && typeof e.at === 'string' ? [e as HookEvent] : [];
-      } catch {
-        return [];
+  let text: string;
+  const size = statSync(file).size;
+  if (maxBytes !== undefined && size > maxBytes) {
+    const buffer = Buffer.alloc(maxBytes);
+    const fd = openSync(file, 'r');
+    let read = 0;
+    try {
+      while (read < maxBytes) {
+        const count = readSync(fd, buffer, read, maxBytes - read, size - maxBytes + read);
+        if (count === 0) break;
+        read += count;
       }
-    });
+    } finally {
+      closeSync(fd);
+    }
+    text = buffer.subarray(0, read).toString('utf8');
+    text = text.slice(text.indexOf('\n') + 1);
+  } else text = readFileSync(file, 'utf8');
+  return text.split('\n').flatMap((line) => {
+    const event = parseHookEvent(line);
+    return event ? [event] : [];
+  });
+}
+
+function parseHookEvent(line: string): HookEvent | undefined {
+  try {
+    const event = JSON.parse(line);
+    return typeof event?.event === 'string' && typeof event.at === 'string'
+      ? (event as HookEvent)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Reads only complete lines appended since an inbox checkpoint, without loading the whole log. */
+export function scanHookEvents(
+  eventsDir: string,
+  id: string,
+  offset: number,
+  onEvent: (event: HookEvent) => void,
+): number {
+  if (!isSessionId(id)) return offset;
+  const file = eventsLog(eventsDir, id);
+  if (!existsSync(file)) return offset;
+  const size = statSync(file).size;
+  let position = offset <= size ? offset : 0;
+  let complete = position;
+  let pending: Buffer[] = [];
+  let pendingBytes = 0;
+  const fd = openSync(file, 'r');
+  try {
+    while (position < size) {
+      const buffer = Buffer.alloc(Math.min(64 * 1024, size - position));
+      const count = readSync(fd, buffer, 0, buffer.length, position);
+      if (count === 0) break;
+      position += count;
+      const chunk = buffer.subarray(0, count);
+      let start = 0;
+      for (let end = chunk.indexOf(10, start); end !== -1; end = chunk.indexOf(10, start)) {
+        const line = chunk.subarray(start, end);
+        const event = parseHookEvent(
+          (pendingBytes
+            ? Buffer.concat([...pending, line], pendingBytes + line.length)
+            : line
+          ).toString('utf8'),
+        );
+        if (event) onEvent(event);
+        pending = [];
+        pendingBytes = 0;
+        start = end + 1;
+      }
+      if (start < chunk.length) {
+        pending.push(chunk.subarray(start));
+        pendingBytes += chunk.length - start;
+      }
+      complete = position - pendingBytes;
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return complete;
 }

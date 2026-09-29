@@ -11,6 +11,8 @@ export const HOOK_EVENTS = [
   { event: 'PermissionRequest' },
   { event: 'PostToolUse' },
   { event: 'Interrupt' },
+  { event: 'SubagentStart' },
+  { event: 'SubagentStop' },
   { event: 'Stop' },
   { event: 'SessionEnd' },
 ] as const;

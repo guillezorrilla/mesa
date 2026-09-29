@@ -1,3 +1,18 @@
+import type { DeliveryPlan } from '@mesa/core';
+
+export type NativeNotice = Exclude<DeliveryPlan, { kind: 'none' }>;
+export type NotificationStatus = {
+  authorization:
+    | 'not-determined'
+    | 'denied'
+    | 'authorized'
+    | 'provisional'
+    | 'ephemeral'
+    | 'unknown';
+  alertsEnabled: boolean;
+  soundsEnabled: boolean;
+};
+
 /** A terminal the app runs on a session's tmux window (Rust `term_*`, ADR-0007). */
 export type TerminalHost = {
   /** Attaches a new terminal of `cols` x `rows` to the session's window; resolves its id. */
@@ -42,6 +57,13 @@ export type Platform = {
   deepLinks: {
     current: () => Promise<string[] | null>;
     onOpen: (handler: (urls: string[]) => void) => Promise<() => void>;
+  };
+  notifications: {
+    status: () => Promise<NotificationStatus>;
+    requestPermission: () => Promise<NotificationStatus>;
+    send: (notice: NativeNotice) => Promise<void>;
+    onOpen: (handler: (target: NativeNotice['target']) => void) => Promise<() => void>;
+    takeOpened: () => Promise<NativeNotice['target'] | null>;
   };
   terminal: TerminalHost;
   browser: BrowserHost;

@@ -6,7 +6,7 @@ import { joinWarnings } from '../receipts/recorder.js';
 import type { SessionRow } from './board/rows.js';
 import { windowId } from './caller.js';
 import { refreshContext } from './context-use.js';
-import { recordHookEvent } from './hook-events.js';
+import { parentHook, recordHookEvent } from './hook-events.js';
 import { mesaPointer } from './instructions.js';
 import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
@@ -139,13 +139,14 @@ export function endSignals(
       );
       const id = event?.mesaSessionId;
       // A turn ended: its reply's usage is in the transcript. A hook still logs without a record.
-      const ended = event?.event === 'Stop' && id ? store.find(id) : undefined;
+      const ended = event?.event === 'Stop' && id && parentHook(event) ? store.find(id) : undefined;
       if (ended) refreshContext(deps.context, ended);
-      const state = event && AGENTS[event.agent].hookState?.(event.event, event.payload);
+      const state =
+        event && parentHook(event) && AGENTS[event.agent].hookState?.(event.event, event.payload);
       if (event?.event === 'SessionEnd' && id && state) {
         await startAfter(id);
       }
-      if (event?.event !== 'SessionStart' || !id) return event;
+      if (event?.event !== 'SessionStart' || !id || !parentHook(event)) return event;
       const started = store.find(id);
       if (
         !started ||

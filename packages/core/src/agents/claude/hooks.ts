@@ -10,6 +10,8 @@ export const HOOK_EVENTS: readonly { event: string; matcher?: string }[] = [
   // The only hook between an approval or an answer and Stop (ADR-0003 amendment).
   { event: 'PostToolUse' },
   { event: 'Notification' },
+  { event: 'SubagentStart' },
+  { event: 'SubagentStop' },
   { event: 'Stop' },
   { event: 'SessionEnd' },
 ];

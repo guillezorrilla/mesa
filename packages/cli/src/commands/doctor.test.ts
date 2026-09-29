@@ -27,6 +27,8 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
       'PermissionRequest',
       'PostToolUse',
       'Interrupt',
+      'SubagentStart',
+      'SubagentStop',
       'Stop',
       'SessionEnd',
     ].map((event) => `codex hooks ${event}`),

@@ -23,6 +23,10 @@ export type ProfilePaths = {
   checkouts: string;
   /** Handoff notes, `<successor id>.md` each (CONTEXT.md, Handoff). */
   handoffs: string;
+  /** Profile-local normalized provider usage, independent of vault receipts. */
+  usage: string;
+  /** Read and clear markers for the profile-local notification inbox. */
+  notifications: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
   tmuxSocket: string;
 };
@@ -44,6 +48,8 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     worktrees: join(root, 'worktrees'),
     checkouts: join(root, 'checkouts'),
     handoffs: join(root, 'handoffs'),
+    usage: join(root, 'usage.json'),
+    notifications: join(root, 'notifications.json'),
     tmuxSocket: `mesa-${profile}`,
   };
 }

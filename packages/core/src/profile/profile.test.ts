@@ -21,6 +21,8 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     events: '/h/.mesa/work/sessions/events',
     logs: '/h/.mesa/work/sessions/logs',
     runs: '/h/.mesa/work/sessions/runs',
+    usage: '/h/.mesa/work/usage.json',
+    notifications: '/h/.mesa/work/notifications.json',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
     checkouts: '/h/.mesa/work/checkouts',
@@ -42,6 +44,14 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     skills: ['mesa', 'mesa-handoff'],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
+    usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
+    notifications: {
+      quiet: false,
+      inputRequired: 'sound',
+      finished: 'silent',
+      subagent: 'silent',
+      doctor: 'silent',
+    },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
