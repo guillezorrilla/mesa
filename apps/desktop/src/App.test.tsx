@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Config } from '@mesa/core';
+import type { Config, TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
@@ -37,8 +37,235 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     ),
   );
   expect(byTestId('project-workspace')[0]?.textContent).toContain('No skills found.');
+  await click(
+    [...(byTestId('skills-workspace')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Coding agents',
+    ),
+  );
+  expect(byTestId('doctor-panel')).toHaveLength(1);
   await click(byTestId('nav-projects')[0]);
   expect(byTestId('projects-screen')).toHaveLength(1);
+});
+
+test('project Skills and Rules tabs preview and save only through their checked commands', async () => {
+  const skillId = '/src/lantern-cove/.claude/skills/sunset-map';
+  const ruleId = '/src/lantern-cove/AGENTS.md';
+  const revision = 'a'.repeat(64);
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([]),
+    'skills list': () =>
+      envelope([
+        {
+          id: skillId,
+          path: skillId,
+          name: 'sunset-map',
+          description: 'Fictional map',
+          source: 'repo',
+          scope: 'project',
+          providers: ['claude'],
+          enabled: true,
+          supportFiles: ['reference.md'],
+          writable: true,
+          conflicts: [],
+        },
+      ]),
+    'skills read': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: skillId, registered: false },
+        path: 'SKILL.md',
+        text: '# Sunset map\n',
+        revision,
+        lines: 2,
+      }),
+    'skills write': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: skillId, registered: false },
+        path: 'SKILL.md',
+        action: 'write',
+        revision: 'b'.repeat(64),
+        receipt: null,
+      }),
+    'rules list': () =>
+      envelope([
+        {
+          id: ruleId,
+          path: ruleId,
+          name: 'AGENTS.md',
+          scope: 'project',
+          providers: ['claude', 'codex', 'antigravity'],
+          writable: true,
+        },
+      ]),
+    'rules read': () =>
+      envelope({
+        checkout: { project: 'lantern-cove', path: '/src/lantern-cove', registered: false },
+        path: 'AGENTS.md',
+        text: '# Rules\n',
+        revision,
+        lines: 2,
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'skills',
+    ),
+  );
+  expect(byTestId('skills-workspace')[0]?.textContent).toContain('sunset-map');
+  expect(byTestId('skills-workspace')[0]?.textContent).not.toContain('Run skill');
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('sunset-map')),
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Sunset map\n');
+  await act(async () => {
+    const editor = byTestId('file-editor-text')[0] as HTMLTextAreaElement;
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+      editor,
+      '# Updated map\n',
+    );
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent === 'Save'),
+  );
+  expect(calls).toContainEqual([
+    '--json',
+    'skills',
+    'write',
+    '--project',
+    'lantern-cove',
+    '--file',
+    'SKILL.md',
+    '--text=# Updated map\n',
+    '--revision',
+    revision,
+    '--',
+    skillId,
+  ]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'rules',
+    ),
+  );
+  expect(byTestId('rules-workspace')[0]?.textContent).toContain('AGENTS.md');
+  await click(
+    [...(byTestId('rules-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
+      (b) => b.textContent?.includes('AGENTS.md'),
+    ),
+  );
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Rules\n');
+  expect(calls).toContainEqual([
+    '--json',
+    'rules',
+    'read',
+    '--project',
+    'lantern-cove',
+    '--',
+    ruleId,
+  ]);
+});
+
+test('project Skills can enable a shipped skill through the project policy and sync it', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'skills list': () =>
+      envelope([
+        {
+          id: '/library/session-summary',
+          path: '/library/session-summary',
+          name: 'session-summary',
+          description: 'Summarize an invented session',
+          source: 'mesa',
+          scope: 'mesa',
+          providers: ['claude', 'codex', 'antigravity'],
+          enabled: false,
+          supportFiles: [],
+          writable: false,
+          conflicts: [],
+          disabledFor: [],
+          precedence: 'only-discovered-source',
+        },
+      ]),
+    'skills read': () =>
+      envelope({ path: 'SKILL.md', text: '# Summary\n', revision: 'a'.repeat(64), lines: 2 }),
+    'skills set': () =>
+      envelope({ project: 'lantern-cove', name: 'session-summary', enabled: true }),
+    'skills sync': () => envelope({ added: [], removed: [], kept: [], conflicts: [], unknown: [] }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'skills',
+    ),
+  );
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('session-summary')),
+  );
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent === 'Enable in project'),
+  );
+  expect(calls).toContainEqual([
+    '--json',
+    'skills',
+    'set',
+    '--enabled',
+    'true',
+    '--',
+    'lantern-cove',
+    'session-summary',
+  ]);
+  expect(calls).toContainEqual(['--json', 'skills', 'sync', '--', 'lantern-cove']);
+});
+
+test('project Skills does not offer to disable a skill inherited from the profile', async () => {
+  const defaults = (await fakeBridge().bridge(['--json', 'config', 'get'])) as {
+    data: Config;
+  };
+  const { bridge } = fakeBridge({
+    projects: () => envelope([{ ...PROJECTS[0], skills: ['session-summary'] }]),
+    config: () => envelope({ ...defaults.data, skills: ['session-summary'] }),
+    'skills list': () =>
+      envelope([
+        {
+          id: '/library/session-summary',
+          path: '/library/session-summary',
+          name: 'session-summary',
+          description: 'Summarize a session',
+          source: 'mesa',
+          scope: 'mesa',
+          providers: ['claude', 'codex', 'antigravity'],
+          enabled: true,
+          supportFiles: [],
+          writable: false,
+          conflicts: [],
+        },
+      ]),
+    'skills read': () =>
+      envelope({ path: 'SKILL.md', text: '# Summary\n', revision: 'a'.repeat(64), lines: 2 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('session-summary')),
+  );
+  const text = byTestId('skills-workspace')[0]?.textContent ?? '';
+  expect(text).toContain('Remove project override');
+  expect(text).toContain('Enabled by the profile in every project.');
+  expect(text).not.toContain('Disable in project');
 });
 
 test('project native history imports a Codex conversation through the existing session action', async () => {
@@ -879,6 +1106,20 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
+test('Sessions selects a newly discovered managed session after initially seeing only foreign rows', async () => {
+  let rows: TreeRow[] = [foreignRow];
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(rows),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('selected-session')).toHaveLength(0);
+  rows = [foreignRow, managedRow('aaaaaaaa')];
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 2100)));
+  expect(byTestId('selected-session')).toHaveLength(1);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+});
+
 test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({
@@ -951,6 +1192,7 @@ test('selected session details read native context by exact id and keep unknown 
         reading
           ? {
               ...row,
+              instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
               context: {
                 used: 10.04,
                 window: 258400,
@@ -960,7 +1202,10 @@ test('selected session details read native context by exact id and keep unknown 
                 effort: 'xhigh',
               },
             }
-          : row,
+          : {
+              ...row,
+              instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+            },
       ),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
@@ -970,6 +1215,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('/src/lantern-cove');
   expect(details?.textContent).toContain('Modelclaude-opus-5-5');
   expect(details?.textContent).toContain('Effortxhigh');
+  expect(details?.textContent).toContain('Instructionsconfigured: SessionStart hook is configured');
   expect(details?.textContent).toContain('10.04% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
   expect(
@@ -981,6 +1227,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('ContextUnknown');
   expect(details?.textContent).toContain('ModelUnknown');
   expect(details?.textContent).toContain('EffortUnknown');
+  expect(details?.textContent).toContain('Instructionsmissing: Run mesa hooks install');
   expect(
     document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
   ).toBe('img');

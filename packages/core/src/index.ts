@@ -65,6 +65,7 @@ export { RECORD_KINDS } from './receipts/policy.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
+export type { RuleRow } from './rules/inventory.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
@@ -73,6 +74,7 @@ export type { DescendantResult } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
+export type { InstructionStatus } from './sessions/instructions.js';
 export type { SessionLog } from './sessions/output-log.js';
 export {
   BOARD_DENSITIES,
@@ -95,6 +97,7 @@ export type { TmuxWindow } from './sessions/tmux/format.js';
 export type { Viewed } from './sessions/view.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
 export type { Worktree } from './sessions/worktree.js';
+export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';

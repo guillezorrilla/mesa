@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
@@ -19,12 +19,18 @@ const SkillFrontmatterSchema = z.object({
 export type LibrarySkill = { name: string; description: string; path: string };
 
 /** A skill folder's SKILL.md frontmatter, or undefined when it has none that reads. */
-export function readSkill(folder: string): { name: string; description: string } | undefined {
+export function readSkill(
+  folder: string,
+  requireName = false,
+): { name: string; description: string } | undefined {
   const file = join(folder, SKILL_FILE);
   if (!existsSync(file)) return undefined;
-  const parsed = SkillFrontmatterSchema.safeParse(
-    parseNote(readFileSync(file, 'utf8')).frontmatter,
-  );
+  const frontmatter = parseNote(readFileSync(file, 'utf8')).frontmatter;
+  if (requireName && !frontmatter.name) return undefined;
+  const parsed = SkillFrontmatterSchema.safeParse({
+    ...frontmatter,
+    name: frontmatter.name ?? basename(folder),
+  });
   return parsed.success ? parsed.data : undefined;
 }
 

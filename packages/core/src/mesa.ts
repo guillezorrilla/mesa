@@ -10,6 +10,7 @@ import { gitService } from './git/service.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { receiptsService } from './receipts/service.js';
+import { rulesService } from './rules/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { vaultService } from './vault/service.js';
@@ -38,6 +39,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...sessionsService(ctx, faro, skills),
     hooks: hooksService(ctx),
     skills,
+    rules: rulesService(ctx),
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
     doctor: () =>

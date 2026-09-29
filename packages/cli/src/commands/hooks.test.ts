@@ -43,6 +43,81 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
   expect(readFileSync(join(cli.home, '.claude/settings.json'), 'utf8')).toBe('{}\n');
 });
 
+test('SessionStart gives only the owning native session a bounded Mesa pointer', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const opened = (await mesa('open', 'lantern-cove', '--json')).json.data;
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('missing');
+  await mesa('hooks', 'install');
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('configured');
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId,
+    hook_event_name: 'SessionStart',
+    source: 'startup',
+  });
+  const start = await mesa('hook', 'claude');
+  expect(start.stdout).toContain(
+    `Mesa session ${opened.id}; profile default; project lantern-cove;`,
+  );
+  expect(start.stdout).toContain(`mesa show ${opened.id} --json`);
+  expect(start.stdout).toContain('Invoke skills in this terminal with /skill-name');
+  cli.stdin = JSON.stringify({ session_id: opened.agentSessionId, hook_event_name: 'Stop' });
+  expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
+  cli.stdin = JSON.stringify({ session_id: 'another-agent', hook_event_name: 'SessionStart' });
+  expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
+});
+
+test('General SessionStart points at profile skills without an unregistered project', async () => {
+  cli.withTmux();
+  await mesa('init', '--vault', 'vault');
+  const opened = (await mesa('open', '--general', '--agent', 'codex', '--json')).json.data;
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId ?? 'native-codex-id',
+    hook_event_name: 'SessionStart',
+  });
+  const start = await mesa('hook', 'codex');
+  expect(start.stdout).toContain('mesa skills list --json');
+  expect(start.stdout).not.toContain('mesa skills list __mesa_general__');
+});
+
+test('Codex clear leaves its saved identity intact and show reports the lost pointer', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const opened = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
+  await mesa('hooks', 'install');
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId ?? 'native-one',
+    hook_event_name: 'SessionStart',
+    source: 'startup',
+  });
+  await mesa('hook', 'codex');
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId ?? 'native-one',
+    hook_event_name: 'SessionEnd',
+  });
+  await mesa('hook', 'codex');
+  cli.stdin = JSON.stringify({
+    session_id: 'native-after-clear',
+    hook_event_name: 'SessionStart',
+    source: 'clear',
+  });
+  const changed = await mesa('hook', 'codex', '--json');
+  expect(changed.json.data).toMatchObject({
+    recorded: true,
+    event: 'SessionIdentityChanged',
+  });
+  expect((await mesa('show', opened.id, '--json')).json.data).toMatchObject({
+    agentSessionId: opened.agentSessionId ?? 'native-one',
+    instructions: {
+      state: 'conflicting',
+      reason: 'Native conversation changed after /clear; reopen through Mesa',
+    },
+  });
+});
+
 test('a hook in a session refuses to log while config.yaml does not read, so no key leaks', async () => {
   await mesa('init', '--vault', 'vault');
   await mesa('config', 'set', 'keys.api', 'sk-live-1234');
@@ -161,6 +236,7 @@ test('Codex hooks flow through CLI JSON, doctor trust rows, and board state', as
     ),
   ).toBe(true);
   const id = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data.id;
+  expect((await mesa('show', id, '--json')).json.data.instructions.state).toBe('conflicting');
   cli.env = { ...cli.env, MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
   for (const [event, state] of [
     ['SessionStart', 'idle'],

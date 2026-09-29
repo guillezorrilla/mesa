@@ -156,3 +156,33 @@ test('another agent session id with any other source is still a nested claude, a
   expect(store.get(id).agentSessionId).toBe('the-sessions-own');
   expect(existsSync(join(dir, 'events'))).toBe(false);
 });
+
+test('Codex clear records a stale identity without claiming the new native conversation', () => {
+  const { store, id, deps, log } = setUp();
+  store.update(id, { agent: 'codex', agentSessionId: 'before-clear' });
+  recordHookEvent(deps, {
+    agent: 'codex',
+    mesaSessionId: id,
+    payload: JSON.stringify({ session_id: 'before-clear', hook_event_name: 'SessionEnd' }),
+  });
+  const clear = JSON.stringify({
+    session_id: 'after-clear',
+    hook_event_name: 'SessionStart',
+    source: 'clear',
+  });
+  expect(
+    recordHookEvent(deps, { agent: 'codex', mesaSessionId: id, payload: clear }),
+  ).toMatchObject({
+    event: 'SessionIdentityChanged',
+    agentSessionId: 'after-clear',
+  });
+  expect(store.get(id).agentSessionId).toBe('before-clear');
+  expect(log().map((event) => event.event)).toEqual(['SessionEnd', 'SessionIdentityChanged']);
+  expect(
+    recordHookEvent(deps, {
+      agent: 'codex',
+      mesaSessionId: id,
+      payload: JSON.stringify({ session_id: 'after-clear', hook_event_name: 'Stop' }),
+    }),
+  ).toBeUndefined();
+});

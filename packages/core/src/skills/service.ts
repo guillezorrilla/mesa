@@ -1,6 +1,10 @@
+import { codexConfig, codexHome } from '../agents/codex/paths.js';
 import type { MesaContext } from '../context.js';
-import { readProjectFile } from '../projects/project-file.js';
+import { readWorkspaceFile, writeWorkspaceFile } from '../files/editor.js';
+import { MesaError } from '../lib/result.js';
+import { readProjectFile, setProjectSkills } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import { skillInventory } from './inventory.js';
 import { readLibrary } from './library.js';
 import { listSkills, syncSkills } from './sync.js';
 
@@ -14,10 +18,80 @@ export function skillsService(ctx: MesaContext) {
     const extras = entry ? (readProjectFile(entry.path).skills ?? []) : [];
     return { projectDir: entry?.path, enabled: new Set([...profile.config.skills, ...extras]) };
   };
+  const inventory = (project?: string) => {
+    const library = readLibrary(libraryDir);
+    const selected = scope(project);
+    return skillInventory({
+      home: ctx.deps.home,
+      library,
+      listed: listSkills({ library, libraryDir, ...selected }),
+      projectDir: selected.projectDir,
+      codexConfig: codexConfig(codexHome(ctx.deps.env, ctx.deps.home)),
+    });
+  };
+  const document = (id: string, project?: string, file = 'SKILL.md') => {
+    const row = inventory(project).find((skill) => skill.id === id);
+    if (!row) throw new MesaError('not_found', `skill ${id} is unavailable`);
+    if (file !== 'SKILL.md' && !row.supportFiles.includes(file)) {
+      throw new MesaError('usage', `${file} is not a listed support file of ${row.name}`);
+    }
+    return {
+      row,
+      checkout: { project: project ?? 'global', path: row.path, registered: false },
+      file,
+    };
+  };
   return {
     /** The library's skills, enabled or not, and with `project`, that project's own too. */
     list: (project?: string) =>
       listSkills({ library: readLibrary(libraryDir), libraryDir, ...scope(project) }),
+    inventory,
+    /** Add or remove a shipped skill from this project's mesa.yaml policy. */
+    setProject: (project: string, name: string, enabled: boolean) =>
+      ctx.record(
+        {
+          summary: () => `Updated ${name} policy in ${project}`,
+          failure: `Could not update ${name} in ${project}`,
+          project: () => project,
+          inputs: { project, name, enabled },
+          changed: (result) => result.changed,
+        },
+        () => {
+          if (!readLibrary(libraryDir).some((skill) => skill.name === name)) {
+            throw new MesaError('not_found', `no Mesa skill ${name}`);
+          }
+          const { projectDir } = scope(project);
+          const current = readProjectFile(projectDir as string).skills ?? [];
+          if (current.includes(name) === enabled) {
+            return { project, name, enabled, skills: current, changed: false };
+          }
+          const skills = enabled
+            ? [...new Set([...current, name])]
+            : current.filter((skill) => skill !== name);
+          setProjectSkills(projectDir as string, skills);
+          return { project, name, enabled, skills, changed: true };
+        },
+      ),
+    read: (id: string, project?: string, file?: string) => {
+      const selected = document(id, project, file);
+      return readWorkspaceFile(selected.checkout, selected.file);
+    },
+    write: (id: string, text: string, revision: string, project?: string, file?: string) =>
+      ctx.record(
+        {
+          summary: () => `Saved skill document ${file ?? 'SKILL.md'}`,
+          failure: `Could not save skill document ${file ?? 'SKILL.md'}`,
+          project: () => project,
+          inputs: { id, file: file ?? 'SKILL.md' },
+        },
+        () => {
+          const selected = document(id, project, file);
+          if (!selected.row.writable) {
+            throw new MesaError('usage', selected.row.readOnlyReason ?? 'Skill is read-only');
+          }
+          return writeWorkspaceFile(selected.checkout, selected.file, text, revision);
+        },
+      ),
     /**
      * The same sync into `folder` (where a session's agent runs: the project's, its worktree,
      * or an adopted session's own), without a receipt of its own: every start of a session runs

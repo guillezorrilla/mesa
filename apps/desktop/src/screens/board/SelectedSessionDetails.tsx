@@ -1,4 +1,4 @@
-import type { ManagedRow, SessionRecord } from '@mesa/core';
+import type { InstructionStatus, ManagedRow, SessionRecord } from '@mesa/core';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
@@ -7,7 +7,7 @@ import { useCall } from '@/lib/useCommand';
 /** Native facts for the selected session, read by id only when its details are opened. */
 export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
   const call = useCall();
-  const [record, setRecord] = useState<SessionRecord>();
+  const [record, setRecord] = useState<SessionRecord & { instructions: InstructionStatus }>();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   const { row } = props;
@@ -52,6 +52,12 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dd>{context?.effort ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Status</dt>
             <dd>{row.lastState.state}</dd>
+            <dt className="text-muted-foreground">Instructions</dt>
+            <dd title={record?.instructions.reason}>
+              {record
+                ? `${record.instructions.state}: ${record.instructions.reason}`
+                : 'Open details to check'}
+            </dd>
             <dt className="text-muted-foreground">Created</dt>
             <dd>{date(row.startedAt)}</dd>
             <dt className="text-muted-foreground">Last Activity</dt>

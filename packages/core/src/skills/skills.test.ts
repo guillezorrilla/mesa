@@ -2,6 +2,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readlinkSync,
   symlinkSync,
   writeFileSync,
@@ -86,6 +87,178 @@ test("list merges the library with the profile's set, the project's extras, and 
       .filter((r) => r.linked)
       .map((r) => r.name),
   ).toEqual(['a', 'b']);
+});
+
+test('inventory keeps native sources and same-name conflicts visible without changing user files', () => {
+  const { home, dir, mesa } = setUp();
+  skill(join(home, '.claude/skills'), 'shared', 'Global Claude skill');
+  skill(join(dir, '.claude/skills'), 'shared', 'Project Claude skill');
+  skill(join(home, '.gemini/antigravity-cli/plugins/example/skills'), 'plugin-skill');
+  writeFileSync(join(dir, '.claude/skills/shared', 'reference.md'), 'support\n');
+
+  const rows = mesa.skills.inventory('lantern-cove');
+  const project = rows.find((row) => row.path === join(dir, '.claude/skills/shared'));
+  const global = rows.find((row) => row.path === join(home, '.claude/skills/shared'));
+  expect(project).toMatchObject({
+    scope: 'project',
+    providers: ['claude'],
+    supportFiles: ['reference.md'],
+    writable: true,
+    conflicts: [join(home, '.claude/skills/shared')],
+  });
+  expect(global).toMatchObject({
+    scope: 'global',
+    providers: ['claude'],
+    conflicts: [join(dir, '.claude/skills/shared')],
+  });
+  expect(rows).toContainEqual(
+    expect.objectContaining({
+      name: 'plugin-skill',
+      scope: 'plugin',
+      providers: ['antigravity'],
+      writable: false,
+    }),
+  );
+  expect(existsSync(join(dir, '.claude/skills/shared/SKILL.md'))).toBe(true);
+});
+
+test('inventory reads installed Claude plugin skills and all their support files', () => {
+  const { home, dir, mesa } = setUp();
+  const cache = join(home, '.claude/plugins/cache/example/map/1.0.0');
+  skill(join(cache, 'skills'), 'shared');
+  skill(join(dir, '.claude/skills'), 'shared');
+  skill(join(home, '.claude/skills'), 'quiet');
+  skill(join(home, '.claude/plugins/cache/example/off/1.0.0/skills'), 'off-plugin');
+  const plugin = join(cache, 'skills/shared');
+  for (let i = 0; i < 40; i++) {
+    writeFileSync(join(plugin, `reference-${i}.md`), `support ${i}\n`);
+  }
+  mkdirSync(join(home, '.claude/plugins'), { recursive: true });
+  writeFileSync(
+    join(home, '.claude/plugins/installed_plugins.json'),
+    JSON.stringify({
+      version: 2,
+      plugins: {
+        'map@example': [
+          { scope: 'user', installPath: cache },
+          {
+            scope: 'project',
+            projectPath: '/another/project',
+            installPath: join(home, 'elsewhere'),
+          },
+        ],
+        'off@example': [
+          { scope: 'user', installPath: join(home, '.claude/plugins/cache/example/off/1.0.0') },
+        ],
+      },
+    }),
+  );
+  writeFileSync(
+    join(home, '.claude/settings.json'),
+    JSON.stringify({
+      enabledPlugins: { 'map@example': true, 'off@example': false },
+      skillOverrides: { quiet: 'off' },
+    }),
+  );
+  skill(join(home, 'elsewhere/skills'), 'unrelated');
+  const rows = mesa.skills.inventory('lantern-cove');
+  expect(rows.find((row) => row.path === plugin)).toMatchObject({
+    scope: 'plugin',
+    providers: ['claude'],
+    writable: false,
+    readOnlyReason: 'Managed by a provider plugin',
+    conflicts: [join(dir, '.claude/skills/shared')],
+  });
+  expect(rows.some((row) => row.name === 'unrelated')).toBe(false);
+  expect(rows.find((row) => row.name === 'off-plugin')).toMatchObject({
+    enabled: false,
+    disabledFor: ['claude'],
+  });
+  expect(rows.find((row) => row.name === 'quiet')).toMatchObject({
+    enabled: false,
+    disabledFor: ['claude'],
+  });
+  expect(rows.find((row) => row.path === plugin)?.supportFiles).toHaveLength(40);
+  expect(mesa.skills.read(plugin, 'lantern-cove', 'reference-39.md').text).toBe('support 39\n');
+});
+
+test('inventory distinguishes malformed folders and lists nested support files in CLI roots', () => {
+  const { home, dir, mesa } = setUp();
+  skill(join(dir, '.agent/skills'), 'legacy');
+  mkdirSync(join(dir, '.agents/skills/unnamed'), { recursive: true });
+  writeFileSync(
+    join(dir, '.agents/skills/unnamed/SKILL.md'),
+    '---\ndescription: A provider skill without a name field.\n---\n',
+  );
+  mkdirSync(join(dir, '.agent/skills/legacy/references/deep'), { recursive: true });
+  writeFileSync(join(dir, '.agent/skills/legacy/references/deep/example.md'), 'invented\n');
+  mkdirSync(join(home, '.agents/skills/broken'), { recursive: true });
+  writeFileSync(join(home, '.agents/skills/broken/SKILL.md'), 'invalid frontmatter\n');
+  mkdirSync(join(home, '.agents/skills/synced/bucket'), { recursive: true });
+  const rows = mesa.skills.inventory('lantern-cove');
+  expect(rows.find((row) => row.name === 'legacy')).toMatchObject({
+    providers: ['antigravity'],
+    supportFiles: ['references/deep/example.md'],
+  });
+  expect(rows.find((row) => row.name === 'broken')).toMatchObject({
+    enabled: false,
+    invalidReason: 'SKILL.md has invalid metadata',
+  });
+  expect(rows.find((row) => row.name === 'unnamed')).toMatchObject({
+    enabled: false,
+    invalidReason: 'SKILL.md has invalid metadata',
+  });
+  expect(rows.some((row) => row.name === 'synced')).toBe(false);
+});
+
+test('inventory reports a skill disabled by Codex without editing its native config', () => {
+  const { home, mesa } = setUp();
+  skill(join(home, '.agents/skills'), 'codex-only');
+  const file = join(home, '.agents/skills/codex-only/SKILL.md');
+  mkdirSync(join(home, '.codex'), { recursive: true });
+  const config = `[[skills.config]]\npath = ${JSON.stringify(file)}\nenabled = false\n`;
+  writeFileSync(join(home, '.codex/config.toml'), config);
+  expect(mesa.skills.inventory().find((row) => row.name === 'codex-only')).toMatchObject({
+    enabled: false,
+    disabledFor: ['codex'],
+    precedence: 'only-discovered-source',
+  });
+  expect(readFileSync(join(home, '.codex/config.toml'), 'utf8')).toBe(config);
+});
+
+test('project skill policy changes preserve mesa.yaml comments and leave profile policy alone', () => {
+  const { dir, mesa } = setUp();
+  writeFileSync(join(dir, 'mesa.yaml'), '# Project note\nname: lantern-cove\nskills: [b]\n');
+  expect(mesa.skills.setProject('lantern-cove', 'a', true).result.changed).toBe(true);
+  expect(mesa.skills.setProject('lantern-cove', 'a', true).result.changed).toBe(false);
+  expect(mesa.skills.setProject('lantern-cove', 'b', false).result.skills).toEqual(['a']);
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain('# Project note');
+  expect(mesa.config.get().skills).toEqual(['a']);
+  expect(thrown(() => mesa.skills.setProject('lantern-cove', 'unknown', true))).toMatchObject({
+    code: 'not_found',
+  });
+});
+
+test('skill documents use the checked editor and reject stale or read-only writes', () => {
+  const { home, dir, mesa } = setUp();
+  skill(join(dir, '.claude/skills'), 'own');
+  const id = join(dir, '.claude/skills/own');
+  writeFileSync(join(id, 'reference.md'), 'first\n');
+  const before = mesa.skills.read(id, 'lantern-cove', 'reference.md');
+  expect(before.text).toBe('first\n');
+  const saved = mesa.skills.write(id, 'second\n', before.revision, 'lantern-cove', 'reference.md');
+  expect(saved.result.revision).toBe(mesa.skills.read(id, 'lantern-cove', 'reference.md').revision);
+  expect(
+    thrown(() => mesa.skills.write(id, 'lost\n', before.revision, 'lantern-cove', 'reference.md')),
+  ).toMatchObject({ code: 'locked' });
+  expect(thrown(() => mesa.skills.read(id, 'lantern-cove', '../mesa.yaml'))).toMatchObject({
+    code: 'usage',
+  });
+  expect(mesa.skills.read(id, 'lantern-cove', 'reference.md').text).toBe('second\n');
+  const shipped = join(home, 'library/a');
+  expect(
+    thrown(() => mesa.skills.write(shipped, 'changed', mesa.skills.read(shipped).revision)),
+  ).toMatchObject({ code: 'usage' });
 });
 
 test('sync links the enabled skills into both folders, then unlinks only its own', async () => {
