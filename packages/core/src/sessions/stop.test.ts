@@ -191,7 +191,7 @@ test('resume reopens the conversation with claude --resume in a new window, link
     {
       window: `claude-${result.record.id}`,
       path: join(home, 'src/lantern-cove'),
-      launch: `unset NO_COLOR; claude --resume ${opened.agentSessionId}`,
+      launch: `unset NO_COLOR; exec claude --resume ${opened.agentSessionId}`,
     },
   ]);
   expect(receipts()).toEqual([]);

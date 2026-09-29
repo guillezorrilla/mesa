@@ -96,7 +96,13 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
   test('sendText types the text then Enter into a live agent', async () => {
     const target = lantern('claude-send01');
-    await open(target, 'cat');
+    await open(target, 'unset NO_COLOR; exec cat');
+    expect(
+      await eventually(
+        () => raw('display-message', '-p', '-t', exact(target), '#{pane_current_command}'),
+        /cat/,
+      ),
+    ).toBe('cat');
     await tmux.sendText(target, '-n hello');
     // cat echoes the typed line, then prints it back after Enter.
     expect(await eventually(() => tmux.capturePane(target, 5), /hello\n-n hello/)).toBe(

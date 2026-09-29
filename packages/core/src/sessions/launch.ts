@@ -162,7 +162,7 @@ export async function startSession(
       cwd,
       command:
         record.agent === 'claude' && record.kind === 'interactive'
-          ? `unset NO_COLOR; ${command}`
+          ? `unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
           : command,
       env: windowEnv(record.id, deps.profileName),
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
