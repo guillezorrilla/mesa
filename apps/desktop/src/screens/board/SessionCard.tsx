@@ -36,7 +36,7 @@ export function SessionCard(props: {
         >
           {sessionLabel(row)}
         </button>
-        <StateBadge state={row.lastState.state} confidence={row.lastState.confidence} />
+        <StateBadge state={row.lastState.state} />
       </div>
       <p className="truncate text-muted-foreground text-xs">
         {projectLabel(row.project)} / {row.agent}

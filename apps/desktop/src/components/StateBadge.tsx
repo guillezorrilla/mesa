@@ -1,5 +1,5 @@
 import type { SessionState } from '@mesa/core';
-import { percent, WAITING_STATES } from '@mesa/core/browser';
+import { WAITING_STATES } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
 
 /**
@@ -18,10 +18,9 @@ const TONE: Record<SessionState, string> = {
   stopped: 'text-muted-foreground ring-border line-through',
 };
 
-/** A session's state and Faro's confidence in it, coloured by state; `title` says who decided. */
+/** A session's state, coloured by state; `title` says who decided. */
 export function StateBadge(props: {
   state: SessionState;
-  confidence: number;
   title?: string;
   className?: string;
   compact?: boolean;
@@ -39,7 +38,7 @@ export function StateBadge(props: {
         props.className,
       )}
     >
-      {props.compact ? `◉ ${props.state}` : `${props.state} ${percent(props.confidence)}`}
+      {props.compact ? `◉ ${props.state}` : props.state}
     </span>
   );
 }

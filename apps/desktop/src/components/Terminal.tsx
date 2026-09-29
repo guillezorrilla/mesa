@@ -1,5 +1,4 @@
 import { FitAddon } from '@xterm/addon-fit';
-import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as Xterm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
@@ -50,10 +49,8 @@ export function Terminal(props: {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(el);
-    // SP-3: WebGL loads in WKWebView; without it xterm draws with the DOM.
-    try {
-      term.loadAddon(new WebglAddon());
-    } catch {}
+    // The WebGL addon left live WKWebView panes black after selection; xterm's default renderer
+    // displays the same native tmux output through view switches.
     const { terminal, clipboard } = platform;
     let termId: string | undefined;
     let closed = false;

@@ -1,4 +1,5 @@
 import type { InstructionStatus, ManagedRow, SessionRecord } from '@mesa/core';
+import { attentionScore, percent } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
@@ -52,6 +53,10 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dd>{context?.effort ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Status</dt>
             <dd>{row.lastState.state}</dd>
+            <dt className="text-muted-foreground">Confidence</dt>
+            <dd>{percent(row.lastState.confidence)}</dd>
+            <dt className="text-muted-foreground">Attention</dt>
+            <dd>{attentionScore(row.attention)}</dd>
             <dt className="text-muted-foreground">Instructions</dt>
             <dd title={record?.instructions.reason}>
               {record

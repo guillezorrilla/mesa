@@ -6,17 +6,7 @@ import { shown } from './rows';
 import { SessionCard } from './SessionCard';
 import { type RowActions, SessionRow } from './SessionRow';
 
-const COLUMNS = [
-  'Id',
-  'Project',
-  'Agent',
-  'State',
-  'Attention',
-  'Context',
-  'Running',
-  'Last output',
-  'Actions',
-];
+const COLUMNS = ['Id', 'Project', 'Agent', 'State', 'Context', 'Running', 'Last output', 'Actions'];
 
 export function BoardLayouts(props: {
   rows: TreeRow[];
