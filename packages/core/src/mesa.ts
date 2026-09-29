@@ -4,6 +4,7 @@ import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { hooksService } from './agents/hooks-service.js';
 import { createContext, type MesaDeps } from './context.js';
 import { createFaro } from './decisions/faro.js';
+import { diagnosticsService } from './diagnostics/service.js';
 import { runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
@@ -43,6 +44,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     skills,
     usage: usageService(ctx),
     notifications: inbox(ctx),
+    diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },

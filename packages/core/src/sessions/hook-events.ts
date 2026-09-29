@@ -1,4 +1,13 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  readSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, AgentSchema } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
@@ -135,20 +144,35 @@ function findRecord(store: SessionStore, id: string) {
   }
 }
 
-// ponytail: reads the whole log; read its tail instead if long sessions make it slow.
-/** The session's hook events, oldest first; a line that does not parse is skipped. */
-export function readHookEvents(eventsDir: string, id: string): HookEvent[] {
+/** The session's hook events, oldest first; a bounded read drops an incomplete first line. */
+export function readHookEvents(eventsDir: string, id: string, maxBytes?: number): HookEvent[] {
   if (!isSessionId(id)) return [];
   const file = eventsLog(eventsDir, id);
   if (!existsSync(file)) return [];
-  return readFileSync(file, 'utf8')
-    .split('\n')
-    .flatMap((line) => {
-      try {
-        const e = JSON.parse(line);
-        return typeof e?.event === 'string' && typeof e.at === 'string' ? [e as HookEvent] : [];
-      } catch {
-        return [];
+  let text: string;
+  const size = statSync(file).size;
+  if (maxBytes !== undefined && size > maxBytes) {
+    const buffer = Buffer.alloc(maxBytes);
+    const fd = openSync(file, 'r');
+    let read = 0;
+    try {
+      while (read < maxBytes) {
+        const count = readSync(fd, buffer, read, maxBytes - read, size - maxBytes + read);
+        if (count === 0) break;
+        read += count;
       }
-    });
+    } finally {
+      closeSync(fd);
+    }
+    text = buffer.subarray(0, read).toString('utf8');
+    text = text.slice(text.indexOf('\n') + 1);
+  } else text = readFileSync(file, 'utf8');
+  return text.split('\n').flatMap((line) => {
+    try {
+      const e = JSON.parse(line);
+      return typeof e?.event === 'string' && typeof e.at === 'string' ? [e as HookEvent] : [];
+    } catch {
+      return [];
+    }
+  });
 }

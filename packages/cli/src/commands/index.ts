@@ -7,6 +7,7 @@ import { board, boardMove } from './board.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { dependency } from './dependency.js';
+import { diagnostics } from './diagnostics.js';
 import { doctor } from './doctor.js';
 import {
   filesCreate,
@@ -100,6 +101,7 @@ export const COMMANDS: Command[] = [
   configSet,
   dependency,
   decide,
+  diagnostics,
   doctor,
   filesCreate,
   filesDelete,
