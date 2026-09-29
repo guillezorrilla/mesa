@@ -1,6 +1,5 @@
 import type { TreeRow, WorkflowStatus } from '@mesa/core';
 import {
-  attentionScore,
   duration,
   GENERAL_PROJECT,
   isRun,
@@ -55,7 +54,7 @@ export type RowActions = {
 
 /**
  * One Board row: the session's id (a live one opens its terminal here), project with its branch
- * and goal, agent (a headless run badged), state, attention, context use, running time, last
+ * and goal, agent (a headless run badged), state, context use, running time, last
  * output (for a queued one, the session it waits on), and its actions. A foreign session is
  * muted, with Adopt its only action.
  */
@@ -154,14 +153,7 @@ export function SessionRow(props: {
         )}
       </TableCell>
       <TableCell>
-        <StateBadge
-          state={s.lastState.state}
-          confidence={s.lastState.confidence}
-          title={decidedBy(s.decision)}
-        />
-      </TableCell>
-      <TableCell data-testid="session-attention" className="font-mono tabular-nums">
-        {attentionScore(s.attention)}
+        <StateBadge state={s.lastState.state} title={decidedBy(s.decision)} />
       </TableCell>
       <TableCell data-testid="session-context">
         {s.managed && s.context ? (

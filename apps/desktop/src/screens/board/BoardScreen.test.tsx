@@ -73,29 +73,28 @@ test('an action ends once the Board shows what it did, even with a look already 
   }
 });
 
-test('the Board is the first screen: every session by attention, with its state, confidence, and output', async () => {
+test('the Board is the first screen: every session by attention, with its state and output', async () => {
   const { bridge } = fakeBridge({
     // mesa sends the board in its order (attention, children under their parent); the Board keeps it.
     sessions: () => envelope([asking, foreignRow, exited, deadPane, busy] satisfies TreeRow[]),
   });
   const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(byTestId('session-board')).toHaveLength(1);
-  expect(byTestId('session-row').map((r) => cells(r).slice(0, 8))).toEqual([
+  expect(byTestId('session-row').map((r) => cells(r).slice(0, 7))).toEqual([
     [
       'aaaaaaaa',
       'lantern-cove',
       'claude',
-      'waiting-permission 95%',
-      '0.83',
+      'waiting-permission',
       '-',
       '42s',
       'Do you want to proceed?',
     ],
     // Started outside Mesa: muted, tagged, no actions.
-    ['ext-4242', '-', 'claude', 'idle 85%', '0.33', '-', '1m30s', ''],
-    ['cccccccc', 'lantern-cove', 'claude', 'done 85%', '0.25', '-', '42s', ''],
-    ['ffffffff', 'lantern-cove', 'claude', 'done 85%', '0.24', '-', '42s', 'Bye!'],
-    ['bbbbbbbb', 'lantern-cove', 'claude', 'working 95%', '0.08', '-', '2h05m', ''],
+    ['ext-4242', '-', 'claude', 'idle', '-', '1m30s', ''],
+    ['cccccccc', 'lantern-cove', 'claude', 'done', '-', '42s', ''],
+    ['ffffffff', 'lantern-cove', 'claude', 'done', '-', '42s', 'Bye!'],
+    ['bbbbbbbb', 'lantern-cove', 'claude', 'working', '-', '2h05m', ''],
   ]);
   // StateBadge colours by its data-state.
   expect(byTestId('session-state').map((b) => b.dataset.state)).toEqual([
@@ -460,7 +459,7 @@ test('a headless run is badged run beside its agent, shows its skill as its goal
   const [badge] = byTestId('session-run');
   expect(byTestId('session-run')).toHaveLength(2);
   expect(badge?.closest('tr')?.querySelector('[data-testid="session-state"]')?.textContent).toBe(
-    'done 100%',
+    'done',
   );
   expect(badge?.closest('td')?.textContent).toBe('clauderun');
   expect(byTestId('session-goal').map((g) => g.textContent)).toEqual([
