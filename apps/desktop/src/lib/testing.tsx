@@ -72,6 +72,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
     } satisfies Config),
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),
   doctor: () => envelope({ healthy: true, summary: 'ready', checks: [] } satisfies DoctorReport),
+  diagnostics: () => envelope({ events: [], total: 0, limit: 100 }),
   projects: () => envelope([] satisfies ProjectRow[]),
   receipts: () => envelope([]),
   sessions: () => envelope([] satisfies SessionRow[]),

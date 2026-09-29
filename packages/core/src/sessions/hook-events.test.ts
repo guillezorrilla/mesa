@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { fixedClock, newSession, sequentialIds, tempDir } from '../testing/index.js';
-import { recordHookEvent } from './hook-events.js';
+import { readHookEvents, recordHookEvent } from './hook-events.js';
 import { sessionStore } from './store.js';
 
 // Payloads shaped like the ones docs/spikes/state-signals.md recorded, with invented values.
@@ -39,6 +39,22 @@ function setUp() {
       .map((l) => JSON.parse(l));
   return { store, id, deps, dir, log };
 }
+
+test('bounded hook reads keep whole recent JSONL entries', () => {
+  const { id, deps } = setUp();
+  recordHookEvent(deps, {
+    agent: 'claude',
+    mesaSessionId: id,
+    payload: JSON.stringify(SESSION_START),
+  });
+  const file = join(deps.eventsDir, `${id}.jsonl`);
+  const first = readFileSync(file, 'utf8');
+  writeFileSync(file, `${first}${first.replace('SessionStart', 'Stop')}`);
+  expect(readHookEvents(deps.eventsDir, id)).toHaveLength(2);
+  expect(readHookEvents(deps.eventsDir, id, first.length + 10).map((event) => event.event)).toEqual(
+    ['Stop'],
+  );
+});
 
 test('a hook appends one line, and gives the record its agent session id once', () => {
   const { store, id, deps, log } = setUp();

@@ -18,6 +18,7 @@ export {
 export type { CommandReference } from './command-reference.js';
 export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { Decision } from './decisions/types.js';
+export type { DiagnosticEvent, DiagnosticReport } from './diagnostics/service.js';
 export {
   attentionScore,
   contextPercent,

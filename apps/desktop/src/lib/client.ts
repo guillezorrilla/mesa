@@ -7,6 +7,7 @@ import type {
   Config,
   ConversationSearch,
   DescendantResult,
+  DiagnosticReport,
   DiscoveredProject,
   DoctorReport,
   FileChange,
@@ -477,6 +478,10 @@ const COMMANDS = {
     Recorded<{ path: string; value: unknown }>
   >(({ path, value }) => ['config', 'set', '--', path, JSON.stringify(value)]),
   'doctor.run': command<DoctorReport>('doctor'),
+  'diagnostics.list': commandWith<{ event?: string }, DiagnosticReport>(({ event }) => [
+    'diagnostics',
+    ...(event ? ['--event', event] : []),
+  ]),
   'usage.list': command<UsageReport>('usage'),
   'notifications.list': command<InboxItem[]>('notifications'),
   'notifications.read': commandWith<{ id: string }, { id: string; read: true }>(({ id }) => [
