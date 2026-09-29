@@ -54,6 +54,13 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
       sessions: { log: true },
       usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
+      notifications: {
+        quiet: false,
+        inputRequired: 'sound',
+        finished: 'silent',
+        subagent: 'silent',
+        doctor: 'silent',
+      },
       terminal: { app: 'Terminal' },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {
@@ -141,11 +148,26 @@ export const fakePlatform = ({
   file = null,
   terminal = fakeTerminals().host,
   deepLinks = { current: async () => null, onOpen: async () => () => {} },
+  notifications = {
+    status: async () => ({
+      authorization: 'not-determined' as const,
+      alertsEnabled: false,
+      soundsEnabled: false,
+    }),
+    requestPermission: async () => ({
+      authorization: 'authorized' as const,
+      alertsEnabled: true,
+      soundsEnabled: true,
+    }),
+    send: async () => {},
+    onOpen: async () => () => {},
+  },
 }: {
   folder?: string | null;
   file?: string | null;
   terminal?: TerminalHost;
   deepLinks?: Platform['deepLinks'];
+  notifications?: Platform['notifications'];
 } = {}): Platform & {
   pasteboard: string[];
 } => {
@@ -154,6 +176,7 @@ export const fakePlatform = ({
     pickFolder: async () => folder,
     pickFile: async () => file,
     deepLinks,
+    notifications,
     terminal,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,

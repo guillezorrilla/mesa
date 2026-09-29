@@ -84,7 +84,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     },
     [navigate, run],
   );
-  const { deepLinks } = usePlatform();
+  const { deepLinks, notifications } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
@@ -139,6 +139,46 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       stop?.();
     };
   }, [deepLinks]);
+  useEffect(() => {
+    let active = true;
+    let busy = false;
+    const deliver = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const status = await notifications.status();
+        if (!active || !['authorized', 'provisional', 'ephemeral'].includes(status.authorization))
+          return;
+        const plan = await run('notifications.delivery');
+        if (!active || !plan || plan.kind === 'none') return;
+        await notifications.send(plan);
+        if (active) await run('notifications.delivered', { ids: plan.ids });
+      } catch {
+        // A failed native send stays pending for the next poll.
+      } finally {
+        busy = false;
+      }
+    };
+    void deliver();
+    const timer = window.setInterval(() => void deliver(), 5_000);
+    let stop: (() => void) | undefined;
+    void notifications
+      .onOpen((target) => {
+        if (active)
+          navigateRef.current(
+            target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: 'inbox' },
+          );
+      })
+      .then((unlisten) => {
+        if (active) stop = unlisten;
+        else unlisten();
+      });
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      stop?.();
+    };
+  }, [notifications, run]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       const key = shortcutFromKeys(event);

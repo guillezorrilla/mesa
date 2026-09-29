@@ -50,7 +50,7 @@ export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
-export type { InboxItem } from './notifications/inbox.js';
+export type { DeliveryPlan, InboxItem } from './notifications/inbox.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
 export {

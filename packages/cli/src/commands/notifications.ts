@@ -45,3 +45,25 @@ export const notificationsClear = defineCommand({
     return { data: { id: args.id, cleared: true }, text: `Cleared ${args.id}` };
   },
 });
+
+export const notificationsDelivery = defineCommand({
+  name: 'notifications delivery',
+  summary: 'Get the next profile-local macOS notification or digest without requesting permission',
+  example: 'mesa notifications delivery',
+  run: ({ mesa }) => {
+    const plan = mesa.notifications.delivery();
+    return { data: plan, text: plan.kind === 'none' ? 'no delivery pending' : plan.title };
+  },
+});
+
+export const notificationsDelivered = defineCommand({
+  name: 'notifications delivered',
+  summary: 'Record inbox item IDs accepted by macOS notification delivery',
+  args: ['ids'],
+  example: 'mesa notifications delivered 2026-09-24T12:00:00.000Z:abc123',
+  run: ({ mesa, args }) => {
+    const ids = args.ids.split(',');
+    mesa.notifications.markDelivered(ids);
+    return { data: { ids, delivered: true }, text: `Recorded ${ids.length} delivered` };
+  },
+});

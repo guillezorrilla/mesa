@@ -1,4 +1,5 @@
 mod bridge;
+mod notifications;
 mod terminal;
 
 use serde_json::Value;
@@ -25,7 +26,10 @@ pub fn run() {
             terminal::term_resize,
             terminal::term_ready,
             terminal::term_close,
-            terminal::clipboard_write
+            terminal::clipboard_write,
+            notifications::notification_status,
+            notifications::notification_request_permission,
+            notifications::notification_send
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
