@@ -6,6 +6,7 @@ import type {
   CommandReference,
   Config,
   ConversationSearch,
+  DeliveryPlan,
   DescendantResult,
   DiagnosticReport,
   DiscoveredProject,
@@ -484,6 +485,10 @@ const COMMANDS = {
   ]),
   'usage.list': command<UsageReport>('usage'),
   'notifications.list': command<InboxItem[]>('notifications'),
+  'notifications.delivery': command<DeliveryPlan>('notifications', 'delivery'),
+  'notifications.delivered': commandWith<{ ids: string[] }, { ids: string[]; delivered: true }>(
+    ({ ids }) => ['notifications', 'delivered', '--', ids.join(',')],
+  ),
   'notifications.read': commandWith<{ id: string }, { id: string; read: true }>(({ id }) => [
     'notifications',
     'read',

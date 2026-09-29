@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
+import { setConfigValue } from '../profile/config.js';
 import { recordHookEvent } from '../sessions/hook-events.js';
 import {
   newSession,
@@ -46,4 +47,45 @@ test('inbox deduplicates a question pair, keeps child alerts separate, and survi
   restarted.notifications.clear(firstId);
   expect(restarted.notifications.list()).toHaveLength(2);
   expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
+});
+
+test('quiet delivery digests new notices once and respects each kind across restarts', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const paths = profilePaths(home, 'default');
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  const session = testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  let second = 1;
+  const hook = (event: string, extra: Record<string, unknown> = {}) =>
+    recordHookEvent(
+      {
+        store: testStore(home),
+        eventsDir: paths.events,
+        clock: () => new Date(`2026-09-24T12:00:0${second++}.000Z`),
+        home,
+        secrets: () => [],
+      },
+      {
+        agent: 'claude',
+        mesaSessionId: session.id,
+        payload: JSON.stringify({ session_id: nativeId, hook_event_name: event, ...extra }),
+      },
+    );
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  hook('Stop');
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  setConfigValue(paths.config, 'notifications.quiet', 'true');
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  setConfigValue(paths.config, 'notifications.quiet', 'false');
+  const plan = mesa.notifications.delivery();
+  expect(plan).toMatchObject({ kind: 'digest', title: '2 Mesa notices', sound: true });
+  if (plan.kind === 'none') throw new Error('expected digest');
+  mesa.notifications.markDelivered(plan.ids);
+  expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual({ kind: 'none' });
+
+  setConfigValue(paths.config, 'notifications.finished', 'off');
+  hook('Stop');
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  setConfigValue(paths.config, 'notifications.finished', 'sound');
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
 });

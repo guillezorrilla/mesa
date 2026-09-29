@@ -55,7 +55,13 @@ import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
-import { notifications, notificationsClear, notificationsRead } from './notifications.js';
+import {
+  notifications,
+  notificationsClear,
+  notificationsDelivered,
+  notificationsDelivery,
+  notificationsRead,
+} from './notifications.js';
 import { open } from './open.js';
 import { profile } from './profile.js';
 import { projects, projectsClone, projectsDiscover, projectsUpdate } from './projects.js';
@@ -154,6 +160,8 @@ export const COMMANDS: Command[] = [
   notifications,
   notificationsRead,
   notificationsClear,
+  notificationsDelivery,
+  notificationsDelivered,
   open,
   profile,
   projects,

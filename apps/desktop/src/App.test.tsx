@@ -1718,6 +1718,13 @@ test('shortcut settings validate conflicts and update the active profile key', a
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
+    notifications: {
+      quiet: false,
+      inputRequired: 'sound',
+      finished: 'silent',
+      subagent: 'silent',
+      doctor: 'silent',
+    },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
@@ -1976,4 +1983,49 @@ test('a failed native project link can be opened again', async () => {
   ).toHaveLength(2);
   await click(document.querySelector('[aria-label="Cancel repository checkout"]') as HTMLElement);
   expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe('');
+});
+
+test('authorized native delivery is acknowledged and a click opens its exact session', async () => {
+  const target = { kind: 'session' as const, id: 'aaaaaaaa' };
+  const notice = {
+    kind: 'notice' as const,
+    id: '2026-09-24T12:00:01.000Z:abc123',
+    ids: ['2026-09-24T12:00:01.000Z:abc123'],
+    title: 'Session turn finished',
+    body: 'Session aaaaaaaa',
+    sound: false,
+    target,
+  };
+  const sent: string[] = [];
+  let opened: ((destination: typeof target | { kind: 'inbox' }) => void) | undefined;
+  const { bridge, calls } = fakeBridge({
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    'notifications delivery': () => envelope(notice),
+    'notifications delivered': () => envelope({ ids: notice.ids, delivered: true }),
+  });
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({
+      notifications: {
+        status: async () => ({
+          authorization: 'authorized',
+          alertsEnabled: true,
+          soundsEnabled: true,
+        }),
+        requestPermission: async () => {
+          throw new Error('permission must be requested by a person');
+        },
+        send: async (item) => void sent.push(item.id),
+        onOpen: async (handler) => {
+          opened = handler;
+          return () => {};
+        },
+      },
+    }),
+  );
+  expect(sent).toEqual([notice.id]);
+  expect(calls.some((args) => args[1] === 'notifications' && args[2] === 'delivered')).toBe(true);
+  await act(async () => opened?.(target));
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
 });

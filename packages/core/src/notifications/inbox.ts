@@ -19,9 +19,26 @@ export type InboxItem = {
   target: { kind: 'session'; id: string };
 };
 
-const State = z.strictObject({ read: z.array(z.string()), cleared: z.array(z.string()) });
+export type DeliveryPlan =
+  | { kind: 'none' }
+  | {
+      kind: 'notice' | 'digest';
+      id: string;
+      ids: string[];
+      title: string;
+      body: string;
+      sound: boolean;
+      target: { kind: 'session'; id: string } | { kind: 'inbox' };
+    };
+
+const State = z.strictObject({
+  read: z.array(z.string()),
+  cleared: z.array(z.string()),
+  delivered: z.array(z.string()).default([]),
+  startedAt: z.iso.datetime().optional(),
+});
 type State = z.infer<typeof State>;
-const EMPTY: State = { read: [], cleared: [] };
+const EMPTY: State = { read: [], cleared: [], delivered: [] };
 type Candidate = Pick<InboxItem, 'session' | 'at' | 'kind' | 'title'> & { fingerprint: string };
 
 function itemFor(session: string, event: HookEvent): Candidate | undefined {
@@ -80,7 +97,7 @@ export function inbox(ctx: MesaContext) {
       throw new MesaError('invalid_config', `${file}: inbox state is not valid JSON`);
     }
   };
-  const write = (state: State) => {
+  const write = (state: Partial<State>) => {
     mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
     const lock = `${file}.lock`;
     return withLockSync(
@@ -88,8 +105,11 @@ export function inbox(ctx: MesaContext) {
       () => {
         const current = read();
         const next = {
-          read: [...new Set([...current.read, ...state.read])],
-          cleared: [...new Set([...current.cleared, ...state.cleared])],
+          read: [...new Set([...current.read, ...(state.read ?? [])])],
+          cleared: [...new Set([...current.cleared, ...(state.cleared ?? [])])],
+          // The inbox keeps 500 events, so 1,000 recent acknowledgements cover restart reads.
+          delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])].slice(-1_000),
+          startedAt: current.startedAt ?? state.startedAt,
         };
         writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
         return next;
@@ -131,9 +151,55 @@ export function inbox(ctx: MesaContext) {
       throw new MesaError('not_found', `no inbox item ${id}`);
     write({ read: field === 'read' ? [id] : [], cleared: field === 'cleared' ? [id] : [] });
   };
+  const delivery = (): DeliveryPlan => {
+    const state = read();
+    const startedAt = state.startedAt ?? ctx.deps.clock().toISOString();
+    if (!state.startedAt) write({ startedAt });
+    const settings = ctx.open().config.notifications;
+    const fresh = list().filter(
+      (item) => item.at >= startedAt && !state.delivered.includes(item.id),
+    );
+    const mode = (item: InboxItem) =>
+      settings[item.kind === 'input-required' ? 'inputRequired' : item.kind];
+    const skipped = fresh.filter((item) => item.read || mode(item) === 'off');
+    if (skipped.length) write({ delivered: skipped.map((item) => item.id) });
+    const pending = fresh.filter((item) => !item.read && mode(item) !== 'off');
+    if (settings.quiet || pending.length === 0) return { kind: 'none' };
+    const ids = pending.map((item) => item.id);
+    const item = pending[0];
+    if (item && pending.length === 1) {
+      return {
+        kind: 'notice',
+        id: item.id,
+        ids,
+        title: item.title,
+        body: `Session ${item.session}`,
+        sound: mode(item) === 'sound',
+        target: item.target,
+      };
+    }
+    return {
+      kind: 'digest',
+      id: `digest-${createHash('sha256').update(ids.join('\n')).digest('hex').slice(0, 20)}`,
+      ids,
+      title: `${ids.length} Mesa notices`,
+      body: 'Open Inbox to review your sessions',
+      sound: pending.some((item) => mode(item) === 'sound'),
+      target: { kind: 'inbox' },
+    };
+  };
+  const markDelivered = (ids: string[]) => {
+    const state = read();
+    const known = new Set([...list().map((item) => item.id), ...state.cleared, ...state.delivered]);
+    if (!ids.length || ids.length > 500 || ids.some((id) => !known.has(id)))
+      throw new MesaError('not_found', 'notification item not found');
+    write({ delivered: ids });
+  };
   return {
     list,
     markRead: (id: string) => change(id, 'read'),
     clear: (id: string) => change(id, 'cleared'),
+    delivery,
+    markDelivered,
   };
 }
