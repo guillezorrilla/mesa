@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
 import type { MesaContext } from '../context.js';
+import type { DoctorReport } from '../doctor.js';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
@@ -13,10 +14,10 @@ export type InboxItem = {
   id: string;
   session: string;
   at: string;
-  kind: 'input-required' | 'finished' | 'subagent';
+  kind: 'input-required' | 'finished' | 'subagent' | 'doctor';
   title: string;
   read: boolean;
-  target: { kind: 'session'; id: string };
+  target: { kind: 'session'; id: string } | { kind: 'doctor' };
 };
 
 export type DeliveryPlan =
@@ -28,18 +29,23 @@ export type DeliveryPlan =
       title: string;
       body: string;
       sound: boolean;
-      target: { kind: 'session'; id: string } | { kind: 'inbox' };
+      target: { kind: 'session'; id: string } | { kind: 'inbox' } | { kind: 'doctor' };
     };
 
 const State = z.strictObject({
   read: z.array(z.string()),
   cleared: z.array(z.string()),
   delivered: z.array(z.string()).default([]),
+  doctor: z
+    .array(z.object({ at: z.iso.datetime(), name: z.string(), status: z.enum(['warn', 'fail']) }))
+    .default([]),
   startedAt: z.iso.datetime().optional(),
 });
 type State = z.infer<typeof State>;
-const EMPTY: State = { read: [], cleared: [], delivered: [] };
-type Candidate = Pick<InboxItem, 'session' | 'at' | 'kind' | 'title'> & { fingerprint: string };
+const EMPTY: State = { read: [], cleared: [], delivered: [], doctor: [] };
+type Candidate = Pick<InboxItem, 'session' | 'at' | 'kind' | 'title' | 'target'> & {
+  fingerprint: string;
+};
 
 function itemFor(session: string, event: HookEvent): Candidate | undefined {
   if (!Number.isFinite(Date.parse(event.at))) return undefined;
@@ -82,7 +88,14 @@ function itemFor(session: string, event: HookEvent): Candidate | undefined {
     )
     .digest('hex')
     .slice(0, 20);
-  return { session, at: event.at, kind, title, fingerprint };
+  return {
+    session,
+    at: event.at,
+    kind,
+    title,
+    fingerprint,
+    target: { kind: 'session', id: session },
+  };
 }
 
 /** An inbox derived from the profile's redacted hooks; only read/clear markers need their own file. */
@@ -109,6 +122,7 @@ export function inbox(ctx: MesaContext) {
           cleared: [...new Set([...current.cleared, ...(state.cleared ?? [])])],
           // The inbox keeps 500 events, so 1,000 recent acknowledgements cover restart reads.
           delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])].slice(-1_000),
+          doctor: state.doctor ?? current.doctor,
           startedAt: current.startedAt ?? state.startedAt,
         };
         writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
@@ -118,11 +132,24 @@ export function inbox(ctx: MesaContext) {
     );
   };
   const list = (): InboxItem[] => {
-    const entries = ctx.store.list().flatMap((record) =>
+    const entries: Candidate[] = ctx.store.list().flatMap((record) =>
       readHookEvents(ctx.paths.events, record.id).flatMap((event) => {
         const item = itemFor(record.id, event);
         return item ? [item] : [];
       }),
+    );
+    entries.push(
+      ...read().doctor.map((finding) => ({
+        session: '',
+        at: finding.at,
+        kind: 'doctor' as const,
+        title: `Doctor: ${finding.name} ${finding.status}`,
+        fingerprint: createHash('sha256')
+          .update(`${finding.name}:${finding.status}`)
+          .digest('hex')
+          .slice(0, 20),
+        target: { kind: 'doctor' as const },
+      })),
     );
     entries.sort((a, b) => a.at.localeCompare(b.at));
     const distinct: typeof entries = [];
@@ -142,7 +169,6 @@ export function inbox(ctx: MesaContext) {
         ...entry,
         id: `${entry.at}:${fingerprint}`,
         read: state.read.includes(`${entry.at}:${fingerprint}`),
-        target: { kind: 'session' as const, id: entry.session },
       }))
       .reverse();
   };
@@ -173,7 +199,7 @@ export function inbox(ctx: MesaContext) {
         id: item.id,
         ids,
         title: item.title,
-        body: `Session ${item.session}`,
+        body: item.kind === 'doctor' ? 'Open Doctor to review and fix' : `Session ${item.session}`,
         sound: mode(item) === 'sound',
         target: item.target,
       };
@@ -201,5 +227,22 @@ export function inbox(ctx: MesaContext) {
     clear: (id: string) => change(id, 'cleared'),
     delivery,
     markDelivered,
+    recordDoctor: (report: DoctorReport) => {
+      const state = read();
+      const now = ctx.deps.clock().toISOString();
+      write({
+        startedAt: state.startedAt ?? now,
+        doctor: report.checks
+          .filter((check) => check.status !== 'ok')
+          .map((check) => ({
+            name: check.name,
+            status: check.status as 'warn' | 'fail',
+            at:
+              state.doctor.find(
+                (entry) => entry.name === check.name && entry.status === check.status,
+              )?.at ?? now,
+          })),
+      });
+    },
   };
 }

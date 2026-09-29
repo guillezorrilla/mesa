@@ -166,7 +166,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       .onOpen((target) => {
         if (active)
           navigateRef.current(
-            target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: 'inbox' },
+            target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: target.kind },
           );
       })
       .then((unlisten) => {
@@ -373,7 +373,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
           {view.kind === 'usage' && <UsageScreen />}
           {view.kind === 'inbox' && (
-            <InboxScreen onSession={(id) => navigate({ kind: 'session', id })} />
+            <InboxScreen
+              onSession={(id) => navigate({ kind: 'session', id })}
+              onDoctor={() => navigate({ kind: 'doctor' })}
+            />
           )}
           {view.kind === 'help' && <HelpScreen />}
           {view.kind === 'shortcuts' && (

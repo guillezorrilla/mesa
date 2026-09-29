@@ -17,7 +17,13 @@ const KINDS = [
   ['doctor', 'Doctor'],
 ] as const;
 
-export function InboxScreen({ onSession }: { onSession: (id: string) => void }) {
+export function InboxScreen({
+  onSession,
+  onDoctor,
+}: {
+  onSession: (id: string) => void;
+  onDoctor: () => void;
+}) {
   const inbox = useCommand('notifications.list');
   const config = useCommand('config.get');
   const { notifications } = usePlatform();
@@ -116,19 +122,20 @@ export function InboxScreen({ onSession }: { onSession: (id: string) => void }) 
             <div>
               <p className="font-medium">{item.title}</p>
               <p className="text-muted-foreground text-xs">
-                {item.session} · {new Date(item.at).toLocaleString()} ·{' '}
-                {item.read ? 'Read' : 'Unread'}
+                {item.session ? `${item.session} · ` : ''}
+                {new Date(item.at).toLocaleString()} · {item.read ? 'Read' : 'Unread'}
               </p>
             </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
                 onClick={() => {
-                  if (!item.read) void run('notifications.read', { id: item.id });
-                  onSession(item.target.id);
+                  if (!item.read) void change('notifications.read', item);
+                  if (item.target.kind === 'session') onSession(item.target.id);
+                  else onDoctor();
                 }}
               >
-                Open session
+                {item.target.kind === 'session' ? 'Open session' : 'Open Doctor'}
               </Button>
               {!item.read && (
                 <Button
