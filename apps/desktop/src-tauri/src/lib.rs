@@ -1,4 +1,5 @@
 mod bridge;
+mod browser;
 mod notifications;
 mod terminal;
 
@@ -19,6 +20,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
+        .setup(|app| {
+            if let Err(error) = browser::serve_selection(app.handle()) {
+                eprintln!("native browser selection unavailable: {error}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             run_mesa,
             terminal::term_open,
@@ -29,7 +36,18 @@ pub fn run() {
             terminal::clipboard_write,
             notifications::notification_status,
             notifications::notification_request_permission,
-            notifications::notification_send
+            notifications::notification_send,
+            browser::browser_open,
+            browser::browser_navigate,
+            browser::browser_bounds,
+            browser::browser_close,
+            browser::browser_probe,
+            browser::browser_back,
+            browser::browser_forward,
+            browser::browser_reload,
+            browser::browser_pick_start,
+            browser::browser_pick_result,
+            browser::browser_owner
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

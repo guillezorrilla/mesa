@@ -95,7 +95,8 @@ function isTurnContext(line: string) {
   }
 }
 
-function tailLines(file: string): { lines: string[]; truncated: boolean } {
+/** Bounded native transcript text; a partial first line is never parsed. */
+export function tailLines(file: string): { lines: string[]; truncated: boolean } {
   const fd = openSync(file, 'r');
   try {
     const size = fstatSync(fd).size;
@@ -111,7 +112,8 @@ function tailLines(file: string): { lines: string[]; truncated: boolean } {
   }
 }
 
-function messageIn(agent: 'claude' | 'codex', line: string) {
+/** Text from one native message, excluding sidechains and non-message records. */
+export function messageIn(agent: 'claude' | 'codex', line: string) {
   let entry: {
     type?: unknown;
     isSidechain?: unknown;
