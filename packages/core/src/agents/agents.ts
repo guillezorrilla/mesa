@@ -154,8 +154,12 @@ export const AGENTS = {
     submitDelayMs: 300,
     headless: {
       skillPrefix: '/',
-      command: (_sessionId: string | undefined, prompt: string, _may: HeadlessPermissions) =>
-        `agy --print ${shellWord(prompt)} --output-format json`,
+      command: (
+        _sessionId: string | undefined,
+        prompt: string,
+        _may: HeadlessPermissions,
+        log: string,
+      ) => `agy --log-file ${shellWord(log)} --print ${shellWord(prompt)} --output-format json`,
       result: readAntigravityResult,
     },
     hookState: undefined,

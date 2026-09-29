@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { CLAUDE_VERSION, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -66,6 +67,51 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
   cli.stdin = JSON.stringify({ session_id: 'another-agent', hook_event_name: 'SessionStart' });
   expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
+});
+
+test('Antigravity PreInvocation gives only the owning native conversation a transient pointer', async () => {
+  const world = cli.withTmux();
+  await cli.withProject();
+  cli.run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION, agy: '1.2.13' }).run;
+  const opened = (await mesa('open', 'lantern-cove', '--agent', 'antigravity', '--json')).json.data;
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('missing');
+  expect(
+    (await mesa('doctor', '--json')).json.data.checks.find(
+      (check: { name: string }) => check.name === 'antigravity hooks',
+    ).status,
+  ).toBe('warn');
+  await mesa('hooks', 'install');
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('configured');
+  expect(
+    (await mesa('doctor', '--json')).json.data.checks.find(
+      (check: { name: string }) => check.name === 'antigravity hooks',
+    ).status,
+  ).toBe('ok');
+
+  const nativeId = '002f58d1-9e29-4682-9bc1-3a2dc5da1115';
+  writeFileSync(join(cli.paths.logs, `${opened.id}.agy.log`), `Created conversation ${nativeId}\n`);
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({ conversationId: nativeId, invocationNum: 0 });
+  const injected = JSON.parse((await mesa('hook', 'antigravity')).stdout);
+  expect(injected.injectSteps[0].ephemeralMessage).toContain(`Mesa session ${opened.id}`);
+  expect(injected.injectSteps[0].ephemeralMessage).toContain('/skill-name');
+  expect((await mesa('hook', 'antigravity', '--json')).json.data.delivered).toBe(true);
+
+  await mesa('show', opened.id, '--json');
+  const otherId = 'cd66cf01-f466-4c11-8f12-a8fd0885d9f4';
+  writeFileSync(
+    join(cli.paths.logs, `${opened.id}.agy.log`),
+    `Created conversation ${nativeId}\nCreated conversation ${otherId}\n`,
+  );
+  cli.stdin = JSON.stringify({ conversationId: otherId, invocationNum: 0 });
+  expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
+  expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe(
+    'conflicting',
+  );
+  cli.env.MESA_PROFILE = 'another-profile';
+  expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
+  cli.stdin = '{';
+  expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
 });
 
 test('General SessionStart points at profile skills without an unregistered project', async () => {

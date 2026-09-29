@@ -18,8 +18,8 @@ export const hookTmux = defineCommand({
 });
 
 /**
- * Run by the agent's hooks, never by hand: appends the payload on stdin to the session's log; a
- * SessionEnd starts what was queued after the session.
+ * Run by the agent's hooks, never by hand. Claude and Codex events are logged and SessionEnd
+ * starts the queue. Antigravity PreInvocation returns a transient instruction as hook JSON.
  */
 export const hook = defineCommand({
   name: 'hook',
@@ -27,6 +27,20 @@ export const hook = defineCommand({
   args: ['agent'],
   example: 'mesa hook claude < payload.json',
   run: async ({ mesa, args, stdin }) => {
+    if (args.agent === 'antigravity') {
+      let instruction: string | undefined;
+      try {
+        instruction = mesa.antigravityInstruction(await stdin());
+      } catch {
+        // Hook failures must not block the provider's model call.
+      }
+      return {
+        data: { delivered: Boolean(instruction) },
+        text: JSON.stringify(
+          instruction ? { injectSteps: [{ ephemeralMessage: instruction }] } : {},
+        ),
+      };
+    }
     const event = await mesa.hookEvent(args.agent, await stdin());
     return {
       data: { recorded: Boolean(event), event: event?.event ?? null },

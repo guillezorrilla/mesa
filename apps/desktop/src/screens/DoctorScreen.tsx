@@ -47,7 +47,10 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
     return () => clearInterval(timer);
   }, [diagnostics.refresh]);
   const hooks = useCommand('hooks.status');
-  const hooksInstalled = hooks.data?.installed && hooks.data.codex?.installed !== false;
+  const hooksInstalled =
+    hooks.data?.installed &&
+    hooks.data.codex?.installed !== false &&
+    hooks.data.antigravity?.installed !== false;
   const run = useRun();
   const { acting, act } = useAct();
   const change = (name: 'hooks.install' | 'hooks.uninstall') =>
@@ -189,6 +192,17 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
                 </ul>
                 <p>{hooks.data.codex.hint}</p>
               </div>
+            )}
+            {hooks.data?.antigravity && (
+              <p data-testid="antigravity-hooks-status" className="mt-3 text-sm">
+                Antigravity:{' '}
+                {hooks.data.antigravity.installed
+                  ? 'Installed'
+                  : hooks.data.antigravity.stale
+                    ? 'Stale (reinstall)'
+                    : 'Not installed'}{' '}
+                in <span className="font-mono text-xs">{hooks.data.antigravity.path}</span>
+              </p>
             )}
           </CardContent>
         </Card>
