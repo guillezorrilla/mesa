@@ -3,6 +3,7 @@ import type { MesaContext } from '../context.js';
 import { resolveCheckout } from '../git/checkout.js';
 import { MesaError } from '../lib/result.js';
 import { readWorkspaceFile } from './editor.js';
+import { parseFileTarget } from './file-target.js';
 
 export type FileLink = { project: string; checkout: string; path: string; line: number };
 
@@ -19,11 +20,11 @@ export async function resolveSessionFileLink(
     session.project,
     session.worktree?.path,
   );
-  const match = /^(.*?)(?::([1-9]\d*)(?::\d+)?)?$/.exec(target.trim());
-  if (!match?.[1]) throw new MesaError('usage', 'file link needs a path');
-  const line = Number(match[2] ?? 1);
+  const parsed = parseFileTarget(target);
+  if (!parsed) throw new MesaError('usage', 'file link needs a path');
+  const line = parsed.line ?? 1;
   if (!Number.isSafeInteger(line)) throw new MesaError('usage', 'file link line is invalid');
-  const path = isAbsolute(match[1]) ? relative(checkout.path, match[1]) : match[1];
+  const path = isAbsolute(parsed.path) ? relative(checkout.path, parsed.path) : parsed.path;
   const file = readWorkspaceFile(checkout, path, line);
   return { project: session.project, checkout: checkout.path, path: file.path, line };
 }

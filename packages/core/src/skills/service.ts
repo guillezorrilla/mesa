@@ -60,6 +60,12 @@ export function skillsService(ctx: MesaContext) {
           if (!readLibrary(libraryDir).some((skill) => skill.name === name)) {
             throw new MesaError('not_found', `no Mesa skill ${name}`);
           }
+          if (!enabled && ctx.open().config.skills.includes(name)) {
+            throw new MesaError(
+              'usage',
+              `${name} is on in profile ${ctx.profile}'s skills, so one project cannot turn it off; change the profile with mesa config set skills`,
+            );
+          }
           const { projectDir } = scope(project);
           const current = readProjectFile(projectDir as string).skills ?? [];
           if (current.includes(name) === enabled) {

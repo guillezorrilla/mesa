@@ -1,6 +1,8 @@
 import { type Dirent, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Checkout } from '../git/checkout.js';
+import { gitCommand } from '../git/command.js';
+import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { readWorkspaceFile } from './editor.js';
 
@@ -19,7 +21,30 @@ export type FileSearch = {
   truncated: boolean;
 };
 
-function walk(root: string, visit: (entry: FileEntry) => boolean): boolean {
+/** Folders Git ignores, such as node_modules: listed, never walked. Outside Git, none. */
+export async function ignoredFolders(run: Runner, root: string): Promise<ReadonlySet<string>> {
+  const listed = await gitCommand(run, root, [
+    'ls-files',
+    '--others',
+    '--ignored',
+    '--exclude-standard',
+    '--directory',
+    '-z',
+  ]);
+  if (!listed.ok) return new Set();
+  return new Set(
+    listed.stdout
+      .split('\0')
+      .filter((path) => path.endsWith('/'))
+      .map((path) => path.slice(0, -1)),
+  );
+}
+
+function walk(
+  root: string,
+  skip: ReadonlySet<string>,
+  visit: (entry: FileEntry) => boolean,
+): boolean {
   let count = 0;
   let incomplete = false;
   const folder = (relative: string, depth: number): boolean => {
@@ -45,7 +70,7 @@ function walk(root: string, visit: (entry: FileEntry) => boolean): boolean {
       const path = relative ? `${relative}/${child.name}` : child.name;
       const entry: FileEntry = { path, kind: child.isDirectory() ? 'directory' : 'file', depth };
       if (visit(entry)) return true;
-      if (child.isDirectory()) {
+      if (child.isDirectory() && !skip.has(path)) {
         if (depth < MAX_DEPTH && folder(path, depth + 1)) return true;
         if (depth >= MAX_DEPTH) incomplete = true;
       }
@@ -56,9 +81,9 @@ function walk(root: string, visit: (entry: FileEntry) => boolean): boolean {
 }
 
 /** A deterministic, bounded tree; symlinks and Git internals are never followed. */
-export function fileTree(checkout: Checkout): FileTree {
+export function fileTree(checkout: Checkout, skip: ReadonlySet<string>): FileTree {
   const entries: FileEntry[] = [];
-  const truncated = walk(checkout.path, (entry) => {
+  const truncated = walk(checkout.path, skip, (entry) => {
     entries.push(entry);
     return false;
   });
@@ -70,11 +95,12 @@ export function searchFiles(
   checkout: Checkout,
   query: string,
   mode: 'name' | 'content',
+  skip: ReadonlySet<string>,
 ): FileSearch {
   const term = query.trim().toLocaleLowerCase();
   if (!term) throw new MesaError('usage', 'search query is required');
   const hits: FileHit[] = [];
-  const truncated = walk(checkout.path, (entry) => {
+  const truncated = walk(checkout.path, skip, (entry) => {
     if (entry.kind !== 'file') return false;
     if (mode === 'name') {
       if (entry.path.toLocaleLowerCase().includes(term))

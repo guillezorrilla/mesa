@@ -167,6 +167,12 @@ function profileDirCheck(dir: string): Finding {
   };
 }
 
+/** Doctor's findings could not reach the profile inbox: a warning, so doctor still answers. */
+export function inboxCheck(error: unknown): Check {
+  const hint = `cannot record findings in the inbox: ${toFail(error).error.message}`;
+  return { name: 'inbox', ok: false, status: 'warn', hint };
+}
+
 /**
  * Presence and version of every external dependency, the profile directory, the decisions
  * backend, the native agent hooks and tmux pane-died hook, and a Codex

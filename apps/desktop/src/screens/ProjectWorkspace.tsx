@@ -1,9 +1,11 @@
 import type { Agent, ManagedRow, ProjectRow, TreeRow } from '@mesa/core';
 import {
+  contextPercent,
   DEFAULT_AGENT,
   duration,
   sessionBranch,
   sessionLabel,
+  sessionTitle,
   supportsAgentCapability,
   supportsPlanStart,
 } from '@mesa/core/browser';
@@ -357,13 +359,13 @@ export function ProjectWorkspace(props: {
                   key={session.id}
                   type="button"
                   data-testid="project-active-session"
-                  aria-label={`Open ${session.name ?? 'Session'} (${session.id})`}
+                  aria-label={`Open ${sessionTitle(session)} (${session.id})`}
                   className="flex min-h-24 w-[310px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
                   <StateBadge state={session.lastState.state} compact />
                   <span className="w-full truncate text-sm font-medium">
-                    {session.name ?? 'Session'}
+                    {sessionTitle(session)}
                   </span>
                   <span className="flex w-full min-w-0 items-center gap-1 truncate font-mono text-xs text-state-working">
                     <GitBranch aria-hidden className="size-3" />{' '}
@@ -373,7 +375,9 @@ export function ProjectWorkspace(props: {
                   </span>
                   <span className="mt-auto flex w-full items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>
-                      {session.context ? `${Math.round(session.context.used)}%` : 'Context unknown'}
+                      {session.context
+                        ? `${contextPercent(session.context.used)}%`
+                        : 'Context unknown'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock3 aria-hidden className="size-3" />

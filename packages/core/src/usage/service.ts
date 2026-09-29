@@ -5,7 +5,7 @@ import { rolloutForThread } from '../agents/codex/rollouts.js';
 import type { MesaContext } from '../context.js';
 import { loadConfig } from '../profile/config.js';
 import { scanHookEvents } from '../sessions/hook-events.js';
-import { claudeUsage } from './claude.js';
+import { claudeUsage, claudeUsageFiles } from './claude.js';
 import { codexUsage } from './codex.js';
 import type { UsageRecord } from './records.js';
 import { type HookStamp, type SourceStamp, usageStore } from './store.js';
@@ -68,14 +68,16 @@ export function usageService(ctx: MesaContext) {
             continue;
           }
           try {
-            const stat = statSync(file);
+            const files = record.agent === 'claude' ? claudeUsageFiles(file) : [file];
+            const stats = files.map((source) => statSync(source));
             const stamp: SourceStamp = {
               session: record.id,
               nativeSessionId: nativeId,
               file,
-              size: stat.size,
-              mtimeMs: stat.mtimeMs,
-              reader: 1,
+              size: stats.reduce((total, stat) => total + stat.size, 0),
+              mtimeMs: Math.max(...stats.map((stat) => stat.mtimeMs)),
+              // Raised when a reader counts differently, so sources it stamped are read again.
+              reader: 2,
             };
             if (
               prior &&
@@ -87,7 +89,7 @@ export function usageService(ctx: MesaContext) {
               continue;
             const readings =
               record.agent === 'claude'
-                ? await claudeUsage(file, record.id, nativeId)
+                ? await claudeUsage(files, record.id, nativeId)
                 : await codexUsage(file, record.id, nativeId);
             const resumedAt = record.resumedBy
               ? ctx.store.find(record.resumedBy)?.startedAt

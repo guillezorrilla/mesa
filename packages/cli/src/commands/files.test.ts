@@ -260,3 +260,32 @@ test('terminal links stay in the managed session checkout and external argv neve
     (await cli.mesa('--profile', 'other', 'files', 'link', 'aaaaaaaa', 'docs/guide.md:1')).code,
   ).toBe(3);
 });
+
+test('files tree and search list an ignored folder without walking it', async () => {
+  const repo = join(cli.home, 'lantern-cove');
+  mkdirSync(join(repo, 'src'), { recursive: true });
+  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  await cli.mesa('init', '--vault', 'vault');
+  await cli.mesa('register', '--create', repo);
+  cli.run = withRealGit(cli.run);
+  writeFileSync(join(repo, '.gitignore'), 'node_modules/\n');
+  writeFileSync(join(repo, 'src', 'app.ts'), 'export const app = true;\n');
+  // More entries than the tree's 1500 bound, sorted before src/.
+  mkdirSync(join(repo, 'node_modules', 'dep'), { recursive: true });
+  for (let i = 0; i < 1600; i++) writeFileSync(join(repo, 'node_modules', 'dep', `m${i}.js`), '');
+
+  const tree = await cli.mesa('files', 'tree', 'lantern-cove', '--json');
+  expect(tree.code, tree.stdout).toBe(0);
+  expect(tree.json.data.truncated).toBe(false);
+  expect(tree.json.data.entries).toContainEqual({
+    path: 'node_modules',
+    kind: 'directory',
+    depth: 0,
+  });
+  expect(tree.json.data.entries).toContainEqual({ path: 'src/app.ts', kind: 'file', depth: 1 });
+  const found = await cli.mesa('files', 'search', 'lantern-cove', 'app', '--json');
+  expect(found.json.data.hits.map((hit: { path: string }) => hit.path)).toEqual(['src/app.ts']);
+  // APFS folds case: .GIT is Git's own folder.
+  expect((await cli.mesa('files', 'read', 'lantern-cove', '.GIT/config')).code).toBe(2);
+  expect((await cli.mesa('files', 'create', 'lantern-cove', '.Git/hooks/pre-commit')).code).toBe(2);
+});

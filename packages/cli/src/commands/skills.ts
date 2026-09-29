@@ -65,7 +65,9 @@ export const skillsSet = defineCommand({
     const recorded = mesa.skills.setProject(args.project, args.name, flags.enabled === 'true');
     return recordedOutput(recorded, {
       data: recorded.result,
-      text: `updated ${args.name} in ${args.project} mesa.yaml; run mesa skills sync ${args.project}`,
+      text: recorded.result.changed
+        ? `updated ${args.name} in ${args.project} mesa.yaml; run mesa skills sync ${args.project}`
+        : `${args.name} already ${flags.enabled === 'true' ? 'enabled' : 'disabled'} in ${args.project} mesa.yaml`,
     });
   },
 });

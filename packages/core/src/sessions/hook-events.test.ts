@@ -156,6 +156,40 @@ test('a nested claude, with another agent session id, is not logged as the sessi
   expect(existsSync(join(dir, 'events'))).toBe(false);
 });
 
+test('a claude run inside a Codex session or a plain terminal never claims that record', () => {
+  const { store, deps, dir } = setUp();
+  const codex = store.create(() => newSession({ agent: 'codex' })).id;
+  const terminal = store.create(() =>
+    newSession({
+      kind: 'terminal',
+      agent: 'terminal',
+      tmux: { socket: 's', session: 'p', window: 'w' },
+    }),
+  ).id;
+  for (const id of [codex, terminal])
+    expect(
+      recordHookEvent(deps, {
+        agent: 'claude',
+        mesaSessionId: id,
+        payload: JSON.stringify(SESSION_START),
+      }),
+    ).toBeUndefined();
+  expect(store.get(codex)?.agentSessionId).toBeUndefined();
+  expect(existsSync(join(dir, 'events'))).toBe(false);
+});
+
+test('a resumed background claude keeps its first environment; its hooks reach the live record', () => {
+  const { store, id, deps } = setUp();
+  const native = SESSION_START.session_id;
+  store.update(id, { agentSessionId: native, endedAt: '2026-09-24T12:05:00.000Z' });
+  const resumed = store.create(() => newSession({ agentSessionId: native, resumedFrom: id })).id;
+  const stop = JSON.stringify({ session_id: native, hook_event_name: 'Stop' });
+  expect(
+    recordHookEvent(deps, { agent: 'claude', mesaSessionId: id, payload: stop }),
+  ).toMatchObject({ mesaSessionId: resumed, event: 'Stop' });
+  expect(readHookEvents(deps.eventsDir, resumed).map((e) => e.event)).toEqual(['Stop']);
+});
+
 test('a /clear moves the session to its new agent session id; later events under it are kept', () => {
   const { store, id, deps, log } = setUp();
   store.update(id, { agentSessionId: 'before-clear' });

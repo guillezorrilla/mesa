@@ -58,9 +58,14 @@ export async function previewWorktreeAction(
     const stale = rows.filter((row) => row.state === 'stale' && !present(row.path));
     const paths = stale.map((row) => row.path).sort();
     const holders = stale.flatMap((row) => references(store, project, root, row.path));
+    // `git worktree prune` takes every prunable registration, not only the missing ones shown.
+    const onDisk = rows.filter((row) => row.state === 'stale' && present(row.path));
     const reasons = [
       ...(!paths.length ? ['no missing worktrees to clean'] : []),
       ...(holders.length ? ['a session still references a missing worktree'] : []),
+      ...onDisk.map(
+        (row) => `${row.path} is prunable but still on disk; repair or remove it first`,
+      ),
     ];
     const facts = {
       action,
@@ -105,20 +110,26 @@ export async function previewWorktreeAction(
     '--others',
     '--ignored',
     '--exclude-standard',
+    // One row per ignored folder, not per file: node_modules alone can list 100k paths.
+    '--directory',
     '-z',
   ]);
   const changes = status.split('\0').filter(Boolean);
   const ignored = ignoredOutput.split('\0').filter(Boolean);
   const branch = row.branch;
-  const upstream = branch
+  const [tracked = '', track = ''] = branch
     ? (
         await requireGit(run, root, [
           'for-each-ref',
-          '--format=%(upstream:short)',
+          '--format=%(upstream:short)%00%(upstream:track)',
           `refs/heads/${branch}`,
         ])
-      ).trim()
-    : '';
+      )
+        .trim()
+        .split('\0')
+    : [];
+  // A deleted remote branch (a merged PR) is no upstream; `containing` decides then.
+  const upstream = track === '[gone]' ? '' : tracked;
   const ahead =
     upstream && branch
       ? Number(

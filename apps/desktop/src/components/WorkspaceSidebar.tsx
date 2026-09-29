@@ -1,5 +1,11 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT, projectLabel, sessionLabel, WAITING_STATES } from '@mesa/core/browser';
+import {
+  GENERAL_PROJECT,
+  projectLabel,
+  sessionLabel,
+  sessionTitle,
+  WAITING_STATES,
+} from '@mesa/core/browser';
 import {
   Bell,
   ChartNoAxesCombined,
@@ -121,7 +127,7 @@ export function WorkspaceSidebar(props: {
           {session.managed && session.kind === 'terminal' ? (
             <TerminalSquare aria-hidden className="size-3.5 shrink-0 text-state-working" />
           ) : session.lastState.state === 'idle' ? (
-            <Clock3 aria-hidden className="size-3.5 shrink-0 text-state-waiting" />
+            <Clock3 aria-hidden className="size-3.5 shrink-0 text-state-idle" />
           ) : (
             <span
               aria-hidden
@@ -133,9 +139,7 @@ export function WorkspaceSidebar(props: {
               )}
             />
           )}
-          <span className="truncate">
-            {session.managed && !session.name ? 'Session' : sessionLabel(session)}
-          </span>
+          <span className="truncate">{sessionTitle(session)}</span>
         </span>
         {!compactSessions.includes(session.id) && (
           <>
@@ -160,7 +164,7 @@ export function WorkspaceSidebar(props: {
       {session.managed && session.project !== GENERAL_PROJECT && (
         <button
           type="button"
-          aria-label={`New child session from ${session.name ?? 'Session'} (${session.id})`}
+          aria-label={`New child session from ${sessionTitle(session)} (${session.id})`}
           className="pointer-events-none absolute -left-2.5 top-2 rounded-full border bg-card p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
           onClick={() => props.onNewSession?.(session.project, 'worktree', session.id)}
         >
@@ -169,7 +173,7 @@ export function WorkspaceSidebar(props: {
       )}
       <button
         type="button"
-        aria-label={`${compactSessions.includes(session.id) ? 'Expand' : 'Compact'} ${session.managed && !session.name ? 'Session' : sessionLabel(session)} card`}
+        aria-label={`${compactSessions.includes(session.id) ? 'Expand' : 'Compact'} ${sessionTitle(session)} card`}
         className="pointer-events-none absolute right-8 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
         onClick={() =>
           setCompactSessions((current) =>
@@ -189,7 +193,7 @@ export function WorkspaceSidebar(props: {
         <>
           <button
             type="button"
-            aria-label={`Archive ${session.name ?? 'Session'} (${session.id})`}
+            aria-label={`Archive ${sessionTitle(session)} (${session.id})`}
             className="pointer-events-none absolute right-2 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
             onClick={() => props.onArchiveSession?.(session.id)}
           >
@@ -199,7 +203,7 @@ export function WorkspaceSidebar(props: {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label={`More actions for ${session.name ?? 'Session'} (${session.id})`}
+                aria-label={`More actions for ${sessionTitle(session)} (${session.id})`}
                 className="pointer-events-none absolute right-14 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
               >
                 <MoreVertical aria-hidden className="size-3.5" />

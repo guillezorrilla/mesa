@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
 import { hooksStatus } from './agents/claude/hooks.js';
 import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
@@ -6,7 +7,7 @@ import { hooksService } from './agents/hooks-service.js';
 import { createContext, type MesaDeps } from './context.js';
 import { createFaro } from './decisions/faro.js';
 import { diagnosticsService } from './diagnostics/service.js';
-import { runDoctor } from './doctor.js';
+import { inboxCheck, runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
 import { inbox } from './notifications/inbox.js';
@@ -69,8 +70,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
         },
         codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),
       });
-      notifications.recordDoctor(report);
-      return report;
+      // A profile that was never initialised has no inbox: doctor must not create its folder.
+      if (!existsSync(ctx.paths.config)) return report;
+      try {
+        notifications.recordDoctor(report);
+        return report;
+      } catch (error) {
+        return { ...report, checks: [...report.checks, inboxCheck(error)] };
+      }
     },
   };
 }

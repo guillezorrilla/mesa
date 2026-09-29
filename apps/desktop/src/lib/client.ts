@@ -472,37 +472,40 @@ const COMMANDS = {
     project,
   ]),
   'git.stashApply': commandWith<
-    { project: string; checkout?: string; ref: string },
+    { project: string; checkout?: string; ref: string; oid: string },
     Recorded<StashAction>
-  >(({ project, checkout, ref }) => [
+  >(({ project, checkout, ref, oid }) => [
     'git',
     'stash',
     'apply',
     ...(checkout ? ['--checkout', checkout] : []),
+    `--oid=${oid}`,
     '--',
     project,
     ref,
   ]),
   'git.stashPop': commandWith<
-    { project: string; checkout?: string; ref: string },
+    { project: string; checkout?: string; ref: string; oid: string },
     Recorded<StashAction>
-  >(({ project, checkout, ref }) => [
+  >(({ project, checkout, ref, oid }) => [
     'git',
     'stash',
     'pop',
     ...(checkout ? ['--checkout', checkout] : []),
+    `--oid=${oid}`,
     '--',
     project,
     ref,
   ]),
   'git.stashDrop': commandWith<
-    { project: string; checkout?: string; ref: string },
+    { project: string; checkout?: string; ref: string; oid: string },
     Recorded<StashAction>
-  >(({ project, checkout, ref }) => [
+  >(({ project, checkout, ref, oid }) => [
     'git',
     'stash',
     'drop',
     ...(checkout ? ['--checkout', checkout] : []),
+    `--oid=${oid}`,
     '--',
     project,
     ref,

@@ -19,29 +19,34 @@ export function diffRows(patch: string): DiffRow[] {
   const lines = patch.replace(/\n$/, '').split('\n');
   if (!patch) return [];
   const rows: DiffRow[] = [];
+  // Inside a hunk a `--- x` line is a removed `-- x`, not a file header.
+  let inHunk = false;
+  const is = (line: string | undefined, sign: '-' | '+') => inHunk && line?.startsWith(sign);
   for (let i = 0; i < lines.length; ) {
     const line = lines[i] ?? '';
-    if (line.startsWith('-') && !line.startsWith('---')) {
+    if (is(line, '-')) {
       const removed: string[] = [];
       const added: string[] = [];
-      while (lines[i]?.startsWith('-') && !lines[i]?.startsWith('---')) {
+      while (is(lines[i], '-')) {
         removed.push((lines[i] ?? '').slice(1));
         i++;
       }
-      while (lines[i]?.startsWith('+') && !lines[i]?.startsWith('+++')) {
+      while (is(lines[i], '+')) {
         added.push((lines[i] ?? '').slice(1));
         i++;
       }
       for (let j = 0; j < Math.max(removed.length, added.length); j++) {
         rows.push({ kind: 'change', left: removed[j] ?? '', right: added[j] ?? '' });
       }
-    } else if (line.startsWith('+') && !line.startsWith('+++')) {
+    } else if (is(line, '+')) {
       rows.push({ kind: 'change', left: '', right: line.slice(1) });
       i++;
-    } else if (line.startsWith(' ')) {
+    } else if (inHunk && line.startsWith(' ')) {
       rows.push({ kind: 'context', left: line.slice(1), right: line.slice(1) });
       i++;
     } else {
+      if (line.startsWith('@@')) inHunk = true;
+      else if (line.startsWith('diff ')) inHunk = false;
       rows.push({ kind: 'meta', left: line, right: line });
       i++;
     }

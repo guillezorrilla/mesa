@@ -121,18 +121,16 @@ export function PreferencesScreen(props: {
               </NativeSelect>
             </div>
           ))}
-          <div className="grid gap-2 sm:grid-cols-[1fr_14rem] sm:items-center">
-            <Label htmlFor="appearance-size">Interface text size: {appearance.fontSize}px</Label>
-            <Input
-              id="appearance-size"
-              type="range"
-              min={12}
-              max={20}
-              value={appearance.fontSize}
-              disabled={acting}
-              onChange={(event) => save('appearance.fontSize', Number(event.currentTarget.value))}
-            />
-          </div>
+          <RangeSetting
+            id="appearance-size"
+            label="Interface text size"
+            unit="px"
+            min={12}
+            max={20}
+            value={appearance.fontSize}
+            disabled={acting}
+            onSave={(value) => save('appearance.fontSize', value)}
+          />
         </CardContent>
       </Card>
       <Card>
@@ -153,18 +151,16 @@ export function PreferencesScreen(props: {
               <NativeSelectOption value="light">Light</NativeSelectOption>
             </NativeSelect>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_14rem] sm:items-center">
-            <Label htmlFor="terminal-size">Terminal text size: {terminal.fontSize}px</Label>
-            <Input
-              id="terminal-size"
-              type="range"
-              min={10}
-              max={24}
-              value={terminal.fontSize}
-              disabled={acting}
-              onChange={(event) => save('terminal.fontSize', Number(event.currentTarget.value))}
-            />
-          </div>
+          <RangeSetting
+            id="terminal-size"
+            label="Terminal text size"
+            unit="px"
+            min={10}
+            max={24}
+            value={terminal.fontSize}
+            disabled={acting}
+            onSave={(value) => save('terminal.fontSize', value)}
+          />
           <div className="grid gap-2 sm:grid-cols-[1fr_14rem] sm:items-center">
             <Label htmlFor="terminal-font">Terminal font family</Label>
             <div className="flex gap-2">
@@ -205,18 +201,16 @@ export function PreferencesScreen(props: {
               Reopen a terminal panel to apply. This disables tmux mouse reporting in that view.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_14rem] sm:items-center">
-            <Label htmlFor="scroll-speed">Scroll speed: {terminal.scrollSpeed}x</Label>
-            <Input
-              id="scroll-speed"
-              type="range"
-              min={1}
-              max={20}
-              value={terminal.scrollSpeed}
-              disabled={acting}
-              onChange={(event) => save('terminal.scrollSpeed', Number(event.currentTarget.value))}
-            />
-          </div>
+          <RangeSetting
+            id="scroll-speed"
+            label="Scroll speed"
+            unit="x"
+            min={1}
+            max={20}
+            value={terminal.scrollSpeed}
+            disabled={acting}
+            onSave={(value) => save('terminal.scrollSpeed', value)}
+          />
           <div className="grid gap-2 sm:grid-cols-[1fr_14rem] sm:items-center">
             <Label htmlFor="submit-shortcut">Additional submit shortcut</Label>
             <NativeSelect
@@ -306,5 +300,42 @@ export function PreferencesScreen(props: {
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+/** A slider that follows the drag and saves once, where it is released (pointer or key up). */
+function RangeSetting(props: {
+  id: string;
+  label: string;
+  unit: string;
+  min: number;
+  max: number;
+  value: number;
+  disabled: boolean;
+  onSave: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(props.value);
+  useEffect(() => setDraft(props.value), [props.value]);
+  const release = () => {
+    if (draft !== props.value) props.onSave(draft);
+  };
+  return (
+    <div className="grid gap-2 sm:grid-cols-[1fr_14rem] sm:items-center">
+      <Label htmlFor={props.id}>
+        {props.label}: {draft}
+        {props.unit}
+      </Label>
+      <Input
+        id={props.id}
+        type="range"
+        min={props.min}
+        max={props.max}
+        value={draft}
+        disabled={props.disabled}
+        onChange={(event) => setDraft(Number(event.currentTarget.value))}
+        onPointerUp={release}
+        onKeyUp={release}
+      />
+    </div>
   );
 }

@@ -20,7 +20,13 @@ export const execRunner: Runner = (file, args, timeoutMs, options) =>
     const child = execFile(
       file,
       args,
-      { timeout: timeoutMs, cwd: options?.cwd, env: options?.env as NodeJS.ProcessEnv | undefined },
+      {
+        timeout: timeoutMs,
+        cwd: options?.cwd,
+        env: options?.env as NodeJS.ProcessEnv | undefined,
+        // ponytail: 64 MiB, not the 1 MiB default, for Git diffs and listings; stream if one outgrows it.
+        maxBuffer: 64 * 1024 * 1024,
+      },
       (error, stdout, stderr) => {
         if (!error) return resolve({ ok: true, stdout });
         const code = (error as NodeJS.ErrnoException).code;

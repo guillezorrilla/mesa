@@ -26,6 +26,13 @@ test('bounded native search finds user and assistant text but omits provider ins
           content: [{ type: 'tool_result', content: 'harbor tide tool result' }],
         },
       }),
+      // Claude Code injects a loaded skill's body as a meta user line.
+      JSON.stringify({
+        type: 'user',
+        cwd: dir,
+        isMeta: true,
+        message: { role: 'user', content: [{ type: 'text', text: 'tide skill body' }] },
+      }),
       JSON.stringify({
         type: 'assistant',
         cwd: dir,
@@ -58,6 +65,7 @@ test('bounded native search finds user and assistant text but omits provider ins
   );
   expect(result.hits.some((hit) => hit.excerpt.includes('harbor tide tool result'))).toBe(true);
   expect(result.hits.map((hit) => hit.excerpt)).not.toContain('secret tide');
+  expect(result.hits.some((hit) => hit.excerpt.includes('skill body'))).toBe(false);
   expect(result.filesSearched).toBe(2);
   expect(result.truncated).toBe(false);
   expect(() => mesa.sessions.search('lantern-cove', 'x')).toThrow(

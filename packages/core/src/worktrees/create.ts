@@ -150,5 +150,13 @@ async function carryIgnoredDirectory(
   if (!ignored.ok || !tracked.ok || tracked.stdout.trim())
     throw new MesaError('usage', `${directory} must be ignored and untracked to carry`);
   const target = createCheckedFilePath(worktree, directory);
-  cpSync(source, target, { recursive: true, dereference: false, errorOnExist: true, force: false });
+  // verbatimSymlinks: a relative link such as pnpm's node_modules/pkg -> ../packages/pkg stays
+  // relative, so the worktree uses its own packages rather than the source checkout's.
+  cpSync(source, target, {
+    recursive: true,
+    dereference: false,
+    verbatimSymlinks: true,
+    errorOnExist: true,
+    force: false,
+  });
 }

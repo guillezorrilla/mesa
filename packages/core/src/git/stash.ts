@@ -79,7 +79,10 @@ export async function createGitStash(
   return { checkout, created: true, oid: after };
 }
 
-/** Apply by OID, then recheck the ref before any drop, so a conflict keeps the stash. */
+/**
+ * Apply by OID, then recheck the ref before any drop, so a conflict keeps the stash. `expected`
+ * is the OID the caller listed: a stash pushed since then shifts every ref, so it refuses.
+ */
 export async function changeGitStash(
   profile: Profile,
   run: Runner,
@@ -87,9 +90,12 @@ export async function changeGitStash(
   selected: string | undefined,
   ref: string,
   action: StashAction['action'],
+  expected?: string,
 ): Promise<StashAction> {
   const checkout = await resolveCheckout(profile, run, project, selected);
   const oid = await stashOid(run, checkout.path, ref);
+  if (expected && oid !== expected)
+    throw new MesaError('usage', `${ref} is no longer the stash you selected; list stashes again`);
   if (action !== 'drop') {
     const applied = await gitCommand(run, checkout.path, ['stash', 'apply', oid], 60_000);
     if (!applied.ok)
