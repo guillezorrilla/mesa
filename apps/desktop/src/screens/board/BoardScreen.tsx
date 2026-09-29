@@ -87,7 +87,7 @@ type OpenDialog =
 /**
  * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
  * (highest attention first, children under their parent, collapsible), with Faro's state,
- * confidence, and attention, the running time, and the last output line. It looks again every
+ * the running time, and the last output line. It looks again every
  * two seconds and after every action; a live session's terminal opens under it.
  */
 export function BoardScreen(

@@ -183,10 +183,9 @@ Not: priority, urgency, rank.
 
 ## Board
 
-The Session Board: the app's first screen (BoardScreen) and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, context use as `ctx`, running time, last output; `--json` adds each row's `decision` with its probabilities). Every session across every project, highest attention first; the app shows `mesa sessions --tree`, children nested under their parent and collapsible. Each row shows:
+The Session Board: the app's Board view (BoardScreen) and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, context use as `ctx`, running time, last output; `--json` adds each row's `decision` with its probabilities). Every session across every project, highest attention first; the app shows `mesa sessions --tree`, children nested under their parent and collapsible. The app keeps confidence and attention for Faro and ordering but omits those numbers from session labels; the selected session's details show both. Each row shows:
 
-- a state badge coloured per state, with its confidence (hover: which decisions backend decided);
-- the attention score;
+- a state badge coloured per state (hover: which decisions backend decided);
 - its context use, as a bar (see Context use);
 - a `run` badge beside the agent of a Skill run;
 - a running time that ticks between looks;

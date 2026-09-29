@@ -361,11 +361,7 @@ export function ProjectWorkspace(props: {
                   className="flex min-h-24 w-[310px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
-                  <StateBadge
-                    state={session.lastState.state}
-                    confidence={session.lastState.confidence}
-                    compact
-                  />
+                  <StateBadge state={session.lastState.state} compact />
                   <span className="w-full truncate text-sm font-medium">
                     {session.name ?? 'Session'}
                   </span>

@@ -1182,7 +1182,7 @@ test('Sessions sidebar shows a branch and lets each card compact without losing 
 });
 
 test('selected session details read native context by exact id and keep unknown facts honest', async () => {
-  const row = managedRow('aaaaaaaa');
+  const row = managedRow('aaaaaaaa', { attention: 0.83 });
   let reading = true;
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -1215,6 +1215,8 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('/src/lantern-cove');
   expect(details?.textContent).toContain('Modelclaude-opus-5-5');
   expect(details?.textContent).toContain('Effortxhigh');
+  expect(details?.textContent).toContain('Confidence95%');
+  expect(details?.textContent).toContain('Attention0.83');
   expect(details?.textContent).toContain('Instructionsconfigured: SessionStart hook is configured');
   expect(details?.textContent).toContain('10.04% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
