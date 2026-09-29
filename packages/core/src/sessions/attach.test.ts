@@ -64,6 +64,16 @@ test('without --app, attach hands back the attach argv for this terminal', async
   ]);
 });
 
+test('natural selection disables tmux mouse only in the newly attached view', async () => {
+  const { mesa, id } = setUp();
+  mesa.config.set('terminal.naturalSelection', 'true');
+  const argv = (await mesa.sessions.attach(id)).exec ?? [];
+  const view = argv[argv.indexOf('-s') + 1];
+  expect(argv.join(' ')).toContain(
+    `; set-option -t =${view} mouse off ; set-option destroy-unattached on`,
+  );
+});
+
 test('a session whose window is gone is not_found with the resume hint', async () => {
   const { mesa, id } = setUp(['tmux']);
   await expect(mesa.sessions.attach(id)).rejects.toMatchObject({

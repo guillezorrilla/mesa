@@ -6,15 +6,14 @@
 @import "@fontsource/ibm-plex-mono/latin-400.css";
 @import "@fontsource/ibm-plex-mono/latin-500.css";
 
-/* Dark follows the system: Mesa has no theme switch of its own. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /*
  * The theme: shadcn/ui's tokens over a cool neutral base, and one colour per Session state.
  * Waits are the only warm colour on the Board, so a session that needs you is seen first.
  */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --radius: 0.5rem;
   --background: oklch(0.985 0.002 250);
   --foreground: oklch(0.2 0.01 250);
@@ -42,33 +41,50 @@
   --state-failed: oklch(0.58 0.2 27);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.105 0.005 250);
-    --foreground: oklch(0.93 0.005 250);
-    --card: oklch(0.145 0.008 250);
-    --card-foreground: oklch(0.93 0.005 250);
-    --popover: oklch(0.17 0.008 250);
-    --popover-foreground: oklch(0.93 0.005 250);
-    --primary: oklch(0.93 0.005 250);
-    --primary-foreground: oklch(0.2 0.01 250);
-    --secondary: oklch(0.21 0.008 250);
-    --secondary-foreground: oklch(0.93 0.005 250);
-    --muted: oklch(0.19 0.008 250);
-    --muted-foreground: oklch(0.68 0.012 250);
-    --accent: oklch(0.22 0.01 250);
-    --accent-foreground: oklch(0.93 0.005 250);
-    --destructive: oklch(0.66 0.2 25);
-    --border: oklch(0.245 0.009 250);
-    --input: oklch(0.27 0.009 250);
-    --ring: oklch(0.78 0.15 70);
-    --archive-foreground: oklch(0.18 0.01 70);
-    --state-working: oklch(0.7 0.12 250);
-    --state-waiting: oklch(0.82 0.16 75);
-    --state-idle: oklch(0.72 0.12 165);
-    --state-done: oklch(0.62 0.01 250);
-    --state-failed: oklch(0.7 0.18 25);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.105 0.005 250);
+  --foreground: oklch(0.93 0.005 250);
+  --card: oklch(0.145 0.008 250);
+  --card-foreground: oklch(0.93 0.005 250);
+  --popover: oklch(0.17 0.008 250);
+  --popover-foreground: oklch(0.93 0.005 250);
+  --primary: oklch(0.93 0.005 250);
+  --primary-foreground: oklch(0.2 0.01 250);
+  --secondary: oklch(0.21 0.008 250);
+  --secondary-foreground: oklch(0.93 0.005 250);
+  --muted: oklch(0.19 0.008 250);
+  --muted-foreground: oklch(0.68 0.012 250);
+  --accent: oklch(0.22 0.01 250);
+  --accent-foreground: oklch(0.93 0.005 250);
+  --destructive: oklch(0.66 0.2 25);
+  --border: oklch(0.245 0.009 250);
+  --input: oklch(0.27 0.009 250);
+  --ring: oklch(0.78 0.15 70);
+  --archive-foreground: oklch(0.18 0.01 70);
+  --state-working: oklch(0.7 0.12 250);
+  --state-waiting: oklch(0.82 0.16 75);
+  --state-idle: oklch(0.72 0.12 165);
+  --state-done: oklch(0.62 0.01 250);
+  --state-failed: oklch(0.7 0.18 25);
+}
+
+:root[data-font="system"] {
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+:root[data-density="compact"] {
+  --spacing: 0.22rem;
+}
+
+:root[data-color-vision="red-green"] {
+  --state-idle: oklch(0.72 0.12 240);
+  --state-failed: oklch(0.65 0.18 335);
+}
+
+:root[data-color-vision="blue-yellow"] {
+  --state-working: oklch(0.65 0.13 165);
+  --state-waiting: oklch(0.67 0.15 30);
 }
 
 @theme inline {

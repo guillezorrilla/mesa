@@ -38,7 +38,14 @@ export function initProfile(
   input: { vault: string; agent?: string },
 ): { created: boolean; path: string } {
   if (existsSync(paths.config)) return { created: false, path: paths.config };
-  const config = buildConfig({ vault: input.vault, defaultAgent: input.agent }, paths.config);
+  const config = buildConfig(
+    {
+      vault: input.vault,
+      defaultAgent: input.agent,
+      onboarding: { status: 'active', step: 0 },
+    },
+    paths.config,
+  );
   mkdirSync(paths.sessions, { recursive: true, mode: 0o700 });
   const created = writeYaml(paths.config, config, {
     header: CONFIG_HEADER,

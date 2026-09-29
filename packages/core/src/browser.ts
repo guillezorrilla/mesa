@@ -13,6 +13,16 @@ export {
   supportsPlanStart,
 } from './agents/names.js';
 export * from './display.js';
+export {
+  COLOR_VISION_MODES,
+  DEFAULT_APPEARANCE,
+  DEFAULT_TERMINAL_PREFERENCES,
+  INTERFACE_DENSITIES,
+  INTERFACE_FONTS,
+  INTERFACE_THEMES,
+  TERMINAL_APPS,
+  TERMINAL_THEMES,
+} from './profile/preferences.js';
 export { DEFAULT_SHORTCUTS, shortcutFromKeys, validShortcut } from './profile/shortcuts.js';
 export { repositoryUrl } from './projects/project-url.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
