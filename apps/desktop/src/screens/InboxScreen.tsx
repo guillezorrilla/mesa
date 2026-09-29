@@ -51,8 +51,23 @@ export function InboxScreen({
   const unread = inbox.data?.filter((item) => !item.read).length ?? 0;
   return (
     <section data-testid="inbox-panel" className="space-y-4">
-      <PageHeader title="Inbox" description={`${unread} unread notices from your sessions`}>
-        <Button variant="outline" onClick={() => void inbox.refresh()} disabled={inbox.busy}>
+      <PageHeader title="Inbox" description={`${unread} unread notices`}>
+        <Button
+          variant="outline"
+          onClick={() =>
+            void Promise.all([
+              inbox.refresh(),
+              notifications.status().then(
+                (value) => {
+                  setStatus(value);
+                  setStatusError('');
+                },
+                (error) => setStatusError(String(error)),
+              ),
+            ])
+          }
+          disabled={inbox.busy}
+        >
           <RefreshCw aria-hidden className={inbox.busy ? 'animate-spin' : undefined} />
           Refresh
         </Button>
@@ -70,9 +85,13 @@ export function InboxScreen({
             size="sm"
             className="w-fit"
             onClick={() =>
-              void notifications
-                .requestPermission()
-                .then(setStatus, (error) => setStatusError(String(error)))
+              void notifications.requestPermission().then(
+                (value) => {
+                  setStatus(value);
+                  setStatusError('');
+                },
+                (error) => setStatusError(String(error)),
+              )
             }
           >
             Enable notifications
@@ -157,9 +176,7 @@ export function InboxScreen({
           </div>
         </Card>
       ))}
-      {inbox.data?.length === 0 && (
-        <p className="text-muted-foreground text-sm">No session notices yet.</p>
-      )}
+      {inbox.data?.length === 0 && <p className="text-muted-foreground text-sm">No notices yet.</p>}
     </section>
   );
 }

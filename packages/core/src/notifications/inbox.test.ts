@@ -59,7 +59,10 @@ test('Doctor findings enter the inbox once, resolve on recheck, and target Docto
   const report = (status: 'warn' | 'ok') => ({
     healthy: true,
     summary: '',
-    checks: [{ name: 'claude hooks', ok: status === 'ok', status, hint: 'Install hooks' }],
+    checks: [
+      { name: 'claude hooks', ok: status === 'ok', status, hint: 'Install hooks' },
+      { name: 'codex hooks', ok: status === 'ok', status, hint: 'Review hooks' },
+    ],
   });
   mesa.notifications.recordDoctor(report('warn'));
   const plan = mesa.notifications.delivery();
@@ -67,7 +70,11 @@ test('Doctor findings enter the inbox once, resolve on recheck, and target Docto
   if (plan.kind === 'none') throw new Error('expected Doctor notice');
   mesa.notifications.markDelivered(plan.ids);
   const [finding] = mesa.notifications.list();
-  expect(finding).toMatchObject({ kind: 'doctor', target: { kind: 'doctor' } });
+  expect(finding).toMatchObject({
+    kind: 'doctor',
+    title: 'Doctor: 2 findings',
+    target: { kind: 'doctor' },
+  });
   expect(mesa.notifications.list()).toHaveLength(1);
   expect(createMesa('default', testDeps(home)).notifications.list()[0]?.id).toBe(finding?.id);
   expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual({ kind: 'none' });
