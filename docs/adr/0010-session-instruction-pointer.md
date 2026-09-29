@@ -21,7 +21,7 @@ In an isolated invented profile with Codex CLI 0.157.1, a real fresh Codex sessi
 
 On 2026-09-29, Antigravity CLI 1.2.13 in disposable Mesa profile `p4-agy-156-0929` returned the profile and Mesa ID `3g0d95wm` from the injected pointer without tool use. Another managed session `9sdfg3vw` invoked the invented `/shore-marker` skill, read its `SKILL.md`, and returned `COPPER STAR FEN`. It then ran `mesa sessions --json` with one-time native permission and confirmed its own ID. The hook was configured through the documented global format; no goal, repository instructions, or persistent provider permission defaults were changed.
 
-The same profile verified redelivery after resume (`mhav5key`), queue (`92rhavk2`), and handoff to a successor (`08f12c0a`). A headless `mesa run` wrote its private Antigravity CLI log and returned its own run ID `zrgzyn5z` from the pointer. The qualification matrix records the unsupported or unverified lifecycle cells separately.
+The same profile verified redelivery after resume (`mhav5key`), queue (`92rhavk2`), and handoff to a successor (`08f12c0a`). A worktree session (`9fs5da0y`) also named its Mesa ID. A headless `mesa run` wrote its private Antigravity CLI log and returned its own run ID `zrgzyn5z` from the pointer. After a second resume, `/clear` changed the ID in that window's private log; both `mesa show --json` and the packaged app showed the conflict. The qualification matrix records the unsupported or unverified lifecycle cells separately.
 
 ## Consequences
 

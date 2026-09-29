@@ -1,5 +1,7 @@
+import { existsSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { agentWorld, projectProfile, steppingClock } from '../testing/index.js';
+import { agentWorld, profilePaths, projectProfile, steppingClock } from '../testing/index.js';
 
 const THREAD = '01a0e14e-be41-72f1-a81b-e25d2198602a';
 
@@ -23,4 +25,25 @@ test('resume reopens a Codex thread embedded, in its recorded folder, with -C', 
   const window = world.tmux.windows.at(-1);
   expect(window).toMatchObject({ window: `codex-${record.id}`, path: dir });
   expect(window?.launch).toBe(`codex -c mesa.embedded=true resume '${THREAD}' -C '${dir}'`);
+});
+
+test('resumed Antigravity logs its own native ID and reports a later clear as conflicting', async () => {
+  const world = agentWorld();
+  const { mesa, home } = projectProfile(world.run);
+  const opened = (await mesa.sessions.open('lantern-cove', { agent: 'antigravity' })).result;
+  const logs = profilePaths(home, 'default').logs;
+  const original = '002f58d1-9e29-4682-9bc1-3a2dc5da1115';
+  const cleared = 'cd66cf01-f466-4c11-8f12-a8fd0885d9f4';
+  writeFileSync(join(logs, `${opened.id}.agy.log`), `Created conversation ${original}\n`);
+  expect((await mesa.sessions.show(opened.id)).agentSessionId).toBe(original);
+  await mesa.sessions.stop(opened.id, true);
+
+  const resumed = (await mesa.sessions.resume(opened.id)).result.record;
+  const log = join(logs, `${resumed.id}.agy.log`);
+  expect(world.tmux.windows.at(-1)?.launch).toBe(
+    `umask 077; exec agy --log-file '${log}' --conversation '${original}'`,
+  );
+  expect(existsSync(logs)).toBe(true);
+  writeFileSync(log, `Created conversation ${original}\nCreated conversation ${cleared}\n`);
+  expect((await mesa.sessions.show(resumed.id)).instructions.state).toBe('conflicting');
 });
