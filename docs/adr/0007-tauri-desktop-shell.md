@@ -25,7 +25,7 @@ Owner request on 2026-09-24. Versions from `pnpm view` and crates.io on 2026-09-
 
 - No node-pty, no electron-rebuild, no electron-builder.
 - Rust is a toolchain requirement for contributors and CI; cold `cargo` builds take minutes and are cached.
-- WKWebView is the rendering engine: the xterm WebGL addon and clipboard behaviour are verified in the P0 terminal spike, not assumed from Chromium.
+- WKWebView is the rendering engine: terminal rendering and clipboard behaviour need native checks, not Chromium assumptions. The P0 spike confirmed that the WebGL addon loaded; a later native check found its output could stay black (see the 2026-09-28 amendment).
 - ADR-0002 remains as the record of the Electron evaluation.
 
 ## Amendment 2026-09-25: the embedded terminal as spiked (#8)
@@ -42,3 +42,7 @@ docs/spikes/embedded-terminal.md (SP-3, run live in the Tauri window) measured t
   - No RGB `terminal-features`: Terminal.app shares `xterm-256color`. The app shows 256 colours until its pty gets its own TERM.
 - The pty's output is held until the renderer's listeners exist (`term_ready`), because Tauri does not buffer events and tmux's first frame would be lost.
 - The tmux-only alternative (`capture-pane -e` plus `send-keys`, no xterm) was measured at 7 ms a capture. It stays the board's last-output preview, because it cannot keep cursor, mouse, and scrollback fidelity.
+
+## Amendment 2026-09-28: render live terminals without WebGL
+
+In the packaged Mesa P4 Check app, a selected session's WKWebView pane stayed black while its tmux window accepted input and produced output. Removing `@xterm/addon-webgl` let xterm's default renderer show the same live output, including after switching between Board and Sessions. A command typed in the app printed `MESA-NATIVE-VISIBLE` in the selected pane. The default renderer is now the app's terminal path; the P0 result established addon loading, not reliable rendering after navigation.

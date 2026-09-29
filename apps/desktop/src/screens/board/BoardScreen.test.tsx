@@ -80,6 +80,7 @@ test('the Board is the first screen: every session by attention, with its state 
   });
   const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
   expect(byTestId('session-board')).toHaveLength(1);
+  expect(document.querySelector('thead')?.textContent).not.toContain('Attention');
   expect(byTestId('session-row').map((r) => cells(r).slice(0, 7))).toEqual([
     [
       'aaaaaaaa',
