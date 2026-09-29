@@ -20,7 +20,8 @@ const file = (home: string): hooks.HookFile => ({
   agent: 'claude',
   events: HOOK_EVENTS,
 });
-export const hookCommand = (self: readonly string[]) => hooks.hookCommand(self, 'claude');
+export const hookCommand = (self: readonly string[], event?: string) =>
+  hooks.hookCommand(self, 'claude', event);
 export const hooksStatus = (home: string, self: readonly string[]) =>
   hooks.hooksStatus(file(home), self);
 export const installHooks = (home: string, self: readonly string[]) =>

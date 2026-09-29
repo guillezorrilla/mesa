@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { readYaml, writeYaml } from '../lib/yaml-file.js';
+import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
 import { slugify } from './slug.js';
 
 export { slugify } from './slug.js';
@@ -48,3 +48,7 @@ export const minimalProject = (dir: string): Project =>
 /** Writes a new project file; never replaces an existing one. */
 export const writeProjectFile = (dir: string, project: Project): boolean =>
   writeYaml(projectFile(dir), project, { exclusive: true });
+
+/** Change only the skill policy, preserving the rest of the project's YAML and comments. */
+export const setProjectSkills = (dir: string, skills: string[]): Project =>
+  setYamlPath(projectFile(dir), ProjectSchema, 'skills', skills);

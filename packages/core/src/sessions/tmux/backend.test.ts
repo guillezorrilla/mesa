@@ -364,6 +364,22 @@ test('every call goes to the profile socket without the user tmux.conf', async (
   ]);
 });
 
+test('a sandbox-denied tmux socket is an error, never an exited session', async () => {
+  const { run } = scriptedRunner({
+    tmux: () => ({
+      ok: false,
+      reason: 'failed',
+      detail: 'error connecting to /private/tmp/tmux-501/mesa-probe (Operation not permitted)',
+    }),
+  });
+  const tmux = tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env: {} });
+  await expect(
+    tmux.findWindow({ project: 'lantern', window: 'claude-aaaaaa' }),
+  ).rejects.toMatchObject({
+    code: 'internal',
+  });
+});
+
 test('the server drops only the variables that make claude think it is nested', async () => {
   const { run, calls } = scriptedRunner();
   const env = { ...PARENT, CLAUDE_CONFIG_DIR: '/c', HOME: '/h' };

@@ -58,6 +58,7 @@ export function recordHookEvent(
   const agentSessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
   const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : 'unknown';
   let record = findRecord(deps.store, id);
+  let staleCodexClear = false;
   if (agent.data === 'codex') {
     // The environment is only an entry gate and the first SessionStart's claim. Once known,
     // Codex's payload id selects its record, even when an inherited environment names another.
@@ -68,14 +69,27 @@ export function recordHookEvent(
       (s) => s.agent === 'codex' && !s.endedAt,
     );
     if (matching) record = matching;
-    else if (record.agentSessionId || !['SessionStart', 'SessionEnd'].includes(event))
-      return undefined;
+    else if (record.agentSessionId || !['SessionStart', 'SessionEnd'].includes(event)) {
+      if (
+        event !== 'SessionStart' ||
+        payload.source !== 'clear' ||
+        !record.agentSessionId ||
+        record.agentSessionId === agentSessionId
+      )
+        return undefined;
+      const previous = readHookEvents(deps.eventsDir, record.id).at(-1);
+      if (previous?.event !== 'SessionEnd' || previous.agentSessionId !== record.agentSessionId)
+        return undefined;
+      // /clear starts a different native conversation in the same window. Do not claim it as
+      // this record: an inherited MESA_SESSION_ID can also belong to a nested Codex process.
+      staleCodexClear = true;
+    }
     id = record.id;
   }
   const line: HookEvent = {
     at: deps.clock().toISOString(),
     agent: agent.data,
-    event,
+    event: staleCodexClear ? 'SessionIdentityChanged' : event,
     mesaSessionId: id,
     ...(agentSessionId ? { agentSessionId } : {}),
     payload: redactPayload(payload, deps.home, deps.secrets()),
@@ -85,7 +99,7 @@ export function recordHookEvent(
     agent.data === 'claude' && line.event === 'SessionStart' && payload.source === 'clear';
   // A claude started inside the session's claude inherits MESA_SESSION_ID; its events are not ours.
   const moved = Boolean(record?.agentSessionId && agentSessionId !== record.agentSessionId);
-  if (agentSessionId && moved && !cleared) return undefined;
+  if (agentSessionId && moved && !cleared && !staleCodexClear) return undefined;
   mkdirSync(deps.eventsDir, { recursive: true, mode: 0o700 });
   appendFileSync(eventsLog(deps.eventsDir, id), `${JSON.stringify(line)}\n`);
   // The record follows: to its first id (open and resume set one first, so only a record written
@@ -96,6 +110,7 @@ export function recordHookEvent(
     record &&
     agentSessionId &&
     agentSessionId !== record.agentSessionId &&
+    !staleCodexClear &&
     (agent.data === 'claude' || event === 'SessionStart')
   ) {
     deps.store.update(id, { agentSessionId });

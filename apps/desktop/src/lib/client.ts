@@ -25,6 +25,7 @@ import type {
   GitTracking,
   GridGroup,
   HooksStatus,
+  InstructionStatus,
   NativeHistory,
   Opened,
   ProfileInfo,
@@ -34,10 +35,11 @@ import type {
   Removed,
   RepositoryInsight,
   Result,
+  RuleRow,
   Sent,
   SessionLog,
   SessionRecord,
-  SkillRow,
+  SkillInventoryRow,
   SkillSync,
   StashAction,
   StashCreated,
@@ -523,10 +525,59 @@ const COMMANDS = {
   'projects.unregister': commandWith<{ name: string }, Recorded<{ name: string; path: string }>>(
     ({ name }) => ['unregister', '--', name],
   ),
-  'skills.list': commandWith<{ project?: string }, SkillRow[]>(({ project }) => [
+  'skills.list': commandWith<{ project?: string }, SkillInventoryRow[]>(({ project }) => [
     'skills',
     'list',
     ...(project ? ['--', project] : []),
+  ]),
+  'rules.list': commandWith<{ project?: string }, RuleRow[]>(({ project }) => [
+    'rules',
+    'list',
+    ...(project ? ['--project', project] : []),
+  ]),
+  'rules.read': commandWith<{ id: string; project?: string }, WorkspaceFile>(({ id, project }) => [
+    'rules',
+    'read',
+    ...(project ? ['--project', project] : []),
+    '--',
+    id,
+  ]),
+  'rules.write': commandWith<
+    { id: string; project?: string; text: string; revision: string },
+    Recorded<FileChange>
+  >(({ id, project, text, revision }) => [
+    'rules',
+    'write',
+    ...(project ? ['--project', project] : []),
+    `--text=${text}`,
+    '--revision',
+    revision,
+    '--',
+    id,
+  ]),
+  'skills.read': commandWith<{ id: string; project?: string; file?: string }, WorkspaceFile>(
+    ({ id, project, file }) => [
+      'skills',
+      'read',
+      ...(project ? ['--project', project] : []),
+      ...(file ? ['--file', file] : []),
+      '--',
+      id,
+    ],
+  ),
+  'skills.write': commandWith<
+    { id: string; project?: string; file?: string; text: string; revision: string },
+    Recorded<FileChange>
+  >(({ id, project, file, text, revision }) => [
+    'skills',
+    'write',
+    ...(project ? ['--project', project] : []),
+    ...(file ? ['--file', file] : []),
+    `--text=${text}`,
+    '--revision',
+    revision,
+    '--',
+    id,
   ]),
   // A skill run (CONTEXT.md, Skill run), which resolves when the run ends: minutes. The skill's
   // words go after `--` as one, so words starting with `-` are its own. `--yes` answers a
@@ -536,6 +587,24 @@ const COMMANDS = {
     'sync',
     '--',
     project,
+  ]),
+  'skills.set': commandWith<
+    { project: string; name: string; enabled: boolean },
+    Recorded<{
+      project: string;
+      name: string;
+      enabled: boolean;
+      skills: string[];
+      changed: boolean;
+    }>
+  >(({ project, name, enabled }) => [
+    'skills',
+    'set',
+    '--enabled',
+    String(enabled),
+    '--',
+    project,
+    name,
   ]),
   // `--` so a path starting with `-` is never read as a flag.
   'projects.register': commandWith<
@@ -661,11 +730,10 @@ const COMMANDS = {
     '--',
     project,
   ]),
-  'sessions.show': commandWith<{ id: string }, SessionRecord & { alive: boolean }>(({ id }) => [
-    'show',
-    '--',
-    id,
-  ]),
+  'sessions.show': commandWith<
+    { id: string },
+    SessionRecord & { alive: boolean; instructions: InstructionStatus }
+  >(({ id }) => ['show', '--', id]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a
   // session starting a child, even when the app itself was started inside a Mesa window.

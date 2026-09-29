@@ -26,7 +26,6 @@ import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -40,6 +39,8 @@ import { SessionModeField } from './board/SessionModeField';
 import { FilesWorkspace } from './FilesWorkspace';
 import { GitWorkspace } from './GitWorkspace';
 import { NativeHistory } from './NativeHistory';
+import { RulesWorkspace } from './RulesWorkspace';
+import { SkillsWorkspace } from './SkillsWorkspace';
 import { WorktreesWorkspace } from './WorktreesWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
@@ -53,9 +54,12 @@ export function ProjectWorkspace(props: {
   file?: { checkout: string; path: string; line: number };
   onFilesDirtyChange: (dirty: boolean) => void;
   onNewSession: (project: string, kind: 'main' | 'worktree' | 'terminal') => void;
+  onAgentSettings: () => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills'>('overview');
+  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills' | 'rules'>(
+    'overview',
+  );
   useEffect(() => {
     if (props.file) setTab('files');
   }, [props.file]);
@@ -71,7 +75,6 @@ export function ProjectWorkspace(props: {
     [project.agent],
   );
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
-  const skills = useCommand('skills.list', { project: project.name });
   const worktrees = useCommand('worktrees.list', { project: project.name });
   const run = useRun();
   const { acting, act } = useAct();
@@ -229,8 +232,8 @@ export function ProjectWorkspace(props: {
       {pendingTab && (
         <ActionDialog
           testId="file-leave-dialog"
-          title="Discard unsaved file changes?"
-          description="Save or discard the open file before leaving Files."
+          title="Discard unsaved changes?"
+          description="Save or discard the open document before leaving this tab."
           submit={{
             label: 'Discard changes',
             testId: 'confirm-file-leave',
@@ -248,14 +251,14 @@ export function ProjectWorkspace(props: {
         </ActionDialog>
       )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'git', 'files', 'worktrees', 'skills'] as const).map((name) => (
+        {(['overview', 'git', 'files', 'worktrees', 'skills', 'rules'] as const).map((name) => (
           <button
             key={name}
             type="button"
             aria-current={tab === name ? 'page' : undefined}
             className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-state-working aria-[current=page]:text-foreground"
             onClick={() => {
-              if (tab === 'files' && props.filesDirty && name !== tab) setPendingTab(name);
+              if (props.filesDirty && name !== tab) setPendingTab(name);
               else setTab(name);
             }}
           >
@@ -355,7 +358,7 @@ export function ProjectWorkspace(props: {
                   type="button"
                   data-testid="project-active-session"
                   aria-label={`Open ${session.name ?? 'Session'} (${session.id})`}
-                  className="flex min-h-24 w-[252px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+                  className="flex min-h-24 w-[310px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
                   <StateBadge
@@ -384,7 +387,7 @@ export function ProjectWorkspace(props: {
                 </button>
               ))}
             </div>
-            <div className="group relative flex min-h-16 w-[252px] items-stretch rounded-lg border border-dashed text-muted-foreground">
+            <div className="group relative flex min-h-16 w-[310px] items-stretch rounded-lg border border-dashed text-muted-foreground">
               <Button
                 type="button"
                 variant="ghost"
@@ -512,25 +515,14 @@ export function ProjectWorkspace(props: {
         />
       ) : tab === 'worktrees' ? (
         <WorktreesWorkspace project={project.name} onSession={props.onSession} />
+      ) : tab === 'skills' ? (
+        <SkillsWorkspace
+          project={project.name}
+          onDirtyChange={props.onFilesDirtyChange}
+          onAgentSettings={props.onAgentSettings}
+        />
       ) : (
-        <div className="space-y-2">
-          {skills.data?.map((skill) => (
-            <Card key={`${skill.source}-${skill.name}`}>
-              <CardContent className="flex items-start justify-between gap-3 py-3 text-sm">
-                <div>
-                  <div className="font-medium">{skill.name}</div>
-                  <p className="text-muted-foreground">{skill.description}</p>
-                </div>
-                <Badge variant={skill.enabled ? 'secondary' : 'outline'}>
-                  {skill.source} · {skill.enabled ? 'enabled' : 'off'}
-                </Badge>
-              </CardContent>
-            </Card>
-          ))}
-          {skills.data?.length === 0 && (
-            <p className="text-sm text-muted-foreground">No skills found.</p>
-          )}
-        </div>
+        <RulesWorkspace project={project.name} onDirtyChange={props.onFilesDirtyChange} />
       )}
     </section>
   );

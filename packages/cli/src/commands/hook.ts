@@ -28,6 +28,9 @@ export const hook = defineCommand({
   example: 'mesa hook claude < payload.json',
   run: async ({ mesa, args, stdin }) => {
     const event = await mesa.hookEvent(args.agent, await stdin());
-    return { data: { recorded: Boolean(event), event: event?.event ?? null }, text: '' };
+    return {
+      data: { recorded: Boolean(event), event: event?.event ?? null },
+      text: event && 'instruction' in event ? event.instruction : '',
+    };
   },
 });

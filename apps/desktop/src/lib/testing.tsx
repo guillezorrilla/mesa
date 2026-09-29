@@ -44,6 +44,7 @@ export const failure = (message: string) => ({ ok: false, error: { code: 'not_fo
 /** A healthy, initialised profile with no projects: each test overrides what it varies. */
 const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'skills list': () => envelope([]),
+  'rules list': () => envelope([]),
   profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' } satisfies ProfileInfo),
   config: () =>
     envelope({
