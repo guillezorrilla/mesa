@@ -82,6 +82,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         scrollSpeed: 3,
         extraSubmitKey: 'none',
         newlineKey: 'native',
+        wezTermNewTab: false,
       },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {

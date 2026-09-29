@@ -179,9 +179,15 @@ export function Terminal(props: {
       const dark =
         preferences.theme === 'dark' ||
         (preferences.theme === 'follow' && document.documentElement.dataset.theme === 'dark');
-      term.options.theme = dark
-        ? { background: '#09090b', foreground: '#f4f4f5', cursor: '#f4f4f5' }
-        : { background: '#ffffff', foreground: '#18181b', cursor: '#18181b' };
+      const host = term.element?.parentElement;
+      if (!host) return;
+      host.dataset.terminalTheme = dark ? 'dark' : 'light';
+      const style = getComputedStyle(host);
+      term.options.theme = {
+        background: style.getPropertyValue('--terminal-background').trim(),
+        foreground: style.getPropertyValue('--terminal-foreground').trim(),
+        cursor: style.getPropertyValue('--terminal-cursor').trim(),
+      };
     };
     term.options.fontSize = preferences.fontSize;
     term.options.fontFamily = preferences.fontFamily;
@@ -205,7 +211,9 @@ export function Terminal(props: {
   return (
     <div
       ref={host}
-      className={props.fill ? 'min-h-[240px] flex-1 bg-black p-1' : 'h-[420px] bg-black p-1'}
+      className={
+        props.fill ? 'terminal-host min-h-[240px] flex-1 p-1' : 'terminal-host h-[420px] p-1'
+      }
       data-testid={`terminal-${props.sessionId}`}
     />
   );

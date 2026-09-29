@@ -886,7 +886,13 @@ export function sessionsService(
       attach: async (id: string, app = false) => {
         await ensureBackgroundView(id);
         return attachSession(
-          { store, tmux, ...terminal, naturalSelection: open().config.terminal.naturalSelection },
+          {
+            store,
+            tmux,
+            ...terminal,
+            naturalSelection: open().config.terminal.naturalSelection,
+            wezTermNewTab: open().config.terminal.wezTermNewTab,
+          },
           id,
           app ? terminalApp() : undefined,
         );
@@ -897,7 +903,13 @@ export function sessionsService(
        */
       view: (project: string, app = false) =>
         viewProject(
-          { profile: open(), store, tmux, ...terminal },
+          {
+            profile: open(),
+            store,
+            tmux,
+            ...terminal,
+            wezTermNewTab: open().config.terminal.wezTermNewTab,
+          },
           project,
           app ? terminalApp() : undefined,
         ),
