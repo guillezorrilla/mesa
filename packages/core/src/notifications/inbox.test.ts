@@ -38,7 +38,11 @@ test('inbox deduplicates a question pair, keeps child alerts separate, and survi
 
   const first = mesa.notifications.list();
   expect(first.map((item) => item.kind)).toEqual(['finished', 'subagent', 'input-required']);
-  expect(first.every((item) => item.target.id === session.id && !item.read)).toBe(true);
+  expect(
+    first.every(
+      (item) => item.target.kind === 'session' && item.target.id === session.id && !item.read,
+    ),
+  ).toBe(true);
   const firstId = first[0]?.id;
   if (!firstId) throw new Error('expected a finished inbox item');
   mesa.notifications.markRead(firstId);
@@ -47,6 +51,29 @@ test('inbox deduplicates a question pair, keeps child alerts separate, and survi
   restarted.notifications.clear(firstId);
   expect(restarted.notifications.list()).toHaveLength(2);
   expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
+});
+
+test('Doctor findings enter the inbox once, resolve on recheck, and target Doctor', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const report = (status: 'warn' | 'ok') => ({
+    healthy: true,
+    summary: '',
+    checks: [{ name: 'claude hooks', ok: status === 'ok', status, hint: 'Install hooks' }],
+  });
+  mesa.notifications.recordDoctor(report('warn'));
+  const plan = mesa.notifications.delivery();
+  expect(plan).toMatchObject({ kind: 'notice', target: { kind: 'doctor' } });
+  if (plan.kind === 'none') throw new Error('expected Doctor notice');
+  mesa.notifications.markDelivered(plan.ids);
+  const [finding] = mesa.notifications.list();
+  expect(finding).toMatchObject({ kind: 'doctor', target: { kind: 'doctor' } });
+  expect(mesa.notifications.list()).toHaveLength(1);
+  expect(createMesa('default', testDeps(home)).notifications.list()[0]?.id).toBe(finding?.id);
+  expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual({ kind: 'none' });
+  expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
+  mesa.notifications.recordDoctor(report('ok'));
+  expect(mesa.notifications.list()).toEqual([]);
 });
 
 test('quiet delivery digests new notices once and respects each kind across restarts', () => {

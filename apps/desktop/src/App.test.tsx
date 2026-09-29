@@ -2229,7 +2229,9 @@ test('authorized native delivery is acknowledged and a click opens its exact ses
     target,
   };
   const sent: string[] = [];
-  let opened: ((destination: typeof target | { kind: 'inbox' }) => void) | undefined;
+  let opened:
+    | ((destination: typeof target | { kind: 'inbox' } | { kind: 'doctor' }) => void)
+    | undefined;
   const { bridge, calls } = fakeBridge({
     sessions: () => envelope([managedRow('aaaaaaaa')]),
     'notifications delivery': () => envelope(notice),
@@ -2260,4 +2262,6 @@ test('authorized native delivery is acknowledged and a click opens its exact ses
   expect(calls.some((args) => args[1] === 'notifications' && args[2] === 'delivered')).toBe(true);
   await act(async () => opened?.(target));
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
+  await act(async () => opened?.({ kind: 'doctor' }));
+  expect(byTestId('doctor-panel')).toHaveLength(1);
 });

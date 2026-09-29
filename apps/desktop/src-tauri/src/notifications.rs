@@ -10,6 +10,7 @@ use tauri::{Emitter, Manager};
 pub enum Target {
     Session { id: String },
     Inbox,
+    Doctor,
 }
 
 #[derive(Serialize)]

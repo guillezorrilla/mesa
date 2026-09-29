@@ -31,6 +31,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const faro = createFaro(ctx);
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
+  const notifications = inbox(ctx);
   return {
     ...profileApi,
     projects: projectsService(ctx),
@@ -43,13 +44,13 @@ export function createMesa(profile: string, deps: MesaDeps) {
     hooks: hooksService(ctx),
     skills,
     usage: usageService(ctx),
-    notifications: inbox(ctx),
+    notifications,
     diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
-    doctor: () =>
-      runDoctor({
+    doctor: async () => {
+      const report = await runDoctor({
         run: deps.run,
         obsidian: deps.obsidian,
         profileDir: ctx.paths.root,
@@ -60,7 +61,10 @@ export function createMesa(profile: string, deps: MesaDeps) {
           tmux: ctx.tmuxHook,
         },
         codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),
-      }),
+      });
+      notifications.recordDoctor(report);
+      return report;
+    },
   };
 }
 
