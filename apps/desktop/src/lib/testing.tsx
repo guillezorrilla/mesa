@@ -10,6 +10,7 @@ import type {
   ProjectRow,
   SessionRow,
   TmuxWindow,
+  UsageReport,
   VaultStatus,
 } from '@mesa/core';
 import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
@@ -83,6 +84,24 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
   projects: () => envelope([] satisfies ProjectRow[]),
   receipts: () => envelope([]),
   sessions: () => envelope([] satisfies SessionRow[]),
+  usage: () => {
+    const zero = {
+      events: 0,
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      estimatedCostUsd: 0,
+    };
+    return envelope({
+      rows: [],
+      unknown: [],
+      periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
+      daily: [],
+      breakdown: [],
+      alerts: [],
+    } satisfies UsageReport);
+  },
   windows: () => envelope([] satisfies TmuxWindow[]),
   'hooks status': () =>
     envelope({

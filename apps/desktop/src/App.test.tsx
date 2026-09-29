@@ -2267,3 +2267,41 @@ test('authorized native delivery and a click from before app launch open the exa
   await act(async () => opened?.({ kind: 'doctor' }));
   expect(byTestId('doctor-panel')).toHaveLength(1);
 });
+
+test('a usage threshold alerts during session work and opens Usage', async () => {
+  const zero = {
+    events: 0,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    estimatedCostUsd: 0,
+  };
+  const { bridge } = fakeBridge({
+    usage: () =>
+      envelope({
+        rows: [],
+        unknown: [],
+        periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
+        daily: [],
+        breakdown: [],
+        alerts: [{ period: 'today', thresholdUsd: 1, knownCostUsd: 1.5 }],
+      }),
+    rewind: () =>
+      envelope({
+        from: '2026-09-22',
+        through: '2026-09-29',
+        timezone: 'UTC',
+        notes: [],
+        sessions: [],
+        usage: zero,
+        missing: [],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  expect(toastTexts(byTestId)).toContain(
+    'Known estimated today cost reached your $1.00 alert. Agents keep running.',
+  );
+  await click(byTestId('toast-link')[0]);
+  expect(byTestId('usage-panel')).toHaveLength(1);
+});

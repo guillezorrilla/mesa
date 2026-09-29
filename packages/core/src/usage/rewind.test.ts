@@ -48,3 +48,40 @@ test('weekly rewind keeps meaningful notes and outcomes within local days and na
     report.notes,
   );
 });
+
+test('weekly rewind uses local midnight across a daylight-saving change', async () => {
+  const previous = process.env.TZ;
+  process.env.TZ = 'America/Vancouver';
+  try {
+    const { run } = scriptedRunner();
+    const clock = fixedClock('2026-03-09T07:30:00.000Z');
+    const { home, mesa } = projectProfile(run, { clock });
+    const vault = join(home, 'vault');
+    const newId = sequentialIds();
+    const note = (started: string) =>
+      writeReceipt(
+        { vault, clock, newId },
+        {
+          type: 'decision',
+          kind: 'decision',
+          profile: 'default',
+          command: 'mesa decide',
+          status: 'ok',
+          summary: 'Invented local-day decision',
+          started,
+        },
+      );
+    note('2026-03-03T07:59:00.000Z');
+    const inside = note('2026-03-03T08:01:00.000Z');
+    const report = await mesa.rewind.week();
+    expect(report).toMatchObject({
+      from: '2026-03-03',
+      through: '2026-03-09',
+      timezone: 'America/Vancouver',
+    });
+    expect(report.notes.map((item) => item.path)).toEqual([inside.path]);
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+});
