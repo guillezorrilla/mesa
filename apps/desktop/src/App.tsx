@@ -1,5 +1,10 @@
 import type { TreeRow } from '@mesa/core';
-import { DEFAULT_APPEARANCE, DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
+import {
+  DEFAULT_APPEARANCE,
+  DEFAULT_SHORTCUTS,
+  GENERAL_PROJECT,
+  shortcutFromKeys,
+} from '@mesa/core/browser';
 import { Plus, Search, TerminalSquare, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from './components/ActionDialog';
@@ -52,8 +57,13 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     project?: string;
     general?: boolean;
     location?: 'main' | 'worktree' | 'terminal';
+    parent?: string;
   }>({ count: 0 });
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<{
+    count: number;
+    id: string;
+  }>();
+  const [dependencySessionRequest, setDependencySessionRequest] = useState<{
     count: number;
     id: string;
   }>();
@@ -65,6 +75,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     project?: string;
     general?: boolean;
     location?: 'main' | 'worktree' | 'terminal';
+    parent?: string;
   }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const profileMenu = useRef<HTMLDetailsElement>(null);
@@ -202,6 +213,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
         project?: string;
         general?: boolean;
         location?: 'main' | 'worktree' | 'terminal';
+        parent?: string;
       } = {},
     ) => {
       if (filesDirty && view.kind === 'project') {
@@ -427,10 +439,20 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           sessions={sessions}
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
-          onNewSession={(project, location) => requestNewSession({ project, location })}
+          onNewSession={(project, location, parent) =>
+            requestNewSession({
+              ...(project === GENERAL_PROJECT ? { general: true } : { project }),
+              location,
+              parent,
+            })
+          }
           onArchiveSession={(id) => {
             navigate({ kind: 'session', id });
             setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, id }));
+          }}
+          onDependencySession={(id) => {
+            navigate({ kind: 'session', id });
+            setDependencySessionRequest((request) => ({ count: (request?.count ?? 0) + 1, id }));
           }}
         />
         <main
@@ -456,6 +478,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               onProject={(name) => navigate({ kind: 'project', name })}
               newSessionRequest={newSessionRequest}
               archiveSessionRequest={archiveSessionRequest}
+              dependencySessionRequest={dependencySessionRequest}
               preferences={config.data?.board}
               terminalPreferences={config.data?.terminal}
               savedPrompts={prompts.data}
