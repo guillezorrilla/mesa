@@ -14,6 +14,7 @@
  */
 :root {
   color-scheme: light;
+  --app-font-family: "IBM Plex Sans", ui-sans-serif, sans-serif;
   --radius: 0.5rem;
   --background: oklch(0.985 0.002 250);
   --foreground: oklch(0.2 0.01 250);
@@ -70,7 +71,7 @@
 }
 
 :root[data-font="system"] {
-  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --app-font-family: ui-sans-serif, system-ui, sans-serif;
 }
 
 :root[data-density="compact"] {
@@ -101,7 +102,7 @@
 }
 
 @theme inline {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-sans: var(--app-font-family);
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
