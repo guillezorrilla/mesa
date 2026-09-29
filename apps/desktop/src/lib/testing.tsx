@@ -46,6 +46,7 @@ export const failure = (message: string) => ({ ok: false, error: { code: 'not_fo
 const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'skills list': () => envelope([]),
   'rules list': () => envelope([]),
+  prompts: () => envelope([]),
   profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' } satisfies ProfileInfo),
   config: () =>
     envelope({
@@ -62,7 +63,27 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         subagent: 'silent',
         doctor: 'silent',
       },
-      terminal: { app: 'Terminal' },
+      application: { warnBeforeQuit: true, backupOnClose: false },
+      onboarding: { status: 'complete', step: 0 },
+      appearance: {
+        theme: 'system',
+        font: 'plex',
+        fontSize: 16,
+        density: 'comfortable',
+        colorVision: 'normal',
+      },
+      terminal: {
+        app: 'Terminal',
+        theme: 'follow',
+        fontSize: 13,
+        fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+        optionAsMeta: false,
+        naturalSelection: false,
+        scrollSpeed: 3,
+        extraSubmitKey: 'none',
+        newlineKey: 'native',
+        wezTermNewTab: false,
+      },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {
         location: 'profile',
@@ -196,6 +217,7 @@ export const fakePlatform = ({
     onOpen: async () => () => {},
     takeOpened: async () => null,
   },
+  lifecycle = { onCloseRequested: async () => () => {}, close: async () => {} },
 }: {
   folder?: string | null;
   file?: string | null;
@@ -203,11 +225,13 @@ export const fakePlatform = ({
   browser?: BrowserHost;
   deepLinks?: Platform['deepLinks'];
   notifications?: Platform['notifications'];
+  lifecycle?: Platform['lifecycle'];
 } = {}): Platform & {
   pasteboard: string[];
 } => {
   const pasteboard: string[] = [];
   return {
+    lifecycle,
     pickFolder: async () => folder,
     pickFile: async () => file,
     deepLinks,

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fromBase64 } from './bytes';
@@ -25,6 +26,10 @@ function withBrowserLifecycle<T>(sessionId: string, task: () => Promise<T>): Pro
 
 /** The real platform: Tauri's native dialogs, the Rust terminals, and the pasteboard. */
 export const tauriPlatform: Platform = {
+  lifecycle: {
+    onCloseRequested: (handler) => getCurrentWindow().onCloseRequested(handler),
+    close: () => getCurrentWindow().close(),
+  },
   deepLinks: { current: getCurrent, onOpen: onOpenUrl },
   notifications: {
     status: () => invoke('notification_status'),

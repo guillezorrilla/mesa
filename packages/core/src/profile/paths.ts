@@ -27,6 +27,10 @@ export type ProfilePaths = {
   usage: string;
   /** Read and clear markers for the profile-local notification inbox. */
   notifications: string;
+  /** Named, literal prompts saved only in this profile. */
+  prompts: string;
+  /** Local archives of settings, project registry, and saved prompts. */
+  backups: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
   tmuxSocket: string;
 };
@@ -50,6 +54,8 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     handoffs: join(root, 'handoffs'),
     usage: join(root, 'usage.json'),
     notifications: join(root, 'notifications.json'),
+    prompts: join(root, 'prompts.json'),
+    backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,
   };
 }

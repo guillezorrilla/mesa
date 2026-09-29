@@ -16,6 +16,7 @@ import {
   Keyboard,
   LayoutDashboard,
   Plus,
+  Settings2,
   Stethoscope,
   TerminalSquare,
   X,
@@ -32,7 +33,21 @@ import { cn } from '@/lib/utils';
 import { exited, queued, recoverable } from '@/screens/board/rows';
 
 export type WorkspaceView =
-  | { kind: 'board' | 'grid' | 'projects' | 'doctor' | 'help' | 'shortcuts' | 'usage' | 'inbox' }
+  | {
+      kind:
+        | 'board'
+        | 'grid'
+        | 'projects'
+        | 'doctor'
+        | 'help'
+        | 'shortcuts'
+        | 'preferences'
+        | 'prompts'
+        | 'backup'
+        | 'tour'
+        | 'usage'
+        | 'inbox';
+    }
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 
@@ -374,6 +389,7 @@ export function WorkspaceSidebar(props: {
         {item('Usage', ChartNoAxesCombined, { kind: 'usage' })}
         {item('Inbox', Bell, { kind: 'inbox' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
+        {item('Preferences', Settings2, { kind: 'preferences' })}
         {item('Shortcuts', Keyboard, { kind: 'shortcuts' })}
         {item('Help', CircleHelp, { kind: 'help' })}
       </div>

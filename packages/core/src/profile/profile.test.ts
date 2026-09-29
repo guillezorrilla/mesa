@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import { tempDir, thrown } from '../testing/index.js';
 import { loadConfig } from './config.js';
 import { profilePaths } from './paths.js';
+import { DEFAULT_APPEARANCE, DEFAULT_TERMINAL_PREFERENCES } from './preferences.js';
 import { initProfile, openProfile, resolveProfileName } from './profile.js';
 import { DEFAULT_SHORTCUTS } from './shortcuts.js';
 
@@ -23,6 +24,8 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     runs: '/h/.mesa/work/sessions/runs',
     usage: '/h/.mesa/work/usage.json',
     notifications: '/h/.mesa/work/notifications.json',
+    prompts: '/h/.mesa/work/prompts.json',
+    backups: '/h/.mesa/work/backups',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
     checkouts: '/h/.mesa/work/checkouts',
@@ -52,7 +55,10 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       subagent: 'silent',
       doctor: 'silent',
     },
-    terminal: { app: 'Terminal' },
+    application: { warnBeforeQuit: true, backupOnClose: false },
+    onboarding: { status: 'active', step: 0 },
+    appearance: DEFAULT_APPEARANCE,
+    terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
       location: 'profile',

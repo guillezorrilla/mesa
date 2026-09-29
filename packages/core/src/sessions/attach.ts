@@ -18,13 +18,14 @@ export async function attachSession(
     tmux: Pick<TmuxBackend, 'windowExists' | 'attachArgv'>;
     /** A fresh id for this terminal's view session. */
     viewId: () => string;
+    naturalSelection: boolean;
   },
   id: string,
   app?: TerminalApp,
 ): Promise<{ attached: Attached; exec?: string[] }> {
   const target = windowOf(deps.store.get(id));
   if (!(await deps.tmux.windowExists(target))) throw sessionEnded();
-  const argv = deps.tmux.attachArgv(target, deps.viewId());
+  const argv = deps.tmux.attachArgv(target, deps.viewId(), deps.naturalSelection);
   const attached: Attached = {
     opened: true,
     target: targetLabel(target),

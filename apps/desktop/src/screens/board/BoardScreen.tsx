@@ -1,9 +1,11 @@
 import type {
   BoardPreferences,
+  Config,
   GridGroup,
   GuardrailCheck,
   ManagedRow,
   ProjectRow,
+  SavedPrompt,
   SessionImage,
   TreeRow,
 } from '@mesa/core';
@@ -31,14 +33,15 @@ import {
   Square,
   TerminalSquare,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { PageHeader } from '@/components/PageHeader';
+import { SavedPromptPicker } from '@/components/SavedPromptPicker';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
@@ -119,6 +122,9 @@ export function BoardScreen(
     };
     archiveSessionRequest?: { count: number; id: string };
     preferences?: BoardPreferences;
+    terminalPreferences?: Config['terminal'];
+    savedPrompts?: readonly SavedPrompt[];
+    promptInsertRequest?: { session: string; text: string };
     onPreferencesChanged?: () => void;
     onSelectSession?: (id: string) => void;
     onFileLink?: (session: string, target: string) => void;
@@ -180,6 +186,22 @@ export function BoardScreen(
     }
   }, [data, props.selectedSession]);
   const selected = data?.find((row) => row.id === props.selectedSession);
+  const promptField = useRef<HTMLTextAreaElement>(null);
+  const handledPromptInsert = useRef<typeof props.promptInsertRequest>(undefined);
+  const insertPrompt = useCallback((text: string) => {
+    const field = promptField.current;
+    if (!field) return;
+    field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
+    field.focus();
+  }, []);
+  useEffect(() => {
+    const request = props.promptInsertRequest;
+    if (!request || request === handledPromptInsert.current || request.session !== selected?.id)
+      return;
+    if (!promptField.current) return;
+    insertPrompt(request.text);
+    handledPromptInsert.current = request;
+  }, [props.promptInsertRequest, selected?.id, insertPrompt]);
   useEffect(() => {
     selectionVersion.current += 1;
     setImage((current) => (current?.session === props.selectedSession ? current : undefined));
@@ -702,11 +724,15 @@ export function BoardScreen(
                             );
                         }}
                       >
-                        <Input
+                        <Textarea
+                          ref={promptField}
                           name="prompt"
                           aria-label={`Prompt for ${selected.id}`}
                           placeholder="Message session"
+                          rows={2}
+                          className="min-h-9 flex-1 resize-y"
                         />
+                        <SavedPromptPicker prompts={props.savedPrompts} onSelect={insertPrompt} />
                         <Button
                           type="button"
                           variant="outline"
@@ -834,6 +860,7 @@ export function BoardScreen(
           general={dialog.general}
           parent={dialog.parent}
           location={dialog.location}
+          savedPrompts={props.savedPrompts}
           onOpen={open}
           onCancel={close}
           disabled={acting}
@@ -1011,6 +1038,7 @@ export function BoardScreen(
           >
             <TerminalPanel
               sessionId={id}
+              preferences={props.terminalPreferences}
               onFileLink={props.onFileLink}
               onWebLink={(session, url) => {
                 setPendingBrowser({ session, url });

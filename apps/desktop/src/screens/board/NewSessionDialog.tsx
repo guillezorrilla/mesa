@@ -1,8 +1,9 @@
-import type { Agent } from '@mesa/core';
+import type { Agent, SavedPrompt } from '@mesa/core';
 import { DEFAULT_AGENT, supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
 import { Play } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { SavedPromptPicker } from '@/components/SavedPromptPicker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,10 +37,12 @@ export function NewSessionDialog(props: {
   general?: boolean;
   parent?: string;
   location?: 'main' | 'worktree' | 'terminal';
+  savedPrompts?: readonly SavedPrompt[];
 }) {
   const projects = useCommand('projects.list');
   const config = useCommand('config.get');
   const [agent, setAgent] = useState<Agent>(DEFAULT_AGENT);
+  const goalField = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     setAgent(props.general ? (config.data?.defaultAgent ?? DEFAULT_AGENT) : DEFAULT_AGENT);
   }, [props.general, config.data?.defaultAgent]);
@@ -128,8 +131,20 @@ export function NewSessionDialog(props: {
       {props.location !== 'terminal' && <BackgroundField agent={agent} />}
       {props.location !== 'terminal' && (
         <div className="grid gap-2">
-          <Label htmlFor="new-session-goal">Goal (optional)</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="new-session-goal">Goal (optional)</Label>
+            <SavedPromptPicker
+              prompts={props.savedPrompts}
+              onSelect={(text) => {
+                const field = goalField.current;
+                if (!field) return;
+                field.setRangeText(text, field.selectionStart, field.selectionEnd, 'end');
+                field.focus();
+              }}
+            />
+          </div>
           <Textarea
+            ref={goalField}
             id="new-session-goal"
             name="goal"
             data-testid="new-session-goal"

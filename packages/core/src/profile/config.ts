@@ -20,10 +20,20 @@ import {
   BOARD_VIEWS,
   DEFAULT_BOARD_PREFERENCES,
 } from '../sessions/presentation.js';
+import {
+  COLOR_VISION_MODES,
+  DEFAULT_APPEARANCE,
+  DEFAULT_TERMINAL_PREFERENCES,
+  INTERFACE_DENSITIES,
+  INTERFACE_FONTS,
+  INTERFACE_THEMES,
+  TERMINAL_APPS,
+  TERMINAL_THEMES,
+} from './preferences.js';
 import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 
 /** The terminal apps `mesa attach --app` can open. */
-export const TERMINAL_APPS = ['Terminal', 'iTerm', 'Ghostty', 'WezTerm'] as const;
+export { TERMINAL_APPS } from './preferences.js';
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
 
 const relativeDirectory = z.string().refine((value) => {
@@ -65,7 +75,55 @@ const ConfigSchema = z.strictObject({
       doctor: z.enum(['off', 'silent', 'sound']).default('silent'),
     })
     .prefault({}),
-  terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
+  application: z
+    .strictObject({
+      warnBeforeQuit: z.boolean().default(true),
+      backupOnClose: z.boolean().default(false),
+    })
+    .prefault({}),
+  onboarding: z
+    .strictObject({
+      status: z.enum(['active', 'complete']).default('complete'),
+      step: z.number().int().min(0).max(2).default(0),
+    })
+    .prefault({}),
+  appearance: z
+    .strictObject({
+      theme: z.enum(INTERFACE_THEMES).default(DEFAULT_APPEARANCE.theme),
+      font: z.enum(INTERFACE_FONTS).default(DEFAULT_APPEARANCE.font),
+      fontSize: z.number().int().min(12).max(20).default(DEFAULT_APPEARANCE.fontSize),
+      density: z.enum(INTERFACE_DENSITIES).default(DEFAULT_APPEARANCE.density),
+      colorVision: z.enum(COLOR_VISION_MODES).default(DEFAULT_APPEARANCE.colorVision),
+    })
+    .prefault({}),
+  terminal: z
+    .strictObject({
+      app: z.enum(TERMINAL_APPS).default('Terminal'),
+      theme: z.enum(TERMINAL_THEMES).default(DEFAULT_TERMINAL_PREFERENCES.theme),
+      fontSize: z.number().int().min(10).max(24).default(DEFAULT_TERMINAL_PREFERENCES.fontSize),
+      fontFamily: z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .default(DEFAULT_TERMINAL_PREFERENCES.fontFamily),
+      optionAsMeta: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.optionAsMeta),
+      naturalSelection: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.naturalSelection),
+      scrollSpeed: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .default(DEFAULT_TERMINAL_PREFERENCES.scrollSpeed),
+      extraSubmitKey: z
+        .enum(['none', 'cmd-enter'])
+        .default(DEFAULT_TERMINAL_PREFERENCES.extraSubmitKey),
+      newlineKey: z
+        .enum(['native', 'shift-enter'])
+        .default(DEFAULT_TERMINAL_PREFERENCES.newlineKey),
+      wezTermNewTab: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.wezTermNewTab),
+    })
+    .prefault({}),
   editor: z
     .strictObject({
       fontSize: z.number().int().min(10).max(24).default(13),
@@ -157,6 +215,10 @@ const ConfigSchema = z.strictObject({
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
+const BackupSettingsSchema = ConfigSchema.omit({ vault: true, keys: true });
+export type BackupSettings = z.infer<typeof BackupSettingsSchema>;
+export const buildBackupSettings = (input: unknown, file: string): BackupSettings =>
+  parseWith(BackupSettingsSchema, input, file);
 
 export const CONFIG_HEADER = 'Mesa profile config. Edit with `mesa config set <path> <value>`.';
 

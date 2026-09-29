@@ -122,7 +122,7 @@ export function tmuxBackend({
    * current window) that tmux destroys when the terminal detaches. Attaching to the project's
    * session itself would switch every attached terminal to this window (ADR-0001 amendment).
    */
-  const attachArgv = (target: WindowTarget, view: string) => [
+  const attachArgv = (target: WindowTarget, view: string, naturalSelection = false) => [
     'tmux',
     '-L',
     socket,
@@ -133,6 +133,9 @@ export function tmuxBackend({
     `=${target.project}`,
     '-s',
     `${VIEW_PREFIX}${view}`,
+    ...(naturalSelection
+      ? [';', 'set-option', '-t', `=${VIEW_PREFIX}${view}`, 'mouse', 'off']
+      : []),
     ';',
     'set-option',
     'destroy-unattached',
