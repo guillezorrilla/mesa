@@ -15,6 +15,7 @@ import { receiptsService } from './receipts/service.js';
 import { rulesService } from './rules/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
+import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
 import { vaultService } from './vault/service.js';
 import { worktreesService } from './worktrees/service.js';
@@ -32,6 +33,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
   const notifications = inbox(ctx);
+  const usage = usageService(ctx);
   return {
     ...profileApi,
     projects: projectsService(ctx),
@@ -43,7 +45,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...sessionsService(ctx, faro, skills),
     hooks: hooksService(ctx),
     skills,
-    usage: usageService(ctx),
+    usage,
+    rewind: rewindService(ctx, usage),
     notifications,
     diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),

@@ -86,6 +86,7 @@ import {
   reviewResponses,
   reviewSend,
 } from './review.js';
+import { rewind } from './rewind.js';
 import { rm } from './rm.js';
 import { rulesList, rulesRead, rulesWrite } from './rules.js';
 import { run } from './run.js';
@@ -195,6 +196,7 @@ export const COMMANDS: Command[] = [
   receiptsShow,
   register,
   rename,
+  rewind,
   reviewResponses,
   reviewPreview,
   reviewSend,

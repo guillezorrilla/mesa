@@ -62,6 +62,7 @@ import type {
   UsageReport,
   VaultStatus,
   Viewed,
+  WeeklyRewind,
   WorkflowStatus,
   WorkspaceFile,
   Worktree,
@@ -548,6 +549,7 @@ const COMMANDS = {
     ...(event ? ['--event', event] : []),
   ]),
   'usage.list': command<UsageReport>('usage'),
+  'rewind.week': command<WeeklyRewind>('rewind'),
   'notifications.list': command<InboxItem[]>('notifications'),
   'notifications.delivery': command<DeliveryPlan>('notifications', 'delivery'),
   'notifications.delivered': commandWith<{ ids: string[] }, { ids: string[]; delivered: true }>(

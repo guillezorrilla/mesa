@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { UsageReport } from '@mesa/core';
+import type { UsageReport, WeeklyRewind } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
@@ -26,7 +26,7 @@ test('usage alerts are informational and a profile threshold saves through confi
     usage: () => envelope(report),
     'config set': () => envelope({ path: 'usage.dailyAlertUsd', value: 2 }),
   });
-  const byTestId = await renderWithMesa(<UsageScreen />, bridge);
+  const byTestId = await renderWithMesa(<UsageScreen onSession={() => {}} />, bridge);
   expect(byTestId('usage-panel')[0]?.textContent).toContain('Agents keep running');
   const input = document.querySelector<HTMLInputElement>('#usage-dailyAlertUsd');
   await act(async () => {
@@ -38,4 +38,57 @@ test('usage alerts are informational and a profile threshold saves through confi
   expect(calls.some((args) => args.join(' ').includes('config set -- usage.dailyAlertUsd 2'))).toBe(
     true,
   );
+});
+
+test('weekly rewind opens the exact note and session evidence', async () => {
+  const report: WeeklyRewind = {
+    from: '2026-09-18',
+    through: '2026-09-24',
+    timezone: 'UTC',
+    notes: [
+      {
+        id: '01TEST00000000000000000001',
+        kind: 'decision',
+        at: '2026-09-24T11:00',
+        summary: 'Choose a safe route',
+        path: 'receipts/2026/09/decision.md',
+      },
+    ],
+    sessions: [
+      {
+        id: 'aaaaaaaa',
+        name: 'Build lantern',
+        project: 'lantern-cove',
+        agent: 'claude',
+        endedAt: '2026-09-24T11:30:00.000Z',
+        state: 'done',
+      },
+    ],
+    usage: {
+      events: 0,
+      input: null,
+      output: null,
+      cacheRead: null,
+      cacheWrite: null,
+      estimatedCostUsd: null,
+    },
+    missing: ['aaaaaaaa: native session id is not available'],
+  };
+  const opened: string[] = [];
+  const { bridge, calls } = fakeBridge({
+    rewind: () => envelope(report),
+    'vault open': () => envelope({ opened: true, method: 'uri', target: 'obsidian://open' }),
+  });
+  const byTestId = await renderWithMesa(
+    <UsageScreen onSession={(id) => opened.push(id)} />,
+    bridge,
+  );
+  const buttons = byTestId('weekly-rewind')[0]?.querySelectorAll('button');
+  await click(buttons?.[0]);
+  await click(buttons?.[1]);
+  expect(
+    calls.some((args) => args.join(' ').includes('vault open -- receipts/2026/09/decision.md')),
+  ).toBe(true);
+  expect(opened).toEqual(['aaaaaaaa']);
+  expect(byTestId('weekly-rewind')[0]?.textContent).toContain('Missing data');
 });

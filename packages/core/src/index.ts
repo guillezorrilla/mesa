@@ -119,6 +119,7 @@ export type { Worktree } from './sessions/worktree.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export type { UsageRecord, UsageReport } from './usage/records.js';
+export type { WeeklyRewind } from './usage/rewind.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
