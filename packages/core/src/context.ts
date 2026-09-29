@@ -33,7 +33,7 @@ export type MesaDeps = {
   /** Whether the native browser owner still exists after a renderer/app restart. */
   processAlive: (pid: number) => boolean;
   /** Read the current element from the owning native webview before browser feedback is sent. */
-  browserSelection: (pid: number, session: string) => Promise<BrowserPageSelection | undefined>;
+  browserSelection: (socket: string, session: string) => Promise<BrowserPageSelection | undefined>;
   obsidian: ObsidianPaths;
   /** This invocation's arguments, recorded (key values redacted) in every receipt. */
   argv: readonly string[];

@@ -35,9 +35,14 @@ export const browserSelect = defineCommand({
       required: true,
       description: 'Native app process that owns the selection',
     },
+    'owner-socket': {
+      type: 'string',
+      required: true,
+      description: 'Local socket supplied by the native browser owner',
+    },
   },
   example:
-    'mesa browser select a1b2c3d4 --url https://example.com --title Example --selector h1 --text Heading --selection-profile default --owner-pid 1234',
+    'mesa browser select a1b2c3d4 --url https://example.com --title Example --selector h1 --text Heading --selection-profile default --owner-pid 1234 --owner-socket /tmp/mesa-browser-1234.sock',
   run: ({ mesa, args, flags }) => {
     const data = mesa.sessions.browser.select(args.session, {
       profile: flags['selection-profile'],
@@ -46,6 +51,7 @@ export const browserSelect = defineCommand({
       selector: flags.selector,
       text: flags.text,
       ownerPid: Number(flags['owner-pid']),
+      ownerSocket: flags['owner-socket'],
     });
     return { data, text: `selected element for ${args.session}` };
   },
@@ -69,8 +75,8 @@ export const browserAnnotationPreview = defineCommand({
   flags: annotationFlags,
   example:
     'mesa browser annotate-preview a1b2c3d4 --url https://example.com --title Example --selector h1 --text Heading --comment "Check this" --selection-profile default',
-  run: ({ mesa, args, flags }) => {
-    const data = mesa.sessions.browser.preview(args.session, {
+  run: async ({ mesa, args, flags }) => {
+    const data = await mesa.sessions.browser.preview(args.session, {
       profile: flags['selection-profile'],
       url: flags.url,
       title: flags.title,

@@ -20,7 +20,9 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
         .setup(|app| {
-            browser::serve_selection(app.handle())?;
+            if let Err(error) = browser::serve_selection(app.handle()) {
+                eprintln!("native browser selection unavailable: {error}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -41,7 +43,7 @@ pub fn run() {
             browser::browser_reload,
             browser::browser_pick_start,
             browser::browser_pick_result,
-            browser::browser_owner_pid
+            browser::browser_owner
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -52,7 +52,7 @@ export function cliHarness() {
     /** The environment of the next invocations (MESA_SESSION_ID for a hook). */
     env: {} as Record<string, string>,
     browserSelection: async (
-      _pid: number,
+      _socket: string,
       _session: string,
     ): Promise<BrowserPageSelection | undefined> => undefined,
     /** Where the default profile keeps its files under this home. */

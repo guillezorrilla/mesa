@@ -38,13 +38,15 @@ type Selection = BrowserPageSelection & Pick<BrowserAnnotationInput, 'profile'>;
 export function selectBrowserElement(
   deps: { profile: string; store: SessionStore },
   id: string,
-  input: Selection & { ownerPid: number },
+  input: Selection & { ownerPid: number; ownerSocket: string },
 ) {
   const selection = browserSelection(deps, id, input);
   if (!Number.isSafeInteger(input.ownerPid) || input.ownerPid < 1)
     throw new MesaError('usage', 'browser owner PID is invalid');
+  if (!input.ownerSocket.startsWith('/') || input.ownerSocket.includes('\0'))
+    throw new MesaError('usage', 'browser owner socket is invalid');
   deps.store.update(id, {
-    browserSelection: { ...selection, ownerPid: input.ownerPid },
+    browserSelection: { ...selection, ownerPid: input.ownerPid, ownerSocket: input.ownerSocket },
   });
   return selection;
 }
@@ -124,14 +126,14 @@ export async function liveBrowserAnnotation(
     profile: string;
     store: SessionStore;
     processAlive: (pid: number) => boolean;
-    liveSelection: (pid: number, session: string) => Promise<BrowserPageSelection | undefined>;
+    liveSelection: (socket: string, session: string) => Promise<BrowserPageSelection | undefined>;
   },
   id: string,
   input: BrowserAnnotationInput,
 ): Promise<BrowserAnnotationPreview> {
   previewBrowserAnnotation(deps, id, input);
-  const owner = deps.store.get(id).browserSelection?.ownerPid;
-  const live = owner && (await deps.liveSelection(owner, id));
+  const socket = deps.store.get(id).browserSelection?.ownerSocket;
+  const live = socket && (await deps.liveSelection(socket, id));
   if (
     !live ||
     live.url !== input.url ||

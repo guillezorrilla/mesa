@@ -45,7 +45,7 @@ export const tauriPlatform: Platform = {
     ready: (termId) => invoke('term_ready', { termId }),
   },
   browser: {
-    ownerPid: () => invoke('browser_owner_pid'),
+    owner: () => invoke('browser_owner'),
     open: (sessionId, url, bounds) =>
       withBrowserLifecycle(sessionId, () =>
         invoke('browser_open', { session: sessionId, url, ...bounds }),

@@ -16,7 +16,7 @@ test('browser annotation previews its target, rechecks the element, and sends on
   let openedBounds: { x: number; y: number; width: number; height: number } | undefined;
   let onLoad: (event: { session: string; url: string }) => void = () => {};
   const browser: BrowserHost = {
-    ownerPid: async () => 42,
+    owner: async () => ({ pid: 42, socket: '/tmp/mesa-browser-42.sock' }),
     open: async (session, url, bounds) => {
       openedBounds = bounds;
       onLoad({ session, url });

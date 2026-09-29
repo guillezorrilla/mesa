@@ -1,26 +1,26 @@
 import { connect } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import type { BrowserPageSelection } from '@mesa/core';
 
 /** Query the native app that owns this browser; an absent app cannot authorize a send. */
 export function browserSelection(
-  pid: number,
+  socketPath: string,
   session: string,
 ): Promise<BrowserPageSelection | undefined> {
   return new Promise((resolve) => {
-    const socket = connect(join(tmpdir(), `mesa-browser-${pid}.sock`));
-    let response = '';
+    const socket = connect(socketPath);
+    const chunks: Buffer[] = [];
+    let bytes = 0;
     socket.setTimeout(3000, () => socket.destroy());
     socket.on('connect', () => socket.end(`${JSON.stringify(session)}\n`));
     socket.on('data', (data: Buffer) => {
-      response += data.toString('utf8');
-      if (response.length > 8192) socket.destroy();
+      bytes += data.length;
+      if (bytes > 8192) socket.destroy();
+      else chunks.push(data);
     });
     socket.on('error', () => resolve(undefined));
     socket.on('close', () => {
       try {
-        const value: unknown = JSON.parse(response);
+        const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'));
         if (
           value &&
           typeof value === 'object' &&
