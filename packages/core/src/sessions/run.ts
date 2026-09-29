@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, newSessionId } from '../agents/agents.js';
+import { antigravityLog } from '../agents/antigravity/log.js';
 import type { MesaContext } from '../context.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { IdSource } from '../lib/ids.js';
@@ -132,15 +133,18 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const given = about && aboutInput(deps, about);
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
-  const command = spec.headless.command(
-    agentSessionId,
-    prompt,
-    deps.profile.config.run,
-    entry.path,
-  );
+  const command = (id: string) =>
+    agent === 'antigravity'
+      ? AGENTS.antigravity.headless.command(
+          agentSessionId,
+          prompt,
+          deps.profile.config.run,
+          antigravityLog(deps.logs, id),
+        )
+      : spec.headless.command(agentSessionId, prompt, deps.profile.config.run, entry.path);
   const stdin = (id: string) => (given ? shellWord(runInput(deps.runs, id)) : '/dev/null');
   const line = (id: string) =>
-    `exec ${command} <${stdin(id)} >${shellWord(runOutput(deps.runs, id))}`;
+    `exec ${command(id)} <${stdin(id)} >${shellWord(runOutput(deps.runs, id))}`;
   // The line tmux gets, checked before anything is written: every Mesa session id is 8 characters.
   requireCommandFits(line('xxxxxxxx'));
   // Last, so a person is never asked about a run that would be refused anyway.

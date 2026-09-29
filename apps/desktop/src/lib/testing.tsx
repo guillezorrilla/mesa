@@ -138,6 +138,12 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         trusted: {},
         hint: '',
       },
+      antigravity: {
+        path: '/h/.gemini/config/hooks.json',
+        installed: true,
+        stale: false,
+        events: { PreInvocation: true },
+      },
       tmux: { socket: 'mesa-default', server: true, paneDied: true },
     } satisfies HooksStatus),
 };
