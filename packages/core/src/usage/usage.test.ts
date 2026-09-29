@@ -5,6 +5,7 @@ import { transcriptFile } from '../agents/claude/transcripts.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import { profilePaths } from '../profile/paths.js';
+import { recordHookEvent } from '../sessions/hook-events.js';
 import {
   codexWorld,
   fixedClock,
@@ -199,4 +200,31 @@ test('Codex cumulative totals contribute only positive deltas, not repeated comp
   ]);
   expect(result.rows.map((row) => row.model)).toEqual(['gpt-6-sol', 'gpt-6-sol']);
   expect((await mesa.usage.list(record.id)).rows).toEqual(result.rows);
+  const hook = (id: string, event: string, source?: string) =>
+    recordHookEvent(
+      {
+        store: testStore(home),
+        eventsDir: profilePaths(home, 'default').events,
+        clock: fixedClock('2026-09-24T12:05:00.000Z'),
+        home,
+        secrets: () => [],
+      },
+      {
+        agent: 'codex',
+        mesaSessionId: record.id,
+        payload: JSON.stringify({ session_id: id, hook_event_name: event, source }),
+      },
+    );
+  hook(nativeId, 'SessionEnd');
+  hook('01a0e14e-be41-72f1-a81b-e25d2198602b', 'SessionStart', 'clear');
+  const afterClear = await mesa.usage.list(record.id);
+  expect(afterClear.rows).toEqual(result.rows);
+  expect(afterClear.unknown).toContainEqual({
+    session: record.id,
+    reason: 'native session identity changed',
+  });
+  expect(afterClear.periods.today.estimatedCostUsd).toBeNull();
+  expect(
+    (await createMesa('default', testDeps(home, { env: codex.env })).usage.list(record.id)).unknown,
+  ).toContainEqual({ session: record.id, reason: 'native session identity changed' });
 });

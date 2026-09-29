@@ -2284,7 +2284,7 @@ test('a dismissed macOS notification request remains optional', async () => {
         status: async () => status,
         requestPermission: async () => {
           requests++;
-          return status;
+          throw new Error('notification permission was not granted');
         },
         send: async () => {},
         onOpen: async () => () => {},
@@ -2300,7 +2300,10 @@ test('a dismissed macOS notification request remains optional', async () => {
     ),
   );
   expect(requests).toBe(1);
-  expect(byTestId('inbox-panel')[0]?.textContent).toContain('Permission: not-determined');
+  expect(byTestId('inbox-panel')[0]?.textContent).toContain(
+    'notification permission was not granted',
+  );
+  expect(byTestId('inbox-panel')[0]?.textContent).toContain('Enable notifications');
 });
 
 test('a usage threshold alerts during session work and opens Usage', async () => {

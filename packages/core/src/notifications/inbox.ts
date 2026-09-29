@@ -66,6 +66,17 @@ const State = z.strictObject({
 type State = z.infer<typeof State>;
 const EMPTY: State = { read: [], cleared: [], delivered: [], doctor: [], items: [], offsets: {} };
 
+const doctorItem = (finding: State['doctor'][number]): Candidate => ({
+  session: '',
+  at: finding.at,
+  kind: 'doctor',
+  title: `Doctor: ${finding.name}`,
+  fingerprint:
+    finding.fingerprint ??
+    createHash('sha256').update(`${finding.name}:${finding.status}`).digest('hex').slice(0, 20),
+  target: { kind: 'doctor' },
+});
+
 function itemFor(session: string, event: HookEvent): Candidate | undefined {
   if (!Number.isFinite(Date.parse(event.at))) return undefined;
   const payload =
@@ -161,6 +172,13 @@ export function inbox(ctx: MesaContext) {
           doctor: state.doctor ?? current.doctor,
           startedAt: current.startedAt ?? state.startedAt,
         };
+        const retained = new Set(
+          [...next.items, ...next.doctor.map(doctorItem)].map(
+            (item) => `${item.at}:${item.fingerprint}`,
+          ),
+        );
+        next.read = next.read.filter((id) => retained.has(id));
+        next.cleared = next.cleared.filter((id) => retained.has(id));
         writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
         return next;
       },
@@ -182,28 +200,16 @@ export function inbox(ctx: MesaContext) {
     const state =
       fresh.length || Object.keys(offsets).length ? write({ items: fresh, offsets }) : current;
     const entries: Candidate[] = [...state.items];
-    entries.push(
-      ...state.doctor.map((finding) => ({
-        session: '',
-        at: finding.at,
-        kind: 'doctor' as const,
-        title: `Doctor: ${finding.name}`,
-        fingerprint:
-          finding.fingerprint ??
-          createHash('sha256')
-            .update(`${finding.name}:${finding.status}`)
-            .digest('hex')
-            .slice(0, 20),
-        target: { kind: 'doctor' as const },
-      })),
-    );
+    entries.push(...state.doctor.map(doctorItem));
     entries.sort((a, b) => a.at.localeCompare(b.at));
+    const cleared = new Set(state.cleared);
+    const readIds = new Set(state.read);
     return entries
-      .filter((entry) => !state.cleared.includes(`${entry.at}:${entry.fingerprint}`))
+      .filter((entry) => !cleared.has(`${entry.at}:${entry.fingerprint}`))
       .map(({ fingerprint, ...entry }) => ({
         ...entry,
         id: `${entry.at}:${fingerprint}`,
-        read: state.read.includes(`${entry.at}:${fingerprint}`),
+        read: readIds.has(`${entry.at}:${fingerprint}`),
       }))
       .reverse();
   };

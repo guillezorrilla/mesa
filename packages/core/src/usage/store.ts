@@ -38,16 +38,23 @@ const Source = z.strictObject({
   reader: z.literal(1),
 });
 export type SourceStamp = z.infer<typeof Source>;
+const Hook = z.strictObject({
+  offset: z.number().int().nonnegative(),
+  nativeIds: z.array(z.string()),
+  changedIds: z.array(z.string()),
+});
+export type HookStamp = z.infer<typeof Hook>;
 const Ledger = z.strictObject({
   rows: Rows,
   sources: z.record(z.string(), Source),
+  hooks: z.record(z.string(), Hook).default({}),
 });
 type Ledger = z.infer<typeof Ledger>;
 
 /** One profile-local ledger; unchanged native files keep their normalized rows. */
 export function usageStore(file: string) {
   const read = (): Ledger => {
-    if (!existsSync(file)) return { rows: [], sources: {} };
+    if (!existsSync(file)) return { rows: [], sources: {}, hooks: {} };
     let raw: unknown;
     try {
       raw = JSON.parse(readFileSync(file, 'utf8'));
@@ -56,13 +63,17 @@ export function usageStore(file: string) {
     }
     // Earlier P4 ledgers were arrays; preserve their rows and scan sources once to add stamps.
     return Array.isArray(raw)
-      ? { rows: parseWith(Rows, raw, file), sources: {} }
+      ? { rows: parseWith(Rows, raw, file), sources: {}, hooks: {} }
       : parseWith(Ledger, raw, file);
   };
   return {
     read,
     /** ponytail: rewrites the local ledger; use an indexed store if profiles reach huge histories. */
-    merge: (fresh: UsageRecord[], sources: Record<string, SourceStamp>) => {
+    merge: (
+      fresh: UsageRecord[],
+      sources: Record<string, SourceStamp>,
+      hooks: Record<string, HookStamp>,
+    ) => {
       mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
       const lock = `${file}.lock`;
       return withLockSync(
@@ -74,7 +85,16 @@ export function usageStore(file: string) {
           const merged = [...rows.values()].sort(
             (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
           );
-          const next = { rows: merged, sources: { ...old.sources, ...sources } };
+          const nextHooks = { ...old.hooks };
+          for (const [id, hook] of Object.entries(hooks)) {
+            const prior = nextHooks[id];
+            nextHooks[id] = {
+              offset: Math.max(prior?.offset ?? 0, hook.offset),
+              nativeIds: [...new Set([...(prior?.nativeIds ?? []), ...hook.nativeIds])],
+              changedIds: [...new Set([...(prior?.changedIds ?? []), ...hook.changedIds])],
+            };
+          }
+          const next = { rows: merged, sources: { ...old.sources, ...sources }, hooks: nextHooks };
           if (JSON.stringify(old) !== JSON.stringify(next))
             writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
           return merged;
