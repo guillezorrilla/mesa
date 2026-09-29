@@ -1,3 +1,5 @@
+import type { Config } from '@mesa/core';
+import { DEFAULT_TERMINAL_PREFERENCES } from '@mesa/core/browser';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as Xterm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
@@ -6,6 +8,7 @@ import { fromBase64 } from '../lib/bytes';
 import { usePlatform } from '../lib/MesaRoot';
 import { oneAtATime } from '../lib/oneAtATime';
 import { useRun } from '../lib/useCommand';
+import { terminalInputForKey } from './terminal-input';
 
 /**
  * An OSC 52 payload (`c;<base64>`): the text a tmux copy sends out, or null for a query or a
@@ -29,15 +32,20 @@ const osc52Text = (data: string) => {
  */
 export function Terminal(props: {
   sessionId: string;
+  preferences?: Config['terminal'];
   fill?: boolean;
   onFileLink?: (session: string, target: string) => void;
   onWebLink?: (session: string, url: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const xterm = useRef<Xterm | null>(null);
+  const refit = useRef<(() => void) | null>(null);
   const onFileLink = useRef(props.onFileLink);
   onFileLink.current = props.onFileLink;
   const onWebLink = useRef(props.onWebLink);
   onWebLink.current = props.onWebLink;
+  const preferencesRef = useRef(props.preferences ?? DEFAULT_TERMINAL_PREFERENCES);
+  preferencesRef.current = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
   const platform = usePlatform();
   const run = useRun();
   useEffect(() => {
@@ -49,12 +57,20 @@ export function Terminal(props: {
       cursorBlink: true,
       macOptionClickForcesSelection: true,
     });
+    xterm.current = term;
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(el);
     // The WebGL addon left live WKWebView panes black after selection; xterm's default renderer
     // displays the same native tmux output through view switches.
     const { terminal, clipboard } = platform;
+    term.attachCustomKeyEventHandler((event) => {
+      const input = terminalInputForKey(event, preferencesRef.current);
+      if (input === null) return true;
+      event.preventDefault();
+      term.input(input, true);
+      return false;
+    });
     let termId: string | undefined;
     let closed = false;
     let sent = '';
@@ -71,6 +87,7 @@ export function Terminal(props: {
       await terminal.resize(termId, cols, rows);
       await run('sessions.resize', { id: props.sessionId, cols, rows });
     });
+    refit.current = () => void size();
     term.parser.registerOscHandler(52, (data) => {
       const text = osc52Text(data);
       if (text !== null) clipboard.write(text).catch(() => {});
@@ -150,8 +167,41 @@ export function Terminal(props: {
       links.dispose();
       if (termId) terminal.close(termId);
       term.dispose();
+      xterm.current = null;
+      refit.current = null;
     };
   }, [platform, run, props.sessionId]);
+  const preferences = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
+  useEffect(() => {
+    const term = xterm.current;
+    if (!term) return;
+    const apply = () => {
+      const dark =
+        preferences.theme === 'dark' ||
+        (preferences.theme === 'follow' && document.documentElement.dataset.theme === 'dark');
+      term.options.theme = dark
+        ? { background: '#09090b', foreground: '#f4f4f5', cursor: '#f4f4f5' }
+        : { background: '#ffffff', foreground: '#18181b', cursor: '#18181b' };
+    };
+    term.options.fontSize = preferences.fontSize;
+    term.options.fontFamily = preferences.fontFamily;
+    term.options.macOptionIsMeta = preferences.optionAsMeta;
+    term.options.scrollSensitivity = preferences.scrollSpeed;
+    apply();
+    refit.current?.();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    return () => observer.disconnect();
+  }, [
+    preferences.theme,
+    preferences.fontSize,
+    preferences.fontFamily,
+    preferences.optionAsMeta,
+    preferences.scrollSpeed,
+  ]);
   return (
     <div
       ref={host}

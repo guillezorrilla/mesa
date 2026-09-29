@@ -1,9 +1,10 @@
 import { sessionLabel } from '../display.js';
 import type { ProjectRow } from '../projects/projects.js';
+import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
 
 export type SearchHit = {
-  kind: 'action' | 'setting' | 'project' | 'session';
+  kind: 'action' | 'setting' | 'project' | 'session' | 'prompt';
   id: string;
   label: string;
   detail: string;
@@ -34,6 +35,14 @@ const SETTINGS: SearchHit[] = [
   },
   { kind: 'setting', id: 'skills', label: 'Manage skills', detail: 'Browse and sync skills' },
   { kind: 'setting', id: 'shortcuts', label: 'Keyboard shortcuts', detail: 'View and change keys' },
+  { kind: 'setting', id: 'preferences', label: 'Preferences', detail: 'Display and terminal' },
+  { kind: 'setting', id: 'prompts', label: 'Saved prompts', detail: 'Manage reusable text' },
+  {
+    kind: 'setting',
+    id: 'backup',
+    label: 'Local backup',
+    detail: 'Create or restore a profile backup',
+  },
 ];
 
 /** The same bounded project/session/action index serves `mesa search` and the app palette. */
@@ -41,6 +50,7 @@ export function searchWorkspace(
   projects: readonly ProjectRow[],
   sessions: readonly TreeRow[],
   query: string,
+  prompts: readonly SavedPrompt[] = [],
 ): SearchHit[] {
   const term = query.trim().toLocaleLowerCase();
   const matches = (hit: SearchHit) =>
@@ -74,5 +84,16 @@ export function searchWorkspace(
     )
     .filter(matches)
     .slice(0, term ? 50 : 8);
-  return [...actions, ...settings, ...projectHits, ...sessionHits];
+  const promptHits = prompts
+    .map(
+      (prompt): SearchHit => ({
+        kind: 'prompt',
+        id: prompt.name,
+        label: prompt.name,
+        detail: 'Insert saved prompt',
+      }),
+    )
+    .filter(matches)
+    .slice(0, 50);
+  return [...actions, ...settings, ...projectHits, ...sessionHits, ...promptHits];
 }

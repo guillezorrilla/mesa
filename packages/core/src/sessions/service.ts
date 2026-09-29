@@ -885,7 +885,11 @@ export function sessionsService(
       /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
       attach: async (id: string, app = false) => {
         await ensureBackgroundView(id);
-        return attachSession({ store, tmux, ...terminal }, id, app ? terminalApp() : undefined);
+        return attachSession(
+          { store, tmux, ...terminal, naturalSelection: open().config.terminal.naturalSelection },
+          id,
+          app ? terminalApp() : undefined,
+        );
       },
       /**
        * Shows a project's sessions side by side in one terminal, laid out by its mesa.yaml

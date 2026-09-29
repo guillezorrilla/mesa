@@ -3,6 +3,7 @@ import { adopt } from './adopt.js';
 import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
+import { backupCreate, backupRestore } from './backup.js';
 import { board, boardMove } from './board.js';
 import {
   browserAnnotationPreview,
@@ -73,6 +74,7 @@ import {
 import { open } from './open.js';
 import { profile } from './profile.js';
 import { projects, projectsClone, projectsDiscover, projectsUpdate } from './projects.js';
+import { prompts, promptsRemove, promptsSave } from './prompts.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
 import { rename } from './rename.js';
@@ -118,6 +120,8 @@ export const COMMANDS: Command[] = [
   agents,
   archive,
   attach,
+  backupCreate,
+  backupRestore,
   board,
   boardMove,
   browserAnnotationPreview,
@@ -188,6 +192,9 @@ export const COMMANDS: Command[] = [
   notificationsDelivered,
   open,
   profile,
+  prompts,
+  promptsSave,
+  promptsRemove,
   projects,
   projectsClone,
   projectsDiscover,

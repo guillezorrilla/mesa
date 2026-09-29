@@ -1,4 +1,4 @@
-import type { ProjectRow, TreeRow } from '@mesa/core';
+import type { ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
 import { type SearchHit, searchWorkspace } from '@mesa/core/browser';
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -11,6 +11,7 @@ const GROUPS: { kind: SearchHit['kind']; label: string }[] = [
   { kind: 'setting', label: 'Settings' },
   { kind: 'project', label: 'Projects' },
   { kind: 'session', label: 'Recent sessions' },
+  { kind: 'prompt', label: 'Saved prompts' },
 ];
 
 /** A keyboard-first view of the same project/session/action index exposed by `mesa search`. */
@@ -20,6 +21,7 @@ export function CommandPalette(props: {
   onSelect: (hit: SearchHit) => void;
   projects: readonly ProjectRow[];
   sessions: readonly TreeRow[];
+  prompts?: readonly SavedPrompt[];
   returnFocus: HTMLElement | null;
 }) {
   const [query, setQuery] = useState('');
@@ -33,7 +35,7 @@ export function CommandPalette(props: {
   useEffect(() => {
     if (!props.open) props.returnFocus?.focus();
   }, [props.open, props.returnFocus]);
-  const hits = searchWorkspace(props.projects, props.sessions, query);
+  const hits = searchWorkspace(props.projects, props.sessions, query, props.prompts);
   const enabled = hits.filter((hit) => !hit.disabled);
   const selected = enabled[Math.min(active, enabled.length - 1)];
   const choose = (hit: SearchHit) => {

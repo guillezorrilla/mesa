@@ -1,3 +1,4 @@
+import type { Config } from '@mesa/core';
 import { ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
 import { Terminal } from '@/components/Terminal';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 /** One session's embedded terminal under the board: open it in the terminal app, or close it. */
 export function TerminalPanel(props: {
   sessionId: string;
+  preferences?: Config['terminal'];
   busy: boolean;
   onOpenExternal: () => void;
   onClose: () => void;
@@ -65,6 +67,7 @@ export function TerminalPanel(props: {
       )}
       <Terminal
         sessionId={props.sessionId}
+        preferences={props.preferences}
         fill={props.grid || props.selected}
         onFileLink={props.onFileLink}
         onWebLink={props.onWebLink}
