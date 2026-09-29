@@ -103,7 +103,7 @@ export type {
   ResponseReviewPreview,
   SessionResponses,
 } from './sessions/responses.js';
-export type { ReviewDelivery as ResponseReviewDelivery, SavedReview } from './sessions/reviews.js';
+export type { ReviewDelivery, SavedReview } from './sessions/reviews.js';
 export type { HeadlessResult } from './sessions/run.js';
 export type { ConversationHit, ConversationSearch } from './sessions/search.js';
 export type { Sent } from './sessions/send.js';

@@ -10,6 +10,7 @@ import { useAct } from '@/lib/useAct';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { ChangeReview } from './ChangeReview';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
+import { reviewOutcome } from './reviewOutcome';
 
 type Selection = {
   id: string;
@@ -40,7 +41,7 @@ export function ResponseReview({
   const [comment, setComment] = useState('');
   const [preview, setPreview] = useState<ResponseReviewPreview>();
   const [ask, setAsk] = useState<GuardrailCheck>();
-  const [delivered, setDelivered] = useState(false);
+  const [deliveredId, setDeliveredId] = useState<string>();
   const [failure, setFailure] = useState<string>();
   const [mode, setMode] = useState<'responses' | 'changes'>('responses');
 
@@ -74,22 +75,21 @@ export function ResponseReview({
   const send = (yes = false) =>
     act(async (): Promise<Message | undefined> => {
       const input = selection();
-      if (!input || !preview || delivered) return undefined;
+      if (!input || !preview || deliveredId === preview.id) return undefined;
       const result = await call('review.send', { ...input, yes });
       if (result.ok) {
         void responses.refresh();
         setAsk(undefined);
         if (result.data.status === 'delivered') {
-          setDelivered(true);
+          setDeliveredId(preview.id);
           return said(
             result.data.already ? 'Review was already delivered' : `Review sent to ${sessionId}`,
             result.data,
           );
         }
-        setFailure(
-          `${result.data.reason ?? 'Delivery is uncertain'}. Inspect the session before another send.`,
-        );
-        return { text: 'Review delivery is uncertain', tone: 'alert' };
+        const outcome = reviewOutcome(result.data, 'Review');
+        setFailure(outcome.detail);
+        return outcome.message;
       }
       const check = guardrailOf(result.error);
       if (check?.verdict === 'ask' && !yes) {
@@ -172,19 +172,19 @@ export function ResponseReview({
           <div className="space-y-1">
             {responses.data?.rows.map((row) => (
               <div key={row.source} className="group flex items-start gap-1 rounded border p-2">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 truncate text-left"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="min-w-0 flex-1 justify-start truncate text-left"
                   onClick={() => {
                     setSelected(row);
                     setRange({ start: 0, end: 0 });
                     setPreview(undefined);
-                    setDelivered(false);
                     setFailure(undefined);
                   }}
                 >
                   {row.text.split('\n')[0]}
-                </button>
+                </Button>
                 <Button
                   size="icon-sm"
                   variant="ghost"
@@ -255,7 +255,7 @@ export function ResponseReview({
                     size="sm"
                     disabled={
                       acting ||
-                      delivered ||
+                      deliveredId === preview.id ||
                       responses.data?.reviews.some(
                         (review) => review.id === preview.id && review.status !== 'failed',
                       )
@@ -263,7 +263,7 @@ export function ResponseReview({
                     onClick={() => void send()}
                   >
                     <Send aria-hidden />{' '}
-                    {delivered ||
+                    {deliveredId === preview.id ||
                     responses.data?.reviews.some(
                       (review) => review.id === preview.id && review.status === 'delivered',
                     )

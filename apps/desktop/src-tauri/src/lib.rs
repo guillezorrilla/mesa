@@ -36,7 +36,8 @@ pub fn run() {
             browser::browser_forward,
             browser::browser_reload,
             browser::browser_pick_start,
-            browser::browser_pick_result
+            browser::browser_pick_result,
+            browser::browser_owner_pid
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

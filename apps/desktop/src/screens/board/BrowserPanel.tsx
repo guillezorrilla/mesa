@@ -20,6 +20,21 @@ import type { BrowserProbe, BrowserSelection } from '@/lib/platform';
 import { useAct } from '@/lib/useAct';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
+import { reviewOutcome } from './reviewOutcome';
+
+const selectionQueues = new Map<string, Promise<unknown>>();
+function queueSelection<T>(sessionId: string, task: () => Promise<T>): Promise<T> {
+  const next = (selectionQueues.get(sessionId) ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(task);
+  selectionQueues.set(sessionId, next);
+  void next
+    .finally(() => {
+      if (selectionQueues.get(sessionId) === next) selectionQueues.delete(sessionId);
+    })
+    .catch(() => undefined);
+  return next;
+}
 
 /** A native child WKWebView alongside one selected session's terminal. */
 export function BrowserPanel({
@@ -50,6 +65,17 @@ export function BrowserPanel({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lastInitialUrl = useRef<typeof initialUrl>(undefined);
+  const selectionGeneration = useRef(0);
+  const clearSelection = useCallback(async () => {
+    selectionGeneration.current++;
+    setProbe(undefined);
+    setPicked(undefined);
+    setPreview(undefined);
+    setAsk(undefined);
+    setPicking(false);
+    const result = await queueSelection(sessionId, () => call('browser.clear', { id: sessionId }));
+    if (!result.ok) throw new Error(result.error.message);
+  }, [call, sessionId]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -59,11 +85,7 @@ export function BrowserPanel({
         if (event.session !== sessionId) return;
         setCurrent(event.url);
         setAddress(event.url);
-        setProbe(undefined);
-        setPicked(undefined);
-        setPreview(undefined);
-        setAsk(undefined);
-        setPicking(false);
+        void clearSelection().catch((cause) => setError(String(cause)));
       })
       .then((stop) => {
         if (cancelled) stop();
@@ -72,8 +94,9 @@ export function BrowserPanel({
     return () => {
       cancelled = true;
       unsubscribe?.();
+      void clearSelection().catch(() => undefined);
     };
-  }, [platform.browser, sessionId]);
+  }, [clearSelection, platform.browser, sessionId]);
 
   useEffect(() => {
     if (!opened || !surface.current) return;
@@ -101,11 +124,8 @@ export function BrowserPanel({
       const rect = { x: box.x, y: box.y, width: box.width, height: box.height };
       setBusy(true);
       setError('');
-      setProbe(undefined);
-      setPicked(undefined);
-      setPreview(undefined);
-      setAsk(undefined);
       try {
+        await clearSelection();
         if (opened) await platform.browser.navigate(sessionId, url);
         else {
           await platform.browser.open(sessionId, url, rect);
@@ -117,7 +137,7 @@ export function BrowserPanel({
         setBusy(false);
       }
     },
-    [opened, platform.browser, sessionId],
+    [clearSelection, opened, platform.browser, sessionId],
   );
   useEffect(() => {
     if (initialUrl && initialUrl !== lastInitialUrl.current) {
@@ -135,6 +155,11 @@ export function BrowserPanel({
     act(async (): Promise<Message | undefined> => {
       const input = selection();
       if (!input) return undefined;
+      const fresh = await platform.browser.pickResult(sessionId);
+      if (!fresh || JSON.stringify(fresh) !== JSON.stringify(picked)) {
+        await clearSelection();
+        return { text: 'Page selection changed. Pick the element again.', tone: 'alert' };
+      }
       const result = await call('browser.annotatePreview', input);
       if (!result.ok) return { text: result.error.message, tone: 'alert' };
       setPreview(result.data);
@@ -168,10 +193,9 @@ export function BrowserPanel({
               : `Annotation sent to ${sessionId}`,
             result.data,
           );
-        setFailure(
-          `${result.data.reason ?? 'Delivery is uncertain'}. Inspect the session before another send.`,
-        );
-        return { text: 'Annotation delivery is uncertain', tone: 'alert' };
+        const outcome = reviewOutcome(result.data, 'Annotation');
+        setFailure(outcome.detail);
+        return outcome.message;
       }
       const check = guardrailOf(result.error);
       if (check?.verdict === 'ask' && !yes) {
@@ -201,7 +225,11 @@ export function BrowserPanel({
           variant="ghost"
           disabled={!current}
           aria-label="Back"
-          onClick={() => void platform.browser.back(sessionId)}
+          onClick={() =>
+            void clearSelection()
+              .then(() => platform.browser.back(sessionId))
+              .catch((cause) => setError(String(cause)))
+          }
         >
           <ArrowLeft aria-hidden />
         </Button>
@@ -211,7 +239,11 @@ export function BrowserPanel({
           variant="ghost"
           disabled={!current}
           aria-label="Forward"
-          onClick={() => void platform.browser.forward(sessionId)}
+          onClick={() =>
+            void clearSelection()
+              .then(() => platform.browser.forward(sessionId))
+              .catch((cause) => setError(String(cause)))
+          }
         >
           <ArrowRight aria-hidden />
         </Button>
@@ -230,7 +262,11 @@ export function BrowserPanel({
           variant="ghost"
           disabled={!current || busy}
           aria-label="Reload page"
-          onClick={() => void platform.browser.reload(sessionId)}
+          onClick={() =>
+            void clearSelection()
+              .then(() => platform.browser.reload(sessionId))
+              .catch((cause) => setError(String(cause)))
+          }
         >
           <RotateCcw aria-hidden />
         </Button>
@@ -285,8 +321,8 @@ export function BrowserPanel({
             size="xs"
             variant="outline"
             onClick={() =>
-              void platform.browser
-                .pickStart(sessionId)
+              void clearSelection()
+                .then(() => platform.browser.pickStart(sessionId))
                 .then(() => {
                   setPicking(true);
                   setPicked(undefined);
@@ -300,19 +336,35 @@ export function BrowserPanel({
             <Button
               size="xs"
               variant="outline"
-              onClick={() =>
+              onClick={() => {
+                const generation = selectionGeneration.current;
                 void platform.browser
                   .pickResult(sessionId)
-                  .then((result) => {
+                  .then(async (result) => {
                     if (result) {
+                      if (generation !== selectionGeneration.current) return;
+                      const profileName = profile.data?.profile;
+                      if (!profileName) throw new Error('Mesa profile is unavailable');
+                      const ownerPid = await platform.browser.ownerPid();
+                      if (generation !== selectionGeneration.current) return;
+                      const registered = await queueSelection(sessionId, () =>
+                        call('browser.select', {
+                          id: sessionId,
+                          profile: profileName,
+                          ownerPid,
+                          ...result,
+                        }),
+                      );
+                      if (!registered.ok) throw new Error(registered.error.message);
+                      if (generation !== selectionGeneration.current) return;
                       setPicked(result);
                       setPreview(undefined);
                       setAsk(undefined);
                       setPicking(false);
                     } else setError('Click an element in the page, then use this selection.');
                   })
-                  .catch((cause) => setError(String(cause)))
-              }
+                  .catch((cause) => setError(String(cause)));
+              }}
             >
               Use selection
             </Button>
@@ -324,7 +376,7 @@ export function BrowserPanel({
           {probe.title}: {probe.heading}
         </p>
       )}
-      <section ref={surface} className="min-h-0 flex-1 bg-white" aria-label="Browser page" />
+      <section ref={surface} className="min-h-0 flex-1 bg-background" aria-label="Browser page" />
       {picked && (
         <section
           className="max-h-72 space-y-2 overflow-auto border-t p-2 text-xs"

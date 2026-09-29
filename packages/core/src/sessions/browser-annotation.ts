@@ -28,12 +28,33 @@ export type BrowserAnnotationPreview = {
   selector: string;
 };
 
-/** A selected page element is untrusted evidence, bound to one profile and session. */
-export function previewBrowserAnnotation(
+type Selection = Omit<BrowserAnnotationInput, 'comment' | 'source' | 'revision'>;
+
+/** Register the active page element so a saved CLI send cannot revive a stale selection. */
+export function selectBrowserElement(
   deps: { profile: string; store: SessionStore },
   id: string,
-  input: BrowserAnnotationInput,
-): BrowserAnnotationPreview {
+  input: Selection & { ownerPid: number },
+) {
+  const selection = browserSelection(deps, id, input);
+  if (!Number.isSafeInteger(input.ownerPid) || input.ownerPid < 1)
+    throw new MesaError('usage', 'browser owner PID is invalid');
+  deps.store.update(id, {
+    browserSelection: { ...selection, ownerPid: input.ownerPid },
+  });
+  return selection;
+}
+
+export function clearBrowserElement(deps: { store: SessionStore }, id: string) {
+  deps.store.update(id, { browserSelection: undefined });
+  return { cleared: true };
+}
+
+function browserSelection(
+  deps: { profile: string; store: SessionStore },
+  id: string,
+  input: Selection,
+) {
   const record = deps.store.get(id);
   if (record.kind !== 'interactive' || record.agent === 'terminal')
     throw new MesaError('usage', 'browser feedback needs an interactive agent session');
@@ -49,6 +70,20 @@ export function previewBrowserAnnotation(
     throw new MesaError('usage', 'page title exceeds 256 bytes or contains NUL');
   if (input.text.includes('\0') || Buffer.byteLength(input.text) > 1024)
     throw new MesaError('usage', 'selected element text exceeds 1 KiB or contains NUL');
+  const url = browserAddress(input.url);
+  return {
+    source: sha(JSON.stringify([url, input.selector])),
+    revision: sha(JSON.stringify([input.title, input.text])),
+  };
+}
+
+/** A selected page element is untrusted evidence, bound to one profile and session. */
+export function previewBrowserAnnotation(
+  deps: { profile: string; store: SessionStore; processAlive: (pid: number) => boolean },
+  id: string,
+  input: BrowserAnnotationInput,
+): BrowserAnnotationPreview {
+  const { source, revision } = browserSelection(deps, id, input);
   if (
     !input.comment.trim() ||
     input.comment.includes('\0') ||
@@ -56,9 +91,11 @@ export function previewBrowserAnnotation(
   )
     throw new MesaError('usage', 'annotation comment must be 1-4096 bytes and contain no NUL');
   const url = browserAddress(input.url);
-  const source = sha(JSON.stringify([url, input.selector]));
-  const revision = sha(JSON.stringify([input.title, input.text]));
+  const current = deps.store.get(id).browserSelection;
   if (
+    current?.source !== source ||
+    current?.revision !== revision ||
+    !deps.processAlive(current.ownerPid) ||
     (input.source !== undefined && input.source !== source) ||
     (input.revision !== undefined && input.revision !== revision)
   )

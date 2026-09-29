@@ -48,6 +48,14 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
     self: [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
     run: execRunner,
+    processAlive: (pid) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    },
     obsidian: macObsidianPaths(home),
     argv,
     // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js).

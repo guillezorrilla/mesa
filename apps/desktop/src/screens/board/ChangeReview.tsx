@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAct } from '@/lib/useAct';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
+import { reviewOutcome } from './reviewOutcome';
 
 /** A selected session's Git file and hunk, rechecked before feedback reaches its agent. */
 export function ChangeReview({
@@ -38,6 +39,9 @@ export function ChangeReview({
   const [preview, setPreview] = useState<ChangeReviewPreview>();
   const [ask, setAsk] = useState<GuardrailCheck>();
   const [failure, setFailure] = useState<string>();
+  const reviewable = status.data?.changes.filter(
+    (file) => file.index !== '?' && file.workingTree !== '?',
+  );
 
   const load = (path: string, selectedStaged: boolean) =>
     act(async (): Promise<Message | undefined> => {
@@ -87,10 +91,9 @@ export function ChangeReview({
             result.data.already ? 'Review was already delivered' : `Review sent to ${sessionId}`,
             result.data,
           );
-        setFailure(
-          `${result.data.reason ?? 'Delivery is uncertain'}. Inspect the session before another send.`,
-        );
-        return { text: 'Review delivery is uncertain', tone: 'alert' };
+        const outcome = reviewOutcome(result.data, 'Review');
+        setFailure(outcome.detail);
+        return outcome.message;
       }
       const check = guardrailOf(result.error);
       if (check?.verdict === 'ask' && !yes) {
@@ -104,10 +107,10 @@ export function ChangeReview({
 
   return (
     <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3 text-sm">
-      {status.data?.changes.length === 0 && (
-        <p className="text-muted-foreground">No changed files in this checkout.</p>
+      {reviewable?.length === 0 && (
+        <p className="text-muted-foreground">No tracked changes to review in this checkout.</p>
       )}
-      {status.data?.changes.map((file) => (
+      {reviewable?.map((file) => (
         <Button
           key={file.path}
           size="sm"
@@ -138,7 +141,7 @@ export function ChangeReview({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            HEAD {change.base.slice(0, 12)} · Patch {change.source.slice(0, 12)}
+            {change.baseKind} {change.base.slice(0, 12)} · Patch {change.source.slice(0, 12)}
           </p>
           {change.hunks.length === 0 && (
             <p className="text-muted-foreground">No text hunks in this diff.</p>
