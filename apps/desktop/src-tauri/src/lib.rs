@@ -21,6 +21,11 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
         .setup(|app| {
+            // The notification library installs its process-local delegate when its worker starts.
+            // Install Mesa's delegate afterward so clicks from a previous launch are recoverable.
+            let _ =
+                tauri::async_runtime::block_on(mac_usernotifications::get_notification_settings());
+            notifications::install(app.handle().clone());
             if let Err(error) = browser::serve_selection(app.handle()) {
                 eprintln!("native browser selection unavailable: {error}");
             }
@@ -37,6 +42,7 @@ pub fn run() {
             notifications::notification_status,
             notifications::notification_request_permission,
             notifications::notification_send,
+            notifications::notification_take_opened,
             browser::browser_open,
             browser::browser_navigate,
             browser::browser_bounds,

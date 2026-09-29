@@ -26,6 +26,10 @@ tauri-plugin-deep-link = "2"
 portable-pty = "0.9.0"
 base64 = "0.23.1"
 mac-usernotifications = "0.3.1"
+block2 = "0.6.2"
+objc2 = "0.6.4"
+objc2-foundation = "0.3.2"
+objc2-user-notifications = "0.3.2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

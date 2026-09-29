@@ -18,6 +18,7 @@ import {
 } from './components/ui/dropdown-menu';
 import { WorkspaceSidebar, type WorkspaceView } from './components/WorkspaceSidebar';
 import { usePlatform } from './lib/MesaRoot';
+import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
 import { BoardScreen } from './screens/board/BoardScreen';
@@ -162,17 +163,19 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     void deliver();
     const timer = window.setInterval(() => void deliver(), 5_000);
     let stop: (() => void) | undefined;
-    void notifications
-      .onOpen((target) => {
-        if (active)
-          navigateRef.current(
-            target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: target.kind },
-          );
-      })
-      .then((unlisten) => {
-        if (active) stop = unlisten;
-        else unlisten();
-      });
+    const open = (target: NativeNotice['target']) => {
+      if (active)
+        navigateRef.current(
+          target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: target.kind },
+        );
+    };
+    void notifications.onOpen(open).then(async (unlisten) => {
+      if (active) {
+        stop = unlisten;
+        const target = await notifications.takeOpened();
+        if (target) open(target);
+      } else unlisten();
+    });
     return () => {
       active = false;
       window.clearInterval(timer);

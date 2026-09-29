@@ -2217,7 +2217,7 @@ test('a failed native project link can be opened again', async () => {
   expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe('');
 });
 
-test('authorized native delivery is acknowledged and a click opens its exact session', async () => {
+test('authorized native delivery and a click from before app launch open the exact session', async () => {
   const target = { kind: 'session' as const, id: 'aaaaaaaa' };
   const notice = {
     kind: 'notice' as const,
@@ -2255,11 +2255,13 @@ test('authorized native delivery is acknowledged and a click opens its exact ses
           opened = handler;
           return () => {};
         },
+        takeOpened: async () => target,
       },
     }),
   );
   expect(sent).toEqual([notice.id]);
   expect(calls.some((args) => args[1] === 'notifications' && args[2] === 'delivered')).toBe(true);
+  expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
   await act(async () => opened?.(target));
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
   await act(async () => opened?.({ kind: 'doctor' }));

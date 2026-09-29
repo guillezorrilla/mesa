@@ -63,6 +63,7 @@ export type Platform = {
     requestPermission: () => Promise<NotificationStatus>;
     send: (notice: NativeNotice) => Promise<void>;
     onOpen: (handler: (target: NativeNotice['target']) => void) => Promise<() => void>;
+    takeOpened: () => Promise<NativeNotice['target'] | null>;
   };
   terminal: TerminalHost;
   browser: BrowserHost;
