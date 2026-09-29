@@ -1301,6 +1301,7 @@ test('selected session reviews an exact native response passage beside its runni
     truncated: false,
   };
   const preview = {
+    id: 'c'.repeat(64),
     target: 'aaaaaaaa',
     source: row.source,
     revision: row.revision,
@@ -1311,10 +1312,9 @@ test('selected session reviews an exact native response passage beside its runni
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([managedRow('aaaaaaaa')]),
-    'review responses': () => envelope({ rows: [row], truncated: false }),
+    'review responses': () => envelope({ rows: [row], reviews: [], truncated: false }),
     'review preview': () => envelope(preview),
-    'review send': () =>
-      envelope({ sent: true, session: 'aaaaaaaa', chars: preview.prompt.length }),
+    'review send': () => envelope({ id: preview.id, target: 'aaaaaaaa', status: 'delivered' }),
   });
   const platform = fakePlatform();
   const byTestId = await renderWithMesa(<App />, bridge, platform);

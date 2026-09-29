@@ -60,7 +60,15 @@ test('response review pins an exact native message and passage before delivery',
     comment: input.comment,
   });
   expect(preview.prompt).toContain('Quoted passage: "violet otter"');
-  await mesa.sessions.send(opened.id, preview.prompt);
+  const delivered = await mesa.sessions.responses.send(opened.id, input, { noFrom: true });
+  expect(delivered).toMatchObject({ id: preview.id, status: 'delivered', sent: { sent: true } });
+  expect(mesa.sessions.responses.list(opened.id).reviews).toMatchObject([
+    { id: preview.id, status: 'delivered', comment: input.comment },
+  ]);
+  expect(await mesa.sessions.responses.send(opened.id, input, { noFrom: true })).toMatchObject({
+    status: 'delivered',
+    already: true,
+  });
   expect(world.windows[0]?.typed).toEqual([preview.prompt]);
 
   expect(() => mesa.sessions.responses.preview(opened.id, { ...input, profile: 'other' })).toThrow(
@@ -71,4 +79,41 @@ test('response review pins an exact native message and passage before delivery',
     'changed or left the recent transcript',
   );
   expect(world.windows[0]?.typed).toHaveLength(1);
+});
+
+test('an unconfirmed review send stays saved and cannot be retried blindly', async () => {
+  const world = fakeTmux({ failing: 'send-keys' });
+  const run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
+  const { home, dir, mesa } = projectProfile(run);
+  const opened = (await mesa.sessions.open('lantern-cove')).result;
+  plantTranscript(
+    home,
+    opened.agentSessionId ?? '',
+    dir,
+    JSON.stringify({
+      type: 'assistant',
+      cwd: dir,
+      message: { role: 'assistant', content: [{ type: 'text', text: 'Check this' }] },
+    }),
+  );
+  const row = mesa.sessions.responses.list(opened.id).rows[0];
+  if (!row) throw new Error('response missing');
+  const input = {
+    profile: row.profile,
+    source: row.source,
+    revision: row.revision,
+    start: 0,
+    end: 5,
+    comment: 'Please check again',
+  };
+  expect(await mesa.sessions.responses.send(opened.id, input, { noFrom: true })).toMatchObject({
+    status: 'uncertain',
+  });
+  expect(await mesa.sessions.responses.send(opened.id, input, { noFrom: true })).toMatchObject({
+    status: 'uncertain',
+  });
+  expect(mesa.sessions.responses.list(opened.id).reviews).toMatchObject([
+    { status: 'uncertain', comment: input.comment },
+  ]);
+  expect(world.windows[0]?.typed).toEqual([]);
 });

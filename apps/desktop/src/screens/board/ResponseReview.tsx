@@ -67,9 +67,19 @@ export function ResponseReview({ sessionId }: { sessionId: string }) {
       if (!input || !preview || delivered) return undefined;
       const result = await call('review.send', { ...input, yes });
       if (result.ok) {
-        setDelivered(true);
+        void responses.refresh();
         setAsk(undefined);
-        return said(`Review sent to ${sessionId}`, result.data);
+        if (result.data.status === 'delivered') {
+          setDelivered(true);
+          return said(
+            result.data.already ? 'Review was already delivered' : `Review sent to ${sessionId}`,
+            result.data,
+          );
+        }
+        setFailure(
+          `${result.data.reason ?? 'Delivery is uncertain'}. Inspect the session before another send.`,
+        );
+        return { text: 'Review delivery is uncertain', tone: 'alert' };
       }
       const check = guardrailOf(result.error);
       if (check?.verdict === 'ask' && !yes) {
@@ -108,6 +118,17 @@ export function ResponseReview({ sessionId }: { sessionId: string }) {
         )}
         {responses.data?.truncated && (
           <p className="text-xs text-muted-foreground">Showing recent transcript responses only.</p>
+        )}
+        {Boolean(responses.data?.reviews.length) && (
+          <section aria-label="Saved review comments" className="space-y-1 rounded border p-2">
+            <h3 className="font-medium">Saved comments</h3>
+            {responses.data?.reviews.map((review) => (
+              <p key={review.id} className="text-xs">
+                <span className="text-muted-foreground">{review.status}: </span>
+                {review.comment}
+              </p>
+            ))}
+          </section>
         )}
         <div className="space-y-1">
           {responses.data?.rows.map((row) => (
@@ -191,8 +212,24 @@ export function ResponseReview({ sessionId }: { sessionId: string }) {
                 <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
                   {preview.prompt}
                 </pre>
-                <Button size="sm" disabled={acting || delivered} onClick={() => void send()}>
-                  <Send aria-hidden /> {delivered ? 'Delivered' : 'Send review'}
+                <Button
+                  size="sm"
+                  disabled={
+                    acting ||
+                    delivered ||
+                    responses.data?.reviews.some(
+                      (review) => review.id === preview.id && review.status !== 'failed',
+                    )
+                  }
+                  onClick={() => void send()}
+                >
+                  <Send aria-hidden />{' '}
+                  {delivered ||
+                  responses.data?.reviews.some(
+                    (review) => review.id === preview.id && review.status === 'delivered',
+                  )
+                    ? 'Delivered'
+                    : 'Send review'}
                 </Button>
               </div>
             )}

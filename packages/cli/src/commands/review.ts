@@ -1,5 +1,4 @@
 import { defineCommand } from '../command.js';
-import { recordedOutput } from '../output/recorded.js';
 
 const passageFlags = {
   source: { type: 'string', required: true, description: 'Source from review responses' },
@@ -66,22 +65,25 @@ export const reviewSend = defineCommand({
   example:
     'mesa review send a1b2c3d4 --source <sha256> --revision <sha256> --selection-profile default --start 0 --end 10 --comment "Clarify this"',
   run: async ({ mesa, args, flags, confirm }) => {
-    const preview = mesa.sessions.responses.preview(args.session, {
-      profile: flags['selection-profile'],
-      source: flags.source,
-      revision: flags.revision,
-      start: Number(flags.start),
-      end: Number(flags.end),
-      comment: flags.comment,
-    });
-    const recorded = await mesa.sessions.send(args.session, preview.prompt, {
-      yes: flags.yes,
-      noFrom: flags['no-from'],
-      confirm,
-    });
-    return recordedOutput(recorded, {
-      data: recorded.result,
-      text: `sent response review to ${args.session}`,
-    });
+    const data = await mesa.sessions.responses.send(
+      args.session,
+      {
+        profile: flags['selection-profile'],
+        source: flags.source,
+        revision: flags.revision,
+        start: Number(flags.start),
+        end: Number(flags.end),
+        comment: flags.comment,
+      },
+      {
+        yes: flags.yes,
+        noFrom: flags['no-from'],
+        confirm,
+      },
+    );
+    return {
+      data,
+      text: `${data.status} response review ${data.id.slice(0, 12)} to ${args.session}`,
+    };
   },
 });
