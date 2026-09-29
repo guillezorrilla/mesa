@@ -4,6 +4,7 @@ import type {
   GuardrailCheck,
   ManagedRow,
   ProjectRow,
+  SessionImage,
   TreeRow,
 } from '@mesa/core';
 import {
@@ -20,6 +21,9 @@ import {
   Download,
   ExternalLink,
   Forward,
+  Globe,
+  ImagePlus,
+  MessageSquareQuote,
   MoreVertical,
   Plus,
   RotateCcw,
@@ -35,11 +39,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
 import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
+import { BrowserPanel } from './BrowserPanel';
 import { DependencyDialog } from './DependencyDialog';
 import { DescendantDialog } from './DescendantDialog';
 import { ForkDialog } from './ForkDialog';
@@ -50,6 +56,7 @@ import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
+import { ResponseReview } from './ResponseReview';
 import { RowMenu } from './RowMenu';
 import { exited, queued, recoverable, resumable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
@@ -82,7 +89,14 @@ type OpenDialog =
         | 'remove-descendants';
       row: ManagedRow;
     }
-  | { kind: 'guardrail'; id: string; prompt: string; form: HTMLFormElement; check: GuardrailCheck };
+  | {
+      kind: 'guardrail';
+      id: string;
+      prompt: string;
+      form: HTMLFormElement;
+      check: GuardrailCheck;
+      image?: SessionImage;
+    };
 
 /**
  * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
@@ -120,7 +134,14 @@ export function BoardScreen(
   }, [data, props.onRowsChange]);
   const run = useRun();
   const call = useCall();
+  const platform = usePlatform();
   const [dialog, setDialog] = useState<OpenDialog>();
+  const [image, setImage] = useState<SessionImage>();
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [browserTarget, setBrowserTarget] = useState<{ url: string }>();
+  const [pendingBrowser, setPendingBrowser] = useState<{ session: string; url: string }>();
+  const selectionVersion = useRef(0);
   const handledArchiveRequest = useRef(0);
   useEffect(() => {
     if (props.newSessionRequest?.count)
@@ -159,6 +180,20 @@ export function BoardScreen(
     }
   }, [data, props.selectedSession]);
   const selected = data?.find((row) => row.id === props.selectedSession);
+  useEffect(() => {
+    selectionVersion.current += 1;
+    setImage((current) => (current?.session === props.selectedSession ? current : undefined));
+    setReviewOpen(false);
+    setBrowserOpen(false);
+    setBrowserTarget(undefined);
+  }, [props.selectedSession]);
+  useEffect(() => {
+    if (!pendingBrowser || pendingBrowser.session !== props.selectedSession) return;
+    setBrowserTarget({ url: pendingBrowser.url });
+    setBrowserOpen(true);
+    setReviewOpen(false);
+    setPendingBrowser(undefined);
+  }, [pendingBrowser, props.selectedSession]);
   const preferences = props.preferences ?? DEFAULT_BOARD_PREFERENCES;
 
   // Every action looks again when it ends, so the Board shows what it did.
@@ -175,11 +210,20 @@ export function BoardScreen(
    * Sends a prompt. The guardrail's ask opens its dialog, whose Send anyway sends it again with
    * `yes`; its block is said in the toast, with no way past it here (--force is the CLI's).
    */
-  const send = (id: string, prompt: string, form: HTMLFormElement, yes = false) =>
+  const send = (
+    id: string,
+    prompt: string,
+    form: HTMLFormElement,
+    yes = false,
+    attachment?: SessionImage,
+  ) =>
     act(async (): Promise<Message | undefined> => {
-      const sent = await call('sessions.send', { id, prompt, yes });
+      const sent = attachment
+        ? await call('image.send', { image: attachment, note: prompt, yes })
+        : await call('sessions.send', { id, prompt, yes });
       if (sent.ok) {
         form.reset();
+        if (attachment) setImage(undefined);
         close();
         // Typed either way: a warning says so, so the prompt is not sent twice.
         return said(`Sent ${sent.data.chars} characters to ${id}`, sent.data);
@@ -187,11 +231,22 @@ export function BoardScreen(
       const { error } = sent;
       const check = guardrailOf(error);
       if (check?.verdict === 'ask' && !yes) {
-        setDialog({ kind: 'guardrail', id, prompt, form, check });
+        setDialog({ kind: 'guardrail', id, prompt, form, check, image: attachment });
         return undefined;
       }
       close();
       return { text: check ? `Not sent to ${id}: ${check.reason}` : error.message, tone: 'alert' };
+    });
+  const pickImage = (id: string) =>
+    act(async (): Promise<Message | undefined> => {
+      const version = selectionVersion.current;
+      const path = await platform.pickFile();
+      if (!path || version !== selectionVersion.current) return undefined;
+      const preview = await call('image.preview', { id, path });
+      if (version !== selectionVersion.current) return undefined;
+      if (!preview.ok) return { text: preview.error.message, tone: 'alert' };
+      setImage(preview.data);
+      return said(`Selected ${preview.data.name} for session ${id}`);
     });
   const actions: RowActions = {
     embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
@@ -450,6 +505,37 @@ export function BoardScreen(
             />
           )}
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
+          {selected?.managed &&
+            selected.kind === 'interactive' &&
+            selected.agent !== 'terminal' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Review responses"
+                aria-pressed={reviewOpen}
+                onClick={() => {
+                  setBrowserOpen(false);
+                  setReviewOpen((open) => !open);
+                }}
+              >
+                <MessageSquareQuote aria-hidden /> Review
+              </Button>
+            )}
+          {selected?.managed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Open session browser"
+              aria-pressed={browserOpen}
+              onClick={() => {
+                setReviewOpen(false);
+                setBrowserTarget(undefined);
+                setBrowserOpen((open) => !open);
+              }}
+            >
+              <Globe aria-hidden /> Browser
+            </Button>
+          )}
           {selected && recoverable(selected) && (
             <span className="text-xs text-state-waiting">Terminal ended</span>
           )}
@@ -601,22 +687,55 @@ export function BoardScreen(
                     }
                   />
                   {!isRun(selected) && selected.kind !== 'terminal' && !exited(selected) && (
-                    <form
-                      className="flex min-w-48 flex-1 gap-2"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (!acting) actions.send(selected.id, event.currentTarget);
-                      }}
-                    >
-                      <Input
-                        name="prompt"
-                        aria-label={`Prompt for ${selected.id}`}
-                        placeholder="Message session"
-                      />
-                      <Button type="submit" size="sm" disabled={acting}>
-                        <Send aria-hidden /> Send
-                      </Button>
-                    </form>
+                    <div className="flex min-w-48 flex-1 flex-col gap-2">
+                      <form
+                        className="flex gap-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          if (!acting)
+                            send(
+                              selected.id,
+                              String(new FormData(event.currentTarget).get('prompt') ?? ''),
+                              event.currentTarget,
+                              false,
+                              image?.session === selected.id ? image : undefined,
+                            );
+                        }}
+                      >
+                        <Input
+                          name="prompt"
+                          aria-label={`Prompt for ${selected.id}`}
+                          placeholder="Message session"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={acting}
+                          onClick={() => pickImage(selected.id)}
+                          aria-label="Attach image"
+                        >
+                          <ImagePlus aria-hidden />
+                        </Button>
+                        <Button type="submit" size="sm" disabled={acting}>
+                          <Send aria-hidden />{' '}
+                          {image?.session === selected.id ? 'Send image' : 'Send'}
+                        </Button>
+                      </form>
+                      {image?.session === selected.id && (
+                        <div className="flex items-center gap-2 rounded border p-2 text-xs">
+                          <img
+                            src={image.dataUrl}
+                            alt={`Selected image: ${image.name}`}
+                            className="max-h-24 max-w-36 object-contain"
+                          />
+                          <span className="min-w-0 flex-1 truncate">{image.name}</span>
+                          <Button size="sm" variant="ghost" onClick={() => setImage(undefined)}>
+                            Remove image
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
                   <div className="max-h-64 w-full overflow-auto">
                     <KnowledgeContext session={selected.id} />
@@ -761,7 +880,11 @@ export function BoardScreen(
           about={`this prompt goes to ${dialog.id}`}
           check={dialog.check}
           disabled={acting}
-          onConfirm={() => send(dialog.id, dialog.prompt, dialog.form, true)}
+          onConfirm={() =>
+            dialog.image && props.selectedSession !== dialog.id
+              ? close()
+              : send(dialog.id, dialog.prompt, dialog.form, true, dialog.image)
+          }
           onCancel={close}
         />
       )}
@@ -857,7 +980,7 @@ export function BoardScreen(
       <div
         className={
           props.selectedSession
-            ? 'min-h-0 flex-1'
+            ? 'flex min-h-0 flex-1'
             : props.gridMode
               ? 'grid gap-3 lg:grid-cols-2'
               : 'space-y-4'
@@ -878,7 +1001,7 @@ export function BoardScreen(
             }
             className={
               props.selectedSession
-                ? 'h-full'
+                ? 'h-full min-w-0 flex-1'
                 : props.gridMode
                   ? zoomed === id
                     ? 'col-span-full h-[70vh] min-w-[320px]'
@@ -889,6 +1012,10 @@ export function BoardScreen(
             <TerminalPanel
               sessionId={id}
               onFileLink={props.onFileLink}
+              onWebLink={(session, url) => {
+                setPendingBrowser({ session, url });
+                props.onSelectSession?.(session);
+              }}
               busy={acting}
               onOpenExternal={() => actions.openTerminal(id)}
               onClose={() => {
@@ -902,6 +1029,25 @@ export function BoardScreen(
             />
           </div>
         ))}
+        {selected?.managed && reviewOpen && (
+          <ResponseReview
+            key={selected.id}
+            sessionId={selected.id}
+            project={selected.project === GENERAL_PROJECT ? undefined : selected.project}
+            checkout={selected.worktree?.path ?? selected.cwd}
+          />
+        )}
+        {selected?.managed && browserOpen && (
+          <BrowserPanel
+            key={selected.id}
+            sessionId={selected.id}
+            initialUrl={browserTarget}
+            onClose={() => {
+              setBrowserTarget(undefined);
+              setBrowserOpen(false);
+            }}
+          />
+        )}
       </div>
     </section>
   );

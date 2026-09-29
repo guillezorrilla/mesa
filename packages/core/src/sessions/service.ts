@@ -18,7 +18,15 @@ import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
+import { openBrowserExternal } from './browser-address.js';
+import {
+  type BrowserAnnotationInput,
+  clearBrowserElement,
+  liveBrowserAnnotation,
+  selectBrowserElement,
+} from './browser-annotation.js';
 import { callerOf } from './caller.js';
+import { changeReview, previewChangeReview } from './change-review.js';
 import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
 import { applyDescendants } from './descendants.js';
@@ -31,6 +39,7 @@ import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { nativeHistory } from './history.js';
 import { readHookEvents } from './hook-events.js';
+import { previewSessionImage, sessionImagePrompt } from './images.js';
 import { instructionStatus } from './instructions.js';
 import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
@@ -41,7 +50,9 @@ import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
 import { renameSession } from './rename.js';
 import { resizeSession } from './resize.js';
+import { previewResponseReview, sessionResponses } from './responses.js';
 import { resumeSession } from './resume.js';
+import { sendReview } from './reviews.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
 import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
@@ -224,6 +235,57 @@ export function sessionsService(
           opts,
         ),
     );
+  const send = (
+    id: string,
+    prompt: string,
+    opts: { from?: string; noFrom?: boolean } & Overrides = {},
+  ) => {
+    const { force = false, yes, confirm, from, noFrom } = opts;
+    const kept = receiptText(prompt, deps.argv, secrets());
+    const target = store.find(id);
+    return record(
+      {
+        kind: 'guardrail',
+        scope: {
+          project: target?.project,
+          session: target?.id,
+          agent: target ? recordAgent(target) : undefined,
+          actor: caller().session?.id,
+        },
+        argv: kept.argv,
+        summary: (r) =>
+          `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,
+        failure: `Could not send to session ${id}`,
+        warning: (r) => r.warning,
+        project: (r) => projectScope(r.project),
+        session: () => id,
+        inputs: {
+          session: id,
+          prompt: kept.short,
+          force,
+          ...(yes ? { yes } : {}),
+          ...(from === undefined ? {} : { from }),
+          ...(noFrom ? { noFrom } : {}),
+        },
+        outputs: (r) => ({
+          chars: r.chars,
+          from: r.from,
+          ...(r.override ? { override: r.override } : {}),
+        }),
+      },
+      // Typed, so the result type comes from the action, as for one that takes nothing.
+      async (decisions: DecisionRecorder) => {
+        const guard = (action: Guarded) =>
+          faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+        await ensureBackgroundView(id);
+        return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
+          force,
+          from,
+          noFrom,
+        });
+      },
+    );
+  };
   return {
     grid: {
       list: () => open().config.grid.groups,
@@ -240,6 +302,104 @@ export function sessionsService(
     },
     sessions: {
       list: board,
+      images: {
+        preview: (id: string, path: string) =>
+          previewSessionImage({ profile, store, absolute }, id, path),
+        prompt: (
+          id: string,
+          path: string,
+          revision: string,
+          expectedProfile: string,
+          note?: string,
+        ) =>
+          sessionImagePrompt(
+            { profile, store, absolute },
+            id,
+            path,
+            revision,
+            expectedProfile,
+            note,
+          ),
+      },
+      responses: {
+        list: (id: string) =>
+          sessionResponses({ profile, store, home: deps.home, env: deps.env }, id),
+        preview: (id: string, input: Parameters<typeof previewResponseReview>[2]) =>
+          previewResponseReview({ profile, store, home: deps.home, env: deps.env }, id, input),
+        send: (
+          id: string,
+          input: Parameters<typeof previewResponseReview>[2],
+          opts: { noFrom?: boolean } & Overrides = {},
+        ) =>
+          sendReview(
+            { store, clock: deps.clock, send },
+            id,
+            'response',
+            () =>
+              previewResponseReview({ profile, store, home: deps.home, env: deps.env }, id, input),
+            opts,
+          ),
+      },
+      changes: {
+        read: (id: string, path: string, staged = false) =>
+          changeReview({ profile, store, open, run: deps.run }, id, path, staged),
+        preview: (id: string, input: Parameters<typeof previewChangeReview>[2]) =>
+          previewChangeReview({ profile, store, open, run: deps.run }, id, input),
+        send: (
+          id: string,
+          input: Parameters<typeof previewChangeReview>[2],
+          opts: { noFrom?: boolean } & Overrides = {},
+        ) =>
+          sendReview(
+            { store, clock: deps.clock, send },
+            id,
+            'change',
+            () => previewChangeReview({ profile, store, open, run: deps.run }, id, input),
+            opts,
+          ),
+      },
+      browser: {
+        external: (url: string) => openBrowserExternal(url, deps.run),
+        select: (id: string, input: Parameters<typeof selectBrowserElement>[2]) =>
+          selectBrowserElement({ profile, store }, id, input),
+        clear: (id: string) => clearBrowserElement({ store }, id),
+        preview: (id: string, input: BrowserAnnotationInput) =>
+          liveBrowserAnnotation(
+            {
+              profile,
+              store,
+              processAlive: deps.processAlive,
+              liveSelection: deps.browserSelection,
+            },
+            id,
+            input,
+          ),
+        send: (
+          id: string,
+          input: BrowserAnnotationInput & {
+            source: string;
+            revision: string;
+          },
+          opts: { noFrom?: boolean } & Overrides = {},
+        ) =>
+          sendReview(
+            { store, clock: deps.clock, send },
+            id,
+            'browser',
+            () =>
+              liveBrowserAnnotation(
+                {
+                  profile,
+                  store,
+                  processAlive: deps.processAlive,
+                  liveSelection: deps.browserSelection,
+                },
+                id,
+                input,
+              ),
+            opts,
+          ),
+      },
       /** The board as a tree: children under their parent, each row with its depth. */
       tree: async (all = false) => sessionTree(await board(all)),
       moveOnBoard: async (id: string, direction: -1 | 1) => {
@@ -602,57 +762,8 @@ export function sessionsService(
        * person's `confirm` past an ask or a block). A blocked or overridden guardrail keeps its
        * decision and the prompt's first 80 characters.
        */
-      send: (
-        id: string,
-        prompt: string,
-        opts: { from?: string; noFrom?: boolean } & Overrides = {},
-      ) => {
-        const { force = false, yes, confirm, from, noFrom } = opts;
-        const kept = receiptText(prompt, deps.argv, secrets());
-        const target = store.find(id);
-        return record(
-          {
-            kind: 'guardrail',
-            scope: {
-              project: target?.project,
-              session: target?.id,
-              agent: target ? recordAgent(target) : undefined,
-              actor: caller().session?.id,
-            },
-            argv: kept.argv,
-            summary: (r) =>
-              `Sent ${r.chars} characters to session ${id}${r.from ? ` from ${r.from}` : ''}`,
-            failure: `Could not send to session ${id}`,
-            warning: (r) => r.warning,
-            project: (r) => projectScope(r.project),
-            session: () => id,
-            inputs: {
-              session: id,
-              prompt: kept.short,
-              force,
-              ...(yes ? { yes } : {}),
-              ...(from === undefined ? {} : { from }),
-              ...(noFrom ? { noFrom } : {}),
-            },
-            outputs: (r) => ({
-              chars: r.chars,
-              from: r.from,
-              ...(r.override ? { override: r.override } : {}),
-            }),
-          },
-          // Typed, so the result type comes from the action, as for one that takes nothing.
-          async (decisions: DecisionRecorder) => {
-            const guard = (action: Guarded) =>
-              faro.guardrail.gate(action, { force, yes, confirm }, decisions);
-            await ensureBackgroundView(id);
-            return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
-              force,
-              from,
-              noFrom,
-            });
-          },
-        );
-      },
+      send,
+
       /**
        * Adopts a Claude Code or Codex session Mesa did not start: a record for it, and, unless
        * `noResume`, its conversation reopened in a Mesa window. Its warning is always said.
