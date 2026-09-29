@@ -117,3 +117,49 @@ test('an unconfirmed review send stays saved and cannot be retried blindly', asy
   ]);
   expect(world.windows[0]?.typed).toEqual([]);
 });
+
+test('a review refused before typing is failed and can be retried after the agent returns', async () => {
+  const world = fakeTmux();
+  const run = scriptedRunner({ tmux: world.answer, claude: CLAUDE_VERSION }).run;
+  const { home, dir, mesa } = projectProfile(run);
+  const opened = (await mesa.sessions.open('lantern-cove')).result;
+  plantTranscript(
+    home,
+    opened.agentSessionId ?? '',
+    dir,
+    JSON.stringify({
+      type: 'assistant',
+      cwd: dir,
+      message: { role: 'assistant', content: [{ type: 'text', text: 'Check this' }] },
+    }),
+  );
+  const row = mesa.sessions.responses.list(opened.id).rows[0];
+  const pane = world.windows[0];
+  if (!row || !pane) throw new Error('missing response or pane');
+  const input = {
+    profile: row.profile,
+    source: row.source,
+    revision: row.revision,
+    start: 0,
+    end: 5,
+    comment: 'Please check.',
+  };
+  pane.dead = true;
+  expect(await mesa.sessions.responses.send(opened.id, input, { noFrom: true })).toMatchObject({
+    status: 'failed',
+    reason: expect.stringContaining('session ended'),
+  });
+  pane.dead = false;
+  pane.running = 'zsh';
+  expect(await mesa.sessions.responses.send(opened.id, input, { noFrom: true })).toMatchObject({
+    status: 'failed',
+    reason: expect.stringContaining('runs zsh'),
+  });
+  expect(mesa.sessions.responses.list(opened.id).reviews).toMatchObject([{ status: 'failed' }]);
+  expect(pane.typed).toEqual([]);
+  pane.running = 'claude';
+  expect(await mesa.sessions.responses.send(opened.id, input, { noFrom: true })).toMatchObject({
+    status: 'delivered',
+  });
+  expect(pane.typed).toHaveLength(1);
+});

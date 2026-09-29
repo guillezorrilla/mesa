@@ -139,6 +139,7 @@ export const fakePlatform = ({
   file = null,
   terminal = fakeTerminals().host,
   browser = {
+    ownerPid: async () => 42,
     open: async () => 'browser-test',
     navigate: async () => {},
     bounds: async () => {},

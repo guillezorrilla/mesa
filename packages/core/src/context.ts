@@ -29,6 +29,8 @@ export type MesaDeps = {
   /** For `env:VAR` key values, so a receipt can redact them too. */
   env: Env;
   run: Runner;
+  /** Whether the native browser owner still exists after a renderer/app restart. */
+  processAlive: (pid: number) => boolean;
   obsidian: ObsidianPaths;
   /** This invocation's arguments, recorded (key values redacted) in every receipt. */
   argv: readonly string[];

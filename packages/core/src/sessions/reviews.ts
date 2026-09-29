@@ -16,6 +16,7 @@ export type ReviewPreview = {
   comment: string;
   prompt: string;
   path?: string;
+  baseKind?: 'HEAD' | 'index';
   base?: string;
   staged?: boolean;
   url?: string;
@@ -24,7 +25,7 @@ export type ReviewPreview = {
 export type ReviewDelivery = {
   id: string;
   target: string;
-  status: 'delivered' | 'uncertain';
+  status: 'delivered' | 'failed' | 'uncertain';
   already?: boolean;
   sent?: Sent;
   receipt?: Recorded<Sent>['receipt'];
@@ -75,6 +76,7 @@ export async function sendReview(
     passage: checked.passage,
     comment: checked.comment,
     ...(checked.path ? { path: checked.path } : {}),
+    ...(checked.baseKind ? { baseKind: checked.baseKind } : {}),
     ...(checked.base ? { base: checked.base } : {}),
     ...(checked.staged === undefined ? {} : { staged: checked.staged }),
     ...(checked.url ? { url: checked.url } : {}),
@@ -118,7 +120,15 @@ export async function sendReview(
   try {
     delivery = await deps.send(id, checked.prompt, opts);
   } catch (error) {
-    const safe = error instanceof MesaError && error.code === 'guardrail_blocked';
+    const safe =
+      error instanceof MesaError &&
+      (error.code === 'guardrail_blocked' ||
+        error.code === 'usage' ||
+        (error.code === 'not_found' &&
+          typeof error.details === 'object' &&
+          error.details !== null &&
+          'safeNoSend' in error.details &&
+          error.details.safeNoSend === true));
     const reason = error instanceof Error ? error.message : String(error);
     try {
       setStatus(safe ? 'failed' : 'uncertain', reason);
@@ -130,7 +140,8 @@ export async function sendReview(
         reason: `${reason}; saved status could not be updated: ${String(saveError)}`,
       };
     }
-    if (safe) throw error;
+    if (error instanceof MesaError && error.code === 'guardrail_blocked') throw error;
+    if (safe) return { id: key, target: id, status: 'failed', reason };
     return { id: key, target: id, status: 'uncertain', reason };
   }
   try {

@@ -99,6 +99,14 @@ const SessionRecordFields = z.strictObject({
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
+  /** Current native browser element; cleared when its page or session changes. */
+  browserSelection: z
+    .strictObject({
+      source: z.string().regex(/^[0-9a-f]{64}$/),
+      revision: z.string().regex(/^[0-9a-f]{64}$/),
+      ownerPid: z.number().int().positive(),
+    })
+    .optional(),
   /**
    * How much of its context window it has used (CONTEXT.md, Context use): `used` in percent of
    * `window` tokens, as of its agent's reply at `at`. Absent while there is no reading.
@@ -154,6 +162,7 @@ const SessionRecordFields = z.strictObject({
         comment: z.string(),
         kind: z.enum(['response', 'change', 'browser']).optional(),
         path: z.string().optional(),
+        baseKind: z.enum(['HEAD', 'index']).optional(),
         base: z.string().optional(),
         staged: z.boolean().optional(),
         url: z.string().optional(),
@@ -229,4 +238,5 @@ export function refuseRun(r: Pick<SessionRecord, 'id' | 'kind'>, what: string) {
 }
 
 /** A session with no live window: nothing to attach to or type into, only to resume. */
-export const sessionEnded = () => new MesaError('not_found', 'session ended; use mesa resume');
+export const sessionEnded = () =>
+  new MesaError('not_found', 'session ended; use mesa resume', { safeNoSend: true });

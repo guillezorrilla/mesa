@@ -39,9 +39,9 @@ import type {
   ReceiptEntry,
   Removed,
   RepositoryInsight,
-  ResponseReviewDelivery,
   ResponseReviewPreview,
   Result,
+  ReviewDelivery,
   RuleRow,
   Sent,
   SessionImage,
@@ -106,13 +106,16 @@ const reviewFlags = (selection: ReviewSelection) => [
 ];
 type ChangeSelection = ChangeReviewInput & { id: string };
 type BrowserSelection = BrowserAnnotationInput & { id: string };
-const browserFlags = (selection: BrowserSelection) => [
+const browserSelectionFlags = (selection: Omit<BrowserSelection, 'comment'>) => [
   `--url=${selection.url}`,
   `--title=${selection.title}`,
   `--selector=${selection.selector}`,
   `--text=${selection.text}`,
-  `--comment=${selection.comment}`,
   `--selection-profile=${selection.profile}`,
+];
+const browserFlags = (selection: BrowserSelection) => [
+  ...browserSelectionFlags(selection),
+  `--comment=${selection.comment}`,
 ];
 const changeFlags = (selection: ChangeSelection) => [
   `--path=${selection.path}`,
@@ -697,7 +700,7 @@ const COMMANDS = {
     '--',
     selection.id,
   ]),
-  'review.changeSend': commandWith<ChangeSelection & { yes?: boolean }, ResponseReviewDelivery>(
+  'review.changeSend': commandWith<ChangeSelection & { yes?: boolean }, ReviewDelivery>(
     (selection) => [
       'review',
       'change-send',
@@ -711,9 +714,27 @@ const COMMANDS = {
   'browser.annotatePreview': commandWith<BrowserSelection, BrowserAnnotationPreview>(
     (selection) => ['browser', 'annotate-preview', ...browserFlags(selection), '--', selection.id],
   ),
+  'browser.select': commandWith<
+    Omit<BrowserSelection, 'comment'> & { ownerPid: number },
+    { source: string; revision: string }
+  >((selection) => [
+    'browser',
+    'select',
+    ...browserSelectionFlags(selection),
+    '--owner-pid',
+    String(selection.ownerPid),
+    '--',
+    selection.id,
+  ]),
+  'browser.clear': commandWith<{ id: string }, { cleared: boolean }>(({ id }) => [
+    'browser',
+    'clear',
+    '--',
+    id,
+  ]),
   'browser.annotateSend': commandWith<
     BrowserSelection & { source: string; revision: string; yes?: boolean },
-    ResponseReviewDelivery
+    ReviewDelivery
   >((selection) => [
     'browser',
     'annotate-send',
@@ -734,17 +755,15 @@ const COMMANDS = {
     '--',
     selection.id,
   ]),
-  'review.send': commandWith<ReviewSelection & { yes?: boolean }, ResponseReviewDelivery>(
-    (selection) => [
-      'review',
-      'send',
-      '--no-from',
-      ...reviewFlags(selection),
-      ...(selection.yes ? ['--yes'] : []),
-      '--',
-      selection.id,
-    ],
-  ),
+  'review.send': commandWith<ReviewSelection & { yes?: boolean }, ReviewDelivery>((selection) => [
+    'review',
+    'send',
+    '--no-from',
+    ...reviewFlags(selection),
+    ...(selection.yes ? ['--yes'] : []),
+    '--',
+    selection.id,
+  ]),
   'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [
     'image',
     'preview',

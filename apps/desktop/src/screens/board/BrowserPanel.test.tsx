@@ -16,6 +16,7 @@ test('browser annotation previews its target, rechecks the element, and sends on
   let openedBounds: { x: number; y: number; width: number; height: number } | undefined;
   let onLoad: (event: { session: string; url: string }) => void = () => {};
   const browser: BrowserHost = {
+    ownerPid: async () => 42,
     open: async (session, url, bounds) => {
       openedBounds = bounds;
       onLoad({ session, url });
@@ -48,6 +49,8 @@ test('browser annotation previews its target, rechecks the element, and sends on
   };
   const { bridge, calls } = fakeBridge({
     'review responses': () => envelope({ rows: [], reviews: [], truncated: false }),
+    'browser clear': () => envelope({ cleared: true }),
+    'browser select': () => envelope({ source: 'page-source', revision: 'page-revision' }),
     'browser annotate-preview': () => envelope(preview),
     'browser annotate-send': () =>
       envelope({ id: preview.id, target: 'aaaaaaaa', status: 'delivered' }),
@@ -79,6 +82,7 @@ test('browser annotation previews its target, rechecks the element, and sends on
     ),
   );
   expect(byTestId('browser-selection')[0]?.textContent).toContain('Violet otter');
+  expect(calls.some((args) => args[1] === 'browser' && args[2] === 'select')).toBe(true);
   const comment = document.querySelector<HTMLTextAreaElement>('#browser-comment');
   if (!comment) throw new Error('comment missing');
   await act(async () => {
@@ -128,4 +132,5 @@ test('browser annotation previews its target, rechecks the element, and sends on
   );
   await act(async () => onLoad({ session: 'aaaaaaaa', url: 'https://example.test/next' }));
   expect(byTestId('browser-selection')).toHaveLength(0);
+  expect(calls.some((args) => args[1] === 'browser' && args[2] === 'clear')).toBe(true);
 });

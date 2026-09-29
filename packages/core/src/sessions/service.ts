@@ -19,7 +19,11 @@ import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';
 import { openBrowserExternal } from './browser-address.js';
-import { previewBrowserAnnotation } from './browser-annotation.js';
+import {
+  clearBrowserElement,
+  previewBrowserAnnotation,
+  selectBrowserElement,
+} from './browser-annotation.js';
 import { callerOf } from './caller.js';
 import { changeReview, previewChangeReview } from './change-review.js';
 import { refreshContext } from './context-use.js';
@@ -355,8 +359,11 @@ export function sessionsService(
       },
       browser: {
         external: (url: string) => openBrowserExternal(url, deps.run),
+        select: (id: string, input: Parameters<typeof selectBrowserElement>[2]) =>
+          selectBrowserElement({ profile, store }, id, input),
+        clear: (id: string) => clearBrowserElement({ store }, id),
         preview: (id: string, input: Parameters<typeof previewBrowserAnnotation>[2]) =>
-          previewBrowserAnnotation({ profile, store }, id, input),
+          previewBrowserAnnotation({ profile, store, processAlive: deps.processAlive }, id, input),
         send: (
           id: string,
           input: Parameters<typeof previewBrowserAnnotation>[2] & {
@@ -369,7 +376,12 @@ export function sessionsService(
             { store, clock: deps.clock, send },
             id,
             'browser',
-            () => previewBrowserAnnotation({ profile, store }, id, input),
+            () =>
+              previewBrowserAnnotation(
+                { profile, store, processAlive: deps.processAlive },
+                id,
+                input,
+              ),
             opts,
           ),
       },

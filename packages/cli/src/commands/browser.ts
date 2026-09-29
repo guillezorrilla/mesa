@@ -20,6 +20,48 @@ const annotationFlags = {
   'selection-profile': { type: 'string', required: true, description: 'Profile of the selection' },
 } as const;
 
+export const browserSelect = defineCommand({
+  name: 'browser select',
+  summary: 'Register the current browser element for a session',
+  args: ['session'],
+  flags: {
+    url: annotationFlags.url,
+    title: annotationFlags.title,
+    selector: annotationFlags.selector,
+    text: annotationFlags.text,
+    'selection-profile': annotationFlags['selection-profile'],
+    'owner-pid': {
+      type: 'string',
+      required: true,
+      description: 'Native app process that owns the selection',
+    },
+  },
+  example:
+    'mesa browser select a1b2c3d4 --url https://example.com --title Example --selector h1 --text Heading --selection-profile default --owner-pid 1234',
+  run: ({ mesa, args, flags }) => {
+    const data = mesa.sessions.browser.select(args.session, {
+      profile: flags['selection-profile'],
+      url: flags.url,
+      title: flags.title,
+      selector: flags.selector,
+      text: flags.text,
+      ownerPid: Number(flags['owner-pid']),
+    });
+    return { data, text: `selected element for ${args.session}` };
+  },
+});
+
+export const browserClear = defineCommand({
+  name: 'browser clear',
+  summary: 'Invalidate the current browser element for a session',
+  args: ['session'],
+  example: 'mesa browser clear a1b2c3d4',
+  run: ({ mesa, args }) => ({
+    data: mesa.sessions.browser.clear(args.session),
+    text: 'browser selection cleared',
+  }),
+});
+
 export const browserAnnotationPreview = defineCommand({
   name: 'browser annotate-preview',
   summary: 'Preview the exact page element and user comment for a session',

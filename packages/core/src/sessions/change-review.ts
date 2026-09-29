@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { gitCommand } from '../git/command.js';
 import { readGitDiff } from '../git/diff.js';
+import { literalPath } from '../git/path.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -23,6 +24,7 @@ export type ChangeReview = {
   checkout: string;
   path: string;
   staged: boolean;
+  baseKind: 'HEAD' | 'index';
   base: string;
   source: string;
   revision: string;
@@ -48,6 +50,7 @@ export type ChangeReviewPreview = {
   comment: string;
   prompt: string;
   path: string;
+  baseKind: 'HEAD' | 'index';
   base: string;
   staged: boolean;
 };
@@ -69,7 +72,21 @@ export async function changeReview(
     throw new MesaError('usage', 'selected file diff exceeds 1 MiB');
   const head = await gitCommand(deps.run, diff.checkout.path, ['rev-parse', 'HEAD']);
   if (!head.ok) throw new MesaError('usage', `cannot read Git HEAD: ${head.detail}`);
-  const base = head.stdout.trim();
+  const baseKind = staged ? 'HEAD' : 'index';
+  let base = head.stdout.trim();
+  if (!staged) {
+    const index = await gitCommand(deps.run, diff.checkout.path, [
+      'ls-files',
+      '--stage',
+      '-z',
+      '--',
+      literalPath(path),
+    ]);
+    if (!index.ok) throw new MesaError('usage', `cannot read Git index: ${index.detail}`);
+    const entry = index.stdout.match(/^\d+ ([0-9a-f]{40,64}) 0\t/);
+    if (!entry) throw new MesaError('usage', 'selected file has no index base');
+    base = entry[1] as string;
+  }
   const starts = [...diff.patch.matchAll(/^@@ .*$/gm)].map((match) => match.index);
   const hunks = starts.map((start, index) => {
     const text = diff.patch.slice(start, starts[index + 1] ?? diff.patch.length);
@@ -82,9 +99,10 @@ export async function changeReview(
     checkout: diff.checkout.path,
     path,
     staged,
+    baseKind,
     base,
     source: sha(diff.patch),
-    revision: sha(`${base}\0${diff.patch}`),
+    revision: sha(`${baseKind}\0${base}\0${diff.patch}`),
     hunks,
   };
 }
@@ -111,7 +129,7 @@ export async function previewChangeReview(
     Buffer.byteLength(input.comment) > 4 << 10
   )
     throw new MesaError('usage', 'review comment must be 1-4096 bytes and contain no NUL');
-  const prompt = `Review ${input.staged ? 'staged' : 'working'} change in ${change.path} at HEAD ${change.base} (patch ${change.source.slice(0, 12)}).\nQuoted hunk: ${JSON.stringify(hunk.text)}\nComment: ${input.comment}`;
+  const prompt = `Review ${input.staged ? 'staged' : 'working'} change in ${change.path} at ${change.baseKind} ${change.base} (patch ${change.source.slice(0, 12)}).\nQuoted hunk: ${JSON.stringify(hunk.text)}\nComment: ${input.comment}`;
   return {
     id: sha(
       JSON.stringify([
@@ -131,6 +149,7 @@ export async function previewChangeReview(
     comment: input.comment,
     prompt,
     path: change.path,
+    baseKind: change.baseKind,
     base: change.base,
     staged: change.staged,
   };

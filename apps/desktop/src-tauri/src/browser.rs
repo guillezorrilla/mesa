@@ -12,6 +12,11 @@ struct BrowserLoad {
     url: String,
 }
 
+#[tauri::command]
+pub fn browser_owner_pid() -> u32 {
+    std::process::id()
+}
+
 fn label(session: &str) -> Result<String, String> {
     if session.len() != 8
         || !session
@@ -50,6 +55,17 @@ fn bounds(x: f64, y: f64, width: f64, height: f64) -> Result<Rect, String> {
     })
 }
 
+fn bounded(text: &str, bytes: usize) -> String {
+    let mut out = String::new();
+    for character in text.chars() {
+        if out.len() + character.len_utf8() > bytes {
+            break;
+        }
+        out.push(character);
+    }
+    out
+}
+
 /// A remote child webview has no Mesa capability; navigation is limited to web URLs.
 #[tauri::command]
 pub fn browser_open(
@@ -80,7 +96,7 @@ pub fn browser_open(
                 && url.password().is_none()
         })
         .on_page_load(move |_view, payload| {
-            if payload.event() == PageLoadEvent::Finished {
+            if payload.event() == PageLoadEvent::Started {
                 let _ = loaded_app.emit_to(
                     "main",
                     "browser://load",
@@ -180,11 +196,11 @@ pub async fn browser_probe(app: AppHandle, session: String) -> Result<serde_json
     let view = app
         .get_webview(&label(&session)?)
         .ok_or("browser is closed")?;
-    let value = evaluate(view, "({url: location.href, title: document.title, heading: document.querySelector('h1')?.innerText ?? ''})").await?;
+    let value = evaluate(view, "({url: location.href.slice(0, 2048), title: document.title.slice(0, 256), heading: (document.querySelector('h1')?.innerText ?? '').slice(0, 512)})").await?;
     Ok(serde_json::json!({
-        "url": value.get("url").and_then(|value| value.as_str()).unwrap_or("").chars().take(2048).collect::<String>(),
-        "title": value.get("title").and_then(|value| value.as_str()).unwrap_or("").chars().take(256).collect::<String>(),
-        "heading": value.get("heading").and_then(|value| value.as_str()).unwrap_or("").chars().take(512).collect::<String>(),
+        "url": bounded(value.get("url").and_then(|value| value.as_str()).unwrap_or(""), 2048),
+        "title": bounded(value.get("title").and_then(|value| value.as_str()).unwrap_or(""), 256),
+        "heading": bounded(value.get("heading").and_then(|value| value.as_str()).unwrap_or(""), 512),
     }))
 }
 
@@ -220,13 +236,25 @@ pub fn browser_pick_start(app: AppHandle, session: String) -> Result<(), String>
             parts.unshift(part);
           }
           const chosen = event.target;
-          const selector = parts.join(' > ').slice(0, 512);
+          const bound = (text, limit) => {
+            let value = '';
+            let bytes = 0;
+            const encoder = new TextEncoder();
+            for (const character of text) {
+              bytes += encoder.encode(character).length;
+              if (bytes > limit) break;
+              value += character;
+            }
+            return value;
+          };
+          if (new TextEncoder().encode(location.href).length > 2048) return;
+          const selector = bound(parts.join(' > '), 512);
           try { if (document.querySelector(selector) !== chosen) return; } catch { return; }
           window.__mesaPickedElement = {
             url: location.href,
-            title: document.title.slice(0, 256),
+            title: bound(document.title, 256),
             selector,
-            text: (chosen.innerText || '').trim().slice(0, 1024)
+            text: bound((chosen.innerText || '').trim(), 1024)
           };
         };
         document.addEventListener('click', window.__mesaPickListener, true);
@@ -245,10 +273,21 @@ pub async fn browser_pick_result(
         view,
         r#"(() => {
           const picked = window.__mesaPickedElement;
-          if (!picked || picked.url !== location.href || picked.title !== document.title.slice(0, 256)) return null;
+          const bound = (text, limit) => {
+            let value = '';
+            let bytes = 0;
+            const encoder = new TextEncoder();
+            for (const character of text) {
+              bytes += encoder.encode(character).length;
+              if (bytes > limit) break;
+              value += character;
+            }
+            return value;
+          };
+          if (!picked || picked.url !== location.href || picked.title !== bound(document.title, 256)) return null;
           let element;
           try { element = document.querySelector(picked.selector); } catch { return null; }
-          if (!element || (element.innerText || '').trim().slice(0, 1024) !== picked.text) return null;
+          if (!element || bound((element.innerText || '').trim(), 1024) !== picked.text) return null;
           return picked;
         })()"#,
     )
@@ -257,9 +296,9 @@ pub async fn browser_pick_result(
         return Ok(None);
     }
     Ok(Some(serde_json::json!({
-        "url": value.get("url").and_then(|value| value.as_str()).unwrap_or("").chars().take(2048).collect::<String>(),
-        "title": value.get("title").and_then(|value| value.as_str()).unwrap_or("").chars().take(256).collect::<String>(),
-        "selector": value.get("selector").and_then(|value| value.as_str()).unwrap_or("").chars().take(512).collect::<String>(),
-        "text": value.get("text").and_then(|value| value.as_str()).unwrap_or("").chars().take(1024).collect::<String>(),
+        "url": bounded(value.get("url").and_then(|value| value.as_str()).unwrap_or(""), 2048),
+        "title": bounded(value.get("title").and_then(|value| value.as_str()).unwrap_or(""), 256),
+        "selector": bounded(value.get("selector").and_then(|value| value.as_str()).unwrap_or(""), 512),
+        "text": bounded(value.get("text").and_then(|value| value.as_str()).unwrap_or(""), 1024),
     })))
 }

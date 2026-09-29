@@ -19,6 +19,7 @@ export type BrowserProbe = { url: string; title: string; heading: string };
 export type BrowserSelection = { url: string; title: string; selector: string; text: string };
 /** Native child WKWebView; the remote page has no Mesa command capability. */
 export type BrowserHost = {
+  ownerPid: () => Promise<number>;
   open: (sessionId: string, url: string, bounds: BrowserBounds) => Promise<string>;
   navigate: (sessionId: string, url: string) => Promise<void>;
   bounds: (sessionId: string, bounds: BrowserBounds) => Promise<void>;
