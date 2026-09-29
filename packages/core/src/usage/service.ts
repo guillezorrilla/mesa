@@ -4,11 +4,11 @@ import { transcriptFile } from '../agents/claude/transcripts.js';
 import { rolloutForThread } from '../agents/codex/rollouts.js';
 import type { MesaContext } from '../context.js';
 import { loadConfig } from '../profile/config.js';
-import { readHookEvents } from '../sessions/hook-events.js';
+import { scanHookEvents } from '../sessions/hook-events.js';
 import { claudeUsage } from './claude.js';
 import { codexUsage } from './codex.js';
 import type { UsageRecord } from './records.js';
-import { type SourceStamp, usageStore } from './store.js';
+import { type HookStamp, type SourceStamp, usageStore } from './store.js';
 import { summarizeUsage } from './summary.js';
 
 /** Syncs only this profile's sessions into its ledger; removed sessions keep their past usage. */
@@ -20,6 +20,7 @@ export function usageService(ctx: MesaContext) {
       const unknown: { session: string; reason: string }[] = [];
       const cached = ledger.read();
       const scanned: Record<string, SourceStamp> = {};
+      const scannedHooks: Record<string, HookStamp> = {};
       const records = ctx.store.list();
       for (const record of records) {
         if (session && record.id !== session) continue;
@@ -27,26 +28,41 @@ export function usageService(ctx: MesaContext) {
         const previous = Object.values(cached.sources).filter(
           (source) => source.session === record.id,
         );
+        const hook = cached.hooks[record.id] ?? { offset: 0, nativeIds: [], changedIds: [] };
+        const discovered = new Set(hook.nativeIds);
+        const changed = new Set(hook.changedIds);
+        const offset = scanHookEvents(ctx.paths.events, record.id, hook.offset, (event) => {
+          if (event.agent !== record.agent || !event.agentSessionId) return;
+          if (event.event === 'SessionIdentityChanged') changed.add(event.agentSessionId);
+          else discovered.add(event.agentSessionId);
+        });
+        scannedHooks[record.id] = {
+          offset,
+          nativeIds: [...discovered],
+          changedIds: [...changed],
+        };
+        if ([...changed].some((id) => id !== record.agentSessionId))
+          unknown.push({ session: record.id, reason: 'native session identity changed' });
         const nativeIds = new Set([
           ...(record.agentSessionId ? [record.agentSessionId] : []),
           ...previous.map((source) => source.nativeSessionId),
-          ...(!previous.length
-            ? readHookEvents(ctx.paths.events, record.id)
-                .filter((event) => event.agent === record.agent)
-                .flatMap((event) => (event.agentSessionId ? [event.agentSessionId] : []))
-            : []),
+          ...discovered,
         ]);
         if (nativeIds.size === 0) {
           unknown.push({ session: record.id, reason: 'native session id is not available' });
           continue;
         }
         for (const nativeId of nativeIds) {
+          const key = `${record.id}:${nativeId}`;
+          const prior = cached.sources[key];
           const file =
-            record.agent === 'claude'
-              ? transcriptFile(claudeTranscripts(ctx.deps.home), nativeId)
-              : record.agent === 'codex'
-                ? rolloutForThread({ home: ctx.deps.home, env: ctx.deps.env }, nativeId)
-                : undefined;
+            prior?.file && existsSync(prior.file)
+              ? prior.file
+              : record.agent === 'claude'
+                ? transcriptFile(claudeTranscripts(ctx.deps.home), nativeId)
+                : record.agent === 'codex'
+                  ? rolloutForThread({ home: ctx.deps.home, env: ctx.deps.env }, nativeId)
+                  : undefined;
           if (!file) {
             unknown.push({ session: record.id, reason: `${record.agent} usage is unavailable` });
             continue;
@@ -61,8 +77,6 @@ export function usageService(ctx: MesaContext) {
               mtimeMs: stat.mtimeMs,
               reader: 1,
             };
-            const key = `${record.id}:${nativeId}`;
-            const prior = cached.sources[key];
             if (
               prior &&
               prior.file === file &&
@@ -95,7 +109,7 @@ export function usageService(ctx: MesaContext) {
         }
       }
       const rows = ledger
-        .merge(fresh, scanned)
+        .merge(fresh, scanned, scannedHooks)
         .filter((row) => !session || row.session === session);
       const now = ctx.deps.clock();
       const unknownIds = new Set(unknown.map((item) => item.session));

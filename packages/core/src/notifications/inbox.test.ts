@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -147,4 +147,28 @@ test('inbox keeps unread notices when later hooks exceed a bounded scan window',
       .notifications.list()
       .map((item) => item.at),
   ).toEqual(['2026-09-24T12:00:02.000Z', '2026-09-24T12:00:00.000Z']);
+});
+
+test('inbox drops old markers when their notices leave the retained 500', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const session = testStore(home).create(() => newSession());
+  const stateFile = profilePaths(home, 'default').notifications;
+  const file = eventsLog(profilePaths(home, 'default').events, session.id);
+  mkdirSync(dirname(file), { recursive: true });
+  const event = (index: number) =>
+    `${JSON.stringify({ at: new Date(Date.parse('2026-09-24T12:00:00.000Z') + index * 3_000).toISOString(), agent: 'claude', event: 'Stop', payload: {} })}\n`;
+  appendFileSync(file, event(0));
+  const id = mesa.notifications.list()[0]?.id;
+  if (!id) throw new Error('missing first notice');
+  mesa.notifications.markRead(id);
+  mesa.notifications.clear(id);
+  appendFileSync(file, Array.from({ length: 500 }, (_, index) => event(index + 1)).join(''));
+  expect(mesa.notifications.list()).toHaveLength(500);
+  const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
+    read: string[];
+    cleared: string[];
+  };
+  expect(state.read).toEqual([]);
+  expect(state.cleared).toEqual([]);
 });
