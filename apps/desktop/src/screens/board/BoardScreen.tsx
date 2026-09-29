@@ -993,8 +993,13 @@ export function BoardScreen(
             />
           </div>
         ))}
-        {props.selectedSession && reviewOpen && (
-          <ResponseReview key={props.selectedSession} sessionId={props.selectedSession} />
+        {selected?.managed && reviewOpen && (
+          <ResponseReview
+            key={selected.id}
+            sessionId={selected.id}
+            project={selected.project === GENERAL_PROJECT ? undefined : selected.project}
+            checkout={selected.worktree?.path ?? selected.cwd}
+          />
         )}
       </div>
     </section>

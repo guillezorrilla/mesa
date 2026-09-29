@@ -1,6 +1,9 @@
 import type {
   Agent,
   Attached,
+  ChangeReview,
+  ChangeReviewInput,
+  ChangeReviewPreview,
   Checkout,
   ClaudeHooksStatus,
   CommandReference,
@@ -97,6 +100,20 @@ const reviewFlags = (selection: ReviewSelection) => [
   String(selection.start),
   '--end',
   String(selection.end),
+  `--comment=${selection.comment}`,
+];
+type ChangeSelection = ChangeReviewInput & { id: string };
+const changeFlags = (selection: ChangeSelection) => [
+  `--path=${selection.path}`,
+  ...(selection.staged ? ['--staged'] : []),
+  '--source',
+  selection.source,
+  '--revision',
+  selection.revision,
+  '--selection-profile',
+  selection.profile,
+  '--hunk',
+  String(selection.hunk),
   `--comment=${selection.comment}`,
 ];
 
@@ -646,6 +663,34 @@ const COMMANDS = {
     '--',
     id,
   ]),
+  'review.changes': commandWith<{ id: string; path: string; staged?: boolean }, ChangeReview>(
+    ({ id, path, staged }) => [
+      'review',
+      'changes',
+      ...(staged ? ['--staged'] : []),
+      '--',
+      id,
+      path,
+    ],
+  ),
+  'review.changePreview': commandWith<ChangeSelection, ChangeReviewPreview>((selection) => [
+    'review',
+    'change-preview',
+    ...changeFlags(selection),
+    '--',
+    selection.id,
+  ]),
+  'review.changeSend': commandWith<ChangeSelection & { yes?: boolean }, ResponseReviewDelivery>(
+    (selection) => [
+      'review',
+      'change-send',
+      '--no-from',
+      ...changeFlags(selection),
+      ...(selection.yes ? ['--yes'] : []),
+      '--',
+      selection.id,
+    ],
+  ),
   'review.preview': commandWith<ReviewSelection, ResponseReviewPreview>((selection) => [
     'review',
     'preview',
