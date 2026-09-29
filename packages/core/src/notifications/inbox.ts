@@ -37,7 +37,14 @@ const State = z.strictObject({
   cleared: z.array(z.string()),
   delivered: z.array(z.string()).default([]),
   doctor: z
-    .array(z.object({ at: z.iso.datetime(), name: z.string(), status: z.enum(['warn', 'fail']) }))
+    .array(
+      z.object({
+        at: z.iso.datetime(),
+        name: z.string(),
+        status: z.enum(['warn', 'fail']),
+        fingerprint: z.string().optional(),
+      }),
+    )
     .default([]),
   startedAt: z.iso.datetime().optional(),
 });
@@ -143,11 +150,13 @@ export function inbox(ctx: MesaContext) {
         session: '',
         at: finding.at,
         kind: 'doctor' as const,
-        title: `Doctor: ${finding.name} ${finding.status}`,
-        fingerprint: createHash('sha256')
-          .update(`${finding.name}:${finding.status}`)
-          .digest('hex')
-          .slice(0, 20),
+        title: `Doctor: ${finding.name}`,
+        fingerprint:
+          finding.fingerprint ??
+          createHash('sha256')
+            .update(`${finding.name}:${finding.status}`)
+            .digest('hex')
+            .slice(0, 20),
         target: { kind: 'doctor' as const },
       })),
     );
@@ -230,18 +239,23 @@ export function inbox(ctx: MesaContext) {
     recordDoctor: (report: DoctorReport) => {
       const state = read();
       const now = ctx.deps.clock().toISOString();
+      const findings = report.checks.filter((check) => check.status !== 'ok');
+      const fingerprint = createHash('sha256')
+        .update(JSON.stringify(findings.map((check) => [check.name, check.status])))
+        .digest('hex')
+        .slice(0, 20);
       write({
         startedAt: state.startedAt ?? now,
-        doctor: report.checks
-          .filter((check) => check.status !== 'ok')
-          .map((check) => ({
-            name: check.name,
-            status: check.status as 'warn' | 'fail',
-            at:
-              state.doctor.find(
-                (entry) => entry.name === check.name && entry.status === check.status,
-              )?.at ?? now,
-          })),
+        doctor: findings.length
+          ? [
+              {
+                name: `${findings.length} finding${findings.length === 1 ? '' : 's'}`,
+                status: findings.some((check) => check.status === 'fail') ? 'fail' : 'warn',
+                fingerprint,
+                at: state.doctor.find((entry) => entry.fingerprint === fingerprint)?.at ?? now,
+              },
+            ]
+          : [],
       });
     },
   };

@@ -46,7 +46,7 @@ pub async fn notification_request_permission() -> Result<Status, String> {
     let granted = request_auth().await.map_err(|e| e.to_string())?;
     let status = notification_status().await?;
     if !granted && status.authorization == "not-determined" {
-        return Err("macOS did not record a notification permission choice for this app".into());
+        return Err("macOS did not show a permission prompt. Open System Settings > Notifications > Mesa and turn on Allow Notifications".into());
     }
     Ok(status)
 }
