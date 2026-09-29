@@ -1,8 +1,10 @@
 import { RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -11,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useCommand } from '@/lib/useCommand';
+import { useCommand, useRun } from '@/lib/useCommand';
 
 const tokens = (value: number | null) => (value === null ? 'Unknown' : value.toLocaleString());
 const dollars = (value: number | null) =>
@@ -19,8 +21,24 @@ const dollars = (value: number | null) =>
 
 export function UsageScreen() {
   const usage = useCommand('usage.list');
+  const config = useCommand('config.get');
+  const run = useRun();
   const report = usage.data;
   const [days, setDays] = useState<7 | 30 | 90>(7);
+  const [saving, setSaving] = useState(false);
+  const [thresholds, setThresholds] = useState({
+    dailyAlertUsd: '0',
+    weeklyAlertUsd: '0',
+    monthlyAlertUsd: '0',
+  });
+  useEffect(() => {
+    if (config.data)
+      setThresholds({
+        dailyAlertUsd: String(config.data.usage.dailyAlertUsd),
+        weeklyAlertUsd: String(config.data.usage.weeklyAlertUsd),
+        monthlyAlertUsd: String(config.data.usage.monthlyAlertUsd),
+      });
+  }, [config.data]);
   const daily = report?.daily.slice(-days) ?? [];
   const maxTokens = Math.max(
     1,
@@ -42,6 +60,13 @@ export function UsageScreen() {
         <p key={`${item.session}:${item.reason}`} className="text-muted-foreground text-sm">
           {item.session}: {item.reason}
         </p>
+      ))}
+      {report?.alerts.map((alert) => (
+        <Card key={alert.period} role="status" className="p-3 text-sm">
+          Known estimated {alert.period === 'month' ? 'calendar month' : alert.period} cost{' '}
+          {dollars(alert.knownCostUsd)} reached your {dollars(alert.thresholdUsd)} alert. Agents
+          keep running.
+        </Card>
       ))}
       {report && (
         <>
@@ -164,6 +189,59 @@ export function UsageScreen() {
       </Card>
       {report?.rows.length === 0 && (
         <p className="text-muted-foreground text-sm">No qualified native usage yet.</p>
+      )}
+      {config.data && (
+        <Card className="p-4 text-sm">
+          <h3 className="font-medium">Estimated cost alerts</h3>
+          <p className="text-muted-foreground">
+            Informational only. Daily and rolling 7-day periods use UTC; monthly starts on the first
+            of the UTC month. Set 0 to turn an alert off.
+          </p>
+          {(
+            [
+              ['dailyAlertUsd', 'Daily'],
+              ['weeklyAlertUsd', '7 days'],
+              ['monthlyAlertUsd', 'Calendar month'],
+            ] as const
+          ).map(([key, label]) => {
+            const amount = Number(thresholds[key]);
+            const valid = thresholds[key].trim() !== '' && Number.isFinite(amount) && amount >= 0;
+            return (
+              <div key={key} className="mt-3 flex items-center gap-2">
+                <Label className="w-28" htmlFor={`usage-${key}`}>
+                  {label} (USD)
+                </Label>
+                <Input
+                  id={`usage-${key}`}
+                  className="max-w-40"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={thresholds[key]}
+                  aria-invalid={!valid}
+                  onChange={(event) =>
+                    setThresholds((old) => ({ ...old, [key]: event.target.value }))
+                  }
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={saving || !valid || amount === config.data?.usage[key]}
+                  onClick={() => {
+                    setSaving(true);
+                    void run('config.set', { path: `usage.${key}`, value: amount })
+                      .then(async (result) => {
+                        if (result) await Promise.all([config.refresh(), usage.refresh()]);
+                      })
+                      .finally(() => setSaving(false));
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+            );
+          })}
+        </Card>
       )}
     </section>
   );

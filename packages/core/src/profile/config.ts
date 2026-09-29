@@ -49,6 +49,13 @@ const ConfigSchema = z.strictObject({
     })
     .prefault({}),
   sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
+  usage: z
+    .strictObject({
+      dailyAlertUsd: z.number().finite().nonnegative().default(0),
+      weeklyAlertUsd: z.number().finite().nonnegative().default(0),
+      monthlyAlertUsd: z.number().finite().nonnegative().default(0),
+    })
+    .prefault({}),
   terminal: z.strictObject({ app: z.enum(TERMINAL_APPS).default('Terminal') }).prefault({}),
   editor: z
     .strictObject({

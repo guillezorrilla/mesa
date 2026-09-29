@@ -41,7 +41,18 @@ export function summarizeUsage(
     byModel.set(key, [...(byModel.get(key) ?? []), row]);
   }
   return {
-    periods: { today: period(1), '7d': period(7), '30d': period(30), '90d': period(90) },
+    periods: {
+      today: period(1),
+      '7d': period(7),
+      '30d': period(30),
+      '90d': period(90),
+      month: totals(
+        rows.filter((row) => {
+          const at = Date.parse(row.at);
+          return at >= Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) && at <= now.getTime();
+        }),
+      ),
+    },
     daily: Array.from({ length: 90 }, (_, index) => {
       const day = new Date(today - (89 - index) * 86_400_000).toISOString().slice(0, 10);
       return { day, totals: totals(byDay.get(day) ?? []) };

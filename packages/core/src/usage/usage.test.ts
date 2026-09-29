@@ -1,6 +1,8 @@
 import { appendFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
+import { setConfigValue } from '../profile/config.js';
+import { profilePaths } from '../profile/paths.js';
 import {
   codexWorld,
   fixedClock,
@@ -70,6 +72,15 @@ test('Claude repeated message updates count once, survive removal, and stay in t
   expect(first.breakdown).toMatchObject([
     { agent: 'claude', model: 'claude-opus-5-5', totals: { events: 1 } },
   ]);
+  const config = profilePaths(home, 'default').config;
+  setConfigValue(config, 'usage.dailyAlertUsd', '0.0001');
+  setConfigValue(config, 'usage.weeklyAlertUsd', '0.0002');
+  setConfigValue(config, 'usage.monthlyAlertUsd', '0.0001');
+  expect((await mesa.usage.list()).alerts).toEqual([
+    { period: 'today', thresholdUsd: 0.0001, knownCostUsd: 0.000167 },
+    { period: 'month', thresholdUsd: 0.0001, knownCostUsd: 0.000167 },
+  ]);
+  expect((await mesa.usage.list(record.id)).alerts).toEqual([]);
   testStore(home).remove(record.id);
   expect((await mesa.usage.list()).rows).toEqual(first.rows);
   expect((await createMesa('other', testDeps(home)).usage.list()).rows).toEqual([]);

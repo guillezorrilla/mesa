@@ -1717,6 +1717,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     skills: [],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
+    usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
