@@ -31,6 +31,7 @@ import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { nativeHistory } from './history.js';
 import { readHookEvents } from './hook-events.js';
+import { previewSessionImage, sessionImagePrompt } from './images.js';
 import { instructionStatus } from './instructions.js';
 import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
@@ -240,6 +241,25 @@ export function sessionsService(
     },
     sessions: {
       list: board,
+      images: {
+        preview: (id: string, path: string) =>
+          previewSessionImage({ profile, store, absolute }, id, path),
+        prompt: (
+          id: string,
+          path: string,
+          revision: string,
+          expectedProfile: string,
+          note?: string,
+        ) =>
+          sessionImagePrompt(
+            { profile, store, absolute },
+            id,
+            path,
+            revision,
+            expectedProfile,
+            note,
+          ),
+      },
       /** The board as a tree: children under their parent, each row with its depth. */
       tree: async (all = false) => sessionTree(await board(all)),
       moveOnBoard: async (id: string, direction: -1 | 1) => {
