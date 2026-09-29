@@ -44,7 +44,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
   expect(loadConfig(paths.config)).toEqual({
     vault: '/tmp/v',
     defaultAgent: 'claude',
-    skills: ['mesa', 'mesa-handoff'],
+    skills: ['mesa', 'mesa-handoff', 'mesa-vault'],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },

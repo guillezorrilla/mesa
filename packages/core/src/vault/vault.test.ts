@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { fixedClock, tempDir, thrown } from '../testing/index.js';
+import { fixedClock, tempDir, testDeps, thrown } from '../testing/index.js';
 import { initVault as init, vaultStatus } from './vault.js';
 
 /** ADR-0006's layout, in creation order: what vault init lays out. */
@@ -52,6 +52,29 @@ test('fresh: creates every folder and file, AGENTS.md from the template, log.md 
   expect(vaultStatus(vault)).toEqual({ path: vault, ok: true, missing: [] });
 });
 
+test('the AGENTS.md template holds the conventions mesa-vault teaches and the receipt policy', () => {
+  const skill = readFileSync(join(testDeps(tempDir()).skillsDir, 'mesa-vault/SKILL.md'), 'utf8');
+  for (const convention of [
+    'projects/<name>.md',
+    'Purpose, Status, Decisions, Links',
+    '`project: <name>`',
+    '`index.md`',
+    '[[wikilinks]]',
+    'wiki/decisions/<YYYY-MM-DD>-<slug>.md',
+    'wiki/sessions/<id>.md',
+    'wiki/notes/',
+    'locked: true',
+    '<!-- keep -->',
+  ]) {
+    expect(template).toContain(convention);
+    expect(skill).toContain(convention);
+  }
+  expect(template).toContain(
+    'a deliberate decision with its rationale, a material guardrail block or override, and a substantive change to a vault note',
+  );
+  expect(template).not.toMatch(/after every action/);
+});
+
 test('idempotent: a second run on a complete vault changes no file, contents or mtimes', () => {
   initVault({ path: vault });
   const before = snapshot(vault);
@@ -64,11 +87,16 @@ test('missing folder: status lists it and init creates only it, keeping edited f
   initVault({ path: vault });
   rmSync(join(vault, 'receipts'), { recursive: true });
   writeFileSync(join(vault, 'index.md'), '# My index\n');
+  // A vault laid out from an earlier template keeps its AGENTS.md.
+  writeFileSync(join(vault, 'AGENTS.md'), '# Vault schema\n\nReceipts after every action.\n');
   const kept = snapshot(join(vault, 'wiki'));
 
   expect(vaultStatus(vault)).toEqual({ path: vault, ok: false, missing: ['receipts'] });
   expect(initVault({ path: vault }).created).toEqual(['receipts']);
   expect(readFileSync(join(vault, 'index.md'), 'utf8')).toBe('# My index\n');
+  expect(readFileSync(join(vault, 'AGENTS.md'), 'utf8')).toBe(
+    '# Vault schema\n\nReceipts after every action.\n',
+  );
   expect(snapshot(join(vault, 'wiki'))).toEqual(kept);
   expect(vaultStatus(vault).ok).toBe(true);
   expect(vaultStatus(join(vault, 'nope')).missing).toEqual(VAULT_LAYOUT);

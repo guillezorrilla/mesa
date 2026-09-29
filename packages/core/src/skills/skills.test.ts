@@ -63,6 +63,20 @@ test('every skill Mesa ships has the frontmatter both agents read; both landing 
   for (const s of shipped) expect(s.description.length).toBeGreaterThan(20);
 });
 
+test('the library ships mesa-vault and the Obsidian skills, each with its upstream NOTICE', () => {
+  const shipped = readLibrary(testDeps(tempDir()).skillsDir);
+  const obsidian = ['obsidian-markdown', 'obsidian-bases', 'json-canvas', 'obsidian-cli'];
+  expect(shipped.map((s) => s.name)).toEqual(expect.arrayContaining(['mesa-vault', ...obsidian]));
+  for (const name of obsidian) {
+    const folder = shipped.find((s) => s.name === name)?.path as string;
+    expect(readFileSync(join(folder, 'NOTICE'), 'utf8')).toMatch(
+      new RegExp(
+        `github\\.com/kepano/obsidian-skills, path skills/${name},\\nat commit [0-9a-f]{40}\\.[\\s\\S]*\\nMIT License\\n`,
+      ),
+    );
+  }
+});
+
 test("list merges the library with the profile's set, the project's extras, and its own skills", () => {
   const { dir, mesa } = setUp();
   expect(mesa.skills.list()).toEqual([
