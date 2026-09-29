@@ -9,6 +9,7 @@ import { profilePaths } from './profile/paths.js';
 import { openProfile, type Profile } from './profile/profile.js';
 import { redactCommand } from './receipts/command.js';
 import { actionRecorder } from './receipts/recorder.js';
+import type { BrowserPageSelection } from './sessions/browser-annotation.js';
 import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux/backend.js';
 import type { ObsidianPaths } from './vault/obsidian.js';
@@ -31,6 +32,8 @@ export type MesaDeps = {
   run: Runner;
   /** Whether the native browser owner still exists after a renderer/app restart. */
   processAlive: (pid: number) => boolean;
+  /** Read the current element from the owning native webview before browser feedback is sent. */
+  browserSelection: (pid: number, session: string) => Promise<BrowserPageSelection | undefined>;
   obsidian: ObsidianPaths;
   /** This invocation's arguments, recorded (key values redacted) in every receipt. */
   argv: readonly string[];

@@ -21,6 +21,7 @@ import { sessionTree } from './board/tree.js';
 import { openBrowserExternal } from './browser-address.js';
 import {
   clearBrowserElement,
+  liveBrowserAnnotation,
   previewBrowserAnnotation,
   selectBrowserElement,
 } from './browser-annotation.js';
@@ -377,8 +378,13 @@ export function sessionsService(
             id,
             'browser',
             () =>
-              previewBrowserAnnotation(
-                { profile, store, processAlive: deps.processAlive },
+              liveBrowserAnnotation(
+                {
+                  profile,
+                  store,
+                  processAlive: deps.processAlive,
+                  liveSelection: deps.browserSelection,
+                },
                 id,
                 input,
               ),

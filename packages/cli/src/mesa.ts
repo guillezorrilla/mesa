@@ -19,6 +19,7 @@ const { execRunner, macObsidianPaths, systemClock, ulidSource } = await import('
 const { runCli } = await import('./cli.js');
 const { COMMANDS } = await import('./commands/index.js');
 const { terminalConfirm } = await import('./confirm.js');
+const { browserSelection } = await import('./browser-selection.js');
 
 /** All of stdin, for a hook's payload. */
 const readStdin = async () => {
@@ -56,6 +57,7 @@ const { code, stdout, stderr, exec } = await runCli(argv, {
         return false;
       }
     },
+    browserSelection,
     obsidian: macObsidianPaths(home),
     argv,
     // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js).

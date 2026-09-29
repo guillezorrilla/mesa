@@ -28,7 +28,11 @@ export type BrowserAnnotationPreview = {
   selector: string;
 };
 
-type Selection = Omit<BrowserAnnotationInput, 'comment' | 'source' | 'revision'>;
+export type BrowserPageSelection = Pick<
+  BrowserAnnotationInput,
+  'url' | 'title' | 'selector' | 'text'
+>;
+type Selection = BrowserPageSelection & Pick<BrowserAnnotationInput, 'profile'>;
 
 /** Register the active page element so a saved CLI send cannot revive a stale selection. */
 export function selectBrowserElement(
@@ -112,4 +116,29 @@ export function previewBrowserAnnotation(
     url,
     selector: input.selector,
   };
+}
+
+/** Ask the owning webview at delivery time; a stored selection alone cannot prove a live page. */
+export async function liveBrowserAnnotation(
+  deps: {
+    profile: string;
+    store: SessionStore;
+    processAlive: (pid: number) => boolean;
+    liveSelection: (pid: number, session: string) => Promise<BrowserPageSelection | undefined>;
+  },
+  id: string,
+  input: BrowserAnnotationInput,
+): Promise<BrowserAnnotationPreview> {
+  previewBrowserAnnotation(deps, id, input);
+  const owner = deps.store.get(id).browserSelection?.ownerPid;
+  const live = owner && (await deps.liveSelection(owner, id));
+  if (
+    !live ||
+    live.url !== input.url ||
+    live.title !== input.title ||
+    live.selector !== input.selector ||
+    live.text !== input.text
+  )
+    throw new MesaError('locked', 'the browser selection changed; pick the element again');
+  return previewBrowserAnnotation(deps, id, input);
 }
