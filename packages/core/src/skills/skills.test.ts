@@ -122,6 +122,66 @@ test('inventory keeps native sources and same-name conflicts visible without cha
   expect(existsSync(join(dir, '.claude/skills/shared/SKILL.md'))).toBe(true);
 });
 
+test('inventory reads installed Claude plugin skills and all their support files', () => {
+  const { home, dir, mesa } = setUp();
+  const cache = join(home, '.claude/plugins/cache/example/map/1.0.0');
+  skill(join(cache, 'skills'), 'shared');
+  skill(join(dir, '.claude/skills'), 'shared');
+  skill(join(home, '.claude/skills'), 'quiet');
+  skill(join(home, '.claude/plugins/cache/example/off/1.0.0/skills'), 'off-plugin');
+  const plugin = join(cache, 'skills/shared');
+  for (let i = 0; i < 40; i++) {
+    writeFileSync(join(plugin, `reference-${i}.md`), `support ${i}\n`);
+  }
+  mkdirSync(join(home, '.claude/plugins'), { recursive: true });
+  writeFileSync(
+    join(home, '.claude/plugins/installed_plugins.json'),
+    JSON.stringify({
+      version: 2,
+      plugins: {
+        'map@example': [
+          { scope: 'user', installPath: cache },
+          {
+            scope: 'project',
+            projectPath: '/another/project',
+            installPath: join(home, 'elsewhere'),
+          },
+        ],
+        'off@example': [
+          { scope: 'user', installPath: join(home, '.claude/plugins/cache/example/off/1.0.0') },
+        ],
+      },
+    }),
+  );
+  writeFileSync(
+    join(home, '.claude/settings.json'),
+    JSON.stringify({
+      enabledPlugins: { 'map@example': true, 'off@example': false },
+      skillOverrides: { quiet: 'off' },
+    }),
+  );
+  skill(join(home, 'elsewhere/skills'), 'unrelated');
+  const rows = mesa.skills.inventory('lantern-cove');
+  expect(rows.find((row) => row.path === plugin)).toMatchObject({
+    scope: 'plugin',
+    providers: ['claude'],
+    writable: false,
+    readOnlyReason: 'Managed by a provider plugin',
+    conflicts: [join(dir, '.claude/skills/shared')],
+  });
+  expect(rows.some((row) => row.name === 'unrelated')).toBe(false);
+  expect(rows.find((row) => row.name === 'off-plugin')).toMatchObject({
+    enabled: false,
+    disabledFor: ['claude'],
+  });
+  expect(rows.find((row) => row.name === 'quiet')).toMatchObject({
+    enabled: false,
+    disabledFor: ['claude'],
+  });
+  expect(rows.find((row) => row.path === plugin)?.supportFiles).toHaveLength(40);
+  expect(mesa.skills.read(plugin, 'lantern-cove', 'reference-39.md').text).toBe('support 39\n');
+});
+
 test('inventory distinguishes malformed folders and lists nested support files in CLI roots', () => {
   const { home, dir, mesa } = setUp();
   skill(join(dir, '.agent/skills'), 'legacy');

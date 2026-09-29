@@ -228,6 +228,46 @@ test('project Skills can enable a shipped skill through the project policy and s
   expect(calls).toContainEqual(['--json', 'skills', 'sync', '--', 'lantern-cove']);
 });
 
+test('project Skills does not offer to disable a skill inherited from the profile', async () => {
+  const defaults = (await fakeBridge().bridge(['--json', 'config', 'get'])) as {
+    data: Config;
+  };
+  const { bridge } = fakeBridge({
+    projects: () => envelope([{ ...PROJECTS[0], skills: ['session-summary'] }]),
+    config: () => envelope({ ...defaults.data, skills: ['session-summary'] }),
+    'skills list': () =>
+      envelope([
+        {
+          id: '/library/session-summary',
+          path: '/library/session-summary',
+          name: 'session-summary',
+          description: 'Summarize a session',
+          source: 'mesa',
+          scope: 'mesa',
+          providers: ['claude', 'codex', 'antigravity'],
+          enabled: true,
+          supportFiles: [],
+          writable: false,
+          conflicts: [],
+        },
+      ]),
+    'skills read': () =>
+      envelope({ path: 'SKILL.md', text: '# Summary\n', revision: 'a'.repeat(64), lines: 2 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('session-summary')),
+  );
+  const text = byTestId('skills-workspace')[0]?.textContent ?? '';
+  expect(text).toContain('Remove project override');
+  expect(text).toContain('Enabled by the profile in every project.');
+  expect(text).not.toContain('Disable in project');
+});
+
 test('project native history imports a Codex conversation through the existing session action', async () => {
   const nativeId = '01a0e14e-be41-72f1-a81b-e25d2198602a';
   const { bridge, calls } = fakeBridge({

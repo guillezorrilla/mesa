@@ -208,14 +208,20 @@ export function SkillsWorkspace(props: {
                 >
                   {inProfile ? 'Disable in profile' : 'Enable in profile'}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={acting || !projects.data}
-                  onClick={() => void toggleProject(selected, !inProject)}
-                >
-                  {inProject ? 'Disable in project' : 'Enable in project'}
-                </Button>
+                {(!inProfile || inProject) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={acting || !projects.data}
+                    onClick={() => void toggleProject(selected, !inProject)}
+                  >
+                    {inProject && inProfile
+                      ? 'Remove project override'
+                      : inProject
+                        ? 'Disable in project'
+                        : 'Enable in project'}
+                  </Button>
+                )}
               </>
             )}
             {selected.writable && dirty && (
@@ -236,6 +242,9 @@ export function SkillsWorkspace(props: {
           {selected.invalidReason && <p className="text-xs">{selected.invalidReason}</p>}
           {selected.enabled && selected.source === 'mesa' && !inProfile && inProject && (
             <p className="text-xs">Enabled by the project's mesa.yaml skill policy.</p>
+          )}
+          {selected.source === 'mesa' && inProfile && (
+            <p className="text-xs">Enabled by the profile in every project.</p>
           )}
           {selected.conflicts.length > 0 && (
             <p className="break-all text-xs text-state-attention">
