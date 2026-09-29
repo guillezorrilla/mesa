@@ -127,11 +127,12 @@ export function InboxScreen({
                   >
                     <NativeSelectOption value="off">Off</NativeSelectOption>
                     <NativeSelectOption value="silent">Banner, silent</NativeSelectOption>
-                    <NativeSelectOption value="sound">Banner and sound</NativeSelectOption>
+                    <NativeSelectOption value="sound">Banner, request sound</NativeSelectOption>
                   </NativeSelect>
                 </div>
               ))}
             </div>
+            <p className="text-muted-foreground">macOS controls whether requested sounds play.</p>
           </>
         )}
       </Card>
