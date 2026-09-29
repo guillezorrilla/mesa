@@ -2268,6 +2268,41 @@ test('authorized native delivery and a click from before app launch open the exa
   expect(byTestId('doctor-panel')).toHaveLength(1);
 });
 
+test('a dismissed macOS notification request remains optional', async () => {
+  const status = {
+    authorization: 'not-determined' as const,
+    alertsEnabled: false,
+    soundsEnabled: false,
+  };
+  let requests = 0;
+  const { bridge } = fakeBridge({ 'notifications list': () => envelope([]) });
+  const byTestId = await renderWithMesa(
+    <App startOnBoard />,
+    bridge,
+    fakePlatform({
+      notifications: {
+        status: async () => status,
+        requestPermission: async () => {
+          requests++;
+          return status;
+        },
+        send: async () => {},
+        onOpen: async () => () => {},
+        takeOpened: async () => null,
+      },
+    }),
+  );
+  await click(byTestId('nav-inbox')[0]);
+  expect(requests).toBe(0);
+  await click(
+    [...document.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Enable notifications',
+    ),
+  );
+  expect(requests).toBe(1);
+  expect(byTestId('inbox-panel')[0]?.textContent).toContain('Permission: not-determined');
+});
+
 test('a usage threshold alerts during session work and opens Usage', async () => {
   const zero = {
     events: 0,

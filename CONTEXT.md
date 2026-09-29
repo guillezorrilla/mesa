@@ -167,6 +167,21 @@ The same context reading carries the native model and per-turn effort when prese
 
 Not: context (alone, which the Composition root avoids), tokens, usage.
 
+## Usage ledger
+
+Profile-local normalized token readings from native Claude and Codex records, stored in `~/.mesa/<profile>/usage.json` independently of vault receipts. Each reading names its Mesa and native session, provider, model, time, token categories, and price version; an unavailable reading or price remains Unknown. Cost is an estimated standard API list price, not account billing. `mesa usage --json` and the app's Usage view show session and aggregate totals, daily UTC buckets, and informational cost alerts. Source file stamps let repeated reads skip unchanged native records.
+Not: Context use, billing, receipt.
+
+## Inbox
+
+The profile-local list of input-required, finished, subagent, and Doctor notices, projected from redacted hook events and kept in `~/.mesa/<profile>/notifications.json`. It retains the newest 500 hook notices and current Doctor findings, with read, cleared, and delivered state across restarts. A notice opens its exact Mesa session or Doctor; native delivery obeys per-kind sound, visual, and quiet settings and never answers an agent's permission request.
+Not: vault history, session state.
+
+## Weekly Rewind
+
+A read-only summary of the last seven local calendar days: meaningful decision and vault-change notes, ended sessions, and usage readings, with links to the exact evidence. It names missing usage or vault data rather than treating it as zero, and writes no replacement receipt or activity stream.
+Not: automated workflow, global activity feed.
+
 ## Attention score
 
 A number from 0 to 1 per session: how urgently the user is needed. Faro computes it as a `Score` over the levels none, low, medium, high, and urgent, from the state, the time in that state, and the project's `priority`. The bands never overlap across states:

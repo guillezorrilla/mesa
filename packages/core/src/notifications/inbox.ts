@@ -8,7 +8,7 @@ import { writeFileAtomic } from '../lib/atomic-file.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { type HookEvent, parentHook, readHookEvents } from '../sessions/hook-events.js';
+import { type HookEvent, parentHook, scanHookEvents } from '../sessions/hook-events.js';
 
 export type InboxItem = {
   id: string;
@@ -32,10 +32,25 @@ export type DeliveryPlan =
       target: { kind: 'session'; id: string } | { kind: 'inbox' } | { kind: 'doctor' };
     };
 
+const CandidateSchema = z.strictObject({
+  session: z.string(),
+  at: z.iso.datetime(),
+  kind: z.enum(['input-required', 'finished', 'subagent', 'doctor']),
+  title: z.string(),
+  fingerprint: z.string(),
+  target: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('session'), id: z.string() }),
+    z.strictObject({ kind: z.literal('doctor') }),
+  ]),
+});
+type Candidate = z.infer<typeof CandidateSchema>;
+
 const State = z.strictObject({
   read: z.array(z.string()),
   cleared: z.array(z.string()),
   delivered: z.array(z.string()).default([]),
+  items: z.array(CandidateSchema).default([]),
+  offsets: z.record(z.string(), z.number().int().nonnegative()).default({}),
   doctor: z
     .array(
       z.object({
@@ -49,10 +64,7 @@ const State = z.strictObject({
   startedAt: z.iso.datetime().optional(),
 });
 type State = z.infer<typeof State>;
-const EMPTY: State = { read: [], cleared: [], delivered: [], doctor: [] };
-type Candidate = Pick<InboxItem, 'session' | 'at' | 'kind' | 'title' | 'target'> & {
-  fingerprint: string;
-};
+const EMPTY: State = { read: [], cleared: [], delivered: [], doctor: [], items: [], offsets: {} };
 
 function itemFor(session: string, event: HookEvent): Candidate | undefined {
   if (!Number.isFinite(Date.parse(event.at))) return undefined;
@@ -105,7 +117,7 @@ function itemFor(session: string, event: HookEvent): Candidate | undefined {
   };
 }
 
-/** An inbox derived from the profile's redacted hooks; only read/clear markers need their own file. */
+/** A bounded, durable inbox projected from the profile's redacted hooks. */
 export function inbox(ctx: MesaContext) {
   const file = ctx.paths.notifications;
   const read = (): State => {
@@ -124,11 +136,28 @@ export function inbox(ctx: MesaContext) {
       lock,
       () => {
         const current = read();
+        const entries = [...current.items, ...(state.items ?? [])].sort((a, b) =>
+          a.at.localeCompare(b.at),
+        );
+        const distinct: Candidate[] = [];
+        const last = new Map<string, number>();
+        for (const entry of entries) {
+          const at = Date.parse(entry.at);
+          if (at - (last.get(entry.fingerprint) ?? -Infinity) < 2_000) continue;
+          distinct.push(entry);
+          last.set(entry.fingerprint, at);
+        }
         const next = {
           read: [...new Set([...current.read, ...(state.read ?? [])])],
           cleared: [...new Set([...current.cleared, ...(state.cleared ?? [])])],
           // The inbox keeps 500 events, so 1,000 recent acknowledgements cover restart reads.
           delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])].slice(-1_000),
+          items: distinct.slice(-500),
+          offsets: Object.fromEntries(
+            [
+              ...new Set([...Object.keys(current.offsets), ...Object.keys(state.offsets ?? {})]),
+            ].map((id) => [id, Math.max(current.offsets[id] ?? 0, state.offsets?.[id] ?? 0)]),
+          ),
           doctor: state.doctor ?? current.doctor,
           startedAt: current.startedAt ?? state.startedAt,
         };
@@ -139,14 +168,22 @@ export function inbox(ctx: MesaContext) {
     );
   };
   const list = (): InboxItem[] => {
-    const entries: Candidate[] = ctx.store.list().flatMap((record) =>
-      readHookEvents(ctx.paths.events, record.id, 128 * 1024).flatMap((event) => {
+    const current = read();
+    const fresh: Candidate[] = [];
+    const offsets: Record<string, number> = {};
+    for (const record of ctx.store.list()) {
+      const before = current.offsets[record.id] ?? 0;
+      const after = scanHookEvents(ctx.paths.events, record.id, before, (event) => {
         const item = itemFor(record.id, event);
-        return item ? [item] : [];
-      }),
-    );
+        if (item) fresh.push(item);
+      });
+      if (after !== before) offsets[record.id] = after;
+    }
+    const state =
+      fresh.length || Object.keys(offsets).length ? write({ items: fresh, offsets }) : current;
+    const entries: Candidate[] = [...state.items];
     entries.push(
-      ...read().doctor.map((finding) => ({
+      ...state.doctor.map((finding) => ({
         session: '',
         at: finding.at,
         kind: 'doctor' as const,
@@ -161,18 +198,7 @@ export function inbox(ctx: MesaContext) {
       })),
     );
     entries.sort((a, b) => a.at.localeCompare(b.at));
-    const distinct: typeof entries = [];
-    const last = new Map<string, number>();
-    for (const entry of entries) {
-      const at = Date.parse(entry.at);
-      if (at - (last.get(entry.fingerprint) ?? -Infinity) < 2_000) continue;
-      distinct.push(entry);
-      last.set(entry.fingerprint, at);
-    }
-    const state = read();
-    // ponytail: read the tail of each log; index hooks if 128 KiB per session misses useful history.
-    return distinct
-      .slice(-500)
+    return entries
       .filter((entry) => !state.cleared.includes(`${entry.at}:${entry.fingerprint}`))
       .map(({ fingerprint, ...entry }) => ({
         ...entry,

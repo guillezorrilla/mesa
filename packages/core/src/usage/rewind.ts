@@ -49,7 +49,9 @@ export function rewindService(ctx: MesaContext, usage: ReturnType<typeof usageSe
       const recent = new Set(
         records
           .filter(
-            (record) => within(record.startedAt) || (record.endedAt && within(record.endedAt)),
+            (record) =>
+              Date.parse(record.startedAt) <= now.getTime() &&
+              (!record.endedAt || Date.parse(record.endedAt) > start.getTime()),
           )
           .map((record) => record.id),
       );

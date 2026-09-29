@@ -1,5 +1,7 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { claudeTranscripts } from '../agents/claude/paths.js';
+import { transcriptFile } from '../agents/claude/transcripts.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import { profilePaths } from '../profile/paths.js';
@@ -95,6 +97,59 @@ test('Claude repeated message updates count once, survive removal, and stay in t
   store.remove(record.id);
   expect((await mesa.usage.list()).rows).toEqual(first.rows);
   expect((await createMesa('other', testDeps(home)).usage.list()).rows).toEqual([]);
+});
+
+test('usage preserves older ledgers and refreshes only when a native file changes', async () => {
+  const { run } = scriptedRunner();
+  const { home, dir, mesa } = projectProfile(run, {
+    clock: fixedClock('2026-09-24T12:10:00.000Z'),
+  });
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  const message = (id: string, output: number) =>
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: at,
+      message: {
+        id,
+        model: 'claude-opus-5-5',
+        usage: {
+          input_tokens: 1,
+          output_tokens: output,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    });
+  plantTranscript(home, nativeId, dir, message('first', 2));
+  const first = await mesa.usage.list();
+  const ledger = profilePaths(home, 'default').usage;
+  writeFileSync(ledger, JSON.stringify(first.rows));
+  expect((await createMesa('default', testDeps(home)).usage.list()).rows).toEqual(first.rows);
+  expect(Object.keys(JSON.parse(readFileSync(ledger, 'utf8')).sources)).toHaveLength(1);
+  const transcript = transcriptFile(claudeTranscripts(home), nativeId);
+  if (!transcript) throw new Error('missing invented transcript');
+  appendFileSync(transcript, `\n${message('second', 4)}`);
+  expect((await mesa.usage.list()).periods.today.output).toBe(6);
+});
+
+test('an unreadable native usage source stays unknown', async () => {
+  const { run } = scriptedRunner();
+  const { home, dir, mesa } = projectProfile(run, {
+    clock: fixedClock('2026-09-24T12:10:00.000Z'),
+  });
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  const record = testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  plantTranscript(home, nativeId, dir);
+  const file = transcriptFile(claudeTranscripts(home), nativeId);
+  if (!file) throw new Error('missing invented transcript');
+  unlinkSync(file);
+  mkdirSync(file);
+  const report = await mesa.usage.list();
+  expect(report.unknown).toEqual([
+    { session: record.id, reason: 'native usage file could not be read' },
+  ]);
+  expect(report.periods.today.estimatedCostUsd).toBeNull();
 });
 
 test('Codex cumulative totals contribute only positive deltas, not repeated compaction totals', async () => {
