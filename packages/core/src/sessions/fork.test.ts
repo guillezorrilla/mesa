@@ -1,12 +1,15 @@
-import { expect, test } from 'vitest';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import {
   agentWorld,
   gitRepo,
+  isolateGit,
   projectProfile,
   steppingClock,
   testGit,
   withRealGit,
 } from '../testing/index.js';
+
+isolateGit({ beforeAll, afterAll });
 
 test('Claude fork keeps the source and opens a new native conversation in the chosen checkout', async () => {
   const world = agentWorld();
