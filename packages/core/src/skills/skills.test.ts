@@ -211,6 +211,36 @@ test('inventory distinguishes malformed folders and lists nested support files i
   expect(rows.some((row) => row.name === 'synced')).toBe(false);
 });
 
+test('inventory skips a linked file in a skills root and reads a linked SKILL.md, read-only', () => {
+  const { home, mesa } = setUp();
+  const root = join(home, '.claude/skills');
+  mkdirSync(join(home, 'dotfiles/stowed'), { recursive: true });
+  writeFileSync(join(home, 'dotfiles/README.md'), 'Invented notes\n');
+  writeFileSync(
+    join(home, 'dotfiles/stowed/SKILL.md'),
+    '---\nname: stowed\ndescription: A skill whose SKILL.md is a link\n---\n',
+  );
+  mkdirSync(join(root, 'stowed'), { recursive: true });
+  symlinkSync(join(home, 'dotfiles/README.md'), join(root, 'README.md'));
+  symlinkSync(join(home, 'dotfiles/stowed/SKILL.md'), join(root, 'stowed/SKILL.md'));
+  const rows = mesa.skills.inventory();
+  expect(rows.some((row) => row.name === 'README.md')).toBe(false);
+  const stowed = rows.find((row) => row.name === 'stowed');
+  expect(stowed).toMatchObject({
+    description: 'A skill whose SKILL.md is a link',
+    enabled: true,
+    writable: false,
+    readOnlyReason: 'Linked SKILL.md',
+  });
+  expect(stowed?.invalidReason).toBeUndefined();
+  const id = join(root, 'stowed');
+  expect(thrown(() => mesa.skills.write(id, 'changed', 'any revision'))).toMatchObject({
+    code: 'usage',
+    message: 'Linked SKILL.md',
+  });
+  expect(readFileSync(join(home, 'dotfiles/stowed/SKILL.md'), 'utf8')).toContain('name: stowed');
+});
+
 test('inventory reports a skill disabled by Codex without editing its native config', () => {
   const { home, mesa } = setUp();
   skill(join(home, '.agents/skills'), 'codex-only');
@@ -237,6 +267,13 @@ test('project skill policy changes preserve mesa.yaml comments and leave profile
   expect(thrown(() => mesa.skills.setProject('lantern-cove', 'unknown', true))).toMatchObject({
     code: 'not_found',
   });
+  // The profile enables a: one project cannot turn it off, so it is refused, not a quiet no-op.
+  const policy = readFileSync(join(dir, 'mesa.yaml'), 'utf8');
+  expect(thrown(() => mesa.skills.setProject('lantern-cove', 'a', false))).toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining("profile default's skills"),
+  });
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(policy);
 });
 
 test('skill documents use the checked editor and reject stale or read-only writes', () => {

@@ -193,3 +193,43 @@ test('recycle previews exact path, cancellation is read-only, and confirmation s
     '/tmp/feature',
   ]);
 });
+
+test('worktree list settings keep the text as typed and save one entry per line', async () => {
+  const { bridge, calls } = fakeBridge({
+    'worktrees list': () => envelope([]),
+    'config set': () => envelope({ path: 'worktrees', value: {}, receipt: null }),
+  });
+  await renderWithMesa(<WorktreesWorkspace project="lantern-cove" onSession={() => {}} />, bridge);
+  const field = (id: string) => document.getElementById(id) as HTMLTextAreaElement;
+  const type = (id: string, value: string) =>
+    act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(
+        field(id),
+        value,
+      );
+      field(id).dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  await type('worktree-sparse', 'src\n');
+  expect(field('worktree-sparse').value).toBe('src\n');
+  await type('worktree-sparse', 'src\n  docs \n');
+  await type('worktree-carry', 'build ');
+  expect(field('worktree-carry').value).toBe('build ');
+  await type('worktree-carry', 'build cache');
+  await type('worktree-setup', '/usr/bin/make\n');
+  expect(field('worktree-setup').value).toBe('/usr/bin/make\n');
+  await type('worktree-setup', '/usr/bin/make\nset up');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Save settings',
+    ),
+  );
+  const saved = calls.find(
+    (args) => args[1] === 'config' && args[2] === 'set' && args.includes('worktrees'),
+  );
+  expect(JSON.parse(saved?.at(-1) ?? '{}')).toMatchObject({
+    sparseDirectories: ['src', 'docs'],
+    carryIgnoredDirectories: ['build cache'],
+    setup: ['/usr/bin/make', 'set up'],
+    teardown: [],
+  });
+});

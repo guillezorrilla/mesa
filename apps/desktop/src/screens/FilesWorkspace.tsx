@@ -1,4 +1,5 @@
 import type { Config, FileHit, WorkspaceFile } from '@mesa/core';
+import { parseFileTarget } from '@mesa/core/browser';
 import { File, Folder, FolderOpen, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -126,6 +127,7 @@ export function FilesWorkspace(props: {
   const save = () =>
     act(async () => {
       if (!opened) return undefined;
+      const request = loadRequest.current;
       const result = await run('files.write', {
         project: props.project,
         checkout: checkout || undefined,
@@ -134,12 +136,14 @@ export function FilesWorkspace(props: {
         revision: opened.revision,
       });
       if (!result) return undefined;
-      setOpened({
-        ...opened,
-        text: draft,
-        lines: draft.split('\n').length,
-        revision: result.revision ?? opened.revision,
-      });
+      // Another file opened meanwhile: this one's header must not return over its text.
+      if (request === loadRequest.current)
+        setOpened({
+          ...opened,
+          text: draft,
+          lines: draft.split('\n').length,
+          revision: result.revision ?? opened.revision,
+        });
       await tree.refresh();
       return said(`Saved ${opened.path}`, result);
     });
@@ -215,14 +219,8 @@ export function FilesWorkspace(props: {
           .some((_, i, parts) => collapsed.has(parts.slice(0, i + 1).join('/'))),
     ) ?? [];
   const jump = () => {
-    const target = goTo.trim();
-    const match = /^(.*):(\d+)$/.exec(target);
-    if (target)
-      request({
-        kind: 'open',
-        path: match?.[1] ?? target,
-        line: match ? Number(match[2]) : undefined,
-      });
+    const target = parseFileTarget(goTo);
+    if (target) request({ kind: 'open', ...target });
   };
   const keyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {
     const buttons = [

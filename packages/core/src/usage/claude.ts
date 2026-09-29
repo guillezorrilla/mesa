@@ -1,20 +1,38 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { claudeListPrice } from './pricing.js';
 import { count, type UsageRecord } from './records.js';
 
-/** Claude's repeated assistant message IDs are updates to one charge, not additional charges. */
-export async function claudeUsage(file: string, session: string, nativeSessionId: string) {
+/** A session's transcript, then its subagents' own beside it: `<id>/subagents/*.jsonl`. */
+export function claudeUsageFiles(transcript: string): string[] {
+  const folder = join(transcript.replace(/\.jsonl$/, ''), 'subagents');
+  let names: string[];
+  try {
+    names = readdirSync(folder);
+  } catch {
+    return [transcript];
+  }
+  const subagents = names.filter((name) => name.endsWith('.jsonl')).sort();
+  return [transcript, ...subagents.map((name) => join(folder, name))];
+}
+
+async function* lines(files: string[]) {
+  for (const file of files)
+    yield* createInterface({ input: createReadStream(file), crlfDelay: Infinity });
+}
+
+/**
+ * Claude's repeated assistant message IDs are updates to one charge, not additional charges.
+ * Subagent (sidechain) replies are charges too, inline or in their own transcripts.
+ */
+export async function claudeUsage(files: string[], session: string, nativeSessionId: string) {
   const messages = new Map<string, UsageRecord>();
-  for await (const line of createInterface({
-    input: createReadStream(file),
-    crlfDelay: Infinity,
-  })) {
+  for await (const line of lines(files)) {
     if (!line.includes('"usage"') || !line.includes('"assistant"')) continue;
     try {
       const entry = JSON.parse(line) as {
         type?: unknown;
-        isSidechain?: unknown;
         timestamp?: unknown;
         message?: { id?: unknown; model?: unknown; usage?: Record<string, unknown> };
       };
@@ -22,7 +40,6 @@ export async function claudeUsage(file: string, session: string, nativeSessionId
       const id = entry.message?.id;
       if (
         entry.type !== 'assistant' ||
-        entry.isSidechain === true ||
         typeof id !== 'string' ||
         typeof entry.timestamp !== 'string' ||
         !Number.isFinite(Date.parse(entry.timestamp)) ||

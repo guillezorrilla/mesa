@@ -8,6 +8,7 @@ import { CONFIRMATION_MS } from '@/components/Toast';
 import {
   choose,
   click,
+  deferred,
   envelope,
   failure,
   fakeBridge,
@@ -884,7 +885,11 @@ test('project Git stash panel saves changes and confirms a drop through the CLI 
   );
   expect(byTestId('git-drop-stash-dialog')).toHaveLength(1);
   await click(byTestId('confirm-git-drop-stash')[0]);
-  expect(calls.some((args) => args.includes('drop') && args.includes('stash@{0}'))).toBe(true);
+  expect(
+    calls.some(
+      (args) => args.includes('drop') && args.includes('stash@{0}') && args.includes('--oid=abc'),
+    ),
+  ).toBe(true);
   expect(document.querySelector('[aria-label="Git stashes"]')?.textContent).toContain(
     'No saved stashes.',
   );
@@ -1130,11 +1135,11 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
   expect(byTestId('sidebar-session').map((item) => item.textContent)).toEqual([
-    'Sessionworking',
-    'Sessionworking',
+    'aaaaaaaaworking',
+    'bbbbbbbbworking',
   ]);
   await click(byTestId('sidebar-session')[1]);
-  expect(byTestId('selected-session')[0]?.textContent).toContain('Session');
+  expect(byTestId('selected-session')[0]?.textContent).toContain('bbbbbbbb');
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
   expect(terms.calls.filter((call) => call[0] === 'open').map((call) => call[1])).toEqual([
     'aaaaaaaa',
@@ -1173,19 +1178,51 @@ test('Sessions sidebar shows a branch, compact control, and child action', async
   const card = () => byTestId('sidebar-session')[0];
   expect(card()?.textContent).toContain('feature');
   expect(card()?.textContent).toContain('working');
-  await click(document.querySelector('[aria-label="Compact Session card"]') as HTMLElement);
-  expect(card()?.textContent).toBe('Session');
+  await click(document.querySelector('[aria-label="Compact aaaaaaaa card"]') as HTMLElement);
+  expect(card()?.textContent).toBe('aaaaaaaa');
   expect(byTestId('selected-session')).toHaveLength(1);
-  await click(document.querySelector('[aria-label="Expand Session card"]') as HTMLElement);
+  await click(document.querySelector('[aria-label="Expand aaaaaaaa card"]') as HTMLElement);
   expect(card()?.textContent).toContain('feature');
   expect(card()?.textContent).toContain('working');
   await click(
     document.querySelector(
-      '[aria-label="New child session from Session (aaaaaaaa)"]',
+      '[aria-label="New child session from aaaaaaaa (aaaaaaaa)"]',
     ) as HTMLElement,
   );
   expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New worktree session');
   expect((byTestId('new-session-project')[0] as HTMLInputElement).readOnly).toBe(true);
+});
+
+test('unnamed sessions are told apart by their goal, else their id, and idle is not warm', async () => {
+  const idle = { state: 'idle' as const, confidence: 0.9, at: '2026-09-25T12:00:00.000Z' };
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([
+        managedRow('aaaaaaaa', { goal: '\n  Fix the login redirect\nthen run the tests' }),
+        managedRow('bbbbbbbb', { name: 'Review', goal: 'Not shown' }),
+        managedRow('cccccccc'),
+        managedRow('dddddddd', { lastState: { ...idle, source: 'hook' } }),
+      ]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const titles = ['Fix the login redirect', 'Review', 'cccccccc', 'dddddddd'];
+  const cards = byTestId('sidebar-session');
+  expect(cards.map((card) => card.querySelector('.truncate')?.textContent)).toEqual(titles);
+  const icon = cards[3]?.querySelector('svg');
+  expect(icon?.classList.contains('text-state-waiting')).toBe(false);
+  expect(icon?.classList.contains('text-state-idle')).toBe(true);
+  await click(cards[0]);
+  expect(byTestId('selected-session')[0]?.textContent).toContain('Fix the login redirect');
+  expect(
+    document.querySelector('[aria-label="Archive Fix the login redirect (aaaaaaaa)"]'),
+  ).not.toBeNull();
+  await click(byTestId('sidebar-project')[0]);
+  expect(byTestId('project-active-session').map((card) => card.getAttribute('aria-label'))).toEqual(
+    titles.map(
+      (title, i) => `Open ${title} (${['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd'][i]})`,
+    ),
+  );
 });
 
 test('Sessions sidebar menu opens the selected session dependency editor', async () => {
@@ -1195,7 +1232,7 @@ test('Sessions sidebar menu opens the selected session dependency editor', async
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(
-    document.querySelector('[aria-label="More actions for Session (aaaaaaaa)"]') as HTMLElement,
+    document.querySelector('[aria-label="More actions for aaaaaaaa (aaaaaaaa)"]') as HTMLElement,
   );
   const options = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
   expect(options.map((item) => item.textContent)).toEqual([
@@ -1214,7 +1251,7 @@ test('General session menu can start a child terminal without a project', async 
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(
-    document.querySelector('[aria-label="More actions for Session (aaaaaaaa)"]') as HTMLElement,
+    document.querySelector('[aria-label="More actions for aaaaaaaa (aaaaaaaa)"]') as HTMLElement,
   );
   const options = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
   expect(options.map((item) => item.textContent)).toEqual([
@@ -1239,7 +1276,7 @@ test('selected session details read native context by exact id and keep unknown 
               ...row,
               instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
               context: {
-                used: 10.04,
+                used: 57.56,
                 window: 258400,
                 at: '2026-09-27T12:01:00.000Z',
                 source: 'transcript',
@@ -1263,11 +1300,12 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('Confidence95%');
   expect(details?.textContent).toContain('Attention0.83');
   expect(details?.textContent).toContain('Instructionsconfigured: SessionStart hook is configured');
-  expect(details?.textContent).toContain('10.04% of 258,400 tokens');
+  expect(details?.textContent).toContain('58% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
-  expect(
-    document.querySelector('[aria-label="Context window: 10.04%"]')?.getAttribute('role'),
-  ).toBe('progressbar');
+  const ring = document.querySelector('[aria-label="Context window: 58%"]');
+  expect(ring?.getAttribute('role')).toBe('progressbar');
+  // The Board's context bar tones: amber from 55%.
+  expect(ring?.getAttribute('data-tone')).toBe('amber');
   reading = false;
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
@@ -1278,6 +1316,23 @@ test('selected session details read native context by exact id and keep unknown 
   expect(
     document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
   ).toBe('img');
+});
+
+test("a selected session's context ring stops at 100% and turns red, as the Board's bar does", async () => {
+  const context = {
+    used: 120.4,
+    window: 200000,
+    at: '2026-09-27T12:01:00.000Z',
+    source: 'transcript' as const,
+  };
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa', { context })]),
+  });
+  await renderWithMesa(<App />, bridge);
+  const ring = document.querySelector('[aria-label="Context window: 100%"]');
+  expect(ring?.getAttribute('aria-valuenow')).toBe('100');
+  expect(ring?.getAttribute('data-tone')).toBe('red');
 });
 
 test('selected-session image preview can be removed or sent only to the selected Claude session', async () => {
@@ -1527,7 +1582,7 @@ test('session close opens archive confirmation and archives only after confirmat
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const close = () =>
-    document.querySelector('[aria-label="Archive Session (aaaaaaaa)"]') as HTMLElement;
+    document.querySelector('[aria-label="Archive aaaaaaaa (aaaaaaaa)"]') as HTMLElement;
   await click(close());
   expect(byTestId('archive-dialog')[0]?.textContent).toContain('Archive this session?');
   expect(calls.some((args) => args.includes('archive'))).toBe(false);
@@ -1582,7 +1637,7 @@ test('Sessions offers restore or dismiss for saved runs whose terminal ended', a
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  expect(byTestId('recoverable-sessions')[0]?.textContent).toContain('Session');
+  expect(byTestId('recoverable-sessions')[0]?.textContent).toContain('aaaaaaaa');
   expect(
     byTestId('recoverable-sessions')[0]?.querySelectorAll('[data-testid="sidebar-session"]'),
   ).toHaveLength(2);
@@ -1770,7 +1825,7 @@ test('global New session offers General without a registered project', async () 
   expect(byTestId('selected-session')).toHaveLength(0);
   expect(byTestId('project-workspace')).toHaveLength(0);
   await click(byTestId('sidebar-session')[0]);
-  await click(document.querySelector('[aria-label="Archive Session (gener001)"]') as HTMLElement);
+  await click(document.querySelector('[aria-label="Archive gener001 (gener001)"]') as HTMLElement);
   await click(byTestId('archive-confirm')[0]);
   expect(byTestId('selected-session')).toHaveLength(0);
   expect(byTestId('project-workspace')).toHaveLength(0);
@@ -1971,6 +2026,24 @@ test('Search Mesa shows no matches and Escape returns keyboard focus', async () 
   expect(document.activeElement).toBe(trigger);
 });
 
+test('an action chosen in Search Mesa keeps the focus it moves: Profile and vault, on its menu', async () => {
+  const byTestId = await renderWithMesa(<App />, fakeBridge().bridge);
+  const trigger = byTestId('search-trigger')[0];
+  trigger?.focus();
+  await click(trigger);
+  const profile = byTestId('palette-hit').find((hit) =>
+    hit.textContent?.includes('Profile and vault'),
+  );
+  // Focused first, as Tab or a pointer press leaves it: the palette's focus trap now holds it.
+  await act(async () => profile?.focus());
+  await click(profile);
+  // The dialog hands focus back on a timer once it closes: wait past it.
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  const summary = document.activeElement as HTMLElement;
+  expect(summary.tagName).toBe('SUMMARY');
+  expect((summary.parentElement as HTMLDetailsElement).open).toBe(true);
+});
+
 test('Search Mesa disables New session when no project can start, and opens it when one can', async () => {
   const empty = await renderWithMesa(<App />, fakeBridge().bridge);
   await click(empty('search-trigger')[0]);
@@ -2093,6 +2166,33 @@ test('appearance preference saves through config and updates the live app theme'
   expect(document.documentElement.dataset.theme).toBe('dark');
 });
 
+test('a preference slider saves the value it is released on, once', async () => {
+  const written = deferred();
+  const { bridge, calls } = fakeBridge({ 'config set': () => written.promise });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-preferences')[0]);
+  const slide = async (id: string, value: string) => {
+    const slider = document.getElementById(id) as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        slider,
+        value,
+      );
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    return slider;
+  };
+  for (const value of ['17', '18', '19']) await slide('appearance-size', value);
+  const slider = await slide('appearance-size', '20');
+  expect(document.querySelector('label[for="appearance-size"]')?.textContent).toContain('20px');
+  expect(calls.filter((args) => args[2] === 'set')).toEqual([]);
+  await act(async () => slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
+  await act(async () => written.resolve(envelope({ path: 'appearance.fontSize', value: 20 })));
+  expect(calls.filter((args) => args[2] === 'set')).toEqual([
+    ['--json', 'config', 'set', '--', 'appearance.fontSize', '20'],
+  ]);
+});
+
 test('palette inserts a saved multiline prompt in the selected session without sending it', async () => {
   const text = 'Review this change\n\n  Keep the indentation.\n';
   const { bridge, calls } = fakeBridge({
@@ -2106,9 +2206,11 @@ test('palette inserts a saved multiline prompt in the selected session without s
   await click(
     byTestId('palette-hit').find((hit) => hit.textContent?.includes('Insert saved prompt')),
   );
-  expect((document.querySelector('textarea[name="prompt"]') as HTMLTextAreaElement).value).toBe(
-    text,
-  );
+  const field = document.querySelector('textarea[name="prompt"]') as HTMLTextAreaElement;
+  expect(field.value).toBe(text);
+  // Where the person can see it: the Session actions holding the field open, the field focused.
+  expect(field.closest('details')?.open).toBe(true);
+  expect(document.activeElement).toBe(field);
   expect(calls.some((args) => args.includes('send'))).toBe(false);
 });
 

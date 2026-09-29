@@ -1,6 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { resolveCheckout } from '../git/checkout.js';
-import { fileTree, searchFiles } from './browse.js';
+import { fileTree, ignoredFolders, searchFiles } from './browse.js';
 import {
   createWorkspaceFile,
   deleteWorkspaceFile,
@@ -17,9 +17,14 @@ export function filesService(ctx: MesaContext) {
     resolveCheckout(ctx.open(), ctx.deps.run, project, selected && ctx.absolute(selected));
   return {
     link: (sessionId: string, target: string) => resolveSessionFileLink(ctx, sessionId, target),
-    tree: async (project: string, selected?: string) => fileTree(await checkout(project, selected)),
-    search: async (project: string, query: string, mode: 'name' | 'content', selected?: string) =>
-      searchFiles(await checkout(project, selected), query, mode),
+    tree: async (project: string, selected?: string) => {
+      const at = await checkout(project, selected);
+      return fileTree(at, await ignoredFolders(ctx.deps.run, at.path));
+    },
+    search: async (project: string, query: string, mode: 'name' | 'content', selected?: string) => {
+      const at = await checkout(project, selected);
+      return searchFiles(at, query, mode, await ignoredFolders(ctx.deps.run, at.path));
+    },
     read: async (project: string, path: string, selected?: string, line?: number) =>
       readWorkspaceFile(await checkout(project, selected), path, line),
     open: async (project: string, path: string, selected?: string, line?: number) =>

@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { isolateGit, newSession, shortIds, testStore, withRealGit } from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
@@ -147,6 +155,7 @@ test('manual creation keeps profile default and applies sibling, nested, sparse,
       })
     ).code,
   ).toBe(0);
+  symlinkSync('local.txt', join(repo, 'cache', 'relative-link'));
   const sibling = await cli.mesa('worktrees', 'create', 'lantern-cove', 'sibling', '--json');
   expect(sibling.code, sibling.stdout).toBe(0);
   const siblingPath = join(cli.home, '.mesa-worktrees', 'default', 'lantern-cove', 'sibling');
@@ -156,6 +165,7 @@ test('manual creation keeps profile default and applies sibling, nested, sparse,
   expect(readFileSync(join(siblingPath, 'cache', 'local.txt'), 'utf8')).toBe(
     'local invented cache\n',
   );
+  expect(readlinkSync(join(siblingPath, 'cache', 'relative-link'))).toBe('local.txt');
   expect(
     execFileSync('git', ['-C', siblingPath, 'status', '--porcelain'], { encoding: 'utf8' }),
   ).toBe('');
@@ -547,4 +557,66 @@ test('custom location and fetched base are shared settings; failed carryover pre
   expect(
     execFileSync('git', ['-C', repo, 'branch', '--list', 'refused'], { encoding: 'utf8' }),
   ).toBe('');
+});
+
+test('preview survives many ignored files and a remote branch deleted after merge', async () => {
+  const repo = await creationRepo();
+  const remote = join(cli.home, 'remote.git');
+  execFileSync('git', ['init', '-q', '--bare', remote]);
+  execFileSync('git', ['-C', repo, 'remote', 'add', 'origin', remote]);
+  execFileSync('git', ['-C', repo, 'push', '-q', 'origin', 'main']);
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'merged', '--json')).json.data
+    .path as string;
+  execFileSync('git', ['-C', path, 'push', '-q', '-u', 'origin', 'merged']);
+  // A merged PR: its remote branch is deleted and the local ref pruned.
+  execFileSync('git', ['-C', repo, 'push', '-q', 'origin', '--delete', 'merged']);
+  execFileSync('git', ['-C', repo, 'fetch', '-q', '--prune']);
+  // More ignored paths than execFile's default 1 MiB buffer holds.
+  mkdirSync(join(path, 'cache', 'deps'), { recursive: true });
+  for (let i = 0; i < 12_000; i++)
+    writeFileSync(join(path, 'cache', 'deps', `${'x'.repeat(80)}-${i}.js`), '');
+  const preview = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    path,
+    '--action',
+    'remove',
+    '--json',
+  );
+  expect(preview.code, preview.stdout.slice(0, 400)).toBe(0);
+  expect(preview.json.data).toMatchObject({ unpublished: false, ignored: ['cache/'] });
+  expect(preview.json.data.upstream).toBeUndefined();
+}, 60_000);
+
+test('cleanup refuses while Git would also prune a folder that is still on disk', async () => {
+  await creationRepo();
+  const gone = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'gone', '--json')).json.data
+    .path as string;
+  const broken = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'broken', '--json')).json
+    .data.path as string;
+  rmSync(gone, { recursive: true });
+  writeFileSync(join(broken, 'draft.txt'), 'kept work');
+  rmSync(join(broken, '.git'));
+  const preview = await cli.mesa(
+    'worktrees',
+    'preview',
+    'lantern-cove',
+    '--action',
+    'cleanup',
+    '--json',
+  );
+  expect(preview.json.data).toMatchObject({ allowed: false, paths: [gone] });
+  expect(preview.json.data.reasons).toContainEqual(expect.stringContaining(broken));
+  const applied = await cli.mesa(
+    'worktrees',
+    'apply',
+    'lantern-cove',
+    '--action',
+    'cleanup',
+    '--token',
+    preview.json.data.token,
+  );
+  expect(applied.code).toBe(2);
+  expect(readFileSync(join(broken, 'draft.txt'), 'utf8')).toBe('kept work');
 });

@@ -53,11 +53,14 @@ export function summarizeUsage(
   });
   const byDay = new Map<string, UsageRecord[]>();
   const byModel = new Map<string, UsageRecord[]>();
+  const add = (buckets: Map<string, UsageRecord[]>, key: string, row: UsageRecord) => {
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(row);
+    else buckets.set(key, [row]);
+  };
   for (const row of recent) {
-    const day = row.at.slice(0, 10);
-    byDay.set(day, [...(byDay.get(day) ?? []), row]);
-    const key = `${row.agent}\0${row.model ?? 'unknown model'}`;
-    byModel.set(key, [...(byModel.get(key) ?? []), row]);
+    add(byDay, row.at.slice(0, 10), row);
+    add(byModel, `${row.agent}\0${row.model ?? 'unknown model'}`, row);
   }
   return {
     periods: {

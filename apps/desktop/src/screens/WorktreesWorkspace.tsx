@@ -22,6 +22,20 @@ const DEFAULT_SETTINGS: Config['worktrees'] = {
   teardown: [],
 };
 
+/** The settings kept one entry per line, as the text typed: parsed only on Save. */
+const linesOf = (settings: Config['worktrees']) => ({
+  sparseDirectories: settings.sparseDirectories.join('\n'),
+  carryIgnoredDirectories: settings.carryIgnoredDirectories.join('\n'),
+  setup: settings.setup.join('\n'),
+  teardown: settings.teardown.join('\n'),
+});
+const directories = (text: string) =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+const argv = (text: string) => text.split('\n').filter(Boolean);
+
 /** Git inventory with the current profile's unfinished session holders. */
 export function WorktreesWorkspace(props: { project: string; onSession: (id: string) => void }) {
   const worktrees = useCommand('worktrees.list', { project: props.project });
@@ -31,8 +45,11 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
   const [createOpen, setCreateOpen] = useState(false);
   const [preview, setPreview] = useState<WorktreePreview | null>(null);
   const [settings, setSettings] = useState<Config['worktrees']>(DEFAULT_SETTINGS);
+  const [lines, setLines] = useState(linesOf(DEFAULT_SETTINGS));
   useEffect(() => {
-    if (config.data) setSettings(config.data.worktrees);
+    if (!config.data) return;
+    setSettings(config.data.worktrees);
+    setLines(linesOf(config.data.worktrees));
   }, [config.data]);
   const create = (branch: string, base: string) =>
     act(async () => {
@@ -48,7 +65,16 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
     });
   const saveSettings = () =>
     act(async () => {
-      const result = await run('config.set', { path: 'worktrees', value: settings });
+      const result = await run('config.set', {
+        path: 'worktrees',
+        value: {
+          ...settings,
+          sparseDirectories: directories(lines.sparseDirectories),
+          carryIgnoredDirectories: directories(lines.carryIgnoredDirectories),
+          setup: argv(lines.setup),
+          teardown: argv(lines.teardown),
+        },
+      });
       if (!result) return undefined;
       await config.refresh();
       return said('Saved worktree settings', result);
@@ -161,31 +187,17 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
             <Label htmlFor="worktree-sparse">Sparse checkout directories, one per line</Label>
             <Textarea
               id="worktree-sparse"
-              value={settings.sparseDirectories.join('\n')}
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  sparseDirectories: event.target.value
-                    .split('\n')
-                    .map((line) => line.trim())
-                    .filter(Boolean),
-                })
-              }
+              value={lines.sparseDirectories}
+              onChange={(event) => setLines({ ...lines, sparseDirectories: event.target.value })}
             />
           </div>
           <div className="space-y-1">
             <Label htmlFor="worktree-carry">Ignored directories to copy, one per line</Label>
             <Textarea
               id="worktree-carry"
-              value={settings.carryIgnoredDirectories.join('\n')}
+              value={lines.carryIgnoredDirectories}
               onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  carryIgnoredDirectories: event.target.value
-                    .split('\n')
-                    .map((line) => line.trim())
-                    .filter(Boolean),
-                })
+                setLines({ ...lines, carryIgnoredDirectories: event.target.value })
               }
             />
           </div>
@@ -193,23 +205,16 @@ export function WorktreesWorkspace(props: { project: string; onSession: (id: str
             <Label htmlFor="worktree-setup">Setup argv, one argument per line</Label>
             <Textarea
               id="worktree-setup"
-              value={settings.setup.join('\n')}
-              onChange={(event) =>
-                setSettings({ ...settings, setup: event.target.value.split('\n').filter(Boolean) })
-              }
+              value={lines.setup}
+              onChange={(event) => setLines({ ...lines, setup: event.target.value })}
             />
           </div>
           <div className="space-y-1">
             <Label htmlFor="worktree-teardown">Teardown argv, one argument per line</Label>
             <Textarea
               id="worktree-teardown"
-              value={settings.teardown.join('\n')}
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  teardown: event.target.value.split('\n').filter(Boolean),
-                })
-              }
+              value={lines.teardown}
+              onChange={(event) => setLines({ ...lines, teardown: event.target.value })}
             />
           </div>
         </div>

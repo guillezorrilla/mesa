@@ -85,6 +85,9 @@ function itemFor(session: string, event: HookEvent): Candidate | undefined {
       : {};
   const child = !parentHook(event);
   const question = payload.tool_name === 'AskUserQuestion';
+  // Claude Code's own background agents (such as an idle recap) stop with an empty agent_type
+  // after every turn; only a subagent the session started is worth a notice.
+  if (event.event === 'SubagentStop' && payload.agent_type === '') return undefined;
   const kind =
     event.event === 'PermissionRequest' || (event.event === 'PreToolUse' && question)
       ? child

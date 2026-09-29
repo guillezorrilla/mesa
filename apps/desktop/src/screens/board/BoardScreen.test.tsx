@@ -11,6 +11,7 @@ import {
   choose,
   click,
   deadPane,
+  deferred,
   envelope,
   exited,
   failure,
@@ -850,6 +851,31 @@ test('Send on Enter, Open terminal, then Stop and Resume on the same row, each s
     'Stopped session aaaaaaaa',
     'Resumed session aaaaaaaa as eeeeeeee',
   ]);
+});
+
+test('a resume that ends after another session was chosen keeps that choice', async () => {
+  const resumed = deferred();
+  const successor = managedRow('eeeeeeee', { resumedFrom: 'cccccccc' });
+  let done = false;
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(done ? [successor, busy] : [exited, busy]),
+    resume: () => resumed.promise,
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const card = (id: string) => byTestId('sidebar-session').find((item) => item.title.includes(id));
+  const current = () =>
+    byTestId('sidebar-session').find((item) => item.getAttribute('aria-current') === 'page');
+  await click(card('cccccccc'));
+  await click(
+    [...(byTestId('session-recovery')[0]?.querySelectorAll('button') ?? [])].find((button) =>
+      button.textContent?.includes('Restore'),
+    ),
+  );
+  await click(card('bbbbbbbb'));
+  done = true;
+  await act(async () => resumed.resolve(envelope(successor)));
+  expect(current()?.title).toContain('bbbbbbbb');
 });
 
 test('a failed action or look shows its error in the toast', async () => {

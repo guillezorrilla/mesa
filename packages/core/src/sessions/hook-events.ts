@@ -71,6 +71,21 @@ export function recordHookEvent(
   const agentSessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
   const event = typeof payload.hook_event_name === 'string' ? payload.hook_event_name : 'unknown';
   let record = findRecord(deps.store, id);
+  // An agent started inside another agent's session, or in a plain terminal, inherits its id.
+  if (record && record.agent !== agent.data) return undefined;
+  // A background claude keeps the environment of the record that started it, also once that
+  // record was resumed: the live record holding its conversation owns its events.
+  if (agent.data === 'claude' && record?.endedAt && agentSessionId) {
+    const live = agentSessionHolder(
+      deps.store,
+      agentSessionId,
+      (s) => s.agent === 'claude' && !s.endedAt,
+    );
+    if (live) {
+      record = live;
+      id = live.id;
+    }
+  }
   let staleCodexClear = false;
   if (agent.data === 'codex') {
     // The environment is only an entry gate and the first SessionStart's claim. Once known,

@@ -13,6 +13,7 @@ export {
   supportsPlanStart,
 } from './agents/names.js';
 export * from './display.js';
+export { parseFileTarget } from './files/file-target.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,

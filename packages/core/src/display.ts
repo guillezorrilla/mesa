@@ -6,6 +6,10 @@ import type { SessionRow } from './sessions/board/rows.js';
 /** A session's name when a person gave it one, else its id. */
 export const sessionLabel = (s: SessionRow) => (s.managed && s.name ? s.name : s.id);
 
+/** What a session's card calls it: its name, else its goal's first line, else its id. */
+export const sessionTitle = (s: SessionRow) =>
+  (s.managed && (s.name || s.goal?.trim().split(/\r?\n/, 1)[0])) || s.id;
+
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
 export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
 
