@@ -14,6 +14,25 @@ export type TerminalHost = {
   ready: (termId: string) => Promise<void>;
 };
 
+export type BrowserBounds = { x: number; y: number; width: number; height: number };
+export type BrowserProbe = { url: string; title: string; heading: string };
+export type BrowserSelection = { url: string; title: string; selector: string; text: string };
+/** Native child WKWebView; the remote page has no Mesa command capability. */
+export type BrowserHost = {
+  owner: () => Promise<{ pid: number; socket: string }>;
+  open: (sessionId: string, url: string, bounds: BrowserBounds) => Promise<string>;
+  navigate: (sessionId: string, url: string) => Promise<void>;
+  bounds: (sessionId: string, bounds: BrowserBounds) => Promise<void>;
+  close: (sessionId: string) => Promise<void>;
+  probe: (sessionId: string) => Promise<BrowserProbe>;
+  back: (sessionId: string) => Promise<void>;
+  forward: (sessionId: string) => Promise<void>;
+  reload: (sessionId: string) => Promise<void>;
+  pickStart: (sessionId: string) => Promise<void>;
+  pickResult: (sessionId: string) => Promise<BrowserSelection | null>;
+  onLoad: (listener: (event: { session: string; url: string }) => void) => Promise<() => void>;
+};
+
 /** What the app asks of the OS itself, apart from mesa: dialogs, terminals, the pasteboard. A seam like the bridge. */
 export type Platform = {
   /** A folder the user picks, or null when they cancel. */
@@ -25,6 +44,7 @@ export type Platform = {
     onOpen: (handler: (urls: string[]) => void) => Promise<() => void>;
   };
   terminal: TerminalHost;
+  browser: BrowserHost;
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
    * needs no seam: Cmd+V fires a paste event that xterm handles. */
   clipboard: { write: (text: string) => Promise<void> };

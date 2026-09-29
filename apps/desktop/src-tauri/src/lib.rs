@@ -1,4 +1,5 @@
 mod bridge;
+mod browser;
 mod terminal;
 
 use serde_json::Value;
@@ -18,6 +19,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
+        .setup(|app| {
+            if let Err(error) = browser::serve_selection(app.handle()) {
+                eprintln!("native browser selection unavailable: {error}");
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             run_mesa,
             terminal::term_open,
@@ -25,7 +32,18 @@ pub fn run() {
             terminal::term_resize,
             terminal::term_ready,
             terminal::term_close,
-            terminal::clipboard_write
+            terminal::clipboard_write,
+            browser::browser_open,
+            browser::browser_navigate,
+            browser::browser_bounds,
+            browser::browser_close,
+            browser::browser_probe,
+            browser::browser_back,
+            browser::browser_forward,
+            browser::browser_reload,
+            browser::browser_pick_start,
+            browser::browser_pick_result,
+            browser::browser_owner
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
