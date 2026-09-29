@@ -26,6 +26,10 @@ export const usage = defineCommand({
             ]),
           ),
           ...report.unknown.map((item) => `${item.session}: ${item.reason}`),
+          ...report.alerts.map(
+            (alert) =>
+              `${alert.period} known estimated cost $${alert.knownCostUsd.toFixed(4)} reached the $${alert.thresholdUsd.toFixed(2)} alert`,
+          ),
         ].join('\n') || 'no qualified native usage yet',
     };
   },

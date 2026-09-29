@@ -22,7 +22,8 @@ export type UsageRecord = {
 export type UsageReport = {
   rows: UsageRecord[];
   unknown: { session: string; reason: string }[];
-  periods: Record<'today' | '7d' | '30d' | '90d', UsageTotals>;
+  periods: Record<'today' | '7d' | '30d' | '90d' | 'month', UsageTotals>;
+  alerts: { period: 'today' | '7d' | 'month'; thresholdUsd: number; knownCostUsd: number }[];
   daily: { day: string; totals: UsageTotals }[];
   breakdown: { agent: UsageRecord['agent']; model: string; totals: UsageTotals }[];
 };

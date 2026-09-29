@@ -44,6 +44,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     skills: ['mesa', 'mesa-handoff'],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
     sessions: { log: true },
+    usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     terminal: { app: 'Terminal' },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {

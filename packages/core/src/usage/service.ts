@@ -1,7 +1,9 @@
+import { existsSync } from 'node:fs';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { transcriptFile } from '../agents/claude/transcripts.js';
 import { rolloutForThread } from '../agents/codex/rollouts.js';
 import type { MesaContext } from '../context.js';
+import { loadConfig } from '../profile/config.js';
 import { readHookEvents } from '../sessions/hook-events.js';
 import { claudeUsage } from './claude.js';
 import { codexUsage } from './codex.js';
@@ -64,7 +66,21 @@ export function usageService(ctx: MesaContext) {
         }
       }
       const rows = ledger.merge(fresh).filter((row) => !session || row.session === session);
-      return { rows, unknown, ...summarizeUsage(rows, ctx.deps.clock()) };
+      const summary = summarizeUsage(rows, ctx.deps.clock());
+      const config = existsSync(ctx.paths.config) ? loadConfig(ctx.paths.config).usage : undefined;
+      const alerts = (
+        [
+          ['today', config?.dailyAlertUsd ?? 0],
+          ['7d', config?.weeklyAlertUsd ?? 0],
+          ['month', config?.monthlyAlertUsd ?? 0],
+        ] as const
+      ).flatMap(([period, thresholdUsd]) => {
+        const knownCostUsd = summary.periods[period].estimatedCostUsd;
+        return !session && thresholdUsd > 0 && knownCostUsd !== null && knownCostUsd >= thresholdUsd
+          ? [{ period, thresholdUsd, knownCostUsd }]
+          : [];
+      });
+      return { rows, unknown, alerts, ...summary };
     },
   };
 }
