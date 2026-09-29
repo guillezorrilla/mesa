@@ -32,7 +32,8 @@ export async function listGitBranches(
   const [refs, worktrees, current] = await Promise.all([
     gitCommand(run, checkout.path, [
       'for-each-ref',
-      '--format=%(refname:short)%00%(objectname)%00%(upstream:short)',
+      // lstrip=2, not :short, which says heads/x when a tag x exists too.
+      '--format=%(refname:lstrip=2)%00%(objectname)%00%(upstream:short)',
       'refs/heads/',
     ]),
     gitWorktrees(run, root),

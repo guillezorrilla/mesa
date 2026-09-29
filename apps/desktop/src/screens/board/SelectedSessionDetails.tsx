@@ -1,9 +1,17 @@
 import type { InstructionStatus, ManagedRow, SessionRecord } from '@mesa/core';
-import { attentionScore, percent } from '@mesa/core/browser';
+import { attentionScore, contextPercent, percent } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { contextTone } from '@/components/ContextBar';
 import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
+
+/** The ring's colour for each context tone: the Board's context bar's. */
+const RING = {
+  normal: 'var(--state-idle)',
+  amber: 'var(--state-waiting)',
+  red: 'var(--state-failed)',
+};
 
 /** Native facts for the selected session, read by id only when its details are opened. */
 export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
@@ -13,6 +21,8 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   const [loading, setLoading] = useState(false);
   const { row } = props;
   const context = record ? record.context : row.context;
+  const shown = context ? contextPercent(context.used) : 0;
+  const tone = context ? contextTone(context.used) : 'normal';
   const cwd =
     record?.cwd ?? row.cwd ?? record?.worktree?.path ?? row.worktree?.path ?? props.projectPath;
   const date = (at: string) => new Date(at).toLocaleString();
@@ -72,9 +82,9 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               {context ? (
                 <>
                   <span>
-                    {context.used}% of {context.window.toLocaleString()} tokens
+                    {shown}% of {context.window.toLocaleString()} tokens
                   </span>
-                  <Progress value={Math.min(100, context.used)} className="mt-1 h-1" />
+                  <Progress value={shown} className="mt-1 h-1" />
                   <span className="text-muted-foreground">
                     {context.source}, {date(context.at)}
                   </span>
@@ -91,14 +101,15 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
       {context ? (
         <span
           role="progressbar"
-          aria-label={`Context window: ${context.used}%`}
-          aria-valuenow={Math.min(100, context.used)}
+          aria-label={`Context window: ${shown}%`}
+          aria-valuenow={shown}
           aria-valuemin={0}
           aria-valuemax={100}
+          data-tone={tone}
           title={`Transcript reading at ${date(context.at)}`}
           className="flex size-4 shrink-0 items-center justify-center rounded-full p-0.5"
           style={{
-            background: `conic-gradient(var(--state-idle) ${Math.min(100, context.used)}%, var(--border) 0)`,
+            background: `conic-gradient(${RING[tone]} ${shown}%, var(--border) 0)`,
           }}
         >
           <span className="size-full rounded-full bg-card" />

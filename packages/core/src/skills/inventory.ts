@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parse } from 'smol-toml';
 import type { Agent } from '../agents/names.js';
@@ -216,6 +216,8 @@ export function skillInventory(input: {
       let canonical: string;
       try {
         canonical = realpathSync.native(path);
+        // A link to a file (a README beside the skills) is not a skill folder.
+        if (!statSync(canonical).isDirectory()) continue;
       } catch {
         continue;
       }
@@ -232,11 +234,18 @@ export function skillInventory(input: {
       const skillFile = lstatSync(file, { throwIfNoEntry: false });
       // A folder without SKILL.md is not a skill (global roots can contain sync buckets).
       if (!skillFile) continue;
-      const fileIsRegular = skillFile.isFile();
+      // A linked SKILL.md (stow --no-folding) is read through its link, and never written.
+      const linkedFile = skillFile.isSymbolicLink();
+      let readable = false;
+      try {
+        readable = statSync(file).isFile();
+      } catch {
+        // A broken or looping link reads as nothing.
+      }
       let skill: ReturnType<typeof readSkill>;
       let invalidReason: string | undefined;
       try {
-        if (fileIsRegular)
+        if (readable)
           skill = readSkill(
             path,
             root.providers.some((agent) => agent !== 'claude'),
@@ -244,9 +253,10 @@ export function skillInventory(input: {
       } catch {
         invalidReason = 'SKILL.md has invalid metadata';
       }
-      if (fileIsRegular && !skill) invalidReason = 'SKILL.md has invalid metadata';
-      if (!fileIsRegular) invalidReason = 'Missing or linked SKILL.md';
-      const writable = root.scope !== 'plugin' && !entry.isSymbolicLink() && fileIsRegular;
+      if (readable && !skill) invalidReason = 'SKILL.md has invalid metadata';
+      if (!readable) invalidReason = 'SKILL.md is not a readable file';
+      const writable =
+        root.scope !== 'plugin' && !entry.isSymbolicLink() && !linkedFile && readable;
       const row: SkillInventoryRow = {
         id: path,
         name: skill?.name ?? entry.name,
@@ -261,11 +271,13 @@ export function skillInventory(input: {
         writable,
         ...(!writable
           ? {
-              readOnlyReason: !fileIsRegular
-                ? 'Missing or linked SKILL.md'
+              readOnlyReason: !readable
+                ? 'SKILL.md is not a readable file'
                 : root.scope === 'plugin'
                   ? 'Managed by a provider plugin'
-                  : 'Linked skill folder',
+                  : entry.isSymbolicLink()
+                    ? 'Linked skill folder'
+                    : 'Linked SKILL.md',
             }
           : {}),
         conflicts: [],

@@ -1,4 +1,5 @@
 import { appendFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { transcriptFile } from '../agents/claude/transcripts.js';
@@ -16,6 +17,8 @@ import {
   testDeps,
   testStore,
 } from '../testing/index.js';
+import type { UsageRecord } from './records.js';
+import { summarizeUsage } from './summary.js';
 
 const at = '2026-09-24T12:01:00.000Z';
 
@@ -251,4 +254,174 @@ test('Codex cumulative totals contribute only positive deltas, not repeated comp
   expect(new Set(adopted.rows.map((row) => row.nativeSessionId))).toEqual(
     new Set([nativeId, secondId, thirdId]),
   );
+});
+
+test('Claude subagent spend counts: sidechain lines and subagents/ transcripts, each message once', async () => {
+  const { run } = scriptedRunner();
+  const { home, dir, mesa } = projectProfile(run, {
+    clock: fixedClock('2026-09-24T12:10:00.000Z'),
+  });
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  const message = (id: string, output: number, sidechain = false) =>
+    JSON.stringify({
+      type: 'assistant',
+      ...(sidechain ? { isSidechain: true, agentId: 'a1' } : {}),
+      timestamp: at,
+      message: {
+        id,
+        model: 'claude-opus-5-5',
+        usage: {
+          input_tokens: 1,
+          output_tokens: output,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    });
+  // The parent's own reply, and a subagent's reply that an older Claude Code kept inline.
+  plantTranscript(
+    home,
+    nativeId,
+    dir,
+    [message('msg_parent', 2), message('msg_inline', 3, true)].join('\n'),
+  );
+  expect((await mesa.usage.list()).periods.today).toMatchObject({ events: 2, output: 5 });
+
+  // A ledger an earlier reader stamped, without the sidechain reply, is read again.
+  const ledger = profilePaths(home, 'default').usage;
+  const saved = JSON.parse(readFileSync(ledger, 'utf8')) as {
+    rows: UsageRecord[];
+    sources: Record<string, object>;
+  };
+  writeFileSync(
+    ledger,
+    JSON.stringify({
+      ...saved,
+      rows: saved.rows.filter((row) => row.id.endsWith(':msg_parent')),
+      sources: Object.fromEntries(
+        Object.entries(saved.sources).map(([key, source]) => [key, { ...source, reader: 1 }]),
+      ),
+    }),
+  );
+  expect((await mesa.usage.list()).periods.today).toMatchObject({ events: 2, output: 5 });
+
+  const transcript = transcriptFile(claudeTranscripts(home), nativeId);
+  if (!transcript) throw new Error('missing invented transcript');
+  const subagents = join(transcript.slice(0, -'.jsonl'.length), 'subagents');
+  mkdirSync(subagents, { recursive: true });
+  const subagent = join(subagents, 'agent-a1.jsonl');
+  // The subagent's own transcript repeats the inline reply and streams an update of its next one.
+  writeFileSync(
+    subagent,
+    [
+      message('msg_inline', 3, true),
+      message('msg_scout', 4, true),
+      message('msg_scout', 5, true),
+    ].join('\n'),
+  );
+  expect((await mesa.usage.list()).periods.today).toMatchObject({
+    events: 3,
+    output: 10,
+    estimatedCostUsd: expect.any(Number),
+  });
+  // A subagent that goes on after the parent's transcript last changed still refreshes the ledger.
+  appendFileSync(subagent, `\n${message('msg_late', 6, true)}`);
+  expect((await mesa.usage.list()).periods.today).toMatchObject({ events: 4, output: 16 });
+});
+
+test('current Claude models have list prices; an unknown model stays unknown, not free', async () => {
+  const { run } = scriptedRunner();
+  const { home, dir, mesa } = projectProfile(run, {
+    clock: fixedClock('2026-09-24T12:10:00.000Z'),
+  });
+  const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  const message = (id: string, model: string) =>
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: at,
+      message: {
+        id,
+        model,
+        usage: {
+          input_tokens: 1000,
+          output_tokens: 100,
+          cache_read_input_tokens: 10_000,
+          cache_creation_input_tokens: 300,
+          cache_creation: { ephemeral_5m_input_tokens: 200, ephemeral_1h_input_tokens: 100 },
+        },
+      },
+    });
+  plantTranscript(
+    home,
+    nativeId,
+    dir,
+    [
+      message('msg_sonnet', 'claude-sonnet-5-5'),
+      message('msg_haiku', 'claude-haiku-4-5-20251001'),
+      message('msg_fable', 'claude-fable-5-1'),
+    ].join('\n'),
+  );
+  const priced = await mesa.usage.list();
+  const byModel = Object.fromEntries(priced.rows.map((row) => [row.model, row]));
+  expect(byModel['claude-sonnet-5-5']?.priceVersion).toBe(
+    'claude-sonnet-5-5:2026-09-25:standard-api',
+  );
+  // Per million: input, output, cache read, then 5-minute (1.25x input) and 1-hour (2x) writes.
+  expect(byModel['claude-sonnet-5-5']?.estimatedCostUsd).toBeCloseTo(
+    (1000 * 2 + 100 * 10 + 10_000 * 0.2 + 200 * 2.5 + 100 * 4) / 1_000_000,
+    12,
+  );
+  expect(byModel['claude-haiku-4-5-20251001']?.estimatedCostUsd).toBeCloseTo(
+    (1000 * 1 + 100 * 5 + 10_000 * 0.1 + 200 * 1.25 + 100 * 2) / 1_000_000,
+    12,
+  );
+  expect(byModel['claude-fable-5-1']?.estimatedCostUsd).toBeCloseTo(
+    (1000 * 10 + 100 * 50 + 10_000 * 0.25 + 200 * 12.5 + 100 * 20) / 1_000_000,
+    12,
+  );
+  expect(priced.periods.today.estimatedCostUsd).toBeCloseTo(0.0059 + 0.00295 + 0.022, 12);
+  expect(priced.daily.at(-1)?.totals.estimatedCostUsd).not.toBeNull();
+
+  const transcript = transcriptFile(claudeTranscripts(home), nativeId);
+  if (!transcript) throw new Error('missing invented transcript');
+  appendFileSync(transcript, `\n${message('msg_unknown', 'claude-lantern-9')}`);
+  const unknown = await mesa.usage.list();
+  expect(unknown.rows.find((row) => row.model === 'claude-lantern-9')).toMatchObject({
+    priceVersion: null,
+    estimatedCostUsd: null,
+  });
+  expect(unknown.periods.today.estimatedCostUsd).toBeNull();
+});
+
+test('a long history summarizes without copying its buckets per row', () => {
+  const row: UsageRecord = {
+    id: '',
+    session: 'lantern1',
+    agent: 'claude',
+    nativeSessionId: '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f',
+    model: 'claude-opus-5-5',
+    at,
+    source: 'claude-transcript',
+    tokens: {
+      input: 1,
+      output: 1,
+      cacheRead: 0,
+      cacheWrite: 0,
+      cacheWrite5m: 0,
+      cacheWrite1h: 0,
+    },
+    priceVersion: 'claude-opus-5-5:2026-09-28:standard-api',
+    estimatedCostUsd: 0.000024,
+  };
+  const rows = Array.from({ length: 45_000 }, (_, index) => ({ ...row, id: `claude:x:${index}` }));
+  const started = performance.now();
+  const summary = summarizeUsage(rows, new Date('2026-09-24T12:10:00.000Z'));
+  // Copying the day's and the model's bucket on every row took seconds at this size.
+  expect(performance.now() - started).toBeLessThan(1000);
+  expect(summary.daily.at(-1)?.totals.events).toBe(45_000);
+  expect(summary.breakdown).toMatchObject([
+    { model: 'claude-opus-5-5', totals: { events: 45_000 } },
+  ]);
 });

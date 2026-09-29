@@ -35,7 +35,7 @@ const Source = z.strictObject({
   file: z.string(),
   size: z.number().int(),
   mtimeMs: z.number(),
-  reader: z.literal(1),
+  reader: z.number().int().positive(),
 });
 export type SourceStamp = z.infer<typeof Source>;
 const Hook = z.strictObject({

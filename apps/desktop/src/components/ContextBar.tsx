@@ -6,11 +6,16 @@ import { cn } from '@/lib/utils';
 const AMBER = 55;
 const RED = 60;
 
+/** A context reading's tone, by the percent it shows, so one reading 55% is never uncoloured. */
+export const contextTone = (used: number) => {
+  const shown = contextPercent(used);
+  return shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
+};
+
 /** How full a session's context is: a bar with its percent, amber from 55% and red from 60%. */
 export function ContextBar(props: { used: number; window: number }) {
-  // By the percent it shows, so a bar reading 55% is never left uncoloured.
   const shown = contextPercent(props.used);
-  const tone = shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
+  const tone = contextTone(props.used);
   return (
     <div
       data-testid="context-bar"

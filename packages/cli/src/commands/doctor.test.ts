@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -159,4 +159,23 @@ test('doctor warns while a Codex app-server daemon runs in CODEX_HOME', async ()
   const warned = await mesa('doctor');
   expect(warned.code).toBe(0);
   expect(warned.stdout).toMatch(/\nwarn {2}codex daemon .* a Codex app-server daemon runs/);
+});
+
+test('doctor leaves a never-initialised profile unwritten and warns when the inbox does not read', async () => {
+  for (let run = 0; run < 2; run++) {
+    const { json } = await mesa('doctor', '--json');
+    expect(json.data.checks).toContainEqual(
+      expect.objectContaining({ name: 'profile dir', status: 'warn' }),
+    );
+  }
+  expect(existsSync(cli.paths.root)).toBe(false);
+
+  await mesa('init', '--vault', 'vault');
+  writeFileSync(cli.paths.notifications, '{ "read": ');
+  const doctor = await mesa('doctor', '--json');
+  expect(doctor.code).toBe(0);
+  expect(doctor.json.data.checks.find((c: { name: string }) => c.name === 'inbox')).toMatchObject({
+    status: 'warn',
+    hint: expect.stringContaining('inbox state is not valid JSON'),
+  });
 });

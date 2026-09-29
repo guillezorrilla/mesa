@@ -14,7 +14,7 @@ import {
   GENERAL_PROJECT,
   isRun,
   projectLabel,
-  sessionLabel,
+  sessionTitle,
   supportsAgentCapability,
 } from '@mesa/core/browser';
 import {
@@ -201,6 +201,7 @@ export function BoardScreen(
   }, [data, props.selectedSession]);
   const selected = data?.find((row) => row.id === props.selectedSession);
   const promptField = useRef<HTMLTextAreaElement>(null);
+  const actionsMenu = useRef<HTMLDetailsElement>(null);
   const handledPromptInsert = useRef<typeof props.promptInsertRequest>(undefined);
   const insertPrompt = useCallback((text: string) => {
     const field = promptField.current;
@@ -213,6 +214,8 @@ export function BoardScreen(
     if (!request || request === handledPromptInsert.current || request.session !== selected?.id)
       return;
     if (!promptField.current) return;
+    // The field sits in the Session actions menu: open it, so the inserted text shows.
+    if (actionsMenu.current) actionsMenu.current.open = true;
     insertPrompt(request.text);
     handledPromptInsert.current = request;
   }, [props.promptInsertRequest, selected?.id, insertPrompt]);
@@ -307,9 +310,12 @@ export function BoardScreen(
     stopDescendants: (row) => row.managed && setDialog({ kind: 'stop-descendants', row }),
     resume: (id) =>
       once(async () => {
+        const version = selectionVersion.current;
         const resumed = await run('sessions.resume', { id });
         await look();
-        if (resumed && props.selectedSession === id) props.onSelectSession?.(resumed.id);
+        // Its successor is shown only while it is still the session selected.
+        if (resumed && props.selectedSession === id && version === selectionVersion.current)
+          props.onSelectSession?.(resumed.id);
         return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
     rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
@@ -525,11 +531,7 @@ export function BoardScreen(
           </Button>
           <span className="text-muted-foreground">/</span>
           <span className="truncate font-medium">
-            {selected
-              ? selected.managed && !selected.name
-                ? 'Session'
-                : sessionLabel(selected)
-              : props.selectedSession}
+            {selected ? sessionTitle(selected) : props.selectedSession}
           </span>
           {selected?.managed && (
             <SelectedSessionDetails
@@ -586,7 +588,7 @@ export function BoardScreen(
             </Button>
           )}
           {selected && (
-            <details className="relative z-20">
+            <details ref={actionsMenu} className="relative z-20">
               <summary
                 aria-label="Session actions"
                 className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"

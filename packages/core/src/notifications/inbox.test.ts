@@ -37,6 +37,8 @@ test('inbox deduplicates a question pair, keeps child alerts separate, and survi
   hook('PermissionRequest', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
   hook('PermissionRequest', { agent_id: 'agent-lantern', tool_name: 'Bash' });
   hook('Stop');
+  // Claude Code's own background agents (an idle recap) stop with an empty agent_type.
+  hook('SubagentStop', { agent_id: 'agent-recap', agent_type: '' });
 
   const first = mesa.notifications.list();
   expect(first.map((item) => item.kind)).toEqual(['finished', 'subagent', 'input-required']);

@@ -47,6 +47,14 @@ test('skills set edits only the project policy and validates the enabled flag', 
   ).toMatchObject({ json: { ok: true, data: { enabled: true, changed: true } } });
   expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain('session-summary');
   expect(
+    (await mesa('skills', 'set', 'lantern-cove', 'session-summary', '--enabled', 'true')).stdout,
+  ).toBe('session-summary already enabled in lantern-cove mesa.yaml\n');
+  // The profile turns mesa on: a project cannot turn it off, and says why.
+  expect(await mesa('skills', 'set', 'lantern-cove', 'mesa', '--enabled', 'false')).toMatchObject({
+    code: 2,
+    stderr: expect.stringContaining("profile default's skills"),
+  });
+  expect(
     await mesa('skills', 'set', 'lantern-cove', 'session-summary', '--enabled', 'no'),
   ).toMatchObject({ code: 2 });
 });

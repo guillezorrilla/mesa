@@ -1,7 +1,8 @@
 import type { ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
 import { type SearchHit, searchWorkspace } from '@mesa/core/browser';
 import { Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -26,21 +27,26 @@ export function CommandPalette(props: {
 }) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
+  // Closed by choosing a hit: focus stays where its action puts it, not back on the trigger.
+  const chosen = useRef(false);
   useEffect(() => {
     if (props.open) {
       setQuery('');
       setActive(0);
+      chosen.current = false;
     }
   }, [props.open]);
   useEffect(() => {
-    if (!props.open) props.returnFocus?.focus();
+    if (!props.open && !chosen.current) props.returnFocus?.focus();
   }, [props.open, props.returnFocus]);
   const hits = searchWorkspace(props.projects, props.sessions, query, props.prompts);
   const enabled = hits.filter((hit) => !hit.disabled);
   const selected = enabled[Math.min(active, enabled.length - 1)];
   const choose = (hit: SearchHit) => {
     if (hit.disabled) return;
-    props.onClose();
+    chosen.current = true;
+    // Closed first, so the focus trap is gone before the action moves focus.
+    flushSync(props.onClose);
     props.onSelect(hit);
   };
   return (
@@ -51,7 +57,7 @@ export function CommandPalette(props: {
         className="top-[20%] max-h-[min(70vh,640px)] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-xl"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
-          props.returnFocus?.focus();
+          if (!chosen.current) props.returnFocus?.focus();
         }}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {

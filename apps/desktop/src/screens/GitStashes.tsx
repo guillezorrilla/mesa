@@ -1,3 +1,4 @@
+import type { StashEntry } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { said } from '@/components/Toast';
@@ -9,7 +10,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 /** Saved changes in the selected project's Git repository. */
 export function GitStashes(props: { project: string; checkout?: string; onChanged: () => void }) {
   const [message, setMessage] = useState('');
-  const [dropRef, setDropRef] = useState<string>();
+  const [dropping, setDropping] = useState<StashEntry>();
   const stashes = useCommand('git.stashes', { project: props.project, checkout: props.checkout });
   const run = useRun();
   const { acting, act } = useAct();
@@ -29,15 +30,17 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
       await changed();
       return said(result.created ? 'Saved stash' : 'No changes to stash', result);
     });
-  const change = (action: 'Apply' | 'Pop' | 'Drop', ref: string) =>
+  // The listed oid goes along: a stash pushed meanwhile shifts every ref, and core refuses then.
+  const change = (action: 'Apply' | 'Pop' | 'Drop', { ref, oid }: StashEntry) =>
     act(async () => {
       const result = await run(`git.stash${action}`, {
         project: props.project,
         checkout: props.checkout,
         ref,
+        oid,
       });
       if (!result) return undefined;
-      setDropRef(undefined);
+      setDropping(undefined);
       await changed();
       return said(
         `${action === 'Apply' ? 'Applied' : action === 'Pop' ? 'Popped' : 'Dropped'} ${ref}`,
@@ -78,7 +81,7 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
               size="sm"
               variant="outline"
               disabled={acting}
-              onClick={() => void change('Apply', stash.ref)}
+              onClick={() => void change('Apply', stash)}
             >
               Apply
             </Button>
@@ -86,25 +89,20 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
               size="sm"
               variant="outline"
               disabled={acting}
-              onClick={() => void change('Pop', stash.ref)}
+              onClick={() => void change('Pop', stash)}
             >
               Pop
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={acting}
-              onClick={() => setDropRef(stash.ref)}
-            >
+            <Button size="sm" variant="ghost" disabled={acting} onClick={() => setDropping(stash)}>
               Drop
             </Button>
           </li>
         ))}
       </ul>
-      {dropRef && (
+      {dropping && (
         <ActionDialog
           testId="git-drop-stash-dialog"
-          title={`Drop ${dropRef}?`}
+          title={`Drop ${dropping.ref}?`}
           description="This permanently removes the saved stash."
           submit={{
             label: 'Drop stash',
@@ -112,10 +110,12 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
             disabled: acting,
             variant: 'destructive',
           }}
-          onSubmit={() => void change('Drop', dropRef)}
-          onCancel={() => setDropRef(undefined)}
+          onSubmit={() => void change('Drop', dropping)}
+          onCancel={() => setDropping(undefined)}
         >
-          <p className="font-mono text-sm">{dropRef}</p>
+          <p className="text-sm">
+            <span className="font-mono">{dropping.ref}</span> {dropping.message}
+          </p>
         </ActionDialog>
       )}
     </section>

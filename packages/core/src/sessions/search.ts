@@ -112,11 +112,12 @@ export function tailLines(file: string): { lines: string[]; truncated: boolean }
   }
 }
 
-/** Text from one native message, excluding sidechains and non-message records. */
+/** Text from one native message, excluding sidechains, injected meta lines, and non-messages. */
 export function messageIn(agent: 'claude' | 'codex', line: string) {
   let entry: {
     type?: unknown;
     isSidechain?: unknown;
+    isMeta?: unknown;
     timestamp?: unknown;
     message?: unknown;
     payload?: unknown;
@@ -144,6 +145,8 @@ export function messageIn(agent: 'claude' | 'codex', line: string) {
   if (
     !message ||
     entry.isSidechain === true ||
+    // Claude Code writes loaded skill bodies and reminders as meta user lines, not the person's.
+    entry.isMeta === true ||
     (message.role !== 'user' && message.role !== 'assistant')
   )
     return undefined;

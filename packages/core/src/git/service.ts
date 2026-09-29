@@ -62,6 +62,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
     checkout: string | undefined,
     ref: string,
     action: StashAction['action'],
+    oid?: string,
   ) =>
     ctx.record(
       {
@@ -78,6 +79,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
           checkout && ctx.absolute(checkout),
           ref,
           action,
+          oid,
         ),
     );
   const branch = (
@@ -177,12 +179,12 @@ export function gitService(ctx: MesaContext, faro: Faro) {
             message,
           ),
       ),
-    stashApply: (project: string, ref: string, checkout?: string) =>
-      stash(project, checkout, ref, 'apply'),
-    stashPop: (project: string, ref: string, checkout?: string) =>
-      stash(project, checkout, ref, 'pop'),
-    stashDrop: (project: string, ref: string, checkout?: string) =>
-      stash(project, checkout, ref, 'drop'),
+    stashApply: (project: string, ref: string, checkout?: string, oid?: string) =>
+      stash(project, checkout, ref, 'apply', oid),
+    stashPop: (project: string, ref: string, checkout?: string, oid?: string) =>
+      stash(project, checkout, ref, 'pop', oid),
+    stashDrop: (project: string, ref: string, checkout?: string, oid?: string) =>
+      stash(project, checkout, ref, 'drop', oid),
     branches: (project: string, checkout?: string) =>
       listGitBranches(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
     branchCreate: (project: string, name: string, checkout?: string, base?: string) =>

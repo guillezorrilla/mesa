@@ -185,6 +185,8 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   expect((await cli.mesa('git', 'status', 'lantern-cove', '--json')).json.data.changes).toEqual([
     expect.objectContaining({ path: 'untracked space.txt', index: '?', workingTree: '?' }),
   ]);
+  // A tag of the same name must not turn the branch into heads/feature.
+  execFileSync('git', ['-C', repo, 'tag', 'feature']);
   const branches = await cli.mesa('git', 'branches', 'lantern-cove', '--json');
   expect(branches.json.data.branches).toContainEqual(
     expect.objectContaining({ name: 'feature', checkedOutAt: linked, current: false }),
@@ -328,6 +330,35 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
 
   const again = await cli.mesa('git', 'stash', 'create', 'lantern-cove', '--json');
   expect(again.json.data.created).toBe(true);
+  // An agent stashes after the list was read: stash@{0} now names its stash, not the listed one.
+  writeFileSync(join(repo, 'note.txt'), 'agent work\n');
+  execFileSync('git', ['-C', repo, 'stash', 'push', '-q', '-m', 'agent']);
+  const shifted = await cli.mesa(
+    'git',
+    'stash',
+    'drop',
+    'lantern-cove',
+    'stash@{0}',
+    `--oid=${again.json.data.oid}`,
+    '--json',
+  );
+  expect(shifted.code).toBe(2);
+  expect(shifted.json.error.message).toContain('no longer the stash you selected');
+  expect(
+    (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
+  ).toHaveLength(2);
+  expect(
+    (
+      await cli.mesa(
+        'git',
+        'stash',
+        'drop',
+        'lantern-cove',
+        'stash@{1}',
+        `--oid=${again.json.data.oid}`,
+      )
+    ).code,
+  ).toBe(0);
   expect((await cli.mesa('git', 'stash', 'drop', 'lantern-cove', 'stash@{0}', '--json')).code).toBe(
     0,
   );
