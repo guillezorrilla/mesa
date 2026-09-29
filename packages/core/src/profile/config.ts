@@ -121,6 +121,7 @@ const ConfigSchema = z.strictObject({
       newlineKey: z
         .enum(['native', 'shift-enter'])
         .default(DEFAULT_TERMINAL_PREFERENCES.newlineKey),
+      wezTermNewTab: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.wezTermNewTab),
     })
     .prefault({}),
   editor: z

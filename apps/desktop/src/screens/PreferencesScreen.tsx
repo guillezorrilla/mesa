@@ -258,6 +258,24 @@ export function PreferencesScreen(props: {
               ))}
             </NativeSelect>
           </div>
+          {terminal.app === 'WezTerm' && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="wezterm-new-tab"
+                  checked={terminal.wezTermNewTab}
+                  disabled={acting}
+                  onCheckedChange={(value) => save('terminal.wezTermNewTab', value === true)}
+                />
+                <Label htmlFor="wezterm-new-tab">
+                  Open in an existing WezTerm window as a new tab
+                </Label>
+              </div>
+              <p className="pl-6 text-xs text-muted-foreground">
+                If WezTerm has no window, Mesa opens a new one.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
       <Card>

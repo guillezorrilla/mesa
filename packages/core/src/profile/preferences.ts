@@ -23,4 +23,5 @@ export const DEFAULT_TERMINAL_PREFERENCES = {
   scrollSpeed: 3,
   extraSubmitKey: 'none',
   newlineKey: 'native',
+  wezTermNewTab: false,
 } as const;

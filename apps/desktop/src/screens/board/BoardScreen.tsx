@@ -36,15 +36,10 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { PageHeader } from '@/components/PageHeader';
+import { SavedPromptPicker } from '@/components/SavedPromptPicker';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { usePlatform } from '@/lib/MesaRoot';
@@ -737,25 +732,7 @@ export function BoardScreen(
                           rows={2}
                           className="min-h-9 flex-1 resize-y"
                         />
-                        {Boolean(props.savedPrompts?.length) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button type="button" variant="outline" size="sm">
-                                Saved prompts
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              {props.savedPrompts?.map((prompt) => (
-                                <DropdownMenuItem
-                                  key={prompt.name}
-                                  onSelect={() => insertPrompt(prompt.text)}
-                                >
-                                  {prompt.name}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
+                        <SavedPromptPicker prompts={props.savedPrompts} onSelect={insertPrompt} />
                         <Button
                           type="button"
                           variant="outline"
@@ -883,6 +860,7 @@ export function BoardScreen(
           general={dialog.general}
           parent={dialog.parent}
           location={dialog.location}
+          savedPrompts={props.savedPrompts}
           onOpen={open}
           onCancel={close}
           disabled={acting}

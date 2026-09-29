@@ -9,7 +9,6 @@ import { runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
 import { inbox } from './notifications/inbox.js';
-import { backupService } from './profile/backup.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { promptsService } from './prompts/prompts.js';
@@ -40,7 +39,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...profileApi,
     projects: projectsService(ctx),
     prompts: promptsService(ctx),
-    backup: backupService(ctx),
     files: filesService(ctx),
     worktrees: worktreesService(ctx),
     git: gitService(ctx, faro),

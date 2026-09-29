@@ -34,9 +34,13 @@ const ATTACH = [
 ];
 
 /** A profile holding one session record; binaries in `failing` (tmux: no window) exit 1. */
-function setUp(failing: string[] = [], env = {}) {
+function setUp(
+  failing: string[] = [],
+  env = {},
+  outputs: Parameters<typeof scriptedRunner>[0] = {},
+) {
   const home = tempDir();
-  const scripted = scriptedRunner({}, { failing });
+  const scripted = scriptedRunner(outputs, { failing });
   const mesa = createMesa('default', testDeps(home, { run: scripted.run, env }));
   mesa.init({ vault: 'vault' });
   const store = testStore(home);
@@ -108,4 +112,39 @@ test('a terminal app that fails to open is an error, not a silent no-op', async 
     code: 'internal',
     message: 'could not open Terminal: exit 1',
   });
+});
+
+test('WezTerm tab preference opens a tab in an existing window and falls back to a new window', async () => {
+  const binary = '/Applications/WezTerm.app/Contents/MacOS/wezterm';
+  const { mesa, id, calls, home } = setUp(
+    [],
+    {},
+    {
+      [binary]: (args) =>
+        args[1] === 'list'
+          ? '[{"window_id":3,"is_active":false},{"window_id":42,"is_active":true}]'
+          : '123',
+    },
+  );
+  mesa.config.set('terminal.app', 'WezTerm');
+  mesa.config.set('terminal.wezTermNewTab', 'true');
+  await mesa.sessions.attach(id, true);
+  expect(calls.at(-1)).toMatchObject({
+    file: binary,
+    args: [
+      'cli',
+      'spawn',
+      '--window-id',
+      '42',
+      '--',
+      join(profilePaths(home, 'default').attachScripts, `${id}.command`),
+    ],
+  });
+  expect(calls.some((call) => call.file === 'open')).toBe(false);
+
+  const noWindow = setUp([], {}, { [binary]: '[]' });
+  noWindow.mesa.config.set('terminal.app', 'WezTerm');
+  noWindow.mesa.config.set('terminal.wezTermNewTab', 'true');
+  await noWindow.mesa.sessions.attach(noWindow.id, true);
+  expect(noWindow.calls.at(-1)?.file).toBe('open');
 });

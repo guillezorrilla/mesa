@@ -1976,6 +1976,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       scrollSpeed: 3,
       extraSubmitKey: 'none',
       newlineKey: 'native',
+      wezTermNewTab: false,
     },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
@@ -2064,6 +2065,33 @@ test('palette inserts a saved multiline prompt in the selected session without s
     text,
   );
   expect(calls.some((args) => args.includes('send'))).toBe(false);
+});
+
+test('a saved prompt fills a new Claude session goal byte for byte without starting it', async () => {
+  const text = 'First instruction\n\n  Keep this indentation.\n';
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    prompts: () => envelope([{ name: 'Review', text }]),
+    open: () => envelope(managedRow('aaaaaaaa')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="New session in lantern-cove"]') as HTMLElement);
+  await click([...document.querySelectorAll<HTMLElement>('[role="menuitem"]')][0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('button')].find(
+      (button) => button.textContent === 'Saved prompts',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent === 'Review',
+    ),
+  );
+  expect((byTestId('new-session-goal')[0] as HTMLTextAreaElement).value).toBe(text);
+  expect(calls.some((args) => args[1] === 'open')).toBe(false);
+  await click(byTestId('new-session-submit')[0]);
+  const opened = calls.find((args) => args[1] === 'open');
+  expect(opened).toContain(`--goal=${text}`);
 });
 
 test('quitting can be cancelled, and a failed close-time backup keeps the app open', async () => {

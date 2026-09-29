@@ -1,5 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { REDACTED } from '../lib/redact.js';
+import { backupService } from './backup.js';
 import { redactConfig, setConfigValue } from './config.js';
 import { initProfile, type ProfileInfo } from './profile.js';
 
@@ -8,6 +9,7 @@ export function profileService(ctx: MesaContext) {
   const { profile, paths, record } = ctx;
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
+    backup: backupService(ctx),
     init: (input: { vault: string; agent?: string }) => {
       const vault = ctx.absolute(input.vault);
       return record(
