@@ -215,8 +215,10 @@ test('Codex cumulative totals contribute only positive deltas, not repeated comp
         payload: JSON.stringify({ session_id: id, hook_event_name: event, source }),
       },
     );
+  const secondId = '01a0e14e-be41-72f1-a81b-e25d2198602b';
+  const thirdId = '01a0e14e-be41-72f1-a81b-e25d2198602c';
   hook(nativeId, 'SessionEnd');
-  hook('01a0e14e-be41-72f1-a81b-e25d2198602b', 'SessionStart', 'clear');
+  hook(secondId, 'SessionStart', 'clear');
   const afterClear = await mesa.usage.list(record.id);
   expect(afterClear.rows).toEqual(result.rows);
   expect(afterClear.unknown).toContainEqual({
@@ -227,4 +229,26 @@ test('Codex cumulative totals contribute only positive deltas, not repeated comp
   expect(
     (await createMesa('default', testDeps(home, { env: codex.env })).usage.list(record.id)).unknown,
   ).toContainEqual({ session: record.id, reason: 'native session identity changed' });
+  testStore(home).update(record.id, { agentSessionId: secondId });
+  appendFileSync(
+    codex.rollout({ id: secondId, cwd: dir, startedAt: '2026-09-24T12:05:00.000Z' }),
+    `\n${total('2026-09-24T12:06:00.000Z', 10, 2, 0)}`,
+  );
+  expect((await mesa.usage.list(record.id)).unknown).toEqual([]);
+  hook(secondId, 'SessionEnd');
+  hook(thirdId, 'SessionStart', 'clear');
+  expect((await mesa.usage.list(record.id)).unknown).toContainEqual({
+    session: record.id,
+    reason: 'native session identity changed',
+  });
+  testStore(home).update(record.id, { agentSessionId: thirdId });
+  appendFileSync(
+    codex.rollout({ id: thirdId, cwd: dir, startedAt: '2026-09-24T12:07:00.000Z' }),
+    `\n${total('2026-09-24T12:08:00.000Z', 8, 1, 0)}`,
+  );
+  const adopted = await mesa.usage.list(record.id);
+  expect(adopted.unknown).toEqual([]);
+  expect(new Set(adopted.rows.map((row) => row.nativeSessionId))).toEqual(
+    new Set([nativeId, secondId, thirdId]),
+  );
 });

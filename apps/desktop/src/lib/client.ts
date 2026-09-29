@@ -548,7 +548,10 @@ const COMMANDS = {
     'diagnostics',
     ...(event ? ['--event', event] : []),
   ]),
-  'usage.list': command<UsageReport>('usage'),
+  'usage.list': commandWith<{ session?: string }, UsageReport>(({ session }) => [
+    'usage',
+    ...(session ? ['--session', session] : []),
+  ]),
   'rewind.week': command<WeeklyRewind>('rewind'),
   'notifications.list': command<InboxItem[]>('notifications'),
   'notifications.delivery': command<DeliveryPlan>('notifications', 'delivery'),

@@ -41,13 +41,13 @@ export function usageService(ctx: MesaContext) {
           nativeIds: [...discovered],
           changedIds: [...changed],
         };
-        if ([...changed].some((id) => id !== record.agentSessionId))
-          unknown.push({ session: record.id, reason: 'native session identity changed' });
         const nativeIds = new Set([
           ...(record.agentSessionId ? [record.agentSessionId] : []),
           ...previous.map((source) => source.nativeSessionId),
           ...discovered,
         ]);
+        if ([...changed].some((id) => !nativeIds.has(id)))
+          unknown.push({ session: record.id, reason: 'native session identity changed' });
         if (nativeIds.size === 0) {
           unknown.push({ session: record.id, reason: 'native session id is not available' });
           continue;

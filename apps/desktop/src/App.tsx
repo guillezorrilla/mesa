@@ -123,7 +123,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     let active = true;
     const announced = new Set<string>();
     const check = async () => {
-      const report = await run('usage.list');
+      const report = await run('usage.list', {});
       if (!active || !report) return;
       const day = new Date().toISOString().slice(0, 10);
       for (const alert of report.alerts) {

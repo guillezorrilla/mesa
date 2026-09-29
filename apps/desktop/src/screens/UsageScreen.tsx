@@ -1,3 +1,4 @@
+import { sessionLabel } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
@@ -20,7 +21,9 @@ const dollars = (value: number | null) =>
   value === null ? 'Unknown' : value > 0 && value < 0.0001 ? '<$0.0001' : `$${value.toFixed(4)}`;
 
 export function UsageScreen({ onSession }: { onSession: (id: string) => void }) {
-  const usage = useCommand('usage.list');
+  const [session, setSession] = useState('');
+  const sessions = useCommand('sessions.all');
+  const usage = useCommand('usage.list', { session: session || undefined });
   const rewind = useCommand('rewind.week');
   const config = useCommand('config.get');
   const run = useRun();
@@ -61,6 +64,24 @@ export function UsageScreen({ onSession }: { onSession: (id: string) => void }) 
           {usage.busy ? 'Reading...' : 'Refresh'}
         </Button>
       </PageHeader>
+      <Label className="flex w-fit items-center gap-2 text-sm">
+        Scope
+        <select
+          aria-label="Usage scope"
+          className="h-9 max-w-72 rounded-md border border-input bg-background px-2 text-foreground"
+          value={session}
+          onChange={(event) => setSession(event.target.value)}
+        >
+          <option value="">All sessions</option>
+          {sessions.data
+            ?.filter((row) => row.managed && row.agent !== 'terminal')
+            .map((row) => (
+              <option key={row.id} value={row.id}>
+                {sessionLabel(row)} ({row.id})
+              </option>
+            ))}
+        </select>
+      </Label>
       {report?.unknown.map((item) => (
         <p key={`${item.session}:${item.reason}`} className="text-muted-foreground text-sm">
           {item.session}: {item.reason}

@@ -1,8 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { fixedClock, newSession, sequentialIds, tempDir } from '../testing/index.js';
-import { readHookEvents, recordHookEvent } from './hook-events.js';
+import { readHookEvents, recordHookEvent, scanHookEvents } from './hook-events.js';
 import { sessionStore } from './store.js';
 
 // Payloads shaped like the ones docs/spikes/state-signals.md recorded, with invented values.
@@ -54,6 +54,28 @@ test('bounded hook reads keep whole recent JSONL entries', () => {
   expect(readHookEvents(deps.eventsDir, id, first.length + 10).map((event) => event.event)).toEqual(
     ['Stop'],
   );
+});
+
+test('incremental hook scans cross chunks and resume after a partial line', () => {
+  const { id, deps } = setUp();
+  const file = join(deps.eventsDir, `${id}.jsonl`);
+  const large = JSON.stringify({
+    at: '2026-09-24T12:00:00.000Z',
+    agent: 'claude',
+    event: 'Stop',
+    payload: { parts: Array(70_000).fill('x') },
+  });
+  mkdirSync(deps.eventsDir, { recursive: true });
+  writeFileSync(file, `${large}\n{"at":"2026-09-24T12:01:00.000Z","event":"SessionEnd"`);
+  const seen: string[] = [];
+  const offset = scanHookEvents(deps.eventsDir, id, 0, (event) => seen.push(event.event));
+  expect(seen).toEqual(['Stop']);
+  expect(offset).toBe(Buffer.byteLength(large) + 1);
+  appendFileSync(file, '}\n');
+  expect(scanHookEvents(deps.eventsDir, id, offset, (event) => seen.push(event.event))).toBe(
+    readFileSync(file).length,
+  );
+  expect(seen).toEqual(['Stop', 'SessionEnd']);
 });
 
 test('a hook appends one line, and gives the record its agent session id once', () => {
