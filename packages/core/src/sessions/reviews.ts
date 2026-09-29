@@ -18,6 +18,8 @@ export type ReviewPreview = {
   path?: string;
   base?: string;
   staged?: boolean;
+  url?: string;
+  selector?: string;
 };
 export type ReviewDelivery = {
   id: string;
@@ -44,7 +46,7 @@ type DeliveryDeps = {
 export async function sendReview(
   deps: DeliveryDeps,
   id: string,
-  kind: 'response' | 'change',
+  kind: 'response' | 'change' | 'browser',
   preview: () => ReviewPreview | Promise<ReviewPreview>,
   opts: Overrides & { noFrom?: boolean } = {},
 ): Promise<ReviewDelivery> {
@@ -75,6 +77,8 @@ export async function sendReview(
     ...(checked.path ? { path: checked.path } : {}),
     ...(checked.base ? { base: checked.base } : {}),
     ...(checked.staged === undefined ? {} : { staged: checked.staged }),
+    ...(checked.url ? { url: checked.url } : {}),
+    ...(checked.selector ? { selector: checked.selector } : {}),
     status: 'pending',
   };
   let claimed = false;

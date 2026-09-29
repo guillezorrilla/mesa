@@ -21,6 +21,7 @@ import {
   Download,
   ExternalLink,
   Forward,
+  Globe,
   ImagePlus,
   MessageSquareQuote,
   MoreVertical,
@@ -44,6 +45,7 @@ import { useCall, useRun } from '@/lib/useCommand';
 import { ArchiveDialog } from './ArchiveDialog';
 import { BoardControls } from './BoardControls';
 import { BoardLayouts } from './BoardLayouts';
+import { BrowserPanel } from './BrowserPanel';
 import { DependencyDialog } from './DependencyDialog';
 import { DescendantDialog } from './DescendantDialog';
 import { ForkDialog } from './ForkDialog';
@@ -136,6 +138,9 @@ export function BoardScreen(
   const [dialog, setDialog] = useState<OpenDialog>();
   const [image, setImage] = useState<SessionImage>();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [browserTarget, setBrowserTarget] = useState<{ url: string }>();
+  const [pendingBrowser, setPendingBrowser] = useState<{ session: string; url: string }>();
   const selectionVersion = useRef(0);
   const handledArchiveRequest = useRef(0);
   useEffect(() => {
@@ -179,7 +184,16 @@ export function BoardScreen(
     selectionVersion.current += 1;
     setImage((current) => (current?.session === props.selectedSession ? current : undefined));
     setReviewOpen(false);
+    setBrowserOpen(false);
+    setBrowserTarget(undefined);
   }, [props.selectedSession]);
+  useEffect(() => {
+    if (!pendingBrowser || pendingBrowser.session !== props.selectedSession) return;
+    setBrowserTarget({ url: pendingBrowser.url });
+    setBrowserOpen(true);
+    setReviewOpen(false);
+    setPendingBrowser(undefined);
+  }, [pendingBrowser, props.selectedSession]);
   const preferences = props.preferences ?? DEFAULT_BOARD_PREFERENCES;
 
   // Every action looks again when it ends, so the Board shows what it did.
@@ -499,11 +513,29 @@ export function BoardScreen(
                 size="sm"
                 aria-label="Review responses"
                 aria-pressed={reviewOpen}
-                onClick={() => setReviewOpen((open) => !open)}
+                onClick={() => {
+                  setBrowserOpen(false);
+                  setReviewOpen((open) => !open);
+                }}
               >
                 <MessageSquareQuote aria-hidden /> Review
               </Button>
             )}
+          {selected?.managed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Open session browser"
+              aria-pressed={browserOpen}
+              onClick={() => {
+                setReviewOpen(false);
+                setBrowserTarget(undefined);
+                setBrowserOpen((open) => !open);
+              }}
+            >
+              <Globe aria-hidden /> Browser
+            </Button>
+          )}
           {selected && recoverable(selected) && (
             <span className="text-xs text-state-waiting">Terminal ended</span>
           )}
@@ -980,6 +1012,10 @@ export function BoardScreen(
             <TerminalPanel
               sessionId={id}
               onFileLink={props.onFileLink}
+              onWebLink={(session, url) => {
+                setPendingBrowser({ session, url });
+                props.onSelectSession?.(session);
+              }}
               busy={acting}
               onOpenExternal={() => actions.openTerminal(id)}
               onClose={() => {
@@ -999,6 +1035,17 @@ export function BoardScreen(
             sessionId={selected.id}
             project={selected.project === GENERAL_PROJECT ? undefined : selected.project}
             checkout={selected.worktree?.path ?? selected.cwd}
+          />
+        )}
+        {selected?.managed && browserOpen && (
+          <BrowserPanel
+            key={selected.id}
+            sessionId={selected.id}
+            initialUrl={browserTarget}
+            onClose={() => {
+              setBrowserTarget(undefined);
+              setBrowserOpen(false);
+            }}
           />
         )}
       </div>

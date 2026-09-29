@@ -4,6 +4,7 @@ import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
 import { board, boardMove } from './board.js';
+import { browserAnnotationPreview, browserAnnotationSend, browserExternal } from './browser.js';
 import { config, configSet } from './config.js';
 import { decide } from './decide.js';
 import { dependency } from './dependency.js';
@@ -103,6 +104,9 @@ export const COMMANDS: Command[] = [
   attach,
   board,
   boardMove,
+  browserAnnotationPreview,
+  browserAnnotationSend,
+  browserExternal,
   config,
   configSet,
   dependency,

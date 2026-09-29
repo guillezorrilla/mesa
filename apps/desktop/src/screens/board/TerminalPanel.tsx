@@ -10,6 +10,7 @@ export function TerminalPanel(props: {
   onOpenExternal: () => void;
   onClose: () => void;
   onFileLink?: (session: string, target: string) => void;
+  onWebLink?: (session: string, url: string) => void;
   grid?: boolean;
   selected?: boolean;
   zoomed?: boolean;
@@ -66,6 +67,7 @@ export function TerminalPanel(props: {
         sessionId={props.sessionId}
         fill={props.grid || props.selected}
         onFileLink={props.onFileLink}
+        onWebLink={props.onWebLink}
       />
     </Card>
   );
