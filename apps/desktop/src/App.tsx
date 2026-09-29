@@ -23,9 +23,11 @@ import { useCommand, useRun } from './lib/useCommand';
 import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { HelpScreen } from './screens/HelpScreen';
+import { InboxScreen } from './screens/InboxScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { ShortcutSettings } from './screens/ShortcutSettings';
+import { UsageScreen } from './screens/UsageScreen';
 
 export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
@@ -329,6 +331,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               </p>
             ))}
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
+          {view.kind === 'usage' && <UsageScreen />}
+          {view.kind === 'inbox' && (
+            <InboxScreen onSession={(id) => navigate({ kind: 'session', id })} />
+          )}
           {view.kind === 'help' && <HelpScreen />}
           {view.kind === 'shortcuts' && (
             <ShortcutSettings
@@ -361,6 +367,8 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               destination === 'grid' ||
               destination === 'projects' ||
               destination === 'doctor' ||
+              destination === 'usage' ||
+              destination === 'inbox' ||
               destination === 'help' ||
               destination === 'shortcuts'
             ) {

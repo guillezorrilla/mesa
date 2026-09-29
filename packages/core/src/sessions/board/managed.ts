@@ -1,7 +1,7 @@
 import { AGENTS } from '../../agents/agents.js';
 import { MesaError } from '../../lib/result.js';
 import type { AgentProcess } from '../agent-listing.js';
-import type { HookEvent } from '../hook-events.js';
+import { type HookEvent, parentHook } from '../hook-events.js';
 import type { SessionRecord } from '../record.js';
 import { classifySession, type Placement, type SessionSignals } from '../state.js';
 import { FINAL_STATES, isAgentState } from '../states.js';
@@ -110,7 +110,7 @@ export async function managedRow(
     ? undefined
     : deps
         .events(found.id)
-        .filter((e) => reader.hookState?.(e.event, e.payload))
+        .filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload))
         .at(-1);
   const signals: SessionSignals = {
     now: now.toISOString(),

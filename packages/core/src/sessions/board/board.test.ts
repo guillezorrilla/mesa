@@ -41,6 +41,40 @@ const noListing = {
   elsewhere: () => new Set<string>(),
 };
 
+test('a subagent permission hook does not turn its parent into a permission wait', async () => {
+  const store = storeIn();
+  const parent = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+  );
+  const { run } = scriptedRunner({ tmux: screenless(LIVE_LINE) });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    events: () => [
+      {
+        at: '2026-09-24T11:59:50.000Z',
+        agent: 'claude',
+        event: 'UserPromptSubmit',
+        payload: { hook_event_name: 'UserPromptSubmit' },
+      },
+      {
+        at: '2026-09-24T11:59:55.000Z',
+        agent: 'claude',
+        event: 'PermissionRequest',
+        payload: {
+          hook_event_name: 'PermissionRequest',
+          agent_id: 'agent-lantern',
+          tool_name: 'Bash',
+        },
+      },
+    ],
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  expect(rows).toMatchObject([{ id: parent.id, lastState: { state: 'working' } }]);
+  expect(store.get(parent.id).lastState.state).toBe('working');
+});
+
 test('listSessions marks a session whose window is gone done from tmux, and saves it', async () => {
   const store = storeIn();
   const live = store.create(() =>
