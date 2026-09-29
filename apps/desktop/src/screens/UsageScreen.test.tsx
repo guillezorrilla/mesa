@@ -49,8 +49,19 @@ test('usage scope shows the selected session period totals', async () => {
     cacheWrite: 0,
     estimatedCostUsd: 0,
   };
-  const report = (input: number): UsageReport => ({
-    rows: [],
+  const retained: UsageReport['rows'][number] = {
+    id: 'claude:old:message',
+    session: 'oldold01',
+    agent: 'claude',
+    nativeSessionId: '00000000-0000-4000-8000-000000000009',
+    at: '2026-09-24T12:00:00.000Z',
+    source: 'claude-transcript',
+    tokens: { input: 5, output: 0, cacheRead: 0, cacheWrite: 0, cacheWrite5m: 0, cacheWrite1h: 0 },
+    priceVersion: null,
+    estimatedCostUsd: null,
+  };
+  const report = (input: number, rows: UsageReport['rows'] = []): UsageReport => ({
+    rows,
     unknown: [],
     periods: {
       today: { ...zero, input },
@@ -65,17 +76,27 @@ test('usage scope shows the selected session period totals', async () => {
   });
   const { bridge, calls } = fakeBridge({
     sessions: () => envelope([managedRow('abcdefgh', { name: 'Lantern' })]),
-    usage: (args) => envelope(report(args.includes('--session') ? 7 : 20)),
+    usage: (args) =>
+      envelope(
+        args.includes('abcdefgh')
+          ? report(7)
+          : args.includes('oldold01')
+            ? report(5, [retained])
+            : report(12, [retained]),
+      ),
   });
   const byTestId = await renderWithMesa(<UsageScreen onSession={() => {}} />, bridge);
-  expect(byTestId('usage-panel')[0]?.textContent).toContain('20 input');
-  await choose(
-    document.querySelector<HTMLSelectElement>('[aria-label="Usage scope"]') ?? undefined,
-    'abcdefgh',
-  );
+  expect(byTestId('usage-panel')[0]?.textContent).toContain('12 input');
+  const scope =
+    document.querySelector<HTMLSelectElement>('[aria-label="Usage scope"]') ?? undefined;
+  expect(scope?.textContent).toContain('oldold01 (retained usage)');
+  await choose(scope, 'abcdefgh');
   expect(byTestId('usage-panel')[0]?.textContent).toContain('7 input');
+  await choose(scope, 'oldold01');
+  expect(byTestId('usage-panel')[0]?.textContent).toContain('5 input');
   expect(calls.some((args) => args.join(' ').includes('sessions --all --tree'))).toBe(true);
   expect(calls.some((args) => args.join(' ').includes('usage --session abcdefgh'))).toBe(true);
+  expect(calls.some((args) => args.join(' ').includes('usage --session oldold01'))).toBe(true);
 });
 
 test('weekly rewind opens the exact note and session evidence', async () => {

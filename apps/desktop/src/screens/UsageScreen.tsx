@@ -28,6 +28,7 @@ export function UsageScreen({ onSession }: { onSession: (id: string) => void }) 
   const config = useCommand('config.get');
   const run = useRun();
   const report = usage.data;
+  const [historical, setHistorical] = useState<string[]>([]);
   const [days, setDays] = useState<7 | 30 | 90>(7);
   const [saving, setSaving] = useState(false);
   const [thresholds, setThresholds] = useState({
@@ -35,6 +36,9 @@ export function UsageScreen({ onSession }: { onSession: (id: string) => void }) 
     weeklyAlertUsd: '0',
     monthlyAlertUsd: '0',
   });
+  useEffect(() => {
+    if (!session && report) setHistorical([...new Set(report.rows.map((row) => row.session))]);
+  }, [session, report]);
   useEffect(() => {
     if (config.data)
       setThresholds({
@@ -78,6 +82,13 @@ export function UsageScreen({ onSession }: { onSession: (id: string) => void }) 
             .map((row) => (
               <option key={row.id} value={row.id}>
                 {sessionLabel(row)} ({row.id})
+              </option>
+            ))}
+          {historical
+            .filter((id) => !sessions.data?.some((row) => row.id === id))
+            .map((id) => (
+              <option key={id} value={id}>
+                {id} (retained usage)
               </option>
             ))}
         </select>

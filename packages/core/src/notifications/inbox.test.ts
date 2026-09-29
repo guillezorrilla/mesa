@@ -127,6 +127,43 @@ test('quiet delivery digests new notices once and respects each kind across rest
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
 });
 
+test('delivery acknowledges a full inbox and a Doctor finding across two batches', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const session = testStore(home).create(() => newSession());
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  const file = eventsLog(profilePaths(home, 'default').events, session.id);
+  mkdirSync(dirname(file), { recursive: true });
+  appendFileSync(
+    file,
+    `${Array.from({ length: 500 }, (_, index) =>
+      JSON.stringify({
+        at: new Date(Date.parse('2026-09-24T12:00:00.000Z') + (index + 1) * 3_000).toISOString(),
+        agent: 'claude',
+        event: 'Stop',
+        payload: {},
+      }),
+    ).join('\n')}\n`,
+  );
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: [{ name: 'hooks', ok: false, status: 'warn', hint: 'Review hooks' }],
+  });
+  const first = mesa.notifications.delivery();
+  expect(first.kind).toBe('digest');
+  if (first.kind === 'none') throw new Error('expected first batch');
+  expect(first.ids).toHaveLength(500);
+  mesa.notifications.markDelivered(first.ids);
+  const restarted = createMesa('default', testDeps(home));
+  const second = restarted.notifications.delivery();
+  expect(second.kind).toBe('notice');
+  if (second.kind === 'none') throw new Error('expected remaining notice');
+  expect(second.ids).toHaveLength(1);
+  restarted.notifications.markDelivered(second.ids);
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+});
+
 test('inbox keeps unread notices when later hooks exceed a bounded scan window', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
