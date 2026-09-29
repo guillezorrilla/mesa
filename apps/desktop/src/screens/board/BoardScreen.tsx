@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Forward,
   ImagePlus,
+  MessageSquareQuote,
   MoreVertical,
   Plus,
   RotateCcw,
@@ -53,6 +54,7 @@ import { LogDialog } from './LogDialog';
 import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
+import { ResponseReview } from './ResponseReview';
 import { RowMenu } from './RowMenu';
 import { exited, queued, recoverable, resumable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
@@ -133,6 +135,7 @@ export function BoardScreen(
   const platform = usePlatform();
   const [dialog, setDialog] = useState<OpenDialog>();
   const [image, setImage] = useState<SessionImage>();
+  const [reviewOpen, setReviewOpen] = useState(false);
   const selectionVersion = useRef(0);
   const handledArchiveRequest = useRef(0);
   useEffect(() => {
@@ -175,6 +178,7 @@ export function BoardScreen(
   useEffect(() => {
     selectionVersion.current += 1;
     setImage((current) => (current?.session === props.selectedSession ? current : undefined));
+    setReviewOpen(false);
   }, [props.selectedSession]);
   const preferences = props.preferences ?? DEFAULT_BOARD_PREFERENCES;
 
@@ -487,6 +491,19 @@ export function BoardScreen(
             />
           )}
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
+          {selected?.managed &&
+            selected.kind === 'interactive' &&
+            selected.agent !== 'terminal' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Review responses"
+                aria-pressed={reviewOpen}
+                onClick={() => setReviewOpen((open) => !open)}
+              >
+                <MessageSquareQuote aria-hidden /> Review
+              </Button>
+            )}
           {selected && recoverable(selected) && (
             <span className="text-xs text-state-waiting">Terminal ended</span>
           )}
@@ -931,7 +948,7 @@ export function BoardScreen(
       <div
         className={
           props.selectedSession
-            ? 'min-h-0 flex-1'
+            ? 'flex min-h-0 flex-1'
             : props.gridMode
               ? 'grid gap-3 lg:grid-cols-2'
               : 'space-y-4'
@@ -952,7 +969,7 @@ export function BoardScreen(
             }
             className={
               props.selectedSession
-                ? 'h-full'
+                ? 'h-full min-w-0 flex-1'
                 : props.gridMode
                   ? zoomed === id
                     ? 'col-span-full h-[70vh] min-w-[320px]'
@@ -976,6 +993,9 @@ export function BoardScreen(
             />
           </div>
         ))}
+        {props.selectedSession && reviewOpen && (
+          <ResponseReview key={props.selectedSession} sessionId={props.selectedSession} />
+        )}
       </div>
     </section>
   );

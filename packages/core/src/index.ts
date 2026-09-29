@@ -89,6 +89,11 @@ export {
 } from './sessions/presentation.js';
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
+export type {
+  NativeResponse,
+  ResponseReviewPreview,
+  SessionResponses,
+} from './sessions/responses.js';
 export type { HeadlessResult } from './sessions/run.js';
 export type { ConversationHit, ConversationSearch } from './sessions/search.js';
 export type { Sent } from './sessions/send.js';
