@@ -197,7 +197,8 @@ export function scanHookEvents(
   const size = statSync(file).size;
   let position = offset <= size ? offset : 0;
   let complete = position;
-  let pending = Buffer.alloc(0);
+  let pending: Buffer[] = [];
+  let pendingBytes = 0;
   const fd = openSync(file, 'r');
   try {
     while (position < size) {
@@ -205,15 +206,26 @@ export function scanHookEvents(
       const count = readSync(fd, buffer, 0, buffer.length, position);
       if (count === 0) break;
       position += count;
-      const chunk = Buffer.concat([pending, buffer.subarray(0, count)]);
+      const chunk = buffer.subarray(0, count);
       let start = 0;
       for (let end = chunk.indexOf(10, start); end !== -1; end = chunk.indexOf(10, start)) {
-        const event = parseHookEvent(chunk.subarray(start, end).toString('utf8'));
+        const line = chunk.subarray(start, end);
+        const event = parseHookEvent(
+          (pendingBytes
+            ? Buffer.concat([...pending, line], pendingBytes + line.length)
+            : line
+          ).toString('utf8'),
+        );
         if (event) onEvent(event);
+        pending = [];
+        pendingBytes = 0;
         start = end + 1;
       }
-      pending = chunk.subarray(start);
-      complete = position - pending.length;
+      if (start < chunk.length) {
+        pending.push(chunk.subarray(start));
+        pendingBytes += chunk.length - start;
+      }
+      complete = position - pendingBytes;
     }
   } finally {
     closeSync(fd);
