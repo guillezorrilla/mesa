@@ -20,7 +20,7 @@ import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import { PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
-import { agentEnvVarsToClear, type TmuxBackend } from './tmux/backend.js';
+import { nestedAgentVars, type TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
 import { removeWorktree, type Worktree } from './worktree.js';
 
@@ -143,7 +143,8 @@ export async function startSession(
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd);
     if (record.background && !record.backgroundId) {
       const env = { ...deps.env };
-      for (const key of agentEnvVarsToClear(deps.env)) delete env[key];
+      for (const key of nestedAgentVars(deps.env)) delete env[key];
+      delete env.NO_COLOR;
       backgroundId = await startClaudeBackground(deps.run, cwd, record.goal, record.mode, {
         ...env,
         ...windowEnv(record.id, deps.profileName),
@@ -151,14 +152,18 @@ export async function startSession(
       record = deps.store.update(record.id, { backgroundId });
     }
     const { paths, config } = deps.profile;
+    const command = record.backgroundId
+      ? claudeBackgroundAttach(record.backgroundId)
+      : start.command(record);
     await deps.tmux.openWindow({
       project: record.tmux.session,
       window: record.tmux.window,
       // claude keys its transcripts by cwd.
       cwd,
-      command: record.backgroundId
-        ? claudeBackgroundAttach(record.backgroundId)
-        : start.command(record),
+      command:
+        record.agent === 'claude' && record.kind === 'interactive'
+          ? `unset NO_COLOR; ${command}`
+          : command,
       env: windowEnv(record.id, deps.profileName),
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });

@@ -59,7 +59,7 @@ async function setUp(
 
 test('open starts claude with its session id in a new tmux session, then in a new window', async () => {
   const world = agentWorld();
-  const { home, dir, mesa } = await setUp(world);
+  const { home, dir, mesa } = await setUp(world, { env: { NO_COLOR: '1' } });
 
   const { result: first, receipt } = await mesa.sessions.open('lantern-cove');
   expect(first).toMatchObject({
@@ -91,7 +91,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     // Through /bin/sh, never the user's shell, which may quote otherwise (fish, tcsh).
     '/bin/sh',
     '-c',
-    'claude --session-id 00000000-0000-4000-8000-000000000001',
+    'unset NO_COLOR; claude --session-id 00000000-0000-4000-8000-000000000001',
     // Its output log, from the first byte: the pipe starts in the same call.
     ';',
     'pipe-pane',
@@ -245,7 +245,7 @@ test('Claude background keeps its native process when the terminal closes, then 
   expect(launchEnv).toMatchObject({ MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' });
   expect(launchEnv).not.toHaveProperty('CLAUDECODE');
   expect(launchEnv).not.toHaveProperty('NO_COLOR');
-  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   exitAll(world);
   const row = (await mesa.sessions.list()).find((s) => s.id === opened.id);
   expect(row).toMatchObject({
@@ -254,7 +254,7 @@ test('Claude background keeps its native process when the terminal closes, then 
     agentSessionId: 'abcdef12-0000-4000-8000-000000000001',
   });
   expect((await mesa.sessions.attach(opened.id)).attached.opened).toBe(true);
-  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
   const resumed = (await mesa.sessions.resume(opened.id)).result.record;
   expect(resumed).toMatchObject({
@@ -262,7 +262,7 @@ test('Claude background keeps its native process when the terminal closes, then 
     backgroundId: 'abcdef12',
     resumedFrom: opened.id,
   });
-  expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   exitAll(world);
   const ended = (await mesa.sessions.list()).find((s) => s.id === resumed.id);
   expect(ended).toMatchObject({ alive: false, lastState: { state: 'done' } });
@@ -483,13 +483,15 @@ test('a goal is the first prompt: one shell word after the session id, kept on t
   const { result } = await mesa.sessions.open('lantern-cove', { goal });
   expect(launched(world)).toBe(
     // Single quotes keep $HOME and the double quotes literal; each ' becomes '\''.
-    String.raw`claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Print "ready" in $HOME, then '\''stop'\'''`,
+    String.raw`unset NO_COLOR; claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Print "ready" in $HOME, then '\''stop'\'''`,
   );
   expect(result.goal).toBe(goal);
   expect(mesa.sessions.goal(result.id)).toEqual({ id: result.id, goal });
 
   const { result: plain } = await mesa.sessions.open('lantern-cove');
-  expect(launched(world)).toBe('claude --session-id 00000000-0000-4000-8000-000000000002');
+  expect(launched(world)).toBe(
+    'unset NO_COLOR; claude --session-id 00000000-0000-4000-8000-000000000002',
+  );
   expect(() => mesa.sessions.goal(plain.id)).toThrow(
     expect.objectContaining({ code: 'not_found', message: `session ${plain.id} has no goal` }),
   );
@@ -526,7 +528,7 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
   const { result } = await mesa.sessions.open('lantern-cove', { goalFile: file });
   expect(result.goal).toBe('/goal Keep going until `pnpm verify` is green.\nThen stop.\n');
   expect(launched(world)).toBe(
-    "claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Keep going until `pnpm verify` is green.\nThen stop.\n'",
+    "unset NO_COLOR; claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Keep going until `pnpm verify` is green.\nThen stop.\n'",
   );
 
   // A BOM an editor saved goes, so the goal still starts /goal.
@@ -571,7 +573,7 @@ test('resume keeps the goal on the new record but does not send it again', async
   const { result: first } = await mesa.sessions.open('lantern-cove', { goal: 'Print ready' });
   exitAll(world);
   const { result } = await mesa.sessions.resume(first.id);
-  expect(launched(world)).toBe(`claude --resume ${first.agentSessionId}`);
+  expect(launched(world)).toBe(`unset NO_COLOR; claude --resume ${first.agentSessionId}`);
   expect(result.record.goal).toBe('Print ready');
 });
 

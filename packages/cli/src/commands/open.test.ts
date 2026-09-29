@@ -106,7 +106,7 @@ test('open --background returns Claude native handle and attaches its terminal v
     backgroundId: 'abcdef12',
     mode: 'plan',
   });
-  expect(world.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
+  expect(world.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   expect(await mesa('open', 'lantern-cove', '--agent', 'codex', '--background')).toMatchObject({
     code: 2,
   });
@@ -147,7 +147,7 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
   const opened = await mesa('open', 'lantern-cove', '--goal', 'Print the word ready and stop');
   const id = opened.stdout.split('\n')[0] ?? '';
   expect(world.windows.at(-1)?.launch).toBe(
-    "claude --session-id 00000000-0000-4000-8000-000000000001 'Print the word ready and stop'",
+    "unset NO_COLOR; claude --session-id 00000000-0000-4000-8000-000000000001 'Print the word ready and stop'",
   );
   expect((await mesa('goal', id, '--json')).json).toEqual({
     ok: true,
@@ -160,7 +160,7 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
   const fromFile = await mesa('open', 'lantern-cove', '--goal-file', 'goal.md', '--json');
   expect(fromFile.json.data.goal).toBe('From a file\n');
   expect(world.windows.at(-1)?.launch).toBe(
-    "claude --session-id 00000000-0000-4000-8000-000000000002 'From a file\n'",
+    "unset NO_COLOR; claude --session-id 00000000-0000-4000-8000-000000000002 'From a file\n'",
   );
 
   const plain = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';

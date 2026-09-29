@@ -59,7 +59,11 @@ test('a live session is adopted into the project its folder is in, and reopened 
   // The project's own folder: nothing more to keep.
   expect(result.record).not.toHaveProperty('cwd');
   expect(world.windows).toMatchObject([
-    { window: result.record.tmux.window, path: dir, launch: `claude --resume ${LIVE}` },
+    {
+      window: result.record.tmux.window,
+      path: dir,
+      launch: `unset NO_COLOR; claude --resume ${LIVE}`,
+    },
   ]);
   expect(receipt).toBeNull();
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
@@ -79,7 +83,10 @@ test('a session on disk is found by its transcript, and reopened in the folder i
   const { result } = await mesa.sessions.adopt(ON_DISK);
   // Inside lantern-cove, but not its folder: claude finds the conversation only in its own.
   expect(result.record).toMatchObject({ project: 'lantern-cove', cwd: sub });
-  expect(world.windows.at(-1)).toMatchObject({ path: sub, launch: `claude --resume ${ON_DISK}` });
+  expect(world.windows.at(-1)).toMatchObject({
+    path: sub,
+    launch: `unset NO_COLOR; claude --resume ${ON_DISK}`,
+  });
 });
 
 test('--project places a session no registered project holds; a clash or none is refused', async () => {
@@ -154,7 +161,9 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
 
   const { result: resumed } = await mesa.sessions.resume(result.record.id);
   expect(resumed.record).toMatchObject({ adopted: true, name: 'docs', cwd: sub });
-  expect(world.windows).toMatchObject([{ path: sub, launch: `claude --resume ${ON_DISK}` }]);
+  expect(world.windows).toMatchObject([
+    { path: sub, launch: `unset NO_COLOR; claude --resume ${ON_DISK}` },
+  ]);
 });
 
 test('an adoption links the enabled skills into the folder it reopens in, as open does', async () => {

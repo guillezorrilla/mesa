@@ -18,13 +18,13 @@ test('Claude fork keeps the source and opens a new native conversation in the ch
   expect(same.agentSessionId).toBeUndefined();
   expect(world.tmux.windows.at(-1)).toMatchObject({
     path: dir,
-    launch: `claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan`,
+    launch: `unset NO_COLOR; claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan`,
   });
   const separate = (await mesa.sessions.fork(source.id, { branch: 'try/fork' })).result;
   expect(separate).toMatchObject({ parent: source.id, worktree: { branch: 'try/fork' } });
   expect(world.tmux.windows.at(-1)).toMatchObject({
     path: separate.worktree?.path,
-    launch: `claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan`,
+    launch: `unset NO_COLOR; claude --resume '${source.agentSessionId}' --fork-session --permission-mode plan`,
   });
   expect((await mesa.sessions.show(source.id)).endedAt).toBeUndefined();
   expect((await mesa.sessions.show(source.id)).resumedBy).toBeUndefined();

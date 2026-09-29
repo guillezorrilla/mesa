@@ -65,7 +65,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       'echo "cc=[$CLAUDECODE] color=[$NO_COLOR] id=$MESA_SESSION_ID term=$TERM"; exec cat';
     expect(await open(first, `sh -c '${probe}'`, { MESA_SESSION_ID: 'm1' })).toEqual(first);
     expect(await eventually(() => tmux.capturePane(first, 5), /id=m1/)).toBe(
-      'cc=[] color=[] id=m1 term=tmux-256color',
+      'cc=[] color=[1] id=m1 term=tmux-256color',
     );
     expect(
       await raw('display-message', '-p', '-t', 'lantern:0', '#{remain-on-exit} #{history_limit}'),
@@ -386,13 +386,13 @@ test('a sandbox-denied tmux socket is an error, never an exited session', async 
   });
 });
 
-test('the server drops nesting and color-off flags without clearing the Claude config or home', async () => {
+test('the server drops nesting flags without clearing other environment', async () => {
   const { run, calls } = scriptedRunner();
   const env = { ...PARENT, CLAUDE_CONFIG_DIR: '/c', HOME: '/h' };
   await tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env }).ensureServer();
   const args = calls[0]?.args ?? [];
   const unset = args.flatMap((a, i) => (a === '-gu' ? [args[i + 1]] : []));
-  expect(unset).toEqual(['NO_COLOR', 'CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID']);
+  expect(unset).toEqual(['CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID']);
   expect(args.join(' ')).toContain(
     '; set-option -g remain-on-exit on ; set-option -g history-limit 10000',
   );
