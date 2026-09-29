@@ -20,7 +20,12 @@ const raw = async (...args: string[]) => {
 
 // The server starts under a Claude Code parent's variables, which the backend must keep away
 // from its windows. `env` sets them for the tmux process, as a real parent would.
-const PARENT = { CLAUDECODE: '1', CLAUDE_CODE_SESSION_ID: 'parent', CLAUDE_PID: '42' };
+const PARENT = {
+  CLAUDECODE: '1',
+  CLAUDE_CODE_SESSION_ID: 'parent',
+  CLAUDE_PID: '42',
+  NO_COLOR: '1',
+};
 const underParent: Runner = (file, args, timeoutMs) =>
   execRunner(
     'env',
@@ -56,10 +61,11 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
 
   test("openWindow creates the project's tmux session, then adds windows to it, with Mesa options", async () => {
     const first = lantern('claude-aaaaaa');
-    const probe = 'echo "cc=[$CLAUDECODE] id=$MESA_SESSION_ID term=$TERM"; exec cat';
+    const probe =
+      'echo "cc=[$CLAUDECODE] color=[$NO_COLOR] id=$MESA_SESSION_ID term=$TERM"; exec cat';
     expect(await open(first, `sh -c '${probe}'`, { MESA_SESSION_ID: 'm1' })).toEqual(first);
     expect(await eventually(() => tmux.capturePane(first, 5), /id=m1/)).toBe(
-      'cc=[] id=m1 term=tmux-256color',
+      'cc=[] color=[] id=m1 term=tmux-256color',
     );
     expect(
       await raw('display-message', '-p', '-t', 'lantern:0', '#{remain-on-exit} #{history_limit}'),
@@ -380,13 +386,13 @@ test('a sandbox-denied tmux socket is an error, never an exited session', async 
   });
 });
 
-test('the server drops only the variables that make claude think it is nested', async () => {
+test('the server drops nesting and color-off flags without clearing the Claude config or home', async () => {
   const { run, calls } = scriptedRunner();
   const env = { ...PARENT, CLAUDE_CONFIG_DIR: '/c', HOME: '/h' };
   await tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env }).ensureServer();
   const args = calls[0]?.args ?? [];
   const unset = args.flatMap((a, i) => (a === '-gu' ? [args[i + 1]] : []));
-  expect(unset).toEqual(['CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID']);
+  expect(unset).toEqual(['NO_COLOR', 'CLAUDECODE', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_PID']);
   expect(args.join(' ')).toContain(
     '; set-option -g remain-on-exit on ; set-option -g history-limit 10000',
   );

@@ -20,7 +20,7 @@ import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
 import { PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
-import { nestedAgentVars, type TmuxBackend } from './tmux/backend.js';
+import { agentEnvVarsToClear, type TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
 import { removeWorktree, type Worktree } from './worktree.js';
 
@@ -143,7 +143,7 @@ export async function startSession(
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd);
     if (record.background && !record.backgroundId) {
       const env = { ...deps.env };
-      for (const key of nestedAgentVars(deps.env)) delete env[key];
+      for (const key of agentEnvVarsToClear(deps.env)) delete env[key];
       backgroundId = await startClaudeBackground(deps.run, cwd, record.goal, record.mode, {
         ...env,
         ...windowEnv(record.id, deps.profileName),

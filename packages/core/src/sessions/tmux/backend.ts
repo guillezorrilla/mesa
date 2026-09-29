@@ -35,11 +35,13 @@ type WindowSpec = WindowTarget & {
   log?: string;
 };
 
-/** What a Claude Code parent leaves in the environment; a claude started with them thinks it is nested. */
-export const nestedAgentVars = (env: Env) =>
-  Object.keys(env).filter(
+/** Parent flags that must not leak into an agent: nesting markers and the color-off flag. */
+export const agentEnvVarsToClear = (env: Env) => [
+  'NO_COLOR',
+  ...Object.keys(env).filter(
     (name) => name === 'CLAUDECODE' || name === 'CLAUDE_PID' || name.startsWith('CLAUDE_CODE_'),
-  );
+  ),
+];
 
 /** tmux's answers when there is nothing to list; `no current target` is a server with no sessions. */
 const NOTHING_THERE =
@@ -100,7 +102,7 @@ export function tmuxBackend({
 
   const ensureServer = async () => {
     const options = SERVER_OPTIONS.flatMap((o) => [';', 'set-option', ...o]);
-    const unset = nestedAgentVars(env).flatMap((name) => [';', 'set-environment', '-gu', name]);
+    const unset = agentEnvVarsToClear(env).flatMap((name) => [';', 'set-environment', '-gu', name]);
     // One global hook: set-hook -g replaces the hook's whole list, so starting again leaves one.
     const hook = mesa
       ? [';', 'set-hook', '-g', 'pane-died', paneDiedHook(mesa.self, mesa.profile)]

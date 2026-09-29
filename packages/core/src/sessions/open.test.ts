@@ -232,7 +232,7 @@ test('Claude background keeps its native process when the terminal closes, then 
     }
     return base(file, args, ms, options);
   };
-  const { mesa } = await setUp(world, { run, env: { CLAUDECODE: '1' } });
+  const { mesa } = await setUp(world, { run, env: { CLAUDECODE: '1', NO_COLOR: '1' } });
   const opened = (
     await mesa.sessions.open('lantern-cove', {
       background: true,
@@ -244,6 +244,7 @@ test('Claude background keeps its native process when the terminal closes, then 
   expect(opened.agentSessionId).toBeUndefined();
   expect(launchEnv).toMatchObject({ MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' });
   expect(launchEnv).not.toHaveProperty('CLAUDECODE');
+  expect(launchEnv).not.toHaveProperty('NO_COLOR');
   expect(world.tmux.windows.at(-1)?.launch).toBe('exec claude attach abcdef12');
   exitAll(world);
   const row = (await mesa.sessions.list()).find((s) => s.id === opened.id);
