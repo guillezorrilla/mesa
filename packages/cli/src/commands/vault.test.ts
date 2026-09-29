@@ -149,3 +149,58 @@ test('vault open: the URI by default, --json, and its errors', async () => {
   );
   expect((await mesa('vault', 'open', 'wiki/missing.md')).code).toBe(3);
 });
+
+test('vault list: every item as {vault, total, items}, filtered by --project and --type', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const vault = join(cli.home, 'vault');
+  const put = (path: string, text: string) => {
+    mkdirSync(join(vault, path, '..'), { recursive: true });
+    writeFileSync(join(vault, path), text);
+  };
+  put('projects/tide.md', '# Tide\n');
+  put('wiki/currents.md', '---\nproject: tide\n---\nCurrents.\n');
+  put('receipts/2026/09/20260924T120000Z-decision-01K62V4Q8J3M5N7P9R1S2T3V4W.md', 'Chose.\n');
+  put('raw/chart.png', 'png');
+  put('.obsidian/app.json', '{}');
+
+  const listed = await mesa('vault', 'list', '--json');
+  expect(listed.code).toBe(0);
+  expect(listed.json.data).toMatchObject({ vault, total: 7 });
+  expect(listed.json.data.items.map((i: { path: string }) => i.path)).toEqual([
+    'AGENTS.md',
+    'index.md',
+    'log.md',
+    'projects/tide.md',
+    'raw/chart.png',
+    'receipts/2026/09/20260924T120000Z-decision-01K62V4Q8J3M5N7P9R1S2T3V4W.md',
+    'wiki/currents.md',
+  ]);
+  expect(listed.json.data.items[3]).toEqual({
+    path: 'projects/tide.md',
+    kind: 'markdown',
+    category: 'projects',
+    project: 'tide',
+    size: 7,
+    modified: expect.any(String),
+  });
+
+  const receipts = await mesa('vault', 'list', '--type', 'receipts', '--json');
+  expect(receipts.json.data.total).toBe(1);
+  const tide = await mesa('vault', 'list', '--project', 'tide', '--type', 'markdown', '--json');
+  expect(tide.json.data.items.map((i: { path: string }) => i.path)).toEqual([
+    'projects/tide.md',
+    'wiki/currents.md',
+  ]);
+  expect((await mesa('vault', 'list', '--project', 'tide')).stdout).toBe(
+    `markdown  projects  tide  projects/tide.md\nmarkdown  wiki      tide  wiki/currents.md\n2 items in ${vault}\n`,
+  );
+  expect(await mesa('vault', 'list', '--type', 'notes')).toMatchObject({ code: 2 });
+
+  rmSync(vault, { recursive: true });
+  const missing = await mesa('vault', 'list');
+  expect([missing.code, missing.stderr]).toEqual([
+    3,
+    `vault ${vault} does not exist; run mesa vault init\n`,
+  ]);
+});

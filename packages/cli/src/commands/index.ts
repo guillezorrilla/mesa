@@ -101,7 +101,7 @@ import { stop } from './stop.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { usage } from './usage.js';
-import { vaultInit, vaultOpen, vaultStatus } from './vault.js';
+import { vaultInit, vaultList, vaultOpen, vaultStatus } from './vault.js';
 import { view } from './view.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
@@ -231,6 +231,7 @@ export const COMMANDS: Command[] = [
   unarchive,
   usage,
   vaultInit,
+  vaultList,
   vaultOpen,
   vaultStatus,
   view,

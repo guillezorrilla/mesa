@@ -2651,3 +2651,28 @@ test('a usage threshold alerts during session work and opens Usage', async () =>
   await click(byTestId('toast-link')[0]);
   expect(byTestId('usage-panel')).toHaveLength(1);
 });
+
+test('the sidebar Vault destination opens the vault inventory', async () => {
+  const { bridge } = fakeBridge({
+    'vault list': () =>
+      envelope({
+        vault: '/h/vault',
+        total: 1,
+        items: [
+          {
+            path: 'index.md',
+            kind: 'markdown',
+            category: 'index',
+            size: 8,
+            modified: '2026-09-24T12:00:00.000Z',
+          },
+        ],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  expect(byTestId('vault-panel')).toEqual([]);
+  await click(byTestId('nav-vault')[0]);
+  expect(byTestId('nav-vault')[0]?.getAttribute('aria-current')).toBe('page');
+  expect(byTestId('vault-panel')[0]?.textContent).toContain('1 item in /h/vault');
+  expect(byTestId('vault-file').map((row) => row.dataset.kind)).toEqual(['markdown']);
+});
