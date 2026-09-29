@@ -176,7 +176,15 @@ export function endSignals(
       if (!ownedId || conversationId !== ownedId) return undefined;
       const project = readRegistry(paths.registry).find((entry) => entry.name === started.project);
       const cwd = started.cwd ?? started.worktree?.path ?? project?.path;
-      return cwd ? mesaPointer(started, ctx.profile, cwd) : undefined;
+      if (!cwd) return undefined;
+      const owner = started.agentSessionId
+        ? started
+        : store.update(started.id, (current) =>
+            current.agentSessionId || current.endedAt ? {} : { agentSessionId: ownedId },
+          );
+      return !owner.endedAt && owner.agentSessionId === ownedId
+        ? mesaPointer(owner, ctx.profile, cwd)
+        : undefined;
     },
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the

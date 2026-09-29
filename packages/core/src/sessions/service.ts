@@ -599,7 +599,7 @@ export function sessionsService(
         const current = store.get(id);
         const latestAntigravityId =
           current.agent === 'antigravity'
-            ? antigravitySessionId({ logs: paths.logs }, current, new Set())
+            ? antigravitySessionId({ logs: paths.logs }, current, new Set(), true)
             : undefined;
         return {
           ...current,

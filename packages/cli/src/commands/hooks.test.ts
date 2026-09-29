@@ -96,8 +96,9 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   expect(injected.injectSteps[0].ephemeralMessage).toContain(`Mesa session ${opened.id}`);
   expect(injected.injectSteps[0].ephemeralMessage).toContain('/skill-name');
   expect((await mesa('hook', 'antigravity', '--json')).json.data.delivered).toBe(true);
-
-  await mesa('show', opened.id, '--json');
+  expect(
+    JSON.parse(readFileSync(join(cli.paths.sessions, `${opened.id}.json`), 'utf8')).agentSessionId,
+  ).toBe(nativeId);
   const otherId = 'cd66cf01-f466-4c11-8f12-a8fd0885d9f4';
   writeFileSync(
     join(cli.paths.logs, `${opened.id}.agy.log`),
@@ -108,6 +109,20 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe(
     'conflicting',
   );
+  const fresh = (await mesa('open', 'lantern-cove', '--agent', 'antigravity', '--json')).json.data;
+  const firstFreshId = '127e4772-a18d-4607-9281-e15457e0b024';
+  const clearedFreshId = '22014be8-4479-4b5b-922a-d5335fccb551';
+  writeFileSync(
+    join(cli.paths.logs, `${fresh.id}.agy.log`),
+    `Created conversation ${firstFreshId}\nCreated conversation ${clearedFreshId}\n`,
+  );
+  cli.env.MESA_SESSION_ID = fresh.id;
+  cli.stdin = JSON.stringify({ conversationId: clearedFreshId, invocationNum: 0 });
+  expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
+  expect((await mesa('show', fresh.id, '--json')).json.data).toMatchObject({
+    agentSessionId: firstFreshId,
+    instructions: { state: 'conflicting' },
+  });
   cli.env.MESA_PROFILE = 'another-profile';
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
   cli.stdin = '{';

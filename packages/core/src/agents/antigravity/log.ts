@@ -12,11 +12,12 @@ export function prepareAntigravityLog(logs: string, id: string) {
 const CREATED =
   /Created conversation ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/g;
 
-/** Antigravity 1.2.12 writes its native ID to the process's own log after the first prompt. */
+/** The first native ID owns this window; `newest` detects a later /clear without rebinding it. */
 export function antigravitySessionId(
   deps: { logs?: string },
   session: { id: string },
   taken: ReadonlySet<string>,
+  newest = false,
 ): string | undefined {
   if (!deps.logs) return undefined;
   let fd: number;
@@ -38,6 +39,6 @@ export function antigravitySessionId(
   const ids = [...bytes.subarray(0, read).toString('utf8').matchAll(CREATED)].map((match) =>
     match[1]?.toLowerCase(),
   );
-  const id = ids.at(-1);
+  const id = newest ? ids.at(-1) : ids[0];
   return id && !taken.has(id) ? id : undefined;
 }
