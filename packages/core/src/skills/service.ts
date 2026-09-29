@@ -1,7 +1,8 @@
+import { codexConfig, codexHome } from '../agents/codex/paths.js';
 import type { MesaContext } from '../context.js';
 import { readWorkspaceFile, writeWorkspaceFile } from '../files/editor.js';
 import { MesaError } from '../lib/result.js';
-import { readProjectFile } from '../projects/project-file.js';
+import { readProjectFile, setProjectSkills } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { skillInventory } from './inventory.js';
 import { readLibrary } from './library.js';
@@ -25,6 +26,7 @@ export function skillsService(ctx: MesaContext) {
       library,
       listed: listSkills({ library, libraryDir, ...selected }),
       projectDir: selected.projectDir,
+      codexConfig: codexConfig(codexHome(ctx.deps.env, ctx.deps.home)),
     });
   };
   const document = (id: string, project?: string, file = 'SKILL.md') => {
@@ -44,6 +46,32 @@ export function skillsService(ctx: MesaContext) {
     list: (project?: string) =>
       listSkills({ library: readLibrary(libraryDir), libraryDir, ...scope(project) }),
     inventory,
+    /** Add or remove a shipped skill from this project's mesa.yaml policy. */
+    setProject: (project: string, name: string, enabled: boolean) =>
+      ctx.record(
+        {
+          summary: () => `Updated ${name} policy in ${project}`,
+          failure: `Could not update ${name} in ${project}`,
+          project: () => project,
+          inputs: { project, name, enabled },
+          changed: (result) => result.changed,
+        },
+        () => {
+          if (!readLibrary(libraryDir).some((skill) => skill.name === name)) {
+            throw new MesaError('not_found', `no Mesa skill ${name}`);
+          }
+          const { projectDir } = scope(project);
+          const current = readProjectFile(projectDir as string).skills ?? [];
+          if (current.includes(name) === enabled) {
+            return { project, name, enabled, skills: current, changed: false };
+          }
+          const skills = enabled
+            ? [...new Set([...current, name])]
+            : current.filter((skill) => skill !== name);
+          setProjectSkills(projectDir as string, skills);
+          return { project, name, enabled, skills, changed: true };
+        },
+      ),
     read: (id: string, project?: string, file?: string) => {
       const selected = document(id, project, file);
       return readWorkspaceFile(selected.checkout, selected.file);

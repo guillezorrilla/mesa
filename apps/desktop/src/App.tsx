@@ -314,6 +314,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
                 sessions={sessions}
                 onSession={(id) => navigate({ kind: 'session', id })}
                 onNewSession={(project, location) => requestNewSession({ project, location })}
+                onAgentSettings={() => navigate({ kind: 'doctor' })}
                 onChanged={() => void projects.refresh()}
                 onUnregistered={() => {
                   void projects.refresh();

@@ -588,6 +588,24 @@ const COMMANDS = {
     '--',
     project,
   ]),
+  'skills.set': commandWith<
+    { project: string; name: string; enabled: boolean },
+    Recorded<{
+      project: string;
+      name: string;
+      enabled: boolean;
+      skills: string[];
+      changed: boolean;
+    }>
+  >(({ project, name, enabled }) => [
+    'skills',
+    'set',
+    '--enabled',
+    String(enabled),
+    '--',
+    project,
+    name,
+  ]),
   // `--` so a path starting with `-` is never read as a flag.
   'projects.register': commandWith<
     { path: string },

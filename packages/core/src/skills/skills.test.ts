@@ -2,6 +2,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  readFileSync,
   readlinkSync,
   symlinkSync,
   writeFileSync,
@@ -133,6 +134,7 @@ test('inventory distinguishes malformed folders and lists nested support files i
   writeFileSync(join(dir, '.agent/skills/legacy/references/deep/example.md'), 'invented\n');
   mkdirSync(join(home, '.agents/skills/broken'), { recursive: true });
   writeFileSync(join(home, '.agents/skills/broken/SKILL.md'), 'invalid frontmatter\n');
+  mkdirSync(join(home, '.agents/skills/synced/bucket'), { recursive: true });
   const rows = mesa.skills.inventory('lantern-cove');
   expect(rows.find((row) => row.name === 'legacy')).toMatchObject({
     providers: ['antigravity'],
@@ -142,7 +144,39 @@ test('inventory distinguishes malformed folders and lists nested support files i
     enabled: false,
     invalidReason: 'SKILL.md has invalid metadata',
   });
-  expect(rows.find((row) => row.name === 'unnamed')).toMatchObject({ enabled: true });
+  expect(rows.find((row) => row.name === 'unnamed')).toMatchObject({
+    enabled: false,
+    invalidReason: 'SKILL.md has invalid metadata',
+  });
+  expect(rows.some((row) => row.name === 'synced')).toBe(false);
+});
+
+test('inventory reports a skill disabled by Codex without editing its native config', () => {
+  const { home, mesa } = setUp();
+  skill(join(home, '.agents/skills'), 'codex-only');
+  const file = join(home, '.agents/skills/codex-only/SKILL.md');
+  mkdirSync(join(home, '.codex'), { recursive: true });
+  const config = `[[skills.config]]\npath = ${JSON.stringify(file)}\nenabled = false\n`;
+  writeFileSync(join(home, '.codex/config.toml'), config);
+  expect(mesa.skills.inventory().find((row) => row.name === 'codex-only')).toMatchObject({
+    enabled: false,
+    disabledFor: ['codex'],
+    precedence: 'only-discovered-source',
+  });
+  expect(readFileSync(join(home, '.codex/config.toml'), 'utf8')).toBe(config);
+});
+
+test('project skill policy changes preserve mesa.yaml comments and leave profile policy alone', () => {
+  const { dir, mesa } = setUp();
+  writeFileSync(join(dir, 'mesa.yaml'), '# Project note\nname: lantern-cove\nskills: [b]\n');
+  expect(mesa.skills.setProject('lantern-cove', 'a', true).result.changed).toBe(true);
+  expect(mesa.skills.setProject('lantern-cove', 'a', true).result.changed).toBe(false);
+  expect(mesa.skills.setProject('lantern-cove', 'b', false).result.skills).toEqual(['a']);
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain('# Project note');
+  expect(mesa.config.get().skills).toEqual(['a']);
+  expect(thrown(() => mesa.skills.setProject('lantern-cove', 'unknown', true))).toMatchObject({
+    code: 'not_found',
+  });
 });
 
 test('skill documents use the checked editor and reject stale or read-only writes', () => {

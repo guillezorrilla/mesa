@@ -439,7 +439,15 @@ export function sessionsService(
         return {
           ...current,
           alive: row?.alive ?? false,
-          instructions: instructionStatus(current.agent, deps.home, deps.env, deps.self),
+          instructions: instructionStatus(
+            current.agent,
+            deps.home,
+            deps.env,
+            deps.self,
+            readHookEvents(paths.events, id).some(
+              (event) => event.event === 'SessionIdentityChanged',
+            ),
+          ),
         };
       },
       /** Gives a session the name a person calls it by; the board shows it in place of the id. */

@@ -1,3 +1,4 @@
+import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -11,7 +12,20 @@ export const skillsList = defineCommand({
     const rows = mesa.skills.inventory(args.project);
     const text = rows.length
       ? columns(
-          rows.map((s) => [s.name, s.scope, s.enabled ? 'enabled' : 'off', s.description]),
+          rows.map((s) => [
+            s.name,
+            s.scope,
+            s.invalidReason
+              ? 'invalid'
+              : s.source === 'mesa'
+                ? s.enabled
+                  ? 'enabled'
+                  : 'off'
+                : s.enabled
+                  ? 'available'
+                  : 'disabled',
+            s.description,
+          ]),
         ).join('\n')
       : "no skills; Mesa's library is empty";
     return { data: rows, text };
@@ -35,6 +49,24 @@ export const skillsSync = defineCommand({
     ];
     const text = lines.length ? lines.join('\n') : `skills in ${args.project} already in sync`;
     return recordedOutput(recorded, { data: r, text });
+  },
+});
+
+export const skillsSet = defineCommand({
+  name: 'skills set',
+  summary: "Enable or disable a Mesa skill in a project's mesa.yaml policy",
+  args: ['project', 'name'],
+  flags: { enabled: { type: 'string', required: true, description: 'true or false' } },
+  example: 'mesa skills set lantern-cove session-summary --enabled true',
+  run: ({ mesa, args, flags }) => {
+    if (flags.enabled !== 'true' && flags.enabled !== 'false') {
+      throw new MesaError('usage', '--enabled must be true or false');
+    }
+    const recorded = mesa.skills.setProject(args.project, args.name, flags.enabled === 'true');
+    return recordedOutput(recorded, {
+      data: recorded.result,
+      text: `updated ${args.name} in ${args.project} mesa.yaml; run mesa skills sync ${args.project}`,
+    });
   },
 });
 

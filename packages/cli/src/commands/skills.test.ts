@@ -1,4 +1,4 @@
-import { lstatSync, readlinkSync } from 'node:fs';
+import { lstatSync, readFileSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -38,4 +38,15 @@ test("skills list shows Mesa's library; skills sync links the enabled ones and p
     'skills in lantern-cove already in sync\n',
   );
   expect(await mesa('skills', 'sync', 'tide')).toMatchObject({ code: 3 });
+});
+
+test('skills set edits only the project policy and validates the enabled flag', async () => {
+  const dir = await cli.withProject();
+  expect(
+    await mesa('skills', 'set', 'lantern-cove', 'session-summary', '--enabled', 'true', '--json'),
+  ).toMatchObject({ json: { ok: true, data: { enabled: true, changed: true } } });
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain('session-summary');
+  expect(
+    await mesa('skills', 'set', 'lantern-cove', 'session-summary', '--enabled', 'no'),
+  ).toMatchObject({ code: 2 });
 });

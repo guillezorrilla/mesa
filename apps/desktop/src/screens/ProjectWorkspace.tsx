@@ -54,6 +54,7 @@ export function ProjectWorkspace(props: {
   file?: { checkout: string; path: string; line: number };
   onFilesDirtyChange: (dirty: boolean) => void;
   onNewSession: (project: string, kind: 'main' | 'worktree' | 'terminal') => void;
+  onAgentSettings: () => void;
 }) {
   const { project } = props;
   const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills' | 'rules'>(
@@ -357,7 +358,7 @@ export function ProjectWorkspace(props: {
                   type="button"
                   data-testid="project-active-session"
                   aria-label={`Open ${session.name ?? 'Session'} (${session.id})`}
-                  className="flex min-h-24 w-[252px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
+                  className="flex min-h-24 w-[310px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => props.onSession(session.id)}
                 >
                   <StateBadge
@@ -386,7 +387,7 @@ export function ProjectWorkspace(props: {
                 </button>
               ))}
             </div>
-            <div className="group relative flex min-h-16 w-[252px] items-stretch rounded-lg border border-dashed text-muted-foreground">
+            <div className="group relative flex min-h-16 w-[310px] items-stretch rounded-lg border border-dashed text-muted-foreground">
               <Button
                 type="button"
                 variant="ghost"
@@ -515,7 +516,11 @@ export function ProjectWorkspace(props: {
       ) : tab === 'worktrees' ? (
         <WorktreesWorkspace project={project.name} onSession={props.onSession} />
       ) : tab === 'skills' ? (
-        <SkillsWorkspace project={project.name} onDirtyChange={props.onFilesDirtyChange} />
+        <SkillsWorkspace
+          project={project.name}
+          onDirtyChange={props.onFilesDirtyChange}
+          onAgentSettings={props.onAgentSettings}
+        />
       ) : (
         <RulesWorkspace project={project.name} onDirtyChange={props.onFilesDirtyChange} />
       )}

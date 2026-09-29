@@ -21,9 +21,11 @@ const DEFAULT_EDITOR: Config['editor'] = {
 export function SkillsWorkspace(props: {
   project: string;
   onDirtyChange: (dirty: boolean) => void;
+  onAgentSettings: () => void;
 }) {
   const skills = useCommand('skills.list', { project: props.project });
   const config = useCommand('config.get');
+  const projects = useCommand('projects.list');
   const run = useRun();
   const { acting, act } = useAct();
   const [filter, setFilter] = useState<'all' | 'global' | 'project'>('all');
@@ -90,7 +92,19 @@ export function SkillsWorkspace(props: {
         synced,
       );
     });
+  const toggleProject = (row: SkillInventoryRow, enabled: boolean) =>
+    act(async () => {
+      const changed = await run('skills.set', { project: props.project, name: row.name, enabled });
+      if (!changed) return undefined;
+      const synced = await run('skills.sync', { project: props.project });
+      await Promise.all([projects.refresh(), skills.refresh()]);
+      if (!synced) return undefined;
+      return said(`${row.name} ${enabled ? 'added to' : 'removed from'} project policy`, synced);
+    });
   const inProfile = selected && config.data?.skills.includes(selected.name);
+  const inProject =
+    selected &&
+    projects.data?.find((row) => row.name === props.project)?.skills.includes(selected.name);
   return (
     <section data-testid="skills-workspace" className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -100,21 +114,26 @@ export function SkillsWorkspace(props: {
             Invoke an enabled skill from the session terminal with your agent's command.
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={acting}
-          onClick={() =>
-            void act(async () => {
-              const synced = await run('skills.sync', { project: props.project });
-              if (!synced) return undefined;
-              await skills.refresh();
-              return said(`Synced skills in ${props.project}`, synced);
-            })
-          }
-        >
-          <RefreshCw aria-hidden className="size-4" /> Sync
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={props.onAgentSettings}>
+            Coding agents
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={acting}
+            onClick={() =>
+              void act(async () => {
+                const synced = await run('skills.sync', { project: props.project });
+                if (!synced) return undefined;
+                await skills.refresh();
+                return said(`Synced skills in ${props.project}`, synced);
+              })
+            }
+          >
+            <RefreshCw aria-hidden className="size-4" /> Sync
+          </Button>
+        </div>
       </div>
       <fieldset className="flex gap-1">
         <legend className="sr-only">Skill scope</legend>
@@ -151,7 +170,9 @@ export function SkillsWorkspace(props: {
                         ? row.enabled
                           ? 'Enabled'
                           : 'Off'
-                        : 'Available'}
+                        : row.enabled
+                          ? 'Available'
+                          : 'Disabled'}
                   </Badge>
                 </div>
                 <p className="line-clamp-2 text-xs text-muted-foreground">
@@ -162,6 +183,9 @@ export function SkillsWorkspace(props: {
                   <span>· {row.providers.join(', ')}</span>
                   {row.conflicts.length > 0 && (
                     <span className="text-state-attention">· Conflict</span>
+                  )}
+                  {Boolean(row.disabledFor?.length) && (
+                    <span>· Disabled in {row.disabledFor?.join(', ')}</span>
                   )}
                 </div>
               </CardContent>
@@ -175,14 +199,24 @@ export function SkillsWorkspace(props: {
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="min-w-0 flex-1 truncate font-medium">{selected.name}</h4>
             {selected.source === 'mesa' && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={acting || !config.data || (selected.enabled && !inProfile)}
-                onClick={() => void toggle(selected)}
-              >
-                {inProfile ? 'Disable in profile' : 'Enable in profile'}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={acting || !config.data}
+                  onClick={() => void toggle(selected)}
+                >
+                  {inProfile ? 'Disable in profile' : 'Enable in profile'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={acting || !projects.data}
+                  onClick={() => void toggleProject(selected, !inProject)}
+                >
+                  {inProject ? 'Disable in project' : 'Enable in project'}
+                </Button>
+              </>
             )}
             {selected.writable && dirty && (
               <Button size="sm" variant="ghost" onClick={() => setDraft(opened.text)}>
@@ -200,12 +234,13 @@ export function SkillsWorkspace(props: {
             <p className="text-xs">Read-only: {selected.readOnlyReason}</p>
           )}
           {selected.invalidReason && <p className="text-xs">{selected.invalidReason}</p>}
-          {selected.enabled && selected.source === 'mesa' && !inProfile && (
+          {selected.enabled && selected.source === 'mesa' && !inProfile && inProject && (
             <p className="text-xs">Enabled by the project's mesa.yaml skill policy.</p>
           )}
           {selected.conflicts.length > 0 && (
             <p className="break-all text-xs text-state-attention">
-              Same-name skill also found at {selected.conflicts.join(', ')}
+              Same-name skill also found at {selected.conflicts.join(', ')}. The provider decides
+              which to offer; Mesa does not choose a winner.
             </p>
           )}
           <fieldset className="flex flex-wrap gap-1">

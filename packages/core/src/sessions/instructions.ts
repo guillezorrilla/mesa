@@ -2,6 +2,7 @@ import { hooksStatus as claudeHooks } from '../agents/claude/hooks.js';
 import { hooksStatus as codexHooks } from '../agents/codex/hooks.js';
 import { codexHome } from '../agents/codex/paths.js';
 import type { Env } from '../lib/process.js';
+import { GENERAL_PROJECT } from './general.js';
 import type { SessionRecord } from './record.js';
 
 export type InstructionStatus = {
@@ -15,7 +16,13 @@ export function instructionStatus(
   home: string,
   env: Env,
   self: readonly string[],
+  identityChanged = false,
 ): InstructionStatus {
+  if (identityChanged)
+    return {
+      state: 'conflicting',
+      reason: 'Native conversation changed after /clear; reopen through Mesa',
+    };
   if (agent !== 'claude' && agent !== 'codex')
     return { state: 'unsupported', reason: 'No qualified native instruction hook' };
   try {
@@ -34,10 +41,14 @@ export function instructionStatus(
 /** A bounded SessionStart supplement; native provider and repository instructions stay intact. */
 export function mesaPointer(record: SessionRecord, profile: string, cwd: string): string {
   const prefix = record.agent === 'codex' ? '$' : '/';
+  const skills =
+    record.project === GENERAL_PROJECT
+      ? 'mesa skills list --json'
+      : `mesa skills list ${record.project} --json`;
   return [
-    `Mesa session ${record.id}; profile ${profile}; project ${record.project}; cwd ${cwd}.`,
-    `Read your saved goal with mesa show ${record.id} --json; keep it unchanged.`,
-    `Use mesa help --agent for command syntax and mesa skills list ${record.project} --json for skills. Invoke skills in this terminal with ${prefix}skill-name.`,
+    `Mesa session ${record.id}; profile ${profile}; project ${record.project}; cwd ${JSON.stringify(cwd)}.`,
+    `Your saved goal is in the startup prompt; keep it unchanged. mesa show ${record.id} --json can inspect its record when needed.`,
+    `Use mesa help --agent for command syntax and ${skills} for skills. Invoke skills in this terminal with ${prefix}skill-name.`,
     'Coordinate with mesa sessions --json, mesa open, mesa open --after, mesa send, and mesa handoff. Check state before messaging. A human must answer permission and question prompts.',
     'Mesa guardrails check sent prompts; do not bypass a block without the user. Save meaningful decisions and vault changes, not routine operational events. Connected vault discovery is unavailable until P5.',
   ].join('\n');

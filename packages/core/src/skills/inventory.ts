@@ -1,6 +1,8 @@
-import { lstatSync, readdirSync, realpathSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
+import { parse } from 'smol-toml';
 import type { Agent } from '../agents/names.js';
+import { MesaError } from '../lib/result.js';
 import type { LibrarySkill } from './library.js';
 import { readSkill } from './library.js';
 import type { SkillRow } from './sync.js';
@@ -16,6 +18,8 @@ export type SkillInventoryRow = Omit<SkillRow, 'source'> & {
   readOnlyReason?: string;
   invalidReason?: string;
   conflicts: string[];
+  disabledFor: Agent[];
+  precedence: 'only-discovered-source' | 'provider-native';
 };
 
 type Root = {
@@ -82,13 +86,45 @@ function nativeRoots(home: string, projectDir?: string): Root[] {
   return roots;
 }
 
+/** Codex's own disabled-skill policy; Mesa reads it without changing provider settings. */
+function codexDisabledSkills(config?: string): Set<string> {
+  if (!config || !existsSync(config)) return new Set();
+  let entries: unknown;
+  try {
+    entries = parse(readFileSync(config, 'utf8')).skills;
+  } catch {
+    // Keep the reason free of config contents, which may contain credentials.
+    throw new MesaError('invalid_config', `${config}: cannot read Codex skill configuration`);
+  }
+  const configs =
+    entries && typeof entries === 'object' && 'config' in entries ? entries.config : undefined;
+  if (!Array.isArray(configs)) return new Set();
+  return new Set(
+    configs
+      .filter(
+        (entry) =>
+          entry &&
+          typeof entry === 'object' &&
+          entry.enabled === false &&
+          typeof entry.path === 'string' &&
+          isAbsolute(entry.path),
+      )
+      .map((entry) => {
+        const path = resolve(entry.path);
+        return existsSync(path) ? realpathSync.native(path) : path;
+      }),
+  );
+}
+
 /** Installed skill paths, with collisions left visible rather than guessing provider precedence. */
 export function skillInventory(input: {
   home: string;
   library: LibrarySkill[];
   listed: SkillRow[];
   projectDir?: string;
+  codexConfig?: string;
 }): SkillInventoryRow[] {
+  const disabled = codexDisabledSkills(input.codexConfig);
   const byName = new Map(input.library.map((skill) => [skill.name, skill]));
   const rows: SkillInventoryRow[] = input.listed
     .filter((row) => row.source === 'mesa')
@@ -104,6 +140,8 @@ export function skillInventory(input: {
         writable: false,
         readOnlyReason: 'Mesa ships this skill',
         conflicts: [],
+        disabledFor: [],
+        precedence: 'only-discovered-source',
       };
     });
   const seen = new Map<string, SkillInventoryRow>();
@@ -125,11 +163,18 @@ export function skillInventory(input: {
         continue;
       }
       const file = join(path, 'SKILL.md');
-      const fileIsRegular = lstatSync(file, { throwIfNoEntry: false })?.isFile() ?? false;
+      const skillFile = lstatSync(file, { throwIfNoEntry: false });
+      // A folder without SKILL.md is not a skill (global roots can contain sync buckets).
+      if (!skillFile) continue;
+      const fileIsRegular = skillFile.isFile();
       let skill: ReturnType<typeof readSkill>;
       let invalidReason: string | undefined;
       try {
-        if (fileIsRegular) skill = readSkill(path);
+        if (fileIsRegular)
+          skill = readSkill(
+            path,
+            root.providers.some((agent) => agent !== 'claude'),
+          );
       } catch {
         invalidReason = 'SKILL.md has invalid metadata';
       }
@@ -158,12 +203,25 @@ export function skillInventory(input: {
             }
           : {}),
         conflicts: [],
+        disabledFor: [],
+        precedence: 'only-discovered-source',
       };
       seen.set(canonical, row);
       rows.push(row);
     }
   }
   for (const row of rows) {
+    const skillFile = join(row.path, 'SKILL.md');
+    if (
+      row.providers.includes('codex') &&
+      existsSync(skillFile) &&
+      disabled.has(realpathSync.native(skillFile))
+    ) {
+      row.disabledFor.push('codex');
+    }
+    if (row.source !== 'mesa' && row.disabledFor.length === row.providers.length) {
+      row.enabled = false;
+    }
     row.conflicts = rows
       .filter(
         (other) =>
@@ -173,6 +231,7 @@ export function skillInventory(input: {
           other.path !== row.path,
       )
       .map((other) => other.path);
+    if (row.conflicts.length) row.precedence = 'provider-native';
   }
   return rows.sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
 }

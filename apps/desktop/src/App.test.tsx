@@ -37,6 +37,12 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     ),
   );
   expect(byTestId('project-workspace')[0]?.textContent).toContain('No skills found.');
+  await click(
+    [...(byTestId('skills-workspace')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Coding agents',
+    ),
+  );
+  expect(byTestId('doctor-panel')).toHaveLength(1);
   await click(byTestId('nav-projects')[0]);
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
@@ -163,6 +169,63 @@ test('project Skills and Rules tabs preview and save only through their checked 
     '--',
     ruleId,
   ]);
+});
+
+test('project Skills can enable a shipped skill through the project policy and sync it', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'skills list': () =>
+      envelope([
+        {
+          id: '/library/session-summary',
+          path: '/library/session-summary',
+          name: 'session-summary',
+          description: 'Summarize an invented session',
+          source: 'mesa',
+          scope: 'mesa',
+          providers: ['claude', 'codex', 'antigravity'],
+          enabled: false,
+          supportFiles: [],
+          writable: false,
+          conflicts: [],
+          disabledFor: [],
+          precedence: 'only-discovered-source',
+        },
+      ]),
+    'skills read': () =>
+      envelope({ path: 'SKILL.md', text: '# Summary\n', revision: 'a'.repeat(64), lines: 2 }),
+    'skills set': () =>
+      envelope({ project: 'lantern-cove', name: 'session-summary', enabled: true }),
+    'skills sync': () => envelope({ added: [], removed: [], kept: [], conflicts: [], unknown: [] }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (b) => b.textContent === 'skills',
+    ),
+  );
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('session-summary')),
+  );
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent === 'Enable in project'),
+  );
+  expect(calls).toContainEqual([
+    '--json',
+    'skills',
+    'set',
+    '--enabled',
+    'true',
+    '--',
+    'lantern-cove',
+    'session-summary',
+  ]);
+  expect(calls).toContainEqual(['--json', 'skills', 'sync', '--', 'lantern-cove']);
 });
 
 test('project native history imports a Codex conversation through the existing session action', async () => {
