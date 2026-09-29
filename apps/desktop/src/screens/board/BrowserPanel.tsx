@@ -99,6 +99,32 @@ export function BrowserPanel({
   }, [clearSelection, platform.browser, sessionId]);
 
   useEffect(() => {
+    if (!picked) return;
+    let active = true;
+    let checking = false;
+    const timer = window.setInterval(() => {
+      if (checking) return;
+      checking = true;
+      void platform.browser
+        .pickResult(sessionId)
+        .catch(() => null)
+        .then((fresh) => {
+          if (active && JSON.stringify(fresh) !== JSON.stringify(picked)) return clearSelection();
+        })
+        .catch((cause) => {
+          if (active) setError(String(cause));
+        })
+        .finally(() => {
+          checking = false;
+        });
+    }, 500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [clearSelection, picked, platform.browser, sessionId]);
+
+  useEffect(() => {
     if (!opened || !surface.current) return;
     const observer = new ResizeObserver(() => {
       const rect = surface.current?.getBoundingClientRect();

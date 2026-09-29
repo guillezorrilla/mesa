@@ -130,6 +130,12 @@ test('browser annotation previews its target, rechecks the element, and sends on
   expect(calls.filter((args) => args[1] === 'browser' && args[2] === 'annotate-send')).toHaveLength(
     1,
   );
+  current = { ...picked, text: 'Changed again' };
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 650)));
+  expect(byTestId('browser-selection')).toHaveLength(0);
+  expect(
+    calls.filter((args) => args[1] === 'browser' && args[2] === 'clear').length,
+  ).toBeGreaterThan(1);
   await act(async () => onLoad({ session: 'aaaaaaaa', url: 'https://example.test/next' }));
   expect(byTestId('browser-selection')).toHaveLength(0);
   expect(calls.some((args) => args[1] === 'browser' && args[2] === 'clear')).toBe(true);

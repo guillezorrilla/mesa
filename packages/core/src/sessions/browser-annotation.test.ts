@@ -18,6 +18,11 @@ test('a native browser selection expires when its owning app exits', async () =>
   expect(
     mesa.sessions.browser.preview(opened.id, { ...selection, comment: 'Check this' }).target,
   ).toBe(opened.id);
+  mesa.sessions.browser.clear(opened.id);
+  expect(() =>
+    mesa.sessions.browser.preview(opened.id, { ...selection, comment: 'Check this' }),
+  ).toThrow('selection changed');
+  mesa.sessions.browser.select(opened.id, { ...selection, ownerPid: 42 });
   alive = false;
   expect(() =>
     mesa.sessions.browser.preview(opened.id, { ...selection, comment: 'Check this' }),
