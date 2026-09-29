@@ -230,7 +230,7 @@ export function inbox(ctx: MesaContext) {
       settings[item.kind === 'input-required' ? 'inputRequired' : item.kind];
     const skipped = fresh.filter((item) => item.read || mode(item) === 'off');
     if (skipped.length) write({ delivered: skipped.map((item) => item.id) });
-    const pending = fresh.filter((item) => !item.read && mode(item) !== 'off');
+    const pending = fresh.filter((item) => !item.read && mode(item) !== 'off').slice(0, 500);
     if (settings.quiet || pending.length === 0) return { kind: 'none' };
     const ids = pending.map((item) => item.id);
     const item = pending[0];
