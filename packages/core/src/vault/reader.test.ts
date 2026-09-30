@@ -1,7 +1,8 @@
-import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { fixedClock, tempDir, thrown } from '../testing/index.js';
+import { createMesa } from '../mesa.js';
+import { fixedClock, tempDir, testDeps, thrown } from '../testing/index.js';
 import { readVaultItem } from './reader.js';
 import { initVault } from './vault.js';
 
@@ -216,4 +217,41 @@ test('paths out of scope, internals, and unlisted items are refused through the 
   expect(thrown(() => readVaultItem(vault, 'wiki')).code).toBe('not_found');
   // A path written another way is the same item.
   expect(readVaultItem(vault, './wiki//harbour-lights.md').path).toBe('wiki/harbour-lights.md');
+});
+
+test.each([
+  ['\n', '\n'],
+  ['\r\n', '\r\n'],
+  ['\n', '\r\n'],
+  ['\r\n', '\n'],
+])('public vault.read preserves the body and reads properties with %j/%j fences', (open, close) => {
+  const mesa = createMesa('default', testDeps(dirname(vault)));
+  mesa.init({ vault: 'vault' });
+  const body = '# Authored tide\r\n\r\nKeep [[tide]].\nLast line 🐚\r\n';
+  const text = `---${open}project: tide\r\ntags: [lights, keepers]\ndescription: |\r\n  line one\n  line two\r\n---${close}${body}`;
+  put('daily/2026-09-30.md', text);
+  const original = readFileSync(join(vault, 'daily/2026-09-30.md'));
+  const read = mesa.vault.read('daily/2026-09-30.md');
+  if (read.preview !== 'markdown') throw new Error('expected Markdown');
+  expect(read.frontmatter).toEqual({
+    project: 'tide',
+    tags: ['lights', 'keepers'],
+    description: 'line one\nline two\n',
+  });
+  expect(read.body).toBe(body);
+  expect(Buffer.from(read.body)).toEqual(Buffer.from(body));
+  expect(read.project).toBe('tide');
+  expect(readFileSync(join(vault, 'daily/2026-09-30.md'))).toEqual(original);
+});
+
+test.each([
+  '---\r\ntitle: [unclosed\r\n---\r\nBody.\r\n',
+  '---\r\ntitle: Tide\r\n---',
+  '--- \r\ntitle: Tide\r\n---\r\nBody.',
+])('public vault.read keeps malformed frontmatter as all body: %j', (text) => {
+  const mesa = createMesa('default', testDeps(dirname(vault)));
+  mesa.init({ vault: 'vault' });
+  put('wiki/odd-crlf.md', text);
+  const read = mesa.vault.read('wiki/odd-crlf.md');
+  expect(read).toMatchObject({ preview: 'markdown', frontmatter: {}, body: text });
 });
