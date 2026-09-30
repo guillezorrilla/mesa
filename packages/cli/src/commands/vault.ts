@@ -52,7 +52,7 @@ export const vaultStatus = defineCommand({
 export const vaultBases = defineCommand({
   name: 'vault bases',
   summary: 'Write owned receipts and sessions Bases views; keep user files',
-  example: 'mesa vault bases --json',
+  example: 'mesa vault bases',
   run: async ({ mesa }) => {
     const result = await mesa.vault.bases();
     return {
