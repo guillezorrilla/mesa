@@ -1,8 +1,9 @@
 import { unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { MesaError } from '../../lib/result.js';
+import { VAULT_SERVER } from '../../vault/server.js';
 import { read, write } from '../hooks.js';
-import { VAULT_COMMAND, VAULT_SERVER, vaultServer } from '../vault-mount.js';
+import { VAULT_COMMAND, vaultServer } from '../vault-mount.js';
 
 // Antigravity's mesa-vault mount (docs/spikes/vault-mcp.md, ADR-0012). agy takes no MCP server
 // and no pre-approval per launch, so Mesa owns one named entry in its global MCP config and one
