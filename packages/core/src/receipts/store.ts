@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
@@ -9,11 +9,13 @@ import { VAULT } from '../vault/layout.js';
 import {
   appendLog,
   type LockedNotesDeps,
+  oneLine,
   ownFields,
   readNote,
   updateNote,
   writeNote,
 } from '../vault/notes.js';
+import { vaultFile } from '../vault/scope.js';
 import { type ReceiptType, receiptLink, receiptName, receiptPath } from './receipt-file.js';
 import { type Receipt, type ReceiptInput, ReceiptSchema } from './schema.js';
 
@@ -41,12 +43,27 @@ export function writeReceipt(
   const notes = { vault: deps.vault, clock: deps.clock };
   writeNote(notes, { path, frontmatter: receipt, body: receiptBody(summary, details) });
   try {
-    // Brackets in the summary cannot open or close a link of their own before the receipt's.
-    appendLog(notes, `${summary.replace(/\[\[|\]\]/g, '')} ${receiptLink(path)}`);
+    appendLog(notes, logLine(summary, path));
     return { receipt, path };
   } catch (error) {
     return { receipt, path, warning: `no log line: ${toFail(error).error.message}` };
   }
+}
+
+/** The log.md line of a receipt: its summary, then its link. */
+const logLine = (summary: string, path: string) =>
+  // Brackets in the summary cannot open or close a link of their own before the receipt's.
+  `${summary.replace(/\[\[|\]\]/g, '')} ${receiptLink(path)}`;
+
+/**
+ * Appends a receipt's log.md line when log.md lacks it: a retry's repair after an interrupted
+ * append (writeReceipt), never a second line. Callers hold the vault lock.
+ */
+export function restoreLogLine(deps: { vault: string; clock: Clock }, entry: ReceiptEntry): void {
+  // As appendLog writes it, so a line it collapsed is found.
+  const line = oneLine(logLine(entry.summary, entry.path));
+  const log = vaultFile(deps.vault, VAULT.log);
+  if (existsSync(log) && !readFileSync(log, 'utf8').includes(line)) appendLog(deps, line);
 }
 
 /** A receipt's body: its summary line, then its Details section. */
@@ -130,12 +147,16 @@ function readReceipt(vault: string, path: string): ReceiptEntry {
   return { path, receipt, summary: summaryOf(note.body), body: note.body };
 }
 
-/** Which receipts to list: those of one `type`, of one `session`, each when given. */
+/**
+ * Which receipts to list: those of one `type`, `session`, `project`, `kind`, and `target` (the
+ * vault note a change names in its outputs), each when given.
+ */
 export type ReceiptFilter = {
   type?: ReceiptType;
   session?: string;
   project?: string;
   kind?: Receipt['kind'];
+  target?: string;
 };
 
 /**
@@ -145,7 +166,7 @@ export type ReceiptFilter = {
 export function listReceipts(
   vault: string,
   limit = DEFAULT_RECEIPT_LIMIT,
-  { type, session, project, kind }: ReceiptFilter = {},
+  { type, session, project, kind, target }: ReceiptFilter = {},
 ): ReceiptEntry[] {
   const found: ReceiptEntry[] = [];
   for (const file of receiptFiles(vault)) {
@@ -155,6 +176,7 @@ export function listReceipts(
     if (session !== undefined && entry.receipt.session !== session) continue;
     if (project !== undefined && entry.receipt.project !== project) continue;
     if (kind !== undefined && entry.receipt.kind !== kind) continue;
+    if (target !== undefined && entry.receipt.outputs.target !== target) continue;
     found.push(entry);
   }
   return found;

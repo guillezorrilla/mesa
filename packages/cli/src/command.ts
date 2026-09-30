@@ -1,6 +1,12 @@
 import type { Mesa } from '@mesa/core';
 
-export type Flag = { type: 'string' | 'boolean'; description: string; required?: boolean };
+export type Flag = {
+  type: 'string' | 'boolean';
+  description: string;
+  required?: boolean;
+  /** A string flag given once per value (`--probability a=0.7 --probability b=0.3`). */
+  multiple?: boolean;
+};
 type Flags = Record<string, Flag>;
 
 /** Flags every command takes, before or after its name; one wins over a command flag of its name. */
@@ -36,12 +42,17 @@ type Args<A extends readonly string[]> = {
       : string;
 };
 
-/** Declared flags to values: a required string flag is a string, the rest may be undefined. */
+/**
+ * Declared flags to values: a required string flag is a string, a multiple one a list, the rest
+ * may be undefined.
+ */
 type FlagValues<F extends Flags> = {
   [K in keyof F]: F[K]['type'] extends 'string'
-    ? F[K]['required'] extends true
-      ? string
-      : string | undefined
+    ? F[K]['multiple'] extends true
+      ? string[] | undefined
+      : F[K]['required'] extends true
+        ? string
+        : string | undefined
     : boolean | undefined;
 };
 

@@ -31,6 +31,28 @@ export function readNote(vault: string, path: string): Note {
   return note;
 }
 
+/** Refuses to replace a note whose frontmatter says `locked: true`: it is the person's. */
+export function refuseLocked(file: string, note: Note | undefined): void {
+  if (note?.frontmatter.locked === true) {
+    throw new MesaError('locked', `${file} is locked (locked: true in its frontmatter)`, {
+      reason: 'note',
+    });
+  }
+}
+
+/**
+ * Refuses a save over a note that is the person's: a locked one (refuseLocked), or one Mesa did
+ * not write (no `source: mesa`), which is `locked` too, its reason `not-mesa`.
+ */
+export function refuseForeign(file: string, note: Note | undefined): void {
+  refuseLocked(file, note);
+  if (note && note.frontmatter.source !== 'mesa') {
+    throw new MesaError('locked', `${file} is not a note Mesa wrote (no source: mesa)`, {
+      reason: 'not-mesa',
+    });
+  }
+}
+
 /**
  * Writes a note at `path` (relative to the vault) atomically. The frontmatter gets `created` (kept
  * from the note it replaces), `updated`, and `source: mesa`, then the caller's fields. A note
@@ -39,11 +61,7 @@ export function readNote(vault: string, path: string): Note {
 export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note {
   const file = vaultFile(deps.vault, note.path);
   const previous = readIfExists(file);
-  if (previous?.frontmatter.locked === true) {
-    throw new MesaError('locked', `${file} is locked (locked: true in its frontmatter)`, {
-      reason: 'note',
-    });
-  }
+  refuseLocked(file, previous);
   const now = obsidianDateTime(deps.clock());
   const fields = ownFields(note.frontmatter);
   const frontmatter: Frontmatter = {
@@ -73,18 +91,21 @@ export const updateNote = (deps: LockedNotesDeps, path: string, change: Change):
   withVaultLock(deps, () => rewrite(deps, path, change));
 
 /** The vault's log.md; not_found until `mesa vault init` has run. */
-function requireLog(vault: string): string {
+export function requireLog(vault: string): string {
   const file = join(vault, VAULT.log);
   if (!existsSync(file)) throw new MesaError('not_found', `${file} not found; run mesa vault init`);
   return file;
 }
 
+/** `text` as one line: its newlines, and the spaces around them, collapse to one space. */
+export const oneLine = (text: string) => text.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+
 /**
  * Appends `- <ISO> <line>` to the vault's log.md with one append-mode write. The line stays one
- * line: newlines collapse to spaces, so text cannot forge a second entry.
+ * line (oneLine), so text cannot forge a second entry.
  */
 export function appendLog(deps: NotesDeps, line: string): string {
-  const text = line.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+  const text = oneLine(line);
   if (!text) throw new MesaError('usage', 'a log line needs some text');
   const file = requireLog(deps.vault);
   const entry = `- ${deps.clock().toISOString()} ${text}`;

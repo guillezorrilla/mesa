@@ -21,3 +21,12 @@ export function wholeNumber(value: string, name: string): number {
   }
   return n;
 }
+
+/** A typed argument as a number; core checks its range. */
+export function decimal(value: string, name: string): number {
+  const n = Number(value);
+  if (!value.trim() || !Number.isFinite(n)) {
+    throw new MesaError('usage', `${name} must be a number, not ${value}`);
+  }
+  return n;
+}

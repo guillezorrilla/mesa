@@ -1,5 +1,6 @@
 import { ULID_PATTERN } from '../lib/ids.js';
 import { VAULT } from '../vault/layout.js';
+import { wikilink } from '../vault/links.js';
 
 export const RECEIPT_TYPES = ['session', 'skill', 'decision', 'action'] as const;
 export type ReceiptType = (typeof RECEIPT_TYPES)[number];
@@ -21,7 +22,7 @@ export function receiptPath(r: { started: string; type: string; id: string }): s
 }
 
 /** The wikilink a log.md line uses to point at a receipt (docs/receipts.md). */
-export const receiptLink = (path: string) => `[[${path.replace(/\.md$/, '')}|receipt]]`;
+export const receiptLink = (path: string) => wikilink(path, 'receipt');
 
 /**
  * What a receipt's file name says: its type, and its sort `key`, newest first by start time, then
