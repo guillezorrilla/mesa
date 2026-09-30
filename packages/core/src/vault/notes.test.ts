@@ -8,10 +8,11 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
+import { logLine } from '../daily/service.js';
 import { localDay } from '../lib/time.js';
 import { fixedClock, seededRandom, steppingClock, tempDir, thrown } from '../testing/index.js';
 import type { Frontmatter } from './frontmatter.js';
-import { appendLog, logLine, readNote, updateNote, writeNote } from './notes.js';
+import { appendLog, readNote, updateNote, writeNote } from './notes.js';
 import { initVault } from './vault.js';
 import { vaultLockPath, withVaultLock } from './vault-lock.js';
 
@@ -145,7 +146,7 @@ test('property: write then read returns the same frontmatter and body for 50 ran
 test('mesa log writes log.md and creates, then appends to, the daily note', async () => {
   const clock = fixedClock('2026-09-24T12:00:00.000Z');
   const { entry, daily } = await logLine({ vault, clock, sleep: realSleep }, 'hello');
-  expect(entry).toBe('- 2026-09-24T12:00:00.000Z hello');
+  expect(entry).toBe('- 2026-09-24T12:00:00.000Z hello <!-- mesa:log -->');
   expect(daily).toBe(`daily/${localDay(clock())}.md`);
   await logLine({ vault, clock, sleep: realSleep }, 'again');
   const note = readNote(vault, daily);
@@ -154,11 +155,12 @@ test('mesa log writes log.md and creates, then appends to, the daily note', asyn
     date: localDay(clock()),
     source: 'mesa',
   });
-  expect(note.body).toBe(
-    `# ${localDay(clock())}\n\n- 2026-09-24T12:00:00.000Z hello\n- 2026-09-24T12:00:00.000Z again\n`,
+  expect(note.body).toContain(
+    '- 2026-09-24T12:00:00.000Z hello\n- 2026-09-24T12:00:00.000Z again\n',
   );
+  expect(note.body).toContain('<!-- mesa:daily:start -->');
   expect(readFileSync(join(vault, 'log.md'), 'utf8')).toContain(
-    'hello\n- 2026-09-24T12:00:00.000Z again\n',
+    'hello <!-- mesa:log -->\n- 2026-09-24T12:00:00.000Z again <!-- mesa:log -->\n',
   );
 });
 

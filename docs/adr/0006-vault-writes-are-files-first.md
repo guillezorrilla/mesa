@@ -36,3 +36,7 @@ Unchanged: the vault is written as files, and `.obsidian/` stays Obsidian's (Obs
 ## Amendment 2026-09-27: substantive note changes produce knowledge (#274)
 
 The file writer remains the authority for vault notes. A completed skill run records a `vault-change` receipt only when its target note body changes, after the note write succeeds, under the vault lock. Repeated completion and an identical body from another run add no history. The receipt links the exact note; raw terminal output stays in the profile's local files. The shared note path guard rejects symlink paths that leave the vault.
+
+## Amendment 2026-09-30: Daily preserves raw user bytes (#325)
+
+Daily rebuilds atomically splice only the generated marker section, using the existing file writer's byte input. Existing notes do not pass through writeNote serialization; raw frontmatter and outside bytes, including CRLF, stay unchanged. Validation reads a normalized copy so a CRLF locked note still refuses. New Daily notes keep the usual frontmatter conventions. Standalone rebuild and explicit log append/rebuild share one vault lock owner. Preflight protects both files, but a later write failure can leave log.md persisted; the error reports that and a standalone rebuild repairs the daily note without appending again. Builds create no history of their own. Public core/CLI/app regressions verify preservation, refusals, partial I/O recovery and explicit-only rebuilding; native qualification is separate.

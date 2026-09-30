@@ -12,6 +12,7 @@ import type {
   CommandReference,
   Config,
   ConversationSearch,
+  DailyResult,
   DeliveryPlan,
   DescendantResult,
   DiagnosticReport,
@@ -1039,6 +1040,11 @@ const COMMANDS = {
     ({ project, query }) => ['history', 'search', '--', project, query],
   ),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
+  'daily.build': commandWith<{ date: string }, DailyResult>(({ date }) => [
+    'daily',
+    '--date',
+    date,
+  ]),
   'vault.context': commandWith<{ project: string }, ProjectContext>(({ project }) => [
     'vault',
     'context',

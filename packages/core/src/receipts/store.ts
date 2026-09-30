@@ -43,7 +43,7 @@ export function writeReceipt(
   const notes = { vault: deps.vault, clock: deps.clock };
   writeNote(notes, { path, frontmatter: receipt, body: receiptBody(summary, details) });
   try {
-    appendLog(notes, logLine(summary, path));
+    appendLog(notes, receiptLogLine(summary, path));
     return { receipt, path };
   } catch (error) {
     return { receipt, path, warning: `no log line: ${toFail(error).error.message}` };
@@ -51,7 +51,7 @@ export function writeReceipt(
 }
 
 /** The log.md line of a receipt: its summary, then its link. */
-const logLine = (summary: string, path: string) =>
+export const receiptLogLine = (summary: string, path: string) =>
   // Brackets in the summary cannot open or close a link of their own before the receipt's.
   `${summary.replace(/\[\[|\]\]/g, '')} ${receiptLink(path)}`;
 
@@ -61,7 +61,7 @@ const logLine = (summary: string, path: string) =>
  */
 export function restoreLogLine(deps: { vault: string; clock: Clock }, entry: ReceiptEntry): void {
   // As appendLog writes it, so a line it collapsed is found.
-  const line = oneLine(logLine(entry.summary, entry.path));
+  const line = oneLine(receiptLogLine(entry.summary, entry.path));
   const log = vaultFile(deps.vault, VAULT.log);
   if (existsSync(log) && !readFileSync(log, 'utf8').includes(line)) appendLog(deps, line);
 }
