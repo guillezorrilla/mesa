@@ -306,3 +306,109 @@ test('vault open opens the exact item, a canvas or a file with no extension', as
     );
   }
 });
+
+test('vault save decision, summary, and note print {path, changed, receipt}; a repeat adds no receipt', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const session = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
+  const count = async () => (await mesa('receipts', '--json', '--limit', '50')).json.data.length;
+  writeFileSync(join(cli.home, 'summary.md'), 'Goal: fix the tide flake\nDone: fixed clock\n');
+  const saves = [
+    [
+      'decision',
+      '--project',
+      'lantern-cove',
+      '--title',
+      'Fixed clock in tide tests',
+      '--decision',
+      'Tests take the clock as a parameter',
+      '--rationale',
+      'The flake was the wall clock at midnight',
+      '--probability',
+      'fixed-clock=0.8',
+      '--probability',
+      'retry=0.2',
+      '--confidence',
+      '0.8',
+    ],
+    ['summary', '--session', session, '--file', 'summary.md'],
+    ['note', '--project', 'lantern-cove', '--title', 'Tide table sources', '--text', 'The office.'],
+  ];
+  const paths = [
+    'wiki/decisions/2026-09-24-fixed-clock-in-tide-tests.md',
+    `wiki/sessions/${session}.md`,
+    'wiki/notes/tide-table-sources.md',
+  ];
+  for (const [i, save] of saves.entries()) {
+    const before = await count();
+    const first = await mesa('vault', 'save', ...save, '--json');
+    expect(first.json.data).toEqual({
+      path: paths[i],
+      changed: true,
+      receipt: { id: expect.any(String), path: expect.stringMatching(/^receipts\//) },
+    });
+    expect(await count()).toBe(before + 1);
+    const again = await mesa('vault', 'save', ...save, '--json');
+    expect(again.json.data).toEqual({ path: paths[i], changed: false, receipt: null });
+    expect(await count()).toBe(before + 1);
+  }
+  const decision = readFileSync(join(cli.home, 'vault', paths[0] ?? ''), 'utf8');
+  expect(decision).toContain('probabilities:\n  fixed-clock: 0.8\n  retry: 0.2\nconfidence: 0.8\n');
+  const kinds = await mesa('receipts', '--project', 'lantern-cove', '--json');
+  expect(kinds.json.data.map((e: { receipt: { kind: string } }) => e.receipt.kind)).toEqual([
+    'vault-change',
+    'vault-change',
+    'decision',
+  ]);
+  // The receipt keeps a short command line, not the note's whole text.
+  expect(
+    (await mesa('vault', 'save', 'note', '--title', 'T', '--text', 'x'.repeat(300))).stdout,
+  ).toBe('saved wiki/notes/t.md\n');
+  const [latest] = (await mesa('receipts', '--limit', '1', '--json')).json.data;
+  expect(latest.receipt.command.length).toBeLessThan(160);
+});
+
+test('vault save refuses bad flags, both text and file, other folders, and locked notes', async () => {
+  await cli.withProject();
+  const save = (...words: string[]) => mesa('vault', 'save', ...words);
+  const decision = ['decision', '--project', 'lantern-cove', '--title', 't', '--decision', 'd'];
+  expect((await save(...decision, '--rationale', 'r', '--probability', 'ship')).stderr).toBe(
+    '--probability takes <option>=<p>, not ship\n',
+  );
+  expect((await save(...decision, '--rationale', 'r', '--probability', 'a=x')).code).toBe(2);
+  expect(
+    (await save(...decision, '--rationale', 'r', '--probability', 'a=1', '--probability', 'a=0'))
+      .stderr,
+  ).toBe('--probability names a twice\n');
+  expect((await save(...decision, '--rationale', 'r', '--confidence', 'high')).code).toBe(2);
+  expect((await save(...decision, '--rationale', 'r', '--confidence', '2')).code).toBe(2);
+  expect((await save(...decision)).code).toBe(2); // --rationale is required
+  writeFileSync(join(cli.home, 'note.md'), 'From a file.\n');
+  expect((await save('note', '--title', 't', '--text', 'x', '--file', 'note.md')).code).toBe(2);
+  expect((await save('note', '--title', 't')).code).toBe(2);
+  expect((await save('note', '--title', 't', '--file', 'nope.md')).code).toBe(3);
+  expect((await save('note', '--title', 't', '--text', 'x', '--path', 'raw/t.md')).stderr).toBe(
+    'a note goes under wiki/ or projects/<project>/, not raw/t.md\n',
+  );
+  const vault = join(cli.home, 'vault');
+  mkdirSync(join(vault, 'wiki/notes'), { recursive: true });
+  writeFileSync(join(vault, 'wiki/notes/t.md'), '---\nsource: mesa\nlocked: true\n---\nMine\n');
+  const locked = await save('note', '--title', 't', '--file', 'note.md', '--json');
+  expect(locked.code).toBe(8);
+  expect(locked.json.error).toMatchObject({ code: 'locked', details: { reason: 'note' } });
+  expect((await mesa('receipts', '--json')).json.data).toEqual([]);
+});
+
+test('a title with a newline saved twice logs one line', async () => {
+  await cli.withProject();
+  const save = () =>
+    mesa('vault', 'save', 'note', '--title', 'Tide\nTables', '--text', 'x', '--json');
+  const saved = (await save()).json.data;
+  expect(saved.path).toBe('wiki/notes/tide-tables.md');
+  expect((await save()).json.data.changed).toBe(false);
+  const log = readFileSync(join(cli.home, 'vault/log.md'), 'utf8');
+  const link = saved.receipt.path.replace(/\.md$/, '');
+  expect(log.split('\n').filter((line) => line.includes(link))).toEqual([
+    `- 2026-09-24T12:00:00.000Z Saved note Tide Tables in wiki/notes/tide-tables [[${link}|receipt]]`,
+  ]);
+});

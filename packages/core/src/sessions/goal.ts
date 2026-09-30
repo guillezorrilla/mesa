@@ -1,5 +1,5 @@
-import { readFileSync, statSync } from 'node:fs';
 import { MesaError } from '../lib/result.js';
+import { readTextFile } from '../lib/text-file.js';
 import type { SessionStore } from './store.js';
 
 // A session's goal, its first prompt (CONTEXT.md, Goal): read, checked, and kept on the record.
@@ -9,29 +9,6 @@ import type { SessionStore } from './store.js';
 // the variables. Past that, type the goal in with send-keys after the start.
 const MAX_COMMAND_BYTES = 12_000;
 
-// Strict, and a leading BOM dropped, so a file saved with one still starts `/goal`.
-const decoder = new TextDecoder('utf-8', { fatal: true });
-
-/** A goal file's text: UTF-8, its BOM dropped, otherwise unchanged. */
-function readGoalFile(file: string): string {
-  let bytes: Buffer;
-  try {
-    if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
-      throw new MesaError('not_found', `no goal file at ${file}`);
-    }
-    bytes = readFileSync(file);
-  } catch (error) {
-    if (error instanceof MesaError) throw error;
-    const code = (error as NodeJS.ErrnoException).code ?? String(error);
-    throw new MesaError('usage', `cannot read the goal file ${file}: ${code}`);
-  }
-  try {
-    return decoder.decode(bytes);
-  } catch {
-    throw new MesaError('usage', `the goal file ${file} is not UTF-8 text`);
-  }
-}
-
 /**
  * The goal from `--goal` or `--goal-file` (an absolute path), checked so claude takes it whole as
  * its first prompt. Undefined without either.
@@ -40,7 +17,8 @@ export function readGoal(input: { goal?: string; goalFile?: string }): string | 
   if (input.goal !== undefined && input.goalFile !== undefined) {
     throw new MesaError('usage', 'pass --goal or --goal-file, not both');
   }
-  const goal = input.goalFile === undefined ? input.goal : readGoalFile(input.goalFile);
+  const goal =
+    input.goalFile === undefined ? input.goal : readTextFile(input.goalFile, 'goal file');
   if (goal === undefined) return undefined;
   if (!goal.trim()) throw new MesaError('usage', 'the goal is empty');
   if (goal.startsWith('-')) {

@@ -101,7 +101,16 @@ import { stop } from './stop.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { usage } from './usage.js';
-import { vaultInit, vaultList, vaultOpen, vaultRead, vaultStatus } from './vault.js';
+import {
+  vaultInit,
+  vaultList,
+  vaultOpen,
+  vaultRead,
+  vaultSaveDecision,
+  vaultSaveNote,
+  vaultSaveSummary,
+  vaultStatus,
+} from './vault.js';
 import { view } from './view.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
@@ -234,6 +243,9 @@ export const COMMANDS: Command[] = [
   vaultList,
   vaultOpen,
   vaultRead,
+  vaultSaveDecision,
+  vaultSaveNote,
+  vaultSaveSummary,
   vaultStatus,
   view,
   windows,

@@ -1,4 +1,5 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { runCli } from '../cli.js';
 import type { Command } from '../command.js';
@@ -94,4 +95,18 @@ test('each command lives in the file named for its first word, and every file is
     }
   }
   expect(found.sort()).toEqual(COMMANDS.map((c) => c.name).sort());
+});
+
+test("the mesa-vault skill's save commands parse as vault save's own", async () => {
+  const deps = cliDeps(cli.home, { mesa: { run: cli.run } });
+  const skill = readFileSync(join(deps.mesa.skillsDir, 'mesa-vault/SKILL.md'), 'utf8');
+  const saves = skill.split('\n').filter((line) => line.startsWith('mesa vault save '));
+  expect(saves).toHaveLength(3);
+  const named = COMMANDS.map((c) => ({ ...c, run: () => ({ data: c.name, text: c.name }) }));
+  for (const line of saves) {
+    // Each ends in --json, as an agent runs it.
+    const out = await runCli(wordsOf(line), { ...deps, commands: named });
+    const name = line.split(' ').slice(1, 4).join(' ');
+    expect([out.code, JSON.parse(out.stdout)], line).toEqual([0, { ok: true, data: name }]);
+  }
 });
