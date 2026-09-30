@@ -44,7 +44,7 @@ const URL = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 const blank = (text: string) => ' '.repeat(text.length);
 
 /** The body with fenced code blocks and inline code blanked out, so offsets stay the body's. */
-function outsideCode(body: string): string {
+export function outsideCode(body: string): string {
   let fence = '';
   return body
     .split('\n')

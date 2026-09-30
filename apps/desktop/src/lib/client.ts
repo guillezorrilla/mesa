@@ -38,6 +38,7 @@ import type {
   Opened,
   ProfileInfo,
   Project,
+  ProjectContext,
   ProjectRow,
   ReceiptEntry,
   Removed,
@@ -1031,6 +1032,12 @@ const COMMANDS = {
     ({ project, query }) => ['history', 'search', '--', project, query],
   ),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
+  'vault.context': commandWith<{ project: string }, ProjectContext>(({ project }) => [
+    'vault',
+    'context',
+    '--',
+    project,
+  ]),
   'vault.list': command<VaultInventory>('vault', 'list'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
   'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [

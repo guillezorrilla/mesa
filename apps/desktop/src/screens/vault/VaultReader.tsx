@@ -37,7 +37,8 @@ const explain = (link: VaultLink) =>
     ? `${link.candidates.length} items match ${link.target}, and Mesa does not guess which one`
     : `no item in the vault matches ${link.target}`;
 
-const PROSE =
+/** How a vault note's Markdown reads: the reader's and the project overview's. */
+export const PROSE =
   'min-w-0 space-y-3 break-words text-sm leading-6 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_code]:font-mono [&_code]:text-xs [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_ul]:list-disc [&_ul]:pl-5';
 
 function LinkAt(props: { link: VaultLink; children: ReactNode; onSelect: Select }) {

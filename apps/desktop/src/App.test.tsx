@@ -451,6 +451,49 @@ test('project and session show scoped decisions and note changes with exact Obsi
   expect(byTestId('knowledge-context')[0]?.textContent).not.toContain('Updated project brief');
 });
 
+test("a note in the project's vault overview opens in the Vault screen, selected", async () => {
+  const note = {
+    path: 'wiki/currents.md',
+    kind: 'markdown',
+    category: 'wiki',
+    project: 'lantern-cove',
+    size: 10,
+    modified: '2026-09-24T12:00:00.000Z',
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'vault context': () =>
+      envelope({
+        project: 'lantern-cove',
+        hub: null,
+        index: [],
+        notes: [{ path: note.path, title: 'Currents', modified: note.modified }],
+        decisions: [],
+        goals: [],
+        more: '',
+      }),
+    'vault list': () => envelope({ vault: '/h/vault', total: 1, items: [note] }),
+    'vault read': () =>
+      envelope({
+        ...note,
+        uri: 'obsidian://open?vault=vault&file=wiki%2Fcurrents.md',
+        backlinks: [],
+        preview: 'markdown',
+        frontmatter: {},
+        body: '# Currents\n',
+        links: [],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click(byTestId('vault-overview-note')[0]);
+  expect(byTestId('vault-panel')).toHaveLength(1);
+  expect(byTestId('vault-item')[0]?.querySelector('[data-fact="Path"]')?.textContent).toBe(
+    'wiki/currents.md',
+  );
+  expect(calls).toContainEqual(['--json', 'vault', 'read', '--', 'wiki/currents.md']);
+});
+
 test('project Git tab reads selected checkout status through the CLI bridge', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
