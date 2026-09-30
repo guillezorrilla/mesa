@@ -20,9 +20,24 @@ import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
 import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
+import {
+  CLAUDE_VAULT_TOOLS,
+  claudeMcpConfig,
+  claudeVaultArgs,
+  codexVaultOverrides,
+  type VaultServer,
+} from './vault-mount.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
+
+/** Claude Code's mesa-vault mount as shell words (vault-mount.ts). */
+const claudeMount = (server: VaultServer) => claudeVaultArgs(server).map(shellWord).join(' ');
+/** Codex's mesa-vault mount as its four -c overrides (vault-mount.ts). */
+const codexMount = (server: VaultServer) =>
+  codexVaultOverrides(server)
+    .map((override) => `-c ${shellWord(override)}`)
+    .join(' ');
 
 /** The permission modes `claude -p --permission-mode` takes (Claude Code 2.1.283). */
 export const CLAUDE_PERMISSION_MODES = [
@@ -57,14 +72,20 @@ export const AGENTS = {
     install: 'brew install --cask claude-code',
     /** None: claude takes the agent session id Mesa picks (newSessionId) with --session-id. */
     ownSessionId: undefined,
-    /** The command a Mesa window runs, under the id Mesa chose, with the goal as the first prompt. */
-    start: (sessionId: string, goal?: string, mode?: 'plan') =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${goalWord(goal)}`,
-    /** Reopens that conversation; run in the recorded project folder, which keys transcripts. */
-    resume: (sessionId: string, _folder: string, mode?: 'plan') =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}`,
-    fork: (sessionId: string, _folder: string, mode?: 'plan') =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}`,
+    /**
+     * The command a Mesa window runs, under the id Mesa chose, with mesa-vault mounted and the
+     * goal as the first prompt.
+     */
+    start: (sessionId: string, server: VaultServer, goal?: string, mode?: 'plan') =>
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''} ${claudeMount(server)}${goalWord(goal)}`,
+    /**
+     * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
+     * mount is not part of the conversation, so it comes again.
+     */
+    resume: (sessionId: string, _folder: string, server: VaultServer, mode?: 'plan') =>
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''} ${claudeMount(server)}`,
+    fork: (sessionId: string, _folder: string, server: VaultServer, mode?: 'plan') =>
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''} ${claudeMount(server)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -74,19 +95,25 @@ export const AGENTS = {
       skillPrefix: '/',
       /**
        * `prompt` through `claude -p`, its JSON result on stdout, in the conversation Mesa chose,
-       * with the profile's permission mode and allowed tools (none: the mode's own). The prompt
-       * and each tool are one shell word, as a rule such as `Bash(git log:*)` holds a space;
-       * --allowedTools takes every word after it, so it comes last.
+       * with the profile's permission mode, mesa-vault mounted, and its tools allowed before the
+       * profile's own. The prompt and each tool are one shell word, as a rule such as
+       * `Bash(git log:*)` holds a space; --allowedTools takes every word after it, so it comes last.
        */
-      command: (sessionId: string | undefined, prompt: string, may: HeadlessPermissions) =>
+      command: (
+        sessionId: string | undefined,
+        prompt: string,
+        may: HeadlessPermissions,
+        _folder: string,
+        server: VaultServer,
+      ) =>
         [
           'claude -p',
           shellWord(prompt),
           `--session-id ${sessionId} --output-format json`,
           `--permission-mode ${shellWord(may.permissionMode)}`,
-          ...(may.allowedTools.length
-            ? ['--allowedTools', ...may.allowedTools.map(shellWord)]
-            : []),
+          shellWord(claudeMcpConfig(server)),
+          '--allowedTools',
+          ...[CLAUDE_VAULT_TOOLS, ...may.allowedTools].map(shellWord),
         ].join(' '),
       /** What its stdout says: the result, or why there is none. */
       result: readClaudeResult,
@@ -110,14 +137,20 @@ export const AGENTS = {
     install: 'brew install --cask codex',
     /** Codex picks its own thread id: a look at the board reads it from its rollouts. */
     ownSessionId: codexSessionId,
-    /** The command a Mesa window runs; `--` so a goal such as `review` is a prompt, not a subcommand. */
-    start: (goal?: string) =>
-      `codex ${CODEX_EMBEDDED}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
-    /** Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. */
-    resume: (sessionId: string, folder: string, _mode?: 'plan') =>
-      `codex ${CODEX_EMBEDDED} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
-    fork: (sessionId: string, folder: string) =>
-      `codex ${CODEX_EMBEDDED} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+    /**
+     * The command a Mesa window runs, with mesa-vault mounted; `--` so a goal such as `review` is
+     * a prompt, not a subcommand.
+     */
+    start: (server: VaultServer, goal?: string) =>
+      `codex ${CODEX_EMBEDDED} ${codexMount(server)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+    /**
+     * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
+     * is not part of the thread, so it comes again.
+     */
+    resume: (sessionId: string, folder: string, server: VaultServer, _mode?: 'plan') =>
+      `codex ${CODEX_EMBEDDED} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+    fork: (sessionId: string, folder: string, server: VaultServer) =>
+      `codex ${CODEX_EMBEDDED} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
@@ -128,8 +161,9 @@ export const AGENTS = {
         prompt: string,
         _may: HeadlessPermissions,
         folder: string,
+        server: VaultServer,
       ) =>
-        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${shellWord(prompt)}`,
+        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${codexMount(server)} ${shellWord(prompt)}`,
       result: readCodexResult,
     },
     /** Trusted hooks from the embedded Codex process. */
@@ -194,21 +228,23 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
 
 /**
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
- * picked for it (newSessionId), which an agent that picks its own does not take.
+ * picked for it (newSessionId), which an agent that picks its own does not take, with `server`
+ * mounted for an agent that takes it per launch (Antigravity's is global).
  */
 export function startCommand(
   agent: Agent,
+  server: VaultServer,
   s: { id?: string; logs?: string; agentSessionId?: string; goal?: string; mode?: 'plan' },
 ) {
   if (agent === 'antigravity') {
     if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
     return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id), s.mode);
   }
-  if (agent === 'codex') return AGENTS.codex.start(s.goal);
+  if (agent === 'codex') return AGENTS.codex.start(server, s.goal);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, s.goal, s.mode);
+  return AGENTS.claude.start(s.agentSessionId, server, s.goal, s.mode);
 }
 
 /** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */

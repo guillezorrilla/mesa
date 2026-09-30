@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { vaultServer } from '../agents/vault-mount.js';
 import { profilePaths } from '../profile/paths.js';
 import { openProfile } from '../profile/profile.js';
 import {
@@ -35,6 +36,7 @@ async function setUp({ claude = true } = {}) {
     newUuid: sequentialUuids(),
     caller: () => ({ inMesaWindow: false }),
     syncSkills: () => {},
+    vaultServer: vaultServer(['/usr/local/bin/mesa']),
   };
   const windows = () => world.windows.filter((w) => w.window === `claude-${b.id}`);
   return { deps, store, b, windows };

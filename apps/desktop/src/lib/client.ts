@@ -983,7 +983,7 @@ const COMMANDS = {
   ]),
   'sessions.show': commandWith<
     { id: string },
-    SessionRecord & { alive: boolean; instructions: InstructionStatus }
+    SessionRecord & { alive: boolean; instructions: InstructionStatus; vault: InstructionStatus }
   >(({ id }) => ['show', '--', id]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a

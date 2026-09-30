@@ -156,6 +156,15 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         stale: false,
         events: { PreInvocation: true },
       },
+      antigravityVault: {
+        path: '/h/.gemini/config/mcp_config.json',
+        rulePath: '/h/.gemini/antigravity-cli/settings.json',
+        installed: true,
+        stale: false,
+        server: true,
+        rule: true,
+        disabled: false,
+      },
       tmux: { socket: 'mesa-default', server: true, paneDied: true },
     } satisfies HooksStatus),
 };

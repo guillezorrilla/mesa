@@ -1369,6 +1369,7 @@ test('selected session details read native context by exact id and keep unknown 
           ? {
               ...row,
               instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
+              vault: { state: 'configured', reason: 'mesa-vault is mounted in its launch command' },
               context: {
                 used: 57.56,
                 window: 258400,
@@ -1381,6 +1382,7 @@ test('selected session details read native context by exact id and keep unknown 
           : {
               ...row,
               instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+              vault: { state: 'unsupported', reason: 'A plain terminal runs no agent' },
             },
       ),
   });
@@ -1394,6 +1396,9 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('Confidence95%');
   expect(details?.textContent).toContain('Attention0.83');
   expect(details?.textContent).toContain('Instructionsconfigured: SessionStart hook is configured');
+  expect(details?.textContent).toContain(
+    'Vaultconfigured: mesa-vault is mounted in its launch command',
+  );
   expect(details?.textContent).toContain('58% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
   const ring = document.querySelector('[aria-label="Context window: 58%"]');
@@ -1407,6 +1412,7 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('ModelUnknown');
   expect(details?.textContent).toContain('EffortUnknown');
   expect(details?.textContent).toContain('Instructionsmissing: Run mesa hooks install');
+  expect(details?.textContent).toContain('Vaultunsupported: A plain terminal runs no agent');
   expect(
     document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
   ).toBe('img');
@@ -1421,6 +1427,7 @@ test("selected session details list the vault server's tools for an agent sessio
       envelope({
         ...managedRow('aaaaaaaa', { agent: 'codex' }),
         instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
+        vault: { state: 'configured', reason: 'mesa-vault is mounted in its launch command' },
       }),
     'vault mcp': () =>
       envelope({
@@ -1448,12 +1455,20 @@ test('selected session details say a plain terminal has no vault tools, and ask 
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([row]),
     show: () =>
-      envelope({ ...row, instructions: { state: 'unsupported', reason: 'A plain terminal' } }),
+      envelope({
+        ...row,
+        instructions: { state: 'unsupported', reason: 'A plain terminal' },
+        vault: { state: 'unsupported', reason: 'A plain terminal runs no agent' },
+      }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
   expect(byTestId('session-vault-tools')[0]?.textContent).toBe(
     'None: a plain terminal runs no agent',
+  );
+  // The mount status sits beside the tools its server lists.
+  expect(byTestId('selected-session-details')[0]?.textContent).toContain(
+    'Vaultunsupported: A plain terminal runs no agent',
   );
   expect(calls.filter((argv) => argv[1] === 'vault' && argv[2] === 'mcp')).toEqual([]);
 });

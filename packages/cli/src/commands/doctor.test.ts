@@ -33,6 +33,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
       'SessionEnd',
     ].map((event) => `codex hooks ${event}`),
     'antigravity hooks',
+    'antigravity vault',
   ]);
 
   cli.run = scriptedRunner({}, { missing: ['tmux', 'claude', 'codex', 'agy'] }).run;

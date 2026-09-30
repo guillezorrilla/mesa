@@ -50,7 +50,8 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
   const hooksInstalled =
     hooks.data?.installed &&
     hooks.data.codex?.installed !== false &&
-    hooks.data.antigravity?.installed !== false;
+    hooks.data.antigravity?.installed !== false &&
+    hooks.data.antigravityVault?.installed !== false;
   const run = useRun();
   const { acting, act } = useAct();
   const change = (name: 'hooks.install' | 'hooks.uninstall') =>
@@ -202,6 +203,24 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
                     ? 'Stale (reinstall)'
                     : 'Not installed'}{' '}
                 in <span className="font-mono text-xs">{hooks.data.antigravity.path}</span>
+              </p>
+            )}
+            {hooks.data?.antigravityVault && (
+              <p data-testid="antigravity-vault-status" className="mt-3 text-sm">
+                Antigravity mesa-vault:{' '}
+                {hooks.data.antigravityVault.conflict
+                  ? `Conflicting (${hooks.data.antigravityVault.conflict})`
+                  : hooks.data.antigravityVault.installed
+                    ? hooks.data.antigravityVault.disabled
+                      ? 'Disabled in Antigravity'
+                      : 'Installed'
+                    : hooks.data.antigravityVault.stale
+                      ? 'Stale (reinstall)'
+                      : hooks.data.antigravityVault.server
+                        ? 'Allow rule missing'
+                        : 'Not installed'}{' '}
+                in <span className="font-mono text-xs">{hooks.data.antigravityVault.path}</span> and{' '}
+                <span className="font-mono text-xs">{hooks.data.antigravityVault.rulePath}</span>
               </p>
             )}
           </CardContent>
