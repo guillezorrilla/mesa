@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -328,4 +328,79 @@ test('a save needs a laid-out vault', async () => {
   mesa.init({ vault: 'vault' });
   mkdirSync(join(home, 'vault'), { recursive: true });
   expect((await rejected(mesa.vault.saveNote({ title: 'X', body: 'x' }))).code).toBe('not_found');
+});
+
+test('a summary save never replaces a session note Mesa did not write', async () => {
+  const w = world();
+  const path = `wiki/sessions/${w.session}.md`;
+  w.put(path, '# My own notes on this session\n');
+  const refused = await rejected(
+    w.mesa().vault.saveSummary({ session: w.session, summary: 'New' }),
+  );
+  expect(refused).toMatchObject({ code: 'locked', details: { reason: 'not-mesa' } });
+  expect(w.read(path)).toBe('# My own notes on this session\n');
+  expect(w.receipts()).toEqual([]);
+});
+
+test('a retry after an interrupted save records its missing entry and index line once', async () => {
+  const w = world();
+  const index = join(w.vault, 'index.md');
+  chmodSync(index, 0o444); // the index line fails after the note is written
+  try {
+    await rejected(w.mesa().vault.saveNote({ title: 'Currents', body: 'Strong at noon.' }));
+  } finally {
+    chmodSync(index, 0o644);
+  }
+  expect(readNote(w.vault, 'wiki/notes/currents.md').body).toContain('Strong at noon.');
+  expect(w.receipts()).toEqual([]);
+  const retry = await w.mesa().vault.saveNote({ title: 'Currents', body: 'Strong at noon.' });
+  expect(retry.result).toEqual({ path: 'wiki/notes/currents.md', changed: true });
+  expect(retry.receipt).not.toBeNull();
+  expect(w.receipts()).toHaveLength(1);
+  expect(w.read('index.md').match(/\[\[wiki\/notes\/currents\]\]/g)).toHaveLength(1);
+  const again = await w.mesa().vault.saveNote({ title: 'Currents', body: 'Strong at noon.' });
+  expect(again).toEqual({
+    result: { path: 'wiki/notes/currents.md', changed: false },
+    receipt: null,
+  });
+  expect(w.receipts()).toHaveLength(1);
+});
+
+test('another decision with the same title on the same day gets its own note, never the first one', async () => {
+  const w = world();
+  const { vault } = w.mesa();
+  const base = 'wiki/decisions/2026-09-24-fixed-clock-in-tide-tests';
+  await vault.saveDecision(tide);
+  const first = w.read(`${base}.md`);
+  const other = { ...tide, decision: 'Tests freeze time with a fake timer' };
+  expect((await vault.saveDecision(other)).result).toEqual({ path: `${base}-2.md`, changed: true });
+  expect(w.read(`${base}.md`)).toBe(first);
+  expect((await vault.saveDecision(other)).result).toEqual({
+    path: `${base}-2.md`,
+    changed: false,
+  });
+  const third = { ...tide, rationale: 'Midnight flakes cost a release' };
+  expect((await vault.saveDecision(third)).result.path).toBe(`${base}-3.md`);
+  expect((await vault.saveDecision(tide)).result).toEqual({ path: `${base}.md`, changed: false });
+  expect(w.receipts()).toHaveLength(3);
+});
+
+test('a summary whose receipt could not be written gets it on the retry, once', async () => {
+  const w = world();
+  const receipts = join(w.vault, 'receipts');
+  chmodSync(receipts, 0o555);
+  let first: Awaited<ReturnType<ReturnType<typeof w.mesa>['vault']['saveSummary']>>;
+  try {
+    first = await w.mesa().vault.saveSummary({ session: w.session, summary: 'Goal: tides' });
+  } finally {
+    chmodSync(receipts, 0o755);
+  }
+  expect(first).toMatchObject({ result: { changed: true }, receipt: null });
+  expect(first.warning).toMatch(/^no receipt: /);
+  const retry = await w.mesa().vault.saveSummary({ session: w.session, summary: 'Goal: tides' });
+  expect(retry.result.changed).toBe(true);
+  expect(retry.receipt).not.toBeNull();
+  const again = await w.mesa().vault.saveSummary({ session: w.session, summary: 'Goal: tides' });
+  expect(again.receipt).toBeNull();
+  expect(w.receipts()).toHaveLength(1);
 });

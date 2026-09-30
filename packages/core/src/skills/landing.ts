@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs';
 import type { Agent } from '../agents/names.js';
 import type { MesaContext } from '../context.js';
-import { recordNoteChange } from '../receipts/note-change.js';
+import { recordNoteChange, settleUnchanged } from '../receipts/note-change.js';
+import type { Recorded } from '../receipts/recorder.js';
 import { listReceipts, restoreLogLine } from '../receipts/store.js';
 import { VAULT } from '../vault/layout.js';
-import { type LockedNotesDeps, readNote, writeNote } from '../vault/notes.js';
+import { type LockedNotesDeps, readNote, refuseForeign, writeNote } from '../vault/notes.js';
 import { vaultFile } from '../vault/scope.js';
 import { withVaultLock } from '../vault/vault-lock.js';
 import { keepSections } from './keep-sections.js';
@@ -109,9 +110,11 @@ export async function landOutput(
       restoreLogLine(deps, prior);
       return { path, changed: false, receipt: { id: prior.receipt.id, path: prior.path } };
     }
-    const previous = existsSync(vaultFile(deps.vault, path))
-      ? readNote(deps.vault, path)
-      : undefined;
+    const file = vaultFile(deps.vault, path);
+    const previous = existsSync(file) ? readNote(deps.vault, path) : undefined;
+    // A session's own save is a save: it never replaces the person's note. A run keeps landing
+    // over one (project-brief regenerates a hub the person started, keeping its keep blocks).
+    if (run.run === undefined) refuseForeign(file, previous);
     // The immutable completion time survives a failed log append. Equal times use the run id
     // for a stable order, so an old retry can never oscillate the note between two runs.
     const before = previous?.frontmatter;
@@ -139,12 +142,7 @@ export async function landOutput(
         },
         body,
       });
-    if (!changed && !mine) {
-      const latest = receipts[0];
-      if (latest) restoreLogLine(deps, latest);
-      return { path, changed: false, receipt: null };
-    }
-    const recorded = recordNoteChange(deps, {
+    const change = {
       path,
       said: landing.said(run),
       project: run.project,
@@ -153,12 +151,22 @@ export async function landOutput(
       actor: run.run ?? run.actor,
       inputs: run.run ? { skill, run: run.run } : {},
       ...(run.argv ? { argv: run.argv } : {}),
-    });
-    return {
+    };
+    const recorded = (entry: Recorded<string>) => ({
       path,
       changed: true,
-      receipt: recorded.receipt,
-      ...(recorded.warning ? { warning: recorded.warning } : {}),
-    };
+      receipt: entry.receipt,
+      ...(entry.warning ? { warning: entry.warning } : {}),
+    });
+    if (!changed && !mine) {
+      // A run only puts back its latest receipt's lost log line; a save also records the entry
+      // an interrupted save left out (settleUnchanged).
+      if (run.run === undefined) {
+        const settled = settleUnchanged(deps, change);
+        if (settled) return recorded(settled);
+      } else if (receipts[0]) restoreLogLine(deps, receipts[0]);
+      return { path, changed: false, receipt: null };
+    }
+    return recorded(recordNoteChange(deps, change));
   });
 }

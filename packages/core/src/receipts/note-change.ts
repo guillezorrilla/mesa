@@ -1,6 +1,8 @@
 import type { Agent } from '../agents/names.js';
 import type { MesaContext } from '../context.js';
+import type { Clock } from '../lib/clock.js';
 import { wikilink } from '../vault/links.js';
+import { listReceipts, restoreLogLine } from './store.js';
 
 /** A substantive change to one vault note, as its one history entry says it (CONTEXT.md, Receipt). */
 export type NoteChange = {
@@ -45,4 +47,20 @@ export function recordNoteChange(deps: Pick<MesaContext, 'record'>, change: Note
     },
     () => path,
   );
+}
+
+/**
+ * The history of a note a save finds already saying what it would write: its latest receipt's
+ * log.md line back, if an interrupted append lost it; or, when no receipt names the note (a save
+ * interrupted after its write), the change's one entry now, which it returns. Callers hold the
+ * vault lock.
+ */
+export function settleUnchanged(
+  deps: Pick<MesaContext, 'record'> & { vault: string; clock: Clock },
+  change: NoteChange,
+) {
+  const [latest] = listReceipts(deps.vault, 1, { target: change.path });
+  if (!latest) return recordNoteChange(deps, change);
+  restoreLogLine(deps, latest);
+  return undefined;
 }

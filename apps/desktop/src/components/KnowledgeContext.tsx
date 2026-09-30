@@ -2,6 +2,20 @@ import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCommand, useRun } from '@/lib/useCommand';
 
+/**
+ * A saved decision's probabilities and confidence (its receipt's inputs), compactly:
+ * `fixed-clock 0.80, retry 0.20, confidence 0.80`; undefined when it has neither.
+ */
+function oddsOf({ probabilities, confidence }: Record<string, unknown>) {
+  const parts = [
+    ...Object.entries(probabilities && typeof probabilities === 'object' ? probabilities : {})
+      .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
+      .map(([option, p]) => `${option} ${p.toFixed(2)}`),
+    ...(typeof confidence === 'number' ? [`confidence ${confidence.toFixed(2)}`] : []),
+  ];
+  return parts.length ? parts.join(', ') : undefined;
+}
+
 /** Meaningful vault history for the selected project or session, never a global activity feed. */
 export function KnowledgeContext(props: { project?: string; session?: string }) {
   const scope = { project: props.project, session: props.session };
@@ -40,6 +54,7 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
             : entry.path;
         const rationale = entry.receipt.inputs.rationale;
         const answer = entry.receipt.decisions[0];
+        const odds = oddsOf(entry.receipt.inputs);
         const detail =
           typeof rationale === 'string'
             ? rationale
@@ -55,6 +70,11 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
             <div className="min-w-0 flex-1">
               <p className="font-medium">{entry.summary}</p>
               {detail && <p className="text-muted-foreground">{detail}</p>}
+              {odds && (
+                <p data-testid="knowledge-odds" className="text-xs text-muted-foreground">
+                  {odds}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {entry.receipt.started} · {entry.receipt.status}
                 {entry.receipt.actor ? ` · by ${entry.receipt.actor}` : ''} · {target}

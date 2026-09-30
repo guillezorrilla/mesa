@@ -41,6 +41,19 @@ export function refuseLocked(file: string, note: Note | undefined): void {
 }
 
 /**
+ * Refuses a save over a note that is the person's: a locked one (refuseLocked), or one Mesa did
+ * not write (no `source: mesa`), which is `locked` too, its reason `not-mesa`.
+ */
+export function refuseForeign(file: string, note: Note | undefined): void {
+  refuseLocked(file, note);
+  if (note && note.frontmatter.source !== 'mesa') {
+    throw new MesaError('locked', `${file} is not a note Mesa wrote (no source: mesa)`, {
+      reason: 'not-mesa',
+    });
+  }
+}
+
+/**
  * Writes a note at `path` (relative to the vault) atomically. The frontmatter gets `created` (kept
  * from the note it replaces), `updated`, and `source: mesa`, then the caller's fields. A note
  * whose frontmatter says `locked: true` is never replaced.
@@ -84,12 +97,15 @@ export function requireLog(vault: string): string {
   return file;
 }
 
+/** `text` as one line: its newlines, and the spaces around them, collapse to one space. */
+export const oneLine = (text: string) => text.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+
 /**
  * Appends `- <ISO> <line>` to the vault's log.md with one append-mode write. The line stays one
- * line: newlines collapse to spaces, so text cannot forge a second entry.
+ * line (oneLine), so text cannot forge a second entry.
  */
 export function appendLog(deps: NotesDeps, line: string): string {
-  const text = line.replace(/\s*[\r\n]+\s*/g, ' ').trim();
+  const text = oneLine(line);
   if (!text) throw new MesaError('usage', 'a log line needs some text');
   const file = requireLog(deps.vault);
   const entry = `- ${deps.clock().toISOString()} ${text}`;

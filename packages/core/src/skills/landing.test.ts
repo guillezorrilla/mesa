@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { actionRecorder } from '../receipts/recorder.js';
@@ -120,4 +120,20 @@ test("a session's own summary lands like a run's: the same text adds nothing, a 
   // The run's retry is still once per run: it leaves the session's newer summary alone.
   await landOutput(deps, 'session-summary', run, 'Summary');
   expect(readNote(deps.vault, path).body).toBe('Summary, revised\n');
+});
+
+test("a session's own save never replaces the person's note; a run, which the person asked for, still lands", async () => {
+  const deps = landingDeps();
+  const path = 'wiki/sessions/abcdefgh.md';
+  mkdirSync(join(deps.vault, 'wiki/sessions'), { recursive: true });
+  writeFileSync(join(deps.vault, path), '# My notes\n');
+  const own = { about: 'abcdefgh', project: 'lantern-cove' };
+  await expect(landOutput(deps, 'session-summary', own, 'Summary')).rejects.toMatchObject({
+    code: 'locked',
+    details: { reason: 'not-mesa' },
+  });
+  expect(readFileSync(join(deps.vault, path), 'utf8')).toBe('# My notes\n');
+  const run = { ...own, run: 'first123', endedAt: '2026-09-24T12:00:00.000Z' };
+  expect((await landOutput(deps, 'session-summary', run, 'Summary'))?.changed).toBe(true);
+  expect(readNote(deps.vault, path).body).toBe('Summary\n');
 });

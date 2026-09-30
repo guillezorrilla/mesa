@@ -119,3 +119,11 @@ test('a session panel asks for that session only', async () => {
     'a1b2c3d4',
   ]);
 });
+
+test('a saved decision shows its probabilities and confidence; an entry without them shows none', async () => {
+  const { bridge } = bridgeOf();
+  const byTestId = await renderWithMesa(<KnowledgeContext project="lantern-cove" />, bridge);
+  expect(byTestId('knowledge-odds').map((odds) => odds.textContent)).toEqual([
+    'fixed-clock 0.80, retry 0.20, confidence 0.80',
+  ]);
+});

@@ -9,6 +9,7 @@ import { VAULT } from '../vault/layout.js';
 import {
   appendLog,
   type LockedNotesDeps,
+  oneLine,
   ownFields,
   readNote,
   updateNote,
@@ -59,7 +60,8 @@ const logLine = (summary: string, path: string) =>
  * append (writeReceipt), never a second line. Callers hold the vault lock.
  */
 export function restoreLogLine(deps: { vault: string; clock: Clock }, entry: ReceiptEntry): void {
-  const line = logLine(entry.summary, entry.path);
+  // As appendLog writes it, so a line it collapsed is found.
+  const line = oneLine(logLine(entry.summary, entry.path));
   const log = vaultFile(deps.vault, VAULT.log);
   if (existsSync(log) && !readFileSync(log, 'utf8').includes(line)) appendLog(deps, line);
 }

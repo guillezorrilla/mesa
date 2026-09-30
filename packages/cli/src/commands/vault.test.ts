@@ -398,3 +398,17 @@ test('vault save refuses bad flags, both text and file, other folders, and locke
   expect(locked.json.error).toMatchObject({ code: 'locked', details: { reason: 'note' } });
   expect((await mesa('receipts', '--json')).json.data).toEqual([]);
 });
+
+test('a title with a newline saved twice logs one line', async () => {
+  await cli.withProject();
+  const save = () =>
+    mesa('vault', 'save', 'note', '--title', 'Tide\nTables', '--text', 'x', '--json');
+  const saved = (await save()).json.data;
+  expect(saved.path).toBe('wiki/notes/tide-tables.md');
+  expect((await save()).json.data.changed).toBe(false);
+  const log = readFileSync(join(cli.home, 'vault/log.md'), 'utf8');
+  const link = saved.receipt.path.replace(/\.md$/, '');
+  expect(log.split('\n').filter((line) => line.includes(link))).toEqual([
+    `- 2026-09-24T12:00:00.000Z Saved note Tide Tables in wiki/notes/tide-tables [[${link}|receipt]]`,
+  ]);
+});
