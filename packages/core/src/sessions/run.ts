@@ -141,7 +141,13 @@ export async function startRun(deps: RunDeps, input: RunInput) {
           deps.profile.config.run,
           antigravityLog(deps.logs, id),
         )
-      : spec.headless.command(agentSessionId, prompt, deps.profile.config.run, entry.path);
+      : spec.headless.command(
+          agentSessionId,
+          prompt,
+          deps.profile.config.run,
+          entry.path,
+          deps.vaultServer,
+        );
   const stdin = (id: string) => (given ? shellWord(runInput(deps.runs, id)) : '/dev/null');
   const line = (id: string) =>
     `exec ${command(id)} <${stdin(id)} >${shellWord(runOutput(deps.runs, id))}`;

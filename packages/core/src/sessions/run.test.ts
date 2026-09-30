@@ -5,6 +5,8 @@ import { createContext } from '../context.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   agentWorld,
+  CLAUDE_HEADLESS_MOUNT,
+  CODEX_MOUNT,
   claudeResult,
   codexResult,
   type FakeWindow,
@@ -55,7 +57,7 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
     .find((c) => c.file === 'tmux' && c.args.includes('new-session'))
     ?.args.find((a) => a.startsWith('exec '));
   expect(launch).toBe(
-    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' --allowedTools 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
+    `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT} 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
   );
   expect(existsSync(output)).toBe(true);
   // Logged as every window is: its pane, claude's errors, goes to its output log.
@@ -318,7 +320,7 @@ test('a skill the project does not see or enable, or a bad timeout starts nothin
   expect(await refused('session-summary', { timeoutSeconds: 0 })).toMatchObject({ code: 'usage' });
   // Counted on the line tmux gets: claude's command fits, with its redirects it does not.
   const bare = (n: number) =>
-    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits'`;
+    `claude -p '/session-summary ${'x'.repeat(n)}' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT}`;
   const long = 'x'.repeat(11_990 - bare(0).length);
   expect(bare(long.length)).toHaveLength(11_990);
   expect(await refused('session-summary', { args: [long] })).toMatchObject({
@@ -715,7 +717,7 @@ test('Codex uses its native skill prompt and thread, keeps tokens locally, and r
     if (status) expect(result.reason).toBe('codex exited with status 1');
     expect(result).not.toHaveProperty('costUsd');
     expect(command).toBe(
-      `exec codex exec --json -C '${dir}' -c approval_policy=never -c sandbox_mode=workspace-write '$session-summary focus on tests' </dev/null >'${runOutput(profilePaths(home, 'default').runs, result.session)}'`,
+      `exec codex exec --json -C '${dir}' -c approval_policy=never -c sandbox_mode=workspace-write ${CODEX_MOUNT} '$session-summary focus on tests' </dev/null >'${runOutput(profilePaths(home, 'default').runs, result.session)}'`,
     );
     const record = testStore(home).get(result.session);
     expect(record).toMatchObject({

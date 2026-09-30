@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { antigravitySessionId } from '../agents/antigravity/log.js';
 import { claudeBackgroundAttach } from '../agents/claude/background.js';
+import { vaultServer } from '../agents/vault-mount.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
@@ -60,6 +61,7 @@ import { sendPrompt } from './send.js';
 import { markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
 import { killIfThere } from './tmux/backend.js';
+import { vaultStatus } from './vault-status.js';
 import { viewProject } from './view.js';
 import { windowOf } from './window-name.js';
 import { setWorkflowStatus } from './workflow.js';
@@ -99,6 +101,7 @@ export function sessionsService(
     newUuid: deps.newUuid,
     caller,
     syncSkills: skills.linkInto,
+    vaultServer: vaultServer(deps.self),
     shell: deps.env.SHELL || '/bin/zsh',
     home: deps.home,
   });
@@ -587,8 +590,9 @@ export function sessionsService(
         return sessionLog(paths.logs, id, tail);
       },
       /**
-       * One session's record, its context use read now, with `alive` as the board reads it;
-       * not_found for an unknown id.
+       * One session's record, its context use read now, with `alive` as the board reads it, and
+       * whether its instruction hook and its mesa-vault mount are configured; not_found for an
+       * unknown id.
        */
       show: async (id: string) => {
         store.get(id);
@@ -618,6 +622,7 @@ export function sessionsService(
                   latestAntigravityId !== current.agentSessionId,
               ),
           ),
+          vault: vaultStatus(current, deps.home, deps.self),
         };
       },
       /** Gives a session the name a person calls it by; the board shows it in place of the id. */

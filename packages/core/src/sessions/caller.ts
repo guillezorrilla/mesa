@@ -7,11 +7,15 @@ import type { SessionStore } from './store.js';
 
 /** The variable naming a window's Mesa session; a Claude Code hook reads it too. */
 export const SESSION_ID_VAR = 'MESA_SESSION_ID';
+const PROFILE_VAR = 'MESA_PROFILE';
+
+/** The variables windowEnv sets, which Codex passes on to the mesa-vault server only when named. */
+export const WINDOW_VARS = [SESSION_ID_VAR, PROFILE_VAR] as const;
 
 /** The environment a session's window gets, so mesa inside it knows the session and profile. */
 export const windowEnv = (id: string, profileName: string) => ({
   [SESSION_ID_VAR]: id,
-  MESA_PROFILE: profileName,
+  [PROFILE_VAR]: profileName,
 });
 
 /** The Mesa session id a window's environment names, if any, of whatever profile. */
