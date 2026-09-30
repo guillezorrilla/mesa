@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { basename, extname, join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { vaultFile } from './scope.js';
@@ -50,10 +50,10 @@ function knownVaults(vaultList: string): string[] {
 export type Opened = { opened: true; method: 'uri' | 'cli'; target: string };
 
 /**
- * Opens the vault, or one note in it (a vault-relative path; `.md` may be left out), in Obsidian.
- * The default is the `obsidian://` URI through macOS `open`, which launches Obsidian when needed.
- * `cli` uses the Obsidian CLI for a note when it is registered, and falls back to the URI when the
- * app is closed, since the CLI cannot launch it.
+ * Opens the vault, or one item in it (a vault-relative path; a note's `.md` may be left out), in
+ * Obsidian. The default is the `obsidian://` URI through macOS `open`, which launches Obsidian
+ * when needed. `cli` uses the Obsidian CLI for a note when it is registered, and falls back to the
+ * URI when the app is closed, since the CLI cannot launch it.
  */
 export async function openInObsidian(
   deps: { run: Runner; obsidian: ObsidianPaths },
@@ -63,13 +63,13 @@ export async function openInObsidian(
   if (!statSync(vault, { throwIfNoEntry: false })?.isDirectory()) {
     throw new MesaError('invalid_config', `vault ${vault} does not exist; run mesa vault init`);
   }
-  const note =
-    opts.note === undefined ? undefined : extname(opts.note) ? opts.note : `${opts.note}.md`;
-  if (
-    note !== undefined &&
-    !statSync(vaultFile(vault, note), { throwIfNoEntry: false })?.isFile()
-  ) {
-    throw new MesaError('not_found', `no note at ${note} in ${vault}`);
+  // The exact item first, so a canvas, an attachment, or a file with no extension opens as named.
+  const isFile = (path: string) =>
+    statSync(vaultFile(vault, path), { throwIfNoEntry: false })?.isFile() ?? false;
+  let note = opts.note;
+  if (note !== undefined && !isFile(note)) {
+    if (!isFile(`${note}.md`)) throw new MesaError('not_found', `no note at ${note} in ${vault}`);
+    note = `${note}.md`;
   }
   // Opening an unknown vault shows Obsidian's "Vault not found" dialog; say how to fix it instead.
   const known = knownVaults(deps.obsidian.vaultList);

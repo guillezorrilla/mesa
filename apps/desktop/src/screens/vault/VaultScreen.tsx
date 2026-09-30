@@ -11,10 +11,11 @@ import {
   NativeSelectOption,
 } from '@/components/ui/native-select';
 import { useCommand } from '@/lib/useCommand';
+import { VaultReader } from './VaultReader';
 import { KIND_ICONS, VaultTree } from './VaultTree';
 
-/** Where one item is and what it is. The reader shows the item itself here in a later issue. */
-function ItemDetails({ item }: { item?: VaultItem }) {
+/** Where one item is and what it is, then the item itself in the reader, unless unavailable. */
+function ItemDetails({ item, onSelect }: { item?: VaultItem; onSelect: (path: string) => void }) {
   if (!item)
     return (
       <Card data-testid="vault-item" className="p-4 text-sm text-muted-foreground">
@@ -46,11 +47,13 @@ function ItemDetails({ item }: { item?: VaultItem }) {
           </Fragment>
         ))}
       </dl>
-      {item.unavailable && (
+      {item.unavailable ? (
         <p data-testid="vault-item-unavailable" className="flex items-center gap-2 text-sm">
           <Link2Off aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           Unavailable: {item.unavailable}. Mesa lists it and never reads it.
         </p>
+      ) : (
+        <VaultReader path={item.path} onSelect={onSelect} />
       )}
     </Card>
   );
@@ -58,7 +61,7 @@ function ItemDetails({ item }: { item?: VaultItem }) {
 
 /**
  * Every item in the active profile's vault (`mesa vault list`) as a folder tree, filtered by
- * project and type with core's own rule, and the selected item's details beside it.
+ * project and type with core's own rule, and the selected item's details and reader beside it.
  */
 export function VaultScreen() {
   const inventory = useCommand('vault.list');
@@ -133,7 +136,7 @@ export function VaultScreen() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
           <VaultTree items={shown} selected={selected} onSelect={setSelected} />
-          <ItemDetails item={items.find((item) => item.path === selected)} />
+          <ItemDetails item={items.find((item) => item.path === selected)} onSelect={setSelected} />
         </div>
       )}
     </section>

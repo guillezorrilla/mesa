@@ -1,4 +1,4 @@
-import { EXIT_CODES, VAULT_CATEGORIES, VAULT_KINDS } from '@mesa/core';
+import { EXIT_CODES, VAULT_CATEGORIES, VAULT_KINDS, type VaultRead } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -59,9 +59,56 @@ export const vaultList = defineCommand({
   },
 });
 
+/** What `mesa vault read` prints without --json: the preview, then the links and backlinks. */
+function readText(read: VaultRead): string {
+  const lines = [`${read.path} (${read.kind})`];
+  if (read.preview === 'markdown') {
+    const properties = Object.entries(read.frontmatter).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? value : JSON.stringify(value),
+    ]);
+    lines.push(...columns(properties), '', read.body.trimEnd(), '');
+    lines.push(read.links.length ? 'links:' : 'links: none');
+    lines.push(
+      ...columns(
+        read.links.map((link) => [
+          link.status,
+          link.text,
+          link.status === 'resolved'
+            ? link.path
+            : link.status === 'ambiguous'
+              ? link.candidates.join(', ')
+              : '',
+        ]),
+        '  ',
+      ),
+    );
+  } else if (read.preview === 'canvas') {
+    lines.push(`${read.nodes} nodes, ${read.edges} edges`, ...read.texts.map((t) => `- ${t}`));
+  } else if (read.preview === 'base') {
+    lines.push(read.yaml.trimEnd());
+  } else {
+    lines.push(`preview not available: ${read.reason}`);
+  }
+  lines.push(read.backlinks.length ? 'backlinks:' : 'backlinks: none');
+  lines.push(...read.backlinks.map((path) => `  ${path}`), `open: ${read.uri}`);
+  return lines.join('\n');
+}
+
+export const vaultRead = defineCommand({
+  name: 'vault read',
+  summary: 'Read one vault item: a note with its properties, links, and backlinks, or its preview',
+  args: ['path'],
+  example: 'mesa vault read wiki/harbour-lights.md',
+  run: ({ mesa, args }) => {
+    const read = mesa.vault.read(args.path);
+    return { data: read, text: readText(read) };
+  },
+});
+
 export const vaultOpen = defineCommand({
   name: 'vault open',
-  summary: 'Open the vault, or one note in it, in Obsidian',
+  summary: 'Open the vault, or one item in it, in Obsidian',
   args: ['note?'],
   flags: {
     cli: { type: 'boolean', description: 'Use the Obsidian CLI for a note when it is registered' },

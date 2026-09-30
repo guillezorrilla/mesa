@@ -46,6 +46,21 @@ test('by default it opens the vault or a note with macOS open and the URI', asyn
   ]);
 });
 
+test('an item opens exactly as named: a canvas, a file with no extension, a dotted note name', async () => {
+  mkdirSync(join(vault, 'raw'));
+  for (const file of ['raw/map.canvas', 'raw/LICENSE', 'raw/v1.2.md'])
+    writeFileSync(join(vault, file), '{}');
+  const { run, calls } = scriptedRunner();
+  for (const note of ['raw/map.canvas', 'raw/LICENSE', 'raw/v1.2']) {
+    await openInObsidian({ run, obsidian }, { vault, note });
+  }
+  expect(calls.map((c) => c.args[0])).toEqual([
+    'obsidian://open?vault=Lantern%20Cove&file=raw%2Fmap.canvas',
+    'obsidian://open?vault=Lantern%20Cove&file=raw%2FLICENSE',
+    'obsidian://open?vault=Lantern%20Cove&file=raw%2Fv1.2.md',
+  ]);
+});
+
 test('--cli uses the registered CLI for a note, and falls back to the URI when the app is closed', async () => {
   mkdirSync(dirname(obsidian.registered), { recursive: true });
   writeFileSync(obsidian.registered, '');

@@ -131,7 +131,9 @@ export {
   type VaultItem,
   type VaultKind,
 } from './vault/item.js';
+export type { LinkResolution, NoteLink, VaultLink } from './vault/links.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
+export type { VaultPreview, VaultRead } from './vault/reader.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
 export type { WorktreeAction, WorktreePreview } from './worktrees/lifecycle.js';
