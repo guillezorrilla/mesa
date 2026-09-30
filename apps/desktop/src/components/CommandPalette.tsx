@@ -13,6 +13,7 @@ const GROUPS: { kind: SearchHit['kind']; label: string }[] = [
   { kind: 'project', label: 'Projects' },
   { kind: 'session', label: 'Recent sessions' },
   { kind: 'prompt', label: 'Saved prompts' },
+  { kind: 'vault', label: 'Vault' },
 ];
 
 /** A keyboard-first view of the same project/session/action index exposed by `mesa search`. */
@@ -95,7 +96,7 @@ export function CommandPalette(props: {
           <kbd className="text-muted-foreground text-xs">Esc</kbd>
         </div>
         <div className="min-h-24 overflow-y-auto p-2" role="listbox" aria-label="Search results">
-          {hits.length === 0 && (
+          {hits.every((hit) => hit.kind === 'vault') && (
             <p
               data-testid="palette-empty"
               className="p-4 text-center text-muted-foreground text-sm"

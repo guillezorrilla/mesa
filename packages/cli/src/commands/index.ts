@@ -109,6 +109,7 @@ import {
   vaultSaveDecision,
   vaultSaveNote,
   vaultSaveSummary,
+  vaultSearch,
   vaultStatus,
 } from './vault.js';
 import { view } from './view.js';
@@ -246,6 +247,7 @@ export const COMMANDS: Command[] = [
   vaultSaveDecision,
   vaultSaveNote,
   vaultSaveSummary,
+  vaultSearch,
   vaultStatus,
   view,
   windows,

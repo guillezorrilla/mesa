@@ -2039,6 +2039,7 @@ test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Ent
   expect(byTestId('palette-hit').map((hit) => hit.textContent)).toEqual([
     'lantern-covelantern-cove · /src/lantern-cove',
     'aaaaaaaalantern-cove · claude · working',
+    `Search vault"lantern" in this profile's vault`,
   ]);
   await act(async () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -2057,6 +2058,32 @@ test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Ent
     again.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   });
   expect(byTestId('selected-session')).toHaveLength(1);
+});
+
+test('Search Mesa offers Search vault for typed text, which opens the Vault screen searching it', async () => {
+  const { bridge, calls } = fakeBridge({
+    'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
+    'vault search': () => envelope({ total: 0, truncated: false, items: [] }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('search-trigger')[0]);
+  const input = byTestId('palette-query')[0] as HTMLInputElement;
+  await act(async () => {
+    input.value = 'harbour lights';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  // Nothing else matches, so Enter chooses it.
+  expect(byTestId('palette-empty')).toHaveLength(1);
+  expect(byTestId('palette-hit').map((hit) => hit.textContent)).toEqual([
+    `Search vault"harbour lights" in this profile's vault`,
+  ]);
+  await act(async () => {
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+  expect(byTestId('vault-panel')).toHaveLength(1);
+  expect(document.querySelector<HTMLInputElement>('#vault-search')?.value).toBe('harbour lights');
+  expect(calls).toContainEqual(['--json', 'vault', 'search', '--', 'harbour lights']);
+  expect(byTestId('vault-results-said')[0]?.textContent).toBe('No items match "harbour lights".');
 });
 
 test('Search Mesa shows no matches and Escape returns keyboard focus', async () => {

@@ -412,3 +412,57 @@ test('a title with a newline saved twice logs one line', async () => {
     `- 2026-09-24T12:00:00.000Z Saved note Tide Tables in wiki/notes/tide-tables [[${link}|receipt]]`,
   ]);
 });
+
+test('vault search: {total, truncated, items} with snippets, filtered by --project, --type, and --limit', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const vault = join(cli.home, 'vault');
+  const put = (path: string, text: string) => {
+    mkdirSync(join(vault, path, '..'), { recursive: true });
+    writeFileSync(join(vault, path), text);
+  };
+  put(
+    'wiki/currents.md',
+    '---\nproject: tide\n---\n# Currents\n\nThe foghorn sounds at the ebb.\n',
+  );
+  put('projects/tide/map.canvas', '{"nodes":[{"id":"a","type":"text","text":"Foghorn drill"}]}');
+  put('raw/foghorn.png', 'png');
+  put('.obsidian/foghorn.json', '{}');
+
+  const found = await mesa('vault', 'search', 'FOGHORN', '--json');
+  expect(found.code).toBe(0);
+  expect(found.json.data.total).toBe(3);
+  expect(found.json.data.truncated).toBe(false);
+  expect(found.json.data.items[0]).toEqual({
+    path: 'raw/foghorn.png',
+    kind: 'attachment',
+    title: 'foghorn.png',
+    matches: [],
+  });
+  expect(found.json.data.items.map((i: { path: string }) => i.path).sort()).toEqual([
+    'projects/tide/map.canvas',
+    'raw/foghorn.png',
+    'wiki/currents.md',
+  ]);
+  const tide = await mesa('vault', 'search', 'foghorn', '--project', 'tide', '--json');
+  expect(tide.json.data.items.map((i: { path: string }) => i.path).sort()).toEqual([
+    'projects/tide/map.canvas',
+    'wiki/currents.md',
+  ]);
+  expect((await mesa('vault', 'search', 'foghorn', 'ebb', '--type', 'wiki')).stdout).toBe(
+    'wiki/currents.md (markdown)\n  6: The foghorn sounds at the ebb.\n1 item\n',
+  );
+  const one = await mesa('vault', 'search', 'foghorn', '--limit', '1', '--json');
+  expect([one.json.data.total, one.json.data.truncated, one.json.data.items.length]).toEqual([
+    3,
+    true,
+    1,
+  ]);
+  expect((await mesa('vault', 'search', 'foghorn', '--limit', '1')).stdout).toMatch(
+    /\n1 of 3 items\n$/,
+  );
+  expect((await mesa('vault', 'search', 'nothing-here')).stdout).toBe('0 items\n');
+  expect(await mesa('vault', 'search', 'foghorn', '--limit', 'all')).toMatchObject({ code: 2 });
+  expect(await mesa('vault', 'search', 'foghorn', '--type', 'notes')).toMatchObject({ code: 2 });
+  expect(await mesa('vault', 'search')).toMatchObject({ code: 2 });
+});
