@@ -111,6 +111,8 @@ export function appendLog(deps: NotesDeps, line: string): string {
   if (!text) throw new MesaError('usage', 'a log line needs some text');
   const file = requireLog(deps.vault);
   const entry = `- ${deps.clock().toISOString()} ${text}`;
-  appendFileSync(file, `${entry}\n`);
+  const previous = readFileSync(file);
+  const separator = previous.length && previous.at(-1) !== 10 ? '\n' : '';
+  appendFileSync(file, `${separator}${entry}\n`);
   return entry;
 }
