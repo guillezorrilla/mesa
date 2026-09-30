@@ -21,6 +21,7 @@ import {
   Grid2X2,
   Keyboard,
   LayoutDashboard,
+  Library,
   MoreVertical,
   Plus,
   Settings2,
@@ -53,7 +54,8 @@ export type WorkspaceView =
         | 'backup'
         | 'tour'
         | 'usage'
-        | 'inbox';
+        | 'inbox'
+        | 'vault';
     }
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
@@ -428,10 +430,11 @@ export function WorkspaceSidebar(props: {
           </>
         )}
       </nav>
-      <div className="flex justify-around border-t px-2 py-2">
+      <div className="flex flex-wrap justify-around border-t px-2 py-2">
         {item('Board', LayoutDashboard, { kind: 'board' })}
         {item('Grid', Grid2X2, { kind: 'grid' })}
         {item('Projects', Folder, { kind: 'projects' })}
+        {item('Vault', Library, { kind: 'vault' })}
         {item('Usage', ChartNoAxesCombined, { kind: 'usage' })}
         {item('Inbox', Bell, { kind: 'inbox' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}

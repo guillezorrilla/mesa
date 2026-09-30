@@ -42,3 +42,4 @@ export {
 } from './sessions/presentation.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
+export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';

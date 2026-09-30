@@ -4,7 +4,8 @@ import type { MesaContext } from '../context.js';
 import { receiptLink } from '../receipts/receipt-file.js';
 import { listReceipts } from '../receipts/store.js';
 import { VAULT } from '../vault/layout.js';
-import { appendLog, type LockedNotesDeps, readNote, vaultFile, writeNote } from '../vault/notes.js';
+import { appendLog, type LockedNotesDeps, readNote, writeNote } from '../vault/notes.js';
+import { vaultFile } from '../vault/scope.js';
 import { withVaultLock } from '../vault/vault-lock.js';
 import { keepSections } from './keep-sections.js';
 

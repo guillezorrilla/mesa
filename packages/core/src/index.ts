@@ -121,6 +121,16 @@ export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export type { UsageRecord, UsageReport } from './usage/records.js';
 export type { WeeklyRewind } from './usage/rewind.js';
+export type { VaultInventory } from './vault/inventory.js';
+export {
+  type Unavailable,
+  VAULT_CATEGORIES,
+  VAULT_KINDS,
+  type VaultCategory,
+  type VaultFilter,
+  type VaultItem,
+  type VaultKind,
+} from './vault/item.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';

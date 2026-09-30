@@ -1,9 +1,11 @@
 import type { MesaContext } from '../context.js';
+import { listVault, type VaultInventory } from './inventory.js';
+import type { VaultFilter } from './item.js';
 import { logLine } from './notes.js';
 import { openInObsidian } from './obsidian.js';
 import { initVault, vaultStatus } from './vault.js';
 
-/** The profile's vault: laying it out, its status, opening it, and `mesa log`. */
+/** The profile's vault: laying it out, its status, its inventory, opening it, and `mesa log`. */
 export function vaultService(ctx: MesaContext) {
   const { record, vaultOf, deps } = ctx;
   return {
@@ -20,6 +22,12 @@ export function vaultService(ctx: MesaContext) {
           () => initVault({ path: vaultOf(), force, clock: deps.clock }),
         ),
       status: () => vaultStatus(vaultOf()),
+      /** Every item in the vault (listVault), with the vault and how many are listed. */
+      list: (filter?: VaultFilter): VaultInventory => {
+        const vault = vaultOf();
+        const items = listVault(vault, filter);
+        return { vault, total: items.length, items };
+      },
       /** Opens the vault, or one note in it, in Obsidian: the URI by default, the CLI with `cli`. */
       open: (note?: string, cli = false) =>
         openInObsidian({ run: deps.run, obsidian: deps.obsidian }, { vault: vaultOf(), note, cli }),
