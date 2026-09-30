@@ -34,6 +34,7 @@ import type {
   HooksStatus,
   InboxItem,
   InstructionStatus,
+  McpTool,
   NativeHistory,
   Opened,
   ProfileInfo,
@@ -1063,6 +1064,8 @@ const COMMANDS = {
     ],
   ),
   'vault.status': command<VaultStatus>('vault', 'status'),
+  /** The mesa-vault server's tool definitions, as it lists them to a live session (ADR-0011). */
+  'vault.tools': command<{ tools: McpTool[] }>('vault', 'mcp', '--tools'),
   'windows.list': command<TmuxWindow[]>('windows'),
 };
 

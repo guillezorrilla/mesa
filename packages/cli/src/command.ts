@@ -1,4 +1,4 @@
-import type { Mesa } from '@mesa/core';
+import type { Mesa, Stdio } from '@mesa/core';
 
 export type Flag = {
   type: 'string' | 'boolean';
@@ -84,6 +84,8 @@ export type Output = {
   code?: number;
   /** An argv the entrypoint replaces the process with after printing (`mesa open --attach`). */
   exec?: string[];
+  /** A loop the entrypoint runs on its stdio in place of printing (`mesa vault mcp`). */
+  serve?: (io: Stdio) => Promise<void>;
 };
 
 export type Command = {

@@ -1412,6 +1412,52 @@ test('selected session details read native context by exact id and keep unknown 
   ).toBe('img');
 });
 
+test("selected session details list the vault server's tools for an agent session", async () => {
+  const schema = { type: 'object', properties: {}, additionalProperties: false };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa', { agent: 'codex' })]),
+    show: () =>
+      envelope({
+        ...managedRow('aaaaaaaa', { agent: 'codex' }),
+        instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
+      }),
+    'vault mcp': () =>
+      envelope({
+        tools: [
+          { name: 'read_note', description: 'Read one invented item.', inputSchema: schema },
+          { name: 'save_note', description: 'Save one invented note.', inputSchema: schema },
+        ],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const tools = byTestId('session-vault-tools')[0];
+  expect(tools?.textContent).toBe('Open details to check');
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(calls).toContainEqual(['--json', 'vault', 'mcp', '--tools']);
+  expect([...(tools?.querySelectorAll('li') ?? [])].map((item) => item.textContent)).toEqual([
+    'read_note',
+    'save_note',
+  ]);
+  expect(tools?.querySelector('[title="Save one invented note."]')?.textContent).toBe('save_note');
+});
+
+test('selected session details say a plain terminal has no vault tools, and ask for none', async () => {
+  const row = managedRow('aaaaaaaa', { agent: 'terminal' });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({ ...row, instructions: { state: 'unsupported', reason: 'A plain terminal' } }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(byTestId('session-vault-tools')[0]?.textContent).toBe(
+    'None: a plain terminal runs no agent',
+  );
+  expect(calls.filter((argv) => argv[1] === 'vault' && argv[2] === 'mcp')).toEqual([]);
+});
+
 test("a selected session's context ring stops at 100% and turns red, as the Board's bar does", async () => {
   const context = {
     used: 120.4,
