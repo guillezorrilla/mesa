@@ -2150,8 +2150,15 @@ test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Ent
 });
 
 test('Search Mesa offers Search vault for typed text, which opens the Vault screen searching it', async () => {
+  const note = {
+    path: 'wiki/tide.md',
+    kind: 'markdown',
+    category: 'wiki',
+    size: 10,
+    modified: '2026-09-24T12:00:00.000Z',
+  };
   const { bridge, calls } = fakeBridge({
-    'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
+    'vault list': () => envelope({ vault: '/h/vault', total: 1, items: [note] }),
     'vault search': () => envelope({ total: 0, truncated: false, items: [] }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
