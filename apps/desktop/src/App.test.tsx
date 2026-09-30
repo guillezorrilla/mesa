@@ -269,6 +269,57 @@ test('project Skills does not offer to disable a skill inherited from the profil
   expect(text).not.toContain('Disable in project');
 });
 
+test('project Skills lists the vault and Obsidian skills Mesa ships, with their NOTICE', async () => {
+  const shipped = (name: string, enabled: boolean, supportFiles: string[]) => ({
+    id: `/library/${name}`,
+    path: `/library/${name}`,
+    name,
+    description: `The invented ${name} skill`,
+    source: 'mesa',
+    scope: 'mesa',
+    providers: ['claude', 'codex', 'antigravity'],
+    enabled,
+    supportFiles,
+    writable: false,
+    readOnlyReason: 'Mesa ships this skill',
+    conflicts: [],
+    disabledFor: [],
+    precedence: 'only-discovered-source',
+  });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'skills list': () =>
+      envelope([
+        shipped('json-canvas', false, ['NOTICE', 'references/EXAMPLES.md']),
+        shipped('mesa-vault', true, []),
+        shipped('obsidian-bases', false, ['NOTICE', 'references/FUNCTIONS_REFERENCE.md']),
+        shipped('obsidian-cli', false, ['NOTICE']),
+        shipped('obsidian-markdown', false, ['NOTICE', 'references/CALLOUTS.md']),
+      ]),
+    'skills read': () =>
+      envelope({ path: 'SKILL.md', text: '# Obsidian CLI\n', revision: 'a'.repeat(64), lines: 2 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('sidebar-project')[0]);
+  await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
+  const card = (name: string) =>
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.startsWith(name));
+  expect(card('mesa-vault')?.textContent).toContain('mesa-vaultEnabled');
+  for (const name of ['obsidian-markdown', 'obsidian-bases', 'json-canvas', 'obsidian-cli']) {
+    expect(card(name)?.textContent).toContain(`${name}Off`);
+  }
+  await click(card('obsidian-cli'));
+  const text = byTestId('skills-workspace')[0]?.textContent ?? '';
+  expect(text).toContain('Read-only: Mesa ships this skill');
+  expect(
+    [...(byTestId('skills-workspace')[0]?.querySelectorAll('button') ?? [])].map(
+      (b) => b.textContent,
+    ),
+  ).toEqual(expect.arrayContaining(['SKILL.md', 'NOTICE', 'Enable in profile']));
+});
+
 test('project native history imports a Codex conversation through the existing session action', async () => {
   const nativeId = '01a0e14e-be41-72f1-a81b-e25d2198602a';
   const { bridge, calls } = fakeBridge({

@@ -17,6 +17,14 @@ test("skills list shows Mesa's library; skills sync links the enabled ones and p
   expect(listed).toContainEqual(
     expect.objectContaining({ name: 'session-summary', source: 'mesa', enabled: false }),
   );
+  // mesa-vault is on in a new profile beside mesa and mesa-handoff; the Obsidian skills ship off.
+  const shipped = (name: string) =>
+    listed.find((s: { name: string; source: string }) => s.name === name && s.source === 'mesa');
+  expect(shipped('mesa-vault')).toMatchObject({ enabled: true, supportFiles: [] });
+  for (const name of ['obsidian-markdown', 'obsidian-bases', 'json-canvas', 'obsidian-cli']) {
+    expect(shipped(name)).toMatchObject({ enabled: false });
+    expect(shipped(name).supportFiles).toContain('NOTICE');
+  }
   await mesa('config', 'set', 'skills', '[session-summary]');
   // (mesa is off now: only what config.yaml lists is on.)
   expect((await mesa('skills', 'list', 'lantern-cove', '--json')).json.data).toContainEqual(

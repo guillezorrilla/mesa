@@ -49,8 +49,9 @@ const relativeDirectory = z.string().refine((value) => {
 const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
   defaultAgent: AgentSchema.default(DEFAULT_AGENT),
-  // The mesa skill teaches every agent Mesa starts to drive Mesa (skills/mesa).
-  skills: z.array(z.string()).default(['mesa', 'mesa-handoff']),
+  // The mesa skill teaches every agent Mesa starts to drive Mesa (skills/mesa), and mesa-vault
+  // to read and save the profile vault's knowledge (skills/mesa-vault).
+  skills: z.array(z.string()).default(['mesa', 'mesa-handoff', 'mesa-vault']),
   decisions: z
     .strictObject({
       backend: DecisionsBackendSchema.default('adapter'),
