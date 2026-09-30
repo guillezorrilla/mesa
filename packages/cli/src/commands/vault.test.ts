@@ -1,7 +1,17 @@
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { newSession, shortIds, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
+import { VERSION } from '../cli.js';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
@@ -587,4 +597,424 @@ test('vault context and vault goals: a project overview and its earlier goals, a
     });
   }
   expect((await mesa('vault', 'goals', 'tide', '--limit', 'none')).code).toBe(2);
+});
+
+// The vault server (ADR-0011): `mesa vault mcp` over in-memory stdio, driven as an agent drives it.
+
+/** A JSON-RPC request line; with no `id`, a notification's. */
+const rpc = (id: number | undefined, method: string, params?: object) =>
+  JSON.stringify({
+    jsonrpc: '2.0',
+    ...(id === undefined ? {} : { id }),
+    method,
+    ...(params ? { params } : {}),
+  });
+const call = (id: number, name: string, args: object = {}) =>
+  rpc(id, 'tools/call', { name, arguments: args });
+const initialize = (protocolVersion = '2025-11-25') =>
+  rpc(1, 'initialize', {
+    protocolVersion,
+    capabilities: {},
+    clientInfo: { name: 'a', version: '1' },
+  });
+
+type Reply = {
+  jsonrpc: string;
+  id: number | null;
+  result?: { content: { text: string }[]; isError: boolean } & Record<string, unknown>;
+  error?: { code: number; message: string };
+};
+
+/**
+ * Runs `mesa [argv] vault mcp` on `input`, line by line; a function runs between the lines around
+ * it. It prints nothing itself, and every line it writes is JSON-RPC 2.0: its replies, and stderr.
+ */
+async function serve(argv: string[], ...input: (string | (() => Promise<unknown>))[]) {
+  const started = await mesa(...argv, 'vault', 'mcp');
+  expect([started.code, started.stdout, started.stderr]).toEqual([0, '', '']);
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  async function* lines() {
+    for (const line of input) {
+      if (typeof line === 'string') yield line;
+      else await line();
+    }
+  }
+  expect(started.serve).toBeTypeOf('function');
+  await started.serve?.({
+    lines: lines(),
+    write: (text) => stdout.push(text),
+    log: (text) => stderr.push(text),
+  });
+  const written = stdout.join('');
+  expect(written.endsWith('\n') || written === '').toBe(true);
+  const replies = written
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Reply);
+  for (const reply of replies) expect(reply.jsonrpc).toBe('2.0');
+  return { replies, stderr: stderr.join('') };
+}
+
+/** A tool's answer: its text as JSON, which must not be an error. */
+const answer = (reply: Reply | undefined) => {
+  expect(reply?.result?.isError).toBe(false);
+  return JSON.parse(reply?.result?.content[0]?.text ?? '');
+};
+
+/** A tool error's text. */
+const refusal = (reply: Reply | undefined) => {
+  expect(reply?.result?.isError).toBe(true);
+  return reply?.result?.content[0]?.text;
+};
+
+/** An invented note in the vault. */
+const put = (path: string, text: string) => {
+  const file = join(cli.home, 'vault', path);
+  mkdirSync(join(file, '..'), { recursive: true });
+  writeFileSync(file, text);
+};
+
+/** Opens a session on lantern-cove, with `flags`; its id. */
+async function openSession(...flags: string[]) {
+  return (await mesa('open', 'lantern-cove', ...flags, '--json')).json.data.id as string;
+}
+
+/** A profile with lantern-cove, a tmux server whose windows end on /exit, and a session there. */
+async function liveSession(...flags: string[]) {
+  cli.withTmux({
+    onKeys: (w, text) => {
+      if (text === '/exit') w.dead = true;
+    },
+  });
+  await cli.withProject();
+  return openSession(...flags);
+}
+
+const TOOLS = [
+  'project_context',
+  'read_note',
+  'search_vault',
+  'session_goals',
+  'save_decision',
+  'save_summary',
+  'save_note',
+];
+
+test('vault mcp serves a live session over stdio: initialize, tools/list, each tool, ping, and errors', async () => {
+  const earlier = await liveSession('--goal', 'Chart the neaps');
+  await mesa('stop', earlier);
+  const id = await openSession();
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  put('projects/lantern-cove.md', '# Lantern cove\n\nThe harbour lights at dusk.\n');
+  put('projects/lantern-cove/tides.md', 'The ebb turns at the harbour lights.\n');
+  put('wiki/elsewhere.md', '---\nproject: tide\n---\nHarbour lights on another coast.\n');
+  const listed = (await mesa('vault', 'mcp', '--tools', '--json')).json.data.tools;
+
+  const { replies, stderr } = await serve(
+    [],
+    rpc(0, 'server/discover', { protocolVersion: '2026-07-28' }),
+    initialize(),
+    rpc(undefined, 'notifications/initialized'),
+    rpc(2, 'tools/list'),
+    call(3, 'project_context'),
+    rpc(4, 'tools/call', {
+      name: 'read_note',
+      arguments: { path: 'projects/lantern-cove.md' },
+      _meta: { progressToken: 4 },
+    }),
+    call(5, 'search_vault', { query: 'harbour lights' }),
+    call(6, 'search_vault', { query: 'harbour lights', all: true }),
+    call(7, 'session_goals'),
+    call(8, 'save_decision', {
+      title: 'Fixed clock in tide tests',
+      decision: 'Tests take the clock as a parameter',
+      rationale: 'The flake was the wall clock at midnight',
+      probabilities: { 'fixed-clock': 0.8, retry: 0.2 },
+      confidence: 0.8,
+    }),
+    call(9, 'save_summary', { summary: 'Goal: fix the tide flake\nDone: fixed clock\n' }),
+    call(10, 'save_note', { title: 'Tide table sources', body: 'The harbour office.' }),
+    rpc(11, 'ping'),
+    call(12, 'no_such_tool'),
+    rpc(13, 'resources/list'),
+    'not json',
+    rpc(undefined, 'notifications/roots/list_changed'),
+  );
+  expect(stderr).toBe(`mesa-vault: serving session ${id} (lantern-cove)\n`);
+  // One reply per request, in order; none for a notification.
+  expect(replies.map((r) => r.id)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, null]);
+  const [discover, init, list, context, read, search, all, goals, decision, summary, note, ping] =
+    replies;
+  // Antigravity asks server/discover first and falls back to initialize on -32601.
+  expect(discover?.error).toEqual({ code: -32601, message: 'Method not found: server/discover' });
+  expect(init?.result).toEqual({
+    protocolVersion: '2025-11-25',
+    capabilities: { tools: {} },
+    serverInfo: { name: 'mesa-vault', version: VERSION },
+  });
+  expect(list?.result).toEqual({ tools: listed });
+  expect(listed.map((t: { name: string }) => t.name)).toEqual(TOOLS);
+
+  // Reads default to the session's project and leave the session itself out of its goals.
+  expect(answer(context)).toMatchObject({
+    project: 'lantern-cove',
+    hub: { path: 'projects/lantern-cove.md', headings: ['# Lantern cove'] },
+    notes: [{ path: 'projects/lantern-cove/tides.md' }],
+    goals: [{ id: earlier, goal: 'Chart the neaps' }],
+  });
+  expect(answer(read)).toMatchObject({
+    path: 'projects/lantern-cove.md',
+    preview: 'markdown',
+    body: '# Lantern cove\n\nThe harbour lights at dusk.\n',
+  });
+  // `all` searches the whole vault.
+  const paths = (found: { items: { path: string }[] }) => found.items.map((i) => i.path).sort();
+  expect(paths(answer(search))).toEqual([
+    'projects/lantern-cove.md',
+    'projects/lantern-cove/tides.md',
+  ]);
+  expect(paths(answer(all))).toEqual([
+    'projects/lantern-cove.md',
+    'projects/lantern-cove/tides.md',
+    'wiki/elsewhere.md',
+  ]);
+  expect(answer(goals)).toEqual([
+    {
+      id: earlier,
+      agent: 'claude',
+      started: '2026-09-24T12:00:00.000Z',
+      ended: '2026-09-24T12:00:00.000Z',
+      goal: 'Chart the neaps',
+    },
+  ]);
+
+  // Writes land for the session and its project, each with one receipt the session is actor of.
+  const saved = [decision, summary, note].map(answer);
+  expect(saved.map((s) => s.path)).toEqual([
+    'wiki/decisions/2026-09-24-fixed-clock-in-tide-tests.md',
+    `wiki/sessions/${id}.md`,
+    'wiki/notes/tide-table-sources.md',
+  ]);
+  for (const s of saved) {
+    expect(s).toMatchObject({ changed: true, receipt: { id: expect.any(String) } });
+  }
+  const frontmatter = async (path: string) =>
+    (await mesa('vault', 'read', path, '--json')).json.data.frontmatter;
+  expect(await frontmatter(saved[0].path)).toMatchObject({
+    type: 'decision',
+    project: 'lantern-cove',
+    session: id,
+    probabilities: { 'fixed-clock': 0.8, retry: 0.2 },
+    confidence: 0.8,
+  });
+  expect(await frontmatter(saved[2].path)).toMatchObject({ project: 'lantern-cove', session: id });
+  const receipts = (await mesa('receipts', '--session', id, '--json')).json.data;
+  expect(receipts.map((e: { receipt: { actor: string } }) => e.receipt.actor)).toEqual([
+    id,
+    id,
+    id,
+  ]);
+
+  expect(ping?.result).toEqual({});
+  expect(replies[12]?.error).toEqual({ code: -32602, message: 'Unknown tool: no_such_tool' });
+  expect(replies[13]?.error).toEqual({ code: -32601, message: 'Method not found: resources/list' });
+  expect(replies[14]?.error).toEqual({ code: -32700, message: 'Parse error' });
+});
+
+test('vault mcp answers the protocol version a client asks for when it speaks it, else its newest', async () => {
+  for (const [asked, given] of [
+    ['2025-06-18', '2025-06-18'],
+    ['2025-11-25', '2025-11-25'],
+    ['2099-01-01', '2025-11-25'],
+  ]) {
+    const { replies } = await serve([], initialize(asked));
+    expect(replies[0]?.result?.protocolVersion).toBe(given);
+  }
+});
+
+test('outside a live session of its profile, vault mcp lists no tools and refuses every call, reading and writing nothing', async () => {
+  const live = await liveSession();
+  const ended = await openSession();
+  await mesa('stop', ended);
+  const removed = await openSession();
+  await mesa('stop', removed);
+  await mesa('rm', removed);
+  put('wiki/tide.md', 'The ebb at the harbour lights.\n');
+  const cases: [string[], Record<string, string>, string][] = [
+    [[], {}, 'MESA_SESSION_ID is not set: this is not a Mesa session'],
+    [
+      [],
+      { MESA_SESSION_ID: 'zzzzzzzz', MESA_PROFILE: 'default' },
+      'profile default has no session zzzzzzzz: it is unknown or was removed',
+    ],
+    [[], { MESA_SESSION_ID: ended }, `session ${ended} ended at 2026-09-24T12:00:00.000Z`],
+    [
+      [],
+      { MESA_SESSION_ID: removed },
+      `profile default has no session ${removed}: it is unknown or was removed`,
+    ],
+    // Another profile's session: the id is default's, the server work's.
+    [
+      ['--profile', 'work'],
+      { MESA_SESSION_ID: live, MESA_PROFILE: 'work' },
+      `profile work has no session ${live}: it is unknown or was removed`,
+    ],
+    [
+      [],
+      { MESA_SESSION_ID: live, MESA_PROFILE: 'work' },
+      `session ${live} is profile work's, not default's`,
+    ],
+  ];
+  for (const [argv, env, reason] of cases) {
+    cli.env = env;
+    const { replies, stderr } = await serve(
+      argv,
+      initialize(),
+      rpc(undefined, 'notifications/initialized'),
+      rpc(2, 'tools/list'),
+      call(3, 'read_note', { path: 'wiki/tide.md' }),
+      call(4, 'save_note', { title: 'Stray', body: 'Written from outside.' }),
+      call(5, 'no_such_tool'),
+    );
+    expect(replies[0]?.result).toMatchObject({ protocolVersion: '2025-11-25' });
+    expect(replies[1]?.result).toEqual({ tools: [] });
+    for (const reply of replies.slice(2)) {
+      expect(refusal(reply)).toBe(`mesa-vault is inert: ${reason}`);
+    }
+    expect(stderr).toBe(`mesa-vault: listing no tools: ${reason}\n`);
+  }
+  expect(existsSync(join(cli.home, 'vault/wiki/notes'))).toBe(false);
+  cli.env = {};
+  expect((await mesa('receipts', '--json')).json.data).toEqual([]);
+});
+
+test('a session stopped while its server runs is refused from its next request on', async () => {
+  const id = await liveSession();
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  const { replies } = await serve(
+    [],
+    initialize('2025-06-18'),
+    rpc(2, 'tools/list'),
+    async () => {
+      cli.env = {};
+      await mesa('stop', id);
+    },
+    rpc(3, 'tools/list'),
+    call(4, 'save_note', { title: 'Late', body: 'Saved after the stop.' }),
+  );
+  expect(replies[1]?.result?.tools).toHaveLength(TOOLS.length);
+  expect(replies[2]?.result).toEqual({ tools: [] });
+  expect(refusal(replies[3])).toBe(
+    `mesa-vault is inert: session ${id} ended at 2026-09-24T12:00:00.000Z`,
+  );
+  expect(existsSync(join(cli.home, 'vault/wiki/notes/late.md'))).toBe(false);
+});
+
+test('a session record that stops reading is an internal error on stderr, never tools', async () => {
+  const id = await liveSession();
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  const record = join(cli.paths.sessions, `${id}.json`);
+  const { replies, stderr } = await serve(
+    [],
+    initialize(),
+    async () => writeFileSync(record, 'not json'),
+    rpc(2, 'tools/list'),
+    call(3, 'read_note', { path: 'index.md' }),
+  );
+  const why = `${record}: not valid JSON`;
+  expect(replies.slice(1).map((r) => [r.id, r.error])).toEqual([
+    [2, { code: -32603, message: why }],
+    [3, { code: -32603, message: why }],
+  ]);
+  expect(stderr.split('\n').slice(1)).toEqual([
+    `mesa-vault: tools/list failed: ${why}`,
+    `mesa-vault: tools/call failed: ${why}`,
+    '',
+  ]);
+});
+
+test("the server's calls refuse canonical-path, symlink-escape, and internal paths, another project's folder, and bad arguments", async () => {
+  const id = await liveSession();
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  const vault = join(cli.home, 'vault');
+  const secret = join(cli.home, 'secret.md');
+  writeFileSync(secret, 'Outside the vault.\n');
+  mkdirSync(join(cli.home, 'elsewhere'));
+  mkdirSync(join(vault, 'wiki'), { recursive: true });
+  symlinkSync(secret, join(vault, 'wiki/escape.md'));
+  symlinkSync(join(cli.home, 'elsewhere'), join(vault, 'wiki/out'));
+  put('.obsidian/app.json', '{}');
+  const { replies } = await serve(
+    [],
+    initialize(),
+    call(2, 'read_note', { path: '../secret.md' }),
+    call(3, 'read_note', { path: secret }),
+    call(4, 'read_note', { path: 'wiki/../../secret.md' }),
+    call(5, 'read_note', { path: 'wiki/escape.md' }),
+    call(6, 'read_note', { path: '.obsidian/app.json' }),
+    call(7, 'save_note', { title: 'Leak', body: 'x', path: 'wiki/out/leak.md' }),
+    call(8, 'save_note', { title: 'Leak', body: 'x', path: '.obsidian/leak.md' }),
+    call(9, 'save_note', { title: 'Theirs', body: 'x', path: 'projects/tide/theirs.md' }),
+    call(10, 'read_note', {}),
+    call(11, 'read_note', { path: 'wiki/tide.md', depth: 2 }),
+    call(12, 'save_decision', { title: 't', decision: 'd', rationale: 'r', confidence: 2 }),
+  );
+  expect(replies.slice(1).map(refusal)).toEqual([
+    'vault path ../secret.md is outside the vault',
+    `vault path ${secret} is outside the vault`,
+    'vault path wiki/../../secret.md is outside the vault',
+    'vault path wiki/escape.md is outside the vault',
+    'vault path .obsidian/app.json is a vault internal',
+    'vault path wiki/out/leak.md is outside the vault',
+    'vault path .obsidian/leak.md is a vault internal',
+    "projects/tide/theirs.md is in project tide's folder, not lantern-cove's",
+    'read_note: path: Invalid input: expected string, received undefined',
+    'read_note: arguments: Unrecognized key: "depth"',
+    'save_decision: confidence: Too big: expected number to be <=1',
+  ]);
+  expect(readdirSync(join(cli.home, 'elsewhere'))).toEqual([]);
+  expect(existsSync(join(vault, '.obsidian/leak.md'))).toBe(false);
+  expect((await mesa('receipts', '--json')).json.data).toEqual([]);
+});
+
+test('a General session searches the whole vault and has no project to save a decision for', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const id = (await mesa('open', '--general', '--json')).json.data.id;
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  put('projects/lantern-cove.md', 'The harbour lights.\n');
+  put('wiki/elsewhere.md', '---\nproject: tide\n---\nHarbour lights on another coast.\n');
+  const { replies, stderr } = await serve(
+    [],
+    initialize(),
+    call(2, 'search_vault', { query: 'harbour lights' }),
+    call(3, 'save_decision', { title: 't', decision: 'd', rationale: 'r' }),
+    call(4, 'save_note', { title: 'Coast notes', body: 'Two coasts.' }),
+  );
+  expect(stderr).toBe(`mesa-vault: serving session ${id} (General)\n`);
+  expect(
+    answer(replies[1])
+      .items.map((i: { path: string }) => i.path)
+      .sort(),
+  ).toEqual(['projects/lantern-cove.md', 'wiki/elsewhere.md']);
+  expect(refusal(replies[2])).toBe('a General session has no project to save it for');
+  expect(answer(replies[3])).toMatchObject({ path: 'wiki/notes/coast-notes.md', changed: true });
+});
+
+test('vault mcp --tools prints the fixed tool definitions, one line each, without serving', async () => {
+  const out = await mesa('vault', 'mcp', '--tools', '--json');
+  expect(out.serve).toBeUndefined();
+  const { tools } = out.json.data;
+  expect(tools.map((t: { name: string }) => t.name)).toEqual(TOOLS);
+  for (const t of tools) {
+    expect(t.description).toMatch(/^[^\n]{1,100}$/);
+    expect(t.inputSchema).toMatchObject({ type: 'object', additionalProperties: false });
+    expect(t.inputSchema).not.toHaveProperty('$schema');
+  }
+  // What every provider pays for in context: ADR-0011 records this size, so change both together.
+  expect(Buffer.byteLength(JSON.stringify({ tools }))).toBe(2590);
+  const text = (await mesa('vault', 'mcp', '--tools')).stdout.split('\n');
+  expect(text.map((line) => line.split(' ')[0])).toEqual([...TOOLS, '']);
+  expect(text[0]).toMatch(/^project_context {2}This project's overview: hub, index, notes/);
 });

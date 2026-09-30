@@ -111,6 +111,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       goals: [],
       more: '',
     } satisfies ProjectContext),
+  'vault mcp': () => envelope({ tools: [] }),
   doctor: () => envelope({ healthy: true, summary: 'ready', checks: [] } satisfies DoctorReport),
   diagnostics: () => envelope({ events: [], total: 0, limit: 100 }),
   projects: () => envelope([] satisfies ProjectRow[]),

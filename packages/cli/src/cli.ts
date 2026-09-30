@@ -9,6 +9,7 @@ import {
   ok,
   type Result,
   resolveProfileName,
+  type Stdio,
   toFail,
 } from '@mesa/core';
 import {
@@ -36,7 +37,14 @@ export type CliDeps = {
   mesa: MesaDeps;
 };
 
-type CliResult = { code: number; stdout: string; stderr: string; exec?: string[] };
+type CliResult = {
+  code: number;
+  stdout: string;
+  stderr: string;
+  exec?: string[];
+  /** Run on the process's stdio, which nothing else was printed to. */
+  serve?: (io: Stdio) => Promise<void>;
+};
 
 function parse(argv: string[], flags: Record<string, Flag>) {
   try {
@@ -124,6 +132,8 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<CliResult> 
   }
   const code = out?.code ?? exitCode(result);
   const exec = result.ok ? out?.exec : undefined;
+  // A server's stdout is its protocol's alone: no envelope, no text.
+  if (result.ok && out?.serve) return { code, stdout: '', stderr: '', serve: out.serve };
   if (json) return { code, stdout: `${JSON.stringify(result)}\n`, stderr: '', exec };
   if (result.ok) return { code, stdout: `${out?.text ?? ''}\n`, stderr: '', exec };
   return { code, stdout: '', stderr: `${result.error.message}\n` };
