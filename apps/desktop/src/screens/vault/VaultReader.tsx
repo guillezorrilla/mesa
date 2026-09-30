@@ -1,6 +1,6 @@
 import type { VaultLink, VaultRead } from '@mesa/core';
 import { CircleHelp, ExternalLink, EyeOff, Link2Off, Paperclip } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -236,9 +236,18 @@ function Preview({ read, onSelect }: { read: VaultRead; onSelect: Select }) {
 /**
  * The selected item as `mesa vault read` shows it: a note's properties, Markdown, and links, or
  * what Mesa shows of any other kind, then its backlinks. A link or backlink selects its item.
+ * Each new look at the vault (`looks`, the screen's count) reads it again unless a read still
+ * runs, so an edit made outside Mesa shows in place.
  */
-export function VaultReader({ path, onSelect }: { path: string; onSelect: Select }) {
-  const { data: read } = useCommand('vault.read', { path });
+export function VaultReader(props: { path: string; looks: number; onSelect: Select }) {
+  const { path, looks, onSelect } = props;
+  const { data: read, busy, refresh } = useCommand('vault.read', { path });
+  const seen = useRef(looks);
+  useEffect(() => {
+    if (seen.current === looks) return;
+    seen.current = looks;
+    if (!busy) void refresh();
+  }, [looks, busy, refresh]);
   if (!read) return <p className="text-sm text-muted-foreground">Reading {path}...</p>;
   return (
     <div data-testid="vault-reader" className="min-w-0 space-y-4 border-t pt-4">

@@ -7,9 +7,21 @@ import type {
   VaultRead,
   VaultSearch,
 } from '@mesa/core';
-import { act } from 'react';
-import { expect, test } from 'vitest';
-import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { act, useState } from 'react';
+import { expect, test, vi } from 'vitest';
+import type { Bridge } from '@/lib/client';
+import { MesaRoot } from '@/lib/MesaRoot';
+import {
+  choose,
+  click,
+  deferred,
+  envelope,
+  failure,
+  fakeBridge,
+  fakePlatform,
+  renderWithMesa,
+  toastTexts,
+} from '@/lib/testing';
 import { VaultScreen } from './VaultScreen';
 
 const at = '2026-09-24T12:00:00.000Z';
@@ -455,4 +467,274 @@ test('opened at a path, the screen selects that item and opens the tree to it', 
   expect(calls).toContainEqual(['--json', 'vault', 'read', '--', 'wiki/currents.md']);
   const row = byTestId('vault-file').find((file) => file.title === 'wiki/currents.md');
   expect(row?.getAttribute('aria-pressed')).toBe('true');
+});
+
+/** The window gaining focus, as when a person comes back from another app. */
+const focus = () => act(async () => window.dispatchEvent(new Event('focus')));
+const later = (seconds: number) => act(async () => vi.advanceTimersByTime(seconds * 1000));
+const shownFact = (byTestId: (id: string) => HTMLElement[], name: string) =>
+  byTestId('vault-item')[0]?.querySelector(`[data-fact="${name}"]`)?.textContent;
+
+test('the screen looks again every five seconds and on focus: an outside edit shows in place, and a deleted item says so', async () => {
+  vi.useFakeTimers();
+  try {
+    let body = '# Currents\n\nThe first tide.\n';
+    let modified = at;
+    let listed = NOTES;
+    const current = () =>
+      listed.map((n) => (n.path === 'wiki/currents.md' ? { ...n, modified } : n));
+    const { bridge, calls } = readerBridge({
+      'vault list': () => envelope({ vault: '/h/vault', total: listed.length, items: current() }),
+      'vault read': (args) =>
+        envelope(readOf(current().find((n) => n.path === args[4]) as VaultItem, note(body))),
+    });
+    const byTestId = await renderWithMesa(<VaultScreen />, bridge);
+    await select(byTestId, 'wiki/currents.md');
+    const tree = document.querySelector<HTMLElement>('[aria-label="Vault tree"]') as HTMLElement;
+    tree.scrollTop = 40;
+    const markdown = () => byTestId('vault-markdown')[0]?.textContent;
+    expect(markdown()).toContain('The first tide.');
+
+    // Saved in another editor: the look five seconds on shows it, the selection and tree kept.
+    body = '# Currents\n\nThe second tide.\n';
+    modified = '2026-09-24T12:00:04.000Z';
+    await later(4);
+    expect(markdown()).toContain('The first tide.');
+    await later(1);
+    expect(markdown()).toContain('The second tide.');
+    expect(shownFact(byTestId, 'Modified')).toBe('2026-09-24T12:00:04.000Z');
+    expect(selectedPath(byTestId)).toBe('wiki/currents.md');
+    expect(document.querySelector('[aria-label="Vault tree"]')).toBe(tree);
+    expect(tree.scrollTop).toBe(40);
+
+    // Coming back to the window looks at once.
+    body = '# Currents\n\nThe third tide.\n';
+    await focus();
+    expect(markdown()).toContain('The third tide.');
+    expect(calls.filter((c) => c[2] === 'read')).toHaveLength(3);
+
+    // Deleted outside Mesa: the list drops it and the details say so, with no toast.
+    listed = NOTES.filter((n) => n.path !== 'wiki/currents.md');
+    await later(5);
+    expect(byTestId('vault-item')[0]?.textContent).toBe(
+      'This item no longer exists: wiki/currents.md.',
+    );
+    expect(byTestId('vault-file').map((row) => row.title)).not.toContain('wiki/currents.md');
+    expect(byTestId('vault-panel')[0]?.textContent).toContain('7 items in /h/vault');
+    expect(calls.filter((c) => c[2] === 'read')).toHaveLength(3);
+    expect(toastTexts(byTestId)).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('a look or a read still running is not asked again, and the looks stop with the screen', async () => {
+  vi.useFakeTimers();
+  try {
+    let slowList: ReturnType<typeof deferred> | undefined;
+    let slowRead: ReturnType<typeof deferred> | undefined;
+    const quick = readerBridge();
+    const { bridge, calls } = fakeBridge({
+      'vault list': (args) => slowList?.promise ?? quick.bridge(args),
+      'vault read': (args) => slowRead?.promise ?? quick.bridge(args),
+    });
+    const byTestId = await renderWithMesa(<VaultScreen />, bridge);
+    const lists = () => calls.filter((c) => c[2] === 'list').length;
+    const reads = () => calls.filter((c) => c[2] === 'read').length;
+    expect(lists()).toBe(1);
+
+    slowList = deferred();
+    await later(5);
+    expect(lists()).toBe(2);
+    await later(10);
+    await focus();
+    expect(lists()).toBe(2);
+    const landing = slowList;
+    slowList = undefined;
+    await act(async () => landing.resolve(await quick.bridge(['--json', 'vault', 'list'])));
+    await later(5);
+    expect(lists()).toBe(3);
+
+    await select(byTestId, 'wiki/currents.md');
+    expect(reads()).toBe(1);
+    slowRead = deferred();
+    await later(5);
+    expect(reads()).toBe(2);
+    await later(5);
+    expect([lists(), reads()]).toEqual([5, 2]);
+    slowRead = undefined;
+
+    // Another screen: no more looks on a tick or a focus.
+    await renderWithMesa(<p>Elsewhere</p>, bridge);
+    await later(15);
+    await focus();
+    expect(lists()).toBe(5);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+const status = (missing: string[]) => () =>
+  envelope({ path: '/h/vault', ok: missing.length === 0, missing });
+const ALL = ['log.md', 'AGENTS.md', 'index.md', 'raw', 'wiki', 'projects', 'receipts', 'daily'];
+
+test('a missing folder, a vault that does not open, an empty one, and one not laid out each explain the fix in place, never in a toast', async () => {
+  const state = (byTestId: (id: string) => HTMLElement[]) =>
+    byTestId('vault-state').map((alert) => [alert.dataset.state, alert.textContent]);
+
+  let missing = true;
+  const { bridge } = fakeBridge({
+    'vault list': () =>
+      missing ? failure('vault /h/vault does not exist; run mesa vault init') : envelope(INVENTORY),
+    'vault status': status(ALL),
+  });
+  let byTestId = await renderWithMesa(<VaultScreen />, bridge);
+  expect(state(byTestId)).toEqual([
+    [
+      'missing',
+      "No vault folderThis profile's vault is /h/vault, and no folder is there.Run mesa vault init to create it with Mesa's layout, or point the profile at your vault with mesa config set vault <path>.",
+    ],
+  ]);
+  expect(byTestId('vault-folder')).toEqual([]);
+  expect(byTestId('vault-panel')[0]?.textContent).not.toContain('No items.');
+  expect(toastTexts(byTestId)).toEqual([]);
+  // Once the folder is there, the next look (here, a focus) shows its items.
+  missing = false;
+  await focus();
+  expect(state(byTestId).map(([name]) => name)).toEqual(['not-laid-out']);
+  expect(byTestId('vault-folder').length).toBeGreaterThan(0);
+
+  byTestId = await renderWithMesa(
+    <VaultScreen />,
+    fakeBridge({
+      'vault list': () => ({
+        ok: false,
+        error: { code: 'invalid_config', message: 'vault /h/vault is not a folder' },
+      }),
+      'vault status': status(ALL),
+    }).bridge,
+  );
+  expect(state(byTestId)).toEqual([
+    [
+      'unlisted',
+      'The vault did not openvault /h/vault is not a folder.Point the profile at a vault folder with mesa config set vault <path>.',
+    ],
+  ]);
+  expect(toastTexts(byTestId)).toEqual([]);
+
+  byTestId = await renderWithMesa(
+    <VaultScreen />,
+    fakeBridge({
+      'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
+      'vault status': status(ALL),
+    }).bridge,
+  );
+  expect(state(byTestId)).toEqual([
+    [
+      'empty',
+      'The vault is empty/h/vault has no notes or files yet.Run mesa vault init to lay it out; notes you and your sessions save then show here.',
+    ],
+  ]);
+  expect(byTestId('vault-search')).toEqual([]);
+
+  byTestId = await renderWithMesa(
+    <VaultScreen />,
+    fakeBridge({
+      'vault list': () => envelope(INVENTORY),
+      'vault status': status(['receipts', 'daily']),
+    }).bridge,
+  );
+  expect(state(byTestId)).toEqual([
+    [
+      'not-laid-out',
+      'Not laid outThis vault has no receipts, daily.Run mesa vault init to add them; it creates only what is missing.',
+    ],
+  ]);
+  // What is there stays browsable.
+  expect(labels(byTestId)).toContain('Garden, 2 items');
+});
+
+// Another profile's invented vault: nothing in it shares a word with the first one's.
+const OTHER: VaultInventory = {
+  vault: '/h/other-vault',
+  total: 2,
+  items: [item('lighthouse.md', {}), item('wiki/lamp.md', { category: 'wiki' })],
+};
+/** Every word the first profile's items would show, for a check that none renders. */
+const firstWords = ['currents', 'tide', 'kale', 'beds', 'chart', 'Garden', '/h/vault'];
+const showsFirst = () => {
+  const text = document.body.textContent ?? '';
+  return firstWords.filter((word) => text.includes(word));
+};
+
+test('switching the profile clears the list, the selection, and the search at once, and the last profile never renders again', async () => {
+  // A profile is the bridge the screen reaches mesa through: the app runs one per window (its
+  // MESA_PROFILE), so a switch reaches the screen as another bridge under it.
+  const firstLook = deferred();
+  const firstRead = deferred();
+  let looks = 0;
+  const first = readerBridge({
+    'vault list': (args) => (++looks === 1 ? readerBridge().bridge(args) : firstLook.promise),
+    'vault read': () => firstRead.promise,
+    'vault search': () => envelope(FOUND),
+  });
+  const otherLook = deferred();
+  const other = fakeBridge({ 'vault list': () => otherLook.promise });
+  let use: (bridge: Bridge) => void = () => {};
+  function Profiles() {
+    const [bridge, setBridge] = useState<Bridge>(() => first.bridge);
+    use = (next) => setBridge(() => next);
+    return (
+      <MesaRoot bridge={bridge} platform={fakePlatform()}>
+        <VaultScreen />
+      </MesaRoot>
+    );
+  }
+  const byTestId = await renderWithMesa(<Profiles />, first.bridge);
+  await select(byTestId, 'wiki/currents.md');
+  await search('tide');
+  expect(results(byTestId)).toHaveLength(2);
+  expect(byTestId('vault-item')[0]?.textContent).toContain('Reading wiki/currents.md...');
+  await focus(); // the first profile's next look, still running at the switch
+
+  await act(async () => use(other.bridge));
+  expect(showsFirst()).toEqual([]);
+  expect(byTestId('vault-panel')[0]?.textContent).toContain('Reading the vault...');
+  expect([byTestId('vault-result'), byTestId('vault-item'), byTestId('vault-file')]).toEqual([
+    [],
+    [],
+    [],
+  ]);
+
+  await act(async () => otherLook.resolve(envelope(OTHER)));
+  expect(byTestId('vault-file').map((row) => row.title)).toEqual(['lighthouse.md']);
+  // The first profile's slower replies land last, and change nothing.
+  await act(async () => {
+    firstLook.resolve(envelope(INVENTORY));
+    firstRead.resolve(envelope(readOf(NOTES[7] as VaultItem, note(BODY, LINKS))));
+  });
+  expect(showsFirst()).toEqual([]);
+  expect(byTestId('vault-panel')[0]?.textContent).toContain('2 items in /h/other-vault');
+  expect(toastTexts(byTestId)).toEqual([]);
+});
+
+test("the profile's vault moved: its filters, search, and selection start over on the new one", async () => {
+  let listed: VaultInventory = { vault: '/h/vault', total: NOTES.length, items: NOTES };
+  const { bridge } = readerBridge({
+    'vault list': () => envelope(listed),
+    'vault search': () => envelope(FOUND),
+  });
+  const byTestId = await renderWithMesa(<VaultScreen />, bridge);
+  await select(byTestId, 'wiki/currents.md');
+  await choose(document.querySelector('#vault-project') ?? undefined, 'tide');
+  await search('tide');
+  expect(results(byTestId)).toHaveLength(2);
+
+  listed = OTHER; // `mesa config set vault` pointed the profile elsewhere
+  await focus();
+  expect(showsFirst()).toEqual([]);
+  expect(document.querySelector<HTMLInputElement>('#vault-search')?.value).toBe('');
+  expect(document.querySelector<HTMLSelectElement>('#vault-project')?.value).toBe('');
+  expect(byTestId('vault-item')[0]?.textContent).toContain('Select an item');
+  expect(labels(byTestId)).toEqual(['wiki, 1 item']);
 });

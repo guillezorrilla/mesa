@@ -6,6 +6,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -297,6 +298,35 @@ test('vault read: a note with its links and backlinks, a canvas, and an attachme
   });
   expect((await mesa('vault', 'read', 'wiki/missing.md')).code).toBe(3);
   expect((await mesa('vault', 'read')).code).toBe(2);
+});
+
+test('vault list and vault read agree on modified, and an edit on disk moves it', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const file = join(cli.home, 'vault/wiki/currents.md');
+  const edit = (text: string, at: string) => {
+    writeFileSync(file, text);
+    utimesSync(file, new Date(at), new Date(at));
+  };
+  const modified = async () => {
+    const listed = (await mesa('vault', 'list', '--json')).json.data.items.find(
+      (item: { path: string }) => item.path === 'wiki/currents.md',
+    );
+    const read = (await mesa('vault', 'read', 'wiki/currents.md', '--json')).json.data;
+    return [listed.modified, read.modified, read.body];
+  };
+  edit('Ebb.\n', '2026-09-20T08:00:00.000Z');
+  expect(await modified()).toEqual([
+    '2026-09-20T08:00:00.000Z',
+    '2026-09-20T08:00:00.000Z',
+    'Ebb.\n',
+  ]);
+  edit('Flood.\n', '2026-09-20T08:00:05.000Z');
+  expect(await modified()).toEqual([
+    '2026-09-20T08:00:05.000Z',
+    '2026-09-20T08:00:05.000Z',
+    'Flood.\n',
+  ]);
 });
 
 test('vault open opens the exact item, a canvas or a file with no extension', async () => {
