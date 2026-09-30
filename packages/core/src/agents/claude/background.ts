@@ -1,4 +1,4 @@
-import type { Runner } from '../../lib/process.js';
+import type { Env, Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { claudeVaultArgs, type VaultServer } from '../vault-mount.js';
 
@@ -9,19 +9,24 @@ export const claudeBackgroundAttach = (id: string) => `exec claude attach ${id}`
 
 /**
  * Claude owns the background process, with mesa-vault mounted. Its short ID is the handle for
- * attach and stop.
+ * attach and stop. The job runs in a process Claude's supervisor starts, with the supervisor's
+ * environment, never `env`; so the session's `binding` (its window variables) goes in the
+ * launch's settings `env`, which Claude applies to that process and keeps through its restarts,
+ * for the mesa-vault server and the Mesa hooks to read (ADR-0012).
  */
 export async function startClaudeBackground(
   run: Runner,
   cwd: string,
   server: VaultServer,
+  binding: Readonly<Record<string, string>>,
   goal?: string,
   mode?: 'plan',
-  env?: Readonly<Record<string, string | undefined>>,
+  env?: Env,
 ) {
   const args = [
     '--bg',
     ...(mode ? ['--permission-mode', mode] : []),
+    `--settings=${JSON.stringify({ env: binding })}`,
     ...claudeVaultArgs(server),
     ...(goal ? [goal] : []),
   ];

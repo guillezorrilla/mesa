@@ -15,7 +15,7 @@ import { type Project, readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { sessionWorktree } from '../worktrees/create.js';
-import { windowEnv } from './caller.js';
+import { WINDOW_VARS, windowEnv } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { prepareOutputLog } from './output-log.js';
 import type { SessionRecord } from './record.js';
@@ -161,15 +161,18 @@ export async function startSession(
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd);
     if (record.background && !record.backgroundId) {
       const env = { ...deps.env };
-      for (const key of nestedAgentVars(deps.env)) delete env[key];
+      // No window variables: a supervisor this claude starts keeps its environment for every
+      // later background job, Mesa's or not; the binding goes in the job's settings instead.
+      for (const key of [...nestedAgentVars(deps.env), ...WINDOW_VARS]) delete env[key];
       delete env.NO_COLOR;
       backgroundId = await startClaudeBackground(
         deps.run,
         cwd,
         deps.vaultServer,
+        windowEnv(record.id, deps.profileName),
         record.goal,
         record.mode,
-        { ...env, ...windowEnv(record.id, deps.profileName) },
+        env,
       );
       record = deps.store.update(record.id, { backgroundId });
     }

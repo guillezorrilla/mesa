@@ -32,8 +32,8 @@ export const CLAUDE_VAULT_TOOLS = `mcp__${VAULT_SERVER}`;
 
 /**
  * Claude Code's --mcp-config, inline, as one argv word. No `env`: Claude passes the server its
- * own environment, the window's. In the `=` form, as the flag is variadic and would take a goal
- * after it as another config.
+ * own environment, the window's, or a background job's launch settings (claude/background.ts).
+ * In the `=` form, as the flag is variadic and would take a goal after it as another config.
  */
 export const claudeMcpConfig = (server: VaultServer) =>
   `--mcp-config=${JSON.stringify({ mcpServers: { [VAULT_SERVER]: { type: 'stdio', ...server } } })}`;

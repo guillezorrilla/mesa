@@ -941,6 +941,44 @@ test('a session stopped while its server runs is refused from its next request o
   expect(existsSync(join(cli.home, 'vault/wiki/notes/late.md'))).toBe(false);
 });
 
+test('a background session resumed under a new record is served through the binding its process kept', async () => {
+  const ended = await liveSession();
+  const base = cli.run;
+  cli.run = (file, args, ms, options) =>
+    file === 'claude' && ['--bg', 'stop'].includes(args[0] ?? '')
+      ? Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' })
+      : base(file, args, ms, options);
+  const first = await openSession('--background');
+  await mesa('stop', first);
+  const resumed = (await mesa('resume', first, '--json')).json.data.id as string;
+  // Claude restarts the job for the attach with its launch's settings env: the first record's.
+  cli.env = { MESA_SESSION_ID: first, MESA_PROFILE: 'default' };
+  const { replies } = await serve(
+    [],
+    initialize(),
+    rpc(2, 'tools/list'),
+    call(3, 'save_summary', { summary: 'Goal: chart the neaps. Done: the tide table.' }),
+    async () => {
+      cli.env = {};
+      await mesa('stop', resumed);
+      cli.env = { MESA_SESSION_ID: first, MESA_PROFILE: 'default' };
+    },
+    rpc(4, 'tools/list'),
+  );
+  expect(replies[1]?.result?.tools).toHaveLength(TOOLS.length);
+  expect(answer(replies[2])).toMatchObject({ path: `wiki/sessions/${resumed}.md`, changed: true });
+  expect(replies[3]?.result).toEqual({ tools: [] });
+  // A resumed foreground session is not followed: its process ended with its record.
+  cli.env = {};
+  await mesa('stop', ended);
+  expect((await mesa('resume', ended)).code).toBe(0);
+  cli.env = { MESA_SESSION_ID: ended, MESA_PROFILE: 'default' };
+  const { stderr } = await serve([], initialize(), rpc(2, 'tools/list'));
+  expect(stderr).toBe(
+    `mesa-vault: listing no tools: session ${ended} ended at 2026-09-24T12:00:00.000Z\n`,
+  );
+});
+
 test('a session record that stops reading is an internal error on stderr, never tools', async () => {
   const id = await liveSession();
   cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };

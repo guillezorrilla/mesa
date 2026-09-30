@@ -204,17 +204,11 @@ test('Claude background keeps its native process when the terminal closes, then 
   const base = withGit(world);
   let native = 'active';
   let launchEnv: Env | undefined;
+  let launchArgs: readonly string[] = [];
   const run: Runner = (file, args, ms, options) => {
     if (file === 'claude' && args[0] === '--bg') {
       launchEnv = options?.env;
-      expect(args).toEqual([
-        '--bg',
-        '--permission-mode',
-        'plan',
-        '--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}',
-        '--allowedTools=mcp__mesa-vault',
-        'Read the project',
-      ]);
+      launchArgs = args;
       return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
     }
     if (file === 'claude' && args[0] === 'stop') {
@@ -241,7 +235,9 @@ test('Claude background keeps its native process when the terminal closes, then 
     }
     return base(file, args, ms, options);
   };
-  const { mesa } = await setUp(world, { run, env: { CLAUDECODE: '1', NO_COLOR: '1' } });
+  // Opened from inside another Mesa window, whose variables must not reach Claude's supervisor.
+  const env = { CLAUDECODE: '1', NO_COLOR: '1', MESA_SESSION_ID: 'zzzzzzzz', MESA_PROFILE: 'work' };
+  const { mesa } = await setUp(world, { run, env });
   const opened = (
     await mesa.sessions.open('lantern-cove', {
       background: true,
@@ -256,9 +252,18 @@ test('Claude background keeps its native process when the terminal closes, then 
     vaultMounted: true,
   });
   expect(opened.agentSessionId).toBeUndefined();
-  expect(launchEnv).toMatchObject({ MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' });
-  expect(launchEnv).not.toHaveProperty('CLAUDECODE');
-  expect(launchEnv).not.toHaveProperty('NO_COLOR');
+  // The job's process has the supervisor's environment: the binding travels in its settings.
+  expect(launchArgs).toEqual([
+    '--bg',
+    '--permission-mode',
+    'plan',
+    `--settings={"env":{"MESA_SESSION_ID":"${opened.id}","MESA_PROFILE":"default"}}`,
+    '--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}',
+    '--allowedTools=mcp__mesa-vault',
+    'Read the project',
+  ]);
+  for (const name of ['MESA_SESSION_ID', 'MESA_PROFILE', 'CLAUDECODE', 'NO_COLOR'])
+    expect(launchEnv).not.toHaveProperty(name);
   expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   exitAll(world);
   const row = (await mesa.sessions.list()).find((s) => s.id === opened.id);
