@@ -261,41 +261,46 @@ test('General SessionStart points at profile skills without an unregistered proj
   expect(start.stdout).toContain('Without the tools: mesa vault context --general --json');
 });
 
-test('Codex clear leaves its saved identity intact and show reports the lost pointer', async () => {
-  cli.withTmux();
-  await cli.withProject();
-  const opened = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
-  await mesa('hooks', 'install');
-  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
-  cli.stdin = JSON.stringify({
-    session_id: opened.agentSessionId ?? 'native-one',
-    hook_event_name: 'SessionStart',
-    source: 'startup',
-  });
-  await mesa('hook', 'codex');
-  cli.stdin = JSON.stringify({
-    session_id: opened.agentSessionId ?? 'native-one',
-    hook_event_name: 'SessionEnd',
-  });
-  await mesa('hook', 'codex');
-  cli.stdin = JSON.stringify({
-    session_id: 'native-after-clear',
-    hook_event_name: 'SessionStart',
-    source: 'clear',
-  });
-  const changed = await mesa('hook', 'codex', '--json');
-  expect(changed.json.data).toMatchObject({
-    recorded: true,
-    event: 'SessionIdentityChanged',
-  });
-  expect((await mesa('show', opened.id, '--json')).json.data).toMatchObject({
-    agentSessionId: opened.agentSessionId ?? 'native-one',
-    instructions: {
-      state: 'conflicting',
-      reason: 'Native conversation changed after /clear; reopen through Mesa',
-    },
-  });
-});
+test.each([true, false])(
+  'Codex clear retains identity and reports conflict, end first: %s',
+  async (endFirst) => {
+    cli.withTmux();
+    await cli.withProject();
+    const opened = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
+    await mesa('hooks', 'install');
+    cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+    cli.stdin = JSON.stringify({
+      session_id: opened.agentSessionId ?? 'native-one',
+      hook_event_name: 'SessionStart',
+      source: 'startup',
+    });
+    await mesa('hook', 'codex');
+    if (endFirst) {
+      cli.stdin = JSON.stringify({
+        session_id: opened.agentSessionId ?? 'native-one',
+        hook_event_name: 'SessionEnd',
+      });
+      await mesa('hook', 'codex');
+    }
+    cli.stdin = JSON.stringify({
+      session_id: 'native-after-clear',
+      hook_event_name: 'SessionStart',
+      source: 'clear',
+    });
+    const changed = await mesa('hook', 'codex', '--json');
+    expect(changed.json.data).toMatchObject({
+      recorded: true,
+      event: 'SessionIdentityChanged',
+    });
+    expect((await mesa('show', opened.id, '--json')).json.data).toMatchObject({
+      agentSessionId: opened.agentSessionId ?? 'native-one',
+      instructions: {
+        state: 'conflicting',
+        reason: 'Native conversation changed after /clear; reopen through Mesa',
+      },
+    });
+  },
+);
 
 test('a hook in a session refuses to log while config.yaml does not read, so no key leaks', async () => {
   await mesa('init', '--vault', 'vault');
@@ -483,3 +488,31 @@ test('broken Codex trust is a doctor warning and prevents a partial hooks instal
   });
   expect(JSON.stringify(report)).not.toContain('invented-secret');
 });
+
+test.each(['startup', undefined])(
+  'an unknown Codex native start reports ambiguity without a pointer: %s',
+  async (source) => {
+    cli.withTmux();
+    await cli.withProject();
+    const opened = (await mesa('open', 'lantern-cove', '--agent', 'codex', '--json')).json.data;
+    cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+    cli.stdin = JSON.stringify({
+      session_id: 'native-one',
+      hook_event_name: 'SessionStart',
+      source: 'startup',
+    });
+    await mesa('hook', 'codex');
+    cli.stdin = JSON.stringify({
+      session_id: 'unknown-native',
+      hook_event_name: 'SessionStart',
+      source,
+    });
+    expect((await mesa('hook', 'codex')).stdout.trim()).toBe('');
+    const shown = (await mesa('show', opened.id, '--json')).json.data;
+    expect(shown.agentSessionId).toBe('native-one');
+    expect(shown.instructions).toMatchObject({
+      state: 'conflicting',
+      reason: expect.stringContaining('/clear or nested Codex is ambiguous'),
+    });
+  },
+);

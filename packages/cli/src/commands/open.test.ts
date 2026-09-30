@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CLAUDE_MOUNT, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, describe, expect, test } from 'vitest';
@@ -406,3 +406,51 @@ describe('open --after queues a session until the one it waits on is over', () =
     expect(window(b.id)).toBeDefined();
   });
 });
+
+test.each(['open', 'resume', 'handoff'] as const)(
+  '%s surfaces Codex trust warnings in text and JSON',
+  async (action) => {
+    cli.withTmux();
+    await cli.withProject({ layOut: false });
+    const note = join(cli.home, 'handoff.md');
+    writeFileSync(note, '## Verified\nInvented handoff.\n');
+    await mesa('hooks', 'install');
+    const warning =
+      "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer";
+    const start = async (json: boolean) => {
+      let args: string[];
+      if (action === 'open')
+        args = ['open', 'lantern-cove', '--agent', 'codex', '--goal', 'Read files'];
+      else {
+        const seed = (
+          await mesa('open', 'lantern-cove', '--agent', 'codex', '--goal', 'Read files', '--json')
+        ).json.data;
+        testStore(cli.home).update(seed.id, {
+          agentSessionId: '11111111-2222-4333-8444-555555555555',
+        });
+        if (action === 'resume') {
+          await mesa('stop', seed.id);
+          args = ['resume', seed.id];
+        } else args = ['handoff', seed.id, '--note', note, '--agent', 'codex'];
+      }
+      return mesa(...args, ...(json ? ['--json'] : []));
+    };
+    for (const json of [false, true]) {
+      const out = await start(json);
+      expect(out.code).toBe(0);
+      if (json) expect(out.json.data.warning).toBe(warning);
+      else expect(out.stdout).toContain(`warning: ${warning}`);
+    }
+    const path = realpathSync(join(cli.home, '.codex/hooks.json'));
+    writeFileSync(
+      join(cli.home, '.codex/config.toml'),
+      `[hooks.state.${JSON.stringify(`${path}:session_start:0:0`)}]\ntrusted_hash = "sha256:invented"\n`,
+    );
+    for (const json of [false, true]) {
+      const out = await start(json);
+      expect(out.code).toBe(0);
+      if (json) expect(out.json.data.warning).toBeUndefined();
+      else expect(out.stdout).not.toContain(warning);
+    }
+  },
+);
