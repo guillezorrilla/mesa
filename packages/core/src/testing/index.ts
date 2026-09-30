@@ -1,14 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import {
-  appendFileSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  utimesSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { claudeTranscripts } from '../agents/claude/paths.js';
@@ -25,6 +16,7 @@ import type { ListingDeps } from '../sessions/agent-listing.js';
 import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
+import { tempDir } from './tmp.js';
 
 // Test implementations of Mesa's seams, real but controlled: a scripted runner and a temp home,
 // never mocks of Mesa's own modules. Published as @mesa/core/testing, not from the index.
@@ -559,8 +551,7 @@ export function newSession(overrides: Partial<NewSession> = {}): NewSession {
   };
 }
 
-/** A fresh temp dir, symlinks resolved (macOS `/var` is `/private/var`). */
-export const tempDir = (prefix = 'mesa-') => realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+export { isolateTmp, tempDir } from './tmp.js';
 
 /** The MesaError a call throws, as `{ code, message }`; throws if it returns or throws anything else. */
 export function thrown(fn: () => unknown): { code: string; message: string } {

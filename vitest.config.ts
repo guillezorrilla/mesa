@@ -17,6 +17,9 @@ export default defineConfig({
   test: {
     // Local-time frontmatter (Obsidian's Date & Time) is golden-tested, so every machine runs in UTC.
     env: { TZ: 'UTC' },
+    // Tests and vitest leave their temp files in TMPDIR; these remove them when a file and a run end.
+    setupFiles: ['vitest.setup.ts'],
+    globalSetup: ['vitest.global-setup.ts'],
     // CLI and worktree tests spawn many git processes; five seconds flakes under desktop load.
     testTimeout: 15000,
     include: [
