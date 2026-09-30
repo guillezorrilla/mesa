@@ -13,6 +13,7 @@ import {
   browserSelect,
 } from './browser.js';
 import { config, configSet } from './config.js';
+import { daily } from './daily.js';
 import { decide } from './decide.js';
 import { dependency } from './dependency.js';
 import { diagnostics } from './diagnostics.js';
@@ -148,6 +149,7 @@ export const COMMANDS: Command[] = [
   configSet,
   dependency,
   decide,
+  daily,
   diagnostics,
   doctor,
   filesCreate,

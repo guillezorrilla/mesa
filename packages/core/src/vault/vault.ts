@@ -5,7 +5,7 @@ import { MesaError } from '../lib/result.js';
 import { RECEIPT_FILE } from '../receipts/receipt-file.js';
 import { VAULT, VAULT_FOLDERS } from './layout.js';
 
-const MARK = 'vault initialised by mesa';
+export const VAULT_INIT_MARK = 'vault initialised by mesa';
 // Relative to this module, so it resolves from src (vitest) and from dist (the built CLI).
 const TEMPLATE = new URL('../../templates/vault-AGENTS.md', import.meta.url);
 const INDEX = '# Index\n\nOne line per note in `wiki/` and `projects/`: a link and a summary.\n';
@@ -17,7 +17,11 @@ type Item =
 // The layout from ADR-0006, in creation order. log.md comes first: its first line marks the
 // folder as a Mesa vault (see acceptsMesaWrites), so an interrupted init can be rerun without --force.
 const LAYOUT: Item[] = [
-  { name: VAULT.log, kind: 'file', content: (now) => `- ${now.toISOString()} ${MARK}\n` },
+  {
+    name: VAULT.log,
+    kind: 'file',
+    content: (now) => `- ${now.toISOString()} ${VAULT_INIT_MARK}\n`,
+  },
   { name: VAULT.agents, kind: 'file', content: () => readFileSync(TEMPLATE, 'utf8') },
   { name: VAULT.index, kind: 'file', content: () => INDEX },
   ...VAULT_FOLDERS.map((name) => ({
@@ -56,7 +60,7 @@ export function acceptsMesaWrites(path: string): boolean {
     return receiptsOnly(join(path, VAULT.receipts));
   if (!entries.includes(VAULT.log)) return false;
   const first = readFileSync(join(path, VAULT.log), 'utf8').split('\n', 1)[0] ?? '';
-  return first.startsWith('- ') && first.endsWith(` ${MARK}`);
+  return first.startsWith('- ') && first.endsWith(` ${VAULT_INIT_MARK}`);
 }
 
 export function vaultStatus(path: string): VaultStatus {

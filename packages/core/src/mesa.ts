@@ -6,6 +6,7 @@ import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
 import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { hooksService } from './agents/hooks-service.js';
 import { createContext, type MesaDeps } from './context.js';
+import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
 import { diagnosticsService } from './diagnostics/service.js';
 import { inboxCheck, runDoctor } from './doctor.js';
@@ -48,6 +49,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     git: gitService(ctx, faro),
     ...vaultService(ctx),
     ...mapService(ctx),
+    ...dailyService(ctx),
     receipts: receiptsService(ctx),
     ...sessionsService(ctx, faro, skills),
     hooks: hooksService(ctx),

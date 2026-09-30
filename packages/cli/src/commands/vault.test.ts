@@ -113,13 +113,13 @@ test('log appends to log.md and to the daily note it creates', async () => {
   await mesa('vault', 'init');
   const out = await mesa('log', 'hello', '--json');
   expect(out.code).toBe(0);
-  expect(out.json.data.entry).toBe('- 2026-09-24T12:00:00.000Z hello');
+  expect(out.json.data.entry).toBe('- 2026-09-24T12:00:00.000Z hello <!-- mesa:log -->');
   expect(readFileSync(join(cli.home, 'vault/log.md'), 'utf8').trimEnd().split('\n').at(-1)).toBe(
-    '- 2026-09-24T12:00:00.000Z hello',
+    '- 2026-09-24T12:00:00.000Z hello <!-- mesa:log -->',
   );
   const daily = readFileSync(join(cli.home, 'vault', out.json.data.daily), 'utf8');
   expect(daily).toMatch(/^---\ncreated: /);
-  expect(daily.trimEnd().endsWith('- 2026-09-24T12:00:00.000Z hello')).toBe(true);
+  expect(daily).toContain('- 2026-09-24T12:00:00.000Z hello\n<!-- mesa:daily:end -->');
   expect((await mesa('log')).code).toBe(2);
 });
 

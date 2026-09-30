@@ -3,9 +3,9 @@ import { dirname } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
-import { localDay, obsidianDateTime } from '../lib/time.js';
+import { obsidianDateTime } from '../lib/time.js';
 import { type Frontmatter, type Note, parseNote, serializeNote } from './frontmatter.js';
-import { dailyNotePath, VAULT } from './layout.js';
+import { VAULT } from './layout.js';
 import { vaultFile, vaultWriteFile } from './scope.js';
 import { withVaultLock } from './vault-lock.js';
 
@@ -113,25 +113,4 @@ export function appendLog(deps: NotesDeps, line: string): string {
   const entry = `- ${deps.clock().toISOString()} ${text}`;
   appendFileSync(file, `${entry}\n`);
   return entry;
-}
-
-/**
- * `mesa log`: the line goes to log.md and to today's daily note (created with frontmatter when
- * missing), both under one hold of the vault lock, so a busy lock writes neither.
- */
-export function logLine(
-  deps: LockedNotesDeps,
-  text: string,
-): Promise<{ entry: string; daily: string }> {
-  requireLog(deps.vault); // before the lock, which would otherwise create .mesa/ in a bare folder
-  const day = localDay(deps.clock());
-  const daily = dailyNotePath(day);
-  return withVaultLock(deps, async () => {
-    const entry = appendLog(deps, text);
-    await rewrite(deps, daily, (note) => ({
-      frontmatter: { type: 'daily', date: day, ...note?.frontmatter },
-      body: `${note?.body ?? `# ${day}\n\n`}${entry}\n`,
-    }));
-    return { entry, daily };
-  });
 }

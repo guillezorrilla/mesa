@@ -7,7 +7,6 @@ import { writeBases } from './bases.js';
 import { vaultBinding } from './binding.js';
 import { listVault, type VaultInventory } from './inventory.js';
 import type { VaultFilter } from './item.js';
-import { logLine } from './notes.js';
 import { openInObsidian } from './obsidian.js';
 import { projectContext } from './project-context.js';
 import { readVaultItem } from './reader.js';
@@ -20,8 +19,7 @@ import { initVault, vaultStatus } from './vault.js';
 
 /**
  * The profile's vault: laying it out, its status, its inventory, reading an item, searching it,
- * a project's context and earlier goals, opening it, the session writes, the vault server, and
- * `mesa log`.
+ * a project's context and earlier goals, opening it, session writes, and the vault server.
  */
 export function vaultService(ctx: MesaContext) {
   const { record, vaultOf, deps, store } = ctx;
@@ -86,6 +84,5 @@ export function vaultService(ctx: MesaContext) {
           ...writes,
         }),
     },
-    log: (text: string) => logLine(ctx.notes(), text),
   };
 }
