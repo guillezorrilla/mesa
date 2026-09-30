@@ -182,3 +182,10 @@ function resolve(index: LinkIndex, from: string, link: NoteLink): LinkResolution
 /** Every link the body of the note at `from` writes, in order, each with where it leads. */
 export const resolveLinks = (index: LinkIndex, from: string, body: string): VaultLink[] =>
   parseLinks(body).map((link) => ({ ...link, ...resolve(index, from, link) }));
+
+/**
+ * The wikilink Mesa writes to the item at `path` (vault-relative): its path with `.md` dropped, as
+ * Obsidian writes one, and `|alias` when given: `[[wiki/notes/tides]]`.
+ */
+export const wikilink = (path: string, alias?: string) =>
+  `[[${path.replace(/\.md$/, '')}${alias ? `|${alias}` : ''}]]`;

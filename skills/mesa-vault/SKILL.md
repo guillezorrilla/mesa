@@ -21,7 +21,7 @@ The profile's Obsidian vault holds what the person and earlier sessions know abo
 
 ## Save
 
-Save knowledge a later session acts on; everything else stays in the session. Each save returns `{path, changed, receipt}`, and Mesa writes the index line, the log line, and the one history entry for you. The same save again returns `changed: false` and adds nothing, so a retry is safe.
+Save knowledge a later session acts on; everything else stays in the session. Each save returns `{path, changed, receipt}`, and Mesa writes the log line, the one history entry, and a new decision's or note's index line for you. The same save again returns `changed: false` and adds nothing, so a retry is safe.
 
 - **Decision**: a choice with its reason, which a successor must not reopen. `save_decision` takes a title, the decision, the rationale, and the probabilities and confidence when `mesa decide` gave them. It lands in `wiki/decisions/<YYYY-MM-DD>-<slug>.md`.
 - **Summary**: what the session did, as Goal, Done, Assumed, Left, and Decisions (the `session-summary` skill's shape). `save_summary` lands it in `wiki/sessions/<id>.md`.

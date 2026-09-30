@@ -2,9 +2,8 @@ import type { MesaContext } from '../context.js';
 import { redactPayload } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
-import { findProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
-import { callerOf } from '../sessions/caller.js';
+import { recordScope } from '../receipts/record-scope.js';
 import { recordAgent } from '../sessions/record.js';
 import { adapterBackend } from './adapter.js';
 import { decide, type FaroProfile } from './decide.js';
@@ -73,20 +72,7 @@ export function createFaro(ctx: MesaContext) {
       questions: unknown,
       context: { project?: string; session?: string; rationale?: string } = {},
     ) => {
-      const actor = callerOf({ store: ctx.store, env: deps.env, profileName: ctx.profile }).session;
-      const session = context.session
-        ? ctx.store.get(context.session)
-        : context.project === actor?.project
-          ? actor
-          : undefined;
-      const project = context.project ?? session?.project;
-      if (project) findProject(ctx.open(), project);
-      if (session && context.project && session.project !== context.project) {
-        throw new MesaError(
-          'usage',
-          `session ${session.id} is on ${session.project}, not ${context.project}`,
-        );
-      }
+      const { project, session, actor } = recordScope(ctx, context);
       const rationale = context.rationale?.trim();
       if (project && !rationale)
         throw new MesaError('usage', 'a project decision needs a rationale');

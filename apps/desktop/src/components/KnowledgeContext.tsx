@@ -33,8 +33,9 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
         </Button>
       </div>
       {entries.map((entry) => {
+        // The note a change or a saved decision names, else the receipt itself.
         const target =
-          entry.receipt.kind === 'vault-change' && typeof entry.receipt.outputs.target === 'string'
+          typeof entry.receipt.outputs.target === 'string'
             ? entry.receipt.outputs.target
             : entry.path;
         const rationale = entry.receipt.inputs.rationale;

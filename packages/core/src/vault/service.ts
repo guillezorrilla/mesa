@@ -4,11 +4,12 @@ import type { VaultFilter } from './item.js';
 import { logLine } from './notes.js';
 import { openInObsidian } from './obsidian.js';
 import { readVaultItem } from './reader.js';
+import { sessionWrites } from './session-writes.js';
 import { initVault, vaultStatus } from './vault.js';
 
 /**
- * The profile's vault: laying it out, its status, its inventory, reading an item, opening it, and
- * `mesa log`.
+ * The profile's vault: laying it out, its status, its inventory, reading an item, opening it, the
+ * session writes, and `mesa log`.
  */
 export function vaultService(ctx: MesaContext) {
   const { record, vaultOf, deps } = ctx;
@@ -37,6 +38,7 @@ export function vaultService(ctx: MesaContext) {
       /** Opens the vault, or one item in it, in Obsidian: the URI by default, the CLI with `cli`. */
       open: (note?: string, cli = false) =>
         openInObsidian({ run: deps.run, obsidian: deps.obsidian }, { vault: vaultOf(), note, cli }),
+      ...sessionWrites(ctx),
     },
     log: (text: string) => logLine(ctx.notes(), text),
   };

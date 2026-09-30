@@ -31,6 +31,15 @@ export function readNote(vault: string, path: string): Note {
   return note;
 }
 
+/** Refuses to replace a note whose frontmatter says `locked: true`: it is the person's. */
+export function refuseLocked(file: string, note: Note | undefined): void {
+  if (note?.frontmatter.locked === true) {
+    throw new MesaError('locked', `${file} is locked (locked: true in its frontmatter)`, {
+      reason: 'note',
+    });
+  }
+}
+
 /**
  * Writes a note at `path` (relative to the vault) atomically. The frontmatter gets `created` (kept
  * from the note it replaces), `updated`, and `source: mesa`, then the caller's fields. A note
@@ -39,11 +48,7 @@ export function readNote(vault: string, path: string): Note {
 export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note {
   const file = vaultFile(deps.vault, note.path);
   const previous = readIfExists(file);
-  if (previous?.frontmatter.locked === true) {
-    throw new MesaError('locked', `${file} is locked (locked: true in its frontmatter)`, {
-      reason: 'note',
-    });
-  }
+  refuseLocked(file, previous);
   const now = obsidianDateTime(deps.clock());
   const fields = ownFields(note.frontmatter);
   const frontmatter: Frontmatter = {
@@ -73,7 +78,7 @@ export const updateNote = (deps: LockedNotesDeps, path: string, change: Change):
   withVaultLock(deps, () => rewrite(deps, path, change));
 
 /** The vault's log.md; not_found until `mesa vault init` has run. */
-function requireLog(vault: string): string {
+export function requireLog(vault: string): string {
   const file = join(vault, VAULT.log);
   if (!existsSync(file)) throw new MesaError('not_found', `${file} not found; run mesa vault init`);
   return file;
