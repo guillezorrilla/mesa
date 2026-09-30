@@ -102,6 +102,7 @@ import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { usage } from './usage.js';
 import {
+  vaultBases,
   vaultContext,
   vaultGoals,
   vaultInit,
@@ -243,6 +244,7 @@ export const COMMANDS: Command[] = [
   unregister,
   unarchive,
   usage,
+  vaultBases,
   vaultInit,
   vaultList,
   vaultMcp,

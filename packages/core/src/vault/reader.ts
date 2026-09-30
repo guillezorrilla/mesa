@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { MesaError } from '../lib/result.js';
+import { ownedBaseViews } from './bases.js';
 import { type Frontmatter, parseNote } from './frontmatter.js';
 import { listVault } from './inventory.js';
 import type { VaultItem } from './item.js';
@@ -14,7 +15,7 @@ import { vaultFile } from './scope.js';
 export type VaultPreview =
   | { preview: 'markdown'; frontmatter: Frontmatter; body: string; links: VaultLink[] }
   | { preview: 'canvas'; nodes: number; edges: number; texts: string[] }
-  | { preview: 'base'; yaml: string }
+  | { preview: 'base'; yaml: string; views?: string[] }
   | { preview: 'unsupported'; reason: string };
 
 export type VaultRead = VaultItem & {
@@ -65,7 +66,10 @@ function previewOf(item: VaultItem, file: string, index: LinkIndex): VaultPrevie
   } catch {
     return { preview: 'unsupported', reason: 'the system does not let Mesa read it' };
   }
-  if (item.kind === 'base') return { preview: 'base', yaml: text };
+  if (item.kind === 'base') {
+    const views = ownedBaseViews(text);
+    return { preview: 'base', yaml: text, ...(views ? { views } : {}) };
+  }
   if (item.kind === 'canvas') return canvasOf(text);
   const { frontmatter, body } = noteOf(text);
   return { preview: 'markdown', frontmatter, body, links: resolveLinks(index, item.path, body) };

@@ -49,6 +49,22 @@ export const vaultStatus = defineCommand({
   },
 });
 
+export const vaultBases = defineCommand({
+  name: 'vault bases',
+  summary: 'Write owned receipts and sessions Bases views; keep user files',
+  example: 'mesa vault bases --json',
+  run: async ({ mesa }) => {
+    const result = await mesa.vault.bases();
+    return {
+      data: result,
+      text: [
+        ...result.written.map((path) => `written ${path}`),
+        ...result.kept.map((path) => `kept ${path}`),
+      ].join('\n'),
+    };
+  },
+});
+
 export const vaultList = defineCommand({
   name: 'vault list',
   summary: 'List every item in the profile vault, its internals aside',
@@ -102,6 +118,7 @@ function readText(read: VaultRead): string {
   } else if (read.preview === 'canvas') {
     lines.push(`${read.nodes} nodes, ${read.edges} edges`, ...read.texts.map((t) => `- ${t}`));
   } else if (read.preview === 'base') {
+    if (read.views) lines.push(`views: ${read.views.join(', ')}`);
     lines.push(read.yaml.trimEnd());
   } else {
     lines.push(`preview not available: ${read.reason}`);

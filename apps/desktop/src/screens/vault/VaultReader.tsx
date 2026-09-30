@@ -227,6 +227,11 @@ function Preview({ read, onSelect }: { read: VaultRead; onSelect: Select }) {
     return (
       <>
         <NoPreview path={read.path} why="Mesa shows a base's YAML, not its views" />
+        {read.views && (
+          <p data-testid="vault-base-views" className="text-sm">
+            Views: {read.views.join(', ')}
+          </p>
+        )}
         <pre className="overflow-auto rounded-md bg-muted p-3 font-mono text-xs">{read.yaml}</pre>
       </>
     );

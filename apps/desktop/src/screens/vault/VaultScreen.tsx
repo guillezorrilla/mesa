@@ -1,6 +1,6 @@
-import type { VaultInventory, VaultItem } from '@mesa/core';
+import type { BasesWritten, VaultInventory, VaultItem } from '@mesa/core';
 import { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from '@mesa/core/browser';
-import { Link2Off, Search } from 'lucide-react';
+import { Link2Off, Search, Table2 } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import {
   NativeSelectOptGroup,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import { useRun } from '@/lib/useCommand';
 import { useVaultLook } from './useVaultLook';
 import { VaultReader } from './VaultReader';
 import { VaultSearchResults } from './VaultSearchResults';
@@ -208,7 +209,15 @@ function VaultBrowser({
  */
 export function VaultScreen({ query = '', path }: { query?: string; path?: string }) {
   const look = useVaultLook();
+  const run = useRun();
+  const [writing, setWriting] = useState(false);
+  const [bases, setBases] = useState<BasesWritten>();
   const inventory = look?.list.ok ? look.list.data : undefined;
+  const writeBases = async () => {
+    setWriting(true);
+    setBases(await run('vault.bases'));
+    setWriting(false);
+  };
   return (
     <section data-testid="vault-panel" className="space-y-4">
       <PageHeader
@@ -218,7 +227,20 @@ export function VaultScreen({ query = '', path }: { query?: string; path?: strin
             ? `${inventory.total} ${inventory.total === 1 ? 'item' : 'items'} in ${inventory.vault}`
             : "Every item in this profile's vault."
         }
-      />
+      >
+        <Button
+          variant="outline"
+          disabled={!inventory || writing}
+          onClick={() => void writeBases()}
+        >
+          <Table2 aria-hidden className="size-4" /> Write Bases views
+        </Button>
+      </PageHeader>
+      {bases && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Bases: wrote {bases.written.length}, kept {bases.kept.length}.
+        </p>
+      )}
       {!look ? (
         <p className="text-sm text-muted-foreground">Reading the vault...</p>
       ) : !look.list.ok ? (

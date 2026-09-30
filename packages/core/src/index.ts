@@ -122,6 +122,7 @@ export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export type { UsageRecord, UsageReport } from './usage/records.js';
 export type { WeeklyRewind } from './usage/rewind.js';
+export type { BasesWritten } from './vault/bases.js';
 export type { VaultInventory } from './vault/inventory.js';
 export {
   type Unavailable,

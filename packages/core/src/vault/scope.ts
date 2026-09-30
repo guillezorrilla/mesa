@@ -1,4 +1,4 @@
-import { lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { MesaError } from '../lib/result.js';
 import { itemProject } from './item.js';
@@ -10,6 +10,13 @@ import { INTERNALS } from './layout.js';
 export type OutOfScope = 'outside the vault' | 'a vault internal' | 'a broken link';
 
 const INTERNAL = new Set<string>(INTERNALS.map((name) => name.toLowerCase()));
+
+/** A configured vault must exist as a folder before a read or derived-file write. */
+export function requireVaultFolder(vault: string): void {
+  const root = statSync(vault, { throwIfNoEntry: false });
+  if (!root) throw new MesaError('not_found', `vault ${vault} does not exist; run mesa vault init`);
+  if (!root.isDirectory()) throw new MesaError('invalid_config', `vault ${vault} is not a folder`);
+}
 
 /** Whether a vault-relative path is, or lies in, a vault internal (INTERNALS), in any folder. */
 export const isInternal = (path: string) =>
