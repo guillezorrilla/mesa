@@ -1,7 +1,13 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { agentWorld, profilePaths, projectProfile, steppingClock } from '../testing/index.js';
+import {
+  agentWorld,
+  CODEX_MOUNT,
+  profilePaths,
+  projectProfile,
+  steppingClock,
+} from '../testing/index.js';
 
 const THREAD = '01a0e14e-be41-72f1-a81b-e25d2198602a';
 
@@ -24,7 +30,9 @@ test('resume reopens a Codex thread embedded, in its recorded folder, with -C', 
   expect(record).toMatchObject({ agent: 'codex', agentSessionId: THREAD, resumedFrom: opened.id });
   const window = world.tmux.windows.at(-1);
   expect(window).toMatchObject({ window: `codex-${record.id}`, path: dir });
-  expect(window?.launch).toBe(`codex -c mesa.embedded=true resume '${THREAD}' -C '${dir}'`);
+  expect(window?.launch).toBe(
+    `codex -c mesa.embedded=true ${CODEX_MOUNT} resume '${THREAD}' -C '${dir}'`,
+  );
 });
 
 test('resumed Antigravity logs its own native ID and reports a later clear as conflicting', async () => {

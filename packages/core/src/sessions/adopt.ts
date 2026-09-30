@@ -1,4 +1,4 @@
-import { readyAgent } from '../agents/agents.js';
+import { AGENTS, readyAgent } from '../agents/agents.js';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { transcriptCwd } from '../agents/claude/transcripts.js';
 import { codexHome, codexSessions } from '../agents/codex/paths.js';
@@ -31,6 +31,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Native conversation sources verified for import; Antigravity has no qualified history source. */
 const ADOPTS = ['claude', 'codex'] as const;
+const adoptable = (p: AgentProcess): p is AgentProcess & { agent: (typeof ADOPTS)[number] } =>
+  ADOPTS.some((agent) => agent === p.agent);
 
 /**
  * Records a native session Mesa did not start, found live (the listing) or on disk (its
@@ -53,7 +55,7 @@ export async function adoptSession(
     throw new MesaError('usage', `another profile's session has ${id} already`);
   }
   const live = (await deps.listing()).find((p) => p.agentSessionId === id);
-  if (live && !ADOPTS.some((agent) => agent === live.agent)) {
+  if (live && !adoptable(live)) {
     const adopts = ADOPTS.map((a) => AGENT_LABELS[a]).join(' and ');
     throw new MesaError(
       'usage',
@@ -94,8 +96,8 @@ export async function adoptSession(
     ...named,
   };
   if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
-  const spec = await readyAgent(deps.run, agent);
-  const command = () => spec.resume(id, cwd);
+  await readyAgent(deps.run, agent);
+  const command = () => AGENTS[agent].resume(id, cwd, deps.vaultServer);
   const { record, warning } = await launchSession(deps, s, { command });
   return { record, warning: joinWarnings(WARNING, warning) ?? WARNING };
 }

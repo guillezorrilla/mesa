@@ -41,7 +41,8 @@ export async function resumeSession(
       `session ${id} was already resumed as ${resumedBy}; mesa resume ${resumedBy}`,
     );
   }
-  const spec = await readyAgent(deps.run, old.agent);
+  const { agent } = old;
+  await readyAgent(deps.run, agent);
   const project = old.project === GENERAL_PROJECT ? null : findProject(deps.profile, old.project);
   // tmux would start a window whose folder is gone in $HOME, where claude has no such conversation.
   const folder = folderOf(old, project);
@@ -83,13 +84,13 @@ export async function resumeSession(
     {
       command: (record) => {
         if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
-        if (old.agent === 'antigravity')
+        if (agent === 'antigravity')
           return AGENTS.antigravity.resume(
             agentId,
             prepareAntigravityLog(deps.profile.paths.logs, record.id),
             old.mode,
           );
-        return spec.resume(agentId, folder, old.mode);
+        return AGENTS[agent].resume(agentId, folder, deps.vaultServer, old.mode);
       },
     },
   );

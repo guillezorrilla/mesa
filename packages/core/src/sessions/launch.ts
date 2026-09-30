@@ -6,6 +6,7 @@ import {
   stopClaudeBackground,
 } from '../agents/claude/background.js';
 import { AGENT_NAMES, type Agent } from '../agents/names.js';
+import type { VaultServer } from '../agents/vault-mount.js';
 import type { Clock } from '../lib/clock.js';
 import type { Env, Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
@@ -40,6 +41,8 @@ export type LaunchDeps = {
   clock: Clock;
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
+  /** The mesa-vault server every agent command mounts (agents/vault-mount.ts). */
+  vaultServer: VaultServer;
 };
 
 /**
@@ -156,10 +159,14 @@ export async function startSession(
       const env = { ...deps.env };
       for (const key of nestedAgentVars(deps.env)) delete env[key];
       delete env.NO_COLOR;
-      backgroundId = await startClaudeBackground(deps.run, cwd, record.goal, record.mode, {
-        ...env,
-        ...windowEnv(record.id, deps.profileName),
-      });
+      backgroundId = await startClaudeBackground(
+        deps.run,
+        cwd,
+        deps.vaultServer,
+        record.goal,
+        record.mode,
+        { ...env, ...windowEnv(record.id, deps.profileName) },
+      );
       record = deps.store.update(record.id, { backgroundId });
     }
     const { paths, config } = deps.profile;

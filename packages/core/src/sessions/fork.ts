@@ -64,7 +64,8 @@ export async function forkSession(
       ...(!opts.branch ? { cwd: folder } : {}),
     },
     {
-      command: (record) => native.fork(nativeId, folderOf(record, project), source.mode),
+      command: (record) =>
+        native.fork(nativeId, folderOf(record, project), deps.vaultServer, source.mode),
       branch: opts.branch,
       base,
     },

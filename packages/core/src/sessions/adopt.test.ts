@@ -5,6 +5,7 @@ import { codexHome, codexSessions } from '../agents/codex/paths.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
+  CLAUDE_MOUNT,
   codexWorld,
   fakeTmux,
   newSession,
@@ -62,7 +63,7 @@ test('a live session is adopted into the project its folder is in, and reopened 
     {
       window: result.record.tmux.window,
       path: dir,
-      launch: `unset NO_COLOR; exec claude --resume ${LIVE}`,
+      launch: `unset NO_COLOR; exec claude --resume ${LIVE} ${CLAUDE_MOUNT}`,
     },
   ]);
   expect(receipt).toBeNull();
@@ -85,7 +86,7 @@ test('a session on disk is found by its transcript, and reopened in the folder i
   expect(result.record).toMatchObject({ project: 'lantern-cove', cwd: sub });
   expect(world.windows.at(-1)).toMatchObject({
     path: sub,
-    launch: `unset NO_COLOR; exec claude --resume ${ON_DISK}`,
+    launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MOUNT}`,
   });
 });
 
@@ -162,7 +163,7 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
   const { result: resumed } = await mesa.sessions.resume(result.record.id);
   expect(resumed.record).toMatchObject({ adopted: true, name: 'docs', cwd: sub });
   expect(world.windows).toMatchObject([
-    { path: sub, launch: `unset NO_COLOR; exec claude --resume ${ON_DISK}` },
+    { path: sub, launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MOUNT}` },
   ]);
 });
 

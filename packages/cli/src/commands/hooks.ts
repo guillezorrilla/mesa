@@ -2,14 +2,16 @@ import type { HooksStatus } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
+const mark = (on: boolean) => (on ? 'ok  ' : 'MISS');
 const listed = (s: HooksStatus) =>
   Object.entries(s.events)
-    .map(([event, on]) => `${on ? 'ok  ' : 'MISS'} ${event}`)
+    .map(([event, on]) => `${mark(on)} ${event}`)
     .join('\n');
 
 export const hooksStatus = defineCommand({
   name: 'hooks status',
-  summary: "Show Mesa's agent hooks, Codex trust, and tmux pane-died hook",
+  summary:
+    "Show Mesa's agent hooks, Codex trust, Antigravity's mesa-vault entry, and tmux pane-died hook",
   example: 'mesa hooks status',
   run: async ({ mesa }) => {
     const status = await mesa.hooks.status();
@@ -17,6 +19,7 @@ export const hooksStatus = defineCommand({
     const tmux = server
       ? `${paneDied ? 'ok  ' : 'MISS'} tmux pane-died on ${socket}`
       : `--   tmux pane-died: no server on ${socket} yet`;
+    const vault = status.antigravityVault;
     const codex = Object.entries(status.codex.events)
       .map(
         ([event, installed]) =>
@@ -25,20 +28,21 @@ export const hooksStatus = defineCommand({
       .join('\n');
     return {
       data: status,
-      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${status.antigravity.installed ? 'ok  ' : 'MISS'} PreInvocation\n${tmux}`,
+      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vault.path}\n${mark(vault.server)} mesa-vault entry\n${vault.rulePath}\n${mark(vault.rule)} mesa-vault allow rule\n${tmux}`,
     };
   },
 });
 
 export const hooksInstall = defineCommand({
   name: 'hooks install',
-  summary: "Add Mesa's agent hooks; the user's own hooks stay as they are",
+  summary:
+    "Add Mesa's agent hooks and Antigravity's mesa-vault entry; the user's own stay as they are",
   example: 'mesa hooks install',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.install();
     const { changed, ...status } = recorded.result;
     const text = changed
-      ? `installed Mesa's hooks in ${status.path}, ${status.codex.path}, and ${status.antigravity.path}`
+      ? `installed Mesa's hooks in ${status.path}, ${status.codex.path}, and ${status.antigravity.path}, and its mesa-vault entry in ${status.antigravityVault.path} and ${status.antigravityVault.rulePath}`
       : 'hooks already installed';
     return recordedOutput(recorded, {
       data: { ...status, changed },
@@ -49,13 +53,13 @@ export const hooksInstall = defineCommand({
 
 export const hooksUninstall = defineCommand({
   name: 'hooks uninstall',
-  summary: "Remove Mesa's agent hooks, and nothing else",
+  summary: "Remove Mesa's agent hooks and mesa-vault entry, and nothing else",
   example: 'mesa hooks uninstall',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.uninstall();
     const { changed, ...status } = recorded.result;
     const text = changed
-      ? `removed Mesa's hooks from ${status.path}, ${status.codex.path}, and ${status.antigravity.path}`
+      ? `removed Mesa's hooks from ${status.path}, ${status.codex.path}, and ${status.antigravity.path}, and its mesa-vault entry from ${status.antigravityVault.path} and ${status.antigravityVault.rulePath}`
       : 'no Mesa hooks to remove';
     return recordedOutput(recorded, { data: { ...status, changed }, text });
   },

@@ -137,7 +137,7 @@ export async function openSession(
 
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
   const command = (id: string) =>
-    startCommand(agent, {
+    startCommand(agent, deps.vaultServer, {
       id,
       logs: deps.profile.paths.logs,
       agentSessionId,

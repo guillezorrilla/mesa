@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { agentBinary } from './agents/agents.js';
 import type { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
+import type { vaultMountStatus } from './agents/antigravity/vault-mount.js';
 import type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 import type { CodexHooksStatus } from './agents/codex/hooks.js';
 import type { TmuxHookStatus } from './agents/hooks-service.js';
@@ -131,6 +132,28 @@ function antigravityHooksCheck(read: () => ReturnType<typeof antigravityHooksSta
   }
 }
 
+/** Antigravity's global mesa-vault entry and its allow rule, from the same reader as hooks status. */
+function antigravityVaultCheck(read: () => ReturnType<typeof vaultMountStatus>): Finding {
+  const name = 'antigravity vault';
+  try {
+    const status = read();
+    return {
+      name,
+      ok: status.installed,
+      path: status.path,
+      hint: status.installed
+        ? ''
+        : status.stale
+          ? 'stale: run `mesa hooks install`'
+          : status.server
+            ? 'allow rule missing: run `mesa hooks install`'
+            : 'not installed: run `mesa hooks install`',
+    };
+  } catch (error) {
+    return { name, ok: false, hint: toFail(error).error.message };
+  }
+}
+
 /**
  * The pane-died hook on Mesa's tmux server. With no server there is nothing to hook: fine, the
  * server gets it when it starts. A server without it (started by an older mesa, or by a mesa
@@ -175,7 +198,7 @@ export function inboxCheck(error: unknown): Check {
 
 /**
  * Presence and version of every external dependency, the profile directory, the decisions
- * backend, the native agent hooks and tmux pane-died hook, and a Codex
+ * backend, the native agent hooks, Antigravity's mesa-vault entry, the tmux pane-died hook, and a Codex
  * app-server daemon, when one runs.
  */
 export async function runDoctor(deps: {
@@ -189,6 +212,7 @@ export async function runDoctor(deps: {
     claude: () => ClaudeHooksStatus;
     codex?: () => CodexHooksStatus;
     antigravity?: () => ReturnType<typeof antigravityHooksStatus>;
+    antigravityVault?: () => ReturnType<typeof vaultMountStatus>;
     tmux: () => Promise<TmuxHookStatus>;
   };
   /** Where a Codex app-server daemon's socket is while it runs. */
@@ -211,6 +235,7 @@ export async function runDoctor(deps: {
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
       ...(deps.hooks?.codex ? codexHooksChecks(deps.hooks.codex) : []),
       ...(deps.hooks?.antigravity ? [antigravityHooksCheck(deps.hooks.antigravity)] : []),
+      ...(deps.hooks?.antigravityVault ? [antigravityVaultCheck(deps.hooks.antigravityVault)] : []),
       ...codexDaemonCheck(deps.codexDaemon),
     ].map((c) => ({
       ...c,

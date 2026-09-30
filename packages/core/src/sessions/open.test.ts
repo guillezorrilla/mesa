@@ -15,6 +15,8 @@ import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   agentWorld,
+  CLAUDE_MOUNT,
+  CODEX_MOUNT,
   gitRepo,
   isolateGit,
   profilePaths,
@@ -91,7 +93,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     // Through /bin/sh, never the user's shell, which may quote otherwise (fish, tcsh).
     '/bin/sh',
     '-c',
-    'unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001',
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT}`,
     // Its output log, from the first byte: the pipe starts in the same call.
     ';',
     'pipe-pane',
@@ -205,7 +207,14 @@ test('Claude background keeps its native process when the terminal closes, then 
   const run: Runner = (file, args, ms, options) => {
     if (file === 'claude' && args[0] === '--bg') {
       launchEnv = options?.env;
-      expect(args).toEqual(['--bg', '--permission-mode', 'plan', 'Read the project']);
+      expect(args).toEqual([
+        '--bg',
+        '--permission-mode',
+        'plan',
+        '--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}',
+        '--allowedTools=mcp__mesa-vault',
+        'Read the project',
+      ]);
       return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
     }
     if (file === 'claude' && args[0] === 'stop') {
@@ -345,11 +354,11 @@ test('open starts codex embedded, its goal after --, in window codex-<id>, with 
   });
   // Codex picks its own thread id: a look at the board reads it (agents/codex/).
   expect(result).not.toHaveProperty('agentSessionId');
-  expect(launched(world)).toBe("codex -c mesa.embedded=true -- 'review'");
+  expect(launched(world)).toBe(`codex -c mesa.embedded=true ${CODEX_MOUNT} -- 'review'`);
   expect(world.tmux.windows.at(-1)?.path).toBe(dir);
 
   await mesa.sessions.open('lantern-cove', { agent: 'codex' });
-  expect(launched(world)).toBe('codex -c mesa.embedded=true');
+  expect(launched(world)).toBe(`codex -c mesa.embedded=true ${CODEX_MOUNT}`);
 });
 
 test('show learns a Codex thread ID and its native context reading in the same look', async () => {
@@ -483,14 +492,14 @@ test('a goal is the first prompt: one shell word after the session id, kept on t
   const { result } = await mesa.sessions.open('lantern-cove', { goal });
   expect(launched(world)).toBe(
     // Single quotes keep $HOME and the double quotes literal; each ' becomes '\''.
-    String.raw`unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Print "ready" in $HOME, then '\''stop'\'''`,
+    String.raw`unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT} '/goal Print "ready" in $HOME, then '\''stop'\'''`,
   );
   expect(result.goal).toBe(goal);
   expect(mesa.sessions.goal(result.id)).toEqual({ id: result.id, goal });
 
   const { result: plain } = await mesa.sessions.open('lantern-cove');
   expect(launched(world)).toBe(
-    'unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000002',
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000002 ${CLAUDE_MOUNT}`,
   );
   expect(() => mesa.sessions.goal(plain.id)).toThrow(
     expect.objectContaining({ code: 'not_found', message: `session ${plain.id} has no goal` }),
@@ -528,7 +537,7 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
   const { result } = await mesa.sessions.open('lantern-cove', { goalFile: file });
   expect(result.goal).toBe('/goal Keep going until `pnpm verify` is green.\nThen stop.\n');
   expect(launched(world)).toBe(
-    "unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 '/goal Keep going until `pnpm verify` is green.\nThen stop.\n'",
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT} '/goal Keep going until \`pnpm verify\` is green.\nThen stop.\n'`,
   );
 
   // A BOM an editor saved goes, so the goal still starts /goal.
@@ -557,7 +566,7 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
       // 4000 three-byte characters: 4002 UTF-16 units quoted, but 12002 bytes.
       { goal: '日'.repeat(4000) },
       'usage',
-      'the goal makes a 12080-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
+      'the goal makes a 12230-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
     ],
   ];
   for (const [opts, code, message] of cases) {
@@ -579,7 +588,9 @@ test('resume keeps the goal on the new record but does not send it again', async
   const { result: first } = await mesa.sessions.open('lantern-cove', { goal: 'Print ready' });
   exitAll(world);
   const { result } = await mesa.sessions.resume(first.id);
-  expect(launched(world)).toBe(`unset NO_COLOR; exec claude --resume ${first.agentSessionId}`);
+  expect(launched(world)).toBe(
+    `unset NO_COLOR; exec claude --resume ${first.agentSessionId} ${CLAUDE_MOUNT}`,
+  );
   expect(result.record.goal).toBe('Print ready');
 });
 

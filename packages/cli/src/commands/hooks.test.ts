@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { CLAUDE_VERSION, scriptedRunner } from '@mesa/core/testing';
+import { dirname, join } from 'node:path';
+import { CLAUDE_VERSION, CODEX_VERSION, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -51,6 +51,8 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('missing');
   await mesa('hooks', 'install');
   expect((await mesa('show', opened.id, '--json')).json.data.instructions.state).toBe('configured');
+  // An invented project hub: the pointer names the tools that read it, never its content.
+  writeFileSync(join(cli.home, 'vault/projects/lantern-cove.md'), '# Lantern cove\nGREY KELP 19\n');
   cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
   cli.stdin = JSON.stringify({
     session_id: opened.agentSessionId,
@@ -58,11 +60,15 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
     source: 'startup',
   });
   const start = await mesa('hook', 'claude');
+  expect(start.stdout).not.toContain('GREY KELP');
   expect(start.stdout).toContain(
     `Mesa session ${opened.id}; profile default; project lantern-cove;`,
   );
   expect(start.stdout).toContain(`mesa show ${opened.id} --json`);
-  expect(start.stdout).toContain('Invoke skills in this terminal with /skill-name');
+  expect(start.stdout).toContain('invoked in this terminal as /skill-name');
+  expect(start.stdout).toContain("call mesa-vault's project_context first");
+  expect(start.stdout).toContain('mesa vault context lantern-cove --json');
+  expect(start.stdout).not.toContain('unavailable until P5');
   cli.stdin = JSON.stringify({ session_id: opened.agentSessionId, hook_event_name: 'Stop' });
   expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
   cli.stdin = JSON.stringify({ session_id: 'another-agent', hook_event_name: 'SessionStart' });
@@ -127,6 +133,79 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
   cli.stdin = '{';
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
+});
+
+test('show reports each mount; hooks manage Antigravity mesa-vault beside a user server and rule', async () => {
+  const world = cli.withTmux();
+  await cli.withProject();
+  cli.run = scriptedRunner({
+    tmux: world.answer,
+    claude: CLAUDE_VERSION,
+    codex: CODEX_VERSION,
+    agy: '1.2.13',
+  }).run;
+  const open = async (...args: string[]) =>
+    (await mesa('open', 'lantern-cove', ...args, '--json')).json.data;
+  const vault = async (id: string) => (await mesa('show', id, '--json')).json.data.vault;
+  const doctor = async () =>
+    (await mesa('doctor', '--json')).json.data.checks.find(
+      (check: { name: string }) => check.name === 'antigravity vault',
+    );
+  const configured = { state: 'configured', reason: 'mesa-vault is mounted in its launch command' };
+  expect(await vault((await open()).id)).toEqual(configured);
+  expect(await vault((await open('--agent', 'codex')).id)).toEqual(configured);
+  expect((await vault((await open('--terminal')).id)).state).toBe('unsupported');
+  const agy = await open('--agent', 'antigravity');
+  expect(await vault(agy.id)).toEqual({ state: 'missing', reason: 'Run mesa hooks install' });
+  expect((await doctor()).status).toBe('warn');
+
+  // An invented server and rule of the user's, which install and uninstall leave byte for byte.
+  const mcpFile = join(cli.home, '.gemini/config/mcp_config.json');
+  const rulesFile = join(cli.home, '.gemini/antigravity-cli/settings.json');
+  const mcp = `${JSON.stringify({ mcpServers: { tide: { command: 'node', args: ['/opt/tide.js'] } } }, null, 2)}\n`;
+  const rules = `${JSON.stringify({ permissions: { allow: ['command(git)'] } }, null, 2)}\n`;
+  mkdirSync(dirname(mcpFile), { recursive: true });
+  mkdirSync(dirname(rulesFile), { recursive: true });
+  writeFileSync(mcpFile, mcp);
+  writeFileSync(rulesFile, rules);
+  expect((await mesa('hooks', 'install', '--json')).json.data.antigravityVault).toMatchObject({
+    path: mcpFile,
+    rulePath: rulesFile,
+    installed: true,
+    changed: true,
+  });
+  expect(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers).toEqual({
+    tide: { command: 'node', args: ['/opt/tide.js'] },
+    'mesa-vault': { command: '/usr/local/bin/mesa', args: ['vault', 'mcp'] },
+  });
+  expect(JSON.parse(readFileSync(rulesFile, 'utf8')).permissions.allow).toEqual([
+    'command(git)',
+    'mcp(mesa-vault/*)',
+  ]);
+  expect(await vault(agy.id)).toEqual({
+    state: 'configured',
+    reason: 'Global mesa-vault entry and allow rule are configured',
+  });
+  expect((await mesa('hooks', 'status')).stdout).toContain(
+    `${mcpFile}\nok   mesa-vault entry\n${rulesFile}\nok   mesa-vault allow rule\n`,
+  );
+  expect((await doctor()).status).toBe('ok');
+
+  expect((await mesa('hooks', 'uninstall', '--json')).json.data.antigravityVault).toMatchObject({
+    installed: false,
+    changed: true,
+  });
+  expect(readFileSync(mcpFile, 'utf8')).toBe(mcp);
+  expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
+  expect((await vault(agy.id)).state).toBe('missing');
+
+  // A server of the user's under Mesa's name is reported, never taken over.
+  const foreign = `${JSON.stringify({ mcpServers: { 'mesa-vault': { command: 'node', args: ['/opt/other.js'] } } })}\n`;
+  writeFileSync(mcpFile, foreign);
+  expect((await vault(agy.id)).state).toBe('conflicting');
+  expect((await mesa('hooks', 'install')).code).not.toBe(0);
+  expect(readFileSync(mcpFile, 'utf8')).toBe(foreign);
+  expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
 });
 
 test('General SessionStart points at profile skills without an unregistered project', async () => {

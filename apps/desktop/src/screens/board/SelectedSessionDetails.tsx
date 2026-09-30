@@ -14,10 +14,16 @@ const RING = {
   red: 'var(--state-failed)',
 };
 
+/** A configuration status as `state: reason`, once the details are read. */
+const statusText = (status?: InstructionStatus) =>
+  status ? `${status.state}: ${status.reason}` : 'Open details to check';
+
 /** Native facts for the selected session, read by id only when its details are opened. */
 export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
   const call = useCall();
-  const [record, setRecord] = useState<SessionRecord & { instructions: InstructionStatus }>();
+  const [record, setRecord] = useState<
+    SessionRecord & { instructions: InstructionStatus; vault: InstructionStatus }
+  >();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   // The mesa-vault tools its agent's server lists (ADR-0011); a plain terminal has no agent.
@@ -77,11 +83,9 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dt className="text-muted-foreground">Attention</dt>
             <dd>{attentionScore(row.attention)}</dd>
             <dt className="text-muted-foreground">Instructions</dt>
-            <dd title={record?.instructions.reason}>
-              {record
-                ? `${record.instructions.state}: ${record.instructions.reason}`
-                : 'Open details to check'}
-            </dd>
+            <dd title={record?.instructions.reason}>{statusText(record?.instructions)}</dd>
+            <dt className="text-muted-foreground">Vault</dt>
+            <dd title={record?.vault.reason}>{statusText(record?.vault)}</dd>
             <dt className="text-muted-foreground">Vault tools</dt>
             <dd data-testid="session-vault-tools">
               {!agent ? (

@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { scriptedRunner, testStore } from '@mesa/core/testing';
+import { CLAUDE_MOUNT, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -147,7 +147,7 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
   const opened = await mesa('open', 'lantern-cove', '--goal', 'Print the word ready and stop');
   const id = opened.stdout.split('\n')[0] ?? '';
   expect(world.windows.at(-1)?.launch).toBe(
-    "unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 'Print the word ready and stop'",
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT} 'Print the word ready and stop'`,
   );
   expect((await mesa('goal', id, '--json')).json).toEqual({
     ok: true,
@@ -160,7 +160,7 @@ test('open --goal and --goal-file start with a goal; mesa goal prints it', async
   const fromFile = await mesa('open', 'lantern-cove', '--goal-file', 'goal.md', '--json');
   expect(fromFile.json.data.goal).toBe('From a file\n');
   expect(world.windows.at(-1)?.launch).toBe(
-    "unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000002 'From a file\n'",
+    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000002 ${CLAUDE_MOUNT} 'From a file\n'`,
   );
 
   const plain = (await mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
@@ -280,9 +280,9 @@ describe('open --after queues a session until the one it waits on is over', () =
       json: { data: { recorded: true, event: 'SessionEnd' } },
     });
     cli.env = {};
-    // Through open's path: its goal is the first prompt, in a window with its own id.
+    // Through open's path: mesa-vault and its goal as the first prompt, in a window with its own id.
     expect(window(b.id)?.launch).toContain(
-      `claude --session-id ${(await mesa('show', b.id, '--json')).json.data.agentSessionId} 'Say second'`,
+      `claude --session-id ${(await mesa('show', b.id, '--json')).json.data.agentSessionId} ${CLAUDE_MOUNT} 'Say second'`,
     );
     expect(await state(b.id)).toBe('idle');
   });

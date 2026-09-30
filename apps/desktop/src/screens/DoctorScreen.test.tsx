@@ -236,6 +236,41 @@ test('Doctor shows each Codex trust state and installs when only Claude hooks ex
   expect(byTestId('codex-hooks-status')[0]?.textContent).toContain('Hooks need review');
 });
 
+test('Doctor installs the missing Antigravity mesa-vault allow rule', async () => {
+  let rule = false;
+  const { bridge, calls } = fakeBridge({
+    'hooks status': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: true,
+        stale: false,
+        events: {},
+        codex: { path: '/h/.codex/hooks.json', installed: true, events: {}, trusted: {}, hint: '' },
+        antigravity: { path: '/h/.gemini/config/hooks.json', installed: true, stale: false },
+        antigravityVault: {
+          path: '/h/.gemini/config/mcp_config.json',
+          rulePath: '/h/.gemini/antigravity-cli/settings.json',
+          installed: rule,
+          stale: false,
+          server: true,
+          rule,
+        },
+      }),
+    'hooks install': () => {
+      rule = true;
+      return envelope({ changed: true });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('antigravity-vault-status')[0]?.textContent).toBe(
+    'Antigravity mesa-vault: Allow rule missing in /h/.gemini/config/mcp_config.json and /h/.gemini/antigravity-cli/settings.json',
+  );
+  await click(byTestId('hooks-install')[0]);
+  expect(calls).toContainEqual(['--json', 'hooks', 'install']);
+  expect(byTestId('antigravity-vault-status')[0]?.textContent).toContain('Installed');
+});
+
 test('Doctor installs the missing Antigravity instruction hook', async () => {
   let installed = false;
   const { bridge, calls } = fakeBridge({
