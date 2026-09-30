@@ -4,9 +4,12 @@ import { GENERAL_PROJECT } from '../sessions/general.js';
 import type { NewSession, SessionRecord } from '../sessions/record.js';
 import { sessionUri } from '../sessions/uri.js';
 import { newSession } from '../testing/index.js';
-import { parseCanvas } from '../vault/canvas.js';
+import { type CanvasData, parseCanvas } from '../vault/canvas.js';
 import type { VaultItem } from '../vault/item.js';
-import { buildMap, mapGroups } from './map.js';
+import { buildMap, mapSession } from './map.js';
+
+const savedSessions = (canvas: CanvasData) =>
+  canvas.nodes.flatMap((node) => mapSession(node) ?? []);
 
 const through = Date.parse('2026-09-24T12:00:00.000Z');
 const options = { profile: 'default', from: through - 30 * 86400000, through };
@@ -42,15 +45,9 @@ test('golden Canvas pins namespaces, geometry, summary target, warning and prede
   );
   expect(canvas).toEqual(golden);
   expect(parseCanvas(canvas)).toEqual(canvas);
-  expect(mapGroups(canvas)).toEqual([
-    {
-      project: 'lantern-cove',
-      label: 'Lantern Cove',
-      sessions: [
-        { id: 'aaaaaaaa', label: 'aaaaaaaa', summary: summary.path },
-        { id: 'bbbbbbbb', label: 'Chart shoals' },
-      ],
-    },
+  expect(savedSessions(canvas)).toEqual([
+    { project: 'lantern-cove', id: 'aaaaaaaa', label: 'aaaaaaaa', summary: summary.path },
+    { project: 'lantern-cove', id: 'bbbbbbbb', label: 'Chart shoals' },
   ]);
   expect(
     buildMap(
@@ -82,7 +79,7 @@ test('inclusive elapsed cutoff, future exclusion, transitive ancestors, cycles a
     record('ffffffff', { resumedFrom: 'missing1', parent: 'dddddddd', after: 'eeeeeeee' }),
   ];
   const canvas = buildMap(records, [], [], options);
-  expect(mapGroups(canvas)[0]?.sessions.map((s) => s.id)).toEqual([
+  expect(savedSessions(canvas).map((s) => s.id)).toEqual([
     'cccccccc',
     'bbbbbbbb',
     'aaaaaaaa',
@@ -95,9 +92,7 @@ test('inclusive elapsed cutoff, future exclusion, transitive ancestors, cycles a
     ['cccccccc', 'bbbbbbbb'],
     ['bbbbbbbb', 'cccccccc'],
   ]);
-  expect(mapGroups(buildMap(records, [], [], { ...options, all: true }))[0]?.sessions).toHaveLength(
-    6,
-  );
+  expect(savedSessions(buildMap(records, [], [], { ...options, all: true }))).toHaveLength(6);
 });
 
 test('all saved kinds, terminal states, group identities, ties, General and orphan labels', () => {
@@ -112,9 +107,16 @@ test('all saved kinds, terminal states, group identities, ties, General and orph
     record('aaaaaaaa', { project: 'orphan' }),
   ];
   const canvas = buildMap(records, [{ name: 'empty', path: '/invented/empty' }], [], options);
-  expect(mapGroups(canvas).map((g) => [g.project, g.label, g.sessions.map((s) => s.id)])).toEqual([
-    [GENERAL_PROJECT, 'General', ['bbbbbbbb']],
-    ['orphan', 'orphan', ['aaaaaaaa', 'cccccccc']],
+  expect(
+    canvas.nodes.filter((node) => node.type === 'group').map((node) => [node.id, node.label]),
+  ).toEqual([
+    [`project:${encodeURIComponent(GENERAL_PROJECT)}`, 'General'],
+    ['project:orphan', 'orphan'],
+  ]);
+  expect(savedSessions(canvas).map((session) => [session.project, session.id])).toEqual([
+    [GENERAL_PROJECT, 'bbbbbbbb'],
+    ['orphan', 'aaaaaaaa'],
+    ['orphan', 'cccccccc'],
   ]);
   expect(
     canvas.nodes
@@ -152,7 +154,7 @@ test('chronology and equal-instant id ties use timestamps with mixed valid preci
     record('aaaaaaaa', { startedAt: '2026-09-24T12:00:00.000Z' }),
   ];
   expect(
-    mapGroups(buildMap(records, [], [], { ...options, all: true }))[0]?.sessions.map((s) => s.id),
+    savedSessions(buildMap(records, [], [], { ...options, all: true })).map((s) => s.id),
   ).toEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
 });
 
@@ -175,19 +177,19 @@ test('saved namespaces reject malformed session ids and project encodings withou
     width: 50,
     height: 50,
   };
-  expect(mapGroups({ nodes: [group, node], edges: [] })).toEqual([
-    {
-      project: 'coast #',
-      label: 'Coast',
-      sessions: [{ id: 'aaaaaaaa', label: 'aaaaaaaa', summary: 'wiki/exact #note.md' }],
-    },
-  ]);
+  expect(mapSession(node)).toEqual({
+    project: 'coast #',
+    id: 'aaaaaaaa',
+    label: 'aaaaaaaa',
+    summary: 'wiki/exact #note.md',
+  });
+  expect(mapSession(group)).toBeNull();
   for (const id of [
     'session:coast%20%23:bad',
     'session:coast%20%23:aaaaaaaa:extra',
     'session:%zz:aaaaaaaa',
     'personal:aaaaaaaa',
   ]) {
-    expect(mapGroups({ nodes: [group, { ...node, id }], edges: [] })[0]?.sessions).toEqual([]);
+    expect(mapSession({ ...node, id })).toBeNull();
   }
 });

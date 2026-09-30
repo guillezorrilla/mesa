@@ -15,7 +15,7 @@ export {
 export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';
 export { localDay, validLocalDay } from './lib/time.js';
-export { mapGroups, mapSession } from './map/map.js';
+export { mapSession } from './map/map.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,

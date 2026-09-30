@@ -94,7 +94,7 @@ export function buildMap(
   return { nodes, edges };
 }
 
-/** Interpret Mesa's stable session namespace once for both saved-map callers. */
+/** Interpret Mesa's stable session namespace once for saved-map navigation. */
 export function mapSession(node: CanvasNode): {
   project: string;
   id: string;
@@ -115,29 +115,4 @@ export function mapSession(node: CanvasNode): {
   } catch {
     return null;
   }
-}
-
-export type MapGroup = {
-  project: string;
-  label: string;
-  sessions: { id: string; label: string; summary?: string }[];
-};
-/** Interpret Mesa's stable node namespaces once; the UI never reconstructs the graph from Board rows. */
-export function mapGroups(canvas: CanvasData): MapGroup[] {
-  return canvas.nodes.flatMap((group) => {
-    if (group.type !== 'group' || !group.id.startsWith('project:')) return [];
-    let project: string;
-    try {
-      project = decodeURIComponent(group.id.slice('project:'.length));
-    } catch {
-      return [];
-    }
-    const sessions = canvas.nodes.flatMap((node) => {
-      const session = mapSession(node);
-      if (!session || session.project !== project) return [];
-      const { project: _, ...target } = session;
-      return [target];
-    });
-    return [{ project, label: group.label || projectLabel(project), sessions }];
-  });
 }
