@@ -47,6 +47,7 @@ export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
+export type { McpTool, Stdio } from './lib/mcp-server.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';

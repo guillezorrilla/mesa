@@ -1,8 +1,9 @@
-import type { InstructionStatus, ManagedRow, SessionRecord } from '@mesa/core';
+import type { InstructionStatus, ManagedRow, McpTool, SessionRecord } from '@mesa/core';
 import { attentionScore, contextPercent, percent } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { contextTone } from '@/components/ContextBar';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
 
@@ -19,7 +20,10 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   const [record, setRecord] = useState<SessionRecord & { instructions: InstructionStatus }>();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
+  // The mesa-vault tools its agent's server lists (ADR-0011); a plain terminal has no agent.
+  const [tools, setTools] = useState<{ tools?: McpTool[]; error?: string }>({});
   const { row } = props;
+  const agent = row.agent !== 'terminal';
   const context = record ? record.context : row.context;
   const shown = context ? contextPercent(context.used) : 0;
   const tone = context ? contextTone(context.used) : 'normal';
@@ -33,6 +37,11 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
           setLoading(true);
+          if (agent) {
+            void call('vault.tools').then((result) =>
+              setTools(result.ok ? { tools: result.data.tools } : { error: result.error.message }),
+            );
+          }
           void call('sessions.show', { id: row.id }).then((result) => {
             if (result.ok) {
               setRecord(result.data);
@@ -72,6 +81,24 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               {record
                 ? `${record.instructions.state}: ${record.instructions.reason}`
                 : 'Open details to check'}
+            </dd>
+            <dt className="text-muted-foreground">Vault tools</dt>
+            <dd data-testid="session-vault-tools">
+              {!agent ? (
+                'None: a plain terminal runs no agent'
+              ) : tools.tools ? (
+                <ul className="flex flex-wrap gap-1">
+                  {tools.tools.map((tool) => (
+                    <li key={tool.name}>
+                      <Badge variant="outline" className="font-mono" title={tool.description}>
+                        {tool.name}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                (tools.error ?? 'Open details to check')
+              )}
             </dd>
             <dt className="text-muted-foreground">Created</dt>
             <dd>{date(row.startedAt)}</dd>

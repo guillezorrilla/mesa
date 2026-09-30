@@ -29,7 +29,7 @@ const readStdin = async () => {
 };
 
 const home = homedir();
-const { code, stdout, stderr, exec } = await runCli(argv, {
+const { code, stdout, stderr, exec, serve } = await runCli(argv, {
   commands: COMMANDS,
   env: process.env,
   tty: Boolean(process.stdin.isTTY),
@@ -74,3 +74,11 @@ if (exec) {
 process.stdout.write(stdout);
 process.stderr.write(stderr);
 process.exitCode = code;
+if (serve) {
+  const { createInterface } = await import('node:readline');
+  await serve({
+    lines: createInterface({ input: process.stdin, crlfDelay: Number.POSITIVE_INFINITY }),
+    write: (text) => process.stdout.write(text),
+    log: (text) => process.stderr.write(text),
+  });
+}
