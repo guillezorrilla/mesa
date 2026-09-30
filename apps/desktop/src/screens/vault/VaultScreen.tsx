@@ -180,6 +180,7 @@ function VaultBrowser({
       <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
         {query ? (
           <VaultSearchResults
+            looks={looks}
             text={query}
             project={project || undefined}
             type={type || undefined}
@@ -228,7 +229,7 @@ export function VaultScreen({ query = '', path }: { query?: string; path?: strin
         <>
           {look.status && !look.status.ok && <VaultNotLaidOut status={look.status} />}
           <VaultBrowser
-            key={look.list.data.vault}
+            key={JSON.stringify([look.list.data.vault, query, path])}
             inventory={look.list.data}
             looks={look.count}
             query={query}

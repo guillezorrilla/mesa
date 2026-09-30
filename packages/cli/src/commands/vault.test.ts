@@ -863,6 +863,44 @@ test('vault mcp answers the protocol version a client asks for when it speaks it
   }
 });
 
+test('vault mcp refuses invalid request envelopes before dispatching them', async () => {
+  const invalid = [
+    { jsonrpc: '1.0', id: 2, method: 'ping' },
+    { id: 3, method: 'ping' },
+    { jsonrpc: '2.0', id: {}, method: 'ping' },
+    { jsonrpc: '2.0', id: false, method: 'ping' },
+    { jsonrpc: '2.0', id: null, method: 'ping' },
+    { jsonrpc: '2.0', id: [], method: 'tools/list' },
+  ];
+  const { replies } = await serve([], ...invalid.map((m) => JSON.stringify(m)), rpc(4, 'ping'));
+  expect(replies.slice(0, -1)).toEqual(
+    invalid.map(() => ({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32600, message: 'Invalid request' },
+    })),
+  );
+  expect(replies.at(-1)).toMatchObject({ id: 4, result: {} });
+});
+
+test('vault mcp stays inert with a corrupt session record and still initializes', async () => {
+  const id = await liveSession();
+  cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+  const record = join(cli.home, '.mesa/default/sessions', `${id}.json`);
+  writeFileSync(record, 'not json');
+  const { replies, stderr } = await serve(
+    [],
+    initialize(),
+    rpc(2, 'tools/list'),
+    call(3, 'save_note', { title: 'Stray', body: 'Invented' }),
+  );
+  expect(replies[0]?.result?.protocolVersion).toBe('2025-11-25');
+  expect(replies[1]?.result).toEqual({ tools: [] });
+  expect(refusal(replies[2])).toContain('mesa-vault is inert:');
+  expect(stderr).toContain('session binding failed:');
+  expect(existsSync(join(cli.home, 'vault/wiki/notes/stray.md'))).toBe(false);
+});
+
 test('outside a live session of its profile, vault mcp lists no tools and refuses every call, reading and writing nothing', async () => {
   const live = await liveSession();
   const ended = await openSession();
@@ -979,7 +1017,7 @@ test('a background session resumed under a new record is served through the bind
   );
 });
 
-test('a session record that stops reading is an internal error on stderr, never tools', async () => {
+test('a session record that stops reading makes the server inert and logs the binding failure', async () => {
   const id = await liveSession();
   cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
   const record = join(cli.paths.sessions, `${id}.json`);
@@ -991,13 +1029,11 @@ test('a session record that stops reading is an internal error on stderr, never 
     call(3, 'read_note', { path: 'index.md' }),
   );
   const why = `${record}: not valid JSON`;
-  expect(replies.slice(1).map((r) => [r.id, r.error])).toEqual([
-    [2, { code: -32603, message: why }],
-    [3, { code: -32603, message: why }],
-  ]);
+  expect(replies[1]?.result).toEqual({ tools: [] });
+  expect(refusal(replies[2])).toBe(`mesa-vault is inert: session binding failed: ${why}`);
   expect(stderr.split('\n').slice(1)).toEqual([
-    `mesa-vault: tools/list failed: ${why}`,
-    `mesa-vault: tools/call failed: ${why}`,
+    `mesa-vault: session binding failed: ${why}`,
+    `mesa-vault: session binding failed: ${why}`,
     '',
   ]);
 });

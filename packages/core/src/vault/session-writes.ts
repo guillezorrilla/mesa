@@ -27,7 +27,7 @@ import {
   requireLog,
   writeNote,
 } from './notes.js';
-import { vaultFile } from './scope.js';
+import { canonicalVaultPath, vaultFile, vaultWriteFile } from './scope.js';
 import { withVaultLock } from './vault-lock.js';
 
 // Session writes (CONTEXT.md, Session write): the decisions, summaries, and notes a session saves
@@ -109,7 +109,7 @@ async function keep(
 ): Promise<Recorded<Saved>> {
   requireLog(deps.vault);
   const read = (path: string) => {
-    const file = vaultFile(deps.vault, path);
+    const file = vaultWriteFile(deps.vault, path, change.project);
     return existsSync(file) ? readNote(deps.vault, path) : undefined;
   };
   return withVaultLock(deps, async () => {
@@ -256,7 +256,9 @@ export function sessionWrites(ctx: MesaContext) {
     saveNote: async (input: NoteInput): Promise<Recorded<Saved>> => {
       const title = redact(oneLine(required(input.title, 'title')));
       const path = notePath(ctx.vaultOf(), input.path ?? `${VAULT.wiki}/notes/${nameOf(title)}.md`);
-      const inFolder = itemProject(path);
+      const canonical = canonicalVaultPath(ctx.vaultOf(), path);
+      notePath(ctx.vaultOf(), canonical);
+      const inFolder = itemProject(path) ?? itemProject(canonical);
       if (input.project && inFolder && input.project !== inFolder) {
         throw usage(`${path} is in project ${inFolder}'s folder, not ${input.project}'s`);
       }

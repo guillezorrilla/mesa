@@ -98,16 +98,19 @@ export async function serveMcp(
       continue;
     }
     const invalid = { error: { code: CODES.request, message: 'Invalid request' } };
-    if (!isObject(message)) {
+    if (
+      !isObject(message) ||
+      message.jsonrpc !== '2.0' ||
+      typeof message.method !== 'string' ||
+      ('id' in message &&
+        typeof message.id !== 'string' &&
+        (typeof message.id !== 'number' || !Number.isFinite(message.id)))
+    ) {
       reply(null, invalid);
       continue;
     }
     if (!('id' in message)) continue;
-    const id = message.id as Id;
-    if (typeof message.method !== 'string') {
-      reply(id, invalid);
-      continue;
-    }
+    const id = message.id as string | number;
     try {
       const params = isObject(message.params) ? message.params : {};
       reply(id, { result: await answer(message.method, params, info, handlers) });

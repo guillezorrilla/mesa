@@ -6,7 +6,7 @@ import type { Recorded } from '../receipts/recorder.js';
 import { listReceipts, restoreLogLine } from '../receipts/store.js';
 import { projectHubPath, sessionSummaryPath } from '../vault/layout.js';
 import { type LockedNotesDeps, readNote, refuseForeign, writeNote } from '../vault/notes.js';
-import { vaultFile } from '../vault/scope.js';
+import { vaultWriteFile } from '../vault/scope.js';
 import { withVaultLock } from '../vault/vault-lock.js';
 import { keepSections } from './keep-sections.js';
 
@@ -96,6 +96,7 @@ export async function landOutput(
     throw new Error(`registered repo path missing for ${run.project}`);
   }
   return withVaultLock(deps, async () => {
+    const file = vaultWriteFile(deps.vault, path, run.project);
     const receipts = listReceipts(deps.vault, Number.POSITIVE_INFINITY, {
       project: run.project,
       target: path,
@@ -110,7 +111,6 @@ export async function landOutput(
       restoreLogLine(deps, prior);
       return { path, changed: false, receipt: { id: prior.receipt.id, path: prior.path } };
     }
-    const file = vaultFile(deps.vault, path);
     const previous = existsSync(file) ? readNote(deps.vault, path) : undefined;
     // A session's own save is a save: it never replaces the person's note. A run keeps landing
     // over one (project-brief regenerates a hub the person started, keeping its keep blocks).

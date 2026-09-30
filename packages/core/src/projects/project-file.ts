@@ -18,6 +18,7 @@ const PROJECT_FILE = 'mesa.yaml';
 const ProjectSchema = z.strictObject({
   name: z
     .string()
+    .max(252, 'must fit projects/<name>.md: at most 252 ASCII characters')
     .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'must be a slug: lowercase letters, digits, and hyphens'),
   agent: AgentSchema.optional(),
   priority: z.number().min(0).max(1).default(DEFAULT_PRIORITY),

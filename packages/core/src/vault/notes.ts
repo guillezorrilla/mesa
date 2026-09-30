@@ -1,12 +1,12 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { localDay, obsidianDateTime } from '../lib/time.js';
 import { type Frontmatter, type Note, parseNote, serializeNote } from './frontmatter.js';
 import { dailyNotePath, VAULT } from './layout.js';
-import { vaultFile } from './scope.js';
+import { vaultFile, vaultWriteFile } from './scope.js';
 import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
@@ -59,7 +59,9 @@ export function refuseForeign(file: string, note: Note | undefined): void {
  * whose frontmatter says `locked: true` is never replaced.
  */
 export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note {
-  const file = vaultFile(deps.vault, note.path);
+  const project =
+    typeof note.frontmatter.project === 'string' ? note.frontmatter.project : undefined;
+  const file = vaultWriteFile(deps.vault, note.path, project);
   const previous = readIfExists(file);
   refuseLocked(file, previous);
   const now = obsidianDateTime(deps.clock());
@@ -92,7 +94,7 @@ export const updateNote = (deps: LockedNotesDeps, path: string, change: Change):
 
 /** The vault's log.md; not_found until `mesa vault init` has run. */
 export function requireLog(vault: string): string {
-  const file = join(vault, VAULT.log);
+  const file = vaultFile(vault, VAULT.log);
   if (!existsSync(file)) throw new MesaError('not_found', `${file} not found; run mesa vault init`);
   return file;
 }

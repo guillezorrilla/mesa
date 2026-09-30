@@ -1,5 +1,6 @@
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { useVaultRefresh } from './useVaultLook';
 import { KIND_ICONS } from './VaultTree';
 
 /**
@@ -7,6 +8,7 @@ import { KIND_ICONS } from './VaultTree';
  * numbered snippets, newest first after those whose path names every word. One selects its item.
  */
 export function VaultSearchResults(props: {
+  looks: number;
   text: string;
   project?: string;
   type?: string;
@@ -18,6 +20,7 @@ export function VaultSearchResults(props: {
     project: props.project,
     type: props.type,
   });
+  useVaultRefresh(props.looks, found.busy, found.refresh);
   const data = found.data;
   const what = `"${props.text}"${props.project || props.type ? ' under these filters' : ''}`;
   // A search that fails says why in a toast, and leaves no results.
