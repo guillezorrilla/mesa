@@ -1950,7 +1950,12 @@ test('global New session offers General without a registered project', async () 
     projects: () => envelope([]),
     config: () => envelope({ defaultAgent: 'codex', shortcuts: DEFAULT_SHORTCUTS }),
     sessions: () => envelope([generalRow]),
-    open: () => envelope(generalRow),
+    open: () =>
+      envelope({
+        ...generalRow,
+        warning:
+          "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer",
+      }),
     archive: () => envelope({ ...generalRow, archivedAt: '2026-09-27T12:00:00.000Z' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
@@ -1963,6 +1968,10 @@ test('global New session offers General without a registered project', async () 
   expect(byTestId('new-session-dialog')[0]?.textContent).toContain('General session');
   expect(byTestId('new-session-project')).toHaveLength(0);
   await click(byTestId('new-session-submit')[0]);
+  expect(toasts(byTestId)).toContainEqual([
+    'alert',
+    "Opened session gener001 on General; Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer",
+  ]);
   expect(calls).toContainEqual([
     '--json',
     'open',

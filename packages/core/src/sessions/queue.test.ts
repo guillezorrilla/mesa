@@ -32,6 +32,8 @@ async function setUp({ claude = true } = {}) {
     tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
     run,
     env: {},
+    home,
+    self: ['/usr/local/bin/mesa'],
     clock: fixedClock(now),
     newUuid: sequentialUuids(),
     caller: () => ({ inMesaWindow: false }),

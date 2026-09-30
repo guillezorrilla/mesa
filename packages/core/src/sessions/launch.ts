@@ -5,6 +5,8 @@ import {
   startClaudeBackground,
   stopClaudeBackground,
 } from '../agents/claude/background.js';
+import { hooksStatus as codexHooks } from '../agents/codex/hooks.js';
+import { codexHome } from '../agents/codex/paths.js';
 import { AGENT_NAMES, type Agent } from '../agents/names.js';
 import { mountsPerLaunch, type VaultServer } from '../agents/vault-mount.js';
 import type { Clock } from '../lib/clock.js';
@@ -14,6 +16,7 @@ import type { Profile } from '../profile/profile.js';
 import { type Project, readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
+import { joinWarnings } from '../receipts/recorder.js';
 import { sessionWorktree } from '../worktrees/create.js';
 import { WINDOW_VARS, windowEnv } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
@@ -38,6 +41,8 @@ export type LaunchDeps = {
   tmux: Pick<TmuxBackend, 'openWindow'>;
   run: Runner;
   env: Env;
+  home: string;
+  self: readonly string[];
   clock: Clock;
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
@@ -157,8 +162,14 @@ export async function startSession(
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     const cwd = agentFolder(record, project);
-    const warning =
-      record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd);
+    const hooks =
+      record.agent === 'codex' ? codexHooks(codexHome(deps.env, deps.home), deps.self) : undefined;
+    const warning = joinWarnings(
+      record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd),
+      hooks?.events.SessionStart && !hooks.trusted.SessionStart
+        ? "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer"
+        : undefined,
+    );
     if (record.background && !record.backgroundId) {
       const env = { ...deps.env };
       // No window variables: a supervisor this claude starts keeps its environment for every

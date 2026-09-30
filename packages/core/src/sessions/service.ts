@@ -104,6 +104,7 @@ export function sessionsService(
     vaultServer: vaultServer(deps.self),
     shell: deps.env.SHELL || '/bin/zsh',
     home: deps.home,
+    self: deps.self,
   });
   const nativeDeps = () => ({
     profile: open(),
@@ -605,6 +606,7 @@ export function sessionsService(
           current.agent === 'antigravity'
             ? antigravitySessionId({ logs: paths.logs }, current, new Set(), true)
             : undefined;
+        const identityEvents = readHookEvents(paths.events, id);
         return {
           ...current,
           alive: row?.alive ?? false,
@@ -613,14 +615,15 @@ export function sessionsService(
             deps.home,
             deps.env,
             deps.self,
-            readHookEvents(paths.events, id).some(
-              (event) => event.event === 'SessionIdentityChanged',
-            ) ||
+            identityEvents.some((event) => event.event === 'SessionIdentityChanged') ||
               Boolean(
                 current.agentSessionId &&
                   latestAntigravityId &&
                   latestAntigravityId !== current.agentSessionId,
-              ),
+              ) ||
+              (identityEvents.some((event) => event.event === 'SessionIdentityAmbiguous')
+                ? 'ambiguous'
+                : false),
           ),
           vault: vaultStatus(current, deps.home, deps.self),
         };

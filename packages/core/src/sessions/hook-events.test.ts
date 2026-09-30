@@ -212,49 +212,54 @@ test('a /clear moves the session to its new agent session id; later events under
   ]);
 });
 
-test('another agent session id with any other source is still a nested claude, and dropped', () => {
+test.each(['claude', 'codex'] as const)('another native id is never claimed by %s', (agent) => {
   const { store, id, deps, dir } = setUp();
-  store.update(id, { agentSessionId: 'the-sessions-own' });
-  for (const source of ['startup', 'resume', 'compact']) {
+  store.update(id, { agent, agentSessionId: 'the-sessions-own' });
+  // A nested codex, which a tool runs, starts with startup (codex exec), resume, or fork.
+  for (const source of ['startup', 'resume', 'compact', 'fork', undefined]) {
     const start = JSON.stringify({
       session_id: 'a-child',
       hook_event_name: 'SessionStart',
       source,
     });
-    expect(
-      recordHookEvent(deps, { agent: 'claude', mesaSessionId: id, payload: start }),
-    ).toBeUndefined();
+    const event = recordHookEvent(deps, { agent, mesaSessionId: id, payload: start });
+    if (agent === 'codex') expect(event?.event).toBe('SessionIdentityAmbiguous');
+    else expect(event).toBeUndefined();
   }
   expect(store.get(id).agentSessionId).toBe('the-sessions-own');
-  expect(existsSync(join(dir, 'events'))).toBe(false);
+  expect(existsSync(join(dir, 'events'))).toBe(agent === 'codex');
 });
 
-test('Codex clear records a stale identity without claiming the new native conversation', () => {
-  const { store, id, deps, log } = setUp();
-  store.update(id, { agent: 'codex', agentSessionId: 'before-clear' });
-  recordHookEvent(deps, {
-    agent: 'codex',
-    mesaSessionId: id,
-    payload: JSON.stringify({ session_id: 'before-clear', hook_event_name: 'SessionEnd' }),
-  });
-  const clear = JSON.stringify({
-    session_id: 'after-clear',
-    hook_event_name: 'SessionStart',
-    source: 'clear',
-  });
-  expect(
-    recordHookEvent(deps, { agent: 'codex', mesaSessionId: id, payload: clear }),
-  ).toMatchObject({
-    event: 'SessionIdentityChanged',
-    agentSessionId: 'after-clear',
-  });
-  expect(store.get(id).agentSessionId).toBe('before-clear');
-  expect(log().map((event) => event.event)).toEqual(['SessionEnd', 'SessionIdentityChanged']);
-  expect(
-    recordHookEvent(deps, {
-      agent: 'codex',
-      mesaSessionId: id,
-      payload: JSON.stringify({ session_id: 'after-clear', hook_event_name: 'Stop' }),
-    }),
-  ).toBeUndefined();
-});
+// Codex runs no SessionEnd at /clear: it ends the old thread once that idles, about 60 s later
+// (#302), so the new thread's SessionStart can come before or after the old one's SessionEnd.
+test.each([
+  ['after', true],
+  ['before', false],
+])(
+  'Codex clear %s the old SessionEnd records a stale identity, claiming nothing',
+  (_, endFirst) => {
+    const { store, id, deps, log } = setUp();
+    store.update(id, { agent: 'codex', agentSessionId: 'before-clear' });
+    const hook = (payload: object) =>
+      recordHookEvent(deps, {
+        agent: 'codex',
+        mesaSessionId: id,
+        payload: JSON.stringify(payload),
+      });
+    const end = () =>
+      hook({ session_id: 'before-clear', hook_event_name: 'SessionEnd', reason: 'other' });
+    if (endFirst) end();
+    expect(
+      hook({ session_id: 'after-clear', hook_event_name: 'SessionStart', source: 'clear' }),
+    ).toMatchObject({ event: 'SessionIdentityChanged', agentSessionId: 'after-clear' });
+    // The new conversation's own events are not the record's.
+    expect(hook({ session_id: 'after-clear', hook_event_name: 'Stop' })).toBeUndefined();
+    if (!endFirst) expect(end()).toMatchObject({ event: 'SessionEnd' });
+    expect(store.get(id).agentSessionId).toBe('before-clear');
+    expect(log().map((event) => event.event)).toEqual(
+      endFirst
+        ? ['SessionEnd', 'SessionIdentityChanged']
+        : ['SessionIdentityChanged', 'SessionEnd'],
+    );
+  },
+);
