@@ -82,6 +82,60 @@ test('Write Bases views shows command failure and can be retried', async () => {
   expect(button?.disabled).toBe(false);
 });
 
+test('Bases feedback and pending writes belong to the profile, including an empty replacement vault', async () => {
+  const late = deferred();
+  let writes = 0;
+  const first = fakeBridge({
+    'vault list': () => envelope(INVENTORY),
+    'vault bases': () =>
+      ++writes === 1
+        ? envelope({ written: ['receipts.base', 'sessions.base'], kept: [] })
+        : late.promise,
+  });
+  const nextLook = deferred();
+  const next = fakeBridge({
+    'vault list': () => nextLook.promise,
+    'vault bases': () => envelope({ written: [], kept: ['receipts.base', 'sessions.base'] }),
+  });
+  let use: (bridge: Bridge) => void = () => {};
+  function Profiles() {
+    const [bridge, setBridge] = useState<Bridge>(() => first.bridge);
+    use = (next) => setBridge(() => next);
+    return (
+      <MesaRoot bridge={bridge} platform={fakePlatform()}>
+        <VaultScreen />
+      </MesaRoot>
+    );
+  }
+  const byTestId = await renderWithMesa(<Profiles />, first.bridge);
+  const button = () =>
+    [...document.querySelectorAll('button')].find((node) =>
+      node.textContent?.includes('Write Bases views'),
+    );
+  const feedback = () => document.querySelector('[role="status"]')?.textContent;
+  await click(button());
+  expect(feedback()).toBe('Bases: wrote 2, kept 0.');
+  await click(button());
+  expect(button()?.disabled).toBe(true);
+  await act(async () => use(next.bridge));
+  expect(feedback()).toBeUndefined();
+  expect(button()?.disabled).toBe(true);
+  // Same vault path in another profile still starts clean; its empty-state action remains usable.
+  await act(async () =>
+    nextLook.resolve(envelope({ vault: INVENTORY.vault, total: 0, items: [] })),
+  );
+  expect(button()?.disabled).toBe(false);
+  await click(button());
+  expect(feedback()).toBe('Bases: wrote 0, kept 2.');
+  await act(async () =>
+    late.resolve(envelope({ written: ['receipts.base', 'sessions.base'], kept: [] })),
+  );
+  expect(feedback()).toBe('Bases: wrote 0, kept 2.');
+  expect(button()?.disabled).toBe(false);
+  expect(next.calls).toContainEqual(['--json', 'vault', 'bases']);
+  expect(toastTexts(byTestId)).toEqual([]);
+});
+
 const labels = (byTestId: (id: string) => HTMLElement[]) =>
   byTestId('vault-folder').map((row) => row.getAttribute('aria-label'));
 const files = (byTestId: (id: string) => HTMLElement[]) =>
