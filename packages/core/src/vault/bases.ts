@@ -112,15 +112,15 @@ export async function writeBases(deps: {
   });
 }
 
-/** Owned view names only; malformed or arbitrary Bases retain their raw YAML fallback. */
-export function ownedBaseViews(text: string): string[] | undefined {
-  if (!text.startsWith(OWNER)) return undefined;
+/** Read-only view names survive native YAML saves; write ownership stays comment-based. */
+export function baseViews(text: string): string[] | undefined {
   try {
     const base = parse(text) as { views?: unknown } | null;
     if (!Array.isArray(base?.views)) return undefined;
-    return base.views.flatMap((view: { name?: unknown } | null) =>
-      typeof view?.name === 'string' ? [view.name] : [],
+    const names = base.views.flatMap((view: { name?: unknown } | null) =>
+      typeof view?.name === 'string' && view.name.trim() ? [view.name] : [],
     );
+    return names.length === base.views.length ? names : undefined;
   } catch {
     return undefined;
   }

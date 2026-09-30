@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { MesaError } from '../lib/result.js';
-import { ownedBaseViews } from './bases.js';
+import { baseViews } from './bases.js';
 import { type CanvasData, parseCanvas } from './canvas.js';
 import { type Frontmatter, parseNote } from './frontmatter.js';
 import { listVault } from './inventory.js';
@@ -68,7 +68,7 @@ function previewOf(item: VaultItem, file: string, index: LinkIndex): VaultPrevie
     return { preview: 'unsupported', reason: 'the system does not let Mesa read it' };
   }
   if (item.kind === 'base') {
-    const views = ownedBaseViews(text);
+    const views = baseViews(text);
     return { preview: 'base', yaml: text, ...(views ? { views } : {}) };
   }
   if (item.kind === 'canvas') return canvasOf(text);
