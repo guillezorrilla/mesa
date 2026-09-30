@@ -20,10 +20,16 @@ export type VaultInventory = { vault: string; total: number; items: VaultItem[] 
 
 const TYPES: readonly string[] = [...VAULT_KINDS, ...VAULT_CATEGORIES];
 
-/** A note's frontmatter; none when it does not read (a user's YAML may be broken). */
-function frontmatterOf(file: string): Frontmatter {
+/** A note's frontmatter; unreadable is distinct from readable but malformed YAML. */
+function frontmatterOf(file: string): Frontmatter | undefined {
+  let text: string;
   try {
-    return parseNote(readFileSync(file, 'utf8')).frontmatter;
+    text = readFileSync(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+  try {
+    return parseNote(text).frontmatter;
   } catch {
     return {};
   }
@@ -54,7 +60,9 @@ function entry(vault: string, path: string, link: boolean): VaultItem {
   const stat = link ? statSync(file) : own;
   if (stat.isDirectory()) return item(path, own, undefined, 'a folder link');
   if (!stat.isFile()) return item(path, own, undefined, 'unreadable');
-  return item(path, stat, itemKind(path) === 'markdown' ? frontmatterOf(file) : undefined);
+  if (itemKind(path) !== 'markdown') return item(path, stat);
+  const frontmatter = frontmatterOf(file);
+  return item(path, stat, frontmatter, frontmatter === undefined ? 'unreadable' : undefined);
 }
 
 /**

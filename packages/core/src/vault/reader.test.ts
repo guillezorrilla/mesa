@@ -174,6 +174,19 @@ test('an attachment or other file has no preview and says why, with its exact UR
   }
 });
 
+test('an unreadable folder with a Markdown suffix remains a refusal, not a note preview', () => {
+  put('wiki/folder.md/inside.md', 'An invented note.\n');
+  chmodSync(join(vault, 'wiki/folder.md'), 0o000);
+  try {
+    expect(thrown(() => readVaultItem(vault, 'wiki/folder.md'))).toMatchObject({
+      code: 'usage',
+      message: 'vault path wiki/folder.md is unreadable',
+    });
+  } finally {
+    chmodSync(join(vault, 'wiki/folder.md'), 0o755);
+  }
+});
+
 test('a note with broken YAML reads as all body', () => {
   put('wiki/odd.md', '---\ntitle: [unclosed\n---\nBody.\n');
   expect(readVaultItem(vault, 'wiki/odd.md')).toMatchObject({

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { MesaError } from '../lib/result.js';
 import { ownedBaseViews } from './bases.js';
@@ -101,8 +101,8 @@ function backlinksOf(vault: string, items: VaultItem[], index: LinkIndex, path: 
 
 /**
  * One vault item as the reader shows it: the inventory's item, its exact Obsidian URI, its
- * backlinks, and its preview. A path out of the vault's scope (scope.ts), or one the inventory
- * lists as unavailable, is refused as usage; one it does not list is not_found.
+ * backlinks, and its preview. Unreadable Markdown files keep an unsupported preview. Other
+ * unavailable or out-of-scope paths are refused as usage; one it does not list is not_found.
  */
 export function readVaultItem(vault: string, path: string): VaultRead {
   const file = vaultFile(vault, path);
@@ -110,7 +110,13 @@ export function readVaultItem(vault: string, path: string): VaultRead {
   const items = listVault(vault);
   const item = items.find((listed) => listed.path === at);
   if (!item) throw new MesaError('not_found', `no item at ${path} in ${vault}`);
-  if (item.unavailable) throw new MesaError('usage', `vault path ${at} is ${item.unavailable}`);
+  // Unreadable Markdown files keep their existing preview; unreadable folders still refuse.
+  const unreadableNote =
+    item.kind === 'markdown' &&
+    item.unavailable === 'unreadable' &&
+    statSync(file, { throwIfNoEntry: false })?.isFile();
+  if (item.unavailable && !unreadableNote)
+    throw new MesaError('usage', `vault path ${at} is ${item.unavailable}`);
   const index = linkIndex(items.map((listed) => listed.path));
   return {
     ...item,

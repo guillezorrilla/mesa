@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -75,6 +76,46 @@ test('adding and removing the exact summary changes the persisted node type', as
   rmSync(summary);
   expect(await mesa.map()).toMatchObject({ changed: true });
   expect(readFileSync(join(vault, 'map.canvas'), 'utf8')).not.toContain('"type": "file"');
+});
+
+test('an unreadable exact summary falls back to recorded details and URI; readable malformed YAML remains a file', async () => {
+  const { home, mesa, vault } = setup();
+  testStore(home).update('aaaaaaaa', { goal: 'Read the amber buoy' });
+  const summary = 'wiki/sessions/aaaaaaaa.md';
+  mkdirSync(join(vault, 'wiki/sessions'), { recursive: true });
+  writeFileSync(join(vault, summary), '---\ntitle: [unclosed\n---\nA readable chart.\n');
+  expect(await mesa.map()).toMatchObject({ changed: true });
+  const nodes = () => {
+    const read = mesa.vault.read('map.canvas');
+    if (read.preview !== 'canvas' || !read.canvas) throw new Error('expected structured Canvas');
+    return read.canvas.nodes;
+  };
+  expect(nodes()).toContainEqual(expect.objectContaining({ type: 'file', file: summary }));
+  expect(
+    mesa.vault.list().items.find((item) => item.path === summary)?.unavailable,
+  ).toBeUndefined();
+  chmodSync(join(vault, summary), 0o000);
+  try {
+    expect(mesa.vault.list().items.find((item) => item.path === summary)?.unavailable).toBe(
+      'unreadable',
+    );
+    expect(mesa.vault.read(summary)).toMatchObject({
+      preview: 'unsupported',
+      reason: 'the system does not let Mesa read it',
+    });
+    expect(await mesa.map()).toMatchObject({ changed: true });
+    expect(nodes()).toContainEqual(
+      expect.objectContaining({
+        type: 'text',
+        text: 'Chart shoals\nclaude: working\nRead the amber buoy\n[Open in Mesa](mesa://session/aaaaaaaa?profile=default)',
+      }),
+    );
+    expect(nodes().some((node) => node.type === 'file' && node.file === summary)).toBe(false);
+  } finally {
+    chmodSync(join(vault, summary), 0o644);
+  }
+  expect(await mesa.map()).toMatchObject({ changed: true });
+  expect(nodes()).toContainEqual(expect.objectContaining({ type: 'file', file: summary }));
 });
 
 test('missing and uninitialized vaults and escaping destinations refuse before mutation', async () => {

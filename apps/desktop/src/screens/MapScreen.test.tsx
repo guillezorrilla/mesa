@@ -155,3 +155,52 @@ test('a profile change clears old map content immediately and ignores the old pr
   expect(body()).toContain('No map yet. Use Update map.');
   expect(body()).not.toContain('Lantern Cove');
 });
+
+test.each(['success', 'failure'] as const)(
+  'pending Map update belongs to its profile: late %s cannot refresh or toast in a replacement sharing its vault path',
+  async (result) => {
+    const late = deferred();
+    const first = fakeBridge({ ...answers, map: () => late.promise });
+    const nextLook = deferred();
+    const next = fakeBridge({
+      ...answers,
+      'vault list': () => nextLook.promise,
+      map: () => envelope({ path: 'map.canvas', changed: false, groups: 1, nodes: 4, edges: 1 }),
+    });
+    let use: (bridge: Bridge) => void = () => {};
+    function Profiles() {
+      const [bridge, setBridge] = useState<Bridge>(() => first.bridge);
+      use = (next) => setBridge(() => next);
+      return (
+        <MesaRoot bridge={bridge} platform={fakePlatform()}>
+          <MapScreen onSession={() => {}} onVaultItem={() => {}} />
+        </MesaRoot>
+      );
+    }
+    const byTestId = await renderWithMesa(<Profiles />, first.bridge);
+    await click(button('Update map'));
+    expect(button('Updating...')?.disabled).toBe(true);
+    await act(async () => use(next.bridge));
+    expect(button('Updating...')).toBeUndefined();
+    expect(button('Update map')?.disabled).toBe(true);
+    await act(async () =>
+      nextLook.resolve(envelope({ vault: '/h/vault', total: 1, items: [item] })),
+    );
+    expect(button('Update map')?.disabled).toBe(false);
+    expect(body()).toContain('Chart shoals');
+    const calls = [first.calls.length, next.calls.length];
+    await act(async () =>
+      late.resolve(
+        result === 'failure'
+          ? failure('old profile failed')
+          : envelope({ path: 'map.canvas', changed: true, groups: 1, nodes: 4, edges: 1 }),
+      ),
+    );
+    expect([first.calls.length, next.calls.length]).toEqual(calls);
+    expect(toastTexts(byTestId)).toEqual([]);
+    expect(button('Update map')?.disabled).toBe(false);
+    await click(button('Update map'));
+    expect(next.calls).toContainEqual(['--json', 'map']);
+    expect(button('Update map')?.disabled).toBe(false);
+  },
+);
