@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { RECEIPT_FILE } from '../receipts/receipt-file.js';
-import { VAULT } from './layout.js';
+import { VAULT, VAULT_FOLDERS } from './layout.js';
 
 const MARK = 'vault initialised by mesa';
 // Relative to this module, so it resolves from src (vitest) and from dist (the built CLI).
@@ -20,7 +20,7 @@ const LAYOUT: Item[] = [
   { name: VAULT.log, kind: 'file', content: (now) => `- ${now.toISOString()} ${MARK}\n` },
   { name: VAULT.agents, kind: 'file', content: () => readFileSync(TEMPLATE, 'utf8') },
   { name: VAULT.index, kind: 'file', content: () => INDEX },
-  ...[VAULT.raw, VAULT.wiki, VAULT.projects, VAULT.receipts, VAULT.daily].map((name) => ({
+  ...VAULT_FOLDERS.map((name) => ({
     name,
     kind: 'folder' as const,
   })),

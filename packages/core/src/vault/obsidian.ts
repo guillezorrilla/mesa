@@ -2,7 +2,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import { vaultFile } from './notes.js';
+import { vaultFile } from './scope.js';
 
 /** Where Obsidian keeps its pieces. Injected so tests point at a temp dir instead of the Mac's. */
 export type ObsidianPaths = {

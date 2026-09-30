@@ -61,6 +61,7 @@ import type {
   TmuxWindow,
   TreeRow,
   UsageReport,
+  VaultInventory,
   VaultStatus,
   Viewed,
   WeeklyRewind,
@@ -1028,6 +1029,7 @@ const COMMANDS = {
     ({ project, query }) => ['history', 'search', '--', project, query],
   ),
   'sessions.all': command<TreeRow[]>('sessions', '--all', '--tree'),
+  'vault.list': command<VaultInventory>('vault', 'list'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
   'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [
     'vault',

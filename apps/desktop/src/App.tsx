@@ -38,6 +38,7 @@ import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
 import { ShortcutSettings } from './screens/ShortcutSettings';
 import { TourScreen } from './screens/TourScreen';
 import { UsageScreen } from './screens/UsageScreen';
+import { VaultScreen } from './screens/vault/VaultScreen';
 
 export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
@@ -524,6 +525,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           {view.kind === 'usage' && (
             <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
           )}
+          {view.kind === 'vault' && <VaultScreen />}
           {view.kind === 'inbox' && (
             <InboxScreen
               onSession={(id) => navigate({ kind: 'session', id })}
