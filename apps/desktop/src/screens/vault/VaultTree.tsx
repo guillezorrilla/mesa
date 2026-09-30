@@ -12,7 +12,7 @@ import {
   Paperclip,
   Table2,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +60,8 @@ const ROW =
 
 /**
  * The inventory as a folder tree with a count on each folder. Only the top level shows at first:
- * every folder opens on its own, so a vault of thousands of items stays one screen.
+ * every folder opens on its own, so a vault of thousands of items stays one screen. The selected
+ * item's folders open with it.
  */
 export function VaultTree(props: {
   items: readonly VaultItem[];
@@ -68,6 +69,14 @@ export function VaultTree(props: {
   onSelect: (path: string) => void;
 }) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  // A selection made elsewhere, such as a link in the reader, opens the folders it is in.
+  useEffect(() => {
+    const parts = props.selected?.split('/').slice(0, -1) ?? [];
+    const folders = parts.map((_, depth) => parts.slice(0, depth + 1).join('/'));
+    setOpen((last) =>
+      folders.every((folder) => last.has(folder)) ? last : new Set([...last, ...folders]),
+    );
+  }, [props.selected]);
   const toggle = (path: string) =>
     setOpen((last) => {
       const next = new Set(last);
