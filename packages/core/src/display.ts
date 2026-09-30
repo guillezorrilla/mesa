@@ -4,7 +4,8 @@ import type { SessionRow } from './sessions/board/rows.js';
 // the Board. Pure, and with type imports only, so the app bundles it (`@mesa/core/browser`).
 
 /** A session's name when a person gave it one, else its id. */
-export const sessionLabel = (s: SessionRow) => (s.managed && s.name ? s.name : s.id);
+export const sessionLabel = (s: { id: string; name?: string; managed?: boolean }) =>
+  s.managed !== false && s.name ? s.name : s.id;
 
 /** What a session's card calls it: its name, else its goal's first line, else its id. */
 export const sessionTitle = (s: SessionRow) =>

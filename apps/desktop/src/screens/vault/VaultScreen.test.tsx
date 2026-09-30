@@ -303,6 +303,7 @@ const READS: Record<string, VaultPreview> = {
   }),
   'projects/tide/map.canvas': {
     preview: 'canvas',
+    canvas: null,
     nodes: 3,
     edges: 1,
     texts: ['Neap tides', 'Spring tides'],

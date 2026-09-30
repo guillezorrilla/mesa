@@ -31,6 +31,7 @@ import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { HelpScreen } from './screens/HelpScreen';
 import { InboxScreen } from './screens/InboxScreen';
+import { MapScreen } from './screens/MapScreen';
 import { PreferencesScreen } from './screens/PreferencesScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
@@ -525,6 +526,12 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
           {view.kind === 'usage' && (
             <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
+          )}
+          {view.kind === 'map' && (
+            <MapScreen
+              onSession={(id) => navigate({ kind: 'session', id })}
+              onVaultItem={(path) => navigate({ kind: 'vault', path })}
+            />
           )}
           {view.kind === 'vault' && (
             <VaultScreen key={view.query} query={view.query} path={view.path} />

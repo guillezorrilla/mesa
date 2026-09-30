@@ -11,6 +11,7 @@ import { diagnosticsService } from './diagnostics/service.js';
 import { inboxCheck, runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
+import { mapService } from './map/service.js';
 import { inbox } from './notifications/inbox.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
@@ -46,6 +47,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     worktrees: worktreesService(ctx),
     git: gitService(ctx, faro),
     ...vaultService(ctx),
+    ...mapService(ctx),
     receipts: receiptsService(ctx),
     ...sessionsService(ctx, faro, skills),
     hooks: hooksService(ctx),

@@ -119,6 +119,36 @@ test('a canvas reads as its counts and text nodes, a base as its YAML', () => {
   });
 });
 
+test('structured Canvas data rejects duplicate IDs, missing endpoints, invalid node types and geometry while retaining count/text previews', () => {
+  const node = { id: 'a', type: 'text', text: 'Ebb', x: 0, y: 0, width: 100, height: 100 };
+  for (const canvas of [
+    { nodes: [node, node], edges: [] },
+    { nodes: [node], edges: [{ id: 'e', fromNode: 'a', toNode: 'missing' }] },
+    { nodes: [{ ...node, x: 0.5 }], edges: [] },
+    { nodes: [{ ...node, width: null }], edges: [] },
+    { nodes: [{ ...node, type: 'unknown' }], edges: [] },
+    { nodes: [{ id: 'a', type: 'text', text: 'Ebb' }], edges: [] },
+  ]) {
+    put('map.canvas', JSON.stringify(canvas));
+    expect(readVaultItem(vault, 'map.canvas')).toMatchObject({
+      preview: 'canvas',
+      nodes: canvas.nodes.length,
+      canvas: null,
+    });
+  }
+  put(
+    'map.canvas',
+    JSON.stringify({ nodes: [node], edges: [{ id: 'e', fromNode: 'a', toNode: 'a' }] }),
+  );
+  expect(readVaultItem(vault, 'map.canvas')).toMatchObject({
+    preview: 'canvas',
+    nodes: 1,
+    edges: 1,
+    texts: ['Ebb'],
+    canvas: { nodes: [node] },
+  });
+});
+
 test('an attachment or other file has no preview and says why, with its exact URI', () => {
   expect(readVaultItem(vault, 'raw/chart.png')).toMatchObject({
     kind: 'attachment',
@@ -141,6 +171,19 @@ test('an attachment or other file has no preview and says why, with its exact UR
     });
   } finally {
     chmodSync(join(vault, 'wiki/ferry.md'), 0o644);
+  }
+});
+
+test('an unreadable folder with a Markdown suffix remains a refusal, not a note preview', () => {
+  put('wiki/folder.md/inside.md', 'An invented note.\n');
+  chmodSync(join(vault, 'wiki/folder.md'), 0o000);
+  try {
+    expect(thrown(() => readVaultItem(vault, 'wiki/folder.md'))).toMatchObject({
+      code: 'usage',
+      message: 'vault path wiki/folder.md is unreadable',
+    });
+  } finally {
+    chmodSync(join(vault, 'wiki/folder.md'), 0o755);
   }
 });
 

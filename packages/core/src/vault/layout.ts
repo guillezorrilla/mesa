@@ -1,8 +1,11 @@
 // The vault's layout (CONTEXT.md, Vault; ADR-0006): the one module that knows its names.
 
 /** The names at a vault's top, as Mesa lays them out, and Mesa's own folder (the vault lock). */
+export const MAP_PATH = 'map.canvas';
+
 export const VAULT = {
   log: 'log.md',
+  map: MAP_PATH,
   agents: 'AGENTS.md',
   index: 'index.md',
   raw: 'raw',

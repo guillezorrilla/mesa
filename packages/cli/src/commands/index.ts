@@ -64,6 +64,7 @@ import { imagePreview, imageSend } from './image.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
+import { map } from './map.js';
 import {
   notifications,
   notificationsClear,
@@ -199,6 +200,7 @@ export const COMMANDS: Command[] = [
   init,
   log,
   logs,
+  map,
   notifications,
   notificationsRead,
   notificationsClear,
