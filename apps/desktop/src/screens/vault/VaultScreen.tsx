@@ -64,14 +64,15 @@ function ItemDetails({ item, onSelect }: { item?: VaultItem; onSelect: (path: st
 
 /**
  * Every item in the active profile's vault (`mesa vault list`) as a folder tree, filtered by
- * project and type with core's own rule, and the selected item's details and reader beside it.
- * A search (`mesa vault search`, from `query` at first) shows its results in the tree's place.
+ * project and type with core's own rule, and the selected item's details and reader beside it:
+ * the item at `path` first, when given. A search (`mesa vault search`, from `query` at first)
+ * shows its results in the tree's place.
  */
-export function VaultScreen({ query: initial = '' }: { query?: string }) {
+export function VaultScreen({ query: initial = '', path }: { query?: string; path?: string }) {
   const inventory = useCommand('vault.list');
   const [project, setProject] = useState('');
   const [type, setType] = useState('');
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState(path);
   const [draft, setDraft] = useState(initial);
   const [query, setQuery] = useState(initial.trim());
   const items = inventory.data?.items ?? [];

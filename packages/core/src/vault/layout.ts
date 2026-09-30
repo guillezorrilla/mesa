@@ -30,3 +30,9 @@ export const INTERNALS = ['.obsidian', VAULT.mesa, '.trash', '.git', '.DS_Store'
 
 /** A daily note's path inside the vault. */
 export const dailyNotePath = (day: string) => `${VAULT.daily}/${day}.md`;
+
+/** A project's hub note (CONTEXT.md, Project hub). */
+export const projectHubPath = (project: string) => `${VAULT.projects}/${project}.md`;
+
+/** Where a session's summary lands (the session-summary skill's landing). */
+export const sessionSummaryPath = (id: string) => `${VAULT.wiki}/sessions/${id}.md`;
