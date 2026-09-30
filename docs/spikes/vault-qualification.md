@@ -1,0 +1,191 @@
+# Local vault and session memory qualification (#302, #157)
+
+Status: qualification pending the successful live Claude background check required by #315 in #302, with the supported/unsupported boundaries and cleanup exceptions recorded below. Observations were recorded on 2026-09-29 local and 2026-09-30 UTC. The #319 real CLI/server and packaged-app regression rechecks passed at `84a25c1`; final merged-main build/verify and B3 packaged-app checks passed at `5fcd957`. Settings cleanup and explicit-path removal are verified. The Claude background tool-consumption criterion in #315 remains quota-blocked and explicitly requires its live answer in #302 qualification. It therefore holds #302 and #303/P5 closure; this report does not claim that criterion passed.
+
+## Evidence and reproduction scope
+
+`$Q` denotes this run's former disposable qualification root, chosen outside the repository and removed after archiving. `$ARCHIVE` denotes the retained private evidence archive; recorded `$Q/evidence/<path>` references now resolve as `$ARCHIVE/<path>`. `$MESA_WORKTREE` denotes the qualification checkout. Profiles are `p5q` and `p5q-other`, vaults `$Q/vault` and `$Q/vault-other`, invented projects `$Q/projects/lantern-shoal`, `$Q/projects/copper-fen`, and `$Q/projects/amber-heron`. The dedicated tmux socket is `mesa-p5q`. No external-source connector was configured. All test note content and markers are invented.
+
+The main CLI alias was:
+
+```sh
+m() { node "$MESA_WORKTREE/packages/cli/dist/mesa.js" --profile p5q "$@"; }
+mo() { node "$MESA_WORKTREE/packages/cli/dist/mesa.js" --profile p5q-other "$@"; }
+```
+
+The commands started outside a Mesa window unless a row explicitly used a bound server or provider. Codex used `CODEX_HOME=$Q/codex-home`; Claude used its signed-in native home with temporary Mesa hooks; Antigravity used temporary global Mesa hook/MCP entries. Existing provider settings and permission rules were preserved during installation. Final settings cleanup is recorded below, with exact backup restoration distinguished from removal of owned trust entries and unrelated global configuration drift.
+
+| Part | Code and native environment | Evidence owner |
+| --- | --- | --- |
+| A, fixture/CLI/server | `1d54ccc` (#313); Node 24.16.0; Mesa 0.1.0 | `$Q/evidence/A-fixture.md`, `A-cli.md`, raw inventory/read/search/save/server logs |
+| C, Claude | `fb3b6ba` (#309); Claude Code 2.1.285, Opus 5.5, xhigh; tmux 3.7c | `$Q/evidence/C-claude.md`, `raw/C-*` |
+| D, Codex | `fb3b6ba`; Codex CLI 0.157.1, GPT-6-Astra, low | `$Q/evidence/D-codex.md`, `raw/D-*` |
+| E, Antigravity | `b0d51cc` (#316); Antigravity CLI 1.2.13, Gemini 3.8 Flash (High) | `$Q/evidence/E-antigravity.md`, `raw/E-*` |
+| B, packaged app | `b0d51cc`; `tauri build --debug --bundles app`, exit 0; disposable copy `$Q/Mesa-P5.app` | `$Q/evidence/B-app.md`, raw JSON and Mesa-window-only screenshots |
+| D2, #317 recheck | `049233c` (#318); Codex 0.159.2, GPT-6.1-Sol, low | `$Q/evidence/D2-codex-recheck.md`, `raw/D2-*` |
+| C2, background recheck | Post-#316 qualification checkout; Claude Code 2.1.285, Opus 5.5, xhigh | `raw/C2-background-open.json`, `C2-background-hooks.jsonl`, `C2-startup-pointer.txt`, `C2-background-quota.txt`, `C2-background-stop.json` |
+| A2, #319 real server | `84a25c1`; real CLI stdio child process, 15 asserted cases, 26 protocol-only replies | `$Q/evidence/A2-cli-regressions.md`, `raw/A2-*` |
+| B2, #319 packaged app | `84a25c1`; debug app package build exit 0, 26 seconds | `$Q/evidence/B2-app-319.md`, `raw/B2-*`, `shots/B2-*` |
+| E2, later retrieval | Real Antigravity 1.2.13 headless session `s7jrarv6` | `$Q/evidence/E2-later-retrieval.md`, `raw/E2-*` |
+| B3, final merged-main app | `5fcd957`; debug package build exit 0, 26.91 seconds; active/other profiles | `$Q/evidence/B3-main-app.md`, `raw/B3-*`, `shots/B3-*` |
+| Final main verification | `5fcd957` after merged #319; `pnpm build` and `pnpm verify` passed, 895 JavaScript and seven Rust tests | `$Q/evidence/raw/final-main-*.log` |
+
+A uses the real Mesa CLI and a real stdio server process. Its invented historical session records do not establish provider behavior. C, D, D2, and E use real providers and actual tool calls. B uses a disposable native packaged app. Component tests and fake MCP responses are not substitutes for these rows.
+
+Private artifact archive: `$ARCHIVE` retains 222 qualification artifacts and `SHA256SUMS.txt`. All 222 manifest entries were verified with zero checksum failures after cleanup. Qualification-root, home, worktree and email values were replaced in archived text; the credential-pattern scan reported zero hits. Screenshots capture only the Mesa window. The private archive location is recorded outside this portable repository report. This repository contains only the portable report, without raw transcripts, screenshots, login copies, settings backups, environment dumps or personal absolute paths.
+
+## Fixture, CLI, and real-server results
+
+Part A's final inventory contained **121 unique items**, exactly matching the filesystem's supported knowledge paths. Four application internals were excluded (`.obsidian`, `.trash`, `.DS_Store` fixture entries). Categories were receipts 62, wiki 31, user 14, projects 6, raw 3, daily 2, index/log/agents one each. Kinds were Markdown 111, other 5, attachment 2, Canvas 2, Bases 1. The fixture included nested user folders, `field-notes/unindexed-drift.md`, a reading list outside project hubs, two same-name buoy lists, historical receipts, malformed frontmatter, valid and invalid Canvas, Bases YAML, PNG/PDF, and safe and escaping symlinks.
+
+`m vault read <path> --json` was run for every listed item: 109 Markdown previews, one Canvas preview, one Bases preview, four explicit unsupported previews with exact-file URIs, and six explicit refused paths. The six unavailable items remained discoverable with reasons: outside vault, internal target, folder link, or broken link. No listed item was silently omitted. Attachments and other unsupported formats explained their preview limitation and supplied `obsidian://open` for the selected file. This establishes the exact-file fallback URI; it does not separately prove Obsidian launched that item.
+
+| CLI operation | Actual result | Evidence |
+| --- | --- | --- |
+| Complete inventory and filters | 121 paths; Markdown/Canvas/Bases/attachment/other and category filters; lantern-shoal/copper-fen filters; other profile's amber-heron filter returned zero | `raw/list-final.json`, fixture/list path comparison, A-cli section 3 |
+| Unindexed and nested search | `driftbottlemoss` found the unindexed note; `barnacleglow` found the nested survey; frontmatter value `saltmarshquill`, Canvas `kelpwhistle`, Bases `quillbase`, and attachment filename searches found the expected items | `raw/search.log`, `search-extra.log` |
+| Links/backlinks | Exact paths resolved; buoy-list name returned two candidates without guessing; missing targets were broken; code spans/fences and external URLs were excluded; Markdown backlinks matched expected paths | A-cli section 4 |
+| Project overview | lantern-shoal compact data 4,694 bytes, under the 8,000-byte bound; user-authored project notes included; unindexed non-project note remained reachable by read/search | `raw/context-lantern.json` |
+| General overview | 4,971-byte envelope; no hub; bounded index/notes/decisions and explicit omitted counts | `raw/context-general.json` |
+| Earlier goals | Invented historical goals returned with summary paths; plain terminal and caller excluded as appropriate | `raw/goals.log` |
+| CLI structured saves | 20 initial saves each changed true and produced one receipt/log entry; 20 exact repeats changed false with null receipt and unchanged counts; one substantive summary update produced one further entry and its repeat none | `raw/saves-first.log`, `saves-repeat.log`, `summary-update.log` |
+| Real MCP protocol | Real child process initialized at protocol 2025-06-18; seven tools; 2,624-byte tools/list reply; real overview/read/search/save calls | `raw/mcp.log`, `$Q/mcp-probe.mjs` |
+| Missing vault | Status explained missing schema files; list/search/read returned not_found; context described an uninitialized vault; original invented folder restored | `raw/missing-vault.log` |
+
+The real server refused absent, unknown, ended, mismatched-profile, and command-line/environment profile-conflict bindings. A real terminal session `g1jq790b` served seven tools while live. After Mesa stopped it with the same server still running, tools/list became empty and reads/saves returned an inert-session error; no after-stop note or receipt was created. This proves the stale binding through the real server, not through a model.
+
+The same server refused the locked note, another project's write path, file/folder symlink escapes, vault internals, and another profile's traversal. Searches for outside/internal/other-profile markers returned zero. CLI saves also refused an existing user-written note lacking Mesa ownership, raw/hub destinations, and symlink write escapes; the locked note and outside files remained byte-identical.
+
+### #319 real-server regression recheck
+
+A2 reran 15 asserted negative/control cases through actual CLI child processes at `84a25c1`. Cross-project canonical note aliases and redirected decision/summary folders refused before mutation; an own-project alias worked. A log symlink outside the vault refused without changing the external file or creating a note. JSON-RPC 1.0, missing versions, and object/false/null/array IDs returned -32600/null without dispatch. Corrupt binding records kept initialize available but tools empty and saves inert, both in a running server and at startup. Restoring the exact record recovered seven tools; stopping its live terminal made both existing and newly started servers inert.
+
+All 26 stdout lines were JSON-RPC with expected IDs, while binding diagnostics remained on stderr. Inventory was 141 before/after. Every pinned vault path, content hash, and symlink target matched; the concurrent B2 currentness fixture was explicitly excluded. Control note/receipt, aliases, log, index, and session record were restored or removed. These are real-server tests, not provider consumption. Evidence: `A2-cli-regressions.md`, `raw/A2-summary.json`, `A2-mcp-transcript.json`, `A2-mcp-stdout.jsonl`, and before/after inventories and hashes.
+
+## Startup context and native delivery
+
+The initial prompt contained the saved goal rather than vault bodies. Claude's SessionStart attachment and Codex's developer message held a **943-byte, seven-line, 112-word** Mesa pointer naming the current session, profile, project, commands, meaningful-recording policy, and on-demand tools. Marker searches over those pointers returned zero vault fixture content. The worktree Claude pointer was 869 bytes. Antigravity used its transient PreInvocation pointer and global server entry; its first goal was READY-only and note content arrived through later MCP calls.
+
+| Provider | Before on-demand vault reads | After requested reads | Interpretation |
+| --- | --- | --- | --- |
+| Claude Code 2.1.285 | First model request 45,855 context input tokens; other fresh/later starts 45,023-45,166. Native /context 45.9k/1M, 5%. Its 309 MCP tools reported zero standing tokens, loaded on demand | Recorded request sequence 72,776 -> 73,249 after schema loading (+473), then 76,083 after overview/read results (+2,834); /context later showed 76.2k | Total context includes provider/user setup. /context itself added approximately 27k tokens, so subtracting first and last totals would not isolate vault cost. Seven vault schemas were deferred; two loaded schemas reported 240 tokens in the native table |
+| Codex 0.157.1 | 19,875 input tokens, including 12,032 cached, of 258,400 (7.7%); other starts 19,655-20,777 | 28,879 after overview/unindexed read (11.2%); compact moved next-request input 29,758 -> 24,980 | Difference includes user prompt, code-mode tool discovery/calls/results and answer. A no-pointer first start used 20,584, so start-to-start variation cannot measure pointer-only cost |
+| Antigravity 1.2.13 | Gemini 3.8 Flash (High), 22.2k/1M after READY-only turn. Categories: system prompt 3.7k, tools 13.5k, skills 3.8k, subagents 653; user 28 and response 461 tokens | 49.8k/1M after reads; system categories stayed 3.7k/13.5k, skills 4.3k; agent responses 27.5k, tool calls 105 | Native context display measured total conversation, including reasoning and generated output-file reading. It is not an isolated pointer or schema cost |
+
+These runs show a small textual pointer and on-demand retrieval in these configurations. They do not demonstrate that total provider startup context is identical across installations, nor a controlled constant-cost experiment across differently sized vaults. The measured pointer's bound depended on cwd length in this build: about 806 fixed bytes plus the quoted cwd. Do not infer a universal 1,000-byte guarantee from the 943-byte live sample.
+
+## Real-provider retrieval and meaningful writes
+
+| Agent | Fresh overview/note retrieval | Changed decision/summary/note | Exact repeat | Later retrieval |
+| --- | --- | --- | --- | --- |
+| Claude, `6d2qhpas` | ToolSearch loaded deferred schemas; actual project_context and read_note returned `# lantern-shoal` and unindexed `driftbottlemoss`; no MCP permission prompt | Amber-lens decision with probabilities .7/.3, confidence .65 and rationale; session summary; fog-lens note. Receipts/log/index **62/25/28 -> 65/28/30**, one receipt and linked log entry each | All three changed false/null receipt; file hashes and counts unchanged | New `65v2xmkk` searched and read decision/note with original session provenance; session_goals located original summary path. Summary body reread was not recorded |
+| Codex, `7pv3t3nn` | Actual completed McpToolCall overview and requested unindexed read; correct heading/marker, no MCP permission prompt | Solar-panel decision with probabilities .8/.2, confidence .7 and rationale; summary; panel-wipe note. Counts **65/28/30 -> 68/31/32** | All three changed false/null receipt; hashes/counts unchanged | New `107rkqjb` found Codex decision/note by search and read panel-wipe note; also read Claude's saved note. session_goals located both summaries. Summary body reread was not recorded |
+| Antigravity, `yq3evfb7` | Actual overview and unindexed-note MCP calls. Initial heading capitalization was inferred incorrectly; a narrow request to read the generated tool output corrected it to the exact heading | Agy buoy-placement decision with east .8/west .2, confidence .8; summary; `agytidecobalt` note. Counts **69/32/33 -> 72/35/35** | All three changed false; counts unchanged | Resumed `121bap2q` searched/read notes from all three agents and listed 19 earlier goals. Separate fresh `9wdrn49k` read saved `agytidecobalt`. E2 later headless `s7jrarv6` actually searched, then read the Agy decision, original `yq3evfb7` summary and note; outputs confirmed east buoy, saved goal and marker |
+
+Later retrieval evidence is exact: C `raw/C-later.log` lines 3-4 find decision/note, 5/9 and 6/10 read them, and 7/11 locate `wiki/sessions/6d2qhpas.md`. D's retained `raw/D-later-native-tools.json` contains the three completed calls from native later-session rollout lines 32, 38 and 39: completed decision/note search, note read, and `session_goals` locating `wiki/sessions/7pv3t3nn.md`. Finding those summary paths satisfies the recorded found-later criterion; C/D summary bodies are not implicitly claimed read. E2 actual tool outputs `raw/E2-tool-step-7.txt`, `10.txt`, `13.txt`, and `16.txt` record search and all three body reads. No new writes or permission answers occurred in E2.
+
+The Codex clear probe added one separate meaningful note/receipt, explaining the intermediate **68/31/32 -> 69/32/33** counts before Antigravity's writes. Summaries add no index entry; decisions and notes add one. Decision receipts retained probabilities, confidence, rationale, agent/session actor and target. Repeated operations and refusal probes produced no meaningful entries.
+
+## Provider lifecycle matrix with #156 instructions
+
+Each verified lifecycle row used the current Mesa pointer together with real project_context retrieval, except explicitly limited rows. The standard check requested the pointer's current Mesa ID and the hub heading through MCP. Handoff checks additionally requested the invented note marker. A configured status alone is not delivery proof.
+
+| Lifecycle | Claude Code 2.1.285 | Codex 0.157.1, with D2 correction at 0.159.2 | Antigravity CLI 1.2.13 |
+| --- | --- | --- | --- |
+| Fresh | `6d2qhpas`: current pointer, overview and requested note | Trusted `7pv3t3nn`: current pointer, overview/note. Initial untrusted `vkf5s76c` lacked pointer; see D2 below | `yq3evfb7`: pointer and overview/note, exact output confirmed after correction |
+| Resume | `65v2xmkk -> nhc3vzej`, same native ID; resume pointer names successor and tool works | `107rkqjb -> 8ywa3dps`, same native ID; SessionStart resume arrives at first prompt; tool sees successor binding | `yq3evfb7 -> 121bap2q`, same native conversation; current pointer and overview |
+| Worktree | `ceswe720`, own pointer/cwd and overview; stopped and worktree/branch removed | `zr7wjzny`, own pointer and overview; stopped and removed | `twk9qj4h`, accepting folder trust once, correct pointer/overview; stopped and removed |
+| Handoff | `nhc3vzej -> g68npx65`, successor pointer, overview, note marker `GULL LANTERN 41` | `8ywa3dps -> 2dg7mp2a`, successor pointer, overview, note marker `HERON BEACON 57` | `121bap2q -> kka2kke7`, successor pointer/overview, marker `ALBATROSS LENS 83`, saved Agy note |
+| Queue | `v4wqpjjp`, no mount/native ID while queued; own pointer and overview after predecessor stop | `px19vr97`, queued state then own pointer/overview after stop | `tp0yz91n`, pending cleared then own pointer/overview after stop |
+| Headless | `bmwxncrc`, exit 0, correct pointer/heading, three native turns and no denials; 11,234 ms | `cvztpa4y`, completed real MCP call and turn, exit 0, correct pointer/heading; 13,632 ms | `0kbnv3hp`, exit 0, correct pointer/heading; 15,538 ms, no denials/prompts |
+| Clear | `nhc3vzej`, old SessionEnd then source clear/new ID; record follows, pointer redelivered, existing server works | New native thread receives no pointer; saved ID deliberately retained. Vault access/write works under window's Mesa binding. Original timing status bug fixed/rechecked in D2. **Unsupported instruction continuation; reopen through Mesa** | Cleared `121bap2q` answers pointer ABSENT; show conflicting, saved ID retained; MCP overview still works. **Unsupported instruction continuation; reopen through Mesa** |
+| Compact | `nhc3vzej`, same native ID, compact pointer redelivered, tool works | `8ywa3dps`, same native ID, source compact on next prompt, pointer/tool work | **Unsupported** in qualified CLI 1.2.13; no invented equivalent |
+| Fork, extra | `z1vc4mng`, new native ID, fork pointer and actual overview | `6hq9w1k6`, new native ID, fork pointer and actual overview | **Unsupported** native fork in qualified CLI |
+| Background, extra | Original `s3wde7am` failed binding. #315/#316 correction has C2 startup evidence but provider retrieval remains quota-blocked, below | No background row claimed | No background row claimed |
+
+Native headless usage: Claude input 6, cache creation 32,229, cache read 89,815, output 527; reported list-price estimate $0.286359, not account billing. Codex input 44,139 (32,640 cached), output 121. Antigravity input 47,038, output 1,127, thinking 879, cache read 28,483, reported total 48,165. These are run usage reports, not isolated startup pointer measurements.
+
+### Codex timing and native trust correction
+
+Original D on Codex 0.157.1 observed clear at 03:11:31Z, new-thread hooks at 03:11:43Z, and old-thread SessionEnd only at 03:12:31Z, after 60 seconds idle. The pre-fix guard dropped the new hook payload and show incorrectly remained configured. That original retained payload cannot establish its hook source; rollout `source: cli` is not hook stdin.
+
+D2 on code `049233c`, Codex **0.159.2** and GPT-6.1-Sol low, supplies new actual evidence. Trusted session `549313pq` received its startup pointer. Clear produced a retained `SessionIdentityChanged` at **04:13:03.564Z**, payload **source clear**, naming the new native thread; the preceding retained event was original Stop at 04:10:33.077Z, with no old-thread SessionEnd. Show immediately reported conflicting, kept its saved native ID, and later unknown-thread hooks were rejected. A real post-clear MCP project_context still returned `# lantern-shoal`. This verifies the ordering correction on 0.159.2 without retroactively asserting a captured payload for 0.157.1.
+
+For trust, D2 removed only trust state in the disposable Codex config and launched `t16m0eat`. JSON returned exactly: "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer". Native Hooks need review showed nine entries. No review prompt was answered; session stopped. Restoring the disposable trusted config caused the later launch to omit the warning and deliver its pointer. The original D goal had run behind hook review before trust, so trusting later never retroactively supplied that goal's pointer. Mesa did not bypass the native review.
+
+### Claude background correction and quota boundary
+
+Original extra background `s3wde7am` used a prewarmed native daemon process lacking the window binding: no Mesa pointer/hooks, server listed no tools, while show said configured. Issue #315, merged as PR #316, binds background launch settings to the current Mesa session.
+
+C2 `9s30keqb`, background handle `ca73f06b`, launched at **04:15:31.855Z**. Actual native SessionStart at **04:15:33.842Z** names that Mesa session and its background native conversation; the recorded startup pointer is **942 bytes** and names `9s30keqb`. UserPromptSubmit followed. This is actual native startup/hook delivery evidence after the fix.
+
+The provider model request was then refused by the individual spend limit (429 quota condition), with the native message that the session limit resets **11:10 pm America/Vancouver**. No successful model turn, tool retrieval, or model confirmation occurred; C2 was stopped at 04:17:33.864Z. Background project_context consumption is **pending a post-reset live recheck**, not verified by startup evidence or component tests. Background is an extra row relative to #302's original named lifecycle list. PR #316 merged the #315 correction, but #315 explicitly requires a successful live background project_context answer in #302 qualification. That acceptance criterion remains unverified and holds qualification closure; the quota refusal is not fulfillment of that criterion.
+
+## Native safety refusals and permissions
+
+| Boundary | Actual observation | Evidence class |
+| --- | --- | --- |
+| Locked note | All three real providers attempted the invented locked harbour-rules note and received a refusal; byte comparison stayed identical | C/D/E actual native tool failures plus file comparison |
+| Active profile | Real Claude later session searched other-profile marker with all true and got zero; real server refused cross-profile bindings/traversal; CLI other profile returned its own marker while p5q did not | Real provider + real server + CLI |
+| Canonical/symlink escape | All three providers' actual read of wiki/secret-link.md failed outside vault; real server also refused file/folder escape and internal target; no outside marker returned | Real provider + real server + CLI |
+| Stale session | Stop live g1jq790b while its real server remains; tool list becomes empty and reads/saves refuse without writing | Real server, not a model claim |
+
+Folder trust was accepted for invented provider folders. Codex review inspected Mesa entries then trusted them only inside the disposable CODEX_HOME. Claude's initial folder trust stored an invented-folder entry. Antigravity's initial and worktree folder trust used the accepting option; its clear/handoff file and narrow shell probes used Yes allow once. A recursive scratchpad search was canceled. No general always-allow tool choice was made; MCP access used Mesa's intended provider-native preapproval. Temporary global entries and owned folder-trust additions were subsequently removed as recorded in cleanup; unrelated provider state was preserved.
+
+Antigravity also encountered an unrelated poller's global schema-cache reset. A fresh running session still called search_vault; after clear it initially tried discovering schemas through files, but a later actual MCP call succeeded. This records observed shared-cache interference, not a guarantee about unrelated tools. Codex occasionally left a sent prompt in the composer; a single Enter or one repeated short prompt after the UI became ready completed the recorded check. An ok send result alone was not used as provider completion evidence.
+
+## Packaged-app matrix
+
+B used a native disposable packaged build, explicit profile/CLI wrapper, CUA native controls, and window-only screenshots. Inventory grew as real providers saved knowledge: Part A 121 items/62 receipts, C 127/65, D 135/69, E and B **141/72**. Counts differ by stage because the fixture gained meaningful saved notes and receipts.
+
+| App case | Actual observed result and CLI agreement | Private evidence | Later recheck scope |
+| --- | --- | --- | --- |
+| Complete inventory | 141 items; attachments, daily, field-notes, maps, projects, raw, receipts, wiki, root AGENTS/index/log and reading-list visible; CLI total agrees | `raw/B-inventory.json`, `shots/B-unindexed-note.png` | B3 `5fcd957`: 141/72, CLI agrees |
+| Unindexed read/search | Exact note body and no backlinks; one driftbottlemoss result; CLI same | `shots/B-unindexed-note.png`, `B-search.png`, `raw/B-search.json` | B3 `5fcd957`: one result, exact selected body/path, CLI agrees |
+| External selected-note edit | Reader changed without reselecting: pebbleglass marker appeared, size 127 -> 187. B2 external replacement automatically removed the previous active search match and recovered a new match. B3 selected note appended seaglassopal and updated 187 -> 236 bytes automatically | Native accessibility observation; `shots/B2-active-search-refreshed.png`, `shots/B3-external-edit.png`, B2/B3 CLI JSON | B2 active search refresh at `84a25c1`; B3 selected-reader external edit at `5fcd957`, with screenshot/CLI agreement |
+| Link/backlink navigation | Reading-list link opened exact lantern-shoal hub, properties and backlinks visible. B2 selected unindexed-drift and its 187-byte body replaced the prior currentness body | `shots/B-hub-backlinks.png`, `shots/B2-note-navigation.png` | Passed selected-path navigation at `84a25c1`; earlier link/backlink case retained |
+| Broken/ambiguous links | Missing lighthouse/raw targets explicitly broken; valid target clickable. Buoy-list ambiguity showed two exact candidate buttons without guessing | `shots/B-broken-links.png`, `B-ambiguous-links.png`, `raw/B-broken-links.json` | Recorded B build `b0d51cc`; not rerun in B3 |
+| Canvas/Bases | Canvas explicitly text preview, five nodes/two edges; Bases explicitly YAML rather than evaluated views, with Open in Obsidian | `shots/B-base-fallback.png`, native accessibility observation | Recorded B build `b0d51cc`; not rerun in B3 |
+| Attachment fallback | Exact PDF visible; explicit image/audio/video/PDF limitation, fallback control and backlinks | `shots/B-pdf-fallback.png` | Recorded B build `b0d51cc`; no actual Obsidian launch claim |
+| Older receipts | 72 total, 22 August/50 September; August 1 receipt selected with properties/body | `shots/B-legacy-receipt.png` | Recorded B build `b0d51cc`; not rerun in B3 |
+| Profile switch | Explicit disposable backend wrapper switched p5q -> p5q-other while app stayed open; inventory 141 -> 5; previous receipt selection/body cleared | `shots/B-profile-switch.png`, `shots/B3-profile-switch.png`, B/B3 inventory JSON | B3 `5fcd957`: 141 -> 5, query/selection/old body cleared; no built-in profile picker claimed |
+| Missing/empty vault | Renamed invented other vault; exact missing-path/init/config guidance; empty replacement showed zero items; original restored | `shots/B-missing-vault.png`, `B-empty-vault.png`, `shots/B3-missing-vault.png`, `B3-empty-vault.png`, B/B3 CLI JSON | B3 `5fcd957`: same missing reason/CLI not_found and empty zero-item result; original folder restored |
+
+#303's audit independently found search-refresh and selected-path navigation defects. B2 tested their correction in a real packaged app at `84a25c1`: invented `recheckkelpsilver` appeared at 142 items and search returned one, agreeing with CLI. An external edit replaced it with `externalupdatedkelp`; the five-second refresh removed the old active query match without resubmission, agreeing with CLI zero. The new query returned one. Making the selected file unreadable retained its inventory entry but cleared the old body, showing the same reason and exact fallback as CLI. Restoring permissions recovered the body and search automatically without reselection. Selecting unindexed-drift then replaced the path/title/body. The temporary currentness fixture was removed, with no app save or receipt.
+
+Evidence is `B2-app-319.md`, `raw/B2-package-319.log`, search/read JSON and three screenshots. Component regressions are separate corroboration. Earlier B observations remain scoped to their recorded build; B2 covers the actual currentness corrections, not a claim that every B case was rerun. B3 rebuilt the merged-main app at `5fcd957`, repeated inventory/unindexed search, selected-reader external edit, backend profile switch, and missing/empty cases with CLI and screenshot agreement. `84a25c1` and `5fcd957` have the same Git code tree, so the B2 correction evidence applies to that tree. The mixed-format, link/backlink, broken/ambiguous and older-receipt observations retain their earlier B build identity; no all-row B3 rerun is implied.
+
+## Cleanup and settings evidence
+
+`raw/cleanup-settings.json` records restoration hashes and scoped removals without credentials. Claude `settings.json` and Antigravity `mcp_config.json` match their pre-run backups byte for byte; Antigravity's hooks file, absent before qualification, is absent again. Antigravity settings were first restored byte for byte, then two known prior-spike invented-folder trust entries were removed while preserving all other JSON state. Claude's native state file had only the two owned project-trust keys removed, preserving runtime state and other projects. These trust removals are explicit cleanup changes, not a claim that those final state files are byte-identical to their backups.
+
+All qualification Codex launches used the disposable `CODEX_HOME`. The global Codex configuration's checksum differs from the initial read-only baseline, with no owned test-project keys found. The source of that drift is un-attributed. It was left untouched to preserve unrelated state; this report makes no blanket global-configuration backup-equality claim. The disposable Codex home and login copy were removed with `$Q`, as verified by explicit-path removal proof.
+
+`raw/cleanup-removal.json` records 86 explicit removed paths. The qualification app process was stopped and the `mesa-p5q` tmux socket was killed. `$Q` (including the copied app, invented vaults/projects and disposable Codex home/login), both disposable Mesa profiles, the shared target's generated app bundle/debug executable, four proven-owned Claude test-project folders, 19 proven-owned Antigravity native conversation artifact sets and the owned mesa-vault schema cache were removed. Root, profiles and app-bundle absence are verified. The shared compiler cache remains necessary for the active overall P6 goal; other live Mesa/Sitrep roots and checkouts and all normal profile/vault data were preserved. The checksum-verified private archive was retained before deleting the disposable root.
+
+## Exact acceptance mapping
+
+### Issue #302
+
+1. **Invented mixed vault; app lists/reads/explains/searches/links/backlinks/broken/ambiguous/external-edit/missing/profile-switch; screenshots and CLI agree:** Part A complete inventory/every-item reads and earlier B cases observed. **B2 native search refresh, unavailable-preview clearing/recovery and selected-path navigation passed at `84a25c1` with CLI agreement and screenshots.** **B3 merged-main inventory/search, selected-reader external edit, profile switch and missing/empty checks passed at `5fcd957`, with CLI agreement and screenshots.** Earlier mixed-format/link/receipt cases retain their B build identity.
+2. **Per agent fresh overview/requested note through mesa-vault, no vault startup content, measured context:** **Observed C/D/E** actual retrieval and measurements above. Antigravity initial heading inference was corrected by reading actual tool output. Totals are not pointer-only estimates.
+3. **Per agent decision, summary, note found by a later session; one meaningful entry each; repeats none:** Changed/no-op receipts verified for all three. C/D later note/decision discovery plus summary paths observed; E2 searched and read all three Agy artifacts. **Observed for all three agents**; summary body-read scope is explicitly distinguished above.
+4. **Locked, another profile, symlink, stale refused through a real session or server:** **Observed** via real providers/server and unchanged files/no writes; no synthetic substitute.
+5. **Supported resume/worktree/handoff/queue/headless/clear/compact plus #156 instructions, unsupported named:** **Observed required C/D/E matrix**, including D2 truthful clear conflict and native trust warning. Codex/Agy clear instruction continuation unsupported; Agy compact unsupported. Extra Claude background provider consumption remains **quota-blocked**, with actual startup evidence only.
+6. **Cleanup and settings backups match; profiles/folders/app removed explicitly:** **Observed** via settings restoration/scoped trust removal and 86 explicit-path removals. Owned provider settings are restored with the documented trust-cleanup changes; unrelated global Codex checksum drift remains un-attributed and untouched. The private archive passed all 222 checksum comparisons.
+
+### Epic #157
+
+1. **No connectors; overview/requested local notes; no full vault in initial prompt:** C/D/E real retrieval plus measured pointer/startup boundary, **observed**.
+2. **Each supported agent session access/lifecycle evidence and context measurements:** Required C/D/E matrix **observed**, unsupported cells named; background extra has startup-only evidence and quota gap.
+3. **Saved knowledge found later, one meaningful #274 entry; exact repeats/no-ops none:** Writes/history and later discovery **observed** for all three agents; E2 closed the Agy gap.
+4. **Locked/profile boundaries; expected app/CLI search; canonical/symlink/stale same server scope:** CLI/server/provider refusals **observed**; A2 canonical/server negatives and B2 app search/currentness **passed at `84a25c1`**; merged-main build/verify and B3 app checks **passed at `5fcd957`**.
+5. **Complete mixed vault, >50 receipts, readable or explicit exact-file fallback, no silent omission:** Part A 121-path inventory/every-item checks and B 141-path/72-receipt app **observed**; B3 confirms merged-main 141-item/72-receipt inventory at `5fcd957`; format/fallback observations remain scoped to B.
+6. **External edits, broken/ambiguous/missing/profile switches without stale content:** Earlier B cases **observed**; B2 confirms the known audit corrections at `84a25c1`, including unreadable preview clearing and recovery; B3 confirms selected-reader external edit, profile clearing and missing/empty handling at `5fcd957`.
+7. **#156 instructions with vault access in supported real provider/lifecycle matrix; files/fakes insufficient:** Required matrix **observed**, truthful Codex/Agy clear limits recorded; the named #302 matrix and current cleanup are complete, but #315's required background live-call gap holds #302 and #303/P5 closure.
+
+## Remaining boundary and phase status
+
+The original named #302 provider/lifecycle, server, app and cleanup observations are complete at the recorded build identities. Overall qualification remains pending #315's additional explicit live background requirement. Final merged-main build/verify passed at `5fcd957` (895 JavaScript and seven Rust tests); B3 package build and native checks passed. A2/B2 tested the same Git code tree as merged main. Earlier B mixed-format/link/receipt observations retain their exact earlier build boundary.
+
+The only outstanding live-provider check recorded here is the extra Claude background project_context consumption in #315. C2 delivered the actual native startup pointer, then its model request hit the individual spend limit; no successful model/tool consumption occurred. A post-reset real call remains necessary for that child criterion, #302 qualification and the broader #303/P5 closure. Startup evidence and component tests do not replace it. #315 expressly places the live check in #302, so the original lifecycle list's omission of background does not authorize closure. Any later check must use fresh disposable artifacts and record its own settings restoration/removal proof; the completed cleanup above remains valid at its recorded timestamp.
