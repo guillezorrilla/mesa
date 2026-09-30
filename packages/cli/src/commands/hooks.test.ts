@@ -202,10 +202,48 @@ test('show reports each mount; hooks manage Antigravity mesa-vault beside a user
   // A server of the user's under Mesa's name is reported, never taken over.
   const foreign = `${JSON.stringify({ mcpServers: { 'mesa-vault': { command: 'node', args: ['/opt/other.js'] } } })}\n`;
   writeFileSync(mcpFile, foreign);
-  expect((await vault(agy.id)).state).toBe('conflicting');
-  expect((await mesa('hooks', 'install')).code).not.toBe(0);
+  expect(await vault(agy.id)).toEqual({
+    state: 'conflicting',
+    reason: `${mcpFile}: mesa-vault belongs to another server; Mesa left it unchanged`,
+  });
+  expect((await mesa('hooks', 'install')).code).toBe(0);
   expect(readFileSync(mcpFile, 'utf8')).toBe(foreign);
   expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
+});
+
+test('a malformed Antigravity file is that part conflicting; the other hooks carry on', async () => {
+  await mesa('init', '--vault', 'vault');
+  const mcpFile = join(cli.home, '.gemini/config/mcp_config.json');
+  mkdirSync(dirname(mcpFile), { recursive: true });
+  writeFileSync(mcpFile, '{broken');
+  const conflict = `${mcpFile}: not valid JSON; fix it before Mesa edits it`;
+
+  const status = await mesa('hooks', 'status', '--json');
+  expect(status.code).toBe(0);
+  expect(status.json.data.antigravityVault).toMatchObject({ installed: false, conflict });
+  expect((await mesa('hooks', 'status')).stdout).toContain(`${mcpFile}\nCONFLICT ${conflict}\n`);
+
+  const installed = await mesa('hooks', 'install', '--json');
+  expect(installed.code).toBe(0);
+  expect(installed.json.data).toMatchObject({
+    installed: true,
+    changed: true,
+    codex: { installed: true },
+    antigravity: { installed: true },
+    antigravityVault: { changed: false, conflict },
+    warning: conflict,
+  });
+  expect(readFileSync(mcpFile, 'utf8')).toBe('{broken');
+  expect(existsSync(join(cli.home, '.gemini/antigravity-cli/settings.json'))).toBe(false);
+  const check = (await mesa('doctor', '--json')).json.data.checks.find(
+    (c: { name: string }) => c.name === 'antigravity vault',
+  );
+  expect(check).toMatchObject({ status: 'warn', hint: conflict });
+
+  const removed = await mesa('hooks', 'uninstall', '--json');
+  expect(removed.code).toBe(0);
+  expect(removed.json.data).toMatchObject({ installed: false, antigravityVault: { conflict } });
+  expect(readFileSync(mcpFile, 'utf8')).toBe('{broken');
 });
 
 test('General SessionStart points at profile skills without an unregistered project', async () => {
@@ -220,6 +258,7 @@ test('General SessionStart points at profile skills without an unregistered proj
   const start = await mesa('hook', 'codex');
   expect(start.stdout).toContain('mesa skills list --json');
   expect(start.stdout).not.toContain('mesa skills list __mesa_general__');
+  expect(start.stdout).toContain('Without the tools: mesa vault context --general --json');
 });
 
 test('Codex clear leaves its saved identity intact and show reports the lost pointer', async () => {

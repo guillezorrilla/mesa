@@ -271,6 +271,37 @@ test('Doctor installs the missing Antigravity mesa-vault allow rule', async () =
   expect(byTestId('antigravity-vault-status')[0]?.textContent).toContain('Installed');
 });
 
+test('Doctor shows a malformed Antigravity vault file as conflicting beside working hooks', async () => {
+  const conflict = '/h/.gemini/config/mcp_config.json: not valid JSON; fix it before Mesa edits it';
+  const { bridge } = fakeBridge({
+    'hooks status': () =>
+      envelope({
+        path: '/h/.claude/settings.json',
+        installed: true,
+        stale: false,
+        events: {},
+        codex: { path: '/h/.codex/hooks.json', installed: true, events: {}, trusted: {}, hint: '' },
+        antigravity: { path: '/h/.gemini/config/hooks.json', installed: true, stale: false },
+        antigravityVault: {
+          path: '/h/.gemini/config/mcp_config.json',
+          rulePath: '/h/.gemini/antigravity-cli/settings.json',
+          installed: false,
+          stale: false,
+          server: false,
+          rule: false,
+          disabled: false,
+          conflict,
+        },
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('hooks-status')[0]?.textContent).toContain('Installed');
+  expect(byTestId('antigravity-vault-status')[0]?.textContent).toContain(
+    `Antigravity mesa-vault: Conflicting (${conflict})`,
+  );
+});
+
 test('Doctor installs the missing Antigravity instruction hook', async () => {
   let installed = false;
   const { bridge, calls } = fakeBridge({

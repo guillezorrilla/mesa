@@ -139,15 +139,19 @@ function antigravityVaultCheck(read: () => ReturnType<typeof vaultMountStatus>):
     const status = read();
     return {
       name,
-      ok: status.installed,
+      ok: status.installed && !status.disabled,
       path: status.path,
-      hint: status.installed
-        ? ''
+      hint: status.conflict
+        ? status.conflict
         : status.stale
           ? 'stale: run `mesa hooks install`'
-          : status.server
-            ? 'allow rule missing: run `mesa hooks install`'
-            : 'not installed: run `mesa hooks install`',
+          : !status.server
+            ? 'not installed: run `mesa hooks install`'
+            : status.disabled
+              ? 'disabled in Antigravity: its sessions have no vault tools'
+              : status.rule
+                ? ''
+                : 'allow rule missing: run `mesa hooks install`',
     };
   } catch (error) {
     return { name, ok: false, hint: toFail(error).error.message };

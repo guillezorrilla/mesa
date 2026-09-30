@@ -159,12 +159,18 @@ test('--no-resume only records it; mesa resume then reopens it where it ran, sti
   expect(result.warning).toBe(WARNING);
   expect(world.windows).toEqual([]);
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
+  // Only recorded: the conversation runs outside Mesa, with no mount.
+  expect((await mesa.sessions.show(result.record.id)).vault).toEqual({
+    state: 'missing',
+    reason: 'Resume through Mesa to mount the vault',
+  });
 
   const { result: resumed } = await mesa.sessions.resume(result.record.id);
   expect(resumed.record).toMatchObject({ adopted: true, name: 'docs', cwd: sub });
   expect(world.windows).toMatchObject([
     { path: sub, launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MOUNT}` },
   ]);
+  expect((await mesa.sessions.show(resumed.record.id)).vault.state).toBe('configured');
 });
 
 test('an adoption links the enabled skills into the folder it reopens in, as open does', async () => {

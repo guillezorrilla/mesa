@@ -73,6 +73,11 @@ const SessionRecordFields = z.strictObject({
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
   adopted: z.literal(true).optional(),
   /**
+   * Its agent was launched with mesa-vault mounted (agents/vault-mount.ts). None on a record only
+   * recorded (mesa adopt --no-resume), queued, or launched before the mount existed.
+   */
+  vaultMounted: z.literal(true).optional(),
+  /**
    * The folder its agent runs in, when that is neither the project's nor its worktree: an adopted
    * session's own, where claude keeps its conversation.
    */

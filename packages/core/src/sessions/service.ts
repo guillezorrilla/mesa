@@ -622,7 +622,7 @@ export function sessionsService(
                   latestAntigravityId !== current.agentSessionId,
               ),
           ),
-          vault: vaultStatus(current.agent, deps.home, deps.self),
+          vault: vaultStatus(current, deps.home, deps.self),
         };
       },
       /** Gives a session the name a person calls it by; the board shows it in place of the id. */

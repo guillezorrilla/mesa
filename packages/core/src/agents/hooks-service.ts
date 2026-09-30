@@ -26,7 +26,7 @@ export function hooksService(ctx: MesaContext) {
     hooksStatus(deps.home, deps.self);
     codex.hooksStatus(home, deps.self);
     antigravity.hooksStatus(deps.home, deps.self);
-    antigravityVault.vaultMountStatus(deps.home, deps.self);
+    // Antigravity's vault files are not checked here: a conflict there is reported, not thrown.
     const claude = (install ? installHooks : uninstallHooks)(deps.home, deps.self);
     const result = (install ? codex.installHooks : codex.uninstallHooks)(home, deps.self);
     const agy = (install ? antigravity.installHooks : antigravity.uninstallHooks)(
@@ -67,6 +67,7 @@ export function hooksService(ctx: MesaContext) {
             antigravityRulePath: r.antigravityVault.rulePath,
           }),
           changed: (r) => r.changed,
+          warning: (r) => r.antigravityVault.conflict,
         },
         () => change(true),
       ),
@@ -84,6 +85,7 @@ export function hooksService(ctx: MesaContext) {
             antigravityRulePath: r.antigravityVault.rulePath,
           }),
           changed: (r) => r.changed,
+          warning: (r) => r.antigravityVault.conflict,
         },
         () => change(false),
       ),

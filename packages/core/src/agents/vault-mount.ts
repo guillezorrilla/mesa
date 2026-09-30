@@ -1,4 +1,5 @@
 import { WINDOW_VARS } from '../sessions/caller.js';
+import type { Agent } from './names.js';
 
 // How a session's agent mounts mesa-vault, the stdio MCP server `mesa vault mcp` (#300), with
 // every tool pre-approved (docs/spikes/vault-mcp.md, ADR-0012). Claude Code and Codex take it per
@@ -7,6 +8,10 @@ import { WINDOW_VARS } from '../sessions/caller.js';
 
 /** The server's name in every agent's config, and so in its tool names. */
 export const VAULT_SERVER = 'mesa-vault';
+
+/** Whether an agent's launch command carries the mount; Antigravity's is its global entry. */
+export const mountsPerLaunch = (agent: Agent | 'terminal') =>
+  agent === 'claude' || agent === 'codex';
 
 /** The command an agent starts the server with. */
 export type VaultServer = { command: string; args: readonly string[] };

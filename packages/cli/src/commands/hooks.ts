@@ -3,6 +3,14 @@ import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
 const mark = (on: boolean) => (on ? 'ok  ' : 'MISS');
+/** Antigravity's mesa-vault entry and rule, or why Mesa leaves its files alone. */
+const vaultLines = (vault: HooksStatus['antigravityVault']) =>
+  vault.conflict
+    ? `${vault.path}\nCONFLICT ${vault.conflict}`
+    : `${vault.path}\n${mark(vault.server)} mesa-vault entry${vault.disabled ? ' (disabled in Antigravity)' : ''}\n${vault.rulePath}\n${mark(vault.rule)} mesa-vault allow rule`;
+/** Where install or uninstall changed Antigravity's mesa-vault files; none when they conflict. */
+const vaultFiles = (vault: HooksStatus['antigravityVault'], at: 'in' | 'from') =>
+  vault.conflict ? '' : `, and its mesa-vault entry ${at} ${vault.path} and ${vault.rulePath}`;
 const listed = (s: HooksStatus) =>
   Object.entries(s.events)
     .map(([event, on]) => `${mark(on)} ${event}`)
@@ -19,7 +27,6 @@ export const hooksStatus = defineCommand({
     const tmux = server
       ? `${paneDied ? 'ok  ' : 'MISS'} tmux pane-died on ${socket}`
       : `--   tmux pane-died: no server on ${socket} yet`;
-    const vault = status.antigravityVault;
     const codex = Object.entries(status.codex.events)
       .map(
         ([event, installed]) =>
@@ -28,7 +35,7 @@ export const hooksStatus = defineCommand({
       .join('\n');
     return {
       data: status,
-      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vault.path}\n${mark(vault.server)} mesa-vault entry\n${vault.rulePath}\n${mark(vault.rule)} mesa-vault allow rule\n${tmux}`,
+      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${tmux}`,
     };
   },
 });
@@ -42,7 +49,7 @@ export const hooksInstall = defineCommand({
     const recorded = mesa.hooks.install();
     const { changed, ...status } = recorded.result;
     const text = changed
-      ? `installed Mesa's hooks in ${status.path}, ${status.codex.path}, and ${status.antigravity.path}, and its mesa-vault entry in ${status.antigravityVault.path} and ${status.antigravityVault.rulePath}`
+      ? `installed Mesa's hooks in ${status.path}, ${status.codex.path}, and ${status.antigravity.path}${vaultFiles(status.antigravityVault, 'in')}`
       : 'hooks already installed';
     return recordedOutput(recorded, {
       data: { ...status, changed },
@@ -59,7 +66,7 @@ export const hooksUninstall = defineCommand({
     const recorded = mesa.hooks.uninstall();
     const { changed, ...status } = recorded.result;
     const text = changed
-      ? `removed Mesa's hooks from ${status.path}, ${status.codex.path}, and ${status.antigravity.path}, and its mesa-vault entry from ${status.antigravityVault.path} and ${status.antigravityVault.rulePath}`
+      ? `removed Mesa's hooks from ${status.path}, ${status.codex.path}, and ${status.antigravity.path}${vaultFiles(status.antigravityVault, 'from')}`
       : 'no Mesa hooks to remove';
     return recordedOutput(recorded, { data: { ...status, changed }, text });
   },

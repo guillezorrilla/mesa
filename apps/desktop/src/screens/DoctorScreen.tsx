@@ -208,13 +208,17 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
             {hooks.data?.antigravityVault && (
               <p data-testid="antigravity-vault-status" className="mt-3 text-sm">
                 Antigravity mesa-vault:{' '}
-                {hooks.data.antigravityVault.installed
-                  ? 'Installed'
-                  : hooks.data.antigravityVault.stale
-                    ? 'Stale (reinstall)'
-                    : hooks.data.antigravityVault.server
-                      ? 'Allow rule missing'
-                      : 'Not installed'}{' '}
+                {hooks.data.antigravityVault.conflict
+                  ? `Conflicting (${hooks.data.antigravityVault.conflict})`
+                  : hooks.data.antigravityVault.installed
+                    ? hooks.data.antigravityVault.disabled
+                      ? 'Disabled in Antigravity'
+                      : 'Installed'
+                    : hooks.data.antigravityVault.stale
+                      ? 'Stale (reinstall)'
+                      : hooks.data.antigravityVault.server
+                        ? 'Allow rule missing'
+                        : 'Not installed'}{' '}
                 in <span className="font-mono text-xs">{hooks.data.antigravityVault.path}</span> and{' '}
                 <span className="font-mono text-xs">{hooks.data.antigravityVault.rulePath}</span>
               </p>

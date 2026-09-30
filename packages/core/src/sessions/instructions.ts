@@ -57,7 +57,7 @@ export function mesaPointer(record: SessionRecord, profile: string, cwd: string)
       : `mesa skills list ${record.project} --json`;
   const vault =
     record.project === GENERAL_PROJECT
-      ? 'mesa vault search <text> --json'
+      ? 'mesa vault context --general --json'
       : `mesa vault context ${record.project} --json`;
   return [
     `Mesa session ${record.id}; profile ${profile}; project ${record.project}; cwd ${JSON.stringify(cwd)}.`,

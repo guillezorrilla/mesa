@@ -7,7 +7,10 @@ import {
   CODEX_MOUNT,
   gitRepo,
   isolateGit,
+  newSession,
   projectProfile,
+  shortIds,
+  testStore,
   withRealGit,
 } from '../testing/index.js';
 import type { SessionRecord } from './record.js';
@@ -55,8 +58,37 @@ test.each(['claude', 'codex'] as const)(
       await mesa.sessions.open('lantern-cove', { agent, goal: 'Chart the shoals', after: to.id })
     ).result;
     expect(window(queued)).toBeUndefined();
+    expect((await mesa.sessions.show(queued.id)).vault).toEqual({
+      state: 'missing',
+      reason: 'Mounted when the queued session starts',
+    });
     await mesa.sessions.stop(to.id);
     const now = await mesa.sessions.show(queued.id);
     expect(window(queued)?.launch).toBe(started[agent](now, 'Chart the shoals'));
+    // Each launch marks its record, which show reads.
+    for (const r of [first, to, now]) {
+      expect((await mesa.sessions.show(r.id)).vault).toEqual({
+        state: 'configured',
+        reason: 'mesa-vault is mounted in its launch command',
+      });
+    }
   },
 );
+
+test('a record Mesa launched before the mount existed reports it missing until resumed', async () => {
+  const world = agentWorld();
+  const { home, mesa } = projectProfile(world.run);
+  // As a mesa from before the mount wrote it: no vaultMounted.
+  const old = testStore(home, 'default', shortIds('oldmount')).create(() =>
+    newSession({ agentSessionId: '00000000-0000-4000-8000-0000000000aa' }),
+  );
+  expect((await mesa.sessions.show(old.id)).vault).toEqual({
+    state: 'missing',
+    reason: 'Resume through Mesa to mount the vault',
+  });
+  for (const w of world.tmux.windows) w.dead = true;
+  await mesa.sessions.stop(old.id, true);
+  const resumed = (await mesa.sessions.resume(old.id)).result.record;
+  expect(resumed.vaultMounted).toBe(true);
+  expect((await mesa.sessions.show(resumed.id)).vault.state).toBe('configured');
+});

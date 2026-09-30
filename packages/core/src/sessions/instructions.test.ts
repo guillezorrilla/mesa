@@ -30,8 +30,9 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   },
 );
 
-test('a General pointer falls back to vault search, with no project to name', () => {
+test('a General pointer falls back to the General vault context, with no project to name', () => {
   const pointer = mesaPointer(record({ project: GENERAL_PROJECT }), PROFILE, '/Users/alexandra');
-  expect(pointer).toContain('Without the tools: mesa vault search <text> --json');
-  expect(pointer).not.toContain('mesa vault context');
+  expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+  expect(pointer).toContain('Without the tools: mesa vault context --general --json');
+  expect(pointer).not.toContain(`mesa vault context ${GENERAL_PROJECT}`);
 });

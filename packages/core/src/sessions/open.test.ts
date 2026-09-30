@@ -249,7 +249,12 @@ test('Claude background keeps its native process when the terminal closes, then 
       goal: 'Read the project',
     })
   ).result;
-  expect(opened).toMatchObject({ background: true, backgroundId: 'abcdef12', mode: 'plan' });
+  expect(opened).toMatchObject({
+    background: true,
+    backgroundId: 'abcdef12',
+    mode: 'plan',
+    vaultMounted: true,
+  });
   expect(opened.agentSessionId).toBeUndefined();
   expect(launchEnv).toMatchObject({ MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' });
   expect(launchEnv).not.toHaveProperty('CLAUDECODE');
@@ -266,10 +271,12 @@ test('Claude background keeps its native process when the terminal closes, then 
   expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   expect((await mesa.sessions.stop(opened.id)).result.outcome).toBe('exited');
   const resumed = (await mesa.sessions.resume(opened.id)).result.record;
+  // Attached again to the process started with the mount.
   expect(resumed).toMatchObject({
     background: true,
     backgroundId: 'abcdef12',
     resumedFrom: opened.id,
+    vaultMounted: true,
   });
   expect(world.tmux.windows.at(-1)?.launch).toBe('unset NO_COLOR; exec claude attach abcdef12');
   exitAll(world);

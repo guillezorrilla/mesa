@@ -6,7 +6,7 @@ import {
   stopClaudeBackground,
 } from '../agents/claude/background.js';
 import { AGENT_NAMES, type Agent } from '../agents/names.js';
-import type { VaultServer } from '../agents/vault-mount.js';
+import { mountsPerLaunch, type VaultServer } from '../agents/vault-mount.js';
 import type { Clock } from '../lib/clock.js';
 import type { Env, Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
@@ -104,6 +104,8 @@ type NewLaunch = {
   cwd?: string;
   name?: string;
   adopted?: true;
+  /** A background process started with the mount, which a resume attaches to again. */
+  vaultMounted?: true;
   resumedFrom?: string;
 };
 
@@ -142,6 +144,8 @@ export async function startSession(
   start: Start,
 ): Promise<{ record: SessionRecord; warning?: string }> {
   let record = written;
+  // A background process started before this launch keeps the mount it was started with.
+  const attaching = Boolean(written.backgroundId);
   let made: Worktree | undefined;
   let backgroundId: string | undefined;
   try {
@@ -173,6 +177,8 @@ export async function startSession(
     const command = record.backgroundId
       ? claudeBackgroundAttach(record.backgroundId)
       : start.command(record);
+    if (!attaching && mountsPerLaunch(record.agent) && !record.vaultMounted)
+      record = deps.store.update(record.id, { vaultMounted: true });
     await deps.tmux.openWindow({
       project: record.tmux.session,
       window: record.tmux.window,
@@ -274,6 +280,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     ...(s.cwd === undefined ? {} : { cwd: s.cwd }),
     ...(s.name === undefined ? {} : { name: s.name }),
     ...(s.adopted ? { adopted: s.adopted } : {}),
+    ...(s.vaultMounted ? { vaultMounted: s.vaultMounted } : {}),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,
