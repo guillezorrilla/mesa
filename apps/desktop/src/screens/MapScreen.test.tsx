@@ -61,15 +61,20 @@ test('saved map rows match the core Canvas, read never writes, and actions targe
     bridge,
   );
   expect(body()).toContain('Lantern Cove');
-  expect(button('Chart shoals')).toBeDefined();
-  expect(button('aaaaaaaa')).toBeDefined();
+  const textSession = document.querySelector<HTMLButtonElement>(
+    '[aria-label="Open session bbbbbbbb: Chart shoals"]',
+  );
+  expect(textSession).not.toBeNull();
+  expect(button('wiki/sessions/aaaaaaaa.md')).toBeDefined();
   expect(calls.some((args) => args[1] === 'map')).toBe(false);
-  await click(button('Chart shoals'));
-  await click(button('Open summary aaaaaaaa'));
+  await click(textSession ?? undefined);
+  await click(button('wiki/sessions/aaaaaaaa.md'));
+  await click(button('Open session aaaaaaaa'));
   await click(button('Open in Obsidian'));
   expect(navigation).toEqual([
     ['session', 'bbbbbbbb'],
     ['vault', 'wiki/sessions/aaaaaaaa.md'],
+    ['session', 'aaaaaaaa'],
   ]);
   expect(calls).toContainEqual(['--json', 'vault', 'open', '--', 'map.canvas']);
 });
@@ -108,7 +113,7 @@ test('missing, empty and malformed saved maps are explicit and do not cause rege
     ],
     [
       { 'vault read': () => envelope({ ...read, canvas: { nodes: [], edges: [] } }) },
-      'No sessions in the saved map.',
+      'No map yet. Use Update map.',
     ],
     [
       { 'vault read': () => envelope({ ...read, canvas: null }) },
@@ -204,3 +209,126 @@ test.each(['success', 'failure'] as const)(
     expect(button('Update map')?.disabled).toBe(false);
   },
 );
+
+test('all saved nodes and directed edges retain coordinates, target names and keyboard actions', async () => {
+  const navigation: string[][] = [];
+  const extra = {
+    ...canvas,
+    nodes: [
+      ...canvas.nodes,
+      {
+        id: 'personal-note',
+        type: 'file',
+        file: 'wiki/tide #2|chart (draft).md',
+        x: -300,
+        y: 600,
+        width: 300,
+        height: 140,
+      },
+      {
+        id: 'personal-link',
+        type: 'link',
+        url: 'https://example.com/chart',
+        x: 600,
+        y: 600,
+        width: 200,
+        height: 100,
+      },
+    ],
+    edges: [
+      ...canvas.edges,
+      { id: 'personal-edge', fromNode: 'personal-note', toNode: 'personal-link', label: 'reads' },
+    ],
+  };
+  const { bridge, calls } = fakeBridge({
+    ...answers,
+    'vault read': () => envelope({ ...read, canvas: extra }),
+  });
+  await renderWithMesa(
+    <MapScreen
+      onSession={(id) => navigation.push(['session', id])}
+      onVaultItem={(path) => navigation.push(['vault', path])}
+    />,
+    bridge,
+  );
+  expect(
+    [...document.querySelectorAll('[data-canvas-node]')]
+      .map((n) => n.getAttribute('data-canvas-node'))
+      .sort(),
+  ).toEqual(extra.nodes.map((n: { id: string }) => n.id).sort());
+  for (const node of extra.nodes) {
+    const element = [...document.querySelectorAll('[data-canvas-node]')].find(
+      (n) => n.getAttribute('data-canvas-node') === node.id,
+    );
+    const geometry = node.type === 'group' ? element?.querySelector('rect') : element;
+    for (const property of ['x', 'y', 'width', 'height'] as const)
+      expect(geometry?.getAttribute(property)).toBe(String(node[property]));
+  }
+  expect(
+    [...document.querySelectorAll('[data-canvas-edge]')].map((e) => [
+      e.getAttribute('data-canvas-edge'),
+      e.getAttribute('data-from'),
+      e.getAttribute('data-to'),
+    ]),
+  ).toEqual(
+    extra.edges.map((e: { id: string; fromNode: string; toNode: string }) => [
+      e.id,
+      e.fromNode,
+      e.toNode,
+    ]),
+  );
+  expect(document.querySelectorAll('line[marker-end]')).toHaveLength(extra.edges.length);
+  const resume = document.querySelector('[data-canvas-edge="resume:aaaaaaaa:bbbbbbbb"] line');
+  expect(['x1', 'y1', 'x2', 'y2'].map((property) => resume?.getAttribute(property))).toEqual([
+    '340',
+    '165',
+    '360',
+    '165',
+  ]);
+  const file = document.querySelector<HTMLButtonElement>(
+    '[aria-label="Open vault file wiki/tide #2|chart (draft).md"]',
+  );
+  expect(file).not.toBeNull();
+  file?.focus();
+  expect(document.activeElement).toBe(file);
+  // Native buttons own Enter activation; a keyboard-generated click follows the same exact target.
+  await act(async () => file?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 })));
+  const session = document.querySelector<HTMLButtonElement>(
+    '[aria-label="Open session bbbbbbbb: Chart shoals"]',
+  );
+  session?.focus();
+  await act(async () =>
+    session?.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 })),
+  );
+  expect(navigation).toEqual([
+    ['vault', 'wiki/tide #2|chart (draft).md'],
+    ['session', 'bbbbbbbb'],
+  ]);
+  await click(button('Actual size and scroll'));
+  expect(
+    document.querySelector('svg[aria-label="Saved session map"]')?.classList.contains('w-full'),
+  ).toBe(false);
+  await click(button('Fit map'));
+  expect(calls.some((args) => args[1] === 'map')).toBe(false);
+});
+
+test('a saved self-edge has a visible directed loop without moving its node', async () => {
+  const self = {
+    id: 'self',
+    fromNode: 'session:lantern-cove:aaaaaaaa',
+    toNode: 'session:lantern-cove:aaaaaaaa',
+  };
+  const { bridge } = fakeBridge({
+    ...answers,
+    'vault read': () =>
+      envelope({ ...read, canvas: { ...canvas, edges: [...canvas.edges, self] } }),
+  });
+  await renderWithMesa(<MapScreen onSession={() => {}} onVaultItem={() => {}} />, bridge);
+  const stroke = document.querySelector('[data-canvas-edge="self"] path[marker-end]');
+  expect(stroke).not.toBeNull();
+  expect(stroke?.getAttribute('d')).toContain('M 340 165 C');
+  expect(stroke?.getAttribute('d')).toContain('L 180 60');
+  const node = document.querySelector('[data-canvas-node="session:lantern-cove:aaaaaaaa"]');
+  expect(node?.getAttribute('x')).toBe('20');
+  expect(node?.getAttribute('y')).toBe('60');
+});

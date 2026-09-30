@@ -1,9 +1,9 @@
-import { MAP_PATH, mapGroups } from '@mesa/core/browser';
+import { MAP_PATH } from '@mesa/core/browser';
 import { useEffect, useRef, useState } from 'react';
+import { CanvasView } from '@/components/CanvasView';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { useCall, useCommand } from '@/lib/useCommand';
 import { useVaultLook, useVaultRefresh, type VaultLook } from './vault/useVaultLook';
 import { VaultUnlisted } from './vault/VaultState';
@@ -27,33 +27,13 @@ function SavedMap(props: {
       </p>
     );
   }
-  const groups = mapGroups(read.data.canvas);
-  if (!groups.length) return <p role="status">No sessions in the saved map.</p>;
+  if (!read.data.canvas.nodes.length) return <p role="status">No map yet. Use Update map.</p>;
   return (
-    <div className="grid gap-4">
-      {groups.map((group) => (
-        <Card key={group.project} className="p-4">
-          <h2 className="font-medium">{group.label}</h2>
-          <ul className="space-y-2">
-            {group.sessions.map((session) => (
-              <li key={session.id} className="flex flex-wrap gap-2">
-                <Button variant="link" onClick={() => props.onSession(session.id)}>
-                  {session.label}
-                </Button>
-                {session.summary && (
-                  <Button
-                    variant="outline"
-                    onClick={() => props.onVaultItem(session.summary ?? '')}
-                  >
-                    Open summary {session.id}
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ))}
-    </div>
+    <CanvasView
+      canvas={read.data.canvas}
+      onSession={props.onSession}
+      onVaultItem={props.onVaultItem}
+    />
   );
 }
 

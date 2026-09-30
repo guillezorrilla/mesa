@@ -155,3 +155,39 @@ test('chronology and equal-instant id ties use timestamps with mixed valid preci
     mapGroups(buildMap(records, [], [], { ...options, all: true }))[0]?.sessions.map((s) => s.id),
   ).toEqual(['aaaaaaaa', 'bbbbbbbb', 'cccccccc']);
 });
+
+test('saved namespaces reject malformed session ids and project encodings without guessing targets', () => {
+  const group = {
+    id: 'project:coast%20%23',
+    type: 'group' as const,
+    label: 'Coast',
+    x: 0,
+    y: 0,
+    width: 100,
+    height: 100,
+  };
+  const node = {
+    id: 'session:coast%20%23:aaaaaaaa',
+    type: 'file' as const,
+    file: 'wiki/exact #note.md',
+    x: 1,
+    y: 2,
+    width: 50,
+    height: 50,
+  };
+  expect(mapGroups({ nodes: [group, node], edges: [] })).toEqual([
+    {
+      project: 'coast #',
+      label: 'Coast',
+      sessions: [{ id: 'aaaaaaaa', label: 'aaaaaaaa', summary: 'wiki/exact #note.md' }],
+    },
+  ]);
+  for (const id of [
+    'session:coast%20%23:bad',
+    'session:coast%20%23:aaaaaaaa:extra',
+    'session:%zz:aaaaaaaa',
+    'personal:aaaaaaaa',
+  ]) {
+    expect(mapGroups({ nodes: [group, { ...node, id }], edges: [] })[0]?.sessions).toEqual([]);
+  }
+});

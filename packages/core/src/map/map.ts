@@ -2,6 +2,7 @@ import { sessionLabel } from '../display.js';
 import { clip } from '../lib/clip.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { projectLabel } from '../sessions/general.js';
+import { isSessionId } from '../sessions/id.js';
 import type { SessionRecord } from '../sessions/record.js';
 import { sessionUri } from '../sessions/uri.js';
 import type { CanvasData, CanvasNode } from '../vault/canvas.js';
@@ -93,6 +94,29 @@ export function buildMap(
   return { nodes, edges };
 }
 
+/** Interpret Mesa's stable session namespace once for both saved-map callers. */
+export function mapSession(node: CanvasNode): {
+  project: string;
+  id: string;
+  label: string;
+  summary?: string;
+} | null {
+  if (!node.id.startsWith('session:') || (node.type !== 'file' && node.type !== 'text'))
+    return null;
+  const [project, id, extra] = node.id.slice('session:'.length).split(':');
+  if (project === undefined || !id || extra !== undefined || !isSessionId(id)) return null;
+  try {
+    return {
+      project: decodeURIComponent(project),
+      id,
+      label: node.type === 'text' ? node.text.split('\n')[0] || id : id,
+      ...(node.type === 'file' ? { summary: node.file } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export type MapGroup = {
   project: string;
   label: string;
@@ -108,17 +132,11 @@ export function mapGroups(canvas: CanvasData): MapGroup[] {
     } catch {
       return [];
     }
-    const prefix = `session:${encodeURIComponent(project)}:`;
     const sessions = canvas.nodes.flatMap((node) => {
-      if (!node.id.startsWith(prefix) || (node.type !== 'file' && node.type !== 'text')) return [];
-      const id = node.id.slice(prefix.length);
-      return [
-        {
-          id,
-          label: node.type === 'text' ? node.text.split('\n')[0] || id : id,
-          ...(node.type === 'file' ? { summary: node.file } : {}),
-        },
-      ];
+      const session = mapSession(node);
+      if (!session || session.project !== project) return [];
+      const { project: _, ...target } = session;
+      return [target];
     });
     return [{ project, label: group.label || projectLabel(project), sessions }];
   });
