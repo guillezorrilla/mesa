@@ -469,11 +469,62 @@ test('opened at a path, the screen selects that item and opens the tree to it', 
   expect(row?.getAttribute('aria-pressed')).toBe('true');
 });
 
+test('navigation to another vault path selects and reads the new item', async () => {
+  let navigate!: (path: string) => void;
+  function Host() {
+    const [path, setPath] = useState('wiki/currents.md');
+    navigate = setPath;
+    return <VaultScreen path={path} />;
+  }
+  const { bridge } = readerBridge();
+  const byTestId = await renderWithMesa(<Host />, bridge);
+  expect(selectedPath(byTestId)).toBe('wiki/currents.md');
+  await act(async () => navigate('projects/tide.md'));
+  expect(selectedPath(byTestId)).toBe('projects/tide.md');
+  expect(reader(byTestId)?.textContent).toContain('projects/tide.md');
+});
+
 /** The window gaining focus, as when a person comes back from another app. */
 const focus = () => act(async () => window.dispatchEvent(new Event('focus')));
 const later = (seconds: number) => act(async () => vi.advanceTimersByTime(seconds * 1000));
 const shownFact = (byTestId: (id: string) => HTMLElement[], name: string) =>
   byTestId('vault-item')[0]?.querySelector(`[data-fact="${name}"]`)?.textContent;
+
+test('an outside edit refreshes the current search on focus and on the next look', async () => {
+  vi.useFakeTimers();
+  try {
+    let found = FOUND;
+    const { bridge } = readerBridge({ 'vault search': () => envelope(found) });
+    const byTestId = await renderWithMesa(<VaultScreen query="tide" />, bridge);
+    expect(results(byTestId)).toHaveLength(2);
+    found = { total: 0, truncated: false, items: [] };
+    await focus();
+    expect(results(byTestId)).toEqual([]);
+    expect(byTestId('vault-results-said')[0]?.textContent).toContain('No items match');
+    found = FOUND;
+    await later(5);
+    expect(results(byTestId)).toHaveLength(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('a selected note that stops reading explains the failure without retaining its old preview', async () => {
+  let missing = false;
+  const quick = readerBridge();
+  const { bridge } = readerBridge({
+    'vault read': (args) => (missing ? failure('The note no longer reads') : quick.bridge(args)),
+  });
+  const byTestId = await renderWithMesa(<VaultScreen path="wiki/currents.md" />, bridge);
+  expect(byTestId('vault-markdown')).toHaveLength(1);
+  missing = true;
+  await focus();
+  expect(byTestId('vault-markdown')).toEqual([]);
+  expect(byTestId('vault-item')[0]?.textContent).toContain('The note no longer reads');
+  missing = false;
+  await focus();
+  expect(byTestId('vault-markdown')).toHaveLength(1);
+});
 
 test('the screen looks again every five seconds and on focus: an outside edit shows in place, and a deleted item says so', async () => {
   vi.useFakeTimers();

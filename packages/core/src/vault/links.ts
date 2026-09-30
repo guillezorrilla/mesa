@@ -35,6 +35,8 @@ export type VaultLink = NoteLink & LinkResolution;
 export type LinkIndex = { byPath: Map<string, string>; byName: Map<string, string[]> };
 
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+const THEMATIC_BREAK = /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/;
+const SETEXT_HEADING = /^ {0,3}(?:=+|-+)[ \t]*$/;
 const CODE_SPAN = /(`+).*?\1/g;
 // A wikilink or embed, `(!)[[inner]]`; or a Markdown link or image, `(!)[text](destination)`.
 const LINK = /(!?)\[\[([^[\]\n]+)\]\]|(!?)\[([^[\]\n]*)\]\(([^()\n]*)\)/g;
@@ -43,9 +45,11 @@ const URL = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 const blank = (text: string) => ' '.repeat(text.length);
 
-/** The body with fenced code blocks and inline code blanked out, so offsets stay the body's. */
+/** The body with fenced/indented code blocks and inline code blanked, keeping its offsets. */
 export function outsideCode(body: string): string {
   let fence = '';
+  let paragraph = false;
+  let listIndent = 0;
   return body
     .split('\n')
     .map((line) => {
@@ -61,8 +65,23 @@ export function outsideCode(body: string): string {
       }
       if (marker) {
         fence = marker;
+        paragraph = false;
         return blank(line);
       }
+      const leading = /^[ \t]*/.exec(line)?.[0] ?? '';
+      let indent = 0;
+      for (const space of leading) indent += space === '\t' ? 4 - (indent % 4) : 1;
+      if (line.trim() && indent < listIndent) listIndent = 0;
+      const content = `${' '.repeat(indent)}${line.slice(leading.length)}`.slice(listIndent);
+      const blockEnd =
+        THEMATIC_BREAK.test(content) ||
+        (paragraph && SETEXT_HEADING.test(content)) ||
+        /^ {0,3}#{1,6}(?:\s|$)/.test(content);
+      const list = !blockEnd && /^ {0,3}(?:[-+*]|\d+[.)]) +/.exec(content);
+      if (list) listIndent += list[0].length;
+      // Indented code cannot interrupt a paragraph; list indentation alone is not code.
+      if (/^ {4}/.test(content) && !paragraph) return blank(line);
+      paragraph = !!line.trim() && !blockEnd;
       return line.replace(CODE_SPAN, blank);
     })
     .join('\n');

@@ -149,3 +149,15 @@ test('at most 3 snippets, each at most 200 characters around the word', () => {
   expect(first.length).toBeLessThanOrEqual(200);
   expect(first).toMatch(/^\.\.\..*The buoy bell rings\..*\.\.\.$/);
 });
+
+test('snippets keep the match after expanding lowercase letters and never split an emoji', () => {
+  put('wiki/unicode.md', `${'İ'.repeat(100)}needle${'x'.repeat(300)}`);
+  const shifted = searchVault(vault, 'needle').items[0]?.matches[0]?.text ?? '';
+  expect(shifted).toContain('needle');
+  put('wiki/unicode.md', `${'x'.repeat(41)}😀${'x'.repeat(39)}needle${'x'.repeat(300)}`);
+  const emoji = searchVault(vault, 'needle').items[0]?.matches[0]?.text ?? '';
+  expect(emoji).toContain('needle');
+  expect(emoji).toContain('😀');
+  expect(emoji).not.toMatch(/[\uD800-\uDFFF]/u);
+  expect(Array.from(emoji).length).toBeLessThanOrEqual(200);
+});

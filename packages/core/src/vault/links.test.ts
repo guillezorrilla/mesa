@@ -156,3 +156,19 @@ test('links in fenced and inline code are not links; a heading-only link is the 
   for (const link of found) expect(body.slice(link.start, link.end)).toBe(link.text);
   expect(found[2]).toMatchObject({ target: 'tide', alias: 'tides' });
 });
+
+test('indented code blocks contain no links, while a paragraph continuation may be indented', () => {
+  const body = '    [[tide]]\n\t[[index]]\n\nAfter [[index]].\n    Continued [[tide]].\n';
+  expect(links(body).map((link) => link.text)).toEqual(['[[index]]', '[[tide]]']);
+});
+
+test('list paragraph indentation is kept, and additional indentation is code', () => {
+  const body = '- First\n\n    [[tide]]\n\n      [[AGENTS]]\n\n- Second\n\n    [[index]]\n';
+  expect(links(body).map((link) => link.text)).toEqual(['[[tide]]', '[[index]]']);
+});
+
+test('thematic breaks and setext headings end paragraphs before an indented code block', () => {
+  for (const boundary of ['---', '* * *', '___', 'Title\n===', 'Title\n-']) {
+    expect(links(`${boundary}\n    [[tide]]\n`)).toEqual([]);
+  }
+});

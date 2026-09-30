@@ -1,4 +1,12 @@
-import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
@@ -383,6 +391,52 @@ test('another decision with the same title on the same day gets its own note, ne
   expect((await vault.saveDecision(third)).result.path).toBe(`${base}-3.md`);
   expect((await vault.saveDecision(tide)).result).toEqual({ path: `${base}.md`, changed: false });
   expect(w.receipts()).toHaveLength(3);
+});
+
+test('session writes enforce the canonical project folder, while own-project aliases work', async () => {
+  const w = world();
+  const vault = w.mesa({ MESA_SESSION_ID: w.session, MESA_PROFILE: 'default' }).vault;
+  mkdirSync(join(w.vault, 'projects/harbor'));
+  mkdirSync(join(w.vault, 'projects/lantern-cove'));
+  symlinkSync(join(w.vault, 'projects/harbor'), join(w.vault, 'wiki/other'));
+  symlinkSync(join(w.vault, 'projects/lantern-cove'), join(w.vault, 'wiki/own'));
+  const input = {
+    title: 'Alias',
+    body: 'Invented note',
+    project: 'lantern-cove',
+    session: w.session,
+  };
+  const before = w.log();
+  for (const path of ['projects/harbor/direct.md', 'wiki/other/alias.md']) {
+    expect((await rejected(vault.saveNote({ ...input, path }))).code).toBe('usage');
+  }
+  symlinkSync(join(w.vault, 'projects/harbor'), join(w.vault, 'wiki/decisions'));
+  symlinkSync(join(w.vault, 'projects/harbor'), join(w.vault, 'wiki/sessions'));
+  expect((await rejected(vault.saveDecision(tide))).code).toBe('usage');
+  expect(
+    (await rejected(vault.saveSummary({ session: w.session, summary: 'Invented' }))).code,
+  ).toBe('usage');
+  expect(w.log()).toBe(before);
+  expect(w.receipts()).toEqual([]);
+  expect(existsSync(join(w.vault, 'projects/harbor/alias.md'))).toBe(false);
+  const own = await vault.saveNote({ ...input, path: 'wiki/own/alias.md' });
+  expect(own.result.changed).toBe(true);
+  expect(w.read('projects/lantern-cove/alias.md')).toContain('Invented note');
+});
+
+test('a session save refuses a log symlink outside the vault before changing any note', async () => {
+  const w = world();
+  const outside = join(tempDir(), 'log.md');
+  const before = w.log();
+  writeFileSync(outside, before);
+  rmSync(join(w.vault, 'log.md'));
+  symlinkSync(outside, join(w.vault, 'log.md'));
+  expect(
+    (await rejected(w.mesa().vault.saveNote({ title: 'Escape', body: 'Invented' }))).code,
+  ).toBe('usage');
+  expect(readFileSync(outside, 'utf8')).toBe(before);
+  expect(existsSync(join(w.vault, 'wiki/notes/escape.md'))).toBe(false);
+  expect(w.receipts()).toEqual([]);
 });
 
 test('a summary whose receipt could not be written gets it on the retry, once', async () => {

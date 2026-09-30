@@ -77,6 +77,18 @@ test('backlinks count resolved links only, never a note linking itself', () => {
   expect(readVaultItem(vault, 'raw/chart.png').backlinks).toEqual(['wiki/harbour-lights.md']);
 });
 
+test('indented code after thematic breaks and setext headings has no links or backlinks', () => {
+  for (const boundary of ['---', '* * *', '___', 'Title\n===', 'Title\n-']) {
+    put('wiki/code-block.md', `# Source\n\n${boundary}\n    [[tide]]\n`);
+    const read = readVaultItem(vault, 'wiki/code-block.md');
+    if (read.preview !== 'markdown') throw new Error(read.preview);
+    expect(read.links).toEqual([]);
+    expect(readVaultItem(vault, 'projects/tide.md').backlinks).not.toContain('wiki/code-block.md');
+  }
+  put('wiki/code-block.md', 'Paragraph\n--- not a break\n    [[tide]]\n');
+  expect(readVaultItem(vault, 'projects/tide.md').backlinks).toContain('wiki/code-block.md');
+});
+
 test('a canvas reads as its counts and text nodes, a base as its YAML', () => {
   expect(readVaultItem(vault, 'projects/tide/map.canvas')).toMatchObject({
     kind: 'canvas',

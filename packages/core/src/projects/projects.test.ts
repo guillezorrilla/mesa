@@ -61,6 +61,14 @@ test('an existing mesa.yaml is read, with its agent and skills', () => {
   });
 });
 
+test('registered slugs fit their vault hub filename, reserving three bytes for .md', () => {
+  const name = 'a'.repeat(252);
+  registerProject(profile, { dir: folder('limit', `name: ${name}\n`) });
+  const tooLong = folder('too-long', `name: ${name}a\n`);
+  expect(thrown(() => registerProject(profile, { dir: tooLong })).code).toBe('invalid_config');
+  expect(listProjects(profile).map((p) => p.name)).toEqual([name]);
+});
+
 test('a duplicate name or path is invalid_config, and nothing is written', () => {
   registerProject(profile, { dir: folder('a', 'name: shared\n') });
   const b = folder('b', 'name: shared\n');

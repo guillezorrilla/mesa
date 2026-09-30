@@ -1,5 +1,5 @@
 import type { Result, VaultInventory, VaultStatus } from '@mesa/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCall } from '@/lib/useCommand';
 
 /** The Vault screen looks at the vault again this often while it shows. */
@@ -48,4 +48,14 @@ export function useVaultLook(): VaultLook | undefined {
     };
   }, [call]);
   return look?.call === call ? look : undefined;
+}
+
+/** Refresh a reader or search after the next look, keeping its last result while it runs. */
+export function useVaultRefresh(looks: number, busy: boolean, refresh: () => Promise<void>) {
+  const seen = useRef(looks);
+  useEffect(() => {
+    if (seen.current === looks || busy) return;
+    seen.current = looks;
+    void refresh();
+  }, [looks, busy, refresh]);
 }
