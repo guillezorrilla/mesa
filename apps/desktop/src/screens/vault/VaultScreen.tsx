@@ -1,8 +1,9 @@
-import type { VaultInventory, VaultItem } from '@mesa/core';
+import type { BasesWritten, VaultInventory, VaultItem, VaultStatus } from '@mesa/core';
 import { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from '@mesa/core/browser';
-import { Link2Off, Search } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { Link2Off, Search, Table2 } from 'lucide-react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
+import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ import {
   NativeSelectOptGroup,
   NativeSelectOption,
 } from '@/components/ui/native-select';
+import { useCall } from '@/lib/useCommand';
 import { useVaultLook } from './useVaultLook';
 import { VaultReader } from './VaultReader';
 import { VaultSearchResults } from './VaultSearchResults';
@@ -201,40 +203,99 @@ function VaultBrowser({
   );
 }
 
+/** The listed vault's browser and Bases action share the existing remount boundary. */
+function VaultContent(props: {
+  inventory: VaultInventory;
+  looks: number;
+  status?: VaultStatus;
+  query: string;
+  path?: string;
+}) {
+  const { inventory, status } = props;
+  const call = useCall();
+  const toast = useToast();
+  const [writing, setWriting] = useState(false);
+  const [bases, setBases] = useState<BasesWritten>();
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const writeBases = async () => {
+    setWriting(true);
+    const result = await call('vault.bases');
+    if (!active.current) return;
+    setWriting(false);
+    if (result.ok) setBases(result.data);
+    else {
+      setBases(undefined);
+      toast(result.error.message);
+    }
+  };
+  return (
+    <>
+      <PageHeader
+        title="Vault"
+        description={`${inventory.total} ${inventory.total === 1 ? 'item' : 'items'} in ${inventory.vault}`}
+      >
+        <Button variant="outline" disabled={writing} onClick={() => void writeBases()}>
+          <Table2 aria-hidden className="size-4" /> Write Bases views
+        </Button>
+      </PageHeader>
+      {bases && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Bases: wrote {bases.written.length}, kept {bases.kept.length}.
+        </p>
+      )}
+      {inventory.total === 0 ? (
+        <VaultEmpty vault={inventory.vault} />
+      ) : (
+        <>
+          {status && !status.ok && <VaultNotLaidOut status={status} />}
+          <VaultBrowser
+            inventory={inventory}
+            looks={props.looks}
+            query={props.query}
+            path={props.path}
+          />
+        </>
+      )}
+    </>
+  );
+}
+
 /**
  * Every item in the active profile's vault (`mesa vault list`), kept current (useVaultLook), in
  * the browser; or why there are none, with the fix. The browser is the listed vault's: when the
- * profile's vault changes, its filters, search, and selection start over.
+ * profile's vault changes, its filters, search, selection and Bases feedback start over.
  */
 export function VaultScreen({ query = '', path }: { query?: string; path?: string }) {
   const look = useVaultLook();
-  const inventory = look?.list.ok ? look.list.data : undefined;
   return (
     <section data-testid="vault-panel" className="space-y-4">
-      <PageHeader
-        title="Vault"
-        description={
-          inventory
-            ? `${inventory.total} ${inventory.total === 1 ? 'item' : 'items'} in ${inventory.vault}`
-            : "Every item in this profile's vault."
-        }
-      />
-      {!look ? (
-        <p className="text-sm text-muted-foreground">Reading the vault...</p>
-      ) : !look.list.ok ? (
-        <VaultUnlisted error={look.list.error} status={look.status} />
-      ) : look.list.data.total === 0 ? (
-        <VaultEmpty vault={look.list.data.vault} />
+      {look?.list.ok ? (
+        <VaultContent
+          key={JSON.stringify([look.list.data.vault, query, path])}
+          inventory={look.list.data}
+          looks={look.count}
+          status={look.status}
+          query={query}
+          path={path}
+        />
       ) : (
         <>
-          {look.status && !look.status.ok && <VaultNotLaidOut status={look.status} />}
-          <VaultBrowser
-            key={JSON.stringify([look.list.data.vault, query, path])}
-            inventory={look.list.data}
-            looks={look.count}
-            query={query}
-            path={path}
-          />
+          <PageHeader title="Vault" description="Every item in this profile's vault.">
+            <Button variant="outline" disabled>
+              <Table2 aria-hidden className="size-4" /> Write Bases views
+            </Button>
+          </PageHeader>
+          {!look ? (
+            <p className="text-sm text-muted-foreground">Reading the vault...</p>
+          ) : !look.list.ok ? (
+            <VaultUnlisted error={look.list.error} status={look.status} />
+          ) : null}
         </>
       )}
     </section>
