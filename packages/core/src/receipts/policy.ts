@@ -1,3 +1,5 @@
+import type { Receipt } from './schema.js';
+
 /** Knowledge worth keeping in the vault. Historical receipts may have no kind. */
 export const RECORD_KINDS = ['decision', 'guardrail', 'vault-change'] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
@@ -18,3 +20,23 @@ export const BASES_MEANINGFUL_FILTER = [
   '|| ((status == "failed" || status == "blocked") && kind == "guardrail"',
   '&& outputs && outputs.error && outputs.error.code == "guardrail_blocked"))',
 ].join(' ');
+
+/** Successful knowledge and material guardrails, excluding Daily bookkeeping. */
+export function meaningfulReceipt(receipt: Receipt): boolean {
+  const { kind, status, outputs } = receipt;
+  const target = outputs.target;
+  if (typeof target === 'string' && (target === 'daily' || target.startsWith('daily/')))
+    return false;
+  const error = outputs.error;
+  return status === 'ok'
+    ? keepSuccess(kind, outputs)
+    : keepFailure(
+        kind,
+        typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          typeof error.code === 'string'
+          ? error.code
+          : '',
+      );
+}

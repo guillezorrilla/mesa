@@ -29,6 +29,7 @@ import { useCommand, useRun } from './lib/useCommand';
 import { BackupScreen } from './screens/BackupScreen';
 import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
+import { DailyScreen } from './screens/daily/DailyScreen';
 import { HelpScreen } from './screens/HelpScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { MapScreen } from './screens/MapScreen';
@@ -532,6 +533,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               onSession={(id) => navigate({ kind: 'session', id })}
               onVaultItem={(path) => navigate({ kind: 'vault', path })}
             />
+          )}
+          {view.kind === 'daily' && (
+            <DailyScreen onVaultItem={(path) => navigate({ kind: 'vault', path })} />
           )}
           {view.kind === 'vault' && (
             <VaultScreen key={view.query} query={view.query} path={view.path} />
