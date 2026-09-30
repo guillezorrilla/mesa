@@ -9,14 +9,16 @@ const FENCE = '---';
 export const serializeNote = ({ frontmatter, body }: Note): string =>
   `${FENCE}\n${stringify(frontmatter)}${FENCE}\n${body}`;
 
-/** The inverse of serializeNote. A file without frontmatter is all body. */
+/** Reads LF or CRLF fences without changing body newlines. No complete fences means all body. */
 export function parseNote(text: string): Note {
-  if (!text.startsWith(`${FENCE}\n`)) return { frontmatter: {}, body: text };
-  const end = text.indexOf(`\n${FENCE}\n`, FENCE.length);
-  if (end === -1) return { frontmatter: {}, body: text };
-  const yaml = text.slice(FENCE.length + 1, end + 1);
+  const opening = /^---\r?\n/.exec(text);
+  if (!opening) return { frontmatter: {}, body: text };
+  const closing = /\r?\n---\r?\n/.exec(text.slice(FENCE.length));
+  if (!closing) return { frontmatter: {}, body: text };
+  const end = FENCE.length + closing.index;
+  const yaml = text.slice(opening[0].length, end + closing[0].indexOf(FENCE));
   return {
     frontmatter: (parse(yaml) as Frontmatter | null) ?? {},
-    body: text.slice(end + FENCE.length + 2),
+    body: text.slice(end + closing[0].length),
   };
 }

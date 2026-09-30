@@ -458,3 +458,33 @@ test('a summary whose receipt could not be written gets it on the retry, once', 
   expect(again.receipt).toBeNull();
   expect(w.receipts()).toHaveLength(1);
 });
+
+test.each(['note', 'summary'] as const)(
+  'public saved %s refuses CRLF locked notes without changing note or history bytes',
+  async (kind) => {
+    const w = world();
+    const { vault } = w.mesa();
+    const saved =
+      kind === 'note'
+        ? await vault.saveNote({ title: 'Kept tide', body: 'Original tide.' })
+        : await vault.saveSummary({ session: w.session, summary: 'Original tide.' });
+    const path = saved.result.path;
+    w.put(
+      path,
+      w
+        .read(path)
+        .replace('source: mesa\n', 'source: mesa\nlocked: true\n')
+        .replaceAll('\n', '\r\n'),
+    );
+    const receipts = w.receipts().map((entry) => entry.path);
+    const files = [path, 'log.md', 'index.md', ...receipts];
+    const before = files.map((file) => readFileSync(join(w.vault, file)));
+    const attempt =
+      kind === 'note'
+        ? vault.saveNote({ title: 'Kept tide', body: 'Replaced tide.' })
+        : vault.saveSummary({ session: w.session, summary: 'Replaced tide.' });
+    expect(await rejected(attempt)).toMatchObject({ code: 'locked', details: { reason: 'note' } });
+    expect(w.receipts().map((entry) => entry.path)).toEqual(receipts);
+    expect(files.map((file) => readFileSync(join(w.vault, file)))).toEqual(before);
+  },
+);
