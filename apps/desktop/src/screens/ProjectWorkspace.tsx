@@ -43,6 +43,7 @@ import { GitWorkspace } from './GitWorkspace';
 import { NativeHistory } from './NativeHistory';
 import { RulesWorkspace } from './RulesWorkspace';
 import { SkillsWorkspace } from './SkillsWorkspace';
+import { VaultOverview } from './vault/VaultOverview';
 import { WorktreesWorkspace } from './WorktreesWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
@@ -50,6 +51,8 @@ export function ProjectWorkspace(props: {
   project: ProjectRow;
   sessions: readonly TreeRow[];
   onSession: (id: string) => void;
+  /** Opens the Vault screen with this item selected. */
+  onVaultItem: (path: string) => void;
   onChanged: () => void;
   onUnregistered: () => void;
   filesDirty: boolean;
@@ -501,6 +504,7 @@ export function ProjectWorkspace(props: {
               <p className="text-sm text-muted-foreground">No sessions for this project yet.</p>
             )}
           </section>
+          <VaultOverview project={project.name} onItem={props.onVaultItem} />
           <KnowledgeContext project={project.name} />
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>

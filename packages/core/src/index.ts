@@ -133,6 +133,7 @@ export {
 } from './vault/item.js';
 export type { LinkResolution, NoteLink, VaultLink } from './vault/links.js';
 export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
+export type { ProjectContext } from './vault/project-context.js';
 export type { VaultPreview, VaultRead } from './vault/reader.js';
 export {
   DEFAULT_VAULT_SEARCH_LIMIT,
@@ -141,6 +142,7 @@ export {
   type VaultSearch,
   type VaultSearchFilter,
 } from './vault/search.js';
+export { DEFAULT_GOALS, type SessionGoal } from './vault/session-goals.js';
 export type { DecisionInput, NoteInput, Saved, SummaryInput } from './vault/session-writes.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';

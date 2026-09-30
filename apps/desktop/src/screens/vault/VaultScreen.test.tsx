@@ -447,3 +447,12 @@ test('a query given to the screen, as Search Mesa gives it, searches at once', a
   expect(calls).toContainEqual(['--json', 'vault', 'search', '--', 'tide']);
   expect(results(byTestId)).toHaveLength(2);
 });
+
+test('opened at a path, the screen selects that item and opens the tree to it', async () => {
+  const { bridge, calls } = readerBridge();
+  const byTestId = await renderWithMesa(<VaultScreen path="wiki/currents.md" />, bridge);
+  expect(selectedPath(byTestId)).toBe('wiki/currents.md');
+  expect(calls).toContainEqual(['--json', 'vault', 'read', '--', 'wiki/currents.md']);
+  const row = byTestId('vault-file').find((file) => file.title === 'wiki/currents.md');
+  expect(row?.getAttribute('aria-pressed')).toBe('true');
+});

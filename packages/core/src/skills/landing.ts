@@ -4,7 +4,7 @@ import type { MesaContext } from '../context.js';
 import { recordNoteChange, settleUnchanged } from '../receipts/note-change.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { listReceipts, restoreLogLine } from '../receipts/store.js';
-import { VAULT } from '../vault/layout.js';
+import { projectHubPath, sessionSummaryPath } from '../vault/layout.js';
 import { type LockedNotesDeps, readNote, refuseForeign, writeNote } from '../vault/notes.js';
 import { vaultFile } from '../vault/scope.js';
 import { withVaultLock } from '../vault/vault-lock.js';
@@ -49,12 +49,12 @@ const LANDINGS: Record<string, Landing> = {
   // session saving it.
   'session-summary': {
     type: 'session-summary',
-    path: ({ about }) => about && `${VAULT.wiki}/sessions/${about}.md`,
+    path: ({ about }) => about && sessionSummaryPath(about),
     said: ({ about, project }) => `Summarised session ${about}${project ? ` on ${project}` : ''}`,
   },
   'project-brief': {
     type: 'project',
-    path: ({ project }) => project && `${VAULT.projects}/${project}.md`,
+    path: ({ project }) => project && projectHubPath(project),
     said: ({ project }) => `Updated project brief for ${project}`,
   },
 };

@@ -1,5 +1,6 @@
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { newSession, shortIds, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -465,4 +466,125 @@ test('vault search: {total, truncated, items} with snippets, filtered by --proje
   expect(await mesa('vault', 'search', 'foghorn', '--limit', 'all')).toMatchObject({ code: 2 });
   expect(await mesa('vault', 'search', 'foghorn', '--type', 'notes')).toMatchObject({ code: 2 });
   expect(await mesa('vault', 'search')).toMatchObject({ code: 2 });
+});
+
+test('vault context and vault goals: a project overview and its earlier goals, as JSON and text', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  mkdirSync(join(cli.home, 'tide'));
+  await mesa('register', 'tide', '--create');
+  const vault = join(cli.home, 'vault');
+  const put = (path: string, text: string) => {
+    mkdirSync(join(vault, path, '..'), { recursive: true });
+    writeFileSync(join(vault, path), text);
+  };
+
+  // Nothing yet: empty lists and the hint.
+  const empty = await mesa('vault', 'context', 'tide', '--json');
+  expect(empty.json.data).toEqual({
+    project: 'tide',
+    hub: null,
+    index: [],
+    notes: [],
+    decisions: [],
+    goals: [],
+    more: 'Nothing in the vault for tide yet: no hub at projects/tide.md, no notes, and no earlier sessions.',
+  });
+
+  put('projects/tide.md', '# Tide\n\n## Purpose\n\nTide tables.\n');
+  put('wiki/currents.md', '---\nproject: tide\n---\n# Currents\n');
+  put(
+    'wiki/decisions/2026-09-20-fixed-clock.md',
+    '---\nproject: tide\ntype: decision\n---\n# Fixed clock\n',
+  );
+  put('index.md', '# Index\n\n- [[wiki/currents]]: how the currents run\n');
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa', 'bbbbbbbb'));
+  store.create(() =>
+    newSession({
+      project: 'tide',
+      goal: 'Chart the neaps\nthen the springs',
+      endedAt: '2026-09-24T13:00:00.000Z',
+    }),
+  );
+  store.create(() => newSession({ project: 'tide', startedAt: '2026-09-25T12:00:00.000Z' }));
+  put('wiki/sessions/aaaaaaaa.md', '# Summary\n');
+
+  const context = await mesa('vault', 'context', 'tide', '--json');
+  expect(context.code).toBe(0);
+  expect(context.json.data).toMatchObject({
+    project: 'tide',
+    hub: { path: 'projects/tide.md', headings: ['# Tide', '## Purpose'] },
+    index: ['- [[wiki/currents]]: how the currents run'],
+    decisions: [
+      {
+        title: 'Fixed clock',
+        path: 'wiki/decisions/2026-09-20-fixed-clock.md',
+        when: '2026-09-20',
+      },
+    ],
+    goals: [
+      { id: 'bbbbbbbb', agent: 'claude' },
+      { id: 'aaaaaaaa', summary: 'wiki/sessions/aaaaaaaa.md' },
+    ],
+  });
+  // A summary names no project in its frontmatter here, so it is no note of tide's.
+  expect(context.json.data.notes.map((n: { path: string }) => n.path)).toEqual([
+    'wiki/currents.md',
+  ]);
+  const modified = context.json.data.notes[0].modified;
+  expect((await mesa('vault', 'context', 'tide')).stdout).toBe(
+    [
+      'tide',
+      'hub: projects/tide.md',
+      '',
+      '# Tide\n\n## Purpose\n\nTide tables.',
+      '',
+      'index:',
+      '  - [[wiki/currents]]: how the currents run',
+      'notes:',
+      `  ${modified}  wiki/currents.md  Currents`,
+      'decisions:',
+      '  2026-09-20  wiki/decisions/2026-09-20-fixed-clock.md  Fixed clock',
+      'goals:',
+      '  bbbbbbbb  claude  2026-09-25T12:00:00.000Z  -',
+      '  aaaaaaaa  claude  2026-09-24T12:00:00.000Z  Chart the neaps  wiki/sessions/aaaaaaaa.md',
+      'Nothing left out. mesa vault read <path> reads a note in full, mesa vault list --project tide lists every item, and mesa vault goals tide lists earlier goals.',
+      '',
+    ].join('\n'),
+  );
+
+  const goals = await mesa('vault', 'goals', 'tide', '--limit', '1', '--json');
+  expect(goals.json.data).toEqual([
+    { id: 'bbbbbbbb', agent: 'claude', started: '2026-09-25T12:00:00.000Z' },
+  ]);
+  // Inside a session's window, that session is no earlier one.
+  cli.env = { MESA_SESSION_ID: 'bbbbbbbb', MESA_PROFILE: 'default' };
+  expect((await mesa('vault', 'goals', 'tide')).stdout).toBe(
+    'aaaaaaaa  claude  2026-09-24T12:00:00.000Z  Chart the neaps  wiki/sessions/aaaaaaaa.md\n',
+  );
+  cli.env = {};
+
+  const general = await mesa('vault', 'context', '--general', '--json');
+  expect(general.json.data).toMatchObject({
+    project: '__mesa_general__',
+    hub: null,
+    counts: { projects: 1, wiki: 3, index: 1 },
+    goals: [],
+  });
+  expect((await mesa('vault', 'goals', '--general')).stdout).toBe('no earlier sessions\n');
+
+  expect(await mesa('vault', 'context', 'nowhere')).toMatchObject({
+    code: 3,
+    stderr: 'no project named nowhere; see mesa projects\n',
+  });
+  for (const argv of [
+    ['vault', 'context'],
+    ['vault', 'goals', 'tide', '--general'],
+  ]) {
+    expect(await mesa(...argv)).toMatchObject({
+      code: 2,
+      stderr: 'pass a project or --general, not both\n',
+    });
+  }
+  expect((await mesa('vault', 'goals', 'tide', '--limit', 'none')).code).toBe(2);
 });

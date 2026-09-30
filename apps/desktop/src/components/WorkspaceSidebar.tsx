@@ -56,7 +56,8 @@ export type WorkspaceView =
         | 'usage'
         | 'inbox';
     }
-  | { kind: 'vault'; query?: string }
+  /** The Vault screen, searching `query` or with the item at `path` selected, when given. */
+  | { kind: 'vault'; query?: string; path?: string }
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 

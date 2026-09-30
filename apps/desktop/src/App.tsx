@@ -506,6 +506,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
                 onFilesDirtyChange={setFilesDirty}
                 sessions={sessions}
                 onSession={(id) => navigate({ kind: 'session', id })}
+                onVaultItem={(path) => navigate({ kind: 'vault', path })}
                 onNewSession={(project, location) => requestNewSession({ project, location })}
                 onAgentSettings={() => navigate({ kind: 'doctor' })}
                 onChanged={() => void projects.refresh()}
@@ -525,7 +526,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           {view.kind === 'usage' && (
             <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
           )}
-          {view.kind === 'vault' && <VaultScreen key={view.query} query={view.query} />}
+          {view.kind === 'vault' && (
+            <VaultScreen key={view.query} query={view.query} path={view.path} />
+          )}
           {view.kind === 'inbox' && (
             <InboxScreen
               onSession={(id) => navigate({ kind: 'session', id })}

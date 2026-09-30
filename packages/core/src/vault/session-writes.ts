@@ -16,7 +16,7 @@ import { landOutput } from '../skills/landing.js';
 import type { Frontmatter, Note } from './frontmatter.js';
 import { addToIndex } from './index-note.js';
 import { itemProject } from './item.js';
-import { VAULT } from './layout.js';
+import { projectHubPath, VAULT } from './layout.js';
 import { wikilink } from './links.js';
 import {
   type LockedNotesDeps,
@@ -196,7 +196,7 @@ export function sessionWrites(ctx: MesaContext) {
         ...(session ? { session: session.id } : {}),
         ...odds,
       };
-      const body = `# ${title}\n\n${decision}\n\n## Rationale\n\n${rationale}\n\nProject: ${wikilink(`${VAULT.projects}/${project}`)}\n`;
+      const body = `# ${title}\n\n${decision}\n\n## Rationale\n\n${rationale}\n\nProject: ${wikilink(projectHubPath(project))}\n`;
       return keep(
         writes(),
         { frontmatter, body },
