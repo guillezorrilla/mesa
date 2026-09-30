@@ -164,7 +164,7 @@ test('scope/locked log preflight writes neither file', async () => {
     ['---\r\nlocked: true\r\n---\r\n', 'locked'],
     ['---\nlocked: [\n---\n', 'invalid_config'],
     ['---\nlocked: true\n', 'invalid_config'],
-  ]) {
+  ] satisfies [string, string][]) {
     writeFileSync(logFile, content);
     await expect(mesa.log('refuse')).rejects.toHaveProperty('code', code);
     await expect(mesa.daily.build()).rejects.toHaveProperty('code', code);
@@ -314,6 +314,7 @@ test('targets with link punctuation keep their exact scoped file identity', asyn
   );
   await mesa.daily.build('2026-09-24');
   const read = mesa.vault.read('daily/2026-09-24.md');
+  if (read.preview !== 'markdown') throw new Error('expected Daily Markdown');
   expect(read.body).toContain('[target](<../wiki/tide%20%232%7Cchart%20%28draft%29.md>)');
   expect(read.links).toContainEqual(expect.objectContaining({ status: 'resolved', path: target }));
 });
