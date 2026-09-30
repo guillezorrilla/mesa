@@ -17,12 +17,15 @@ export function instructionStatus(
   home: string,
   env: Env,
   self: readonly string[],
-  identityChanged = false,
+  identityChanged: boolean | 'ambiguous' = false,
 ): InstructionStatus {
   if (identityChanged)
     return {
       state: 'conflicting',
-      reason: 'Native conversation changed after /clear; reopen through Mesa',
+      reason:
+        identityChanged === 'ambiguous'
+          ? 'Another native conversation started; /clear or nested Codex is ambiguous; reopen through Mesa'
+          : 'Native conversation changed after /clear; reopen through Mesa',
     };
   try {
     if (agent === 'antigravity') {

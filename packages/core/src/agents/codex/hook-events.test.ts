@@ -81,8 +81,9 @@ test('known payload id selects its record, but outside Mesa, wrong agents, and n
   const claude = store.create(() => newSession({ agent: 'claude' }));
   expect(hook(stop, claude.id)).toBeUndefined();
   expect(
-    hook({ session_id: 'nested', hook_event_name: 'SessionStart', source: 'clear' }),
-  ).toBeUndefined();
+    hook({ session_id: 'nested', hook_event_name: 'SessionStart', source: 'startup' }),
+  ).toMatchObject({ event: 'SessionIdentityAmbiguous' });
+  expect(hook({ session_id: 'nested', hook_event_name: 'Stop' })).toBeUndefined();
   expect(hook({ hook_event_name: 'Stop' })).toBeUndefined();
   expect(store.get(session.id).agentSessionId).toBe(thread);
 });
