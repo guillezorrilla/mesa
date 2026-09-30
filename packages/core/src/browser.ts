@@ -14,6 +14,7 @@ export {
 } from './agents/names.js';
 export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';
+export { mapGroups } from './map/map.js';
 export {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,
@@ -41,5 +42,7 @@ export {
   presentSessions,
 } from './sessions/presentation.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
+export { sessionUri } from './sessions/uri.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
 export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';
+export { MAP_PATH } from './vault/layout.js';

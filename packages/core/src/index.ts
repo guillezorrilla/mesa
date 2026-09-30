@@ -50,6 +50,7 @@ export { type IdSource, ulidSource } from './lib/ids.js';
 export type { McpTool, Stdio } from './lib/mcp-server.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
+export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { DeliveryPlan, InboxItem } from './notifications/inbox.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
@@ -123,6 +124,7 @@ export type { SkillRow, SkillSync } from './skills/sync.js';
 export type { UsageRecord, UsageReport } from './usage/records.js';
 export type { WeeklyRewind } from './usage/rewind.js';
 export type { BasesWritten } from './vault/bases.js';
+export type { CanvasData, CanvasEdge, CanvasNode } from './vault/canvas.js';
 export type { VaultInventory } from './vault/inventory.js';
 export {
   type Unavailable,

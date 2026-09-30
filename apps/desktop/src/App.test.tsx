@@ -48,6 +48,16 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
   expect(byTestId('projects-screen')).toHaveLength(1);
 });
 
+test('sidebar opens Map without creating a missing saved map', async () => {
+  const { bridge, calls } = fakeBridge({
+    'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-map')[0]);
+  expect(byTestId('map-screen')[0]?.textContent).toContain('No map yet. Use Update map.');
+  expect(calls.some((args) => args[1] === 'map')).toBe(false);
+});
+
 test('project Skills and Rules tabs preview and save only through their checked commands', async () => {
   const skillId = '/src/lantern-cove/.claude/skills/sunset-map';
   const ruleId = '/src/lantern-cove/AGENTS.md';

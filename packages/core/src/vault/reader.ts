@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { MesaError } from '../lib/result.js';
 import { ownedBaseViews } from './bases.js';
+import { type CanvasData, parseCanvas } from './canvas.js';
 import { type Frontmatter, parseNote } from './frontmatter.js';
 import { listVault } from './inventory.js';
 import type { VaultItem } from './item.js';
@@ -14,7 +15,7 @@ import { vaultFile } from './scope.js';
 /** What Mesa can show of an item, by its kind; `unsupported` says why it shows none. */
 export type VaultPreview =
   | { preview: 'markdown'; frontmatter: Frontmatter; body: string; links: VaultLink[] }
-  | { preview: 'canvas'; nodes: number; edges: number; texts: string[] }
+  | { preview: 'canvas'; nodes: number; edges: number; texts: string[]; canvas: CanvasData | null }
   | { preview: 'base'; yaml: string; views?: string[] }
   | { preview: 'unsupported'; reason: string };
 
@@ -50,7 +51,7 @@ export function canvasOf(text: string): VaultPreview {
       node?.type === 'text' && typeof node.text === 'string' ? [node.text] : [],
     );
     const edges = Array.isArray(canvas.edges) ? canvas.edges.length : 0;
-    return { preview: 'canvas', nodes: nodes.length, edges, texts };
+    return { preview: 'canvas', nodes: nodes.length, edges, texts, canvas: parseCanvas(canvas) };
   } catch {
     return { preview: 'unsupported', reason: 'it is not a JSON Canvas file' };
   }

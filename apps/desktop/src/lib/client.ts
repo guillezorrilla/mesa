@@ -35,6 +35,7 @@ import type {
   HooksStatus,
   InboxItem,
   InstructionStatus,
+  MapSaved,
   McpTool,
   NativeHistory,
   Opened,
@@ -145,6 +146,10 @@ const changeFlags = (selection: ChangeSelection) => [
 
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
+  'map.update': commandWith<{ all?: boolean }, MapSaved>(({ all }) => [
+    'map',
+    ...(all ? ['--all'] : []),
+  ]),
   'browser.external': commandWith<{ url: string }, { url: string; opened: true }>(({ url }) => [
     'browser',
     'external',
