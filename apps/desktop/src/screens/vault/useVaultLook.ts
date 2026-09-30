@@ -9,7 +9,12 @@ const LOOK_MS = 5_000;
  * One look: the inventory, or why it did not list, the layout's status when it read, and how many
  * looks there have been, this one included.
  */
-export type VaultLook = { list: Result<VaultInventory>; status?: VaultStatus; count: number };
+export type VaultLook = {
+  list: Result<VaultInventory>;
+  status?: VaultStatus;
+  count: number;
+  refresh: () => Promise<void>;
+};
 
 /**
  * The profile vault as `mesa vault list` and `mesa vault status` see it, looked at on mount, every
@@ -32,6 +37,7 @@ export function useVaultLook(): VaultLook | undefined {
       if (!active) return;
       setLook((last) => ({
         call,
+        refresh: again,
         list,
         status: status.ok ? status.data : undefined,
         count: (last?.count ?? 0) + 1,

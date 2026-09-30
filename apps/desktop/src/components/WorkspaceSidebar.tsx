@@ -22,6 +22,7 @@ import {
   Keyboard,
   LayoutDashboard,
   Library,
+  Map as MapIcon,
   MoreVertical,
   Plus,
   Settings2,
@@ -53,6 +54,7 @@ export type WorkspaceView =
         | 'prompts'
         | 'backup'
         | 'tour'
+        | 'map'
         | 'usage'
         | 'inbox';
     }
@@ -436,6 +438,7 @@ export function WorkspaceSidebar(props: {
         {item('Grid', Grid2X2, { kind: 'grid' })}
         {item('Projects', Folder, { kind: 'projects' })}
         {item('Vault', Library, { kind: 'vault' })}
+        {item('Map', MapIcon, { kind: 'map' })}
         {item('Usage', ChartNoAxesCombined, { kind: 'usage' })}
         {item('Inbox', Bell, { kind: 'inbox' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
