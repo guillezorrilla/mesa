@@ -54,9 +54,9 @@ export type WorkspaceView =
         | 'backup'
         | 'tour'
         | 'usage'
-        | 'inbox'
-        | 'vault';
+        | 'inbox';
     }
+  | { kind: 'vault'; query?: string }
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 

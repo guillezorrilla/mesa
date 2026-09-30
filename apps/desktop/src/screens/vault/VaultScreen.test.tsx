@@ -1,5 +1,13 @@
 // @vitest-environment happy-dom
-import type { VaultInventory, VaultItem, VaultLink, VaultPreview, VaultRead } from '@mesa/core';
+import type {
+  VaultInventory,
+  VaultItem,
+  VaultLink,
+  VaultPreview,
+  VaultRead,
+  VaultSearch,
+} from '@mesa/core';
+import { act } from 'react';
 import { expect, test } from 'vitest';
 import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { VaultScreen } from './VaultScreen';
@@ -213,7 +221,7 @@ const BACKLINKS: Record<string, string[]> = {
   'projects/tide.md': ['wiki/currents.md'],
   'wiki/currents.md': ['projects/tide.md'],
 };
-const readerBridge = () =>
+const readerBridge = (answers: Record<string, (args: string[]) => unknown> = {}) =>
   fakeBridge({
     'vault list': () => envelope({ vault: '/h/vault', total: NOTES.length, items: NOTES }),
     'vault read': (args) => {
@@ -223,6 +231,7 @@ const readerBridge = () =>
     },
     'vault open': (args) =>
       envelope({ opened: true, method: 'uri', target: `obsidian://open?file=${args[4]}` }),
+    ...answers,
   });
 
 /** Selects `path` in the tree as a person does: each closed folder on the way, then the file. */
@@ -330,4 +339,111 @@ test('a canvas, a base, an attachment, and another file say Preview not availabl
   expect(reader(byTestId)?.textContent).toContain('Spring tides');
   await select(byTestId, 'Garden/beds.base');
   expect(reader(byTestId)?.querySelector('pre')?.textContent).toBe('views:\n  - type: table\n');
+});
+
+// The search's invented answer: a note with two snippets and a canvas by its path alone.
+const FOUND: VaultSearch = {
+  total: 2,
+  truncated: false,
+  items: [
+    {
+      path: 'wiki/currents.md',
+      kind: 'markdown',
+      project: 'tide',
+      title: 'currents',
+      matches: [
+        { line: 3, text: 'The [[tide|tide hub]] turns; ![[chart.png]] shows it.' },
+        { line: 5, text: 'See [[kale]] and [[eddies]], not `[[code]]`.' },
+      ],
+    },
+    {
+      path: 'projects/tide/map.canvas',
+      kind: 'canvas',
+      project: 'tide',
+      title: 'map.canvas',
+      matches: [],
+    },
+  ],
+};
+
+/** Types `text` in the Vault screen's search box and presses Enter, as a person does. */
+async function search(text: string) {
+  const input = document.querySelector<HTMLInputElement>('#vault-search') as HTMLInputElement;
+  await act(async () => {
+    input.value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => input.form?.requestSubmit());
+}
+const results = (byTestId: (id: string) => HTMLElement[]) =>
+  byTestId('vault-result').map((row) => row.title);
+
+test('the search box shows results with snippets under the filters, and one opens in the reader', async () => {
+  const { bridge, calls } = readerBridge({ 'vault search': () => envelope(FOUND) });
+  const byTestId = await renderWithMesa(<VaultScreen />, bridge);
+  await search('  tide ');
+  expect(calls).toContainEqual(['--json', 'vault', 'search', '--', 'tide']);
+  expect(byTestId('vault-results-said')[0]?.textContent).toBe('2 items match "tide".');
+  expect(results(byTestId)).toEqual(['wiki/currents.md', 'projects/tide/map.canvas']);
+  expect(byTestId('vault-result')[0]?.textContent).toContain('currents');
+  expect(byTestId('vault-snippet').map((line) => line.textContent)).toEqual([
+    '3The [[tide|tide hub]] turns; ![[chart.png]] shows it.',
+    '5See [[kale]] and [[eddies]], not `[[code]]`.',
+  ]);
+  expect(byTestId('vault-folder')).toEqual([]); // the results stand in for the tree
+
+  await choose(document.querySelector('#vault-project') ?? undefined, 'tide');
+  await choose(document.querySelector('#vault-type') ?? undefined, 'canvas');
+  expect(calls.at(-1)).toEqual([
+    '--json',
+    'vault',
+    'search',
+    '--project',
+    'tide',
+    '--type',
+    'canvas',
+    '--',
+    'tide',
+  ]);
+  expect(byTestId('vault-results-said')[0]?.textContent).toBe(
+    '2 items match "tide" under these filters.',
+  );
+
+  await click(byTestId('vault-result')[0]);
+  expect(calls).toContainEqual(['--json', 'vault', 'read', '--', 'wiki/currents.md']);
+  expect(selectedPath(byTestId)).toBe('wiki/currents.md');
+  expect(byTestId('vault-result')[0]?.getAttribute('aria-pressed')).toBe('true');
+  expect(byTestId('vault-markdown')[0]?.querySelector('h1')?.textContent).toBe('Currents');
+
+  // Emptied, the box gives the tree back.
+  await search('');
+  expect(byTestId('vault-results')).toEqual([]);
+  expect(byTestId('vault-folder').length).toBeGreaterThan(0);
+});
+
+test('a search with no results says so, and one that stops short says how many it shows', async () => {
+  const { bridge } = readerBridge({
+    'vault search': (args) =>
+      envelope(
+        args.at(-1) === 'kelp'
+          ? { total: 0, truncated: false, items: [] }
+          : { ...FOUND, total: 70, truncated: true },
+      ),
+  });
+  const byTestId = await renderWithMesa(<VaultScreen />, bridge);
+  await search('kelp');
+  expect(byTestId('vault-results-said')[0]?.textContent).toBe('No items match "kelp".');
+  expect(byTestId('vault-result')).toEqual([]);
+  await search('tide');
+  expect(byTestId('vault-results-said')[0]?.textContent).toBe(
+    '70 items match "tide". Showing the first 2.',
+  );
+});
+
+test('a query given to the screen, as Search Mesa gives it, searches at once', async () => {
+  const { bridge, calls } = readerBridge({ 'vault search': () => envelope(FOUND) });
+  const byTestId = await renderWithMesa(<VaultScreen query="tide" />, bridge);
+  expect(document.querySelector<HTMLInputElement>('#vault-search')?.value).toBe('tide');
+  expect(calls).toContainEqual(['--json', 'vault', 'search', '--', 'tide']);
+  expect(results(byTestId)).toHaveLength(2);
 });

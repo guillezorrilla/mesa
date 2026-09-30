@@ -1,4 +1,5 @@
 import {
+  DEFAULT_VAULT_SEARCH_LIMIT,
   EXIT_CODES,
   MesaError,
   type Recorded,
@@ -8,7 +9,7 @@ import {
   type VaultRead,
 } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { decimal } from '../guards.js';
+import { decimal, wholeNumber } from '../guards.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -112,6 +113,38 @@ export const vaultRead = defineCommand({
   run: ({ mesa, args }) => {
     const read = mesa.vault.read(args.path);
     return { data: read, text: readText(read) };
+  },
+});
+
+export const vaultSearch = defineCommand({
+  name: 'vault search',
+  summary: 'Find the vault items with every word in them: paths, notes, canvases, and bases',
+  args: ['words...'],
+  flags: {
+    project: { type: 'string', description: 'Only the items of this project' },
+    type: {
+      type: 'string',
+      description: `Only one kind (${VAULT_KINDS.join(', ')}) or category (${VAULT_CATEGORIES.join(', ')})`,
+    },
+    limit: {
+      type: 'string',
+      description: `How many to list (default ${DEFAULT_VAULT_SEARCH_LIMIT})`,
+    },
+  },
+  example: 'mesa vault search harbour lights --project tide',
+  run: ({ mesa, args, flags }) => {
+    const found = mesa.vault.search(args.words.join(' '), {
+      project: flags.project,
+      type: flags.type,
+      limit: flags.limit === undefined ? undefined : wholeNumber(flags.limit, '--limit'),
+    });
+    const lines = found.items.flatMap((hit) => [
+      `${hit.path} (${hit.kind})`,
+      ...hit.matches.map((match) => `  ${match.line}: ${match.text}`),
+    ]);
+    const count = `${found.total} ${found.total === 1 ? 'item' : 'items'}`;
+    const said = found.truncated ? `${found.items.length} of ${count}` : count;
+    return { data: found, text: [...lines, said].join('\n') };
   },
 });
 
