@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { writeReceipt } from '../receipts/store.js';
-import { fixedClock, sequentialIds, tempDir, testDeps } from '../testing/index.js';
+import { fixedClock, sequentialIds, steppingClock, tempDir, testDeps } from '../testing/index.js';
 
 let vault: string;
 let mesa: ReturnType<typeof createMesa>;
@@ -260,6 +260,41 @@ test('concurrent logs and rebuilds share the same lock without duplicates or los
   const raw = readFileSync(join(vault, 'daily/2026-09-24.md'), 'utf8');
   expect(raw.match(/first explicit/g)).toHaveLength(1);
   expect(raw.match(/second explicit/g)).toHaveLength(1);
+});
+
+test('one locked log instant keeps its entry and Daily together across local midnight', async () => {
+  const previous = process.env.TZ;
+  process.env.TZ = 'America/Vancouver';
+  try {
+    let calls = 0;
+    const tick = steppingClock('2026-10-01T06:59:59.900Z', 100);
+    const subject = createMesa(
+      'default',
+      testDeps(vault.slice(0, -'/vault'.length), {
+        clock: () => {
+          calls += 1;
+          return tick();
+        },
+      }),
+    );
+    const result = await subject.log('invented midnight gull');
+    expect(result).toEqual({
+      entry: '- 2026-10-01T06:59:59.900Z invented midnight gull <!-- mesa:log -->',
+      daily: 'daily/2026-09-30.md',
+    });
+    expect(calls).toBe(1);
+    expect(
+      readFileSync(join(vault, result.daily), 'utf8').match(/invented midnight gull/g),
+    ).toHaveLength(1);
+    expect(
+      readFileSync(join(vault, 'log.md'), 'utf8').match(/invented midnight gull/g),
+    ).toHaveLength(1);
+    expect(await subject.daily.build('2026-09-30')).toMatchObject({ changed: false, log: 1 });
+    expect(existsSync(join(vault, 'daily/2026-10-01.md'))).toBe(false);
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
 });
 
 test('targets with link punctuation keep their exact scoped file identity', async () => {

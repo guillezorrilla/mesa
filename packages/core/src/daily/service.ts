@@ -167,15 +167,18 @@ export async function logLine(
   deps: LockedNotesDeps,
   text: string,
 ): Promise<{ entry: string; daily: string }> {
-  const date = dateOf(deps);
   const clean = oneLine(text);
   if (!clean) throw new MesaError('usage', 'a log line needs some text');
   requireLog(deps.vault);
   return withVaultLock(deps, async () => {
-    const note = prepare(deps, date);
-    const entry = appendLog(deps, `${clean} ${EXPLICIT}`);
+    // One event instant keeps the log timestamp and Daily date together across local midnight.
+    const at = deps.clock();
+    const logging = { ...deps, clock: () => at };
+    const date = dateOf(logging);
+    const note = prepare(logging, date);
+    const entry = appendLog(logging, `${clean} ${EXPLICIT}`);
     try {
-      rebuild(deps, date, note);
+      rebuild(logging, date, note);
     } catch (error) {
       throw new MesaError(
         'internal',
