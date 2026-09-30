@@ -65,9 +65,20 @@ function searched(vault: string, item: VaultItem): Searched {
 
 /** The line in at most 200 characters: a long one from a little before the word it found. */
 function snippet(line: string, at: number) {
-  if (line.length <= SNIPPET_LENGTH) return line;
-  const start = Math.max(0, at - LEAD);
-  return clip(start ? `...${line.slice(start)}` : line, SNIPPET_LENGTH);
+  const chars = Array.from(line);
+  if (chars.length <= SNIPPET_LENGTH) return line;
+  // `at` belongs to the lowercase string: İ expands to i + combining dot, and emoji use two
+  // UTF-16 units. Count back to the original code points before choosing the snippet's start.
+  let match = 0;
+  let lower = 0;
+  for (const char of chars) {
+    const length = char.toLocaleLowerCase().length;
+    if (lower + length > at) break;
+    lower += length;
+    match++;
+  }
+  const start = Math.max(0, match - LEAD);
+  return clip(`${start ? '...' : ''}${chars.slice(start).join('')}`, SNIPPET_LENGTH);
 }
 
 /** The first lines with any of the words in them, each as a snippet. */

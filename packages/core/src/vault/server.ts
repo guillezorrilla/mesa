@@ -20,7 +20,16 @@ export function serveVault(
   bind: () => VaultBinding,
   owners: VaultOwners,
 ): Promise<void> {
-  const binding = bind();
+  const bindingOf = (): VaultBinding => {
+    try {
+      return bind();
+    } catch (error) {
+      const reason = `session binding failed: ${error instanceof Error ? error.message : String(error)}`;
+      io.log(`${VAULT_SERVER}: ${reason}\n`);
+      return { refused: reason };
+    }
+  };
+  const binding = bindingOf();
   io.log(
     'session' in binding
       ? `${VAULT_SERVER}: serving session ${binding.session.id} (${projectLabel(binding.session.project)})\n`
@@ -30,9 +39,9 @@ export function serveVault(
     io,
     { name: VAULT_SERVER, version },
     {
-      tools: () => ('session' in bind() ? VAULT_TOOLS : []),
+      tools: () => ('session' in bindingOf() ? VAULT_TOOLS : []),
       call: async (name, args) => {
-        const now = bind();
+        const now = bindingOf();
         if (!('session' in now)) return toolText(`${VAULT_SERVER} is inert: ${now.refused}`, true);
         return callVaultTool(owners, now.session, name, args);
       },

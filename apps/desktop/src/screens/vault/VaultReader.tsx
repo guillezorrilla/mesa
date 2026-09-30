@@ -1,11 +1,12 @@
 import type { VaultLink, VaultRead } from '@mesa/core';
 import { CircleHelp, ExternalLink, EyeOff, Link2Off, Paperclip } from 'lucide-react';
-import { type ReactNode, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { useVaultRefresh } from './useVaultLook';
 
 type Select = (path: string) => void;
 
@@ -241,13 +242,14 @@ function Preview({ read, onSelect }: { read: VaultRead; onSelect: Select }) {
  */
 export function VaultReader(props: { path: string; looks: number; onSelect: Select }) {
   const { path, looks, onSelect } = props;
-  const { data: read, busy, refresh } = useCommand('vault.read', { path });
-  const seen = useRef(looks);
-  useEffect(() => {
-    if (seen.current === looks) return;
-    seen.current = looks;
-    if (!busy) void refresh();
-  }, [looks, busy, refresh]);
+  const { data: read, error, busy, refresh } = useCommand('vault.read', { path });
+  useVaultRefresh(looks, busy, refresh);
+  if (error)
+    return (
+      <p role="status" className="text-sm text-muted-foreground">
+        {path} could not be read: {error.message}.
+      </p>
+    );
   if (!read) return <p className="text-sm text-muted-foreground">Reading {path}...</p>;
   return (
     <div data-testid="vault-reader" className="min-w-0 space-y-4 border-t pt-4">

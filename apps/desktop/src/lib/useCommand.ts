@@ -40,7 +40,13 @@ export function useRun() {
   );
 }
 
-export type CommandState<T> = { data: T | undefined; busy: boolean; refresh: () => Promise<void> };
+type CommandError = Extract<Result<unknown>, { ok: false }>['error'];
+export type CommandState<T> = {
+  data: T | undefined;
+  error?: CommandError;
+  busy: boolean;
+  refresh: () => Promise<void>;
+};
 
 /**
  * Runs a command on mount, again when its arguments change, and on `refresh()`. A refresh keeps
@@ -59,7 +65,12 @@ export function useCommand<K extends CommandName>(
     currentKey.current = key;
   }, [key]);
   const request = useRef(0);
-  const [state, setState] = useState<{ key: string; data: DataOf<K> | undefined; busy: boolean }>({
+  const [state, setState] = useState<{
+    key: string;
+    data: DataOf<K> | undefined;
+    error?: CommandError;
+    busy: boolean;
+  }>({
     key,
     data: undefined,
     busy: false,
@@ -67,12 +78,17 @@ export function useCommand<K extends CommandName>(
 
   const refresh = useCallback(async () => {
     const id = ++request.current;
-    setState((last) => ({ key, data: last.key === key ? last.data : undefined, busy: true }));
+    setState((last) => ({
+      key,
+      data: last.key === key ? last.data : undefined,
+      error: last.key === key ? last.error : undefined,
+      busy: true,
+    }));
     const result = await call(name, ...(JSON.parse(key)[1] as CallArgs<K>));
     if (id !== request.current || key !== currentKey.current) return;
     if (result.ok) setState({ key, data: result.data, busy: false });
     else {
-      setState((last) => ({ ...last, busy: false }));
+      setState((last) => ({ ...last, error: result.error, busy: false }));
       toast(result.error.message);
     }
   }, [call, toast, name, key]);
@@ -86,6 +102,7 @@ export function useCommand<K extends CommandName>(
 
   return {
     data: state.key === key ? state.data : undefined,
+    error: state.key === key ? state.error : undefined,
     busy: state.key === key && state.busy,
     refresh,
   };

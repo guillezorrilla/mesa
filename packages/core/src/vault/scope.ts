@@ -1,6 +1,7 @@
 import { lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { MesaError } from '../lib/result.js';
+import { itemProject } from './item.js';
 import { INTERNALS } from './layout.js';
 
 // The vault's scope (CONTEXT.md, Vault scope): the one rule for which vault paths Mesa may touch.
@@ -28,6 +29,13 @@ const present = (path: string) => {
   }
 };
 
+/** The canonical target, retaining the suffix of a file or folder not written yet. */
+function realFile(file: string): string {
+  let existing = file;
+  while (!present(existing)) existing = dirname(existing);
+  return resolve(realpathSync(existing), relative(existing, file));
+}
+
 /**
  * Why `path` (vault-relative) is out of the vault's scope, or undefined when it is in. Out: an
  * empty or absolute path, one with a `..` part, one naming an internal, and one whose real target
@@ -41,11 +49,9 @@ export function outOfScope(vault: string, path: string): OutOfScope | undefined 
   if (!relative(vault, file)) return 'outside the vault'; // the vault itself, not a path in it
   if (isInternal(path)) return 'a vault internal';
   if (!present(vault)) return undefined;
-  let existing = file;
-  while (!present(existing)) existing = dirname(existing);
   let real: string;
   try {
-    real = realpathSync(existing);
+    real = realFile(file);
   } catch {
     return 'a broken link';
   }
@@ -62,4 +68,25 @@ export function vaultFile(vault: string, path: string): string {
   const refused = outOfScope(vault, path);
   if (refused) throw new MesaError('usage', `vault path ${path} is ${refused}`);
   return resolve(vault, path);
+}
+
+/** A scoped path's canonical vault-relative target, even before its file is written. */
+export function canonicalVaultPath(vault: string, path: string): string {
+  const file = vaultFile(vault, path);
+  return present(vault) ? relative(realpathSync(vault), realFile(file)) : relative(vault, file);
+}
+
+/** A note write stays in its project's folder through aliases too; General has no such folder. */
+export function vaultWriteFile(vault: string, path: string, project?: string): string {
+  const file = vaultFile(vault, path);
+  for (const target of [path, canonicalVaultPath(vault, path)]) {
+    const folder = itemProject(target);
+    if (folder && folder !== project) {
+      throw new MesaError(
+        'usage',
+        `${path} is in project ${folder}'s folder, not ${project ?? 'General'}'s`,
+      );
+    }
+  }
+  return file;
 }
