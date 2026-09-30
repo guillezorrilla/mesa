@@ -5,14 +5,14 @@ import type { Agent } from '../agents/names.js';
 import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
 import { GENERAL_PROJECT } from './general.js';
+import { SESSION_ID_PATTERN as SHORT_ID } from './id.js';
+
 import { FINAL_STATES, SESSION_STATES } from './states.js';
 import { WORKFLOW_STATUSES } from './workflow-status.js';
 
-// A session record's shape and the rules on it (CONTEXT.md, Session); the store keeps them.
+export { isSessionId } from './id.js';
 
-const SHORT_ID = /^[0-9a-z]{8}$/;
-/** An 8-character Mesa session id, so one from outside (a hook's env) never becomes a path. */
-export const isSessionId = (id: string) => SHORT_ID.test(id);
+// A session record's shape and the rules on it (CONTEXT.md, Session); the store keeps them.
 
 const FOREIGN = 'ext-';
 /** An id on a foreign session's board row, which no record has. */

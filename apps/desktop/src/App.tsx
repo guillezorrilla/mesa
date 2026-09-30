@@ -26,6 +26,7 @@ import { usePlatform } from './lib/MesaRoot';
 import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
+import { useMesaLinks } from './lib/useMesaLinks';
 import { BackupScreen } from './screens/BackupScreen';
 import { BoardScreen } from './screens/board/BoardScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
@@ -113,7 +114,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     },
     [navigate, run],
   );
-  const { deepLinks, notifications, lifecycle } = usePlatform();
+  const { notifications, lifecycle } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
@@ -254,28 +255,16 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       window.clearInterval(timer);
     };
   }, [run, toast]);
-  useEffect(() => {
-    let active = true;
-    const open = (urls: string[]) => {
-      for (const url of urls) {
-        if (!url.startsWith('mesa:')) continue;
-        if (!active) return;
-        setCloneLink((last) => ({ url, request: (last?.request ?? 0) + 1 }));
-        navigateRef.current({ kind: 'projects' });
-      }
-    };
-    let stop: (() => void) | undefined;
-    void deepLinks.onOpen(open).then((unlisten) => {
-      if (active) {
-        stop = unlisten;
-        void deepLinks.current().then((urls) => urls && open(urls));
-      } else unlisten();
-    });
-    return () => {
-      active = false;
-      stop?.();
-    };
-  }, [deepLinks]);
+  const linkGuidance = useMesaLinks({
+    session: (id) => navigateRef.current({ kind: 'session', id }),
+    clone: (url) => {
+      setCloneLink((last) => ({ url, request: (last?.request ?? 0) + 1 }));
+      navigateRef.current({ kind: 'projects' });
+    },
+    profileChanged: () =>
+      setView((current) => (current.kind === 'session' ? { kind: 'board' } : current)),
+  });
+
   useEffect(() => {
     let active = true;
     let busy = false;
@@ -434,6 +423,11 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           </div>
         </details>
       </header>
+      {linkGuidance && (
+        <p role="status" data-testid="mesa-link-guidance" className="px-6 py-2 text-sm">
+          {linkGuidance}
+        </p>
+      )}
       <div className="flex min-h-0 flex-1">
         <WorkspaceSidebar
           view={view}
