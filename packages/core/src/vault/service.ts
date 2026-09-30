@@ -3,9 +3,13 @@ import { listVault, type VaultInventory } from './inventory.js';
 import type { VaultFilter } from './item.js';
 import { logLine } from './notes.js';
 import { openInObsidian } from './obsidian.js';
+import { readVaultItem } from './reader.js';
 import { initVault, vaultStatus } from './vault.js';
 
-/** The profile's vault: laying it out, its status, its inventory, opening it, and `mesa log`. */
+/**
+ * The profile's vault: laying it out, its status, its inventory, reading an item, opening it, and
+ * `mesa log`.
+ */
 export function vaultService(ctx: MesaContext) {
   const { record, vaultOf, deps } = ctx;
   return {
@@ -28,7 +32,9 @@ export function vaultService(ctx: MesaContext) {
         const items = listVault(vault, filter);
         return { vault, total: items.length, items };
       },
-      /** Opens the vault, or one note in it, in Obsidian: the URI by default, the CLI with `cli`. */
+      /** One item as the reader shows it (readVaultItem). */
+      read: (path: string) => readVaultItem(vaultOf(), path),
+      /** Opens the vault, or one item in it, in Obsidian: the URI by default, the CLI with `cli`. */
       open: (note?: string, cli = false) =>
         openInObsidian({ run: deps.run, obsidian: deps.obsidian }, { vault: vaultOf(), note, cli }),
     },

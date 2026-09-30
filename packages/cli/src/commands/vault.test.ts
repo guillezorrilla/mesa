@@ -204,3 +204,105 @@ test('vault list: every item as {vault, total, items}, filtered by --project and
     `vault ${vault} does not exist; run mesa vault init\n`,
   ]);
 });
+
+test('vault read: a note with its links and backlinks, a canvas, and an attachment, as JSON and text', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const vault = join(cli.home, 'vault');
+  const put = (path: string, text: string) => {
+    mkdirSync(join(vault, path, '..'), { recursive: true });
+    writeFileSync(join(vault, path), text);
+  };
+  put(
+    'wiki/currents.md',
+    '---\nproject: tide\n---\nSee [[tide]], ![[chart.png]] and [[eddies]].\n',
+  );
+  put('projects/tide.md', '# Tide\n\n[[currents]]\n');
+  put('raw/chart.png', 'png');
+  put('projects/tide/map.canvas', '{"nodes":[{"id":"a","type":"text","text":"Ebb"}],"edges":[]}');
+
+  const note = await mesa('vault', 'read', 'wiki/currents.md', '--json');
+  expect(note.code).toBe(0);
+  expect(note.json.data).toMatchObject({
+    path: 'wiki/currents.md',
+    kind: 'markdown',
+    project: 'tide',
+    modified: expect.any(String),
+    uri: 'obsidian://open?vault=vault&file=wiki%2Fcurrents.md',
+    preview: 'markdown',
+    frontmatter: { project: 'tide' },
+    body: 'See [[tide]], ![[chart.png]] and [[eddies]].\n',
+    backlinks: ['projects/tide.md'],
+  });
+  expect(note.json.data.links).toEqual([
+    {
+      text: '[[tide]]',
+      start: 4,
+      end: 12,
+      syntax: 'wikilink',
+      embed: false,
+      target: 'tide',
+      status: 'resolved',
+      path: 'projects/tide.md',
+    },
+    expect.objectContaining({ embed: true, status: 'resolved', path: 'raw/chart.png' }),
+    expect.objectContaining({ text: '[[eddies]]', status: 'broken' }),
+  ]);
+  expect((await mesa('vault', 'read', 'wiki/currents.md')).stdout).toBe(
+    [
+      'wiki/currents.md (markdown)',
+      'project  tide',
+      '',
+      'See [[tide]], ![[chart.png]] and [[eddies]].',
+      '',
+      'links:',
+      '  resolved  [[tide]]        projects/tide.md',
+      '  resolved  ![[chart.png]]  raw/chart.png',
+      '  broken    [[eddies]]',
+      'backlinks:',
+      '  projects/tide.md',
+      'open: obsidian://open?vault=vault&file=wiki%2Fcurrents.md',
+      '',
+    ].join('\n'),
+  );
+
+  const canvas = await mesa('vault', 'read', 'projects/tide/map.canvas', '--json');
+  expect(canvas.json.data).toMatchObject({ preview: 'canvas', nodes: 1, edges: 0, texts: ['Ebb'] });
+  const png = await mesa('vault', 'read', 'raw/chart.png', '--json');
+  expect(png.json.data).toMatchObject({
+    kind: 'attachment',
+    preview: 'unsupported',
+    reason: 'Mesa does not preview images, audio, video, or PDFs',
+    uri: 'obsidian://open?vault=vault&file=raw%2Fchart.png',
+    backlinks: ['wiki/currents.md'],
+  });
+  expect((await mesa('vault', 'read', 'raw/chart.png')).stdout).toContain(
+    'preview not available: Mesa does not preview images, audio, video, or PDFs\n',
+  );
+
+  expect(await mesa('vault', 'read', '.obsidian/app.json')).toMatchObject({
+    code: 2,
+    stderr: 'vault path .obsidian/app.json is a vault internal\n',
+  });
+  expect((await mesa('vault', 'read', 'wiki/missing.md')).code).toBe(3);
+  expect((await mesa('vault', 'read')).code).toBe(2);
+});
+
+test('vault open opens the exact item, a canvas or a file with no extension', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  mkdirSync(join(cli.home, 'obsidian'), { recursive: true });
+  writeFileSync(
+    join(cli.home, 'obsidian/obsidian.json'),
+    JSON.stringify({ vaults: { a1: { path: join(cli.home, 'vault'), ts: 1 } } }),
+  );
+  mkdirSync(join(cli.home, 'vault/raw/tide'), { recursive: true });
+  writeFileSync(join(cli.home, 'vault/raw/tide/map.canvas'), '{}');
+  writeFileSync(join(cli.home, 'vault/raw/tide/LICENSE'), 'invented');
+  for (const path of ['raw/tide/map.canvas', 'raw/tide/LICENSE']) {
+    const opened = await mesa('vault', 'open', path, '--json');
+    expect(opened.json.data.target).toBe(
+      `obsidian://open?vault=vault&file=${encodeURIComponent(path)}`,
+    );
+  }
+});

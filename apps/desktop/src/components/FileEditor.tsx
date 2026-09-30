@@ -3,7 +3,7 @@ import type { Config } from '@mesa/core';
 import { vim } from '@replit/codemirror-vim';
 import { basicSetup, EditorView } from 'codemirror';
 import { useEffect, useRef, useState } from 'react';
-import Markdown from 'react-markdown';
+import { MarkdownView } from '@/components/MarkdownView';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -57,32 +57,7 @@ export function FileEditor(props: {
           data-testid="markdown-preview"
           className="prose prose-sm max-w-none overflow-auto rounded-md border p-4 text-sm"
         >
-          <Markdown
-            skipHtml
-            allowedElements={[
-              'h1',
-              'h2',
-              'h3',
-              'h4',
-              'h5',
-              'h6',
-              'p',
-              'em',
-              'strong',
-              'ul',
-              'ol',
-              'li',
-              'blockquote',
-              'pre',
-              'code',
-              'hr',
-              'br',
-              'a',
-            ]}
-            components={{ a: ({ children }) => <span className="underline">{children}</span> }}
-          >
-            {props.value}
-          </Markdown>
+          <MarkdownView text={props.value} />
         </div>
       ) : props.preferences.vim && !props.readOnly ? (
         <VimEditor {...props} />
