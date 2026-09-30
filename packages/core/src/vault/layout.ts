@@ -10,6 +10,8 @@ export const VAULT = {
   projects: 'projects',
   receipts: 'receipts',
   daily: 'daily',
+  receiptsBase: 'receipts.base',
+  sessionsBase: 'sessions.base',
   mesa: '.mesa',
 } as const;
 

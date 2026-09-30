@@ -13,7 +13,7 @@ import {
   type VaultFilter,
   type VaultItem,
 } from './item.js';
-import { isInternal, outOfScope } from './scope.js';
+import { isInternal, outOfScope, requireVaultFolder } from './scope.js';
 
 /** `mesa vault list`: the vault, how many items it lists, and the items. */
 export type VaultInventory = { vault: string; total: number; items: VaultItem[] };
@@ -69,9 +69,7 @@ export function listVault(vault: string, filter: VaultFilter = {}): VaultItem[] 
       `a vault item's type is a kind (${VAULT_KINDS.join(', ')}) or a category (${VAULT_CATEGORIES.join(', ')}), not ${filter.type}`,
     );
   }
-  const root = statSync(vault, { throwIfNoEntry: false });
-  if (!root) throw new MesaError('not_found', `vault ${vault} does not exist; run mesa vault init`);
-  if (!root.isDirectory()) throw new MesaError('invalid_config', `vault ${vault} is not a folder`);
+  requireVaultFolder(vault);
   const items: VaultItem[] = [];
   const walk = (folder: string) => {
     let children: Dirent[];

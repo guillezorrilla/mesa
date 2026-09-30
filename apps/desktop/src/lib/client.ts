@@ -1,6 +1,7 @@
 import type {
   Agent,
   Attached,
+  BasesWritten,
   BrowserAnnotationInput,
   BrowserAnnotationPreview,
   ChangeReview,
@@ -1040,6 +1041,7 @@ const COMMANDS = {
     project,
   ]),
   'vault.list': command<VaultInventory>('vault', 'list'),
+  'vault.bases': command<BasesWritten>('vault', 'bases'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
   'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [
     'vault',
