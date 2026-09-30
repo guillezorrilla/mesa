@@ -1,6 +1,8 @@
 import type { MesaContext } from '../context.js';
 import { callerOf, SESSION_ID_VAR, windowId } from '../sessions/caller.js';
+import { resumerOf } from '../sessions/holders.js';
 import type { SessionRecord } from '../sessions/record.js';
+import type { SessionStore } from '../sessions/store.js';
 
 // The vault server's binding (ADR-0011, CONTEXT.md Vault server): the one Mesa session a
 // `mesa vault mcp` process serves, from the MESA_SESSION_ID and MESA_PROFILE its agent passed on.
@@ -25,6 +27,17 @@ export function vaultBinding(ctx: Pick<MesaContext, 'store' | 'deps' | 'profile'
         : `profile ${ctx.profile} has no session ${id}: it is unknown or was removed`,
     };
   }
-  if (session.endedAt) return { refused: `session ${id} ended at ${session.endedAt}` };
-  return { session };
+  const served = session.background && session.endedAt ? lastResume(ctx.store, session) : session;
+  if (served.endedAt) return { refused: `session ${served.id} ended at ${served.endedAt}` };
+  return { session: served };
+}
+
+/**
+ * A background Claude process keeps the binding it was started with (agents/claude/background.ts),
+ * also once a Mesa resume attaches to it under a new record: the last record resuming it.
+ */
+function lastResume(store: SessionStore, record: SessionRecord): SessionRecord {
+  const next = resumerOf(store, record);
+  const resumed = next ? store.find(next) : undefined;
+  return resumed ? lastResume(store, resumed) : record;
 }
