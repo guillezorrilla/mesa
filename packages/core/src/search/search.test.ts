@@ -37,7 +37,18 @@ test('search groups real destinations, matches labels and slugs, and puts recent
     'lantern-cove',
     'bbbbbbbb',
     'aaaaaaaa',
+    'Lantern',
   ]);
-  expect(searchWorkspace(projects, sessions, 'no-match')).toEqual([]);
+  expect(searchWorkspace(projects, sessions, 'no-match').map((hit) => hit.kind)).toEqual(['vault']);
   expect(searchWorkspace([], [], 'New session')[0]?.disabled).toBe(true);
+});
+
+test('typed text offers Search vault last, with the text as its id; no text offers none', () => {
+  expect(searchWorkspace(projects, [], '  harbour lights ').at(-1)).toEqual({
+    kind: 'vault',
+    id: 'harbour lights',
+    label: 'Search vault',
+    detail: `"harbour lights" in this profile's vault`,
+  });
+  expect(searchWorkspace(projects, [], ' ').some((hit) => hit.kind === 'vault')).toBe(false);
 });

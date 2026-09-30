@@ -525,7 +525,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           {view.kind === 'usage' && (
             <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
           )}
-          {view.kind === 'vault' && <VaultScreen />}
+          {view.kind === 'vault' && <VaultScreen key={view.query} query={view.query} />}
           {view.kind === 'inbox' && (
             <InboxScreen
               onSession={(id) => navigate({ kind: 'session', id })}
@@ -585,6 +585,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
         onSelect={(hit) => {
           if (hit.kind === 'project') navigate({ kind: 'project', name: hit.id });
           else if (hit.kind === 'session') navigate({ kind: 'session', id: hit.id });
+          else if (hit.kind === 'vault') navigate({ kind: 'vault', query: hit.id });
           else if (hit.kind === 'prompt' && view.kind === 'session') {
             const saved = prompts.data?.find((prompt) => prompt.name === hit.id);
             if (saved) setPromptInsertRequest({ session: view.id, text: saved.text });

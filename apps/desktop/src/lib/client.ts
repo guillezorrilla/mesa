@@ -63,6 +63,7 @@ import type {
   UsageReport,
   VaultInventory,
   VaultRead,
+  VaultSearch,
   VaultStatus,
   Viewed,
   WeeklyRewind,
@@ -1044,6 +1045,16 @@ const COMMANDS = {
     '--',
     path,
   ]),
+  'vault.search': commandWith<{ text: string; project?: string; type?: string }, VaultSearch>(
+    ({ text, project, type }) => [
+      'vault',
+      'search',
+      ...(project ? ['--project', project] : []),
+      ...(type ? ['--type', type] : []),
+      '--',
+      text,
+    ],
+  ),
   'vault.status': command<VaultStatus>('vault', 'status'),
   'windows.list': command<TmuxWindow[]>('windows'),
 };

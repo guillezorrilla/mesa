@@ -30,7 +30,7 @@ const UNSUPPORTED = {
 };
 
 /** A note's frontmatter and body; frontmatter whose YAML does not parse leaves it all body. */
-function noteOf(text: string) {
+export function noteOf(text: string) {
   try {
     return parseNote(text);
   } catch {
@@ -39,7 +39,7 @@ function noteOf(text: string) {
 }
 
 /** A JSON Canvas file's node and edge counts and its text nodes' text. */
-function canvasOf(text: string): VaultPreview {
+export function canvasOf(text: string): VaultPreview {
   try {
     const canvas = (text.trim() ? JSON.parse(text) : {}) as { nodes?: unknown; edges?: unknown };
     const nodes = Array.isArray(canvas.nodes)

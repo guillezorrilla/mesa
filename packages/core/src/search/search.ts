@@ -4,7 +4,7 @@ import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
 
 export type SearchHit = {
-  kind: 'action' | 'setting' | 'project' | 'session' | 'prompt';
+  kind: 'action' | 'setting' | 'project' | 'session' | 'prompt' | 'vault';
   id: string;
   label: string;
   detail: string;
@@ -45,7 +45,10 @@ const SETTINGS: SearchHit[] = [
   },
 ];
 
-/** The same bounded project/session/action index serves `mesa search` and the app palette. */
+/**
+ * The same bounded project/session/action index serves `mesa search` and the app palette. Typed
+ * text also offers Search vault, last, its id the text (Vault search).
+ */
 export function searchWorkspace(
   projects: readonly ProjectRow[],
   sessions: readonly TreeRow[],
@@ -95,5 +98,16 @@ export function searchWorkspace(
     )
     .filter(matches)
     .slice(0, 50);
-  return [...actions, ...settings, ...projectHits, ...sessionHits, ...promptHits];
+  const text = query.trim();
+  const vault: SearchHit[] = text
+    ? [
+        {
+          kind: 'vault',
+          id: text,
+          label: 'Search vault',
+          detail: `"${text}" in this profile's vault`,
+        },
+      ]
+    : [];
+  return [...actions, ...settings, ...projectHits, ...sessionHits, ...promptHits, ...vault];
 }
