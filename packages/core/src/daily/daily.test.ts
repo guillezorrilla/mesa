@@ -318,3 +318,26 @@ test('targets with link punctuation keep their exact scoped file identity', asyn
   expect(read.body).toContain('[target](<../wiki/tide%20%232%7Cchart%20%28draft%29.md>)');
   expect(read.links).toContainEqual(expect.objectContaining({ status: 'resolved', path: target }));
 });
+
+test('unterminated prior-day log keeps new explicit and receipt entries separate', async () => {
+  const prior = '- 2026-09-23T12:00:00.000Z Prior invented event';
+  const log = join(vault, 'log.md');
+  writeFileSync(log, prior);
+  const { entry, daily } = await mesa.log('Fresh invented event');
+  expect(readFileSync(log, 'utf8')).toBe(`${prior}\n${entry}\n`);
+  expect(await mesa.daily.build('2026-09-24')).toMatchObject({ changed: false, log: 1 });
+  expect(readFileSync(join(vault, daily), 'utf8').match(/Fresh invented event/g)).toHaveLength(1);
+  writeFileSync(log, prior);
+  const saved = writeReceipt(
+    { vault, clock, newId: sequentialIds() },
+    {
+      profile: 'default',
+      type: 'action',
+      status: 'ok',
+      command: 'mesa invented',
+      summary: 'Fresh receipt',
+    },
+  );
+  expect(saved.warning).toBeUndefined();
+  expect(readFileSync(log, 'utf8')).toMatch(/^.*Prior invented event\n- .*Fresh receipt/);
+});

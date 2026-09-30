@@ -213,3 +213,17 @@ test('log text stays one line and cannot be empty; note paths stay inside the va
   ).toBe('usage');
   expect(thrown(() => readNote(deps.vault, '/etc/hosts')).code).toBe('usage');
 });
+
+test.each(['', 'prior', 'prior\n', 'prior\r\n', 'prior\r'])(
+  'appendLog separates entries without rewriting prior bytes: %j',
+  (prior) => {
+    const log = join(vault, 'log.md');
+    const bytes = Buffer.concat([Buffer.from(prior ? [0xff] : []), Buffer.from(prior)]);
+    writeFileSync(log, bytes);
+    const entry = appendLog({ vault, clock: fixedClock() }, 'Fresh invented event');
+    const separator = bytes.length && bytes.at(-1) !== 10 ? '\n' : '';
+    expect(readFileSync(log)).toEqual(
+      Buffer.concat([bytes, Buffer.from(`${separator}${entry}\n`)]),
+    );
+  },
+);
