@@ -1,4 +1,4 @@
-import type { ProjectRow, TreeRow } from '@mesa/core';
+import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
 import {
   GENERAL_PROJECT,
   projectLabel,
@@ -27,8 +27,9 @@ import {
   TerminalSquare,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AddProjectMenu, type ProjectAddRequest } from '@/components/AddProjectMenu';
+import { ProjectSortMenu } from '@/components/ProjectSortMenu';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -44,7 +45,6 @@ export type WorkspaceView =
       kind:
         | 'sessions'
         | 'grid'
-        | 'projects'
         | 'doctor'
         | 'help'
         | 'shortcuts'
@@ -70,6 +70,8 @@ export function WorkspaceSidebar(props: {
   sessions: readonly TreeRow[];
   collapsed: boolean;
   onCollapse: () => void;
+  sort: ProjectSort;
+  onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
   onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal', parent?: string) => void;
   onArchiveSession?: (id: string) => void;
@@ -78,10 +80,11 @@ export function WorkspaceSidebar(props: {
   const { view, onView, collapsed } = props;
   const [closedProjects, setClosedProjects] = useState<string[]>([]);
   const [compactSessions, setCompactSessions] = useState<string[]>([]);
-  const lastProject = useRef<string | undefined>(undefined);
+  const [projectTab, setProjectTab] = useState(false);
   useEffect(() => {
-    if (view.kind === 'project') lastProject.current = view.name;
-  }, [view]);
+    if (view.kind === 'project') setProjectTab(true);
+    if (view.kind === 'session' || view.kind === 'sessions') setProjectTab(false);
+  }, [view.kind]);
   const visible = props.projects
     .filter((project) => !project.hidden)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
@@ -93,9 +96,6 @@ export function WorkspaceSidebar(props: {
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
-  const projectTab = view.kind === 'project' || view.kind === 'projects';
-  const selectedProject =
-    visible.find((project) => project.name === lastProject.current) ?? visible[0];
   const item = (label: string, icon: typeof TerminalSquare, target: WorkspaceView) => {
     const Icon = icon;
     return (
@@ -252,6 +252,7 @@ export function WorkspaceSidebar(props: {
                 !projectTab && 'border-ring text-foreground',
               )}
               onClick={() => {
+                setProjectTab(false);
                 const first = view.kind === 'session' ? view.id : (active[0] ?? stranded[0])?.id;
                 onView(first ? { kind: 'session', id: first } : { kind: 'sessions' });
               }}
@@ -267,13 +268,7 @@ export function WorkspaceSidebar(props: {
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
                 projectTab && 'border-ring text-foreground',
               )}
-              onClick={() =>
-                onView(
-                  selectedProject
-                    ? { kind: 'project', name: selectedProject.name }
-                    : { kind: 'projects' },
-                )
-              }
+              onClick={() => setProjectTab(true)}
             >
               Projects
             </button>
@@ -292,7 +287,18 @@ export function WorkspaceSidebar(props: {
         {collapsed ? (
           <div className="space-y-1">
             {item('Sessions', TerminalSquare, { kind: 'sessions' })}
-            {item('Projects', Folder, { kind: 'projects' })}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Projects"
+              title="Projects"
+              onClick={() => {
+                setProjectTab(true);
+                props.onCollapse();
+              }}
+            >
+              <Folder aria-hidden className="size-4" />
+            </Button>
           </div>
         ) : projectTab ? (
           <>
@@ -308,15 +314,7 @@ export function WorkspaceSidebar(props: {
             </AddProjectMenu>
             <div className="mb-2 flex items-center justify-between px-2 text-[11px] uppercase tracking-wider text-muted-foreground">
               <span>Your projects</span>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                data-testid="nav-projects"
-                aria-label="Manage projects"
-                onClick={() => onView({ kind: 'projects' })}
-              >
-                <Settings2 aria-hidden />
-              </Button>
+              <ProjectSortMenu sort={props.sort} onSort={props.onSort} />
             </div>
             {visible.length === 0 && (
               <p className="px-2 text-xs text-muted-foreground">No visible projects</p>
