@@ -163,3 +163,22 @@ export function projectPriorities(open: () => Profile): (project: string | null)
   }
   return (project) => (project ? known.get(project) : undefined) ?? DEFAULT_PRIORITY;
 }
+
+/** Routine workspace visits stay in profile metadata, without vault receipts. */
+export function visitProject(profile: Profile, name: string, at: string): RegistryEntry {
+  let visited: RegistryEntry | undefined;
+  updateRegistry(profile.paths.registry, (entries) => {
+    const index = entries.findIndex((entry) => entry.name === name);
+    const entry = entries[index];
+    if (!entry) throw new MesaError('not_found', `no project named ${name}; see mesa projects`);
+    visited = {
+      ...entry,
+      visits: (entry.visits ?? 0) + 1,
+      visitedAt: entry.visitedAt && entry.visitedAt > at ? entry.visitedAt : at,
+    };
+    entries[index] = visited;
+    return entries;
+  });
+  if (!visited) throw new MesaError('internal', 'project registry update produced no result');
+  return visited;
+}

@@ -1,4 +1,4 @@
-import type { TreeRow } from '@mesa/core';
+import type { ProjectSort, TreeRow } from '@mesa/core';
 import {
   DEFAULT_APPEARANCE,
   DEFAULT_SHORTCUTS,
@@ -18,6 +18,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from './components/ActionDialog';
 import type { ProjectAddRequest } from './components/AddProjectMenu';
+import { CloneProjectDialog } from './components/CloneProjectDialog';
 import { CommandPalette } from './components/CommandPalette';
 import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
@@ -46,7 +47,6 @@ import { HelpScreen } from './screens/HelpScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { MapScreen } from './screens/MapScreen';
 import { PreferencesScreen } from './screens/PreferencesScreen';
-import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { AddProjectDialog } from './screens/projects/AddProjectDialog';
 import { ImportWorkspaceDialog } from './screens/projects/ImportWorkspaceDialog';
@@ -96,7 +96,7 @@ export function App() {
   }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const [projectAdd, setProjectAdd] = useState<ProjectAddRequest>();
-  const [projectsRevision, setProjectsRevision] = useState(0);
+  const [projectSort, setProjectSort] = useState<ProjectSort>('recent');
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   const navigate = useCallback(
@@ -135,6 +135,15 @@ export function App() {
   const config = useCommand('config.get');
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
+  const sortedProjects = useCommand('projects.sorted', projectSort);
+  useEffect(() => {
+    if (projects.data) void sortedProjects.refresh();
+  }, [projects.data, sortedProjects.refresh]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: session refreshes keep activity-based project sorting current.
+  useEffect(() => {
+    if (projectSort === 'active-sessions' || projectSort === 'last-session')
+      void sortedProjects.refresh();
+  }, [sessions, projectSort, sortedProjects.refresh]);
   const needsProfileSetup = config.error?.code === 'not_found';
   const profileInitialised = async () => {
     openedInitialTour.current = true;
@@ -142,7 +151,6 @@ export function App() {
   };
   const projectRegistered = async () => {
     await projects.refresh();
-    setProjectsRevision((value) => value + 1);
   };
   useEffect(() => {
     if (!config.data || openedInitialTour.current) return;
@@ -284,7 +292,6 @@ export function App() {
     session: (id) => navigateRef.current({ kind: 'session', id }),
     clone: (url) => {
       setCloneLink((last) => ({ url, request: (last?.request ?? 0) + 1 }));
-      navigateRef.current({ kind: 'projects' });
     },
     profileChanged: () =>
       setView((current) => (current.kind === 'session' ? { kind: 'sessions' } : current)),
@@ -365,6 +372,13 @@ export function App() {
   ]);
   const project =
     view.kind === 'project' ? projects.data?.find((p) => p.name === view.name) : undefined;
+  const refreshSorted = useRef(sortedProjects.refresh);
+  refreshSorted.current = sortedProjects.refresh;
+  const visitedProject = view.kind === 'project' ? view.name : undefined;
+  useEffect(() => {
+    if (visitedProject)
+      void run('projects.visit', { name: visitedProject }).then(() => refreshSorted.current());
+  }, [visitedProject, run]);
   const sessionView = view.kind === 'session';
   return (
     <div className="flex h-screen min-h-[480px] flex-col">
@@ -484,7 +498,9 @@ export function App() {
         <WorkspaceSidebar
           view={view}
           onView={navigate}
-          projects={projects.data ?? []}
+          projects={sortedProjects.data ?? projects.data ?? []}
+          sort={projectSort}
+          onSort={setProjectSort}
           sessions={sessions}
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
@@ -539,15 +555,6 @@ export function App() {
               onFileLink={openFileLink}
             />
           </div>
-          {view.kind === 'projects' && (
-            <ProjectsScreen
-              refreshRequest={projectsRevision}
-              onAddProject={setProjectAdd}
-              cloneLink={cloneLink}
-              onRegistered={() => void projects.refresh()}
-              onSelectProject={(name) => navigate({ kind: 'project', name })}
-            />
-          )}
           {view.kind === 'project' &&
             (project ? (
               <ProjectWorkspace
@@ -564,14 +571,14 @@ export function App() {
                 onChanged={() => void projects.refresh()}
                 onUnregistered={() => {
                   void projects.refresh();
-                  navigate({ kind: 'projects' });
+                  navigate({ kind: 'sessions' });
                 }}
               />
             ) : projects.busy || !projects.data ? (
               <p className="text-sm text-muted-foreground">Loading project...</p>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Project unavailable. Open Projects to refresh the list.
+                Project unavailable. Choose another project from the sidebar.
               </p>
             ))}
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
@@ -628,6 +635,7 @@ export function App() {
               onChanged={() => void config.refresh()}
               onFinish={() => navigate({ kind: 'sessions' })}
               onNavigate={(kind) => navigate({ kind })}
+              onAddProject={setProjectAdd}
               onSearch={openSearch}
             />
           )}
@@ -661,11 +669,10 @@ export function App() {
             if (profileMenu.current) profileMenu.current.open = true;
             profileMenu.current?.querySelector('summary')?.focus();
           } else {
-            const destination = hit.id === 'skills' ? 'projects' : hit.id;
+            const destination = hit.id;
             if (
               destination === 'sessions' ||
               destination === 'grid' ||
-              destination === 'projects' ||
               destination === 'doctor' ||
               destination === 'usage' ||
               destination === 'inbox' ||
@@ -680,6 +687,17 @@ export function App() {
           }
         }}
       />
+      {cloneLink && (
+        <CloneProjectDialog
+          key={cloneLink.request}
+          url={cloneLink.url}
+          onCancel={() => setCloneLink(undefined)}
+          onCloned={async (name) => {
+            await projects.refresh();
+            navigate({ kind: 'project', name });
+          }}
+        />
+      )}
       {projectAdd?.kind === 'local' && (
         <AddProjectDialog
           needsProfileSetup={needsProfileSetup}

@@ -110,7 +110,8 @@ test('live bare links use only the active profile, unknown and malformed links s
   expect(toastTexts(byTestId)).toEqual([]);
   const clone = 'mesa://clone?url=https%3A%2F%2Fexample.com%2Fteam%2Flantern-cove.git';
   await act(async () => opened([clone]));
-  expect(byTestId('projects-screen')).toHaveLength(1);
+  expect(byTestId('projects-screen')).toHaveLength(0);
+  expect(byTestId('clone-project-dialog')).toHaveLength(1);
   expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(clone);
   expect(calls.some((args) => args[1] === 'projects' && args[2] === 'clone')).toBe(false);
   expect(guidance()).toBeUndefined();

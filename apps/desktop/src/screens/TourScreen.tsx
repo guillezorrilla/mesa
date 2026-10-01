@@ -1,4 +1,5 @@
 import type { Config } from '@mesa/core';
+import type { ProjectAddRequest } from '@/components/AddProjectMenu';
 import { PageHeader } from '@/components/PageHeader';
 import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,8 @@ export function TourScreen(props: {
   state: Config['onboarding'];
   onChanged: () => void;
   onFinish: () => void;
-  onNavigate: (kind: 'projects' | 'sessions') => void;
+  onAddProject: (request: ProjectAddRequest) => void;
+  onNavigate: (kind: 'sessions') => void;
   onSearch: () => void;
 }) {
   const run = useRun();
@@ -60,8 +62,13 @@ export function TourScreen(props: {
           <p className="text-sm leading-relaxed">{steps[step]?.body}</p>
           {step === 0 && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => props.onNavigate('projects')}>
-                Open Projects
+              <Button
+                variant="outline"
+                onClick={(event) =>
+                  props.onAddProject({ kind: 'local', returnFocus: event.currentTarget })
+                }
+              >
+                Add project
               </Button>
               <Button variant="outline" onClick={() => props.onNavigate('sessions')}>
                 Open Sessions

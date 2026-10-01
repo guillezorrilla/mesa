@@ -11,6 +11,8 @@ export type RegistryEntry = {
   label?: string;
   pinned?: boolean;
   hidden?: boolean;
+  visitedAt?: string;
+  visits?: number;
 };
 
 const RegistrySchema = z.strictObject({
@@ -21,6 +23,8 @@ const RegistrySchema = z.strictObject({
       label: z.string().optional(),
       pinned: z.boolean().optional(),
       hidden: z.boolean().optional(),
+      visitedAt: z.iso.datetime().optional(),
+      visits: z.number().int().nonnegative().optional(),
     }),
   ),
 });

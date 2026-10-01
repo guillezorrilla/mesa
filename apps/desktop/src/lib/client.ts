@@ -44,6 +44,7 @@ import type {
   Project,
   ProjectContext,
   ProjectRow,
+  ProjectSort,
   ReceiptEntry,
   Removed,
   RepositoryInsight,
@@ -70,7 +71,6 @@ import type {
   VaultRead,
   VaultSearch,
   VaultStatus,
-  Viewed,
   WeeklyRewind,
   WorkspaceFile,
   Worktree,
@@ -642,6 +642,11 @@ const COMMANDS = {
     ...(session ? ['--session', session] : []),
   ]),
   'projects.list': command<ProjectRow[]>('projects'),
+  'projects.sorted': commandWith<ProjectSort, ProjectRow[]>((sort) => ['projects', '--sort', sort]),
+  'projects.visit': commandWith<
+    { name: string },
+    { name: string; visits: number; visitedAt: string }
+  >(({ name }) => ['projects', 'visit', '--', name]),
   'projects.discover': commandWith<{ path: string }, DiscoveredProject[]>(({ path }) => [
     'projects',
     'discover',
@@ -977,12 +982,6 @@ const COMMANDS = {
     id,
   ]),
   // A project's sessions side by side, in the user's terminal app.
-  'sessions.view': commandWith<{ project: string }, Viewed>(({ project }) => [
-    'view',
-    '--app',
-    '--',
-    project,
-  ]),
   'sessions.show': commandWith<
     { id: string },
     SessionRecord & { alive: boolean; instructions: InstructionStatus; vault: InstructionStatus }

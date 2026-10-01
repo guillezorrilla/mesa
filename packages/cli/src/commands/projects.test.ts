@@ -118,3 +118,26 @@ test('projects clone --json validates and registers a checkout through the injec
   expect((await mesa('projects', '--json')).json.data[0].name).toBe('new-repo');
   expect((await mesa('projects', 'clone', 'file:///tmp/repo', '--json')).code).toBe(2);
 });
+
+test('projects sorting and visits use the profile registry without vault receipts', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  for (const name of ['lantern', 'tide']) {
+    mkdirSync(join(cli.home, name));
+    await mesa('register', name, '--create');
+  }
+  const before = (await mesa('receipts', '--json')).json.data;
+  const visit = await mesa('projects', 'visit', 'tide', '--json');
+  expect(visit.json.data).toMatchObject({ name: 'tide', visits: 1 });
+  for (const sort of ['recent', 'most-visited']) {
+    const result = await mesa('projects', '--sort', sort, '--json');
+    expect(result.code).toBe(0);
+    expect(result.json.data.map((project: { name: string }) => project.name)).toEqual([
+      'tide',
+      'lantern',
+    ]);
+  }
+  expect((await mesa('projects', '--sort', 'bad', '--json')).code).toBe(2);
+  expect((await mesa('projects', 'visit', 'absent', '--json')).code).toBe(3);
+  expect((await mesa('receipts', '--json')).json.data).toEqual(before);
+});
