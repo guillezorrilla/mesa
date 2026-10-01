@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { CountPill } from '@/components/CountPill';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
@@ -43,6 +44,7 @@ import { GitWorkspace } from './GitWorkspace';
 import { NativeHistory } from './NativeHistory';
 import { RulesWorkspace } from './RulesWorkspace';
 import { SkillsWorkspace } from './SkillsWorkspace';
+import { useGitChangeCount } from './useGitChangeCount';
 import { VaultOverview } from './vault/VaultOverview';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
@@ -78,8 +80,8 @@ export function ProjectWorkspace(props: {
   );
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
   const worktrees = useCommand('worktrees.list', { project: project.name });
-  const gitStatus = useCommand('git.status', { project: project.name });
-  const gitChanges = gitStatus.data?.changes.length ?? 0;
+  const [gitRevision, setGitRevision] = useState(0);
+  const gitChanges = useGitChangeCount(project.name, gitRevision);
   const run = useRun();
   const { acting, act } = useAct();
   const sessions = props.sessions.filter(
@@ -268,9 +270,10 @@ export function ProjectWorkspace(props: {
           >
             {name}
             {name === 'git' && gitChanges > 0 && (
-              <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-state-idle text-[11px] font-medium text-background">
-                {gitChanges}
-              </span>
+              <CountPill
+                count={gitChanges}
+                className="ml-1.5 inline-flex size-5 items-center justify-center bg-state-idle px-0 text-[11px] font-medium text-background"
+              />
             )}
           </button>
         ))}
@@ -505,7 +508,11 @@ export function ProjectWorkspace(props: {
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
       ) : tab === 'git' ? (
-        <GitWorkspace key={project.name} project={project.name} />
+        <GitWorkspace
+          key={project.name}
+          project={project.name}
+          onChanged={() => setGitRevision((last) => last + 1)}
+        />
       ) : tab === 'files' ? (
         <FilesWorkspace
           key={project.name}

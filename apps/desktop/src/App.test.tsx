@@ -278,6 +278,20 @@ test('project Skills and Rules tabs preview and save only through their checked 
   ]);
 });
 
+test('a project folder that is not a Git repository opens without a Git badge or a toast', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'git status': () => failure('not a Git repository'),
+    'worktrees list': () => envelope([]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  expect(
+    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(2)')?.textContent,
+  ).toBe('git');
+  expect(toasts(byTestId)).toEqual([]);
+});
+
 test('project Skills scope filters show how many skills each holds', async () => {
   const skill = (name: string, scope: 'global' | 'plugin' | 'project') => ({
     id: `/h/${name}`,
@@ -1014,6 +1028,10 @@ test('project Git actions stage, unstage and commit through the CLI bridge', asy
   expect(document.querySelector('[aria-label="Git status"]')?.textContent).toContain(
     'Working tree clean.',
   );
+  // The tab badge recounts after the commit.
+  expect(
+    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(2)')?.textContent,
+  ).toBe('git');
   expect(calls.some((args) => args.includes('commit') && args.includes('--message=Add note'))).toBe(
     true,
   );

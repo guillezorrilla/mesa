@@ -64,7 +64,8 @@ export function FileTree(props: {
   const jump = () => {
     const target = parseFileTarget(goTo);
     const first = visible[0];
-    if (!goTo.includes(':') && first) props.onOpen({ path: first.path });
+    // Unfiltered, the first row can be a folder: only a filtered list is all files.
+    if (filter && !goTo.includes(':') && first) props.onOpen({ path: first.path });
     else if (target) props.onOpen(target);
   };
   const toggle = (path: string) =>

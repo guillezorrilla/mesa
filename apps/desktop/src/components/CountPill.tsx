@@ -1,7 +1,14 @@
-/** A small rounded count beside a label, in the attention tone Xirp uses for pending changes. */
-export function CountPill(props: { count: number }) {
+import { cn } from '@/lib/utils';
+
+/** A small rounded count beside a label; the attention tone Xirp uses for pending changes by default. */
+export function CountPill(props: { count: number; className?: string }) {
   return (
-    <span className="rounded-full bg-state-waiting/20 px-1.5 text-xs text-state-waiting">
+    <span
+      className={cn(
+        'rounded-full bg-state-waiting/20 px-1.5 text-xs text-state-waiting',
+        props.className,
+      )}
+    >
       {props.count}
     </span>
   );

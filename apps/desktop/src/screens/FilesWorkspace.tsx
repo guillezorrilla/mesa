@@ -81,7 +81,7 @@ export function FilesWorkspace(props: {
   focusPaneRef.current = focusPane;
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey)) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       if (event.key.toLowerCase() !== (event.shiftKey ? 'f' : 'p')) return;
       event.preventDefault();
       focusPaneRef.current(event.shiftKey ? 'search' : 'files');

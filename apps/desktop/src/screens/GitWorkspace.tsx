@@ -33,7 +33,11 @@ const VIEWS = [
 ] as const;
 
 /** Git changes for the registered checkout and session worktrees, laid out as Xirp's Git tab. */
-export function GitWorkspace(props: { project: string }) {
+export function GitWorkspace(props: {
+  project: string;
+  /** After this tab stages, unstages, commits or refreshes. */
+  onChanged?: () => void;
+}) {
   const [checkout, setCheckout] = useState('');
   const [view, setView] = useState<'status' | 'graph'>('status');
   const [selected, setSelected] = useState<GitSelection>();
@@ -49,6 +53,7 @@ export function GitWorkspace(props: { project: string }) {
   const changed = async () => {
     await status.refresh();
     setRevision((last) => last + 1);
+    props.onChanged?.();
   };
   const changeIndex = (action: 'stage' | 'unstage', paths: string[]) =>
     act(async () => {
