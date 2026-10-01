@@ -141,6 +141,30 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+  :where(
+    button,
+    [role="button"],
+    [role="menuitem"],
+    a[href],
+    select,
+    summary,
+    input[type="range"]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    :where([role="tab"], summary):not(:disabled, [aria-disabled="true"]):hover {
+      background-color: var(--accent);
+    }
+  }
+}
+
+@layer utilities {
+  @media (hover: hover) {
+    select:enabled:not([aria-invalid="true"]):hover {
+      border-color: var(--ring);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

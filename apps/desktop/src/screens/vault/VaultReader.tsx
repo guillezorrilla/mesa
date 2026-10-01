@@ -51,7 +51,7 @@ function LinkAt(props: { link: VaultLink; children: ReactNode; onSelect: Select 
         data-testid="vault-link"
         data-status="resolved"
         title={link.path}
-        className="inline-flex items-center gap-1 text-primary underline underline-offset-2"
+        className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80"
         onClick={() => props.onSelect(link.path)}
       >
         {link.embed && <Paperclip aria-hidden className="size-3.5" />}
@@ -166,7 +166,7 @@ function Backlinks(props: { paths: readonly string[]; onSelect: Select }) {
             <li key={path}>
               <button
                 type="button"
-                className="break-all text-left font-mono text-xs text-primary underline underline-offset-2"
+                className="break-all text-left font-mono text-xs text-primary underline underline-offset-2 hover:text-primary/80"
                 onClick={() => props.onSelect(path)}
               >
                 {path}
