@@ -16,6 +16,8 @@ export const decidedBy = (d?: { backend: string; costUsd?: number }) =>
 export const exited = (s: SessionRow) => !s.alive || FINAL_STATES.has(s.lastState.state);
 /** A Mesa session waiting to start (mesa open --after): a Stop cancels it. */
 export const queued = (s: SessionRow) => s.managed && s.lastState.state === 'queued';
+/** A running or queued Mesa session shown in the Sessions tab. */
+export const activeSession = (s: SessionRow) => s.managed && (!exited(s) || queued(s));
 /** A row whose clock still runs. */
 export const ticking = (s: SessionRow) => !exited(s) && !('endedAt' in s && s.endedAt);
 /** A Mesa session whose agent has exited and whose conversation can reopen. */

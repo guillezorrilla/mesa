@@ -39,6 +39,7 @@ import { useCommand, useRun } from './lib/useCommand';
 import { useMesaLinks } from './lib/useMesaLinks';
 import { BackupScreen } from './screens/BackupScreen';
 import { BoardScreen } from './screens/board/BoardScreen';
+import { activeSession, recoverable } from './screens/board/rows';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { DailyScreen } from './screens/daily/DailyScreen';
 import { HelpScreen } from './screens/HelpScreen';
@@ -56,7 +57,7 @@ import { UsageScreen } from './screens/UsageScreen';
 import { VaultScreen } from './screens/vault/VaultScreen';
 
 export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
-  const [view, setView] = useState<WorkspaceView>({ kind: 'board' });
+  const [view, setView] = useState<WorkspaceView>({ kind: startOnBoard ? 'board' : 'sessions' });
   const [filesDirty, setFilesDirty] = useState(false);
   const [quitOpen, setQuitOpen] = useState(false);
   const closing = useRef(false);
@@ -134,6 +135,11 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const config = useCommand('config.get');
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
+  const needsProfileSetup = config.error?.code === 'not_found';
+  const profileInitialised = async () => {
+    openedInitialTour.current = true;
+    await Promise.all([config.refresh(), doctor.refresh(), prompts.refresh()]);
+  };
   const projectRegistered = async () => {
     await projects.refresh();
     setProjectsRevision((value) => value + 1);
@@ -142,7 +148,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     if (!config.data || openedInitialTour.current) return;
     openedInitialTour.current = true;
     if (config.data.onboarding?.status === 'active')
-      setView((current) => (current.kind === 'board' ? { kind: 'tour' } : current));
+      setView((current) =>
+        current.kind === 'board' || current.kind === 'sessions' ? { kind: 'tour' } : current,
+      );
   }, [config.data]);
   const finishQuit = useCallback(async () => {
     if (closing.current) return;
@@ -222,10 +230,14 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       sessions.length === 0
     )
       return;
-    const first = sessions.find((session) => session.managed && !session.endedAt);
+    const first = sessions.find((session) => activeSession(session) || recoverable(session));
     if (!first) return;
     openedInitialSession.current = true;
-    setView((current) => (current.kind === 'board' ? { kind: 'session', id: first.id } : current));
+    setView((current) =>
+      current.kind === 'board' || current.kind === 'sessions'
+        ? { kind: 'session', id: first.id }
+        : current,
+    );
   }, [projects.data, sessions, startOnBoard, config.data?.onboarding?.status]);
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
@@ -507,15 +519,24 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
         >
           {/* The Board stays mounted so its terminal clients survive navigation. */}
           <div
-            hidden={view.kind !== 'board' && view.kind !== 'grid' && !sessionView}
-            className={sessionView ? 'h-full' : undefined}
+            hidden={
+              view.kind !== 'board' &&
+              view.kind !== 'sessions' &&
+              view.kind !== 'grid' &&
+              !sessionView
+            }
+            className={sessionView || view.kind === 'sessions' ? 'h-full' : undefined}
           >
             <BoardScreen
+              startWhenEmpty={view.kind === 'sessions'}
+              onAddProject={setProjectAdd}
               gridMode={view.kind === 'grid'}
               gridGroups={config.data?.grid?.groups}
               onGridGroupsChanged={() => void config.refresh()}
               selectedSession={view.kind === 'session' ? view.id : undefined}
-              projects={projects.data}
+              projects={projects.data ?? (needsProfileSetup ? [] : undefined)}
+              projectsError={needsProfileSetup ? undefined : projects.error?.message}
+              onRetryProjects={() => void projects.refresh()}
               onRowsChange={setSessions}
               onBoard={() => navigate({ kind: 'board' })}
               onProject={(name) => navigate({ kind: 'project', name })}
@@ -674,6 +695,8 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       />
       {projectAdd?.kind === 'local' && (
         <AddProjectDialog
+          needsProfileSetup={needsProfileSetup}
+          onInitialised={profileInitialised}
           onCancel={() => setProjectAdd(undefined)}
           onRegistered={projectRegistered}
           returnFocus={projectAdd.returnFocus}
