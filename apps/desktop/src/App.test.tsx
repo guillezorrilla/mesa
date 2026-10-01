@@ -2534,12 +2534,12 @@ test('appearance preference saves through config and updates the live app theme'
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-preferences')[0]);
-  const theme = document.getElementById('appearance-theme') as HTMLSelectElement;
-  await act(async () => {
-    theme.value = 'dark';
-    theme.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await click(byTestId('open-settings')[0]);
+  await click(
+    [
+      ...(byTestId('settings')[0]?.querySelectorAll<HTMLButtonElement>('fieldset button') ?? []),
+    ].find((button) => button.textContent === 'Dark'),
+  );
   expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'appearance.theme', '"dark"']);
   expect(document.documentElement.dataset.theme).toBe('dark');
 });
@@ -2548,7 +2548,7 @@ test('a preference slider saves the value it is released on, once', async () => 
   const written = deferred();
   const { bridge, calls } = fakeBridge({ 'config set': () => written.promise });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-preferences')[0]);
+  await click(byTestId('open-settings')[0]);
   const slide = async (id: string, value: string) => {
     const slider = document.getElementById(id) as HTMLInputElement;
     await act(async () => {
@@ -2562,7 +2562,7 @@ test('a preference slider saves the value it is released on, once', async () => 
   };
   for (const value of ['17', '18', '19']) await slide('appearance-size', value);
   const slider = await slide('appearance-size', '20');
-  expect(document.querySelector('label[for="appearance-size"]')?.textContent).toContain('20px');
+  expect(slider.getAttribute('aria-valuetext')).toBe('20');
   expect(calls.filter((args) => args[2] === 'set')).toEqual([]);
   await act(async () => slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
   await act(async () => written.resolve(envelope({ path: 'appearance.fontSize', value: 20 })));
@@ -2684,10 +2684,8 @@ test('welcome tour resumes, skips, and replays without starting an agent', async
   expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 3 of 3');
   await click(buttons('welcome-tour').find((button) => button.textContent === 'Skip tour'));
   expect(byTestId('welcome-tour')).toHaveLength(0);
-  await click(byTestId('nav-preferences')[0]);
-  await click(
-    buttons('preferences').find((button) => button.textContent === 'Replay welcome tour'),
-  );
+  await click(byTestId('open-settings')[0]);
+  await click(buttons('settings').find((button) => button.textContent === 'Replay tour'));
   expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 1 of 3');
   expect(calls.some((args) => args.includes('open'))).toBe(false);
 });
@@ -2990,7 +2988,12 @@ test('a dismissed macOS notification request remains optional', async () => {
       },
     }),
   );
-  await click(byTestId('nav-preferences')[0]);
+  await click(byTestId('open-settings')[0]);
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>('[aria-label="Settings categories"] button'),
+    ].find((button) => button.textContent === 'Notifications'),
+  );
   expect(requests).toBe(0);
   await click(
     [...document.querySelectorAll('button')].find(

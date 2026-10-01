@@ -5,7 +5,15 @@ import {
   GENERAL_PROJECT,
   shortcutFromKeys,
 } from '@mesa/core/browser';
-import { CircleHelp, DollarSign, Plus, Search, TerminalSquare, UserRound } from 'lucide-react';
+import {
+  CircleHelp,
+  DollarSign,
+  Plus,
+  Search,
+  Settings2,
+  TerminalSquare,
+  UserRound,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import mesaLogo from '../src-tauri/icons/128x128.png';
 import { ActionDialog } from './components/ActionDialog';
@@ -38,12 +46,13 @@ import { DailyScreen } from './screens/daily/DailyScreen';
 import { HelpScreen } from './screens/HelpScreen';
 import { MapScreen } from './screens/MapScreen';
 import { NotificationsMenu } from './screens/notifications/NotificationsMenu';
-import { PreferencesScreen } from './screens/PreferencesScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { AddProjectDialog } from './screens/projects/AddProjectDialog';
 import { ImportWorkspaceDialog } from './screens/projects/ImportWorkspaceDialog';
 import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
 import { ShortcutSettings } from './screens/ShortcutSettings';
+import type { SettingsCategory } from './screens/settings/categories';
+import { SettingsDialog } from './screens/settings/SettingsDialog';
 import { TourScreen } from './screens/TourScreen';
 import { UsageDialog } from './screens/usage/UsageDialog';
 import { VaultScreen } from './screens/vault/VaultScreen';
@@ -92,11 +101,17 @@ export function App() {
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   // Usage and Notifications open over the current view, as the reference app's dialog and menu do.
-  const [overlay, setOverlay] = useState<'usage' | 'inbox'>();
+  const [overlay, setOverlay] = useState<'usage' | 'inbox' | 'settings'>();
+  const [settingsCategory, setSettingsCategory] = useState<SettingsCategory>();
   const navigate = useCallback(
     (next: WorkspaceView) => {
       if (next.kind === 'usage' || next.kind === 'inbox') {
         setOverlay(next.kind);
+        return;
+      }
+      if (next.kind === 'preferences') {
+        setSettingsCategory(undefined);
+        setOverlay('settings');
         return;
       }
       setOverlay(undefined);
@@ -472,7 +487,10 @@ export function App() {
             onOpenChange={(open) => setOverlay(open ? 'inbox' : undefined)}
             onSession={(id) => navigate({ kind: 'session', id })}
             onDoctor={() => navigate({ kind: 'doctor' })}
-            onSettings={() => navigate({ kind: 'preferences' })}
+            onSettings={() => {
+              setSettingsCategory('notifications');
+              setOverlay('settings');
+            }}
             onRecheck={doctor.refresh}
             doctor={doctor.data}
           />
@@ -486,6 +504,17 @@ export function App() {
           </summary>
           <div className="absolute right-0 z-50 mt-2 w-80 space-y-3 rounded-lg border bg-popover p-4 shadow-lg">
             <ProfileSummary doctor={doctor.data} />
+            <button
+              type="button"
+              data-testid="open-settings"
+              className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-accent"
+              onClick={() => {
+                if (profileMenu.current) profileMenu.current.open = false;
+                navigate({ kind: 'preferences' });
+              }}
+            >
+              <Settings2 aria-hidden className="size-4" /> Settings
+            </button>
             <LogBox />
           </div>
         </details>
@@ -596,27 +625,6 @@ export function App() {
             <VaultScreen key={view.query} query={view.query} path={view.path} />
           )}
           {view.kind === 'help' && <HelpScreen />}
-          {view.kind === 'preferences' && (
-            <PreferencesScreen
-              config={config.data}
-              onChanged={() => void config.refresh()}
-              onNavigate={(kind) => navigate({ kind })}
-              onReplayTour={() =>
-                void act(async () => {
-                  if (
-                    !(await run('config.set', {
-                      path: 'onboarding',
-                      value: { status: 'active', step: 0 },
-                    }))
-                  )
-                    return undefined;
-                  await config.refresh();
-                  navigate({ kind: 'tour' });
-                  return undefined;
-                })
-              }
-            />
-          )}
           {view.kind === 'prompts' && (
             <SavedPromptsScreen prompts={prompts.data} onChanged={() => void prompts.refresh()} />
           )}
@@ -678,6 +686,30 @@ export function App() {
             }
           }
         }}
+      />
+      <SettingsDialog
+        open={overlay === 'settings'}
+        onOpenChange={(open) => setOverlay(open ? 'settings' : undefined)}
+        category={settingsCategory}
+        doctor={doctor.data}
+        doctorBusy={doctor.busy}
+        onRecheck={() => void doctor.refresh()}
+        onNavigate={(kind) => navigate({ kind })}
+        onChanged={() => void config.refresh()}
+        onReplayTour={() =>
+          void act(async () => {
+            if (
+              !(await run('config.set', {
+                path: 'onboarding',
+                value: { status: 'active', step: 0 },
+              }))
+            )
+              return undefined;
+            await config.refresh();
+            navigate({ kind: 'tour' });
+            return undefined;
+          })
+        }
       />
       <UsageDialog
         open={overlay === 'usage'}

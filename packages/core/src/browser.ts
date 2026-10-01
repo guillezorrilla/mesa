@@ -8,10 +8,12 @@ export {
   type Agent,
   type AgentCapability,
   agentCapabilityReport,
+  CLAUDE_PERMISSION_MODES,
   DEFAULT_AGENT,
   supportsAgentCapability,
   supportsPlanStart,
 } from './agents/names.js';
+export { DECISIONS_BACKENDS } from './decisions/backends.js';
 export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';
 export { localDay, validLocalDay } from './lib/time.js';
