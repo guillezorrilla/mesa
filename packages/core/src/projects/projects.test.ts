@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
@@ -48,6 +48,21 @@ test('create writes a minimal mesa.yaml named after the folder and registers it'
       hidden: false,
     },
   ]);
+});
+
+test('registration validates and saves an optional display name without changing the project slug', () => {
+  const dir = folder('lantern-cove');
+  registerProject(profile, { dir, create: true, label: '  Lantern Cove  ' });
+  expect(listProjects(profile)[0]).toMatchObject({ name: 'lantern-cove', label: 'Lantern Cove' });
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain('name: lantern-cove');
+  const invalid = folder('invalid');
+  for (const label of ['', '  ', 'a'.repeat(81), 'two\nlines', 'bad\u007f']) {
+    expect(thrown(() => registerProject(profile, { dir: invalid, create: true, label })).code).toBe(
+      'usage',
+    );
+    expect(existsSync(join(invalid, 'mesa.yaml'))).toBe(false);
+    expect(listProjects(profile)).toHaveLength(1);
+  }
 });
 
 test('an existing mesa.yaml is read, with its agent and skills', () => {

@@ -753,9 +753,15 @@ const COMMANDS = {
   ]),
   // `--` so a path starting with `-` is never read as a flag.
   'projects.register': commandWith<
-    { path: string },
-    Recorded<Project & { path: string; created: boolean }>
-  >(({ path }) => ['register', '--create', '--', path]),
+    { path: string; label?: string },
+    Recorded<Project & { path: string; created: boolean; label?: string }>
+  >(({ path, label }) => [
+    'register',
+    '--create',
+    ...(label !== undefined ? [`--label=${label}`] : []),
+    '--',
+    path,
+  ]),
   // The board as mesa orders it: attention, children under their parent.
   'sessions.list': command<TreeRow[]>('sessions', '--tree'),
   'review.responses': commandWith<{ id: string }, SessionResponses>(({ id }) => [

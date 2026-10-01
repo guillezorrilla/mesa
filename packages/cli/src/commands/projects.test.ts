@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -39,6 +39,27 @@ test('register, projects, unregister', async () => {
   expect((await mesa('projects')).stdout).toBe(
     'no projects registered; run mesa register <path>\n',
   );
+});
+
+test('register --label saves the optional display name and refuses invalid names before writing', async () => {
+  await mesa('init', '--vault', 'vault');
+  mkdirSync(join(cli.home, 'lantern-cove'));
+  const result = await mesa(
+    'register',
+    'lantern-cove',
+    '--create',
+    '--label',
+    'Lantern Cove',
+    '--json',
+  );
+  expect(result.json.data).toMatchObject({ name: 'lantern-cove', label: 'Lantern Cove' });
+  expect((await mesa('projects', '--json')).json.data[0]).toMatchObject({
+    name: 'lantern-cove',
+    label: 'Lantern Cove',
+  });
+  mkdirSync(join(cli.home, 'invalid'));
+  expect((await mesa('register', 'invalid', '--create', '--label', 'bad\nname')).code).toBe(2);
+  expect(existsSync(join(cli.home, 'invalid', 'mesa.yaml'))).toBe(false);
 });
 
 test('projects update changes profile presentation without renaming its slug', async () => {
