@@ -45,9 +45,10 @@ export function CostAlerts(props: {
     setSaving(true);
     try {
       for (const [key] of changed)
-        if (!(await run('config.set', { path: `usage.${key}`, value: amount(key) }))) return;
-      await props.onSaved();
+        if (!(await run('config.set', { path: `usage.${key}`, value: amount(key) }))) break;
     } finally {
+      // Limits saved before a failure still show as saved.
+      await props.onSaved();
       setSaving(false);
     }
   };

@@ -133,7 +133,6 @@ function antigravityHooksCheck(read: () => ReturnType<typeof antigravityHooksSta
   }
 }
 
-/** Antigravity's global mesa-vault entry and its allow rule, from the same reader as hooks status. */
 /** The profile's vault: laid out, or what `mesa vault init` would still create. */
 function vaultCheck(read: () => VaultStatus): Finding {
   try {
@@ -149,6 +148,7 @@ function vaultCheck(read: () => VaultStatus): Finding {
   }
 }
 
+/** Antigravity's global mesa-vault entry and its allow rule, from the same reader as hooks status. */
 function antigravityVaultCheck(read: () => ReturnType<typeof vaultMountStatus>): Finding {
   const name = 'antigravity vault';
   try {

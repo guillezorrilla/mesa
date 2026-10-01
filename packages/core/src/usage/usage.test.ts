@@ -84,6 +84,9 @@ test('Claude repeated message updates count once, survive removal, and stay in t
   expect(first.breakdown).toMatchObject([
     { agent: 'claude', model: 'claude-opus-5-5', totals: { events: 1 } },
   ]);
+  expect(first.agents).toMatchObject([
+    { agent: 'claude', totals: { events: 1, estimatedCostUsd: 0.000167 } },
+  ]);
   const config = profilePaths(home, 'default').config;
   setConfigValue(config, 'usage.dailyAlertUsd', '0.0001');
   setConfigValue(config, 'usage.weeklyAlertUsd', '0.0002');

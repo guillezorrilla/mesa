@@ -27,6 +27,8 @@ export type UsageReport = {
   /** Each UTC day of the last 90, with its totals split by provider and model. */
   daily: { day: string; totals: UsageTotals; models: UsageBreakdown }[];
   breakdown: UsageBreakdown;
+  /** The same 90 days per provider, so a provider's total is never summed by a reader. */
+  agents: { agent: UsageRecord['agent']; totals: UsageTotals }[];
 };
 
 export type UsageBreakdown = {

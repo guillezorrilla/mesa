@@ -37,6 +37,7 @@ const used: UsageReport = {
     day('2026-09-26', [{ agent: 'claude', model: 'opus-5-5', totals: opus }]),
   ],
   breakdown: [{ agent: 'claude', model: 'opus-5-5', totals: opus }],
+  agents: [{ agent: 'claude', totals: opus }],
   alerts: [],
 };
 const text = (id: string, byTestId: (id: string) => HTMLElement[]) =>

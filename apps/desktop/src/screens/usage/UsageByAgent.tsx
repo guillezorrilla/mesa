@@ -1,25 +1,20 @@
-import type { UsageBreakdown } from '@mesa/core';
+import type { UsageReport } from '@mesa/core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { AGENT_LABEL, modelKey, money, seriesColor, tokenLine } from './format';
 
 /** The 90-day cost of each model, grouped under its provider, with its share as a bar. */
-export function UsageByAgent(props: { breakdown: UsageBreakdown }) {
+export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
   const [closed, setClosed] = useState<Set<string>>(new Set());
-  const agents = [...new Set(props.breakdown.map((row) => row.agent))];
   const top = Math.max(...props.breakdown.map((row) => row.totals.estimatedCostUsd ?? 0), 0);
-  const sum = (rows: UsageBreakdown) =>
-    rows.some((row) => row.totals.estimatedCostUsd === null)
-      ? null
-      : rows.reduce((total, row) => total + (row.totals.estimatedCostUsd ?? 0), 0);
-  if (!agents.length) return null;
+  if (!props.agents.length) return null;
   return (
     <section aria-label="Cost by agent">
       <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Cost by agent <span className="normal-case">(last 90 days)</span>
       </h3>
       <div className="divide-y rounded-lg border bg-background">
-        {agents.map((agent) => {
+        {props.agents.map(({ agent, totals }) => {
           const rows = props.breakdown.filter((row) => row.agent === agent);
           const open = !closed.has(agent);
           return (
@@ -45,7 +40,9 @@ export function UsageByAgent(props: { breakdown: UsageBreakdown }) {
                   )}
                   {AGENT_LABEL[agent] ?? agent}
                 </span>
-                <span className="text-xs text-muted-foreground">{money(sum(rows))}</span>
+                <span className="text-xs text-muted-foreground">
+                  {money(totals.estimatedCostUsd)}
+                </span>
               </button>
               {open &&
                 rows.map((row) => (

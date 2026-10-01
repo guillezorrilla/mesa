@@ -478,6 +478,7 @@ export function App() {
             onDoctor={() => navigate({ kind: 'doctor' })}
             onSettings={() => navigate({ kind: 'preferences' })}
             onRecheck={doctor.refresh}
+            doctor={doctor.data}
           />
         </nav>
         <details ref={profileMenu} className="relative shrink-0">

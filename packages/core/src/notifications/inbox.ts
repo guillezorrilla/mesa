@@ -106,8 +106,13 @@ function doctorFindings(report: DoctorReport) {
     status: checks.some((check) => check.status === 'fail') ? ('fail' as const) : ('warn' as const),
     detail: fix ? FIXES[fix].detail : checks[0]?.hint,
     ...(fix ? { fix } : {}),
+    // A fix's notice is one thing to do: fixing one of its checks keeps it read or cleared.
     fingerprint: createHash('sha256')
-      .update(JSON.stringify([name, ...checks.map((check) => [check.name, check.status])]))
+      .update(
+        JSON.stringify(
+          fix ? [name, checks.some((check) => check.status === 'fail')] : [name, checks[0]?.status],
+        ),
+      )
       .digest('hex')
       .slice(0, 20),
   }));

@@ -136,6 +136,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
       daily: [],
       breakdown: [],
+      agents: [],
       alerts: [],
     } satisfies UsageReport);
   },

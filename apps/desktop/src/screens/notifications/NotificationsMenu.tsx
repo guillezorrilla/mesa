@@ -1,4 +1,4 @@
-import type { InboxFix, InboxItem } from '@mesa/core';
+import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
 import { Bell, Settings2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { said } from '@/components/Toast';
@@ -17,16 +17,18 @@ export function NotificationsMenu(props: {
   onSettings: () => void;
   /** Runs Doctor again, which records what a fix resolved. */
   onRecheck: () => Promise<void>;
+  /** Doctor's latest report: each one records its notices, so the list is read again. */
+  doctor?: DoctorReport;
 }) {
   const inbox = useCommand('notifications.list');
   const run = useRun();
   const { acting, act } = useAct();
   const items = inbox.data ?? [];
   const unread = items.filter((item) => !item.read);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: opening the menu is what asks for a fresh list.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: opening the menu or a new Doctor report asks for a fresh list.
   useEffect(() => {
-    if (props.open) void inbox.refresh();
-  }, [props.open]);
+    if (props.open || props.doctor) void inbox.refresh();
+  }, [props.open, props.doctor]);
   useEffect(() => {
     const timer = window.setInterval(() => void inbox.refresh(), 60_000);
     return () => window.clearInterval(timer);

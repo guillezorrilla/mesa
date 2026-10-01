@@ -35,7 +35,7 @@ export function summarizeUsage(
   rows: UsageRecord[],
   now: Date,
   unknown: readonly { startedAt: string; endedAt?: string }[] = [],
-): Pick<UsageReport, 'periods' | 'daily' | 'breakdown'> {
+): Pick<UsageReport, 'periods' | 'daily' | 'breakdown' | 'agents'> {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const totals = (found: UsageRecord[], from: number, until = now.getTime()) => {
     const known = usageTotals(found);
@@ -98,5 +98,9 @@ export function summarizeUsage(
       };
     }),
     breakdown: byModel(recent),
+    agents: [...new Set(recent.map((row) => row.agent))].map((agent) => ({
+      agent,
+      totals: usageTotals(recent.filter((row) => row.agent === agent)),
+    })),
   };
 }

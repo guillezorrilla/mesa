@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
-import type { InboxItem } from '@mesa/core';
+import type { DoctorReport, InboxItem } from '@mesa/core';
+import { useState } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -79,4 +80,38 @@ test('notice times read as Xirp writes them', () => {
   expect(timeAgo('2026-09-23T10:00:00.000Z', now)).toBe(
     new Date('2026-09-23T10:00:00.000Z').toLocaleDateString(),
   );
+});
+
+test('a new Doctor report is read into the bell without opening the menu', async () => {
+  let recorded = false;
+  const { bridge } = fakeBridge({ notifications: () => envelope(recorded ? [hooks] : []) });
+  function Harness() {
+    const [doctor, setDoctor] = useState<DoctorReport>();
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            recorded = true;
+            setDoctor({ healthy: true, summary: 'ready', checks: [] });
+          }}
+        >
+          Doctor ran
+        </button>
+        <NotificationsMenu
+          open={false}
+          onOpenChange={() => {}}
+          onSession={() => {}}
+          onDoctor={() => {}}
+          onSettings={() => {}}
+          onRecheck={async () => {}}
+          doctor={doctor}
+        />
+      </>
+    );
+  }
+  const byTestId = await renderWithMesa(<Harness />, bridge);
+  expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications');
+  await click(button('Doctor ran'));
+  expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications, 1 unread');
 });

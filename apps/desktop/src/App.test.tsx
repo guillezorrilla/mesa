@@ -3021,6 +3021,7 @@ test('a usage threshold alerts during session work and opens Usage', async () =>
         periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
         daily: [],
         breakdown: [],
+        agents: [],
         alerts: [{ period: 'today', thresholdUsd: 1, knownCostUsd: 1.5 }],
       }),
     rewind: () =>

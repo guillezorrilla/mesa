@@ -85,7 +85,7 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
           <>
             <UsageStatCards periods={report.periods} />
             <UsageChart report={report} days={days} mode={mode} onDays={setDays} onMode={setMode} />
-            <UsageByAgent breakdown={report.breakdown} />
+            <UsageByAgent breakdown={report.breakdown} agents={report.agents} />
             <UsageByDay daily={report.daily.slice(-days)} />
             {config.data && !session && (
               <CostAlerts
