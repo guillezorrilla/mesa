@@ -16,6 +16,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import mesaLogo from '../src-tauri/icons/128x128.png';
 import { ActionDialog } from './components/ActionDialog';
 import type { ProjectAddRequest } from './components/AddProjectMenu';
 import { CloneProjectDialog } from './components/CloneProjectDialog';
@@ -390,12 +391,7 @@ export function App() {
           data-testid="app-name"
           className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
         >
-          <span
-            aria-hidden
-            className="flex size-6 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground"
-          >
-            M
-          </span>
+          <img src={mesaLogo} alt="" aria-hidden className="size-10 object-contain" />
           Mesa
         </h1>
         <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
