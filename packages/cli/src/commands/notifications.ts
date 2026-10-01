@@ -3,7 +3,7 @@ import { columns } from '../output/columns.js';
 
 export const notifications = defineCommand({
   name: 'notifications',
-  summary: 'List profile-local input, finished-turn, and subagent notices',
+  summary: 'List profile-local input, finished-turn, subagent, and Doctor notices',
   example: 'mesa notifications',
   run: ({ mesa }) => {
     const items = mesa.notifications.list();
@@ -15,7 +15,7 @@ export const notifications = defineCommand({
               item.read ? 'read' : 'unread',
               item.at,
               item.session,
-              item.title,
+              item.fix ? `${item.title} (run mesa ${item.fix})` : item.title,
               item.id,
             ]),
           ).join('\n')

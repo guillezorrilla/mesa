@@ -40,6 +40,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const profileApi = profileService(ctx);
   const notifications = inbox(ctx);
   const usage = usageService(ctx);
+  const vaults = vaultService(ctx);
   return {
     ...profileApi,
     projects: projectsService(ctx),
@@ -47,7 +48,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     files: filesService(ctx),
     worktrees: worktreesService(ctx),
     git: gitService(ctx, faro),
-    ...vaultService(ctx),
+    ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),
     receipts: receiptsService(ctx),
@@ -75,6 +76,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
           tmux: ctx.tmuxHook,
         },
         codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),
+        ...(existsSync(ctx.paths.config) ? { vault: vaults.vault.status } : {}),
       });
       // A profile that was never initialised has no inbox: doctor must not create its folder.
       if (!existsSync(ctx.paths.config)) return report;

@@ -1,4 +1,4 @@
-import type { UsageRecord, UsageReport, UsageTotals } from './records.js';
+import type { UsageBreakdown, UsageRecord, UsageReport, UsageTotals } from './records.js';
 
 export function usageTotals(rows: UsageRecord[]): UsageTotals {
   const sum = (read: (row: UsageRecord) => number | null) =>
@@ -15,12 +15,27 @@ export function usageTotals(rows: UsageRecord[]): UsageTotals {
   };
 }
 
+/** Rows split by provider and model, in first-seen order. */
+function byModel(rows: UsageRecord[]): UsageBreakdown {
+  const buckets = new Map<string, UsageRecord[]>();
+  for (const row of rows) {
+    const key = `${row.agent}\0${row.model ?? 'unknown model'}`;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(row);
+    else buckets.set(key, [row]);
+  }
+  return [...buckets].map(([key, found]) => {
+    const [agent, model = 'unknown model'] = key.split('\0');
+    return { agent: agent as UsageRecord['agent'], model, totals: usageTotals(found) };
+  });
+}
+
 /** UTC buckets make CLI and desktop agree; unknown readings keep aggregates unknown. */
 export function summarizeUsage(
   rows: UsageRecord[],
   now: Date,
   unknown: readonly { startedAt: string; endedAt?: string }[] = [],
-): Pick<UsageReport, 'periods' | 'daily' | 'breakdown'> {
+): Pick<UsageReport, 'periods' | 'daily' | 'breakdown' | 'agents'> {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   const totals = (found: UsageRecord[], from: number, until = now.getTime()) => {
     const known = usageTotals(found);
@@ -52,15 +67,11 @@ export function summarizeUsage(
     return at >= today - 89 * 86_400_000 && at <= now.getTime();
   });
   const byDay = new Map<string, UsageRecord[]>();
-  const byModel = new Map<string, UsageRecord[]>();
-  const add = (buckets: Map<string, UsageRecord[]>, key: string, row: UsageRecord) => {
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(row);
-    else buckets.set(key, [row]);
-  };
   for (const row of recent) {
-    add(byDay, row.at.slice(0, 10), row);
-    add(byModel, `${row.agent}\0${row.model ?? 'unknown model'}`, row);
+    const day = row.at.slice(0, 10);
+    const bucket = byDay.get(day);
+    if (bucket) bucket.push(row);
+    else byDay.set(day, [row]);
   }
   return {
     periods: {
@@ -79,14 +90,17 @@ export function summarizeUsage(
     daily: Array.from({ length: 90 }, (_, index) => {
       const day = new Date(today - (89 - index) * 86_400_000).toISOString().slice(0, 10);
       const start = Date.parse(`${day}T00:00:00.000Z`);
+      const found = byDay.get(day) ?? [];
       return {
         day,
-        totals: totals(byDay.get(day) ?? [], start, Math.min(start + 86_400_000, now.getTime())),
+        totals: totals(found, start, Math.min(start + 86_400_000, now.getTime())),
+        models: byModel(found),
       };
     }),
-    breakdown: [...byModel].map(([key, found]) => {
-      const [agent, model = 'unknown model'] = key.split('\0');
-      return { agent: agent as UsageRecord['agent'], model, totals: usageTotals(found) };
-    }),
+    breakdown: byModel(recent),
+    agents: [...new Set(recent.map((row) => row.agent))].map((agent) => ({
+      agent,
+      totals: usageTotals(recent.filter((row) => row.agent === agent)),
+    })),
   };
 }
