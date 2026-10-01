@@ -5,16 +5,7 @@ import {
   GENERAL_PROJECT,
   shortcutFromKeys,
 } from '@mesa/core/browser';
-import {
-  Bell,
-  ChartNoAxesCombined,
-  CircleHelp,
-  DollarSign,
-  Plus,
-  Search,
-  TerminalSquare,
-  UserRound,
-} from 'lucide-react';
+import { CircleHelp, DollarSign, Plus, Search, TerminalSquare, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from './components/ActionDialog';
 import type { ProjectAddRequest } from './components/AddProjectMenu';
@@ -44,8 +35,8 @@ import { SessionsScreen } from './screens/board/SessionsScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { DailyScreen } from './screens/daily/DailyScreen';
 import { HelpScreen } from './screens/HelpScreen';
-import { InboxScreen } from './screens/InboxScreen';
 import { MapScreen } from './screens/MapScreen';
+import { NotificationsMenu } from './screens/notifications/NotificationsMenu';
 import { PreferencesScreen } from './screens/PreferencesScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { AddProjectDialog } from './screens/projects/AddProjectDialog';
@@ -53,7 +44,7 @@ import { ImportWorkspaceDialog } from './screens/projects/ImportWorkspaceDialog'
 import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
 import { ShortcutSettings } from './screens/ShortcutSettings';
 import { TourScreen } from './screens/TourScreen';
-import { UsageScreen } from './screens/UsageScreen';
+import { UsageDialog } from './screens/usage/UsageDialog';
 import { VaultScreen } from './screens/vault/VaultScreen';
 
 export function App() {
@@ -99,8 +90,15 @@ export function App() {
   const [projectSort, setProjectSort] = useState<ProjectSort>('recent');
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
+  // Usage and Notifications open over the current view, as Xirp's dialog and menu do.
+  const [overlay, setOverlay] = useState<'usage' | 'inbox'>();
   const navigate = useCallback(
     (next: WorkspaceView) => {
+      if (next.kind === 'usage' || next.kind === 'inbox') {
+        setOverlay(next.kind);
+        return;
+      }
+      setOverlay(undefined);
       if (
         filesDirty &&
         view.kind === 'project' &&
@@ -457,8 +455,6 @@ export function App() {
             [
               ['Cost', DollarSign, 'usage', 'cost'],
               ['Help', CircleHelp, 'help', 'help'],
-              ['Analytics', ChartNoAxesCombined, 'usage', 'usage'],
-              ['Notifications', Bell, 'inbox', 'inbox'],
             ] as const
           ).map(([label, Icon, kind, id]) => (
             <Button
@@ -475,6 +471,14 @@ export function App() {
               <Icon aria-hidden className="size-4" />
             </Button>
           ))}
+          <NotificationsMenu
+            open={overlay === 'inbox'}
+            onOpenChange={(open) => setOverlay(open ? 'inbox' : undefined)}
+            onSession={(id) => navigate({ kind: 'session', id })}
+            onDoctor={() => navigate({ kind: 'doctor' })}
+            onSettings={() => navigate({ kind: 'preferences' })}
+            onRecheck={doctor.refresh}
+          />
         </nav>
         <details ref={profileMenu} className="relative shrink-0">
           <summary
@@ -582,9 +586,6 @@ export function App() {
               </p>
             ))}
           {view.kind === 'doctor' && <DoctorScreen doctor={doctor} />}
-          {view.kind === 'usage' && (
-            <UsageScreen onSession={(id) => navigate({ kind: 'session', id })} />
-          )}
           {view.kind === 'map' && (
             <MapScreen
               onSession={(id) => navigate({ kind: 'session', id })}
@@ -596,12 +597,6 @@ export function App() {
           )}
           {view.kind === 'vault' && (
             <VaultScreen key={view.query} query={view.query} path={view.path} />
-          )}
-          {view.kind === 'inbox' && (
-            <InboxScreen
-              onSession={(id) => navigate({ kind: 'session', id })}
-              onDoctor={() => navigate({ kind: 'doctor' })}
-            />
           )}
           {view.kind === 'help' && <HelpScreen />}
           {view.kind === 'preferences' && (
@@ -686,6 +681,11 @@ export function App() {
             }
           }
         }}
+      />
+      <UsageDialog
+        open={overlay === 'usage'}
+        onOpenChange={(open) => setOverlay(open ? 'usage' : undefined)}
+        onSession={(id) => navigate({ kind: 'session', id })}
       />
       {cloneLink && (
         <CloneProjectDialog

@@ -104,3 +104,22 @@ test("a Codex app-server daemon's socket is a warning, and no row while none run
     hint: expect.stringContaining('Mesa keeps its codex windows off it'),
   });
 });
+
+test('an unlaid vault warns with what init would create; a laid-out one passes', async () => {
+  const { home, obsidian } = setup(['registered']);
+  mkdirSync(join(home, 'profile'));
+  const { run } = scriptedRunner(VERSIONS);
+  const vault = (missing: string[]) => () => ({ path: '/h/vault', ok: !missing.length, missing });
+  const check = async (missing: string[]) =>
+    byName(
+      (await runDoctor({ run, obsidian, profileDir: join(home, 'profile'), vault: vault(missing) }))
+        .checks,
+    ).vault;
+  expect(await check(['log.md', 'wiki'])).toMatchObject({
+    ok: false,
+    status: 'warn',
+    path: '/h/vault',
+    hint: 'missing log.md, wiki: run `mesa vault init`',
+  });
+  expect(await check([])).toMatchObject({ ok: true, status: 'ok' });
+});

@@ -75,7 +75,12 @@ test('Claude repeated message updates count once, survive removal, and stay in t
     output: 3,
     estimatedCostUsd: 0.000167,
   });
-  expect(first.daily.at(-1)).toMatchObject({ day: '2026-09-24', totals: { events: 1 } });
+  expect(first.daily.at(-1)).toMatchObject({
+    day: '2026-09-24',
+    totals: { events: 1 },
+    models: [{ agent: 'claude', model: 'claude-opus-5-5', totals: { events: 1, input: 20 } }],
+  });
+  expect(first.daily.at(-2)?.models).toEqual([]);
   expect(first.breakdown).toMatchObject([
     { agent: 'claude', model: 'claude-opus-5-5', totals: { events: 1 } },
   ]);

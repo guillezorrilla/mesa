@@ -57,6 +57,38 @@ test('inbox deduplicates a question pair, keeps child alerts separate, and survi
   expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
 });
 
+const HOOKS_HINT = 'not installed: run `mesa hooks install`';
+
+test('each Doctor fix is its own notice, and a finding without one keeps its name and hint', () => {
+  const { run } = scriptedRunner();
+  const { mesa } = projectProfile(run);
+  const check = (name: string, hint: string) => ({
+    name,
+    ok: false,
+    status: 'warn' as const,
+    hint,
+  });
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: [
+      check('claude hooks', HOOKS_HINT),
+      check('vault', 'missing log.md, wiki: run `mesa vault init`'),
+      check('codex daemon', 'a Codex app-server daemon runs'),
+    ],
+  });
+  expect(
+    mesa.notifications.list().map(({ title, detail, fix }) => ({ title, detail, fix })),
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ title: 'Session hooks are not enabled', fix: 'hooks install' }),
+      expect.objectContaining({ title: 'Vault is not set up', fix: 'vault init' }),
+      { title: 'Doctor: codex daemon', detail: 'a Codex app-server daemon runs', fix: undefined },
+    ]),
+  );
+  expect(mesa.notifications.list()).toHaveLength(3);
+});
+
 test('Doctor findings enter the inbox once, resolve on recheck, and target Doctor', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
@@ -64,8 +96,8 @@ test('Doctor findings enter the inbox once, resolve on recheck, and target Docto
     healthy: true,
     summary: '',
     checks: [
-      { name: 'claude hooks', ok: status === 'ok', status, hint: 'Install hooks' },
-      { name: 'codex hooks', ok: status === 'ok', status, hint: 'Review hooks' },
+      { name: 'claude hooks', ok: status === 'ok', status, hint: HOOKS_HINT },
+      { name: 'codex hooks Stop', ok: status === 'ok', status, hint: HOOKS_HINT },
     ],
   });
   mesa.notifications.recordDoctor(report('warn'));
@@ -74,9 +106,12 @@ test('Doctor findings enter the inbox once, resolve on recheck, and target Docto
   if (plan.kind === 'none') throw new Error('expected Doctor notice');
   mesa.notifications.markDelivered(plan.ids);
   const [finding] = mesa.notifications.list();
+  // Both hook findings share one fix, so they are one notice that names it.
   expect(finding).toMatchObject({
     kind: 'doctor',
-    title: 'Doctor: 2 findings',
+    title: 'Session hooks are not enabled',
+    detail: "Mesa can't tell when a coding agent needs you or finishes a turn.",
+    fix: 'hooks install',
     target: { kind: 'doctor' },
   });
   expect(mesa.notifications.list()).toHaveLength(1);

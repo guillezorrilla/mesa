@@ -49,6 +49,8 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
     envelope({ name: args.at(-1), visits: 1, visitedAt: '2026-09-30T12:00:00.000Z' }),
   'skills list': () => envelope([]),
   'rules list': () => envelope([]),
+  // The header's bell reads the inbox on every screen.
+  notifications: () => envelope([]),
   prompts: () => envelope([]),
   profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' } satisfies ProfileInfo),
   config: () =>

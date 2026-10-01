@@ -12,6 +12,7 @@ import type { Runner } from './lib/process.js';
 import { toFail } from './lib/result.js';
 import { TMUX_INSTALL } from './sessions/tmux/backend.js';
 import type { ObsidianPaths } from './vault/obsidian.js';
+import type { VaultStatus } from './vault/vault.js';
 
 export type Check = {
   name: string;
@@ -133,6 +134,21 @@ function antigravityHooksCheck(read: () => ReturnType<typeof antigravityHooksSta
 }
 
 /** Antigravity's global mesa-vault entry and its allow rule, from the same reader as hooks status. */
+/** The profile's vault: laid out, or what `mesa vault init` would still create. */
+function vaultCheck(read: () => VaultStatus): Finding {
+  try {
+    const status = read();
+    return {
+      name: 'vault',
+      ok: status.ok,
+      path: status.path,
+      hint: status.ok ? '' : `missing ${status.missing.join(', ')}: run \`mesa vault init\``,
+    };
+  } catch (error) {
+    return { name: 'vault', ok: false, hint: toFail(error).error.message };
+  }
+}
+
 function antigravityVaultCheck(read: () => ReturnType<typeof vaultMountStatus>): Finding {
   const name = 'antigravity vault';
   try {
@@ -221,6 +237,8 @@ export async function runDoctor(deps: {
   };
   /** Where a Codex app-server daemon's socket is while it runs. */
   codexDaemon?: string;
+  /** The profile's vault layout; none before init. */
+  vault?: () => VaultStatus;
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
     Promise.all(BINARIES.map(async (b) => ({ role: b.role, check: await probe(deps.run, b) }))),
@@ -236,6 +254,7 @@ export async function runDoctor(deps: {
       obsidian,
       profileDirCheck(deps.profileDir),
       ...decisionsCheck(deps.decisions),
+      ...(deps.vault ? [vaultCheck(deps.vault)] : []),
       ...(deps.hooks && hooks ? [claudeHooksCheck(deps.hooks.claude), tmuxHookCheck(hooks)] : []),
       ...(deps.hooks?.codex ? codexHooksChecks(deps.hooks.codex) : []),
       ...(deps.hooks?.antigravity ? [antigravityHooksCheck(deps.hooks.antigravity)] : []),

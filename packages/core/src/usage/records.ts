@@ -24,9 +24,16 @@ export type UsageReport = {
   unknown: { session: string; reason: string }[];
   periods: Record<'today' | '7d' | '30d' | '90d' | 'month', UsageTotals>;
   alerts: { period: 'today' | '7d' | 'month'; thresholdUsd: number; knownCostUsd: number }[];
-  daily: { day: string; totals: UsageTotals }[];
-  breakdown: { agent: UsageRecord['agent']; model: string; totals: UsageTotals }[];
+  /** Each UTC day of the last 90, with its totals split by provider and model. */
+  daily: { day: string; totals: UsageTotals; models: UsageBreakdown }[];
+  breakdown: UsageBreakdown;
 };
+
+export type UsageBreakdown = {
+  agent: UsageRecord['agent'];
+  model: string;
+  totals: UsageTotals;
+}[];
 
 export type UsageTotals = {
   events: number;
