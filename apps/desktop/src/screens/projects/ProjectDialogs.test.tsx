@@ -48,6 +48,44 @@ test('Add accepts a typed path and optional name, and registers only on confirma
   expect(onCancel).toHaveBeenCalledOnce();
 });
 
+test('the first Add sets up a profile with the chosen vault before registration, and setup failures can retry', async () => {
+  let failed = true;
+  const onInitialised = vi.fn(async () => {});
+  const onRegistered = vi.fn(async () => {});
+  const { bridge, calls } = fakeBridge({
+    init: () =>
+      failed
+        ? failure('Vault folder refused')
+        : envelope({ profile: 'default', dir: '/h/.mesa/default', created: true, receipt: null }),
+    register: () => envelope({ name: 'lantern-cove', receipt: null }),
+  });
+  const byTestId = await renderWithMesa(
+    <AddProjectDialog
+      needsProfileSetup
+      onInitialised={onInitialised}
+      onCancel={() => {}}
+      onRegistered={onRegistered}
+    />,
+    bridge,
+  );
+  await fill('project-path', '/src/lantern-cove');
+  expect(byTestId('register-folder')[0]?.hasAttribute('disabled')).toBe(true);
+  await fill('project-vault', '  /h/vault  ');
+  await click(byTestId('register-folder')[0]);
+  expect(calls).toEqual([['--json', 'init', '--vault=/h/vault']]);
+  expect(onInitialised).not.toHaveBeenCalled();
+  expect(onRegistered).not.toHaveBeenCalled();
+  expect(input('project-vault').value).toBe('  /h/vault  ');
+  failed = false;
+  await click(byTestId('register-folder')[0]);
+  expect(calls.slice(1)).toEqual([
+    ['--json', 'init', '--vault=/h/vault'],
+    ['--json', 'register', '--create', '--', '/src/lantern-cove'],
+  ]);
+  expect(onInitialised).toHaveBeenCalledOnce();
+  expect(onRegistered).toHaveBeenCalledOnce();
+});
+
 test('a cancelled folder picker leaves the path alone, and cancellation never registers', async () => {
   const onCancel = vi.fn();
   const { bridge, calls } = fakeBridge();

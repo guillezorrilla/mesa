@@ -23,13 +23,22 @@ import {
   toastTexts,
 } from '@/lib/testing';
 
+const openProject = async (byTestId: (id: string) => HTMLElement[], index = 0) => {
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+      (tab) => tab.textContent === 'Projects',
+    ),
+  );
+  await click(byTestId('sidebar-project')[index]);
+};
+
 test('sidebar opens a project workspace and its Skills tab', async () => {
   const { bridge } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([managedRow('aaaaaaaa')]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('/src/lantern-cove');
   expect(byTestId('project-active-session')[0]?.getAttribute('aria-label')).toContain('aaaaaaaa');
   await click(
@@ -105,7 +114,7 @@ test('the sidebar Add project menu keeps the selected project open and refreshes
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ folder: '/src/sunset' }));
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   const addTrigger = document.querySelector<HTMLElement>('[aria-label="Add project"]');
   await click(addTrigger ?? undefined);
   const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
@@ -200,7 +209,7 @@ test('project Skills and Rules tabs preview and save only through their checked 
       }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (b) => b.textContent === 'skills',
@@ -292,7 +301,7 @@ test('project Skills can enable a shipped skill through the project policy and s
     'skills sync': () => envelope({ added: [], removed: [], kept: [], conflicts: [], unknown: [] }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (b) => b.textContent === 'skills',
@@ -348,7 +357,7 @@ test('project Skills does not offer to disable a skill inherited from the profil
       envelope({ path: 'SKILL.md', text: '# Summary\n', revision: 'a'.repeat(64), lines: 2 }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
   await click(
     [
@@ -392,7 +401,7 @@ test('project Skills lists the vault and Obsidian skills Mesa ships, with their 
       envelope({ path: 'SKILL.md', text: '# Obsidian CLI\n', revision: 'a'.repeat(64), lines: 2 }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
   const card = (name: string) =>
     [
@@ -448,7 +457,7 @@ test('project native history imports a Codex conversation through the existing s
     adopt: () => envelope({ ...managedRow('eeeeeeee'), id: 'eeeeeeee' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent === 'Native history',
@@ -526,7 +535,7 @@ test('project and session show scoped decisions and note changes with exact Obsi
     bridge,
     fakePlatform({ terminal: fakeTerminals().host }),
   );
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   expect(byTestId('knowledge-context')[0]?.textContent).toContain(
     'The migration must stay reversible',
   );
@@ -577,7 +586,7 @@ test("a note in the project's vault overview opens in the Vault screen, selected
       }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(byTestId('vault-overview-note')[0]);
   expect(byTestId('vault-panel')).toHaveLength(1);
   expect(byTestId('vault-item')[0]?.querySelector('[data-fact="Path"]')?.textContent).toBe(
@@ -619,7 +628,7 @@ test('project Git tab reads selected checkout status through the CLI bridge', as
       envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/feature', branch: 'feature' } })]),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
   );
@@ -695,7 +704,7 @@ test('project Files tab edits through the bridge, previews inert Markdown, and p
       }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'files',
@@ -819,7 +828,7 @@ test('project Files tab searches, jumps to an exact line, and exposes checked fi
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'files',
@@ -931,7 +940,7 @@ test('project Git actions stage, unstage and commit through the CLI bridge', asy
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
   );
@@ -992,7 +1001,7 @@ test('project Git branch panel creates and confirms deletion through the CLI bri
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
   );
@@ -1046,7 +1055,7 @@ test('project Git stash panel saves changes and confirms a drop through the CLI 
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
   );
@@ -1106,7 +1115,7 @@ test('project Git remote panel shows its upstream and confirms an explicit push'
       }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
   );
@@ -1191,7 +1200,7 @@ test('project Git graph filters a branch and compares a selected commit', async 
       }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(
     [...document.querySelectorAll('button')].find((button) => button.textContent === 'git'),
   );
@@ -1290,7 +1299,7 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
       ?.getAttribute('aria-selected'),
   ).toBe('true');
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
-  await click(byTestId('sidebar-project')[1]);
+  await openProject(byTestId, 1);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
   await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
@@ -1403,7 +1412,7 @@ test('unnamed sessions are told apart by their goal, else their id, and idle is 
   expect(
     document.querySelector('[aria-label="Archive Fix the login redirect (aaaaaaaa)"]'),
   ).not.toBeNull();
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   expect(byTestId('project-active-session').map((card) => card.getAttribute('aria-label'))).toEqual(
     titles.map(
       (title, i) => `Open ${title} (${['aaaaaaaa', 'bbbbbbbb', 'cccccccc', 'dddddddd'][i]})`,
@@ -1920,7 +1929,7 @@ test('project Overview starts worktree goals and quick empty sessions through me
     open: () => envelope(managedRow('newnewnew')),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   const form = byTestId('project-session-form')[0] as HTMLFormElement;
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   const agent = [...form.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
@@ -1940,7 +1949,7 @@ test('project Overview starts worktree goals and quick empty sessions through me
     '--',
     'lantern-cove',
   ]);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(byTestId('quick-main')[0]);
   expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
 });
@@ -1951,7 +1960,7 @@ test('project composer passes Plan only for a provider with a native startup mod
     open: () => envelope(managedRow('newnewnew')),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   const form = byTestId('project-session-form')[0] as HTMLFormElement;
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   await choose(byTestId('session-mode')[0], 'plan');
@@ -1980,7 +1989,7 @@ test('quick terminal tile opens a plain terminal in the selected project', async
     open: () => envelope(managedRow('term0001', { kind: 'terminal', agent: 'terminal' })),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   await click(byTestId('quick-terminal')[0]);
   expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New terminal session');
   await click(byTestId('new-session-submit')[0]);
@@ -2191,7 +2200,7 @@ test('project controls update profile presentation and leave the slug available 
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('sidebar-project')[0]);
+  await openProject(byTestId);
   const action = (label: string) =>
     [...(byTestId('project-menu')[0]?.parentElement?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent?.includes(label),

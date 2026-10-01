@@ -38,12 +38,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { exited, queued, recoverable } from '@/screens/board/rows';
+import { activeSession, recoverable } from '@/screens/board/rows';
 
 export type WorkspaceView =
   | {
       kind:
         | 'board'
+        | 'sessions'
         | 'grid'
         | 'projects'
         | 'doctor'
@@ -87,9 +88,7 @@ export function WorkspaceSidebar(props: {
     .filter((project) => !project.hidden)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const registered = new Set(visible.map((project) => project.name));
-  const active = props.sessions.filter(
-    (session) => session.managed && (!exited(session) || queued(session)),
-  );
+  const active = props.sessions.filter(activeSession);
   const stranded = props.sessions.filter(recoverable);
   const unassigned = active.filter(
     (session) => !session.project || !registered.has(session.project),
@@ -256,7 +255,7 @@ export function WorkspaceSidebar(props: {
               )}
               onClick={() => {
                 const first = view.kind === 'session' ? view.id : (active[0] ?? stranded[0])?.id;
-                onView(first ? { kind: 'session', id: first } : { kind: 'board' });
+                onView(first ? { kind: 'session', id: first } : { kind: 'sessions' });
               }}
             >
               Sessions{' '}
@@ -355,9 +354,10 @@ export function WorkspaceSidebar(props: {
                 <div className="flex items-center gap-1 px-1 text-xs text-muted-foreground">
                   <button
                     type="button"
+                    data-testid="sidebar-project"
                     aria-label={`${closedProjects.includes(project.name) ? 'Expand' : 'Collapse'} ${project.label} sessions`}
                     aria-expanded={!closedProjects.includes(project.name)}
-                    className="rounded p-1 hover:bg-accent"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md p-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                     onClick={() =>
                       setClosedProjects((current) =>
                         current.includes(project.name)
@@ -371,13 +371,6 @@ export function WorkspaceSidebar(props: {
                     ) : (
                       <ChevronDown aria-hidden className="size-3" />
                     )}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="sidebar-project"
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left hover:text-foreground"
-                    onClick={() => onView({ kind: 'project', name: project.name })}
-                  >
                     <Folder aria-hidden className="size-3.5 shrink-0" />
                     <span className="truncate">{project.label}</span>
                   </button>

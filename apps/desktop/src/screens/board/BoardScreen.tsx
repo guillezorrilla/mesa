@@ -34,6 +34,7 @@ import {
   TerminalSquare,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ProjectAddRequest } from '@/components/AddProjectMenu';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { PageHeader } from '@/components/PageHeader';
 import { SavedPromptPicker } from '@/components/SavedPromptPicker';
@@ -61,9 +62,10 @@ import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { ResponseReview } from './ResponseReview';
 import { RowMenu } from './RowMenu';
-import { exited, queued, recoverable, resumable } from './rows';
+import { activeSession, exited, queued, recoverable, resumable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
 import type { RowActions } from './SessionRow';
+import { SessionStart } from './SessionStart';
 import { TerminalPanel } from './TerminalPanel';
 import { useBoard } from './useBoard';
 
@@ -110,7 +112,11 @@ type OpenDialog =
 export function BoardScreen(
   props: {
     selectedSession?: string;
+    startWhenEmpty?: boolean;
+    onAddProject?: (request: ProjectAddRequest) => void;
     projects?: readonly ProjectRow[];
+    projectsError?: string;
+    onRetryProjects?: () => void;
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
     onProject?: (project: string) => void;
@@ -137,6 +143,9 @@ export function BoardScreen(
 ) {
   const [ended, setEnded] = useState(false);
   const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
+  useEffect(() => {
+    if (props.startWhenEmpty) setEnded(false);
+  }, [props.startWhenEmpty]);
   useEffect(() => {
     if (data) props.onRowsChange?.(data);
   }, [data, props.onRowsChange]);
@@ -507,12 +516,26 @@ export function BoardScreen(
     );
   };
 
+  const emptyStart =
+    props.startWhenEmpty &&
+    data !== undefined &&
+    !data.some((session) => activeSession(session) || recoverable(session)) &&
+    !props.selectedSession;
   return (
     <section
       data-testid="session-board"
-      className={props.selectedSession ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
+      className={props.selectedSession || emptyStart ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
     >
-      {props.selectedSession ? (
+      {emptyStart ? (
+        <SessionStart
+          projects={props.projects}
+          projectsError={props.projectsError}
+          onRetryProjects={props.onRetryProjects}
+          disabled={acting}
+          onOpen={open}
+          onAddProject={props.onAddProject}
+        />
+      ) : props.selectedSession ? (
         <div
           data-testid="selected-session"
           className="flex min-h-12 shrink-0 items-center gap-2 border-b bg-card/40 px-4 text-sm"
@@ -828,7 +851,7 @@ export function BoardScreen(
           </Button>
         </PageHeader>
       )}
-      {!props.selectedSession && !props.gridMode && (
+      {!emptyStart && !props.selectedSession && !props.gridMode && (
         <BoardControls
           preferences={preferences}
           disabled={acting}
@@ -995,7 +1018,7 @@ export function BoardScreen(
             </p>
           )
         )
-      ) : !props.gridMode ? (
+      ) : !emptyStart && !props.gridMode ? (
         <>
           {data?.length === 0 && (
             <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
