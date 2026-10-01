@@ -15,7 +15,6 @@ const ACTIONS: SearchHit[] = [
   { kind: 'action', id: 'sessions', label: 'Sessions', detail: 'Open session workspace' },
   { kind: 'action', id: 'grid', label: 'Open Grid View', detail: 'Live session terminals' },
   { kind: 'action', id: 'new-session', label: 'New session', detail: 'Start an agent' },
-  { kind: 'action', id: 'projects', label: 'Projects', detail: 'Manage registered projects' },
   { kind: 'action', id: 'doctor', label: 'Doctor', detail: 'Check Mesa health' },
   { kind: 'action', id: 'help', label: 'Help', detail: 'Commands and guidance' },
   {
@@ -33,7 +32,6 @@ const SETTINGS: SearchHit[] = [
     label: 'Profile and vault',
     detail: 'Current profile and vault',
   },
-  { kind: 'setting', id: 'skills', label: 'Manage skills', detail: 'Browse and sync skills' },
   { kind: 'setting', id: 'shortcuts', label: 'Keyboard shortcuts', detail: 'View and change keys' },
   { kind: 'setting', id: 'preferences', label: 'Preferences', detail: 'Display and terminal' },
   { kind: 'setting', id: 'prompts', label: 'Saved prompts', detail: 'Manage reusable text' },

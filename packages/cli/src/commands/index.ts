@@ -75,7 +75,13 @@ import {
 } from './notifications.js';
 import { open } from './open.js';
 import { profile } from './profile.js';
-import { projects, projectsClone, projectsDiscover, projectsUpdate } from './projects.js';
+import {
+  projects,
+  projectsClone,
+  projectsDiscover,
+  projectsUpdate,
+  projectsVisit,
+} from './projects.js';
 import { prompts, promptsRemove, promptsSave } from './prompts.js';
 import { receipts, receiptsShow } from './receipts.js';
 import { register } from './register.js';
@@ -217,6 +223,7 @@ export const COMMANDS: Command[] = [
   projectsClone,
   projectsDiscover,
   projectsUpdate,
+  projectsVisit,
   receipts,
   receiptsShow,
   register,

@@ -8,7 +8,10 @@ import {
   registerProject,
   unregisterProject,
   updateProject,
+  visitProject,
 } from './projects.js';
+import { readRegistry } from './registry.js';
+import { sortProjects } from './sort.js';
 
 /** The profile's registered projects. */
 export function projectsService(ctx: MesaContext) {
@@ -25,7 +28,19 @@ export function projectsService(ctx: MesaContext) {
         },
         () => registerProject(open(), { dir: absolute(dir), create, label }),
       ),
-    list: () => listProjects(open()),
+    list: (sort?: string) => {
+      const profile = open();
+      const rows = listProjects(profile);
+      return sort
+        ? sortProjects(
+            rows,
+            readRegistry(profile.paths.registry),
+            sort === 'last-session' || sort === 'active-sessions' ? ctx.store.list() : [],
+            sort,
+          )
+        : rows;
+    },
+    visit: (name: string) => visitProject(open(), name, ctx.deps.clock().toISOString()),
     discover: (root: string) => discoverProjects(open(), absolute(root)),
     clone: (input: string) => {
       const source = repositoryUrl(input);

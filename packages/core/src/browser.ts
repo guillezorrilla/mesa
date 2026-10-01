@@ -28,6 +28,7 @@ export {
 } from './profile/preferences.js';
 export { DEFAULT_SHORTCUTS, shortcutFromKeys, validShortcut } from './profile/shortcuts.js';
 export { repositoryUrl } from './projects/project-url.js';
+export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/descendants.js';

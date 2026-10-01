@@ -52,9 +52,7 @@ const appearanceChoices = [
 export function PreferencesScreen(props: {
   config?: Config;
   onChanged: () => void;
-  onNavigate: (
-    view: 'shortcuts' | 'doctor' | 'inbox' | 'usage' | 'projects' | 'prompts' | 'backup',
-  ) => void;
+  onNavigate: (view: 'shortcuts' | 'doctor' | 'inbox' | 'usage' | 'prompts' | 'backup') => void;
   onReplayTour: () => void;
 }) {
   const run = useRun();
@@ -280,9 +278,7 @@ export function PreferencesScreen(props: {
           <Button variant="outline" onClick={props.onReplayTour}>
             Replay welcome tour
           </Button>
-          {(
-            ['backup', 'prompts', 'shortcuts', 'doctor', 'projects', 'inbox', 'usage'] as const
-          ).map((view) => (
+          {(['backup', 'prompts', 'shortcuts', 'doctor', 'inbox', 'usage'] as const).map((view) => (
             <Button key={view} variant="outline" onClick={() => props.onNavigate(view)}>
               {
                 {
@@ -290,7 +286,6 @@ export function PreferencesScreen(props: {
                   prompts: 'Saved prompts',
                   backup: 'Local backup',
                   doctor: 'Agent setup',
-                  projects: 'Projects and editor',
                   inbox: 'Notifications',
                   usage: 'Usage alerts',
                 }[view]

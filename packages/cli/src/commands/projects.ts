@@ -6,9 +6,12 @@ import { recordedOutput } from '../output/recorded.js';
 export const projects = defineCommand({
   name: 'projects',
   summary: 'List the projects registered with this profile',
-  example: 'mesa projects',
-  run: ({ mesa }) => {
-    const rows = mesa.projects.list();
+  flags: {
+    sort: { type: 'string', description: 'recent, last-session, active-sessions, or most-visited' },
+  },
+  example: 'mesa projects --sort recent',
+  run: ({ mesa, flags }) => {
+    const rows = mesa.projects.list(flags.sort);
     const text = rows.length
       ? columns(
           rows.map((p) => [p.name, p.path, p.agent, p.priority, p.exists ? '' : '(missing)']),
@@ -86,4 +89,15 @@ export const projectsClone = defineCommand({
       text: `cloned ${project.name} at ${path}`,
     });
   },
+});
+
+export const projectsVisit = defineCommand({
+  name: 'projects visit',
+  summary: 'Record a local project workspace visit for sidebar sorting',
+  args: ['name'],
+  example: 'mesa projects visit lantern-cove',
+  run: ({ mesa, args }) => ({
+    data: mesa.projects.visit(args.name),
+    text: `visited project ${args.name}`,
+  }),
 });

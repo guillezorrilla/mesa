@@ -63,8 +63,15 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
       (tab) => tab.textContent === 'Projects',
     ),
   );
-  await click(byTestId('nav-projects')[0]);
-  expect(byTestId('projects-screen')).toHaveLength(1);
+  await click(byTestId('sidebar-project')[0]);
+  await click(byTestId('project-sort')[0]);
+  expect(byTestId('projects-screen')).toHaveLength(0);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (item) => item.textContent?.trim() === 'Most visited',
+    ),
+  );
+  expect(byTestId('project-workspace')).toHaveLength(1);
 });
 
 test('global shortcuts open from the top bar with either sidebar layout, without footer duplicates', async () => {
@@ -806,7 +813,15 @@ test('project Files tab edits through the bridge, previews inert Markdown, and p
     ].find((button) => button.textContent === 'Cancel'),
   );
   expect(byTestId('files-workspace')).toHaveLength(1);
-  await click(byTestId('nav-projects')[0]);
+  await click(byTestId('project-sort')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (item) => item.textContent?.trim() === 'Most visited',
+    ),
+  );
+  expect(byTestId('files-workspace')).toHaveLength(1);
+  expect(byTestId('file-navigation-dialog')).toHaveLength(0);
+  await click(byTestId('nav-doctor')[0]);
   expect(byTestId('file-navigation-dialog')).toHaveLength(1);
   await click(
     [
@@ -1332,6 +1347,8 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
       ?.getAttribute('aria-selected'),
   ).toBe('true');
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  expect(byTestId('projects-screen')).toHaveLength(0);
+  await click(byTestId('sidebar-project')[0]);
   expect(byTestId('project-workspace')).toHaveLength(1);
   expect(byTestId('project-active-session')).toHaveLength(2);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('finished');
@@ -1354,6 +1371,8 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
   await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
+  expect(byTestId('selected-session')).toHaveLength(1);
+  await click(byTestId('sidebar-project')[1]);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
@@ -2275,15 +2294,13 @@ test('project controls update profile presentation and leave the slug available 
   ]);
   await click(action('Hide project'));
   expect(byTestId('sidebar-project').map((element) => element.textContent)).toEqual(['tide']);
-  await click(byTestId('nav-projects')[0]);
-  expect(byTestId('project-row')[0]?.textContent).toContain('Hidden');
-  expect(byTestId('project-row')[0]?.textContent).toContain('lantern-cove');
-  await click(byTestId('project-row')[0]?.querySelector('button') as HTMLElement);
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  expect(byTestId('projects-screen')).toHaveLength(0);
   await click(action('Unregister project'));
   expect(byTestId('project-unregister-dialog')).toHaveLength(1);
   await click(byTestId('confirm-unregister-project')[0]);
   expect(calls).toContainEqual(['--json', 'unregister', '--', 'lantern-cove']);
-  expect(byTestId('projects-screen')).toHaveLength(1);
+  expect(byTestId('projects-screen')).toHaveLength(0);
 });
 
 test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Enter', async () => {
@@ -2847,7 +2864,7 @@ test('a native Mesa project link opens the validated clone form and waits for co
       },
     }),
   );
-  expect(byTestId('projects-screen')).toHaveLength(1);
+  expect(byTestId('projects-screen')).toHaveLength(0);
   expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe(link);
   expect(calls.some((args) => args[1] === 'projects' && args[2] === 'clone')).toBe(false);
   await click(byTestId('clone-project')[0]);
@@ -2879,8 +2896,12 @@ test('a failed native project link can be opened again', async () => {
   expect(
     calls.filter((args) => args.join(' ') === `--json projects clone -- ${link}`),
   ).toHaveLength(2);
-  await click(document.querySelector('[aria-label="Cancel repository checkout"]') as HTMLElement);
-  expect((byTestId('repository-url')[0] as HTMLInputElement).value).toBe('');
+  await click(
+    [
+      ...(byTestId('clone-project-dialog')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((button) => button.textContent === 'Cancel'),
+  );
+  expect(byTestId('clone-project-dialog')).toHaveLength(0);
 });
 
 test('authorized native delivery and a click from before app launch open the exact session', async () => {
@@ -3033,4 +3054,32 @@ test('the sidebar Vault destination opens the vault inventory', async () => {
   expect(byTestId('nav-vault')[0]?.getAttribute('aria-current')).toBe('page');
   expect(byTestId('vault-panel')[0]?.textContent).toContain('1 item in /h/vault');
   expect(byTestId('vault-file').map((row) => row.dataset.kind)).toEqual(['markdown']);
+});
+
+test('project sorting reorders sidebar folders without replacing the current workspace or adding visits', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: (args) =>
+      envelope(args.includes('most-visited') ? [...PROJECTS].reverse() : PROJECTS),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  const workspace = byTestId('project-workspace')[0];
+  const visits = calls.filter((args) => args[1] === 'projects' && args[2] === 'visit').length;
+  await click(byTestId('project-sort')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (item) => item.textContent?.trim() === 'Most visited',
+    ),
+  );
+  expect(byTestId('sidebar-project').map((item) => item.textContent)).toEqual([
+    'tide',
+    'lantern-cove',
+  ]);
+  expect(byTestId('project-workspace')[0]).toBe(workspace);
+  expect(calls.filter((args) => args[1] === 'projects' && args[2] === 'visit')).toHaveLength(
+    visits,
+  );
+  expect(calls).toContainEqual(['--json', 'projects', '--sort', 'most-visited']);
+  expect(byTestId('projects-screen')).toHaveLength(0);
+  expect(byTestId('nav-projects')).toHaveLength(0);
 });

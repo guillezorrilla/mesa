@@ -45,6 +45,8 @@ export const failure = (message: string) => ({ ok: false, error: { code: 'not_fo
 
 /** A healthy, initialised profile with no projects: each test overrides what it varies. */
 const HEALTHY: Record<string, (args: string[]) => unknown> = {
+  'projects visit': (args) =>
+    envelope({ name: args.at(-1), visits: 1, visitedAt: '2026-09-30T12:00:00.000Z' }),
   'skills list': () => envelope([]),
   'rules list': () => envelope([]),
   prompts: () => envelope([]),
