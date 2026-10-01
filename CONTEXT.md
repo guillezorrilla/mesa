@@ -265,6 +265,8 @@ Not: priority, urgency, rank.
 
 ## Board
 
+The app's Sessions tab opens the selected live or recoverable Mesa session. With none, it shows a first-message composer and project picker; without visible projects, only Add project appears. The composer uses `mesa open` in the selected project's main checkout with its configured agent. Sessions project headings expand or collapse their session groups; project workspaces open from the Projects tab. The explicit Board view retains recent, older, and foreign rows.
+
 The Session Board: the app's Board view (BoardScreen) and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, context use as `ctx`, running time, last output; `--json` adds each row's `decision` with its probabilities). Every session across every project, highest attention first; the app shows `mesa sessions --tree`, children nested under their parent and collapsible. The app keeps confidence and attention for Faro and ordering but omits those numbers from session labels; the selected session's details show both. Each row shows:
 
 - a state badge coloured per state (hover: which decisions backend decided);
