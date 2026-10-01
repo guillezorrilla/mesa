@@ -12,7 +12,7 @@ import { useRun } from '@/lib/useCommand';
 
 const ACTIONS: { key: keyof Shortcuts; label: string }[] = [
   { key: 'search', label: 'Search Mesa' },
-  { key: 'board', label: 'Go to Board' },
+  { key: 'board', label: 'Go to Sessions' },
   { key: 'newSession', label: 'New session' },
 ];
 

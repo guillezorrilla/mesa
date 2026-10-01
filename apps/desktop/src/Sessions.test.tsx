@@ -165,7 +165,7 @@ test('Sessions folder clicks collapse and expand its rows without changing the o
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
-test('Sessions returns to the simple landing view after visiting Board, and missing folders cannot start', async () => {
+test('Sessions returns to the simple landing view after visiting Grid, and missing folders cannot start', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS.map((project) => ({ ...project, exists: false }))),
   });
@@ -173,14 +173,14 @@ test('Sessions returns to the simple landing view after visiting Board, and miss
   await fill(byTestId('session-start-goal')[0] as HTMLTextAreaElement, 'Ship it');
   expect(byTestId('session-start-submit')[0]?.hasAttribute('disabled')).toBe(true);
   expect(calls.some((args) => args[1] === 'open')).toBe(false);
-  await click(byTestId('nav-board')[0]);
-  expect(byTestId('sessions-ended')).toHaveLength(1);
+  await click(byTestId('nav-grid')[0]);
+  expect(byTestId('grid-toolbar')).toHaveLength(1);
   await click(tab('Sessions'));
   expect(byTestId('session-start')).toHaveLength(1);
   expect(byTestId('sessions-ended')).toHaveLength(0);
 });
 
-test('recently stopped and foreign sessions do not replace the empty landing view, while Board keeps them', async () => {
+test('recently stopped and foreign sessions do not replace the empty landing view, without exposing a Board view', async () => {
   const stopped = managedRow('stopped1', {
     alive: false,
     endedAt: '2026-09-25T12:00:00.000Z',
@@ -192,10 +192,70 @@ test('recently stopped and foreign sessions do not replace the empty landing vie
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   expect(byTestId('session-start')).toHaveLength(1);
-  await click(byTestId('nav-board')[0]);
-  expect(byTestId('session-row')).toHaveLength(2);
-  await click(byTestId('sessions-ended')[0]);
+  expect(byTestId('nav-board')).toHaveLength(0);
+  expect(byTestId('session-row')).toHaveLength(0);
+  await click(byTestId('nav-grid')[0]);
   await click(tab('Sessions'));
   expect(byTestId('session-start')).toHaveLength(1);
   expect(byTestId('sessions-ended')).toHaveLength(0);
+});
+
+test('Board is absent in both sidebar layouts, and search and the saved shortcut open Sessions', async () => {
+  const { bridge } = fakeBridge({ projects: () => envelope(PROJECTS) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  for (const collapsed of [false, true]) {
+    if (collapsed)
+      await click(
+        document.querySelector<HTMLElement>('[aria-label="Collapse sidebar"]') ?? undefined,
+      );
+    expect(document.querySelector('[aria-label="Board"]')).toBeNull();
+    expect(byTestId('nav-board')).toHaveLength(0);
+    expect(byTestId('board-layout')).toHaveLength(0);
+    expect(byTestId('board-controls')).toHaveLength(0);
+    expect(byTestId('sessions-ended')).toHaveLength(0);
+    await click(byTestId('nav-doctor')[0]);
+    await act(async () =>
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '1', metaKey: true, bubbles: true }),
+      ),
+    );
+    expect(byTestId('session-start')[0]?.closest('[hidden]')).toBeNull();
+    await click(byTestId('nav-doctor')[0]);
+    await click(byTestId('search-trigger')[0]);
+    const query = byTestId('palette-query')[0] as HTMLInputElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(
+        query,
+        'Sessions',
+      );
+      query.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await click(
+      byTestId('palette-hit').find((hit) => hit.textContent?.includes('Open session workspace')),
+    );
+    expect(byTestId('session-start')[0]?.closest('[hidden]')).toBeNull();
+    expect(byTestId('command-palette')).toHaveLength(0);
+  }
+  await click(byTestId('nav-shortcuts')[0]);
+  expect(byTestId('shortcut-settings')[0]?.textContent).toContain('Go to Sessions');
+  expect(byTestId('shortcut-settings')[0]?.textContent).not.toContain('Go to Board');
+});
+
+test('archiving the last project session returns to the Sessions composer', async () => {
+  let archived = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(archived ? [] : [managedRow('last0001')]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+    archive: () => {
+      archived = true;
+      return envelope({ ...managedRow('last0001'), archivedAt: '2026-09-30T12:00:00.000Z' });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector<HTMLElement>('[aria-label="Archive session"]') ?? undefined);
+  await click(byTestId('archive-confirm')[0]);
+  expect(calls).toContainEqual(['--json', 'archive', '--', 'last0001']);
+  expect(byTestId('session-start')[0]?.closest('[hidden]')).toBeNull();
+  expect(byTestId('project-workspace')).toHaveLength(0);
 });
