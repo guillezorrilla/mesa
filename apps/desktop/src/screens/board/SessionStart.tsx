@@ -10,6 +10,8 @@ import { ProjectSelect } from './ProjectSelect';
 
 export function SessionStart(props: {
   projects?: readonly ProjectRow[];
+  projectsError?: string;
+  onRetryProjects?: () => void;
   disabled: boolean;
   onOpen: (input: NewSessionInput) => void;
   onAddProject?: (request: ProjectAddRequest) => void;
@@ -22,7 +24,16 @@ export function SessionStart(props: {
     : projects?.find((project) => project.exists);
   return (
     <div data-testid="session-start" className="flex min-h-0 flex-1 items-center justify-center">
-      {!projects ? (
+      {!projects && props.projectsError ? (
+        <div className="space-y-3 text-center">
+          <p role="alert" className="text-sm text-muted-foreground">
+            {props.projectsError}
+          </p>
+          <Button variant="outline" onClick={props.onRetryProjects}>
+            Retry projects
+          </Button>
+        </div>
+      ) : !projects ? (
         <p className="text-sm text-muted-foreground">Loading projects...</p>
       ) : projects.length === 0 ? (
         <Button

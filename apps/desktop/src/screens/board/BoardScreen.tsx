@@ -115,6 +115,8 @@ export function BoardScreen(
     startWhenEmpty?: boolean;
     onAddProject?: (request: ProjectAddRequest) => void;
     projects?: readonly ProjectRow[];
+    projectsError?: string;
+    onRetryProjects?: () => void;
     onRowsChange?: (rows: TreeRow[]) => void;
     onBoard?: () => void;
     onProject?: (project: string) => void;
@@ -527,6 +529,8 @@ export function BoardScreen(
       {emptyStart ? (
         <SessionStart
           projects={props.projects}
+          projectsError={props.projectsError}
+          onRetryProjects={props.onRetryProjects}
           disabled={acting}
           onOpen={open}
           onAddProject={props.onAddProject}

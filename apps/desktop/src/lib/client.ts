@@ -633,6 +633,9 @@ const COMMANDS = {
     text,
   ]),
   'profile.get': command<ProfileInfo>('profile'),
+  'profile.init': commandWith<{ vault: string }, Recorded<ProfileInfo & { created: boolean }>>(
+    ({ vault }) => ['init', `--vault=${vault}`],
+  ),
   'receipts.list': commandWith<
     { project?: string; session?: string; kind: 'decision' | 'guardrail' | 'vault-change' },
     ReceiptEntry[]

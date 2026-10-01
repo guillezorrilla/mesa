@@ -135,6 +135,11 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const config = useCommand('config.get');
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
+  const needsProfileSetup = config.error?.code === 'not_found';
+  const profileInitialised = async () => {
+    openedInitialTour.current = true;
+    await Promise.all([config.refresh(), doctor.refresh(), prompts.refresh()]);
+  };
   const projectRegistered = async () => {
     await projects.refresh();
     setProjectsRevision((value) => value + 1);
@@ -529,7 +534,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               gridGroups={config.data?.grid?.groups}
               onGridGroupsChanged={() => void config.refresh()}
               selectedSession={view.kind === 'session' ? view.id : undefined}
-              projects={projects.data}
+              projects={projects.data ?? (needsProfileSetup ? [] : undefined)}
+              projectsError={needsProfileSetup ? undefined : projects.error?.message}
+              onRetryProjects={() => void projects.refresh()}
               onRowsChange={setSessions}
               onBoard={() => navigate({ kind: 'board' })}
               onProject={(name) => navigate({ kind: 'project', name })}
@@ -688,6 +695,8 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       />
       {projectAdd?.kind === 'local' && (
         <AddProjectDialog
+          needsProfileSetup={needsProfileSetup}
+          onInitialised={profileInitialised}
           onCancel={() => setProjectAdd(undefined)}
           onRegistered={projectRegistered}
           returnFocus={projectAdd.returnFocus}

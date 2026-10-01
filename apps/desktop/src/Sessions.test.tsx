@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+
 import type { TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
@@ -91,6 +92,33 @@ test('empty Sessions has only Add project when none exist, and registration reve
   await click(byTestId('register-folder')[0]);
   expect(byTestId('add-project-dialog')).toHaveLength(0);
   expect(byTestId('session-start-goal')).toHaveLength(1);
+});
+
+test('a missing profile shows Add project rather than an endless project loading state', async () => {
+  const missing = failure('config.yaml not found; run mesa init --vault <path>');
+  const { bridge } = fakeBridge({ config: () => missing, projects: () => missing });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('session-start')[0]?.textContent).not.toContain('Loading projects');
+  expect(byTestId('empty-add-project')).toHaveLength(1);
+  await click(byTestId('empty-add-project')[0]);
+  expect(byTestId('add-project-dialog')).toHaveLength(1);
+});
+
+test('a failed project lookup displays its error and retries instead of pretending to load forever', async () => {
+  let failed = true;
+  const { bridge } = fakeBridge({
+    projects: () => (failed ? failure('Registry unreadable') : envelope([])),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('session-start')[0]?.textContent).toContain('Registry unreadable');
+  expect(byTestId('session-start')[0]?.textContent).not.toContain('Loading projects');
+  failed = false;
+  await click(
+    [...document.querySelectorAll<HTMLElement>('button')].find(
+      (button) => button.textContent === 'Retry projects',
+    ),
+  );
+  expect(byTestId('empty-add-project')).toHaveLength(1);
 });
 
 test('failed starts preserve the message for retry and pending starts cannot duplicate', async () => {
