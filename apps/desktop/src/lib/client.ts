@@ -74,9 +74,6 @@ import type {
   WeeklyRewind,
   WorkflowStatus,
   WorkspaceFile,
-  Worktree,
-  WorktreeAction,
-  WorktreePreview,
   WorktreeRow,
 } from '@mesa/core';
 
@@ -260,53 +257,6 @@ const COMMANDS = {
     '--',
     project,
   ]),
-  'worktrees.create': commandWith<
-    { project: string; branch: string; base?: string },
-    Recorded<Worktree>
-  >(({ project, branch, base }) => [
-    'worktrees',
-    'create',
-    ...(base ? ['--base', base] : []),
-    '--',
-    project,
-    branch,
-  ]),
-  'worktrees.rerun': commandWith<
-    { project: string; checkout: string },
-    Recorded<{ path: string; ran: true }>
-  >(({ project, checkout }) => ['worktrees', 'rerun', '--', project, checkout]),
-  'worktrees.preview': commandWith<
-    { project: string; action: WorktreeAction; checkout?: string },
-    WorktreePreview
-  >(({ project, action, checkout }) => [
-    'worktrees',
-    'preview',
-    '--action',
-    action,
-    '--',
-    project,
-    ...(checkout ? [checkout] : []),
-  ]),
-  'worktrees.apply': commandWith<
-    { project: string; action: WorktreeAction; token: string; checkout?: string },
-    Recorded<{
-      action: WorktreeAction;
-      paths: string[];
-      destination?: string;
-      remaining?: string[];
-      teardownRan?: boolean;
-    }>
-  >(({ project, action, token, checkout }) => [
-    'worktrees',
-    'apply',
-    '--action',
-    action,
-    '--token',
-    token,
-    '--',
-    project,
-    ...(checkout ? [checkout] : []),
-  ]),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },
     Recorded<FileChange>
@@ -370,13 +320,14 @@ const COMMANDS = {
     ],
   ),
   'git.diff': commandWith<
-    { project: string; checkout?: string; path?: string; staged?: boolean },
+    { project: string; checkout?: string; path?: string; staged?: boolean; full?: boolean },
     GitDiff
-  >(({ project, checkout, path, staged }) => [
+  >(({ project, checkout, path, staged, full }) => [
     'git',
     'diff',
     ...(checkout ? ['--checkout', checkout] : []),
     ...(staged ? ['--staged'] : []),
+    ...(full ? ['--full'] : []),
     '--',
     project,
     ...(path ? [path] : []),
