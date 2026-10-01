@@ -8,7 +8,7 @@ use mac_usernotifications::{
     NotificationSettingStatus,
 };
 use objc2::{define_class, rc::Retained, AnyThread};
-use objc2_foundation::{NSObject, NSObjectProtocol};
+use objc2_foundation::{NSBundle, NSObject, NSObjectProtocol};
 use objc2_user_notifications::{
     UNNotification, UNNotificationDefaultActionIdentifier, UNNotificationPresentationOptions,
     UNNotificationResponse, UNUserNotificationCenter, UNUserNotificationCenterDelegate,
@@ -79,7 +79,11 @@ define_class!(
     }
 );
 
-pub fn install(app: AppHandle, profile: String, initial_notice: Option<String>) {
+pub async fn install(
+    app: AppHandle,
+    profile: String,
+    initial_notice: Option<String>,
+) -> Result<(), String> {
     let _ = APP.set(app);
     let _ = PROFILE.set(profile.clone());
     if let Some((origin, target)) = initial_notice.as_deref().and_then(target_from_id) {
@@ -87,6 +91,9 @@ pub fn install(app: AppHandle, profile: String, initial_notice: Option<String>) 
             *OPENED.lock().expect("notification target lock poisoned") = Some(target);
         }
     }
+    require_bundle()?;
+    // The library installs its delegate first; Mesa then owns notification clicks.
+    let _ = get_notification_settings().await;
     static DELEGATE: OnceLock<Retained<MesaNotificationDelegate>> = OnceLock::new();
     let delegate = DELEGATE.get_or_init(|| {
         let allocated = MesaNotificationDelegate::alloc().set_ivars(());
@@ -94,6 +101,19 @@ pub fn install(app: AppHandle, profile: String, initial_notice: Option<String>) 
     });
     UNUserNotificationCenter::currentNotificationCenter()
         .setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&**delegate)));
+    Ok(())
+}
+
+fn require_bundle() -> Result<(), String> {
+    if NSBundle::mainBundle()
+        .bundleURL()
+        .pathExtension()
+        .is_some_and(|extension| extension.to_string() == "app")
+    {
+        Ok(())
+    } else {
+        Err("Notifications require a bundled Mesa.app; they are unavailable in pnpm dev".into())
+    }
 }
 
 fn notification_id(profile: &str, id: &str, target: &Target) -> String {
@@ -171,6 +191,7 @@ pub struct Status {
 
 #[tauri::command]
 pub async fn notification_status() -> Result<Status, String> {
+    require_bundle()?;
     let settings = get_notification_settings()
         .await
         .map_err(|e| e.to_string())?;
@@ -191,6 +212,7 @@ pub async fn notification_status() -> Result<Status, String> {
 
 #[tauri::command]
 pub async fn notification_request_permission() -> Result<Status, String> {
+    require_bundle()?;
     let granted = request_auth().await.map_err(|e| e.to_string())?;
     let status = notification_status().await?;
     if !granted && status.authorization == "not-determined" {
@@ -238,6 +260,16 @@ pub async fn notification_send(
 #[cfg(test)]
 mod tests {
     use super::{notification_id, target_from_id, Target};
+
+    #[test]
+    fn unbundled_status_and_permission_refuse_before_native_notification_calls() {
+        for result in [
+            tauri::async_runtime::block_on(super::notification_status()),
+            tauri::async_runtime::block_on(super::notification_request_permission()),
+        ] {
+            assert!(matches!(result, Err(error) if error.contains("bundled Mesa.app")));
+        }
+    }
 
     #[test]
     fn notification_target_survives_process_restart_in_its_id() {

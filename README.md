@@ -25,7 +25,15 @@ mesa doctor
 
 `pnpm dev:link` writes a shim at `~/.local/bin/mesa` that runs this checkout's `packages/cli/dist/mesa.js` with the node you ran it with, so `~/.local/bin` must be on your PATH (add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile if `mesa` is not found). Re-run it if you move the checkout or switch node.
 
-`pnpm dev` runs `tsc --build --watch` for core and cli, so an edit shows up in `mesa` within seconds without re-running the build.
+For development, after `pnpm install`, run:
+
+```sh
+pnpm dev
+```
+
+This builds core and CLI once, starts their compiler watcher, and launches the desktop app through Tauri/Vite. React and CSS edits hot-reload; core/CLI edits rebuild automatically and apply on the next app action (reload or reopen a view to rerun its read). Rust edits trigger Tauri's rebuild and app restart. Stop everything with Ctrl-C. Native notifications require a bundled `.app` and are unavailable in this unbundled dev launch. Use `MESA_PROFILE=<name> pnpm dev` to choose an existing profile.
+
+`pnpm dev:cli` runs only the core/CLI watcher. `pnpm dev:desktop` starts only the desktop app against the current compiled CLI.
 
 Other commands:
 
