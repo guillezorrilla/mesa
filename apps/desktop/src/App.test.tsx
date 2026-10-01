@@ -44,8 +44,90 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     ),
   );
   expect(byTestId('doctor-panel')).toHaveLength(1);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
+      (tab) => tab.textContent === 'Projects',
+    ),
+  );
   await click(byTestId('nav-projects')[0]);
   expect(byTestId('projects-screen')).toHaveLength(1);
+});
+
+test('global shortcuts open from the top bar with either sidebar layout, without footer duplicates', async () => {
+  const { bridge } = fakeBridge({
+    notifications: () => envelope([]),
+    help: () => envelope([]),
+  });
+  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  for (const collapsed of [false, true]) {
+    if (collapsed) {
+      await click(
+        document.querySelector<HTMLElement>('[aria-label="Collapse sidebar"]') ?? undefined,
+      );
+    }
+    expect(
+      byTestId('workspace-sidebar')[0]?.querySelectorAll(
+        ':scope > div:last-child [aria-label="Projects"], :scope > div:last-child [aria-label="Help"]',
+      ),
+    ).toHaveLength(0);
+    for (const [id, label, panel] of [
+      ['cost', 'Cost', 'usage-panel'],
+      ['help', 'Help', 'help-screen'],
+      ['usage', 'Analytics', 'usage-panel'],
+      ['inbox', 'Notifications', 'inbox-panel'],
+    ] as const) {
+      const buttons = byTestId(`nav-${id}`);
+      expect(buttons).toHaveLength(1);
+      expect(buttons[0]?.closest('header')).not.toBeNull();
+      expect(buttons[0]?.closest('aside')).toBeNull();
+      expect(buttons[0]?.getAttribute('aria-label')).toBe(label);
+      await click(buttons[0]);
+      expect(byTestId(panel)).toHaveLength(1);
+      expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
+      await click(byTestId('nav-board')[0]);
+      expect(buttons[0]?.getAttribute('aria-current')).toBeNull();
+    }
+  }
+});
+
+test('the sidebar Add project menu keeps the selected project open and refreshes after Add', async () => {
+  let registered = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () =>
+      envelope(
+        registered
+          ? [...PROJECTS, { ...PROJECTS[0], name: 'sunset', label: 'sunset', path: '/src/sunset' }]
+          : PROJECTS,
+      ),
+    register: () => {
+      registered = true;
+      return envelope({ name: 'sunset', receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ folder: '/src/sunset' }));
+  await click(byTestId('sidebar-project')[0]);
+  const addTrigger = document.querySelector<HTMLElement>('[aria-label="Add project"]');
+  await click(addTrigger ?? undefined);
+  const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  expect(items.map((item) => item.textContent?.trim())).toEqual([
+    'Add project',
+    'Import workspace',
+  ]);
+  await click(items[0]);
+  expect(byTestId('add-project-dialog')).toHaveLength(1);
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  expect(byTestId('projects-screen')).toHaveLength(0);
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="Choose project folder"]') ?? undefined,
+  );
+  expect(calls.some((args) => args[1] === 'register')).toBe(false);
+  await click(byTestId('register-folder')[0]);
+  expect(byTestId('add-project-dialog')).toHaveLength(0);
+  expect(
+    byTestId('sidebar-project').some((element) => element.textContent?.includes('sunset')),
+  ).toBe(true);
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+  expect(document.activeElement).toBe(addTrigger);
 });
 
 test('sidebar opens Map without creating a missing saved map', async () => {

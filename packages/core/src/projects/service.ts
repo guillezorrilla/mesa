@@ -14,16 +14,16 @@ import {
 export function projectsService(ctx: MesaContext) {
   const { record, open, absolute } = ctx;
   return {
-    register: (dir: string, create = false) =>
+    register: (dir: string, create = false, label?: string) =>
       record(
         {
           summary: (r) => `Registered project ${r.project.name}`,
           failure: `Could not register ${absolute(dir)}`,
           project: (r) => r.project.name,
-          inputs: { dir: absolute(dir), create },
+          inputs: { dir: absolute(dir), create, ...(label !== undefined ? { label } : {}) },
           outputs: (r) => ({ path: r.path, wroteMesaYaml: r.created }),
         },
-        () => registerProject(open(), { dir: absolute(dir), create }),
+        () => registerProject(open(), { dir: absolute(dir), create, label }),
       ),
     list: () => listProjects(open()),
     discover: (root: string) => discoverProjects(open(), absolute(root)),

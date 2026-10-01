@@ -7,16 +7,14 @@ import {
   WAITING_STATES,
 } from '@mesa/core/browser';
 import {
-  Bell,
-  ChartNoAxesCombined,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsDown,
   ChevronsUp,
-  CircleHelp,
   Clock3,
   Folder,
+  FolderPlus,
   GitBranch,
   Grid2X2,
   Keyboard,
@@ -31,6 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { AddProjectMenu, type ProjectAddRequest } from '@/components/AddProjectMenu';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -72,6 +71,7 @@ export function WorkspaceSidebar(props: {
   sessions: readonly TreeRow[];
   collapsed: boolean;
   onCollapse: () => void;
+  onAddProject: (request: ProjectAddRequest) => void;
   onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal', parent?: string) => void;
   onArchiveSession?: (id: string) => void;
   onDependencySession?: (id: string) => void;
@@ -299,15 +299,26 @@ export function WorkspaceSidebar(props: {
           </div>
         ) : projectTab ? (
           <>
+            <AddProjectMenu onSelect={props.onAddProject}>
+              <Button
+                variant="ghost"
+                className="mb-4 w-full justify-start"
+                aria-label="Add project"
+              >
+                <FolderPlus aria-hidden className="size-4" /> Add project
+                <ChevronRight aria-hidden className="ml-auto size-4" />
+              </Button>
+            </AddProjectMenu>
             <div className="mb-2 flex items-center justify-between px-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-              <span>Recent</span>
+              <span>Your projects</span>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Add or manage projects"
+                data-testid="nav-projects"
+                aria-label="Manage projects"
                 onClick={() => onView({ kind: 'projects' })}
               >
-                <Plus aria-hidden />
+                <Settings2 aria-hidden />
               </Button>
             </div>
             {visible.length === 0 && (
@@ -437,16 +448,12 @@ export function WorkspaceSidebar(props: {
       <div className="flex flex-wrap justify-around border-t px-2 py-2">
         {item('Board', LayoutDashboard, { kind: 'board' })}
         {item('Grid', Grid2X2, { kind: 'grid' })}
-        {item('Projects', Folder, { kind: 'projects' })}
         {item('Vault', Library, { kind: 'vault' })}
         {item('Map', MapIcon, { kind: 'map' })}
         {item('Daily', Clock3, { kind: 'daily' })}
-        {item('Usage', ChartNoAxesCombined, { kind: 'usage' })}
-        {item('Inbox', Bell, { kind: 'inbox' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
         {item('Preferences', Settings2, { kind: 'preferences' })}
         {item('Shortcuts', Keyboard, { kind: 'shortcuts' })}
-        {item('Help', CircleHelp, { kind: 'help' })}
       </div>
     </aside>
   );

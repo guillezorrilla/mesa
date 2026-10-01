@@ -5,9 +5,19 @@ import {
   GENERAL_PROJECT,
   shortcutFromKeys,
 } from '@mesa/core/browser';
-import { Plus, Search, TerminalSquare, UserRound } from 'lucide-react';
+import {
+  Bell,
+  ChartNoAxesCombined,
+  CircleHelp,
+  DollarSign,
+  Plus,
+  Search,
+  TerminalSquare,
+  UserRound,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionDialog } from './components/ActionDialog';
+import type { ProjectAddRequest } from './components/AddProjectMenu';
 import { CommandPalette } from './components/CommandPalette';
 import { LogBox } from './components/LogBox';
 import { ProfileSummary } from './components/ProfileSummary';
@@ -37,6 +47,8 @@ import { MapScreen } from './screens/MapScreen';
 import { PreferencesScreen } from './screens/PreferencesScreen';
 import { ProjectsScreen } from './screens/ProjectsScreen';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
+import { AddProjectDialog } from './screens/projects/AddProjectDialog';
+import { ImportWorkspaceDialog } from './screens/projects/ImportWorkspaceDialog';
 import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
 import { ShortcutSettings } from './screens/ShortcutSettings';
 import { TourScreen } from './screens/TourScreen';
@@ -82,6 +94,8 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     parent?: string;
   }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
+  const [projectAdd, setProjectAdd] = useState<ProjectAddRequest>();
+  const [projectsRevision, setProjectsRevision] = useState(0);
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   const navigate = useCallback(
@@ -120,6 +134,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   const config = useCommand('config.get');
   const prompts = useCommand('prompts.list');
   const projects = useCommand('projects.list');
+  const projectRegistered = async () => {
+    await projects.refresh();
+    setProjectsRevision((value) => value + 1);
+  };
   useEffect(() => {
     if (!config.data || openedInitialTour.current) return;
     openedInitialTour.current = true;
@@ -347,7 +365,10 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
         data-tauri-drag-region
         className="relative z-40 flex h-12 shrink-0 items-center gap-3 border-b bg-background pr-4 pl-20"
       >
-        <h1 data-testid="app-name" className="flex items-center gap-2 font-semibold tracking-tight">
+        <h1
+          data-testid="app-name"
+          className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
+        >
           <span
             aria-hidden
             className="flex size-6 items-center justify-center rounded-md bg-primary font-mono text-xs font-bold text-primary-foreground"
@@ -356,12 +377,12 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           </span>
           Mesa
         </h1>
-        <div className="absolute left-[53%] flex -translate-x-1/2 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-3">
           <Button
             variant="outline"
             size="sm"
             data-testid="search-trigger"
-            className="w-44 justify-between rounded-full bg-card/80 text-muted-foreground sm:w-72"
+            className="min-w-0 w-44 shrink justify-between rounded-full bg-card/80 text-muted-foreground sm:w-72"
             onClick={openSearch}
           >
             <span className="flex items-center gap-2">
@@ -410,7 +431,31 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <details ref={profileMenu} className="relative ml-auto">
+        <nav aria-label="Workspace shortcuts" className="ml-auto flex shrink-0 items-center gap-2">
+          {(
+            [
+              ['Cost', DollarSign, 'usage', 'cost'],
+              ['Help', CircleHelp, 'help', 'help'],
+              ['Analytics', ChartNoAxesCombined, 'usage', 'usage'],
+              ['Notifications', Bell, 'inbox', 'inbox'],
+            ] as const
+          ).map(([label, Icon, kind, id]) => (
+            <Button
+              key={id}
+              variant="ghost"
+              size="icon-sm"
+              data-testid={`nav-${id}`}
+              aria-label={label}
+              aria-current={view.kind === kind ? 'page' : undefined}
+              title={label}
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => navigate({ kind })}
+            >
+              <Icon aria-hidden className="size-4" />
+            </Button>
+          ))}
+        </nav>
+        <details ref={profileMenu} className="relative shrink-0">
           <summary
             aria-label="Profile and vault"
             className="flex size-8 cursor-pointer items-center justify-center rounded-full border bg-card text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
@@ -436,6 +481,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           sessions={sessions}
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
+          onAddProject={setProjectAdd}
           onNewSession={(project, location, parent) =>
             requestNewSession({
               ...(project === GENERAL_PROJECT ? { general: true } : { project }),
@@ -487,6 +533,8 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           </div>
           {view.kind === 'projects' && (
             <ProjectsScreen
+              refreshRequest={projectsRevision}
+              onAddProject={setProjectAdd}
               cloneLink={cloneLink}
               onRegistered={() => void projects.refresh()}
               onSelectProject={(name) => navigate({ kind: 'project', name })}
@@ -624,6 +672,20 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           }
         }}
       />
+      {projectAdd?.kind === 'local' && (
+        <AddProjectDialog
+          onCancel={() => setProjectAdd(undefined)}
+          onRegistered={projectRegistered}
+          returnFocus={projectAdd.returnFocus}
+        />
+      )}
+      {projectAdd?.kind === 'import' && (
+        <ImportWorkspaceDialog
+          onCancel={() => setProjectAdd(undefined)}
+          onRegistered={projectRegistered}
+          returnFocus={projectAdd.returnFocus}
+        />
+      )}
       {pendingView && (
         <ActionDialog
           testId="file-navigation-dialog"

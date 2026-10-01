@@ -29,6 +29,7 @@ export function ActionDialog(props: {
   };
   onSubmit: (form: HTMLFormElement) => void;
   onCancel: () => void;
+  returnFocus?: HTMLElement | null;
   children: ReactNode;
 }) {
   const { submit } = props;
@@ -37,6 +38,14 @@ export function ActionDialog(props: {
       <DialogContent
         data-testid={props.testId}
         className={cn(props.wide ? 'sm:max-w-lg' : 'sm:max-w-md')}
+        onCloseAutoFocus={
+          props.returnFocus
+            ? (event) => {
+                event.preventDefault();
+                props.returnFocus?.focus();
+              }
+            : undefined
+        }
       >
         <DialogHeader>
           <DialogTitle>{props.title}</DialogTitle>
