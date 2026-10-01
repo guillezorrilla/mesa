@@ -1,5 +1,4 @@
 import type {
-  BoardPreferences,
   Config,
   GridGroup,
   GuardrailCheck,
@@ -10,7 +9,6 @@ import type {
   TreeRow,
 } from '@mesa/core';
 import {
-  DEFAULT_BOARD_PREFERENCES,
   GENERAL_PROJECT,
   isRun,
   projectLabel,
@@ -40,15 +38,11 @@ import { PageHeader } from '@/components/PageHeader';
 import { SavedPromptPicker } from '@/components/SavedPromptPicker';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
 import { ArchiveDialog } from './ArchiveDialog';
-import { BoardControls } from './BoardControls';
-import { BoardLayouts } from './BoardLayouts';
 import { BrowserPanel } from './BrowserPanel';
 import { DependencyDialog } from './DependencyDialog';
 import { DescendantDialog } from './DescendantDialog';
@@ -62,15 +56,14 @@ import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { ResponseReview } from './ResponseReview';
 import { RowMenu } from './RowMenu';
-import { activeSession, exited, queued, recoverable, resumable } from './rows';
+import { exited, queued, recoverable, resumable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
-import type { RowActions } from './SessionRow';
 import { SessionStart } from './SessionStart';
 import { TerminalPanel } from './TerminalPanel';
-import { useBoard } from './useBoard';
+import { useSessions } from './useSessions';
 
 /**
- * The one dialog open on the Board, if any: New session, a row's Rename, Hand off, Log, or
+ * The one dialog open in Sessions, if any: New session, a row's Rename, Hand off, Log, or
  * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
@@ -103,22 +96,16 @@ type OpenDialog =
       image?: SessionImage;
     };
 
-/**
- * The Session Board: every session, Mesa's and (muted, read-only) foreign ones, in mesa's order
- * (highest attention first, children under their parent, collapsible), with Faro's state,
- * the running time, and the last output line. It looks again every
- * two seconds and after every action; a live session's terminal opens under it.
- */
-export function BoardScreen(
+/** The session composer, selected session, and terminal grid share persistent terminal clients. */
+export function SessionsScreen(
   props: {
     selectedSession?: string;
-    startWhenEmpty?: boolean;
     onAddProject?: (request: ProjectAddRequest) => void;
     projects?: readonly ProjectRow[];
     projectsError?: string;
     onRetryProjects?: () => void;
     onRowsChange?: (rows: TreeRow[]) => void;
-    onBoard?: () => void;
+    onSessions?: () => void;
     onProject?: (project: string) => void;
     newSessionRequest?: {
       count: number;
@@ -129,11 +116,9 @@ export function BoardScreen(
     };
     archiveSessionRequest?: { count: number; id: string };
     dependencySessionRequest?: { count: number; id: string };
-    preferences?: BoardPreferences;
     terminalPreferences?: Config['terminal'];
     savedPrompts?: readonly SavedPrompt[];
     promptInsertRequest?: { session: string; text: string };
-    onPreferencesChanged?: () => void;
     onSelectSession?: (id: string) => void;
     onFileLink?: (session: string, target: string) => void;
     gridMode?: boolean;
@@ -141,11 +126,7 @@ export function BoardScreen(
     onGridGroupsChanged?: () => void;
   } = {},
 ) {
-  const [ended, setEnded] = useState(false);
-  const { data, look, collapsed, toggle, elapsed } = useBoard(ended);
-  useEffect(() => {
-    if (props.startWhenEmpty) setEnded(false);
-  }, [props.startWhenEmpty]);
+  const { data, look } = useSessions();
   useEffect(() => {
     if (data) props.onRowsChange?.(data);
   }, [data, props.onRowsChange]);
@@ -242,9 +223,8 @@ export function BoardScreen(
     setReviewOpen(false);
     setPendingBrowser(undefined);
   }, [pendingBrowser, props.selectedSession]);
-  const preferences = props.preferences ?? DEFAULT_BOARD_PREFERENCES;
 
-  // Every action looks again when it ends, so the Board shows what it did.
+  // Every action looks again when it ends, so Sessions shows what it did.
   const { acting, act: once } = useAct();
   const act = (action: () => Promise<Message | undefined>) =>
     once(async () => {
@@ -296,15 +276,13 @@ export function BoardScreen(
       setImage(preview.data);
       return said(`Selected ${preview.data.name} for session ${id}`);
     });
-  const actions: RowActions = {
-    embed: (id) => setPanels((open) => (open.includes(id) ? open : [...open, id])),
-    openTerminal: (id) =>
+  const actions = {
+    openTerminal: (id: string) =>
       act(async () => {
         const attached = await run('sessions.attach', { id });
         return attached && said(`Opened ${attached.target} in ${attached.app}`);
       }),
-    send: (id, form) => send(id, String(new FormData(form).get('prompt') ?? ''), form),
-    stop: (id) =>
+    stop: (id: string) =>
       act(async () => {
         const stopped = await run('sessions.stop', { id });
         if (!stopped) return undefined;
@@ -316,8 +294,8 @@ export function BoardScreen(
           stopped,
         );
       }),
-    stopDescendants: (row) => row.managed && setDialog({ kind: 'stop-descendants', row }),
-    resume: (id) =>
+    stopDescendants: (row: TreeRow) => row.managed && setDialog({ kind: 'stop-descendants', row }),
+    resume: (id: string) =>
       once(async () => {
         const version = selectionVersion.current;
         const resumed = await run('sessions.resume', { id });
@@ -327,31 +305,19 @@ export function BoardScreen(
           props.onSelectSession?.(resumed.id);
         return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
       }),
-    rename: (row) => row.managed && setDialog({ kind: 'rename', row }),
-    dependency: (row) => row.managed && setDialog({ kind: 'dependency', row }),
-    forceStart: (id) =>
+    rename: (row: TreeRow) => row.managed && setDialog({ kind: 'rename', row }),
+    dependency: (row: TreeRow) => row.managed && setDialog({ kind: 'dependency', row }),
+    forceStart: (id: string) =>
       act(async () => {
         const started = await run('sessions.forceStart', { id });
         return started && said(`Started queued session ${id}`, started);
       }),
-    handoff: (row) => row.managed && setDialog({ kind: 'handoff', row }),
-    log: (row) => row.managed && setDialog({ kind: 'log', row }),
-    remove: (row) => row.managed && setDialog({ kind: 'remove', row }),
-    removeDescendants: (row) => row.managed && setDialog({ kind: 'remove-descendants', row }),
-    unarchive: (id) =>
-      act(async () => {
-        const restored = await run('sessions.unarchive', { id });
-        return restored && said(`Unarchived session ${id}`, restored);
-      }),
-    workflow: (id, status) =>
-      act(async () => {
-        const changed = await run('sessions.workflow', { id, status });
-        return (
-          changed &&
-          said(`Session ${id} workflow: ${changed.workflowStatus ?? 'unassigned'}`, changed)
-        );
-      }),
-    adopt: (agentSessionId, project) =>
+    handoff: (row: TreeRow) => row.managed && setDialog({ kind: 'handoff', row }),
+    log: (row: TreeRow) => row.managed && setDialog({ kind: 'log', row }),
+    remove: (row: TreeRow) => row.managed && setDialog({ kind: 'remove', row }),
+    removeDescendants: (row: TreeRow) =>
+      row.managed && setDialog({ kind: 'remove-descendants', row }),
+    adopt: (agentSessionId: string, project?: string) =>
       act(async () => {
         const adopted = await run('sessions.adopt', { agentSessionId, project });
         return adopted && said(`Adopted as ${adopted.id}`, adopted);
@@ -426,9 +392,7 @@ export function BoardScreen(
   const leaveClosedSession = (id: string) => {
     const next = data?.find((row) => row.id !== id && row.managed && !exited(row));
     if (next) props.onSelectSession?.(next.id);
-    else if (selected?.project && selected.project !== GENERAL_PROJECT)
-      props.onProject?.(selected.project);
-    else props.onBoard?.();
+    else props.onSessions?.();
   };
   const archive = (id: string) =>
     act(async () => {
@@ -467,20 +431,6 @@ export function BoardScreen(
       props.onSelectSession?.(opened.id);
       return said(`Opened child terminal ${opened.id}`, opened);
     });
-  const savePreference = (key: 'view' | 'group' | 'density' | 'sort' | 'order', value: unknown) =>
-    act(async () => {
-      const saved = await run('config.set', { path: `board.${key}`, value });
-      if (!saved) return undefined;
-      props.onPreferencesChanged?.();
-      return said(`Saved Board ${key}`, saved);
-    });
-  const move = (id: string, direction: -1 | 1) =>
-    act(async () => {
-      const moved = await run('board.move', { id, direction: direction === -1 ? 'up' : 'down' });
-      if (!moved) return undefined;
-      props.onPreferencesChanged?.();
-      return said(`Moved ${id} on Board`, moved);
-    });
   const saveGroup = (name: string) =>
     act(async () => {
       const sessions = panels.filter((id) =>
@@ -516,14 +466,10 @@ export function BoardScreen(
     );
   };
 
-  const emptyStart =
-    props.startWhenEmpty &&
-    data !== undefined &&
-    !data.some((session) => activeSession(session) || recoverable(session)) &&
-    !props.selectedSession;
+  const emptyStart = !props.selectedSession && !props.gridMode;
   return (
     <section
-      data-testid="session-board"
+      data-testid="session-workspace"
       className={props.selectedSession || emptyStart ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
     >
       {emptyStart ? (
@@ -547,7 +493,7 @@ export function BoardScreen(
             onClick={() =>
               selected?.project && selected.project !== GENERAL_PROJECT && props.onProject
                 ? props.onProject(selected.project)
-                : props.onBoard?.()
+                : props.onSessions?.()
             }
           >
             {projectLabel(selected?.project ?? null)}
@@ -825,39 +771,11 @@ export function BoardScreen(
           title="Terminal grid"
           description="Live sessions in separate tiles, grouped by project."
         >
-          <Button variant="outline" onClick={props.onBoard}>
-            <ArrowLeft aria-hidden /> Board
+          <Button variant="outline" onClick={props.onSessions}>
+            <ArrowLeft aria-hidden /> Sessions
           </Button>
         </PageHeader>
-      ) : (
-        <PageHeader
-          title="Board"
-          description="Every session, the ones waiting on you first; children sit under their parent."
-        >
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Checkbox
-              id="sessions-ended"
-              data-testid="sessions-ended"
-              checked={ended}
-              onCheckedChange={(checked) => setEnded(checked === true)}
-            />
-            <Label htmlFor="sessions-ended" className="font-normal">
-              Show older
-            </Label>
-          </div>
-          <Button data-testid="new-session" onClick={() => setDialog({ kind: 'new' })}>
-            <Plus aria-hidden />
-            New session
-          </Button>
-        </PageHeader>
-      )}
-      {!emptyStart && !props.selectedSession && !props.gridMode && (
-        <BoardControls
-          preferences={preferences}
-          disabled={acting}
-          onChange={(key, value) => savePreference(key, value)}
-        />
-      )}
+      ) : null}
       {props.gridMode && (
         <>
           <GridToolbar
@@ -1018,25 +936,6 @@ export function BoardScreen(
             </p>
           )
         )
-      ) : !emptyStart && !props.gridMode ? (
-        <>
-          {data?.length === 0 && (
-            <p data-testid="sessions-empty" className="text-muted-foreground text-sm">
-              No sessions yet: start one with New session.
-            </p>
-          )}
-          <BoardLayouts
-            rows={data ?? []}
-            preferences={preferences}
-            collapsed={collapsed}
-            toggle={toggle}
-            elapsed={elapsed}
-            acting={acting}
-            actions={actions}
-            onSelect={props.onSelectSession}
-            onMove={move}
-          />
-        </>
       ) : null}
       {props.gridMode && panels.length === 0 && (
         <p className="text-muted-foreground text-sm">
@@ -1063,7 +962,7 @@ export function BoardScreen(
                   ? (gridProject !== 'all' &&
                       !gridLive.some((row) => row.id === id && row.project === gridProject)) ||
                     (Boolean(zoomed) && zoomed !== id)
-                  : false
+                  : true
             }
             className={
               props.selectedSession

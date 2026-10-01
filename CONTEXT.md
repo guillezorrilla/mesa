@@ -265,28 +265,13 @@ Not: priority, urgency, rank.
 
 ## Board
 
-The app's Sessions tab opens the selected live or recoverable Mesa session. With none, it shows a first-message composer and project picker; without visible projects, only Add project appears. If the profile has not been initialised, the first Add project also asks for a local vault folder and calls `mesa init --vault <path>` before registration. A failed project lookup shows its error and Retry projects rather than an indefinite loading state. The composer uses `mesa open` in the selected project's main checkout with its configured agent. Sessions project headings expand or collapse their session groups; project workspaces open from the Projects tab. The explicit Board view retains recent, older, and foreign rows.
+The app's Sessions tab opens the selected live or recoverable Mesa session. With none, it shows a first-message composer and project picker; without visible projects, only Add project appears. If the profile has not been initialised, the first Add project also asks for a local vault folder and calls `mesa init --vault <path>` before registration. A failed project lookup shows its error and Retry projects rather than an indefinite loading state. The composer uses `mesa open` in the selected project's main checkout with its configured agent. Sessions project headings expand or collapse their session groups; project workspaces open from the Projects tab. The desktop has no separate Board view. Command palette navigation, the welcome tour, and the Sessions shortcut open the Sessions workspace; the stored shortcut key remains `shortcuts.board` for compatibility.
 
-The Session Board: the app's Board view (BoardScreen) and the output of `mesa sessions` (id, project, agent, state, confidence as a percent, attention, context use as `ctx`, running time, last output; `--json` adds each row's `decision` with its probabilities). Every session across every project, highest attention first; the app shows `mesa sessions --tree`, children nested under their parent and collapsible. The app keeps confidence and attention for Faro and ordering but omits those numbers from session labels; the selected session's details show both. Each row shows:
+The Session Board remains the core/CLI presentation of every session across every project, highest attention first: `mesa sessions` returns id, project, agent, state, confidence, attention, context use, running time, and last output; `--json` includes each row's decision probabilities. `--tree` nests children under their parent. Existing `board` profile settings and `mesa board --json` presentation groups remain available to CLI callers; list/cards/workflow layouts and controls are absent from the desktop.
 
-- a state badge coloured per state (hover: which decisions backend decided);
-- its context use, as a bar (see Context use);
-- a `run` badge beside the agent of a Skill run;
-- a running time that ticks between looks;
-- the last output line of its pane.
+Selecting a session in the app opens its embedded terminal, xterm.js over a pty running `mesa attach --print`'s argv. A tmux copy reaches the pasteboard, Cmd+V pastes, and Close ends only the tmux client. Session actions include Send, Open terminal, Stop (Cancel for a queued session), Resume, Hand off, and Log, Rename, and Remove in the action menu. Terminal grid keeps several clients visible together and supports saved groups.
 
-Foreign sessions are muted and tagged "not managed", with Adopt their only action (see Adopted session). A Mesa row lists the prompts it received, with their sender. Clicking a live session's id opens its terminal in the app, under the board, and several can be open at once. This embedded terminal is xterm.js over a pty running `mesa attach --print`'s argv. It shows the 256-colour palette. A tmux copy reaches the pasteboard, Cmd+V pastes, and Close ends only the tmux client. The profile's `board` config sets view (`list`, `stacked`, `cards`, `workflow`), grouping (`none`, `project`, `agent`), density, and sort (`attention`, `recent`, `manual`); `order` keeps a manual sequence of session ids. `mesa board --json` returns the same presentation groups. Workflow columns use Workflow status, independent of Faro's state. Other layouts show parent, queue, handoff, and resume links as hints. Actions: New session (a modal dialog with a registered project, an agent, an optional goal, and an optional branch), and per row:
-
-- Send (inline, Enter or the button sends);
-- Open terminal (`mesa attach --app`);
-- Stop, or Cancel for a queued session (see Queued session);
-- Resume, once the agent has exited: stopped, its window gone, or its pane dead;
-- Hand off, which asks for the note (see Handoff);
-- Log (its last 200 output lines, see Output log), Rename, and Remove, in the row menu.
-
-Each action's confirmation shows in a toast that goes by itself after a few seconds; a recorded action's warning (a receipt not written, skills not synced) shows with its confirmation as an alert, which stays until dismissed.
-
-The app looks again every 2 s and at once after every action, one look at a time: a look asked for during one runs right after it. A failure shows as an alert toast, once however often it comes (ADR-0009 amendment). Another screen hides the Board instead of closing it (the owner's choice, #133): its embedded terminals, Show older, and collapsed rows are as they were on the way back, and it keeps looking meanwhile. None of it outlives the app.
+The app refreshes sessions every 2 s and after actions, one look at a time. Another screen hides the session workspace instead of closing its terminal clients. Confirmations disappear after a few seconds; warnings and failures remain as alert toasts until dismissed. None of the terminal-client state outlives the app.
 Not: dashboard, overview, list.
 
 ## Skill

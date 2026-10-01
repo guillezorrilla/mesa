@@ -18,7 +18,6 @@ import {
   GitBranch,
   Grid2X2,
   Keyboard,
-  LayoutDashboard,
   Library,
   Map as MapIcon,
   MoreVertical,
@@ -43,7 +42,6 @@ import { activeSession, recoverable } from '@/screens/board/rows';
 export type WorkspaceView =
   | {
       kind:
-        | 'board'
         | 'sessions'
         | 'grid'
         | 'projects'
@@ -64,7 +62,7 @@ export type WorkspaceView =
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 
-/** Project and session navigation for the active profile. Session state still comes from the Board. */
+/** Project and session navigation for the active profile. Session state comes from the shared session workspace. */
 export function WorkspaceSidebar(props: {
   view: WorkspaceView;
   onView: (view: WorkspaceView) => void;
@@ -98,7 +96,7 @@ export function WorkspaceSidebar(props: {
   const projectTab = view.kind === 'project' || view.kind === 'projects';
   const selectedProject =
     visible.find((project) => project.name === lastProject.current) ?? visible[0];
-  const item = (label: string, icon: typeof LayoutDashboard, target: WorkspaceView) => {
+  const item = (label: string, icon: typeof TerminalSquare, target: WorkspaceView) => {
     const Icon = icon;
     return (
       <Button
@@ -293,7 +291,7 @@ export function WorkspaceSidebar(props: {
       <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         {collapsed ? (
           <div className="space-y-1">
-            {item('Board', LayoutDashboard, { kind: 'board' })}
+            {item('Sessions', TerminalSquare, { kind: 'sessions' })}
             {item('Projects', Folder, { kind: 'projects' })}
           </div>
         ) : projectTab ? (
@@ -439,7 +437,6 @@ export function WorkspaceSidebar(props: {
         )}
       </nav>
       <div className="flex flex-wrap justify-around border-t px-2 py-2">
-        {item('Board', LayoutDashboard, { kind: 'board' })}
         {item('Grid', Grid2X2, { kind: 'grid' })}
         {item('Vault', Library, { kind: 'vault' })}
         {item('Map', MapIcon, { kind: 'map' })}

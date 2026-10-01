@@ -40,7 +40,7 @@ test('grid project tabs, zoom and saved groups retain exact terminal clients', a
     },
   });
   const byTestId = await renderWithMesa(
-    <App startOnBoard />,
+    <App />,
     bridge,
     fakePlatform({ terminal: terminals.host }),
   );
@@ -125,7 +125,7 @@ test('grid project tabs, zoom and saved groups retain exact terminal clients', a
     'bbbbbbbb',
     'bbbbbbbb',
   ]);
-  await click(byTestId('nav-board')[0]);
+  await click(document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0]);
   await click(byTestId('nav-grid')[0]);
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
   await click(document.querySelector('[aria-label="Remove Tide"]') as HTMLElement);

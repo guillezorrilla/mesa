@@ -38,8 +38,8 @@ import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
 import { useMesaLinks } from './lib/useMesaLinks';
 import { BackupScreen } from './screens/BackupScreen';
-import { BoardScreen } from './screens/board/BoardScreen';
 import { activeSession, recoverable } from './screens/board/rows';
+import { SessionsScreen } from './screens/board/SessionsScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { DailyScreen } from './screens/daily/DailyScreen';
 import { HelpScreen } from './screens/HelpScreen';
@@ -56,8 +56,8 @@ import { TourScreen } from './screens/TourScreen';
 import { UsageScreen } from './screens/UsageScreen';
 import { VaultScreen } from './screens/vault/VaultScreen';
 
-export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
-  const [view, setView] = useState<WorkspaceView>({ kind: startOnBoard ? 'board' : 'sessions' });
+export function App() {
+  const [view, setView] = useState<WorkspaceView>({ kind: 'sessions' });
   const [filesDirty, setFilesDirty] = useState(false);
   const [quitOpen, setQuitOpen] = useState(false);
   const closing = useRef(false);
@@ -148,9 +148,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     if (!config.data || openedInitialTour.current) return;
     openedInitialTour.current = true;
     if (config.data.onboarding?.status === 'active')
-      setView((current) =>
-        current.kind === 'board' || current.kind === 'sessions' ? { kind: 'tour' } : current,
-      );
+      setView((current) => (current.kind === 'sessions' ? { kind: 'tour' } : current));
   }, [config.data]);
   const finishQuit = useCallback(async () => {
     if (closing.current) return;
@@ -223,7 +221,6 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
   ]);
   useEffect(() => {
     if (
-      startOnBoard ||
       config.data?.onboarding?.status === 'active' ||
       openedInitialSession.current ||
       !projects.data ||
@@ -234,11 +231,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     if (!first) return;
     openedInitialSession.current = true;
     setView((current) =>
-      current.kind === 'board' || current.kind === 'sessions'
-        ? { kind: 'session', id: first.id }
-        : current,
+      current.kind === 'sessions' ? { kind: 'session', id: first.id } : current,
     );
-  }, [projects.data, sessions, startOnBoard, config.data?.onboarding?.status]);
+  }, [projects.data, sessions, config.data?.onboarding?.status]);
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
   const requestNewSession = useCallback(
@@ -252,9 +247,9 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
     ) => {
       if (filesDirty && view.kind === 'project') {
         setPendingNewSession(preset);
-        setPendingView({ kind: 'board' });
+        setPendingView({ kind: 'sessions' });
       } else {
-        setView({ kind: 'board' });
+        setView({ kind: 'sessions' });
         setNewSessionRequest((request) => ({ count: request.count + 1, ...preset }));
       }
     },
@@ -292,7 +287,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
       navigateRef.current({ kind: 'projects' });
     },
     profileChanged: () =>
-      setView((current) => (current.kind === 'session' ? { kind: 'board' } : current)),
+      setView((current) => (current.kind === 'session' ? { kind: 'sessions' } : current)),
   });
 
   useEffect(() => {
@@ -349,7 +344,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
         }
       } else if (key === shortcuts.board) {
         event.preventDefault();
-        navigate({ kind: 'board' });
+        navigate({ kind: 'sessions' });
       } else if (key === shortcuts.newSession) {
         event.preventDefault();
         if (canStart) {
@@ -517,18 +512,12 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               : 'min-w-0 flex-1 overflow-auto px-6 py-5'
           }
         >
-          {/* The Board stays mounted so its terminal clients survive navigation. */}
+          {/* Sessions stays mounted so its terminal clients survive navigation. */}
           <div
-            hidden={
-              view.kind !== 'board' &&
-              view.kind !== 'sessions' &&
-              view.kind !== 'grid' &&
-              !sessionView
-            }
+            hidden={view.kind !== 'sessions' && view.kind !== 'grid' && !sessionView}
             className={sessionView || view.kind === 'sessions' ? 'h-full' : undefined}
           >
-            <BoardScreen
-              startWhenEmpty={view.kind === 'sessions'}
+            <SessionsScreen
               onAddProject={setProjectAdd}
               gridMode={view.kind === 'grid'}
               gridGroups={config.data?.grid?.groups}
@@ -538,16 +527,14 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
               projectsError={needsProfileSetup ? undefined : projects.error?.message}
               onRetryProjects={() => void projects.refresh()}
               onRowsChange={setSessions}
-              onBoard={() => navigate({ kind: 'board' })}
+              onSessions={() => navigate({ kind: 'sessions' })}
               onProject={(name) => navigate({ kind: 'project', name })}
               newSessionRequest={newSessionRequest}
               archiveSessionRequest={archiveSessionRequest}
               dependencySessionRequest={dependencySessionRequest}
-              preferences={config.data?.board}
               terminalPreferences={config.data?.terminal}
               savedPrompts={prompts.data}
               promptInsertRequest={promptInsertRequest}
-              onPreferencesChanged={() => void config.refresh()}
               onSelectSession={(id) => navigate({ kind: 'session', id })}
               onFileLink={openFileLink}
             />
@@ -639,7 +626,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
             <TourScreen
               state={config.data.onboarding}
               onChanged={() => void config.refresh()}
-              onFinish={() => navigate({ kind: 'board' })}
+              onFinish={() => navigate({ kind: 'sessions' })}
               onNavigate={(kind) => navigate({ kind })}
               onSearch={openSearch}
             />
@@ -676,7 +663,7 @@ export function App({ startOnBoard = false }: { startOnBoard?: boolean } = {}) {
           } else {
             const destination = hit.id === 'skills' ? 'projects' : hit.id;
             if (
-              destination === 'board' ||
+              destination === 'sessions' ||
               destination === 'grid' ||
               destination === 'projects' ||
               destination === 'doctor' ||

@@ -27,7 +27,7 @@ test('a startup encoded session link waits for active profile information then u
     show: () => envelope({ id: 'aaaaaaaa' }),
   });
   const byTestId = await renderWithMesa(
-    <App startOnBoard />,
+    <App />,
     bridge,
     fakePlatform({
       deepLinks: {
@@ -51,7 +51,7 @@ test('a qualified mismatch never looks up the active same-id record or enters cl
     show: () => envelope({ id: 'aaaaaaaa' }),
   });
   const byTestId = await renderWithMesa(
-    <App startOnBoard />,
+    <App />,
     bridge,
     fakePlatform({
       deepLinks: {
@@ -75,7 +75,7 @@ test('live bare links use only the active profile, unknown and malformed links s
       args.at(-1) === 'aaaaaaaa' ? envelope({ id: 'aaaaaaaa' }) : failure('no record'),
   });
   const byTestId = await renderWithMesa(
-    <App startOnBoard />,
+    <App />,
     bridge,
     fakePlatform({
       deepLinks: {
@@ -144,7 +144,7 @@ test.each([true, false])(
       use = (next) => setBridge(() => next);
       return (
         <MesaRoot bridge={bridge} platform={platform}>
-          <App startOnBoard />
+          <App />
         </MesaRoot>
       );
     }

@@ -67,7 +67,7 @@ test('global shortcuts open from the top bar with either sidebar layout, without
     notifications: () => envelope([]),
     help: () => envelope([]),
   });
-  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  const byTestId = await renderWithMesa(<App />, bridge);
   for (const collapsed of [false, true]) {
     if (collapsed) {
       await click(
@@ -93,7 +93,9 @@ test('global shortcuts open from the top bar with either sidebar layout, without
       await click(buttons[0]);
       expect(byTestId(panel)).toHaveLength(1);
       expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
-      await click(byTestId('nav-board')[0]);
+      await click(
+        document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0],
+      );
       expect(buttons[0]?.getAttribute('aria-current')).toBeNull();
     }
   }
@@ -1341,7 +1343,7 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
     'bbbbbbbb',
   ]);
   await click(byTestId('nav-doctor')[0]);
-  await click(byTestId('nav-board')[0]);
+  await click(document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0]);
   await click(byTestId('sidebar-session')[1]);
   expect(byTestId('terminal-bbbbbbbb')).toHaveLength(1);
   expect(terms.calls.filter((call) => call[0] === 'close')).toEqual([]);
@@ -2012,7 +2014,7 @@ test('a plain terminal opens in Sessions without coding-agent send or handoff co
   expect(byTestId('terminal-term0001')).toHaveLength(1);
   await click(document.querySelector('[aria-label="Session actions"]') as HTMLElement);
   expect(document.querySelector('[aria-label="Prompt for term0001"]')).toBeNull();
-  await click(byTestId('nav-board')[0]);
+  await click(document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0]);
   expect(byTestId('session-send')).toHaveLength(0);
   expect(byTestId('session-handoff')).toHaveLength(0);
 });
@@ -2709,22 +2711,29 @@ test('Open in Obsidian runs mesa vault open; a failure shows in the toast', asyn
   expect(again('toast')[0]?.textContent).toContain('Open folder as vault');
 });
 
-/** Types `prompt` into the first row's Send box and sends it. */
-async function send(byTestId: (id: string) => HTMLElement[], prompt: string) {
-  (byTestId('session-prompt')[0] as HTMLInputElement).value = prompt;
-  await click(byTestId('session-send-submit')[0]);
+/** Sends through the selected session's actions. */
+async function send(prompt: string) {
+  const summary = document.querySelector<HTMLElement>('[aria-label="Session actions"]');
+  if (!summary?.closest('details')?.open) await click(summary ?? undefined);
+  const field = document.querySelector<HTMLTextAreaElement>('[aria-label="Prompt for aaaaaaaa"]');
+  if (!field) throw new Error('Missing selected session prompt');
+  field.value = prompt;
+  await act(async () =>
+    field.closest('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
 }
 
 test('a confirmation is neutral, shows every time, and goes by itself', async () => {
   vi.useFakeTimers();
   try {
     const { bridge } = fakeBridge({
+      resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
       sessions: () => envelope([managedRow('aaaaaaaa')]),
       send: () => envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5 }),
     });
-    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
-    await send(byTestId, 'hello');
-    await send(byTestId, 'hello');
+    const byTestId = await renderWithMesa(<App />, bridge);
+    await send('hello');
+    await send('hello');
     expect(toasts(byTestId)).toEqual([
       ['confirmation', 'Sent 5 characters to aaaaaaaa'],
       ['confirmation', 'Sent 5 characters to aaaaaaaa'],
@@ -2741,6 +2750,7 @@ test('a failure, or a confirmation with a warning, is an alert: warm, once, and 
   try {
     let fails = true;
     const { bridge } = fakeBridge({
+      resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
       sessions: () => envelope([managedRow('aaaaaaaa')]),
       send: () =>
         fails
@@ -2753,11 +2763,11 @@ test('a failure, or a confirmation with a warning, is an alert: warm, once, and 
               warning: 'no receipt',
             }),
     });
-    const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
-    await send(byTestId, 'hello');
-    await send(byTestId, 'hello');
+    const byTestId = await renderWithMesa(<App />, bridge);
+    await send('hello');
+    await send('hello');
     fails = false;
-    await send(byTestId, 'hello');
+    await send('hello');
     await act(async () => vi.advanceTimersByTime(2 * CONFIRMATION_MS));
     expect(toasts(byTestId)).toEqual([
       ['alert', 'session aaaaaaaa waits on a person'],
@@ -2845,7 +2855,7 @@ test('authorized native delivery and a click from before app launch open the exa
     'notifications delivered': () => envelope({ ids: notice.ids, delivered: true }),
   });
   const byTestId = await renderWithMesa(
-    <App startOnBoard />,
+    <App />,
     bridge,
     fakePlatform({
       notifications: {
@@ -2884,7 +2894,7 @@ test('a dismissed macOS notification request remains optional', async () => {
   let requests = 0;
   const { bridge } = fakeBridge({ 'notifications list': () => envelope([]) });
   const byTestId = await renderWithMesa(
-    <App startOnBoard />,
+    <App />,
     bridge,
     fakePlatform({
       notifications: {
@@ -2943,7 +2953,7 @@ test('a usage threshold alerts during session work and opens Usage', async () =>
         missing: [],
       }),
   });
-  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  const byTestId = await renderWithMesa(<App />, bridge);
   expect(toastTexts(byTestId)).toContain(
     'Known estimated today cost reached your $1.00 alert. Agents keep running.',
   );
@@ -2968,7 +2978,7 @@ test('the sidebar Vault destination opens the vault inventory', async () => {
         ],
       }),
   });
-  const byTestId = await renderWithMesa(<App startOnBoard />, bridge);
+  const byTestId = await renderWithMesa(<App />, bridge);
   expect(byTestId('vault-panel')).toEqual([]);
   await click(byTestId('nav-vault')[0]);
   expect(byTestId('nav-vault')[0]?.getAttribute('aria-current')).toBe('page');

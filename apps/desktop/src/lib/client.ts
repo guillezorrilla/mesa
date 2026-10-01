@@ -72,7 +72,6 @@ import type {
   VaultStatus,
   Viewed,
   WeeklyRewind,
-  WorkflowStatus,
   WorkspaceFile,
   Worktree,
   WorktreeAction,
@@ -201,10 +200,6 @@ const COMMANDS = {
     '--',
     file,
   ]),
-  'board.move': commandWith<
-    { id: string; direction: 'up' | 'down' },
-    Recorded<{ order: string[] }>
-  >(({ id, direction }) => ['board', 'move', '--', id, direction]),
   'grid.list': command<GridGroup[]>('grid'),
   'files.tree': commandWith<{ project: string; checkout?: string }, FileTree>(
     ({ project, checkout }) => [
@@ -892,10 +887,6 @@ const COMMANDS = {
   'sessions.rename': commandWith<{ id: string; name: string }, Recorded<SessionRecord>>(
     ({ id, name }) => ['rename', '--', id, name],
   ),
-  'sessions.workflow': commandWith<
-    { id: string; status: WorkflowStatus | 'clear' },
-    Recorded<SessionRecord>
-  >(({ id, status }) => ['workflow', '--', id, status]),
   // The app removes an ended session only, so never with --force.
   'sessions.remove': commandWith<
     { id: string; force?: boolean; deleteWorktree?: boolean; deleteBranch?: boolean },
@@ -910,11 +901,6 @@ const COMMANDS = {
   ]),
   'sessions.archive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'archive',
-    '--',
-    id,
-  ]),
-  'sessions.unarchive': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
-    'unarchive',
     '--',
     id,
   ]),

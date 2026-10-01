@@ -52,3 +52,14 @@ test('typed text offers Search vault last, with the text as its id; no text offe
   });
   expect(searchWorkspace(projects, [], ' ').some((hit) => hit.kind === 'vault')).toBe(false);
 });
+
+test('workspace search offers Sessions instead of the removed desktop Board view', () => {
+  const actions = searchWorkspace([], [], '').filter((hit) => hit.kind === 'action');
+  expect(actions.some((hit) => hit.id === 'board' || hit.label === 'Board')).toBe(false);
+  expect(actions).toContainEqual({
+    kind: 'action',
+    id: 'sessions',
+    label: 'Sessions',
+    detail: 'Open session workspace',
+  });
+});
