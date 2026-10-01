@@ -39,8 +39,9 @@ export type ProjectUpdate = {
  */
 export function registerProject(
   profile: Profile,
-  opts: { dir: string; create?: boolean },
-): { project: Project; path: string; created: boolean } {
+  opts: { dir: string; create?: boolean; label?: string },
+): { project: Project; path: string; created: boolean; label?: string } {
+  const label = validatedLabel(opts.label);
   if (!existsSync(opts.dir)) throw new MesaError('not_found', `${opts.dir} does not exist`);
   const path = realpathSync(opts.dir);
   const created = Boolean(opts.create) && !existsSync(projectFile(path));
@@ -54,9 +55,9 @@ export function registerProject(
       );
     }
     if (created) writeProjectFile(path, project);
-    return [...entries, { name: project.name, path }];
+    return [...entries, { name: project.name, path, ...(label !== undefined ? { label } : {}) }];
   });
-  return { project, path, created };
+  return { project, path, created, ...(label !== undefined ? { label } : {}) };
 }
 
 export function listProjects(profile: Profile): ProjectRow[] {
@@ -80,17 +81,7 @@ export function listProjects(profile: Profile): ProjectRow[] {
 /** Change only profile-local presentation; never rename mesa.yaml or historical session links. */
 export function updateProject(profile: Profile, name: string, patch: ProjectUpdate): RegistryEntry {
   if (!Object.keys(patch).length) throw new MesaError('usage', 'set a label, pin, hide, or move');
-  const label = patch.label?.trim();
-  if (
-    patch.label !== undefined &&
-    (!label ||
-      label.length > 80 ||
-      [...label].some(
-        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
-      ))
-  ) {
-    throw new MesaError('usage', 'project label must be 1-80 characters on one line');
-  }
+  const label = validatedLabel(patch.label);
   let updated: RegistryEntry | undefined;
   updateRegistry(profile.paths.registry, (entries) => {
     const index = entries.findIndex((entry) => entry.name === name);
@@ -121,6 +112,21 @@ export function updateProject(profile: Profile, name: string, patch: ProjectUpda
   });
   if (!updated) throw new MesaError('internal', 'project registry update produced no result');
   return updated;
+}
+
+function validatedLabel(value: string | undefined) {
+  const label = value?.trim();
+  if (
+    value !== undefined &&
+    (!label ||
+      label.length > 80 ||
+      [...label].some(
+        (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+      ))
+  ) {
+    throw new MesaError('usage', 'project label must be 1-80 characters on one line');
+  }
+  return label;
 }
 
 /** The registry entry named `name`; not_found otherwise. */

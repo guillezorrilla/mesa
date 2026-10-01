@@ -1,22 +1,11 @@
 // @vitest-environment happy-dom
 import { expect, test } from 'vitest';
-import { App } from '@/App';
-import {
-  cells,
-  click,
-  envelope,
-  failure,
-  fakeBridge,
-  fakePlatform,
-  PROJECTS,
-  renderWithMesa,
-  toastTexts,
-} from '@/lib/testing';
+import { cells, click, envelope, fakeBridge, PROJECTS, renderWithMesa } from '@/lib/testing';
+import { ProjectsScreen } from '@/screens/ProjectsScreen';
 
 test('the Projects screen lists the fixture projects, marking one whose path is gone', async () => {
   const { bridge } = fakeBridge({ projects: () => envelope(PROJECTS) });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-projects')[0]);
+  const byTestId = await renderWithMesa(<ProjectsScreen onAddProject={() => {}} />, bridge);
 
   expect(byTestId('projects-screen')).toHaveLength(1);
   const rows = byTestId('project-row');
@@ -54,8 +43,7 @@ test("Sync skills links the project's enabled skills and says what changed", asy
         unknown: [],
       }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-projects')[0]);
+  const byTestId = await renderWithMesa(<ProjectsScreen onAddProject={() => {}} />, bridge);
   // Only a project whose folder exists can take skills.
   expect(byTestId('sync-skills')).toHaveLength(1);
   // The library, with what this profile enables.
@@ -95,8 +83,7 @@ test('each project row shows the Mesa skills synced into it', async () => {
           : [],
       ),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-projects')[0]);
+  const byTestId = await renderWithMesa(<ProjectsScreen onAddProject={() => {}} />, bridge);
   expect(calls).toContainEqual(['--json', 'skills', 'list', '--', 'lantern-cove']);
   // Only the linked Mesa skills: not one only enabled, not the project's own.
   expect(byTestId('synced-skills').map((c) => c.textContent)).toEqual(['mesa']);
@@ -107,78 +94,10 @@ test('Open session starts a session for the row and says so', async () => {
     projects: () => envelope(PROJECTS),
     open: () => envelope({ id: 'a1b2c3d4', project: 'lantern-cove' }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-projects')[0]);
+  const byTestId = await renderWithMesa(<ProjectsScreen onAddProject={() => {}} />, bridge);
   await click(byTestId('open-session')[0]);
   expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
   expect(byTestId('toast')[0]?.textContent).toContain('Opened session a1b2c3d4 on lantern-cove');
-});
-
-test('Register folder picks a folder, registers it with --create, and refreshes the list', async () => {
-  let registered = false;
-  const { bridge, calls } = fakeBridge({
-    projects: () => envelope(registered ? PROJECTS.slice(0, 1) : []),
-    register: () => {
-      registered = true;
-      return envelope({ name: 'lantern-cove', path: '/src/lantern-cove', created: true });
-    },
-  });
-  const byTestId = await renderWithMesa(
-    <App />,
-    bridge,
-    fakePlatform({ folder: '/src/lantern-cove' }),
-  );
-  await click(byTestId('nav-projects')[0]);
-  expect(byTestId('project-row')).toHaveLength(0);
-
-  await click(byTestId('register-folder')[0]);
-  expect(calls).toContainEqual(['--json', 'register', '--create', '--', '/src/lantern-cove']);
-  expect(byTestId('project-row')).toHaveLength(1);
-});
-
-test('a cancelled picker registers nothing; a failed register shows in the toast', async () => {
-  const cancelled = fakeBridge();
-  const quiet = await renderWithMesa(<App />, cancelled.bridge, fakePlatform());
-  await click(quiet('nav-projects')[0]);
-  await click(quiet('register-folder')[0]);
-  expect(cancelled.calls.some((c) => c[1] === 'register')).toBe(false);
-
-  const clash = fakeBridge({ register: () => failure('already registered: tide at /src/tide') });
-  const byTestId = await renderWithMesa(
-    <App />,
-    clash.bridge,
-    fakePlatform({ folder: '/src/tide' }),
-  );
-  await click(byTestId('nav-projects')[0]);
-  await click(byTestId('register-folder')[0]);
-  expect(toastTexts(byTestId)).toEqual(['already registered: tide at /src/tide']);
-});
-
-test('Discover folders imports only the selected unregistered project', async () => {
-  let registered = false;
-  const candidate = {
-    name: 'lantern-cove',
-    path: '/src/lantern-cove',
-    configured: false,
-    registered: false,
-  };
-  const { bridge, calls } = fakeBridge({
-    projects: () => envelope(registered ? PROJECTS.slice(0, 1) : []),
-    'projects discover': () => envelope([candidate]),
-    register: () => {
-      registered = true;
-      return envelope({ name: 'lantern-cove', path: candidate.path, created: true });
-    },
-  });
-  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ folder: '/src' }));
-  await click(byTestId('nav-projects')[0]);
-  await click(byTestId('discover-projects')[0]);
-  expect(calls).toContainEqual(['--json', 'projects', 'discover', '--', '/src']);
-  expect(byTestId('discovered-project')).toHaveLength(1);
-  await click(byTestId('discovered-project')[0]?.querySelector('button') as HTMLElement);
-  expect(calls).toContainEqual(['--json', 'register', '--create', '--', '/src/lantern-cove']);
-  expect(byTestId('project-row')).toHaveLength(1);
-  expect(byTestId('discovered-project')[0]?.textContent).toContain('Registered');
 });
 
 test('repository link checkout validates before calling mesa and refreshes Projects', async () => {
@@ -190,8 +109,10 @@ test('repository link checkout validates before calling mesa and refreshes Proje
       return envelope({ name: 'lantern-cove', path: '/src/lantern-cove', created: true });
     },
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-projects')[0]);
+  const byTestId = await renderWithMesa(
+    <ProjectsScreen onAddProject={() => {}} cloneLink={{ url: '', request: 1 }} />,
+    bridge,
+  );
   const input = byTestId('repository-url')[0] as HTMLInputElement;
   const type = async (value: string) => {
     input.value = value;
@@ -218,8 +139,7 @@ test("View sessions shows the project's sessions side by side in the terminal ap
         app: 'Terminal',
       }),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(byTestId('nav-projects')[0]);
+  const byTestId = await renderWithMesa(<ProjectsScreen onAddProject={() => {}} />, bridge);
   await click(byTestId('view-sessions')[0]);
   expect(calls).toContainEqual(['--json', 'view', '--app', '--', 'lantern-cove']);
   expect(byTestId('toast')[0]?.textContent).toBe('Viewing 2 sessions of lantern-cove in Terminal');
