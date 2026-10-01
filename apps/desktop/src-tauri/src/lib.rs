@@ -21,15 +21,13 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
         .setup(|app| {
-            // The notification library installs its process-local delegate when its worker starts.
-            // Install Mesa's delegate afterward so clicks from a previous launch are recoverable.
-            let _ =
-                tauri::async_runtime::block_on(mac_usernotifications::get_notification_settings());
-            notifications::install(
+            if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),
                 std::env::var("MESA_PROFILE").unwrap_or_else(|_| "default".into()),
                 std::env::var("MESA_OPEN_NOTIFICATION").ok(),
-            );
+            )) {
+                eprintln!("native notifications unavailable: {error}");
+            }
             if let Err(error) = browser::serve_selection(app.handle()) {
                 eprintln!("native browser selection unavailable: {error}");
             }

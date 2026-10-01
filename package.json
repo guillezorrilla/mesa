@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.5.2",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "tsc --build --watch packages/core packages/cli",
+    "dev": "pnpm --filter @mesa/cli... build && tsc --build --incremental packages/core packages/cli && pnpm --filter mesa-monorepo run --parallel \"/^dev:(cli|desktop)$/\"",
     "dev:link": "sh scripts/dev-link.sh",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
@@ -14,7 +14,9 @@
     "mesa": "node packages/cli/dist/mesa.js",
     "check:dashes": "sh scripts/check-dashes.sh",
     "verify": "sh scripts/verify.sh",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks",
+    "dev:cli": "tsc --build --watch --incremental --preserveWatchOutput packages/core packages/cli",
+    "dev:desktop": "pnpm -C apps/desktop dev"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
