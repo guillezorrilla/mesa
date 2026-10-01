@@ -80,6 +80,8 @@ test('search finds a row in any category and hides the sections without a match'
     (row) => !row.hidden,
   );
   expect(shown.map((row) => row.querySelector('label')?.textContent)).toEqual(['Vim Mode']);
+  const empty = document.querySelector('[data-empty]');
+  expect(empty?.textContent).toBe('No settings match.');
 });
 
 test('the editor tab size saves a number, and the editor command must be an argv', async () => {
@@ -119,7 +121,7 @@ test('session hooks show each agent and install; agents show what Doctor found',
   const byTestId = await render(bridge);
   await click(nav('Notifications'));
   const panel = () => byTestId('settings')[0]?.textContent ?? '';
-  expect(panel()).toContain('Claude: installed');
+  expect(panel()).toContain('Claude Code: installed');
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'Reinstall',

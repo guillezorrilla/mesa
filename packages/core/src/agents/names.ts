@@ -98,7 +98,7 @@ export function agentCapabilityReport(
   ) as Record<Agent, AgentCapabilityResult>;
 }
 
-/** Claude's `--permission-mode` values, for a headless run (config `run.permissionMode`). */
+/** The permission modes `claude -p --permission-mode` takes (Claude Code 2.1.283). */
 export const CLAUDE_PERMISSION_MODES = [
   'acceptEdits',
   'auto',

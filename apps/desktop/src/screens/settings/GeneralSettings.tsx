@@ -1,10 +1,33 @@
 import type { DoctorReport } from '@mesa/core';
+import {
+  COLOR_VISION_MODES,
+  INTERFACE_DENSITIES,
+  INTERFACE_FONTS,
+  INTERFACE_THEMES,
+  TERMINAL_THEMES,
+} from '@mesa/core/browser';
 import { Database, Eye, Palette, Power, RefreshCw, Stethoscope, Type } from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { Choice, Range, TextField, Toggle } from './controls';
 import { SettingRow, SettingSection } from './SettingRow';
 import { useSettings } from './useSettings';
+
+/** Words for core's choices; the choices themselves are core's, so validation and controls agree. */
+const LABEL: Record<string, string> = {
+  system: 'System',
+  dark: 'Dark',
+  light: 'Light',
+  follow: 'Follow interface theme',
+  plex: 'IBM Plex Sans',
+  comfortable: 'Comfortable',
+  compact: 'Compact',
+  normal: 'Normal',
+  'red-green': 'Red-green',
+  'blue-yellow': 'Blue-yellow',
+};
+const options = <T extends string>(values: readonly T[]) =>
+  values.map((value) => [value, LABEL[value] ?? value] as const);
 
 /** Application behaviour, appearance, accessibility, and Doctor's health checks. */
 export function GeneralSettings(props: {
@@ -75,11 +98,7 @@ export function GeneralSettings(props: {
             <SegmentedControl
               label="Interface theme"
               value={appearance.theme}
-              options={[
-                ['system', 'System'],
-                ['dark', 'Dark'],
-                ['light', 'Light'],
-              ]}
+              options={options(INTERFACE_THEMES)}
               onChange={(theme) => save('appearance.theme', theme)}
             />
           }
@@ -93,11 +112,7 @@ export function GeneralSettings(props: {
               id="terminal-theme"
               path="terminal.theme"
               value={terminal.theme}
-              options={[
-                ['follow', 'Follow interface theme'],
-                ['dark', 'Dark'],
-                ['light', 'Light'],
-              ]}
+              options={options(TERMINAL_THEMES)}
             />
           }
         />
@@ -140,10 +155,7 @@ export function GeneralSettings(props: {
               id="appearance-font"
               path="appearance.font"
               value={appearance.font}
-              options={[
-                ['plex', 'IBM Plex Sans'],
-                ['system', 'System'],
-              ]}
+              options={options(INTERFACE_FONTS)}
             />
           }
         />
@@ -170,10 +182,7 @@ export function GeneralSettings(props: {
               id="appearance-density"
               path="appearance.density"
               value={appearance.density}
-              options={[
-                ['comfortable', 'Comfortable'],
-                ['compact', 'Compact'],
-              ]}
+              options={options(INTERFACE_DENSITIES)}
             />
           }
         />
@@ -193,11 +202,7 @@ export function GeneralSettings(props: {
               id="appearance-colorVision"
               path="appearance.colorVision"
               value={appearance.colorVision}
-              options={[
-                ['normal', 'Normal'],
-                ['red-green', 'Red-green'],
-                ['blue-yellow', 'Blue-yellow'],
-              ]}
+              options={options(COLOR_VISION_MODES)}
             />
           }
         />

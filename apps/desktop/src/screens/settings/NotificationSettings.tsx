@@ -1,4 +1,5 @@
 import type { Config } from '@mesa/core';
+import { AGENT_LABELS } from '@mesa/core/browser';
 import { Bell, BellOff, Plug, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { said } from '@/components/Toast';
@@ -137,9 +138,12 @@ function SessionHooks() {
   const { acting, act } = useAct();
   const agents = hooks.data
     ? ([
-        ['Claude', hooks.data.installed && !hooks.data.stale],
-        ['Codex', hooks.data.codex.installed && !hooks.data.codex.stale],
-        ['Antigravity', hooks.data.antigravity.installed && !hooks.data.antigravity.stale],
+        [AGENT_LABELS.claude, hooks.data.installed && !hooks.data.stale],
+        [AGENT_LABELS.codex, hooks.data.codex.installed && !hooks.data.codex.stale],
+        [
+          AGENT_LABELS.antigravity,
+          hooks.data.antigravity.installed && !hooks.data.antigravity.stale,
+        ],
       ] as const)
     : [];
   const ready = agents.length > 0 && agents.every(([, installed]) => installed);

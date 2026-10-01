@@ -174,10 +174,13 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
           {config.data ? (
             <SettingsContext.Provider value={{ config: config.data, acting, save }}>
               <SettingsQuery.Provider value={query}>
-                <div className="space-y-8 px-6 py-5">
+                <div className="space-y-8 px-6 py-5 [&:not(:has([data-setting-row]:not([hidden])))_[data-empty]]:block">
                   {query ? (
                     <>
                       <h2 className="text-lg font-medium">Results for "{query}"</h2>
+                      <p data-empty className="hidden text-sm text-muted-foreground">
+                        No settings match.
+                      </p>
                       {CATEGORIES.map((entry) => (
                         <div key={entry.id} className="space-y-8">
                           {page(entry.id)}

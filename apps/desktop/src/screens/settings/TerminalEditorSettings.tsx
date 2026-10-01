@@ -196,13 +196,10 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
             <Choice
               id="editor-tab-size"
               path="editor.tabSize"
-              value={String(editor.tabSize) as '2' | '4' | '8'}
+              value={String(editor.tabSize)}
               toValue={Number}
-              options={[
-                ['2', '2'],
-                ['4', '4'],
-                ['8', '8'],
-              ]}
+              // The schema's whole range, 2 to 8.
+              options={['2', '3', '4', '5', '6', '7', '8'].map((size) => [size, size] as const)}
             />
           }
         />

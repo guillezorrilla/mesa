@@ -19,10 +19,7 @@ import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
-import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent, CLAUDE_PERMISSION_MODES } from './names.js';
-
-export { CLAUDE_PERMISSION_MODES };
-
+import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 import {
   CLAUDE_VAULT_TOOLS,
   claudeMcpConfig,
@@ -41,8 +38,6 @@ const codexMount = (server: VaultServer) =>
   codexVaultOverrides(server)
     .map((override) => `-c ${shellWord(override)}`)
     .join(' ');
-
-/** The permission modes `claude -p --permission-mode` takes (Claude Code 2.1.283). */
 
 /** How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile). */
 type HeadlessPermissions = { permissionMode: string; allowedTools: readonly string[] };
