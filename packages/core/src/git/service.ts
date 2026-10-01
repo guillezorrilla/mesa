@@ -195,7 +195,10 @@ export function gitService(ctx: MesaContext, faro: Faro) {
       branch(project, checkout, name, 'delete'),
     status: (project: string, checkout?: string) =>
       readGitStatus(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
-    diff: (project: string, input: { checkout?: string; path?: string; staged?: boolean } = {}) =>
+    diff: (
+      project: string,
+      input: { checkout?: string; path?: string; staged?: boolean; full?: boolean } = {},
+    ) =>
       readGitDiff(
         ctx.open(),
         ctx.deps.run,
@@ -203,6 +206,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
         input.checkout && ctx.absolute(input.checkout),
         input.path,
         input.staged,
+        input.full,
       ),
     stage: (project: string, path: string, checkout?: string) =>
       changeIndex(project, checkout, path, 'stage'),

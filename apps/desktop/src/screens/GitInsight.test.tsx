@@ -53,6 +53,11 @@ test('the Insights control explicitly reads source, freshness, and branch-matche
   expect(calls.some((args) => args[1] === 'git' && args[2] === 'insight')).toBe(false);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Graph',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'Insights',
     ),
   );

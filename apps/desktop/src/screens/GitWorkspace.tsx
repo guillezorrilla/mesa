@@ -1,254 +1,250 @@
-import { RefreshCw } from 'lucide-react';
+import {
+  ArrowUpDown,
+  Columns2,
+  FileText,
+  GitBranch,
+  GitFork,
+  RefreshCw,
+  Rows2,
+  Search,
+} from 'lucide-react';
 import { useState } from 'react';
+import { CheckoutPicker } from '@/components/CheckoutPicker';
+import { CountPill } from '@/components/CountPill';
+import { IconButton } from '@/components/IconButton';
 import { said } from '@/components/Toast';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
-import { useCheckoutPaths } from '@/lib/useCheckoutPaths';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { GitBranches } from './GitBranches';
+import { GitChangeList } from './GitChangeList';
+import { GitCommitBox } from './GitCommitBox';
+import { GitDiffHeader } from './GitDiffHeader';
 import { GitDiffView } from './GitDiffView';
 import { GitHistory } from './GitHistory';
 import { GitInsight } from './GitInsight';
 import { GitStashes } from './GitStashes';
 import { GitSyncPanel } from './GitSyncPanel';
+import { type GitSelection, gitSections, isSelected, listOrder } from './gitChanges';
 
-/** Git changes for the registered checkout and session worktrees. */
-export function GitWorkspace(props: { project: string }) {
+const VIEWS = [
+  ['status', 'Status', FileText],
+  ['graph', 'Graph', GitFork],
+] as const;
+
+/** Git changes for the registered checkout and session worktrees, laid out as Xirp's Git tab. */
+export function GitWorkspace(props: {
+  project: string;
+  /** After this tab stages, unstages, commits or refreshes. */
+  onChanged?: () => void;
+}) {
   const [checkout, setCheckout] = useState('');
-  const [diffPath, setDiffPath] = useState<string | null>(null);
+  const [view, setView] = useState<'status' | 'graph'>('status');
+  const [selected, setSelected] = useState<GitSelection>();
+  const [layout, setLayout] = useState<'inline' | 'side-by-side'>('side-by-side');
+  const [panel, setPanel] = useState<'stashes' | 'remote'>();
+  const [filter, setFilter] = useState('');
   const [revision, setRevision] = useState(0);
-  const [message, setMessage] = useState('');
-  const [showBranches, setShowBranches] = useState(false);
-  const [showStashes, setShowStashes] = useState(false);
-  const [showSync, setShowSync] = useState(false);
-  const [showGraph, setShowGraph] = useState(false);
   const [showInsight, setShowInsight] = useState(false);
   const run = useRun();
   const { acting, act } = useAct();
-  const paths = useCheckoutPaths(props.project);
-  const status = useCommand('git.status', {
-    project: props.project,
-    checkout: checkout || undefined,
-  });
-  const changeIndex = (action: 'stage' | 'unstage', path: string) =>
+  const target = { project: props.project, checkout: checkout || undefined };
+  const status = useCommand('git.status', target);
+  const changed = async () => {
+    await status.refresh();
+    setRevision((last) => last + 1);
+    props.onChanged?.();
+  };
+  const changeIndex = (action: 'stage' | 'unstage', paths: string[]) =>
     act(async () => {
-      const result = await run(action === 'stage' ? 'git.stage' : 'git.unstage', {
-        project: props.project,
-        checkout: checkout || undefined,
-        path,
-      });
+      let result: Awaited<ReturnType<typeof run<'git.stage'>>>;
+      // ponytail: one call per path; core takes only literal file paths, never the whole tree.
+      for (const path of paths) {
+        result = await run(action === 'stage' ? 'git.stage' : 'git.unstage', { ...target, path });
+        if (!result) break;
+      }
+      await changed();
       if (!result) return undefined;
-      await status.refresh();
-      setRevision((last) => last + 1);
-      return said(`${action === 'stage' ? 'Staged' : 'Unstaged'} ${path}`, result);
+      const what = paths.length === 1 ? paths[0] : `${paths.length} files`;
+      return said(`${action === 'stage' ? 'Staged' : 'Unstaged'} ${what}`, result);
     });
-  const commit = () =>
-    act(async () => {
-      const result = await run('git.commit', {
-        project: props.project,
-        checkout: checkout || undefined,
-        message,
-      });
+  const commit = async (message: string) => {
+    let done = false;
+    await act(async () => {
+      const result = await run('git.commit', { ...target, message });
       if (!result) return undefined;
-      setMessage('');
-      await status.refresh();
-      setRevision((last) => last + 1);
+      done = true;
+      await changed();
       return said(`Committed ${result.oid.slice(0, 7)}`, result);
     });
-  const hasStaged = status.data?.changes.some(
-    (change) => change.index !== ' ' && change.index !== '?',
+    return done;
+  };
+  const changes = status.data?.changes ?? [];
+  const sections = gitSections(changes, filter);
+  const order = listOrder(sections);
+  const at = Math.max(
+    0,
+    order.findIndex((entry) => isSelected(entry, selected)),
   );
+  const current = order[at];
+  const select = (index: number) => {
+    const entry = order[index];
+    if (entry) setSelected({ path: entry.change.path, staged: entry.staged });
+  };
+  const togglePanel = (name: 'stashes' | 'remote') => setPanel(panel === name ? undefined : name);
   return (
-    <section className="space-y-4" aria-label="Git status">
-      <div className="flex flex-wrap items-center gap-3">
-        <NativeSelect
-          aria-label="Checkout"
-          className="max-w-80"
-          value={checkout}
-          onChange={(event) => {
-            setCheckout(event.target.value);
-            setDiffPath(null);
-          }}
-        >
-          <NativeSelectOption value="">Main checkout</NativeSelectOption>
-          {paths.map((path) => (
-            <NativeSelectOption key={path} value={path}>
-              {path}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={status.busy}
-          onClick={() => {
-            void status.refresh();
-            setRevision((last) => last + 1);
-          }}
-        >
-          <RefreshCw aria-hidden /> Refresh
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setDiffPath('')}>
-          View diff
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowBranches((last) => !last)}>
-          Branches
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowStashes((last) => !last)}>
-          Stashes
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowSync((last) => !last)}>
-          Remote
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowGraph((last) => !last)}>
-          Graph
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setShowInsight((last) => !last)}>
-          Insights
-        </Button>
-      </div>
-      {status.data && (
-        <>
-          <div className="flex items-center gap-3 text-sm">
-            <Badge variant="secondary">{status.data.branch ?? 'Detached HEAD'}</Badge>
-            <span
-              className="truncate font-mono text-xs text-muted-foreground"
-              title={status.data.checkout.path}
+    <section
+      className="flex h-[calc(100vh-13rem)] min-h-[30rem] flex-col overflow-hidden rounded-lg border bg-card/40"
+      aria-label="Git status"
+    >
+      <div className="flex shrink-0 items-center gap-3 border-b px-3 py-2">
+        <div className="flex items-center gap-1 rounded-lg bg-background p-0.5">
+          {VIEWS.map(([name, label, Icon]) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={view === name}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground"
+              onClick={() => setView(name)}
             >
-              {status.data.checkout.path}
-            </span>
-          </div>
-          {status.data.changes.length ? (
-            <ul className="divide-y rounded-lg border" aria-label="Changed files">
-              {status.data.changes.map((change) => (
-                <li
-                  key={`${change.path}:${change.oldPath ?? ''}`}
-                  className="flex gap-3 px-3 py-2 text-sm"
-                >
-                  <span
-                    className="w-8 shrink-0 font-mono text-muted-foreground"
-                    title="Index and working tree status"
-                  >
-                    {change.index}
-                    {change.workingTree}
-                  </span>
-                  <button
-                    type="button"
-                    className="min-w-0 break-all text-left font-mono hover:text-primary"
-                    onClick={() => setDiffPath(change.path)}
-                  >
-                    {change.oldPath ? `${change.oldPath} -> ${change.path}` : change.path}
-                  </button>
-                  <span className="ml-auto flex shrink-0 gap-1">
-                    {change.workingTree !== ' ' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={acting}
-                        onClick={() => void changeIndex('stage', change.path)}
-                      >
-                        Stage
-                      </Button>
-                    )}
-                    {change.index !== ' ' && change.index !== '?' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={acting}
-                        onClick={() => void changeIndex('unstage', change.path)}
-                      >
-                        Unstage
-                      </Button>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">Working tree clean.</p>
-          )}
-        </>
+              <Icon aria-hidden className="size-4" />
+              {label}
+              {name === 'status' && changes.length > 0 && <CountPill count={changes.length} />}
+            </button>
+          ))}
+        </div>
+        {status.data && (
+          <span
+            className="flex min-w-0 items-center gap-1.5 truncate font-mono text-sm text-state-working"
+            title={status.data.checkout.path}
+          >
+            <GitBranch aria-hidden className="size-4 shrink-0" />
+            {status.data.branch ?? 'Detached HEAD'}
+          </span>
+        )}
+        <span className="ml-auto flex items-center gap-1">
+          <CheckoutPicker
+            project={props.project}
+            label="Checkout"
+            value={checkout}
+            onChange={(path) => {
+              setCheckout(path);
+              setSelected(undefined);
+            }}
+          />
+          <IconButton
+            label={layout === 'inline' ? 'Side-by-side diff' : 'Inline diff'}
+            icon={layout === 'inline' ? Columns2 : Rows2}
+            onClick={() => setLayout(layout === 'inline' ? 'side-by-side' : 'inline')}
+          />
+          <IconButton
+            label="Remote"
+            icon={ArrowUpDown}
+            active={panel === 'remote'}
+            onClick={() => togglePanel('remote')}
+          />
+          <IconButton
+            label="Refresh"
+            icon={RefreshCw}
+            disabled={status.busy}
+            onClick={() => void changed()}
+          />
+        </span>
+      </div>
+      {view === 'graph' ? (
+        <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
+          <GitHistory key={`graph:${checkout}:${revision}`} {...target} />
+          <Button variant="outline" size="sm" onClick={() => setShowInsight((last) => !last)}>
+            Insights
+          </Button>
+          {showInsight && <GitInsight key={`insight:${checkout}`} {...target} />}
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <aside className="flex w-72 shrink-0 flex-col border-r bg-card">
+            <div className="border-b p-2">
+              <label className="flex items-center gap-2 rounded-lg bg-background px-2.5 py-1.5">
+                <Search aria-hidden className="size-4 text-muted-foreground" />
+                <input
+                  aria-label="Filter files"
+                  className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
+                  placeholder="Filter files..."
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                />
+              </label>
+            </div>
+            <section className="min-h-0 flex-1 overflow-y-auto" aria-label="Changed files">
+              {!status.data && status.busy && (
+                <p className="p-4 text-sm text-muted-foreground">Loading Git status...</p>
+              )}
+              <GitChangeList
+                sections={sections}
+                selected={current && { path: current.change.path, staged: current.staged }}
+                acting={acting}
+                onSelect={(entry) => setSelected({ path: entry.change.path, staged: entry.staged })}
+                onIndex={(action, paths) => void changeIndex(action, paths)}
+              />
+              {status.data && !changes.length && (
+                <p className="p-4 text-sm text-muted-foreground">Working tree clean.</p>
+              )}
+            </section>
+            <GitCommitBox
+              canCommit={sections.some((section) => section.title === 'Staged')}
+              acting={acting}
+              stashesOpen={panel === 'stashes'}
+              onToggleStashes={() => togglePanel('stashes')}
+              onCommit={commit}
+            />
+          </aside>
+          <section className="flex min-w-0 flex-1 flex-col" aria-label="Git diff">
+            {panel && (
+              <div className="shrink-0 border-b p-3">
+                {panel === 'stashes' ? (
+                  <GitStashes
+                    key={`stashes:${checkout}`}
+                    {...target}
+                    onChanged={() => void changed()}
+                  />
+                ) : (
+                  <GitSyncPanel
+                    key={`sync:${checkout}:${revision}`}
+                    {...target}
+                    onChanged={() => void changed()}
+                  />
+                )}
+              </div>
+            )}
+            {current ? (
+              <>
+                <GitDiffHeader
+                  entry={current}
+                  at={at}
+                  total={order.length}
+                  onMove={(step) => select(at + step)}
+                />
+                <div className="min-h-0 flex-1 overflow-auto p-3">
+                  <GitDiffView
+                    key={`${checkout}:${current.change.path}:${current.staged}:${layout}:${revision}`}
+                    {...target}
+                    path={current.change.path}
+                    staged={current.staged}
+                    untracked={current.code === '?'}
+                    layout={layout}
+                  />
+                </div>
+              </>
+            ) : (
+              status.data && (
+                <div className="grid flex-1 place-items-center text-sm text-muted-foreground">
+                  {changes.length ? 'No changes match the filter.' : 'Nothing to commit.'}
+                </div>
+              )
+            )}
+          </section>
+        </div>
       )}
-      {!status.data && status.busy && (
-        <p className="text-sm text-muted-foreground">Loading Git status...</p>
-      )}
-      <form
-        className="flex flex-wrap gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void commit();
-        }}
-      >
-        <Input
-          aria-label="Commit message"
-          className="min-w-60 flex-1"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          placeholder="Commit message"
-        />
-        <Button type="submit" disabled={acting || !hasStaged || !message.trim()}>
-          Commit staged
-        </Button>
-      </form>
-      {diffPath !== null && (
-        <GitDiffView
-          key={`diff:${checkout}:${diffPath}:${revision}`}
-          project={props.project}
-          checkout={checkout || undefined}
-          path={diffPath || undefined}
-          onClose={() => setDiffPath(null)}
-        />
-      )}
-      {showBranches && (
-        <GitBranches
-          key={`branches:${checkout}`}
-          project={props.project}
-          checkout={checkout || undefined}
-          onChanged={() => {
-            void status.refresh();
-            setRevision((last) => last + 1);
-          }}
-        />
-      )}
-      {showStashes && (
-        <GitStashes
-          key={`stashes:${checkout}`}
-          project={props.project}
-          checkout={checkout || undefined}
-          onChanged={() => {
-            void status.refresh();
-            setRevision((last) => last + 1);
-          }}
-        />
-      )}
-      {showSync && (
-        <GitSyncPanel
-          key={`sync:${checkout}:${revision}`}
-          project={props.project}
-          checkout={checkout || undefined}
-          onChanged={() => {
-            void status.refresh();
-            setRevision((last) => last + 1);
-          }}
-        />
-      )}
-      {showGraph && (
-        <GitHistory
-          key={`graph:${checkout}:${revision}`}
-          project={props.project}
-          checkout={checkout || undefined}
-        />
-      )}
-      {showInsight && (
-        <GitInsight
-          key={`insight:${checkout}`}
-          project={props.project}
-          checkout={checkout || undefined}
-        />
-      )}
+      <GitBranches key={`branches:${checkout}`} {...target} onChanged={() => void changed()} />
     </section>
   );
 }

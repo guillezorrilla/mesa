@@ -52,6 +52,7 @@ export const gitDiff = defineCommand({
   flags: {
     checkout: { type: 'string', description: 'Select a linked worktree path' },
     staged: { type: 'boolean', description: 'Show staged changes' },
+    full: { type: 'boolean', description: 'Include every unchanged line as context' },
   },
   example: 'mesa git diff lantern-cove README.md --staged',
   run: async ({ mesa, args, flags }) => {
@@ -59,6 +60,7 @@ export const gitDiff = defineCommand({
       checkout: flags.checkout,
       path: args.path,
       staged: flags.staged,
+      full: flags.full,
     });
     return { data: diff, text: diff.patch || 'no changes' };
   },
