@@ -44,10 +44,12 @@ export function SkillsWorkspace(props: {
     window.addEventListener('beforeunload', preventClose);
     return () => window.removeEventListener('beforeunload', preventClose);
   }, [dirty]);
-  const visible = (skills.data ?? []).filter(
-    (row) =>
-      filter === 'all' || (filter === 'global' ? row.scope !== 'project' : row.scope === 'project'),
-  );
+  const inScope = (scope: typeof filter) =>
+    (skills.data ?? []).filter(
+      (row) =>
+        scope === 'all' || (scope === 'global' ? row.scope !== 'project' : row.scope === 'project'),
+    );
+  const visible = inScope(filter);
   const open = async (row: SkillInventoryRow, nextFile = 'SKILL.md') => {
     if (dirty) return;
     const document = await run('skills.read', {
@@ -145,7 +147,7 @@ export function SkillsWorkspace(props: {
             onClick={() => setFilter(scope)}
             className="capitalize"
           >
-            {scope}
+            {scope} ({inScope(scope).length})
           </Button>
         ))}
       </fieldset>

@@ -5,7 +5,14 @@ import { type Checkout, resolveCheckout } from './checkout.js';
 import { gitCommand } from './command.js';
 import { literalPath } from './path.js';
 
-export type DiffRow = { kind: 'meta' | 'context' | 'change'; left: string; right: string };
+/** One aligned row; `oldLine` and `newLine` are the 1-based file lines on each side, when present. */
+export type DiffRow = {
+  kind: 'meta' | 'context' | 'change';
+  left: string;
+  right: string;
+  oldLine?: number;
+  newLine?: number;
+};
 export type GitDiff = {
   checkout: Checkout;
   staged: boolean;
@@ -21,6 +28,12 @@ export function diffRows(patch: string): DiffRow[] {
   const rows: DiffRow[] = [];
   // Inside a hunk a `--- x` line is a removed `-- x`, not a file header.
   let inHunk = false;
+  let oldLine = 0;
+  let newLine = 0;
+  const numbered = (left?: boolean, right?: boolean) => ({
+    ...(left ? { oldLine: oldLine++ } : {}),
+    ...(right ? { newLine: newLine++ } : {}),
+  });
   const is = (line: string | undefined, sign: '-' | '+') => inHunk && line?.startsWith(sign);
   for (let i = 0; i < lines.length; ) {
     const line = lines[i] ?? '';
@@ -36,17 +49,31 @@ export function diffRows(patch: string): DiffRow[] {
         i++;
       }
       for (let j = 0; j < Math.max(removed.length, added.length); j++) {
-        rows.push({ kind: 'change', left: removed[j] ?? '', right: added[j] ?? '' });
+        rows.push({
+          kind: 'change',
+          left: removed[j] ?? '',
+          right: added[j] ?? '',
+          ...numbered(j < removed.length, j < added.length),
+        });
       }
     } else if (is(line, '+')) {
-      rows.push({ kind: 'change', left: '', right: line.slice(1) });
+      rows.push({ kind: 'change', left: '', right: line.slice(1), ...numbered(false, true) });
       i++;
     } else if (inHunk && line.startsWith(' ')) {
-      rows.push({ kind: 'context', left: line.slice(1), right: line.slice(1) });
+      rows.push({
+        kind: 'context',
+        left: line.slice(1),
+        right: line.slice(1),
+        ...numbered(true, true),
+      });
       i++;
     } else {
-      if (line.startsWith('@@')) inHunk = true;
-      else if (line.startsWith('diff ')) inHunk = false;
+      const hunk = /^@@ -(\d+)(?:,\d+)? \+(\d+)/.exec(line);
+      if (hunk) {
+        inHunk = true;
+        oldLine = Number(hunk[1]);
+        newLine = Number(hunk[2]);
+      } else if (line.startsWith('diff ')) inHunk = false;
       rows.push({ kind: 'meta', left: line, right: line });
       i++;
     }
@@ -61,6 +88,8 @@ export async function readGitDiff(
   selected?: string,
   path?: string,
   staged = false,
+  /** The whole file as context, so a reader can unfold every unchanged line. */
+  full = false,
 ): Promise<GitDiff> {
   const checkout = await resolveCheckout(profile, run, project, selected);
   const args = [
@@ -69,6 +98,7 @@ export async function readGitDiff(
     '--no-textconv',
     '--no-color',
     '--find-renames',
+    ...(full ? ['--unified=1000000'] : []),
     ...(staged ? ['--cached'] : []),
     '--',
     ...(path ? [literalPath(path)] : []),

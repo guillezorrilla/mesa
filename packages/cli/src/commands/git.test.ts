@@ -149,7 +149,13 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
     ]),
   });
   const diff = await cli.mesa('git', 'diff', 'lantern-cove', 'README.md', '--json');
-  expect(diff.json.data.rows).toContainEqual({ kind: 'change', left: 'old', right: 'new' });
+  expect(diff.json.data.rows).toContainEqual({
+    kind: 'change',
+    left: 'old',
+    right: 'new',
+    oldLine: 1,
+    newLine: 1,
+  });
   expect(diff.json.data.patch).toContain('+new');
   expect((await cli.mesa('git', 'diff', 'lantern-cove', '../other')).code).toBe(2);
   const staged = await cli.mesa('git', 'diff', 'lantern-cove', '--staged', '--json');
@@ -520,10 +526,27 @@ test('commit graph filters local branches and compares divergent refs', async ()
   expect(compared.json.data).toMatchObject({
     behind: 1,
     ahead: 1,
-    rows: expect.arrayContaining([{ kind: 'change', left: '', right: 'feature' }]),
+    rows: expect.arrayContaining([{ kind: 'change', left: '', right: 'feature', newLine: 1 }]),
   });
   expect(compared.json.data.patch).toContain('feature.txt');
   expect((await cli.mesa('git', 'compare', '--', 'lantern-cove', '--help', 'feature')).code).toBe(
     2,
   );
+});
+
+test('diff --full numbers every unchanged line as context around the change', async () => {
+  const repo = await cli.withProject();
+  const lines = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`);
+  writeFileSync(join(repo, 'tide.txt'), `${lines.join('\n')}\n`);
+  gitRepo(repo);
+  writeFileSync(join(repo, 'tide.txt'), `${lines.join('\n').replace('line 10', 'line ten')}\n`);
+  cli.run = withRealGit(cli.run);
+  const rows = async (...flags: string[]) =>
+    (await cli.mesa('git', 'diff', 'lantern-cove', 'tide.txt', ...flags, '--json')).json.data
+      .rows as { kind: string; oldLine?: number; newLine?: number }[];
+  expect((await rows()).filter((row) => row.kind === 'context')).toHaveLength(6);
+  const full = await rows('--full');
+  expect(full.filter((row) => row.kind === 'context')).toHaveLength(19);
+  expect(full.find((row) => row.kind === 'change')).toMatchObject({ oldLine: 10, newLine: 10 });
+  expect(full.at(-1)).toMatchObject({ kind: 'context', oldLine: 20, newLine: 20 });
 });

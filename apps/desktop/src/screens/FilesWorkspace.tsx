@@ -1,18 +1,18 @@
-import type { Config, FileHit, WorkspaceFile } from '@mesa/core';
-import { parseFileTarget } from '@mesa/core/browser';
-import { File, Folder, FolderOpen, RefreshCw, Search } from 'lucide-react';
+import type { Config, WorkspaceFile } from '@mesa/core';
+import { PanelLeft, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { FileEditor } from '@/components/FileEditor';
 import { said } from '@/components/Toast';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
-import { useCheckoutPaths } from '@/lib/useCheckoutPaths';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { FileEditorSettings } from './FileEditorSettings';
+import { FileSearch } from './FileSearch';
+import { FilesEmptyState } from './FilesEmptyState';
+import { FileTabBar } from './FileTabBar';
+import { FileTree } from './FileTree';
 
 type Pending =
   | { kind: 'open'; path: string; line?: number }
@@ -28,8 +28,15 @@ const DEFAULT_EDITOR: Config['editor'] = {
   vim: false,
   external: [],
 };
+const PANES = [
+  ['files', 'Files', PanelLeft],
+  ['search', 'Search', Search],
+] as const;
 
-/** the reference app-style two-pane repository browser over the same checked file commands as the CLI. */
+/**
+ * the reference app-style two-pane repository browser over the same checked file commands as the CLI. It owns
+ * the open file and its unsaved draft: every navigation that would drop the draft asks first.
+ */
 export function FilesWorkspace(props: {
   project: string;
   onDirtyChange: (dirty: boolean) => void;
@@ -39,25 +46,17 @@ export function FilesWorkspace(props: {
   const [opened, setOpened] = useState<(WorkspaceFile & { targetLine?: number }) | null>(null);
   const [openCount, setOpenCount] = useState(0);
   const [draft, setDraft] = useState('');
-  const [query, setQuery] = useState('');
-  const [goTo, setGoTo] = useState('');
-  const [mode, setMode] = useState<'name' | 'content'>('name');
-  const [hits, setHits] = useState<FileHit[] | null>(null);
-  const [searchTruncated, setSearchTruncated] = useState(false);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [pane, setPane] = useState<'files' | 'search'>('files');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const goToInput = useRef<HTMLInputElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'discard'>();
   const [pending, setPending] = useState<Pending>();
   const loadRequest = useRef(0);
   const run = useRun();
   const config = useCommand('config.get');
   const preferences = config.data?.editor ?? DEFAULT_EDITOR;
-  const [externalDraft, setExternalDraft] = useState('');
-  const [externalError, setExternalError] = useState('');
   const { acting, act } = useAct();
-  useEffect(() => {
-    setExternalDraft(JSON.stringify(preferences.external));
-    setExternalError('');
-  }, [preferences.external]);
   const tree = useCommand('files.tree', {
     project: props.project,
     checkout: checkout || undefined,
@@ -73,7 +72,23 @@ export function FilesWorkspace(props: {
     window.addEventListener('beforeunload', preventClose);
     return () => window.removeEventListener('beforeunload', preventClose);
   }, [dirty]);
-  const paths = useCheckoutPaths(props.project);
+  /** Shows a pane and focuses its field, as Cmd+P and Cmd+Shift+F do. */
+  const focusPane = (name: 'files' | 'search') => {
+    setPane(name);
+    requestAnimationFrame(() => (name === 'search' ? searchInput : goToInput).current?.focus());
+  };
+  const focusPaneRef = useRef(focusPane);
+  focusPaneRef.current = focusPane;
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+      if (event.key.toLowerCase() !== (event.shiftKey ? 'f' : 'p')) return;
+      event.preventDefault();
+      focusPaneRef.current(event.shiftKey ? 'search' : 'files');
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, []);
   const load = async (path: string, line?: number, selected = checkout) => {
     const request = ++loadRequest.current;
     const file = await run('files.read', {
@@ -102,14 +117,12 @@ export function FilesWorkspace(props: {
     if (next.kind === 'link') {
       loadRequest.current++;
       setCheckout(next.checkout);
-      setHits(null);
       await load(next.path, next.line, next.checkout);
     }
     if (next.kind === 'checkout') {
       loadRequest.current++;
       setCheckout(next.path);
       setOpened(null);
-      setHits(null);
     }
     if (next.kind === 'close') {
       loadRequest.current++;
@@ -154,17 +167,16 @@ export function FilesWorkspace(props: {
       await config.refresh();
       return said(`Saved editor ${path}`, result);
     });
-  const search = () =>
+  const openExternally = () =>
     act(async () => {
-      const result = await run('files.search', {
+      if (!opened) return undefined;
+      const result = await run('files.open', {
         project: props.project,
         checkout: checkout || undefined,
-        query,
-        content: mode === 'content',
+        path: opened.path,
+        line: opened.targetLine,
       });
-      if (!result) return undefined;
-      setHits(result.hits);
-      setSearchTruncated(result.truncated);
+      return result && said(`Opened ${opened.path} externally`, result);
     });
   const create = (path: string) =>
     act(async () => {
@@ -210,373 +222,91 @@ export function FilesWorkspace(props: {
       await tree.refresh();
       return said(`Deleted ${result.path}`, result);
     });
-  const visible =
-    tree.data?.entries.filter(
-      (entry) =>
-        !entry.path
-          .split('/')
-          .slice(0, -1)
-          .some((_, i, parts) => collapsed.has(parts.slice(0, i + 1).join('/'))),
-    ) ?? [];
-  const jump = () => {
-    const target = parseFileTarget(goTo);
-    if (target) request({ kind: 'open', ...target });
-  };
-  const keyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    const buttons = [
-      ...(event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
-        'button[data-file-row]',
-      ) ?? []),
-    ];
-    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    if (at < 0) return;
-    const next =
-      event.key === 'ArrowDown'
-        ? at + 1
-        : event.key === 'ArrowUp'
-          ? at - 1
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? buttons.length - 1
-              : -1;
-    if (next >= 0) {
-      event.preventDefault();
-      buttons[Math.min(next, buttons.length - 1)]?.focus();
-    }
-  };
   return (
     <section
       data-testid="files-workspace"
       aria-label="Files"
-      className="grid min-h-[34rem] gap-4 md:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)]"
+      className="flex h-[calc(100vh-13rem)] min-h-[30rem] overflow-hidden rounded-lg border bg-card/40"
     >
-      <div className="min-w-0 rounded-lg border bg-card/40 p-3">
-        <div className="flex items-center gap-2 border-b pb-3">
-          <h3 className="flex-1 text-xs font-semibold uppercase tracking-wider">Files</h3>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Create file"
-            disabled={dirty || acting}
-            onClick={() => setDialog('create')}
-          >
-            +
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Refresh files"
-            onClick={() => void tree.refresh()}
-          >
-            <RefreshCw aria-hidden />
-          </Button>
-        </div>
-        <NativeSelect
-          aria-label="Files checkout"
-          className="mt-3"
-          value={checkout}
-          onChange={(event) => request({ kind: 'checkout', path: event.target.value })}
-        >
-          <NativeSelectOption value="">Main checkout</NativeSelectOption>
-          {paths.map((path) => (
-            <NativeSelectOption key={path} value={path}>
-              {path}
-            </NativeSelectOption>
+      <aside className="flex w-80 shrink-0 flex-col border-r bg-card">
+        <div className="flex shrink-0 border-b" role="tablist">
+          {PANES.map(([name, label, Icon]) => (
+            <button
+              key={name}
+              type="button"
+              role="tab"
+              aria-selected={pane === name}
+              className="-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-sm text-muted-foreground hover:text-foreground aria-selected:border-state-working aria-selected:text-foreground"
+              onClick={() => setPane(name)}
+            >
+              <Icon aria-hidden className="size-4" />
+              {label}
+            </button>
           ))}
-        </NativeSelect>
-        <form
-          className="mt-3 flex gap-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void search();
-          }}
-        >
-          <Input
-            aria-label="Search files"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search files..."
+        </div>
+        {pane === 'files' ? (
+          <FileTree
+            key={checkout}
+            project={props.project}
+            checkout={checkout}
+            onCheckout={(path) => request({ kind: 'checkout', path })}
+            tree={tree.data}
+            busy={tree.busy}
+            openedPath={opened?.path}
+            createDisabled={dirty || acting}
+            onCreate={() => setDialog('create')}
+            onRefresh={() => void tree.refresh()}
+            onOpen={(target) => request({ kind: 'open', ...target })}
+            goToRef={goToInput}
           />
-          <Button
-            type="submit"
-            variant="outline"
-            size="icon-sm"
-            aria-label="Run file search"
-            disabled={!query.trim() || acting}
-          >
-            <Search aria-hidden />
-          </Button>
-        </form>
-        <NativeSelect
-          aria-label="File search mode"
-          className="mt-2"
-          value={mode}
-          onChange={(event) => setMode(event.target.value as 'name' | 'content')}
-        >
-          <NativeSelectOption value="name">Filenames</NativeSelectOption>
-          <NativeSelectOption value="content">Contents</NativeSelectOption>
-        </NativeSelect>
-        {hits ? (
-          <section className="mt-3 space-y-1" aria-label="File search results">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setHits(null)}>
-              Back to files
-            </Button>
-            {hits.map((hit) => (
-              <button
-                key={`${hit.path}:${hit.line}`}
-                data-file-row
-                type="button"
-                onKeyDown={keyboard}
-                className="block w-full rounded px-2 py-1 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
-                onClick={() => request({ kind: 'open', path: hit.path, line: hit.line })}
-              >
-                <span className="font-mono">
-                  {hit.path}:{hit.line}
-                </span>
-                <span className="block truncate text-muted-foreground">{hit.preview}</span>
-              </button>
-            ))}
-            {!hits.length && <p className="text-xs text-muted-foreground">No matches.</p>}
-            {searchTruncated && (
-              <p className="text-xs text-muted-foreground">
-                Showing the first 100 matches or 1,500 entries.
-              </p>
-            )}
-          </section>
         ) : (
-          <section className="mt-3 max-h-[36rem] overflow-auto" aria-label="File tree">
-            {visible.map((entry) => (
-              <button
-                key={entry.path}
-                data-file-row
-                type="button"
-                onKeyDown={keyboard}
-                className="flex w-full items-center gap-2 rounded py-1 pr-2 text-left font-mono text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
-                style={{ paddingLeft: `${entry.depth * 12 + 8}px` }}
-                onClick={() =>
-                  entry.kind === 'directory'
-                    ? setCollapsed((last) => {
-                        const next = new Set(last);
-                        if (next.has(entry.path)) next.delete(entry.path);
-                        else next.add(entry.path);
-                        return next;
-                      })
-                    : request({ kind: 'open', path: entry.path })
-                }
-              >
-                {entry.kind === 'file' ? (
-                  <File aria-hidden className="size-3.5 shrink-0" />
-                ) : collapsed.has(entry.path) ? (
-                  <Folder aria-hidden className="size-3.5 shrink-0" />
-                ) : (
-                  <FolderOpen aria-hidden className="size-3.5 shrink-0" />
-                )}
-                <span className="truncate">{entry.path.split('/').at(-1)}</span>
-              </button>
-            ))}
-            {tree.data?.truncated && (
-              <p className="p-2 text-xs text-muted-foreground">Tree limited to 1,500 entries.</p>
-            )}
-            {!visible.length && !tree.busy && (
-              <p className="p-2 text-xs text-muted-foreground">No files found.</p>
-            )}
-          </section>
+          <FileSearch
+            key={checkout}
+            project={props.project}
+            checkout={checkout || undefined}
+            inputRef={searchInput}
+            onOpen={(target) => request({ kind: 'open', ...target })}
+          />
         )}
-      </div>
-      <div className="min-w-0 rounded-lg border bg-card/40 p-4">
-        <details className="mb-4 rounded-md border p-2 text-xs">
-          <summary className="cursor-pointer font-medium">Editor settings</summary>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Label htmlFor="editor-font-size">Font size</Label>
-            <NativeSelect
-              id="editor-font-size"
-              aria-label="Editor font size"
-              value={preferences.fontSize}
-              disabled={acting}
-              onChange={(event) => void savePreference('fontSize', Number(event.target.value))}
-            >
-              {[10, 11, 12, 13, 14, 16, 18, 20, 24].map((size) => (
-                <NativeSelectOption key={size} value={size}>
-                  {size}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <Label htmlFor="editor-tab-size">Tab size</Label>
-            <NativeSelect
-              id="editor-tab-size"
-              aria-label="Editor tab size"
-              value={preferences.tabSize}
-              disabled={acting}
-              onChange={(event) => void savePreference('tabSize', Number(event.target.value))}
-            >
-              {[2, 4, 8].map((size) => (
-                <NativeSelectOption key={size} value={size}>
-                  {size}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <div className="flex items-center gap-1">
-              <Checkbox
-                id="editor-word-wrap"
-                checked={preferences.wordWrap}
-                disabled={acting}
-                onCheckedChange={(checked) => void savePreference('wordWrap', checked === true)}
-              />
-              <Label htmlFor="editor-word-wrap">Wrap lines</Label>
-            </div>
-            <div className="flex items-center gap-1">
-              <Checkbox
-                id="editor-vim"
-                checked={preferences.vim}
-                disabled={acting}
-                onCheckedChange={(checked) => void savePreference('vim', checked === true)}
-              />
-              <Label htmlFor="editor-vim">Vim mode</Label>
-            </div>
-          </div>
-          <form
-            className="mt-3 flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              try {
-                const parsed: unknown = JSON.parse(externalDraft);
-                if (!Array.isArray(parsed) || !parsed.every((arg) => typeof arg === 'string'))
-                  throw new Error('Enter a JSON array of argument strings.');
-                void savePreference('external', parsed);
-              } catch {
-                setExternalError('Enter a JSON array of argument strings.');
-              }
-            }}
-          >
-            <Input
-              aria-label="External editor argv"
-              className="min-w-0 flex-1 font-mono"
-              value={externalDraft}
-              onChange={(event) => {
-                setExternalDraft(event.target.value);
-                setExternalError('');
-              }}
-              placeholder='["/usr/bin/open","-a","TextEdit","{file}"]'
-            />
-            <Button type="submit" size="sm" variant="outline" disabled={acting}>
-              Save argv
-            </Button>
-          </form>
-          {externalError && (
-            <p role="alert" className="mt-1 text-destructive">
-              {externalError}
-            </p>
-          )}
-          <p className="mt-1 text-muted-foreground">
-            Absolute executable, with a {'{file}'} argument and optional {'{line}'}.
-          </p>
-        </details>
-        <form
-          className="mb-4 flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            jump();
-          }}
-        >
-          <Input
-            aria-label="Go to file and line"
-            value={goTo}
-            onChange={(event) => setGoTo(event.target.value)}
-            placeholder="path/to/file.ts:42"
-          />
-          <Button type="submit" variant="outline" disabled={!goTo.trim()}>
-            Go to file
-          </Button>
-        </form>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col bg-background/40">
         {opened ? (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-              <h3 className="min-w-0 flex-1 truncate font-mono text-sm" title={opened.path}>
-                {opened.path}
-                {dirty ? ' *' : ''}
-              </h3>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={acting || !preferences.external.length}
-                onClick={() =>
-                  void act(async () => {
-                    const result = await run('files.open', {
-                      project: props.project,
-                      checkout: checkout || undefined,
-                      path: opened.path,
-                      line: opened.targetLine,
-                    });
-                    return result && said(`Opened ${opened.path} externally`, result);
-                  })
-                }
-              >
-                Open externally
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => request({ kind: 'reload' })}
-              >
-                Reload
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setDialog('rename')}
-                disabled={dirty}
-              >
-                Rename
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setDialog('delete')}
-                disabled={dirty}
-              >
-                Delete
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => request({ kind: 'close' })}
-              >
-                Close
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void save()}
-                disabled={!dirty || acting}
-              >
-                Save
-              </Button>
-            </div>
-            <FileEditor
-              key={`${opened.path}:${openCount}:${preferences.fontSize}:${preferences.tabSize}:${preferences.wordWrap}:${preferences.vim}`}
-              path={opened.path}
-              value={draft}
-              initialText={opened.text}
-              onChange={setDraft}
-              targetLine={opened.targetLine}
-              preferences={preferences}
+          <>
+            <FileTabBar
+              file={opened}
+              dirty={dirty}
+              acting={acting}
+              canOpenExternally={preferences.external.length > 0}
+              settingsOpen={settingsOpen}
+              onClose={() => request({ kind: 'close' })}
+              onOpenExternally={() => void openExternally()}
+              onReload={() => request({ kind: 'reload' })}
+              onRename={() => setDialog('rename')}
+              onDelete={() => setDialog('delete')}
+              onToggleSettings={() => setSettingsOpen((last) => !last)}
+              onSave={() => void save()}
             />
-            <p className="font-mono text-xs text-muted-foreground">
-              {opened.lines} lines · revision {opened.revision.slice(0, 12)}
-            </p>
-          </div>
+            {settingsOpen && (
+              <FileEditorSettings
+                preferences={preferences}
+                disabled={acting}
+                onSave={(key, value) => void savePreference(key, value)}
+              />
+            )}
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3">
+              <FileEditor
+                key={`${opened.path}:${openCount}:${preferences.fontSize}:${preferences.tabSize}:${preferences.wordWrap}:${preferences.vim}`}
+                path={opened.path}
+                value={draft}
+                initialText={opened.text}
+                onChange={setDraft}
+                targetLine={opened.targetLine}
+                preferences={preferences}
+              />
+            </div>
+          </>
         ) : (
-          <div className="grid min-h-80 place-items-center text-sm text-muted-foreground">
-            Select a file to edit or preview.
-          </div>
+          <FilesEmptyState onGoTo={() => focusPane('files')} onSearch={() => focusPane('search')} />
         )}
       </div>
       {dialog === 'create' && (

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { CountPill } from '@/components/CountPill';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
 import { StateBadge } from '@/components/StateBadge';
 import { said } from '@/components/Toast';
@@ -43,8 +44,8 @@ import { GitWorkspace } from './GitWorkspace';
 import { NativeHistory } from './NativeHistory';
 import { RulesWorkspace } from './RulesWorkspace';
 import { SkillsWorkspace } from './SkillsWorkspace';
+import { useGitChangeCount } from './useGitChangeCount';
 import { VaultOverview } from './vault/VaultOverview';
-import { WorktreesWorkspace } from './WorktreesWorkspace';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
@@ -62,9 +63,7 @@ export function ProjectWorkspace(props: {
   onAgentSettings: () => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'worktrees' | 'skills' | 'rules'>(
-    'overview',
-  );
+  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'skills' | 'rules'>('overview');
   useEffect(() => {
     if (props.file) setTab('files');
   }, [props.file]);
@@ -81,6 +80,8 @@ export function ProjectWorkspace(props: {
   );
   const [dialog, setDialog] = useState<'label' | 'unregister'>();
   const worktrees = useCommand('worktrees.list', { project: project.name });
+  const [gitRevision, setGitRevision] = useState(0);
+  const gitChanges = useGitChangeCount(project.name, gitRevision);
   const run = useRun();
   const { acting, act } = useAct();
   const sessions = props.sessions.filter(
@@ -256,7 +257,7 @@ export function ProjectWorkspace(props: {
         </ActionDialog>
       )}
       <nav aria-label={`${project.name} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'git', 'files', 'worktrees', 'skills', 'rules'] as const).map((name) => (
+        {(['overview', 'git', 'files', 'skills', 'rules'] as const).map((name) => (
           <button
             key={name}
             type="button"
@@ -268,6 +269,12 @@ export function ProjectWorkspace(props: {
             }}
           >
             {name}
+            {name === 'git' && gitChanges > 0 && (
+              <CountPill
+                count={gitChanges}
+                className="ml-1.5 inline-flex size-5 items-center justify-center bg-state-idle px-0 text-[11px] font-medium text-background"
+              />
+            )}
           </button>
         ))}
       </nav>
@@ -430,21 +437,12 @@ export function ProjectWorkspace(props: {
             <section className="space-y-3">
               <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <FolderGit2 aria-hidden className="size-4" /> Worktrees ({worktrees.data.length})
-                <button
-                  type="button"
-                  className="font-normal normal-case hover:text-foreground"
-                  onClick={() => setTab('worktrees')}
-                >
-                  Manage
-                </button>
               </h3>
               <div className="flex flex-wrap gap-3">
                 {worktrees.data.map((tree) => (
-                  <button
+                  <div
                     key={tree.path}
-                    type="button"
-                    className="flex min-w-36 flex-col items-start gap-1 rounded-md border bg-card/40 p-3 text-left text-xs hover:border-ring"
-                    onClick={() => setTab('worktrees')}
+                    className="flex min-w-36 flex-col items-start gap-1 rounded-md border bg-card/40 p-3 text-xs"
                   >
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Folder aria-hidden className="size-3" />
@@ -457,13 +455,14 @@ export function ProjectWorkspace(props: {
                     <span className="text-muted-foreground">
                       {tree.holders.length ? `${tree.holders.length} session(s)` : tree.state}
                     </span>
-                  </button>
+                  </div>
                 ))}
               </div>
               <button
                 type="button"
                 className="flex h-12 min-w-24 items-center justify-center gap-2 rounded-md border border-dashed px-4 text-xs text-muted-foreground hover:bg-accent"
-                onClick={() => setTab('worktrees')}
+                disabled={!project.exists}
+                onClick={() => props.onNewSession(project.name, 'worktree')}
               >
                 <Plus aria-hidden className="size-3.5" /> New
               </button>
@@ -509,7 +508,11 @@ export function ProjectWorkspace(props: {
           {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
         </div>
       ) : tab === 'git' ? (
-        <GitWorkspace key={project.name} project={project.name} />
+        <GitWorkspace
+          key={project.name}
+          project={project.name}
+          onChanged={() => setGitRevision((last) => last + 1)}
+        />
       ) : tab === 'files' ? (
         <FilesWorkspace
           key={project.name}
@@ -517,8 +520,6 @@ export function ProjectWorkspace(props: {
           onDirtyChange={props.onFilesDirtyChange}
           target={props.file}
         />
-      ) : tab === 'worktrees' ? (
-        <WorktreesWorkspace project={project.name} onSession={props.onSession} />
       ) : tab === 'skills' ? (
         <SkillsWorkspace
           project={project.name}

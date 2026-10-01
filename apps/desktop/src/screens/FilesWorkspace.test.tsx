@@ -161,3 +161,22 @@ test('Go to file reads path:line:column as the path at that line, as terminal li
     ['--json', 'files', 'read', '--line', '12', '--', 'lantern-cove', 'src/a.ts'],
   ]);
 });
+
+test('Enter in an empty filter opens nothing, since the first row may be a folder', async () => {
+  const checkout = { project: 'lantern-cove', path: '/tmp/lantern-cove', registered: true };
+  const { bridge, calls } = fakeBridge({
+    'files tree': () =>
+      envelope({
+        checkout,
+        entries: [
+          { path: 'docs', kind: 'directory', depth: 0 },
+          { path: 'docs/guide.md', kind: 'file', depth: 1 },
+        ],
+        truncated: false,
+      }),
+  });
+  await renderWithMesa(<FilesWorkspace project="lantern-cove" onDirtyChange={() => {}} />, bridge);
+  const input = document.querySelector('[aria-label="Go to file and line"]') as HTMLInputElement;
+  await act(async () => input.form?.requestSubmit());
+  expect(calls.some((args) => args[1] === 'files' && args[2] === 'read')).toBe(false);
+});
