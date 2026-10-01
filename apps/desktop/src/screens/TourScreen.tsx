@@ -26,7 +26,7 @@ export function TourScreen(props: {
   state: Config['onboarding'];
   onChanged: () => void;
   onFinish: () => void;
-  onNavigate: (kind: 'projects' | 'board') => void;
+  onNavigate: (kind: 'projects' | 'sessions') => void;
   onSearch: () => void;
 }) {
   const run = useRun();
@@ -63,7 +63,7 @@ export function TourScreen(props: {
               <Button variant="outline" onClick={() => props.onNavigate('projects')}>
                 Open Projects
               </Button>
-              <Button variant="outline" onClick={() => props.onNavigate('board')}>
+              <Button variant="outline" onClick={() => props.onNavigate('sessions')}>
                 Open Sessions
               </Button>
             </div>
