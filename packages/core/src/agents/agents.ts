@@ -39,16 +39,6 @@ const codexMount = (server: VaultServer) =>
     .map((override) => `-c ${shellWord(override)}`)
     .join(' ');
 
-/** The permission modes `claude -p --permission-mode` takes (Claude Code 2.1.283). */
-export const CLAUDE_PERMISSION_MODES = [
-  'acceptEdits',
-  'auto',
-  'bypassPermissions',
-  'manual',
-  'dontAsk',
-  'plan',
-] as const;
-
 /** How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile). */
 type HeadlessPermissions = { permissionMode: string; allowedTools: readonly string[] };
 

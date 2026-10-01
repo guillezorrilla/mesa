@@ -22,7 +22,6 @@ import {
   Map as MapIcon,
   MoreVertical,
   Plus,
-  Settings2,
   Stethoscope,
   TerminalSquare,
   X,
@@ -440,7 +439,6 @@ export function WorkspaceSidebar(props: {
         {item('Map', MapIcon, { kind: 'map' })}
         {item('Daily', Clock3, { kind: 'daily' })}
         {item('Doctor', Stethoscope, { kind: 'doctor' })}
-        {item('Preferences', Settings2, { kind: 'preferences' })}
         {item('Shortcuts', Keyboard, { kind: 'shortcuts' })}
       </div>
     </aside>

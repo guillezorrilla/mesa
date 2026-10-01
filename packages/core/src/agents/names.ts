@@ -97,3 +97,13 @@ export function agentCapabilityReport(
     }),
   ) as Record<Agent, AgentCapabilityResult>;
 }
+
+/** The permission modes `claude -p --permission-mode` takes (Claude Code 2.1.283). */
+export const CLAUDE_PERMISSION_MODES = [
+  'acceptEdits',
+  'auto',
+  'bypassPermissions',
+  'manual',
+  'dontAsk',
+  'plan',
+] as const;
