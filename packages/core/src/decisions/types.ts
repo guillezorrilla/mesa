@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { DECISIONS_BACKENDS } from './backends.js';
 
 /** A decisions backend (CONTEXT.md, Backend): what a profile's `decisions.backend` names. */
-export const DecisionsBackendSchema = z.enum(['rules', 'adapter']);
+export const DecisionsBackendSchema = z.enum(DECISIONS_BACKENDS);
 export type BackendName = z.infer<typeof DecisionsBackendSchema>;
 
 /** Who answered a Decision: a backend, or `rules-fallback` when the named one was asked and failed. */
