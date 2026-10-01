@@ -10,12 +10,18 @@ import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { type HookEvent, parentHook, scanHookEvents } from '../sessions/hook-events.js';
 
+/** The one Mesa command that fixes a Doctor notice, when there is one. */
+export type InboxFix = 'hooks install' | 'vault init';
+
 export type InboxItem = {
   id: string;
   session: string;
   at: string;
   kind: 'input-required' | 'finished' | 'subagent' | 'doctor';
   title: string;
+  /** A Doctor notice's one-line explanation. */
+  detail?: string;
+  fix?: InboxFix;
   read: boolean;
   target: { kind: 'session'; id: string } | { kind: 'doctor' };
 };
@@ -37,6 +43,8 @@ const CandidateSchema = z.strictObject({
   at: z.iso.datetime(),
   kind: z.enum(['input-required', 'finished', 'subagent', 'doctor']),
   title: z.string(),
+  detail: z.string().optional(),
+  fix: z.enum(['hooks install', 'vault init']).optional(),
   fingerprint: z.string(),
   target: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('session'), id: z.string() }),
@@ -58,6 +66,8 @@ const State = z.strictObject({
         name: z.string(),
         status: z.enum(['warn', 'fail']),
         fingerprint: z.string().optional(),
+        detail: z.string().optional(),
+        fix: z.enum(['hooks install', 'vault init']).optional(),
       }),
     )
     .default([]),
@@ -66,11 +76,55 @@ const State = z.strictObject({
 type State = z.infer<typeof State>;
 const EMPTY: State = { read: [], cleared: [], delivered: [], doctor: [], items: [], offsets: {} };
 
+/** What each fix's notice says: the findings it covers become one notice. */
+const FIXES: Record<InboxFix, { title: string; detail: string }> = {
+  'hooks install': {
+    title: 'Session hooks are not enabled',
+    detail: "Mesa can't tell when a coding agent needs you or finishes a turn.",
+  },
+  'vault init': {
+    title: 'Vault is not set up',
+    detail: "Sessions can't save notes, decisions, or receipts until it is laid out.",
+  },
+};
+
+/** One notice per fix that Doctor's hints name, and one per finding with no such fix. */
+function doctorFindings(report: DoctorReport) {
+  const findings = report.checks.filter((check) => check.status !== 'ok');
+  const groups = new Map<string, { name: string; fix?: InboxFix; checks: typeof findings }>();
+  for (const check of findings) {
+    const fix = Object.keys(FIXES).find((command) => check.hint.includes(`\`mesa ${command}\``)) as
+      | InboxFix
+      | undefined;
+    const key = fix ?? `check:${check.name}`;
+    const group = groups.get(key) ?? { name: fix ? FIXES[fix].title : check.name, fix, checks: [] };
+    group.checks.push(check);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map(({ name, fix, checks }) => ({
+    name,
+    status: checks.some((check) => check.status === 'fail') ? ('fail' as const) : ('warn' as const),
+    detail: fix ? FIXES[fix].detail : checks[0]?.hint,
+    ...(fix ? { fix } : {}),
+    // A fix's notice is one thing to do: fixing one of its checks keeps it read or cleared.
+    fingerprint: createHash('sha256')
+      .update(
+        JSON.stringify(
+          fix ? [name, checks.some((check) => check.status === 'fail')] : [name, checks[0]?.status],
+        ),
+      )
+      .digest('hex')
+      .slice(0, 20),
+  }));
+}
+
 const doctorItem = (finding: State['doctor'][number]): Candidate => ({
   session: '',
   at: finding.at,
   kind: 'doctor',
-  title: `Doctor: ${finding.name}`,
+  title: finding.fix ? finding.name : `Doctor: ${finding.name}`,
+  ...(finding.detail ? { detail: finding.detail } : {}),
+  ...(finding.fix ? { fix: finding.fix } : {}),
   fingerprint:
     finding.fingerprint ??
     createHash('sha256').update(`${finding.name}:${finding.status}`).digest('hex').slice(0, 20),
@@ -274,23 +328,13 @@ export function inbox(ctx: MesaContext) {
     recordDoctor: (report: DoctorReport) => {
       const state = read();
       const now = ctx.deps.clock().toISOString();
-      const findings = report.checks.filter((check) => check.status !== 'ok');
-      const fingerprint = createHash('sha256')
-        .update(JSON.stringify(findings.map((check) => [check.name, check.status])))
-        .digest('hex')
-        .slice(0, 20);
+      // A finding seen before keeps its time, so its read or cleared mark still applies.
       write({
         startedAt: state.startedAt ?? now,
-        doctor: findings.length
-          ? [
-              {
-                name: `${findings.length} finding${findings.length === 1 ? '' : 's'}`,
-                status: findings.some((check) => check.status === 'fail') ? 'fail' : 'warn',
-                fingerprint,
-                at: state.doctor.find((entry) => entry.fingerprint === fingerprint)?.at ?? now,
-              },
-            ]
-          : [],
+        doctor: doctorFindings(report).map((finding) => ({
+          ...finding,
+          at: state.doctor.find((entry) => entry.fingerprint === finding.fingerprint)?.at ?? now,
+        })),
       });
     },
   };

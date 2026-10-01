@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
+import { NotificationSettings } from './notifications/NotificationSettings';
 
 const appearanceChoices = [
   {
@@ -52,7 +53,7 @@ const appearanceChoices = [
 export function PreferencesScreen(props: {
   config?: Config;
   onChanged: () => void;
-  onNavigate: (view: 'shortcuts' | 'doctor' | 'inbox' | 'usage' | 'prompts' | 'backup') => void;
+  onNavigate: (view: 'shortcuts' | 'doctor' | 'usage' | 'prompts' | 'backup') => void;
   onReplayTour: () => void;
 }) {
   const run = useRun();
@@ -270,6 +271,7 @@ export function PreferencesScreen(props: {
           )}
         </CardContent>
       </Card>
+      <NotificationSettings />
       <Card>
         <CardHeader>
           <CardTitle>Related settings</CardTitle>
@@ -278,7 +280,7 @@ export function PreferencesScreen(props: {
           <Button variant="outline" onClick={props.onReplayTour}>
             Replay welcome tour
           </Button>
-          {(['backup', 'prompts', 'shortcuts', 'doctor', 'inbox', 'usage'] as const).map((view) => (
+          {(['backup', 'prompts', 'shortcuts', 'doctor', 'usage'] as const).map((view) => (
             <Button key={view} variant="outline" onClick={() => props.onNavigate(view)}>
               {
                 {
@@ -286,7 +288,6 @@ export function PreferencesScreen(props: {
                   prompts: 'Saved prompts',
                   backup: 'Local backup',
                   doctor: 'Agent setup',
-                  inbox: 'Notifications',
                   usage: 'Usage alerts',
                 }[view]
               }

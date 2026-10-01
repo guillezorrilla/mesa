@@ -91,10 +91,11 @@ test('global shortcuts open from the top bar with either sidebar layout, without
         ':scope > div:last-child [aria-label="Projects"], :scope > div:last-child [aria-label="Help"]',
       ),
     ).toHaveLength(0);
+    // No Analytics: Cost opens the usage window, as in the reference app.
+    expect(byTestId('nav-usage')).toHaveLength(0);
     for (const [id, label, panel] of [
       ['cost', 'Cost', 'usage-panel'],
       ['help', 'Help', 'help-screen'],
-      ['usage', 'Analytics', 'usage-panel'],
       ['inbox', 'Notifications', 'inbox-panel'],
     ] as const) {
       const buttons = byTestId(`nav-${id}`);
@@ -104,11 +105,21 @@ test('global shortcuts open from the top bar with either sidebar layout, without
       expect(buttons[0]?.getAttribute('aria-label')).toBe(label);
       await click(buttons[0]);
       expect(byTestId(panel)).toHaveLength(1);
-      expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
-      await click(
-        document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0],
-      );
-      expect(buttons[0]?.getAttribute('aria-current')).toBeNull();
+      if (id === 'help') {
+        expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
+        await click(
+          document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0],
+        );
+        expect(buttons[0]?.getAttribute('aria-current')).toBeNull();
+      } else {
+        // The usage window and the notifications menu open over the view and close on Escape.
+        await act(async () =>
+          document.activeElement?.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+          ),
+        );
+        expect(byTestId(panel)).toHaveLength(0);
+      }
     }
   }
 });
@@ -2979,7 +2990,7 @@ test('a dismissed macOS notification request remains optional', async () => {
       },
     }),
   );
-  await click(byTestId('nav-inbox')[0]);
+  await click(byTestId('nav-preferences')[0]);
   expect(requests).toBe(0);
   await click(
     [...document.querySelectorAll('button')].find(
@@ -2987,10 +2998,10 @@ test('a dismissed macOS notification request remains optional', async () => {
     ),
   );
   expect(requests).toBe(1);
-  expect(byTestId('inbox-panel')[0]?.textContent).toContain(
+  expect(byTestId('notification-settings')[0]?.textContent).toContain(
     'notification permission was not granted',
   );
-  expect(byTestId('inbox-panel')[0]?.textContent).toContain('Enable notifications');
+  expect(byTestId('notification-settings')[0]?.textContent).toContain('Enable notifications');
 });
 
 test('a usage threshold alerts during session work and opens Usage', async () => {
@@ -3010,6 +3021,7 @@ test('a usage threshold alerts during session work and opens Usage', async () =>
         periods: { today: zero, '7d': zero, '30d': zero, '90d': zero, month: zero },
         daily: [],
         breakdown: [],
+        agents: [],
         alerts: [{ period: 'today', thresholdUsd: 1, knownCostUsd: 1.5 }],
       }),
     rewind: () =>

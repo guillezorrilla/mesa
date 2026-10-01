@@ -53,7 +53,7 @@ export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
-export type { DeliveryPlan, InboxItem } from './notifications/inbox.js';
+export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
 export {
@@ -123,7 +123,12 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-stat
 export type { Worktree } from './sessions/worktree.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
-export type { UsageRecord, UsageReport } from './usage/records.js';
+export type {
+  UsageBreakdown,
+  UsageRecord,
+  UsageReport,
+  UsageTotals,
+} from './usage/records.js';
 export type { WeeklyRewind } from './usage/rewind.js';
 export type { BasesWritten } from './vault/bases.js';
 export type { CanvasData, CanvasEdge, CanvasNode } from './vault/canvas.js';
