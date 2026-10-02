@@ -1,6 +1,7 @@
 {
   "name": "mesa-monorepo",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.5.2",
   "scripts": {
