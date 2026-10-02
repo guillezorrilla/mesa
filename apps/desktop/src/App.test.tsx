@@ -2518,6 +2518,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       carryIgnoredDirectories: [],
       setup: [],
       teardown: [],
+      deleteBranch: false,
     },
     shortcuts,
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },

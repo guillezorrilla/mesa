@@ -140,8 +140,11 @@ test('worktree settings retain the profile default and reject unsafe directories
     carryIgnoredDirectories: [],
     setup: [],
     teardown: [],
+    deleteBranch: false,
   });
   expect(setConfigValue(file, 'worktrees.location', 'nested').value).toBe('nested');
+  expect(setConfigValue(file, 'worktrees.deleteBranch', 'true').value).toBe(true);
+  expect(loadConfig(file).worktrees.deleteBranch).toBe(true);
   expect(setConfigValue(file, 'worktrees.sparseDirectories', '[src, docs]').value).toEqual([
     'src',
     'docs',
@@ -151,6 +154,7 @@ test('worktree settings retain the profile default and reject unsafe directories
     ['worktrees.location', 'custom'],
     ['worktrees.sparseDirectories', '["../outside"]'],
     ['worktrees.carryIgnoredDirectories', '[".git/objects"]'],
+    ['worktrees.deleteBranch', 'sometimes'],
   ] as const) {
     expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
     expect(readFileSync(file, 'utf8')).toBe(before);
