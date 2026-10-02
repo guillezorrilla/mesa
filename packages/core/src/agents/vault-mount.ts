@@ -1,5 +1,6 @@
 import { WINDOW_VARS } from '../sessions/caller.js';
 import { VAULT_SERVER } from '../vault/server.js';
+import { VAULT_WRITE_TOOLS } from '../vault/tools.js';
 import type { Agent } from './names.js';
 
 // How a session's agent mounts mesa-vault, the stdio MCP server `mesa vault mcp` (ADR-0011), with
@@ -30,6 +31,11 @@ export function vaultServer(self: readonly string[]): VaultServer {
 /** Claude Code's permission rule for every tool of the server. */
 export const CLAUDE_VAULT_TOOLS = `mcp__${VAULT_SERVER}`;
 
+/** Claude Code's rules for the server's write tools, which a read-only run disallows. */
+export const CLAUDE_VAULT_WRITES = VAULT_WRITE_TOOLS.map(
+  (tool) => `${CLAUDE_VAULT_TOOLS}__${tool}`,
+);
+
 /**
  * Claude Code's --mcp-config, inline, as one argv word. No `env`: Claude passes the server its
  * own environment, the window's, or a background job's launch settings (claude/background.ts).
@@ -59,3 +65,6 @@ export const codexVaultOverrides = (server: VaultServer) =>
     env_vars: WINDOW_VARS,
     default_tools_approval_mode: 'approve',
   }).map(([key, value]) => `mcp_servers.${VAULT_SERVER}.${key}=${JSON.stringify(value)}`);
+
+/** Codex's override that turns off the server's write tools for a read-only run. */
+export const CODEX_VAULT_READ_ONLY = `mcp_servers.${VAULT_SERVER}.disabled_tools=${JSON.stringify(VAULT_WRITE_TOOLS)}`;

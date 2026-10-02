@@ -366,6 +366,36 @@ test("an entry of the project's own is never touched: a clash is a conflict, an 
   expect(lstatSync(join(dir, '.agents/skills/a')).isSymbolicLink()).toBe(true);
 });
 
+test("a link an earlier Mesa library made is repointed; a link of the user's, elsewhere, is not", () => {
+  const { home, library, dir, mesa } = setUp();
+  mkdirSync(join(dir, '.claude/skills'), { recursive: true });
+  mkdirSync(join(dir, '.agents/skills'), { recursive: true });
+  // A deleted checkout's library, and another checkout's, which ships Mesa's mesa skill.
+  symlinkSync(join(home, 'mesa-399/skills/a'), join(dir, '.claude/skills/a'));
+  skill(join(home, 'mesa-400/skills'), 'mesa');
+  skill(join(home, 'mesa-400/skills'), 'b');
+  symlinkSync(join(home, 'mesa-400/skills/b'), join(dir, '.claude/skills/b'));
+  // The deleted checkout's link for a skill no longer enabled goes, like any link Mesa made.
+  symlinkSync(join(home, 'mesa-399/skills/retired'), join(dir, '.claude/skills/retired'));
+  // The user's own: an absolute link into a skills folder that is not a Mesa library.
+  skill(join(home, 'dotfiles/skills'), 'a');
+  symlinkSync(join(home, 'dotfiles/skills/a'), join(dir, '.agents/skills/a'));
+  expect(mesa.skills.list('lantern-cove').filter((r) => r.source === 'repo')).toEqual([
+    { name: 'a', source: 'repo', enabled: true, description: 'The a skill' },
+  ]);
+
+  const { result } = mesa.skills.sync('lantern-cove');
+  expect(result).toMatchObject({
+    added: ['.claude/skills/a', '.claude/skills/b', '.agents/skills/b'],
+    removed: ['.claude/skills/retired'],
+    conflicts: ['.agents/skills/a'],
+  });
+  expect(readlinkSync(join(dir, '.claude/skills/a'))).toBe(join(library, 'a'));
+  expect(readlinkSync(join(dir, '.claude/skills/b'))).toBe(join(library, 'b'));
+  expect(readlinkSync(join(dir, '.agents/skills/a'))).toBe(join(home, 'dotfiles/skills/a'));
+  expect(existsSync(join(home, 'mesa-400/skills/b/SKILL.md'))).toBe(true);
+});
+
 test('a library skill Mesa cannot ship is invalid_config: no SKILL.md, or the wrong name', () => {
   const library = tempDir();
   skill(library, 'right');
