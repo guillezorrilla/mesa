@@ -42,7 +42,7 @@ import { HelpMenu } from './screens/help/HelpMenu';
 import { KeyboardShortcutsDialog } from './screens/help/KeyboardShortcutsDialog';
 import { MapScreen } from './screens/MapScreen';
 import { NotificationsMenu } from './screens/notifications/NotificationsMenu';
-import { ProjectWorkspace } from './screens/ProjectWorkspace';
+import { type ProjectTab, ProjectWorkspace } from './screens/ProjectWorkspace';
 import { AddProjectDialog } from './screens/projects/AddProjectDialog';
 import { ImportWorkspaceDialog } from './screens/projects/ImportWorkspaceDialog';
 import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
@@ -65,6 +65,14 @@ export function App() {
   const openedInitialSession = useRef(false);
   const openedInitialTour = useRef(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // The session and project last shown, and each project's tab, so going back to one keeps it.
+  const [lastSession, setLastSession] = useState<string>();
+  const [lastProject, setLastProject] = useState<string>();
+  const projectTabs = useRef<Record<string, ProjectTab>>({});
+  useEffect(() => {
+    if (view.kind === 'session') setLastSession(view.id);
+    if (view.kind === 'project') setLastProject(view.name);
+  }, [view]);
   // Sessions starting, by project (GENERAL_PROJECT for General): the sidebar shows each until it opens.
   const [starting, setStarting] = useState<string[]>([]);
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<{
@@ -563,6 +571,8 @@ export function App() {
           onCollapse={() => setSidebarCollapsed((value) => !value)}
           onAddProject={setProjectAdd}
           starting={starting}
+          lastSession={lastSession}
+          lastProject={lastProject}
           onNewSession={(project, location, parent) =>
             requestNewSession({
               ...(project === GENERAL_PROJECT ? { general: true } : { project }),
@@ -617,6 +627,10 @@ export function App() {
               <ProjectWorkspace
                 key={project.name}
                 project={project}
+                initialTab={projectTabs.current[project.name]}
+                onTabChange={(tab) => {
+                  projectTabs.current[project.name] = tab;
+                }}
                 filesDirty={filesDirty}
                 file={view.file}
                 onFilesDirtyChange={setFilesDirty}
