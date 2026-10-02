@@ -727,6 +727,45 @@ test('a failed session launch preserves data written by configured worktree setu
   expect(await mesa.sessions.list()).toEqual([]);
 });
 
+test("--branch refuses a project's unapproved worktree setup and creates nothing", async () => {
+  const world = agentWorld();
+  const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, repo-file]\n';
+  const { home, dir, mesa } = await setUp(world, { mesaYaml });
+  gitRepo(dir);
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'unreviewed' })).rejects.toMatchObject({
+    code: 'needs_approval',
+    message: expect.stringContaining('setup ["/usr/bin/touch","repo-file"]'),
+  });
+  expect(existsSync(worktreeAt(home, 'unreviewed'))).toBe(false);
+  expect(testGit(dir, 'branch', '--list', 'unreviewed')).toBe('');
+  expect(testGit(dir, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1);
+  expect(await mesa.sessions.list()).toEqual([]);
+  expect(world.tmux.windows).toEqual([]);
+});
+
+test("a failed session launch preserves data written by the project's own worktree setup", async () => {
+  const world = agentWorld({ failing: 'new-session' });
+  const original = withGit(world);
+  const run: Runner = (file, args, ms, options) => {
+    if (file === '/usr/bin/touch') {
+      writeFileSync(join(options?.cwd ?? '', args[0] ?? ''), 'setup data');
+      return Promise.resolve({ ok: true, stdout: '' });
+    }
+    return original(file, args, ms, options);
+  };
+  const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, keep.txt]\n';
+  const { home, dir, mesa } = await setUp(world, { run, mesaYaml });
+  gitRepo(dir);
+  mesa.projects.trust(
+    'lantern-cove',
+    Object.values(mesa.projects.pending('lantern-cove')).map((script) => script.fingerprint),
+  );
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'with-setup' })).rejects.toMatchObject({
+    code: 'internal',
+  });
+  expect(readFileSync(join(worktreeAt(home, 'with-setup'), 'keep.txt'), 'utf8')).toBe('setup data');
+});
+
 test("with an origin, a new branch starts from origin's HEAD, tracking nothing, or from its branch there, tracking it", async () => {
   const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);

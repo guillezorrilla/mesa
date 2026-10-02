@@ -8,12 +8,11 @@ import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsBackendSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
-import { relativeFilePath } from '../files/path.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { readYaml, setYamlPath } from '../lib/yaml-file.js';
+import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
 import {
   BOARD_DENSITIES,
   BOARD_GROUPS,
@@ -21,6 +20,7 @@ import {
   BOARD_VIEWS,
   DEFAULT_BOARD_PREFERENCES,
 } from '../sessions/presentation.js';
+import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
 import {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,
@@ -36,15 +36,6 @@ import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 /** The terminal apps `mesa attach --app` can open. */
 export { TERMINAL_APPS } from './preferences.js';
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
-
-const relativeDirectory = z.string().refine((value) => {
-  try {
-    relativeFilePath(value);
-    return true;
-  } catch {
-    return false;
-  }
-}, 'must be a repository-relative directory');
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 const ConfigSchema = z.strictObject({
@@ -163,12 +154,12 @@ const ConfigSchema = z.strictObject({
     .strictObject({
       location: z.enum(['profile', 'sibling', 'nested', 'custom']).default('profile'),
       customRoot: z.string().refine(isAbsolute, 'must be an absolute path').optional(),
-      base: z.string().min(1).optional(),
-      fetch: z.boolean().default(false),
-      sparseDirectories: z.array(relativeDirectory).default([]),
-      carryIgnoredDirectories: z.array(relativeDirectory).default([]),
-      setup: z.array(z.string().min(1)).max(32).default([]),
-      teardown: z.array(z.string().min(1)).max(32).default([]),
+      base: WORKTREE_OVERRIDE_FIELDS.base.optional(),
+      fetch: WORKTREE_OVERRIDE_FIELDS.fetch.default(false),
+      sparseDirectories: WORKTREE_OVERRIDE_FIELDS.sparseDirectories.default([]),
+      carryIgnoredDirectories: WORKTREE_OVERRIDE_FIELDS.carryIgnoredDirectories.default([]),
+      setup: WORKTREE_OVERRIDE_FIELDS.setup.default([]),
+      teardown: WORKTREE_OVERRIDE_FIELDS.teardown.default([]),
       // Pre-checks "also delete branch" when the app removes a session's worktree.
       deleteBranch: z.boolean().default(false),
     })
@@ -268,9 +259,6 @@ export function redactConfig(config: Config): Config {
   };
 }
 
-const valueAt = (config: Config, dotted: string) =>
-  dotted.split('.').reduce<unknown>((node, k) => (node as Record<string, unknown>)?.[k], config);
-
 /** The value at `dotted` now; none in a file that does not validate, which a set may repair. */
 function currentValue(file: string, dotted: string): unknown {
   try {
@@ -289,9 +277,11 @@ export function setConfigValue(
   file: string,
   dotted: string,
   value: string,
+  /** Throws to refuse the new config, before anything is written. */
+  check?: (next: Config) => void,
 ): { value: unknown; changed: boolean } {
   const before = currentValue(file, dotted);
-  const next = setYamlPath(file, ConfigSchema, dotted, parse(value));
+  const next = setYamlPath(file, ConfigSchema, dotted, parse(value), check);
   return {
     value: valueAt(redactConfig(next), dotted),
     changed: !isDeepStrictEqual(before, valueAt(next, dotted)),

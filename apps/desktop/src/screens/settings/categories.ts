@@ -1,6 +1,7 @@
 import {
   Bell,
   Bot,
+  FolderGit2,
   GitBranch,
   Keyboard,
   type LucideIcon,
@@ -14,6 +15,7 @@ export type SettingsCategory =
   | 'sessions'
   | 'terminal'
   | 'git'
+  | 'projects'
   | 'notifications'
   | 'agents'
   | 'advanced';
@@ -65,6 +67,17 @@ export const CATEGORIES: {
       ['worktrees', 'Worktrees'],
       ['scripts', 'Scripts'],
       ['cleanup', 'Cleanup'],
+    ],
+  },
+  {
+    id: 'projects',
+    label: 'Projects',
+    icon: FolderGit2,
+    sections: [
+      ['project', 'Project'],
+      ['project-terminal', 'Terminal'],
+      ['project-worktrees', 'Worktrees'],
+      ['project-scripts', 'Scripts'],
     ],
   },
   {

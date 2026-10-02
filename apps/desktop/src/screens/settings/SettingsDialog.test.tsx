@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import type { Config, DoctorReport } from '@mesa/core';
+import type { Config, DoctorReport, ProjectRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { choose, click, envelope, fakeBridge, PROJECTS, renderWithMesa } from '@/lib/testing';
 import { SettingsDialog } from './SettingsDialog';
 
 const base = async () =>
@@ -58,6 +58,7 @@ test('the window lists Xirp categories and saves the default coding agent, claud
     'Sessions',
     'Terminal & Editor',
     'Git & Worktrees',
+    'Projects',
     'Notifications',
     'Coding Agents',
     'Advanced',
@@ -122,6 +123,19 @@ test('worktree settings save whole, so clearing the base removes it and custom n
   expect(cleared).toEqual({ ...withBase.worktrees, base: undefined });
   expect('base' in cleared).toBe(false);
   expect(custom).toMatchObject({ location: 'custom', customRoot: '/h/worktrees' });
+});
+
+test('profile scripts say they are one executable and its arguments, run without a shell', async () => {
+  await render(fakeBridge().bridge, 'git');
+  for (const id of ['worktree-setup', 'worktree-teardown']) {
+    const field = document.getElementById(id) as HTMLTextAreaElement;
+    expect(field.closest('[data-setting-row]')?.textContent).toContain(
+      'The executable and its arguments, one per line; runs without a shell.',
+    );
+  }
+  expect((document.getElementById('worktree-setup') as HTMLTextAreaElement).placeholder).toBe(
+    'pnpm\ninstall',
+  );
 });
 
 test('Git & Worktrees has Delete branch by default under Cleanup, off until switched on', async () => {
@@ -291,4 +305,110 @@ test('Terminal & Editor has the message actions toggle, on by default, and saves
   expect(toggle?.getAttribute('aria-checked')).toBe('true');
   await click(toggle ?? undefined);
   expect(sets(calls)).toEqual([['terminal.messageActions', 'false']]);
+});
+
+test('Projects picks a project and edits its overrides, each row naming the profile value it inherits', async () => {
+  const config = await base();
+  const profile = {
+    ...config,
+    worktrees: { ...config.worktrees, base: 'main', fetch: true, setup: ['pnpm', 'install'] },
+  };
+  const [cove, tide] = PROJECTS as [ProjectRow, ProjectRow];
+  const projects: ProjectRow[] = [
+    { ...cove, overrides: { worktrees: { fetch: false, sparseDirectories: ['apps/web'] } } },
+    { ...tide, name: 'reef', exists: true, overrides: { terminal: { theme: 'dark' } } },
+  ];
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(profile),
+    projects: () => envelope(projects),
+    'projects set': () => envelope({ receipt: null }),
+  });
+  await render(bridge);
+  await click(nav('Projects'));
+  const row = (id: string) => document.getElementById(id)?.closest('[data-setting-row]');
+  const field = (id: string) => document.getElementById(id) as HTMLInputElement;
+  expect(field('project-settings-project').value).toBe('lantern-cove');
+  expect(row('project-worktree-base')?.textContent).toContain('Profile: main');
+  expect(row('project-worktree-fetch')?.textContent).toContain('Profile: on');
+  expect(row('project-worktree-setup-mode')?.textContent).toContain('Profile: pnpm, install');
+  expect(row('project-worktree-setup-mode')?.textContent).toContain(
+    'The executable and its arguments, one per line; runs without a shell.',
+  );
+  expect(field('project-worktree-setup-mode').value).toBe('inherit');
+  expect(document.getElementById('project-worktree-setup')).toBeNull();
+  expect(row('project-worktree-sparse')?.textContent).toContain('Profile: everything');
+  expect(row('project-terminal-theme')?.textContent).toContain('Profile: Follow interface theme');
+  expect(field('project-worktree-fetch').value).toBe('false');
+  expect(field('project-worktree-sparse').value).toBe('apps/web');
+  expect(field('project-worktree-base').value).toBe('');
+
+  await type('project-worktree-base', 'develop');
+  await choose(field('project-worktree-fetch'), '');
+  await type('project-worktree-sparse', '');
+  await choose(field('project-worktree-teardown-mode'), 'custom');
+  expect(field('project-worktree-teardown').placeholder).toBe('pnpm\ninstall');
+  await type('project-worktree-teardown', 'make\nclean');
+  // None is an empty list, so the profile's setup does not run either; it differs from inherit.
+  await choose(field('project-worktree-setup-mode'), 'none');
+  await choose(field('project-terminal-theme'), 'light');
+  const projectSets = () =>
+    calls
+      .filter((args) => args[1] === 'projects' && args[2] === 'set')
+      .map((args) => args.slice(3));
+  expect(projectSets()).toEqual([
+    ['--', 'lantern-cove', 'worktrees.base', '"develop"'],
+    ['--unset', '--', 'lantern-cove', 'worktrees.fetch'],
+    ['--unset', '--', 'lantern-cove', 'worktrees.sparseDirectories'],
+    ['--', 'lantern-cove', 'worktrees.teardown', '["make","clean"]'],
+    ['--', 'lantern-cove', 'worktrees.setup', '[]'],
+    ['--', 'lantern-cove', 'terminal.theme', '"light"'],
+  ]);
+
+  await choose(field('project-settings-project'), 'reef');
+  expect(field('project-terminal-theme').value).toBe('dark');
+  expect(field('project-worktree-sparse').value).toBe('');
+  await choose(field('project-terminal-theme'), '');
+  expect(projectSets().at(-1)).toEqual(['--unset', '--', 'reef', 'terminal.theme']);
+});
+
+test("Projects shows a repository's unapproved scripts exactly and approves them through projects trust", async () => {
+  const [cove] = PROJECTS as [ProjectRow];
+  const setup = ['/usr/bin/make', 'set up'];
+  let projects: ProjectRow[] = [
+    {
+      ...cove,
+      overrides: { worktrees: { setup } },
+      unapproved: { setup: { argv: setup, fingerprint: 'a'.repeat(64) } },
+    },
+  ];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(projects),
+    'projects trust': () => {
+      projects = [{ ...cove, overrides: { worktrees: { setup } }, unapproved: {} }];
+      return envelope({ project: 'lantern-cove', setup, receipt: null });
+    },
+  });
+  const byTestId = await render(bridge);
+  await click(nav('Projects'));
+  const review = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Review');
+  expect(review?.closest('[data-setting-row]')?.textContent).toContain(
+    'Scripts waiting for approval',
+  );
+  await click(review);
+  expect(byTestId('approve-scripts')[0]?.querySelector('pre')?.textContent).toBe(
+    '"/usr/bin/make" "set up"',
+  );
+  await click(byTestId('approve-scripts-submit')[0]);
+  // The fingerprint of the argv the dialog showed, so trust refuses a mesa.yaml changed meanwhile.
+  expect(calls).toContainEqual([
+    '--json',
+    'projects',
+    'trust',
+    '--expect',
+    'a'.repeat(64),
+    '--',
+    'lantern-cove',
+  ]);
+  expect(byTestId('approve-scripts')).toHaveLength(0);
+  expect(document.body.textContent).not.toContain('Scripts waiting for approval');
 });

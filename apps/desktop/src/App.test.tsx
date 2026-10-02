@@ -1437,6 +1437,28 @@ test('Sessions selects a newly discovered managed session after initially seeing
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
 });
 
+test("a session's terminal takes its project's theme override over the profile's", async () => {
+  const { bridge } = fakeBridge({
+    projects: () =>
+      envelope(
+        PROJECTS.map((row) =>
+          row.name === 'lantern-cove'
+            ? { ...row, overrides: { terminal: { theme: 'dark' } }, terminalTheme: 'dark' }
+            : row,
+        ),
+      ),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+  });
+  const byTestId = await renderWithMesa(
+    <App />,
+    bridge,
+    fakePlatform({ terminal: fakeTerminals().host }),
+  );
+  // The profile's theme follows the light interface; lantern-cove's mesa.yaml says dark.
+  expect(byTestId('terminal-aaaaaaaa')[0]?.dataset.terminalTheme).toBe('dark');
+});
+
 test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {
   const terms = fakeTerminals();
   const { bridge } = fakeBridge({

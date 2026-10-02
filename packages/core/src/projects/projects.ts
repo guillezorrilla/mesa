@@ -1,13 +1,27 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename } from 'node:path';
+import { parse } from 'yaml';
 import { MesaError } from '../lib/result.js';
+import { valueAt } from '../lib/yaml-file.js';
+import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
+import {
+  APPROVAL_FROM_SESSION,
+  approveScripts,
+  describePending,
+  type PendingScripts,
+  scriptFingerprint,
+  unapprovedScripts,
+  WORKTREE_SCRIPTS,
+  type WorktreeScripts,
+} from '../worktrees/approval.js';
 import {
   DEFAULT_PRIORITY,
   minimalProject,
   type Project,
   projectFile,
   readProjectFile,
+  setProjectOverride,
   writeProjectFile,
 } from './project-file.js';
 import { findClash, type RegistryEntry, readRegistry, updateRegistry } from './registry.js';
@@ -20,11 +34,20 @@ export type ProjectRow = {
   agent: string | null;
   priority: number | null;
   skills: string[];
+  /** The settings its mesa.yaml overrides, as written there. */
+  overrides: ProjectOverrides;
+  /** Its session terminals' theme: the project's override, else the profile's. */
+  terminalTheme: Config['terminal']['theme'] | null;
+  /** Its mesa.yaml's setup and teardown this profile has not approved, which will not run. */
+  unapproved: PendingScripts;
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
   exists: boolean;
   pinned: boolean;
   hidden: boolean;
 };
+
+/** The profile settings a project's mesa.yaml overrides, as written there. */
+export type ProjectOverrides = Pick<Project, 'worktrees' | 'terminal'>;
 
 export type ProjectUpdate = {
   label?: string;
@@ -61,7 +84,8 @@ export function registerProject(
 }
 
 export function listProjects(profile: Profile): ProjectRow[] {
-  return readRegistry(profile.paths.registry).map(({ name, path, label, pinned, hidden }) => {
+  return readRegistry(profile.paths.registry).map((entry) => {
+    const { name, path, label, pinned, hidden } = entry;
     const display = {
       name,
       label: label ?? name,
@@ -70,11 +94,32 @@ export function listProjects(profile: Profile): ProjectRow[] {
       hidden: hidden ?? false,
     };
     if (!existsSync(projectFile(path))) {
-      return { ...display, agent: null, priority: null, skills: [], exists: false };
+      return {
+        ...display,
+        agent: null,
+        priority: null,
+        skills: [],
+        overrides: {},
+        terminalTheme: null,
+        unapproved: {},
+        exists: false,
+      };
     }
     const p = readProjectFile(path);
     const agent = p.agent ?? profile.config.defaultAgent;
-    return { ...display, agent, priority: p.priority, skills: p.skills ?? [], exists: true };
+    return {
+      ...display,
+      agent,
+      priority: p.priority,
+      skills: p.skills ?? [],
+      overrides: {
+        ...(p.worktrees ? { worktrees: p.worktrees } : {}),
+        ...(p.terminal ? { terminal: p.terminal } : {}),
+      },
+      terminalTheme: p.terminal?.theme ?? profile.config.terminal.theme,
+      unapproved: unapprovedScripts(p, entry),
+      exists: true,
+    };
   });
 }
 
@@ -127,6 +172,71 @@ function validatedLabel(value: string | undefined) {
     throw new MesaError('usage', 'project label must be 1-80 characters on one line');
   }
   return label;
+}
+
+/**
+ * Sets one of the project's overrides from `value` read as YAML (`true`, `[a, b]`), or removes it
+ * when `value` is undefined, so the profile's setting applies again.
+ */
+export function overrideProject(
+  profile: Profile,
+  name: string,
+  dotted: string,
+  value: string | undefined,
+  /** False inside a Mesa window: a setup or teardown written there stays unapproved. */
+  approve: boolean,
+): { project: string; path: string; value: unknown } {
+  const dir = findProject(profile, name).path;
+  // A mesa.yaml that is gone is not_found with its fix, before anything is written.
+  readProjectFile(dir);
+  const next = setProjectOverride(dir, dotted, value === undefined ? undefined : parse(value));
+  // A person wrote this setup or teardown, so this profile approves exactly it; one a session
+  // wrote loses any approval, so the next worktree asks.
+  const script = WORKTREE_SCRIPTS.find((kind) => dotted === `worktrees.${kind}`);
+  if (script)
+    approveScripts(profile, name, { [script]: approve ? next.worktrees?.[script] : undefined });
+  return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
+}
+
+/** The project's setup and teardown waiting for this profile's approval, as a person reviews them. */
+export function pendingScripts(profile: Profile, name: string): PendingScripts {
+  const entry = findProject(profile, name);
+  return unapprovedScripts(readProjectFile(entry.path), entry);
+}
+
+/**
+ * Approves, in this profile, the scripts the project's mesa.yaml names whose fingerprints are
+ * `expected`: the ones the person reviewed. A fingerprint that matches none of them means the
+ * file changed since, and nothing is approved. Any later change asks again.
+ */
+export function trustProject(
+  profile: Profile,
+  name: string,
+  /** False inside a Mesa window, where an agent could approve its own commands. */
+  approve: boolean,
+  expected: readonly string[],
+): { project: string } & WorktreeScripts {
+  if (!approve) throw new MesaError('usage', APPROVAL_FROM_SESSION);
+  if (!expected.length)
+    throw new MesaError('usage', 'name the reviewed scripts: --expect <sha256> for each');
+  const entry = findProject(profile, name);
+  const file = readProjectFile(entry.path);
+  const scripts: WorktreeScripts = {};
+  for (const script of WORKTREE_SCRIPTS) {
+    const argv = file.worktrees?.[script];
+    if (argv?.length && expected.includes(scriptFingerprint(argv))) scripts[script] = argv;
+  }
+  const found = Object.values(scripts).map((argv) => scriptFingerprint(argv));
+  if (!expected.every((fingerprint) => found.includes(fingerprint))) {
+    const pending = unapprovedScripts(file, entry);
+    throw new MesaError(
+      'usage',
+      `${name}'s mesa.yaml changed since its scripts were reviewed; nothing was approved. It now runs ${describePending(pending) || 'nothing that waits for approval'}`,
+      { project: name, scripts: pending },
+    );
+  }
+  approveScripts(profile, name, scripts);
+  return { project: name, ...scripts };
 }
 
 /** The registry entry named `name`; not_found otherwise. */

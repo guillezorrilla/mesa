@@ -13,6 +13,8 @@ export const EXIT_CODES = {
   locked: 8,
   /** A wait Mesa gave up on: a headless run past its `--timeout`. */
   timeout: 9,
+  /** A command from a project's own files that this profile has not approved (ADR-0013). */
+  needs_approval: 10,
 } as const;
 
 export type ErrorCode = Exclude<keyof typeof EXIT_CODES, 'ok'>;

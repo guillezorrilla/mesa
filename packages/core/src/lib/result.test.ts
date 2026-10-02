@@ -34,6 +34,7 @@ test('exit code map', () => {
     agent_unavailable: 7,
     locked: 8,
     timeout: 9,
+    needs_approval: 10,
   });
   expect(exitCode(ok(null))).toBe(0);
   expect(exitCode(fail('usage', 'x'))).toBe(2);

@@ -5,6 +5,7 @@ import { findProject } from '../projects/projects.js';
 import { createWorktree, worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
 import { applyWorktreeAction, previewWorktreeAction, type WorktreeAction } from './lifecycle.js';
+import { worktreeScript } from './settings.js';
 
 export function worktreesService(ctx: MesaContext) {
   return {
@@ -44,7 +45,7 @@ export function worktreesService(ctx: MesaContext) {
           return worktreeCommand(
             ctx.deps.run,
             checkout.path,
-            profile.config.worktrees.setup,
+            worktreeScript(profile, findProject(profile, project), 'setup'),
             'setup',
           );
         },

@@ -26,7 +26,7 @@ const LABEL: Record<string, string> = {
   'red-green': 'Red-green',
   'blue-yellow': 'Blue-yellow',
 };
-const options = <T extends string>(values: readonly T[]) =>
+export const options = <T extends string>(values: readonly T[]) =>
   values.map((value) => [value, LABEL[value] ?? value] as const);
 
 /** Application behaviour, appearance, accessibility, and Doctor's health checks. */

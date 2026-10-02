@@ -1,4 +1,4 @@
-import { MesaError } from '@mesa/core';
+import { describePending, MesaError, trustCommand } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -55,6 +55,78 @@ export const projectsUpdate = defineCommand({
       data: recorded.result,
       text: `updated project ${args.name}`,
     });
+  },
+});
+
+/** An override travels with the project in its mesa.yaml; the rest of the file is kept. */
+export const projectsSet = defineCommand({
+  name: 'projects set',
+  summary: "Override a profile worktree or terminal setting in a project's mesa.yaml",
+  args: ['project', 'path', 'value?'],
+  flags: {
+    unset: {
+      type: 'boolean',
+      description: "Remove the override, so the profile's setting applies",
+    },
+  },
+  example: 'mesa projects set lantern-cove worktrees.fetch true',
+  run: ({ mesa, args, flags }) => {
+    if (Boolean(flags.unset) === (args.value !== undefined)) {
+      throw new MesaError('usage', 'give a value, or --unset to remove the override');
+    }
+    const recorded = mesa.projects.override(args.project, args.path, args.value);
+    const text = flags.unset
+      ? `unset ${args.path} in ${args.project}`
+      : `${args.path} = ${JSON.stringify(recorded.result.value)} in ${args.project}`;
+    return recordedOutput(recorded, { data: recorded.result, text });
+  },
+});
+
+/** Repository-supplied worktree scripts run only once a person approves their exact argv here. */
+export const projectsTrust = defineCommand({
+  name: 'projects trust',
+  summary:
+    "Approve the reviewed setup and teardown a project's mesa.yaml names, so worktrees run them",
+  args: ['project'],
+  flags: {
+    expect: {
+      type: 'string',
+      multiple: true,
+      description:
+        'The sha256 of a reviewed script, as needs_approval shows it; without it, a terminal confirms',
+    },
+  },
+  example: 'mesa projects trust lantern-cove --expect <sha256>',
+  run: async ({ mesa, args, flags, confirm }) => {
+    let expected = flags.expect ?? [];
+    if (!expected.length) {
+      // What the person is shown is exactly what is approved: its fingerprints go to trust, which
+      // refuses if mesa.yaml changed in between.
+      const pending = mesa.projects.pending(args.project);
+      if (!Object.keys(pending).length)
+        return {
+          data: { project: args.project },
+          text: `${args.project}'s mesa.yaml has no setup or teardown waiting for approval`,
+        };
+      if (!confirm)
+        throw new MesaError(
+          'usage',
+          `review ${args.project}'s ${describePending(pending)}, then run ${trustCommand(args.project, pending)}, or run mesa projects trust ${args.project} in a terminal to confirm`,
+        );
+      const question = `${args.project}'s mesa.yaml runs ${describePending(pending)} without a shell in its worktrees. Approve?`;
+      if (!(await confirm(question))) throw new MesaError('usage', 'nothing was approved');
+      expected = Object.values(pending).map((script) => script.fingerprint);
+    }
+    const recorded = mesa.projects.trust(args.project, expected);
+    const { setup, teardown } = recorded.result;
+    const approved = [
+      ...(setup ? [`setup ${JSON.stringify(setup)}`] : []),
+      ...(teardown ? [`teardown ${JSON.stringify(teardown)}`] : []),
+    ];
+    const text = approved.length
+      ? `approved ${approved.join(' and ')} for ${args.project}`
+      : `${args.project}'s mesa.yaml names no setup or teardown`;
+    return recordedOutput(recorded, { data: recorded.result, text });
   },
 });
 
