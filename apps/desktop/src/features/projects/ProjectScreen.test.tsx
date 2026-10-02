@@ -3,9 +3,7 @@ import type { ImportListRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, managedRow, PROJECTS, renderWithMesa } from '@/lib/testing';
-import { useAct } from '@/lib/useAct';
-import { OverviewTab } from './OverviewTab';
-import { useOverviewState } from './useOverviewState';
+import { ProjectScreen } from './ProjectScreen';
 
 const PROJECT = PROJECTS[0] as (typeof PROJECTS)[number];
 const ISSUE: ImportListRow = {
@@ -18,37 +16,36 @@ const ISSUE: ImportListRow = {
 };
 const GOAL = 'Work on the imported Jira issue LC-12: Fix the tide alarm\nSource: x';
 
-/** The Overview tab as the project screen holds it: its state and one action at a time. */
-function Overview() {
-  const state = useOverviewState(PROJECT);
-  const { acting, act } = useAct();
-  return (
-    <OverviewTab
-      project={PROJECT}
-      sessions={[]}
-      worktrees={{ data: [], busy: false, refresh: async () => undefined }}
-      state={state}
-      acting={acting}
-      act={act}
-      onSession={() => undefined}
-      onVaultItem={() => undefined}
-      onNewSession={() => undefined}
-    />
-  );
-}
-
-test('Start session on an imported item fills the composer with its goal, and the start keeps the item', async () => {
+test('Start session on an imported item lands on the Overview composer with its goal, and the start keeps the item', async () => {
   const { bridge, calls } = fakeBridge({
     'import list': () => envelope({ items: [ISSUE] }),
     'import goal': () => envelope({ source: 'jira', id: 'LC-12', title: ISSUE.title, goal: GOAL }),
+    'sources list': () => envelope({ sources: [] }),
+    'worktrees list': () => envelope([]),
     open: () => envelope(managedRow('newnewne')),
   });
-  const byTestId = await renderWithMesa(<Overview />, bridge);
-  const button = (label: string) =>
-    document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`) ?? undefined;
+  const byTestId = await renderWithMesa(
+    <ProjectScreen
+      project={PROJECT}
+      initialTab="import"
+      sessions={[]}
+      onSession={() => undefined}
+      onVaultItem={() => undefined}
+      onChanged={() => undefined}
+      onUnregistered={() => undefined}
+      filesDirty={false}
+      onFilesDirtyChange={() => undefined}
+      onNewSession={() => undefined}
+      onAgentSettings={() => undefined}
+    />,
+    bridge,
+  );
   const goal = () => byTestId('project-goal')[0] as HTMLTextAreaElement;
 
-  await click(button('Start session from LC-12'));
+  await click(
+    document.querySelector<HTMLButtonElement>('button[aria-label="Start session from LC-12"]') ??
+      undefined,
+  );
 
   expect(calls).toContainEqual([
     '--json',
@@ -59,6 +56,7 @@ test('Start session on an imported item fills the composer with its goal, and th
     '--',
     'LC-12',
   ]);
+  expect(byTestId('import-tab')).toHaveLength(0);
   expect(byTestId('project-goal-from')[0]?.textContent).toContain(ISSUE.title);
   expect(goal().value).toBe(GOAL);
   expect(document.activeElement).toBe(goal());

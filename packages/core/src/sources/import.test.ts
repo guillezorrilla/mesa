@@ -311,7 +311,7 @@ test('Write notes runs on a profile whose skills list predates import-notes, and
 });
 
 test('Write notes takes 50 items of the longest paths in one run, and refuses 51 before fetching any', async () => {
-  const { world, agents, mesa, vault } = await setUp();
+  const { world, agents, mesa, vault } = await importProfile();
   // Each a web page whose slug and title fill the 80 characters of both paths.
   const links = Array.from(
     { length: 51 },

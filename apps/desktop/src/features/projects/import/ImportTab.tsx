@@ -23,9 +23,10 @@ function outcome(result: ImportResult & { warning?: string }): Message {
 /**
  * A project's Import tab (CONTEXT.md, Import): each Source, to connect or Browse in the Picker;
  * a pasted link, a Source's or any public web page's; the Write notes toggle all of them share;
- * and the items the project imported.
+ * and the items the project imported. Start session, on an item or from the Picker, hands the
+ * item (its id or link) to `onStartSession`.
  */
-export function ImportTab(props: { project: string }) {
+export function ImportTab(props: { project: string; onStartSession: (from: string) => void }) {
   const { project } = props;
   const list = useCommand('imports.list', { project });
   const sources = useCommand('sources.list');
@@ -74,6 +75,7 @@ export function ImportTab(props: { project: string }) {
             void act(async () => settle(await run('imports.refresh', { project, id, notes })))
           }
           onOpen={(item) => void run('vault.openNote', { note: item.note ?? item.snapshot })}
+          onStartSession={props.onStartSession}
         />
       </section>
       {browsing && (
@@ -84,6 +86,7 @@ export function ImportTab(props: { project: string }) {
           notes={notes}
           onNotesChange={setNotes}
           onImport={add}
+          onStartSession={props.onStartSession}
           onClose={() => setBrowsing(undefined)}
         />
       )}
