@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { Button } from './ui/button';
 import {
   Dialog,
   DialogContent,
@@ -7,8 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+} from './ui/dialog';
 
 /**
  * The frame every Board dialog shares: modal (Escape or a click outside cancels), a title and a

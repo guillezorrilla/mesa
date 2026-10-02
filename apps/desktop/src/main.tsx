@@ -1,9 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
-import { MesaRoot } from './lib/MesaRoot';
-import { tauriBridge, tauriPlatform } from './lib/tauri';
-import './style.css';
+import { App } from '@/app/App';
+import { MesaRoot } from '@/lib/MesaRoot';
+import { tauriBridge, tauriPlatform } from '@/lib/tauri';
+import '@/style.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('missing #root');

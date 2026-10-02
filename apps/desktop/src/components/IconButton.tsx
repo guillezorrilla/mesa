@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ComponentProps } from 'react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Button } from './ui/button';
 
 /**
  * A ghost button that shows only an icon; `label` names it for readers and as its tooltip.
