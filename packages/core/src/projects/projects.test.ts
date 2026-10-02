@@ -2,12 +2,19 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
+import { setConfigValue } from '../profile/config.js';
 import { profilePaths } from '../profile/paths.js';
 import { initProfile, openProfile, type Profile } from '../profile/profile.js';
 import { tempDir, thrown } from '../testing/index.js';
 import { discoverProjects } from './discover.js';
 import { slugify } from './project-file.js';
-import { listProjects, registerProject, unregisterProject, updateProject } from './projects.js';
+import {
+  listProjects,
+  overrideProject,
+  registerProject,
+  unregisterProject,
+  updateProject,
+} from './projects.js';
 
 let root: string;
 let profile: Profile;
@@ -43,6 +50,8 @@ test('create writes a minimal mesa.yaml named after the folder and registers it'
       agent: 'claude',
       priority: 0.5,
       skills: [],
+      overrides: {},
+      terminalTheme: 'follow',
       exists: true,
       pinned: false,
       hidden: false,
@@ -113,6 +122,8 @@ test('a moved project shows exists: false; an invalid mesa.yaml is invalid_confi
       agent: null,
       priority: null,
       skills: [],
+      overrides: {},
+      terminalTheme: null,
       exists: false,
       pinned: false,
       hidden: false,
@@ -123,6 +134,96 @@ test('a moved project shows exists: false; an invalid mesa.yaml is invalid_confi
   );
   const bad = folder('bad', 'name: Not A Slug\npriority: 2\n');
   expect(thrown(() => registerProject(profile, { dir: bad })).code).toBe('invalid_config');
+});
+
+test("mesa.yaml overrides a profile's worktree settings and terminal theme; one left out is inherited", () => {
+  setConfigValue(profilePaths(join(root, 'home'), 'default').config, 'terminal.theme', 'light');
+  profile = openProfile(profilePaths(join(root, 'home'), 'default'));
+  const yaml = [
+    'name: tide',
+    'worktrees:',
+    '  base: develop',
+    '  fetch: true',
+    '  carryIgnoredDirectories: [cache]',
+    '  sparseDirectories: [apps/web, packages]',
+    '  setup: [/usr/bin/make, setup]',
+    '  teardown: [/usr/bin/make, clean]',
+    'terminal:',
+    '  theme: dark',
+    '',
+  ].join('\n');
+  registerProject(profile, { dir: folder('tide', yaml) });
+  registerProject(profile, { dir: folder('plain', 'name: plain\n') });
+  const [tide, plain] = listProjects(profile);
+  expect(tide).toMatchObject({
+    overrides: {
+      worktrees: {
+        base: 'develop',
+        fetch: true,
+        carryIgnoredDirectories: ['cache'],
+        sparseDirectories: ['apps/web', 'packages'],
+        setup: ['/usr/bin/make', 'setup'],
+        teardown: ['/usr/bin/make', 'clean'],
+      },
+      terminal: { theme: 'dark' },
+    },
+    terminalTheme: 'dark',
+  });
+  expect(plain).toMatchObject({ overrides: {}, terminalTheme: 'light' });
+  // Only the overridable settings, each valid as the profile's would be.
+  for (const bad of [
+    'worktrees:\n  location: nested\n',
+    'worktrees:\n  sparseDirectories: [../outside]\n',
+    'terminal:\n  theme: neon\n',
+    'terminal:\n  fontSize: 14\n',
+  ]) {
+    const dir = folder(`bad-${Math.random().toString(36).slice(2)}`, `name: bad\n${bad}`);
+    expect(thrown(() => registerProject(profile, { dir })).code).toBe('invalid_config');
+  }
+});
+
+test('overrideProject sets and unsets one override, keeping the rest of mesa.yaml as written', () => {
+  const original =
+    '# Lantern Cove\nname: lantern-cove\nagent: codex # preferred\nskills:\n  - review\n';
+  const dir = folder('lantern-cove', original);
+  registerProject(profile, { dir });
+  expect(overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'true')).toEqual({
+    project: 'lantern-cove',
+    path: 'worktrees.fetch',
+    value: true,
+  });
+  overrideProject(profile, 'lantern-cove', 'worktrees.setup', '["/usr/bin/make", "setup"]');
+  overrideProject(profile, 'lantern-cove', 'terminal.theme', 'dark');
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(
+    `${original}worktrees:\n  fetch: true\n  setup:\n    - /usr/bin/make\n    - setup\nterminal:\n  theme: dark\n`,
+  );
+  expect(overrideProject(profile, 'lantern-cove', 'worktrees.fetch', undefined).value).toBeNull();
+  overrideProject(profile, 'lantern-cove', 'worktrees.setup', undefined);
+  // Unsetting what is not there changes nothing.
+  overrideProject(profile, 'lantern-cove', 'worktrees.base', undefined);
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(
+    `${original}terminal:\n  theme: dark\n`,
+  );
+  overrideProject(profile, 'lantern-cove', 'terminal.theme', undefined);
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(original);
+
+  expect(thrown(() => overrideProject(profile, 'lantern-cove', 'agent', 'claude')).code).toBe(
+    'usage',
+  );
+  expect(
+    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.location', 'nested')).code,
+  ).toBe('usage');
+  expect(
+    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'maybe')).code,
+  ).toBe('invalid_config');
+  expect(thrown(() => overrideProject(profile, 'nowhere', 'worktrees.fetch', 'true')).code).toBe(
+    'not_found',
+  );
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(original);
+  rmSync(join(dir, 'mesa.yaml'));
+  expect(
+    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'true')).code,
+  ).toBe('not_found');
 });
 
 test('unregister removes the entry by name', () => {

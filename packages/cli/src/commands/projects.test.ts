@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -25,6 +25,8 @@ test('register, projects, unregister', async () => {
       agent: 'claude',
       priority: 0.5,
       skills: [],
+      overrides: {},
+      terminalTheme: 'follow',
       exists: true,
       pinned: false,
       hidden: false,
@@ -140,4 +142,59 @@ test('projects sorting and visits use the profile registry without vault receipt
   expect((await mesa('projects', '--sort', 'bad', '--json')).code).toBe(2);
   expect((await mesa('projects', 'visit', 'absent', '--json')).code).toBe(3);
   expect((await mesa('receipts', '--json')).json.data).toEqual(before);
+});
+
+test('projects set writes one mesa.yaml override and --unset removes it, keeping the other fields', async () => {
+  await mesa('init', '--vault', 'vault');
+  const dir = join(cli.home, 'lantern-cove');
+  mkdirSync(dir);
+  const original = '# Lantern Cove\nname: lantern-cove\npriority: 0.8 # high\nguardrail: strict\n';
+  writeFileSync(join(dir, 'mesa.yaml'), original);
+  await mesa('register', 'lantern-cove');
+  const file = () => readFileSync(join(dir, 'mesa.yaml'), 'utf8');
+
+  const set = await mesa('projects', 'set', 'lantern-cove', 'worktrees.base', 'develop', '--json');
+  expect(set.json.data).toMatchObject({
+    project: 'lantern-cove',
+    path: 'worktrees.base',
+    value: 'develop',
+  });
+  expect(
+    (await mesa('projects', 'set', 'lantern-cove', 'worktrees.sparseDirectories', '[apps/web]'))
+      .stdout,
+  ).toBe('worktrees.sparseDirectories = ["apps/web"] in lantern-cove\n');
+  await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'dark');
+  expect(file()).toBe(
+    `${original}worktrees:\n  base: develop\n  sparseDirectories:\n    - apps/web\nterminal:\n  theme: dark\n`,
+  );
+  expect((await mesa('projects', '--json')).json.data[0]).toMatchObject({
+    overrides: {
+      worktrees: { base: 'develop', sparseDirectories: ['apps/web'] },
+      terminal: { theme: 'dark' },
+    },
+    terminalTheme: 'dark',
+  });
+
+  const unset = await mesa(
+    'projects',
+    'set',
+    'lantern-cove',
+    'terminal.theme',
+    '--unset',
+    '--json',
+  );
+  expect(unset.json.data).toMatchObject({ path: 'terminal.theme', value: null });
+  await mesa('projects', 'set', 'lantern-cove', 'worktrees.base', '--unset');
+  await mesa('projects', 'set', 'lantern-cove', 'worktrees.sparseDirectories', '--unset');
+  expect(file()).toBe(original);
+
+  // A value and --unset, neither, a path that is not an override, or a bad value: nothing written.
+  expect(
+    (await mesa('projects', 'set', 'lantern-cove', 'worktrees.fetch', 'true', '--unset')).code,
+  ).toBe(2);
+  expect((await mesa('projects', 'set', 'lantern-cove', 'worktrees.fetch')).code).toBe(2);
+  expect((await mesa('projects', 'set', 'lantern-cove', 'priority', '0.1')).code).toBe(2);
+  expect((await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'neon')).code).toBe(4);
+  expect((await mesa('projects', 'set', 'unknown', 'terminal.theme', 'dark')).code).toBe(3);
+  expect(file()).toBe(original);
 });

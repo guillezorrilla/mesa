@@ -79,6 +79,7 @@ import {
   projects,
   projectsClone,
   projectsDiscover,
+  projectsSet,
   projectsUpdate,
   projectsVisit,
 } from './projects.js';
@@ -224,6 +225,7 @@ export const COMMANDS: Command[] = [
   projects,
   projectsClone,
   projectsDiscover,
+  projectsSet,
   projectsUpdate,
   projectsVisit,
   receipts,

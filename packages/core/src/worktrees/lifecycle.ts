@@ -9,6 +9,7 @@ import { checkoutHolders } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeRow } from './inventory.js';
+import { worktreeSettings } from './settings.js';
 
 export type WorktreeAction = 'remove' | 'recycle' | 'cleanup';
 export type WorktreePreview = {
@@ -164,7 +165,7 @@ export async function previewWorktreeAction(
     upstream,
     ahead,
     unpublished,
-    teardown: action === 'remove' ? profile.config.worktrees.teardown : undefined,
+    teardown: action === 'remove' ? worktreeSettings(profile, root).teardown : undefined,
   };
   const token = fingerprint(facts);
   const destination =
@@ -199,7 +200,7 @@ export async function previewWorktreeAction(
     ...(upstream ? { upstream } : {}),
     ...(ahead === undefined ? {} : { ahead }),
     unpublished,
-    ...(action === 'remove' ? { teardown: profile.config.worktrees.teardown } : {}),
+    ...(action === 'remove' ? { teardown: facts.teardown } : {}),
     ...(destination ? { destination } : {}),
     allowed: !reasons.length,
     reasons,
@@ -248,8 +249,9 @@ export async function applyWorktreeAction(
   const path = preview.paths[0] as string;
   if (action === 'remove') {
     let teardownRan = false;
-    if (profile.config.worktrees.teardown.length) {
-      await worktreeCommand(run, path, profile.config.worktrees.teardown, 'teardown');
+    // The teardown the preview showed, which its token covers.
+    if (preview.teardown?.length) {
+      await worktreeCommand(run, path, preview.teardown, 'teardown');
       teardownRan = true;
       const after = await previewWorktreeAction(profile, run, store, project, action, path);
       if (!after.allowed || after.changes.length || after.ignored.length)

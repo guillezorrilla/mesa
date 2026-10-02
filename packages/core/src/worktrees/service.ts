@@ -5,6 +5,7 @@ import { findProject } from '../projects/projects.js';
 import { createWorktree, worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
 import { applyWorktreeAction, previewWorktreeAction, type WorktreeAction } from './lifecycle.js';
+import { worktreeSettings } from './settings.js';
 
 export function worktreesService(ctx: MesaContext) {
   return {
@@ -16,7 +17,12 @@ export function worktreesService(ctx: MesaContext) {
           summary: (result) => `Created ${result.branch} worktree in ${project}`,
           failure: `Could not create ${branch} worktree in ${project}`,
           project: () => project,
-          inputs: { project, branch, base, settings: ctx.open().config.worktrees },
+          inputs: {
+            project,
+            branch,
+            base,
+            settings: worktreeSettings(ctx.open(), findProject(ctx.open(), project).path),
+          },
         },
         () =>
           createWorktree(
@@ -44,7 +50,7 @@ export function worktreesService(ctx: MesaContext) {
           return worktreeCommand(
             ctx.deps.run,
             checkout.path,
-            profile.config.worktrees.setup,
+            worktreeSettings(profile, findProject(profile, project).path).setup,
             'setup',
           );
         },

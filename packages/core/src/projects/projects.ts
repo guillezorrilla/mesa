@@ -1,6 +1,9 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename } from 'node:path';
+import { parse } from 'yaml';
 import { MesaError } from '../lib/result.js';
+import { valueAt } from '../lib/yaml-file.js';
+import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
 import {
   DEFAULT_PRIORITY,
@@ -8,6 +11,7 @@ import {
   type Project,
   projectFile,
   readProjectFile,
+  setProjectOverride,
   writeProjectFile,
 } from './project-file.js';
 import { findClash, type RegistryEntry, readRegistry, updateRegistry } from './registry.js';
@@ -20,11 +24,18 @@ export type ProjectRow = {
   agent: string | null;
   priority: number | null;
   skills: string[];
+  /** The settings its mesa.yaml overrides, as written there. */
+  overrides: ProjectOverrides;
+  /** Its session terminals' theme: the project's override, else the profile's. */
+  terminalTheme: Config['terminal']['theme'] | null;
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
   exists: boolean;
   pinned: boolean;
   hidden: boolean;
 };
+
+/** The profile settings a project's mesa.yaml overrides, as written there. */
+export type ProjectOverrides = Pick<Project, 'worktrees' | 'terminal'>;
 
 export type ProjectUpdate = {
   label?: string;
@@ -70,11 +81,30 @@ export function listProjects(profile: Profile): ProjectRow[] {
       hidden: hidden ?? false,
     };
     if (!existsSync(projectFile(path))) {
-      return { ...display, agent: null, priority: null, skills: [], exists: false };
+      return {
+        ...display,
+        agent: null,
+        priority: null,
+        skills: [],
+        overrides: {},
+        terminalTheme: null,
+        exists: false,
+      };
     }
     const p = readProjectFile(path);
     const agent = p.agent ?? profile.config.defaultAgent;
-    return { ...display, agent, priority: p.priority, skills: p.skills ?? [], exists: true };
+    return {
+      ...display,
+      agent,
+      priority: p.priority,
+      skills: p.skills ?? [],
+      overrides: {
+        ...(p.worktrees ? { worktrees: p.worktrees } : {}),
+        ...(p.terminal ? { terminal: p.terminal } : {}),
+      },
+      terminalTheme: p.terminal?.theme ?? profile.config.terminal.theme,
+      exists: true,
+    };
   });
 }
 
@@ -127,6 +157,23 @@ function validatedLabel(value: string | undefined) {
     throw new MesaError('usage', 'project label must be 1-80 characters on one line');
   }
   return label;
+}
+
+/**
+ * Sets one of the project's overrides from `value` read as YAML (`true`, `[a, b]`), or removes it
+ * when `value` is undefined, so the profile's setting applies again.
+ */
+export function overrideProject(
+  profile: Profile,
+  name: string,
+  dotted: string,
+  value: string | undefined,
+): { project: string; path: string; value: unknown } {
+  const dir = findProject(profile, name).path;
+  // A mesa.yaml that is gone is not_found with its fix, before anything is written.
+  readProjectFile(dir);
+  const next = setProjectOverride(dir, dotted, value === undefined ? undefined : parse(value));
+  return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
 }
 
 /** The registry entry named `name`; not_found otherwise. */

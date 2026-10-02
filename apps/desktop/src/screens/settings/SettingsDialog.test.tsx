@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import type { Config, DoctorReport } from '@mesa/core';
+import type { Config, DoctorReport, ProjectRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { choose, click, envelope, fakeBridge, PROJECTS, renderWithMesa } from '@/lib/testing';
 import { SettingsDialog } from './SettingsDialog';
 
 const base = async () =>
@@ -58,6 +58,7 @@ test('the window lists Xirp categories and saves the default coding agent, claud
     'Sessions',
     'Terminal & Editor',
     'Git & Worktrees',
+    'Projects',
     'Notifications',
     'Coding Agents',
     'Advanced',
@@ -291,4 +292,58 @@ test('Terminal & Editor has the message actions toggle, on by default, and saves
   expect(toggle?.getAttribute('aria-checked')).toBe('true');
   await click(toggle ?? undefined);
   expect(sets(calls)).toEqual([['terminal.messageActions', 'false']]);
+});
+
+test('Projects picks a project and edits its overrides, each row naming the profile value it inherits', async () => {
+  const config = await base();
+  const profile = {
+    ...config,
+    worktrees: { ...config.worktrees, base: 'main', fetch: true, setup: ['pnpm', 'install'] },
+  };
+  const [cove, tide] = PROJECTS as [ProjectRow, ProjectRow];
+  const projects: ProjectRow[] = [
+    { ...cove, overrides: { worktrees: { fetch: false, sparseDirectories: ['apps/web'] } } },
+    { ...tide, name: 'reef', exists: true, overrides: { terminal: { theme: 'dark' } } },
+  ];
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(profile),
+    projects: () => envelope(projects),
+    'projects set': () => envelope({ receipt: null }),
+  });
+  await render(bridge);
+  await click(nav('Projects'));
+  const row = (id: string) => document.getElementById(id)?.closest('[data-setting-row]');
+  const field = (id: string) => document.getElementById(id) as HTMLInputElement;
+  expect(field('project-settings-project').value).toBe('lantern-cove');
+  expect(row('project-worktree-base')?.textContent).toContain('Profile: main');
+  expect(row('project-worktree-fetch')?.textContent).toContain('Profile: on');
+  expect(row('project-worktree-setup')?.textContent).toContain('Profile: pnpm, install');
+  expect(row('project-worktree-sparse')?.textContent).toContain('Profile: everything');
+  expect(row('project-terminal-theme')?.textContent).toContain('Profile: Follow interface theme');
+  expect(field('project-worktree-fetch').value).toBe('false');
+  expect(field('project-worktree-sparse').value).toBe('apps/web');
+  expect(field('project-worktree-base').value).toBe('');
+
+  await type('project-worktree-base', 'develop');
+  await choose(field('project-worktree-fetch'), '');
+  await type('project-worktree-sparse', '');
+  await type('project-worktree-teardown', 'make\nclean');
+  await choose(field('project-terminal-theme'), 'light');
+  const projectSets = () =>
+    calls
+      .filter((args) => args[1] === 'projects' && args[2] === 'set')
+      .map((args) => args.slice(3));
+  expect(projectSets()).toEqual([
+    ['--', 'lantern-cove', 'worktrees.base', '"develop"'],
+    ['--unset', '--', 'lantern-cove', 'worktrees.fetch'],
+    ['--unset', '--', 'lantern-cove', 'worktrees.sparseDirectories'],
+    ['--', 'lantern-cove', 'worktrees.teardown', '["make","clean"]'],
+    ['--', 'lantern-cove', 'terminal.theme', '"light"'],
+  ]);
+
+  await choose(field('project-settings-project'), 'reef');
+  expect(field('project-terminal-theme').value).toBe('dark');
+  expect(field('project-worktree-sparse').value).toBe('');
+  await choose(field('project-terminal-theme'), '');
+  expect(projectSets().at(-1)).toEqual(['--unset', '--', 'reef', 'terminal.theme']);
 });

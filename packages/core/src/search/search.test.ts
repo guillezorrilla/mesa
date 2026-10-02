@@ -11,6 +11,8 @@ const projects: ProjectRow[] = [
     agent: 'claude',
     priority: 0.5,
     skills: [],
+    overrides: {},
+    terminalTheme: 'follow',
     exists: true,
     pinned: false,
     hidden: false,

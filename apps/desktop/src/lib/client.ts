@@ -625,6 +625,14 @@ const COMMANDS = {
     '--',
     name,
   ]),
+  'projects.set': commandWith<
+    { name: string; path: string; value?: unknown },
+    Recorded<{ project: string; path: string; value: unknown }>
+  >(({ name, path, value }) =>
+    value === undefined
+      ? ['projects', 'set', '--unset', '--', name, path]
+      : ['projects', 'set', '--', name, path, JSON.stringify(value)],
+  ),
   'projects.unregister': commandWith<{ name: string }, Recorded<{ name: string; path: string }>>(
     ({ name }) => ['unregister', '--', name],
   ),

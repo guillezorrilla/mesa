@@ -58,6 +58,30 @@ export const projectsUpdate = defineCommand({
   },
 });
 
+/** An override travels with the project in its mesa.yaml; the rest of the file is kept. */
+export const projectsSet = defineCommand({
+  name: 'projects set',
+  summary: "Override a profile worktree or terminal setting in a project's mesa.yaml",
+  args: ['project', 'path', 'value?'],
+  flags: {
+    unset: {
+      type: 'boolean',
+      description: "Remove the override, so the profile's setting applies",
+    },
+  },
+  example: 'mesa projects set lantern-cove worktrees.fetch true',
+  run: ({ mesa, args, flags }) => {
+    if (Boolean(flags.unset) === (args.value !== undefined)) {
+      throw new MesaError('usage', 'give a value, or --unset to remove the override');
+    }
+    const recorded = mesa.projects.override(args.project, args.path, args.value);
+    const text = flags.unset
+      ? `unset ${args.path} in ${args.project}`
+      : `${args.path} = ${JSON.stringify(recorded.result.value)} in ${args.project}`;
+    return recordedOutput(recorded, { data: recorded.result, text });
+  },
+});
+
 export const projectsDiscover = defineCommand({
   name: 'projects discover',
   summary: 'Find local Git repositories or mesa.yaml projects under a folder, within three levels',

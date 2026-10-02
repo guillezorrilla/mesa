@@ -5,6 +5,8 @@ import { AgentSchema } from '../agents/agents.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
+import { TERMINAL_THEMES } from '../profile/preferences.js';
+import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
 import { slugify } from './slug.js';
 
 export { slugify } from './slug.js';
@@ -25,7 +27,16 @@ const ProjectSchema = z.strictObject({
   guardrail: z.enum(['normal', 'strict']).default('normal'),
   tmux: z.strictObject({ layout: z.string().optional() }).optional(),
   skills: z.array(z.string()).optional(),
+  // Overrides of the profile's settings for this project; one left out is the profile's.
+  worktrees: z.strictObject(WORKTREE_OVERRIDE_FIELDS).partial().optional(),
+  terminal: z.strictObject({ theme: z.enum(TERMINAL_THEMES).optional() }).optional(),
 });
+
+/** The fields that override a profile setting, the ones `mesa projects set` changes. */
+export const PROJECT_OVERRIDES = [
+  ...Object.keys(WORKTREE_OVERRIDE_FIELDS).map((key) => `worktrees.${key}`),
+  'terminal.theme',
+];
 
 export type Project = z.infer<typeof ProjectSchema>;
 
@@ -53,3 +64,14 @@ export const writeProjectFile = (dir: string, project: Project): boolean =>
 /** Change only the skill policy, preserving the rest of the project's YAML and comments. */
 export const setProjectSkills = (dir: string, skills: string[]): Project =>
   setYamlPath(projectFile(dir), ProjectSchema, 'skills', skills);
+
+/** Sets one override, or removes it when `value` is undefined, keeping the rest of the YAML. */
+export function setProjectOverride(dir: string, dotted: string, value: unknown): Project {
+  if (!PROJECT_OVERRIDES.includes(dotted)) {
+    throw new MesaError(
+      'usage',
+      `${dotted} is not a project override: ${PROJECT_OVERRIDES.join(', ')}`,
+    );
+  }
+  return setYamlPath(projectFile(dir), ProjectSchema, dotted, value);
+}

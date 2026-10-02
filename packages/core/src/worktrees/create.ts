@@ -11,6 +11,7 @@ import { worktreeHolder } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { addWorktree, removeWorktree, worktreePath } from '../sessions/worktree.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
+import { worktreeSettings } from './settings.js';
 
 /** A session may take an existing unheld worktree at its configured branch path. */
 export async function sessionWorktree(
@@ -52,7 +53,10 @@ export async function sessionWorktree(
   return { worktree: { path: checkout.path, branch }, created: false };
 }
 
-/** Manual and session worktrees take one profile policy, with explicit branch/base overrides. */
+/**
+ * Manual and session worktrees take one policy, the profile's under the project's overrides, with
+ * explicit branch/base overrides.
+ */
 export async function createWorktree(
   profile: Profile,
   run: Runner,
@@ -70,7 +74,7 @@ export async function createWorktree(
       `session ${holder.id} has ${holder.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
     );
   }
-  const settings = profile.config.worktrees;
+  const settings = worktreeSettings(profile, project.path);
   const worktree = await addWorktree(run, {
     repo: project.path,
     root,

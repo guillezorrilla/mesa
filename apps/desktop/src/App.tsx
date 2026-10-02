@@ -720,7 +720,11 @@ export function App() {
         doctorBusy={doctor.busy}
         onRecheck={() => void doctor.refresh()}
         onNavigate={(kind) => navigate({ kind })}
-        onChanged={() => void config.refresh()}
+        onChanged={() => {
+          void config.refresh();
+          // A project's terminal theme override reaches its sessions through the project list.
+          void projects.refresh();
+        }}
         onReplayTour={() =>
           void act(async () => {
             if (

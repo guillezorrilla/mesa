@@ -4,6 +4,7 @@ import { discoverProjects } from './discover.js';
 import { repositoryUrl } from './project-url.js';
 import {
   listProjects,
+  overrideProject,
   type ProjectUpdate,
   registerProject,
   unregisterProject,
@@ -66,6 +67,19 @@ export function projectsService(ctx: MesaContext) {
           outputs: (r) => ({ label: r.label, pinned: r.pinned, hidden: r.hidden }),
         },
         () => updateProject(open(), name, patch),
+      ),
+    /** One of the project's mesa.yaml overrides set, or removed when `value` is undefined. */
+    override: (name: string, path: string, value: string | undefined) =>
+      record(
+        {
+          summary: () =>
+            value === undefined ? `Unset ${path} in ${name}` : `Set ${path} in ${name}`,
+          failure: `Could not change ${path} in ${name}`,
+          project: () => name,
+          inputs: { name, path, ...(value === undefined ? { unset: true } : {}) },
+          outputs: (r) => ({ value: r.value }),
+        },
+        () => overrideProject(open(), name, path, value),
       ),
     unregister: (name: string) =>
       record(
