@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -29,4 +31,22 @@ test('terminal.messageActions is on by default and config set turns it off', asy
   ).toMatchObject({ path: 'terminal.messageActions', value: false });
   expect(await messageActions()).toBe(false);
   expect((await cli.mesa('config', 'set', 'terminal.messageActions', 'maybe')).code).toBe(4);
+});
+
+test('changing the vault switches reads and writes without moving or changing either folder', async () => {
+  await cli.mesa('init', '--vault', 'first-vault');
+  await cli.mesa('vault', 'init');
+  const first = (await cli.mesa('config', '--json')).json.data.vault as string;
+  writeFileSync(join(first, 'kept.md'), '# Keep this note\n');
+  const second = join(first, '..', 'second vault');
+  expect((await cli.mesa('config', 'set', 'vault', JSON.stringify(second), '--json')).code).toBe(0);
+  expect((await cli.mesa('vault', 'status', '--json')).json.data.path).toBe(second);
+  expect(existsSync(second)).toBe(false);
+  await cli.mesa('vault', 'init');
+  const inventory = (await cli.mesa('vault', 'list', '--json')).json.data;
+  expect(inventory.vault).toBe(second);
+  expect(inventory.items.some((item: { path: string }) => item.path === 'kept.md')).toBe(false);
+  expect(readFileSync(join(first, 'kept.md'), 'utf8')).toBe('# Keep this note\n');
+  expect((await cli.mesa('config', 'set', 'vault', 'relative-folder', '--json')).code).toBe(4);
+  expect((await cli.mesa('config', '--json')).json.data.vault).toBe(second);
 });

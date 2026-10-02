@@ -29,8 +29,8 @@ const SETTINGS: SearchHit[] = [
   {
     kind: 'setting',
     id: 'profile',
-    label: 'Profile and vault',
-    detail: 'Current profile and vault',
+    label: 'Profile settings',
+    detail: 'Current profile and settings',
   },
   { kind: 'setting', id: 'shortcuts', label: 'Keyboard shortcuts', detail: 'View and change keys' },
   { kind: 'setting', id: 'preferences', label: 'Preferences', detail: 'Display and terminal' },

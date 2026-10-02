@@ -35,6 +35,7 @@ export const CATEGORIES: {
     icon: Settings,
     sections: [
       ['application', 'Application'],
+      ['vault', 'Vault'],
       ['appearance', 'Appearance'],
       ['accessibility', 'Accessibility'],
       ['doctor', 'Doctor'],

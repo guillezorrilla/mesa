@@ -1,5 +1,13 @@
 import type { Result } from '@mesa/core';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useToast } from '@/components/Toast';
 import type { CallArgs, Client, CommandName, DataOf } from './client';
 import { useClient } from './MesaRoot';
@@ -48,6 +56,8 @@ type CommandError = Extract<Result<unknown>, { ok: false }>['error'];
  * ponytail: unbounded, one entry per command and arguments read; an LRU if that ever grows large.
  */
 const replies = new WeakMap<Client, Map<string, unknown>>();
+/** Cached reads belong to the folder they read, even when their command arguments stay the same. */
+export const CommandScope = createContext<string | undefined>(undefined);
 function repliesOf(client: Client) {
   let found = replies.get(client);
   if (!found) {
@@ -76,7 +86,7 @@ export function useCommand<K extends CommandName>(
   const toast = useToast();
   const cached = repliesOf(useClient());
   // By value: a caller passes a fresh object each render.
-  const key = JSON.stringify([name, args]);
+  const key = JSON.stringify([name, args, useContext(CommandScope)]);
   const currentKey = useRef(key);
   useLayoutEffect(() => {
     currentKey.current = key;
