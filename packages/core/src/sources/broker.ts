@@ -16,7 +16,8 @@ export type Grant =
 const tokenSchema = z.object({
   access_token: z.string(),
   refresh_token: z.string().optional(),
-  expires_in: z.number(),
+  /** Absent when the vendor names no lifetime (Notion): the token works until a 401. */
+  expires_in: z.number().optional(),
 });
 
 /**
@@ -56,9 +57,13 @@ export async function brokerToken(
   }
   const tokens = tokenSchema.safeParse(body);
   if (!tokens.success) throw new MesaError('internal', `the broker answered an unexpected token`);
+  const { access_token, refresh_token, expires_in } = tokens.data;
   return {
-    accessToken: tokens.data.access_token,
-    refreshToken: tokens.data.refresh_token,
-    expiresAt: new Date(now.getTime() + tokens.data.expires_in * 1000).toISOString(),
+    accessToken: access_token,
+    refreshToken: refresh_token,
+    expiresAt:
+      expires_in === undefined
+        ? undefined
+        : new Date(now.getTime() + expires_in * 1000).toISOString(),
   };
 }

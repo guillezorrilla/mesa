@@ -696,8 +696,12 @@ export {
   importProfile,
   importWorld,
   memorySecretStore,
+  notionDataSourceObject,
+  notionPageObject,
+  notionWorld,
   TEST_BROKER,
   TEST_CONFLUENCE,
   TEST_JIRA,
+  TEST_NOTION,
   writesImportNotes,
 } from './sources.js';

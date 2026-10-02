@@ -61,7 +61,7 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
         <SectionLabel className="flex items-center gap-2">
           <Link aria-hidden className="size-4" /> Paste a link
         </SectionLabel>
-        <Muted>A Jira issue or key, a Confluence page, or any public web page.</Muted>
+        <Muted>A Jira issue or key, a Confluence or Notion page, or any public web page.</Muted>
         <PasteLinkForm acting={acting} notes={notes} onNotesChange={setNotes} onImport={add} />
       </section>
       <section aria-label="Imported" className="space-y-3">

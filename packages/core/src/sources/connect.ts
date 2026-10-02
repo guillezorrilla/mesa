@@ -39,7 +39,7 @@ export async function connectSource(
   const tokens = await brokerToken(deps, source, { grant_type: 'authorization_code', code });
   if (!tokens) throw new MesaError('usage', `${label} refused the sign-in code; try again`);
   if (!tokens.refreshToken)
-    throw new MesaError('internal', `${label} gave no refresh token (the offline_access scope)`);
+    throw new MesaError('internal', `${label} gave no refresh token; try again`);
   const sites = await SOURCES[source].sites(withBearer(deps.http, tokens.accessToken));
   await deps.connections.write(source, {
     accessToken: tokens.accessToken,

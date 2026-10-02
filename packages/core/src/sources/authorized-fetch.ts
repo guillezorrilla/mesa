@@ -62,8 +62,8 @@ export const withBearer =
 
 /**
  * The one owner of calls to a source's API: fetch-shaped, with the connection's Bearer token. An
- * expired token, or one the source answers 401 to, refreshes once through the broker and the
- * rotated refresh token is stored; a refused refresh, or a 401 after one, marks the connection
+ * expired token (one with no expiry never is), or one the source answers 401 to, refreshes once
+ * through the broker and the rotated refresh token is stored; a refused refresh, or a 401 after one, marks the connection
  * needs-reconnect and throws. A rate-limited call (a 429, or a 503 with Retry-After) waits as
  * Retry-After asks (at most MAX_WAIT_S) and is sent again, TRIES times in all, then throws.
  */
@@ -115,7 +115,8 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
       }
     };
     let refreshed = false;
-    if (Date.parse(connection.expiresAt) - EARLY_MS <= deps.clock().getTime()) {
+    const expiresAt = connection.expiresAt && Date.parse(connection.expiresAt);
+    if (expiresAt && expiresAt - EARLY_MS <= deps.clock().getTime()) {
       connection = await refresh(connection);
       refreshed = true;
     }
