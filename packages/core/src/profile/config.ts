@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
+import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsBackendSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
@@ -222,6 +223,8 @@ const ConfigSchema = z.strictObject({
       allowedTools: z.array(z.string().min(1)).default([]),
     })
     .prefault({}),
+  /** Each agent's native launch flags on new and resumed sessions; unset uses its native config. */
+  agents: LaunchDefaultsSchema,
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */
   keys: z.record(z.string(), z.string()).default({}),
 });

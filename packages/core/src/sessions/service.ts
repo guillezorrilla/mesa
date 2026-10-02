@@ -58,7 +58,7 @@ import { sendReview } from './reviews.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
 import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
-import { markEnded, startedOutputs } from './session-receipt.js';
+import { dangerousLaunch, markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
 import { killIfThere } from './tmux/backend.js';
 import { vaultStatus } from './vault-status.js';
@@ -453,6 +453,8 @@ export function sessionsService(
         const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());
         return record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             ...(kept ? { argv: kept.argv } : {}),
             summary: ({ record: r }) =>
@@ -478,7 +480,7 @@ export function sessionsService(
               ...(base === undefined ? {} : { base }),
               ...(terminal ? { terminal: true } : {}),
             },
-            outputs: ({ record: r }) => startedOutputs(r),
+            outputs: ({ record: r }) => startedOutputs(r, open().config.agents),
           },
           async () => {
             if (refused) throw refused;
@@ -539,7 +541,7 @@ export function sessionsService(
               ...(yes ? { yes } : {}),
             },
             outputs: ({ record: r, override }) => ({
-              ...startedOutputs(r),
+              ...startedOutputs(r, open().config.agents),
               ...(override ? { override } : {}),
             }),
           },
@@ -741,6 +743,8 @@ export function sessionsService(
         const keep = opts.keep ?? false;
         return record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: (r) => `Handed off session ${id} to ${r.to.id} (${r.stop})`,
             failure: `Could not hand off session ${id}`,
@@ -749,7 +753,13 @@ export function sessionsService(
             session: () => id,
             agent: (r) => recordAgent(r.to),
             inputs: { id, note, keep, ...(opts.agent ? { agent: opts.agent } : {}) },
-            outputs: (r) => ({ from: id, to: r.to.id, note: r.note, stop: r.stop }),
+            outputs: (r) => ({
+              from: id,
+              to: r.to.id,
+              note: r.note,
+              stop: r.stop,
+              ...dangerousLaunch(r.to, open().config.agents),
+            }),
           },
           async () => {
             const done = await handoffSession({ ...openDeps(), handoffs: paths.handoffs }, id, {
@@ -792,6 +802,8 @@ export function sessionsService(
       ) =>
         record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: ({ record: r }) =>
               `Adopted ${r.agent} session ${agentSessionId} as ${r.id} on ${r.project}`,
@@ -805,6 +817,7 @@ export function sessionsService(
               window: r.tmux.window,
               resumed: !opts.noResume,
               ...(r.cwd ? { cwd: r.cwd } : {}),
+              ...(opts.noResume ? {} : dangerousLaunch(r, open().config.agents)),
             }),
           },
           () =>
@@ -822,6 +835,8 @@ export function sessionsService(
       resume: (id: string) =>
         record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: (r) =>
               `Resumed session ${r.from.id} as ${r.record.id} on ${projectLabel(r.record.project)}`,
@@ -835,6 +850,7 @@ export function sessionsService(
               window: r.record.tmux.window,
               agentSessionId: r.record.agentSessionId,
               resumedFrom: r.from.id,
+              ...dangerousLaunch(r.record, open().config.agents),
             }),
           },
           () => resumeSession(openDeps(), id),
@@ -842,6 +858,8 @@ export function sessionsService(
       fork: (id: string, opts: { branch?: string; base?: string } = {}) =>
         record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: (r) => `Forked session ${id} as ${r.record.id}`,
             failure: `Could not fork session ${id}`,
@@ -850,13 +868,19 @@ export function sessionsService(
             session: (r) => r.record.id,
             agent: (r) => recordAgent(r.record),
             inputs: { id, ...opts },
-            outputs: (r) => ({ window: r.record.tmux.window, parent: id }),
+            outputs: (r) => ({
+              window: r.record.tmux.window,
+              parent: id,
+              ...dangerousLaunch(r.record, open().config.agents),
+            }),
           },
           () => forkSession(openDeps(), id, opts),
         ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       dependencies: (id: string, change: { parent?: string | null; after?: string }) =>
         record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: (r) => `Updated dependencies of session ${r.record.id}`,
             failure: `Could not update dependencies of session ${id}`,
@@ -864,20 +888,30 @@ export function sessionsService(
             project: (r) => projectScope(r.record.project),
             session: () => id,
             inputs: { id, ...change },
-            outputs: (r) => ({ parent: r.record.parent ?? null, after: r.record.after ?? null }),
+            outputs: (r) => ({
+              parent: r.record.parent ?? null,
+              after: r.record.after ?? null,
+              ...(r.started ? dangerousLaunch(r.record, open().config.agents) : {}),
+            }),
           },
           async () => {
             const changed = changeDependencies(store, id, change);
             if (change.after && isOver(store.get(change.after))) {
               const started = await startQueued(openDeps(), id, change.after);
-              return { record: started?.record ?? store.get(id), warning: started?.warning };
+              return {
+                record: started?.record ?? store.get(id),
+                warning: started?.warning,
+                started: Boolean(started),
+              };
             }
-            return { record: changed, warning: undefined };
+            return { record: changed, warning: undefined, started: false };
           },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       forceStart: (id: string) =>
         record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: (r) => `Started queued session ${r.record.id} now`,
             failure: `Could not force-start session ${id}`,
@@ -885,7 +919,7 @@ export function sessionsService(
             project: (r) => projectScope(r.record.project),
             session: () => id,
             inputs: { id, force: true },
-            outputs: (r) => startedOutputs(r.record),
+            outputs: (r) => startedOutputs(r.record, open().config.agents),
           },
           async () => {
             const queued = store.get(id);

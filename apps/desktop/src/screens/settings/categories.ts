@@ -81,6 +81,9 @@ export const CATEGORIES: {
     icon: Bot,
     sections: [
       ['overview', 'Overview'],
+      ['claude', 'Claude Code'],
+      ['codex', 'Codex'],
+      ['antigravity', 'Antigravity CLI'],
       ['headless', 'Headless runs'],
     ],
   },

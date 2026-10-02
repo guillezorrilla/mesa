@@ -1,17 +1,169 @@
-import type { DoctorReport } from '@mesa/core';
+import type { Config, DoctorReport } from '@mesa/core';
 import {
   AGENT_EXECUTABLES,
   AGENT_LABELS,
   AGENT_NAMES,
+  ANTIGRAVITY_MODES,
   CLAUDE_PERMISSION_MODES,
+  CODEX_APPROVAL_POLICIES,
+  CODEX_SANDBOXES,
 } from '@mesa/core/browser';
-import { ListChecks, ShieldAlert } from 'lucide-react';
+import {
+  Box,
+  Compass,
+  ListChecks,
+  type LucideIcon,
+  ShieldAlert,
+  ShieldOff,
+  UserCheck,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Choice, commaList, TextField } from './controls';
 import { SettingRow, SettingSection, useMatches } from './SettingRow';
 import { useSettings } from './useSettings';
 
-/** Installed agents as Doctor found them, and how a headless `mesa run` may act. */
+type Launch = Config['agents'];
+
+/** A flag that is either passed or left to the agent's native config. */
+const ON = [['on', 'On']] as const;
+
+/**
+ * One native launch default of `agent`, in its own terms: "Use native config" leaves it unset, so
+ * nothing is passed. The agent's map is saved whole, so an unset field is removed from it.
+ */
+function LaunchRow<A extends keyof Launch>(props: {
+  agent: A;
+  field: keyof Launch[A] & string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  options: readonly (readonly [string, string])[];
+  danger?: boolean;
+  /** A value that turns off the agent's checks, so the row is red while it is set. */
+  dangerousValue?: string;
+}) {
+  const { config } = useSettings();
+  const current: Record<string, unknown> = config.agents[props.agent];
+  const set = current[props.field];
+  const id = `launch-${props.agent}-${props.field}`;
+  return (
+    <SettingRow
+      icon={props.icon}
+      title={props.title}
+      description={props.description}
+      keywords={`${AGENT_LABELS[props.agent]} launch native`}
+      htmlFor={id}
+      tone={
+        props.danger || (set !== undefined && set === props.dangerousValue) ? 'danger' : undefined
+      }
+      control={
+        <Choice
+          id={id}
+          path={`agents.${props.agent}`}
+          value={set === true ? 'on' : typeof set === 'string' ? set : ''}
+          options={[['', 'Use native config'], ...props.options]}
+          toValue={(option) => {
+            const { [props.field]: _, ...rest } = current;
+            return option === '' ? rest : { ...rest, [props.field]: option === 'on' || option };
+          }}
+        />
+      }
+    />
+  );
+}
+
+const values = (list: readonly string[]) => list.map((value) => [value, value] as const);
+
+/** Each agent's native launch defaults on new and resumed sessions, never translated. */
+function LaunchSettings() {
+  return (
+    <>
+      <SettingSection
+        id="claude"
+        title={AGENT_LABELS.claude}
+        description="Launch flags for new and resumed Claude Code sessions"
+      >
+        <LaunchRow
+          agent="claude"
+          field="skipPermissions"
+          icon={ShieldOff}
+          title="Skip permissions"
+          description="Danger: --dangerously-skip-permissions runs every tool without asking. Plan mode still starts in plan."
+          options={ON}
+          danger
+        />
+      </SettingSection>
+      <SettingSection
+        id="codex"
+        title={AGENT_LABELS.codex}
+        description="Launch flags for new and resumed Codex sessions"
+      >
+        <LaunchRow
+          agent="codex"
+          field="approvalPolicy"
+          icon={UserCheck}
+          title="Approval policy"
+          description="Codex's --ask-for-approval."
+          options={values(CODEX_APPROVAL_POLICIES)}
+        />
+        <LaunchRow
+          agent="codex"
+          field="sandbox"
+          icon={Box}
+          title="Sandbox"
+          description="Codex's --sandbox. Danger: danger-full-access runs commands with no sandbox."
+          options={values(CODEX_SANDBOXES)}
+          dangerousValue="danger-full-access"
+        />
+        <LaunchRow
+          agent="codex"
+          field="bypass"
+          icon={ShieldOff}
+          title="Bypass approvals and sandbox"
+          description="Danger: --dangerously-bypass-approvals-and-sandbox asks nothing and runs unsandboxed; it replaces the approval policy and sandbox."
+          options={ON}
+          danger
+        />
+      </SettingSection>
+      <SettingSection
+        id="antigravity"
+        title={AGENT_LABELS.antigravity}
+        description="Launch flags for new and resumed Antigravity CLI sessions"
+      >
+        <LaunchRow
+          agent="antigravity"
+          field="skipPermissions"
+          icon={ShieldOff}
+          title="Skip permissions"
+          description="Danger: --dangerously-skip-permissions approves every tool request without asking."
+          options={ON}
+          danger
+        />
+        <LaunchRow
+          agent="antigravity"
+          field="mode"
+          icon={Compass}
+          title="Mode"
+          description="Antigravity's --mode; a session started in plan stays in plan."
+          options={values(ANTIGRAVITY_MODES)}
+        />
+        <LaunchRow
+          agent="antigravity"
+          field="sandbox"
+          icon={Box}
+          title="Sandbox"
+          description="Antigravity's --sandbox, with terminal restrictions."
+          options={ON}
+        />
+      </SettingSection>
+    </>
+  );
+}
+
+/**
+ * Installed agents as Doctor found them, each agent's launch defaults, and how a headless
+ * `mesa run` may act.
+ */
 export function AgentSettings(props: { doctor?: DoctorReport }) {
   const { config, save } = useSettings();
   const overview = useMatches(
@@ -57,6 +209,7 @@ export function AgentSettings(props: { doctor?: DoctorReport }) {
           agent's permissions into another's; a handoff uses the target agent's own defaults.
         </p>
       </SettingSection>
+      <LaunchSettings />
       <SettingSection
         id="headless"
         title="Headless runs"

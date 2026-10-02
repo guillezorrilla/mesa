@@ -89,9 +89,16 @@ export async function resumeSession(
           return AGENTS.antigravity.resume(
             agentId,
             prepareAntigravityLog(deps.profile.paths.logs, record.id),
+            deps.profile.config.agents,
             old.mode,
           );
-        return AGENTS[agent].resume(agentId, folder, deps.vaultServer, old.mode);
+        return AGENTS[agent].resume(
+          agentId,
+          folder,
+          deps.vaultServer,
+          deps.profile.config.agents,
+          old.mode,
+        );
       },
     },
   );

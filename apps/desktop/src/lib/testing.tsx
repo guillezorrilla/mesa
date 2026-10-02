@@ -106,6 +106,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
       grid: { groups: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
+      agents: { claude: {}, codex: {}, antigravity: {} },
       keys: {},
     } satisfies Config),
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),

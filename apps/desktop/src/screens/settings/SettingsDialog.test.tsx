@@ -214,3 +214,60 @@ test('Notifications has the visual alert toggle, on by default, and saves it off
   await click(toggle ?? undefined);
   expect(sets(calls)).toEqual([['notifications.visualAlert', 'false']]);
 });
+
+test('Coding Agents has a launch section per agent, dangerous rows in red, each on native config until set', async () => {
+  const set = {
+    ...(await base()),
+    agents: {
+      claude: {},
+      codex: { sandbox: 'danger-full-access' as const, bypass: true },
+      antigravity: {},
+    },
+  };
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(set),
+    'config set': () => envelope({}),
+  });
+  await render(bridge);
+  await click(nav('Coding Agents'));
+  const rows = (section: string) =>
+    [...document.querySelectorAll(`#settings-${section} [data-setting-row]`)].map((row) => [
+      row.querySelector('label')?.textContent,
+      row.querySelector('label')?.classList.contains('text-destructive'),
+    ]);
+  expect(rows('claude')).toEqual([['Skip permissions', true]]);
+  expect(rows('codex')).toEqual([
+    ['Approval policy', false],
+    ['Sandbox', true],
+    ['Bypass approvals and sandbox', true],
+  ]);
+  expect(rows('antigravity')).toEqual([
+    ['Skip permissions', true],
+    ['Mode', false],
+    ['Sandbox', false],
+  ]);
+  // A red row warns in its description; the others do not.
+  for (const row of document.querySelectorAll(
+    ['claude', 'codex', 'antigravity'].map((id) => `#settings-${id} [data-setting-row]`).join(),
+  )) {
+    const red = row.querySelector('label')?.classList.contains('text-destructive');
+    if (red) expect(row.querySelector('p')?.textContent).toContain('Danger:');
+    else expect(row.querySelector('p')?.textContent).not.toMatch(/^Danger:/);
+  }
+  const select = (id: string) => document.getElementById(id) as HTMLSelectElement;
+  expect(select('launch-claude-skipPermissions').value).toBe('');
+  expect(select('launch-claude-skipPermissions').options[0]?.textContent).toBe('Use native config');
+  expect(select('launch-codex-sandbox').value).toBe('danger-full-access');
+  expect(select('launch-codex-bypass').value).toBe('on');
+
+  await choose(select('launch-claude-skipPermissions'), 'on');
+  await choose(select('launch-antigravity-mode'), 'accept-edits');
+  await choose(select('launch-codex-sandbox'), '');
+  await choose(select('launch-codex-approvalPolicy'), 'never');
+  expect(sets(calls)).toEqual([
+    ['agents.claude', '{"skipPermissions":true}'],
+    ['agents.antigravity', '{"mode":"accept-edits"}'],
+    ['agents.codex', '{"bypass":true}'],
+    ['agents.codex', '{"sandbox":"danger-full-access","bypass":true,"approvalPolicy":"never"}'],
+  ]);
+});

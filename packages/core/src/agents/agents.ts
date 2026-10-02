@@ -19,6 +19,7 @@ import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
+import { type LaunchDefaults, launchFlags } from './launch-flags.js';
 import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 import {
   CLAUDE_VAULT_TOOLS,
@@ -30,6 +31,12 @@ import {
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
+
+/** The profile's launch defaults for `agent` as they follow its executable (launch-flags.ts). */
+const flags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan') =>
+  launchFlags(agent, defaults, mode)
+    .map((flag) => ` ${flag}`)
+    .join('');
 
 /** Claude Code's mesa-vault mount as shell words (vault-mount.ts). */
 const claudeMount = (server: VaultServer) => claudeVaultArgs(server).map(shellWord).join(' ');
@@ -63,19 +70,37 @@ export const AGENTS = {
     /** None: claude takes the agent session id Mesa picks (newSessionId) with --session-id. */
     ownSessionId: undefined,
     /**
-     * The command a Mesa window runs, under the id Mesa chose, with mesa-vault mounted and the
-     * goal as the first prompt.
+     * The command a Mesa window runs, under the id Mesa chose, with the profile's launch
+     * defaults, mesa-vault mounted, and the goal as the first prompt.
      */
-    start: (sessionId: string, server: VaultServer, goal?: string, mode?: 'plan') =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''} ${claudeMount(server)}${goalWord(goal)}`,
+    start: (
+      sessionId: string,
+      server: VaultServer,
+      defaults: LaunchDefaults,
+      goal?: string,
+      mode?: 'plan',
+    ) =>
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${goalWord(goal)}`,
     /**
      * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
-     * mount is not part of the conversation, so it comes again.
+     * mount and the launch defaults are not part of the conversation, so they come again.
      */
-    resume: (sessionId: string, _folder: string, server: VaultServer, mode?: 'plan') =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''} ${claudeMount(server)}`,
-    fork: (sessionId: string, _folder: string, server: VaultServer, mode?: 'plan') =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''} ${claudeMount(server)}`,
+    resume: (
+      sessionId: string,
+      _folder: string,
+      server: VaultServer,
+      defaults: LaunchDefaults,
+      mode?: 'plan',
+    ) =>
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}`,
+    fork: (
+      sessionId: string,
+      _folder: string,
+      server: VaultServer,
+      defaults: LaunchDefaults,
+      mode?: 'plan',
+    ) =>
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -131,16 +156,22 @@ export const AGENTS = {
      * The command a Mesa window runs, with mesa-vault mounted; `--` so a goal such as `review` is
      * a prompt, not a subcommand.
      */
-    start: (server: VaultServer, goal?: string) =>
-      `codex ${CODEX_EMBEDDED} ${codexMount(server)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+    start: (server: VaultServer, defaults: LaunchDefaults, goal?: string) =>
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
      * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
      * is not part of the thread, so it comes again.
      */
-    resume: (sessionId: string, folder: string, server: VaultServer, _mode?: 'plan') =>
-      `codex ${CODEX_EMBEDDED} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
-    fork: (sessionId: string, folder: string, server: VaultServer) =>
-      `codex ${CODEX_EMBEDDED} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+    resume: (
+      sessionId: string,
+      folder: string,
+      server: VaultServer,
+      defaults: LaunchDefaults,
+      _mode?: 'plan',
+    ) =>
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+    fork: (sessionId: string, folder: string, server: VaultServer, defaults: LaunchDefaults) =>
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
@@ -170,10 +201,10 @@ export const AGENTS = {
     install: 'https://antigravity.google/docs/cli/install/',
     /** The first prompt writes the native ID to this window's unique CLI log. */
     ownSessionId: antigravitySessionId,
-    start: (goal: string | undefined, log: string, mode?: 'plan') =>
-      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
-    resume: (sessionId: string, log: string, mode?: 'plan') =>
-      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}`,
+    start: (goal: string | undefined, log: string, defaults: LaunchDefaults, mode?: 'plan') =>
+      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
+    resume: (sessionId: string, log: string, defaults: LaunchDefaults, mode?: 'plan') =>
+      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}`,
     quit: '/exit',
     submitDelayMs: 300,
     headless: {
@@ -218,23 +249,25 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
 
 /**
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
- * picked for it (newSessionId), which an agent that picks its own does not take, with `server`
- * mounted for an agent that takes it per launch (Antigravity's is global).
+ * picked for it (newSessionId), which an agent that picks its own does not take, with the
+ * profile's launch `defaults`, and `server` mounted for an agent that takes it per launch
+ * (Antigravity's is global).
  */
 export function startCommand(
   agent: Agent,
   server: VaultServer,
+  defaults: LaunchDefaults,
   s: { id?: string; logs?: string; agentSessionId?: string; goal?: string; mode?: 'plan' },
 ) {
   if (agent === 'antigravity') {
     if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
-    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id), s.mode);
+    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id), defaults, s.mode);
   }
-  if (agent === 'codex') return AGENTS.codex.start(server, s.goal);
+  if (agent === 'codex') return AGENTS.codex.start(server, defaults, s.goal);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, server, s.goal, s.mode);
+  return AGENTS.claude.start(s.agentSessionId, server, defaults, s.goal, s.mode);
 }
 
 /** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */

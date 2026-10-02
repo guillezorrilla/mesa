@@ -1,3 +1,4 @@
+import { dangerousFlags, type LaunchDefaults } from '../agents/launch-flags.js';
 import type { MesaContext } from '../context.js';
 import { redactWhole } from '../lib/redact.js';
 import { toFail } from '../lib/result.js';
@@ -11,13 +12,31 @@ import type { HeadlessResult } from './run.js';
 /** What updating a historical session receipt reads. */
 type ReceiptContext = Pick<MesaContext, 'notes' | 'paths' | 'secrets' | 'deps'>;
 
-/** What a session receipt says of a session that started: its window, conversation, and place. */
-export const startedOutputs = (r: SessionRecord) => ({
+/**
+ * The launch flags an agent session started with that turn off its agent's permission checks or
+ * sandbox (launch-flags.ts), as one line, which keeps its guardrail receipt (receipts/policy.ts);
+ * nothing when there are none, or it has not started, or it resumed by attaching to a background
+ * process started before it, which takes no flags (claude attach).
+ */
+export function dangerousLaunch(r: SessionRecord, defaults: LaunchDefaults) {
+  if (r.kind !== 'interactive' || r.agent === 'terminal' || r.lastState.state === 'queued')
+    return {};
+  if (r.resumedFrom && r.backgroundId) return {};
+  const flags = dangerousFlags(r.agent, defaults, r.mode);
+  return flags.length ? { dangerousFlags: flags.join(' ') } : {};
+}
+
+/**
+ * What a session receipt says of a session that started: its window, conversation, place, and
+ * any dangerous launch flags under the profile's launch `defaults`.
+ */
+export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   window: r.tmux.window,
   agentSessionId: r.agentSessionId,
   lastState: r.lastState,
   parent: r.parent ?? null,
   ...(r.worktree ? { worktree: r.worktree } : {}),
+  ...dangerousLaunch(r, defaults),
 });
 
 /** Text from the profile's logs as a receipt keeps it (redactWhole). */

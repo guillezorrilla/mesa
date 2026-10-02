@@ -4,10 +4,15 @@ import type { Receipt } from './schema.js';
 export const RECORD_KINDS = ['decision', 'guardrail', 'vault-change'] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
+/**
+ * A guardrail entry is material when a person overrode it, or when a session started with launch
+ * flags that turn off its agent's own permission checks or sandbox (`dangerousFlags`).
+ */
 export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string, unknown>) =>
   kind === 'decision' ||
   kind === 'vault-change' ||
-  (kind === 'guardrail' && typeof outputs.override === 'string');
+  (kind === 'guardrail' &&
+    (typeof outputs.override === 'string' || typeof outputs.dangerousFlags === 'string'));
 
 export const keepFailure = (kind: RecordKind | undefined, code: string) =>
   kind === 'guardrail' && code === 'guardrail_blocked';
@@ -16,7 +21,8 @@ export const keepFailure = (kind: RecordKind | undefined, code: string) =>
 export const BASES_MEANINGFUL_FILTER = [
   '!(outputs && outputs.target.isType("string") && (outputs.target == "daily" || outputs.target.startsWith("daily/")))',
   '&& ((status == "ok" && (kind == "decision" || kind == "vault-change"',
-  '|| (kind == "guardrail" && outputs && outputs.override.isType("string"))))',
+  '|| (kind == "guardrail" && outputs',
+  '&& (outputs.override.isType("string") || outputs.dangerousFlags.isType("string")))))',
   '|| ((status == "failed" || status == "blocked") && kind == "guardrail"',
   '&& outputs && outputs.error && outputs.error.code == "guardrail_blocked"))',
 ].join(' ');

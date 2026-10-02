@@ -200,3 +200,35 @@ test('shortcut values are canonical, unique, and never take reserved window keys
   }
   expect(loadConfig(file).shortcuts.search).toBe('Mod+Shift+P');
 });
+
+test('agent launch defaults are unset by default, validate in each agent terms, and unset again', () => {
+  expect(loadConfig(file).agents).toEqual({ claude: {}, codex: {}, antigravity: {} });
+  expect(setConfigValue(file, 'agents.claude.skipPermissions', 'true').value).toBe(true);
+  expect(setConfigValue(file, 'agents.codex.approvalPolicy', 'never').value).toBe('never');
+  expect(setConfigValue(file, 'agents.codex.sandbox', 'workspace-write').value).toBe(
+    'workspace-write',
+  );
+  expect(setConfigValue(file, 'agents.codex.bypass', 'false').value).toBe(false);
+  expect(setConfigValue(file, 'agents.antigravity.skipPermissions', 'true').value).toBe(true);
+  expect(setConfigValue(file, 'agents.antigravity.mode', 'accept-edits').value).toBe(
+    'accept-edits',
+  );
+  expect(setConfigValue(file, 'agents.antigravity.sandbox', 'true').value).toBe(true);
+  const before = readFileSync(file, 'utf8');
+  for (const [path, value] of [
+    ['agents.claude.skipPermissions', 'yes please'],
+    ['agents.claude.mode', 'plan'],
+    ['agents.codex.approvalPolicy', 'untrusted'],
+    ['agents.codex.sandbox', 'full'],
+    ['agents.antigravity.mode', 'acceptEdits'],
+    ['agents.gemini', '{}'],
+  ] as const) {
+    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
+    expect(readFileSync(file, 'utf8')).toBe(before);
+  }
+  // The app saves an agent's map whole, so a field it leaves out is back on native config.
+  expect(setConfigValue(file, 'agents.codex', '{"sandbox": "read-only"}').value).toEqual({
+    sandbox: 'read-only',
+  });
+  expect(loadConfig(file).agents.codex).toEqual({ sandbox: 'read-only' });
+});

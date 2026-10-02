@@ -5,7 +5,13 @@ import { afterAll, describe, expect, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import { vaultServer } from '../../agents/vault-mount.js';
 import { execRunner, type Runner } from '../../lib/process.js';
-import { CLAUDE_MOUNT, scriptedRunner, tempDir, tmuxLine } from '../../testing/index.js';
+import {
+  CLAUDE_MOUNT,
+  NATIVE_LAUNCH,
+  scriptedRunner,
+  tempDir,
+  tmuxLine,
+} from '../../testing/index.js';
 import { outputLog, outputTail } from '../output-log.js';
 import { tmuxBackend } from './backend.js';
 import { exact, type WindowTarget } from './format.js';
@@ -192,7 +198,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     const out = join(cwd, 'goal.out');
     // The command open runs, with printf standing in for claude.
     const command = AGENTS.claude
-      .start('uuid', vaultServer(['/usr/local/bin/mesa']), goal)
+      .start('uuid', vaultServer(['/usr/local/bin/mesa']), NATIVE_LAUNCH, goal)
       .replace(`claude --session-id uuid ${CLAUDE_MOUNT}`, 'printf %s');
     await open(lantern('claude-goal01'), `${command} > ${out}`);
     const written = () => Promise.resolve(existsSync(out) ? readFileSync(out, 'utf8') : '');

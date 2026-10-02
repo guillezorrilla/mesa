@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { tempDir } from '../testing/index.js';
+import { NATIVE_LAUNCH as NATIVE, tempDir } from '../testing/index.js';
 import { AGENTS, startCommand } from './agents.js';
 import { claudeVaultArgs, vaultServer } from './vault-mount.js';
 
@@ -23,14 +23,14 @@ test('the server is this mesa vault mcp, its profile and session from the window
 });
 
 test('Claude Code mounts it and pre-approves its tools on start, resume, fork, and headless', () => {
-  expect(AGENTS.claude.start(ID, SERVER, 'Map the tides', 'plan')).toBe(
+  expect(AGENTS.claude.start(ID, SERVER, NATIVE, 'Map the tides', 'plan')).toBe(
     `claude --session-id ${ID} --permission-mode plan ${CLAUDE} 'Map the tides'`,
   );
-  expect(AGENTS.claude.start(ID, SERVER)).toBe(`claude --session-id ${ID} ${CLAUDE}`);
-  expect(AGENTS.claude.resume(ID, '/src/lantern-cove', SERVER)).toBe(
+  expect(AGENTS.claude.start(ID, SERVER, NATIVE)).toBe(`claude --session-id ${ID} ${CLAUDE}`);
+  expect(AGENTS.claude.resume(ID, '/src/lantern-cove', SERVER, NATIVE)).toBe(
     `claude --resume ${ID} ${CLAUDE}`,
   );
-  expect(AGENTS.claude.fork(ID, '/src/lantern-cove', SERVER, 'plan')).toBe(
+  expect(AGENTS.claude.fork(ID, '/src/lantern-cove', SERVER, NATIVE, 'plan')).toBe(
     `claude --resume '${ID}' --fork-session --permission-mode plan ${CLAUDE}`,
   );
   // --allowedTools is variadic and last: the vault's tools, then the profile's.
@@ -49,14 +49,14 @@ test('Claude Code mounts it and pre-approves its tools on start, resume, fork, a
 });
 
 test('Codex mounts it with its window variables and approval on start, resume, fork, and exec', () => {
-  expect(AGENTS.codex.start(SERVER, 'review')).toBe(
+  expect(AGENTS.codex.start(SERVER, NATIVE, 'review')).toBe(
     `codex -c mesa.embedded=true ${CODEX} -- 'review'`,
   );
-  expect(AGENTS.codex.start(SERVER)).toBe(`codex -c mesa.embedded=true ${CODEX}`);
-  expect(AGENTS.codex.resume('019a-thread', '/src/lantern-cove', SERVER)).toBe(
+  expect(AGENTS.codex.start(SERVER, NATIVE)).toBe(`codex -c mesa.embedded=true ${CODEX}`);
+  expect(AGENTS.codex.resume('019a-thread', '/src/lantern-cove', SERVER, NATIVE)).toBe(
     `codex -c mesa.embedded=true ${CODEX} resume '019a-thread' -C '/src/lantern-cove'`,
   );
-  expect(AGENTS.codex.fork('019a-thread', '/src/lantern-cove', SERVER)).toBe(
+  expect(AGENTS.codex.fork('019a-thread', '/src/lantern-cove', SERVER, NATIVE)).toBe(
     `codex -c mesa.embedded=true ${CODEX} fork '019a-thread' -C '/src/lantern-cove'`,
   );
   expect(
@@ -67,8 +67,10 @@ test('Codex mounts it with its window variables and approval on start, resume, f
 });
 
 test('a start mounts it per launch for Claude Code and Codex; Antigravity reads its global entry', () => {
-  expect(startCommand('claude', SERVER, { agentSessionId: ID, goal: 'go' })).toContain(CLAUDE);
-  expect(startCommand('codex', SERVER, { goal: 'go' })).toContain(CODEX);
-  const agy = startCommand('antigravity', SERVER, { id: 'aaaaaaaa', logs: tempDir() });
+  expect(startCommand('claude', SERVER, NATIVE, { agentSessionId: ID, goal: 'go' })).toContain(
+    CLAUDE,
+  );
+  expect(startCommand('codex', SERVER, NATIVE, { goal: 'go' })).toContain(CODEX);
+  const agy = startCommand('antigravity', SERVER, NATIVE, { id: 'aaaaaaaa', logs: tempDir() });
   expect(agy).not.toContain('mesa-vault');
 });

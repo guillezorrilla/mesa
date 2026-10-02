@@ -181,6 +181,7 @@ export async function startSession(
         cwd,
         deps.vaultServer,
         windowEnv(record.id, deps.profileName),
+        deps.profile.config.agents,
         record.goal,
         record.mode,
         env,

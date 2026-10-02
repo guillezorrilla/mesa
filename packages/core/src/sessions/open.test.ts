@@ -1052,3 +1052,63 @@ test('resume links the enabled skills where the conversation reopens, as open do
     expect(existsSync(join(dir, '.claude/skills', skill, 'SKILL.md'))).toBe(true);
   }
 });
+
+test('launch defaults reach new, resumed, and background sessions; a dangerous start keeps a receipt', async () => {
+  const world = agentWorld();
+  const base = withGit(world);
+  let background: readonly string[] = [];
+  const run: Runner = (file, args, ms, options) => {
+    if (file === 'claude' && args[0] === '--bg') {
+      background = args;
+      return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
+    }
+    return base(file, args, ms, options);
+  };
+  const { mesa, home } = await setUp(world, { run });
+  const vault = join(home, 'vault');
+  const launch = () => world.tmux.windows.at(-1)?.launch ?? '';
+
+  // On native config a start emits no flag and, as any routine start, keeps no receipt.
+  expect((await mesa.sessions.open('lantern-cove')).receipt).toBeNull();
+  expect(launch()).not.toContain('--dangerously');
+
+  mesa.config.set('agents.claude.skipPermissions', 'true');
+  mesa.config.set('agents.codex.sandbox', 'workspace-write');
+  const claude = await mesa.sessions.open('lantern-cove');
+  expect(launch()).toContain(' --dangerously-skip-permissions ');
+  expect(claude.receipt).not.toBeNull();
+  expect(listReceipts(vault, 10, { session: claude.result.id })[0]?.receipt).toMatchObject({
+    kind: 'guardrail',
+    type: 'session',
+    outputs: { dangerousFlags: '--dangerously-skip-permissions' },
+  });
+
+  // A flag that keeps the agent's checks on is emitted, with no receipt.
+  const codex = await mesa.sessions.open('lantern-cove', { agent: 'codex' });
+  expect(launch()).toContain(' --sandbox=workspace-write ');
+  expect(codex.receipt).toBeNull();
+
+  exitAll(world);
+  const resumed = await mesa.sessions.resume(claude.result.id);
+  expect(launch()).toContain(
+    `--resume ${claude.result.agentSessionId} --dangerously-skip-permissions `,
+  );
+  expect(resumed.receipt).not.toBeNull();
+  expect(
+    listReceipts(vault, 10, { session: resumed.result.record.id })[0]?.receipt.outputs,
+  ).toMatchObject({ dangerousFlags: '--dangerously-skip-permissions' });
+
+  const bg = (await mesa.sessions.open('lantern-cove', { background: true })).result;
+  expect(background).toContain('--dangerously-skip-permissions');
+  // A resume only attaches to that process, with no flags: no dangerous start to keep.
+  exitAll(world);
+  const attached = await mesa.sessions.resume(bg.id);
+  expect(launch()).toBe('unset NO_COLOR; exec claude attach abcdef12');
+  expect(attached.receipt).toBeNull();
+
+  // A dependency change that starts nothing is no dangerous start either.
+  const running = (await mesa.sessions.open('lantern-cove')).result;
+  expect(
+    (await mesa.sessions.dependencies(running.id, { parent: claude.result.id })).receipt,
+  ).toBeNull();
+});
