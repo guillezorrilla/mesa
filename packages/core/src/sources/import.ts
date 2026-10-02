@@ -1,5 +1,6 @@
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
+import type { SessionRecord } from '../sessions/record.js';
 import type { LockedNotesDeps } from '../vault/notes.js';
 import type { Site } from './connection.js';
 import { CONNECTORS } from './connectors.js';
@@ -56,7 +57,12 @@ export type ImportResult = {
   notesRetried?: string[];
 };
 
-export type RefreshOptions = { changedOnly?: boolean; agent?: 'claude' | 'codex' };
+export type RefreshOptions = {
+  changedOnly?: boolean;
+  agent?: 'claude' | 'codex';
+  yes?: boolean;
+  automation?: SessionRecord['automation'];
+};
 
 /**
  * Imports `links` into `project`'s vault. Every link resolves and every item is fetched before
@@ -69,7 +75,12 @@ export async function importLinks(
   project: string,
   links: readonly string[],
   notes: boolean,
-  refresh?: { revisions: ReadonlyMap<string, string>; agent: 'claude' | 'codex' },
+  refresh?: {
+    revisions: ReadonlyMap<string, string>;
+    agent: 'claude' | 'codex';
+    yes?: boolean;
+    automation?: SessionRecord['automation'];
+  },
 ): Promise<ImportResult> {
   const sites = await reachedSites(deps.sites);
   const refs = [
@@ -137,7 +148,13 @@ export async function importLinks(
   const locked: string[] = [];
   for (let at = 0; at < noteSnapshots.length; at += NOTES_MAX_ITEMS) {
     const selected = noteSnapshots.slice(at, at + NOTES_MAX_ITEMS);
-    const batch = await writeNotes(deps, project, selected, refresh?.agent);
+    const batch = await writeNotes(
+      deps,
+      project,
+      selected,
+      refresh?.agent,
+      refresh ? { yes: refresh.yes ?? true, automation: refresh.automation } : undefined,
+    );
     runs.push(batch.notes);
     for (const [url, path] of batch.written) written.set(url, path);
     locked.push(...(batch.locked ?? []));

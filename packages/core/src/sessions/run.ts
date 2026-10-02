@@ -76,6 +76,7 @@ export type RunInput = {
   agent?: string;
   /** The words after the skill in its prompt, `/<skill> <args>`. */
   args?: readonly string[];
+  automation?: SessionRecord['automation'];
   timeoutSeconds?: number;
 };
 
@@ -169,6 +170,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
         agent,
         agentSessionId,
         goal: prompt,
+        ...(input.automation ? { automation: input.automation } : {}),
         parent,
         ...(about ? { about: about.id } : {}),
       },

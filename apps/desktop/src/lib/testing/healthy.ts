@@ -16,6 +16,16 @@ import { envelope } from './replies';
 
 /** A healthy, initialised profile with no projects: each test overrides what it varies. */
 export const HEALTHY: Record<string, (args: string[]) => unknown> = {
+  'automations list': () => envelope([]),
+  'automations status': () =>
+    envelope({
+      installed: false,
+      loaded: false,
+      label: 'com.mesa.automations.default',
+      plist: '/test/LaunchAgents/com.mesa.automations.default.plist',
+      observations: {},
+      runs: [],
+    }),
   agents: () =>
     envelope({
       claude: { installed: true },

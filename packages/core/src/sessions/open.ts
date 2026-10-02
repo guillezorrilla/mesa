@@ -59,6 +59,7 @@ export type OpenInput = {
   /** Keep a Claude session running when its terminal view closes. */
   background?: boolean;
   goal?: string;
+  automation?: SessionRecord['automation'];
   parent?: string;
   noParent?: boolean;
   /** Queued until this session is over (CONTEXT.md, Queued session). */
@@ -158,6 +159,7 @@ export async function openSession(
     ...(input.mode === 'plan' ? { mode: 'plan' as const } : {}),
     ...(input.background ? { background: true as const } : {}),
     goal: input.goal,
+    ...(input.automation ? { automation: input.automation } : {}),
     parent,
     ...(input.general ? { cwd: deps.home } : {}),
     ...(input.worktree ? { worktree: input.worktree } : {}),

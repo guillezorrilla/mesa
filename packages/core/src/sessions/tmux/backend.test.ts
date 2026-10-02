@@ -120,6 +120,13 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
   test('sendText types a closing ; as it is, and a closing \\; too', async () => {
     const target = lantern('claude-semi01');
     await open(target, 'cat');
+    expect(
+      await eventually(
+        () =>
+          raw('display-message', '-p', '-t', 'lantern:claude-semi01', '#{pane_current_command}'),
+        /^cat$/,
+      ),
+    ).toBe('cat');
     await tmux.sendText(target, 'plain;');
     await tmux.sendText(target, 'one\\;');
     // cat echoes each typed line, then prints it back after Enter.

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { MesaError, toFail } from '../lib/result.js';
+import type { SessionRecord } from '../sessions/record.js';
 import type { HeadlessResult } from '../sessions/run.js';
 import { KEEP_MARKER, keptBlocks, restoreKept } from '../skills/keep-sections.js';
 import { IMPORT_NOTES } from '../skills/library.js';
@@ -171,7 +172,13 @@ function landNotes(
 /** A Skill run on the project, waited for (the sessions service's run). */
 export type SkillRun = (
   skill: string,
-  opts: { project: string; args: string[]; yes: boolean; agent?: 'claude' | 'codex' },
+  opts: {
+    project: string;
+    args: string[];
+    yes: boolean;
+    agent?: 'claude' | 'codex';
+    automation?: SessionRecord['automation'];
+  },
 ) => Promise<{ result: HeadlessResult & { session: string } }>;
 
 /** How a Write notes run went: its session, and why it wrote no notes when it wrote none. */
@@ -187,6 +194,7 @@ export async function writeNotes(
   project: string,
   snapshots: readonly { item: Item; snapshot: string }[],
   agent?: 'claude' | 'codex',
+  execution?: { yes: boolean; automation?: SessionRecord['automation'] },
 ): Promise<{ notes: NotesRun; written: Map<string, string>; locked?: string[] }> {
   const { planned, locked } = planNotes(deps.notes.vault, project, snapshots);
   const extra = locked.length ? { locked } : {};
@@ -197,7 +205,8 @@ export async function writeNotes(
     const { result } = await deps.run(IMPORT_NOTES, {
       project,
       args: notesArgs(planned),
-      yes: true,
+      yes: execution?.yes ?? true,
+      ...(execution?.automation ? { automation: execution.automation } : {}),
       ...(agent ? { agent } : {}),
     });
     session = result.session;
