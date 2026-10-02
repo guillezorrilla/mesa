@@ -2,6 +2,7 @@ import type { Http } from '../lib/http.js';
 import { confluencePage } from './confluence.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { jiraIssue } from './jira.js';
+import { notionPage } from './notion-page.js';
 import type { SourceId } from './sources.js';
 import { webPage } from './web.js';
 
@@ -16,5 +17,6 @@ export const CONNECTORS: Record<
 > = {
   jira: { connection: 'atlassian', fetch: jiraIssue },
   confluence: { connection: 'atlassian', fetch: confluencePage },
+  notion: { connection: 'notion', fetch: notionPage },
   web: { fetch: webPage },
 };

@@ -4,6 +4,8 @@ import { atlassianAccount, atlassianSites } from './atlassian.js';
 import { atlassianTree } from './atlassian-tree.js';
 import type { SourceTree } from './browse.js';
 import type { Account, Site } from './connection.js';
+import { notionAccount, notionSites } from './notion.js';
+import { notionTree } from './notion-tree.js';
 
 /**
  * Every source Mesa connects to, one row each (CONTEXT.md, Source): its label, how its API names
@@ -16,6 +18,12 @@ export const SOURCES = {
     account: atlassianAccount,
     sites: atlassianSites,
     tree: atlassianTree,
+  },
+  notion: {
+    label: 'Notion',
+    account: notionAccount,
+    sites: notionSites,
+    tree: notionTree,
   },
 } satisfies Record<
   string,

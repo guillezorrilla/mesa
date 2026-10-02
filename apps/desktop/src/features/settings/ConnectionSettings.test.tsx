@@ -69,3 +69,28 @@ test('Disconnect removes the connection', async () => {
   expect(calls).toContainEqual(['--json', 'sources', 'disconnect', 'atlassian']);
   expect(labels()).toEqual(['Connect']);
 });
+
+test('Notion is a row like any source: Connect signs in to it and shows its workspace', async () => {
+  const notion: SourceRow = {
+    id: 'notion',
+    label: 'Notion',
+    connected: false,
+    status: 'disconnected',
+  };
+  let current = notion;
+  const { calls } = await render(() => current, {
+    'sources connect': () => {
+      current = {
+        ...notion,
+        connected: true,
+        status: 'connected',
+        account: { id: 'bot-1', name: 'Rowan Tide' },
+        sites: [{ id: 'ws-1', name: 'Lantern Cove', url: 'https://www.notion.so' }],
+      };
+      return envelope({ ...current, receipt: null });
+    },
+  });
+  await click(button('Connect'));
+  expect(calls).toContainEqual(['--json', 'sources', 'connect', 'notion']);
+  expect(row()?.textContent).toContain('Signed in as Rowan Tide. Sites: Lantern Cove');
+});

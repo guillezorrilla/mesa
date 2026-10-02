@@ -79,13 +79,17 @@ export async function handle(request: Request, env: Env, upstream: Upstream): Pr
   if (route === 'token' && request.method === 'POST') {
     const body = grant(await request.json().catch(() => undefined));
     if (!body) return json(400, { error: 'bad_request' });
+    const basic = provider.clientAuth === 'basic';
     const answer = await upstream(provider.tokenUrl, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        ...(basic ? { authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}` } : {}),
+      },
       body: JSON.stringify({
         ...body,
-        client_id: clientId,
-        client_secret: clientSecret,
+        ...(basic ? {} : { client_id: clientId, client_secret: clientSecret }),
         ...(body.grant_type === 'authorization_code' ? { redirect_uri: redirectUri } : {}),
       }),
     });

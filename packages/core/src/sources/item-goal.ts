@@ -8,6 +8,7 @@ import type { ItemSource } from './items.js';
 const KIND: Record<ItemSource, string> = {
   jira: 'Jira issue',
   confluence: 'Confluence page',
+  notion: 'Notion page',
   web: 'web page',
 };
 

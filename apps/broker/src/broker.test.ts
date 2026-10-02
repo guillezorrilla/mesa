@@ -1,14 +1,24 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import { type Env, handle, type Upstream } from './broker.js';
 
-const ENV: Env = { ATLASSIAN_CLIENT_ID: 'client-1', ATLASSIAN_CLIENT_SECRET: 'secret-1' };
+const ENV: Env = {
+  ATLASSIAN_CLIENT_ID: 'client-1',
+  ATLASSIAN_CLIENT_SECRET: 'secret-1',
+  NOTION_CLIENT_ID: 'notion-client',
+  NOTION_CLIENT_SECRET: 'notion-secret',
+};
 const BROKER = 'https://broker.example.test';
 
 /** A vendor token endpoint that records each request and answers `status` with `body`. */
 function vendor(status = 200, body: unknown = { access_token: 'at-1', refresh_token: 'rt-1' }) {
-  const calls: { url: string; body: unknown }[] = [];
+  const calls: { url: string; body: unknown; authorization?: string | null }[] = [];
   const upstream: Upstream = async (url, init) => {
-    calls.push({ url, body: JSON.parse(String(init.body)) });
+    const authorization = new Headers(init.headers).get('authorization');
+    calls.push({
+      url,
+      body: JSON.parse(String(init.body)),
+      ...(authorization ? { authorization } : {}),
+    });
     return new Response(JSON.stringify(body), { status });
   };
   return { upstream, calls };
@@ -100,6 +110,39 @@ test("a refresh sends the refresh token, and the vendor's refusal comes back unc
   });
   expect(answer.status).toBe(403);
   expect(await answer.json()).toEqual({ error: 'invalid_grant' });
+});
+
+test('Notion signs in as its owner with no scopes, and takes the client secret as HTTP Basic', async () => {
+  const to = new URL((await get('/authorize/notion?state=n1.49152')).headers.get('location') ?? '');
+  expect(`${to.origin}${to.pathname}`).toBe('https://api.notion.com/v1/oauth/authorize');
+  expect(Object.fromEntries(to.searchParams)).toEqual({
+    client_id: 'notion-client',
+    redirect_uri: `${BROKER}/callback/notion`,
+    state: 'n1.49152',
+    owner: 'user',
+    response_type: 'code',
+  });
+
+  const { upstream, calls } = vendor(200, { access_token: 'at-1', refresh_token: 'rt-1' });
+  await post('/token/notion', { grant_type: 'authorization_code', code: 'c1' }, upstream);
+  await post('/token/notion', { grant_type: 'refresh_token', refresh_token: 'rt-1' }, upstream);
+  const basic = `Basic ${btoa('notion-client:notion-secret')}`;
+  expect(calls).toEqual([
+    {
+      url: 'https://api.notion.com/v1/oauth/token',
+      body: {
+        grant_type: 'authorization_code',
+        code: 'c1',
+        redirect_uri: `${BROKER}/callback/notion`,
+      },
+      authorization: basic,
+    },
+    {
+      url: 'https://api.notion.com/v1/oauth/token',
+      body: { grant_type: 'refresh_token', refresh_token: 'rt-1' },
+      authorization: basic,
+    },
+  ]);
 });
 
 test('an unknown source is 404 and reaches no vendor', async () => {

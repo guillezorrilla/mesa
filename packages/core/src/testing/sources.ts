@@ -4,6 +4,7 @@ import type { Runner } from '../lib/process.js';
 import type { SecretStore } from '../lib/secret-store.js';
 import type { MesaDeps } from '../mesa.js';
 import type { CallbackListen } from '../sources/callback-listener.js';
+import { NOTION_VERSION } from '../sources/notion.js';
 import {
   agentWorld,
   claudeResult,
@@ -106,13 +107,20 @@ export const TEST_CONFLUENCE = 'https://api.atlassian.com/ex/confluence/cloud-1/
 export const TEST_BROKER = 'https://broker.example.test';
 
 /**
- * Atlassian and the broker in memory, with a person who signs in (fakeSignIn): code-1 exchanges
- * for access-1 and refresh-1, each refresh rotates to the next pair and uses up the old refresh
- * token, and the APIs answer only a live access token (an invented account and one site).
- * `revoke` ends every token, as removing the app in Atlassian does; `expire` only the access
- * tokens. `deps` wires it all into testDeps.
+ * A source and the broker in memory, with a person who signs in (fakeSignIn): code-1 exchanges
+ * for access-1 and refresh-1 (with `expiresIn` seconds, none when undefined), each refresh
+ * rotates to the next pair and uses up the old refresh token, and the source's API answers only a
+ * live access token, and only a request `accepts`. `revoke` ends every token, as removing the
+ * app at the source does; `expire` only the access tokens. `deps` wires it all into testDeps.
  */
-export function atlassianWorld(signIn = fakeSignIn()) {
+function brokerWorld(
+  source: string,
+  signIn: ReturnType<typeof fakeSignIn>,
+  {
+    expiresIn,
+    accepts = () => true,
+  }: { expiresIn?: number; accepts?: (r: FakeRequest) => boolean },
+) {
   const live = { access: new Set<string>(), refresh: new Set<string>() };
   let issued = 0;
   const issue = () => {
@@ -123,28 +131,23 @@ export function atlassianWorld(signIn = fakeSignIn()) {
       body: {
         access_token: `access-${issued}`,
         refresh_token: `refresh-${issued}`,
-        expires_in: 3600,
+        ...(expiresIn === undefined ? {} : { expires_in: expiresIn }),
       },
     };
   };
   const refused = { status: 403, body: { error: 'invalid_grant' } };
-  const authed = (request: FakeRequest, body: unknown) =>
-    live.access.has(request.headers.authorization?.replace(/^Bearer /, '') ?? '')
-      ? { body }
-      : { status: 401, body: { code: 401, message: 'Unauthorized' } };
+  const authed = (request: FakeRequest, body: unknown) => {
+    if (!live.access.has(request.headers.authorization?.replace(/^Bearer /, '') ?? ''))
+      return { status: 401, body: { code: 401, message: 'Unauthorized' } };
+    return accepts(request) ? { body } : { status: 400, body: { code: 'bad_request' } };
+  };
   const web = fakeHttp({
-    [`POST ${TEST_BROKER}/token/atlassian`]: (request) => {
+    [`POST ${TEST_BROKER}/token/${source}`]: (request) => {
       const grant = JSON.parse(request.body ?? '{}');
       if (grant.grant_type === 'authorization_code')
         return grant.code === 'code-1' ? issue() : refused;
       return live.refresh.delete(grant.refresh_token) ? issue() : refused;
     },
-    'GET https://api.atlassian.com/me': (request) =>
-      authed(request, { account_id: 'acc-1', name: 'Rowan Tide', email: 'rowan@example.test' }),
-    'GET https://api.atlassian.com/oauth/token/accessible-resources': (request) =>
-      authed(request, [
-        { id: 'cloud-1', name: 'lantern-cove', url: 'https://lantern-cove.atlassian.net' },
-      ]),
   });
   const secrets = memorySecretStore();
   const runner = scriptedRunner({ '/usr/bin/open': signIn.open });
@@ -155,16 +158,46 @@ export function atlassianWorld(signIn = fakeSignIn()) {
     run: runner.run,
     env: { MESA_BROKER_URL: TEST_BROKER },
   } satisfies Partial<MesaDeps>;
-  /** `body` at GET `url`, to a live access token only. */
-  const serve = (url: string, body: unknown) => {
-    web.routes[`GET ${url}`] = (request) => authed(request, body);
-  };
   return {
     ...web,
     signIn,
     secrets,
     calls: runner.calls,
     deps,
+    /** `body` at GET `url`, to a live access token only. */
+    serve: (url: string, body: unknown) => {
+      web.routes[`GET ${url}`] = (request) => authed(request, body);
+    },
+    /** What `answer` says to a POST of JSON to `url`, to a live access token only. */
+    servePost: (url: string, answer: (body: Record<string, unknown>) => unknown) => {
+      web.routes[`POST ${url}`] = (request) =>
+        authed(request, answer(JSON.parse(request.body ?? '{}')));
+    },
+    revoke: () => {
+      live.access.clear();
+      live.refresh.clear();
+    },
+    expire: () => live.access.clear(),
+  };
+}
+
+/**
+ * Atlassian and the broker in memory (brokerWorld, hour-long access tokens), an invented account
+ * and one site.
+ */
+export function atlassianWorld(signIn = fakeSignIn()) {
+  const world = brokerWorld('atlassian', signIn, { expiresIn: 3600 });
+  const { serve } = world;
+  serve('https://api.atlassian.com/me', {
+    account_id: 'acc-1',
+    name: 'Rowan Tide',
+    email: 'rowan@example.test',
+  });
+  serve('https://api.atlassian.com/oauth/token/accessible-resources', [
+    { id: 'cloud-1', name: 'lantern-cove', url: 'https://lantern-cove.atlassian.net' },
+  ]);
+  return {
+    ...world,
     /**
      * Jira issue `key` on lantern-cove, as Jira's REST API answers it: its summary, its status, its
      * rendered description, and its comments, two to a page. Called again, it changes the issue.
@@ -193,8 +226,6 @@ export function atlassianWorld(signIn = fakeSignIn()) {
         });
       }
     },
-    /** `body` at GET `url`, to a live access token only. */
-    serve,
     /**
      * A Confluence list at `url` (v2, or CQL search) as `pages` of results, 25 to a page: each
      * page's `_links.next` names the next by cursor `c<n>`, as Confluence's relative URLs do.
@@ -219,11 +250,120 @@ export function atlassianWorld(signIn = fakeSignIn()) {
       serve(`${TEST_CONFLUENCE}/pages/${id}?body-format=view`, body);
       serve(`${TEST_CONFLUENCE}/pages/${id}`, body);
     },
-    revoke: () => {
-      live.access.clear();
-      live.refresh.clear();
+  };
+}
+
+/** Notion's API in notionWorld. */
+export const TEST_NOTION = 'https://api.notion.com/v1';
+
+/** Rich text of `text`, as Notion answers it. */
+const rich = (text: string) => [{ type: 'text', text: { content: text }, plain_text: text }];
+
+/**
+ * A Notion page as its API answers it: in the workspace, or with `row` a row of data source
+ * ds-1 in database `row.database` (its other properties `row.properties`).
+ */
+export const notionPageObject = (
+  id: string,
+  title: string,
+  row?: { database: string; properties?: Record<string, unknown> },
+) => ({
+  object: 'page',
+  id,
+  in_trash: false,
+  parent: row
+    ? { type: 'data_source_id', data_source_id: 'ds-1', database_id: row.database }
+    : { type: 'workspace', workspace: true },
+  properties: { ...row?.properties, Name: { id: 'title', type: 'title', title: rich(title) } },
+});
+
+/** A data source (a database's table) as Notion's search answers it. */
+export const notionDataSourceObject = (
+  id: string,
+  database: string,
+  title: string,
+  under: 'workspace' | 'page' = 'workspace',
+) => ({
+  object: 'data_source',
+  id,
+  title: rich(title),
+  parent: { type: 'database_id', database_id: database },
+  database_parent:
+    under === 'workspace'
+      ? { type: 'workspace', workspace: true }
+      : { type: 'page_id', page_id: 'p' },
+});
+
+/**
+ * Notion and the broker in memory (brokerWorld): access tokens with no expiry, as Notion's are,
+ * and an API that answers only the pinned Notion-Version. Its bot is in the invented workspace
+ * Lantern Cove (ws-1), added by Rowan Tide.
+ */
+export function notionWorld(signIn = fakeSignIn()) {
+  const world = brokerWorld('notion', signIn, {
+    accepts: (request) => request.headers['notion-version'] === NOTION_VERSION,
+  });
+  world.serve(`${TEST_NOTION}/users/me`, {
+    object: 'user',
+    id: 'bot-1',
+    type: 'bot',
+    name: 'Mesa',
+    bot: {
+      owner: {
+        type: 'user',
+        user: {
+          object: 'user',
+          id: 'user-1',
+          name: 'Rowan Tide',
+          avatar_url: null,
+          type: 'person',
+          person: {},
+        },
+      },
+      workspace_id: 'ws-1',
+      workspace_name: 'Lantern Cove',
+      workspace_limits: { max_file_upload_size_in_bytes: 5_242_880 },
     },
-    expire: () => live.access.clear(),
+  });
+  return {
+    ...world,
+    /** Page `id` (32 hex): its object (notionPageObject) and its content as Notion's Markdown. */
+    servePage: (id: string, page: ReturnType<typeof notionPageObject>, markdown = '') => {
+      world.serve(`${TEST_NOTION}/pages/${id}`, page);
+      world.serve(`${TEST_NOTION}/pages/${id}/markdown`, {
+        object: 'page_markdown',
+        id,
+        markdown,
+        truncated: false,
+        unknown_block_ids: [],
+      });
+    },
+    /** Page `id`'s blocks as `pages` of results, 25 to a page, each next one at cursor c<n>. */
+    serveBlocks: (id: string, pages: unknown[][]) =>
+      pages.forEach((results, n) => {
+        const cursor = n ? `&start_cursor=c${n}` : '';
+        world.serve(`${TEST_NOTION}/blocks/${id}/children?page_size=25${cursor}`, {
+          object: 'list',
+          results,
+          next_cursor: n + 1 < pages.length ? `c${n + 1}` : null,
+          has_more: n + 1 < pages.length,
+        });
+      }),
+    /**
+     * A POST list at `path` (search, a query) as `pages` of results, by the body's start_cursor
+     * (c<n>); `bodies` records each request's body.
+     */
+    servePostPaged: (path: string, pages: unknown[][], bodies: unknown[] = []) =>
+      world.servePost(`${TEST_NOTION}${path}`, (body) => {
+        bodies.push(body);
+        const n = Number(String(body.start_cursor ?? 'c0').slice(1));
+        return {
+          object: 'list',
+          results: pages[n] ?? [],
+          next_cursor: n + 1 < pages.length ? `c${n + 1}` : null,
+          has_more: n + 1 < pages.length,
+        };
+      }),
   };
 }
 
