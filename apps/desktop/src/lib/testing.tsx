@@ -91,6 +91,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         extraSubmitKey: 'none',
         newlineKey: 'native',
         wezTermNewTab: false,
+        messageActions: true,
       },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {

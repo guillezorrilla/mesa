@@ -133,6 +133,8 @@ const ConfigSchema = z.strictObject({
         .enum(['native', 'shift-enter'])
         .default(DEFAULT_TERMINAL_PREFERENCES.newlineKey),
       wezTermNewTab: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.wezTermNewTab),
+      // Copy and Review over a session terminal on hover, for the agent's latest response.
+      messageActions: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.messageActions),
     })
     .prefault({}),
   editor: z

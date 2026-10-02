@@ -22,21 +22,26 @@ type Selection = {
   comment: string;
 };
 
-/** Native responses beside the selected terminal, with copy and exact passage feedback. */
+/**
+ * Native responses beside the selected terminal, with copy and exact passage feedback;
+ * `initialResponse` opens on that response.
+ */
 export function ResponseReview({
   sessionId,
   project,
   checkout,
+  initialResponse,
 }: {
   sessionId: string;
   project?: string;
   checkout?: string;
+  initialResponse?: NativeResponse;
 }) {
   const responses = useCommand('review.responses', { id: sessionId });
   const platform = usePlatform();
   const call = useCall();
   const { act, acting } = useAct();
-  const [selected, setSelected] = useState<NativeResponse>();
+  const [selected, setSelected] = useState(initialResponse);
   const [range, setRange] = useState({ start: 0, end: 0 });
   const [comment, setComment] = useState('');
   const [preview, setPreview] = useState<ResponseReviewPreview>();
@@ -46,7 +51,11 @@ export function ResponseReview({
   const [mode, setMode] = useState<'responses' | 'changes'>('responses');
 
   useEffect(() => {
-    if (selected && !responses.data?.rows.some((row) => row.source === selected.source)) {
+    if (
+      selected &&
+      responses.data &&
+      !responses.data.rows.some((row) => row.source === selected.source)
+    ) {
       setSelected(undefined);
       setPreview(undefined);
     }
