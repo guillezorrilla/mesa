@@ -14,6 +14,7 @@ import {
   testGit,
   withRealGit,
 } from '../testing/index.js';
+import { costTally } from '../usage/session-cost.js';
 import { runInput } from './run.js';
 
 isolateGit({ beforeAll, afterAll });
@@ -82,6 +83,10 @@ test('rm refuses a live session; --force closes its window, then removes the rec
   mkdirSync(runs, { recursive: true });
   const input = runInput(runs, result.id);
   writeFileSync(input, 'Invented summary input');
+  const costs = profilePaths(home, 'default').costs;
+  mkdirSync(costs, { recursive: true });
+  const tally = costTally(costs, result.id);
+  writeFileSync(tally, '{}\n');
   await expect(mesa.sessions.remove(result.id)).rejects.toMatchObject({
     code: 'usage',
     message: `session ${result.id} is live: mesa stop ${result.id} first, or pass --force to close its window`,
@@ -101,6 +106,7 @@ test('rm refuses a live session; --force closes its window, then removes the rec
   expect(existsSync(events)).toBe(false);
   expect(existsSync(output)).toBe(false);
   expect(existsSync(input)).toBe(false);
+  expect(existsSync(tally)).toBe(false);
   await expect(mesa.sessions.show(result.id)).rejects.toMatchObject({ code: 'not_found' });
   expect(receipt).toBeNull();
   expect(listReceipts(join(home, 'vault'))).toEqual([]);

@@ -195,10 +195,18 @@ test('a long session costs only its new lines: the budget holds and the usage le
   // A reply from before the session started is not its cost, as in the ledger.
   appendFileSync(file, `${turn(5_001, 1_000, '2026-01-01T00:00:00.000Z')}\n`);
   expect((await cli.mesa('statusline')).stdout).toBe('$100.04 est.\n');
-  // Each look reads on from where the last stopped: lines already counted are not read again.
-  const text = readFileSync(file, 'utf8');
-  writeFileSync(file, text.replace('"output_tokens":1000', '"output_tokens":9000'));
-  expect((await cli.mesa('statusline')).stdout).toBe('$100.04 est.\n');
+  // A transcript rewritten in place, at the same size, is counted again: turn 0 now costs $0.18.
+  writeFileSync(
+    file,
+    readFileSync(file, 'utf8').replace('"output_tokens":1000', '"output_tokens":9000'),
+  );
+  expect((await cli.mesa('statusline')).stdout).toBe('$100.20 est.\n');
+  // And one rewritten larger, which an append alone would not explain: turn 1 now costs $0.20.
+  writeFileSync(
+    file,
+    readFileSync(file, 'utf8').replace('"output_tokens":1000', '"output_tokens":10000'),
+  );
+  expect((await cli.mesa('statusline')).stdout).toBe('$100.38 est.\n');
   expect(readFileSync(cli.paths.usage, 'utf8')).toBe(ledger.text);
   expect(statSync(cli.paths.usage).mtimeMs).toBe(ledger.at);
 });
