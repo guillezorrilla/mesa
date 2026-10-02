@@ -14,6 +14,8 @@ export function FileSearch(props: {
   checkout?: string;
   inputRef: RefObject<HTMLInputElement | null>;
   onOpen: (target: { path: string; line: number }) => void;
+  /** The profile's file tree text size in px. */
+  fontSize: number;
 }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<'name' | 'content'>('name');
@@ -71,6 +73,7 @@ export function FileSearch(props: {
       {found && (
         <section
           className="min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-2"
+          style={{ fontSize: props.fontSize }}
           aria-label="File search results"
         >
           <p className="px-2 text-xs text-muted-foreground">
@@ -82,7 +85,7 @@ export function FileSearch(props: {
               data-file-row
               type="button"
               onKeyDown={moveListFocus}
-              className="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring"
+              className="block w-full rounded-md px-2 py-1 text-left hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring"
               onClick={() => props.onOpen({ path: hit.path, line: hit.line })}
             >
               <span className="font-mono">

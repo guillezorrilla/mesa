@@ -6,7 +6,12 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { useCommand, useRun } from '@/lib/useCommand';
 
 /** Bounded local commit graph and explicit two-ref comparison. */
-export function GitHistory(props: { project: string; checkout?: string }) {
+export function GitHistory(props: {
+  project: string;
+  checkout?: string;
+  /** The profile's diff text size in px, for the comparison's patch. */
+  diffFontSize: number;
+}) {
   const [branch, setBranch] = useState('');
   const [base, setBase] = useState('');
   const [head, setHead] = useState('');
@@ -107,7 +112,10 @@ export function GitHistory(props: { project: string; checkout?: string }) {
             behind, {comparison.ahead} ahead
           </p>
           {comparison.patch ? (
-            <pre className="max-h-80 overflow-auto whitespace-pre font-mono text-xs">
+            <pre
+              className="max-h-80 overflow-auto whitespace-pre font-mono"
+              style={{ fontSize: props.diffFontSize }}
+            >
               {comparison.patch}
             </pre>
           ) : (

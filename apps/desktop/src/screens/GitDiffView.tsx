@@ -6,6 +6,8 @@ type Target = {
   checkout?: string;
   path: string;
   layout: 'inline' | 'side-by-side';
+  /** The profile's diff text size in px. */
+  fontSize: number;
 };
 
 /** One changed file's diff against the whole file, so every unchanged run can unfold. */
@@ -23,7 +25,7 @@ function TrackedDiff(props: Target & { staged: boolean }) {
   });
   if (!diff.data) return diff.busy ? <Note>Loading diff...</Note> : null;
   if (!diff.data.rows.length) return <Note>No diff in this selection.</Note>;
-  return <GitDiffRows rows={diff.data.rows} layout={props.layout} />;
+  return <GitDiffRows rows={diff.data.rows} layout={props.layout} fontSize={props.fontSize} />;
 }
 
 /** Git has no diff for a file it does not track yet: every line of it is an addition. */
@@ -38,7 +40,7 @@ function UntrackedDiff(props: Target) {
     .replace(/\n$/, '')
     .split('\n')
     .map((right, index) => ({ kind: 'change' as const, left: '', right, newLine: index + 1 }));
-  return <GitDiffRows rows={rows} layout={props.layout} />;
+  return <GitDiffRows rows={rows} layout={props.layout} fontSize={props.fontSize} />;
 }
 
 function Note(props: { children: string }) {
