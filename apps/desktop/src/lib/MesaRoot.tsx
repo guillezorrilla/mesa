@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
-import { ToastProvider } from '../components/Toast';
+import { ToastProvider } from '@/components/Toast';
 import { type Bridge, type Client, createClient } from './client';
 import type { Platform } from './platform';
 

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { type Message, useToast } from '../components/Toast';
+import { type Message, useToast } from '@/components/Toast';
 
 /**
  * One action at a time: `acting` while one runs, a second press meanwhile ignored (so a double
