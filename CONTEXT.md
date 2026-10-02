@@ -223,7 +223,7 @@ Where a session is right now, one of the agent's states, `working`, `waiting-per
 - Then the agent listing (0.85).
 - Then the tail, the pane's last 30 lines read with CCManager's Claude Code patterns, or Codex's from docs/spikes/codex.md, where a startup gate (folder trust, hook review, the resume folder picker) is `waiting-question` (0.6). The tail is read only when no hook or listing speaks; a Codex listing row never speaks.
 
-When the least sure answer is below `decisions.threshold`, the adapter (`claude -p`) is asked, and its state is the row's, with source `adapter`. The adapter's answer is saved with a `basis`, a hash of what it saw, and it is not asked again while that is unchanged. Foreign sessions use rules only. A new state is saved in the record, with the time it began: the hook event's time, else when the board first saw it. `waiting-permission` and `waiting-question` are the states that need a human.
+When the least sure answer is below `decisions.threshold`, the adapter (`claude -p`) is asked, and its state is the row's, with source `adapter`. The adapter's answer is saved with a `basis`, a hash of what it saw, and it is not asked again while that is unchanged. A quick look (`mesa sessions --no-adapter`, which the app's Board polls with while it asks the adapter in a look beside it) never asks it: a saved adapter answer stands while the rules stay unsure, and a look never saves a state over one another look saved since it read the record. Foreign sessions use rules only. A new state is saved in the record, with the time it began: the hook event's time, else when the board first saw it. `waiting-permission` and `waiting-question` are the states that need a human.
 Not: status, phase, mode.
 
 ## Context use

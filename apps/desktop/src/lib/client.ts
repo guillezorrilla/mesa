@@ -718,9 +718,9 @@ const COMMANDS = {
     path,
   ]),
   // The board as mesa orders it: attention, children under their parent.
-  // The board's quick look: it never waits on Faro's adapter (sessions.refine asks it).
+  // The board's quick look: it never waits on Faro's adapter (sessions.adapterLook asks it).
   'sessions.list': command<TreeRow[]>('sessions', '--tree', '--no-adapter'),
-  'sessions.refine': command<TreeRow[]>('sessions', '--tree'),
+  'sessions.adapterLook': command<TreeRow[]>('sessions', '--tree'),
   'review.responses': commandWith<{ id: string }, SessionResponses>(({ id }) => [
     'review',
     'responses',

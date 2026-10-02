@@ -19,10 +19,10 @@ export function useSessions() {
       }),
     [run],
   );
-  const refine = useMemo(
+  const adapterLook = useMemo(
     () =>
       oneAtATime(async () => {
-        await run('sessions.refine');
+        await run('sessions.adapterLook');
       }),
     [run],
   );
@@ -30,9 +30,9 @@ export function useSessions() {
     look();
     const timer = setInterval(() => {
       look();
-      refine();
+      adapterLook();
     }, 2000);
     return () => clearInterval(timer);
-  }, [look, refine]);
+  }, [look, adapterLook]);
   return { data, look };
 }

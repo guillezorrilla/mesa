@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { AGENTS } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
-import { decide, type FaroDeps } from '../decisions/decide.js';
+import { decide, type FaroDeps, unsure } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Backend, Decision, Question } from '../decisions/types.js';
 import type { AgentProcess } from './agent-listing.js';
@@ -188,11 +188,7 @@ export async function classifySession(
   const adapted = decision.backend === 'adapter' && state?.kind === 'Choice' ? state : undefined;
   // A quick look has no adapter to ask: its last answer stands while the rules are unsure.
   const kept =
-    known ||
-    (fromAdapter &&
-      !deps.backends?.length &&
-      state?.kind === 'Choice' &&
-      state.confidence < deps.profile.decisions.threshold);
+    known || (fromAdapter && !deps.backends?.length && unsure(decision.answers, deps.profile));
   const lastState: LastState = kept
     ? signals.last
     : adapted
