@@ -16,6 +16,8 @@ import { usePlatform } from '@/lib/MesaRoot';
  */
 export function HandoffDialog(props: {
   row: ManagedRow;
+  /** The successor agent chosen already (a swap of a session with a conversation). */
+  agent?: Agent;
   disabled: boolean;
   onHandoff: (note: string, keep: boolean, agent?: Agent) => void;
   onCancel: () => void;
@@ -23,7 +25,7 @@ export function HandoffDialog(props: {
   const platform = usePlatform();
   const [note, setNote] = useState<string>();
   const [keep, setKeep] = useState(false);
-  const [agent, setAgent] = useState<Agent | ''>('');
+  const [agent, setAgent] = useState<Agent | ''>(props.agent ?? '');
   const { row } = props;
   return (
     <ActionDialog

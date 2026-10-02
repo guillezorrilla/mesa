@@ -20,6 +20,8 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     nativeState?: string;
     /** The ids of the sessions whose `parent` it is, oldest first, listed or not. */
     children: string[];
+    /** It has a conversation an agent swap would lose (hasConversation): it hands off instead. */
+    conversation?: true;
   };
 
 /**

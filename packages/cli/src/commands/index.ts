@@ -106,6 +106,7 @@ import { sessions } from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
 import { stop } from './stop.js';
+import { swap } from './swap.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { usage } from './usage.js';
@@ -246,6 +247,7 @@ export const COMMANDS: Command[] = [
   send,
   sessions,
   show,
+  swap,
   skillsList,
   skillsRead,
   skillsSet,

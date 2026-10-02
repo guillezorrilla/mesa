@@ -4,6 +4,7 @@
 export type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 export type { CodexHooksStatus } from './agents/codex/hooks.js';
 export type { HooksStatus } from './agents/hooks-service.js';
+export type { AgentCapabilityReport } from './agents/names.js';
 export {
   AGENT_CAPABILITIES,
   AGENT_EXECUTABLES,
