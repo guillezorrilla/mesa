@@ -1,5 +1,5 @@
 import type { ImportResult } from '@mesa/core';
-import { Download, ExternalLink, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, FolderTree, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { SourcePickerDialog } from './SourcePickerDialog';
 
 /** What an import says when it ends: what came in, and why no notes were written if none were. */
 function outcome(result: ImportResult & { warning?: string }): Message {
@@ -24,8 +25,9 @@ function outcome(result: ImportResult & { warning?: string }): Message {
 
 /**
  * A project's Import panel (CONTEXT.md, Import): paste a Jira, Confluence, or web link to import
- * it into the project's vault, with or without Write notes, and its imported items, each with
- * Refresh and Open in Obsidian (its note, else its latest snapshot).
+ * it into the project's vault, or Browse Atlassian to tick items in the Picker, with or without
+ * Write notes, and its imported items, each with Refresh and Open in Obsidian (its note, else its
+ * latest snapshot).
  */
 export function ImportPanel(props: { project: string }) {
   const { project } = props;
@@ -34,16 +36,21 @@ export function ImportPanel(props: { project: string }) {
   const { acting, act } = useAct();
   const [link, setLink] = useState('');
   const [notes, setNotes] = useState(true);
+  const [browsing, setBrowsing] = useState(false);
   const settle = async (result: (ImportResult & { warning?: string }) | undefined) => {
     await list.refresh();
     return result && outcome(result);
   };
-  const add = () =>
-    void act(async () => {
-      const result = await run('imports.add', { project, link: link.trim(), notes });
-      if (result) setLink('');
+  /** Imports `links`; false when the import did not run (its error toasted). */
+  const add = async (links: string[]) => {
+    let ran = false;
+    await act(async () => {
+      const result = await run('imports.add', { project, links, notes });
+      ran = Boolean(result);
       return settle(result);
     });
+    return ran;
+  };
   const refresh = (id: string) =>
     void act(async () => settle(await run('imports.refresh', { project, id, notes })));
   const items = list.data?.items ?? [];
@@ -56,7 +63,7 @@ export function ImportPanel(props: { project: string }) {
         className="flex flex-wrap items-center gap-3"
         onSubmit={(event) => {
           event.preventDefault();
-          if (link.trim()) add();
+          if (link.trim()) void add([link.trim()]).then((ran) => ran && setLink(''));
         }}
       >
         <Input
@@ -73,7 +80,27 @@ export function ImportPanel(props: { project: string }) {
         <Button type="submit" size="sm" disabled={acting || !link.trim()}>
           {acting ? 'Importing...' : 'Import'}
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={acting}
+          onClick={() => setBrowsing(true)}
+        >
+          <FolderTree aria-hidden /> Browse
+        </Button>
       </form>
+      {browsing && (
+        <SourcePickerDialog
+          source="atlassian"
+          label="Atlassian"
+          project={project}
+          notes={notes}
+          onNotesChange={setNotes}
+          onImport={add}
+          onClose={() => setBrowsing(false)}
+        />
+      )}
       {items.length === 0 ? (
         <Muted>Nothing imported yet.</Muted>
       ) : (

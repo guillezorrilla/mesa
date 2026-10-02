@@ -51,5 +51,6 @@ export {
 export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { parseSessionUri, sessionUri } from './sessions/uri.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
+export { DESCENDANTS_CAP } from './sources/browse.js';
 export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';
 export { MAP_PATH } from './vault/layout.js';

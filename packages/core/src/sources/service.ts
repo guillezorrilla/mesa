@@ -1,6 +1,7 @@
 import type { MesaContext } from '../context.js';
-import { authorizedFetch, type SourceDeps } from './authorized-fetch.js';
+import { authorizedFetch, notConnectedError, type SourceDeps } from './authorized-fetch.js';
 import { brokerUrl } from './broker.js';
+import { type BrowseQuery, browseNode } from './browse.js';
 import { connectSource } from './connect.js';
 import { type Account, connectionStore, type Site } from './connection.js';
 import { SOURCE_IDS, SOURCES, type SourceId, sourceId } from './sources.js';
@@ -18,11 +19,12 @@ export type SourceRow = {
   sites?: Site[];
 };
 
-/** The profile's Connections: connect, list, and disconnect a Source, and call its API. */
+/** The profile's Connections: connect, list, disconnect, and browse a Source, and call its API. */
 export function sourcesService(ctx: MesaContext) {
   const deps: SourceDeps = {
     http: ctx.deps.http,
     clock: ctx.deps.clock,
+    sleep: ctx.deps.sleep,
     broker: brokerUrl(ctx.deps.env),
     connections: connectionStore(ctx.deps.secretStore, ctx.profile),
   };
@@ -79,6 +81,18 @@ export function sourcesService(ctx: MesaContext) {
         },
         async () => ({ source, removed: await deps.connections.remove(source) }),
       );
+    },
+    /** `node`'s children in `source`'s tree, the root's when none (browseNode). Reads only. */
+    browse: async (
+      input: string,
+      node?: string,
+      query: BrowseQuery & { descendants?: boolean } = {},
+    ) => {
+      const source = sourceId(input);
+      ctx.open();
+      const sites = (await deps.connections.read(source))?.sites;
+      if (!sites) throw notConnectedError(source);
+      return browseNode(SOURCES[source].tree, authorizedFetch(deps, source), sites, node, query);
     },
     /** Fetch-shaped calls to `source`'s API with its token, refreshed as needed (authorizedFetch). */
     fetch: (source: SourceId) => authorizedFetch(deps, source),

@@ -14,15 +14,15 @@ export const importsCommands = {
   ]),
   // Waits for the Write notes run, which can take minutes.
   'imports.add': commandWith<
-    { project: string; link: string; notes: boolean },
+    { project: string; links: string[]; notes: boolean },
     Recorded<ImportResult>
-  >(({ project, link, notes }) => [
+  >(({ project, links, notes }) => [
     'import',
     '--project',
     project,
     ...notesFlag(notes),
     '--',
-    link,
+    ...links,
   ]),
   'imports.refresh': commandWith<
     { project: string; id: string; notes: boolean },

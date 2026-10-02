@@ -8,7 +8,7 @@ import type { DataOf } from '@/lib/client';
 import type { useAct } from '@/lib/useAct';
 import type { CommandState } from '@/lib/useCommand';
 import { useRun } from '@/lib/useCommand';
-import { ImportPanel } from '../ImportPanel';
+import { ImportPanel } from '../import/ImportPanel';
 import { ActiveSessions } from './ActiveSessions';
 import { QuickSession } from './QuickSession';
 import { RecentSessions } from './RecentSessions';
