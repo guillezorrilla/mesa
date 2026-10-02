@@ -27,7 +27,7 @@ The native test bundle required LaunchServices registration from Applications be
 
 The connection's follow-up `sources list` read is blocked by macOS Keychain access to the updated disposable item. Computer control refuses the protected SecurityAgent app. The owner has been asked to authorize that exact item locally; no password is requested in chat. The successful reconnect error establishes completion of the source owner's write, but a fresh public status read is still pending.
 
-Final removal of the disposable Keychain item, profile, vault, test bundle, notification permission and temporary worktree remains pending. This report does not claim #424 or #39 complete before that check and cleanup finish.
+Both owned macOS bundles and their LaunchServices registrations have been removed, the disposable notification permission is off, owned browser tabs are closed, and the HTTP fixture is stopped. Final removal of the disposable Keychain item, profile, vault and temporary worktree remains pending. This report does not claim #424 or #39 complete before that check and cleanup finish.
 
 ![Native inbox reconnect guidance](automation-native-inbox.jpg)
 
