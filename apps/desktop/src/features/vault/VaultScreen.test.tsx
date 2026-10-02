@@ -757,7 +757,7 @@ test('a missing folder, a vault that does not open, an empty one, and one not la
   expect(state(byTestId)).toEqual([
     [
       'missing',
-      "No vault folderThis profile's vault is /h/vault, and no folder is there.Run mesa vault init to create it with Mesa's layout, or point the profile at your vault with mesa config set vault <path>.",
+      'Choose a home for your knowledgeThe vault folder at /h/vault could not be found.Create it here, or choose another folder in vault settings. Set up vault',
     ],
   ]);
   expect(byTestId('vault-folder')).toEqual([]);
@@ -782,7 +782,7 @@ test('a missing folder, a vault that does not open, an empty one, and one not la
   expect(state(byTestId)).toEqual([
     [
       'unlisted',
-      'The vault did not openvault /h/vault is not a folder.Point the profile at a vault folder with mesa config set vault <path>.',
+      'The vault did not openvault /h/vault is not a folderChoose a vault folder in Settings, under General > Vault.',
     ],
   ]);
   expect(toastTexts(byTestId)).toEqual([]);
@@ -797,7 +797,7 @@ test('a missing folder, a vault that does not open, an empty one, and one not la
   expect(state(byTestId)).toEqual([
     [
       'empty',
-      'The vault is empty/h/vault has no notes or files yet.Run mesa vault init to lay it out; notes you and your sessions save then show here.',
+      'Your knowledge starts hereNotes, decisions, and session summaries will collect here as you work./h/vault Set up vault',
     ],
   ]);
   expect(byTestId('vault-search')).toEqual([]);
@@ -812,7 +812,7 @@ test('a missing folder, a vault that does not open, an empty one, and one not la
   expect(state(byTestId)).toEqual([
     [
       'not-laid-out',
-      'Not laid outThis vault has no receipts, daily.Run mesa vault init to add them; it creates only what is missing.',
+      "Set up your vaultAdd Mesa's missing folders and notes: receipts, daily. Your existing files are kept. Set up vault",
     ],
   ]);
   // What is there stays browsable.
@@ -902,4 +902,30 @@ test("the profile's vault moved: its filters, search, and selection start over o
   expect(document.querySelector<HTMLSelectElement>('#vault-project')?.value).toBe('');
   expect(byTestId('vault-item')[0]?.textContent).toContain('Select an item');
   expect(labels(byTestId)).toEqual(['wiki, 1 item']);
+});
+
+test('empty vault setup uses vault init, prevents concurrent writes and refreshes the inventory', async () => {
+  let initialised = false;
+  const pending = deferred();
+  const { bridge, calls } = fakeBridge({
+    'vault list': () =>
+      envelope(initialised ? INVENTORY : { vault: '/h/vault', total: 0, items: [] }),
+    'vault status': () =>
+      envelope({ path: '/h/vault', ok: initialised, missing: initialised ? [] : ['wiki'] }),
+    'vault init': () => pending.promise,
+  });
+  const byTestId = await renderWithMesa(<VaultScreen />, bridge);
+  const setup = [...document.querySelectorAll('button')].find((button) =>
+    button.textContent?.includes('Set up vault'),
+  );
+  await click(setup);
+  expect(setup?.disabled).toBe(true);
+  expect(calls.filter((args) => args[1] === 'vault' && args[2] === 'init')).toHaveLength(1);
+  initialised = true;
+  await act(async () =>
+    pending.resolve(envelope({ path: '/h/vault', created: ['wiki'], receipt: null })),
+  );
+  expect(byTestId('vault-state')).toEqual([]);
+  expect(byTestId('vault-file').length).toBeGreaterThan(0);
+  expect(toastTexts(byTestId)).toEqual([]);
 });

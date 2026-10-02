@@ -177,6 +177,7 @@ export function App() {
           onNewSession={requestNewSession}
           onAddProject={setProjectAdd}
           onSearch={search.openSearch}
+          onVaultSettings={() => workspace.openSettings('general')}
           archiveSessionRequest={archiveSessionRequest}
           dependencySessionRequest={dependencySessionRequest}
           promptInsertRequest={promptInsertRequest}

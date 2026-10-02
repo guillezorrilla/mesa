@@ -21,6 +21,7 @@ export type ProjectTab = 'overview' | 'vault' | 'import' | 'git' | 'files' | 'sk
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectScreen(props: {
   project: ProjectRow;
+  vault?: string;
   /** The tab it opens on: the one it was left on, so coming back keeps it. */
   initialTab?: ProjectTab;
   onTabChange?: (tab: ProjectTab) => void;
@@ -104,7 +105,13 @@ export function ProjectScreen(props: {
           onNewSession={props.onNewSession}
         />
       ) : tab === 'vault' ? (
-        <VaultTab project={project.name} onItem={props.onVaultItem} />
+        <VaultTab
+          key={props.vault}
+          vault={props.vault}
+          project={project.name}
+          onItem={props.onVaultItem}
+          onImport={() => setTab('import')}
+        />
       ) : tab === 'import' ? (
         <ImportTab key={project.name} project={project.name} onStartSession={startFrom} />
       ) : tab === 'git' ? (

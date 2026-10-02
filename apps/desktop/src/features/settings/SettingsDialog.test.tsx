@@ -2,7 +2,16 @@
 import type { Config, DoctorReport, ProjectRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { choose, click, envelope, fakeBridge, PROJECTS, renderWithMesa } from '@/lib/testing';
+import {
+  choose,
+  click,
+  envelope,
+  failure,
+  fakeBridge,
+  fakePlatform,
+  PROJECTS,
+  renderWithMesa,
+} from '@/lib/testing';
 import { SettingsDialog } from './SettingsDialog';
 
 const base = async () =>
@@ -15,7 +24,11 @@ const doctor: DoctorReport = {
     { name: 'codex', ok: false, status: 'warn', hint: 'not found' },
   ],
 };
-const render = (bridge: Parameters<typeof renderWithMesa>[1], category?: 'git') =>
+const render = (
+  bridge: Parameters<typeof renderWithMesa>[1],
+  category?: 'git',
+  platform = fakePlatform(),
+) =>
   renderWithMesa(
     <SettingsDialog
       open
@@ -29,6 +42,7 @@ const render = (bridge: Parameters<typeof renderWithMesa>[1], category?: 'git') 
       onChanged={() => {}}
     />,
     bridge,
+    platform,
   );
 const nav = (label: string) =>
   [
@@ -434,4 +448,44 @@ test('Notifications has the PR events toggle, saved to sessions.prEvents, and sh
   expect(row?.textContent).toContain('gh: not logged in, run gh auth login');
   await click(toggle ?? undefined);
   expect(sets(calls)).toEqual([['sessions.prEvents', 'true']]);
+});
+
+test('General changes the shared vault with the native folder picker and reloads its path', async () => {
+  let config = await base();
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope(config),
+    'config set': (args) => {
+      config = { ...config, vault: JSON.parse(args.at(-1) ?? 'null') };
+      return envelope({ path: 'vault', value: config.vault, receipt: null });
+    },
+  });
+  await render(bridge, undefined, fakePlatform({ folder: '/h/another vault' }));
+  expect(document.getElementById('settings-vault')?.textContent).toContain('/h/vault');
+  await click(
+    [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Change folder'),
+    ),
+  );
+  expect(sets(calls)).toEqual([['vault', '"/h/another vault"']]);
+  expect(document.getElementById('settings-vault')?.textContent).toContain('/h/another vault');
+  expect(calls.some((args) => args[1] === 'vault' && args[2] === 'init')).toBe(false);
+});
+
+test('cancelling the vault picker, selecting the same folder, or a failed save keeps the current vault', async () => {
+  for (const folder of [null, '/h/vault', '/h/refused']) {
+    const { bridge, calls } = fakeBridge({ 'config set': () => failure('cannot write config') });
+    const byTestId = await render(bridge, undefined, fakePlatform({ folder }));
+    await click(
+      [...document.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Change folder'),
+      ),
+    );
+    expect(sets(calls)).toHaveLength(folder === '/h/refused' ? 1 : 0);
+    expect(document.getElementById('settings-vault')?.textContent).toContain('/h/vault');
+    expect(
+      byTestId('toast')
+        .map((node) => node.textContent)
+        .join(),
+    ).toContain(folder === '/h/refused' ? 'cannot write config' : '');
+  }
 });

@@ -37,6 +37,7 @@ export function WorkspaceMain(props: {
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
   onSearch: () => void;
+  onVaultSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
   promptInsertRequest?: { session: string; text: string };
@@ -91,6 +92,7 @@ export function WorkspaceMain(props: {
           <ProjectScreen
             key={project.name}
             project={project}
+            vault={config.data?.vault}
             initialTab={projectTabs.current[project.name]}
             onTabChange={(tab) => {
               projectTabs.current[project.name] = tab;
@@ -127,7 +129,12 @@ export function WorkspaceMain(props: {
         <DailyScreen onVaultItem={(path) => navigate({ kind: 'vault', path })} />
       )}
       {view.kind === 'vault' && (
-        <VaultScreen key={view.query} query={view.query} path={view.path} />
+        <VaultScreen
+          key={JSON.stringify([config.data?.vault, view.query])}
+          query={view.query}
+          path={view.path}
+          onSettings={props.onVaultSettings}
+        />
       )}
       {view.kind === 'help' && <HelpScreen />}
       {view.kind === 'prompts' && (

@@ -6,9 +6,21 @@ import {
   INTERFACE_THEMES,
   TERMINAL_THEMES,
 } from '@mesa/core/browser';
-import { Database, Eye, Palette, Power, RefreshCw, Stethoscope, Type } from 'lucide-react';
+import {
+  Database,
+  Eye,
+  FolderOpen,
+  Library,
+  Palette,
+  Power,
+  RefreshCw,
+  Stethoscope,
+  Type,
+} from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
+import { usePlatform } from '@/lib/MesaRoot';
+import { useAct } from '@/lib/useAct';
 import { Choice } from './controls/Choice';
 import { options } from './controls/options';
 import { Range } from './controls/Range';
@@ -27,6 +39,8 @@ export function GeneralSettings(props: {
   onReplayTour: () => void;
 }) {
   const { config, acting, save } = useSettings();
+  const { pickFolder } = usePlatform();
+  const { acting: picking, act } = useAct();
   const { application, appearance, terminal } = config;
   return (
     <>
@@ -72,6 +86,39 @@ export function GeneralSettings(props: {
             </Button>
           }
         />
+      </SettingSection>
+      <SettingSection
+        id="vault"
+        title="Vault"
+        description="Local knowledge shared by all projects in this profile"
+      >
+        <SettingRow
+          icon={Library}
+          title="Vault folder"
+          description={<span className="break-all font-mono">{config.vault}</span>}
+          keywords="obsidian vault folder path change"
+          control={
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={acting || picking}
+              onClick={() =>
+                void act(async () => {
+                  const folder = await pickFolder();
+                  if (folder && folder !== config.vault) save('vault', folder);
+                  return undefined;
+                })
+              }
+            >
+              <FolderOpen aria-hidden /> Change folder
+            </Button>
+          }
+        >
+          <p className="text-xs text-muted-foreground">
+            Choose another Obsidian vault or local folder. Existing files stay in their current
+            folder. New sessions use the selected vault.
+          </p>
+        </SettingRow>
       </SettingSection>
       <SettingSection
         id="appearance"
