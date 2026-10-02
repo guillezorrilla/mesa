@@ -65,6 +65,6 @@ The app listing's privacy policy and terms are the broker's pages:
 
 ## Company sites that block third-party apps
 
-Tried on 2026-10-02 against aytech, a company site whose admin does not block third-party apps: a member's consent connected Mesa with no admin step. Mesa was registered under a personal developer account, and that made no difference: with sharing on, any Atlassian account can consent for the sites it can use.
+Tried on 2026-10-02 against a company Atlassian site whose admin does not block third-party apps: a member's consent connected Mesa with no admin step. Mesa was registered under a personal developer account, and that made no difference: with sharing on, any Atlassian account can consent for the sites it can use.
 
 Where an org admin blocks unapproved third-party apps (Atlassian Administration > Security > User security > App access rules, or user-installed app settings), Atlassian refuses the consent itself or asks the user to request approval, so no code reaches the broker and `mesa sources connect` ends with the callback's error and stores nothing. The admin approves "Mesa" in Atlassian Administration, after which the same one-click Connect works. This blocked case was not tried live (no such site was available).

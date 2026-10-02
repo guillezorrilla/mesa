@@ -100,7 +100,7 @@ test('global shortcuts open from the top bar with either sidebar layout, without
         ':scope > div:last-child [aria-label="Projects"], :scope > div:last-child [aria-label="Help"]',
       ),
     ).toHaveLength(0);
-    // No Analytics: Cost opens the usage window, as in Xirp.
+    // No Analytics: Cost opens the usage window.
     expect(byTestId('nav-usage')).toHaveLength(0);
     for (const [id, label, panel] of [
       ['cost', 'Cost', 'usage-panel'],
@@ -837,7 +837,7 @@ test('project Files tab edits through the bridge, previews inert Markdown, and p
     ),
   );
   expect(byTestId('files-workspace')).toHaveLength(1);
-  // Folders start closed, as in Xirp.
+  // Folders start closed.
   expect(document.querySelector('[aria-label="File tree"]')?.textContent).toBe('docs');
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('[aria-label="File tree"] button')].find(

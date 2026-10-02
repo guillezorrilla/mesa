@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-/** A small rounded count beside a label; the attention tone Xirp uses for pending changes by default. */
+/** A small rounded count beside a label; the attention tone marks pending changes by default. */
 export function CountPill(props: { count: number; className?: string }) {
   return (
     <span

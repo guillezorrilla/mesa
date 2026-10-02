@@ -10,7 +10,7 @@ import { statusOf } from './worktreeStatus';
 export type Card = WorktreeRow & WorktreeDetails;
 
 /**
- * One checkout, as Xirp's card: with a session in it, a click opens that session and there is no
+ * One checkout's card: with a session in it, a click opens that session and there is no
  * New session; otherwise a click, or the play action, starts one. A linked worktree adds Recycle and
  * Remove, its commits ahead of the default branch, and its age, which the actions cover on hover.
  */
