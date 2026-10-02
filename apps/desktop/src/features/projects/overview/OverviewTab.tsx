@@ -1,14 +1,11 @@
 import type { ManagedRow, ProjectRow, TreeRow } from '@mesa/core';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
-import { KnowledgeContext } from '@/features/vault/KnowledgeContext';
-import { VaultOverview } from '@/features/vault/VaultOverview';
 import { WorktreesSection } from '@/features/worktrees/WorktreesSection';
 import type { DataOf } from '@/lib/client';
 import type { useAct } from '@/lib/useAct';
 import type { CommandState } from '@/lib/useCommand';
 import { useRun } from '@/lib/useCommand';
-import { ImportPanel } from '../import/ImportPanel';
 import { ActiveSessions } from './ActiveSessions';
 import { QuickSession } from './QuickSession';
 import { RecentSessions } from './RecentSessions';
@@ -16,8 +13,8 @@ import { SessionComposer, type SessionStartInput } from './SessionComposer';
 import type { OverviewState } from './useOverviewState';
 
 /**
- * The project's Overview tab: start a session, its sessions and worktrees, its knowledge, and its
- * Imports.
+ * The project's Overview tab: start a session, and its sessions and worktrees. Its vault and its
+ * Imports have their own tabs.
  */
 export function OverviewTab(props: {
   project: ProjectRow;
@@ -29,7 +26,6 @@ export function OverviewTab(props: {
   acting: boolean;
   act: ReturnType<typeof useAct>['act'];
   onSession: (id: string) => void;
-  onVaultItem: (path: string) => void;
   onNewSession: (
     project: string,
     kind: 'main' | 'worktree' | 'terminal',
@@ -83,9 +79,6 @@ export function OverviewTab(props: {
         state={props.state}
         onSession={props.onSession}
       />
-      <VaultOverview project={project.name} onItem={props.onVaultItem} />
-      <ImportPanel project={project.name} />
-      <KnowledgeContext project={project.name} />
       {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
     </div>
   );

@@ -42,26 +42,28 @@ export function ProjectTabBar(props: {
         </ActionDialog>
       )}
       <nav aria-label={`${props.project} tabs`} className="flex gap-4 border-b">
-        {(['overview', 'git', 'files', 'skills', 'rules'] as const).map((name) => (
-          <button
-            key={name}
-            type="button"
-            aria-current={tab === name ? 'page' : undefined}
-            className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-state-working aria-[current=page]:text-foreground"
-            onClick={() => {
-              if (props.filesDirty && name !== tab) setPendingTab(name);
-              else props.onTab(name);
-            }}
-          >
-            {name}
-            {name === 'git' && props.gitChanges > 0 && (
-              <CountPill
-                count={props.gitChanges}
-                className="ml-1.5 inline-flex size-5 items-center justify-center bg-state-idle px-0 text-[11px] font-medium text-background"
-              />
-            )}
-          </button>
-        ))}
+        {(['overview', 'vault', 'import', 'git', 'files', 'skills', 'rules'] as const).map(
+          (name) => (
+            <button
+              key={name}
+              type="button"
+              aria-current={tab === name ? 'page' : undefined}
+              className="-mb-px border-b-2 border-transparent px-1 pb-2 text-sm capitalize text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-state-working aria-[current=page]:text-foreground"
+              onClick={() => {
+                if (props.filesDirty && name !== tab) setPendingTab(name);
+                else props.onTab(name);
+              }}
+            >
+              {name}
+              {name === 'git' && props.gitChanges > 0 && (
+                <CountPill
+                  count={props.gitChanges}
+                  className="ml-1.5 inline-flex size-5 items-center justify-center bg-state-idle px-0 text-[11px] font-medium text-background"
+                />
+              )}
+            </button>
+          ),
+        )}
       </nav>
     </>
   );

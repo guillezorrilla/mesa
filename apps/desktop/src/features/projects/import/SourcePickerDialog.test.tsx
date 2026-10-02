@@ -3,7 +3,7 @@ import type { BrowseChild, BrowseResult, ImportListRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa, toasts } from '@/lib/testing';
-import { ImportPanel } from './ImportPanel';
+import { ImportTab } from './ImportTab';
 
 const SITE = 'https://lantern-cove.atlassian.net';
 
@@ -72,7 +72,7 @@ const imported = (url: string, title: string): ImportListRow => ({
   snapshot: `raw/x/${title}.md`,
 });
 
-/** The Import panel over TREE; `import` lists what it imported, with its links. */
+/** The Import tab over TREE; `import` lists what it imported, with its links. */
 async function setUp(answers: Record<string, (args: string[]) => unknown> = {}) {
   let items: ImportListRow[] = [];
   const fake = fakeBridge({
@@ -89,7 +89,7 @@ async function setUp(answers: Record<string, (args: string[]) => unknown> = {}) 
     'sources browse': browse,
     ...answers,
   });
-  const byTestId = await renderWithMesa(<ImportPanel project="lantern-cove" />, fake.bridge);
+  const byTestId = await renderWithMesa(<ImportTab project="lantern-cove" />, fake.bridge);
   return { ...fake, byTestId };
 }
 
@@ -271,14 +271,36 @@ test('with Write notes on, more than 50 ticked disables Import and says why; Wri
   expect(byTestId('import-picked')[0]?.hasAttribute('disabled')).toBe(false);
 });
 
-test('a source not connected has no Browse button', async () => {
-  await setUp({
+test('each source card offers the action that fits: Connect, Reconnect, or Browse', async () => {
+  let status: 'disconnected' | 'needs-reconnect' | 'connected' = 'disconnected';
+  const { calls, byTestId } = await setUp({
     'sources list': () =>
       envelope({
         sources: [
-          { id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' },
+          { id: 'atlassian', label: 'Atlassian', connected: status !== 'disconnected', status },
         ],
       }),
+    'sources connect': () => {
+      status = 'connected';
+      return envelope({
+        id: 'atlassian',
+        label: 'Atlassian',
+        connected: true,
+        status,
+        receipt: null,
+      });
+    },
   });
+  expect(byTestId('source-card')[0]?.textContent).toContain('Not connected');
+  expect(button('Browse Atlassian')).toBeUndefined();
+  await click(button('Connect'));
+  expect(calls).toContainEqual(['--json', 'sources', 'connect', 'atlassian']);
+  expect(button('Browse Atlassian')).toBeDefined();
+  status = 'needs-reconnect';
+  await setUp({
+    'sources list': () =>
+      envelope({ sources: [{ id: 'atlassian', label: 'Atlassian', connected: true, status }] }),
+  });
+  expect(button('Reconnect')).toBeDefined();
   expect(button('Browse Atlassian')).toBeUndefined();
 });
