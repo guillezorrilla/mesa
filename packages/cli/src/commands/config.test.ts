@@ -18,3 +18,15 @@ test('config --json carries the diff and file tree sizes, and set rejects one ou
     fileTreeFontSize: 14,
   });
 });
+
+test('terminal.messageActions is on by default and config set turns it off', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  const messageActions = async () =>
+    (await cli.mesa('config', '--json')).json.data.terminal.messageActions;
+  expect(await messageActions()).toBe(true);
+  expect(
+    (await cli.mesa('config', 'set', 'terminal.messageActions', 'false', '--json')).json.data,
+  ).toMatchObject({ path: 'terminal.messageActions', value: false });
+  expect(await messageActions()).toBe(false);
+  expect((await cli.mesa('config', 'set', 'terminal.messageActions', 'maybe')).code).toBe(4);
+});

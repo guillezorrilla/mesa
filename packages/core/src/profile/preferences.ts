@@ -26,4 +26,5 @@ export const DEFAULT_TERMINAL_PREFERENCES = {
   extraSubmitKey: 'none',
   newlineKey: 'native',
   wezTermNewTab: false,
+  messageActions: true,
 } as const;
