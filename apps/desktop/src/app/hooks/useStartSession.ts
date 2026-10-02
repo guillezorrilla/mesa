@@ -1,6 +1,6 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useToast, warned } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 import type { WorkspaceView } from '../navigation';
@@ -23,7 +23,8 @@ export type SessionPreset = {
  * `mesa open` takes the project's, else the profile default. With no project named, the one in
  * view, else the first that exists. Once it opens, it is shown through `navigateLatest`.
  * `starting` lists the sessions starting, by project (GENERAL_PROJECT for General): the sidebar
- * shows each until it opens.
+ * shows each until it opens. The same start pressed again while it opens (a double click, a slow
+ * machine) is dropped, so it is one session; a different start runs beside it.
  */
 export function useStartSession(props: {
   view: WorkspaceView;
@@ -37,6 +38,7 @@ export function useStartSession(props: {
   const run = useRun();
   const toast = useToast();
   const [starting, setStarting] = useState<string[]>([]);
+  const inFlight = useRef(new Set<string>());
   const requestNewSession = useCallback(
     async (preset: SessionPreset = {}) => {
       const inView =
@@ -55,6 +57,9 @@ export function useStartSession(props: {
         return;
       }
       const key = project ?? GENERAL_PROJECT;
+      const request = JSON.stringify([key, preset.location, preset.parent, preset.checkout]);
+      if (inFlight.current.has(request)) return;
+      inFlight.current.add(request);
       setStarting((current) => [...current, key]);
       try {
         const opened = await run('sessions.open', {
@@ -70,6 +75,7 @@ export function useStartSession(props: {
         if (warning) toast(warning.text, warning.tone);
         navigateLatest({ kind: 'session', id: opened.id });
       } finally {
+        inFlight.current.delete(request);
         setStarting((current) => current.filter((_, i) => i !== current.indexOf(key)));
       }
     },

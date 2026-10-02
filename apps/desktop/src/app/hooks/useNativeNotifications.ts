@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
 import type { NativeNotice } from '@/lib/platform';
 import { useRun } from '@/lib/useCommand';
@@ -10,29 +10,32 @@ const DELIVERY_INTERVAL_MS = 5_000;
 /**
  * Sends the pending native notifications while the system allows them, now and every five
  * seconds, and opens a clicked one's target (including the one that launched the app) through
- * `navigate`, which must be stable.
+ * `navigate`, which must be stable. Each notice is sent at most once: one delivery runs at a time,
+ * even across a re-run of the effect, and a notice is marked delivered before it is sent, so a
+ * failed mark leaves it pending rather than sounding it again every poll. A failed send loses only
+ * the banner; the Inbox keeps the notice.
  */
 export function useNativeNotifications(navigate: (view: WorkspaceView) => void) {
   const { notifications } = usePlatform();
   const run = useRun();
+  const busy = useRef(false);
   useEffect(() => {
     let active = true;
-    let busy = false;
     const deliver = async () => {
-      if (busy) return;
-      busy = true;
+      if (busy.current) return;
+      busy.current = true;
       try {
         const status = await notifications.status();
         if (!active || !['authorized', 'provisional', 'ephemeral'].includes(status.authorization))
           return;
         const plan = await run('notifications.delivery');
         if (!active || !plan || plan.kind === 'none') return;
+        if (!(await run('notifications.delivered', { ids: plan.ids }))) return;
         await notifications.send(plan);
-        if (active) await run('notifications.delivered', { ids: plan.ids });
       } catch {
-        // A failed native send stays pending for the next poll.
+        // A failed native send is not retried: the notice stays in the Inbox.
       } finally {
-        busy = false;
+        busy.current = false;
       }
     };
     void deliver();
@@ -44,13 +47,20 @@ export function useNativeNotifications(navigate: (view: WorkspaceView) => void) 
           target.kind === 'session' ? { kind: 'session', id: target.id } : { kind: target.kind },
         );
     };
-    void notifications.onOpen(open).then(async (unlisten) => {
-      if (active) {
-        stop = unlisten;
-        const target = await notifications.takeOpened();
-        if (target) open(target);
-      } else unlisten();
-    });
+    // A click comes as an event and is also kept for a launch; taking it here too means a later
+    // takeOpened never replays it.
+    void notifications
+      .onOpen((target) => {
+        void notifications.takeOpened();
+        open(target);
+      })
+      .then(async (unlisten) => {
+        if (active) {
+          stop = unlisten;
+          const target = await notifications.takeOpened();
+          if (target) open(target);
+        } else unlisten();
+      });
     return () => {
       active = false;
       window.clearInterval(timer);

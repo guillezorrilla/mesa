@@ -5,7 +5,8 @@ import { FIXED_SHORTCUTS, pressed } from '@/lib/fixedShortcuts';
 
 /**
  * The window-wide keys: the profile's search, Board, and new session shortcuts, and the fixed
- * keyboard shortcuts key. Each calls its action with the latest props.
+ * keyboard shortcuts key. Each calls its action with the latest props, once per press: a held key's
+ * repeats are ignored, so holding New session never starts one session per repeat.
  */
 export function useGlobalShortcuts(props: {
   shortcuts: Shortcuts;
@@ -18,6 +19,7 @@ export function useGlobalShortcuts(props: {
   latest.current = props;
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
+      if (event.repeat) return;
       const { shortcuts, onSearch, onKeyboardShortcuts, onBoard, onNewSession } = latest.current;
       const key = shortcutFromKeys(event);
       if (key === shortcuts.search) {
