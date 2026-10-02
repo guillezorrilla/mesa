@@ -29,6 +29,31 @@ test('notification delivery and acknowledgement use the profile inbox through CL
   });
 });
 
+test('background delivery diagnostics and a claimed notice use the same JSON inbox owner', async () => {
+  cli.withTmux();
+  await cli.withProject();
+  const id = (await cli.mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+  await cli.mesa('notifications', 'delivery', '--json');
+  mkdirSync(cli.paths.events, { recursive: true });
+  writeFileSync(
+    join(cli.paths.events, `${id}.jsonl`),
+    `${JSON.stringify({ at: '2026-09-24T12:00:01.000Z', agent: 'claude', event: 'Stop' })}\n`,
+  );
+  expect((await cli.mesa('notifications', 'deliver', '--json')).json.data).toMatchObject({
+    status: 'unavailable',
+    detail: expect.stringContaining('MESA_NOTIFICATION_HELPER'),
+  });
+  expect(
+    (await cli.mesa('notifications', 'delivery', '--claim', '--json')).json.data,
+  ).toMatchObject({ kind: 'notice', target: { kind: 'session', id } });
+  expect((await cli.mesa('notifications', 'delivery', '--claim', '--json')).json.data).toEqual({
+    kind: 'none',
+  });
+  expect((await cli.mesa('notifications', 'deliver', '--json')).json.data).toEqual({
+    status: 'none',
+  });
+});
+
 test('notifications clear --all clears the whole inbox and reports the count', async () => {
   cli.withTmux();
   await cli.withProject();

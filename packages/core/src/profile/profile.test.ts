@@ -60,6 +60,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       finished: 'silent',
       subagent: 'silent',
       doctor: 'silent',
+      automation: 'silent',
     },
     application: { warnBeforeQuit: true, backupOnClose: false },
     onboarding: { status: 'active', step: 0 },

@@ -88,6 +88,7 @@ export function TitleBar(props: {
           onOpenChange={(open) => props.onOverlay(open ? 'inbox' : undefined)}
           onSession={(id) => navigate({ kind: 'session', id })}
           onDoctor={() => navigate({ kind: 'doctor' })}
+          onAutomations={() => navigate({ kind: 'automations' })}
           onSettings={() => props.onSettings('notifications')}
           onRecheck={props.onRecheck}
           doctor={props.doctor}

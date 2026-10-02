@@ -5,6 +5,7 @@ import { command, commandWith } from './spec';
 export const notificationsCommands = {
   'notifications.list': command<InboxItem[]>('notifications'),
   'notifications.delivery': command<DeliveryPlan>('notifications', 'delivery'),
+  'notifications.claimDelivery': command<DeliveryPlan>('notifications', 'delivery', '--claim'),
   'notifications.delivered': commandWith<{ ids: string[] }, { ids: string[]; delivered: true }>(
     ({ ids }) => ['notifications', 'delivered', '--', ids.join(',')],
   ),

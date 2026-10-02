@@ -31,6 +31,40 @@ const button = (label: string) =>
     (item) => item.textContent?.trim() === label || item.getAttribute('aria-label') === label,
   );
 
+test('an automation notice retains reconnect guidance and opens Automations', async () => {
+  const failure: InboxItem = {
+    ...hooks,
+    kind: 'automation',
+    title: 'Automation failed: Refresh tides',
+    detail: 'Notion needs reconnecting: run mesa sources connect notion',
+    fix: undefined,
+    target: { kind: 'automations' },
+  };
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope([failure]),
+    'notifications read': () => envelope({ id: failure.id, read: true }),
+  });
+  let opened = 0;
+  const byTestId = await renderWithMesa(
+    <NotificationsMenu
+      open
+      onOpenChange={() => {}}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {
+        opened++;
+      }}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />,
+    bridge,
+  );
+  expect(byTestId('inbox-panel')[0]?.textContent).toContain(failure.detail);
+  await click(button('Review automation'));
+  expect(opened).toBe(1);
+  expect(calls.some((args) => args[2] === 'read' && args.at(-1) === failure.id)).toBe(true);
+});
+
 test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', async () => {
   let installed = false;
   let rechecks = 0;
@@ -49,6 +83,7 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
       onOpenChange={() => {}}
       onSession={(id) => opened.push(id)}
       onDoctor={() => opened.push('doctor')}
+      onAutomations={() => opened.push('automations')}
       onSettings={() => {}}
       onRecheck={async () => {
         rechecks++;
@@ -88,6 +123,7 @@ test('Clear all asks first, then clears the whole center in one call', async () 
       onOpenChange={(open) => closed.push(open)}
       onSession={() => {}}
       onDoctor={() => {}}
+      onAutomations={() => {}}
       onSettings={() => {}}
       onRecheck={async () => {}}
     />,
@@ -135,6 +171,7 @@ test('a new Doctor report is read into the bell without opening the menu', async
           onOpenChange={() => {}}
           onSession={() => {}}
           onDoctor={() => {}}
+          onAutomations={() => {}}
           onSettings={() => {}}
           onRecheck={async () => {}}
           doctor={doctor}

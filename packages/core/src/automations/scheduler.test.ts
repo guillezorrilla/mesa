@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import type { Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import {
@@ -8,12 +9,117 @@ import {
   claudeResult,
   type fakeHttp,
   finishesRun,
+  notionPageObject,
+  notionWorld,
   profilePaths,
   projectProfile,
   sequentialIds,
+  TEST_NOTION,
   testDeps,
   testStore,
 } from '../testing/index.js';
+
+test.each(['revoked', 'not-shared'] as const)(
+  'scheduled %s Notion preserves data and delivers its durable inbox notice once',
+  async (failure) => {
+    const base = setup();
+    const source = notionWorld();
+    const helper = '/opt/Mesa.app/Contents/MacOS/mesa-desktop';
+    let permission = 'denied';
+    const sent: unknown[] = [];
+    const run: Runner = async (file, args, timeout, options) => {
+      if (file === helper) {
+        if (args[1] === 'status')
+          return { ok: true, stdout: JSON.stringify({ authorization: permission }) };
+        sent.push(JSON.parse(options?.input ?? 'null'));
+        return { ok: true, stdout: '' };
+      }
+      if (file === '/usr/bin/open') return source.deps.run(file, args, timeout, options);
+      return base.deps.run(file, args, timeout, options);
+    };
+    const deps = testDeps(base.home, {
+      ...base.deps,
+      ...source.deps,
+      run,
+      clock: base.deps.clock,
+      env: { ...source.deps.env, ...base.deps.env, MESA_NOTIFICATION_HELPER: helper },
+    });
+    const mesa = createMesa('default', deps);
+    await mesa.sources.connect('notion');
+    const page = '1f0c3a5e9b7d4c2a8e6f0b1d2c3e4f5a';
+    source.servePage(page, notionPageObject(page, 'Tide schedule'), 'Inspect the lantern.');
+    await mesa.imports.add('lantern-cove', [`https://www.notion.so/${page}`], false);
+    const vault = join(base.home, 'vault');
+    writeFileSync(join(vault, 'wiki', 'retained.md'), 'User-maintained note stays intact.');
+    const data = () =>
+      Object.fromEntries(
+        readdirSync(vault, { recursive: true, withFileTypes: true })
+          .filter(
+            (entry) =>
+              entry.isFile() && /\/(raw|wiki|projects)\//.test(join(entry.parentPath, entry.name)),
+          )
+          .map((entry) => [
+            join(entry.parentPath, entry.name),
+            readFileSync(join(entry.parentPath, entry.name), 'utf8'),
+          ]),
+      );
+    const before = data();
+    if (failure === 'revoked') source.revoke();
+    else
+      source.routes[`GET ${TEST_NOTION}/pages/${page}`] = {
+        status: 404,
+        body: { error: 'object_not_found' },
+      };
+    mesa.automations.add({
+      ...cron,
+      name: 'Refresh tides',
+      run: 'refresh',
+      goal: undefined,
+      notes: true,
+    });
+    await mesa.automations.install();
+    const result = await mesa.automations.tick();
+    expect(result.runs[0]).toMatchObject({
+      status: 'failed',
+      reason: expect.stringContaining(
+        failure === 'revoked' ? 'needs reconnecting' : 'not shared with Mesa',
+      ),
+    });
+    expect(result).toMatchObject({ notification: { status: 'denied' } });
+    expect(data()).toEqual(before);
+    const notice = mesa.notifications.list()[0];
+    expect(notice).toMatchObject({
+      kind: 'automation',
+      target: { kind: 'automations' },
+      detail: result.runs[0]?.reason,
+    });
+    expect(
+      JSON.parse(source.secrets.items.get('mesa.default.sources notion') ?? 'null').status,
+    ).toBe(failure === 'revoked' ? 'needs-reconnect' : 'connected');
+    mesa.config.set('notifications.quiet', 'true');
+    permission = 'authorized';
+    expect(await mesa.notifications.deliver()).toEqual({ status: 'none' });
+    mesa.config.set('notifications.quiet', 'false');
+    const restarted = createMesa('default', deps);
+    expect(await restarted.notifications.deliver()).toMatchObject({
+      status: 'delivered',
+      ids: [notice?.id],
+    });
+    expect(sent).toMatchObject([
+      {
+        profile: 'default',
+        target: { kind: 'automations' },
+        body: result.runs[0]?.reason,
+        sound: false,
+      },
+    ]);
+    expect(createMesa('default', deps).notifications.claimDelivery()).toEqual({ kind: 'none' });
+    expect(await createMesa('default', deps).notifications.deliver()).toEqual({ status: 'none' });
+    restarted.notifications.clearAll();
+    expect(createMesa('default', deps).notifications.list()).toEqual([]);
+    expect(data()).toEqual(before);
+  },
+);
 
 const cron = {
   name: 'Review tides',
@@ -32,7 +138,7 @@ function setup(
   const world = agentWorld(
     options.finish ? { onOpen: finishesRun({ output: claudeResult('success') }) } : {},
   );
-  const run: typeof world.run = async (file, args, timeout) => {
+  const run: Runner = async (file, args, timeout) => {
     if (file === '/usr/bin/id') return { ok: true, stdout: '501\n' };
     if (file === '/bin/launchctl') {
       world.calls.push({ file, args, timeoutMs: timeout });
