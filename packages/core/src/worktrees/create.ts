@@ -78,7 +78,14 @@ export async function checkoutWorktree(
       'usage',
       `session ${running.map((r) => r.id).join(', ')} runs in ${checkout.path}: use it, or stop it first`,
     );
-  const linked = (await gitWorktrees(run, root)).find((entry) => entry.path === checkout.path);
+  // Git may list a worktree by a linked path; the checkout is its real one.
+  const linked = (await gitWorktrees(run, root)).find((entry) => {
+    try {
+      return realpathSync.native(entry.path) === checkout.path;
+    } catch {
+      return false;
+    }
+  });
   if (linked?.branch) return { path: checkout.path, branch: linked.branch };
   const branch = sessionBranchName(newId);
   const made = await gitCommand(run, checkout.path, ['switch', '--quiet', '-c', branch]);

@@ -1,13 +1,26 @@
-import type { WorktreeAction, WorktreePreview, WorktreeRow } from '@mesa/core';
-import { Folder, FolderGit2, GitBranch, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import type { WorktreeAction, WorktreeDetails, WorktreePreview, WorktreeRow } from '@mesa/core';
+import {
+  Folder,
+  FolderGit2,
+  GitBranch,
+  LoaderCircle,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { said } from '@/components/Toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { timeAgo } from '@/lib/timeAgo';
 import { useAct } from '@/lib/useAct';
 import type { CommandState } from '@/lib/useCommand';
 import { useRun } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
+
+type Card = WorktreeRow & WorktreeDetails;
 
 /** A worktree's name on its card: main, else its folder. */
 const nameOf = (tree: Pick<WorktreeRow, 'main' | 'path'>) =>
@@ -22,7 +35,9 @@ const nameOf = (tree: Pick<WorktreeRow, 'main' | 'path'>) =>
 export function WorktreesSection(props: {
   project: string;
   exists: boolean;
-  worktrees: CommandState<WorktreeRow[]>;
+  worktrees: CommandState<Card[]>;
+  /** Opens a session running in a worktree, as clicking its card does. */
+  onSession: (id: string) => void;
   /** A session in `checkout`, or in the main checkout without one. */
   onNewSession: (checkout?: string) => void;
   /** A session in a new worktree. */
@@ -32,6 +47,8 @@ export function WorktreesSection(props: {
   const { acting, act } = useAct();
   const [asked, setAsked] = useState<{ tree?: WorktreeRow; preview: WorktreePreview }>();
   const [deleteBranch, setDeleteBranch] = useState(false);
+  // The card an apply is changing, which says so until the list reloads.
+  const [applying, setApplying] = useState<{ path: string; action: WorktreeAction }>();
   const rows = props.worktrees.data ?? [];
   const stale = rows.some((row) => row.state === 'stale');
   const ask = (action: WorktreeAction, tree?: WorktreeRow) =>
@@ -51,6 +68,8 @@ export function WorktreesSection(props: {
     act(async () => {
       if (!asked) return undefined;
       const { preview, tree } = asked;
+      setAsked(undefined);
+      if (tree) setApplying({ path: tree.path, action: preview.action });
       const done = await run('worktrees.apply', {
         project: props.project,
         action: preview.action,
@@ -59,14 +78,14 @@ export function WorktreesSection(props: {
         force,
         deleteBranch: preview.action === 'recycle' && deleteBranch,
       });
-      setAsked(undefined);
       await props.worktrees.refresh();
+      setApplying(undefined);
       if (!done) return undefined;
       const what =
         preview.action === 'cleanup'
           ? `Cleaned up ${done.paths.length} missing worktree(s)`
           : preview.action === 'recycle'
-            ? `Recycled ${tree ? nameOf(tree) : 'worktree'} to ${done.base}${done.branchKept ? `; kept branch ${done.branch}: ${done.branchKept}` : ''}`
+            ? `Recycled ${tree ? nameOf(tree) : 'worktree'} to ${done.base}${done.fetchFailed ? ' (could not fetch origin first; it may be behind)' : ''}${done.branchKept ? `; kept branch ${done.branch}: ${done.branchKept}` : ''}`
             : `Removed worktree ${tree ? nameOf(tree) : ''}`;
       return said(what, done);
     });
@@ -88,50 +107,17 @@ export function WorktreesSection(props: {
       </div>
       <div className="flex flex-wrap gap-3">
         {rows.map((tree) => (
-          <div
+          <WorktreeCard
             key={tree.path}
-            data-testid="worktree-card"
-            className="group relative flex min-w-40 flex-col items-start gap-1 rounded-md border bg-card/40 p-3 pr-20 text-xs"
-          >
-            <span className="flex items-center gap-1 text-muted-foreground">
-              <Folder aria-hidden className="size-3" />
-              {nameOf(tree)}
-            </span>
-            <span className="flex items-center gap-1 font-mono text-state-working">
-              <GitBranch aria-hidden className="size-3" />
-              {tree.branch ?? 'detached'}
-            </span>
-            <span className="text-muted-foreground">
-              {tree.holders.length ? `${tree.holders.length} session(s)` : tree.state}
-            </span>
-            <div className="absolute right-1.5 bottom-1.5 flex gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-              <CardAction
-                label={`New session in ${nameOf(tree)}`}
-                disabled={!props.exists || acting}
-                onClick={() => props.onNewSession(tree.main ? undefined : tree.path)}
-              >
-                <Play aria-hidden />
-              </CardAction>
-              {!tree.main && (
-                <>
-                  <CardAction
-                    label={`Recycle ${nameOf(tree)}`}
-                    disabled={acting}
-                    onClick={() => ask('recycle', tree)}
-                  >
-                    <RefreshCw aria-hidden />
-                  </CardAction>
-                  <CardAction
-                    label={`Remove ${nameOf(tree)}`}
-                    disabled={acting}
-                    onClick={() => ask('remove', tree)}
-                  >
-                    <Trash2 aria-hidden />
-                  </CardAction>
-                </>
-              )}
-            </div>
-          </div>
+            tree={tree}
+            exists={props.exists}
+            disabled={acting}
+            applying={applying?.path === tree.path ? applying.action : undefined}
+            onSession={props.onSession}
+            onNewSession={() => props.onNewSession(tree.main ? undefined : tree.path)}
+            onRecycle={() => ask('recycle', tree)}
+            onRemove={() => ask('remove', tree)}
+          />
         ))}
         <button
           type="button"
@@ -157,6 +143,130 @@ export function WorktreesSection(props: {
   );
 }
 
+/** What a card's status line says, by state: an apply running, a session in it, its changes, or clean. */
+function statusOf(tree: Card, applying?: WorktreeAction) {
+  if (applying) return applying === 'remove' ? 'Removing...' : 'Recycling...';
+  const held = tree.holders[0];
+  if (held) return held.name ?? held.state;
+  if (tree.state !== 'ready' && tree.state !== 'detached') return tree.state;
+  const { staged = 0, modified = 0, untracked = 0 } = tree.changes ?? {};
+  const parts = [
+    modified && `${modified} modified`,
+    staged && `${staged} staged`,
+    untracked && `${untracked} untracked`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(', ') : 'clean';
+}
+
+/**
+ * One checkout, as Xirp's card: with a session in it, a click opens that session and there is no
+ * New session; otherwise a click, or the play action, starts one. A linked worktree adds Recycle and
+ * Remove, its commits ahead of the default branch, and its age, which the actions cover on hover.
+ */
+function WorktreeCard(props: {
+  tree: Card;
+  exists: boolean;
+  disabled: boolean;
+  applying?: WorktreeAction;
+  onSession: (id: string) => void;
+  onNewSession: () => void;
+  onRecycle: () => void;
+  onRemove: () => void;
+}) {
+  const { tree } = props;
+  const held = tree.holders[0];
+  const name = nameOf(tree);
+  const open = props.applying
+    ? undefined
+    : held
+      ? () => props.onSession(held.id)
+      : props.exists
+        ? props.onNewSession
+        : undefined;
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: the card's own buttons carry its actions; a click is a shortcut
+    // biome-ignore lint/a11y/useKeyWithClickEvents: as above
+    <div
+      data-testid="worktree-card"
+      data-held={held ? 'true' : undefined}
+      onClick={open}
+      className={cn(
+        'group relative flex min-w-44 flex-col items-start gap-1 rounded-md border bg-card/40 p-3 text-xs',
+        open && 'cursor-pointer hover:bg-accent/40',
+        held && 'border-state-working/40',
+        props.applying && 'opacity-60',
+      )}
+    >
+      <span className="flex items-center gap-1 text-muted-foreground">
+        {tree.main ? (
+          <Folder aria-hidden className="size-3" />
+        ) : (
+          <FolderGit2 aria-hidden className="size-3" />
+        )}
+        <span className="truncate font-mono" title={tree.path}>
+          {name}
+        </span>
+      </span>
+      <span className="flex items-center gap-1 font-mono text-state-working">
+        <GitBranch aria-hidden className="size-3" />
+        {tree.branch ?? 'detached'}
+        {!tree.main && (tree.ahead ?? 0) > 0 && (
+          <span className="text-[10px] text-muted-foreground">+{tree.ahead}</span>
+        )}
+      </span>
+      <span className="flex w-full items-center gap-2 text-muted-foreground">
+        <span
+          data-testid="worktree-status"
+          className={cn(
+            'flex items-center gap-1',
+            held?.state === 'working' && 'text-state-working',
+            held?.state.startsWith('waiting') && 'text-state-waiting',
+          )}
+        >
+          {props.applying && <LoaderCircle aria-hidden className="size-3 animate-spin" />}
+          {statusOf(tree, props.applying)}
+        </span>
+        {tree.createdAt && (
+          <span className="ml-auto pr-1 group-hover:invisible">
+            created {timeAgo(tree.createdAt)}
+          </span>
+        )}
+      </span>
+      {!props.applying && (
+        <div className="absolute right-1.5 bottom-1.5 flex gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          {!held && (
+            <CardAction
+              label={`New session in ${name}`}
+              disabled={!props.exists || props.disabled}
+              onClick={props.onNewSession}
+            >
+              <Play aria-hidden />
+            </CardAction>
+          )}
+          {!tree.main && (
+            <>
+              <CardAction
+                label={`Recycle ${name}`}
+                disabled={props.disabled}
+                onClick={props.onRecycle}
+              >
+                <RefreshCw aria-hidden />
+              </CardAction>
+              <CardAction
+                label={`Remove ${name}`}
+                disabled={props.disabled}
+                onClick={props.onRemove}
+              >
+                <Trash2 aria-hidden />
+              </CardAction>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CardAction(props: {
   label: string;
   disabled: boolean;
@@ -169,7 +279,11 @@ function CardAction(props: {
       aria-label={props.label}
       title={props.label}
       disabled={props.disabled}
-      onClick={props.onClick}
+      onClick={(event) => {
+        // The card's own click would start or open a session too.
+        event.stopPropagation();
+        props.onClick();
+      }}
       className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50 [&_svg]:size-3.5"
     >
       {props.children}

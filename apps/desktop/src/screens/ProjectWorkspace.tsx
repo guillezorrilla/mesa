@@ -453,6 +453,7 @@ export function ProjectWorkspace(props: {
               project={project.name}
               exists={project.exists}
               worktrees={worktrees}
+              onSession={props.onSession}
               onNewSession={(checkout) => props.onNewSession(project.name, 'main', checkout)}
               onNewWorktree={() => props.onNewSession(project.name, 'worktree')}
             />

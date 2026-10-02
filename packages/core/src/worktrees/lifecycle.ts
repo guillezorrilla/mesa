@@ -8,9 +8,10 @@ import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
 import { checkoutHolders } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
+import { defaultBranchRef } from './base.js';
 import { worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeRow } from './inventory.js';
-import { worktreeScript, worktreeSettings } from './settings.js';
+import { worktreeScript } from './settings.js';
 
 /**
  * remove deletes a linked checkout; recycle resets it for reuse, detached at the default branch, as
@@ -112,7 +113,8 @@ export async function previewWorktreeAction(
   const stat = lstatSync(path);
   const holders = references(store, project, root, path);
   const live = checkoutHolders(store.list(), project, root, path).map((record) => record.id);
-  const base = action === 'recycle' ? await recycleBase(profile, run, root, project) : undefined;
+  const base =
+    action === 'recycle' ? await defaultBranchRef(profile, run, root, project) : undefined;
   const status = await requireGit(run, path, [
     'status',
     '--porcelain=v1',
@@ -204,6 +206,10 @@ export async function previewWorktreeAction(
       ? ['worktree has uncommitted changes; commit, stash, or trash it']
       : []),
     ...(action === 'recycle' && !base ? ['no default branch to reset to'] : []),
+    // A branch keeps its commits through a recycle; a detached HEAD's would be left to the reflog.
+    ...(action === 'recycle' && !branch && unpublished
+      ? ['detached HEAD has commits no branch holds; make a branch or trash it']
+      : []),
     ...(destination && present(destination) ? ['recycle destination already exists'] : []),
   ];
   // The local work a remove would lose, which a confirmed force removes anyway.
@@ -238,19 +244,6 @@ export async function previewWorktreeAction(
     reasons,
     forceable: !blocked.length && work.length > 0,
   };
-}
-
-/** The ref a recycle resets to: origin's default branch, else the configured base, else main's. */
-async function recycleBase(profile: Profile, run: Runner, root: string, project: string) {
-  const ask = async (args: string[]) => {
-    const result = await gitCommand(run, root, args);
-    return result.ok ? result.stdout.trim() || undefined : undefined;
-  };
-  return (
-    (await ask(['symbolic-ref', '--short', '-q', 'refs/remotes/origin/HEAD'])) ??
-    worktreeSettings(profile, findProject(profile, project)).base ??
-    (await ask(['symbolic-ref', '--short', '-q', 'HEAD']))
-  );
 }
 
 function references(store: SessionStore, project: string, root: string, path: string) {
@@ -339,7 +332,8 @@ export async function applyWorktreeAction(
     let branchKept: string | undefined;
     if (opts.deleteBranch && preview.branch) {
       // -d, not -D: a branch with work no other ref has stays, and the result says why.
-      const deleted = await gitCommand(run, root, ['branch', '-d', '--', preview.branch]);
+      // From the worktree, now at the base, so merged means merged into the default branch.
+      const deleted = await gitCommand(run, path, ['branch', '-d', '--', preview.branch]);
       if (!deleted.ok) branchKept = deleted.detail;
     }
     return {

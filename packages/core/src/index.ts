@@ -169,5 +169,6 @@ export {
   type PendingScripts,
   trustCommand,
 } from './worktrees/approval.js';
+export type { WorktreeDetails } from './worktrees/details.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
 export type { WorktreeAction, WorktreePreview } from './worktrees/lifecycle.js';

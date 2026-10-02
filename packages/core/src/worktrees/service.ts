@@ -2,15 +2,23 @@ import type { MesaContext } from '../context.js';
 import { resolveCheckout } from '../git/checkout.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
+import { defaultBranchRef } from './base.js';
 import { createWorktree, worktreeCommand } from './create.js';
+import { withDetails } from './details.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
 import { applyWorktreeAction, previewWorktreeAction, type WorktreeAction } from './lifecycle.js';
 import { worktreeScript } from './settings.js';
 
 export function worktreesService(ctx: MesaContext) {
   return {
-    list: (project: string, filter?: WorktreeFilter) =>
-      listWorktrees(ctx.open(), ctx.deps.run, ctx.store, project, filter),
+    /** The inventory, each row with what its card shows (withDetails). */
+    list: async (project: string, filter?: WorktreeFilter) => {
+      const profile = ctx.open();
+      const rows = await listWorktrees(profile, ctx.deps.run, ctx.store, project, filter);
+      const root = rows.find((row) => row.main)?.path;
+      const base = root ? await defaultBranchRef(profile, ctx.deps.run, root, project) : undefined;
+      return withDetails(ctx.deps.run, rows, base);
+    },
     create: (project: string, branch: string, base?: string) =>
       ctx.record(
         {

@@ -757,3 +757,55 @@ test('remove --force removes local work after the preview listed it, never a run
   expect(forced.applied.json.data).toMatchObject({ action: 'remove', forced: true });
   expect(existsSync(path)).toBe(false);
 });
+
+test('recycle refuses a detached worktree whose commits no branch holds', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'loose', '--json')).json.data
+    .path as string;
+  git(path, 'switch', '--quiet', '--detach');
+  writeFileSync(join(path, 'note.txt'), 'only here');
+  git(path, 'add', 'note.txt');
+  git(path, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'loose');
+  const { preview, applied } = await act('recycle', path);
+  expect(preview.reasons).toContain(
+    'detached HEAD has commits no branch holds; make a branch or trash it',
+  );
+  expect(applied.code).toBe(2);
+  expect(existsSync(join(path, 'note.txt'))).toBe(true);
+});
+
+test('open --checkout keeps the branch of a worktree Git lists by a linked path', async () => {
+  const repo = await creationRepo();
+  const real = join(cli.home, 'real-trees');
+  mkdirSync(real);
+  symlinkSync(real, join(cli.home, 'linked-trees'));
+  const listed = join(cli.home, 'linked-trees', 'side');
+  git(repo, 'worktree', 'add', '--quiet', '-b', 'side', listed);
+  const opened = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--checkout',
+    listed,
+    '--no-parent',
+    '--json',
+  );
+  expect(opened.code, opened.stdout).toBe(0);
+  expect(opened.json.data.worktree).toEqual({ path: realpathSync(listed), branch: 'side' });
+});
+
+test('worktrees list gives each card its changes, commits ahead, and age', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'busy', '--json')).json.data
+    .path as string;
+  writeFileSync(join(path, 'src', 'app.ts'), 'committed\n');
+  git(path, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qam', 'one');
+  writeFileSync(join(path, 'draft.txt'), 'untracked');
+  writeFileSync(join(path, 'docs', 'guide.md'), '# Changed\n');
+  const rows = (await cli.mesa('worktrees', 'list', 'lantern-cove', '--json')).json.data;
+  const main = rows.find((row: { main: boolean }) => row.main);
+  const busy = rows.find((row: { branch?: string }) => row.branch === 'busy');
+  expect(main).toMatchObject({ changes: { staged: 0, modified: 0, untracked: 0 } });
+  expect(main.createdAt).toBeUndefined();
+  expect(busy).toMatchObject({ ahead: 1, changes: { staged: 0, modified: 1, untracked: 1 } });
+  expect(Date.parse(busy.createdAt)).not.toBeNaN();
+});

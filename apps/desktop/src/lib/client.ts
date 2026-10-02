@@ -77,6 +77,7 @@ import type {
   WeeklyRewind,
   WorkspaceFile,
   WorktreeAction,
+  WorktreeDetails,
   WorktreePreview,
   WorktreeRow,
 } from '@mesa/core';
@@ -251,12 +252,9 @@ const COMMANDS = {
   'files.link': commandWith<{ session: string; target: string }, FileLink>(
     ({ session, target }) => ['files', 'link', '--', session, target],
   ),
-  'worktrees.list': commandWith<{ project: string }, WorktreeRow[]>(({ project }) => [
-    'worktrees',
-    'list',
-    '--',
-    project,
-  ]),
+  'worktrees.list': commandWith<{ project: string }, (WorktreeRow & WorktreeDetails)[]>(
+    ({ project }) => ['worktrees', 'list', '--', project],
+  ),
   /** What a remove, recycle, trash, or cleanup would touch, with the token its apply needs. */
   'worktrees.preview': commandWith<
     { project: string; action: WorktreeAction; path?: string },
@@ -283,6 +281,7 @@ const COMMANDS = {
       paths: string[];
       branch?: string;
       base?: string;
+      fetchFailed?: boolean;
       branchKept?: string;
       remaining?: string[];
     }>

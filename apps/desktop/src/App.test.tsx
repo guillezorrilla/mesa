@@ -3415,3 +3415,59 @@ test('worktree cards start a session in a worktree, recycle it, and remove one w
       ?.hasAttribute('disabled'),
   ).toBe(true);
 });
+
+test('a worktree card shows its state: a session in it, its changes or clean, commits ahead, and age', async () => {
+  const hour = new Date(Date.now() - 3_600_000).toISOString();
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/busy', branch: 'busy' } })]),
+    'worktrees list': () =>
+      envelope([
+        { path: '/h/src/lantern-cove', main: true, state: 'ready', branch: 'main', holders: [] },
+        {
+          path: '/h/busy',
+          main: false,
+          state: 'ready',
+          branch: 'busy',
+          ahead: 3,
+          createdAt: hour,
+          changes: { staged: 0, modified: 0, untracked: 0 },
+          holders: [{ id: 'aaaaaaaa', state: 'working', at: hour }],
+        },
+        {
+          path: '/h/edits',
+          main: false,
+          state: 'ready',
+          branch: 'edits',
+          createdAt: hour,
+          changes: { staged: 1, modified: 2, untracked: 0 },
+          holders: [],
+        },
+        {
+          path: '/h/tidy',
+          main: false,
+          state: 'ready',
+          branch: 'tidy',
+          changes: { staged: 0, modified: 0, untracked: 0 },
+          holders: [],
+        },
+      ]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  const [, busy, edits, tidy] = byTestId('worktree-card');
+  expect(busy?.textContent).toContain('busy+3');
+  expect(busy?.textContent).toContain('created 1h ago');
+  expect(busy?.querySelector('[data-testid="worktree-status"]')?.textContent).toBe('working');
+  // A session runs there: no New session; a click opens it.
+  expect(document.querySelector('[aria-label="New session in busy"]')).toBeNull();
+  expect(document.querySelector('[aria-label="Remove busy"]')).not.toBeNull();
+  expect(edits?.querySelector('[data-testid="worktree-status"]')?.textContent).toBe(
+    '2 modified, 1 staged',
+  );
+  expect(tidy?.querySelector('[data-testid="worktree-status"]')?.textContent).toBe('clean');
+  await click(busy);
+  expect(byTestId('selected-session')[0]?.textContent).toContain('aaaaaaaa');
+  expect(calls.some((c) => c[1] === 'open')).toBe(false);
+});
