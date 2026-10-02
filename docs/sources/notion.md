@@ -46,7 +46,14 @@ Each follows Notion's `next_cursor` as `start_cursor`. Search and a data source 
 
 Notion allows each connection about 3 requests a second on average (180 a minute) on most plans, and 10 a second (600 a minute) on Business and Enterprise ([Request limits](https://developers.notion.com/reference/request-limits)). Past it, Notion answers 429 `rate_limited` with `Retry-After`, which the authorized fetch waits out (at most 60 s, three tries in all). An import reads two requests per item; a page of a browse one, plus one per child database.
 
-TODO (lead, live): what a real test workspace showed: the plan, whether any limit was met, what a revoked connection and its refresh answer, and how long an access token lasted.
+Live run, 2026-10-02, throwaway profile `p8-live`, a personal workspace on Notion's free plan, the broker at `https://mesa-broker.guillecoto94.workers.dev`:
+
+- One Allow on Notion's consent screen connected Mesa; the screen offers only the workspace the browser is signed in to, then a page picker. The token answer had no `expires_in` and a refresh token; the Keychain item held the tokens, the status, and the workspace (id, name), with no expiry and no owner. A later connect replaced the set of shared pages with the newly picked one.
+- Browse listed the workspace's top-level shared pages, a page's child page and inline database, and the database's row (through its data source); search found the test page. No rate limit was met in about forty requests.
+- `GET /pages/{id}/markdown` kept to-dos, code blocks, and child-page links. An inline database Notion had just made came back with no title, so it links as "Untitled database".
+- Import by an `app.notion.com/p/<id>?pvs=` link and by a title-slug `www.notion.so/<Title>-<id>` link, with and without notes, wrote `raw/notion/<id>/` snapshots, notes linked from the hub, and receipts. Refresh after a source edit wrote a second snapshot, left the first unchanged, and the note had the new line with its `<!-- keep -->` block intact.
+- Removing Mesa's access in Notion left the token valid: `GET /users/me` still answered 200 and search answered no results, so the connection stays `connected` (Mesa marks `needs-reconnect` only when a refresh is refused), browse shows an empty workspace, and an import says the page "is missing, or not shared with Mesa: share it with Mesa in Notion's Connections menu". Reconnecting, or sharing pages again, restores access.
+- No access token expired during the run (about 40 minutes).
 
 ## Callback route
 
