@@ -528,7 +528,10 @@ export function App() {
           >
             <UserRound aria-hidden className="size-4" />
           </summary>
-          <div className="absolute right-0 z-50 mt-2 w-80 space-y-3 rounded-lg border bg-popover p-4 shadow-lg">
+          <div
+            data-tauri-drag-region="false"
+            className="absolute right-0 z-50 mt-2 w-80 select-text space-y-3 rounded-lg border bg-popover p-4 shadow-lg"
+          >
             <ProfileSummary doctor={doctor.data} />
             <button
               type="button"
