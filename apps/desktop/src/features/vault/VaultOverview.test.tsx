@@ -66,12 +66,26 @@ test('the hub excerpt with Open in Obsidian, related notes and summaries that op
   expect(opened).toEqual(['wiki/eddies.md', 'wiki/sessions/bbbbbbbb.md']);
 });
 
-test('a project with nothing in the vault gets one quiet line', async () => {
+test('a project with no knowledge shows an empty state and opens Import', async () => {
   const { bridge } = fakeBridge();
-  const byTestId = await renderWithMesa(<VaultOverview project="tide" onItem={() => {}} />, bridge);
-  expect(byTestId('vault-overview')[0]?.querySelector('p')?.textContent).toBe(
-    'Nothing in the vault for this project yet.',
+  let imports = 0;
+  const byTestId = await renderWithMesa(
+    <VaultOverview
+      project="tide"
+      onItem={() => {}}
+      onImport={() => {
+        imports++;
+      }}
+    />,
+    bridge,
   );
+  expect(byTestId('vault-overview')[0]?.textContent).toContain('A home for your project knowledge');
+  await click(
+    [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Import context'),
+    ),
+  );
+  expect(imports).toBe(1);
   expect(byTestId('vault-overview-hub')).toEqual([]);
   expect(byTestId('toast')).toEqual([]);
 });

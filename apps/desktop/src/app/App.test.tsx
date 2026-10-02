@@ -2471,13 +2471,13 @@ test('Search Mesa shows no matches and Escape returns keyboard focus', async () 
   expect(document.activeElement).toBe(trigger);
 });
 
-test('an action chosen in Search Mesa keeps the focus it moves: Profile and vault, on its menu', async () => {
+test('an action chosen in Search Mesa keeps the focus it moves: Profile settings, on its menu', async () => {
   const byTestId = await renderWithMesa(<App />, fakeBridge().bridge);
   const trigger = byTestId('search-trigger')[0];
   trigger?.focus();
   await click(trigger);
   const profile = byTestId('palette-hit').find((hit) =>
-    hit.textContent?.includes('Profile and vault'),
+    hit.textContent?.includes('Profile settings'),
   );
   // Focused first, as Tab or a pointer press leaves it: the palette's focus trap now holds it.
   await act(async () => profile?.focus());
@@ -2757,11 +2757,9 @@ test('welcome tour resumes, skips, and replays without starting an agent', async
   expect(calls.some((args) => args.includes('open'))).toBe(false);
 });
 
-test('the header shows the profile, the vault path, and a green or red doctor verdict', async () => {
+test('the avatar shows the profile and doctor verdict, without vault details or a log form', async () => {
   const healthy = await renderWithMesa(<App />, fakeBridge().bridge);
-  expect(healthy('profile-summary')[0]?.textContent).toBe(
-    'Profile: default | Vault: /h/vault Open in Obsidian | Doctor: ok',
-  );
+  expect(healthy('profile-summary')[0]?.textContent).toBe('Profile: default | Doctor: ok');
   // The verdict's colour comes from its data-health (theme tokens), not an inline style.
   expect(healthy('doctor-health')[0]?.dataset.health).toBe('healthy');
 
@@ -2776,7 +2774,9 @@ test('the header shows the profile, the vault path, and a green or red doctor ve
     'vault status': () => envelope({ path: '/h/vault', ok: false, missing: ['receipts'] }),
   });
   const byTestId = await renderWithMesa(<App />, sick.bridge);
-  expect(byTestId('vault-status')[0]?.textContent).toBe('Vault: /h/vault (missing receipts)');
+  expect(byTestId('vault-status')).toEqual([]);
+  expect(byTestId('log-box')).toEqual([]);
+  expect(byTestId('profile-summary')[0]?.textContent).not.toContain('/h/vault');
   expect(byTestId('doctor-health')[0]?.textContent).toBe('Doctor: needs attention');
   expect(byTestId('doctor-health')[0]?.dataset.health).toBe('unhealthy');
 });
@@ -2798,57 +2798,27 @@ test('every distinct failure shows once in the toast', async () => {
   ]);
 });
 
-test('the log box sends its line to mesa log and shows the entry', async () => {
-  const { bridge, calls } = fakeBridge({
-    log: (args) =>
-      envelope({
-        entry: `- 2026-09-24T12:00:00.000Z ${args.at(-1)}`,
-        daily: 'daily/2026-09-24.md',
-      }),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  const input = byTestId('log-input')[0] as HTMLInputElement;
-  input.value = 'shipped #12';
-  await click(byTestId('log-submit')[0]);
-  expect(calls).toContainEqual(['--json', 'log', '--', 'shipped #12']);
-  expect(byTestId('log-last')[0]?.textContent).toBe('- 2026-09-24T12:00:00.000Z shipped #12');
-  expect(input.value).toBe('');
-});
-
-test('Enter twice while a line is being logged logs it once', async () => {
-  let release = () => {};
-  const { bridge, calls } = fakeBridge({
-    log: () =>
-      new Promise((done) => {
-        release = () => done(envelope({ entry: '- shipped', daily: 'daily/2026-09-24.md' }));
-      }),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  (byTestId('log-input')[0] as HTMLInputElement).value = 'shipped #12';
-  const form = byTestId('log-box')[0] as HTMLFormElement;
-  await act(async () => form.requestSubmit());
-  await act(async () => form.requestSubmit());
-  await act(async () => release());
-  expect(calls.filter((c) => c[1] === 'log')).toHaveLength(1);
-});
-
 test('Open in Obsidian runs mesa vault open; a failure shows in the toast', async () => {
   const { bridge, calls } = fakeBridge({
+    'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
     'vault open': () =>
       envelope({ opened: true, method: 'uri', target: 'obsidian://open?vault=vault' }),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-vault')[0]);
   await click(byTestId('open-vault')[0]);
   expect(calls).toContainEqual(['--json', 'vault', 'open']);
   expect(byTestId('toast')).toHaveLength(0);
 
   const unknown = fakeBridge({
+    'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
     'vault open': () =>
       failure(
         'Obsidian does not know the vault /h/vault yet: open it once with "Open folder as vault" in Obsidian, then retry',
       ),
   });
   const again = await renderWithMesa(<App />, unknown.bridge);
+  await click(again('nav-vault')[0]);
   await click(again('open-vault')[0]);
   expect(again('toast')[0]?.textContent).toContain('Open folder as vault');
 });
@@ -3480,4 +3450,69 @@ test('a worktree card shows its state: a session in it, its changes or clean, co
   await click(busy);
   expect(byTestId('selected-session')[0]?.textContent).toContain('aaaaaaaa');
   expect(calls.some((c) => c[1] === 'open')).toBe(false);
+});
+
+test.each(['global', 'project'])(
+  'changing the folder refreshes the mounted %s Vault view',
+  async (view) => {
+    let config = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
+    const { bridge } = fakeBridge({
+      config: () => envelope(config),
+      projects: () => envelope(PROJECTS),
+      'config set': (args) => {
+        config = { ...config, vault: JSON.parse(args.at(-1) ?? 'null') };
+        return envelope({ path: 'vault', value: config.vault, receipt: null });
+      },
+      'vault list': () => envelope({ vault: config.vault, total: 0, items: [] }),
+      'vault context': () =>
+        envelope({
+          project: 'lantern-cove',
+          hub: null,
+          index: [],
+          decisions: [],
+          goals: [],
+          more: '',
+          notes: [
+            { path: 'wiki/current.md', title: config.vault, modified: '2026-10-02T12:00:00Z' },
+          ],
+        }),
+    });
+    const byTestId = await renderWithMesa(
+      <App />,
+      bridge,
+      fakePlatform({ folder: '/h/changed-vault' }),
+    );
+    if (view === 'global') await click(byTestId('nav-vault')[0]);
+    else {
+      await openProject(byTestId);
+      await openTab('vault');
+    }
+    const content = () =>
+      byTestId(view === 'global' ? 'vault-panel' : 'vault-overview')[0]?.textContent;
+    expect(content()).toContain('/h/vault');
+    await click(byTestId('open-settings')[0]);
+    await click(
+      [...document.querySelectorAll('button')].find((button) =>
+        button.textContent?.includes('Change folder'),
+      ),
+    );
+    expect(content()).toContain('/h/changed-vault');
+    expect(content()).not.toContain('/h/vault');
+  },
+);
+
+test('the empty project Vault opens its existing Import tab', async () => {
+  const byTestId = await renderWithMesa(
+    <App />,
+    fakeBridge({ projects: () => envelope(PROJECTS) }).bridge,
+  );
+  await openProject(byTestId);
+  await openTab('vault');
+  await click(
+    [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Import context'),
+    ),
+  );
+  expect(byTestId('vault-overview')).toEqual([]);
+  expect(document.querySelector('[aria-label="Paste a link"]')).not.toBeNull();
 });

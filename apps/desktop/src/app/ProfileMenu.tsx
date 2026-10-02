@@ -1,11 +1,10 @@
 import type { DoctorReport } from '@mesa/core';
 import { Settings2, UserRound } from 'lucide-react';
 import type { RefObject } from 'react';
-import { LogBox } from '@/features/profile/LogBox';
 import { ProfileSummary } from '@/features/profile/ProfileSummary';
 
 /**
- * The profile button and its popover: the profile summary, Settings, and the log. `ref` is the
+ * The profile button and its popover: the profile summary and Settings. `ref` is the
  * popover's `details`, so the command palette can open it.
  */
 export function ProfileMenu(props: {
@@ -16,14 +15,14 @@ export function ProfileMenu(props: {
   return (
     <details ref={props.ref} className="relative shrink-0">
       <summary
-        aria-label="Profile and vault"
+        aria-label="Profile settings"
         className="flex size-8 cursor-pointer items-center justify-center rounded-full border bg-card text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
       >
         <UserRound aria-hidden className="size-4" />
       </summary>
       <div
         data-tauri-drag-region="false"
-        className="absolute right-0 z-50 mt-2 w-80 select-text space-y-3 rounded-lg border bg-popover p-4 shadow-lg"
+        className="absolute right-0 z-50 mt-2 w-64 select-text space-y-3 rounded-lg border bg-popover p-3 shadow-lg"
       >
         <ProfileSummary doctor={props.doctor} />
         <button
@@ -37,7 +36,6 @@ export function ProfileMenu(props: {
         >
           <Settings2 aria-hidden className="size-4" /> Settings
         </button>
-        <LogBox />
       </div>
     </details>
   );

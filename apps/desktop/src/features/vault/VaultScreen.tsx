@@ -1,208 +1,15 @@
-import type { BasesWritten, VaultInventory, VaultItem, VaultStatus } from '@mesa/core';
-import { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from '@mesa/core/browser';
-import { Link2Off, Search, Table2 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import type { BasesWritten, VaultInventory, VaultStatus } from '@mesa/core';
+import { ExternalLink, FolderPlus, Settings2, Table2 } from 'lucide-react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
-import { useToast } from '@/components/Toast';
+import { useToast, warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  NativeSelect,
-  NativeSelectOptGroup,
-  NativeSelectOption,
-} from '@/components/ui/native-select';
-import { useCall } from '@/lib/useCommand';
+import { useAct } from '@/lib/useAct';
+import { useCall, useRun } from '@/lib/useCommand';
 import { useVaultLook } from './useVaultLook';
-import { VaultReader } from './VaultReader';
-import { VaultSearchResults } from './VaultSearchResults';
+import { VaultBrowser } from './VaultBrowser';
 import { VaultEmpty, VaultNotLaidOut, VaultUnlisted } from './VaultState';
-import { KIND_ICONS, VaultTree } from './VaultTree';
-
-/**
- * Where the selected item is and what it is, then the item itself in the reader, unless
- * unavailable; a selected item the vault no longer lists says so.
- */
-function ItemDetails(props: {
-  selected?: string;
-  item?: VaultItem;
-  looks: number;
-  onSelect: (path: string) => void;
-}) {
-  const { item, onSelect } = props;
-  if (!item)
-    return (
-      <Card data-testid="vault-item" className="p-4 text-sm text-muted-foreground">
-        {props.selected
-          ? `This item no longer exists: ${props.selected}.`
-          : 'Select an item to see where it is and what it is.'}
-      </Card>
-    );
-  const Icon = KIND_ICONS[item.kind];
-  const facts: [string, string][] = [
-    ['Path', item.path],
-    ['Kind', item.kind],
-    ['Category', item.category],
-    ['Project', item.project ?? 'None'],
-    ['Size', `${item.size.toLocaleString()} bytes`],
-    ['Modified', item.modified],
-  ];
-  return (
-    <Card data-testid="vault-item" className="min-w-0 gap-3 p-4">
-      <h3 className="flex min-w-0 items-center gap-2 font-medium">
-        <Icon aria-hidden className="size-4 shrink-0" />
-        <span className="truncate">{item.path.split('/').at(-1)}</span>
-      </h3>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-        {facts.map(([label, value]) => (
-          <Fragment key={label}>
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd data-fact={label} className="break-all font-mono text-xs leading-5">
-              {value}
-            </dd>
-          </Fragment>
-        ))}
-      </dl>
-      {item.unavailable ? (
-        <p data-testid="vault-item-unavailable" className="flex items-center gap-2 text-sm">
-          <Link2Off aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          Unavailable: {item.unavailable}. Mesa lists it and never reads it.
-        </p>
-      ) : (
-        <VaultReader path={item.path} looks={props.looks} onSelect={onSelect} />
-      )}
-    </Card>
-  );
-}
-
-/**
- * One vault's inventory as a folder tree, filtered by project and type with core's own rule, and
- * the selected item's details and reader beside it: the item at `path` first, when given. A
- * search (`mesa vault search`, from `query` at first) shows its results in the tree's place.
- */
-function VaultBrowser({
-  inventory,
-  looks,
-  query: initial,
-  path,
-}: {
-  inventory: VaultInventory;
-  looks: number;
-  query: string;
-  path?: string;
-}) {
-  const [project, setProject] = useState('');
-  const [type, setType] = useState('');
-  const [selected, setSelected] = useState(path);
-  const [draft, setDraft] = useState(initial);
-  const [query, setQuery] = useState(initial.trim());
-  const items = inventory.items;
-  const projects = [
-    ...new Set(items.flatMap((item) => (item.project ? [item.project] : []))),
-  ].sort();
-  const shown = items.filter((item) =>
-    matchesVaultFilter(item, { project: project || undefined, type: type || undefined }),
-  );
-  return (
-    <>
-      <div className="flex flex-wrap items-end gap-3">
-        <form
-          className="grid w-72 gap-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setQuery(draft.trim());
-          }}
-        >
-          <Label htmlFor="vault-search">Search</Label>
-          <div className="flex gap-2">
-            <Input
-              id="vault-search"
-              data-testid="vault-search"
-              type="search"
-              value={draft}
-              onInput={(event) => {
-                const text = event.currentTarget.value;
-                setDraft(text);
-                // Emptied, the tree comes back without waiting for Enter.
-                if (!text.trim()) setQuery('');
-              }}
-              placeholder="Words in paths, notes, canvases, bases"
-            />
-            <Button type="submit" variant="outline" size="icon" aria-label="Search the vault">
-              <Search aria-hidden />
-            </Button>
-          </div>
-        </form>
-        <div className="grid w-56 gap-1">
-          <Label htmlFor="vault-project">Project</Label>
-          <NativeSelect
-            id="vault-project"
-            value={project}
-            onChange={(event) => setProject(event.target.value)}
-          >
-            <NativeSelectOption value="">All projects</NativeSelectOption>
-            {projects.map((name) => (
-              <NativeSelectOption key={name} value={name}>
-                {name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="grid w-56 gap-1">
-          <Label htmlFor="vault-type">Type</Label>
-          <NativeSelect
-            id="vault-type"
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-          >
-            <NativeSelectOption value="">All types</NativeSelectOption>
-            <NativeSelectOptGroup label="Kind">
-              {VAULT_KINDS.map((kind) => (
-                <NativeSelectOption key={kind} value={kind}>
-                  {kind}
-                </NativeSelectOption>
-              ))}
-            </NativeSelectOptGroup>
-            <NativeSelectOptGroup label="Category">
-              {VAULT_CATEGORIES.map((category) => (
-                <NativeSelectOption key={category} value={category}>
-                  {category}
-                </NativeSelectOption>
-              ))}
-            </NativeSelectOptGroup>
-          </NativeSelect>
-        </div>
-        {(project || type) && !query && (
-          <Muted data-testid="vault-shown" className="pb-2">
-            {shown.length} of {inventory.total} shown
-          </Muted>
-        )}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
-        {query ? (
-          <VaultSearchResults
-            looks={looks}
-            text={query}
-            project={project || undefined}
-            type={type || undefined}
-            selected={selected}
-            onSelect={setSelected}
-          />
-        ) : (
-          <VaultTree items={shown} selected={selected} onSelect={setSelected} />
-        )}
-        <ItemDetails
-          selected={selected}
-          item={items.find((item) => item.path === selected)}
-          looks={looks}
-          onSelect={setSelected}
-        />
-      </div>
-    </>
-  );
-}
 
 /** The listed vault's browser and Bases action share the existing remount boundary. */
 function VaultContent(props: {
@@ -211,6 +18,8 @@ function VaultContent(props: {
   status?: VaultStatus;
   query: string;
   path?: string;
+  actions: ReactNode;
+  setup: ReactNode;
 }) {
   const { inventory, status } = props;
   const call = useCall();
@@ -241,6 +50,7 @@ function VaultContent(props: {
         title="Vault"
         description={`${inventory.total} ${inventory.total === 1 ? 'item' : 'items'} in ${inventory.vault}`}
       >
+        {props.actions}
         <Button variant="outline" disabled={writing} onClick={() => void writeBases()}>
           <Table2 aria-hidden className="size-4" /> Write Bases views
         </Button>
@@ -251,10 +61,13 @@ function VaultContent(props: {
         </Muted>
       )}
       {inventory.total === 0 ? (
-        <VaultEmpty vault={inventory.vault} />
+        <VaultEmpty
+          vault={inventory.vault}
+          actions={status && !status.ok ? props.setup : undefined}
+        />
       ) : (
         <>
-          {status && !status.ok && <VaultNotLaidOut status={status} />}
+          {status && !status.ok && <VaultNotLaidOut status={status} actions={props.setup} />}
           <VaultBrowser
             inventory={inventory}
             looks={props.looks}
@@ -272,8 +85,51 @@ function VaultContent(props: {
  * the browser; or why there are none, with the fix. The browser is the listed vault's: when the
  * profile's vault changes, its filters, search, selection and Bases feedback start over.
  */
-export function VaultScreen({ query = '', path }: { query?: string; path?: string }) {
+export function VaultScreen({
+  query = '',
+  path,
+  onSettings,
+}: {
+  query?: string;
+  path?: string;
+  onSettings?: () => void;
+}) {
   const look = useVaultLook();
+  const run = useRun();
+  const { acting, act } = useAct();
+  const setup = (
+    <Button
+      variant="outline"
+      disabled={acting}
+      onClick={() =>
+        void act(async () => {
+          if (!(await run('vault.init'))) return undefined;
+          await look?.refresh();
+          return undefined;
+        })
+      }
+    >
+      <FolderPlus aria-hidden /> Set up vault
+    </Button>
+  );
+  const settings = onSettings && (
+    <Button variant="ghost" onClick={onSettings}>
+      <Settings2 aria-hidden /> Vault settings
+    </Button>
+  );
+  const actions = (
+    <>
+      {settings}
+      <Button
+        data-testid="open-vault"
+        variant="outline"
+        disabled={acting || !look?.list.ok}
+        onClick={() => void act(async () => warned((await run('vault.open'))?.warning))}
+      >
+        <ExternalLink aria-hidden /> Open in Obsidian
+      </Button>
+    </>
+  );
   return (
     <section data-testid="vault-panel" className="space-y-4">
       {look?.list.ok ? (
@@ -284,10 +140,13 @@ export function VaultScreen({ query = '', path }: { query?: string; path?: strin
           status={look.status}
           query={query}
           path={path}
+          actions={actions}
+          setup={setup}
         />
       ) : (
         <>
           <PageHeader title="Vault" description="Every item in this profile's vault.">
+            {actions}
             <Button variant="outline" disabled>
               <Table2 aria-hidden className="size-4" /> Write Bases views
             </Button>
@@ -295,7 +154,16 @@ export function VaultScreen({ query = '', path }: { query?: string; path?: strin
           {!look ? (
             <Muted>Reading the vault...</Muted>
           ) : !look.list.ok ? (
-            <VaultUnlisted error={look.list.error} status={look.status} />
+            <VaultUnlisted
+              error={look.list.error}
+              status={look.status}
+              actions={
+                <>
+                  {look.list.error.code === 'not_found' && look.status && setup}
+                  {settings}
+                </>
+              }
+            />
           ) : null}
         </>
       )}
