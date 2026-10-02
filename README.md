@@ -32,26 +32,20 @@ Every session is the agent's own terminal UI, unchanged, running in tmux. Mesa a
 - **Every session on one Board.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one to get its live terminal, or tile several in the terminal grid.
 - **Claude Code, Codex and Antigravity.** Start any of them in a project, in a new Git worktree, or on a branch; swap the agent of a fresh session; queue a session to start after another ends; hand a session's work to a successor before its context fills.
 - **The Obsidian vault as memory.** Each profile owns a vault of plain Markdown: project hubs, notes, decisions, session summaries and a project map. Sessions read and write it through the `mesa-vault` tools, and Obsidian opens it as is.
-- **Faro, the decisions layer.** Recurring judgments, such as whether a prompt sent to a session is allowed, go through rules first and then an agent. Each decision is kept in a receipt with its probabilities and confidence.
+- **Faro, the decisions layer.** Recurring judgments, such as whether a prompt sent to a session is allowed, go through rules first and then an agent. Each decision is kept in a Receipt with its probabilities and confidence.
 - **Import from Atlassian and Notion.** Connect once in the browser, then browse Jira, Confluence and Notion and tick the pages and issues to import; public web pages work by link. Each import lands in the vault as a snapshot plus a note, and can start a session.
 - **The `mesa` CLI for everything the app does.** Every screen is backed by a command, and every command has `--json`, so scripts and agents can drive Mesa too.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/session.png" alt="A Claude Code session in Mesa showing its diff and summary"></td>
-    <td width="50%"><img src="docs/assets/vault.png" alt="The Vault screen with a decision note and its confidence"></td>
+    <td width="33%"><img src="docs/assets/session.png" alt="A Claude Code session in Mesa showing its diff and summary"></td>
+    <td width="33%"><img src="docs/assets/vault.png" alt="The Vault screen with a decision note and its confidence"></td>
+    <td width="33%"><img src="docs/assets/map.png" alt="The map of projects and their sessions"></td>
   </tr>
   <tr>
     <td align="center">A session's live terminal</td>
     <td align="center">The vault, with a saved decision</td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/assets/map.png" alt="The map of projects and their sessions"></td>
-    <td width="50%"></td>
-  </tr>
-  <tr>
     <td align="center">The map of projects and sessions</td>
-    <td></td>
   </tr>
 </table>
 
@@ -97,7 +91,7 @@ The terms Mesa uses are defined in [CONTEXT.md](CONTEXT.md). The decisions behin
 
 ## Privacy
 
-- **Everything stays on your Mac:** your profile, session records and logs, receipts, and the vault. Mesa has no server for any of them, no account, and no analytics.
+- **Everything stays on your Mac:** your profile, session records and logs, Receipts, and the vault. Mesa has no server for any of them, no account, and no analytics.
 - **The agents run as you,** with your own Claude Code, Codex or Antigravity sign-in. Mesa never handles those credentials.
 - **Connecting Atlassian or Notion** goes through a small OAuth broker, a Cloudflare Worker ([ADR-0014](docs/adr/0014-oauth-broker-and-keychain-tokens.md)), because those vendors need a client secret that a desktop app cannot keep. The broker sees the sign-in code and the tokens as it passes them back to your Mac; it stores nothing and logs nothing. It never sees your pages or issues: Mesa calls the vendor's API directly from your Mac. Tokens are kept in the macOS Keychain, never in files. You can run your own broker and point Mesa at it with `MESA_BROKER_URL` (see ADR-0014).
 
