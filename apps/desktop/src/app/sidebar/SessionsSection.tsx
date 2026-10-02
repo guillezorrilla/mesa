@@ -1,8 +1,8 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
 import { Muted } from '@/components/Muted';
+import type { SessionLocation } from '../hooks/useStartSession';
 import type { WorkspaceView } from '../navigation';
-import type { SessionLocation } from '../useStartSession';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { StartingSessions } from './StartingSessions';

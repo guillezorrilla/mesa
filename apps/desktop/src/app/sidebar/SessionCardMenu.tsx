@@ -7,11 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { SessionLocation } from '../useStartSession';
+import type { SessionLocation } from '../hooks/useStartSession';
 import { HoverAction } from './HoverAction';
 
 /** A managed session card's More actions: a terminal or child worktree session from it, or a dependency. */
-export function SessionActionsMenu(props: {
+export function SessionCardMenu(props: {
   session: Extract<TreeRow, { managed: true }>;
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onDependencySession?: (id: string) => void;

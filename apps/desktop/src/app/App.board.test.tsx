@@ -2,7 +2,6 @@
 import type { TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { App } from '@/app/App';
 import {
   asking,
   busy,
@@ -21,6 +20,7 @@ import {
   toasts,
   toastTexts,
 } from '@/lib/testing';
+import { App } from './App';
 
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(

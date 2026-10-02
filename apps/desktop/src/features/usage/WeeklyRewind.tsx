@@ -71,9 +71,9 @@ function RewindBody(props: { onSession: (id: string) => void }) {
         ))}
       </div>
       {data.missing.map((reason) => (
-        <p key={reason} className="text-xs text-muted-foreground">
+        <Muted key={reason} size="xs">
           Missing data: {reason}
-        </p>
+        </Muted>
       ))}
     </div>
   );

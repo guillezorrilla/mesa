@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SettingsCategory } from '@/features/settings/categories';
-import type { Overlay, WorkspaceView } from './navigation';
+import type { Overlay, WorkspaceView } from '../navigation';
 
 /**
  * Where the workspace is: the view in the main pane, the overlay open over it, and the view held

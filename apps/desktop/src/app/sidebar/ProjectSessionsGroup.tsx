@@ -1,7 +1,7 @@
 import type { ProjectRow } from '@mesa/core';
 import { ChevronDown, ChevronRight, Folder } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { SessionLocation } from '../useStartSession';
+import type { SessionLocation } from '../hooks/useStartSession';
 import { ProjectNewSessionMenu } from './ProjectNewSessionMenu';
 import { StartingSessions } from './StartingSessions';
 

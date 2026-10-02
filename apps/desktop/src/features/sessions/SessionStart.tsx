@@ -36,9 +36,7 @@ export function SessionStart(props: {
     <div data-testid="session-start" className="flex min-h-0 flex-1 items-center justify-center">
       {!projects && props.projectsError ? (
         <div className="space-y-3 text-center">
-          <p role="alert" className="text-sm text-muted-foreground">
-            {props.projectsError}
-          </p>
+          <Muted role="alert">{props.projectsError}</Muted>
           <Button variant="outline" onClick={props.onRetryProjects}>
             Retry projects
           </Button>

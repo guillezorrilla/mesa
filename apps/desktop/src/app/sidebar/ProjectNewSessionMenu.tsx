@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { SessionLocation } from '../useStartSession';
+import type { SessionLocation } from '../hooks/useStartSession';
 
 /** A project group's + menu: a new session, terminal session, or worktree session in it. */
 export function ProjectNewSessionMenu(props: {

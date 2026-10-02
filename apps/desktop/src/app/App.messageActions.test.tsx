@@ -2,7 +2,6 @@
 import type { Config } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { App } from '@/app/App';
 import {
   click,
   deferred,
@@ -13,6 +12,7 @@ import {
   PROJECTS,
   renderWithMesa,
 } from '@/lib/testing';
+import { App } from './App';
 
 const response = (text: string, source: string) => ({
   profile: 'default',

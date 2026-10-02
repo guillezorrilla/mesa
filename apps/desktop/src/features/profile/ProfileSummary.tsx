@@ -1,5 +1,6 @@
 import type { DoctorReport } from '@mesa/core';
 import { ExternalLink } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
@@ -16,10 +17,7 @@ export function ProfileSummary({ doctor }: { doctor: DoctorReport | undefined })
   const missing = vault && !vault.ok ? ` (missing ${vault.missing.join(', ')})` : '';
   const health = !doctor ? 'unknown' : doctor.healthy ? 'healthy' : 'unhealthy';
   return (
-    <p
-      data-testid="profile-summary"
-      className="flex flex-wrap items-center gap-x-1 text-muted-foreground text-xs"
-    >
+    <Muted data-testid="profile-summary" size="xs" className="flex flex-wrap items-center gap-x-1">
       <span data-testid="active-profile">Profile: {profile?.profile ?? '...'}</span>
       {' | '}
       <span data-testid="vault-status">
@@ -50,6 +48,6 @@ export function ProfileSummary({ doctor }: { doctor: DoctorReport | undefined })
       >
         {!doctor ? 'Doctor: ...' : doctor.healthy ? 'Doctor: ok' : 'Doctor: needs attention'}
       </span>
-    </p>
+    </Muted>
   );
 }

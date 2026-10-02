@@ -175,9 +175,9 @@ function VaultBrowser({
           </NativeSelect>
         </div>
         {(project || type) && !query && (
-          <p data-testid="vault-shown" className="pb-2 text-sm text-muted-foreground">
+          <Muted data-testid="vault-shown" className="pb-2">
             {shown.length} of {inventory.total} shown
-          </p>
+          </Muted>
         )}
       </div>
       <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
@@ -246,9 +246,9 @@ function VaultContent(props: {
         </Button>
       </PageHeader>
       {bases && (
-        <p role="status" className="text-sm text-muted-foreground">
+        <Muted role="status">
           Bases: wrote {bases.written.length}, kept {bases.kept.length}.
-        </p>
+        </Muted>
       )}
       {inventory.total === 0 ? (
         <VaultEmpty vault={inventory.vault} />

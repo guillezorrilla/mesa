@@ -137,9 +137,9 @@ export function NativeHistory(props: { project: string; onSession: (id: string) 
         </Muted>
       )}
       {history.data?.unsupported.map((item) => (
-        <p key={item.agent} className="text-xs text-muted-foreground">
+        <Muted key={item.agent} size="xs">
           {item.agent} history unavailable: {item.reason}
-        </p>
+        </Muted>
       ))}
       {selected && (
         <ActionDialog

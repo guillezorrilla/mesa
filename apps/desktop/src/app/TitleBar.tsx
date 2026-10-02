@@ -7,10 +7,10 @@ import { NotificationsMenu } from '@/features/notifications/NotificationsMenu';
 import type { SettingsCategory } from '@/features/settings/categories';
 import { keyCaps } from '@/lib/fixedShortcuts';
 import mesaLogo from '../../src-tauri/icons/128x128.png';
+import type { SessionPreset } from './hooks/useStartSession';
 import { NewSessionMenu } from './NewSessionMenu';
 import type { Overlay, WorkspaceView } from './navigation';
 import { ProfileMenu } from './ProfileMenu';
-import type { SessionPreset } from './useStartSession';
 
 /** The window's title bar, a drag region: the name, search, new session, the menus, and the profile. */
 export function TitleBar(props: {

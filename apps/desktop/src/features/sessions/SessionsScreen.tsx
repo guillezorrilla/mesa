@@ -152,11 +152,7 @@ export function SessionsScreen(
             onOpenGroup={grid.openGroup}
             onRemoveGroup={grid.removeGroup}
           />
-          {grid.notice && (
-            <p role="status" className="text-muted-foreground text-sm">
-              {grid.notice}
-            </p>
-          )}
+          {grid.notice && <Muted role="status">{grid.notice}</Muted>}
         </>
       )}
       <SessionDialogs

@@ -13,8 +13,8 @@ import { SessionsScreen } from '@/features/sessions/SessionsScreen';
 import { TourScreen } from '@/features/tour/TourScreen';
 import { VaultScreen } from '@/features/vault/VaultScreen';
 import { type CommandState, useRun } from '@/lib/useCommand';
+import type { SessionPreset } from './hooks/useStartSession';
 import type { WorkspaceView } from './navigation';
-import type { SessionPreset } from './useStartSession';
 
 /** A sidebar request the Sessions screen acts on once per new `count`. */
 export type SessionRequest = { count: number; id: string };

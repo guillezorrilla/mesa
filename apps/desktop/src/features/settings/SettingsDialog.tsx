@@ -181,9 +181,9 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
                   {query ? (
                     <>
                       <h2 className="text-lg font-medium">Results for "{query}"</h2>
-                      <p data-empty className="hidden text-sm text-muted-foreground">
+                      <Muted data-empty className="hidden">
                         No settings match.
-                      </p>
+                      </Muted>
                       {CATEGORIES.map((entry) => (
                         <div key={entry.id} className="space-y-8">
                           {page(entry.id)}

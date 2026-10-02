@@ -8,9 +8,9 @@ import {
 } from '@mesa/core/browser';
 import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { SessionLocation } from '../useStartSession';
+import type { SessionLocation } from '../hooks/useStartSession';
 import { HoverAction } from './HoverAction';
-import { SessionActionsMenu } from './SessionActionsMenu';
+import { SessionCardMenu } from './SessionCardMenu';
 
 /**
  * One session in the sidebar: its state and title, and while not compact its branch and state
@@ -108,7 +108,7 @@ export function SessionCard(props: {
           >
             <X aria-hidden className="size-3.5" />
           </HoverAction>
-          <SessionActionsMenu
+          <SessionCardMenu
             session={session}
             onNewSession={props.onNewSession}
             onDependencySession={props.onDependencySession}

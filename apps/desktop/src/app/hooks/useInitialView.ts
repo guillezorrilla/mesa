@@ -1,7 +1,7 @@
 import type { Config, ProjectRow, TreeRow } from '@mesa/core';
 import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
 import { activeSession, recoverable } from '@/features/sessions/rows';
-import type { WorkspaceView } from './navigation';
+import type { WorkspaceView } from '../navigation';
 
 /**
  * Opens the first view once, while the Board is still showing: the tour while onboarding is

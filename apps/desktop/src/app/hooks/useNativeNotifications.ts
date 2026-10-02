@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
 import type { NativeNotice } from '@/lib/platform';
 import { useRun } from '@/lib/useCommand';
-import type { WorkspaceView } from './navigation';
+import type { WorkspaceView } from '../navigation';
 
 /** How often the app sends pending native notifications. */
 const DELIVERY_INTERVAL_MS = 5_000;

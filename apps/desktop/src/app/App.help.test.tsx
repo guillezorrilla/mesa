@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import type { CommandReference } from '@mesa/core';
 import { expect, test } from 'vitest';
-import { App } from '@/app/App';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { App } from './App';
 
 test('the Help screen lists every command from mesa help --agent, with its flags and example', async () => {
   const reference: CommandReference[] = [

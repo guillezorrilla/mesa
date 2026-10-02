@@ -2,8 +2,8 @@
 import type { Check, TmuxWindow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { App } from '@/app/App';
 import { cells, click, envelope, fakeBridge, renderWithMesa, report } from '@/lib/testing';
+import { App } from './App';
 
 const check = (version: string): Check => ({
   name: 'tmux',

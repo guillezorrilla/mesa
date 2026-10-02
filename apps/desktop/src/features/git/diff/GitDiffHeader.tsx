@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { cn } from '@/lib/utils';
-import { type GitEntry, glyph } from './gitChanges';
+import { type GitEntry, glyph } from '../gitChanges';
 
 /** The open change's status letter and path, its place in the list, and previous/next. */
 export function GitDiffHeader(props: {

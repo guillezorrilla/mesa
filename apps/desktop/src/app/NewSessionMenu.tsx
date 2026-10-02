@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { SessionPreset } from './useStartSession';
+import type { SessionPreset } from './hooks/useStartSession';
 
 /**
  * The title bar's + menu: a session in any project that exists, a terminal in the project in view

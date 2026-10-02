@@ -1,3 +1,4 @@
+import { Muted } from '@/components/Muted';
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { useVaultRefresh } from './useVaultLook';
@@ -37,9 +38,9 @@ export function VaultSearchResults(props: {
       className="max-h-[36rem] min-w-0 overflow-auto rounded-lg border bg-card/40 p-1"
     >
       {said && (
-        <p data-testid="vault-results-said" className="p-2 text-xs text-muted-foreground">
+        <Muted data-testid="vault-results-said" size="xs" className="p-2">
           {said}
-        </p>
+        </Muted>
       )}
       {data?.items.map((hit) => {
         const Icon = KIND_ICONS[hit.kind];

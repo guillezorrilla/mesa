@@ -72,9 +72,9 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
               <p className="font-medium">{entry.summary}</p>
               {detail && <p className="text-muted-foreground">{detail}</p>}
               {odds && (
-                <p data-testid="knowledge-odds" className="text-xs text-muted-foreground">
+                <Muted data-testid="knowledge-odds" size="xs">
                   {odds}
-                </p>
+                </Muted>
               )}
               <Muted size="xs">
                 {entry.receipt.started} · {entry.receipt.status}

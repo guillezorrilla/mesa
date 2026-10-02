@@ -3,6 +3,7 @@ import { NO_OUTPUT_LOG, sessionLabel } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { useCommand } from '@/lib/useCommand';
 
 /** How many of its last lines the dialog shows: as many as the session's receipt keeps. */
@@ -45,9 +46,7 @@ export function LogDialog(props: { row: ManagedRow; onClose: () => void }) {
       onCancel={props.onClose}
     >
       {said ? (
-        <p data-testid="log-said" className="text-muted-foreground text-sm">
-          {said}
-        </p>
+        <Muted data-testid="log-said">{said}</Muted>
       ) : (
         <pre
           ref={box}

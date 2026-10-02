@@ -252,9 +252,9 @@ export function VaultReader(props: { path: string; looks: number; onSelect: Sele
   useVaultRefresh(looks, busy, refresh);
   if (error)
     return (
-      <p role="status" className="text-sm text-muted-foreground">
+      <Muted role="status">
         {path} could not be read: {error.message}.
-      </p>
+      </Muted>
     );
   if (!read) return <Muted>Reading {path}...</Muted>;
   return (

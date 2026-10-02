@@ -3,7 +3,6 @@ import type { GridGroup } from '@mesa/core';
 import { DEFAULT_BOARD_PREFERENCES, DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { App } from '@/app/App';
 import {
   choose,
   click,
@@ -14,6 +13,7 @@ import {
   managedRow,
   renderWithMesa,
 } from '@/lib/testing';
+import { App } from './App';
 
 test('grid project tabs, zoom and saved groups retain exact terminal clients', async () => {
   const terminals = fakeTerminals();

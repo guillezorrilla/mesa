@@ -98,12 +98,9 @@ export function CommandPalette(props: {
         </div>
         <div className="min-h-24 overflow-y-auto p-2" role="listbox" aria-label="Search results">
           {hits.every((hit) => hit.kind === 'vault') && (
-            <p
-              data-testid="palette-empty"
-              className="p-4 text-center text-muted-foreground text-sm"
-            >
+            <Muted data-testid="palette-empty" className="p-4 text-center">
               No matches. Try a project, session, or action.
-            </p>
+            </Muted>
           )}
           {GROUPS.map(({ kind, label }) => {
             const group = hits.filter((hit) => hit.kind === kind);

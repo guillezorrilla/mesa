@@ -232,9 +232,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           </CardHeader>
           <CardContent>
             {windows.data?.length === 0 && (
-              <p data-testid="tmux-none" className="text-muted-foreground text-sm">
-                No windows on Mesa's tmux server.
-              </p>
+              <Muted data-testid="tmux-none">No windows on Mesa's tmux server.</Muted>
             )}
             <ul className="space-y-1 font-mono text-xs">
               {windows.data?.map((w) => (
