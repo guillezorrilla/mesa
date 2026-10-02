@@ -39,6 +39,10 @@ export function needsApproval(name: string, pending: WorktreeScripts): MesaError
   );
 }
 
+/** Approval comes from a person: the app or a terminal, never an agent inside a Mesa window. */
+export const APPROVAL_FROM_SESSION =
+  'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session';
+
 /**
  * Records, in the profile's registry, approval of exactly these argvs for the project; a script
  * given as undefined or empty loses its approval.

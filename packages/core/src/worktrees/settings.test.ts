@@ -2,12 +2,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
+import { createMesa } from '../mesa.js';
 import {
   agentWorld,
   gitRepo,
   isolateGit,
   projectProfile,
   tempDir,
+  testDeps,
   testGit,
   withRealGit,
 } from '../testing/index.js';
@@ -203,4 +205,42 @@ test('a cloned repository runs its own setup only after trust, and again only af
   mesa.projects.override('reef', 'worktrees.setup', '[]');
   await mesa.worktrees.create('reef', 'third');
   expect(ran).toHaveLength(2);
+});
+
+test('only a caller outside a Mesa session approves: inside one, trust is refused and set stays unapproved', async () => {
+  const { ran, run } = recordingRun();
+  const { home, dir, mesa } = projectProfile(run, {
+    mesaYaml: 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/true, repo-setup]\n',
+  });
+  repository(dir);
+  // The same profile, from an agent's shell in a Mesa window (any profile's).
+  const agent = createMesa(
+    'default',
+    testDeps(home, { run, env: { MESA_SESSION_ID: 'a1b2c3d4' } }),
+  );
+
+  expect(() => agent.projects.trust('lantern-cove')).toThrow(
+    expect.objectContaining({
+      code: 'usage',
+      message: expect.stringContaining('outside a Mesa session'),
+    }),
+  );
+  agent.projects.override('lantern-cove', 'worktrees.setup', '[/usr/bin/true, agent-setup]');
+  // Other overrides stay open to a session.
+  agent.projects.override('lantern-cove', 'worktrees.fetch', 'false');
+  expect(mesa.projects.list()[0]?.unapproved).toEqual({ setup: ['/usr/bin/true', 'agent-setup'] });
+  await expect(mesa.worktrees.create('lantern-cove', 'feature')).rejects.toMatchObject({
+    code: 'needs_approval',
+  });
+  expect(ran).toEqual([]);
+
+  // A session rewriting an approved setup, even to the same argv, leaves it unapproved.
+  mesa.projects.trust('lantern-cove');
+  agent.projects.override('lantern-cove', 'worktrees.setup', '[/usr/bin/true, agent-setup]');
+  expect(mesa.projects.list()[0]?.unapproved).toEqual({ setup: ['/usr/bin/true', 'agent-setup'] });
+
+  // Outside a session, set and trust both approve.
+  mesa.projects.override('lantern-cove', 'worktrees.setup', '[/usr/bin/true, person-setup]');
+  await mesa.worktrees.create('lantern-cove', 'feature');
+  expect(ran).toEqual([['person-setup']]);
 });

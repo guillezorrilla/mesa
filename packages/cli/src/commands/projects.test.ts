@@ -242,6 +242,14 @@ test('projects trust approves the setup a repository names, records a receipt, a
     setup: ['/usr/bin/true', 'invented'],
   });
 
+  // From an agent's shell in a Mesa window, approval is refused with where it must come from.
+  cli.env = { MESA_SESSION_ID: 'a1b2c3d4' };
+  const inside = await mesa('projects', 'trust', 'reef', '--json');
+  expect(inside.code).toBe(2);
+  expect(inside.json.error.message).toBe(
+    'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session',
+  );
+  cli.env = {};
   const trusted = await mesa('projects', 'trust', 'reef', '--json');
   expect(trusted.code).toBe(0);
   expect(trusted.json.data).toMatchObject({

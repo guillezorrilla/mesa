@@ -1,4 +1,5 @@
 import type { MesaContext } from '../context.js';
+import { callerOf } from '../sessions/caller.js';
 import { cloneProject } from './clone.js';
 import { discoverProjects } from './discover.js';
 import { repositoryUrl } from './project-url.js';
@@ -18,6 +19,9 @@ import { sortProjects } from './sort.js';
 /** The profile's registered projects. */
 export function projectsService(ctx: MesaContext) {
   const { record, open, absolute } = ctx;
+  // Only a person approves a repository's worktree scripts: not mesa run inside a Mesa window.
+  const outsideSession = () =>
+    !callerOf({ store: ctx.store, env: ctx.deps.env, profileName: ctx.profile }).inMesaWindow;
   return {
     register: (dir: string, create = false, label?: string) =>
       record(
@@ -80,7 +84,7 @@ export function projectsService(ctx: MesaContext) {
           inputs: { name, path, ...(value === undefined ? { unset: true } : {}) },
           outputs: (r) => ({ value: r.value }),
         },
-        () => overrideProject(open(), name, path, value),
+        () => overrideProject(open(), name, path, value, outsideSession()),
       ),
     /** Approves the setup and teardown the project's mesa.yaml names now: a person's override. */
     trust: (name: string) =>
@@ -97,7 +101,7 @@ export function projectsService(ctx: MesaContext) {
             ...(r.teardown ? { teardown: r.teardown } : {}),
           }),
         },
-        () => trustProject(open(), name),
+        () => trustProject(open(), name, outsideSession()),
       ),
     unregister: (name: string) =>
       record(

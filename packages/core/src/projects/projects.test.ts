@@ -189,42 +189,45 @@ test('overrideProject sets and unsets one override, keeping the rest of mesa.yam
     '# Lantern Cove\nname: lantern-cove\nagent: codex # preferred\nskills:\n  - review\n';
   const dir = folder('lantern-cove', original);
   registerProject(profile, { dir });
-  expect(overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'true')).toEqual({
+  expect(overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'true', true)).toEqual({
     project: 'lantern-cove',
     path: 'worktrees.fetch',
     value: true,
   });
-  overrideProject(profile, 'lantern-cove', 'worktrees.setup', '["/usr/bin/make", "setup"]');
-  overrideProject(profile, 'lantern-cove', 'terminal.theme', 'dark');
+  overrideProject(profile, 'lantern-cove', 'worktrees.setup', '["/usr/bin/make", "setup"]', true);
+  overrideProject(profile, 'lantern-cove', 'terminal.theme', 'dark', true);
   expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(
     `${original}worktrees:\n  fetch: true\n  setup:\n    - /usr/bin/make\n    - setup\nterminal:\n  theme: dark\n`,
   );
-  expect(overrideProject(profile, 'lantern-cove', 'worktrees.fetch', undefined).value).toBeNull();
-  overrideProject(profile, 'lantern-cove', 'worktrees.setup', undefined);
+  expect(
+    overrideProject(profile, 'lantern-cove', 'worktrees.fetch', undefined, true).value,
+  ).toBeNull();
+  overrideProject(profile, 'lantern-cove', 'worktrees.setup', undefined, true);
   // Unsetting what is not there changes nothing.
-  overrideProject(profile, 'lantern-cove', 'worktrees.base', undefined);
+  overrideProject(profile, 'lantern-cove', 'worktrees.base', undefined, true);
   expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(
     `${original}terminal:\n  theme: dark\n`,
   );
-  overrideProject(profile, 'lantern-cove', 'terminal.theme', undefined);
+  overrideProject(profile, 'lantern-cove', 'terminal.theme', undefined, true);
   expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(original);
 
-  expect(thrown(() => overrideProject(profile, 'lantern-cove', 'agent', 'claude')).code).toBe(
+  expect(thrown(() => overrideProject(profile, 'lantern-cove', 'agent', 'claude', true)).code).toBe(
     'usage',
   );
   expect(
-    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.location', 'nested')).code,
+    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.location', 'nested', true))
+      .code,
   ).toBe('usage');
   expect(
-    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'maybe')).code,
+    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'maybe', true)).code,
   ).toBe('invalid_config');
-  expect(thrown(() => overrideProject(profile, 'nowhere', 'worktrees.fetch', 'true')).code).toBe(
-    'not_found',
-  );
+  expect(
+    thrown(() => overrideProject(profile, 'nowhere', 'worktrees.fetch', 'true', true)).code,
+  ).toBe('not_found');
   expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toBe(original);
   rmSync(join(dir, 'mesa.yaml'));
   expect(
-    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'true')).code,
+    thrown(() => overrideProject(profile, 'lantern-cove', 'worktrees.fetch', 'true', true)).code,
   ).toBe('not_found');
 });
 

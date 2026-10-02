@@ -6,6 +6,7 @@ import { valueAt } from '../lib/yaml-file.js';
 import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
 import {
+  APPROVAL_FROM_SESSION,
   approveScripts,
   unapprovedScripts,
   WORKTREE_SCRIPTS,
@@ -179,14 +180,18 @@ export function overrideProject(
   name: string,
   dotted: string,
   value: string | undefined,
+  /** False inside a Mesa window: a setup or teardown written there stays unapproved. */
+  approve: boolean,
 ): { project: string; path: string; value: unknown } {
   const dir = findProject(profile, name).path;
   // A mesa.yaml that is gone is not_found with its fix, before anything is written.
   readProjectFile(dir);
   const next = setProjectOverride(dir, dotted, value === undefined ? undefined : parse(value));
-  // A person wrote this setup or teardown, so this profile approves exactly it.
+  // A person wrote this setup or teardown, so this profile approves exactly it; one a session
+  // wrote loses any approval, so the next worktree asks.
   const script = WORKTREE_SCRIPTS.find((kind) => dotted === `worktrees.${kind}`);
-  if (script) approveScripts(profile, name, { [script]: next.worktrees?.[script] });
+  if (script)
+    approveScripts(profile, name, { [script]: approve ? next.worktrees?.[script] : undefined });
   return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
 }
 
@@ -197,7 +202,10 @@ export function overrideProject(
 export function trustProject(
   profile: Profile,
   name: string,
+  /** False inside a Mesa window, where an agent could approve its own commands. */
+  approve: boolean,
 ): { project: string } & WorktreeScripts {
+  if (!approve) throw new MesaError('usage', APPROVAL_FROM_SESSION);
   const project = readProjectFile(findProject(profile, name).path);
   const scripts: WorktreeScripts = {
     setup: project.worktrees?.setup,
