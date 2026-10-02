@@ -1,7 +1,7 @@
 import { ArrowRight, CircleCheck, TriangleAlert, X } from 'lucide-react';
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from 'react';
-import { Alert } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { Alert } from './ui/alert';
+import { Button } from './ui/button';
 
 /**
  * How a toast looks and lasts (ADR-0009 amendment): a confirmation is neutral, shows every time,

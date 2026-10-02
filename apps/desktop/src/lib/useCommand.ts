@@ -1,6 +1,6 @@
 import type { Result } from '@mesa/core';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useToast } from '../components/Toast';
+import { useToast } from '@/components/Toast';
 import type { CallArgs, Client, CommandName, DataOf } from './client';
 import { useClient } from './MesaRoot';
 
