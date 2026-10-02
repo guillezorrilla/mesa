@@ -424,8 +424,8 @@ export function App() {
   return (
     <div className="flex h-screen min-h-[480px] flex-col">
       <header
-        data-tauri-drag-region
-        className="relative z-40 flex h-12 shrink-0 items-center gap-3 border-b bg-background pr-4 pl-20"
+        data-tauri-drag-region="deep"
+        className="relative z-40 flex h-12 shrink-0 select-none items-center gap-3 border-b bg-background pr-4 pl-20"
       >
         <h1
           data-testid="app-name"
