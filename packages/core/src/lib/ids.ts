@@ -6,7 +6,8 @@ export type IdSource = () => string;
 /** A new id's last 8 characters, lowercase: 40 random bits, short enough to type. */
 export const shortId = (newId: IdSource) => newId().slice(-8).toLowerCase();
 
-const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+/** Crockford base32's 32 characters, in order: no I, L, O, or U. */
+export const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 /** A ULID: 26 Crockford base32 characters; the first is 0 to 7, since 48 bits of time fit. */
 export const ULID_PATTERN = `[0-7][${CROCKFORD}]{25}`;
 export const ULID = new RegExp(`^${ULID_PATTERN}$`);

@@ -1,4 +1,4 @@
-import type { IdSource } from '../lib/ids.js';
+import { CROCKFORD, type IdSource } from '../lib/ids.js';
 
 const ADJECTIVES = [
   'amber',
@@ -75,7 +75,8 @@ const NOUNS = [
  */
 export function sessionBranchName(newId: IdSource) {
   const end = newId().slice(-6).toLowerCase();
+  // 32 words a list, one per Crockford character, so each is as likely as the next.
   const pick = (words: string[], at: number) =>
-    words[Number.parseInt(end.charAt(at), 36) % words.length];
+    words[CROCKFORD.indexOf(end.charAt(at).toUpperCase())];
   return `session/${pick(ADJECTIVES, 0)}-${pick(NOUNS, 1)}-${end.slice(2)}`;
 }

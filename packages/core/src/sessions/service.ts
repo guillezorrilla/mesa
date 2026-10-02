@@ -433,20 +433,21 @@ export function sessionsService(
         opts: Omit<OpenInput, 'project'> & { goalFile?: string; worktree?: boolean } = {},
       ) => {
         const { agent, mode, background, parent, noParent, after, base, terminal, general } = opts;
+        let refused: unknown =
+          opts.worktree && opts.branch !== undefined
+            ? new MesaError('usage', 'pass --worktree or --branch, not both')
+            : undefined;
         // A worktree of its own on a branch Mesa names (sessionBranchName).
-        const branch = opts.worktree ? sessionBranchName(deps.newId) : opts.branch;
+        const branch = opts.worktree && !refused ? sessionBranchName(deps.newId) : opts.branch;
         let goal: string | undefined;
-        let refused: unknown;
         try {
           goal = readGoal({
             goal: opts.goal,
             goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
           });
         } catch (error) {
-          refused = error;
+          refused ??= error;
         }
-        if (opts.worktree && opts.branch !== undefined)
-          refused = new MesaError('usage', 'pass --worktree or --branch, not both');
         const text = goal ?? opts.goal;
         const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());
         return record(

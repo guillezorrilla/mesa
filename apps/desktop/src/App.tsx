@@ -290,7 +290,8 @@ export function App() {
         // No confirmation, as the session shows; a warning (hooks to trust) still says so.
         const warning = warned(opened.warning);
         if (warning) toast(warning.text, warning.tone);
-        navigate({ kind: 'session', id: opened.id });
+        // The latest navigate: files may have been edited while it opened.
+        navigateRef.current({ kind: 'session', id: opened.id });
       } finally {
         setStarting((current) => current.filter((_, i) => i !== current.indexOf(key)));
       }
