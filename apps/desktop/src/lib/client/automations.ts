@@ -1,7 +1,22 @@
-import type { AutomationRule } from '@mesa/core';
+import type { AutomationRule, AutomationRun, AutomationStatus } from '@mesa/core';
 import { command, commandWith } from './spec';
 
 export const automationsCommands = {
+  'automations.status': command<AutomationStatus>('automations', 'status'),
+  'automations.install': command<AutomationStatus>('automations', 'install'),
+  'automations.uninstall': command<AutomationStatus>('automations', 'uninstall'),
+  'automations.approve': commandWith<{ id: string }, AutomationRun>(({ id }) => [
+    'automations',
+    'approve',
+    '--',
+    id,
+  ]),
+  'automations.cancel': commandWith<{ id: string }, AutomationRun>(({ id }) => [
+    'automations',
+    'cancel',
+    '--',
+    id,
+  ]),
   'automations.list': command<AutomationRule[]>('automations', 'list'),
   'automations.add': commandWith<{ rule: AutomationRule }, AutomationRule>(({ rule }) => [
     'automations',

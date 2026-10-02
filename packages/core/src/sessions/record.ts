@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
 import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
+import { ULID } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { ITEM_SOURCES } from '../sources/items.js';
 import { GENERAL_PROJECT } from './general.js';
@@ -44,6 +45,10 @@ const SessionRecordFields = z.strictObject({
   agentSessionId: z.string().optional(),
   /** The first prompt the agent was started with (CONTEXT.md, Goal). */
   goal: z.string().optional(),
+  /** Provenance assigned before an automation's agent starts. */
+  automation: z
+    .strictObject({ rule: z.string().min(1).max(80), run: z.string().regex(ULID) })
+    .optional(),
   /** The session this one was started from (CONTEXT.md, Parent session). */
   parent: z.string().regex(SHORT_ID).optional(),
   /**

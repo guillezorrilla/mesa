@@ -101,6 +101,7 @@ type NewLaunch = {
   /** None while queued: a session that never ran has no conversation. */
   agentSessionId?: string;
   goal?: string;
+  automation?: SessionRecord['automation'];
   parent?: string;
   /** The session a skill run is about (mesa run --session). */
   about?: string;
@@ -295,6 +296,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     ...(s.backgroundId ? { backgroundId: s.backgroundId } : {}),
     ...(s.agentSessionId === undefined ? {} : { agentSessionId: s.agentSessionId }),
     ...(s.goal === undefined ? {} : { goal: s.goal }),
+    ...(s.automation ? { automation: s.automation } : {}),
     ...(s.parent === undefined ? {} : { parent: s.parent }),
     ...(s.about === undefined ? {} : { about: s.about }),
     ...(s.after === undefined ? {} : { after: s.after }),

@@ -5,10 +5,16 @@ import { archive } from './archive.js';
 import { attach } from './attach.js';
 import {
   automationsAdd,
+  automationsApprove,
+  automationsCancel,
   automationsDisable,
   automationsEnable,
+  automationsInstall,
   automationsList,
   automationsRemove,
+  automationsStatus,
+  automationsTick,
+  automationsUninstall,
 } from './automations.js';
 import { backupCreate, backupRestore } from './backup.js';
 import { board, boardMove } from './board.js';
@@ -157,6 +163,12 @@ export const COMMANDS: Command[] = [
   archive,
   attach,
   automationsList,
+  automationsInstall,
+  automationsUninstall,
+  automationsStatus,
+  automationsTick,
+  automationsApprove,
+  automationsCancel,
   automationsAdd,
   automationsRemove,
   automationsEnable,

@@ -89,7 +89,14 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
           project,
           links,
           notes,
-          options.changedOnly ? { revisions, agent: options.agent ?? 'claude' } : undefined,
+          options.changedOnly
+            ? {
+                revisions,
+                agent: options.agent ?? 'claude',
+                yes: options.yes,
+                automation: options.automation,
+              }
+            : undefined,
         );
       },
     );

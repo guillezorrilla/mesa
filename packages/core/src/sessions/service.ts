@@ -525,6 +525,7 @@ export function sessionsService(
               base,
               terminal,
               from,
+              automation: opts.automation,
             };
             return openSession(openDeps(), input);
           },

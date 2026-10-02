@@ -7,6 +7,7 @@ export const RECORD_KINDS = [
   'vault-change',
   'connection',
   'refresh',
+  'automation',
 ] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
@@ -19,11 +20,12 @@ export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string
   kind === 'vault-change' ||
   kind === 'connection' ||
   kind === 'refresh' ||
+  kind === 'automation' ||
   (kind === 'guardrail' &&
     (typeof outputs.override === 'string' || typeof outputs.dangerousFlags === 'string'));
 
 export const keepFailure = (kind: RecordKind | undefined, code: string) =>
-  kind === 'guardrail' && code === 'guardrail_blocked';
+  kind === 'automation' || (kind === 'guardrail' && code === 'guardrail_blocked');
 
 /** The same meaningful history policy in Obsidian Bases' expression syntax. */
 export const BASES_MEANINGFUL_FILTER = [
@@ -49,6 +51,7 @@ export function meaningfulReceipt(receipt: Receipt): boolean {
       ((Array.isArray(outputs.refreshed) && outputs.refreshed.length > 0) ||
         (typeof outputs.notesWritten === 'number' && outputs.notesWritten > 0))
     );
+  if (kind === 'automation') return false;
   const error = outputs.error;
   return status === 'ok'
     ? keepSuccess(kind, outputs)

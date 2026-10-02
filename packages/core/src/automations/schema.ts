@@ -1,5 +1,5 @@
-import { isAbsolute } from 'node:path';
 import { z } from 'zod';
+import { relativeFilePath } from '../files/path.js';
 import { SESSION_ID_PATTERN } from '../sessions/id.js';
 import { AGENT_STATES } from '../sessions/states.js';
 import { cronFields } from './cron.js';
@@ -28,10 +28,14 @@ export const AutomationRuleSchema = z
     when: z.enum(['cron', 'file', 'state']),
     cron: text.optional(),
     file: text
-      .refine(
-        (path) => !isAbsolute(path) && !path.split(/[\\/]/).includes('..'),
-        'file must be a project-relative path without ..',
-      )
+      .refine((path) => {
+        try {
+          relativeFilePath(path);
+          return !path.includes('\\');
+        } catch {
+          return false;
+        }
+      }, 'file must be a project-relative path without ..')
       .optional(),
     state: z.enum(AGENT_STATES).optional(),
     run: z.enum(['skill', 'send', 'open', 'refresh']),

@@ -35,6 +35,7 @@ export type ProfilePaths = {
   prompts: string;
   /** Optional profile-local automation rules, never installed implicitly. */
   automations: string;
+  automationState: string;
   /** Failed or unattempted notes batches from change-aware source refresh. */
   pendingImportNotes: string;
   /** Local archives of settings, project registry, and saved prompts. */
@@ -66,6 +67,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     prEvents: join(root, 'pr-events.json'),
     prompts: join(root, 'prompts.json'),
     automations: join(root, 'automations.yaml'),
+    automationState: join(root, 'automation-state.yaml'),
     pendingImportNotes: join(root, 'pending-import-notes.yaml'),
     backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,
