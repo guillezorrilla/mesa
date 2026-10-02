@@ -14,7 +14,7 @@ import type { OverviewState } from './useOverviewState';
 
 /**
  * The project's Overview tab: start a session, and its sessions and worktrees. Its vault and its
- * Imports have their own tabs.
+ * context have their own tabs.
  */
 export function OverviewTab(props: {
   project: ProjectRow;

@@ -16,7 +16,7 @@ const ISSUE: ImportListRow = {
 };
 const GOAL = 'Work on the imported Jira issue LC-12: Fix the tide alarm\nSource: x';
 
-test('Start session on an imported item lands on the Overview composer with its goal, and the start keeps the item', async () => {
+test('Context opens imported items; Start session fills the Overview composer and keeps the item', async () => {
   const { bridge, calls } = fakeBridge({
     'import list': () => envelope({ items: [ISSUE] }),
     'import goal': () => envelope({ source: 'jira', id: 'LC-12', title: ISSUE.title, goal: GOAL }),
@@ -27,7 +27,6 @@ test('Start session on an imported item lands on the Overview composer with its 
   const byTestId = await renderWithMesa(
     <ProjectScreen
       project={PROJECT}
-      initialTab="import"
       sessions={[]}
       onSession={() => undefined}
       onVaultItem={() => undefined}
@@ -41,6 +40,14 @@ test('Start session on an imported item lands on the Overview composer with its 
     bridge,
   );
   const goal = () => byTestId('project-goal')[0] as HTMLTextAreaElement;
+
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('nav button')];
+  const context = tabs.find((button) => button.textContent === 'Context');
+  expect(context).toBeDefined();
+  expect(tabs.some((button) => button.textContent?.toLowerCase() === 'import')).toBe(false);
+  await click(context);
+  expect(context?.getAttribute('aria-current')).toBe('page');
+  expect(byTestId('import-tab')).toHaveLength(1);
 
   await click(
     document.querySelector<HTMLButtonElement>('button[aria-label="Start session from LC-12"]') ??
