@@ -50,7 +50,7 @@ Issue #8, run 2026-09-25 on macOS (Darwin 25.6), tmux 3.7c, Tauri 2.11, WKWebVie
 
 ## The choice for #28
 
-**The same mix as this spike.** tmux keeps the session, the screen history, and the size. A pty attach streams it to xterm.js, which renders and takes input. These settings answer this spike's problems one for one:
+**tmux keeps the session, the screen history, and the size; a pty attach streams it to xterm.js, which renders and takes input.** These tmux options answer this spike's problems one for one:
 
 - `mouse on` fixes the wheel sending arrow keys (gotcha 4).
 - `status off` makes the pane match xterm exactly (gotcha 2), and it also hides the kitty-probe pane title (gotcha 7).
