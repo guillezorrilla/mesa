@@ -203,3 +203,14 @@ test('appearance has diff and file tree size sliders from 10 to 20 that save the
     expect(sets(calls).at(-1)).toEqual([path, '16']);
   }
 });
+
+test('Notifications has the visual alert toggle, on by default, and saves it off', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  await click(nav('Notifications'));
+  const toggle = document.getElementById('notifications-visual-alert');
+  expect(toggle?.closest('[data-setting-row]')?.textContent).toContain('Visual alert');
+  expect(toggle?.getAttribute('aria-checked')).toBe('true');
+  await click(toggle ?? undefined);
+  expect(sets(calls)).toEqual([['notifications.visualAlert', 'false']]);
+});

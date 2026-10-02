@@ -244,6 +244,11 @@ Not: Context use, billing, receipt.
 The profile-local list of input-required, finished, subagent, and Doctor notices, projected from redacted hook events and kept in `~/.mesa/<profile>/notifications.json`. It retains the newest 500 hook notices and current Doctor findings, with read, cleared, and delivered state across restarts. Doctor findings that one command fixes (`mesa hooks install`, `mesa vault init`) are one notice that names that fix; any other finding is its own notice with Doctor's hint. The app shows the Inbox in the header bell's menu. A notice opens its exact Mesa session or Doctor; native delivery obeys per-kind sound, visual, and quiet settings and never answers an agent's permission request.
 Not: vault history, session state.
 
+## Visual alert
+
+The app's count of Sessions-tab sessions waiting for input (waiting-permission or waiting-question, agent still running): the macOS Dock badge shows it, and a dot on the sidebar's Sessions tab marks it, cleared at zero. `notifications.visualAlert` (default true) turns both off. It reads session state only: it sends no banner and plays no sound.
+Not: Inbox, native notification.
+
 ## Weekly Rewind
 
 A read-only summary of the last seven local calendar days: meaningful decision and vault-change notes, ended sessions, and usage readings, with links to the exact evidence. It names missing usage or vault data rather than treating it as zero, and writes no replacement receipt or activity stream.

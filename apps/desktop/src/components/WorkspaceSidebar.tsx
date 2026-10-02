@@ -67,6 +67,8 @@ export function WorkspaceSidebar(props: {
   onView: (view: WorkspaceView) => void;
   projects: readonly ProjectRow[];
   sessions: readonly TreeRow[];
+  /** The visual alert's count (0 when it is off): the Sessions tab shows a dot while it is above 0. */
+  waiting: number;
   collapsed: boolean;
   onCollapse: () => void;
   sort: ProjectSort;
@@ -258,6 +260,14 @@ export function WorkspaceSidebar(props: {
             >
               Sessions{' '}
               <span className="rounded bg-muted px-1">{active.length + stranded.length}</span>
+              {props.waiting > 0 && (
+                <span
+                  data-testid="sessions-waiting"
+                  role="img"
+                  aria-label={`${props.waiting} waiting for input`}
+                  className="ml-1 inline-block size-2 rounded-full bg-state-waiting align-middle"
+                />
+              )}
             </button>
             <button
               type="button"

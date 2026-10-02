@@ -6,6 +6,8 @@ import { expect, test, vi } from 'vitest';
 import { App } from '@/App';
 import { CONFIRMATION_MS } from '@/components/Toast';
 import {
+  asking,
+  busy,
   choose,
   click,
   deferred,
@@ -2482,6 +2484,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,
+      visualAlert: true,
       inputRequired: 'sound',
       finished: 'silent',
       subagent: 'silent',
@@ -3151,4 +3154,73 @@ test('project sorting reorders sidebar folders without replacing the current wor
   expect(calls).toContainEqual(['--json', 'projects', '--sort', 'most-visited']);
   expect(byTestId('projects-screen')).toHaveLength(0);
   expect(byTestId('nav-projects')).toHaveLength(0);
+});
+
+test('the visual alert badges the Dock and dots the Sessions tab with the waiting count', async () => {
+  vi.useFakeTimers();
+  try {
+    const base = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
+    let visualAlert = true;
+    const question = managedRow('dddddddd', {
+      lastState: {
+        state: 'waiting-question',
+        confidence: 0.95,
+        at: '2026-09-25T12:00:00.000Z',
+        source: 'hook',
+      },
+    });
+    // An exited session that last waited no longer waits: its agent is gone.
+    const gone = managedRow('eeeeeeee', { ...question, id: 'eeeeeeee', alive: false });
+    let rows: TreeRow[] = [asking, question, gone, busy];
+    const { bridge, calls } = fakeBridge({
+      projects: () => envelope(PROJECTS),
+      sessions: () => envelope(rows),
+      config: () => envelope({ ...base, notifications: { ...base.notifications, visualAlert } }),
+      'config set': (args) => {
+        visualAlert = JSON.parse(args.at(-1) ?? 'true');
+        return envelope({ path: 'notifications.visualAlert', value: visualAlert });
+      },
+    });
+    const platform = fakePlatform();
+    const byTestId = await renderWithMesa(<App />, bridge, platform);
+    const dot = () => byTestId('sessions-waiting')[0]?.getAttribute('aria-label');
+    const poll = () => act(async () => vi.advanceTimersByTimeAsync(2000));
+    expect(platform.badges.at(-1)).toBe(2);
+    expect(dot()).toBe('2 waiting for input');
+
+    rows = [busy];
+    await poll();
+    expect(platform.badges.at(-1)).toBe(0);
+    expect(dot()).toBeUndefined();
+
+    rows = [asking, busy];
+    await poll();
+    expect(platform.badges.at(-1)).toBe(1);
+    expect(dot()).toBe('1 waiting for input');
+
+    await click(byTestId('open-settings')[0]);
+    await click(
+      [
+        ...document.querySelectorAll<HTMLButtonElement>(
+          '[aria-label="Settings categories"] button',
+        ),
+      ].find((button) => button.textContent === 'Notifications'),
+    );
+    await click(document.getElementById('notifications-visual-alert') ?? undefined);
+    expect(calls).toContainEqual([
+      '--json',
+      'config',
+      'set',
+      '--',
+      'notifications.visualAlert',
+      'false',
+    ]);
+    expect(platform.badges.at(-1)).toBe(0);
+    expect(dot()).toBeUndefined();
+    // Off stays off as sessions keep waiting.
+    await poll();
+    expect(platform.badges.at(-1)).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
 });
