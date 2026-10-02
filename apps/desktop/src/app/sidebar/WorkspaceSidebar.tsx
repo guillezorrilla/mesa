@@ -1,5 +1,6 @@
 import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
 import {
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -149,6 +150,7 @@ export function WorkspaceSidebar(props: {
         {nav('Vault', Library, { kind: 'vault' })}
         {nav('Map', MapIcon, { kind: 'map' })}
         {nav('Daily', Clock3, { kind: 'daily' })}
+        {nav('Automations', CalendarClock, { kind: 'automations' })}
         {nav('Doctor', Stethoscope, { kind: 'doctor' })}
         {nav('Shortcuts', Keyboard, { kind: 'shortcuts' })}
       </div>

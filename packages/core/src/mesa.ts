@@ -5,6 +5,7 @@ import { hooksStatus } from './agents/claude/hooks.js';
 import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
 import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { hooksService } from './agents/hooks-service.js';
+import { automationRules } from './automations/rules.js';
 import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
@@ -56,6 +57,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   return {
     ...profileApi,
     projects: projectsService(ctx),
+    automations: automationRules(ctx),
     prompts: promptsService(ctx),
     files: filesService(ctx),
     worktrees: worktreesService(ctx),

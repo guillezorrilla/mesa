@@ -33,6 +33,8 @@ export type ProfilePaths = {
   prEvents: string;
   /** Named, literal prompts saved only in this profile. */
   prompts: string;
+  /** Optional profile-local automation rules, never installed implicitly. */
+  automations: string;
   /** Local archives of settings, project registry, and saved prompts. */
   backups: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
@@ -61,6 +63,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     notifications: join(root, 'notifications.json'),
     prEvents: join(root, 'pr-events.json'),
     prompts: join(root, 'prompts.json'),
+    automations: join(root, 'automations.yaml'),
     backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,
   };
