@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { importProfile, testStore } from '../testing/index.js';
+import { finishesRun, importProfile, testStore } from '../testing/index.js';
 
 const SITE = 'https://lantern-cove.atlassian.net';
 const PAGE_URL = `${SITE}/wiki/spaces/LC/pages/9001/Tide+schedule`;
@@ -18,7 +18,7 @@ async function imported() {
 const LC12_GOAL = [
   'Work on the imported Jira issue LC-12: Fix the tide alarm',
   `Source: ${SITE}/browse/LC-12`,
-  'Read it from the project vault through mesa-vault before you begin:',
+  'Read these with the mesa-vault read_note tool before you begin:',
   '- Note: wiki/notes/lc-12-fix-the-tide-alarm.md',
   '- Latest snapshot: raw/jira/LC-12/2026-09-24T1200.md',
 ].join('\n');
@@ -33,7 +33,7 @@ test('a session started from an imported item by id or link gets its goal and ke
     from: { source: 'jira', id: 'LC-12' },
   });
   // The goal is claude's first prompt, whole.
-  expect(agents.tmux.windows.at(-1)?.launch).toContain('Read it from the project vault');
+  expect(agents.tmux.windows.at(-1)?.launch).toContain('mesa-vault read_note tool');
 
   // A link to it finds the same item, with no new fetch.
   const byLink = await mesa.imports.open('lantern-cove', { from: `${SITE}/browse/LC-12` });
@@ -78,11 +78,27 @@ test('a link not imported yet is imported first, honouring notes off, then start
     goal: [
       'Work on the imported Confluence page Tide schedule',
       `Source: ${SITE}/wiki/spaces/LC/pages/9001`,
-      'Read it from the project vault through mesa-vault before you begin:',
+      'Read these with the mesa-vault read_note tool before you begin:',
       '- Latest snapshot: raw/confluence/9001/2026-09-24T1200.md',
     ].join('\n'),
     from: { source: 'confluence', id: '9001' },
   });
+});
+
+test('a link imported first whose notes run fails still starts, with a warning that says why', async () => {
+  const { mesa, agent } = await imported();
+  const fails = finishesRun({ output: '', status: 1, stderr: 'claude: not logged in' });
+  agent((w) => {
+    if (w.launch.includes('/import-notes')) fails(w);
+  });
+
+  const opened = await mesa.imports.open('lantern-cove', { from: PAGE_URL });
+
+  expect(opened.result).toMatchObject({ from: { source: 'confluence', id: '9001' } });
+  expect(opened.result.goal).not.toContain('- Note:');
+  expect(opened.warning).toBe(
+    'notes not written for 9001 (claude printed no result; claude exited with status 1; claude: not logged in)',
+  );
 });
 
 test('an item that cannot be imported, --goal-file, or a goal too long starts nothing', async () => {
@@ -112,6 +128,10 @@ test('an item that cannot be imported, --goal-file, or a goal too long starts no
   await expect(
     mesa.imports.open(undefined, { from: 'LC-12', general: true }),
   ).rejects.toMatchObject({ code: 'usage' });
+  await expect(mesa.imports.open('lantern-cove', { exactGoal: true })).rejects.toMatchObject({
+    code: 'usage',
+    message: '--no-notes and --exact-goal need --from',
+  });
 
   await expect(
     mesa.imports.open('lantern-cove', { from: 'LC-12', goal: 'x'.repeat(13_000) }),

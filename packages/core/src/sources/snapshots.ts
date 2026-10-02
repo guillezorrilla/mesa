@@ -4,8 +4,7 @@ import { listVault } from '../vault/inventory.js';
 import { VAULT } from '../vault/layout.js';
 import { type NotesDeps, oneLine, readNote, writeNote } from '../vault/notes.js';
 import { vaultFile } from '../vault/scope.js';
-import { ITEM_SOURCES } from './connectors.js';
-import type { Item, ItemSource } from './items.js';
+import { ITEM_SOURCES, type Item, type ItemSource } from './items.js';
 
 // An item's snapshots (CONTEXT.md, Import): each fetch is a new raw/<source>/<id>/<time>.md, its
 // frontmatter the only record of what a project imported.

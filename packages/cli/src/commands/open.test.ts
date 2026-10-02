@@ -1,6 +1,6 @@
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CLAUDE_MOUNT, scriptedRunner, testStore } from '@mesa/core/testing';
+import { CLAUDE_MOUNT, finishesRun, scriptedRunner, testStore } from '@mesa/core/testing';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -469,7 +469,7 @@ test.each(['open', 'resume', 'handoff'] as const)(
 
 test('open --from starts from an imported item, imports a new link first, and sessions --json shows the item', async () => {
   const SITE = 'https://lantern-cove.atlassian.net';
-  const { world } = await cli.withImports();
+  const { world, agent } = await cli.withImports();
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
   world.servePage('9001', { title: 'Tide schedule', html: '<p>Twice a day.</p>' });
   await mesa('import', 'LC-12', '--project', 'lantern-cove');
@@ -536,4 +536,16 @@ test('open --from starts from an imported item, imports a new link first, and se
   expect(missing.code).toBe(3);
   expect(missing.json.error.message).toBe('Jira issue LC-404 is missing, or not shared with you');
   expect(await mesa('open', 'lantern-cove', '--exact-goal', '--json')).toMatchObject({ code: 2 });
+
+  // A new link whose notes run fails still starts, and both outputs say why.
+  world.servePage('9002', { title: 'Harbour', html: '<p>Boats.</p>' });
+  const failing = finishesRun({ output: '', status: 1, stderr: 'claude: not logged in' });
+  agent((w) => {
+    if (w.launch.includes('/import-notes')) failing(w);
+  });
+  const warned = await mesa('open', 'lantern-cove', '--from', `${SITE}/wiki/spaces/LC/pages/9002`);
+  expect(warned.code).toBe(0);
+  expect(warned.stdout).toMatch(
+    /^[0-9a-z]{8}\nwarning: notes not written for 9002 \(claude printed no result/,
+  );
 });
