@@ -2,6 +2,7 @@ import type { BasesWritten, VaultInventory, VaultItem, VaultStatus } from '@mesa
 import { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from '@mesa/core/browser';
 import { Link2Off, Search, Table2 } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -292,7 +293,7 @@ export function VaultScreen({ query = '', path }: { query?: string; path?: strin
             </Button>
           </PageHeader>
           {!look ? (
-            <p className="text-sm text-muted-foreground">Reading the vault...</p>
+            <Muted>Reading the vault...</Muted>
           ) : !look.list.ok ? (
             <VaultUnlisted error={look.list.error} status={look.status} />
           ) : null}

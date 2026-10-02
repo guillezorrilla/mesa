@@ -1,6 +1,7 @@
 import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
 import { Bell, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -84,7 +85,7 @@ export function NotificationsMenu(props: {
           <div className="flex items-start justify-between border-b px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold">Notifications</h2>
-              <p className="text-xs text-muted-foreground">{unread.length} unread</p>
+              <Muted size="xs">{unread.length} unread</Muted>
             </div>
             <div className="flex gap-1">
               <Button

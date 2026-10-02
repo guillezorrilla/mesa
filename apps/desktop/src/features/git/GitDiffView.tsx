@@ -1,3 +1,4 @@
+import { Muted } from '@/components/Muted';
 import { useCommand } from '@/lib/useCommand';
 import { GitDiffRows } from './GitDiffRows';
 
@@ -23,8 +24,8 @@ function TrackedDiff(props: Target & { staged: boolean }) {
     staged: props.staged,
     full: true,
   });
-  if (!diff.data) return diff.busy ? <Note>Loading diff...</Note> : null;
-  if (!diff.data.rows.length) return <Note>No diff in this selection.</Note>;
+  if (!diff.data) return diff.busy ? <Muted className="p-6">Loading diff...</Muted> : null;
+  if (!diff.data.rows.length) return <Muted className="p-6">No diff in this selection.</Muted>;
   return <GitDiffRows rows={diff.data.rows} layout={props.layout} fontSize={props.fontSize} />;
 }
 
@@ -35,14 +36,10 @@ function UntrackedDiff(props: Target) {
     checkout: props.checkout,
     path: props.path,
   });
-  if (!file.data) return file.busy ? <Note>Loading file...</Note> : null;
+  if (!file.data) return file.busy ? <Muted className="p-6">Loading file...</Muted> : null;
   const rows = file.data.text
     .replace(/\n$/, '')
     .split('\n')
     .map((right, index) => ({ kind: 'change' as const, left: '', right, newLine: index + 1 }));
   return <GitDiffRows rows={rows} layout={props.layout} fontSize={props.fontSize} />;
-}
-
-function Note(props: { children: string }) {
-  return <p className="p-6 text-sm text-muted-foreground">{props.children}</p>;
 }

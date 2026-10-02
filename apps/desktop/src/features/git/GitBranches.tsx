@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,9 +95,7 @@ export function GitBranches(props: { project: string; checkout?: string; onChang
               Create branch
             </Button>
           </form>
-          {branches.data?.branches.length === 0 && (
-            <p className="text-sm text-muted-foreground">No local branches.</p>
-          )}
+          {branches.data?.branches.length === 0 && <Muted>No local branches.</Muted>}
           <ul className="divide-y">
             {branches.data?.branches.map((branch) => (
               <li key={branch.name} className="flex flex-wrap items-center gap-2 py-2 text-sm">

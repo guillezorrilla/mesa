@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { SessionLocation } from '../useStartSession';
+import { HoverAction } from './HoverAction';
 
 /** A managed session card's More actions: a terminal or child worktree session from it, or a dependency. */
 export function SessionActionsMenu(props: {
@@ -19,13 +20,12 @@ export function SessionActionsMenu(props: {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
+        <HoverAction
           aria-label={`More actions for ${sessionTitle(session)} (${session.id})`}
-          className="pointer-events-none absolute right-14 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
+          className="right-14 data-[state=open]:pointer-events-auto data-[state=open]:opacity-100"
         >
           <MoreVertical aria-hidden className="size-3.5" />
-        </button>
+        </HoverAction>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="right" align="start">
         <DropdownMenuItem

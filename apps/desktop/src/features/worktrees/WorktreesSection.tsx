@@ -1,6 +1,7 @@
 import type { WorktreeAction, WorktreePreview, WorktreeRow } from '@mesa/core';
 import { FolderGit2, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { SectionLabel } from '@/components/SectionLabel';
 import { said } from '@/components/Toast';
 import { useAct } from '@/lib/useAct';
 import type { CommandState } from '@/lib/useCommand';
@@ -75,9 +76,9 @@ export function WorktreesSection(props: {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <SectionLabel className="flex items-center gap-2">
           <FolderGit2 aria-hidden className="size-4" /> Worktrees ({rows.length})
-        </h3>
+        </SectionLabel>
         <button
           type="button"
           className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"

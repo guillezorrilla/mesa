@@ -1,5 +1,6 @@
 import type { Config, DoctorReport, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
 import { useCallback, useRef } from 'react';
+import { Muted } from '@/components/Muted';
 import { BackupScreen } from '@/features/backup/BackupScreen';
 import { DailyScreen } from '@/features/daily/DailyScreen';
 import { DoctorScreen } from '@/features/doctor/DoctorScreen';
@@ -111,11 +112,9 @@ export function WorkspaceMain(props: {
             }}
           />
         ) : projects.busy || !projects.data ? (
-          <p className="text-sm text-muted-foreground">Loading project...</p>
+          <Muted>Loading project...</Muted>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Project unavailable. Choose another project from the sidebar.
-          </p>
+          <Muted>Project unavailable. Choose another project from the sidebar.</Muted>
         ))}
       {view.kind === 'doctor' && <DoctorScreen doctor={props.doctor} />}
       {view.kind === 'map' && (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
@@ -57,11 +58,11 @@ export function GitSyncPanel(props: { project: string; checkout?: string; onChan
           </div>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <Muted>
           {tracking.busy
             ? 'Loading upstream...'
             : "Set this branch's upstream in Git to use push or pull."}
-        </p>
+        </Muted>
       )}
       {pending && target && (
         <ActionDialog

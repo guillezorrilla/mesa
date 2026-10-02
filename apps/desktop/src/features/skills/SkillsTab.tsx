@@ -1,6 +1,7 @@
 import type { Config, SkillInventoryRow, WorkspaceFile } from '@mesa/core';
 import { FileText, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -112,9 +113,9 @@ export function SkillsTab(props: {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold">Skills</h3>
-          <p className="text-xs text-muted-foreground">
+          <Muted size="xs">
             Invoke an enabled skill from the session terminal with your agent's command.
-          </p>
+          </Muted>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="ghost" onClick={props.onAgentSettings}>
@@ -195,7 +196,7 @@ export function SkillsTab(props: {
           </button>
         ))}
       </div>
-      {visible.length === 0 && <p className="text-sm text-muted-foreground">No skills found.</p>}
+      {visible.length === 0 && <Muted>No skills found.</Muted>}
       {selected && opened && (
         <section className="space-y-3 rounded-lg border bg-card/35 p-4" aria-label="Skill details">
           <div className="flex flex-wrap items-center gap-2">

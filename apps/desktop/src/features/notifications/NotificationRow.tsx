@@ -1,6 +1,7 @@
 import type { InboxFix, InboxItem } from '@mesa/core';
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { timeAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
 
@@ -46,9 +47,7 @@ export function NotificationRow(props: {
         >
           {item.title}
         </button>
-        <p className="text-xs text-muted-foreground">
-          {item.detail ?? (item.session ? `Session ${item.session}` : '')}
-        </p>
+        <Muted size="xs">{item.detail ?? (item.session ? `Session ${item.session}` : '')}</Muted>
         {item.kind === 'doctor' && (
           <div className="flex flex-wrap gap-2 pt-1">
             {item.fix && (

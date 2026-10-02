@@ -1,5 +1,6 @@
 import { ExternalLink, FileText, Library } from 'lucide-react';
 import { MarkdownView } from '@/components/MarkdownView';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { PROSE } from './VaultReader';
@@ -24,7 +25,7 @@ export function VaultOverview(props: { project: string; onItem: (path: string) =
         <Library aria-hidden className="size-4" /> Vault
       </h3>
       {!hub && !notes.length && !goals.length ? (
-        <p className="text-sm text-muted-foreground">Nothing in the vault for this project yet.</p>
+        <Muted>Nothing in the vault for this project yet.</Muted>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           {hub && (

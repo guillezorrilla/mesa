@@ -1,6 +1,7 @@
 import type { DiscoveredProject } from '@mesa/core';
 import { FolderOpen, FolderSearch } from 'lucide-react';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -101,9 +102,7 @@ export function ImportWorkspaceDialog(props: {
         {discovered && (
           <div data-testid="discovered-projects" className="max-h-80 space-y-2 overflow-y-auto">
             {discovered.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No projects found within three folder levels.
-              </p>
+              <Muted>No projects found within three folder levels.</Muted>
             )}
             {discovered.map((candidate) => (
               <div

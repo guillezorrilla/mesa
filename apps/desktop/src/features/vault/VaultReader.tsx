@@ -2,6 +2,7 @@ import type { VaultLink, VaultRead } from '@mesa/core';
 import { CircleHelp, ExternalLink, EyeOff, Link2Off, Paperclip } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
+import { Muted } from '@/components/Muted';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
@@ -114,7 +115,7 @@ const shown = (value: unknown): string =>
 
 function Properties({ frontmatter }: { frontmatter: Record<string, unknown> }) {
   const entries = Object.entries(frontmatter);
-  if (!entries.length) return <p className="text-xs text-muted-foreground">No properties.</p>;
+  if (!entries.length) return <Muted size="xs">No properties.</Muted>;
   return (
     <Table data-testid="vault-properties" aria-label="Properties">
       <TableBody>
@@ -175,7 +176,7 @@ function Backlinks(props: { paths: readonly string[]; onSelect: Select }) {
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-muted-foreground">No note links here.</p>
+        <Muted size="xs">No note links here.</Muted>
       )}
     </section>
   );
@@ -255,7 +256,7 @@ export function VaultReader(props: { path: string; looks: number; onSelect: Sele
         {path} could not be read: {error.message}.
       </p>
     );
-  if (!read) return <p className="text-sm text-muted-foreground">Reading {path}...</p>;
+  if (!read) return <Muted>Reading {path}...</Muted>;
   return (
     <div data-testid="vault-reader" className="min-w-0 space-y-4 border-t pt-4">
       <Preview read={read} onSelect={onSelect} />

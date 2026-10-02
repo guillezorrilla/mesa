@@ -1,6 +1,7 @@
 import type { UsageReport } from '@mesa/core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { SectionLabel } from '@/components/SectionLabel';
 import { AGENT_LABEL, allTokens, compact, dayLabel, modelKey, money, tokenLine } from './format';
 
 /** The chart's days that had usage, newest first; each opens onto its models. */
@@ -10,9 +11,7 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
   if (!days.length) return null;
   return (
     <section aria-label="Daily usage and cost">
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Daily usage &amp; cost
-      </h3>
+      <SectionLabel className="mb-2">Daily usage &amp; cost</SectionLabel>
       <div className="divide-y rounded-lg border bg-background">
         {days.map((day) => {
           const expanded = open.has(day.day);

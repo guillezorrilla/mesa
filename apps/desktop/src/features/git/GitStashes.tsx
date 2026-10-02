@@ -1,6 +1,7 @@
 import type { StashEntry } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,9 +69,7 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
           Stash changes
         </Button>
       </form>
-      {stashes.data?.stashes.length === 0 && (
-        <p className="text-sm text-muted-foreground">No saved stashes.</p>
-      )}
+      {stashes.data?.stashes.length === 0 && <Muted>No saved stashes.</Muted>}
       <ul className="divide-y">
         {stashes.data?.stashes.map((stash) => (
           <li key={stash.oid} className="flex flex-wrap items-center gap-2 py-2 text-sm">

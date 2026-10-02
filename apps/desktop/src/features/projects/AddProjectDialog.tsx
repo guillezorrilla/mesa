@@ -1,6 +1,7 @@
 import { FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,9 +66,7 @@ export function AddProjectDialog(props: {
       {props.needsProfileSetup && (
         <div className="space-y-2">
           <Label htmlFor="project-vault">Vault folder</Label>
-          <p className="text-sm text-muted-foreground">
-            Choose your local Obsidian vault folder to set up Mesa.
-          </p>
+          <Muted>Choose your local Obsidian vault folder to set up Mesa.</Muted>
           <div className="flex items-center gap-2">
             <Input
               id="project-vault"

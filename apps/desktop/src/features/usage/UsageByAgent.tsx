@@ -1,6 +1,8 @@
 import type { UsageReport } from '@mesa/core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
+import { SectionLabel } from '@/components/SectionLabel';
 import { AGENT_LABEL, modelKey, money, seriesColor, tokenLine } from './format';
 
 /** The 90-day cost of each model, grouped under its provider, with its share as a bar. */
@@ -10,9 +12,9 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
   if (!props.agents.length) return null;
   return (
     <section aria-label="Cost by agent">
-      <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <SectionLabel className="mb-2">
         Cost by agent <span className="normal-case">(last 90 days)</span>
-      </h3>
+      </SectionLabel>
       <div className="divide-y rounded-lg border bg-background">
         {props.agents.map(({ agent, totals }) => {
           const rows = props.breakdown.filter((row) => row.agent === agent);
@@ -49,7 +51,7 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
                   <div key={modelKey(row)} className="flex items-center gap-3 border-t px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-mono text-sm">{row.model}</p>
-                      <p className="text-xs text-muted-foreground">{tokenLine(row.totals)}</p>
+                      <Muted size="xs">{tokenLine(row.totals)}</Muted>
                     </div>
                     <span className="h-1.5 w-24 overflow-hidden rounded-full bg-accent">
                       <span

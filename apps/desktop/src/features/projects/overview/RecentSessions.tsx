@@ -1,5 +1,7 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
 import { sessionLabel } from '@mesa/core/browser';
+import { Muted } from '@/components/Muted';
+import { SectionLabel } from '@/components/SectionLabel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { exited, queued } from '@/features/sessions/rows';
@@ -18,12 +20,12 @@ export function RecentSessions(props: {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <SectionLabel>
           Recent{' '}
           <Badge variant="secondary" className="ml-1">
             {recentSessions.length}
           </Badge>
-        </h3>
+        </SectionLabel>
         <Button size="sm" variant="ghost" onClick={() => setHistoryOpen((open) => !open)}>
           {historyOpen ? 'Hide' : 'Native history'}
         </Button>
@@ -43,9 +45,7 @@ export function RecentSessions(props: {
           <span className="ml-auto text-xs text-muted-foreground">{session.agent}</span>
         </button>
       ))}
-      {props.sessions.length === 0 && (
-        <p className="text-sm text-muted-foreground">No sessions for this project yet.</p>
-      )}
+      {props.sessions.length === 0 && <Muted>No sessions for this project yet.</Muted>}
     </section>
   );
 }

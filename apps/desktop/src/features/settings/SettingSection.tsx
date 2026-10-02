@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Muted } from '@/components/Muted';
 
 /** A titled group of rows; it hides itself while a search matches none of them. */
 export function SettingSection(props: {
@@ -20,7 +21,7 @@ export function SettingSection(props: {
     >
       <div className="border-b pb-3">
         <h3 className="text-base font-medium">{props.title}</h3>
-        <p className="text-xs text-muted-foreground">{props.description}</p>
+        <Muted size="xs">{props.description}</Muted>
       </div>
       {props.group && (
         <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">

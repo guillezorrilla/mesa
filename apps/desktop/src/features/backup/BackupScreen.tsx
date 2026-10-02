@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,11 +30,11 @@ export function BackupScreen() {
           <CardTitle>Create backup</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <Muted>
             Includes profile settings, registered project paths, and saved prompts. Provider
             credentials, vault contents, session records, output logs, and tmux processes are
             excluded.
-          </p>
+          </Muted>
           <Button
             disabled={acting}
             onClick={() =>
@@ -58,10 +59,10 @@ export function BackupScreen() {
           <CardTitle>Restore into a new profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <Muted>
             Choose a backup and an unused profile name and vault path. Restore does not copy a vault
             or touch existing profiles. Restart Mesa with the new profile to open it.
-          </p>
+          </Muted>
           <div className="space-y-1">
             <Label htmlFor="backup-file">Backup file</Label>
             <div className="flex gap-2">

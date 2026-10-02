@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { type RefObject, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { SectionLabel } from '@/components/SectionLabel';
 import { Input } from '@/components/ui/input';
 import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
 import { cn } from '@/lib/utils';
@@ -80,9 +81,7 @@ export function FileTree(props: {
   return (
     <>
       <div className="flex shrink-0 items-center gap-0.5 px-3 pt-2">
-        <h3 className="flex-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Files
-        </h3>
+        <SectionLabel className="flex-1">Files</SectionLabel>
         <IconButton
           label="Reveal open file"
           icon={LocateFixed}

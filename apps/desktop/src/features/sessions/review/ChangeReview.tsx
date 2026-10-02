@@ -6,6 +6,7 @@ import type {
 } from '@mesa/core';
 import { Send } from 'lucide-react';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -140,9 +141,9 @@ export function ChangeReview({
               Staged
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <Muted size="xs">
             {change.baseKind} {change.base.slice(0, 12)} · Patch {change.source.slice(0, 12)}
-          </p>
+          </Muted>
           {change.hunks.length === 0 && (
             <p className="text-muted-foreground">No text hunks in this diff.</p>
           )}

@@ -1,6 +1,7 @@
 import type { GuardrailCheck, NativeResponse, ResponseReviewPreview } from '@mesa/core';
 import { Copy, RefreshCw, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { type Message, said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -163,9 +164,7 @@ export function ResponseReview({
             <p className="text-muted-foreground">No native responses yet.</p>
           )}
           {responses.data?.truncated && (
-            <p className="text-xs text-muted-foreground">
-              Showing recent transcript responses only.
-            </p>
+            <Muted size="xs">Showing recent transcript responses only.</Muted>
           )}
           {Boolean(responses.data?.reviews.length) && (
             <section aria-label="Saved review comments" className="space-y-1 rounded border p-2">
@@ -213,10 +212,10 @@ export function ResponseReview({
           </div>
           {selected && (
             <div className="space-y-3 border-t pt-3">
-              <p className="text-xs text-muted-foreground">
+              <Muted size="xs">
                 {selected.agent} response {selected.source.slice(0, 12)}
                 {selected.truncated ? ' (text truncated)' : ''}
-              </p>
+              </Muted>
               <Label htmlFor="review-response-text">Select a passage to review</Label>
               <Textarea
                 id="review-response-text"
@@ -231,9 +230,7 @@ export function ResponseReview({
                   setPreview(undefined);
                 }}
               />
-              <p className="text-xs text-muted-foreground">
-                Selected characters: {range.end - range.start}
-              </p>
+              <Muted size="xs">Selected characters: {range.end - range.start}</Muted>
               <Label htmlFor="review-comment">Comment</Label>
               <Textarea
                 id="review-comment"

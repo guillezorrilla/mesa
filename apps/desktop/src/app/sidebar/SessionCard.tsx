@@ -9,6 +9,7 @@ import {
 import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../useStartSession';
+import { HoverAction } from './HoverAction';
 import { SessionActionsMenu } from './SessionActionsMenu';
 
 /**
@@ -79,19 +80,17 @@ export function SessionCard(props: {
         )}
       </button>
       {session.managed && session.project !== GENERAL_PROJECT && (
-        <button
-          type="button"
+        <HoverAction
           aria-label={`New child session from ${sessionTitle(session)} (${session.id})`}
-          className="pointer-events-none absolute -left-2.5 top-2 rounded-full border bg-card p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+          className="-left-2.5 rounded-full border bg-card"
           onClick={() => props.onNewSession?.(session.project, 'worktree', session.id)}
         >
           <Plus aria-hidden className="size-3.5" />
-        </button>
+        </HoverAction>
       )}
-      <button
-        type="button"
+      <HoverAction
         aria-label={`${compact ? 'Expand' : 'Compact'} ${sessionTitle(session)} card`}
-        className="pointer-events-none absolute right-8 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+        className="right-8"
         onClick={props.onToggleCompact}
       >
         {compact ? (
@@ -99,17 +98,16 @@ export function SessionCard(props: {
         ) : (
           <ChevronsUp aria-hidden className="size-3.5" />
         )}
-      </button>
+      </HoverAction>
       {session.managed && (
         <>
-          <button
-            type="button"
+          <HoverAction
             aria-label={`Archive ${sessionTitle(session)} (${session.id})`}
-            className="pointer-events-none absolute right-2 top-2 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+            className="right-2"
             onClick={() => props.onArchiveSession?.(session.id)}
           >
             <X aria-hidden className="size-3.5" />
-          </button>
+          </HoverAction>
           <SessionActionsMenu
             session={session}
             onNewSession={props.onNewSession}

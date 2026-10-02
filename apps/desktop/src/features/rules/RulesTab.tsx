@@ -1,6 +1,7 @@
 import type { RuleRow, WorkspaceFile } from '@mesa/core';
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,9 +62,7 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
     <section data-testid="rules-workspace" className="space-y-5">
       <div>
         <h3 className="text-base font-semibold">Rules</h3>
-        <p className="text-xs text-muted-foreground">
-          Native instruction files from your project, profile, and providers.
-        </p>
+        <Muted size="xs">Native instruction files from your project, profile, and providers.</Muted>
       </div>
       <fieldset className="flex gap-1">
         <legend className="sr-only">Rule scope</legend>
@@ -98,13 +97,13 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
                   </Badge>
                 </div>
                 <p className="truncate text-xs text-muted-foreground">{row.path}</p>
-                <p className="text-xs text-muted-foreground">{row.providers.join(', ')}</p>
+                <Muted size="xs">{row.providers.join(', ')}</Muted>
               </CardContent>
             </Card>
           </button>
         ))}
       </div>
-      {visible.length === 0 && <p className="text-sm text-muted-foreground">No rules found.</p>}
+      {visible.length === 0 && <Muted>No rules found.</Muted>}
       {selected && opened && (
         <section className="space-y-3 rounded-lg border bg-card/35 p-4" aria-label="Rule details">
           <div className="flex items-center gap-2">

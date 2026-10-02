@@ -1,6 +1,7 @@
 import type { SavedPrompt } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -101,9 +102,7 @@ export function SavedPromptsScreen(props: { prompts?: SavedPrompt[]; onChanged: 
             </CardContent>
           </Card>
         ))}
-        {props.prompts?.length === 0 && (
-          <p className="text-sm text-muted-foreground">No saved prompts.</p>
-        )}
+        {props.prompts?.length === 0 && <Muted>No saved prompts.</Muted>}
       </div>
       {remove && (
         <ActionDialog

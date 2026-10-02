@@ -2,6 +2,7 @@ import type { ManagedRow, TreeRow } from '@mesa/core';
 import { contextPercent, duration, sessionBranch, sessionTitle } from '@mesa/core/browser';
 import { Clock3, GitBranch } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { SectionLabel } from '@/components/SectionLabel';
 import { Badge } from '@/components/ui/badge';
 import { exited, queued } from '@/features/sessions/rows';
 import { StateBadge } from '@/features/sessions/StateBadge';
@@ -17,12 +18,12 @@ export function ActiveSessions(props: {
   const activeSessions = props.sessions.filter((s) => !exited(s) || queued(s));
   return (
     <section className="space-y-3">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <SectionLabel>
         Active{' '}
         <Badge variant="secondary" className="ml-1 bg-state-idle/20 text-state-idle">
           {activeSessions.length}
         </Badge>
-      </h3>
+      </SectionLabel>
       <div className="flex max-w-[960px] flex-wrap gap-3">
         {activeSessions.map((session) => (
           <button

@@ -1,5 +1,6 @@
 import type { GitComparison } from '@mesa/core';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -50,9 +51,7 @@ export function GitHistory(props: {
           ))}
         </NativeSelect>
       </div>
-      {graph.data?.rows.length === 0 && (
-        <p className="text-sm text-muted-foreground">No commits.</p>
-      )}
+      {graph.data?.rows.length === 0 && <Muted>No commits.</Muted>}
       <ul className="max-h-80 overflow-auto font-mono text-xs" aria-label="Commits">
         {graph.data?.rows.map((row, index) => (
           <li
@@ -75,9 +74,9 @@ export function GitHistory(props: {
         ))}
       </ul>
       {graph.data && (
-        <p className="text-xs text-muted-foreground">
+        <Muted size="xs">
           Showing {graph.data.commits} of at most 100 commits. Select a commit to compare it.
-        </p>
+        </Muted>
       )}
       <form
         className="flex flex-wrap gap-2"
@@ -119,7 +118,7 @@ export function GitHistory(props: {
               {comparison.patch}
             </pre>
           ) : (
-            <p className="text-sm text-muted-foreground">No file changes between these refs.</p>
+            <Muted>No file changes between these refs.</Muted>
           )}
         </section>
       )}

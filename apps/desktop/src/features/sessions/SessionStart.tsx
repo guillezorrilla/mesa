@@ -1,6 +1,7 @@
 import type { ProjectRow } from '@mesa/core';
 import { FolderPlus, Send } from 'lucide-react';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,7 +44,7 @@ export function SessionStart(props: {
           </Button>
         </div>
       ) : !projects ? (
-        <p className="text-sm text-muted-foreground">Loading projects...</p>
+        <Muted>Loading projects...</Muted>
       ) : projects.length === 0 ? (
         <Button
           data-testid="empty-add-project"

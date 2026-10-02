@@ -1,4 +1,5 @@
 import { ExternalLink, RefreshCw } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { useCommand, useRun } from '@/lib/useCommand';
 
@@ -75,10 +76,10 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
                   {odds}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
+              <Muted size="xs">
                 {entry.receipt.started} · {entry.receipt.status}
                 {entry.receipt.actor ? ` · by ${entry.receipt.actor}` : ''} · {target}
-              </p>
+              </Muted>
             </div>
             <Button
               size="sm"

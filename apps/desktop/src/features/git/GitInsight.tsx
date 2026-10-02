@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCommand } from '@/lib/useCommand';
@@ -31,7 +32,7 @@ export function GitInsight(props: { project: string; checkout?: string }) {
           <p>
             {local.changedFiles} changed files, {local.worktrees} linked checkouts
           </p>
-          <p className="text-xs text-muted-foreground">Local Git, observed {local.observedAt}</p>
+          <Muted size="xs">Local Git, observed {local.observedAt}</Muted>
           {local.recent.map((commit) => (
             <p key={commit.oid} className="truncate text-xs" title={commit.subject}>
               <span className="font-mono text-muted-foreground">{commit.oid.slice(0, 7)}</span>{' '}
@@ -45,10 +46,10 @@ export function GitInsight(props: { project: string; checkout?: string }) {
           <p>
             Pull requests <Badge variant="outline">{prs.availability}</Badge>
           </p>
-          <p className="text-xs text-muted-foreground">
+          <Muted size="xs">
             GitHub CLI{prs.version ? ` ${prs.version}` : ''}, observed {prs.observedAt}. Session
             links match branch names only.
-          </p>
+          </Muted>
           {prs.availability === 'available' && !prs.searched && (
             <p>No session worktree branches to check.</p>
           )}
@@ -70,7 +71,7 @@ export function GitInsight(props: { project: string; checkout?: string }) {
               <p className="font-mono text-xs text-muted-foreground">
                 {pr.branch} - sessions {pr.sessionIds.join(', ')}
               </p>
-              <p className="text-xs text-muted-foreground">Updated {pr.updatedAt}</p>
+              <Muted size="xs">Updated {pr.updatedAt}</Muted>
               <a
                 className="break-all text-xs text-primary underline"
                 href={pr.url}
@@ -81,14 +82,10 @@ export function GitInsight(props: { project: string; checkout?: string }) {
               </a>
             </div>
           ))}
-          {prs.limited && (
-            <p className="text-xs text-muted-foreground">Only the latest 100 PRs were checked.</p>
-          )}
+          {prs.limited && <Muted size="xs">Only the latest 100 PRs were checked.</Muted>}
         </div>
       )}
-      {!insight.data && insight.busy && (
-        <p className="text-sm text-muted-foreground">Reading repository insight...</p>
-      )}
+      {!insight.data && insight.busy && <Muted>Reading repository insight...</Muted>}
     </section>
   );
 }

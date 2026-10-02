@@ -1,6 +1,7 @@
 import type { ConversationSearch, NativeHistoryRow } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,10 +74,10 @@ export function NativeHistory(props: { project: string; onSession: (id: string) 
       </form>
       {matches && (
         <div data-testid="native-history-results" className="space-y-1 border-b pb-2">
-          <p className="text-xs text-muted-foreground">
+          <Muted size="xs">
             {matches.hits.length} matches in {matches.filesSearched} conversations
             {matches.truncated ? ' · partial results' : ''}
-          </p>
+          </Muted>
           {matches.hits.map((hit) => (
             <button
               key={`${hit.agent}:${hit.id}:${hit.at}:${hit.excerpt}`}
@@ -131,9 +132,9 @@ export function NativeHistory(props: { project: string; onSession: (id: string) 
         <p className="text-muted-foreground">No native conversations found in this checkout.</p>
       )}
       {history.data && history.data.total > history.data.rows.length && (
-        <p className="text-xs text-muted-foreground">
+        <Muted size="xs">
           Showing the newest {history.data.rows.length} of {history.data.total}.
-        </p>
+        </Muted>
       )}
       {history.data?.unsupported.map((item) => (
         <p key={item.agent} className="text-xs text-muted-foreground">

@@ -1,5 +1,6 @@
 import type { UsageReport } from '@mesa/core';
 import { useState } from 'react';
+import { SectionLabel } from '@/components/SectionLabel';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { cn } from '@/lib/utils';
 import { compact, dayLabel, modelKey, money, SERIES, seriesColor } from './format';
@@ -78,9 +79,7 @@ export function UsageChart(props: {
     <section className="rounded-lg border bg-background p-4" aria-label="Daily usage chart">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Daily {props.mode === 'cost' ? 'cost' : 'tokens'}
-          </h3>
+          <SectionLabel>Daily {props.mode === 'cost' ? 'cost' : 'tokens'}</SectionLabel>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {format(total)} over {props.days} days
           </p>

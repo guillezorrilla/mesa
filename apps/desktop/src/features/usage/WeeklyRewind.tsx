@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { compact, money } from './format';
@@ -27,19 +28,18 @@ function RewindBody(props: { onSession: (id: string) => void }) {
   const rewind = useCommand('rewind.week');
   const run = useRun();
   const data = rewind.data;
-  if (!data)
-    return <p className="text-xs text-muted-foreground">{rewind.busy ? 'Loading...' : ''}</p>;
+  if (!data) return <Muted size="xs">{rewind.busy ? 'Loading...' : ''}</Muted>;
   return (
     <div
       data-testid="weekly-rewind"
       className="space-y-3 rounded-lg border bg-background p-4 text-sm"
     >
-      <p className="text-xs text-muted-foreground">
+      <Muted size="xs">
         {data.from} to {data.through} ({data.timezone}). Seven local calendar days:{' '}
         {data.notes.length} meaningful notes, {data.sessions.length} ended sessions,{' '}
         {compact(data.usage.input)} input and {compact(data.usage.output)} output tokens,{' '}
         {money(data.usage.estimatedCostUsd)} estimated.
-      </p>
+      </Muted>
       <div className="max-h-64 space-y-2 overflow-y-auto">
         {data.notes.map((note) => (
           <div key={note.id}>
@@ -50,9 +50,9 @@ function RewindBody(props: { onSession: (id: string) => void }) {
             >
               {note.summary}
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <Muted size="xs">
               {note.kind} · {note.path}
-            </p>
+            </Muted>
           </div>
         ))}
         {data.sessions.map((session) => (
@@ -64,9 +64,9 @@ function RewindBody(props: { onSession: (id: string) => void }) {
             >
               {session.name}
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <Muted size="xs">
               {session.project} · {session.agent} · {session.state}
-            </p>
+            </Muted>
           </div>
         ))}
       </div>

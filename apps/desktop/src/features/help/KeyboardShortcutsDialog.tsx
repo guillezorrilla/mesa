@@ -3,6 +3,7 @@ import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { Keyboard, Pencil, X } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { SectionLabel } from '@/components/SectionLabel';
 import { said } from '@/components/Toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
@@ -62,9 +63,7 @@ export function KeyboardShortcutsDialog(props: {
         </div>
         <div className="grid max-h-[70vh] gap-8 overflow-y-auto p-5 sm:grid-cols-2">
           <section aria-label="Global">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Global
-            </h3>
+            <SectionLabel className="mb-3">Global</SectionLabel>
             {CUSTOM.map(({ key, label }) => (
               <CustomShortcut
                 key={key}
@@ -79,9 +78,7 @@ export function KeyboardShortcutsDialog(props: {
             <ShortcutRow label="Keyboard shortcuts" shortcut={FIXED_SHORTCUTS.keyboardShortcuts} />
           </section>
           <section aria-label="Project view">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Project view
-            </h3>
+            <SectionLabel className="mb-3">Project view</SectionLabel>
             {PROJECT.map(([label, shortcut]) => (
               <ShortcutRow key={label} label={label} shortcut={shortcut} />
             ))}

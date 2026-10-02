@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { useMatches } from './useMatches';
 
@@ -32,9 +33,7 @@ export function SettingRow(props: {
           >
             {props.title}
           </label>
-          {props.description && (
-            <p className="text-xs text-muted-foreground">{props.description}</p>
-          )}
+          {props.description && <Muted size="xs">{props.description}</Muted>}
         </div>
         {props.control && <div className="shrink-0">{props.control}</div>}
       </div>
