@@ -11,6 +11,7 @@ import { AgentSettings } from './AgentSettings';
 import { CATEGORIES, type SettingsCategory } from './categories';
 import { GeneralSettings } from './GeneralSettings';
 import { NotificationSettings } from './NotificationSettings';
+import { ProjectSettings } from './ProjectSettings';
 import { SessionSettings } from './SessionSettings';
 import { SettingsQuery } from './SettingRow';
 import { TerminalEditorSettings } from './TerminalEditorSettings';
@@ -90,6 +91,7 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
       sessions: <SessionSettings onSavedPrompts={() => go('prompts')} />,
       terminal: <TerminalEditorSettings onShortcuts={() => go('shortcuts')} />,
       git: <WorktreeSettings />,
+      projects: <ProjectSettings onChanged={props.onChanged} />,
       notifications: <NotificationSettings />,
       agents: <AgentSettings doctor={props.doctor} />,
       advanced: <AdvancedSettings onBackup={() => go('backup')} onUsage={() => go('usage')} />,

@@ -37,20 +37,40 @@ export function writeYaml(
   return true;
 }
 
-/** Sets one dotted path, keeping comments. The file is rewritten only when the result validates. */
+/** The value at a dotted path (`worktrees.fetch`) in parsed data; undefined when it has none. */
+export const valueAt = (data: unknown, dotted: string): unknown =>
+  dotted.split('.').reduce<unknown>((node, k) => (node as Record<string, unknown>)?.[k], data);
+
+/**
+ * Sets one dotted path, or removes it when `value` is undefined, keeping comments and the order of
+ * the other keys. The file is rewritten only when the result validates.
+ */
 export function setYamlPath<T>(
   file: string,
   schema: z.ZodType<T>,
   dotted: string,
   value: unknown,
+  /** Throws to refuse the validated result, before anything is written. */
+  check?: (next: T) => void,
 ): T {
   const doc = readDocument(file);
   const keys = dotted.split('.');
-  doc.setIn(keys, value);
-  // A map written as `{}` stays a flow map when it gains entries; write it as a block instead.
-  const parent = doc.getIn(keys.slice(0, -1), true);
-  if (isMap(parent)) parent.flow = false;
+  if (value === undefined) {
+    if (doc.hasIn(keys)) doc.deleteIn(keys);
+    // A map the removal leaves empty goes too, so no `worktrees: {}` stays behind.
+    for (let depth = keys.length - 1; depth > 0; depth--) {
+      const parent = doc.getIn(keys.slice(0, depth), true);
+      if (!isMap(parent) || parent.items.length) break;
+      doc.deleteIn(keys.slice(0, depth));
+    }
+  } else {
+    doc.setIn(keys, value);
+    // A map written as `{}` stays a flow map when it gains entries; write it as a block instead.
+    const parent = doc.getIn(keys.slice(0, -1), true);
+    if (isMap(parent)) parent.flow = false;
+  }
   const next = parseWith(schema, doc.toJS(), file);
+  check?.(next);
   // The new file keeps the old one's mode: config.yaml holds keys, so it stays 0600.
   writeFileAtomic(file, doc.toString(), statSync(file).mode & 0o777);
   return next;

@@ -183,6 +183,14 @@ export function SessionsScreen(
   const selected = data?.find((row) => row.id === props.selectedSession);
   const messageActions =
     props.terminalPreferences?.messageActions ?? DEFAULT_TERMINAL_PREFERENCES.messageActions;
+  // A session's terminal takes its project's theme, which is the profile's unless mesa.yaml overrides it.
+  const terminalPreferences = (id: string) => {
+    const project = data?.find((row) => row.id === id)?.project;
+    const theme = props.projects?.find((row) => row.name === project)?.terminalTheme;
+    return props.terminalPreferences && theme
+      ? { ...props.terminalPreferences, theme }
+      : props.terminalPreferences;
+  };
   const promptField = useRef<HTMLTextAreaElement>(null);
   const actionsMenu = useRef<HTMLDetailsElement>(null);
   const handledPromptInsert = useRef<typeof props.promptInsertRequest>(undefined);
@@ -983,7 +991,7 @@ export function SessionsScreen(
           >
             <TerminalPanel
               sessionId={id}
-              preferences={props.terminalPreferences}
+              preferences={terminalPreferences(id)}
               onFileLink={props.onFileLink}
               onWebLink={(session, url) => {
                 setPendingBrowser({ session, url });

@@ -157,5 +157,10 @@ export {
 export { DEFAULT_GOALS, type SessionGoal } from './vault/session-goals.js';
 export type { DecisionInput, NoteInput, Saved, SummaryInput } from './vault/session-writes.js';
 export type { VaultStatus } from './vault/vault.js';
+export {
+  describePending,
+  type PendingScripts,
+  trustCommand,
+} from './worktrees/approval.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
 export type { WorktreeAction, WorktreePreview } from './worktrees/lifecycle.js';
