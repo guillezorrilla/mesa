@@ -4,7 +4,7 @@ import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { useMatches } from './useMatches';
 
-/** One setting as the reference app shows it: icon, title, what it does, and its control on the right. */
+/** One setting row: icon, title, what it does, and its control on the right. */
 export function SettingRow(props: {
   title: string;
   description?: ReactNode;

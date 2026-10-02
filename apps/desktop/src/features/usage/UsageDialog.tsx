@@ -12,7 +12,7 @@ import { UsageScope } from './UsageScope';
 import { UsageStatCards } from './UsageStatCards';
 import { WeeklyRewind } from './WeeklyRewind';
 
-/** the reference app's Usage & Estimated Costs window, over the same `mesa usage` report as the CLI. */
+/** The Usage & Estimated Costs window, over the same `mesa usage` report as the CLI. */
 export function UsageDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;

@@ -11,7 +11,7 @@ import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 
-/** The profile's shortcuts, each customizable; the order the reference app lists its global ones in. */
+/** The profile's shortcuts, each customizable, global ones in a fixed order. */
 const CUSTOM: { key: keyof Shortcuts; label: string }[] = [
   { key: 'search', label: 'Command palette' },
   { key: 'newSession', label: 'New session' },

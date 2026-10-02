@@ -140,7 +140,7 @@ test('Clear all asks first, then clears the whole center in one call', async () 
   expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications');
 });
 
-test('notice times read as the reference app writes them', () => {
+test('notice times read as relative times', () => {
   const now = Date.parse('2026-09-30T12:00:00.000Z');
   expect(timeAgo('2026-09-30T11:59:40.000Z', now)).toBe('just now');
   expect(timeAgo('2026-09-30T11:15:00.000Z', now)).toBe('45m ago');

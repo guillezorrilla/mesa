@@ -3,7 +3,7 @@ import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import type { WorktreeRow } from './inventory.js';
 
-/** What a Worktree card shows beyond Git's inventory, as the reference app's does. */
+/** What a Worktree card shows beyond Git's inventory. */
 export type WorktreeDetails = {
   /** Uncommitted work: index changes, working-tree changes, and untracked files. */
   changes?: { staged: number; modified: number; untracked: number };

@@ -23,7 +23,7 @@ import { WorktreeSettings } from './WorktreeSettings';
 /** Screens the settings window hands off to; it closes first. */
 export type SettingsDestination = 'doctor' | 'prompts' | 'shortcuts' | 'backup' | 'usage';
 
-/** the reference app's Settings window: the profile, a searchable category tree, and each category's rows. */
+/** The Settings window: the profile, a searchable category tree, and each category's rows. */
 export function SettingsDialog(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;

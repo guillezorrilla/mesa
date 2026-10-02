@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
 
-/** The header's help menu, as the reference app's: keyboard shortcuts and Mesa's command reference. */
+/** The header's help menu: keyboard shortcuts and Mesa's command reference. */
 export function HelpMenu(props: { onShortcuts: () => void; onReference: () => void }) {
   return (
     <DropdownMenu>

@@ -57,7 +57,7 @@ Evidence: `apps/desktop/src/App.test.tsx` "a confirmation is neutral, shows ever
 
 ## Amendment 2026-09-27: workspace navigation replaces the Run skill and Receipts screens (#268)
 
-The #33 screens above described the earlier five-screen app. The the reference app parity brief for #268 changes that navigation: the app now opens with a project and session workspace, a Search Mesa palette, and Board/Grid views. The Run skill dialog and top-level Receipts screen are removed from the app. Skills still run through session terminal invocation and the core/CLI APIs; receipts remain available through core and `mesa receipts`. Shared shadcn components and the theme decision remain in force.
+The #33 screens above described the earlier five-screen app. The workspace brief for #268 changes that navigation: the app now opens with a project and session workspace, a Search Mesa palette, and Board/Grid views. The Run skill dialog and top-level Receipts screen are removed from the app. Skills still run through session terminal invocation and the core/CLI APIs; receipts remain available through core and `mesa receipts`. Shared shadcn components and the theme decision remain in force.
 
 ## Amendment 2026-09-27: knowledge stays in project and session context (#274)
 
@@ -65,4 +65,4 @@ Project and session workspaces show filtered decision, guardrail, and vault-chan
 
 ## Amendment 2026-09-28: session selection and archive action (#265)
 
-The the reference app-style sidebar uses the existing warm `--ring` interaction accent for the selected tab and session, and the archive confirmation uses it with a dark foreground token. Session state badges still use the `--state-*` tokens; waiting remains the only warm state. App menus use the shared shadcn DropdownMenu primitive.
+The workspace sidebar uses the existing warm `--ring` interaction accent for the selected tab and session, and the archive confirmation uses it with a dark foreground token. Session state badges still use the `--state-*` tokens; waiting remains the only warm state. App menus use the shared shadcn DropdownMenu primitive.

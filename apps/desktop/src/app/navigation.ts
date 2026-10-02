@@ -23,7 +23,7 @@ export type WorkspaceView =
   | { kind: 'project'; name: string; file?: { checkout: string; path: string; line: number } }
   | { kind: 'session'; id: string };
 
-/** Usage and Notifications open over the current view, as the reference app's dialog and menu do. */
+/** Usage and Notifications open over the current view, as a dialog and a menu. */
 export type Overlay = 'usage' | 'inbox' | 'settings' | 'shortcuts';
 
 /** The command palette's action and setting ids that open the view of the same kind. */

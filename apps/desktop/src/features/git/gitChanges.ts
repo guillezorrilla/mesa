@@ -10,7 +10,7 @@ export type GitSection = {
 /** Which row is open: a path can be listed twice, once staged and once not. */
 export type GitSelection = { path: string; staged: boolean };
 
-/** the reference app's glyph and tone for a porcelain status letter. */
+/** The glyph and tone for a porcelain status letter. */
 const GLYPH: Record<string, [string, string]> = {
   M: ['~', 'text-state-waiting'],
   A: ['+', 'text-state-idle'],

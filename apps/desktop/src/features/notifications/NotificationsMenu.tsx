@@ -10,7 +10,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { ClearNotificationsDialog } from './ClearNotificationsDialog';
 import { NotificationRow } from './NotificationRow';
 
-/** The bell and its dropdown of notices, newest first, as the reference app's notifications menu. */
+/** The bell and its dropdown of notices, newest first. */
 export function NotificationsMenu(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;

@@ -25,7 +25,7 @@ export const SERVER_OPTIONS = [
   ['-g', 'remain-on-exit', 'on'],
   ['-g', 'history-limit', '10000'],
   ['-g', 'default-terminal', 'tmux-256color'],
-  // The app's embedded terminal (ADR-0007 amendment, SP-3), as the reference app sets its sessions: the wheel
+  // The app's embedded terminal (ADR-0007 amendment, SP-3): the wheel
   // scrolls tmux's history instead of sending arrow keys to the agent, and no status row. A
   // copy goes out as OSC 52 (to the app) and, through COPY_BINDINGS, to pbcopy.
   // ponytail: no allow-passthrough (pane output could write the pasteboard) and no RGB claim

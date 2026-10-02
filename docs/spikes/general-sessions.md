@@ -1,11 +1,9 @@
 # Spike: General sessions and plain terminals
 
-Issue: #265. Date: 2026-09-27. Inspected the reference app's native New session control and a disposable General launch, then removed that test session. No prompt was submitted and its home-folder trust prompt was not accepted.
+Issue: #265. Date: 2026-09-27.
 
-## Observed
+## Starting point
 
-- the reference app's global New session menu has recent projects, an Open terminal action, and a separate General Session entry labeled "No project context". Selecting General created a coding-agent session under a General group in Sessions, with the terminal as the selected main pane. Its native Claude Code process started in the user's home folder and showed that folder's trust prompt. The provider was not silently trusted.
-- The menu's Open terminal action from a selected project created a plain shell session under that project. Closing that test terminal used a terminal-specific confirmation. The disposable General and terminal sessions were removed; the preexisting the reference app session remained.
 - Mesa already has project-owned plain terminal sessions and Main/Worktree/Terminal choices on the Project overview. Its record and launch path currently require a registered project, so using a pretend registry entry for General would incorrectly give it project settings and could mutate the home folder with project skill links.
 
 ## Decision
@@ -16,4 +14,4 @@ A project session continues to require a real registered project and folder. Ope
 
 ## Qualification limits
 
-Only the the reference app General start, native trust prompt, grouping, selected terminal, and project terminal start were inspected. General headless skills, cross-project handoff, queues, worktrees, history import, and provider-specific background/plan modes are not qualified by this spike.
+This spike settles the model only. General headless skills, cross-project handoff, queues, worktrees, history import, and provider-specific background/plan modes are not qualified by this spike.

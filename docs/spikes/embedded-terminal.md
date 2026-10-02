@@ -48,19 +48,9 @@ Issue #8, run 2026-09-25 on macOS (Darwin 25.6), tmux 3.7c, Tauri 2.11, WKWebVie
 4. For the TUI, drive the pane from a shell: `tmux -L mesa-spike send-keys -t spike:0 'claude --permission-mode manual' Enter`. The run used `default`, which 2.1.283 accepted; `--help` lists `manual`. Then send a prompt that runs a Bash command, and the window shows the permission dialog. To check that closing the app leaves the agent running, quit the app and read `#{pane_current_command}`: it stayed `2.1.283`, with 0 clients.
 5. For the two-client sizes, run `(printf 'refresh-client -C 100x30\n'; sleep 3) | tmux -L mesa-spike -C attach -t spike` (add `-f ignore-size` for the other cases) and read `#{pane_width}x#{pane_height}`. The measured cases used 150x45 and 100x30 clients.
 
-## How the reference app does it, and the choice for #28
+## The choice for #28
 
-the reference app 0.40.0 (`/Applications/the reference app.app`, the owner's Electron app) runs each agent in its own tmux session and shows it the same way this spike does. The owner asked for this comparison; it was read from the app bundle's code, and the reference app was not launched.
-
-| Part | the reference app |
-| --- | --- |
-| Attach | `node-pty` runs `tmux -u attach -t <session>` with `TERM=xterm-256color` at the view's cols and rows, with no `-f ignore-size`. |
-| Renderer | xterm.js with its WebGL renderer, in the dashboard bundle. |
-| Size | After each fit, `tmux resize-window -t <session> -x <cols> -y <rows> ; set-option -w -t <session> -u window-size`. The window takes the view's size, and the unset returns it to the default policy instead of leaving `resize-window`'s `manual` pin. |
-| Session options | `mouse on`; `status off`; `history-limit 50000`; `allow-passthrough on`; `set-clipboard external`, so tmux sends copies to the outer terminal as OSC 52; copy-mode mouse bindings that keep copy mode after a drag (`copy-pipe-no-clear`); `terminal-features 'xterm*:hyperlinks'` for OSC 8 links. |
-| Exit | A `pane-died` hook writes the pane's last 100 lines and its exit status to files, then kills the session. |
-
-**Choice for #28: the same mix.** tmux keeps the session, the screen history, and the size. A pty attach streams it to xterm.js, which renders and takes input. the reference app's setup answers this spike's problems one for one:
+**tmux keeps the session, the screen history, and the size; a pty attach streams it to xterm.js, which renders and takes input.** These tmux options answer this spike's problems one for one:
 
 - `mouse on` fixes the wheel sending arrow keys (gotcha 4).
 - `status off` makes the pane match xterm exactly (gotcha 2), and it also hides the kitty-probe pane title (gotcha 7).
@@ -79,9 +69,9 @@ Rendering that capture as styled text would drop cursor, mouse, and scrollback f
 
 1. **Emit base64, not byte arrays.** Byte arrays serialise as JSON numbers, and in the one run per mode they delivered a tenth of the bytes in the same time. Decode with `Uint8Array.from(atob(s), c => c.charCodeAt(0))` and write the `Uint8Array` to xterm.
 2. **Turn the status line off for the embedded view, or budget one row for it.** With `status off`, the pane matched xterm exactly. With it on, xterm rows 44 give a pane of 43.
-3. **`-f ignore-size` does not stop the app and a terminal fighting.** When every attached client is `ignore-size` (the app, plus `mesa attach` in the user's Terminal), tmux ignores the flag and the latest client sizes the window. #28 sizes explicitly, as the reference app does: `resize-window -x -y` after each fit, then `set -w -u window-size`. The intent is that the last view to resize wins, since that is the one in use. It was not measured with two clients, so #28 checks it. ADR-0001 and ADR-0007 are amended to match.
+3. **`-f ignore-size` does not stop the app and a terminal fighting.** When every attached client is `ignore-size` (the app, plus `mesa attach` in the user's Terminal), tmux ignores the flag and the latest client sizes the window. #28 sizes explicitly: `resize-window -x -y` after each fit, then `set -w -u window-size`. The intent is that the last view to resize wins, since that is the one in use. It was not measured with two clients, so #28 checks it. ADR-0001 and ADR-0007 are amended to match.
 4. **Set `mouse on`, or the wheel sends arrow keys to the agent.** On tmux's alternate screen xterm has no scrollback, so the wheel becomes Up and Down keys. With `mouse on`, tmux takes the wheel into copy mode. This also changes the user's Terminal attach.
-5. **The clipboard goes through Rust.** The web clipboard API and `execCommand('copy')` are refused in WKWebView. With `mouse on`, copies come from tmux copy mode, and `set-clipboard external` (the default; a server option) forwards them as OSC 52. Register an OSC 52 handler in xterm that calls a Rust command to write the pasteboard. the reference app's handler calls `navigator.clipboard`, which works in Electron but not in WKWebView. Paste comes from a Rust read, then `term.paste`. Not built in the spike.
+5. **The clipboard goes through Rust.** The web clipboard API and `execCommand('copy')` are refused in WKWebView. With `mouse on`, copies come from tmux copy mode, and `set-clipboard external` (the default; a server option) forwards them as OSC 52. Register an OSC 52 handler in xterm that calls a Rust command to write the pasteboard. Paste comes from a Rust read, then `term.paste`. Not built in the spike.
 6. **Keep TERM in the pane.** An env-cleared shell reads `TERM=dumb`, and Claude then draws in monochrome. Mesa's windows inherit `tmux-256color` from `default-terminal`, which gives the 256-colour palette. For the real palette, set `COLORTERM=truecolor` in the window (`new-window -e`) and add `terminal-features ',xterm-256color:RGB'`. That last step was not tried.
 7. **Claude probes the kitty graphics protocol, and through tmux the probe shows up as the pane title.** The status line read `"Gi=31,s=1,v=1,a=q,t=d"` until Claude set its own title. With the status line off (gotcha 2) it is not shown. Otherwise set `allow-set-title off` for Mesa's windows, or leave `#{pane_title}` out of the status line.
 8. **Kill only the client on close.** `child.kill()` on the portable-pty child ends `tmux attach`. When the app quit, Claude kept running in its pane (`2.1.283`, 0 clients) and the window stayed.

@@ -19,7 +19,7 @@ export type SessionPreset = {
 };
 
 /**
- * `requestNewSession` starts a session at once, as the reference app does: no dialog, and no agent, so
+ * `requestNewSession` starts a session at once: no dialog, and no agent, so
  * `mesa open` takes the project's, else the profile default. With no project named, the one in
  * view, else the first that exists. Once it opens, it is shown through `navigateLatest`.
  * `starting` lists the sessions starting, by project (GENERAL_PROJECT for General): the sidebar

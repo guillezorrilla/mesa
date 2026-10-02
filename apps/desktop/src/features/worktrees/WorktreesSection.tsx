@@ -11,7 +11,7 @@ import { WorktreeDialog } from './WorktreeDialog';
 import { nameOf } from './worktreeName';
 
 /**
- * A project's Worktrees, as the reference app's: a card per checkout whose hover actions start a session in it,
+ * A project's Worktrees: a card per checkout whose hover actions start a session in it,
  * recycle it (reset for reuse, detached at the default branch), or remove it, each after the
  * guarded preview (CONTEXT.md, Worktree): a remove with local work lists it and asks Delete
  * anyway. Cleanup prunes missing registrations.

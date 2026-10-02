@@ -60,7 +60,7 @@ const type = async (id: string, text: string) => {
   await act(async () => field.dispatchEvent(new FocusEvent('focusout', { bubbles: true })));
 };
 
-test('the window lists the reference app categories and saves the default coding agent, claude by default', async () => {
+test('the window lists the setting categories and saves the default coding agent, claude by default', async () => {
   const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
   await render(bridge);
   expect(
