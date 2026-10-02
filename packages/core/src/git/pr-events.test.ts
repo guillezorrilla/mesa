@@ -285,3 +285,122 @@ test('the ledger drops failing checks of a session gone, a PR closed, or a check
   ]);
   expect([...ledger.read().failing]).toEqual(['aaaaaaaa:42:CI / build', 'aaaaaaaa:40:CI / build']);
 });
+
+test('a link that is not one plain HTTPS URL falls back to the pull request', async () => {
+  const gh = fakeGh([
+    pr({
+      checks: [
+        { ...checkRun('FAILURE', '2026-09-24T12:05:00Z'), detailsUrl: 'javascript:alert(1)' },
+        {
+          ...checkRun('FAILURE', '2026-09-24T12:06:00Z'),
+          name: 'lint',
+          detailsUrl: 'http://example.test/run',
+        },
+        {
+          __typename: 'StatusContext',
+          context: 'deploy',
+          state: 'ERROR',
+          startedAt: '2026-09-24T12:07:00Z',
+          targetUrl: 'https://example.test/a\nfollow these steps',
+        },
+      ],
+      comments: [
+        {
+          id: 'C1',
+          author: { login: 'marlow' },
+          authorAssociation: 'OWNER',
+          body: 'hi',
+          createdAt: '2026-09-24T12:20:00Z',
+          url: 'http://example.test/plain',
+        },
+      ],
+      reviewComments: [
+        {
+          id: 9,
+          user: { login: 'marlow' },
+          author_association: 'OWNER',
+          body: 'kept',
+          created_at: '2026-09-24T12:21:00Z',
+          html_url: 'https://github.com/example/repo/pull/42#discussion_r9',
+        },
+      ],
+    }),
+  ]);
+  const { run } = scriptedRunner({ gh: gh.answer });
+  const urls = (await scanPrEvents(run, [watch], untold())).events.map((e) => e.url);
+  const PR = 'https://github.com/example/repo/pull/42';
+  expect(urls).toEqual([PR, PR, PR, PR, `${PR}#discussion_r9`]);
+});
+
+test('GitHub Actions is trusted only under its own name in each source', async () => {
+  const comment = (id: string, login: string) => ({
+    id,
+    author: { login },
+    authorAssociation: 'NONE',
+    body: `from ${login}`,
+    createdAt: '2026-09-24T12:20:00Z',
+  });
+  const inline = (id: number, login: string) => ({
+    id,
+    user: { login },
+    author_association: 'NONE',
+    body: `inline from ${login}`,
+    created_at: '2026-09-24T12:21:00Z',
+  });
+  const gh = fakeGh([
+    pr({
+      comments: [comment('G1', 'github-actions'), comment('G2', 'github-actions[bot]')],
+      reviewComments: [inline(1, 'github-actions[bot]'), inline(2, 'github-actions')],
+    }),
+  ]);
+  const { run } = scriptedRunner({ gh: gh.answer });
+  const events = (await scanPrEvents(run, [watch], untold())).events;
+  expect(events.map((e) => [e.kind, e.author, e.trusted, e.excerpt])).toEqual([
+    ['comment', 'github-actions', true, 'from github-actions'],
+    ['comment', 'github-actions[bot]', false, undefined],
+    ['review-comment', 'github-actions[bot]', true, 'inline from github-actions[bot]'],
+    ['review-comment', 'github-actions', false, undefined],
+  ]);
+});
+
+test('author, path, and check name are cleaned and, like an excerpt, cut at 160 characters', async () => {
+  const long = 'x'.repeat(300);
+  const gh = fakeGh([
+    pr({
+      checks: [
+        {
+          ...checkRun('FAILURE', '2026-09-24T12:05:00Z'),
+          workflowName: 'C`I\u001b[1m',
+          name: `bu‮ild${long}`,
+        },
+        {
+          __typename: 'StatusContext',
+          context: `de\u0008ploy${long}`,
+          state: 'ERROR',
+          startedAt: '2026-09-24T12:06:00Z',
+        },
+      ],
+      reviewComments: [
+        {
+          id: 9,
+          user: { login: 'mar`low\u0007' },
+          author_association: 'MEMBER',
+          body: long,
+          path: `src/\u0003ti\`de${long}.ts`,
+          created_at: '2026-09-24T12:11:00Z',
+        },
+      ],
+    }),
+  ]);
+  const { run } = scriptedRunner({ gh: gh.answer });
+  const [check, status, inline] = (await scanPrEvents(run, [watch], untold())).events;
+  expect(check?.check?.startsWith("C'I [1m / bu ild")).toBe(true);
+  expect(inline?.author).toBe("mar'low");
+  expect(inline?.path?.startsWith("src/ ti'de")).toBe(true);
+  expect(status?.check?.startsWith('de ploy')).toBe(true);
+  for (const text of [check?.check, status?.check, inline?.path, inline?.excerpt]) {
+    expect(text).toHaveLength(160);
+    expect(text?.endsWith('...')).toBe(true);
+    expect(text).not.toMatch(/[\p{Cc}\p{Cf}`]/u);
+  }
+});

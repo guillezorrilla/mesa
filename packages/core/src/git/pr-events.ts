@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 import { type GhState, ghState } from './gh.js';
-import { listPullRequests, matchBranches, type PullRequest } from './pull-requests.js';
+import { HttpsUrl, listPullRequests, matchBranches, type PullRequest } from './pull-requests.js';
 
 // PR events (CONTEXT.md, PR event): what happened on the open pull request of a session's
 // branch since the session started, that Mesa has not forwarded into it yet. Read with `gh`
@@ -147,24 +147,36 @@ const clean = (text: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-/** Up to 160 characters of `text`, cleaned. */
-const excerptOf = (text: string) => {
+/** Up to 160 characters of `text`, cleaned: an excerpt, a check name, a path, a login. */
+const short = (text: string) => {
   const line = clean(text);
   return line.length > 160 ? `${line.slice(0, 157)}...` : line;
 };
 
+/** `value` when it is an HTTPS link as a pull request's must be, else `fallback`. */
+const linkOr = (value: string | null | undefined, fallback: string) =>
+  HttpsUrl.safeParse(value).success ? (value as string) : fallback;
+
 /** The associations whose text is forwarded: people who can push to the repository. */
 const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
-/** GitHub Actions, as GraphQL (`gh pr view`) and REST name it. */
-const CI_BOTS = new Set(['github-actions', 'github-actions[bot]']);
+/**
+ * GitHub Actions' login in each source: GraphQL (`gh pr view`) drops the `[bot]` a REST login
+ * keeps, and a person may hold the bare name only where REST shows it, so each is trusted only
+ * from its own source.
+ */
+export const CI_BOT = { graphql: 'github-actions', rest: 'github-actions[bot]' } as const;
 
 /** Who wrote a review or comment, and only a trusted author's text. */
-function authored(login: string | undefined, association: string | undefined, body: string) {
-  const trusted =
-    (login !== undefined && CI_BOTS.has(login)) || TRUSTED_ASSOCIATIONS.has(association ?? '');
-  const excerpt = trusted ? excerptOf(body) : '';
+function authored(
+  login: string | undefined,
+  association: string | undefined,
+  body: string,
+  bot: string,
+) {
+  const trusted = login === bot || TRUSTED_ASSOCIATIONS.has(association ?? '');
+  const excerpt = trusted ? short(body) : '';
   return {
-    ...(login ? { author: clean(login) } : {}),
+    ...(login ? { author: short(login) } : {}),
     trusted,
     ...(excerpt ? { excerpt } : {}),
   };
@@ -214,13 +226,13 @@ async function readActivity(
 const checkOf = (check: NonNullable<Activity['statusCheckRollup']>[number]) =>
   check.__typename === 'CheckRun'
     ? {
-        name: clean(check.workflowName ? `${check.workflowName} / ${check.name}` : check.name),
+        name: short(check.workflowName ? `${check.workflowName} / ${check.name}` : check.name),
         outcome: check.conclusion ?? '',
         at: check.completedAt,
         url: check.detailsUrl,
       }
     : {
-        name: clean(check.context),
+        name: short(check.context),
         outcome: check.state,
         at: check.startedAt,
         url: check.targetUrl,
@@ -246,7 +258,7 @@ function eventsFor(
   for (const check of activity.statusCheckRollup ?? []) {
     const run = checkOf(check);
     if (!run.at) continue;
-    const event = { ...base, check: run.name, at: run.at, url: run.url || pr.url };
+    const event = { ...base, check: run.name, at: run.at, url: linkOr(run.url, pr.url) };
     if (FAILED.has(run.outcome) && fresh(run.at)) {
       events.push({
         ...event,
@@ -271,7 +283,7 @@ function eventsFor(
       at: review.submittedAt,
       state: review.state,
       url: pr.url,
-      ...authored(review.author?.login, review.authorAssociation, review.body),
+      ...authored(review.author?.login, review.authorAssociation, review.body, CI_BOT.graphql),
     });
   }
   for (const comment of activity.comments) {
@@ -281,8 +293,8 @@ function eventsFor(
       kind: 'comment',
       id: id('comment', comment.id),
       at: comment.createdAt,
-      url: comment.url || pr.url,
-      ...authored(comment.author?.login, comment.authorAssociation, comment.body),
+      url: linkOr(comment.url, pr.url),
+      ...authored(comment.author?.login, comment.authorAssociation, comment.body, CI_BOT.graphql),
     });
   }
   for (const comment of activity.reviewComments) {
@@ -292,9 +304,9 @@ function eventsFor(
       kind: 'review-comment',
       id: id('review-comment', String(comment.id)),
       at: comment.created_at,
-      url: comment.html_url || pr.url,
-      ...(comment.path ? { path: clean(comment.path) } : {}),
-      ...authored(comment.user?.login, comment.author_association, comment.body),
+      url: linkOr(comment.html_url, pr.url),
+      ...(comment.path ? { path: short(comment.path) } : {}),
+      ...authored(comment.user?.login, comment.author_association, comment.body, CI_BOT.rest),
     });
   }
   return events.filter((event) => !told.delivered.has(event.id));

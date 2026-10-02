@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import type { Runner } from '../lib/process.js';
 
+/** A link Mesa shows or types: HTTPS, with no whitespace, control, or format character in it. */
+export const HttpsUrl = z
+  .url()
+  .refine((value) => URL.parse(value)?.protocol === 'https:', 'must use HTTPS')
+  .refine((value) => !/[\s\p{Cc}\p{Cf}]/u.test(value), 'must be one plain link');
+
 const PullRequestSchema = z.object({
   number: z.number().int(),
   title: z.string(),
-  url: z.url().refine((value) => new URL(value).protocol === 'https:', 'must use HTTPS'),
+  url: HttpsUrl,
   state: z.enum(['OPEN', 'CLOSED', 'MERGED']),
   isDraft: z.boolean(),
   headRefName: z.string(),
