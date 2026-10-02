@@ -64,6 +64,10 @@ const certainty = (a: Answer) =>
       ? a.confidence
       : 1;
 
+/** The rules are unsure: their least sure answer is below `decisions.threshold` (ADR-0003). */
+export const unsure = (answers: readonly Answer[], profile: FaroProfile) =>
+  Math.min(...answers.map(certainty)) < profile.decisions.threshold;
+
 const Reply = z.union([
   z.array(z.unknown()),
   z.object({ answers: z.array(z.unknown()), costUsd: z.number().optional() }),
@@ -116,8 +120,7 @@ export async function decide<S>(
       : first;
   let made: Exclude<Attempt<S>, { failed: string }> & { fellBack?: string } = ruled;
   const named = selectBackend(deps.backends, deps.profile);
-  const unsure = Math.min(...ruled.answers.map(certainty)) < deps.profile.decisions.threshold;
-  if (named !== rules && unsure) {
+  if (named !== rules && unsure(ruled.answers, deps.profile)) {
     const second = await attempt(named, state, asked);
     made = 'failed' in second ? { ...ruled, fellBack: second.failed } : second;
   }

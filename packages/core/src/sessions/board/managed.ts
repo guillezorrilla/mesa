@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { AGENTS } from '../../agents/agents.js';
 import { MesaError } from '../../lib/result.js';
 import type { AgentProcess } from '../agent-listing.js';
@@ -14,9 +15,10 @@ import { type ManagedRow, secondsBetween } from './rows.js';
 /**
  * Saves what a look learned onto the record as it is now: a new state, or an agent session id (the
  * one a /clear moved it to, or the one its agent picked). A stopped session keeps the stop's
- * state, and takes only an id it has none of, one its agent picked before the stop. A record
- * another process holds locked (busy, or a lock left by a killed mesa) is not waited for or
- * written: this look still shows what it learned, and the next one tries again.
+ * state, and takes only an id it has none of, one its agent picked before the stop. A state
+ * another look saved since this one read the record (the adapter's, beside a quick look) is newer
+ * and stays. A record another process holds locked (busy, or a lock left by a killed mesa) is not
+ * waited for or written: this look still shows what it learned, and the next one tries again.
  */
 function saveLook(
   store: SessionStore,
@@ -27,9 +29,17 @@ function saveLook(
     const { agentSessionId: id } = learned;
     const stopped = (current: SessionRecord) =>
       id && !current.agentSessionId ? { agentSessionId: id } : {};
-    return store.update(found.id, (current) => (current.endedAt ? stopped(current) : learned), {
-      wait: false,
-    });
+    const { lastState, ...rest } = learned;
+    return store.update(
+      found.id,
+      (current) =>
+        current.endedAt
+          ? stopped(current)
+          : isDeepStrictEqual(current.lastState, found.lastState)
+            ? learned
+            : rest,
+      { wait: false },
+    );
   } catch (error) {
     // Locked, or removed meanwhile (an open whose window failed): shown, not saved.
     if (error instanceof MesaError && (error.code === 'locked' || error.code === 'not_found')) {

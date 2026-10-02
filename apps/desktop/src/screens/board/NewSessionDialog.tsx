@@ -1,6 +1,6 @@
 import type { Agent, SavedPrompt } from '@mesa/core';
 import { DEFAULT_AGENT, supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
-import { Play } from 'lucide-react';
+import { LoaderCircle, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { SavedPromptPicker } from '@/components/SavedPromptPicker';
@@ -42,6 +42,8 @@ export function NewSessionDialog(props: {
   const projects = useCommand('projects.list');
   const config = useCommand('config.get');
   const [agent, setAgent] = useState<Agent>(DEFAULT_AGENT);
+  // Set by this dialog's Open, so the spinner says this open runs, not another action.
+  const [submitted, setSubmitted] = useState(false);
   const goalField = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     setAgent(props.general ? (config.data?.defaultAgent ?? DEFAULT_AGENT) : DEFAULT_AGENT);
@@ -65,16 +67,23 @@ export function NewSessionDialog(props: {
             : "Starts an agent in the project's tmux session."
       }
       submit={{
-        label: (
-          <>
-            <Play aria-hidden />
-            Open
-          </>
-        ),
+        label:
+          props.disabled && submitted ? (
+            <>
+              <LoaderCircle aria-hidden className="animate-spin" />
+              Opening
+            </>
+          ) : (
+            <>
+              <Play aria-hidden />
+              Open
+            </>
+          ),
         testId: 'new-session-submit',
         disabled: props.disabled,
       }}
       onSubmit={(form) => {
+        setSubmitted(true);
         const data = new FormData(form);
         // The textarea's own value: form data may turn its newlines into CRLF.
         const goal = form.elements.namedItem('goal') as HTMLTextAreaElement | null;
