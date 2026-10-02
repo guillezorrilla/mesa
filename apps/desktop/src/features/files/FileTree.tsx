@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { type RefObject, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Input } from '@/components/ui/input';
 import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
@@ -149,10 +150,14 @@ export function FileTree(props: {
           );
         })}
         {props.tree?.truncated && (
-          <p className="p-2 text-xs text-muted-foreground">Tree limited to 1,500 entries.</p>
+          <Muted size="xs" className="p-2">
+            Tree limited to 1,500 entries.
+          </Muted>
         )}
         {!visible.length && !props.busy && (
-          <p className="p-2 text-xs text-muted-foreground">No files found.</p>
+          <Muted size="xs" className="p-2">
+            No files found.
+          </Muted>
         )}
       </section>
     </>

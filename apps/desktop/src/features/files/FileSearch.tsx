@@ -1,6 +1,7 @@
 import type { FileSearch as Found } from '@mesa/core';
 import { Search } from 'lucide-react';
 import { type RefObject, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -76,9 +77,9 @@ export function FileSearch(props: {
           style={{ fontSize: props.fontSize }}
           aria-label="File search results"
         >
-          <p className="px-2 text-xs text-muted-foreground">
+          <Muted size="xs" className="px-2">
             {found.hits.length} {found.hits.length === 1 ? 'match' : 'matches'}
-          </p>
+          </Muted>
           {found.hits.map((hit) => (
             <button
               key={`${hit.path}:${hit.line}`}
@@ -95,9 +96,9 @@ export function FileSearch(props: {
             </button>
           ))}
           {found.truncated && (
-            <p className="px-2 text-xs text-muted-foreground">
+            <Muted size="xs" className="px-2">
               Showing the first 100 matches or 1,500 entries.
-            </p>
+            </Muted>
           )}
         </section>
       )}

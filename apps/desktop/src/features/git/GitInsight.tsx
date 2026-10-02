@@ -68,9 +68,9 @@ export function GitInsight(props: { project: string; checkout?: string }) {
                 <Badge variant="secondary">{pr.isDraft ? 'DRAFT' : pr.state}</Badge> #{pr.number}{' '}
                 {pr.title}
               </p>
-              <p className="font-mono text-xs text-muted-foreground">
+              <Muted size="xs" className="font-mono">
                 {pr.branch} - sessions {pr.sessionIds.join(', ')}
-              </p>
+              </Muted>
               <Muted size="xs">Updated {pr.updatedAt}</Muted>
               <a
                 className="break-all text-xs text-primary underline"

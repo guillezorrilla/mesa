@@ -1,6 +1,7 @@
 import type { Config, UsageReport } from '@mesa/core';
 import { BellRing } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useRun } from '@/lib/useCommand';
@@ -59,9 +60,9 @@ export function CostAlerts(props: {
           <h3 className="flex items-center gap-2 text-sm font-medium">
             <BellRing aria-hidden className="size-4 text-state-waiting" /> Cost alerts
           </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <Muted size="xs" className="mt-1">
             Informational only. Cost alerts never pause sessions or block requests.
-          </p>
+          </Muted>
         </div>
         <Button
           size="sm"

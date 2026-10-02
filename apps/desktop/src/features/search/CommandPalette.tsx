@@ -3,6 +3,7 @@ import { type SearchHit, searchWorkspace } from '@mesa/core/browser';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { Muted } from '@/components/Muted';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -136,9 +137,9 @@ export function CommandPalette(props: {
             );
           })}
         </div>
-        <p className="border-t px-4 py-2 text-muted-foreground text-xs">
+        <Muted size="xs" className="border-t px-4 py-2">
           Arrows to choose · Enter to open · Escape to close
-        </p>
+        </Muted>
       </DialogContent>
     </Dialog>
   );

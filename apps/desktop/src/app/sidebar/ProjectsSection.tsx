@@ -1,5 +1,6 @@
 import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
 import { ChevronRight, Folder, FolderPlus } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { AddProjectMenu, type ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { cn } from '@/lib/utils';
@@ -31,7 +32,9 @@ export function ProjectsSection(props: {
         <ProjectSortMenu sort={props.sort} onSort={props.onSort} />
       </div>
       {props.projects.length === 0 && (
-        <p className="px-2 text-xs text-muted-foreground">No visible projects</p>
+        <Muted size="xs" className="px-2">
+          No visible projects
+        </Muted>
       )}
       {props.projects.map((project) => (
         <Button

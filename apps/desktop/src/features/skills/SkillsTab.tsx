@@ -178,9 +178,9 @@ export function SkillsTab(props: {
                           : 'Disabled'}
                   </Badge>
                 </div>
-                <p className="line-clamp-2 text-xs text-muted-foreground">
+                <Muted size="xs" className="line-clamp-2">
                   {row.description || row.path}
-                </p>
+                </Muted>
                 <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
                   <span className="capitalize">{row.scope}</span>
                   <span>· {row.providers.join(', ')}</span>
@@ -238,7 +238,9 @@ export function SkillsTab(props: {
               </Button>
             )}
           </div>
-          <p className="break-all text-xs text-muted-foreground">{selected.path}</p>
+          <Muted size="xs" className="break-all">
+            {selected.path}
+          </Muted>
           {selected.readOnlyReason && (
             <p className="text-xs">Read-only: {selected.readOnlyReason}</p>
           )}

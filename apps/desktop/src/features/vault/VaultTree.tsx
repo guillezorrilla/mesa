@@ -13,6 +13,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -143,7 +144,11 @@ export function VaultTree(props: {
       className="max-h-[36rem] min-w-0 overflow-auto rounded-lg border bg-card/40 p-1"
     >
       {rows(foldersOf(props.items), 0)}
-      {props.items.length === 0 && <p className="p-2 text-xs text-muted-foreground">No items.</p>}
+      {props.items.length === 0 && (
+        <Muted size="xs" className="p-2">
+          No items.
+        </Muted>
+      )}
     </section>
   );
 }

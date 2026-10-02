@@ -1,5 +1,6 @@
 import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
 import { BookMarked, CircleDollarSign, ScrollText, SquareTerminal } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { Choice } from './controls/Choice';
 import { Toggle } from './controls/Toggle';
@@ -36,11 +37,11 @@ export function SessionSettings(props: { onSavedPrompts: () => void }) {
             />
           }
         />
-        <p className="rounded-lg border bg-card/40 px-4 py-3 text-xs text-muted-foreground">
+        <Muted size="xs" className="rounded-lg border bg-card/40 px-4 py-3">
           Agent-owned behavior such as models and reasoning stays in each agent's native
           configuration. Mesa starts the agent you pick and never translates permissions between
           agents.
-        </p>
+        </Muted>
       </SettingSection>
       <SettingSection
         id="logs"

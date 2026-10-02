@@ -2,6 +2,7 @@ import type { Config, GridGroup, ProjectRow, SavedPrompt, TreeRow } from '@mesa/
 import { GENERAL_PROJECT } from '@mesa/core/browser';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -177,9 +178,7 @@ export function SessionsScreen(
         />
       ) : null}
       {props.gridMode && panels.panels.length === 0 && (
-        <p className="text-muted-foreground text-sm">
-          No tiles open. Choose a live session or reopen a saved group.
-        </p>
+        <Muted>No tiles open. Choose a live session or reopen a saved group.</Muted>
       )}
       <div
         className={

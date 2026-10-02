@@ -3,6 +3,7 @@ import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { Keyboard, Pencil, X } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { said } from '@/components/Toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -84,9 +85,9 @@ export function KeyboardShortcutsDialog(props: {
             ))}
           </section>
         </div>
-        <p className="border-t px-4 py-3 text-center text-xs text-muted-foreground">
+        <Muted size="xs" className="border-t px-4 py-3 text-center">
           Hover over a shortcut and click the pencil to customize it
-        </p>
+        </Muted>
       </DialogContent>
     </Dialog>
   );

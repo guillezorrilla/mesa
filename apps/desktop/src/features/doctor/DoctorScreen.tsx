@@ -7,6 +7,7 @@ import {
 } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { warned } from '@/components/Toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -250,19 +251,19 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           <CardTitle className="text-base">Recent local diagnostics</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-muted-foreground text-xs">
+          <Muted size="xs">
             Hook event names only. Provider content stays in local session logs.
-          </p>
+          </Muted>
           <Input
             aria-label="Filter diagnostic events"
             placeholder="Filter event name"
             value={eventFilter}
             onChange={(event) => setEventFilter(event.target.value)}
           />
-          <p className="text-muted-foreground text-xs">
+          <Muted size="xs">
             Showing {diagnostics.data?.events.length ?? 0} of {diagnostics.data?.total ?? 0} recent
             matching events, newest first. Refreshes every 5 seconds.
-          </p>
+          </Muted>
           <div className="max-h-64 overflow-auto">
             {diagnostics.data?.events.map((item) => (
               <p key={item.id} className="font-mono text-xs">

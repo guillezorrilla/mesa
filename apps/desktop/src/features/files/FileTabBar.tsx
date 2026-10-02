@@ -1,6 +1,7 @@
 import type { WorkspaceFile } from '@mesa/core';
 import { ExternalLink, Pencil, RotateCw, Settings2, Trash2, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 
 /** The open file's tab, its actions, and the path line under it, as Xirp's editor header. */
@@ -66,10 +67,10 @@ export function FileTabBar(props: {
           </Button>
         </span>
       </div>
-      <p className="shrink-0 border-b px-4 py-1.5 font-mono text-xs text-muted-foreground">
+      <Muted size="xs" className="shrink-0 border-b px-4 py-1.5 font-mono">
         {file.path} · {file.path.split('.').at(-1)} · {file.lines} lines · revision{' '}
         {file.revision.slice(0, 12)}
-      </p>
+      </Muted>
     </>
   );
 }

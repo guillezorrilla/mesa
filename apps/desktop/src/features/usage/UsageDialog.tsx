@@ -1,6 +1,7 @@
 import { DollarSign, RefreshCw, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useCommand } from '@/lib/useCommand';
 import { CostAlerts } from './CostAlerts';
@@ -77,9 +78,9 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
           </p>
         ))}
         {!report && (
-          <p className="py-12 text-center text-sm text-muted-foreground">
+          <Muted className="py-12 text-center">
             {usage.busy ? 'Loading cost data...' : 'No usage data found'}
-          </p>
+          </Muted>
         )}
         {report && (
           <>
@@ -100,10 +101,10 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
           </>
         )}
       </div>
-      <p className="border-t px-4 py-3 text-center text-xs text-muted-foreground">
+      <Muted size="xs" className="border-t px-4 py-3 text-center">
         Data from local per-turn session records
         {updated ? `, updated ${updated.toLocaleTimeString()}` : ''}
-      </p>
+      </Muted>
     </>
   );
 }

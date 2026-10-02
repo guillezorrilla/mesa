@@ -12,6 +12,7 @@ import {
 import { useState } from 'react';
 import { CountPill } from '@/components/CountPill';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
@@ -181,9 +182,7 @@ export function GitTab(props: {
               </label>
             </div>
             <section className="min-h-0 flex-1 overflow-y-auto" aria-label="Changed files">
-              {!status.data && status.busy && (
-                <p className="p-4 text-sm text-muted-foreground">Loading Git status...</p>
-              )}
+              {!status.data && status.busy && <Muted className="p-4">Loading Git status...</Muted>}
               <GitChangeList
                 sections={sections}
                 fontSize={appearance.fileTreeFontSize}
@@ -192,9 +191,7 @@ export function GitTab(props: {
                 onSelect={(entry) => setSelected({ path: entry.change.path, staged: entry.staged })}
                 onIndex={(action, paths) => void changeIndex(action, paths)}
               />
-              {status.data && !changes.length && (
-                <p className="p-4 text-sm text-muted-foreground">Working tree clean.</p>
-              )}
+              {status.data && !changes.length && <Muted className="p-4">Working tree clean.</Muted>}
             </section>
             <GitCommitBox
               canCommit={sections.some((section) => section.title === 'Staged')}

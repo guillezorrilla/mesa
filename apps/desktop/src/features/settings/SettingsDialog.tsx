@@ -2,6 +2,7 @@ import type { DoctorReport } from '@mesa/core';
 import { ChevronDown, ChevronRight, CircleCheck, Search, Settings, X } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Muted } from '@/components/Muted';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -114,9 +115,9 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
             <p className="truncate text-sm font-semibold">
               Profile: {profile.data?.profile ?? '...'}
             </p>
-            <p className="truncate text-xs text-muted-foreground" title={profile.data?.dir}>
+            <Muted size="xs" className="truncate" title={profile.data?.dir}>
               {profile.data?.dir}
-            </p>
+            </Muted>
           </div>
           <div className="p-3">
             <label className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
@@ -164,13 +165,13 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
               );
             })}
           </nav>
-          <p className="flex items-center gap-2 border-t px-5 py-3 text-xs text-muted-foreground">
+          <Muted size="xs" className="flex items-center gap-2 border-t px-5 py-3">
             <CircleCheck
               aria-hidden
               className={cn('size-4', props.doctor?.healthy && 'text-state-idle')}
             />
             Doctor: {props.doctor ? props.doctor.summary : 'checking...'}
-          </p>
+          </Muted>
         </aside>
         <div id="settings-content" className="min-h-0 overflow-y-auto">
           {config.data ? (
@@ -199,7 +200,7 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
               </SettingsQuery.Provider>
             </SettingsContext.Provider>
           ) : (
-            <p className="p-6 text-sm text-muted-foreground">Loading settings...</p>
+            <Muted className="p-6">Loading settings...</Muted>
           )}
         </div>
       </div>

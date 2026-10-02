@@ -2,6 +2,7 @@ import type { InstructionStatus, ManagedRow, McpTool, SessionRecord } from '@mes
 import { attentionScore, contextPercent, percent } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
@@ -125,7 +126,11 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               )}
             </dd>
           </dl>
-          {loading && <p className="mt-2 text-xs text-muted-foreground">Reading session...</p>}
+          {loading && (
+            <Muted size="xs" className="mt-2">
+              Reading session...
+            </Muted>
+          )}
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
         </div>
       </details>

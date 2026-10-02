@@ -1,5 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { Muted } from '@/components/Muted';
 import type { WorkspaceView } from '../navigation';
 import type { SessionLocation } from '../useStartSession';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
@@ -54,7 +55,9 @@ export function SessionsSection(props: {
       ))}
       {(general.length > 0 || props.starting?.includes(GENERAL_PROJECT)) && (
         <div>
-          <p className="px-2 text-xs text-muted-foreground">General</p>
+          <Muted size="xs" className="px-2">
+            General
+          </Muted>
           <div className="px-1">
             {general.map(card)}
             <StartingSessions project={GENERAL_PROJECT} starting={props.starting} />
@@ -63,7 +66,9 @@ export function SessionsSection(props: {
       )}
       {other.length > 0 && (
         <div>
-          <p className="px-2 text-xs text-muted-foreground">Other</p>
+          <Muted size="xs" className="px-2">
+            Other
+          </Muted>
           <div className="px-1">{other.map(card)}</div>
         </div>
       )}
@@ -74,7 +79,9 @@ export function SessionsSection(props: {
         </div>
       )}
       {active.length + stranded.length === 0 && (
-        <p className="px-2 text-xs text-muted-foreground">No active sessions</p>
+        <Muted size="xs" className="px-2">
+          No active sessions
+        </Muted>
       )}
     </>
   );

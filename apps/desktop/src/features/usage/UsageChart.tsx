@@ -1,5 +1,6 @@
 import type { UsageReport } from '@mesa/core';
 import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { cn } from '@/lib/utils';
@@ -80,9 +81,9 @@ export function UsageChart(props: {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <SectionLabel>Daily {props.mode === 'cost' ? 'cost' : 'tokens'}</SectionLabel>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <Muted className="mt-0.5">
             {format(total)} over {props.days} days
-          </p>
+          </Muted>
         </div>
         <div className="flex gap-2">
           <SegmentedControl
@@ -173,7 +174,9 @@ export function UsageChart(props: {
                   : { left: `${((hover + 1) / range.length) * 100}%` }
               }
             >
-              <p className="mb-1.5 text-xs text-muted-foreground">{dayLabel(shown.day)}</p>
+              <Muted size="xs" className="mb-1.5">
+                {dayLabel(shown.day)}
+              </Muted>
               {!stack(shown) && <p className="text-xs">No usage</p>}
               {series
                 .filter((line) => line.value(shown) > 0)

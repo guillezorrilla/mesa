@@ -96,7 +96,9 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
                     {row.scope}
                   </Badge>
                 </div>
-                <p className="truncate text-xs text-muted-foreground">{row.path}</p>
+                <Muted size="xs" className="truncate">
+                  {row.path}
+                </Muted>
                 <Muted size="xs">{row.providers.join(', ')}</Muted>
               </CardContent>
             </Card>
@@ -119,7 +121,9 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
               </Button>
             )}
           </div>
-          <p className="break-all text-xs text-muted-foreground">{selected.path}</p>
+          <Muted size="xs" className="break-all">
+            {selected.path}
+          </Muted>
           {selected.readOnlyReason && (
             <p className="text-xs">Read-only: {selected.readOnlyReason}</p>
           )}

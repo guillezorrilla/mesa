@@ -6,6 +6,7 @@ import {
   CLAUDE_PERMISSION_MODES,
 } from '@mesa/core/browser';
 import { ListChecks, ShieldAlert } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
 import { LaunchSettings } from './agents/LaunchSettings';
 import { Choice } from './controls/Choice';
@@ -53,17 +54,17 @@ export function AgentSettings(props: { doctor?: DoctorReport }) {
                         : 'Not installed'}
                   </span>
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <Muted size="xs" className="mt-1">
                   Hand the terminal over to the `{binary}` CLI.
-                </p>
+                </Muted>
               </div>
             );
           })}
         </div>
-        <p className="rounded-lg border bg-card/40 px-4 py-3 text-xs text-muted-foreground">
+        <Muted size="xs" className="rounded-lg border bg-card/40 px-4 py-3">
           Model selection stays in each agent's native configuration. Mesa does not translate one
           agent's permissions into another's; a handoff uses the target agent's own defaults.
-        </p>
+        </Muted>
       </SettingSection>
       <LaunchSettings />
       <SettingSection

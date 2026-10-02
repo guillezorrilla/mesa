@@ -1,5 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { RotateCcw } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
 import { recoverable, resumable } from '../rows';
@@ -43,9 +44,9 @@ export function SessionRecovery({
     </div>
   ) : (
     !row && (
-      <p className="p-4 text-sm text-muted-foreground">
+      <Muted className="p-4">
         {loaded ? 'Session unavailable. Open Sessions to choose another.' : 'Loading session...'}
-      </p>
+      </Muted>
     )
   );
 }

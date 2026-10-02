@@ -24,10 +24,10 @@ export function SettingSection(props: {
         <Muted size="xs">{props.description}</Muted>
       </div>
       {props.group && (
-        <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <Muted size="xs" className="flex items-center gap-2 font-medium uppercase tracking-wide">
           {GroupIcon && <GroupIcon aria-hidden className="size-3.5" />}
           {props.group}
-        </p>
+        </Muted>
       )}
       <div className="space-y-2">{props.children}</div>
     </section>
