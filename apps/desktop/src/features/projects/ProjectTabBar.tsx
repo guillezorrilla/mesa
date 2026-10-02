@@ -54,7 +54,7 @@ export function ProjectTabBar(props: {
                 else props.onTab(name);
               }}
             >
-              {name}
+              {name === 'import' ? 'Context' : name}
               {name === 'git' && props.gitChanges > 0 && (
                 <CountPill
                   count={props.gitChanges}

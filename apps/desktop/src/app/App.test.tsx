@@ -54,7 +54,7 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     [...document.querySelectorAll('nav[aria-label="lantern-cove tabs"] button')].map(
       (tab) => tab.textContent,
     ),
-  ).toEqual(['overview', 'vault', 'import', 'git', 'files', 'skills', 'rules']);
+  ).toEqual(['overview', 'vault', 'Context', 'git', 'files', 'skills', 'rules']);
   await click(
     [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent?.toLowerCase() === 'skills',

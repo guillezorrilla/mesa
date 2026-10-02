@@ -72,7 +72,7 @@ const imported = (url: string, title: string): ImportListRow => ({
   snapshot: `raw/x/${title}.md`,
 });
 
-/** The Import tab over TREE; `import` lists what it imported, with its links. */
+/** The Context tab over TREE; `import` lists what it imported, with its links. */
 async function setUp(answers: Record<string, (args: string[]) => unknown> = {}) {
   let items: ImportListRow[] = [];
   const fake = fakeBridge({

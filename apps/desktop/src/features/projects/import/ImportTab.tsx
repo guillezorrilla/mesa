@@ -21,7 +21,7 @@ function outcome(result: ImportResult & { warning?: string }): Message {
 }
 
 /**
- * A project's Import tab (CONTEXT.md, Import): each Source, to connect or Browse in the Picker;
+ * A project's Context tab (CONTEXT.md, Context tab): each Source, to connect or Browse in the Picker;
  * a pasted link, a Source's or any public web page's; the Write notes toggle all of them share;
  * and the items the project imported. Start session, on an item or from the Picker, hands the
  * item (its id or link) to `onStartSession`.
