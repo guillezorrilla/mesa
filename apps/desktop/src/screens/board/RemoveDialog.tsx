@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { useDeleteBranch } from './useDeleteBranch';
 
 /**
  * Confirms removing an ended session by listing what will be deleted: its record, hook log, and
@@ -18,7 +19,7 @@ export function RemoveDialog(props: {
 }) {
   const { row } = props;
   const [deleteWorktree, setDeleteWorktree] = useState(false);
-  const [deleteBranch, setDeleteBranch] = useState(false);
+  const [deleteBranch, setDeleteBranch] = useDeleteBranch();
   const goes = [
     `session ${row.id}'s record, its hook log, and its output log`,
     ...(row.worktree && deleteWorktree ? [`its worktree ${row.worktree.path}`] : []),

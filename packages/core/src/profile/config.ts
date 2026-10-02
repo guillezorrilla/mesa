@@ -158,6 +158,8 @@ const ConfigSchema = z.strictObject({
       carryIgnoredDirectories: z.array(relativeDirectory).default([]),
       setup: z.array(z.string().min(1)).max(32).default([]),
       teardown: z.array(z.string().min(1)).max(32).default([]),
+      // Pre-checks "also delete branch" when the app removes a session's worktree.
+      deleteBranch: z.boolean().default(false),
     })
     .refine(
       (settings) => settings.location !== 'custom' || settings.customRoot,

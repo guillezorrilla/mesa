@@ -1,5 +1,13 @@
 import type { Config } from '@mesa/core';
-import { FolderTree, GitBranch, GitFork, Play, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  FolderTree,
+  GitBranch,
+  GitBranchMinus,
+  GitFork,
+  Play,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
@@ -171,6 +179,26 @@ export function WorktreeSettings() {
             onSave={(value) => update({ teardown: value as string[] })}
           />
         </SettingRow>
+      </SettingSection>
+      <SettingSection
+        id="cleanup"
+        title="Cleanup"
+        description="What removing a worktree takes with it"
+      >
+        <SettingRow
+          icon={GitBranchMinus}
+          title="Delete branch by default"
+          description='When removing a worktree, pre-check the "also delete branch" option.'
+          htmlFor="worktree-delete-branch"
+          control={
+            <Switch
+              id="worktree-delete-branch"
+              checked={worktrees.deleteBranch}
+              disabled={acting}
+              onCheckedChange={(deleteBranch) => update({ deleteBranch })}
+            />
+          }
+        />
       </SettingSection>
     </>
   );

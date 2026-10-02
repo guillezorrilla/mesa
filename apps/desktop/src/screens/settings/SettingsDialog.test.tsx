@@ -114,6 +114,20 @@ test('worktree settings save whole, so clearing the base removes it and custom n
   expect(custom).toMatchObject({ location: 'custom', customRoot: '/h/worktrees' });
 });
 
+test('Git & Worktrees has Delete branch by default under Cleanup, off until switched on', async () => {
+  const config = await base();
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge, 'git');
+  const cleanup = document.querySelector('section[aria-label="Cleanup"]');
+  expect(cleanup?.textContent).toContain('Delete branch by default');
+  const toggle = cleanup?.querySelector<HTMLElement>('#worktree-delete-branch');
+  expect(toggle?.getAttribute('aria-checked')).toBe('false');
+  await click(toggle ?? undefined);
+  expect(sets(calls).map(([path, value]) => [path, JSON.parse(value ?? '{}')])).toEqual([
+    ['worktrees', { ...config.worktrees, deleteBranch: true }],
+  ]);
+});
+
 test('session hooks show each agent and install; agents show what Doctor found', async () => {
   const { bridge, calls } = fakeBridge({
     'hooks install': () => envelope({ changed: true, receipt: null }),

@@ -63,6 +63,7 @@ export const CATEGORIES: {
     sections: [
       ['worktrees', 'Worktrees'],
       ['scripts', 'Scripts'],
+      ['cleanup', 'Cleanup'],
     ],
   },
   {

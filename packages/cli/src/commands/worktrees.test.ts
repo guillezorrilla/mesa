@@ -620,3 +620,14 @@ test('cleanup refuses while Git would also prune a folder that is still on disk'
   expect(applied.code).toBe(2);
   expect(readFileSync(join(broken, 'draft.txt'), 'utf8')).toBe('kept work');
 });
+
+test('worktrees.deleteBranch is off by default and config set --json turns it on', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  const deleteBranch = async () =>
+    (await cli.mesa('config', '--json')).json.data.worktrees.deleteBranch;
+  expect(await deleteBranch()).toBe(false);
+  const set = await cli.mesa('config', 'set', 'worktrees.deleteBranch', 'true', '--json');
+  expect(set.json.data).toMatchObject({ path: 'worktrees.deleteBranch', value: true });
+  expect(await deleteBranch()).toBe(true);
+  expect((await cli.mesa('config', 'set', 'worktrees.deleteBranch', 'maybe')).code).toBe(4);
+});
