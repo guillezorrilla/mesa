@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useCommand } from '@/lib/useCommand';
 import { exited, queued } from './rows';
+import { useDeleteBranch } from './useDeleteBranch';
 
 /** Confirm the exact parent-linked subtree before a child-first stop or removal. */
 export function DescendantDialog(props: {
@@ -17,7 +18,7 @@ export function DescendantDialog(props: {
 }) {
   const { data, busy } = useCommand('sessions.all');
   const [deleteWorktree, setDeleteWorktree] = useState(false);
-  const [deleteBranch, setDeleteBranch] = useState(false);
+  const [deleteBranch, setDeleteBranch] = useDeleteBranch();
   const rows = data?.filter((row): row is TreeRow & ManagedRow => row.managed);
   const ordered = rows?.some((row) => row.id === props.row.id)
     ? descendantOrder(rows, props.row.id)

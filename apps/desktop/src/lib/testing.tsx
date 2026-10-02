@@ -99,6 +99,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         carryIgnoredDirectories: [],
         setup: [],
         teardown: [],
+        deleteBranch: false,
       },
       shortcuts: { ...DEFAULT_SHORTCUTS },
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
