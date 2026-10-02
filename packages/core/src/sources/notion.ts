@@ -17,6 +17,11 @@ export const notionId = (id: string) => id.replaceAll('-', '').toLowerCase();
 /** A Notion page's or database's canonical URL, which an import takes. */
 export const notionUrl = (id: string) => `${NOTION_WEB}/${notionId(id)}`;
 
+/** Where Notion's links point (links.ts): its web app, old and new. */
+export const NOTION_HOSTS = ['www.notion.so', 'notion.so', 'app.notion.com'];
+/** A Notion id in a link's part, once its dashes are gone: the last 32 hex. */
+export const NOTION_ID = /([0-9a-f]{32})$/i;
+
 /** Rich text, as Notion's titles and text properties hold it. */
 export const richText = z.array(z.object({ plain_text: z.string() })).nullish();
 /** Rich text as one plain string; anything else as none. */

@@ -57,6 +57,11 @@ const database = (id: string, databaseId: string, title: string) =>
 const listOf = <T extends z.ZodType>(result: T) =>
   z.object({ results: z.array(result), next_cursor: z.string().nullish() });
 const more = (next: string | null | undefined) => (next ? { cursor: next } : {});
+/** The paging part of a list request: `size` to a page, from `cursor` when given. */
+const cursorBody = (cursor: string | undefined, size = BROWSE_PAGE_SIZE) => ({
+  page_size: size,
+  ...(cursor ? { start_cursor: cursor } : {}),
+});
 
 /** A page or a data source, as search and a query answer them. */
 const foundSchema = z.object({
@@ -83,8 +88,7 @@ async function search(
 ) {
   return notionCall(get, '/search', listOf(foundSchema), 'Notion search', {
     ...(query ? { query } : { sort: { timestamp: 'last_edited_time', direction: 'descending' } }),
-    page_size: size,
-    ...(cursor ? { start_cursor: cursor } : {}),
+    ...cursorBody(cursor, size),
   });
 }
 
@@ -118,7 +122,9 @@ const databaseSchema = z.object({
  * toggle or a column is not listed). A database not shared with Mesa is left out.
  */
 async function pageChildren(get: Http, id: string, cursor: string | undefined) {
-  const query = `page_size=${BROWSE_PAGE_SIZE}${cursor ? `&start_cursor=${encodeURIComponent(cursor)}` : ''}`;
+  const query = new URLSearchParams(
+    Object.entries(cursorBody(cursor)).map(([key, value]) => [key, String(value)]),
+  );
   const body = await notionCall(
     get,
     `/blocks/${id}/children?${query}`,
@@ -154,7 +160,7 @@ async function rows(get: Http, id: string, cursor: string | undefined): Promise<
     `/data_sources/${id}/query`,
     listOf(foundSchema),
     `Notion database ${id}'s rows`,
-    { page_size: BROWSE_PAGE_SIZE, ...(cursor ? { start_cursor: cursor } : {}) },
+    cursorBody(cursor),
   );
   const children = body.results.filter((found) => found.object === 'page').map(asChild);
   return { children, ...more(body.next_cursor) };

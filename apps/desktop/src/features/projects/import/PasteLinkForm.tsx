@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
 /**
- * Paste a link to import: a Jira issue or key, a Confluence or Notion page, or any public web page, with the
- * Write notes toggle every import shares. Cleared once the import ran.
+ * Paste a link to import: a Jira issue or key, a Confluence or Notion page, or any public web
+ * page, with the Write notes toggle every import shares. Cleared once the import ran.
  */
 export function PasteLinkForm(props: {
   acting: boolean;

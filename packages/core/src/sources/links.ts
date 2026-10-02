@@ -4,7 +4,7 @@ import { issueUrl, pageUrl } from './atlassian.js';
 import { notConnectedError } from './authorized-fetch.js';
 import type { Site } from './connection.js';
 import type { ItemRef } from './items.js';
-import { notionId, notionUrl } from './notion.js';
+import { NOTION_HOSTS, NOTION_ID, notionId, notionUrl } from './notion.js';
 import type { SourceId } from './sources.js';
 
 // What a pasted link is (CONTEXT.md, Import): a Jira issue (its URL, or a bare key), a Confluence
@@ -14,11 +14,6 @@ import type { SourceId } from './sources.js';
 const KEY = /^[A-Z][A-Z0-9_]+-\d+$/;
 const ISSUE = /^\/browse\/([A-Z][A-Z0-9_]+-\d+)\/?$/;
 const PAGE = /^\/wiki\/spaces\/([^/]+)\/pages\/(\d+)(?:\/|$)/;
-
-/** Where Notion's links point: its web app, old and new. */
-const NOTION_HOSTS = ['www.notion.so', 'notion.so', 'app.notion.com'];
-/** A Notion id, once a link's dashes are gone: the last 32 hex. */
-const NOTION_ID = /([0-9a-f]{32})$/i;
 
 const usage = (message: string) => new MesaError('usage', message);
 const jiraRef = (site: Site, key: string): ItemRef => ({
