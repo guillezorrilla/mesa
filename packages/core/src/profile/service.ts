@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { MesaContext } from '../context.js';
-import { REDACTED } from '../lib/redact.js';
+import { REDACTED, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { callerOf } from '../sessions/caller.js';
 import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../worktrees/approval.js';
@@ -42,20 +42,25 @@ export function profileService(ctx: MesaContext) {
     config: {
       /** Redacted: key values are `***`. */
       get: () => redactConfig(ctx.open().config),
-      set: (dotted: string, value: string) =>
-        record(
+      set: (dotted: string, value: string) => {
+        const previousVault = dotted === 'vault' ? ctx.configIfAny()?.vault : undefined;
+        const redact = (text: string) => redactWhole(text, ctx.deps.home, ctx.secrets());
+        return record(
           {
+            kind: dotted === 'vault' ? 'vault-change' : undefined,
+            alsoVault: previousVault,
             summary: () => `Set config ${dotted}`,
             failure: `Could not set config ${dotted}`,
             // The value word is always `***`: a key under a mistyped path (`key.api`) fails, and
             // redactCommand's `keys` rule would miss it. outputs.value keeps a value that is set.
             argv: ctx.deps.argv.map((word) => (word === value ? REDACTED : word)),
-            inputs: { path: dotted },
-            outputs: (r) => ({ value: r.value }),
+            inputs: { path: dotted, ...(previousVault ? { vault: redact(previousVault) } : {}) },
+            outputs: (r) => ({ value: dotted === 'vault' ? redact(String(r.value)) : r.value }),
             changed: (r) => r.changed,
           },
           () => setConfigValue(paths.config, dotted, value, scriptGuard()),
-        ),
+        );
+      },
     },
   };
 }
