@@ -132,3 +132,42 @@ test('session hooks show each agent and install; agents show what Doctor found',
   expect(panel()).toContain('Claude CodeInstalled · 2.1.282');
   expect(panel()).toContain('CodexNot installed');
 });
+
+test('Clear notification center shows the unread count and clears after a confirmation', async () => {
+  const notice = {
+    session: 'aaaaaaaa',
+    kind: 'finished',
+    title: 'Session turn finished',
+    target: { kind: 'session', id: 'aaaaaaaa' },
+  };
+  let cleared = false;
+  const { bridge, calls } = fakeBridge({
+    notifications: () =>
+      envelope(
+        cleared
+          ? []
+          : [
+              { ...notice, id: 'a', at: '2026-09-23T09:00:00.000Z', read: false },
+              { ...notice, id: 'b', at: '2026-09-23T08:00:00.000Z', read: true },
+            ],
+      ),
+    'notifications clear --all': () => {
+      cleared = true;
+      return envelope({ count: 2 });
+    },
+  });
+  const byTestId = await render(bridge);
+  await click(nav('Notifications'));
+  const row = () =>
+    [...document.querySelectorAll<HTMLElement>('[data-setting-row]')].find((item) =>
+      item.textContent?.startsWith('Clear notification center'),
+    );
+  expect(row()?.textContent).toContain('1 unread');
+  await click(row()?.querySelector('button') ?? undefined);
+  expect(calls.some((args) => args[2] === 'clear')).toBe(false);
+  await click(byTestId('confirm-clear-notifications')[0]);
+  expect(calls.filter((args) => args[2] === 'clear')).toEqual([
+    ['--json', 'notifications', 'clear', '--all'],
+  ]);
+  expect(row()?.textContent).toContain('0 unread');
+});

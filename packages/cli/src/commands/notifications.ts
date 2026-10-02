@@ -1,3 +1,4 @@
+import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 
@@ -37,12 +38,19 @@ export const notificationsRead = defineCommand({
 
 export const notificationsClear = defineCommand({
   name: 'notifications clear',
-  summary: 'Clear an inbox item without deleting its source event',
-  args: ['id'],
+  summary: 'Clear an inbox item, or with --all every one, without deleting their source events',
+  args: ['id?'],
+  flags: { all: { type: 'boolean', description: 'Clear the whole notification center' } },
   example: 'mesa notifications clear 2026-09-24T12:00:00.000Z:abc123',
-  run: ({ mesa, args }) => {
-    mesa.notifications.clear(args.id);
-    return { data: { id: args.id, cleared: true }, text: `Cleared ${args.id}` };
+  run: ({ mesa, args, flags }) => {
+    if (!flags.all === !args.id) throw new MesaError('usage', 'give one inbox item id or --all');
+    if (flags.all) {
+      const count = mesa.notifications.clearAll();
+      return { data: { count }, text: `Cleared ${count} notifications` };
+    }
+    const id = args.id ?? '';
+    mesa.notifications.clear(id);
+    return { data: { id, cleared: true }, text: `Cleared ${id}` };
   },
 });
 

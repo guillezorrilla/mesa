@@ -566,6 +566,7 @@ const COMMANDS = {
     '--',
     id,
   ]),
+  'notifications.clearAll': command<{ count: number }>('notifications', 'clear', '--all'),
   'help.reference': command<CommandReference[]>('help', '--agent'),
   'hooks.status': command<HooksStatus>('hooks', 'status'),
   'hooks.install': command<Recorded<ClaudeHooksStatus & { changed: boolean }>>('hooks', 'install'),
