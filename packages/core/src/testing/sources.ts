@@ -2,7 +2,7 @@ import type { Http } from '../lib/http.js';
 import type { SecretStore } from '../lib/secret-store.js';
 import type { MesaDeps } from '../mesa.js';
 import type { CallbackListen } from '../sources/callback-listener.js';
-import { scriptedRunner } from './index.js';
+import { claudeResult, type FakeWindow, finishesRun, scriptedRunner } from './index.js';
 
 /** A Keychain in memory: `items` by `<service> <account>`. */
 export function memorySecretStore() {
@@ -23,11 +23,12 @@ export type FakeRequest = {
   headers: Record<string, string>;
   body?: string;
 };
-type FakeAnswer = { status?: number; body: unknown };
+type FakeAnswer = { status?: number; body: unknown } | { status?: number; html: string };
 
 /**
- * HTTP answered from `routes` by `<METHOD> <url>`, a JSON body each, or a function of the request;
- * any other request is a 404. Every request is recorded, and `routes` may change mid-test.
+ * HTTP answered from `routes` by `<METHOD> <url>`, a JSON body each (or an HTML page), or a
+ * function of the request; any other request is a 404. Every request is recorded, and `routes` may
+ * change mid-test.
  */
 export function fakeHttp(
   routes: Record<string, FakeAnswer | ((request: FakeRequest) => FakeAnswer)> = {},
@@ -43,8 +44,12 @@ export function fakeHttp(
     requests.push(request);
     const route = routes[`${request.method} ${url}`];
     const answer = typeof route === 'function' ? route(request) : route;
+    const status = answer ? (answer.status ?? 200) : 404;
+    if (answer && 'html' in answer) {
+      return new Response(answer.html, { status, headers: { 'content-type': 'text/html' } });
+    }
     return new Response(JSON.stringify(answer ? answer.body : { error: 'not_found' }), {
-      status: answer ? (answer.status ?? 200) : 404,
+      status,
       headers: { 'content-type': 'application/json' },
     });
   };
@@ -76,6 +81,9 @@ export function fakeSignIn(
   };
   return Object.assign(world, { listen, open });
 }
+
+const JIRA = 'https://api.atlassian.com/ex/jira/cloud-1/rest/api/3';
+const CONFLUENCE = 'https://api.atlassian.com/ex/confluence/cloud-1/wiki/api/v2';
 
 /** Where atlassianWorld's broker lives. */
 export const TEST_BROKER = 'https://broker.example.test';
@@ -130,12 +138,55 @@ export function atlassianWorld(signIn = fakeSignIn()) {
     run: runner.run,
     env: { MESA_BROKER_URL: TEST_BROKER },
   } satisfies Partial<MesaDeps>;
+  /** `body` at GET `url`, to a live access token only. */
+  const serve = (url: string, body: unknown) => {
+    web.routes[`GET ${url}`] = (request) => authed(request, body);
+  };
   return {
     ...web,
     signIn,
     secrets,
     calls: runner.calls,
     deps,
+    /**
+     * Jira issue `key` on lantern-cove, as Jira's REST API answers it: its summary, its status, its
+     * rendered description, and its comments, two to a page. Called again, it changes the issue.
+     */
+    serveIssue: (
+      key: string,
+      issue: { summary: string; description: string; comments?: { by: string; html: string }[] },
+    ) => {
+      const base = `${JIRA}/issue/${key}`;
+      serve(`${base}?expand=renderedFields`, {
+        key,
+        fields: { summary: issue.summary, status: { name: 'In Progress' }, labels: ['tides'] },
+        renderedFields: { description: issue.description },
+      });
+      const comments = (issue.comments ?? []).map((c, at) => ({
+        author: { displayName: c.by },
+        created: `2026-09-2${at}T10:00:00.000+0000`,
+        renderedBody: c.html,
+      }));
+      for (let at = 0; at === 0 || at < comments.length; at += 2) {
+        serve(`${base}/comment?expand=renderedBody&startAt=${at}&maxResults=100`, {
+          startAt: at,
+          maxResults: 2,
+          total: comments.length,
+          comments: comments.slice(at, at + 2),
+        });
+      }
+    },
+    /** Confluence page `id` on lantern-cove, its body as Confluence renders it (`view`). */
+    servePage: (id: string, page: { title: string; html?: string; parentId?: string }) => {
+      const body = {
+        id,
+        title: page.title,
+        ...(page.parentId ? { parentId: page.parentId, parentType: 'page' } : {}),
+        body: { view: { value: page.html ?? '' } },
+      };
+      serve(`${CONFLUENCE}/pages/${id}?body-format=view`, body);
+      serve(`${CONFLUENCE}/pages/${id}`, body);
+    },
     revoke: () => {
       live.access.clear();
       live.refresh.clear();
@@ -143,3 +194,21 @@ export function atlassianWorld(signIn = fakeSignIn()) {
     expire: () => live.access.clear(),
   };
 }
+
+/**
+ * The agent of an import-notes run in fakeTmux (`onOpen`): for each `<snapshot>=<note>` argument
+ * of its prompt it returns `write(note, snapshot)` as that note, in Claude's result. A window that
+ * is no import-notes run is left running.
+ */
+export const writesImportNotes =
+  (write: (note: string, snapshot: string) => string) => (w: FakeWindow) => {
+    const args = /'\/import-notes ([^']*)'/.exec(w.launch)?.[1]?.split(' ');
+    if (!args) return;
+    const result = args
+      .map((arg) => {
+        const [snapshot = '', note = ''] = arg.split('=');
+        return `<!-- note: ${note} -->\n${write(note, snapshot)}`;
+      })
+      .join('\n\n');
+    finishesRun({ output: JSON.stringify({ ...JSON.parse(claudeResult('success')), result }) })(w);
+  };

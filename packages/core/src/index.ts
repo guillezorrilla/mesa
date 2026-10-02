@@ -135,6 +135,9 @@ export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
 export type { Account, Site } from './sources/connection.js';
+export type { ImportedItem, ImportResult } from './sources/import.js';
+export type { ImportListRow } from './sources/import-service.js';
+export type { ItemSource } from './sources/items.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
 export type {

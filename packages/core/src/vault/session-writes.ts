@@ -74,7 +74,7 @@ function required(value: string | undefined, what: string): string {
 }
 
 /** The note name a title gives: its slug, cut to 80 characters so a file system takes it. */
-function nameOf(title: string): string {
+export function nameOf(title: string): string {
   const name = slugify(title).slice(0, 80).replace(/-+$/, '');
   if (!name) throw usage(`the title ${title} has no letter or digit to name its note`);
   return name;

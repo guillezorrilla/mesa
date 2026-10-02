@@ -8,13 +8,17 @@ import type { DataOf } from '@/lib/client';
 import type { useAct } from '@/lib/useAct';
 import type { CommandState } from '@/lib/useCommand';
 import { useRun } from '@/lib/useCommand';
+import { ImportPanel } from '../ImportPanel';
 import { ActiveSessions } from './ActiveSessions';
 import { QuickSession } from './QuickSession';
 import { RecentSessions } from './RecentSessions';
 import { SessionComposer, type SessionStartInput } from './SessionComposer';
 import type { OverviewState } from './useOverviewState';
 
-/** The project's Overview tab: start a session, its sessions and worktrees, and its knowledge. */
+/**
+ * The project's Overview tab: start a session, its sessions and worktrees, its knowledge, and its
+ * Imports.
+ */
 export function OverviewTab(props: {
   project: ProjectRow;
   sessions: readonly TreeRow[];
@@ -80,6 +84,7 @@ export function OverviewTab(props: {
         onSession={props.onSession}
       />
       <VaultOverview project={project.name} onItem={props.onVaultItem} />
+      <ImportPanel project={project.name} />
       <KnowledgeContext project={project.name} />
       {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
     </div>

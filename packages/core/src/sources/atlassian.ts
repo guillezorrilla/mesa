@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { type Http, readJson } from '../lib/http.js';
+import { MesaError } from '../lib/result.js';
 import { type Account, distinctSites, type Site } from './connection.js';
+import type { ItemRef } from './items.js';
 
 const API = 'https://api.atlassian.com';
 
@@ -29,4 +31,27 @@ export async function atlassianSites(get: Http): Promise<Site[]> {
     'Atlassian accessible-resources',
   );
   return distinctSites(sites.map(({ id, name, url }) => ({ id, name, url })));
+}
+
+/** Jira's REST API (v3) on the site with cloud id `site`. */
+export const jiraApi = (site: string) => `${API}/ex/jira/${site}/rest/api/3`;
+/** Confluence's REST API (v2) on the site with cloud id `site`. */
+export const confluenceApi = (site: string) => `${API}/ex/confluence/${site}/wiki/api/v2`;
+
+/** The cloud id of the site an Atlassian item lives on (links.ts sets it). */
+export function siteOf(ref: ItemRef): string {
+  if (!ref.site) throw new MesaError('internal', `${ref.url} names no Atlassian site`);
+  return ref.site;
+}
+
+/**
+ * A GET of `what` on an Atlassian API, its JSON body parsed by `schema`. Atlassian answers 404 or
+ * 403 for an item that is gone or that the person cannot see: not_found, saying so.
+ */
+export async function readItem<T>(get: Http, url: string, schema: z.ZodType<T>, what: string) {
+  const response = await get(url);
+  if (response.status === 404 || response.status === 403) {
+    throw new MesaError('not_found', `${what} is missing, or not shared with you`);
+  }
+  return readJson(response, schema, what);
 }
