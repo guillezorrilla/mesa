@@ -89,8 +89,12 @@ async function setUp(answers: Record<string, (args: string[]) => unknown> = {}) 
     'sources browse': browse,
     ...answers,
   });
-  const byTestId = await renderWithMesa(<ImportTab project="lantern-cove" />, fake.bridge);
-  return { ...fake, byTestId };
+  const started: string[] = [];
+  const byTestId = await renderWithMesa(
+    <ImportTab project="lantern-cove" onStartSession={(from) => started.push(from)} />,
+    fake.bridge,
+  );
+  return { ...fake, byTestId, started };
 }
 
 const button = (label: string) =>
@@ -153,6 +157,34 @@ test('Browse opens the tree a node at a time; two pages and an issue ticked impo
   ]);
   expect(byTestId('source-picker-dialog')).toHaveLength(0);
   expect(byTestId('import-item')).toHaveLength(3);
+});
+
+test('Start session takes one ticked item: it imports it, closes, and hands on its link', async () => {
+  const { calls, byTestId, started } = await setUp();
+  await click(button('Browse Atlassian'));
+  await open('lantern-cove');
+  await open('Confluence');
+  await open('Harbour');
+  await tick('Tide schedule');
+  await open('Jira');
+  await open('Lantern Cove');
+  await tick('LC-12: Fix the tide alarm');
+  const start = () => byTestId('start-picked')[0] as HTMLButtonElement;
+  expect(start().disabled).toBe(true);
+  await tick('Tide schedule');
+  expect(count()).toBe('1 ticked');
+
+  await click(start());
+  expect(calls).toContainEqual([
+    '--json',
+    'import',
+    '--project',
+    'lantern-cove',
+    '--',
+    `${SITE}/browse/LC-12`,
+  ]);
+  expect(byTestId('source-picker-dialog')).toHaveLength(0);
+  expect(started).toEqual([`${SITE}/browse/LC-12`]);
 });
 
 test('Include them ticks every page under it, and Write notes off imports with --no-notes', async () => {

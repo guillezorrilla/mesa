@@ -70,6 +70,8 @@ export type OpenInput = {
   terminal?: boolean;
   /** An existing linked worktree it runs in (checkoutWorktree), in place of `branch`. */
   worktree?: Worktree;
+  /** The imported item it starts from (mesa open --from), kept on the record. */
+  from?: SessionRecord['from'];
 };
 
 /**
@@ -159,6 +161,7 @@ export async function openSession(
     parent,
     ...(input.general ? { cwd: deps.home } : {}),
     ...(input.worktree ? { worktree: input.worktree } : {}),
+    ...(input.from ? { from: input.from } : {}),
   };
   if (waited && !isOver(waited)) {
     const { branch, base } = input;

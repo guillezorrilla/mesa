@@ -80,6 +80,7 @@ export async function resumeSession(
       name: old.name,
       adopted: old.adopted,
       vaultMounted: old.vaultMounted,
+      from: old.from,
       resumedFrom: old.id,
     },
     {

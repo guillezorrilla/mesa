@@ -1,5 +1,4 @@
-import type { Runner } from '@mesa/core';
-import { agentWorld, atlassianWorld, writesImportNotes } from '@mesa/core/testing';
+import { atlassianWorld } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -8,15 +7,9 @@ beforeEach(cli.reset);
 
 const SITE = 'https://lantern-cove.atlassian.net';
 
-/** Atlassian connected, and a claude whose import-notes run writes each note. */
+/** Atlassian connected, a claude whose import-notes run writes each note, and two items. */
 async function connected() {
-  const world = atlassianWorld();
-  const agents = agentWorld({ onOpen: writesImportNotes((note) => `# ${note}\n\nWritten.`) });
-  const run: Runner = (file, ...rest) =>
-    file === '/usr/bin/open' ? world.deps.run(file, ...rest) : agents.run(file, ...rest);
-  cli.deps = { ...world.deps, run };
-  await cli.withProject();
-  await cli.mesa('sources', 'connect', 'atlassian');
+  const { world } = await cli.withImports();
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
   world.servePage('9001', { title: 'Tide schedule', html: '<p>Twice a day.</p>' });
   return world;

@@ -23,6 +23,7 @@ import { rulesService } from './rules/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
+import { itemSessions } from './sources/item-session.js';
 import { sourcesService } from './sources/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
@@ -47,6 +48,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const vaults = vaultService(ctx);
   const sessions = sessionsService(ctx, faro, skills);
   const sources = sourcesService(ctx);
+  const imports = importService(ctx, {
+    fetch: sources.fetch,
+    sites: sources.sites,
+    run: sessions.sessions.run,
+  });
   return {
     ...profileApi,
     projects: projectsService(ctx),
@@ -72,11 +78,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),
     sources,
-    imports: importService(ctx, {
-      fetch: sources.fetch,
-      sites: sources.sites,
-      run: sessions.sessions.run,
-    }),
+    imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
     doctor: async () => {
