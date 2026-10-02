@@ -23,7 +23,10 @@ export type FakeRequest = {
   headers: Record<string, string>;
   body?: string;
 };
-type FakeAnswer = { status?: number; body: unknown } | { status?: number; html: string };
+type FakeAnswer = { status?: number; headers?: Record<string, string> } & (
+  | { body: unknown }
+  | { html: string }
+);
 
 /**
  * HTTP answered from `routes` by `<METHOD> <url>`, a JSON body each (or an HTML page), or a
@@ -45,12 +48,16 @@ export function fakeHttp(
     const route = routes[`${request.method} ${url}`];
     const answer = typeof route === 'function' ? route(request) : route;
     const status = answer ? (answer.status ?? 200) : 404;
+    const headers = answer?.headers ?? {};
     if (answer && 'html' in answer) {
-      return new Response(answer.html, { status, headers: { 'content-type': 'text/html' } });
+      return new Response(answer.html, {
+        status,
+        headers: { 'content-type': 'text/html', ...headers },
+      });
     }
     return new Response(JSON.stringify(answer ? answer.body : { error: 'not_found' }), {
       status,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...headers },
     });
   };
   return { http, requests, routes };
@@ -82,8 +89,9 @@ export function fakeSignIn(
   return Object.assign(world, { listen, open });
 }
 
-const JIRA = 'https://api.atlassian.com/ex/jira/cloud-1/rest/api/3';
-const CONFLUENCE = 'https://api.atlassian.com/ex/confluence/cloud-1/wiki/api/v2';
+/** lantern-cove's Jira and Confluence APIs in atlassianWorld. */
+export const TEST_JIRA = 'https://api.atlassian.com/ex/jira/cloud-1/rest/api/3';
+export const TEST_CONFLUENCE = 'https://api.atlassian.com/ex/confluence/cloud-1/wiki/api/v2';
 
 /** Where atlassianWorld's broker lives. */
 export const TEST_BROKER = 'https://broker.example.test';
@@ -156,7 +164,7 @@ export function atlassianWorld(signIn = fakeSignIn()) {
       key: string,
       issue: { summary: string; description: string; comments?: { by: string; html: string }[] },
     ) => {
-      const base = `${JIRA}/issue/${key}`;
+      const base = `${TEST_JIRA}/issue/${key}`;
       serve(`${base}?expand=renderedFields`, {
         key,
         fields: { summary: issue.summary, status: { name: 'In Progress' }, labels: ['tides'] },
@@ -176,6 +184,21 @@ export function atlassianWorld(signIn = fakeSignIn()) {
         });
       }
     },
+    /** `body` at GET `url`, to a live access token only. */
+    serve,
+    /**
+     * A Confluence list at `url` (v2, or CQL search) as `pages` of results, 25 to a page: each
+     * page's `_links.next` names the next by cursor `c<n>`, as Confluence's relative URLs do.
+     */
+    servePaged: (url: string, pages: unknown[][]) => {
+      const at = (n: number) =>
+        `${url}${url.includes('?') ? '&' : '?'}limit=25${n ? `&cursor=c${n}` : ''}`;
+      pages.forEach((results, n) => {
+        const next = new URL(at(n + 1));
+        const links = n + 1 < pages.length ? { next: `${next.pathname}${next.search}` } : {};
+        serve(at(n), { results, _links: links });
+      });
+    },
     /** Confluence page `id` on lantern-cove, its body as Confluence renders it (`view`). */
     servePage: (id: string, page: { title: string; html?: string; parentId?: string }) => {
       const body = {
@@ -184,8 +207,8 @@ export function atlassianWorld(signIn = fakeSignIn()) {
         ...(page.parentId ? { parentId: page.parentId, parentType: 'page' } : {}),
         body: { view: { value: page.html ?? '' } },
       };
-      serve(`${CONFLUENCE}/pages/${id}?body-format=view`, body);
-      serve(`${CONFLUENCE}/pages/${id}`, body);
+      serve(`${TEST_CONFLUENCE}/pages/${id}?body-format=view`, body);
+      serve(`${TEST_CONFLUENCE}/pages/${id}`, body);
     },
     revoke: () => {
       live.access.clear();

@@ -1,4 +1,4 @@
-import type { SourceRow } from '@mesa/core';
+import { DESCENDANTS_CAP, type SourceRow } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -48,5 +48,38 @@ export const sourcesDisconnect = defineCommand({
         ? `disconnected ${args.source}`
         : `${args.source} was not connected`,
     });
+  },
+});
+
+export const sourcesBrowse = defineCommand({
+  name: 'sources browse',
+  summary:
+    "List a node's children in a source's tree, the sites when none is given: pages and issues with the URL mesa import takes, and the containers to browse into; --search looks under the node",
+  args: ['source', 'node?'],
+  flags: {
+    cursor: {
+      type: 'string',
+      description: 'The next page of children: the cursor the last page printed',
+    },
+    search: {
+      type: 'string',
+      description: 'Find pages by title and issues by text under the node',
+    },
+    descendants: {
+      type: 'boolean',
+      description: `Every node under it instead, children's children too, up to ${DESCENDANTS_CAP}`,
+    },
+  },
+  example: 'mesa sources browse atlassian confluence:<cloud-id>',
+  run: async ({ mesa, args, flags }) => {
+    const data = await mesa.sources.browse(args.source, args.node, {
+      ...(flags.cursor ? { cursor: flags.cursor } : {}),
+      ...(flags.search ? { search: flags.search } : {}),
+      ...(flags.descendants ? { descendants: true } : {}),
+    });
+    const lines = columns(data.children.map((c) => [c.kind, c.title, c.id, c.url]));
+    if (data.cursor) lines.push(`more: --cursor ${data.cursor}`);
+    if (data.capped) lines.push(`stopped at ${DESCENDANTS_CAP}`);
+    return { data, text: lines.join('\n') };
   },
 });

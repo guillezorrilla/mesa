@@ -133,6 +133,7 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-stat
 export type { Worktree } from './sessions/worktree.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
+export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
 export type { Account, Site } from './sources/connection.js';
 export type { ImportedItem, ImportResult } from './sources/import.js';

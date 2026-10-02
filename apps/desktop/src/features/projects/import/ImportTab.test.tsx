@@ -3,7 +3,7 @@ import type { ImportListRow, ImportResult } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa, toasts } from '@/lib/testing';
-import { ImportPanel } from './ImportPanel';
+import { ImportTab } from './ImportTab';
 
 const ISSUE: ImportListRow = {
   source: 'jira',
@@ -36,7 +36,7 @@ const type = (field: HTMLInputElement, text: string) =>
     field.dispatchEvent(new Event('input', { bubbles: true }));
   });
 const button = (label: string) =>
-  [...document.querySelectorAll<HTMLButtonElement>('[data-testid="import-panel"] button')].find(
+  [...document.querySelectorAll<HTMLButtonElement>('[data-testid="import-tab"] button')].find(
     (b) => b.textContent === label || b.getAttribute('aria-label') === label,
   );
 const field = () => document.querySelector<HTMLInputElement>('[aria-label="Link to import"]');
@@ -53,8 +53,8 @@ test('a pasted link imports with Write notes on, and the item then lists with Re
     'import refresh': () => imported(ISSUE, { ok: false, reason: 'claude exited with status 1' }),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
-  const byTestId = await renderWithMesa(<ImportPanel project="lantern-cove" />, bridge);
-  expect(byTestId('import-panel')[0]?.textContent).toContain('Nothing imported yet.');
+  const byTestId = await renderWithMesa(<ImportTab project="lantern-cove" />, bridge);
+  expect(byTestId('import-tab')[0]?.textContent).toContain('Nothing imported yet.');
   expect(button('Write notes')?.getAttribute('aria-checked')).toBe('true');
 
   await type(field() as HTMLInputElement, ' LC-12 ');
@@ -92,7 +92,7 @@ test('with Write notes off an import passes --no-notes, and an item without a no
     import: () => imported(PAGE),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
-  await renderWithMesa(<ImportPanel project="lantern-cove" />, bridge);
+  await renderWithMesa(<ImportTab project="lantern-cove" />, bridge);
   await click(button('Write notes'));
   await type(field() as HTMLInputElement, 'https://example.test/');
   await click(button('Import'));

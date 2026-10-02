@@ -1,10 +1,12 @@
 import type { Http } from '../lib/http.js';
+import { MesaError } from '../lib/result.js';
 import type { LockedNotesDeps } from '../vault/notes.js';
 import type { Site } from './connection.js';
 import { CONNECTORS } from './connectors.js';
 import { type NotesRun, type SkillRun, writeNotes } from './import-notes.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { resolveLink } from './links.js';
+import { NOTES_MAX_ITEMS } from './notes-limit.js';
 import { writeSnapshot } from './snapshots.js';
 import { SOURCE_IDS, type SourceId } from './sources.js';
 
@@ -47,7 +49,8 @@ export type ImportResult = {
 /**
  * Imports `links` into `project`'s vault. Every link resolves and every item is fetched before
  * anything is written, so an unsupported or inaccessible link stops the import with nothing
- * written. Each item then gets a new snapshot, and with `notes` its note (writeNotes).
+ * written, as does one with notes of more than NOTES_MAX_ITEMS items. Each item then gets a new
+ * snapshot, and with `notes` its note (writeNotes).
  */
 export async function importLinks(
   deps: ImportDeps,
@@ -63,6 +66,12 @@ export async function importLinks(
   const refs = [
     ...new Map(links.map((link) => resolveLink(link, sites)).map((r) => [r.url, r])).values(),
   ];
+  if (notes && refs.length > NOTES_MAX_ITEMS) {
+    throw new MesaError(
+      'usage',
+      `Write notes takes at most ${NOTES_MAX_ITEMS} items in one import, and this one has ${refs.length}: import them in batches, or with Write notes off (--no-notes)`,
+    );
+  }
   // One authorized fetch per Source, so its token refreshes once; one item at a time.
   const gets = new Map<SourceId, Http>();
   const items: Item[] = [];

@@ -109,7 +109,7 @@ import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
-import { sourcesConnect, sourcesDisconnect, sourcesList } from './sources.js';
+import { sourcesBrowse, sourcesConnect, sourcesDisconnect, sourcesList } from './sources.js';
 import { statusline } from './statusline.js';
 import { stop } from './stop.js';
 import { swap } from './swap.js';
@@ -268,6 +268,7 @@ export const COMMANDS: Command[] = [
   sourcesConnect,
   sourcesList,
   sourcesDisconnect,
+  sourcesBrowse,
   statusline,
   stop,
   unregister,

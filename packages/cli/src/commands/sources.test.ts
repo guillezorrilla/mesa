@@ -1,4 +1,4 @@
-import { atlassianWorld } from '@mesa/core/testing';
+import { atlassianWorld, TEST_CONFLUENCE } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -53,5 +53,76 @@ test('an unknown source is a usage error', async () => {
   expect(out.json.error).toEqual({
     code: 'usage',
     message: 'unknown source linear; one of atlassian',
+  });
+});
+
+test('sources browse prints a node children as JSON, follows --cursor to the end, and says reconnect when revoked', async () => {
+  const world = atlassianWorld();
+  cli.deps = world.deps;
+  await cli.withProject();
+  await cli.mesa('sources', 'connect', 'atlassian', '--json');
+  const root = await cli.mesa('sources', 'browse', 'atlassian', '--json');
+  expect(root.json.data).toEqual({
+    node: null,
+    children: [
+      {
+        id: 'site:cloud-1',
+        kind: 'site',
+        title: 'lantern-cove',
+        url: 'https://lantern-cove.atlassian.net',
+        hasChildren: true,
+        importable: false,
+      },
+    ],
+  });
+
+  const spaces = Array.from({ length: 26 }, (_, at) => ({
+    id: String(100 + at),
+    key: `S${at}`,
+    name: `Space ${at}`,
+  }));
+  world.servePaged(`${TEST_CONFLUENCE}/spaces`, [spaces.slice(0, 25), spaces.slice(25)]);
+  const first = await cli.mesa('sources', 'browse', 'atlassian', 'confluence:cloud-1', '--json');
+  expect(first.json.data.children).toHaveLength(25);
+  expect(first.json.data.cursor).toBe('c1');
+  const last = await cli.mesa(
+    'sources',
+    'browse',
+    'atlassian',
+    'confluence:cloud-1',
+    '--cursor',
+    'c1',
+    '--json',
+  );
+  expect(last.json.data).toEqual({
+    node: 'confluence:cloud-1',
+    children: [
+      {
+        id: 'space:cloud-1:125:S25',
+        kind: 'space',
+        title: 'Space 25',
+        url: 'https://lantern-cove.atlassian.net/wiki/spaces/S25',
+        hasChildren: true,
+        importable: false,
+      },
+    ],
+  });
+  const text = (await cli.mesa('sources', 'browse', 'atlassian', 'confluence:cloud-1')).stdout;
+  const lines = text.trimEnd().split('\n');
+  expect(lines[0]?.split(/ {2,}/)).toEqual([
+    'space',
+    'Space 0',
+    'space:cloud-1:100:S0',
+    'https://lantern-cove.atlassian.net/wiki/spaces/S0',
+  ]);
+  expect(lines.at(-1)).toBe('more: --cursor c1');
+
+  world.revoke();
+  const revoked = await cli.mesa('sources', 'browse', 'atlassian', 'confluence:cloud-1', '--json');
+  expect(revoked.code).toBe(4);
+  expect(revoked.json.error).toEqual({
+    code: 'invalid_config',
+    message: 'Atlassian needs reconnecting: run mesa sources connect atlassian',
+    details: { connect: 'atlassian' },
   });
 });
