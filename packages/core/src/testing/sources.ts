@@ -204,13 +204,26 @@ export function atlassianWorld(signIn = fakeSignIn()) {
      */
     serveIssue: (
       key: string,
-      issue: { summary: string; description: string; comments?: { by: string; html: string }[] },
+      issue: {
+        summary: string;
+        description: string;
+        updated?: string;
+        comments?: { by: string; html: string }[];
+      },
     ) => {
       const base = `${TEST_JIRA}/issue/${key}`;
       serve(`${base}?expand=renderedFields`, {
         key,
-        fields: { summary: issue.summary, status: { name: 'In Progress' }, labels: ['tides'] },
+        fields: {
+          summary: issue.summary,
+          status: { name: 'In Progress' },
+          labels: ['tides'],
+          updated: issue.updated ?? '2026-09-24T12:00:00Z',
+        },
         renderedFields: { description: issue.description },
+      });
+      serve(`${base}?fields=updated`, {
+        fields: { updated: issue.updated ?? '2026-09-24T12:00:00Z' },
       });
       const comments = (issue.comments ?? []).map((c, at) => ({
         author: { displayName: c.by },
@@ -240,10 +253,14 @@ export function atlassianWorld(signIn = fakeSignIn()) {
       });
     },
     /** Confluence page `id` on lantern-cove, its body as Confluence renders it (`view`). */
-    servePage: (id: string, page: { title: string; html?: string; parentId?: string }) => {
+    servePage: (
+      id: string,
+      page: { title: string; html?: string; parentId?: string; version?: number },
+    ) => {
       const body = {
         id,
         title: page.title,
+        version: { number: page.version ?? 1 },
         ...(page.parentId ? { parentId: page.parentId, parentType: 'page' } : {}),
         body: { view: { value: page.html ?? '' } },
       };
@@ -271,6 +288,7 @@ export const notionPageObject = (
   object: 'page',
   id,
   in_trash: false,
+  last_edited_time: '2026-09-24T12:00:00Z',
   parent: row
     ? { type: 'data_source_id', data_source_id: 'ds-1', database_id: row.database }
     : { type: 'workspace', workspace: true },

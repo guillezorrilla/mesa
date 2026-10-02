@@ -14,7 +14,8 @@ import { runInNewContext } from 'node:vm';
 import { beforeEach, expect, test } from 'vitest';
 import { parse } from 'yaml';
 import { createMesa } from '../mesa.js';
-import { keepFailure, keepSuccess, type RecordKind } from '../receipts/policy.js';
+import { meaningfulReceipt, type RecordKind } from '../receipts/policy.js';
+import type { Receipt } from '../receipts/schema.js';
 import { projectProfile, scriptedRunner, tempDir, testDeps } from '../testing/index.js';
 import { vaultLockPath } from './vault-lock.js';
 
@@ -33,6 +34,7 @@ const evaluate = (expression: string, row: Record<string, unknown>) =>
   runInNewContext(
     expression
       .replace(/([\w.]+)\.isType\("string"\)/g, '(typeof $1 === "string")')
+      .replace(/([\w.]+)\.isType\("list"\)/g, 'Array.isArray($1)')
       .replace(
         /^if\((.*), link\(outputs.target\), file.asLink\(\)\)$/,
         '($1 ? link(outputs.target) : file.asLink())',
@@ -133,6 +135,10 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['vault-change', 'blocked', {}, false],
     ['connection', 'ok', { source: 'atlassian' }, true],
     ['connection', 'failed', {}, false],
+    ['refresh', 'ok', { refreshed: [] }, false],
+    ['refresh', 'ok', { refreshed: ['LC-12'] }, true],
+    ['refresh', 'ok', { refreshed: 'LC-12' }, false],
+    ['refresh', 'failed', { refreshed: ['LC-12'] }, false],
     ['guardrail', 'ok', { override: 'accepted risk' }, true],
     ['guardrail', 'ok', {}, false],
     ['guardrail', 'ok', { override: true }, false],
@@ -151,11 +157,7 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['decision', 'ok', { target: null }, true],
   ];
   for (const [kind, status, outputs, expected] of fixtures) {
-    const target = outputs.target;
-    const error = outputs.error as { code?: string } | undefined;
-    const policy =
-      !(typeof target === 'string' && (target === 'daily' || target.startsWith('daily/'))) &&
-      (status === 'ok' ? keepSuccess(kind, outputs) : keepFailure(kind, error?.code ?? ''));
+    const policy = meaningfulReceipt({ kind, status, outputs } as Receipt);
     expect(policy).toBe(expected);
     expect(Boolean(evaluate(filter, { kind, status, outputs }))).toBe(expected);
   }

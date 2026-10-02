@@ -36,9 +36,22 @@ const PAGE = 100;
  * A Jira issue as an item: its fields, its description from `renderedFields`, and every comment
  * (each page of them followed), as Markdown. Reads only.
  */
-export async function jiraIssue(get: Http, ref: ItemRef): Promise<Item> {
+export async function jiraIssue(
+  get: Http,
+  ref: ItemRef,
+  previousRevision?: string,
+): Promise<Item | undefined> {
   const base = `${jiraApi(siteOf(ref))}/issue/${encodeURIComponent(ref.id)}`;
   const what = `Jira issue ${ref.id}`;
+  if (previousRevision) {
+    const current = await readItem(
+      get,
+      `${base}?fields=updated`,
+      z.object({ fields: z.object({ updated: z.string() }) }),
+      what,
+    );
+    if (current.fields.updated === previousRevision) return undefined;
+  }
   const { fields, renderedFields } = await readItem(
     get,
     `${base}?expand=renderedFields`,
@@ -79,5 +92,10 @@ export async function jiraIssue(get: Http, ref: ItemRef): Promise<Item> {
     `## Description\n\n${description || 'None.'}`,
     ...(discussion.length ? [`## Comments\n\n${discussion.join('\n\n')}`] : []),
   ];
-  return { ...ref, title: `${ref.id}: ${fields.summary}`, markdown: sections.join('\n\n') };
+  return {
+    ...ref,
+    title: `${ref.id}: ${fields.summary}`,
+    markdown: sections.join('\n\n'),
+    ...(fields.updated ? { revision: fields.updated } : {}),
+  };
 }

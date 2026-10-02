@@ -1,8 +1,14 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
-import { requireLog } from '../vault/notes.js';
-import { type ImportDeps, type ImportResult, importLinks, reachedSites } from './import.js';
+import { readNote, requireLog } from '../vault/notes.js';
+import {
+  type ImportDeps,
+  type ImportResult,
+  importLinks,
+  type RefreshOptions,
+  reachedSites,
+} from './import.js';
 import { importNotes } from './import-notes.js';
 import { resolveLink } from './links.js';
 import { snapshotRows } from './snapshots.js';
@@ -32,23 +38,50 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
       return note ? { ...row, note } : row;
     });
   };
-  const run = (project: string, links: readonly string[], notes: boolean) =>
+  const run = (
+    project: string,
+    links: readonly string[],
+    notes: boolean,
+    options: RefreshOptions = {},
+  ) =>
     ctx.record(
       {
-        kind: 'vault-change',
+        kind: options.changedOnly ? 'refresh' : 'vault-change',
         summary: (r: ImportResult) =>
-          `Imported ${r.items.map((i) => i.id).join(', ')} into ${project}`,
+          r.checked
+            ? `Checked ${r.checked.length}, skipped ${r.skipped?.length}, refreshed ${r.refreshed?.length} in ${project}`
+            : `Imported ${r.items.map((i) => i.id).join(', ')} into ${project}`,
         failure: `Could not import into ${project}`,
         project: () => project,
-        inputs: { project, notes },
+        inputs: {
+          project,
+          notes,
+          ...(options.changedOnly ? { changedOnly: true, agent: options.agent ?? 'claude' } : {}),
+        },
         outputs: (r) => ({
           items: r.items,
           ...(r.notes ? { notes: r.notes } : {}),
+          ...(r.notesRuns ? { notesRuns: r.notesRuns } : {}),
+          ...(r.checked ? { checked: r.checked, skipped: r.skipped, refreshed: r.refreshed } : {}),
           target: r.items[0]?.note ?? r.items[0]?.snapshot,
         }),
       },
-      () =>
-        importLinks({ ...deps, notes: ctx.notes(), http: ctx.deps.http }, project, links, notes),
+      () => {
+        const revisions = new Map<string, string>();
+        if (options.changedOnly) {
+          for (const row of list(project)) {
+            const revision = readNote(ctx.vaultOf(), row.snapshot).frontmatter.revision;
+            if (typeof revision === 'string') revisions.set(row.url, revision);
+          }
+        }
+        return importLinks(
+          { ...deps, notes: ctx.notes(), http: ctx.deps.http },
+          project,
+          links,
+          notes,
+          options.changedOnly ? { revisions, agent: options.agent ?? 'claude' } : undefined,
+        );
+      },
     );
   return {
     /** Imports `links` into `project`'s vault, with notes unless `notes` is false. */
@@ -93,7 +126,15 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
       return { item: imported, ...(result.notes ? { notes: result.notes } : {}) };
     },
     /** Imports `project`'s items again, those of `ids` (an item's id) or all of them. */
-    refresh: async (project: string, ids: readonly string[] = [], notes = true) => {
+    refresh: async (
+      project: string,
+      ids: readonly string[] = [],
+      notes = true,
+      options: RefreshOptions = {},
+    ) => {
+      if (options.agent && options.agent !== 'claude' && options.agent !== 'codex') {
+        throw new MesaError('usage', 'changed-only refresh uses claude or codex for notes');
+      }
       prepare(project);
       const items = list(project);
       const unknown = ids.filter((id) => !items.some((item) => item.id === id));
@@ -109,6 +150,7 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
         project,
         chosen.map((item) => item.url),
         notes,
+        options,
       );
     },
   };

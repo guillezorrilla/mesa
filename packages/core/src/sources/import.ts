@@ -12,7 +12,7 @@ import { SOURCE_IDS, type SourceId } from './sources.js';
 
 // The import pipeline (CONTEXT.md, Import): links resolved and fetched, each a new raw/ snapshot,
 // then, unless notes are off, one import-notes run whose notes core lands. A refresh is the same
-// import of the items' URLs.
+// import of the items' URLs; changed-only refresh compares their snapshot revisions first.
 
 /** What an import pipeline needs: the vault, plain and authorized HTTP, the sites, a Skill run. */
 export type ImportDeps = {
@@ -42,27 +42,36 @@ export type ImportResult = {
   items: ImportedItem[];
   /** The Write notes run, absent with notes off: its session, and why it wrote no notes. */
   notes?: NotesRun;
+  /** Each changed-only notes batch, when more than one was needed. */
+  notesRuns?: NotesRun[];
   /** Notes left as they are, being locked. */
   locked?: string[];
+  /** Change-aware refresh audit, absent on ordinary imports. */
+  checked?: string[];
+  skipped?: string[];
+  refreshed?: string[];
 };
+
+export type RefreshOptions = { changedOnly?: boolean; agent?: 'claude' | 'codex' };
 
 /**
  * Imports `links` into `project`'s vault. Every link resolves and every item is fetched before
  * anything is written, so an unsupported or inaccessible link stops the import with nothing
- * written, as does one with notes of more than NOTES_MAX_ITEMS items. Each item then gets a new
- * snapshot, and with `notes` its note (writeNotes).
+ * written. Ordinary imports with notes refuse more than NOTES_MAX_ITEMS items. A changed-only
+ * refresh skips matching revisions and batches changed notes after all items passed preflight.
  */
 export async function importLinks(
   deps: ImportDeps,
   project: string,
   links: readonly string[],
   notes: boolean,
+  refresh?: { revisions: ReadonlyMap<string, string>; agent: 'claude' | 'codex' },
 ): Promise<ImportResult> {
   const sites = await reachedSites(deps.sites);
   const refs = [
     ...new Map(links.map((link) => resolveLink(link, sites)).map((r) => [r.url, r])).values(),
   ];
-  if (notes && refs.length > NOTES_MAX_ITEMS) {
+  if (!refresh && notes && refs.length > NOTES_MAX_ITEMS) {
     throw new MesaError(
       'usage',
       `Write notes takes at most ${NOTES_MAX_ITEMS} items in one import, and this one has ${refs.length}: import them in batches, or with Write notes off (--no-notes)`,
@@ -71,7 +80,12 @@ export async function importLinks(
   // One authorized fetch per Source, so its token refreshes once; one item at a time.
   const gets = new Map<SourceId, Http>();
   const items: Item[] = [];
-  for (const ref of refs) items.push(await fetchItem(deps, gets, ref));
+  const skipped: string[] = [];
+  for (const ref of refs) {
+    const item = await fetchItem(deps, gets, ref, refresh?.revisions.get(ref.url));
+    if (item) items.push(item);
+    else skipped.push(ref.id);
+  }
   const snapshots = items.map((item) => ({
     item,
     snapshot: writeSnapshot(deps.notes, project, item),
@@ -81,6 +95,9 @@ export async function importLinks(
     written = new Map<string, string>(),
   ): ImportResult => ({
     project,
+    ...(refresh
+      ? { checked: refs.map((r) => r.id), skipped, refreshed: items.map((i) => i.id) }
+      : {}),
     items: snapshots.map(({ item, snapshot }): ImportedItem => {
       const note = written.get(item.url);
       const { source, id, title, url } = item;
@@ -88,9 +105,30 @@ export async function importLinks(
     }),
     ...more,
   });
-  if (!notes) return result();
-  const { written, ...outcome } = await writeNotes(deps, project, snapshots);
-  return result(outcome, written);
+  if (!notes || !snapshots.length) return result();
+  const written = new Map<string, string>();
+  const runs: NotesRun[] = [];
+  const locked: string[] = [];
+  for (let at = 0; at < snapshots.length; at += NOTES_MAX_ITEMS) {
+    const batch = await writeNotes(
+      deps,
+      project,
+      snapshots.slice(at, at + NOTES_MAX_ITEMS),
+      refresh?.agent,
+    );
+    runs.push(batch.notes);
+    for (const [url, path] of batch.written) written.set(url, path);
+    locked.push(...(batch.locked ?? []));
+    if (!batch.notes.ok) break;
+  }
+  return result(
+    {
+      notes: runs.find((r) => !r.ok) ?? runs[0],
+      ...(runs.length > 1 ? { notesRuns: runs } : {}),
+      ...(locked.length ? { locked } : {}),
+    },
+    written,
+  );
 }
 
 /** The sites each Source's connection reaches, for resolveLink; none for one with no connection. */
@@ -104,10 +142,15 @@ export async function reachedSites(sites: ImportDeps['sites']) {
 }
 
 /** One item, through its connector, over its Source's authorized fetch or plain HTTP. */
-function fetchItem(deps: ImportDeps, gets: Map<SourceId, Http>, ref: ItemRef) {
+function fetchItem(
+  deps: ImportDeps,
+  gets: Map<SourceId, Http>,
+  ref: ItemRef,
+  previousRevision?: string,
+) {
   const { connection, fetch } = CONNECTORS[ref.source];
-  if (!connection) return fetch(deps.http, ref);
+  if (!connection) return fetch(deps.http, ref, previousRevision);
   const get = gets.get(connection) ?? deps.fetch(connection);
   gets.set(connection, get);
-  return fetch(get, ref);
+  return fetch(get, ref, previousRevision);
 }

@@ -137,7 +137,7 @@ export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
 export type { Account, Site } from './sources/connection.js';
-export type { ImportedItem, ImportResult } from './sources/import.js';
+export type { ImportedItem, ImportResult, RefreshOptions } from './sources/import.js';
 export type { ImportListRow } from './sources/import-service.js';
 export type { ItemSource } from './sources/items.js';
 export type { SourceRow } from './sources/service.js';

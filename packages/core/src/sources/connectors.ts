@@ -13,7 +13,10 @@ import { webPage } from './web.js';
  */
 export const CONNECTORS: Record<
   ItemSource,
-  { connection?: SourceId; fetch: (get: Http, ref: ItemRef) => Promise<Item> }
+  {
+    connection?: SourceId;
+    fetch: (get: Http, ref: ItemRef, previousRevision?: string) => Promise<Item | undefined>;
+  }
 > = {
   jira: { connection: 'atlassian', fetch: jiraIssue },
   confluence: { connection: 'atlassian', fetch: confluencePage },

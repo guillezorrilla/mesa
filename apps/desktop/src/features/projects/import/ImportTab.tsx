@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { type Message, said } from '@/components/Toast';
+import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { ImportedItems } from './ImportedItems';
@@ -13,7 +14,9 @@ import { SourcePickerDialog } from './SourcePickerDialog';
 
 /** What an import says when it ends: what came in, and why no notes were written if none were. */
 function outcome(result: ImportResult & { warning?: string }): Message {
-  const what = `Imported ${result.items.map((item) => item.title).join(', ')}`;
+  const what = result.checked
+    ? `Checked ${result.checked.length}, skipped ${result.skipped?.length}, refreshed ${result.refreshed?.length}`
+    : `Imported ${result.items.map((item) => item.title).join(', ')}`;
   if (result.notes && !result.notes.ok) {
     return { text: `${what}; notes not written: ${result.notes.reason}`, tone: 'alert' };
   }
@@ -34,8 +37,10 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
   const { acting, act } = useAct();
   const [notes, setNotes] = useState(true);
   const [browsing, setBrowsing] = useState<SourceRow>();
+  const [lastRefresh, setLastRefresh] = useState<string>();
   const settle = async (result: (ImportResult & { warning?: string }) | undefined) => {
     await list.refresh();
+    if (result?.checked) setLastRefresh(outcome(result).text);
     return result && outcome(result);
   };
   /** Imports `links`; false when the import did not run (its error toasted). */
@@ -68,6 +73,18 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
         <SectionLabel className="flex items-center gap-2">
           <Download aria-hidden className="size-4" /> Imported
         </SectionLabel>
+        <Button
+          variant="outline"
+          disabled={acting || !list.data?.items.length}
+          onClick={() =>
+            void act(async () =>
+              settle(await run('imports.refresh', { project, notes, changedOnly: true })),
+            )
+          }
+        >
+          Refresh changed items
+        </Button>
+        {lastRefresh && <Muted role="status">{lastRefresh}</Muted>}
         <ImportedItems
           items={list.data?.items ?? []}
           acting={acting}

@@ -171,7 +171,7 @@ function landNotes(
 /** A Skill run on the project, waited for (the sessions service's run). */
 export type SkillRun = (
   skill: string,
-  opts: { project: string; args: string[]; yes: boolean },
+  opts: { project: string; args: string[]; yes: boolean; agent?: 'claude' | 'codex' },
 ) => Promise<{ result: HeadlessResult & { session: string } }>;
 
 /** How a Write notes run went: its session, and why it wrote no notes when it wrote none. */
@@ -186,6 +186,7 @@ export async function writeNotes(
   deps: { notes: LockedNotesDeps; run: SkillRun },
   project: string,
   snapshots: readonly { item: Item; snapshot: string }[],
+  agent?: 'claude' | 'codex',
 ): Promise<{ notes: NotesRun; written: Map<string, string>; locked?: string[] }> {
   const { planned, locked } = planNotes(deps.notes.vault, project, snapshots);
   const extra = locked.length ? { locked } : {};
@@ -197,6 +198,7 @@ export async function writeNotes(
       project,
       args: notesArgs(planned),
       yes: true,
+      ...(agent ? { agent } : {}),
     });
     session = result.session;
     if (!result.ok) {
