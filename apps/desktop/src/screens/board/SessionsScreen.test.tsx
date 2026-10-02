@@ -32,85 +32,15 @@ async function renderSession(...args: Parameters<typeof renderWithMesa>) {
   return byTestId;
 }
 
-test('New session opens a dialog, and Open starts the picked project with the picked agent', async () => {
-  const { bridge, calls } = fakeBridge({
-    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
-    projects: () => envelope(PROJECTS),
-    open: () => envelope({ ...busy, id: 'dddddddd' }),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(document.querySelector<HTMLElement>('[aria-label="New session"]') ?? undefined);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (item) => item.textContent?.trim() === 'lantern-cove',
-    ),
+const menuItem = (label: string) =>
+  [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (item) => item.textContent?.trim() === label,
   );
-  const dialog = byTestId('new-session-dialog')[0];
-  // A Radix dialog: open is its data-state, not the native open attribute.
-  expect(dialog?.dataset.state).toBe('open');
-  const options = [...(byTestId('new-session-project')[0] as HTMLSelectElement).options];
-  expect(options.map((o) => [o.value, o.disabled])).toEqual([
-    ['lantern-cove', false],
-    // Its folder is gone: it cannot start a session.
-    ['tide', true],
-  ]);
-  // Every agent Mesa runs, Claude Code first, as core lists them.
-  const agents = [...(dialog?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? [])];
-  expect(agents.map((a) => [a.value, a.disabled, a.getAttribute('aria-checked')])).toEqual([
-    ['claude', false, 'true'],
-    ['codex', false, 'false'],
-    ['antigravity', false, 'false'],
-  ]);
-  expect(dialog?.textContent).toContain('Codex');
-  await click(agents[1]);
-  await click(byTestId('new-session-submit')[0]);
-  expect(calls).toContainEqual([
-    '--json',
-    'open',
-    '--no-parent',
-    '--agent',
-    'codex',
-    '--',
-    'lantern-cove',
-  ]);
-  expect(byTestId('new-session-dialog')).toHaveLength(0);
-  expect(byTestId('toast')[0]?.textContent).toContain('Opened session dddddddd on lantern-cove');
-});
 
-test('New session starts Claude Code in native Plan mode when selected', async () => {
-  const { bridge, calls } = fakeBridge({
-    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
-    projects: () => envelope(PROJECTS),
-    open: () => envelope({ ...busy, id: 'dddddddd' }),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(document.querySelector<HTMLElement>('[aria-label="New session"]') ?? undefined);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (item) => item.textContent?.trim() === 'lantern-cove',
-    ),
-  );
-  await choose(byTestId('session-mode')[0], 'plan');
-  await click(byTestId('session-background')[0]);
-  await click(byTestId('new-session-submit')[0]);
-  expect(calls).toContainEqual([
-    '--json',
-    'open',
-    '--no-parent',
-    '--agent',
-    'claude',
-    '--mode',
-    'plan',
-    '--background',
-    '--',
-    'lantern-cove',
-  ]);
-});
-
-test('New session loads its row before switching to the terminal', async () => {
+test('New session starts the project at once, with no dialog and no agent, then shows it', async () => {
   const opened = managedRow('newnewnew');
   let rows = [busy];
-  const { bridge } = fakeBridge({
+  const { bridge, calls } = fakeBridge({
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
     projects: () => envelope(PROJECTS),
     sessions: () => envelope(rows),
@@ -121,105 +51,57 @@ test('New session loads its row before switching to the terminal', async () => {
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(document.querySelector<HTMLElement>('[aria-label="New session"]') ?? undefined);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (item) => item.textContent?.trim() === 'lantern-cove',
-    ),
-  );
-  await click(byTestId('new-session-submit')[0]);
+  await click(menuItem('lantern-cove'));
+  // No --agent: mesa open takes the project's, else the profile default.
+  expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(byTestId('selected-session')).toHaveLength(1);
   expect(byTestId('terminal-newnewnew')).toHaveLength(1);
   expect(document.body.textContent).not.toContain('Session unavailable');
 });
 
-test('New session passes a multi-line goal with --goal; a blank one passes none', async () => {
+test('a starting session shows under its project in the sidebar until it opens', async () => {
+  const opening = deferred();
   const { bridge, calls } = fakeBridge({
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
     projects: () => envelope(PROJECTS),
-    open: () => envelope({ ...busy, id: 'dddddddd' }),
+    sessions: () => envelope([busy]),
+    open: () => opening.promise,
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(document.querySelector<HTMLElement>('[aria-label="New session"]') ?? undefined);
   await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (item) => item.textContent?.trim() === 'lantern-cove',
-    ),
+    document.querySelector<HTMLElement>('[aria-label="New session in lantern-cove"]') ?? undefined,
   );
-  const goal = byTestId('new-session-goal')[0] as HTMLTextAreaElement;
-  expect(goal.tagName).toBe('TEXTAREA');
-  goal.value = '/goal Print "ready"\nthen stop';
-  await click(byTestId('new-session-submit')[0]);
+  await click(menuItem('New worktree session'));
   expect(calls).toContainEqual([
     '--json',
     'open',
     '--no-parent',
-    '--agent',
-    'claude',
-    '--goal=/goal Print "ready"\nthen stop',
+    '--worktree',
     '--',
     'lantern-cove',
   ]);
-
-  expect(byTestId('selected-session')).toHaveLength(1);
-  const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
-  await click(menu);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (button) => button.textContent === 'lantern-cove',
-    ),
-  );
-  (byTestId('new-session-goal')[0] as HTMLTextAreaElement).value = ' \n ';
-  await click(byTestId('new-session-submit')[0]);
-  expect(calls.filter((c) => c[1] === 'open').at(-1)).toEqual([
-    '--json',
-    'open',
-    '--no-parent',
-    '--agent',
-    'claude',
-    '--',
-    'lantern-cove',
+  expect(byTestId('starting-session').map((row) => row.textContent?.trim())).toEqual([
+    'Starting session',
   ]);
+  await act(async () => opening.resolve(envelope({ ...busy, id: 'dddddddd' })));
+  expect(byTestId('starting-session')).toHaveLength(0);
 });
 
-test('New session passes a branch with --branch, trimmed; a blank one passes none', async () => {
-  const { bridge, calls } = fakeBridge({
+test('a session that cannot start says why, and its starting row goes', async () => {
+  const { bridge } = fakeBridge({
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
     projects: () => envelope(PROJECTS),
-    open: () => envelope({ ...busy, id: 'dddddddd' }),
+    open: () => failure('claude is not installed'),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  await click(document.querySelector<HTMLElement>('[aria-label="New session"]') ?? undefined);
   await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (item) => item.textContent?.trim() === 'lantern-cove',
-    ),
+    document.querySelector<HTMLElement>('[aria-label="New session in lantern-cove"]') ?? undefined,
   );
-  (byTestId('new-session-branch')[0] as HTMLInputElement).value = ' try/worktree ';
-  await click(byTestId('new-session-submit')[0]);
-  expect(calls).toContainEqual([
-    '--json',
-    'open',
-    '--no-parent',
-    '--agent',
-    'claude',
-    '--branch=try/worktree',
-    '--',
-    'lantern-cove',
-  ]);
-
-  expect(byTestId('selected-session')).toHaveLength(1);
-  const menu = document.querySelector('[aria-label="New session"]') as HTMLElement;
-  await click(menu);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (button) => button.textContent === 'lantern-cove',
-    ),
-  );
-  (byTestId('new-session-branch')[0] as HTMLInputElement).value = '  ';
-  await click(byTestId('new-session-submit')[0]);
-  expect(calls.filter((c) => c[1] === 'open').at(-1)).not.toContainEqual(
-    expect.stringMatching(/^--branch/),
-  );
+  await click(menuItem('New terminal session'));
+  expect(toastTexts(byTestId)).toContain('claude is not installed');
+  expect(byTestId('starting-session')).toHaveLength(0);
+  expect(byTestId('selected-session')).toHaveLength(0);
 });
 
 test('a send typed with a warning says so in the toast, so it is not sent again', async () => {

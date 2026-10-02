@@ -19,6 +19,7 @@ import {
   Grid2X2,
   Keyboard,
   Library,
+  LoaderCircle,
   Map as MapIcon,
   MoreVertical,
   Plus,
@@ -74,6 +75,8 @@ export function WorkspaceSidebar(props: {
   sort: ProjectSort;
   onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
+  /** Sessions starting, by project (GENERAL_PROJECT for General), shown until they open. */
+  starting?: readonly string[];
   onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal', parent?: string) => void;
   onArchiveSession?: (id: string) => void;
   onDependencySession?: (id: string) => void;
@@ -96,6 +99,20 @@ export function WorkspaceSidebar(props: {
     (session) => !session.project || !registered.has(session.project),
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
+  const startingIn = (project: string) =>
+    (props.starting ?? [])
+      .filter((name) => name === project)
+      .map((_, i) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: identical placeholders, one per start
+          key={i}
+          role="status"
+          data-testid="starting-session"
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground"
+        >
+          <LoaderCircle aria-hidden className="size-3.5 animate-spin" /> Starting session
+        </div>
+      ));
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
   const item = (label: string, icon: typeof TerminalSquare, target: WorkspaceView) => {
     const Icon = icon;
@@ -417,12 +434,16 @@ export function WorkspaceSidebar(props: {
                     {active.filter((session) => session.project === project.name).map(sessionItem)}
                   </div>
                 )}
+                {startingIn(project.name)}
               </div>
             ))}
-            {general.length > 0 && (
+            {(general.length > 0 || props.starting?.includes(GENERAL_PROJECT)) && (
               <div>
                 <p className="px-2 text-xs text-muted-foreground">General</p>
-                <div className="px-1">{general.map(sessionItem)}</div>
+                <div className="px-1">
+                  {general.map(sessionItem)}
+                  {startingIn(GENERAL_PROJECT)}
+                </div>
               </div>
             )}
             {other.length > 0 && (

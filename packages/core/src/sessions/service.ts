@@ -15,6 +15,7 @@ import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { skillsService } from '../skills/service.js';
+import { sessionBranchName } from '../worktrees/branch-name.js';
 import { adoptSession } from './adopt.js';
 import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
@@ -430,29 +431,23 @@ export function sessionsService(
        */
       open: (
         project: string | undefined,
-        opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {},
+        opts: Omit<OpenInput, 'project'> & { goalFile?: string; worktree?: boolean } = {},
       ) => {
-        const {
-          agent,
-          mode,
-          background,
-          parent,
-          noParent,
-          after,
-          branch,
-          base,
-          terminal,
-          general,
-        } = opts;
+        const { agent, mode, background, parent, noParent, after, base, terminal, general } = opts;
+        let refused: unknown =
+          opts.worktree && opts.branch !== undefined
+            ? new MesaError('usage', 'pass --worktree or --branch, not both')
+            : undefined;
+        // A worktree of its own on a branch Mesa names (sessionBranchName).
+        const branch = opts.worktree && !refused ? sessionBranchName(deps.newId) : opts.branch;
         let goal: string | undefined;
-        let refused: unknown;
         try {
           goal = readGoal({
             goal: opts.goal,
             goalFile: opts.goalFile === undefined ? undefined : absolute(opts.goalFile),
           });
         } catch (error) {
-          refused = error;
+          refused ??= error;
         }
         const text = goal ?? opts.goal;
         const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());

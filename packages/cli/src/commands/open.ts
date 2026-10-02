@@ -40,6 +40,11 @@ export const open = defineCommand({
       description:
         'Run it in its own git worktree on this branch, new or existing, under the profile',
     },
+    worktree: {
+      type: 'boolean',
+      description:
+        'Run it in its own git worktree on a new branch Mesa names: session/<words>-<4 characters>',
+    },
     base: {
       type: 'string',
       description:
@@ -60,6 +65,7 @@ export const open = defineCommand({
       noParent: flags['no-parent'],
       after: flags.after,
       branch: flags.branch,
+      worktree: flags.worktree,
       base: flags.base,
       terminal: flags.terminal,
       general: flags.general,
