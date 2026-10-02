@@ -131,6 +131,8 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['vault-change', 'ok', { target: 'wiki/tide.md' }, true],
     ['decision', 'failed', {}, false],
     ['vault-change', 'blocked', {}, false],
+    ['connection', 'ok', { source: 'atlassian' }, true],
+    ['connection', 'failed', {}, false],
     ['guardrail', 'ok', { override: 'accepted risk' }, true],
     ['guardrail', 'ok', {}, false],
     ['guardrail', 'ok', { override: true }, false],

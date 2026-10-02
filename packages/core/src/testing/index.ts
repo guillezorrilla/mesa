@@ -17,6 +17,7 @@ import type { ListingDeps } from '../sessions/agent-listing.js';
 import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
+import { fakeHttp, memorySecretStore } from './sources.js';
 import { tempDir } from './tmp.js';
 
 // Test implementations of Mesa's seams, real but controlled: a scripted runner and a temp home,
@@ -535,6 +536,12 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   self: ['/usr/local/bin/mesa'],
   env: {},
   run: scriptedRunner().run,
+  // No network and an empty Keychain: a test that signs in passes atlassianWorld().deps.
+  http: fakeHttp().http,
+  listen: async () => {
+    throw new Error('testDeps: no sign-in listener; pass fakeSignIn().listen');
+  },
+  secretStore: memorySecretStore().store,
   processAlive: () => true,
   browserSelection: async () => undefined,
   argv: ['test'],
@@ -681,3 +688,11 @@ export function plantTranscript(home: string, id: string, cwd: string, content?:
 }
 
 export { type FakePullRequest, fakeGh } from './gh.js';
+export {
+  atlassianWorld,
+  type FakeRequest,
+  fakeHttp,
+  fakeSignIn,
+  memorySecretStore,
+  TEST_BROKER,
+} from './sources.js';

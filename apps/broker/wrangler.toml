@@ -1,0 +1,5 @@
+# Mesa's OAuth broker (ADR-0014). Secrets: wrangler secret put ATLASSIAN_CLIENT_ID, then
+# ATLASSIAN_CLIENT_SECRET.
+name = "mesa-broker"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"

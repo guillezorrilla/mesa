@@ -2,7 +2,7 @@
 
 A receipt is a Markdown note in the profile vault's `receipts/`. Since #274, new receipts record durable knowledge: a deliberate Faro decision with its rationale, a guardrail block or override, or an actual change to a vault note. Routine session lifecycle, sends, configuration, polls, no-op retries, and failures outside a guardrail do not create receipts. A command may therefore return `receipt: null` without a warning. A required receipt that cannot be written gives a warning while preserving the action result. Existing receipts remain readable through `mesa receipts` and `mesa receipts show`.
 
-`kind` identifies the new policy's three entries: `decision`, `guardrail`, and `vault-change`. Older receipts have no `kind`; they retain their `type` (`session`, `skill`, `decision`, or `action`) and remain readable. `mesa receipts [--project <slug>] [--session <id>] [--kind <kind>] [--type <type>] [--limit <n>] --json` filters at the core store and lists newest first. The desktop shows the same filtered entries in project and session context, with direct links to the changed vault note. It has no global receipt feed.
+`kind` identifies the new policy's entries: `decision`, `guardrail`, `vault-change`, and `connection` (a Source connected or disconnected, CONTEXT.md, Connection). Older receipts have no `kind`; they retain their `type` (`session`, `skill`, `decision`, or `action`) and remain readable. `mesa receipts [--project <slug>] [--session <id>] [--kind <kind>] [--type <type>] [--limit <n>] --json` filters at the core store and lists newest first. The desktop shows the same filtered entries in project and session context, with direct links to the changed vault note. It has no global receipt feed.
 
 ## What is kept
 
@@ -11,6 +11,7 @@ A receipt is a Markdown note in the profile vault's `receipts/`. Since #274, new
 - A session start (open, resume, fork, adopt, a handoff's successor, a queued start) whose profile launch defaults turn off its agent's permission checks or sandbox (`--dangerously-skip-permissions`, `--dangerously-bypass-approvals-and-sandbox`, `--sandbox=danger-full-access`) records a `guardrail` receipt with those flags as `outputs.dangerousFlags`. Any other start records nothing.
 - A completed `session-summary` or `project-brief` run records a `vault-change` only when its target note body changes. Its `inputs.target` and `outputs.target` name the exact vault-relative note, such as `wiki/sessions/a1b2c3d4.md`. The note and receipt are linked from `log.md`. Duplicate completion, an identical body from another run, and a failed or locked note write add no history.
 - `mesa vault save decision|summary|note` (Session write in CONTEXT.md) records one `decision` receipt for a saved decision, its rationale, probabilities, and confidence in `inputs`, or one `vault-change` for a saved summary or note, each only when the note's own content changed. `inputs.target` and `outputs.target` name the note, and the receipt's `actor` is the calling Mesa session. The same save again, a timestamp-only difference, the `index.md` line of a new note, and a refused or locked save add no history; a retry after an interrupted log append puts the receipt's line back once, and one after a save interrupted before its receipt records that receipt once.
+- `mesa sources connect <source>` records a `connection` receipt with `inputs.source` and `outputs.source` and `outputs.sites` (the site names), and `mesa sources disconnect <source>` one with `outputs.source` when it removed a Keychain item. Neither holds a token or anything about the account. A failed sign-in, or a disconnect with nothing to remove, adds no history.
 
 Session records and run outputs remain under `~/.mesa/<profile>/sessions/`. Their terminal output logs stay local; no raw terminal tail is copied into a new receipt. The note writer still uses an atomic rename, rejects locked notes, and keeps writes inside the vault, including through symlinks. The vault lock serializes note updates and receipt/log pairing. The app uses `mesa vault open <target>` to open a changed note in Obsidian.
 
@@ -23,7 +24,7 @@ Session records and run outputs remain under `~/.mesa/<profile>/sessions/`. Thei
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `type` | yes | `session`, `skill`, `decision`, or `action` |
-| `kind` | no | New entries use `decision`, `guardrail`, or `vault-change`; absent on historical receipts |
+| `kind` | no | New entries use `decision`, `guardrail`, `vault-change`, or `connection`; absent on historical receipts |
 | `id` | yes | A ULID: 26 Crockford base32 characters, time first, so ids sort by time |
 | `profile` | yes | The profile the receipt belongs to |
 | `project` | no | The registered project's name |

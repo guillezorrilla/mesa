@@ -15,7 +15,8 @@ const [{ randomBytes, randomUUID }, { homedir }, { setTimeout: sleep }, { fileUR
     import('node:timers/promises'),
     import('node:url'),
   ]);
-const { execRunner, macObsidianPaths, systemClock, ulidSource } = await import('@mesa/core');
+const { execRunner, keychainStore, loopbackListener, macObsidianPaths, systemClock, ulidSource } =
+  await import('@mesa/core');
 const { runCli } = await import('./cli.js');
 const { COMMANDS } = await import('./commands/index.js');
 const { terminalConfirm } = await import('./confirm.js');
@@ -49,6 +50,10 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     self: [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
     run: execRunner,
+    http: (url, init) => fetch(url, init),
+    // A person gets five minutes to sign in to a source.
+    listen: loopbackListener(5 * 60_000),
+    secretStore: keychainStore(execRunner),
     processAlive: (pid) => {
       try {
         process.kill(pid, 0);

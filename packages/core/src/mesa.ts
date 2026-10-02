@@ -22,6 +22,7 @@ import { receiptsService } from './receipts/service.js';
 import { rulesService } from './rules/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
+import { sourcesService } from './sources/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
 import { statusLineService } from './usage/statusline.js';
@@ -68,6 +69,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     notifications,
     diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),
+    sources: sourcesService(ctx),
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
     doctor: async () => {

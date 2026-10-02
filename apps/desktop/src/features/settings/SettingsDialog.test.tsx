@@ -61,6 +61,7 @@ test('the window lists Xirp categories and saves the default coding agent, claud
     'Projects',
     'Notifications',
     'Coding Agents',
+    'Connections',
     'Advanced',
   ]);
   await click(nav('Sessions'));
