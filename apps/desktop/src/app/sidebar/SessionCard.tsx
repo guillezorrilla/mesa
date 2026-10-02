@@ -7,6 +7,7 @@ import {
   WAITING_STATES,
 } from '@mesa/core/browser';
 import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
+import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../hooks/useStartSession';
 import { HoverAction } from './HoverAction';
@@ -59,6 +60,9 @@ export function SessionCard(props: {
           )}
           <span className="truncate">{sessionTitle(session)}</span>
         </span>
+        {session.managed && session.automation && (
+          <AutomationBanner rule={session.automation.rule} />
+        )}
         {!compact && (
           <>
             {session.managed && session.worktree && (

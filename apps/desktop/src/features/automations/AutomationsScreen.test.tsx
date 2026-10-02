@@ -104,3 +104,66 @@ test('trigger/action controls follow choices, and a failed save keeps fields and
   await choose(document.getElementById('automation-when') as HTMLSelectElement, 'state');
   expect(document.getElementById('automation-state')).not.toBeNull();
 });
+
+test('install, saved approvals, failure history and uninstall use explicit client commands', async () => {
+  let installed = false;
+  let pending = true;
+  const id = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+  const rule = {
+    name: 'Refresh docs',
+    project: 'lantern-cove',
+    enabled: true,
+    when: 'cron',
+    cron: '*/2 * * * *',
+    run: 'refresh',
+    guardrail: 'ask',
+  };
+  const status = () =>
+    envelope({
+      installed,
+      loaded: installed,
+      runs: [
+        {
+          id,
+          rule,
+          trigger: { kind: 'cron', at: '2026-10-02T12:00:00Z' },
+          status: pending ? 'pending' : 'queued',
+          approved: !pending,
+        },
+        {
+          id: `${id.slice(0, -1)}W`,
+          rule,
+          trigger: { kind: 'cron', at: '2026-10-02T10:00:00Z' },
+          status: 'failed',
+          reason: 'Source needs reconnect',
+          approved: false,
+        },
+      ],
+    });
+  const { bridge, calls } = fakeBridge({
+    'automations list': () => envelope([rule]),
+    'automations status': status,
+    'automations install': () => {
+      installed = true;
+      return status();
+    },
+    'automations uninstall': () => {
+      installed = false;
+      return status();
+    },
+    'automations approve': () => {
+      pending = false;
+      return envelope({ id, status: 'queued' });
+    },
+  });
+  const byTestId = await renderWithMesa(<AutomationsScreen />, bridge);
+  expect(calls.some((c) => c.includes('install'))).toBe(false);
+  await click(button('Install scheduler'));
+  expect(byTestId('automations-screen')[0]?.textContent).toContain('Scheduler loaded');
+  expect(byTestId('automations-screen')[0]?.textContent).toContain('Source needs reconnect');
+  await click(button('Approve Refresh docs'));
+  expect(calls).toContainEqual(['--json', 'automations', 'approve', '--', id]);
+  expect(byTestId('automations-screen')[0]?.textContent).toContain('Refresh docs: queued');
+  await click(button('Uninstall scheduler'));
+  expect(installed).toBe(false);
+});

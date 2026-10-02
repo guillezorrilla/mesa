@@ -543,6 +543,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   },
   secretStore: memorySecretStore().store,
   processAlive: () => true,
+  processId: 4242,
   browserSelection: async () => undefined,
   argv: ['test'],
   // The repo's own library: tests that need another pass their own.

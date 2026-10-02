@@ -62,6 +62,7 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
         return false;
       }
     },
+    processId: process.pid,
     browserSelection,
     obsidian: macObsidianPaths(home),
     argv,

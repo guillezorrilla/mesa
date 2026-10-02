@@ -91,6 +91,17 @@ export type Decision = {
   latencyMs: number;
 };
 
+/** A decision retained in a durable automation queue, with its original probabilities. */
+export const DecisionSchema: z.ZodType<Decision> = z.strictObject({
+  questions: QuestionsSchema,
+  answers: z.array(AnswerSchema),
+  backend: DecidedBySchema,
+  costUsd: z.number().nonnegative().optional(),
+  fallbackReason: z.string().optional(),
+  at: z.iso.datetime(),
+  latencyMs: z.number().nonnegative(),
+});
+
 /** A decisions backend (ADR-0004): answers valid questions about `state`, or throws. */
 export type Backend<S = unknown> = {
   name: BackendName;

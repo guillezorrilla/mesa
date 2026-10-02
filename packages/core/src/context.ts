@@ -41,6 +41,8 @@ export type MesaDeps = {
   secretStore: SecretStore;
   /** Whether the native browser owner still exists after a renderer/app restart. */
   processAlive: (pid: number) => boolean;
+  /** This CLI process, for scheduler ownership and stale-worker recovery. */
+  processId: number;
   /** Read the current element from the owning native webview before browser feedback is sent. */
   browserSelection: (socket: string, session: string) => Promise<BrowserPageSelection | undefined>;
   obsidian: ObsidianPaths;
