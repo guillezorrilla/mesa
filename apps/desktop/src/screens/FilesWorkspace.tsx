@@ -6,6 +6,7 @@ import { FileEditor } from '@/components/FileEditor';
 import { said } from '@/components/Toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FIXED_SHORTCUTS, pressed } from '@/lib/fixedShortcuts';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { FileEditorSettings } from './FileEditorSettings';
@@ -81,10 +82,14 @@ export function FilesWorkspace(props: {
   focusPaneRef.current = focusPane;
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
-      if (event.key.toLowerCase() !== (event.shiftKey ? 'f' : 'p')) return;
+      const pane = pressed(event, FIXED_SHORTCUTS.findInFiles)
+        ? 'search'
+        : pressed(event, FIXED_SHORTCUTS.goToFile)
+          ? 'files'
+          : undefined;
+      if (!pane) return;
       event.preventDefault();
-      focusPaneRef.current(event.shiftKey ? 'search' : 'files');
+      focusPaneRef.current(pane);
     };
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);

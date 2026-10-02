@@ -5,15 +5,7 @@ import {
   GENERAL_PROJECT,
   shortcutFromKeys,
 } from '@mesa/core/browser';
-import {
-  CircleHelp,
-  DollarSign,
-  Plus,
-  Search,
-  Settings2,
-  TerminalSquare,
-  UserRound,
-} from 'lucide-react';
+import { DollarSign, Plus, Search, Settings2, TerminalSquare, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import mesaLogo from '../src-tauri/icons/128x128.png';
 import { ActionDialog } from './components/ActionDialog';
@@ -33,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from './components/ui/dropdown-menu';
 import { WorkspaceSidebar, type WorkspaceView } from './components/WorkspaceSidebar';
+import { FIXED_SHORTCUTS, keyCaps, pressed } from './lib/fixedShortcuts';
 import { usePlatform } from './lib/MesaRoot';
 import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
@@ -44,13 +37,14 @@ import { SessionsScreen } from './screens/board/SessionsScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { DailyScreen } from './screens/daily/DailyScreen';
 import { HelpScreen } from './screens/HelpScreen';
+import { HelpMenu } from './screens/help/HelpMenu';
+import { KeyboardShortcutsDialog } from './screens/help/KeyboardShortcutsDialog';
 import { MapScreen } from './screens/MapScreen';
 import { NotificationsMenu } from './screens/notifications/NotificationsMenu';
 import { ProjectWorkspace } from './screens/ProjectWorkspace';
 import { AddProjectDialog } from './screens/projects/AddProjectDialog';
 import { ImportWorkspaceDialog } from './screens/projects/ImportWorkspaceDialog';
 import { SavedPromptsScreen } from './screens/SavedPromptsScreen';
-import { ShortcutSettings } from './screens/ShortcutSettings';
 import type { SettingsCategory } from './screens/settings/categories';
 import { SettingsDialog } from './screens/settings/SettingsDialog';
 import { TourScreen } from './screens/TourScreen';
@@ -101,11 +95,11 @@ export function App() {
   const profileMenu = useRef<HTMLDetailsElement>(null);
   const searchReturnFocus = useRef<HTMLElement | null>(null);
   // Usage and Notifications open over the current view, as Xirp's dialog and menu do.
-  const [overlay, setOverlay] = useState<'usage' | 'inbox' | 'settings'>();
+  const [overlay, setOverlay] = useState<'usage' | 'inbox' | 'settings' | 'shortcuts'>();
   const [settingsCategory, setSettingsCategory] = useState<SettingsCategory>();
   const navigate = useCallback(
     (next: WorkspaceView) => {
-      if (next.kind === 'usage' || next.kind === 'inbox') {
+      if (next.kind === 'usage' || next.kind === 'inbox' || next.kind === 'shortcuts') {
         setOverlay(next.kind);
         return;
       }
@@ -363,6 +357,10 @@ export function App() {
           searchReturnFocus.current = document.activeElement as HTMLElement;
           setSearchOpen(true);
         }
+      } else if (pressed(event, FIXED_SHORTCUTS.keyboardShortcuts)) {
+        event.preventDefault();
+        setSearchOpen(false);
+        setOverlay('shortcuts');
       } else if (key === shortcuts.board) {
         event.preventDefault();
         navigate({ kind: 'sessions' });
@@ -418,7 +416,7 @@ export function App() {
             <span className="flex items-center gap-2">
               <Search aria-hidden className="size-4" /> Search Mesa
             </span>
-            <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
+            <kbd className="text-xs">{keyCaps(shortcuts.search).join('')}</kbd>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -462,12 +460,7 @@ export function App() {
           </DropdownMenu>
         </div>
         <nav aria-label="Workspace shortcuts" className="ml-auto flex shrink-0 items-center gap-2">
-          {(
-            [
-              ['Cost', DollarSign, 'usage', 'cost'],
-              ['Help', CircleHelp, 'help', 'help'],
-            ] as const
-          ).map(([label, Icon, kind, id]) => (
+          {([['Cost', DollarSign, 'usage', 'cost']] as const).map(([label, Icon, kind, id]) => (
             <Button
               key={id}
               variant="ghost"
@@ -482,6 +475,10 @@ export function App() {
               <Icon aria-hidden className="size-4" />
             </Button>
           ))}
+          <HelpMenu
+            onShortcuts={() => setOverlay('shortcuts')}
+            onReference={() => navigate({ kind: 'help' })}
+          />
           <NotificationsMenu
             open={overlay === 'inbox'}
             onOpenChange={(open) => setOverlay(open ? 'inbox' : undefined)}
@@ -639,12 +636,6 @@ export function App() {
               onSearch={openSearch}
             />
           )}
-          {view.kind === 'shortcuts' && (
-            <ShortcutSettings
-              shortcuts={config.data?.shortcuts}
-              onChanged={() => void config.refresh()}
-            />
-          )}
         </main>
       </div>
       <CommandPalette
@@ -686,6 +677,12 @@ export function App() {
             }
           }
         }}
+      />
+      <KeyboardShortcutsDialog
+        open={overlay === 'shortcuts'}
+        onOpenChange={(open) => setOverlay(open ? 'shortcuts' : undefined)}
+        shortcuts={config.data?.shortcuts}
+        onChanged={() => void config.refresh()}
       />
       <SettingsDialog
         open={overlay === 'settings'}
