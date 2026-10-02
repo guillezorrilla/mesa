@@ -47,10 +47,10 @@ import { SkillsWorkspace } from './SkillsWorkspace';
 import { useGitChangeCount } from './useGitChangeCount';
 import { VaultOverview } from './vault/VaultOverview';
 
-/** The selected project's existing information and effective skills, in its own workspace. */
 /** A project page's tabs. */
 export type ProjectTab = 'overview' | 'git' | 'files' | 'skills' | 'rules';
 
+/** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
   project: ProjectRow;
   /** The tab it opens on: the one it was left on, so coming back keeps it. */
