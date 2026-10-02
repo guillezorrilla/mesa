@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { shellWord } from '../../lib/process.js';
+import { type Env, shellWord } from '../../lib/process.js';
 import { read } from '../hooks.js';
 import { claudeSettings } from './paths.js';
 
@@ -9,6 +9,12 @@ import { claudeSettings } from './paths.js';
 
 /** The mesa subcommand Claude runs as its status line. */
 export const STATUS_LINE_COMMAND = 'statusline';
+
+/**
+ * Set for the user's own status line command: a Mesa status line under it, of any mesa (the CLI's
+ * or the app's), prints nothing, so the cost never shows twice and Mesa never runs itself.
+ */
+export const NESTED_STATUS_LINE_VAR = 'MESA_STATUS_LINE';
 
 /** This mesa's `statusline` as a shell command line, from the argv that runs it (MesaDeps.self). */
 export const mesaStatusLineCommand = (self: readonly string[]) =>
@@ -29,13 +35,19 @@ export const withMesaStatusLine = (command: string, self: readonly string[]) => 
 
 /**
  * The user's own statusLine command, in Claude's precedence: the project's local settings, its
- * shared settings, then the user's. Mesa's own is never the user's, so it cannot run itself.
+ * shared settings, then the user's. This mesa's own is never the user's (and any other mesa's
+ * prints nothing under NESTED_STATUS_LINE_VAR).
  */
-export function userStatusLineCommand(home: string, project: string, self: readonly string[]) {
+export function userStatusLineCommand(
+  home: string,
+  env: Env,
+  project: string,
+  self: readonly string[],
+) {
   const files = [
     join(project, '.claude', 'settings.local.json'),
     join(project, '.claude', 'settings.json'),
-    claudeSettings(home),
+    claudeSettings(home, env),
   ];
   for (const file of files) {
     let statusLine: unknown;

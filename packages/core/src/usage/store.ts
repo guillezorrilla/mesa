@@ -38,16 +38,16 @@ const Source = z.strictObject({
   reader: z.number().int().positive(),
 });
 export type SourceStamp = z.infer<typeof Source>;
-const Hook = z.strictObject({
+export const HookStampSchema = z.strictObject({
   offset: z.number().int().nonnegative(),
   nativeIds: z.array(z.string()),
   changedIds: z.array(z.string()),
 });
-export type HookStamp = z.infer<typeof Hook>;
+export type HookStamp = z.infer<typeof HookStampSchema>;
 const Ledger = z.strictObject({
   rows: Rows,
   sources: z.record(z.string(), Source),
-  hooks: z.record(z.string(), Hook).default({}),
+  hooks: z.record(z.string(), HookStampSchema).default({}),
 });
 type Ledger = z.infer<typeof Ledger>;
 

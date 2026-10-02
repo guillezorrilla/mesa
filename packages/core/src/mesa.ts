@@ -58,7 +58,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     skills,
     usage,
     rewind: rewindService(ctx, usage),
-    statusLine: statusLineService(ctx, usage),
+    statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),
