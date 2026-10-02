@@ -3313,3 +3313,161 @@ test('the Sessions and Projects tabs go back to the session and project last sho
     [...document.querySelectorAll<HTMLElement>('[aria-current="page"]')].map((e) => e.textContent),
   ).toContain('git');
 });
+
+test('worktree cards start a session in a worktree, recycle it, and remove one with work after Delete anyway', async () => {
+  const preview = (action: string, extra = {}) => ({
+    action,
+    project: 'lantern-cove',
+    token: `${action}-token`,
+    paths: ['/h/feature'],
+    branch: 'feature',
+    holders: [],
+    changes: [],
+    ignored: [],
+    unpublished: false,
+    allowed: true,
+    reasons: [],
+    forceable: false,
+    ...extra,
+  });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'worktrees list': () =>
+      envelope([
+        { path: '/h/src/lantern-cove', main: true, state: 'ready', branch: 'main', holders: [] },
+        { path: '/h/feature', main: false, state: 'ready', branch: 'feature', holders: [] },
+      ]),
+    'worktrees preview': (args) =>
+      envelope(
+        args.includes('--action=remove')
+          ? preview('remove', {
+              allowed: false,
+              forceable: true,
+              reasons: ['worktree has changed or untracked files'],
+              changes: [' M src/app.ts'],
+            })
+          : preview('recycle', { base: 'origin/main' }),
+      ),
+    'worktrees apply': (args) =>
+      envelope({
+        action: args.includes('--action=remove') ? 'remove' : 'recycle',
+        paths: ['/h/feature'],
+        branch: 'feature',
+        base: 'origin/main',
+        receipt: null,
+      }),
+    open: () => envelope(managedRow('dddddddd')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  const action = (label: string) =>
+    click(document.querySelector<HTMLElement>(`[aria-label="${label}"]`) ?? undefined);
+  // main has New session only; a linked worktree has all three.
+  expect(document.querySelector('[aria-label="Recycle main"]')).toBeNull();
+  await action('New session in feature');
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--checkout=/h/feature',
+    '--',
+    'lantern-cove',
+  ]);
+
+  await openProject(byTestId);
+  await action('Recycle feature');
+  expect(byTestId('worktree-dialog')[0]?.textContent).toContain(
+    'Resets it to origin/main, detached, for a new session. Branch feature stays.',
+  );
+  await click(byTestId('worktree-confirm')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'worktrees',
+    'apply',
+    '--action=recycle',
+    '--token=recycle-token',
+    '--',
+    'lantern-cove',
+    '/h/feature',
+  ]);
+
+  await action('Remove feature');
+  const dialog = byTestId('worktree-dialog')[0];
+  expect(dialog?.textContent).toContain('Worktree has unsaved work');
+  expect(byTestId('worktree-reasons')[0]?.textContent).toContain(' M src/app.ts');
+  expect(byTestId('worktree-confirm')[0]?.textContent).toBe('Delete anyway');
+  await click(byTestId('worktree-confirm')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'worktrees',
+    'apply',
+    '--action=remove',
+    '--token=remove-token',
+    '--force',
+    '--',
+    'lantern-cove',
+    '/h/feature',
+  ]);
+  // Nothing stale: Cleanup waits.
+  expect(
+    [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent === 'Cleanup')
+      ?.hasAttribute('disabled'),
+  ).toBe(true);
+});
+
+test('a worktree card shows its state: a session in it, its changes or clean, commits ahead, and age', async () => {
+  const hour = new Date(Date.now() - 3_600_000).toISOString();
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () =>
+      envelope([managedRow('aaaaaaaa', { worktree: { path: '/h/busy', branch: 'busy' } })]),
+    'worktrees list': () =>
+      envelope([
+        { path: '/h/src/lantern-cove', main: true, state: 'ready', branch: 'main', holders: [] },
+        {
+          path: '/h/busy',
+          main: false,
+          state: 'ready',
+          branch: 'busy',
+          ahead: 3,
+          createdAt: hour,
+          changes: { staged: 0, modified: 0, untracked: 0 },
+          holders: [{ id: 'aaaaaaaa', state: 'working', at: hour }],
+        },
+        {
+          path: '/h/edits',
+          main: false,
+          state: 'ready',
+          branch: 'edits',
+          createdAt: hour,
+          changes: { staged: 1, modified: 2, untracked: 0 },
+          holders: [],
+        },
+        {
+          path: '/h/tidy',
+          main: false,
+          state: 'ready',
+          branch: 'tidy',
+          changes: { staged: 0, modified: 0, untracked: 0 },
+          holders: [],
+        },
+      ]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  const [, busy, edits, tidy] = byTestId('worktree-card');
+  expect(busy?.textContent).toContain('busy+3');
+  expect(busy?.textContent).toContain('created 1h ago');
+  expect(busy?.querySelector('[data-testid="worktree-status"]')?.textContent).toBe('working');
+  // A session runs there: no New session; a click opens it.
+  expect(document.querySelector('[aria-label="New session in busy"]')).toBeNull();
+  expect(document.querySelector('[aria-label="Remove busy"]')).not.toBeNull();
+  expect(edits?.querySelector('[data-testid="worktree-status"]')?.textContent).toBe(
+    '2 modified, 1 staged',
+  );
+  expect(tidy?.querySelector('[data-testid="worktree-status"]')?.textContent).toBe('clean');
+  await click(busy);
+  expect(byTestId('selected-session')[0]?.textContent).toContain('aaaaaaaa');
+  expect(calls.some((c) => c[1] === 'open')).toBe(false);
+});

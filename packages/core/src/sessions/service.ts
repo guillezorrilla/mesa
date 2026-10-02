@@ -10,12 +10,13 @@ import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { profileService } from '../profile/service.js';
-import { projectPriorities } from '../projects/projects.js';
+import { findProject, projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { skillsService } from '../skills/service.js';
 import { sessionBranchName } from '../worktrees/branch-name.js';
+import { checkoutWorktree } from '../worktrees/create.js';
 import { adoptSession } from './adopt.js';
 import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
@@ -432,13 +433,24 @@ export function sessionsService(
        */
       open: (
         project: string | undefined,
-        opts: Omit<OpenInput, 'project'> & { goalFile?: string; worktree?: boolean } = {},
+        opts: Omit<OpenInput, 'project' | 'worktree'> & {
+          goalFile?: string;
+          worktree?: boolean;
+          /** An existing linked worktree to run in (checkoutWorktree). */
+          checkout?: string;
+        } = {},
       ) => {
         const { agent, mode, background, parent, noParent, after, base, terminal, general } = opts;
         let refused: unknown =
           opts.worktree && opts.branch !== undefined
             ? new MesaError('usage', 'pass --worktree or --branch, not both')
-            : undefined;
+            : opts.checkout !== undefined &&
+                (opts.worktree || opts.branch !== undefined || opts.general || opts.after)
+              ? new MesaError(
+                  'usage',
+                  '--checkout cannot use --worktree, --branch, --general, or --after',
+                )
+              : undefined;
         // A worktree of its own on a branch Mesa names (sessionBranchName).
         const branch = opts.worktree && !refused ? sessionBranchName(deps.newId) : opts.branch;
         let goal: string | undefined;
@@ -480,12 +492,25 @@ export function sessionsService(
               ...(branch === undefined ? {} : { branch }),
               ...(base === undefined ? {} : { base }),
               ...(terminal ? { terminal: true } : {}),
+              ...(opts.checkout === undefined ? {} : { checkout: opts.checkout }),
             },
             outputs: ({ record: r }) => startedOutputs(r, open().config.agents),
           },
           async () => {
             if (refused) throw refused;
+            const worktree =
+              opts.checkout === undefined || project === undefined
+                ? undefined
+                : await checkoutWorktree(
+                    open(),
+                    deps.run,
+                    store,
+                    findProject(open(), project),
+                    absolute(opts.checkout),
+                    deps.newId,
+                  );
             const input = {
+              worktree,
               project,
               general,
               agent,

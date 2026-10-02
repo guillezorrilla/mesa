@@ -76,6 +76,9 @@ import type {
   VaultStatus,
   WeeklyRewind,
   WorkspaceFile,
+  WorktreeAction,
+  WorktreeDetails,
+  WorktreePreview,
   WorktreeRow,
 } from '@mesa/core';
 
@@ -249,11 +252,49 @@ const COMMANDS = {
   'files.link': commandWith<{ session: string; target: string }, FileLink>(
     ({ session, target }) => ['files', 'link', '--', session, target],
   ),
-  'worktrees.list': commandWith<{ project: string }, WorktreeRow[]>(({ project }) => [
+  'worktrees.list': commandWith<{ project: string }, (WorktreeRow & WorktreeDetails)[]>(
+    ({ project }) => ['worktrees', 'list', '--', project],
+  ),
+  /** What a remove, recycle, trash, or cleanup would touch, with the token its apply needs. */
+  'worktrees.preview': commandWith<
+    { project: string; action: WorktreeAction; path?: string },
+    WorktreePreview
+  >(({ project, action, path }) => [
     'worktrees',
-    'list',
+    'preview',
+    `--action=${action}`,
     '--',
     project,
+    ...(path ? [path] : []),
+  ]),
+  'worktrees.apply': commandWith<
+    {
+      project: string;
+      action: WorktreeAction;
+      token: string;
+      path?: string;
+      force?: boolean;
+      deleteBranch?: boolean;
+    },
+    Recorded<{
+      action: WorktreeAction;
+      paths: string[];
+      branch?: string;
+      base?: string;
+      fetchFailed?: boolean;
+      branchKept?: string;
+      remaining?: string[];
+    }>
+  >(({ project, action, token, path, force, deleteBranch }) => [
+    'worktrees',
+    'apply',
+    `--action=${action}`,
+    `--token=${token}`,
+    ...(force ? ['--force'] : []),
+    ...(deleteBranch ? ['--delete-branch'] : []),
+    '--',
+    project,
+    ...(path ? [path] : []),
   ]),
   'files.write': commandWith<
     { project: string; checkout?: string; path: string; text: string; revision: string },
@@ -983,24 +1024,41 @@ const COMMANDS = {
       branch?: string;
       /** Its own worktree on a branch Mesa names. */
       worktree?: boolean;
+      /** An existing linked worktree to run in. */
+      checkout?: string;
       terminal?: boolean;
       parent?: string;
     },
     Recorded<SessionRecord>
-  >(({ project, general, agent, mode, background, goal, branch, worktree, terminal, parent }) => [
-    'open',
-    ...(parent ? ['--parent', parent] : ['--no-parent']),
-    ...(agent ? ['--agent', agent] : []),
-    ...(mode ? ['--mode', mode] : []),
-    ...(background ? ['--background'] : []),
-    ...(goal?.trim() ? [`--goal=${goal}`] : []),
-    ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
-    ...(worktree ? ['--worktree'] : []),
-    ...(terminal ? ['--terminal'] : []),
-    ...(general ? ['--general'] : []),
-    '--',
-    ...(project ? [project] : []),
-  ]),
+  >(
+    ({
+      project,
+      general,
+      agent,
+      mode,
+      background,
+      goal,
+      branch,
+      worktree,
+      checkout,
+      terminal,
+      parent,
+    }) => [
+      'open',
+      ...(parent ? ['--parent', parent] : ['--no-parent']),
+      ...(agent ? ['--agent', agent] : []),
+      ...(mode ? ['--mode', mode] : []),
+      ...(background ? ['--background'] : []),
+      ...(goal?.trim() ? [`--goal=${goal}`] : []),
+      ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
+      ...(worktree ? ['--worktree'] : []),
+      ...(checkout ? [`--checkout=${checkout}`] : []),
+      ...(terminal ? ['--terminal'] : []),
+      ...(general ? ['--general'] : []),
+      '--',
+      ...(project ? [project] : []),
+    ],
+  ),
   // The row's project, which the board read from its folder, so both place it alike.
   'sessions.adopt': commandWith<
     { agentSessionId: string; project?: string },
