@@ -1,6 +1,7 @@
 import {
   Bell,
   Bot,
+  Cable,
   FolderGit2,
   GitBranch,
   Keyboard,
@@ -18,9 +19,10 @@ export type SettingsCategory =
   | 'projects'
   | 'notifications'
   | 'agents'
+  | 'connections'
   | 'advanced';
 
-/** the reference app's categories, in its order, each with the sections Mesa has settings for. */
+/** the reference app's categories in its order, plus Mesa's Connections; each lists the sections Mesa has settings for. */
 export const CATEGORIES: {
   id: SettingsCategory;
   label: string;
@@ -100,6 +102,12 @@ export const CATEGORIES: {
       ['antigravity', 'Antigravity CLI'],
       ['headless', 'Headless runs'],
     ],
+  },
+  {
+    id: 'connections',
+    label: 'Connections',
+    icon: Cable,
+    sections: [['sources', 'Sources']],
   },
   {
     id: 'advanced',

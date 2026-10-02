@@ -61,6 +61,7 @@ test('the window lists the reference app categories and saves the default coding
     'Projects',
     'Notifications',
     'Coding Agents',
+    'Connections',
     'Advanced',
   ]);
   await click(nav('Sessions'));

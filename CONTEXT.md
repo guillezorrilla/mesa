@@ -319,7 +319,7 @@ Not: job, task, headless session.
 
 ## Receipt
 
-A markdown note with YAML frontmatter in the vault's `receipts/YYYY/MM/`, kept for a deliberate decision with rationale (Mesa's own included: forwarding PR events into an idle session, see PR event), a material Guardrail block or override, a session started with launch flags that turn off its agent's permission checks or sandbox (a `guardrail` receipt whose `outputs.dangerousFlags` names them), or a substantive vault note change. New receipts have `kind` (`decision`, `guardrail`, or `vault-change`), as well as the historical `type`, a ULID `id`, `status`, redacted `command`, the calling Mesa session as `actor` when known, and relevant Faro probabilities. Ordinary session lifecycle, sends, polls, configuration, retries, and no-op note writes produce no receipt and no warning. Raw terminal tails remain in local output logs. Older receipts without `kind` remain readable. `mesa receipts` lists newest first, with `--project`, `--session`, `--kind`, `--type`, and `--limit` filters; `mesa receipts show <id>` reads one. Project and session contexts in the app show the relevant entries and open changed vault notes directly (a saved decision's note too: any receipt's `outputs.target`); there is no global feed. Schema and historical examples are in `docs/receipts.md`.
+A markdown note with YAML frontmatter in the vault's `receipts/YYYY/MM/`, kept for a deliberate decision with rationale (Mesa's own included: forwarding PR events into an idle session, see PR event), a material Guardrail block or override, a session started with launch flags that turn off its agent's permission checks or sandbox (a `guardrail` receipt whose `outputs.dangerousFlags` names them), or a substantive vault note change, or a Connection made or removed (`mesa sources connect` and `disconnect`, naming the Source and its sites, never a token or the account). New receipts have `kind` (`decision`, `guardrail`, `vault-change`, or `connection`), as well as the historical `type`, a ULID `id`, `status`, redacted `command`, the calling Mesa session as `actor` when known, and relevant Faro probabilities. Ordinary session lifecycle, sends, polls, configuration, retries, and no-op note writes produce no receipt and no warning. Raw terminal tails remain in local output logs. Older receipts without `kind` remain readable. `mesa receipts` lists newest first, with `--project`, `--session`, `--kind`, `--type`, and `--limit` filters; `mesa receipts show <id>` reads one. Project and session contexts in the app show the relevant entries and open changed vault notes directly (a saved decision's note too: any receipt's `outputs.target`); there is no global feed. Schema and historical examples are in `docs/receipts.md`.
 Not: session event, output log, activity feed.
 
 ## Session write
@@ -349,15 +349,30 @@ Not: safety check, policy, filter.
 
 ## Composition root
 
-`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: composes every Mesa service for one profile, each domain's built by its own service factory over one shared context (`createContext`, ADR-0008 amendment), from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), `self` (the argv that runs this mesa, for the hooks and for tmux), sleep, environment, process runner, Obsidian paths, the invocation's argv for receipts, and `skillsDir`, the skill library). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge and platform (dialogs, terminals, the pasteboard). ADR-0008.
+`createMesa(profile, deps)` in `packages/core/src/mesa.ts`: composes every Mesa service for one profile, each domain's built by its own service factory over one shared context (`createContext`, ADR-0008 amendment), from `MesaDeps` (home, cwd, clock, id source, UUID source (the agent session ids Mesa hands to claude), `self` (the argv that runs this mesa, for the hooks and for tmux), sleep, environment, process runner, HTTP, the sign-in listener, the secret store, Obsidian paths, the invocation's argv for receipts, and `skillsDir`, the skill library). The CLI entrypoint (`packages/cli/src/mesa.ts`) builds the real deps; tests build them with `testDeps`. The app never builds them: it reaches Mesa through the bridge, and its entrypoint `main.tsx` only picks the real bridge and platform (dialogs, terminals, the pasteboard). ADR-0008.
 Not: container, context, app.
 
 ## Seam
 
-A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the id source, the UUID source, the home directory, the environment, the sleep, the app's bridge and its platform (dialogs, terminals, the pasteboard). Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
+A place where Mesa's behaviour can change without editing the code there: the process runner, the clock, the id source, the UUID source, the home directory, the environment, the sleep, HTTP, the sign-in listener, the secret store (the macOS Keychain), the app's bridge and its platform (dialogs, terminals, the pasteboard). Each seam has a real implementation and a test one (`@mesa/core/testing`, `renderWithMesa`). Say implementation, not adapter: the adapter is a decisions backend.
 Not: boundary, interface (the interface is what a caller must know; the seam is where it lives).
 
 ## Bridge
 
 The app's seam to the mesa CLI: a function from an argv to the envelope mesa printed. The real one calls the Rust `run_mesa` command; tests pass a fake. The app's client is built over it.
 Not: IPC, API, backend.
+
+## Source
+
+An outside tool whose items a project imports into its vault: Atlassian (Jira and Confluence) now, then Notion; ClickUp may come later. One row each in `SOURCES` (`packages/core/src/sources/sources.ts`), with a matching row in the Broker's providers table. A public web link is not a Source: it needs no sign-in.
+Not: integration, provider (the Broker's word for a vendor's OAuth app), connector.
+
+## Connection
+
+A profile's signed-in Source: its access and refresh tokens, their expiry, the sites they reach, and a status (`connected`, or `needs-reconnect` once the Source refused the refresh token, revoked or expired), one macOS Keychain item per Source under service `mesa.<profile>.sources`. Nothing about the person is stored: `mesa sources list` reads the account live, and leaves it out when that read fails. `mesa sources connect <source>` signs in through the Broker; `disconnect` deletes the item. Tokens never reach argv, config, the vault, receipts, or logs. Every call to a Source's API goes through one authorized fetch (`authorizedFetch`), which refreshes and rotates the tokens. Settings > Connections lists them. ADR-0014.
+Not: account, login, integration.
+
+## Broker
+
+Mesa's OAuth broker, `apps/broker`: a Cloudflare Worker that holds each Source's client secret, sends the browser to the vendor's sign-in, relays the vendor's answer to Mesa's loopback listener (`/callback/<source>`, its `state` naming the port), and exchanges or refreshes tokens. It never sees Source content or API calls, and stores nothing. Mesa's hosted one is the default; `MESA_BROKER_URL` points at a self-hosted one. ADR-0014.
+Not: relay, proxy, auth server.

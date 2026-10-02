@@ -55,6 +55,8 @@ export function cliHarness() {
       _socket: string,
       _session: string,
     ): Promise<BrowserPageSelection | undefined> => undefined,
+    /** Further deps of the next invocations (atlassianWorld().deps for a sign-in), over the rest. */
+    deps: {} as Partial<MesaDeps>,
     /** Where the default profile keeps its files under this home. */
     get paths() {
       return profilePaths(h.home, 'default');
@@ -70,6 +72,7 @@ export function cliHarness() {
       h.asked = [];
       h.env = {};
       h.browserSelection = async () => undefined;
+      h.deps = {};
       h.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: CLAUDE_VERSION }).run;
     },
     mesa: async (...argv: string[]) => {
@@ -93,6 +96,7 @@ export function cliHarness() {
             newUuid: h.newUuid,
             env: h.env,
             browserSelection: h.browserSelection,
+            ...h.deps,
           },
         }),
       );

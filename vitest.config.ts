@@ -24,6 +24,7 @@ export default defineConfig({
     testTimeout: 15000,
     include: [
       'packages/*/src/**/*.test.ts',
+      'apps/broker/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.tsx',
     ],
