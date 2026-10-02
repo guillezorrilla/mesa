@@ -3,9 +3,10 @@ import { MesaError } from '../lib/result.js';
 import type { LockedNotesDeps } from '../vault/notes.js';
 import type { Site } from './connection.js';
 import { CONNECTORS } from './connectors.js';
-import { NOTES_MAX_ITEMS, type NotesRun, type SkillRun, writeNotes } from './import-notes.js';
+import { type NotesRun, type SkillRun, writeNotes } from './import-notes.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { resolveLink } from './links.js';
+import { NOTES_MAX_ITEMS } from './notes-limit.js';
 import { writeSnapshot } from './snapshots.js';
 import { SOURCE_IDS, type SourceId } from './sources.js';
 

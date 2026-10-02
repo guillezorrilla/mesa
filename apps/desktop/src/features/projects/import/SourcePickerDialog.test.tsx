@@ -13,6 +13,7 @@ const node = (id: string, kind: string, title: string, url = SITE, hasChildren =
   title,
   url,
   hasChildren,
+  importable: kind === 'page' || kind === 'issue',
 });
 const page = (id: string, title: string): BrowseChild =>
   node(`page:cloud-1:${id}:LC`, 'page', title, `${SITE}/wiki/spaces/LC/pages/${id}`);
@@ -81,6 +82,10 @@ async function setUp(answers: Record<string, (args: string[]) => unknown> = {}) 
       items = links.map((url) => imported(url, url));
       return envelope({ project: 'lantern-cove', items, receipt: null });
     },
+    'sources list': () =>
+      envelope({
+        sources: [{ id: 'atlassian', label: 'Atlassian', connected: true, status: 'connected' }],
+      }),
     'sources browse': browse,
     ...answers,
   });
@@ -100,7 +105,7 @@ const count = () => document.querySelector('[data-testid="picked-count"]')?.text
 
 test('Browse opens the tree a node at a time; two pages and an issue ticked import together, and the panel lists them', async () => {
   const { calls, byTestId } = await setUp();
-  await click(button('Browse'));
+  await click(button('Browse Atlassian'));
   expect(nodes()).toEqual(['lantern-cove']);
   await open('lantern-cove');
   await open('Confluence');
@@ -152,7 +157,7 @@ test('Browse opens the tree a node at a time; two pages and an issue ticked impo
 
 test('Include them ticks every page under it, and Write notes off imports with --no-notes', async () => {
   const { calls, byTestId } = await setUp();
-  await click(button('Browse'));
+  await click(button('Browse Atlassian'));
   await open('lantern-cove');
   await open('Confluence');
   await open('Harbour');
@@ -186,7 +191,7 @@ test('Include them ticks every page under it, and Write notes off imports with -
 
 test('a search lists what it finds under the root, and clearing it shows the tree again', async () => {
   const { calls } = await setUp();
-  await click(button('Browse'));
+  await click(button('Browse Atlassian'));
   const field = document.querySelector<HTMLInputElement>('[aria-label="Search Atlassian"]');
   const type = (text: string) =>
     act(async () => {
@@ -234,10 +239,46 @@ test('a connection that needs reconnecting shows Reconnect, which signs in and l
       });
     },
   });
-  await click(button('Browse'));
+  await click(button('Browse Atlassian'));
   expect(byTestId('source-error')[0]?.textContent).toContain('Atlassian needs reconnecting');
   await click(button('Reconnect'));
   expect(calls).toContainEqual(['--json', 'sources', 'connect', 'atlassian']);
   expect(nodes()).toEqual(['lantern-cove']);
   expect(toasts(byTestId)).toEqual([]);
+});
+
+test('with Write notes on, more than 50 ticked disables Import and says why; Write notes off clears it', async () => {
+  const many = Array.from({ length: 60 }, (_, at) => page(String(9200 + at), `Wind log ${at}`));
+  const { byTestId } = await setUp({
+    'sources browse': (args) =>
+      args.includes('--descendants')
+        ? envelope({ node: 'page:cloud-1:9000:LC', children: many })
+        : browse(args),
+  });
+  await click(button('Browse Atlassian'));
+  await open('lantern-cove');
+  await open('Confluence');
+  await open('Harbour');
+  await tick('Harbour home');
+  await click(button('Include them'));
+  expect(count()).toBe('61 ticked');
+  expect(byTestId('too-many')[0]?.textContent).toContain('Write notes takes at most 50 items');
+  expect(byTestId('import-picked')[0]?.hasAttribute('disabled')).toBe(true);
+  await click(
+    byTestId('source-picker-dialog')[0]?.querySelector('[aria-label="Write notes"]') as HTMLElement,
+  );
+  expect(byTestId('too-many')).toHaveLength(0);
+  expect(byTestId('import-picked')[0]?.hasAttribute('disabled')).toBe(false);
+});
+
+test('a source not connected has no Browse button', async () => {
+  await setUp({
+    'sources list': () =>
+      envelope({
+        sources: [
+          { id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' },
+        ],
+      }),
+  });
+  expect(button('Browse Atlassian')).toBeUndefined();
 });

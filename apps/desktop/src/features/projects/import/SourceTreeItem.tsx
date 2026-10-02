@@ -3,6 +3,7 @@ import {
   BookOpen,
   ChevronRight,
   CircleDot,
+  File,
   FileText,
   FolderKanban,
   Globe,
@@ -14,11 +15,12 @@ import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { SourceTreeChildren } from './SourceTreeChildren';
-import { importable, type Picked } from './usePicked';
+import type { Picked } from './usePicked';
 
-/** Each kind of node's icon; another kind's is a page's. */
+/** Each kind of node's icon; a kind not here gets a plain file's. */
 const ICONS: Record<string, LucideIcon> = {
   site: Globe,
+  page: FileText,
   confluence: BookOpen,
   space: LibraryBig,
   jira: SquareKanban,
@@ -38,7 +40,7 @@ export function SourceTreeItem(props: {
 }) {
   const { child, depth, picker } = props;
   const [open, setOpen] = useState(false);
-  const Icon = ICONS[child.kind] ?? FileText;
+  const Icon = ICONS[child.kind] ?? File;
   return (
     <li data-testid="source-node">
       <div
@@ -61,7 +63,7 @@ export function SourceTreeItem(props: {
         ) : (
           <span aria-hidden className="size-4 shrink-0" />
         )}
-        {importable(child) && (
+        {child.importable && (
           <Checkbox
             aria-label={`Tick ${child.title}`}
             checked={picker.picked.has(child.id)}

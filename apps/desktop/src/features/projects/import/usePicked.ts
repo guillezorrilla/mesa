@@ -3,10 +3,6 @@ import { useCallback, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { useCall } from '@/lib/useCommand';
 
-/** The kinds of node an import takes (BrowseChild); the rest only contain them. */
-const IMPORTABLE = new Set(['page', 'issue']);
-export const importable = (child: BrowseChild) => IMPORTABLE.has(child.kind);
-
 /**
  * The Picker's ticked items, by node id. Ticking a page ticks it and, when it has pages under
  * it, names it in `asking`, for the person to choose whether to `include` them: every one Mesa
@@ -40,7 +36,7 @@ export function usePicked(source: SourceId) {
     const walked = await call('sources.browse', { source, node: page.id, descendants: true });
     setIncluding(false);
     if (!walked.ok) return toast(walked.error.message);
-    const pages = walked.data.children.filter(importable);
+    const pages = walked.data.children.filter((c) => c.importable);
     mark(pages, true);
     if (walked.data.capped) {
       toast(`Ticked the first ${pages.length} pages under ${page.title}: Mesa stops there`);

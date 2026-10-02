@@ -1,4 +1,4 @@
-import type { ImportResult } from '@mesa/core';
+import type { ImportResult, SourceRow } from '@mesa/core';
 import { Download, ExternalLink, FolderTree, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
@@ -25,7 +25,7 @@ function outcome(result: ImportResult & { warning?: string }): Message {
 
 /**
  * A project's Import panel (CONTEXT.md, Import): paste a Jira, Confluence, or web link to import
- * it into the project's vault, or Browse Atlassian to tick items in the Picker, with or without
+ * it into the project's vault, or Browse a connected source to tick items in the Picker, with or without
  * Write notes, and its imported items, each with Refresh and Open in Obsidian (its note, else its
  * latest snapshot).
  */
@@ -36,7 +36,8 @@ export function ImportPanel(props: { project: string }) {
   const { acting, act } = useAct();
   const [link, setLink] = useState('');
   const [notes, setNotes] = useState(true);
-  const [browsing, setBrowsing] = useState(false);
+  const sources = useCommand('sources.list');
+  const [browsing, setBrowsing] = useState<SourceRow>();
   const settle = async (result: (ImportResult & { warning?: string }) | undefined) => {
     await list.refresh();
     return result && outcome(result);
@@ -80,25 +81,30 @@ export function ImportPanel(props: { project: string }) {
         <Button type="submit" size="sm" disabled={acting || !link.trim()}>
           {acting ? 'Importing...' : 'Import'}
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          disabled={acting}
-          onClick={() => setBrowsing(true)}
-        >
-          <FolderTree aria-hidden /> Browse
-        </Button>
+        {(sources.data?.sources ?? [])
+          .filter((source) => source.connected)
+          .map((source) => (
+            <Button
+              key={source.id}
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={acting}
+              onClick={() => setBrowsing(source)}
+            >
+              <FolderTree aria-hidden /> Browse {source.label}
+            </Button>
+          ))}
       </form>
       {browsing && (
         <SourcePickerDialog
-          source="atlassian"
-          label="Atlassian"
+          source={browsing.id}
+          label={browsing.label}
           project={project}
           notes={notes}
           onNotesChange={setNotes}
           onImport={add}
-          onClose={() => setBrowsing(false)}
+          onClose={() => setBrowsing(undefined)}
         />
       )}
       {items.length === 0 ? (

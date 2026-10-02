@@ -9,13 +9,15 @@ import type { Site } from './connection.js';
 /** One child of a node. */
 export type BrowseChild = {
   id: string;
-  /** What it is, in the Source's words: `page` and `issue` import, the rest only contain. */
+  /** What it is, in the Source's words. */
   kind: string;
   title: string;
   /** An item's canonical import URL (links.ts resolves it), or a container's web URL. */
   url: string;
   /** False only when it surely has none; true may open on nothing. */
   hasChildren: boolean;
+  /** Whether an import takes it (by its `url`); a container only holds items. */
+  importable: boolean;
 };
 
 /** One page of a node's children: `cursor` asks for the next, absent at the end. */
@@ -34,6 +36,9 @@ export type SourceTree = (
   node: string | undefined,
   query: BrowseQuery,
 ) => Promise<BrowsePage>;
+
+/** How many children one page of a browse asks a Source for. */
+export const BROWSE_PAGE_SIZE = 25;
 
 /** How many descendants a walk ticks at most. */
 export const DESCENDANTS_CAP = 200;

@@ -45,13 +45,20 @@ export function parseNode(id: string): AtlassianNode {
   throw bad();
 }
 
-/** `node` as a child in a browse. */
+/** `node` as a child in a browse: pages and issues import, the rest only contain them. */
 export const childOf = (
   node: AtlassianNode,
   title: string,
   url: string,
   hasChildren = true,
-): BrowseChild => ({ id: nodeId(node), kind: node.kind, title, url, hasChildren });
+): BrowseChild => ({
+  id: nodeId(node),
+  kind: node.kind,
+  title,
+  url,
+  hasChildren,
+  importable: node.kind === 'page' || node.kind === 'issue',
+});
 
 /** The connected site with cloud id `id`; not_found when the connection reaches none. */
 export function siteNamed(sites: Site[], id: string): Site {

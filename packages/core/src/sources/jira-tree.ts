@@ -3,13 +3,11 @@ import { type Http, readJson } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import { issueUrl, jiraApi, siteOrigin } from './atlassian.js';
 import { childOf } from './atlassian-nodes.js';
-import type { BrowsePage } from './browse.js';
+import { BROWSE_PAGE_SIZE, type BrowsePage } from './browse.js';
 import type { Site } from './connection.js';
 
 // Jira's part of Atlassian's tree: a site's projects (cursor: the next startAt) and the issues a
-// JQL query finds (cursor: Jira's nextPageToken), PAGE_SIZE at a time.
-
-const PAGE_SIZE = 25;
+// JQL query finds (cursor: Jira's nextPageToken), BROWSE_PAGE_SIZE at a time.
 
 const projectsSchema = z.object({
   values: z.array(z.object({ key: z.string(), name: z.string() })),
@@ -29,7 +27,9 @@ export async function projects(get: Http, site: Site, cursor?: string): Promise<
   }
   const startAt = cursor ? Number(cursor) : 0;
   const body = await readJson(
-    await get(`${jiraApi(site.id)}/project/search?startAt=${startAt}&maxResults=${PAGE_SIZE}`),
+    await get(
+      `${jiraApi(site.id)}/project/search?startAt=${startAt}&maxResults=${BROWSE_PAGE_SIZE}`,
+    ),
     projectsSchema,
     'Jira projects',
   );
@@ -50,7 +50,7 @@ export async function issues(
   const token = cursor ? `&nextPageToken=${encodeURIComponent(cursor)}` : '';
   const body = await readJson(
     await get(
-      `${jiraApi(site.id)}/search/jql?jql=${encodeURIComponent(jql)}&fields=summary&maxResults=${PAGE_SIZE}${token}`,
+      `${jiraApi(site.id)}/search/jql?jql=${encodeURIComponent(jql)}&fields=summary&maxResults=${BROWSE_PAGE_SIZE}${token}`,
     ),
     issuesSchema,
     'Jira search',

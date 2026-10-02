@@ -48,7 +48,14 @@ test('the root lists the sites, a site its Confluence and Jira, and Confluence i
   expect(await browse()).toEqual({
     node: null,
     children: [
-      { id: 'site:cloud-1', kind: 'site', title: 'lantern-cove', url: SITE, hasChildren: true },
+      {
+        id: 'site:cloud-1',
+        kind: 'site',
+        title: 'lantern-cove',
+        url: SITE,
+        hasChildren: true,
+        importable: false,
+      },
     ],
   });
   expect((await browse('site:cloud-1')).children).toEqual([
@@ -58,8 +65,16 @@ test('the root lists the sites, a site its Confluence and Jira, and Confluence i
       title: 'Confluence',
       url: `${SITE}/wiki`,
       hasChildren: true,
+      importable: false,
     },
-    { id: 'jira:cloud-1', kind: 'jira', title: 'Jira', url: `${SITE}/jira`, hasChildren: true },
+    {
+      id: 'jira:cloud-1',
+      kind: 'jira',
+      title: 'Jira',
+      url: `${SITE}/jira`,
+      hasChildren: true,
+      importable: false,
+    },
   ]);
 
   const spaces = Array.from({ length: 30 }, (_, at) => ({
@@ -76,6 +91,7 @@ test('the root lists the sites, a site its Confluence and Jira, and Confluence i
     title: 'Space 0',
     url: `${SITE}/wiki/spaces/S0`,
     hasChildren: true,
+    importable: false,
   });
   const listed = await all(browse, 'confluence:cloud-1');
   expect(listed.pages).toBe(2);
@@ -95,6 +111,7 @@ test('a space lists its top pages and a page its children, pages only, every pag
         title: 'Harbour',
         url: `${SITE}/wiki/spaces/LC/pages/9000`,
         hasChildren: true,
+        importable: true,
       },
     ],
   });
@@ -148,6 +165,7 @@ test('Jira lists its projects by startAt, and a project its issues by nextPageTo
     title: 'Lantern Cove',
     url: `${SITE}/browse/LC`,
     hasChildren: true,
+    importable: false,
   });
 
   const jql = encodeURIComponent('project = "LC" ORDER BY updated DESC');
@@ -168,6 +186,7 @@ test('Jira lists its projects by startAt, and a project its issues by nextPageTo
       title: 'LC-13: Paint the buoy',
       url: `${SITE}/browse/LC-13`,
       hasChildren: false,
+      importable: true,
     },
     {
       id: 'issue:cloud-1:LC-12',
@@ -175,6 +194,7 @@ test('Jira lists its projects by startAt, and a project its issues by nextPageTo
       title: 'LC-12: Fix the tide alarm',
       url: `${SITE}/browse/LC-12`,
       hasChildren: false,
+      importable: true,
     },
   ]);
 });

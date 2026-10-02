@@ -71,6 +71,7 @@ test('sources browse prints a node children as JSON, follows --cursor to the end
         title: 'lantern-cove',
         url: 'https://lantern-cove.atlassian.net',
         hasChildren: true,
+        importable: false,
       },
     ],
   });
@@ -102,6 +103,7 @@ test('sources browse prints a node children as JSON, follows --cursor to the end
         title: 'Space 25',
         url: 'https://lantern-cove.atlassian.net/wiki/spaces/S25',
         hasChildren: true,
+        importable: false,
       },
     ],
   });

@@ -1,10 +1,10 @@
 import type { SourceRow } from '@mesa/core';
 import { Cable } from 'lucide-react';
-import { useState } from 'react';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { useConnect } from '@/lib/useConnect';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 
@@ -24,12 +24,10 @@ export function ConnectionSettings() {
   const list = useCommand('sources.list');
   const run = useRun();
   const { acting, act } = useAct();
-  const [signingIn, setSigningIn] = useState(false);
+  const { signingIn, connect: signIn } = useConnect();
   const connect = (source: SourceRow) =>
     void act(async () => {
-      setSigningIn(true);
-      const result = await run('sources.connect', { source: source.id });
-      setSigningIn(false);
+      const result = await signIn(source.id);
       await list.refresh();
       return result && said(`Connected ${source.label}`, result);
     });

@@ -77,12 +77,6 @@ function planNotes(
   return { planned, locked };
 }
 
-// Measured (#400): an item's argument is up to some 210 bytes (a web page's 80-character slug in
-// both paths) and the rest of the run's command some 300, so 55 items fit the 12000 bytes Mesa
-// passes to tmux (requireCommandFits) and 60 do not. One run returning dozens of notes is long too.
-/** How many items one Write notes run takes. */
-export const NOTES_MAX_ITEMS = 50;
-
 /** The run's arguments: `<snapshot>=<note>` for each item. */
 const notesArgs = (planned: readonly PlannedNote[]) =>
   planned.map((p) => `${p.snapshot}=${p.path}`);

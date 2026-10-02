@@ -1,7 +1,6 @@
 import type { SourceId } from '@mesa/core';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useRun } from '@/lib/useCommand';
+import { useConnect } from '@/lib/useConnect';
 import type { BrowseError } from './useSourceChildren';
 
 /** Whether a browse failed for want of a connection: core names the source to connect. */
@@ -14,13 +13,9 @@ const toConnect = (error: BrowseError) =>
  */
 export function SourceError(props: { source: SourceId; error: BrowseError; onRetry: () => void }) {
   const { source, error } = props;
-  const run = useRun();
-  const [signingIn, setSigningIn] = useState(false);
+  const { signingIn, connect: signIn } = useConnect();
   const connect = async () => {
-    setSigningIn(true);
-    const connected = await run('sources.connect', { source });
-    setSigningIn(false);
-    if (connected) props.onRetry();
+    if (await signIn(source)) props.onRetry();
   };
   return (
     <div data-testid="source-error" className="flex items-center gap-2 px-2 py-1 text-sm">

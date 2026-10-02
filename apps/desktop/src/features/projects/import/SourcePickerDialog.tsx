@@ -1,4 +1,5 @@
 import type { SourceId } from '@mesa/core';
+import { NOTES_MAX_ITEMS } from '@mesa/core/browser';
 import { FolderTree, Search } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,8 @@ export function SourcePickerDialog(props: {
   const [search, setSearch] = useState('');
   const [importing, setImporting] = useState(false);
   const count = picker.picked.size;
+  // Core refuses this too; said here, before Import, so a big tick is not lost to it.
+  const tooMany = props.notes && count > NOTES_MAX_ITEMS;
   const submit = async () => {
     setImporting(true);
     const done = await props.onImport([...picker.picked.values()].map((item) => item.url));
@@ -89,6 +92,12 @@ export function SourcePickerDialog(props: {
             picker={picker}
           />
         </div>
+        {tooMany && (
+          <p data-testid="too-many" className="text-destructive text-sm">
+            Write notes takes at most {NOTES_MAX_ITEMS} items in one import: untick some, or turn
+            Write notes off.
+          </p>
+        )}
         <DialogFooter className="items-center gap-3 sm:justify-between">
           <span data-testid="picked-count" className="text-muted-foreground text-sm">
             {picker.including ? 'Ticking the pages under it...' : `${count} ticked`}
@@ -107,7 +116,7 @@ export function SourcePickerDialog(props: {
             </Button>
             <Button
               data-testid="import-picked"
-              disabled={importing || picker.including || !count}
+              disabled={importing || picker.including || !count || tooMany}
               onClick={() => void submit()}
             >
               {importing ? 'Importing...' : 'Import'}

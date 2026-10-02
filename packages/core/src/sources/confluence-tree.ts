@@ -2,13 +2,12 @@ import { z } from 'zod';
 import { type Http, readJson } from '../lib/http.js';
 import { confluenceApi, confluenceSearchApi, pageUrl, siteOrigin } from './atlassian.js';
 import { childOf } from './atlassian-nodes.js';
-import type { BrowsePage } from './browse.js';
+import { BROWSE_PAGE_SIZE, type BrowsePage } from './browse.js';
 import type { Site } from './connection.js';
 
 // Confluence's part of Atlassian's tree: a site's spaces, a space's top pages, a page's children,
-// and CQL search. Each is one page of PAGE_SIZE, its cursor the one in the API's `_links.next`.
-
-const PAGE_SIZE = 25;
+// and CQL search. Each is one page of BROWSE_PAGE_SIZE, its cursor the one in the API's
+// `_links.next`.
 
 /** A list's link to its next page. */
 const _links = z.object({ next: z.string().optional() }).optional();
@@ -43,7 +42,7 @@ async function listed<R>(
   schema: z.ZodType<{ results: R[]; _links?: { next?: string } | undefined }>,
   what: string,
 ) {
-  const query = `limit=${PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+  const query = `limit=${BROWSE_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
   const body = await readJson(
     await get(`${url}${url.includes('?') ? '&' : '?'}${query}`),
     schema,
