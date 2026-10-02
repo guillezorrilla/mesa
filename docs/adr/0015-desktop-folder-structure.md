@@ -1,4 +1,4 @@
-# ADR-0014: The app's source is grouped by domain: app, features, components, lib
+# ADR-0015: The app's source is grouped by domain: app, features, components, lib
 
 Status: accepted
 Date: 2026-10-01

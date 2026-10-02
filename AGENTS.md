@@ -23,7 +23,7 @@ The code stays reusable and easy to maintain; every PR is reviewed against these
 - Modules are deep: a small interface over real behaviour. A seam exists where two implementations do (ADR-0008); a pass-through layer or an option nobody asked for does not.
 - Tests cross the interface callers use, over the seams and fixtures in `@mesa/core/testing`; a helper two test files need moves there.
 - The app builds screens from shared components in `apps/desktop/src/components/`: shadcn/ui on Tailwind, with lucide-react icons.
-- The app's source follows ADR-0014: `app/` is the window shell, `features/<domain>/` a domain's screens, dialogs and hooks, `components/` only domain-free shared pieces, `lib/` the client and cross-cutting hooks. Component files are PascalCase and named by kind (`Screen`, `Tab`, `Dialog`, `Menu`, `Panel`, `Field`), hooks `useThing.ts`, other modules camelCase; a file stays under about 300 lines.
+- The app's source follows ADR-0015: `app/` is the window shell, `features/<domain>/` a domain's screens, dialogs and hooks, `components/` only domain-free shared pieces, `lib/` the client and cross-cutting hooks. Component files are PascalCase and named by kind (`Screen`, `Tab`, `Dialog`, `Menu`, `Panel`, `Field`), hooks `useThing.ts`, other modules camelCase; a file stays under about 300 lines.
 - Design and review with the `codebase-design`, `code-simplification`, and `code-review-and-quality` skills.
 
 ## Agent skills
