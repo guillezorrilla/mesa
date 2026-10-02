@@ -191,6 +191,8 @@ export const sessionsCommands = {
       checkout?: string;
       terminal?: boolean;
       parent?: string;
+      /** The imported item it starts from; `goal` is then its whole goal, as edited. */
+      from?: string;
     },
     Recorded<SessionRecord>
   >(
@@ -206,8 +208,10 @@ export const sessionsCommands = {
       checkout,
       terminal,
       parent,
+      from,
     }) => [
       'open',
+      ...(from ? [`--from=${from}`, '--exact-goal'] : []),
       ...(parent ? ['--parent', parent] : ['--no-parent']),
       ...(agent ? ['--agent', agent] : []),
       ...(mode ? ['--mode', mode] : []),

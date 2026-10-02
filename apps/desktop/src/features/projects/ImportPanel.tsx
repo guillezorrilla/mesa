@@ -1,5 +1,5 @@
 import type { ImportResult } from '@mesa/core';
-import { Download, ExternalLink, RefreshCw } from 'lucide-react';
+import { Download, ExternalLink, Play, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
@@ -25,9 +25,13 @@ function outcome(result: ImportResult & { warning?: string }): Message {
 /**
  * A project's Import panel (CONTEXT.md, Import): paste a Jira, Confluence, or web link to import
  * it into the project's vault, with or without Write notes, and its imported items, each with
- * Refresh and Open in Obsidian (its note, else its latest snapshot).
+ * Start session, Refresh, and Open in Obsidian (its note, else its latest snapshot).
  */
-export function ImportPanel(props: { project: string }) {
+export function ImportPanel(props: {
+  project: string;
+  /** Start session on an item, by its id: the composer fills in with its goal. */
+  onStartSession: (id: string) => void;
+}) {
   const { project } = props;
   const list = useCommand('imports.list', { project });
   const run = useRun();
@@ -89,6 +93,11 @@ export function ImportPanel(props: { project: string }) {
                 {item.title}
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{item.fetched}</span>
+              <IconButton
+                label={`Start session from ${item.id}`}
+                icon={Play}
+                onClick={() => props.onStartSession(item.id)}
+              />
               <IconButton
                 label={`Refresh ${item.id}`}
                 icon={RefreshCw}

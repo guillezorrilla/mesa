@@ -53,7 +53,10 @@ test('a pasted link imports with Write notes on, and the item then lists with Re
     'import refresh': () => imported(ISSUE, { ok: false, reason: 'claude exited with status 1' }),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
-  const byTestId = await renderWithMesa(<ImportPanel project="lantern-cove" />, bridge);
+  const byTestId = await renderWithMesa(
+    <ImportPanel project="lantern-cove" onStartSession={() => undefined} />,
+    bridge,
+  );
   expect(byTestId('import-panel')[0]?.textContent).toContain('Nothing imported yet.');
   expect(button('Write notes')?.getAttribute('aria-checked')).toBe('true');
 
@@ -92,7 +95,10 @@ test('with Write notes off an import passes --no-notes, and an item without a no
     import: () => imported(PAGE),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
-  await renderWithMesa(<ImportPanel project="lantern-cove" />, bridge);
+  await renderWithMesa(
+    <ImportPanel project="lantern-cove" onStartSession={() => undefined} />,
+    bridge,
+  );
   await click(button('Write notes'));
   await type(field() as HTMLInputElement, 'https://example.test/');
   await click(button('Import'));

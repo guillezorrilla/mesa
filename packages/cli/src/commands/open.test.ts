@@ -466,3 +466,74 @@ test.each(['open', 'resume', 'handoff'] as const)(
     }
   },
 );
+
+test('open --from starts from an imported item, imports a new link first, and sessions --json shows the item', async () => {
+  const SITE = 'https://lantern-cove.atlassian.net';
+  const { world } = await cli.withImports();
+  world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
+  world.servePage('9001', { title: 'Tide schedule', html: '<p>Twice a day.</p>' });
+  await mesa('import', 'LC-12', '--project', 'lantern-cove');
+
+  const built = await mesa('import', 'goal', 'LC-12', '--project', 'lantern-cove', '--json');
+  const opened = await mesa(
+    'open',
+    'lantern-cove',
+    '--from',
+    'LC-12',
+    '--goal',
+    'Fix it.',
+    '--json',
+  );
+  expect(opened.json.data).toMatchObject({
+    goal: `${built.json.data.goal}\n\nFix it.`,
+    from: { source: 'jira', id: 'LC-12' },
+  });
+  expect(built.json.data.goal).toContain('- Note: wiki/notes/lc-12-fix-the-tide-alarm.md');
+  expect((await mesa('goal', opened.json.data.id)).stdout).toContain(
+    'Work on the imported Jira issue LC-12: Fix the tide alarm',
+  );
+
+  const page = `${SITE}/wiki/spaces/LC/pages/9001`;
+  const fresh = await mesa('open', 'lantern-cove', '--from', page, '--no-notes', '--json');
+  expect(fresh.json.data.from).toEqual({ source: 'confluence', id: '9001' });
+  expect(fresh.json.data.goal).not.toContain('- Note:');
+  const edited = await mesa(
+    'open',
+    'lantern-cove',
+    '--from',
+    'LC-12',
+    '--exact-goal',
+    '--goal',
+    'Only the alarm.',
+    '--json',
+  );
+  expect(edited.json.data).toMatchObject({ goal: 'Only the alarm.', from: { id: 'LC-12' } });
+
+  const rows = (await mesa('sessions', '--no-adapter', '--json')).json.data;
+  expect(
+    rows.filter((r: { from?: unknown }) => r.from).map((r: { from: unknown }) => r.from),
+  ).toEqual(
+    expect.arrayContaining([
+      { source: 'jira', id: 'LC-12' },
+      { source: 'confluence', id: '9001' },
+    ]),
+  );
+
+  const both = await mesa(
+    'open',
+    'lantern-cove',
+    '--from',
+    'LC-12',
+    '--goal-file',
+    'g.md',
+    '--json',
+  );
+  expect(both.json.error).toEqual({
+    code: 'usage',
+    message: 'pass --from or --goal-file, not both',
+  });
+  const missing = await mesa('open', 'lantern-cove', '--from', `${SITE}/browse/LC-404`, '--json');
+  expect(missing.code).toBe(3);
+  expect(missing.json.error.message).toBe('Jira issue LC-404 is missing, or not shared with you');
+  expect(await mesa('open', 'lantern-cove', '--exact-goal', '--json')).toMatchObject({ code: 2 });
+});

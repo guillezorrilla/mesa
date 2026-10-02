@@ -1,3 +1,4 @@
+import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { requireTty } from '../guards.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -25,6 +26,19 @@ export const open = defineCommand({
       description: "The agent's first prompt; one starting /goal runs Claude Code's goal command",
     },
     'goal-file': { type: 'string', description: 'Read the goal from this file (UTF-8)' },
+    from: {
+      type: 'string',
+      description:
+        'Start from an imported item (its id or link; a link not imported yet is imported first): the goal names its title, URL, and vault paths, then --goal',
+    },
+    'no-notes': {
+      type: 'boolean',
+      description: 'With --from, import a new item with no import-notes run',
+    },
+    'exact-goal': {
+      type: 'boolean',
+      description: "With --from, --goal is the whole goal, in place of the item's",
+    },
     parent: {
       type: 'string',
       description: 'The session this one is started from; default: the Mesa window this runs in',
@@ -60,7 +74,10 @@ export const open = defineCommand({
   run: async ({ mesa, args, flags, tty }) => {
     // Checked first, so a session is never opened that this terminal cannot then attach to.
     if (flags.attach) requireTty(tty, 'mesa attach --app');
-    const recorded = await mesa.sessions.open(args.project, {
+    if (flags.from === undefined && (flags['no-notes'] || flags['exact-goal'])) {
+      throw new MesaError('usage', '--no-notes and --exact-goal need --from');
+    }
+    const options = {
       agent: flags.agent,
       mode: flags.mode,
       background: flags.background,
@@ -75,7 +92,16 @@ export const open = defineCommand({
       base: flags.base,
       terminal: flags.terminal,
       general: flags.general,
-    });
+    };
+    const recorded =
+      flags.from === undefined
+        ? await mesa.sessions.open(args.project, options)
+        : await mesa.imports.open(args.project, {
+            ...options,
+            from: flags.from,
+            notes: !flags['no-notes'],
+            exactGoal: flags['exact-goal'],
+          });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;
     return { ...recordedOutput(recorded, { data: session, text: session.id }), exec };

@@ -55,11 +55,7 @@ export async function importLinks(
   links: readonly string[],
   notes: boolean,
 ): Promise<ImportResult> {
-  const sites: Partial<Record<SourceId, Site[]>> = {};
-  for (const source of SOURCE_IDS) {
-    const reached = await deps.sites(source);
-    if (reached) sites[source] = reached;
-  }
+  const sites = await reachedSites(deps.sites);
   const refs = [
     ...new Map(links.map((link) => resolveLink(link, sites)).map((r) => [r.url, r])).values(),
   ];
@@ -86,6 +82,16 @@ export async function importLinks(
   if (!notes) return result();
   const { written, ...outcome } = await writeNotes(deps, project, snapshots);
   return result(outcome, written);
+}
+
+/** The sites each Source's connection reaches, for resolveLink; none for one with no connection. */
+export async function reachedSites(sites: ImportDeps['sites']) {
+  const reached: Partial<Record<SourceId, Site[]>> = {};
+  for (const source of SOURCE_IDS) {
+    const found = await sites(source);
+    if (found) reached[source] = found;
+  }
+  return reached;
 }
 
 /** One item, through its connector, over its Source's authorized fetch or plain HTTP. */

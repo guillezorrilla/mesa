@@ -693,6 +693,7 @@ export {
   type FakeRequest,
   fakeHttp,
   fakeSignIn,
+  importProfile,
   memorySecretStore,
   TEST_BROKER,
   writesImportNotes,

@@ -45,8 +45,16 @@ export function OverviewTab(props: {
     props.act(async () => {
       const session = await run('sessions.open', { project: project.name, ...input });
       if (!session) return undefined;
+      if (input.from) props.state.setDraft(undefined);
       props.onSession(session.id);
       return said(`Opened session ${session.id} on ${project.name}`, session);
+    });
+  // Start session on an imported item: its built goal fills in the composer, to edit and start.
+  const startFrom = (from: string) =>
+    props.act(async () => {
+      const built = await run('imports.goal', { project: project.name, from });
+      if (built) props.state.setDraft({ from: built.id, title: built.title, goal: built.goal });
+      return undefined;
     });
   return (
     <div className="space-y-8">
@@ -84,7 +92,7 @@ export function OverviewTab(props: {
         onSession={props.onSession}
       />
       <VaultOverview project={project.name} onItem={props.onVaultItem} />
-      <ImportPanel project={project.name} />
+      <ImportPanel project={project.name} onStartSession={(id) => void startFrom(id)} />
       <KnowledgeContext project={project.name} />
       {!project.exists && <Badge variant="destructive">Folder unavailable</Badge>}
     </div>

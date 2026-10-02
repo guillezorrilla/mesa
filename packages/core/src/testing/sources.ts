@@ -1,8 +1,17 @@
+import { join } from 'node:path';
 import type { Http } from '../lib/http.js';
+import type { Runner } from '../lib/process.js';
 import type { SecretStore } from '../lib/secret-store.js';
 import type { MesaDeps } from '../mesa.js';
 import type { CallbackListen } from '../sources/callback-listener.js';
-import { claudeResult, type FakeWindow, finishesRun, scriptedRunner } from './index.js';
+import {
+  agentWorld,
+  claudeResult,
+  type FakeWindow,
+  finishesRun,
+  projectProfile,
+  scriptedRunner,
+} from './index.js';
 
 /** A Keychain in memory: `items` by `<service> <account>`. */
 export function memorySecretStore() {
@@ -212,3 +221,38 @@ export const writesImportNotes =
       .join('\n\n');
     finishesRun({ output: JSON.stringify({ ...JSON.parse(claudeResult('success')), result }) })(w);
   };
+
+/**
+ * lantern-cove's profile with Atlassian connected, over atlassianWorld, and a fake claude whose
+ * import-notes run writes each note as `write` says (a heading and its snapshot, by default).
+ */
+export async function importProfile(
+  write: (note: string, snapshot: string) => string = (note, snapshot) =>
+    `# ${note}\n\nFrom ${snapshot}.`,
+) {
+  let now = '2026-09-24T12:00:00.000Z';
+  const world = atlassianWorld();
+  let agent = writesImportNotes(write);
+  const agents = agentWorld({ onOpen: (w) => agent(w) });
+  const run: Runner = (file, ...rest) =>
+    file === '/usr/bin/open' ? world.deps.run(file, ...rest) : agents.run(file, ...rest);
+  const { home, mesa } = projectProfile(run, {
+    ...world.deps,
+    run,
+    clock: () => new Date(now),
+  });
+  await mesa.sources.connect('atlassian');
+  return {
+    world,
+    agents,
+    home,
+    mesa,
+    vault: join(home, 'vault'),
+    at: (iso: string) => {
+      now = iso;
+    },
+    agent: (next: typeof agent) => {
+      agent = next;
+    },
+  };
+}
