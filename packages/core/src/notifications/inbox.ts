@@ -235,8 +235,7 @@ export function inbox(ctx: MesaContext) {
         const next = {
           read: [...new Set([...current.read, ...(state.read ?? [])])],
           cleared: [...new Set([...current.cleared, ...(state.cleared ?? [])])],
-          // The inbox keeps 500 events, so 1,000 recent acknowledgements cover restart reads.
-          delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])].slice(-1_000),
+          delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])],
           items: distinct.slice(-500),
           offsets: Object.fromEntries(
             [
@@ -253,6 +252,8 @@ export function inbox(ctx: MesaContext) {
         );
         next.read = next.read.filter((id) => retained.has(id));
         next.cleared = next.cleared.filter((id) => retained.has(id));
+        // Keep each acknowledgement as long as its notice, including failed automation runs.
+        next.delivered = next.delivered.filter((id) => retained.has(id));
         writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
         return next;
       },
@@ -320,7 +321,9 @@ export function inbox(ctx: MesaContext) {
           item.kind === 'doctor'
             ? 'Open Doctor to review and fix'
             : item.kind === 'automation'
-              ? (item.detail ?? 'Open Automations to review').slice(0, 300)
+              ? Array.from(item.detail ?? 'Open Automations to review')
+                  .slice(0, 300)
+                  .join('')
               : `Session ${item.session}`,
         sound: mode(item) === 'sound',
         target: item.target,

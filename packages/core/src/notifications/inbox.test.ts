@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
+import { automationState } from '../automations/state.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import { eventsLog, recordHookEvent } from '../sessions/hook-events.js';
@@ -290,4 +291,49 @@ test('clearAll clears every current notice at once and keeps hook offsets so non
   expect(mesa.notifications.clearAll()).toBe(0);
   appendFileSync(file, event('2026-09-24T12:00:10.000Z'));
   expect(mesa.notifications.list().map((item) => item.at)).toEqual(['2026-09-24T12:00:10.000Z']);
+});
+
+test('an automation acknowledgement survives more than 1000 unrelated deliveries and restart', async () => {
+  const { run } = scriptedRunner({ '/usr/bin/id': '501\n' });
+  const { home, mesa } = projectProfile(run);
+  mesa.config.set('decisions.backend', 'rules');
+  mesa.automations.add({
+    name: 'Missing skill',
+    project: 'lantern-cove',
+    when: 'cron',
+    cron: '* * * * *',
+    run: 'skill',
+    skill: 'missing-skill',
+    guardrail: 'allow',
+  });
+  await mesa.automations.install();
+  expect((await mesa.automations.tick()).runs[0]?.status).toBe('failed');
+  automationState(profilePaths(home, 'default').automationState).update((state) => {
+    const failed = state.runs[0];
+    if (!failed) throw new Error('missing failed run');
+    failed.reason = `${'x'.repeat(299)}😀more detail`;
+  });
+  const first = mesa.notifications.claimDelivery();
+  if (first.kind === 'none') throw new Error('expected automation notice');
+  expect(first.body).toBe(`${'x'.repeat(299)}😀`);
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: Array.from({ length: 1001 }, (_, index) => ({
+      name: `Finding ${index}`,
+      ok: false,
+      status: 'warn' as const,
+      hint: 'Review setup',
+    })),
+  });
+  for (const count of [500, 500, 1]) {
+    const plan = mesa.notifications.claimDelivery();
+    if (plan.kind === 'none') throw new Error('expected new Doctor notices');
+    expect(plan.ids).toHaveLength(count);
+    expect(plan.ids).not.toContain(first.id);
+  }
+  expect(createMesa('default', testDeps(home)).notifications.claimDelivery()).toEqual({
+    kind: 'none',
+  });
+  expect(mesa.notifications.list().some((item) => item.id === first.id)).toBe(true);
 });

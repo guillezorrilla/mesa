@@ -73,7 +73,7 @@ export const notificationsDelivery = defineCommand({
 export const notificationsDeliver = defineCommand({
   name: 'notifications deliver',
   summary: 'Deliver pending notices through bundled Mesa without opening its desktop',
-  example: 'mesa notifications deliver --json',
+  example: 'mesa notifications deliver',
   run: async ({ mesa }) => {
     const data = await mesa.notifications.deliver();
     return { data, text: data.detail ?? data.status };
