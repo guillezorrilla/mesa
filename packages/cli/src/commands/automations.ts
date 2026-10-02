@@ -5,7 +5,7 @@ import { defineCommand } from '../command.js';
 export const automationsList = defineCommand({
   name: 'automations list',
   summary: 'List optional rules in the active profile; never installs or starts the scheduler',
-  example: 'mesa automations list --json',
+  example: 'mesa automations list',
   run: ({ mesa }) => {
     const data = mesa.automations.list();
     return { data, text: data.length ? stringify(data).trimEnd() : 'No automations.' };
