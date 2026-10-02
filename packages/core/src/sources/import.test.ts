@@ -41,6 +41,7 @@ async function setUp(
   return {
     world,
     agents,
+    home,
     mesa,
     vault: join(home, 'vault'),
     at: (iso: string) => {
@@ -327,5 +328,22 @@ test('a bare key on a connection with two sites names them', async () => {
   const error = await mesa.imports.add('lantern-cove', ['LC-12']).catch((e) => e);
   expect(error.message).toBe(
     "LC-12 could be on any of lantern-cove, reef-watch: paste the issue's URL instead",
+  );
+});
+
+test('Write notes runs on a profile whose skills list predates import-notes, and leaves that list as it is', async () => {
+  const { world, mesa, home } = await setUp();
+  mesa.config.set('skills', '[mesa]');
+  world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
+  const { result } = await mesa.imports.add('lantern-cove', ['LC-12']);
+  expect(result.notes).toMatchObject({ ok: true });
+  expect(result.items[0]?.note).toBe('wiki/notes/lc-12-fix-the-tide-alarm.md');
+  // Linked for its own run, while the profile's list and the project's skills stay as they were.
+  expect(existsSync(join(home, 'src/lantern-cove/.claude/skills/import-notes/SKILL.md'))).toBe(
+    true,
+  );
+  expect(mesa.config.get().skills).toEqual(['mesa']);
+  expect(mesa.skills.list('lantern-cove').find((s) => s.name === 'import-notes')?.enabled).toBe(
+    false,
   );
 });

@@ -42,7 +42,7 @@ export const importList = defineCommand({
   example: 'mesa import list --project lantern-cove',
   run: ({ mesa, flags }) => {
     const data = mesa.imports.list(flags.project);
-    const rows = data.items.map((i) => [i.source, i.id, i.title, i.fetched, i.note ?? i.snapshot]);
+    const rows = data.items.map((i) => [i.source, i.id, i.title, i.fetched, i.note ?? '-']);
     return { data, text: columns(rows).join('\n') };
   },
 });

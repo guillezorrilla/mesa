@@ -1,4 +1,6 @@
-import { readablePage } from '../lib/html-markdown.js';
+import { Defuddle } from 'defuddle/node';
+import { parseHTML } from 'linkedom';
+import { htmlToMarkdown } from '../lib/html-markdown.js';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import type { Item, ItemRef } from './items.js';
@@ -21,4 +23,10 @@ export async function webPage(get: Http, ref: ItemRef): Promise<Item> {
   }
   const { title, markdown } = await readablePage(await response.text(), ref.url);
   return { ...ref, title: title || ref.url, markdown };
+}
+
+/** A whole web page's main content, cleaned by Defuddle (no menus, ads, or footers), as Markdown. */
+async function readablePage(html: string, url: string) {
+  const { title, content } = await Defuddle(parseHTML(html).document, url, { useAsync: false });
+  return { title: title.trim(), markdown: await htmlToMarkdown(content, url) };
 }

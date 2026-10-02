@@ -5,7 +5,6 @@ import { redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { readTextFile } from '../lib/text-file.js';
 import { localDay } from '../lib/time.js';
-import { slugify } from '../projects/slug.js';
 import { receiptText } from '../receipts/command.js';
 import { type NoteChange, recordNoteChange, settleUnchanged } from '../receipts/note-change.js';
 import { recordScope } from '../receipts/record-scope.js';
@@ -18,6 +17,7 @@ import { addToIndex } from './index-note.js';
 import { itemProject } from './item.js';
 import { projectHubPath, VAULT } from './layout.js';
 import { wikilink } from './links.js';
+import { nameOf } from './note-name.js';
 import {
   type LockedNotesDeps,
   oneLine,
@@ -71,13 +71,6 @@ function required(value: string | undefined, what: string): string {
   const text = value?.trim();
   if (!text) throw usage(`a save needs its ${what}`);
   return text;
-}
-
-/** The note name a title gives: its slug, cut to 80 characters so a file system takes it. */
-export function nameOf(title: string): string {
-  const name = slugify(title).slice(0, 80).replace(/-+$/, '');
-  if (!name) throw usage(`the title ${title} has no letter or digit to name its note`);
-  return name;
 }
 
 /** A number from 0 to 1, as Faro's probabilities and confidence are. */

@@ -5,18 +5,25 @@ import { MesaError } from '../lib/result.js';
 import { readProjectFile, setProjectSkills } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { skillInventory } from './inventory.js';
-import { readLibrary } from './library.js';
+import { PIPELINE_SKILLS, readLibrary } from './library.js';
 import { listSkills, syncSkills } from './sync.js';
 
 /** Mesa's skills: the library, what a profile and a project enable, and linking them in. */
 export function skillsService(ctx: MesaContext) {
   const libraryDir = ctx.deps.skillsDir;
-  /** A project's folder and the skills enabled for it: the profile's, then its mesa.yaml extras. */
-  const scope = (project?: string) => {
+  /**
+   * A project's folder and the skills enabled for it: the profile's, then its mesa.yaml extras,
+   * and for a Skill run of a pipeline skill (PIPELINE_SKILLS), that skill.
+   */
+  const scope = (project?: string, run?: string) => {
     const profile = ctx.open();
     const entry = project === undefined ? undefined : findProject(profile, project);
     const extras = entry ? (readProjectFile(entry.path).skills ?? []) : [];
-    return { projectDir: entry?.path, enabled: new Set([...profile.config.skills, ...extras]) };
+    const own = run && PIPELINE_SKILLS.includes(run) ? [run] : [];
+    return {
+      projectDir: entry?.path,
+      enabled: new Set([...profile.config.skills, ...extras, ...own]),
+    };
   };
   const inventory = (project?: string) => {
     const library = readLibrary(libraryDir);
@@ -42,9 +49,12 @@ export function skillsService(ctx: MesaContext) {
     };
   };
   return {
-    /** The library's skills, enabled or not, and with `project`, that project's own too. */
-    list: (project?: string) =>
-      listSkills({ library: readLibrary(libraryDir), libraryDir, ...scope(project) }),
+    /**
+     * The library's skills, enabled or not, and with `project`, that project's own too; as a
+     * Skill run of `run` sees them when given.
+     */
+    list: (project?: string, run?: string) =>
+      listSkills({ library: readLibrary(libraryDir), libraryDir, ...scope(project, run) }),
     inventory,
     /** Add or remove a shipped skill from this project's mesa.yaml policy. */
     setProject: (project: string, name: string, enabled: boolean) =>
@@ -101,13 +111,13 @@ export function skillsService(ctx: MesaContext) {
     /**
      * The same sync into `folder` (where a session's agent runs: the project's, its worktree,
      * or an adopted session's own), without a receipt of its own: every start of a session runs
-     * it (launch.ts).
+     * it (launch.ts). A Skill run of `run` gets its skill linked too when it is a pipeline skill.
      */
-    linkInto: (project: string, folder: string) =>
+    linkInto: (project: string, folder: string, run?: string) =>
       syncSkills({
         library: readLibrary(libraryDir),
         libraryDir,
-        enabled: scope(project).enabled,
+        enabled: scope(project, run).enabled,
         projectDir: folder,
       }),
     /** Links the enabled skills into the project's skill folders; unlinks Mesa's others. */

@@ -1,19 +1,16 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
-import type { SkillRow } from '../skills/sync.js';
 import { requireLog } from '../vault/notes.js';
 import { type ImportDeps, type ImportResult, importLinks } from './import.js';
-import { IMPORT_NOTES, importNotes } from './import-notes.js';
+import { importNotes } from './import-notes.js';
 import { snapshotRows } from './snapshots.js';
 
 /** An imported item as `mesa import list` shows it: its latest snapshot, and its note if any. */
 export type ImportListRow = ReturnType<typeof snapshotRows>[number] & { note?: string };
 
-/** What a project's imports take beyond the context: the sources, a Skill run, the skills. */
-type ImportServiceDeps = Pick<ImportDeps, 'fetch' | 'sites' | 'run'> & {
-  skills: (project: string) => SkillRow[];
-};
+/** What a project's imports take beyond the context: the sources, and a Skill run. */
+type ImportServiceDeps = Pick<ImportDeps, 'fetch' | 'sites' | 'run'>;
 
 /**
  * A project's Imports (CONTEXT.md, Import): import links, list what it imported, and refresh it.
@@ -21,19 +18,10 @@ type ImportServiceDeps = Pick<ImportDeps, 'fetch' | 'sites' | 'run'> & {
  * each item, its snapshot, and its note.
  */
 export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
-  /**
-   * Checked before anything is fetched: a registered project, a laid-out vault, and, with notes
-   * on, the import-notes skill enabled for it.
-   */
-  const prepare = (project: string, notes: boolean) => {
+  /** Checked before anything is fetched: a registered project and a laid-out vault. */
+  const prepare = (project: string) => {
     findProject(ctx.open(), project);
     requireLog(ctx.vaultOf());
-    if (notes && !deps.skills(project).find((s) => s.name === IMPORT_NOTES)?.enabled) {
-      throw new MesaError(
-        'usage',
-        `skill ${IMPORT_NOTES} is not enabled for ${project}, so no notes can be written: add it to the profile's skills (mesa config set skills) or to its mesa.yaml skills, or import with --no-notes`,
-      );
-    }
   };
   const list = (project: string): ImportListRow[] => {
     const vault = ctx.vaultOf();
@@ -65,7 +53,7 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
     /** Imports `links` into `project`'s vault, with notes unless `notes` is false. */
     add: async (project: string, links: readonly string[], notes = true) => {
       if (!links.length) throw new MesaError('usage', 'give one link or more to import');
-      prepare(project, notes);
+      prepare(project);
       return run(project, links, notes);
     },
     /** The items `project` imported, each with its latest fetch and its note, newest first. */
@@ -75,7 +63,7 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
     },
     /** Imports `project`'s items again, those of `ids` (an item's id) or all of them. */
     refresh: async (project: string, ids: readonly string[] = [], notes = true) => {
-      prepare(project, notes);
+      prepare(project);
       const items = list(project);
       const unknown = ids.filter((id) => !items.some((item) => item.id === id));
       if (unknown.length) {

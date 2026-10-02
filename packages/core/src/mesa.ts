@@ -76,7 +76,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
       fetch: sources.fetch,
       sites: sources.sites,
       run: sessions.sessions.run,
-      skills: skills.list,
     }),
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },

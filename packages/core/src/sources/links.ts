@@ -1,5 +1,5 @@
 import { MesaError } from '../lib/result.js';
-import { slugify } from '../projects/slug.js';
+import { truncatedSlug } from '../projects/slug.js';
 import { notConnectedError } from './authorized-fetch.js';
 import type { Site } from './connection.js';
 import type { ItemRef } from './items.js';
@@ -23,8 +23,7 @@ const jiraRef = (site: Site, key: string): ItemRef => ({
 });
 
 /** A web URL's item id: its host, path, and query as a slug of at most 80 characters. */
-const webId = (url: URL) =>
-  slugify(`${url.host}${url.pathname}${url.search}`).slice(0, 80).replace(/-+$/, '');
+const webId = (url: URL) => truncatedSlug(`${url.host}${url.pathname}${url.search}`);
 
 /**
  * The item `link` names, given the sites each Source's connection reaches (none when it has no

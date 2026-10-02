@@ -1,11 +1,14 @@
 import { existsSync } from 'node:fs';
-import { MesaError } from '../lib/result.js';
+import { MesaError, toFail } from '../lib/result.js';
+import type { HeadlessResult } from '../sessions/run.js';
 import { KEEP_MARKER, keptBlocks, restoreKept } from '../skills/keep-sections.js';
+import { IMPORT_NOTES } from '../skills/library.js';
 import type { Note } from '../vault/frontmatter.js';
 import { addToIndex } from '../vault/index-note.js';
 import { listVault } from '../vault/inventory.js';
 import { projectHubPath, VAULT } from '../vault/layout.js';
 import { wikilink } from '../vault/links.js';
+import { nameOf } from '../vault/note-name.js';
 import {
   type LockedNotesDeps,
   oneLine,
@@ -15,7 +18,6 @@ import {
   writeNote,
 } from '../vault/notes.js';
 import { vaultFile } from '../vault/scope.js';
-import { nameOf } from '../vault/session-writes.js';
 import { withVaultLock } from '../vault/vault-lock.js';
 import type { Item } from './items.js';
 
@@ -23,8 +25,6 @@ import type { Item } from './items.js';
 // returns one note per item, and core lands them (ADR-0006: the agent never writes the vault), so
 // a failed run changes nothing and the keep blocks are core's to keep.
 
-/** The skill whose run writes an import's notes (skills/import-notes). */
-export const IMPORT_NOTES = 'import-notes';
 /** A note an import keeps for one item has `type: import`, its project, and the item's URL. */
 const NOTE_TYPE = 'import';
 /** The hub's list of imported notes, a keep block so project-brief keeps it. */
@@ -44,13 +44,13 @@ export function importNotes(vault: string, project: string): Map<string, string>
 }
 
 /** One item's note in a Write notes run: the snapshot it is written from, and where it goes. */
-export type PlannedNote = { item: Item; snapshot: string; path: string };
+type PlannedNote = { item: Item; snapshot: string; path: string };
 
 /**
  * Where each item's note goes: the note it has, else a new `wiki/notes/<title slug>.md` (`-2` and
  * on past a note already there). An item whose note is locked gets none and is named in `locked`.
  */
-export function planNotes(
+function planNotes(
   vault: string,
   project: string,
   snapshots: readonly { item: Item; snapshot: string }[],
@@ -78,11 +78,11 @@ export function planNotes(
 }
 
 /** The run's arguments: `<snapshot>=<note>` for each item. */
-export const notesArgs = (planned: readonly PlannedNote[]) =>
+const notesArgs = (planned: readonly PlannedNote[]) =>
   planned.map((p) => `${p.snapshot}=${p.path}`);
 
 /** The agent's output as one body per planned note; internal when it left one out. */
-export function notesOf(output: string, planned: readonly PlannedNote[]): Map<string, string> {
+function notesOf(output: string, planned: readonly PlannedNote[]): Map<string, string> {
   const marks = [...output.matchAll(SECTION)];
   const bodies = new Map<string, string>();
   marks.forEach((mark, at) => {
@@ -122,7 +122,7 @@ function withImported(body: string, planned: readonly PlannedNote[], path: strin
  * checked before the first write: a locked note or hub, or keep markers that do not read, stop it
  * with nothing written.
  */
-export function landNotes(
+function landNotes(
   deps: LockedNotesDeps,
   project: string,
   planned: readonly PlannedNote[],
@@ -166,4 +166,51 @@ export function landNotes(
     }
     return planned.map((p) => p.path);
   });
+}
+
+/** A Skill run on the project, waited for (the sessions service's run). */
+export type SkillRun = (
+  skill: string,
+  opts: { project: string; args: string[]; yes: boolean },
+) => Promise<{ result: HeadlessResult & { session: string } }>;
+
+/** How a Write notes run went: its session, and why it wrote no notes when it wrote none. */
+export type NotesRun = { ok: boolean; session?: string; reason?: string };
+
+/**
+ * Write notes for an import's snapshots: their notes planned (planNotes), one import-notes run,
+ * and its notes landed (landNotes). A run that fails, or whose output does not land, changes no
+ * note and says why. The run, the notes written by their item's URL, and the locked ones left.
+ */
+export async function writeNotes(
+  deps: { notes: LockedNotesDeps; run: SkillRun },
+  project: string,
+  snapshots: readonly { item: Item; snapshot: string }[],
+): Promise<{ notes: NotesRun; written: Map<string, string>; locked?: string[] }> {
+  const { planned, locked } = planNotes(deps.notes.vault, project, snapshots);
+  const extra = locked.length ? { locked } : {};
+  const none = new Map<string, string>();
+  if (!planned.length) return { notes: { ok: true }, written: none, ...extra };
+  let session: string | undefined;
+  try {
+    const { result } = await deps.run(IMPORT_NOTES, {
+      project,
+      args: notesArgs(planned),
+      yes: true,
+    });
+    session = result.session;
+    if (!result.ok) {
+      throw new MesaError('internal', result.reason ?? `the ${IMPORT_NOTES} run failed`);
+    }
+    await landNotes(deps.notes, project, planned, notesOf(result.output, planned));
+    const written = new Map(planned.map((p) => [p.item.url, p.path]));
+    return { notes: { ok: true, session }, written, ...extra };
+  } catch (error) {
+    const reason = toFail(error).error.message;
+    return {
+      notes: { ok: false, ...(session ? { session } : {}), reason },
+      written: none,
+      ...extra,
+    };
+  }
 }
