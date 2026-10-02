@@ -1,3 +1,4 @@
+import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
 import {
   ArrowUpDown,
   Columns2,
@@ -50,6 +51,7 @@ export function GitWorkspace(props: {
   const { acting, act } = useAct();
   const target = { project: props.project, checkout: checkout || undefined };
   const status = useCommand('git.status', target);
+  const appearance = useCommand('config.get').data?.appearance ?? DEFAULT_APPEARANCE;
   const changed = async () => {
     await status.refresh();
     setRevision((last) => last + 1);
@@ -153,7 +155,11 @@ export function GitWorkspace(props: {
       </div>
       {view === 'graph' ? (
         <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
-          <GitHistory key={`graph:${checkout}:${revision}`} {...target} />
+          <GitHistory
+            key={`graph:${checkout}:${revision}`}
+            {...target}
+            diffFontSize={appearance.diffFontSize}
+          />
           <Button variant="outline" size="sm" onClick={() => setShowInsight((last) => !last)}>
             Insights
           </Button>
@@ -180,6 +186,7 @@ export function GitWorkspace(props: {
               )}
               <GitChangeList
                 sections={sections}
+                fontSize={appearance.fileTreeFontSize}
                 selected={current && { path: current.change.path, staged: current.staged }}
                 acting={acting}
                 onSelect={(entry) => setSelected({ path: entry.change.path, staged: entry.staged })}
@@ -231,6 +238,7 @@ export function GitWorkspace(props: {
                     staged={current.staged}
                     untracked={current.code === '?'}
                     layout={layout}
+                    fontSize={appearance.diffFontSize}
                   />
                 </div>
               </>

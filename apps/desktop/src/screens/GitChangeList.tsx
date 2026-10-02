@@ -17,6 +17,8 @@ type IndexAction = (action: 'stage' | 'unstage', paths: string[]) => void;
 /** The Staged and Changes sections, each folded by folder, with per-row and whole-section staging. */
 export function GitChangeList(props: {
   sections: GitSection[];
+  /** The profile's file tree text size in px. */
+  fontSize: number;
   selected?: GitSelection;
   acting: boolean;
   onSelect: (entry: GitEntry) => void;
@@ -55,12 +57,12 @@ export function GitChangeList(props: {
         byFolder(section.entries).map(([folder, entries]) => {
           const key = `${section.title}:${folder}`;
           return (
-            <div key={key}>
+            <div key={key} style={{ fontSize: props.fontSize }}>
               {folder && (
                 <Disclosure
                   open={!closed.has(key)}
                   onToggle={() => toggle(key)}
-                  className="w-full gap-1.5 px-4 py-1 text-xs hover:bg-accent/50"
+                  className="w-full gap-1.5 px-4 py-1 hover:bg-accent/50"
                 >
                   <Folder aria-hidden className="size-3.5" />
                   <span className="truncate">{folder}</span>
@@ -125,7 +127,7 @@ function ChangeRow(props: {
   return (
     <div
       className={cn(
-        'group flex items-center gap-1 pr-2 text-sm hover:bg-accent/50',
+        'group flex items-center gap-1 pr-2 hover:bg-accent/50',
         props.active && 'bg-accent',
       )}
     >

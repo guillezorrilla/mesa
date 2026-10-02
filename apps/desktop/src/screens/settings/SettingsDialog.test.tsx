@@ -171,3 +171,21 @@ test('Clear notification center shows the unread count and clears after a confir
   ]);
   expect(row()?.textContent).toContain('0 unread');
 });
+
+test('appearance has diff and file tree size sliders from 10 to 20 that save their paths', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  for (const [id, path, value] of [
+    ['appearance-diff-size', 'appearance.diffFontSize', '13'],
+    ['appearance-tree-size', 'appearance.fileTreeFontSize', '14'],
+  ] as const) {
+    const slider = document.getElementById(id) as HTMLInputElement;
+    expect([slider.min, slider.max, slider.value]).toEqual(['10', '20', value]);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(slider, '16');
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })));
+    expect(sets(calls).at(-1)).toEqual([path, '16']);
+  }
+});

@@ -10,6 +10,8 @@ export const DEFAULT_APPEARANCE = {
   theme: 'system',
   font: 'plex',
   fontSize: 16,
+  diffFontSize: 13,
+  fileTreeFontSize: 14,
   density: 'comfortable',
   colorVision: 'normal',
 } as const;

@@ -101,15 +101,28 @@ test('editor preferences and external argv validate before saving', () => {
 
 test('appearance and terminal preferences validate in the profile config', () => {
   expect(loadConfig(file)).toMatchObject({
-    appearance: { theme: 'system', fontSize: 16, colorVision: 'normal' },
+    appearance: {
+      theme: 'system',
+      fontSize: 16,
+      diffFontSize: 13,
+      fileTreeFontSize: 14,
+      colorVision: 'normal',
+    },
     terminal: { app: 'Terminal', theme: 'follow', fontSize: 13, scrollSpeed: 3 },
   });
   expect(setConfigValue(file, 'appearance.theme', 'dark').value).toBe('dark');
   expect(setConfigValue(file, 'appearance.colorVision', 'red-green').value).toBe('red-green');
   expect(setConfigValue(file, 'terminal.optionAsMeta', 'true').value).toBe(true);
+  for (const path of ['appearance.diffFontSize', 'appearance.fileTreeFontSize'])
+    for (const size of [10, 20]) expect(setConfigValue(file, path, String(size)).value).toBe(size);
   const before = readFileSync(file, 'utf8');
   for (const [path, value] of [
     ['appearance.fontSize', '7'],
+    ['appearance.diffFontSize', '9'],
+    ['appearance.diffFontSize', '21'],
+    ['appearance.diffFontSize', '13.5'],
+    ['appearance.fileTreeFontSize', '9'],
+    ['appearance.fileTreeFontSize', '21'],
     ['appearance.colorVision', 'unknown'],
     ['terminal.scrollSpeed', '21'],
     ['terminal.fontFamily', '""'],

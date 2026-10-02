@@ -1,7 +1,14 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, deferred, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import {
+  appearanceConfig,
+  click,
+  deferred,
+  envelope,
+  fakeBridge,
+  renderWithMesa,
+} from '@/lib/testing';
 import { FilesWorkspace } from './FilesWorkspace';
 
 test('a late file read cannot replace the newer selection', async () => {
@@ -179,4 +186,35 @@ test('Enter in an empty filter opens nothing, since the first row may be a folde
   const input = document.querySelector('[aria-label="Go to file and line"]') as HTMLInputElement;
   await act(async () => input.form?.requestSubmit());
   expect(calls.some((args) => args[1] === 'files' && args[2] === 'read')).toBe(false);
+});
+
+test('the file tree and file search results use the profile tree size', async () => {
+  const checkout = { project: 'lantern-cove', path: '/tmp/lantern-cove', registered: true };
+  const { bridge } = fakeBridge({
+    config: appearanceConfig({ fileTreeFontSize: 18 }),
+    'files tree': () =>
+      envelope({ checkout, entries: [{ path: 'a.md', kind: 'file', depth: 0 }], truncated: false }),
+    'files search': () =>
+      envelope({ hits: [{ path: 'a.md', line: 1, preview: 'alpha' }], truncated: false }),
+  });
+  await renderWithMesa(<FilesWorkspace project="lantern-cove" onDirtyChange={() => {}} />, bridge);
+  const sizeOf = (selector: string) => {
+    const row = document.querySelector<HTMLElement>(selector);
+    return row && getComputedStyle(row).fontSize;
+  };
+  expect(sizeOf('[aria-label="File tree"] [data-file-row]')).toBe('18px');
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+      (tab) => tab.textContent === 'Search',
+    ),
+  );
+  const field = document.querySelector<HTMLInputElement>('[aria-label="Search files"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(field, 'alpha');
+    field?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Run file search"]') ?? undefined,
+  );
+  expect(sizeOf('[aria-label="File search results"] [data-file-row]')).toBe('18px');
 });

@@ -74,6 +74,8 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
         theme: 'system',
         font: 'plex',
         fontSize: 16,
+        diffFontSize: 13,
+        fileTreeFontSize: 14,
         density: 'comfortable',
         colorVision: 'normal',
       },
@@ -172,6 +174,13 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       },
       tmux: { socket: 'mesa-default', server: true, paneDied: true },
     } satisfies HooksStatus),
+};
+
+/** A `config` answer: the healthy profile with these appearance choices over its own. */
+export const appearanceConfig = (appearance: Partial<Config['appearance']>) => () => {
+  const healthy = HEALTHY.config?.([]) as { data: Config };
+  const data = healthy.data;
+  return envelope({ ...data, appearance: { ...data.appearance, ...appearance } });
 };
 
 /** A bridge answering each mesa command (the words after --json), recording every call. */

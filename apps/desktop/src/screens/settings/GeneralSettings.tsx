@@ -174,6 +174,34 @@ export function GeneralSettings(props: {
           }
         />
         <SettingRow
+          title="Diff Font Size"
+          description={`Code review and diff view text size (${appearance.diffFontSize}px)`}
+          htmlFor="appearance-diff-size"
+          control={
+            <Range
+              id="appearance-diff-size"
+              path="appearance.diffFontSize"
+              value={appearance.diffFontSize}
+              min={10}
+              max={20}
+            />
+          }
+        />
+        <SettingRow
+          title="File Tree Font Size"
+          description={`File explorer and diff sidebar text size (${appearance.fileTreeFontSize}px)`}
+          htmlFor="appearance-tree-size"
+          control={
+            <Range
+              id="appearance-tree-size"
+              path="appearance.fileTreeFontSize"
+              value={appearance.fileTreeFontSize}
+              min={10}
+              max={20}
+            />
+          }
+        />
+        <SettingRow
           title="Layout Density"
           description="Spacing between UI elements"
           htmlFor="appearance-density"
