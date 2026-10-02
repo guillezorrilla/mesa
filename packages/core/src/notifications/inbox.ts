@@ -323,6 +323,12 @@ export function inbox(ctx: MesaContext) {
     list,
     markRead: (id: string) => change(id, 'read'),
     clear: (id: string) => change(id, 'cleared'),
+    /** Clears every notice shown now in one write; kept hook offsets stop them coming back. */
+    clearAll: () => {
+      const ids = list().map((item) => item.id);
+      if (ids.length) write({ cleared: ids });
+      return ids.length;
+    },
     delivery,
     markDelivered,
     recordDoctor: (report: DoctorReport) => {

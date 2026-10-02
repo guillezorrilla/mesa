@@ -1,6 +1,6 @@
 import type { Config } from '@mesa/core';
 import { AGENT_LABELS } from '@mesa/core/browser';
-import { Bell, BellOff, Plug, ShieldCheck } from 'lucide-react';
+import { Bell, BellOff, Plug, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import type { NotificationStatus } from '@/lib/platform';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
+import { ClearNotificationsDialog } from '../notifications/ClearNotificationsDialog';
 import { Choice, Toggle } from './controls';
 import { SettingRow, SettingSection } from './SettingRow';
 import { useSettings } from './useSettings';
@@ -67,6 +68,7 @@ export function NotificationSettings() {
             }
           />
         ))}
+        <ClearCenter />
       </SettingSection>
       <SettingSection
         id="session-events"
@@ -128,6 +130,48 @@ function SystemPermission() {
         }
       />
     </div>
+  );
+}
+
+/** The one action that clears every notice, with the unread count it would clear. */
+function ClearCenter() {
+  const inbox = useCommand('notifications.list');
+  const [clearing, setClearing] = useState(false);
+  const items = inbox.data ?? [];
+  const unread = items.filter((item) => !item.read).length;
+  return (
+    <>
+      <SettingRow
+        icon={Trash2}
+        title="Clear notification center"
+        description={inbox.data ? `${unread} unread` : 'Reading notices...'}
+        keywords="remove notices inbox"
+        control={
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!items.length}
+            onClick={() => {
+              // The count the confirmation states is read now, not when Settings opened.
+              void inbox.refresh().then(() => setClearing(true));
+            }}
+          >
+            Clear
+          </Button>
+        }
+      />
+      {clearing && (
+        <ClearNotificationsDialog
+          count={items.length}
+          unread={unread}
+          onCleared={() => {
+            setClearing(false);
+            void inbox.refresh();
+          }}
+          onCancel={() => setClearing(false)}
+        />
+      )}
+    </>
   );
 }
 
