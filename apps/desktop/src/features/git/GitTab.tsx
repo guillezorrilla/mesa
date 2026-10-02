@@ -34,7 +34,7 @@ const VIEWS = [
   ['graph', 'Graph', GitFork],
 ] as const;
 
-/** Git changes for the registered checkout and session worktrees, laid out as Xirp's Git tab. */
+/** Git changes for the registered checkout and session worktrees, as the project's Git tab. */
 export function GitTab(props: {
   project: string;
   /** After this tab stages, unstages, commits or refreshes. */

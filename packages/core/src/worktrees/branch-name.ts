@@ -70,7 +70,7 @@ const NOUNS = [
 ];
 
 /**
- * A new session worktree's branch, as Xirp names one: `session/<adjective>-<noun>-<4 characters>`,
+ * A new session worktree's branch: `session/<adjective>-<noun>-<4 characters>`,
  * all from a new id's random end, so a test's ids name known branches.
  */
 export function sessionBranchName(newId: IdSource) {

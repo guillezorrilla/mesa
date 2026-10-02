@@ -38,7 +38,7 @@ const ancestors = (path: string) =>
     .map((_, i, parts) => parts.slice(0, i + 1).join('/'));
 
 /**
- * The checkout's folders, closed until opened, as Xirp shows them. Typing in the field filters to
+ * The checkout's folders, closed until opened. Typing in the field filters to
  * matching files; Enter opens `path:line`, or else the first match.
  */
 export function FileTree(props: {

@@ -34,7 +34,7 @@ const DEFAULT_EDITOR: Config['editor'] = {
 };
 
 /**
- * Xirp-style two-pane repository browser over the same checked file commands as the CLI. It owns
+ * A two-pane repository browser over the same checked file commands as the CLI. It owns
  * the open file and its unsaved draft: every navigation that would drop the draft asks first.
  */
 export function FilesTab(props: {

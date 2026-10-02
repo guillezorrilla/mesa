@@ -5,7 +5,7 @@ Date: 2026-10-01
 
 ## Context
 
-Issue #373 lets a project override the profile's worktree settings (`base`, `fetch`, `carryIgnoredDirectories`, `sparseDirectories`, `setup`, `teardown`) and terminal theme, as Xirp's Projects settings do. Mesa keeps those per profile in `config.yaml` (`worktrees`, `terminal.theme`). A project's own state lives in two places: its `mesa.yaml`, which sits in the repository and is often committed, and the profile's `registry.yaml` entry, which is local to the machine (label, pin, hide, visits). Once projects carry overrides in one of them, moving them is a migration for every user, so the choice is hard to reverse.
+Issue #373 lets a project override the profile's worktree settings (`base`, `fetch`, `carryIgnoredDirectories`, `sparseDirectories`, `setup`, `teardown`) and terminal theme. Mesa keeps those per profile in `config.yaml` (`worktrees`, `terminal.theme`). A project's own state lives in two places: its `mesa.yaml`, which sits in the repository and is often committed, and the profile's `registry.yaml` entry, which is local to the machine (label, pin, hide, visits). Once projects carry overrides in one of them, moving them is a migration for every user, so the choice is hard to reverse.
 
 ## Decision
 

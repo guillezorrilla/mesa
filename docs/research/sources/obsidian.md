@@ -20,7 +20,7 @@ Local Obsidian version (from Info.plist CFBundleShortVersionString, GUI not open
 - Running requirement: official text - **"Obsidian CLI requires the Obsidian app to be running. If Obsidian is not running, the first command you run launches Obsidian."** This is IPC to a running app instance, with an auto-launch fallback documented for the registered `obsidian` command.
 - **Open question / discrepancy**: On this machine the CLI has never been registered (`which obsidian` → not found; no `/usr/local/bin/obsidian`, no `~/.local/bin/obsidian`). Running the raw bundled binary directly (`Contents/MacOS/obsidian-cli`) with Obsidian not running did **not** auto-launch Obsidian as the docs describe for the registered command - it printed an error and exited immediately (see item 3 for exact text). It is unconfirmed whether the auto-launch behavior belongs only to the registered wrapper/symlink, or whether the Settings toggle must be turned on first for auto-launch to work at all. Not resolved because the task forbids opening the GUI or changing settings.
 
-Sources: https://obsidian.md/help/cli (redirected from https://help.obsidian.md/cli), accessed 2026-09-24; https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Extending%20Obsidian/Obsidian%20CLI.md, accessed 2026-09-24; local skill /Users/gzorrilla/Developer/personal/mesa/.claude/skills/obsidian-cli/SKILL.md.
+Sources: https://obsidian.md/help/cli (redirected from https://help.obsidian.md/cli), accessed 2026-09-24; https://raw.githubusercontent.com/obsidianmd/obsidian-help/master/en/Extending%20Obsidian/Obsidian%20CLI.md, accessed 2026-09-24; local skill ~/Developer/personal/mesa/.claude/skills/obsidian-cli/SKILL.md.
 
 ---
 
@@ -97,7 +97,7 @@ which obsidian → obsidian not found
 }
 ```
 
-Sources: https://jsoncanvas.org/spec/1.0/, https://jsoncanvas.org, both accessed 2026-09-24; local skill /Users/gzorrilla/Developer/personal/mesa/.claude/skills/json-canvas/SKILL.md (verified field-by-field against the spec, no discrepancies found).
+Sources: https://jsoncanvas.org/spec/1.0/, https://jsoncanvas.org, both accessed 2026-09-24; local skill ~/Developer/personal/mesa/.claude/skills/json-canvas/SKILL.md (verified field-by-field against the spec, no discrepancies found).
 
 ---
 
@@ -107,7 +107,7 @@ Sources: https://jsoncanvas.org/spec/1.0/, https://jsoncanvas.org, both accessed
 
 - File format: `.base` files are YAML. Official quote: "Bases must be valid YAML conforming to the schema defined below." Top-level keys confirmed by the official syntax page: `filters`, `formulas`, `properties`, `views` (the `summaries` top-level key for custom named summary formulas is documented by the local skill and by help.obsidian.md/bases/functions but was not present in the specific example block returned by this session's fetch of the syntax page - not a contradiction, just not directly re-confirmed in that one snippet).
 - Which version made Bases core: **Obsidian 1.9.0**, released **2025-05-21** (Early Access) - "Introducing Bases, a new core plugin..." (Obsidian's own announcement). It left early-access gating and became available to all users in **Obsidian 1.9.10**, released **2025-08-18** ("Bases was first introduced back in version 1.9.0 in Early Access, but now everyone gets to use it in version 1.9.10 as a public release."). Obsidian 1.10.0 (Early Access) subsequently added a new Bases API, a new Maps plugin, and a new List view.
-- View types per the official Bases overview page (obsidian.md/help/bases): **Table, List, Cards, Kanban, Map** (five types). **Discrepancy**: the local skill (/Users/gzorrilla/Developer/personal/mesa/.claude/skills/obsidian-bases/SKILL.md, line 13 and "View Types" section) documents only four - `table`, `cards`, `list`, `map` - and **omits Kanban**. Map view requires the separate Maps community/core plugin plus lat/long properties, matching the local skill's note.
+- View types per the official Bases overview page (obsidian.md/help/bases): **Table, List, Cards, Kanban, Map** (five types). **Discrepancy**: the local skill (~/Developer/personal/mesa/.claude/skills/obsidian-bases/SKILL.md, line 13 and "View Types" section) documents only four - `table`, `cards`, `list`, `map` - and **omits Kanban**. Map view requires the separate Maps community/core plugin plus lat/long properties, matching the local skill's note.
 - Minimal example (official, from obsidian.md/help/bases/syntax, trimmed to minimal):
 ```yaml
 views:
@@ -149,6 +149,6 @@ Sources as inlined above, all accessed 2026-09-24.
   ```
   npx skills add https://github.com/kepano/obsidian-skills
   ```
-- Local match: `/Users/gzorrilla/Developer/personal/mesa/.claude/skills/` contains symlinks (into `.agents/skills/`) for all six: `obsidian-cli`, `obsidian-bases`, `json-canvas`, `obsidian-markdown`, `defuddle`, `knap`. **All six are present** - full match on the skill set. Content was cross-checked topically (command lists, YAML schema, node/edge fields) against the official help pages in items 1–5 above with no contradictions found, but no byte-for-byte diff against the upstream repo's SKILL.md files was performed.
+- Local match: `~/Developer/personal/mesa/.claude/skills/` contains symlinks (into `.agents/skills/`) for all six: `obsidian-cli`, `obsidian-bases`, `json-canvas`, `obsidian-markdown`, `defuddle`, `knap`. **All six are present** - full match on the skill set. Content was cross-checked topically (command lists, YAML schema, node/edge fields) against the official help pages in items 1–5 above with no contradictions found, but no byte-for-byte diff against the upstream repo's SKILL.md files was performed.
 
-Sources: https://github.com/kepano/obsidian-skills, accessed 2026-09-24 (via WebFetch summarization of the README, not a raw byte-for-byte quote); local directory listing of /Users/gzorrilla/Developer/personal/mesa/.claude/skills/.
+Sources: https://github.com/kepano/obsidian-skills, accessed 2026-09-24 (via WebFetch summarization of the README, not a raw byte-for-byte quote); local directory listing of ~/Developer/personal/mesa/.claude/skills/.

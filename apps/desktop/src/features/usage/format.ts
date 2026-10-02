@@ -4,7 +4,7 @@ import type { UsageBreakdown, UsageTotals } from '@mesa/core';
 export const money = (value: number | null) =>
   value === null ? 'Unknown' : value > 0 && value < 0.005 ? '<$0.01' : `$${value.toFixed(2)}`;
 
-/** 207.4k, 1.2M: token counts as Xirp prints them. */
+/** 207.4k, 1.2M: token counts, short. */
 export const compact = (value: number | null) =>
   value === null
     ? 'Unknown'

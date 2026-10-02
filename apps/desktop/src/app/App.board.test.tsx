@@ -589,7 +589,7 @@ const installed = () =>
     antigravity: { installed: false },
   });
 
-test('the header agent swaps a fresh session in place, as Xirp does', async () => {
+test('the header agent swaps a fresh session in place', async () => {
   const fresh = managedRow('aaaaaaaa', { lastState: idle });
   const { bridge, calls } = fakeBridge({
     resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),

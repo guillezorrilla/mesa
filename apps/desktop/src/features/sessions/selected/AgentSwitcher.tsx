@@ -11,7 +11,7 @@ import {
 import { useCommand } from '@/lib/useCommand';
 
 /**
- * The session header's agent, as Xirp's coding agent menu: the current agent first, then "Swap
+ * The session header's agent menu: the current agent first, then "Swap
  * to" each other installed one, which swaps a fresh session in place and hands off one with a
  * conversation (CONTEXT.md, Swap). An agent not installed is shown, disabled. Busy while the
  * session works, as a swap waits for it to be idle.

@@ -46,7 +46,7 @@ function unified(lines: Line[]): Line[] {
   return out;
 }
 
-/** Side-by-side or inline rows of one file's diff, unchanged runs folded as Xirp does. */
+/** Side-by-side or inline rows of one file's diff, unchanged runs folded. */
 export function GitDiffRows(props: {
   rows: DiffRow[];
   layout: 'inline' | 'side-by-side';

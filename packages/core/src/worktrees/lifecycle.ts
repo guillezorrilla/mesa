@@ -14,8 +14,8 @@ import { listWorktrees, type WorktreeRow } from './inventory.js';
 import { worktreeScript } from './settings.js';
 
 /**
- * remove deletes a linked checkout; recycle resets it for reuse, detached at the default branch, as
- * Xirp does; trash moves it, with its files and branch, into the profile's recycle/; cleanup prunes
+ * remove deletes a linked checkout; recycle resets it for reuse, detached at the default branch;
+ * trash moves it, with its files and branch, into the profile's recycle/; cleanup prunes
  * missing registrations.
  */
 export type WorktreeAction = 'remove' | 'recycle' | 'trash' | 'cleanup';
@@ -324,7 +324,7 @@ export async function applyWorktreeAction(
   }
   if (action === 'recycle') {
     const base = preview.base as string;
-    // The newest default branch, as Xirp fetches first; offline, the one already fetched.
+    // The newest default branch, fetched first; offline, the one already fetched.
     const fetched = base.startsWith('origin/')
       ? (await gitCommand(run, root, ['fetch', '--prune', 'origin'], 60_000)).ok
       : true;

@@ -1,6 +1,6 @@
 # Claude Code: verified technical facts
 
-Access date for all sources below: 2026-09-24. Local environment: Claude Code 2.1.281, verified locally by running `claude --version`. Local project root used for on-disk checks: `/Users/gzorrilla/Developer/personal/mesa`.
+Access date for all sources below: 2026-09-24. Local environment: Claude Code 2.1.281, verified locally by running `claude --version`. Local project root used for on-disk checks: `~/Developer/personal/mesa`.
 
 Primary official sources used:
 - https://code.claude.com/docs/en/skills
@@ -25,7 +25,7 @@ Source: https://code.claude.com/docs/en/skills, accessed 2026-09-24.
 - **File format**: "Every skill needs a `SKILL.md` file with two parts: YAML frontmatter between `---` markers that tells Claude when to use the skill, and markdown content with the instructions Claude follows when the skill runs."
 - **Frontmatter fields**: `name` (optional, display name, defaults to directory name), `description` (recommended, used for automatic invocation), `disable-model-invocation` (blocks auto-invocation), `user-invocable` (set `false` for Claude-only skills), `allowed-tools`, `disallowed-tools`, `context: fork` (run in a forked subagent), `paths` (glob-scoped activation), `argument-hint`, `arguments`.
 - **Locations**:
-  - Project: `.claude/skills/<name>/SKILL.md` (loads for sessions in that repo), matches what this task found locally: `/Users/gzorrilla/Developer/personal/mesa/.claude/skills/<name>/SKILL.md` (31 skills present, verified locally with `find`).
+  - Project: `.claude/skills/<name>/SKILL.md` (loads for sessions in that repo), matches what this task found locally: `~/Developer/personal/mesa/.claude/skills/<name>/SKILL.md` (31 skills present, verified locally with `find`).
   - User/personal: `~/.claude/skills/<name>/SKILL.md` (all projects on the machine).
   - Nested: `<subdir>/.claude/skills/<name>/SKILL.md`.
   - Plugin: `<plugin>/skills/<name>/SKILL.md`.
@@ -35,7 +35,7 @@ Source: https://code.claude.com/docs/en/skills, accessed 2026-09-24.
 
 ## 2. Hooks, status: verified official, partially verified locally
 
-Source: https://code.claude.com/docs/en/hooks, accessed 2026-09-24. Locally corroborated via `/Users/gzorrilla/.claude/settings.json`, which has real, working `Notification` and `WorktreeCreate` hooks configured (read directly with `cat`).
+Source: https://code.claude.com/docs/en/hooks, accessed 2026-09-24. Locally corroborated via `~/.claude/settings.json`, which has real, working `Notification` and `WorktreeCreate` hooks configured (read directly with `cat`).
 
 **Full current event list** (much larger than the plan's assumed 10 events, all 10 assumed events exist, plus ~20 more): `SessionStart`, `Setup`, `UserPromptSubmit`, `UserPromptExpansion`, `PreToolUse`, `PermissionRequest`, `PermissionDenied`, `PostToolUse`, `PostToolUseFailure`, `PostToolBatch`, `Notification`, `MessageDisplay`, `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `Stop`, `StopFailure`, `TeammateIdle`, `InstructionsLoaded`, `ConfigChange`, `CwdChanged`, `DirectoryAdded`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `PreCompact`, `PostCompact`, `PreModelSwitch`, `PostModelSwitch`, `Elicitation`, `ElicitationResult`, `SessionEnd`. `WorktreeCreate` is locally confirmed live and in use (it exists in this user's real `~/.claude/settings.json`).
 
@@ -69,7 +69,7 @@ Sources: `claude --help` and `claude -p --help` run locally (Claude Code 2.1.281
 Sources: local filesystem inspection of `~/.claude/projects/`; https://code.claude.com/docs/en/sessions, accessed 2026-09-24.
 
 - `--resume <session-id|name|path>`, `--continue`/`-c`, `--fork-session`: all confirmed locally in `claude --help` and in docs. `--session-id <uuid>` confirmed locally ("Use a specific session ID for the conversation (must be a valid UUID)").
-- **Transcript storage**: confirmed locally, this machine has `~/.claude/projects/-Users-gzorrilla-Developer-personal-mesa/<session-id>.jsonl` files (directly listed with `ls`). Docs confirm the exact rule: `~/.claude/projects/<project>/<session-id>.jsonl`, where `<project>` is the working directory path "with non-alphanumeric characters replaced by `-`"; for paths whose converted name exceeds 200 characters, Claude Code truncates to 200 chars and appends a hash of the full path.
+- **Transcript storage**: confirmed locally, this machine has `~/.claude/projects/-Users-you-Developer-personal-mesa/<session-id>.jsonl` files (directly listed with `ls`). Docs confirm the exact rule: `~/.claude/projects/<project>/<session-id>.jsonl`, where `<project>` is the working directory path "with non-alphanumeric characters replaced by `-`"; for paths whose converted name exceeds 200 characters, Claude Code truncates to 200 chars and appends a hash of the full path.
 - **Line format**: official docs explicitly warn this is **not** a stable/public format: "Each line is a JSON object for a message, tool use, or metadata entry. The entry format is internal to Claude Code and changes between versions, so scripts that parse these files directly can break on any release." They point scripts at `/export` or the CLI's structured-output/hook interfaces instead. Locally observed line shapes include `{"type":"last-prompt",...}`, `{"type":"mode",...}`, `{"type":"permission-mode",...}`, and message-shaped entries with `parentUuid`, `isSidechain`, `attachment` fields, all carrying a `sessionId` field, consistent with "internal, versioned format."
 - **Session id in the SessionStart hook payload**: yes, `session_id` is listed among the common fields present on every hook event's JSON stdin, which includes `SessionStart`. (See item 2.)
 
@@ -95,7 +95,7 @@ Sources: `claude --help`, `claude agents --help`, and running `claude agents --j
 
 **Correction to the plan's assumption**: something *does* exist for this. `claude agents --json` is a real, documented, locally-tested command: "Print active sessions (interactive and background) as a JSON array and exit (for scripting; does not require a TTY)." Running it locally in this session returned:
 ```json
-[{"pid": 13070, "cwd": "/Users/gzorrilla/Developer/personal/mesa", "kind": "interactive", "startedAt": 1790272626805, "sessionId": "73f6556a-9092-4ea9-854a-db5147358552", "name": "mesa-90", "status": "busy"}]
+[{"pid": 13070, "cwd": "~/Developer/personal/mesa", "kind": "interactive", "startedAt": 1790272626805, "sessionId": "73f6556a-9092-4ea9-854a-db5147358552", "name": "mesa-90", "status": "busy"}]
 ```
 Fields observed: `pid`, `cwd`, `kind` (`interactive`/`background`), `startedAt`, `sessionId`, `name`, `status`. The sessions doc corroborates this is the intended scripting surface: "...listings of running sessions, such as [agent view] and `claude agents --json` output."
 
@@ -104,7 +104,7 @@ Related commands confirmed locally in `claude --help`: `claude attach <id>`, `cl
 What else exists, all confirmed:
 - **Transcript files**: `~/.claude/projects/<project>/<session-id>.jsonl` (see item 4).
 - **Hooks**: `SessionStart`/`SessionEnd`/etc. for reacting to lifecycle events (see item 2).
-- **Statusline JSON input**: confirmed both locally (this user's `~/.claude/settings.json` has `"statusLine": {"type": "command", "command": "bash /Users/gzorrilla/.claude/statusline-command.sh"}`) and officially. The statusline command receives on stdin a JSON object documented with these top-level/nested fields: `cwd`, `session_id`, `session_name`, `prompt_id`, `transcript_path`, `model.id`, `model.display_name`, `workspace.current_dir`, `workspace.project_dir`, `workspace.added_dirs`, `workspace.git_worktree`, `workspace.repo.{host,owner,name}`, `version`, `output_style.name`, `cost.{total_cost_usd,total_duration_ms,total_api_duration_ms,total_lines_added,total_lines_removed}`, `context_window.{total_input_tokens,total_output_tokens,context_window_size,used_percentage,remaining_percentage,current_usage.*}`, plus `vim.mode`, `agent.name`, `pr.{number,url,review_state,kind}`, `worktree.{name,path,branch,original_cwd,original_branch}`.
+- **Statusline JSON input**: confirmed both locally (this user's `~/.claude/settings.json` has `"statusLine": {"type": "command", "command": "bash ~/.claude/statusline-command.sh"}`) and officially. The statusline command receives on stdin a JSON object documented with these top-level/nested fields: `cwd`, `session_id`, `session_name`, `prompt_id`, `transcript_path`, `model.id`, `model.display_name`, `workspace.current_dir`, `workspace.project_dir`, `workspace.added_dirs`, `workspace.git_worktree`, `workspace.repo.{host,owner,name}`, `version`, `output_style.name`, `cost.{total_cost_usd,total_duration_ms,total_api_duration_ms,total_lines_added,total_lines_removed}`, `context_window.{total_input_tokens,total_output_tokens,context_window_size,used_percentage,remaining_percentage,current_usage.*}`, plus `vim.mode`, `agent.name`, `pr.{number,url,review_state,kind}`, `worktree.{name,path,branch,original_cwd,original_branch}`.
 
 ## 7. Claude Agent SDK (TypeScript), status: verified official + verified locally (npm)
 

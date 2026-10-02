@@ -4,7 +4,7 @@ import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 
-/** The open file's tab, its actions, and the path line under it, as Xirp's editor header. */
+/** The open file's tab, its actions, and the path line under it. */
 export function FileTabBar(props: {
   file: WorkspaceFile;
   dirty: boolean;

@@ -153,7 +153,7 @@ $ tmux -L mesa-verify list-sessions
 testproj: 1 windows (created Thu Sep 24 11:07:27 2026)
 
 $ tmux -L mesa-verify list-windows -t testproj -F '#{window_name} #{pane_pid} #{pane_current_command} #{pane_current_path} #{window_activity} #{pane_dead}'
-win1 21653 sleep /Users/gzorrilla/Developer/personal/mesa 1790273247 0
+win1 21653 sleep ~/Developer/personal/mesa 1790273247 0
 
 $ tmux -L mesa-verify capture-pane -p -t testproj:win1 -S -10
 hello
@@ -177,8 +177,8 @@ Note: the pane's foreground process was still `sleep 30` (confirmed by `pane_cur
 $ tmux -L mesa-verify new-window -t testproj -n win2-abc123 'printf "second window\n"; sleep 30'
 
 $ tmux -L mesa-verify list-windows -t testproj -F '#{window_index} #{window_name} #{pane_pid} #{pane_current_command} #{pane_current_path} #{window_activity} #{pane_dead}'
-0 win1 21653 sleep /Users/gzorrilla/Developer/personal/mesa 1790273248 0
-1 win2-abc123 22268 sleep /Users/gzorrilla/Developer/personal/mesa 1790273257 0
+0 win1 21653 sleep ~/Developer/personal/mesa 1790273248 0
+1 win2-abc123 22268 sleep ~/Developer/personal/mesa 1790273257 0
 ```
 
 **Test 4 - pipe-pane continuous logging:**
