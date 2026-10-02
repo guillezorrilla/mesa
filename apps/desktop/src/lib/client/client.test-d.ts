@@ -1,4 +1,4 @@
-import { createClient } from './client';
+import { createClient } from '.';
 
 // Type-level tests: `pnpm typecheck` fails if call() accepts a wrong command or arguments.
 export async function typeTests() {

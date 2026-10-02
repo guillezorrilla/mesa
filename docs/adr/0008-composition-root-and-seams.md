@@ -25,7 +25,7 @@ Issue #54 and its review. After the change, `grep -rnE 'process\.(env|cwd)|homed
 
 ## Consequences
 
-- A new core capability is a module that takes its dependencies as parameters, plus one line in `createMesa`. A new command is a `defineCommand` in `commands/` and one entry in `commands/index.ts`. A new app command is one entry in `apps/desktop/src/lib/client.ts`.
+- A new core capability is a module that takes its dependencies as parameters, plus one line in `createMesa`. A new command is a `defineCommand` in `commands/` and one entry in `commands/index.ts`. A new app command is one entry in its domain's file under `apps/desktop/src/lib/client/` (ADR-0014).
 - Help, usage lines, and text tables are derived, so their layout follows the declarations rather than hand-written strings.
 - Changing a dependency means changing `MesaDeps` and the CLI entrypoint that builds it; tests pick it up through `testDeps`.
 
