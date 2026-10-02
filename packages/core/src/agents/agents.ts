@@ -23,6 +23,8 @@ import { type LaunchDefaults, launchFlags } from './launch-flags.js';
 import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 import {
   CLAUDE_VAULT_TOOLS,
+  CLAUDE_VAULT_WRITES,
+  CODEX_VAULT_READ_ONLY,
   claudeMcpConfig,
   claudeVaultArgs,
   codexVaultOverrides,
@@ -46,8 +48,15 @@ const codexMount = (server: VaultServer) =>
     .map((override) => `-c ${shellWord(override)}`)
     .join(' ');
 
-/** How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile). */
-type HeadlessPermissions = { permissionMode: string; allowedTools: readonly string[] };
+/**
+ * How a headless run may act, from the profile's config `run` (CONTEXT.md, Profile), and with
+ * `readOnlyVault`, without mesa-vault's write tools (a pipeline skill's run, whose output core lands).
+ */
+type HeadlessPermissions = {
+  permissionMode: string;
+  allowedTools: readonly string[];
+  readOnlyVault?: boolean;
+};
 
 /**
  * On every codex Mesa starts or resumes. Any `-c` override keeps its TUI embedded, off a running
@@ -111,8 +120,9 @@ export const AGENTS = {
       /**
        * `prompt` through `claude -p`, its JSON result on stdout, in the conversation Mesa chose,
        * with the profile's permission mode, mesa-vault mounted, and its tools allowed before the
-       * profile's own. The prompt and each tool are one shell word, as a rule such as
-       * `Bash(git log:*)` holds a space; --allowedTools takes every word after it, so it comes last.
+       * profile's own; a read-only run disallows its write tools, which wins over the allow. The
+       * prompt and each tool are one shell word, as a rule such as `Bash(git log:*)` holds a
+       * space; --allowedTools takes every word after it, so it comes last.
        */
       command: (
         sessionId: string | undefined,
@@ -127,6 +137,9 @@ export const AGENTS = {
           `--session-id ${sessionId} --output-format json`,
           `--permission-mode ${shellWord(may.permissionMode)}`,
           shellWord(claudeMcpConfig(server)),
+          ...(may.readOnlyVault
+            ? ['--disallowedTools', ...CLAUDE_VAULT_WRITES.map(shellWord)]
+            : []),
           '--allowedTools',
           ...[CLAUDE_VAULT_TOOLS, ...may.allowedTools].map(shellWord),
         ].join(' '),
@@ -177,14 +190,15 @@ export const AGENTS = {
     submitDelayMs: 300,
     headless: {
       skillPrefix: '$',
+      /** A read-only run turns mesa-vault's write tools off with the server's `disabled_tools`. */
       command: (
         _sessionId: string | undefined,
         prompt: string,
-        _may: HeadlessPermissions,
+        may: HeadlessPermissions,
         folder: string,
         server: VaultServer,
       ) =>
-        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${codexMount(server)} ${shellWord(prompt)}`,
+        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${codexMount(server)}${may.readOnlyVault ? ` -c ${shellWord(CODEX_VAULT_READ_ONLY)}` : ''} ${shellWord(prompt)}`,
       result: readCodexResult,
     },
     /** Trusted hooks from the embedded Codex process. */
@@ -209,6 +223,10 @@ export const AGENTS = {
     submitDelayMs: 300,
     headless: {
       skillPrefix: '/',
+      /**
+       * No read-only run: agy mounts mesa-vault from its one global entry and takes no per-run
+       * tool rule, so its write tools stay on (CONTEXT.md, Skill run).
+       */
       command: (
         _sessionId: string | undefined,
         prompt: string,

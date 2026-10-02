@@ -1,4 +1,13 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { listReceipts } from '../receipts/store.js';
@@ -83,10 +92,12 @@ test('a Jira key and a Confluence URL import as snapshots and notes linked from 
     '# Tide schedule\n\nAncestors: Harbour\n\n## High tide\n\nTwice a day.\n',
   );
 
-  // One run, its prompt naming each snapshot and the note it becomes.
+  // One run, its prompt naming each snapshot and the note it becomes, with no vault writes.
   const launch = agents.calls.find((c) => c.args.some((a) => a.includes('/import-notes')));
-  expect(launch?.args.find((a) => a.startsWith('exec '))).toContain(
-    `'/import-notes ${jira}=${jiraNote} ${page}=${pageNote}'`,
+  const line = launch?.args.find((a) => a.startsWith('exec '));
+  expect(line).toContain(`'/import-notes ${jira}=${jiraNote} ${page}=${pageNote}'`);
+  expect(line).toContain(
+    "--disallowedTools 'mcp__mesa-vault__save_decision' 'mcp__mesa-vault__save_summary' 'mcp__mesa-vault__save_note' --allowedTools",
   );
   expect(readNote(vault, jiraNote)).toEqual({
     frontmatter: {
@@ -308,6 +319,31 @@ test('Write notes runs on a profile whose skills list predates import-notes, and
   expect(mesa.skills.list('lantern-cove').find((s) => s.name === 'import-notes')?.enabled).toBe(
     false,
   );
+});
+
+test("Write notes relinks a deleted checkout's import-notes link, and fails clearly on the project's own", async () => {
+  const { world, agents, mesa, home } = await importProfile();
+  world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
+  const skills = join(home, 'src/lantern-cove/.claude/skills');
+  mkdirSync(skills, { recursive: true });
+  symlinkSync(join(home, 'mesa-399/skills/import-notes'), join(skills, 'import-notes'));
+  const { result } = await mesa.imports.add('lantern-cove', ['LC-12']);
+  expect(result.notes).toMatchObject({ ok: true });
+  expect(existsSync(join(skills, 'import-notes/SKILL.md'))).toBe(true);
+  expect(readlinkSync(join(skills, 'import-notes'))).not.toContain('mesa-399');
+
+  // An entry of the project's own holds its place: no run, and the reason.
+  const runs = () => agents.calls.filter((c) => c.args.some((a) => a.includes('/import-notes')));
+  const before = runs().length;
+  rmSync(join(skills, 'import-notes'));
+  mkdirSync(join(skills, 'import-notes'));
+  const own = await mesa.imports.refresh('lantern-cove');
+  expect(own.result.notes).toEqual({
+    ok: false,
+    reason:
+      "lantern-cove has a skill entry of its own named import-notes, so the run would not load Mesa's; rename or remove its .claude/skills/import-notes or .agents/skills/import-notes",
+  });
+  expect(runs()).toHaveLength(before);
 });
 
 test('Write notes takes 50 items of the longest paths in one run, and refuses 51 before fetching any', async () => {
