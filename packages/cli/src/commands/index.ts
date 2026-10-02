@@ -105,6 +105,7 @@ import { send } from './send.js';
 import { sessions } from './sessions.js';
 import { show } from './show.js';
 import { skillsList, skillsRead, skillsSet, skillsSync, skillsWrite } from './skills.js';
+import { statusline } from './statusline.js';
 import { stop } from './stop.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
@@ -251,6 +252,7 @@ export const COMMANDS: Command[] = [
   skillsSet,
   skillsSync,
   skillsWrite,
+  statusline,
   stop,
   unregister,
   unarchive,

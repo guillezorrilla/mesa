@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
+import { shellWord } from '../lib/process.js';
 import {
   agentWorld,
   CLAUDE_MOUNT,
@@ -91,4 +92,40 @@ test('a record Mesa launched before the mount existed reports it missing until r
   const resumed = (await mesa.sessions.resume(old.id)).result.record;
   expect(resumed.vaultMounted).toBe(true);
   expect((await mesa.sessions.show(resumed.id)).vault.state).toBe('configured');
+});
+
+test('with sessions.statusLineCost on, claude windows launch with mesa statusline in --settings; off, unchanged', async () => {
+  const world = agentWorld();
+  const { mesa } = projectProfile(world.run);
+  const window = (r: SessionRecord) =>
+    world.tmux.windows.find((w) => w.window === `${r.agent}-${r.id}`);
+  const before = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
+  expect(window(before)?.launch).toBe(started.claude(before, 'Map the tides'));
+
+  mesa.config.set('sessions.statusLineCost', 'true');
+  // testDeps' self is /usr/local/bin/mesa: the status line runs that mesa, not one on PATH.
+  const settings = shellWord(
+    `--settings=${JSON.stringify({
+      statusLine: { type: 'command', command: "'/usr/local/bin/mesa' statusline" },
+    })}`,
+  );
+  const on = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
+  expect(window(on)?.launch).toBe(
+    `unset NO_COLOR; exec claude ${settings} --session-id ${on.agentSessionId} ${CLAUDE_MOUNT} 'Map the tides'`,
+  );
+  for (const w of world.tmux.windows) w.dead = true;
+  await mesa.sessions.stop(on.id, true);
+  const resumed = (await mesa.sessions.resume(on.id)).result.record;
+  expect(window(resumed)?.launch).toBe(
+    `unset NO_COLOR; exec claude ${settings} --resume ${on.agentSessionId} ${CLAUDE_MOUNT}`,
+  );
+  // Codex has no Claude status line.
+  const codex = (
+    await mesa.sessions.open('lantern-cove', { agent: 'codex', goal: 'Map the tides' })
+  ).result;
+  expect(window(codex)?.launch).toBe(started.codex(codex, 'Map the tides'));
+
+  mesa.config.set('sessions.statusLineCost', 'false');
+  const after = (await mesa.sessions.open('lantern-cove', { goal: 'Map the tides' })).result;
+  expect(window(after)?.launch).toBe(started.claude(after, 'Map the tides'));
 });

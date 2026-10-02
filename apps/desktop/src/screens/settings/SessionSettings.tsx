@@ -1,11 +1,14 @@
 import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
-import { BookMarked, ScrollText, SquareTerminal } from 'lucide-react';
+import { BookMarked, CircleDollarSign, ScrollText, SquareTerminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Choice, Toggle } from './controls';
 import { SettingRow, SettingSection } from './SettingRow';
 import { useSettings } from './useSettings';
 
-/** What a new session starts with, whether its output is kept, and the saved prompts. */
+/**
+ * What a new session starts with, whether its output is kept, whether Claude's status line shows
+ * its cost, and the saved prompts.
+ */
 export function SessionSettings(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
   return (
@@ -48,6 +51,26 @@ export function SessionSettings(props: { onSavedPrompts: () => void }) {
           description="Record each new session's terminal output in the profile, so its log can be read back later."
           htmlFor="sessions-log"
           control={<Toggle id="sessions-log" path="sessions.log" checked={config.sessions.log} />}
+        />
+      </SettingSection>
+      <SettingSection
+        id="status-line"
+        title="Status line"
+        description="What Claude Code shows under its prompt in Mesa sessions"
+      >
+        <SettingRow
+          icon={CircleDollarSign}
+          title="Show session cost"
+          description="End Claude's status line with the session's estimated cost, after your own status line. Applies to Claude sessions started or resumed from now on."
+          htmlFor="sessions-status-line-cost"
+          keywords="statusline cost usage price claude"
+          control={
+            <Toggle
+              id="sessions-status-line-cost"
+              path="sessions.statusLineCost"
+              checked={config.sessions.statusLineCost}
+            />
+          }
         />
       </SettingSection>
       <SettingSection

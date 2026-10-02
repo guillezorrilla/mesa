@@ -238,6 +238,7 @@ export function sessionsService(
             eventsDir: paths.events,
             logsDir: paths.logs,
             runs: paths.runs,
+            costs: paths.costs,
           },
           id,
           opts,

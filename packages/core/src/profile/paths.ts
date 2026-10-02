@@ -15,6 +15,8 @@ export type ProfilePaths = {
   logs: string;
   /** What each headless run's agent printed, `<session id>.json` each (CONTEXT.md, Skill run). */
   runs: string;
+  /** Each Claude session's running estimated cost for its status line, `<session id>.json` each. */
+  costs: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
@@ -48,6 +50,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     events: join(root, 'sessions', 'events'),
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
+    costs: join(root, 'sessions', 'costs'),
     attachScripts: join(root, 'attach'),
     worktrees: join(root, 'worktrees'),
     checkouts: join(root, 'checkouts'),

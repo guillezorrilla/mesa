@@ -23,6 +23,7 @@ import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
+import { statusLineService } from './usage/statusline.js';
 import { vaultService } from './vault/service.js';
 import { worktreesService } from './worktrees/service.js';
 
@@ -57,6 +58,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     skills,
     usage,
     rewind: rewindService(ctx, usage),
+    statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),
     rules: rulesService(ctx),

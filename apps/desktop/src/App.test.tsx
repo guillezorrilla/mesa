@@ -2480,7 +2480,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     defaultAgent: 'claude',
     skills: [],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
-    sessions: { log: true },
+    sessions: { log: true, statusLineCost: false },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,

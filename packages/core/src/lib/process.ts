@@ -12,7 +12,8 @@ export type Runner = (
   file: string,
   args: string[],
   timeoutMs: number,
-  options?: { cwd?: string; env?: Env },
+  /** `input` is written to its stdin; without it, stdin ends at once. */
+  options?: { cwd?: string; env?: Env; input?: string },
 ) => Promise<RunResult>;
 
 export const execRunner: Runner = (file, args, timeoutMs, options) =>
@@ -40,8 +41,10 @@ export const execRunner: Runner = (file, args, timeoutMs, options) =>
         });
       },
     );
-    // Runner has no stdin input: providers such as codex exec must see EOF immediately.
-    child.stdin?.end();
+    // With no input, providers such as codex exec must see EOF immediately.
+    // A child that exits without reading its input is no error of the run's (EPIPE).
+    child.stdin?.on('error', () => undefined);
+    child.stdin?.end(options?.input);
   });
 
 /** One POSIX shell word, single-quoted. */

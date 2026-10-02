@@ -43,6 +43,7 @@ export const CATEGORIES: {
     sections: [
       ['defaults', 'Defaults'],
       ['logs', 'Session logs'],
+      ['status-line', 'Status line'],
       ['saved-prompts', 'Saved Prompts'],
     ],
   },

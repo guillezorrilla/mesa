@@ -22,6 +22,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     events: '/h/.mesa/work/sessions/events',
     logs: '/h/.mesa/work/sessions/logs',
     runs: '/h/.mesa/work/sessions/runs',
+    costs: '/h/.mesa/work/sessions/costs',
     usage: '/h/.mesa/work/usage.json',
     notifications: '/h/.mesa/work/notifications.json',
     prompts: '/h/.mesa/work/prompts.json',
@@ -46,7 +47,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     defaultAgent: 'claude',
     skills: ['mesa', 'mesa-handoff', 'mesa-vault'],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
-    sessions: { log: true },
+    sessions: { log: true, statusLineCost: false },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,
