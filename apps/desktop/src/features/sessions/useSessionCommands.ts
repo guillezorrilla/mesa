@@ -110,6 +110,7 @@ export function useSessionCommands({
       const removed = await run('sessions.remove', { id, ...opts });
       if (!removed) return undefined;
       closeDialog();
+      if (selectedSession === id) leaveClosedSession(id);
       const also = [
         removed.worktree && 'its worktree',
         removed.branch && `branch ${removed.branch}`,
@@ -130,6 +131,12 @@ export function useSessionCommands({
           : await run('sessions.removeDescendants', { id, expected, ...options });
       if (!result) return undefined;
       closeDialog();
+      if (
+        kind === 'remove' &&
+        selectedSession &&
+        result.items.some((item) => item.ok && item.id === selectedSession)
+      )
+        leaveClosedSession(selectedSession);
       const lines = result.items.map((item) =>
         item.ok
           ? `${item.id}: ${'outcome' in item.result ? item.result.outcome : 'removed'}${item.result.warning ? `; ${item.result.warning}` : ''}`

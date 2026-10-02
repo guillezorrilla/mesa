@@ -533,6 +533,8 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
   expect(calls).toContainEqual(['--json', 'rm', '--delete-worktree', '--', 'cccccccc']);
   expect(byTestId('toast')[0]?.textContent).toContain('Removed session cccccccc with its worktree');
   expect(byTestId('remove-dialog')).toHaveLength(0);
+  // The removed session is gone, so the view moves to the live one rather than staying on it.
+  expect(byTestId('selected-session')[0]?.textContent).toContain('bbbbbbbb');
 });
 
 test("the row menu's Log shows a session's last output lines, and reads them again on Refresh", async () => {
