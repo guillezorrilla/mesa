@@ -27,7 +27,12 @@ export type PrEvent = {
   path?: string;
   /** The item's own link when GitHub gives one, else the pull request's. */
   url: string;
-  /** The first words of a review's or comment's text, on one line. */
+  /**
+   * For a review or comment: whether its author is trusted (the repository's owner, a member, a
+   * collaborator, or the CI bot). Only a trusted author's text is forwarded.
+   */
+  trusted?: boolean;
+  /** The first words of a trusted author's review or comment, on one line, controls removed. */
   excerpt?: string;
 };
 
@@ -48,16 +53,27 @@ export type PrProblem = {
   reason: 'failed' | 'timeout' | 'invalid-data';
 };
 
-export type PrScan = { gh: GhState; events: PrEvent[]; problems: PrProblem[] };
+export type PrScan = {
+  gh: GhState;
+  events: PrEvent[];
+  problems: PrProblem[];
+  /**
+   * The pull requests read in full, for the ledger to drop failing checks that are gone: each
+   * session's open one with the checks it has now, and a closed or merged one with none.
+   */
+  checked: { session: string; pr: number; checks: string[] }[];
+};
 
 /** What was delivered: event ids, and the checks a delivered failure left failing. */
 export type PrDelivered = { delivered: ReadonlySet<string>; failing: ReadonlySet<string> };
 
 /** The key of one check of one pull request, as a session was told it failed. */
-export const failingKey = (event: Pick<PrEvent, 'session' | 'pr' | 'check'>) =>
+export const failingKey = (event: { session: string; pr: { number: number }; check?: string }) =>
   `${event.session}:${event.pr.number}:${event.check ?? ''}`;
 
 const Author = z.object({ login: z.string() }).nullable().optional();
+/** gh prints these with every review and comment; the REST review comments as author_association. */
+const Association = z.string().optional();
 const Rollup = z.array(
   z.union([
     z.object({
@@ -84,6 +100,7 @@ const Activity = z.object({
       z.object({
         id: z.string(),
         author: Author,
+        authorAssociation: Association,
         state: z.string(),
         body: z.string().default(''),
         submittedAt: z.string().nullable().optional(),
@@ -95,6 +112,7 @@ const Activity = z.object({
       z.object({
         id: z.string(),
         author: Author,
+        authorAssociation: Association,
         body: z.string().default(''),
         createdAt: z.string(),
         url: z.string().optional(),
@@ -106,6 +124,7 @@ const ReviewComments = z.array(
   z.object({
     id: z.number(),
     user: z.object({ login: z.string() }).nullable().optional(),
+    author_association: Association,
     body: z.string().default(''),
     path: z.string().optional(),
     created_at: z.string(),
@@ -117,11 +136,39 @@ type Activity = z.infer<typeof Activity> & { reviewComments: z.infer<typeof Revi
 /** Check conclusions that mean a failure; CANCELLED is left out, since a newer push cancels. */
 const FAILED = new Set(['FAILURE', 'ERROR', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
 
-/** Up to 160 characters of `text` on one line. */
+/**
+ * `text` with no control or format character (ESC, ^C, DEL, a bidi override) and no backtick,
+ * so it can neither drive the terminal nor close the fence it is quoted in, on one line.
+ */
+const clean = (text: string) =>
+  text
+    .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+    .replaceAll('`', "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Up to 160 characters of `text`, cleaned. */
 const excerptOf = (text: string) => {
-  const line = text.replace(/\s+/g, ' ').trim();
+  const line = clean(text);
   return line.length > 160 ? `${line.slice(0, 157)}...` : line;
 };
+
+/** The associations whose text is forwarded: people who can push to the repository. */
+const TRUSTED_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+/** GitHub Actions, as GraphQL (`gh pr view`) and REST name it. */
+const CI_BOTS = new Set(['github-actions', 'github-actions[bot]']);
+
+/** Who wrote a review or comment, and only a trusted author's text. */
+function authored(login: string | undefined, association: string | undefined, body: string) {
+  const trusted =
+    (login !== undefined && CI_BOTS.has(login)) || TRUSTED_ASSOCIATIONS.has(association ?? '');
+  const excerpt = trusted ? excerptOf(body) : '';
+  return {
+    ...(login ? { author: clean(login) } : {}),
+    trusted,
+    ...(excerpt ? { excerpt } : {}),
+  };
+}
 
 /** gh's JSON from one call in `cwd`, parsed by `schema`, or why not. */
 async function ghJson<T>(
@@ -163,6 +210,22 @@ async function readActivity(
   return { ok: true, data: { ...view.data, reviewComments: inline.data } };
 }
 
+/** One check run or commit status: its name (as the ledger keys it), outcome, time, and link. */
+const checkOf = (check: NonNullable<Activity['statusCheckRollup']>[number]) =>
+  check.__typename === 'CheckRun'
+    ? {
+        name: clean(check.workflowName ? `${check.workflowName} / ${check.name}` : check.name),
+        outcome: check.conclusion ?? '',
+        at: check.completedAt,
+        url: check.detailsUrl,
+      }
+    : {
+        name: clean(check.context),
+        outcome: check.state,
+        at: check.startedAt,
+        url: check.targetUrl,
+      };
+
 /** The events on `pr` that `watch` has not been told of. */
 function eventsFor(
   watch: PrWatch,
@@ -181,15 +244,7 @@ function eventsFor(
   const id = (kind: PrEventKind, what: string) => `${watch.session}:${kind}:${pr.number}:${what}`;
   const events: PrEvent[] = [];
   for (const check of activity.statusCheckRollup ?? []) {
-    const run =
-      check.__typename === 'CheckRun'
-        ? {
-            name: check.workflowName ? `${check.workflowName} / ${check.name}` : check.name,
-            outcome: check.conclusion ?? '',
-            at: check.completedAt,
-            url: check.detailsUrl,
-          }
-        : { name: check.context, outcome: check.state, at: check.startedAt, url: check.targetUrl };
+    const run = checkOf(check);
     if (!run.at) continue;
     const event = { ...base, check: run.name, at: run.at, url: run.url || pr.url };
     if (FAILED.has(run.outcome) && fresh(run.at)) {
@@ -216,8 +271,7 @@ function eventsFor(
       at: review.submittedAt,
       state: review.state,
       url: pr.url,
-      ...(review.author ? { author: review.author.login } : {}),
-      ...(review.body.trim() ? { excerpt: excerptOf(review.body) } : {}),
+      ...authored(review.author?.login, review.authorAssociation, review.body),
     });
   }
   for (const comment of activity.comments) {
@@ -228,8 +282,7 @@ function eventsFor(
       id: id('comment', comment.id),
       at: comment.createdAt,
       url: comment.url || pr.url,
-      ...(comment.author ? { author: comment.author.login } : {}),
-      excerpt: excerptOf(comment.body),
+      ...authored(comment.author?.login, comment.authorAssociation, comment.body),
     });
   }
   for (const comment of activity.reviewComments) {
@@ -240,20 +293,24 @@ function eventsFor(
       id: id('review-comment', String(comment.id)),
       at: comment.created_at,
       url: comment.html_url || pr.url,
-      ...(comment.user ? { author: comment.user.login } : {}),
-      ...(comment.path ? { path: comment.path } : {}),
-      excerpt: excerptOf(comment.body),
+      ...(comment.path ? { path: clean(comment.path) } : {}),
+      ...authored(comment.user?.login, comment.author_association, comment.body),
     });
   }
   return events.filter((event) => !told.delivered.has(event.id));
 }
 
+/** The names of the checks on a pull request now. */
+const checkNames = (activity: Activity) =>
+  (activity.statusCheckRollup ?? []).map((check) => checkOf(check).name);
+
 /**
  * The PR events each watched session has not been told of, oldest first: failed checks, checks
  * fixed after a failure it was told of, reviews (state and author), and review and issue
- * comments, from the open pull request of its branch. One `gh pr list` per project, then one
- * `gh pr view` and one `gh api` per matched pull request; a call that fails is a problem of its
- * project or pull request, and the others still report.
+ * comments, from the open pull request of its branch. A pull request from a fork never matches,
+ * whatever its branch is called. One `gh pr list` per project, then one `gh pr view` and one
+ * `gh api` per matched open pull request; a call that fails is a problem of its project or pull
+ * request, and the others still report.
  */
 export async function scanPrEvents(
   run: Runner,
@@ -263,7 +320,8 @@ export async function scanPrEvents(
   const gh = await ghState(run);
   const events: PrEvent[] = [];
   const problems: PrProblem[] = [];
-  if (gh.state !== 'ready') return { gh, events, problems };
+  const checked: PrScan['checked'] = [];
+  if (gh.state !== 'ready') return { gh, events, problems, checked };
   const projects = new Map<string, PrWatch[]>();
   for (const watch of watches)
     projects.set(watch.project, [...(projects.get(watch.project) ?? []), watch]);
@@ -278,17 +336,22 @@ export async function scanPrEvents(
     const branches = new Map<string, string[]>();
     for (const watch of group)
       branches.set(watch.branch, [...(branches.get(watch.branch) ?? []), watch.session]);
-    const open = listed.pullRequests.filter((pr) => pr.state === 'OPEN');
-    for (const { pr, sessionIds } of matchBranches(open, branches)) {
+    for (const { pr, sessionIds } of matchBranches(listed.pullRequests, branches)) {
+      if (pr.state !== 'OPEN') {
+        for (const session of sessionIds) checked.push({ session, pr: pr.number, checks: [] });
+        continue;
+      }
       const activity = await readActivity(run, cwd, pr.number);
       if (!activity.ok) {
         problems.push({ project, pr: pr.number, reason: activity.reason });
         continue;
       }
-      for (const watch of group.filter((w) => sessionIds.includes(w.session)))
+      for (const watch of group.filter((w) => sessionIds.includes(w.session))) {
         events.push(...eventsFor(watch, pr, activity.data, told));
+        checked.push({ session: watch.session, pr: pr.number, checks: checkNames(activity.data) });
+      }
     }
   }
   events.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
-  return { gh, events, problems };
+  return { gh, events, problems, checked };
 }

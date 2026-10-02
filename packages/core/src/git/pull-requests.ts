@@ -8,6 +8,8 @@ const PullRequestSchema = z.object({
   state: z.enum(['OPEN', 'CLOSED', 'MERGED']),
   isDraft: z.boolean(),
   headRefName: z.string(),
+  /** From a fork: its branch is not this repository's, whatever it is called. */
+  isCrossRepository: z.boolean(),
   updatedAt: z.string(),
   mergedAt: z.string().nullable(),
   closedAt: z.string().nullable(),
@@ -32,7 +34,7 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
       '--limit',
       String(LIMIT),
       '--json',
-      'number,title,url,state,isDraft,headRefName,updatedAt,mergedAt,closedAt',
+      'number,title,url,state,isDraft,headRefName,isCrossRepository,updatedAt,mergedAt,closedAt',
     ],
     30_000,
     { cwd },
@@ -52,13 +54,14 @@ export async function listPullRequests(run: Runner, cwd: string): Promise<PullRe
 
 /**
  * Links pull requests to sessions by branch name alone, never by authorship: each pull request
- * whose head branch a session works on, with those sessions' ids.
+ * from this repository whose head branch a session works on, with those sessions' ids. A fork's
+ * pull request never matches, since a session's branch is never in someone else's fork.
  */
 export const matchBranches = (
   pullRequests: readonly PullRequest[],
   branchSessions: ReadonlyMap<string, readonly string[]>,
 ) =>
   pullRequests.flatMap((pr) => {
-    const sessionIds = branchSessions.get(pr.headRefName);
+    const sessionIds = pr.isCrossRepository ? undefined : branchSessions.get(pr.headRefName);
     return sessionIds ? [{ pr, sessionIds: [...sessionIds] }] : [];
   });

@@ -17,7 +17,7 @@ const cli = cliHarness();
 isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 
-test('insight keeps local Git facts when gh is missing and links PRs by session branch when available', async () => {
+test('insight keeps local Git facts when gh is missing and links PRs from this repository, never a fork, by session branch', async () => {
   const repo = await cli.withProject();
   gitRepo(repo);
   const linked = join(cli.home, 'feature');
@@ -41,6 +41,7 @@ test('insight keeps local Git facts when gh is missing and links PRs by session 
           state: 'MERGED',
           isDraft: false,
           headRefName: 'feature',
+          isCrossRepository: false,
           updatedAt: '2026-09-27T00:00:00Z',
           mergedAt: '2026-09-27T00:00:00Z',
           closedAt: '2026-09-27T00:00:00Z',
@@ -52,6 +53,19 @@ test('insight keeps local Git facts when gh is missing and links PRs by session 
           state: 'OPEN',
           isDraft: false,
           headRefName: 'other',
+          isCrossRepository: false,
+          updatedAt: '2026-09-27T00:00:00Z',
+          mergedAt: null,
+          closedAt: null,
+        },
+        {
+          number: 44,
+          title: 'Fork with the same branch name',
+          url: 'https://github.com/example/repo/pull/44',
+          state: 'OPEN',
+          isDraft: false,
+          headRefName: 'feature',
+          isCrossRepository: true,
           updatedAt: '2026-09-27T00:00:00Z',
           mergedAt: null,
           closedAt: null,

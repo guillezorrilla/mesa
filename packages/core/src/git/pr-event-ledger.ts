@@ -5,7 +5,7 @@ import { writeFileAtomic } from '../lib/atomic-file.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { failingKey, type PrDelivered, type PrEvent } from './pr-events.js';
+import { failingKey, type PrDelivered, type PrEvent, type PrScan } from './pr-events.js';
 
 const State = z.strictObject({
   delivered: z.array(z.string()).default([]),
@@ -80,6 +80,26 @@ export function prEventLedger(file: string) {
           result: claimed,
         };
       }),
+    /**
+     * Drops the failing checks a fix can no longer follow: a session's that is not `live`, and
+     * one a read in full (`checked`) shows gone, its pull request closed or the check removed.
+     * A pull request that could not be read keeps its marks.
+     */
+    prune: (live: ReadonlySet<string>, checked: PrScan['checked']) => {
+      const keyOf = (c: PrScan['checked'][number], check = '') =>
+        failingKey({ session: c.session, pr: { number: c.pr }, check });
+      const keep = (key: string) => {
+        if (![...live].some((session) => key.startsWith(`${session}:`))) return false;
+        const read = checked.find((c) => key.startsWith(keyOf(c)));
+        return !read || read.checks.some((check) => key === keyOf(read, check));
+      };
+      const state = read();
+      if (state.failing.every(keep)) return;
+      change((current) => ({
+        next: { ...current, failing: current.failing.filter(keep) },
+        result: undefined,
+      }));
+    },
     /** Gives back claimed `events` whose send was refused before anything was typed. */
     release: (events: readonly PrEvent[]) =>
       change((state) => {

@@ -5,6 +5,8 @@ export type FakePullRequest = {
   number: number;
   branch: string;
   state?: 'OPEN' | 'CLOSED' | 'MERGED';
+  /** From a fork. */
+  crossRepository?: boolean;
   /** statusCheckRollup entries, as `gh pr view --json` prints them. */
   checks: Record<string, unknown>[];
   reviews: Record<string, unknown>[];
@@ -40,6 +42,7 @@ export function fakeGh(pullRequests: FakePullRequest[] = []) {
           state: pr.state ?? 'OPEN',
           isDraft: false,
           headRefName: pr.branch,
+          isCrossRepository: pr.crossRepository ?? false,
           updatedAt: '2026-09-24T12:00:00Z',
           mergedAt: null,
           closedAt: null,
