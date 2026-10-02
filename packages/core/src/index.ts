@@ -42,8 +42,15 @@ export type { GitBranch, GitBranchAction } from './git/branches.js';
 export type { GitCommit, GitPathAction } from './git/changes.js';
 export type { Checkout } from './git/checkout.js';
 export type { DiffRow, GitDiff } from './git/diff.js';
+export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
 export type { RepositoryInsight } from './git/insight.js';
+export type {
+  PrEventDelivery,
+  PrEventList,
+  PrEventsDelivered,
+} from './git/pr-event-delivery.js';
+export type { PrEvent, PrProblem } from './git/pr-events.js';
 export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
