@@ -98,6 +98,9 @@ export function agentCapabilityReport(
   ) as Record<Agent, AgentCapabilityResult>;
 }
 
+/** What `mesa agents --json` gives: per agent, installed, its version, and its qualified operations. */
+export type AgentCapabilityReport = ReturnType<typeof agentCapabilityReport>;
+
 /** The permission modes `claude -p --permission-mode` takes (Claude Code 2.1.283). */
 export const CLAUDE_PERMISSION_MODES = [
   'acceptEdits',
