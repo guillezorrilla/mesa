@@ -269,6 +269,8 @@ export function App() {
         general?: boolean;
         location?: 'main' | 'worktree' | 'terminal';
         parent?: string;
+        /** An existing linked worktree to run in. */
+        checkout?: string;
       } = {},
     ) => {
       const inView =
@@ -294,6 +296,7 @@ export function App() {
           parent: preset.parent,
           terminal: preset.location === 'terminal' || undefined,
           worktree: preset.location === 'worktree' || undefined,
+          checkout: preset.checkout,
         });
         if (!opened) return;
         // No confirmation, as the session shows; a warning (hooks to trust) still says so.
@@ -640,7 +643,9 @@ export function App() {
                 sessions={sessions}
                 onSession={(id) => navigate({ kind: 'session', id })}
                 onVaultItem={(path) => navigate({ kind: 'vault', path })}
-                onNewSession={(project, location) => requestNewSession({ project, location })}
+                onNewSession={(project, location, checkout) =>
+                  requestNewSession({ project, location, checkout })
+                }
                 onAgentSettings={() => navigate({ kind: 'doctor' })}
                 onChanged={() => void projects.refresh()}
                 onUnregistered={() => {

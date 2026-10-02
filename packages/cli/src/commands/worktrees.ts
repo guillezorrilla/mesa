@@ -32,15 +32,18 @@ export const worktreesRerun = defineCommand({
 });
 
 const action = (value: string): WorktreeAction => {
-  if (value === 'remove' || value === 'recycle' || value === 'cleanup') return value;
-  throw new MesaError('usage', 'action must be remove, recycle, or cleanup');
+  if (value === 'remove' || value === 'recycle' || value === 'trash' || value === 'cleanup')
+    return value;
+  throw new MesaError('usage', 'action must be remove, recycle, trash, or cleanup');
 };
 
 export const worktreesPreview = defineCommand({
   name: 'worktrees preview',
-  summary: 'Preview a guarded worktree remove, recycle, or stale cleanup',
+  summary: 'Preview a guarded worktree remove, recycle (reset for reuse), trash, or stale cleanup',
   args: ['project', 'checkout?'],
-  flags: { action: { type: 'string', description: 'remove, recycle, or cleanup', required: true } },
+  flags: {
+    action: { type: 'string', description: 'remove, recycle, trash, or cleanup', required: true },
+  },
   example: 'mesa worktrees preview lantern-cove /path/to/worktree --action remove',
   run: async ({ mesa, args, flags }) => {
     const data = await mesa.worktrees.preview(args.project, action(flags.action), args.checkout);
@@ -56,8 +59,16 @@ export const worktreesApply = defineCommand({
   summary: 'Apply a worktree action using its exact preview token',
   args: ['project', 'checkout?'],
   flags: {
-    action: { type: 'string', description: 'remove, recycle, or cleanup', required: true },
+    action: { type: 'string', description: 'remove, recycle, trash, or cleanup', required: true },
     token: { type: 'string', description: 'Token returned by worktrees preview', required: true },
+    force: {
+      type: 'boolean',
+      description: 'Remove past local work the preview listed (forceable); never a running session',
+    },
+    'delete-branch': {
+      type: 'boolean',
+      description: 'Recycle: also delete the old branch, if it is merged (git branch -d)',
+    },
   },
   example: 'mesa worktrees apply lantern-cove /path/to/worktree --action remove --token abc123',
   run: async ({ mesa, args, flags }) => {
@@ -66,6 +77,7 @@ export const worktreesApply = defineCommand({
       action(flags.action),
       flags.token,
       args.checkout,
+      { force: flags.force, deleteBranch: flags['delete-branch'] },
     );
     return recordedOutput(recorded, {
       data: recorded.result,

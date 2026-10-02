@@ -3,8 +3,8 @@ import type { DoctorReport, InboxItem } from '@mesa/core';
 import { useState } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { timeAgo } from '@/lib/timeAgo';
 import { NotificationsMenu } from './NotificationsMenu';
-import { timeAgo } from './timeAgo';
 
 const hooks: InboxItem = {
   id: '2026-09-23T10:00:00.000Z:hooks',

@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -267,7 +268,9 @@ test('remove rechecks changed files, current sessions, teardown output, and the 
   const beforeHolder = await preview();
   store.create(() => newSession({ worktree: { path, branch: 'remove-me' } }));
   expect((await apply(beforeHolder.token)).code).toBe(2);
-  expect((await preview()).reasons).toContain('a session still references this worktree');
+  expect((await preview()).reasons).toContain(
+    'session cccccccc runs in this worktree; stop it first',
+  );
   store.remove('cccccccc');
 
   const original = cli.run;
@@ -295,7 +298,7 @@ test('remove rechecks changed files, current sessions, teardown output, and the 
   ).toContain('remove-me');
 });
 
-test('recycle preserves dirty and unpublished work, and cleanup prunes only missing registrations', async () => {
+test('trash preserves dirty and unpublished work, and cleanup prunes only missing registrations', async () => {
   const repo = await creationRepo();
   const dirty = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'dirty', '--json')).json.data
     .path as string;
@@ -324,25 +327,25 @@ test('recycle preserves dirty and unpublished work, and cleanup prunes only miss
   );
   expect(remove.json.data.allowed).toBe(false);
   expect(remove.json.data.unpublished).toBe(true);
-  const recycle = await cli.mesa(
+  const trash = await cli.mesa(
     'worktrees',
     'preview',
     'lantern-cove',
     dirty,
     '--action',
-    'recycle',
+    'trash',
     '--json',
   );
-  expect(recycle.json.data.allowed).toBe(true);
+  expect(trash.json.data.allowed).toBe(true);
   const moved = await cli.mesa(
     'worktrees',
     'apply',
     'lantern-cove',
     dirty,
     '--action',
-    'recycle',
+    'trash',
     '--token',
-    recycle.json.data.token,
+    trash.json.data.token,
     '--json',
   );
   expect(moved.code, moved.stdout).toBe(0);
@@ -642,4 +645,167 @@ test('open --worktree starts a session in a new worktree on a branch Mesa names'
   const both = await cli.mesa('open', 'lantern-cove', '--worktree', '--branch', 'x', '--json');
   expect(both).toMatchObject({ code: 2 });
   expect(both.json.error.message).toBe('pass --worktree or --branch, not both');
+});
+
+/** Previews `action` on `path`, then applies it with that token and any extra flags. */
+async function act(action: string, path: string, ...flags: string[]) {
+  const preview = (
+    await cli.mesa('worktrees', 'preview', 'lantern-cove', path, '--action', action, '--json')
+  ).json.data;
+  const applied = await cli.mesa(
+    'worktrees',
+    'apply',
+    'lantern-cove',
+    path,
+    '--action',
+    action,
+    '--token',
+    preview.token,
+    ...flags,
+    '--json',
+  );
+  return { preview, applied };
+}
+const git = (path: string, ...args: string[]) =>
+  execFileSync('git', ['-C', path, ...args], { encoding: 'utf8' }).trim();
+
+test('open --checkout runs a session in an existing worktree; a detached one gets its own branch', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'feature', '--json')).json
+    .data.path as string;
+  const opened = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--checkout',
+    path,
+    '--no-parent',
+    '--json',
+  );
+  expect(opened.code, opened.stdout).toBe(0);
+  expect(opened.json.data.worktree).toEqual({ path: realpathSync(path), branch: 'feature' });
+  // One session at a time runs there.
+  const again = await cli.mesa('open', 'lantern-cove', '--checkout', path, '--json');
+  expect(again.json.error.message).toBe(
+    `session ${opened.json.data.id} runs in ${realpathSync(path)}: use it, or stop it first`,
+  );
+  const both = await cli.mesa('open', 'lantern-cove', '--checkout', path, '--worktree', '--json');
+  expect(both).toMatchObject({ code: 2 });
+
+  const loose = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'loose', '--json')).json.data
+    .path as string;
+  git(loose, 'switch', '--quiet', '--detach');
+  const reused = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--checkout',
+    loose,
+    '--no-parent',
+    '--json',
+  );
+  expect(reused.code, reused.stdout).toBe(0);
+  expect(reused.json.data.worktree.branch).toMatch(/^session\/[a-z]+-[a-z]+-[0-9a-z]{4}$/);
+  expect(git(loose, 'branch', '--show-current')).toBe(reused.json.data.worktree.branch);
+});
+
+test('recycle resets a clean worktree for reuse, detached at the default branch, keeping its branch', async () => {
+  const repo = await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'done-work', '--json')).json
+    .data.path as string;
+  writeFileSync(join(path, 'draft.txt'), 'not committed');
+  const dirty = await act('recycle', path);
+  expect(dirty.preview.reasons).toContain(
+    'worktree has uncommitted changes; commit, stash, or trash it',
+  );
+  expect(dirty.applied.code).toBe(2);
+  rmSync(join(path, 'draft.txt'));
+
+  const { preview, applied } = await act('recycle', path);
+  expect(preview).toMatchObject({ allowed: true, base: 'main' });
+  expect(applied.code, applied.stdout).toBe(0);
+  expect(applied.json.data).toMatchObject({ action: 'recycle', branch: 'done-work', base: 'main' });
+  expect(git(path, 'branch', '--show-current')).toBe('');
+  expect(git(path, 'rev-parse', 'HEAD')).toBe(git(repo, 'rev-parse', 'main'));
+  // The branch stays; asked to, a merged one goes.
+  expect(git(repo, 'branch', '--list', 'done-work')).toContain('done-work');
+  git(path, 'switch', '--quiet', 'done-work');
+  const deleted = await act('recycle', path, '--delete-branch');
+  expect(deleted.applied.json.data).toMatchObject({ branchDeleted: true });
+  expect(git(repo, 'branch', '--list', 'done-work')).toBe('');
+});
+
+test('remove --force removes local work after the preview listed it, never a running session', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'scratch', '--json')).json
+    .data.path as string;
+  writeFileSync(join(path, 'draft.txt'), 'lost on purpose');
+  const plain = await act('remove', path);
+  expect(plain.preview).toMatchObject({ allowed: false, forceable: true });
+  expect(plain.applied.code).toBe(2);
+  expect(existsSync(path)).toBe(true);
+
+  const store = testStore(cli.home, 'default', shortIds('dddddddd'));
+  store.create(() => newSession({ worktree: { path: realpathSync(path), branch: 'scratch' } }));
+  const running = await act('remove', path, '--force');
+  expect(running.preview.forceable).toBe(false);
+  expect(running.applied.json.error.message).toContain(
+    'session dddddddd runs in this worktree; stop it first',
+  );
+  // Ended, the session only references it: force passes that too.
+  store.update('dddddddd', { endedAt: '2026-09-24T12:00:00.000Z' });
+  const forced = await act('remove', path, '--force');
+  expect(forced.applied.code, forced.applied.stdout).toBe(0);
+  expect(forced.applied.json.data).toMatchObject({ action: 'remove', forced: true });
+  expect(existsSync(path)).toBe(false);
+});
+
+test('recycle refuses a detached worktree whose commits no branch holds', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'loose', '--json')).json.data
+    .path as string;
+  git(path, 'switch', '--quiet', '--detach');
+  writeFileSync(join(path, 'note.txt'), 'only here');
+  git(path, 'add', 'note.txt');
+  git(path, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qm', 'loose');
+  const { preview, applied } = await act('recycle', path);
+  expect(preview.reasons).toContain(
+    'detached HEAD has commits no branch holds; make a branch or trash it',
+  );
+  expect(applied.code).toBe(2);
+  expect(existsSync(join(path, 'note.txt'))).toBe(true);
+});
+
+test('open --checkout keeps the branch of a worktree Git lists by a linked path', async () => {
+  const repo = await creationRepo();
+  const real = join(cli.home, 'real-trees');
+  mkdirSync(real);
+  symlinkSync(real, join(cli.home, 'linked-trees'));
+  const listed = join(cli.home, 'linked-trees', 'side');
+  git(repo, 'worktree', 'add', '--quiet', '-b', 'side', listed);
+  const opened = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--checkout',
+    listed,
+    '--no-parent',
+    '--json',
+  );
+  expect(opened.code, opened.stdout).toBe(0);
+  expect(opened.json.data.worktree).toEqual({ path: realpathSync(listed), branch: 'side' });
+});
+
+test('worktrees list gives each card its changes, commits ahead, and age', async () => {
+  await creationRepo();
+  const path = (await cli.mesa('worktrees', 'create', 'lantern-cove', 'busy', '--json')).json.data
+    .path as string;
+  writeFileSync(join(path, 'src', 'app.ts'), 'committed\n');
+  git(path, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', 'commit', '-qam', 'one');
+  writeFileSync(join(path, 'draft.txt'), 'untracked');
+  writeFileSync(join(path, 'docs', 'guide.md'), '# Changed\n');
+  const rows = (await cli.mesa('worktrees', 'list', 'lantern-cove', '--json')).json.data;
+  const main = rows.find((row: { main: boolean }) => row.main);
+  const busy = rows.find((row: { branch?: string }) => row.branch === 'busy');
+  expect(main).toMatchObject({ changes: { staged: 0, modified: 0, untracked: 0 } });
+  expect(main.createdAt).toBeUndefined();
+  expect(busy).toMatchObject({ ahead: 1, changes: { staged: 0, modified: 1, untracked: 1 } });
+  expect(Date.parse(busy.createdAt)).not.toBeNaN();
 });

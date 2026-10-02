@@ -1,8 +1,8 @@
 import type { InboxFix, InboxItem } from '@mesa/core';
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
+import { timeAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
-import { timeAgo } from './timeAgo';
 
 /** What each Doctor fix's button says. */
 const FIX_LABEL: Record<InboxFix, string> = {
