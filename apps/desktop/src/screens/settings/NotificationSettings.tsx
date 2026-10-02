@@ -1,6 +1,6 @@
-import type { Config } from '@mesa/core';
+import type { Config, GhState } from '@mesa/core';
 import { AGENT_LABELS } from '@mesa/core/browser';
-import { BadgeAlert, Bell, BellOff, Plug, ShieldCheck, Trash2 } from 'lucide-react';
+import { BadgeAlert, Bell, BellOff, GitPullRequest, Plug, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ const DELIVERY = [
   ['sound', 'Banner with sound'],
 ] as const;
 
-/** macOS banner permission, quiet mode, the visual alert, each kind's delivery, and the hooks. */
+/** macOS banner permission, quiet mode, the visual alert, each kind's delivery, the hooks, and PR events. */
 export function NotificationSettings() {
   const { config } = useSettings();
   return (
@@ -90,6 +90,7 @@ export function NotificationSettings() {
         description="Coding Agent session hooks"
       >
         <SessionHooks />
+        <PrEvents enabled={config.sessions.prEvents} />
       </SettingSection>
     </>
   );
@@ -239,6 +240,42 @@ function SessionHooks() {
             {agent}: {installed ? 'installed' : 'not installed'}
           </span>
         ))}
+      </span>
+    </SettingRow>
+  );
+}
+
+/** What gh's state means for PR events, in a few words. */
+const GH_STATES: Record<GhState['state'], string> = {
+  ready: 'gh: ready',
+  unauthenticated: 'gh: not logged in, run gh auth login',
+  missing: 'gh: not installed',
+  unavailable: 'gh: not responding',
+};
+
+/** Whether PR events go into their sessions, and whether gh can read them. */
+function PrEvents(props: { enabled: boolean }) {
+  const events = useCommand('prEvents.list');
+  const gh = events.data?.gh;
+  return (
+    <SettingRow
+      icon={GitPullRequest}
+      title="Send PR events to sessions"
+      description="Forward new CI failures, reviews, and comments on a session's pull request into it once it is idle."
+      htmlFor="sessions-pr-events"
+      keywords="github pull request checks reviews comments gh"
+      control={<Toggle id="sessions-pr-events" path="sessions.prEvents" checked={props.enabled} />}
+    >
+      <span
+        role="status"
+        className={cn(
+          'rounded-full px-2 py-0.5 text-xs',
+          gh?.state === 'ready'
+            ? 'bg-state-idle/15 text-state-idle'
+            : 'bg-accent text-muted-foreground',
+        )}
+      >
+        {gh ? GH_STATES[gh.state] : 'gh: checking...'}
       </span>
     </SettingRow>
   );

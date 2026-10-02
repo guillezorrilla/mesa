@@ -56,6 +56,8 @@ const ConfigSchema = z.strictObject({
       log: z.boolean().default(true),
       // Claude's status line in Mesa sessions ends with the session's estimated cost.
       statusLineCost: z.boolean().default(false),
+      /** Forward PR events into their sessions (CONTEXT.md, PR event). */
+      prEvents: z.boolean().default(false),
     })
     .prefault({}),
   usage: z

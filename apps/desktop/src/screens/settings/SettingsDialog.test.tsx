@@ -412,3 +412,25 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
   expect(byTestId('approve-scripts')).toHaveLength(0);
   expect(document.body.textContent).not.toContain('Scripts waiting for approval');
 });
+
+test('Notifications has the PR events toggle, saved to sessions.prEvents, and shows the gh state', async () => {
+  const { bridge, calls } = fakeBridge({
+    'config set': () => envelope({}),
+    'pr-events': () =>
+      envelope({
+        enabled: false,
+        gh: { state: 'unauthenticated', version: 'gh version 2.test' },
+        events: [],
+        problems: [],
+      }),
+  });
+  await render(bridge);
+  await click(nav('Notifications'));
+  const toggle = document.getElementById('sessions-pr-events');
+  expect(toggle?.getAttribute('aria-checked')).toBe('false');
+  const row = toggle?.closest<HTMLElement>('[data-setting-row]');
+  expect(row?.textContent).toContain('Send PR events to sessions');
+  expect(row?.textContent).toContain('gh: not logged in, run gh auth login');
+  await click(toggle ?? undefined);
+  expect(sets(calls)).toEqual([['sessions.prEvents', 'true']]);
+});

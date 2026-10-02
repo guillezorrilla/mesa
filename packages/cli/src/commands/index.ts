@@ -74,6 +74,7 @@ import {
   notificationsRead,
 } from './notifications.js';
 import { open } from './open.js';
+import { prEvents } from './pr-events.js';
 import { profile } from './profile.js';
 import {
   projects,
@@ -219,6 +220,7 @@ export const COMMANDS: Command[] = [
   notificationsDelivery,
   notificationsDelivered,
   open,
+  prEvents,
   profile,
   prompts,
   promptsSave,

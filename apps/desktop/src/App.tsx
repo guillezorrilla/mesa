@@ -31,6 +31,7 @@ import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
 import { useMesaLinks } from './lib/useMesaLinks';
+import { usePrEventDelivery } from './lib/usePrEventDelivery';
 import { BackupScreen } from './screens/BackupScreen';
 import { activeSession, recoverable, waitingForInput } from './screens/board/rows';
 import { SessionsScreen } from './screens/board/SessionsScreen';
@@ -323,6 +324,7 @@ export function App() {
       window.clearInterval(timer);
     };
   }, [run, toast]);
+  usePrEventDelivery(config.data?.sessions?.prEvents ?? false, sessions);
   const linkGuidance = useMesaLinks({
     session: (id) => navigateRef.current({ kind: 'session', id }),
     clone: (url) => {

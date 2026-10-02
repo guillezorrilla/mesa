@@ -2505,7 +2505,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     defaultAgent: 'claude',
     skills: [],
     decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
-    sessions: { log: true, statusLineCost: false },
+    sessions: { log: true, statusLineCost: false, prEvents: false },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,
@@ -3220,6 +3220,66 @@ test('the visual alert badges the Dock and dots the Sessions tab with the waitin
     // Off stays off as sessions keep waiting.
     await poll();
     expect(platform.badges.at(-1)).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('with sessions.prEvents on, the app delivers PR events on an interval and when a session goes idle', async () => {
+  vi.useFakeTimers();
+  try {
+    let state: 'working' | 'idle' = 'working';
+    const healthy = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+    const { bridge, calls } = fakeBridge({
+      config: () =>
+        envelope({ ...healthy.data, sessions: { ...healthy.data.sessions, prEvents: true } }),
+      sessions: () =>
+        envelope([
+          managedRow('aaaaaaaa', {
+            lastState: { state, confidence: 0.95, at: '2026-09-25T12:00:00.000Z', source: 'hook' },
+          }),
+        ]),
+      'pr-events --deliver': () =>
+        envelope({ gh: { state: 'ready' }, deliveries: [], problems: [] }),
+    });
+    const delivered = () => calls.filter((args) => args[1] === 'pr-events').length;
+    await renderWithMesa(<App />, bridge);
+    expect(calls.filter((args) => args[1] === 'pr-events')).toEqual([
+      ['--json', 'pr-events', '--deliver'],
+    ]);
+    // Still working: the board's next look sends nothing more.
+    await act(async () => vi.advanceTimersByTime(2_000));
+    expect(delivered()).toBe(1);
+    // The session goes idle: one pass at once.
+    state = 'idle';
+    await act(async () => vi.advanceTimersByTime(2_000));
+    expect(delivered()).toBe(2);
+    await act(async () => vi.advanceTimersByTime(2_000));
+    expect(delivered()).toBe(2);
+    // And one each interval.
+    await act(async () => vi.advanceTimersByTime(60_000));
+    expect(delivered()).toBe(3);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('with sessions.prEvents off, the app never delivers PR events', async () => {
+  vi.useFakeTimers();
+  try {
+    let state: 'working' | 'idle' = 'working';
+    const { bridge, calls } = fakeBridge({
+      sessions: () =>
+        envelope([
+          managedRow('aaaaaaaa', {
+            lastState: { state, confidence: 0.95, at: '2026-09-25T12:00:00.000Z', source: 'hook' },
+          }),
+        ]),
+    });
+    await renderWithMesa(<App />, bridge);
+    state = 'idle';
+    await act(async () => vi.advanceTimersByTime(62_000));
+    expect(calls.filter((args) => args[1] === 'pr-events')).toEqual([]);
   } finally {
     vi.useRealTimers();
   }

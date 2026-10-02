@@ -679,3 +679,5 @@ export function plantTranscript(home: string, id: string, cwd: string, content?:
     content ?? lines.map((l) => JSON.stringify(l)).join('\n'),
   );
 }
+
+export { type FakePullRequest, fakeGh } from './gh.js';
