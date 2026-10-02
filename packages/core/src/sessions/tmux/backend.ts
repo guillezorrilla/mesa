@@ -305,7 +305,7 @@ export function tmuxBackend({
     /**
      * Several windows side by side, for one terminal (CONTEXT.md, Project view): a session
      * `_view-<id>` whose one window, `name`, has a pane per target, each a terminal on that
-     * target's window with its own view (attachArgv, TMUX unset so tmux lets it nest), laid out
+     * target's window through a single-window view (TMUX unset so tmux lets it nest), laid out
      * by `layout`. Built detached and re-tiled after each split, so every pane has room; a
      * layout tmux does not know is a usage error, and the view is removed again.
      * viewAttachArgv attaches it.
@@ -317,11 +317,39 @@ export function tmuxBackend({
       newView: () => string,
     ): Promise<WindowTarget> => {
       const view = { project: `${VIEW_PREFIX}${newView()}`, window: name };
-      const [first, ...rest] = targets.map((t) => [
-        '/bin/sh',
-        '-c',
-        `unset TMUX; exec ${attachArgv(t, newView()).map(shellWord).join(' ')}`,
-      ]);
+      const [first, ...rest] = targets.map((target) => {
+        const paneView = `${VIEW_PREFIX}${newView()}`;
+        // Unlike mesa attach's grouped view, this session holds only its linked window. Killing
+        // that window destroys the session and exits the client instead of selecting a sibling.
+        const argv = [
+          'tmux',
+          '-L',
+          socket,
+          '-f',
+          '/dev/null',
+          'new-session',
+          '-s',
+          paneView,
+          '/usr/bin/true',
+          ';',
+          'set-option',
+          'destroy-unattached',
+          'on',
+          ';',
+          'set-option',
+          '-w',
+          'remain-on-exit',
+          'off',
+          ';',
+          'link-window',
+          '-k',
+          '-s',
+          exact(target),
+          '-t',
+          `=${paneView}:0`,
+        ];
+        return ['/bin/sh', '-c', `unset TMUX; exec ${argv.map(shellWord).join(' ')}`];
+      });
       if (!first) throw new MesaError('internal', 'a view needs a window to show');
       const splits = rest.flatMap((pane) => [
         ...[';', 'split-window', '-t', exact(view), ...pane],
