@@ -575,12 +575,14 @@ export function sessionsService(
           (decisions: DecisionRecorder) => {
             const guard = (action: Guarded) =>
               faro.guardrail.gate(action, { force, yes, confirm }, decisions);
+            // A pipeline skill is enabled, and linked, for its own run (skills service).
             const runDeps = {
               ...openDeps(),
+              syncSkills: (on: string, folder: string) => skills.linkInto(on, folder, skill),
               runs: paths.runs,
               logs: paths.logs,
               redact: (text: string) => redactWhole(text, deps.home, secrets()),
-              skills: skills.list,
+              skills: (on: string) => skills.list(on, skill),
               guard,
             };
             return startRun(runDeps, { ...input, skill });

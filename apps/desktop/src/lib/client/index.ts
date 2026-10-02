@@ -2,6 +2,7 @@ import type { Result } from '@mesa/core';
 import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
+import { importsCommands } from './imports';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
 import { reviewCommands } from './review';
@@ -28,6 +29,7 @@ const COMMANDS = {
   ...skillsCommands,
   ...rulesCommands,
   ...sourcesCommands,
+  ...importsCommands,
   ...vaultCommands,
   ...settingsCommands,
   ...notificationsCommands,

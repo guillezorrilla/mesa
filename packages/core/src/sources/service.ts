@@ -82,5 +82,7 @@ export function sourcesService(ctx: MesaContext) {
     },
     /** Fetch-shaped calls to `source`'s API with its token, refreshed as needed (authorizedFetch). */
     fetch: (source: SourceId) => authorizedFetch(deps, source),
+    /** The sites `source`'s connection reaches; none when it has no connection. */
+    sites: async (source: SourceId) => (await deps.connections.read(source))?.sites,
   };
 }

@@ -31,6 +31,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
     envelope({
       sources: [{ id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' }],
     }),
+  // The project screen's Import panel.
+  'import list': () => envelope({ items: [] }),
   // The header's bell reads the inbox on every screen.
   notifications: () => envelope([]),
   prompts: () => envelope([]),
