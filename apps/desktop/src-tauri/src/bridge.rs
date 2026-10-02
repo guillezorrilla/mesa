@@ -9,15 +9,20 @@ use serde_json::Value;
 /// Builds the command that runs the mesa CLI: `cli` if given (the `MESA_CLI` override), else node
 /// on this workspace's build.
 pub fn mesa_command(cli: Option<OsString>) -> Result<Command, String> {
-    if let Some(cli) = cli {
-        return Ok(Command::new(cli));
+    let mut cmd = if let Some(cli) = cli {
+        Command::new(cli)
+    } else {
+        let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../..")
+            .canonicalize()
+            .map_err(|e| format!("cannot resolve repo root: {e}"))?;
+        let mut cmd = Command::new("node");
+        cmd.arg(repo.join("packages/cli/dist/mesa.js"));
+        cmd
+    };
+    if let Some(helper) = crate::notifications::bundled_executable() {
+        cmd.env("MESA_NOTIFICATION_HELPER", helper);
     }
-    let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../..")
-        .canonicalize()
-        .map_err(|e| format!("cannot resolve repo root: {e}"))?;
-    let mut cmd = Command::new("node");
-    cmd.arg(repo.join("packages/cli/dist/mesa.js"));
     Ok(cmd)
 }
 

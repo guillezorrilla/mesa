@@ -2,6 +2,7 @@ import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import { redactWhole } from '../lib/redact.js';
 import { MesaError, toFail } from '../lib/result.js';
+import type { NotificationDelivery } from '../notifications/background.js';
 import { isOver } from '../sessions/record.js';
 import { type AutomationActions, automationAction } from './actions.js';
 import { automationLaunchd } from './launchd.js';
@@ -10,7 +11,11 @@ import { type AutomationRun, automationState } from './state.js';
 import { observeRules } from './triggers.js';
 
 /** Explicit installation, durable approvals and serial execution for one profile. */
-export function automationsService(ctx: MesaContext, faro: Faro, actions: AutomationActions) {
+export function automationsService(
+  ctx: MesaContext,
+  faro: Faro,
+  actions: AutomationActions & { notify: () => Promise<NotificationDelivery> },
+) {
   const rules = automationRules(ctx);
   const state = automationState(ctx.paths.automationState);
   const launchd = automationLaunchd(ctx);
@@ -108,7 +113,7 @@ export function automationsService(ctx: MesaContext, faro: Faro, actions: Automa
         if (s.worker?.token === token) delete s.worker;
       });
     }
-    return { inert: false, runs: completed };
+    return { inert: false, runs: completed, notification: await actions.notify() };
   };
   const lifecycle = async <T>(action: () => Promise<T>): Promise<T> => {
     const token = ctx.deps.newId();

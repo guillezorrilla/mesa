@@ -15,6 +15,11 @@ const KINDS = [
   ['finished', 'Turn finished', 'A session finished its turn.'],
   ['subagent', 'Subagent', 'A subagent a session started finished or needs permission.'],
   ['doctor', 'Doctor', 'Doctor found something to fix.'],
+  [
+    'automation',
+    'Automation failure',
+    'A scheduled action failed, including a source that needs reconnecting or re-sharing.',
+  ],
 ] as const;
 const DELIVERY = [
   ['off', 'Off'],

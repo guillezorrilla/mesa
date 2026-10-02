@@ -83,6 +83,7 @@ import { map } from './map.js';
 import {
   notifications,
   notificationsClear,
+  notificationsDeliver,
   notificationsDelivered,
   notificationsDelivery,
   notificationsRead,
@@ -247,6 +248,7 @@ export const COMMANDS: Command[] = [
   notifications,
   notificationsRead,
   notificationsClear,
+  notificationsDeliver,
   notificationsDelivery,
   notificationsDelivered,
   open,

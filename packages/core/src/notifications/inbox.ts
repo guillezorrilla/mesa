@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
+import { automationState } from '../automations/state.js';
 import type { MesaContext } from '../context.js';
 import type { DoctorReport } from '../doctor.js';
 import { writeFileAtomic } from '../lib/atomic-file.js';
@@ -17,13 +18,13 @@ export type InboxItem = {
   id: string;
   session: string;
   at: string;
-  kind: 'input-required' | 'finished' | 'subagent' | 'doctor';
+  kind: 'input-required' | 'finished' | 'subagent' | 'doctor' | 'automation';
   title: string;
   /** A Doctor notice's one-line explanation. */
   detail?: string;
   fix?: InboxFix;
   read: boolean;
-  target: { kind: 'session'; id: string } | { kind: 'doctor' };
+  target: { kind: 'session'; id: string } | { kind: 'doctor' } | { kind: 'automations' };
 };
 
 export type DeliveryPlan =
@@ -35,13 +36,13 @@ export type DeliveryPlan =
       title: string;
       body: string;
       sound: boolean;
-      target: { kind: 'session'; id: string } | { kind: 'inbox' } | { kind: 'doctor' };
+      target: InboxItem['target'] | { kind: 'inbox' };
     };
 
 const CandidateSchema = z.strictObject({
   session: z.string(),
   at: z.iso.datetime(),
-  kind: z.enum(['input-required', 'finished', 'subagent', 'doctor']),
+  kind: z.enum(['input-required', 'finished', 'subagent', 'doctor', 'automation']),
   title: z.string(),
   detail: z.string().optional(),
   fix: z.enum(['hooks install', 'vault init']).optional(),
@@ -49,6 +50,7 @@ const CandidateSchema = z.strictObject({
   target: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('session'), id: z.string() }),
     z.strictObject({ kind: z.literal('doctor') }),
+    z.strictObject({ kind: z.literal('automations') }),
   ]),
 });
 type Candidate = z.infer<typeof CandidateSchema>;
@@ -188,6 +190,21 @@ function itemFor(session: string, event: HookEvent): Candidate | undefined {
 /** A bounded, durable inbox projected from the profile's redacted hooks. */
 export function inbox(ctx: MesaContext) {
   const file = ctx.paths.notifications;
+  // The run ledger is the event owner: a crash between failure and notification loses no notice.
+  const failures = (): Candidate[] =>
+    automationState(ctx.paths.automationState)
+      .read()
+      .runs.filter((run) => run.status === 'failed')
+      .slice(-500)
+      .map((run) => ({
+        session: '',
+        at: run.endedAt ?? run.trigger.at,
+        kind: 'automation',
+        title: `Automation failed: ${run.rule.name}`,
+        detail: run.reason ?? 'Review the failed run in Automations.',
+        fingerprint: `automation:${run.id}`,
+        target: { kind: 'automations' },
+      }));
   const read = (): State => {
     if (!existsSync(file)) return EMPTY;
     try {
@@ -218,8 +235,7 @@ export function inbox(ctx: MesaContext) {
         const next = {
           read: [...new Set([...current.read, ...(state.read ?? [])])],
           cleared: [...new Set([...current.cleared, ...(state.cleared ?? [])])],
-          // The inbox keeps 500 events, so 1,000 recent acknowledgements cover restart reads.
-          delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])].slice(-1_000),
+          delivered: [...new Set([...current.delivered, ...(state.delivered ?? [])])],
           items: distinct.slice(-500),
           offsets: Object.fromEntries(
             [
@@ -230,12 +246,14 @@ export function inbox(ctx: MesaContext) {
           startedAt: current.startedAt ?? state.startedAt,
         };
         const retained = new Set(
-          [...next.items, ...next.doctor.map(doctorItem)].map(
+          [...next.items, ...next.doctor.map(doctorItem), ...failures()].map(
             (item) => `${item.at}:${item.fingerprint}`,
           ),
         );
         next.read = next.read.filter((id) => retained.has(id));
         next.cleared = next.cleared.filter((id) => retained.has(id));
+        // Keep each acknowledgement as long as its notice, including failed automation runs.
+        next.delivered = next.delivered.filter((id) => retained.has(id));
         writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
         return next;
       },
@@ -258,6 +276,7 @@ export function inbox(ctx: MesaContext) {
       fresh.length || Object.keys(offsets).length ? write({ items: fresh, offsets }) : current;
     const entries: Candidate[] = [...state.items];
     entries.push(...state.doctor.map(doctorItem));
+    entries.push(...failures());
     entries.sort((a, b) => a.at.localeCompare(b.at));
     const cleared = new Set(state.cleared);
     const readIds = new Set(state.read);
@@ -281,7 +300,8 @@ export function inbox(ctx: MesaContext) {
     if (!state.startedAt) write({ startedAt });
     const settings = ctx.open().config.notifications;
     const fresh = list().filter(
-      (item) => item.at >= startedAt && !state.delivered.includes(item.id),
+      (item) =>
+        (item.kind === 'automation' || item.at >= startedAt) && !state.delivered.includes(item.id),
     );
     const mode = (item: InboxItem) =>
       settings[item.kind === 'input-required' ? 'inputRequired' : item.kind];
@@ -297,7 +317,14 @@ export function inbox(ctx: MesaContext) {
         id: item.id,
         ids,
         title: item.title,
-        body: item.kind === 'doctor' ? 'Open Doctor to review and fix' : `Session ${item.session}`,
+        body:
+          item.kind === 'doctor'
+            ? 'Open Doctor to review and fix'
+            : item.kind === 'automation'
+              ? Array.from(item.detail ?? 'Open Automations to review')
+                  .slice(0, 300)
+                  .join('')
+              : `Session ${item.session}`,
         sound: mode(item) === 'sound',
         target: item.target,
       };
@@ -330,6 +357,20 @@ export function inbox(ctx: MesaContext) {
       return ids.length;
     },
     delivery,
+    /** App and background worker claim through the same short, synchronous lock. */
+    claimDelivery: () => {
+      mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+      const lock = `${file}.delivery.lock`;
+      return withLockSync(
+        lock,
+        () => {
+          const plan = delivery();
+          if (plan.kind !== 'none') markDelivered(plan.ids);
+          return plan;
+        },
+        () => lockedBy('notification delivery', lock, 'notifications'),
+      );
+    },
     markDelivered,
     recordDoctor: (report: DoctorReport) => {
       const state = read();

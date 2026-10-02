@@ -2524,6 +2524,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       finished: 'silent',
       subagent: 'silent',
       doctor: 'silent',
+      automation: 'silent',
     },
     application: { warnBeforeQuit: true, backupOnClose: false },
     onboarding: { status: 'complete', step: 0 },
@@ -2963,12 +2964,17 @@ test('authorized native delivery and a click from before app launch open the exa
   };
   const sent: string[] = [];
   let opened:
-    | ((destination: typeof target | { kind: 'inbox' } | { kind: 'doctor' }) => void)
+    | ((
+        destination:
+          | typeof target
+          | { kind: 'inbox' }
+          | { kind: 'doctor' }
+          | { kind: 'automations' },
+      ) => void)
     | undefined;
   const { bridge, calls } = fakeBridge({
     sessions: () => envelope([managedRow('aaaaaaaa')]),
-    'notifications delivery': () => envelope(notice),
-    'notifications delivered': () => envelope({ ids: notice.ids, delivered: true }),
+    'notifications delivery --claim': () => envelope(notice),
   });
   const byTestId = await renderWithMesa(
     <App />,
@@ -2993,7 +2999,11 @@ test('authorized native delivery and a click from before app launch open the exa
     }),
   );
   expect(sent).toEqual([notice.id]);
-  expect(calls.some((args) => args[1] === 'notifications' && args[2] === 'delivered')).toBe(true);
+  expect(
+    calls.some(
+      (args) => args[1] === 'notifications' && args[2] === 'delivery' && args.includes('--claim'),
+    ),
+  ).toBe(true);
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
   await act(async () => opened?.(target));
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);

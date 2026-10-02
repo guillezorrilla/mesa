@@ -1,4 +1,6 @@
 use std::ffi::OsStr;
+use std::io::Read;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 
@@ -22,6 +24,7 @@ pub enum Target {
     Session { id: String },
     Inbox,
     Doctor,
+    Automations,
 }
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
@@ -114,6 +117,68 @@ fn require_bundle() -> Result<(), String> {
     } else {
         Err("Notifications require a bundled Mesa.app; they are unavailable in pnpm dev".into())
     }
+}
+
+pub fn bundled_executable() -> Option<PathBuf> {
+    require_bundle().ok()?;
+    std::env::current_exe().ok()
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BackgroundNotice {
+    profile: String,
+    id: String,
+    title: String,
+    body: String,
+    sound: bool,
+    target: Target,
+}
+
+/// A short-lived bundled process uses the same native owner; no window or permission prompt.
+pub fn background(args: &[String]) -> Option<Result<(), String>> {
+    if args.first().map(String::as_str) != Some("--mesa-notification") {
+        return None;
+    }
+    Some(mac_usernotifications::block_on_main(async {
+        match args.get(1).map(String::as_str) {
+            Some("status") if args.len() == 2 => {
+                println!(
+                    "{}",
+                    serde_json::to_string(&notification_status().await?)
+                        .map_err(|e| e.to_string())?
+                );
+                Ok(())
+            }
+            Some("send") if args.len() == 2 => {
+                let mut input = String::new();
+                std::io::stdin()
+                    .take(65_537)
+                    .read_to_string(&mut input)
+                    .map_err(|e| e.to_string())?;
+                if input.len() > 65_536 {
+                    return Err("notification input is too long".into());
+                }
+                let notice: BackgroundNotice =
+                    serde_json::from_str(&input).map_err(|e| e.to_string())?;
+                if notice.profile.is_empty() || notice.profile.len() > 100 {
+                    return Err("invalid notification profile".into());
+                }
+                PROFILE
+                    .set(notice.profile)
+                    .map_err(|_| "notification profile already set")?;
+                notification_send(
+                    notice.id,
+                    notice.title,
+                    notice.body,
+                    notice.sound,
+                    notice.target,
+                )
+                .await
+            }
+            _ => Err("use --mesa-notification status|send".into()),
+        }
+    }))
 }
 
 fn notification_id(profile: &str, id: &str, target: &Target) -> String {
@@ -229,7 +294,8 @@ pub async fn notification_send(
     sound: bool,
     target: Target,
 ) -> Result<(), String> {
-    if id.len() > 100 || title.len() > 150 || body.len() > 300 {
+    if id.is_empty() || id.len() > 100 || title.chars().count() > 150 || body.chars().count() > 300
+    {
         return Err("notification fields are too long".into());
     }
     if let Target::Session { id } = &target {
@@ -284,5 +350,22 @@ mod tests {
             "mesa:[\"work\",\"notice\",{\"kind\":\"session\",\"id\":\"../bad\"}]"
         )
         .is_none());
+        assert!(
+            matches!(target_from_id(&notification_id("work", "failure", &Target::Automations)), Some((profile, Target::Automations)) if profile == "work")
+        );
+        assert!(
+            matches!(target_from_id(&notification_id("work.1", "failure", &Target::Automations)), Some((profile, Target::Automations)) if profile == "work.1")
+        );
+    }
+
+    #[test]
+    fn background_entrypoint_is_explicit_and_refuses_unbundled_native_calls() {
+        assert!(super::background(&["normal".into()]).is_none());
+        assert!(
+            matches!(super::background(&["--mesa-notification".into(), "status".into()]), Some(Err(error)) if error.contains("bundled Mesa.app"))
+        );
+        assert!(
+            matches!(super::background(&["--mesa-notification".into(), "unknown".into()]), Some(Err(error)) if error.contains("status|send"))
+        );
     }
 }

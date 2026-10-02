@@ -28,3 +28,11 @@ Uninstall first disables dispatch and cancels waiting work, then unloads only th
 ## Consequences
 
 No cloud scheduler, filesystem watcher library or additional cron dependency is needed. One profile worker limits throughput, and file/state events shorter than the polling interval can be missed. Full run history remains in the profile ledger; partition it if its size makes reads expensive. Refresh audits remain separate from meaningful project knowledge.
+
+## Amendment 2026-10-02: background failure notifications (#424)
+
+The automation run ledger owns failure events. The existing Inbox projects failed runs, preserving their saved source guidance and read/clear marks; no second failure-event file is introduced. A new automation notification kind uses the existing quiet and off/silent/sound policy.
+
+The bundled app's Rust notification owner also has an explicit notification-only entrypoint. The desktop bridge supplies its absolute executable to CLI callers, and explicit scheduler installation retains that path as `MESA_NOTIFICATION_HELPER`. Terminal installations can provide the same path. No window, permission prompt, AppleScript notification, additional daemon or hosted relay is needed. Delivery diagnostics report an unavailable helper or denied permission without acknowledging the notice.
+
+Both desktop and background paths claim through a short, synchronous Inbox delivery lock. Claims persist before a native attempt, matching the existing at-most-once policy. A crash or native rejection after claiming may lose the banner, but the Inbox remains; denied permission or absent helper leaves delivery pending. The native request identifier retains the originating profile and Automations destination across process restart.
