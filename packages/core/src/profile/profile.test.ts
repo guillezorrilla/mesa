@@ -50,6 +50,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,
+      visualAlert: true,
       inputRequired: 'sound',
       finished: 'silent',
       subagent: 'silent',

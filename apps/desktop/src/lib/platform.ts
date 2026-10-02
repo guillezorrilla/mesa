@@ -71,6 +71,8 @@ export type Platform = {
     onOpen: (handler: (target: NativeNotice['target']) => void) => Promise<() => void>;
     takeOpened: () => Promise<NativeNotice['target'] | null>;
   };
+  /** The app's Dock icon: `badge(count)` shows the count, and 0 clears it. */
+  dock: { badge: (count: number) => Promise<void> };
   terminal: TerminalHost;
   browser: BrowserHost;
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste

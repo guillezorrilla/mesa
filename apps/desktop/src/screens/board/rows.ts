@@ -1,5 +1,5 @@
 import type { ManagedRow, SessionRow } from '@mesa/core';
-import { FINAL_STATES } from '@mesa/core/browser';
+import { FINAL_STATES, WAITING_STATES } from '@mesa/core/browser';
 
 /** Its agent has exited: stopped, its window gone, or its pane dead (done or failed). */
 export const exited = (s: SessionRow) => !s.alive || FINAL_STATES.has(s.lastState.state);
@@ -7,6 +7,9 @@ export const exited = (s: SessionRow) => !s.alive || FINAL_STATES.has(s.lastStat
 export const queued = (s: SessionRow) => s.managed && s.lastState.state === 'queued';
 /** A running or queued Mesa session shown in the Sessions tab. */
 export const activeSession = (s: SessionRow) => s.managed && (!exited(s) || queued(s));
+/** A session in the Sessions tab that waits for input: what the visual alert counts. */
+export const waitingForInput = (s: SessionRow) =>
+  activeSession(s) && WAITING_STATES.has(s.lastState.state);
 /** A Mesa session whose agent has exited and whose conversation can reopen. */
 export const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;

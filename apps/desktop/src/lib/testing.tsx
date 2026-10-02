@@ -63,6 +63,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
       notifications: {
         quiet: false,
+        visualAlert: true,
         inputRequired: 'sound',
         finished: 'silent',
         subagent: 'silent',
@@ -224,7 +225,8 @@ export function fakeTerminals() {
   return { host, calls, push };
 }
 
-/** A platform whose pickers return `folder` and `file` (none: the user cancelled). */
+/** A platform whose pickers return `folder` and `file` (none: the user cancelled), recording
+ * the pasteboard and each Dock badge count. */
 export const fakePlatform = ({
   folder = null,
   file = null,
@@ -270,8 +272,10 @@ export const fakePlatform = ({
   lifecycle?: Platform['lifecycle'];
 } = {}): Platform & {
   pasteboard: string[];
+  badges: number[];
 } => {
   const pasteboard: string[] = [];
+  const badges: number[] = [];
   return {
     lifecycle,
     pickFolder: async () => folder,
@@ -282,6 +286,8 @@ export const fakePlatform = ({
     browser,
     clipboard: { write: async (text) => void pasteboard.push(text) },
     pasteboard,
+    dock: { badge: async (count) => void badges.push(count) },
+    badges,
   };
 };
 

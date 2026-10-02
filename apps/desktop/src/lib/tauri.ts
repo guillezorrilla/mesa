@@ -42,6 +42,8 @@ export const tauriPlatform: Platform = {
       ),
     takeOpened: () => invoke('notification_take_opened'),
   },
+  // An undefined count removes the badge.
+  dock: { badge: (count) => getCurrentWindow().setBadgeCount(count || undefined) },
   pickFolder: async () => {
     const picked = await open({ directory: true });
     return typeof picked === 'string' ? picked : null;
