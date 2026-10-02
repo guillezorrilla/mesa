@@ -8,6 +8,9 @@ import type { Profile } from '../profile/profile.js';
 import {
   APPROVAL_FROM_SESSION,
   approveScripts,
+  describePending,
+  type PendingScripts,
+  scriptFingerprint,
   unapprovedScripts,
   WORKTREE_SCRIPTS,
   type WorktreeScripts,
@@ -36,7 +39,7 @@ export type ProjectRow = {
   /** Its session terminals' theme: the project's override, else the profile's. */
   terminalTheme: Config['terminal']['theme'] | null;
   /** Its mesa.yaml's setup and teardown this profile has not approved, which will not run. */
-  unapproved: WorktreeScripts;
+  unapproved: PendingScripts;
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
   exists: boolean;
   pinned: boolean;
@@ -195,27 +198,45 @@ export function overrideProject(
   return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
 }
 
+/** The project's setup and teardown waiting for this profile's approval, as a person reviews them. */
+export function pendingScripts(profile: Profile, name: string): PendingScripts {
+  const entry = findProject(profile, name);
+  return unapprovedScripts(readProjectFile(entry.path), entry);
+}
+
 /**
- * Approves, in this profile, the exact setup and teardown the project's mesa.yaml names now, so a
- * worktree runs them; any later change to them asks again. Returns what was approved.
+ * Approves, in this profile, the scripts the project's mesa.yaml names whose fingerprints are
+ * `expected`: the ones the person reviewed. A fingerprint that matches none of them means the
+ * file changed since, and nothing is approved. Any later change asks again.
  */
 export function trustProject(
   profile: Profile,
   name: string,
   /** False inside a Mesa window, where an agent could approve its own commands. */
   approve: boolean,
+  expected: readonly string[],
 ): { project: string } & WorktreeScripts {
   if (!approve) throw new MesaError('usage', APPROVAL_FROM_SESSION);
-  const project = readProjectFile(findProject(profile, name).path);
-  const scripts: WorktreeScripts = {
-    setup: project.worktrees?.setup,
-    teardown: project.worktrees?.teardown,
-  };
+  if (!expected.length)
+    throw new MesaError('usage', 'name the reviewed scripts: --expect <sha256> for each');
+  const entry = findProject(profile, name);
+  const file = readProjectFile(entry.path);
+  const scripts: WorktreeScripts = {};
+  for (const script of WORKTREE_SCRIPTS) {
+    const argv = file.worktrees?.[script];
+    if (argv?.length && expected.includes(scriptFingerprint(argv))) scripts[script] = argv;
+  }
+  const found = Object.values(scripts).map((argv) => scriptFingerprint(argv));
+  if (!expected.every((fingerprint) => found.includes(fingerprint))) {
+    const pending = unapprovedScripts(file, entry);
+    throw new MesaError(
+      'usage',
+      `${name}'s mesa.yaml changed since its scripts were reviewed; nothing was approved. It now runs ${describePending(pending) || 'nothing that waits for approval'}`,
+      { project: name, scripts: pending },
+    );
+  }
   approveScripts(profile, name, scripts);
-  return {
-    project: name,
-    ...Object.fromEntries(Object.entries(scripts).filter(([, argv]) => argv?.length)),
-  };
+  return { project: name, ...scripts };
 }
 
 /** The registry entry named `name`; not_found otherwise. */

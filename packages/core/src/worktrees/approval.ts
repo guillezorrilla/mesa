@@ -8,6 +8,10 @@ import { type RegistryEntry, updateRegistry } from '../projects/registry.js';
 export const WORKTREE_SCRIPTS = ['setup', 'teardown'] as const;
 export type WorktreeScript = (typeof WORKTREE_SCRIPTS)[number];
 export type WorktreeScripts = Partial<Record<WorktreeScript, string[]>>;
+/** A script waiting for approval: its exact argv and the fingerprint that approves it. */
+export type PendingScripts = Partial<
+  Record<WorktreeScript, { argv: string[]; fingerprint: string }>
+>;
 
 /** What an approval holds: the sha256 of the exact argv, so any change asks again. */
 export const scriptFingerprint = (argv: readonly string[]) =>
@@ -17,24 +21,34 @@ export const scriptFingerprint = (argv: readonly string[]) =>
  * The project's own setup and teardown this profile has not approved, by script. An empty list
  * runs nothing, so it needs no approval.
  */
-export function unapprovedScripts(project: Project, entry: RegistryEntry): WorktreeScripts {
-  const pending: WorktreeScripts = {};
+export function unapprovedScripts(project: Project, entry: RegistryEntry): PendingScripts {
+  const pending: PendingScripts = {};
   for (const script of WORKTREE_SCRIPTS) {
     const argv = project.worktrees?.[script];
-    if (argv?.length && entry.approved?.[script] !== scriptFingerprint(argv))
-      pending[script] = argv;
+    const fingerprint = argv && scriptFingerprint(argv);
+    if (argv?.length && fingerprint && entry.approved?.[script] !== fingerprint)
+      pending[script] = { argv, fingerprint };
   }
   return pending;
 }
 
-/** The refusal for scripts a person has not approved, naming each exact argv. */
-export function needsApproval(name: string, pending: WorktreeScripts): MesaError {
-  const list = Object.entries(pending)
-    .map(([script, argv]) => `${script} ${JSON.stringify(argv)}`)
+/** Each pending script as a person reviews it: its exact argv and its fingerprint. */
+export const describePending = (pending: PendingScripts) =>
+  Object.entries(pending)
+    .map(([script, { argv, fingerprint }]) => `${script} ${JSON.stringify(argv)} (${fingerprint})`)
     .join(', ');
+
+/** The command that approves exactly these scripts, and nothing the file says after a change. */
+export const trustCommand = (name: string, pending: PendingScripts) =>
+  `mesa projects trust ${name} ${Object.values(pending)
+    .map(({ fingerprint }) => `--expect ${fingerprint}`)
+    .join(' ')}`;
+
+/** The refusal for scripts a person has not approved, naming each exact argv. */
+export function needsApproval(name: string, pending: PendingScripts): MesaError {
   return new MesaError(
     'needs_approval',
-    `${name}'s mesa.yaml runs ${list}, which this profile has not approved: review it, then run mesa projects trust ${name}`,
+    `${name}'s mesa.yaml runs ${describePending(pending)}, which this profile has not approved: review it, then run ${trustCommand(name, pending)}`,
     { project: name, scripts: pending },
   );
 }

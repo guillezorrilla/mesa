@@ -1,12 +1,28 @@
+import { isDeepStrictEqual } from 'node:util';
 import type { MesaContext } from '../context.js';
 import { REDACTED } from '../lib/redact.js';
+import { MesaError } from '../lib/result.js';
+import { callerOf } from '../sessions/caller.js';
+import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../worktrees/approval.js';
 import { backupService } from './backup.js';
-import { redactConfig, setConfigValue } from './config.js';
+import { type Config, loadConfig, redactConfig, setConfigValue } from './config.js';
 import { initProfile, type ProfileInfo } from './profile.js';
 
 /** The profile itself: what it is, making it, and its config. */
 export function profileService(ctx: MesaContext) {
   const { profile, paths, record } = ctx;
+  // Worktree setup and teardown run on this machine, so a Mesa session (an agent's shell) cannot
+  // change the profile's, by their own path or through a parent such as `worktrees`.
+  const scriptGuard = () => {
+    if (!callerOf({ store: ctx.store, env: ctx.deps.env, profileName: profile }).inMesaWindow)
+      return undefined;
+    const before = currentScripts(paths.config);
+    return (next: Config) => {
+      for (const script of WORKTREE_SCRIPTS)
+        if (!isDeepStrictEqual(next.worktrees[script], before[script]))
+          throw new MesaError('usage', APPROVAL_FROM_SESSION);
+    };
+  };
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
     backup: backupService(ctx),
@@ -38,8 +54,20 @@ export function profileService(ctx: MesaContext) {
             outputs: (r) => ({ value: r.value }),
             changed: (r) => r.changed,
           },
-          () => setConfigValue(paths.config, dotted, value),
+          () => setConfigValue(paths.config, dotted, value, scriptGuard()),
         ),
     },
   };
+}
+
+/** The profile's setup and teardown now; none from a config that does not read, which a set may repair. */
+function currentScripts(file: string): Pick<Config['worktrees'], 'setup' | 'teardown'> {
+  try {
+    const { setup, teardown } = loadConfig(file).worktrees;
+    return { setup, teardown };
+  } catch (error) {
+    if (error instanceof MesaError && error.code === 'invalid_config')
+      return { setup: [], teardown: [] };
+    throw error;
+  }
 }

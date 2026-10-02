@@ -50,6 +50,8 @@ export function setYamlPath<T>(
   schema: z.ZodType<T>,
   dotted: string,
   value: unknown,
+  /** Throws to refuse the validated result, before anything is written. */
+  check?: (next: T) => void,
 ): T {
   const doc = readDocument(file);
   const keys = dotted.split('.');
@@ -68,6 +70,7 @@ export function setYamlPath<T>(
     if (isMap(parent)) parent.flow = false;
   }
   const next = parseWith(schema, doc.toJS(), file);
+  check?.(next);
   // The new file keeps the old one's mode: config.yaml holds keys, so it stays 0600.
   writeFileAtomic(file, doc.toString(), statSync(file).mode & 0o777);
   return next;

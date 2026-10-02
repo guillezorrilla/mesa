@@ -277,9 +277,11 @@ export function setConfigValue(
   file: string,
   dotted: string,
   value: string,
+  /** Throws to refuse the new config, before anything is written. */
+  check?: (next: Config) => void,
 ): { value: unknown; changed: boolean } {
   const before = currentValue(file, dotted);
-  const next = setYamlPath(file, ConfigSchema, dotted, parse(value));
+  const next = setYamlPath(file, ConfigSchema, dotted, parse(value), check);
   return {
     value: valueAt(redactConfig(next), dotted),
     changed: !isDeepStrictEqual(before, valueAt(next, dotted)),

@@ -23,6 +23,7 @@ import { SettingRow, SettingSection } from './SettingRow';
 import { useSettings } from './useSettings';
 
 type Worktrees = NonNullable<ProjectRow['overrides']['worktrees']>;
+type Pending = [string, { argv: string[]; fingerprint: string }][];
 
 /** A profile value as the row that would inherit it names it. */
 const profileValue = (value: string | boolean | readonly string[] | undefined, none: string) => {
@@ -139,8 +140,10 @@ export function ProjectSettings(props: { onChanged: () => void }) {
       return undefined;
     });
   const themes = options(TERMINAL_THEMES);
-  const [reviewing, setReviewing] = useState(false);
-  const pending = Object.entries(project?.unapproved ?? {}) as [string, string[]][];
+  const pending = Object.entries(project?.unapproved ?? {}) as Pending;
+  // The scripts the dialog shows, frozen when it opens: their fingerprints are what trust approves,
+  // so a mesa.yaml that changes meanwhile is refused rather than approved unseen.
+  const [reviewing, setReviewing] = useState<Pending>();
   return (
     <>
       <SettingSection
@@ -293,7 +296,7 @@ export function ProjectSettings(props: { onChanged: () => void }) {
                     size="sm"
                     variant="outline"
                     disabled={acting}
-                    onClick={() => setReviewing(true)}
+                    onClick={() => setReviewing(pending)}
                   >
                     Review
                   </Button>
@@ -325,17 +328,19 @@ export function ProjectSettings(props: { onChanged: () => void }) {
               title={`Approve ${project.name}'s worktree scripts?`}
               description="Mesa runs each one without a shell, as written, in every new worktree or before one is removed. Approve them only if you trust this repository."
               submit={{ label: 'Approve', testId: 'approve-scripts-submit', disabled: acting }}
-              onCancel={() => setReviewing(false)}
+              onCancel={() => setReviewing(undefined)}
               onSubmit={() =>
                 void act(async () => {
-                  if (!(await run('projects.trust', { name: project.name }))) return undefined;
-                  setReviewing(false);
+                  const expect = reviewing.map(([, script]) => script.fingerprint);
+                  // A refusal (the file changed) toasts; either way the list shows what waits now.
+                  await run('projects.trust', { name: project.name, expect });
+                  setReviewing(undefined);
                   await projects.refresh();
                   return undefined;
                 })
               }
             >
-              {pending.map(([script, argv]) => (
+              {reviewing.map(([script, { argv }]) => (
                 <div key={script} className="space-y-1">
                   <p className="text-sm">{script === 'setup' ? 'Bootstrap' : 'Teardown'}</p>
                   <pre className="overflow-x-auto rounded-md border bg-muted/40 p-2 font-mono text-xs">

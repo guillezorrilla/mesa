@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isolateGit, withRealGit } from '@mesa/core/testing';
@@ -9,6 +10,7 @@ const cli = cliHarness();
 isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 const { mesa } = cli;
+const sha256 = (argv: string[]) => createHash('sha256').update(JSON.stringify(argv)).digest('hex');
 
 test('register, projects, unregister', async () => {
   await mesa('init', '--vault', 'vault');
@@ -238,19 +240,27 @@ test('projects trust approves the setup a repository names, records a receipt, a
   expect(refused.code).toBe(10);
   expect(refused.json.error).toMatchObject({ code: 'needs_approval' });
   expect(refused.json.error.message).toContain('setup ["/usr/bin/true","invented"]');
+  const fingerprint = sha256(['/usr/bin/true', 'invented']);
+  expect(refused.json.error.message).toContain(`mesa projects trust reef --expect ${fingerprint}`);
   expect((await mesa('projects', '--json')).json.data[0].unapproved).toEqual({
-    setup: ['/usr/bin/true', 'invented'],
+    setup: { argv: ['/usr/bin/true', 'invented'], fingerprint },
   });
 
   // From an agent's shell in a Mesa window, approval is refused with where it must come from.
   cli.env = { MESA_SESSION_ID: 'a1b2c3d4' };
-  const inside = await mesa('projects', 'trust', 'reef', '--json');
+  const inside = await mesa('projects', 'trust', 'reef', '--expect', fingerprint, '--json');
   expect(inside.code).toBe(2);
   expect(inside.json.error.message).toBe(
     'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session',
   );
   cli.env = {};
-  const trusted = await mesa('projects', 'trust', 'reef', '--json');
+  // With no terminal to confirm in, trust names the scripts and wants their fingerprints.
+  const unreviewed = await mesa('projects', 'trust', 'reef', '--json');
+  expect(unreviewed.code).toBe(2);
+  expect(unreviewed.json.error.message).toContain(
+    `review reef's setup ["/usr/bin/true","invented"] (${fingerprint}), then run mesa projects trust reef --expect ${fingerprint}`,
+  );
+  const trusted = await mesa('projects', 'trust', 'reef', '--expect', fingerprint, '--json');
   expect(trusted.code).toBe(0);
   expect(trusted.json.data).toMatchObject({
     project: 'reef',
@@ -268,8 +278,19 @@ test('projects trust approves the setup a repository names, records a receipt, a
     'name: reef\nworktrees:\n  setup: [/usr/bin/true, changed]\n',
   );
   expect((await mesa('worktrees', 'create', 'reef', 'second')).code).toBe(10);
+  // The fingerprint reviewed before the change approves nothing now.
+  const stale = await mesa('projects', 'trust', 'reef', '--expect', fingerprint, '--json');
+  expect(stale.code).toBe(2);
+  expect(stale.json.error.message).toContain('changed since its scripts were reviewed');
+  // In a terminal, trust shows the argv and its fingerprint and approves what was confirmed.
+  cli.answer = false;
+  expect((await mesa('projects', 'trust', 'reef')).code).toBe(2);
+  cli.answer = true;
   expect((await mesa('projects', 'trust', 'reef')).stdout).toBe(
     'approved setup ["/usr/bin/true","changed"] for reef\n',
+  );
+  expect(cli.asked.at(-1)).toBe(
+    `reef's mesa.yaml runs setup ["/usr/bin/true","changed"] (${sha256(['/usr/bin/true', 'changed'])}) without a shell in its worktrees. Approve?`,
   );
   expect((await mesa('worktrees', 'create', 'reef', 'second')).code).toBe(0);
   expect(ran.at(-1)).toEqual(['changed']);

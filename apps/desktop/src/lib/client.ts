@@ -634,9 +634,15 @@ const COMMANDS = {
       : ['projects', 'set', '--', name, path, JSON.stringify(value)],
   ),
   'projects.trust': commandWith<
-    { name: string },
+    { name: string; expect: string[] },
     Recorded<{ project: string; setup?: string[]; teardown?: string[] }>
-  >(({ name }) => ['projects', 'trust', '--', name]),
+  >(({ name, expect }) => [
+    'projects',
+    'trust',
+    ...expect.flatMap((fingerprint) => ['--expect', fingerprint]),
+    '--',
+    name,
+  ]),
   'projects.unregister': commandWith<{ name: string }, Recorded<{ name: string; path: string }>>(
     ({ name }) => ['unregister', '--', name],
   ),

@@ -727,6 +727,22 @@ test('a failed session launch preserves data written by configured worktree setu
   expect(await mesa.sessions.list()).toEqual([]);
 });
 
+test("--branch refuses a project's unapproved worktree setup and creates nothing", async () => {
+  const world = agentWorld();
+  const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, repo-file]\n';
+  const { home, dir, mesa } = await setUp(world, { mesaYaml });
+  gitRepo(dir);
+  await expect(mesa.sessions.open('lantern-cove', { branch: 'unreviewed' })).rejects.toMatchObject({
+    code: 'needs_approval',
+    message: expect.stringContaining('setup ["/usr/bin/touch","repo-file"]'),
+  });
+  expect(existsSync(worktreeAt(home, 'unreviewed'))).toBe(false);
+  expect(testGit(dir, 'branch', '--list', 'unreviewed')).toBe('');
+  expect(testGit(dir, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1);
+  expect(await mesa.sessions.list()).toEqual([]);
+  expect(world.tmux.windows).toEqual([]);
+});
+
 test("a failed session launch preserves data written by the project's own worktree setup", async () => {
   const world = agentWorld({ failing: 'new-session' });
   const original = withGit(world);
@@ -740,7 +756,10 @@ test("a failed session launch preserves data written by the project's own worktr
   const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, keep.txt]\n';
   const { home, dir, mesa } = await setUp(world, { run, mesaYaml });
   gitRepo(dir);
-  mesa.projects.trust('lantern-cove');
+  mesa.projects.trust(
+    'lantern-cove',
+    Object.values(mesa.projects.pending('lantern-cove')).map((script) => script.fingerprint),
+  );
   await expect(mesa.sessions.open('lantern-cove', { branch: 'with-setup' })).rejects.toMatchObject({
     code: 'internal',
   });

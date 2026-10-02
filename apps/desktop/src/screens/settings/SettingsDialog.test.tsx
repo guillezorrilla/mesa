@@ -375,7 +375,11 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
   const [cove] = PROJECTS as [ProjectRow];
   const setup = ['/usr/bin/make', 'set up'];
   let projects: ProjectRow[] = [
-    { ...cove, overrides: { worktrees: { setup } }, unapproved: { setup } },
+    {
+      ...cove,
+      overrides: { worktrees: { setup } },
+      unapproved: { setup: { argv: setup, fingerprint: 'a'.repeat(64) } },
+    },
   ];
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(projects),
@@ -395,7 +399,16 @@ test("Projects shows a repository's unapproved scripts exactly and approves them
     '"/usr/bin/make" "set up"',
   );
   await click(byTestId('approve-scripts-submit')[0]);
-  expect(calls).toContainEqual(['--json', 'projects', 'trust', '--', 'lantern-cove']);
+  // The fingerprint of the argv the dialog showed, so trust refuses a mesa.yaml changed meanwhile.
+  expect(calls).toContainEqual([
+    '--json',
+    'projects',
+    'trust',
+    '--expect',
+    'a'.repeat(64),
+    '--',
+    'lantern-cove',
+  ]);
   expect(byTestId('approve-scripts')).toHaveLength(0);
   expect(document.body.textContent).not.toContain('Scripts waiting for approval');
 });

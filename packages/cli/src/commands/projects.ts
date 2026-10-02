@@ -1,4 +1,4 @@
-import { MesaError } from '@mesa/core';
+import { describePending, MesaError, trustCommand } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -85,11 +85,39 @@ export const projectsSet = defineCommand({
 /** Repository-supplied worktree scripts run only once a person approves their exact argv here. */
 export const projectsTrust = defineCommand({
   name: 'projects trust',
-  summary: "Approve the setup and teardown a project's mesa.yaml names now, so worktrees run them",
+  summary:
+    "Approve the reviewed setup and teardown a project's mesa.yaml names, so worktrees run them",
   args: ['project'],
-  example: 'mesa projects trust lantern-cove',
-  run: ({ mesa, args }) => {
-    const recorded = mesa.projects.trust(args.project);
+  flags: {
+    expect: {
+      type: 'string',
+      multiple: true,
+      description:
+        'The sha256 of a reviewed script, as needs_approval shows it; without it, a terminal confirms',
+    },
+  },
+  example: 'mesa projects trust lantern-cove --expect <sha256>',
+  run: async ({ mesa, args, flags, confirm }) => {
+    let expected = flags.expect ?? [];
+    if (!expected.length) {
+      // What the person is shown is exactly what is approved: its fingerprints go to trust, which
+      // refuses if mesa.yaml changed in between.
+      const pending = mesa.projects.pending(args.project);
+      if (!Object.keys(pending).length)
+        return {
+          data: { project: args.project },
+          text: `${args.project}'s mesa.yaml has no setup or teardown waiting for approval`,
+        };
+      if (!confirm)
+        throw new MesaError(
+          'usage',
+          `review ${args.project}'s ${describePending(pending)}, then run ${trustCommand(args.project, pending)}, or run mesa projects trust ${args.project} in a terminal to confirm`,
+        );
+      const question = `${args.project}'s mesa.yaml runs ${describePending(pending)} without a shell in its worktrees. Approve?`;
+      if (!(await confirm(question))) throw new MesaError('usage', 'nothing was approved');
+      expected = Object.values(pending).map((script) => script.fingerprint);
+    }
+    const recorded = mesa.projects.trust(args.project, expected);
     const { setup, teardown } = recorded.result;
     const approved = [
       ...(setup ? [`setup ${JSON.stringify(setup)}`] : []),

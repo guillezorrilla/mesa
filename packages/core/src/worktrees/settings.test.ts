@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
-import { createMesa } from '../mesa.js';
+import { createMesa, type Mesa } from '../mesa.js';
 import {
   agentWorld,
   gitRepo,
@@ -32,6 +33,18 @@ function recordingRun(cloneFrom?: string) {
   };
   return { ran, run };
 }
+
+/** Approves every script the project's mesa.yaml has waiting, as a person who reviewed them. */
+const trustAll = (mesa: Mesa, name: string) =>
+  mesa.projects.trust(
+    name,
+    Object.values(mesa.projects.pending(name)).map((script) => script.fingerprint),
+  );
+
+/** The fingerprint of the cloned repository's setup: sha256 of its exact argv as JSON. */
+const CLONED = createHash('sha256')
+  .update(JSON.stringify(['/usr/bin/true', 'cloned-setup']))
+  .digest('hex');
 
 /** The worktrees Git lists for the repository in `dir`, its main checkout included. */
 const checkouts = (dir: string) =>
@@ -82,7 +95,7 @@ test("a new worktree takes the project's mesa.yaml settings over the profile's",
     code: 'needs_approval',
   });
   expect(checkouts(dir)).toHaveLength(1);
-  mesa.projects.trust('lantern-cove');
+  trustAll(mesa, 'lantern-cove');
 
   const { result } = await mesa.worktrees.create('lantern-cove', 'feature');
   expect(testGit(result.path, 'rev-parse', 'HEAD')).toBe(testGit(dir, 'rev-parse', 'older'));
@@ -133,7 +146,7 @@ test("removing a worktree runs the project's teardown, the one its preview showe
   await expect(mesa.worktrees.preview('lantern-cove', 'remove', result.path)).rejects.toMatchObject(
     { code: 'needs_approval' },
   );
-  mesa.projects.trust('lantern-cove');
+  trustAll(mesa, 'lantern-cove');
   const preview = await mesa.worktrees.preview('lantern-cove', 'remove', result.path);
   expect(preview).toMatchObject({ allowed: true, teardown: ['/usr/bin/true', 'project-teardown'] });
   await mesa.worktrees.apply('lantern-cove', 'remove', preview.token, result.path);
@@ -168,16 +181,20 @@ test('a cloned repository runs its own setup only after trust, and again only af
   const refused = await mesa.worktrees.create('reef', 'feature').catch((error) => error);
   expect(refused).toMatchObject({
     code: 'needs_approval',
-    details: { project: 'reef', scripts: { setup: ['/usr/bin/true', 'cloned-setup'] } },
+    details: {
+      project: 'reef',
+      scripts: { setup: { argv: ['/usr/bin/true', 'cloned-setup'], fingerprint: CLONED } },
+    },
   });
-  expect(refused.message).toContain('mesa projects trust reef');
+  expect(refused.message).toContain(`(${CLONED})`);
+  expect(refused.message).toContain(`mesa projects trust reef --expect ${CLONED}`);
   expect(mesa.projects.list().find((row) => row.name === 'reef')?.unapproved).toEqual({
-    setup: ['/usr/bin/true', 'cloned-setup'],
+    setup: { argv: ['/usr/bin/true', 'cloned-setup'], fingerprint: CLONED },
   });
   expect(checkouts(dir)).toHaveLength(1);
   expect(ran).toEqual([]);
 
-  const { result: trusted } = mesa.projects.trust('reef');
+  const { result: trusted } = trustAll(mesa, 'reef');
   expect(trusted).toEqual({ project: 'reef', setup: ['/usr/bin/true', 'cloned-setup'] });
   expect(mesa.projects.list().find((row) => row.name === 'reef')?.unapproved).toEqual({});
   const { result: first } = await mesa.worktrees.create('reef', 'feature');
@@ -196,6 +213,19 @@ test('a cloned repository runs its own setup only after trust, and again only af
   });
   expect(checkouts(dir)).toHaveLength(2);
   expect(ran).toEqual([['cloned-setup']]);
+
+  // Trust approves only what the person reviewed: the old fingerprint approves nothing now.
+  const pending = mesa.projects.pending('reef');
+  expect(() => mesa.projects.trust('reef', [CLONED])).toThrow(
+    expect.objectContaining({
+      code: 'usage',
+      message: expect.stringContaining(
+        `changed since its scripts were reviewed; nothing was approved. It now runs setup ["/usr/bin/true","pulled-setup"] (${pending.setup?.fingerprint})`,
+      ),
+    }),
+  );
+  expect(() => mesa.projects.trust('reef', [])).toThrow(expect.objectContaining({ code: 'usage' }));
+  expect(mesa.projects.pending('reef')).toEqual(pending);
 
   // A setup a person writes through mesa projects set is approved as written.
   mesa.projects.override('reef', 'worktrees.setup', '[/usr/bin/true, written-setup]');
@@ -219,7 +249,7 @@ test('only a caller outside a Mesa session approves: inside one, trust is refuse
     testDeps(home, { run, env: { MESA_SESSION_ID: 'a1b2c3d4' } }),
   );
 
-  expect(() => agent.projects.trust('lantern-cove')).toThrow(
+  expect(() => trustAll(agent, 'lantern-cove')).toThrow(
     expect.objectContaining({
       code: 'usage',
       message: expect.stringContaining('outside a Mesa session'),
@@ -228,19 +258,67 @@ test('only a caller outside a Mesa session approves: inside one, trust is refuse
   agent.projects.override('lantern-cove', 'worktrees.setup', '[/usr/bin/true, agent-setup]');
   // Other overrides stay open to a session.
   agent.projects.override('lantern-cove', 'worktrees.fetch', 'false');
-  expect(mesa.projects.list()[0]?.unapproved).toEqual({ setup: ['/usr/bin/true', 'agent-setup'] });
+  expect(mesa.projects.list()[0]?.unapproved).toMatchObject({
+    setup: { argv: ['/usr/bin/true', 'agent-setup'] },
+  });
   await expect(mesa.worktrees.create('lantern-cove', 'feature')).rejects.toMatchObject({
     code: 'needs_approval',
   });
   expect(ran).toEqual([]);
 
   // A session rewriting an approved setup, even to the same argv, leaves it unapproved.
-  mesa.projects.trust('lantern-cove');
+  trustAll(mesa, 'lantern-cove');
   agent.projects.override('lantern-cove', 'worktrees.setup', '[/usr/bin/true, agent-setup]');
-  expect(mesa.projects.list()[0]?.unapproved).toEqual({ setup: ['/usr/bin/true', 'agent-setup'] });
+  expect(mesa.projects.list()[0]?.unapproved).toMatchObject({
+    setup: { argv: ['/usr/bin/true', 'agent-setup'] },
+  });
 
   // Outside a session, set and trust both approve.
   mesa.projects.override('lantern-cove', 'worktrees.setup', '[/usr/bin/true, person-setup]');
   await mesa.worktrees.create('lantern-cove', 'feature');
   expect(ran).toEqual([['person-setup']]);
+});
+
+test("a Mesa session cannot change the profile's setup or teardown, by path or through a parent", () => {
+  const { home, mesa } = projectProfile(recordingRun().run, { mesaYaml: 'name: lantern-cove\n' });
+  mesa.config.set('worktrees.setup', '[/usr/bin/true, profile-setup]');
+  const agent = createMesa('default', testDeps(home, { env: { MESA_SESSION_ID: 'a1b2c3d4' } }));
+  const refused = expect.objectContaining({
+    code: 'usage',
+    message:
+      'worktree scripts can only be approved from the Mesa app or a terminal outside a Mesa session',
+  });
+  for (const [path, value] of [
+    ['worktrees.setup', '[/usr/bin/true, agent-setup]'],
+    ['worktrees.teardown', '[/usr/bin/true, agent-teardown]'],
+    ['worktrees.setup', '[]'],
+    ['worktrees', '{teardown: [/usr/bin/true, agent-teardown]}'],
+    ['worktrees', '{fetch: true}'],
+  ] as const) {
+    expect(() => agent.config.set(path, value)).toThrow(refused);
+  }
+  expect(mesa.config.get().worktrees).toMatchObject({
+    setup: ['/usr/bin/true', 'profile-setup'],
+    teardown: [],
+  });
+  // Other settings, and a parent write that keeps both scripts, stay open to a session.
+  agent.config.set('worktrees.fetch', 'true');
+  agent.config.set('worktrees', JSON.stringify({ ...mesa.config.get().worktrees, base: 'main' }));
+  expect(mesa.config.get().worktrees).toMatchObject({ fetch: true, base: 'main' });
+  // Outside a session, the person sets them as before.
+  mesa.config.set('worktrees.teardown', '[/usr/bin/true, person-teardown]');
+  expect(mesa.config.get().worktrees.teardown).toEqual(['/usr/bin/true', 'person-teardown']);
+});
+
+test('trust approves only the scripts whose fingerprints the person reviewed', () => {
+  const { mesa } = projectProfile(recordingRun().run, {
+    mesaYaml:
+      'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/true, s]\n  teardown: [/usr/bin/true, t]\n',
+  });
+  const { setup, teardown } = mesa.projects.pending('lantern-cove');
+  expect(mesa.projects.trust('lantern-cove', [setup?.fingerprint ?? '']).result).toEqual({
+    project: 'lantern-cove',
+    setup: ['/usr/bin/true', 's'],
+  });
+  expect(mesa.projects.pending('lantern-cove')).toEqual({ teardown });
 });
