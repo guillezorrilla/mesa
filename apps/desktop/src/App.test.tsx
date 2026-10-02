@@ -2512,6 +2512,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       extraSubmitKey: 'none',
       newlineKey: 'native',
       wezTermNewTab: false,
+      messageActions: true,
     },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {

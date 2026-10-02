@@ -271,3 +271,14 @@ test('Coding Agents has a launch section per agent, dangerous rows in red, each 
     ['agents.codex', '{"sandbox":"danger-full-access","bypass":true,"approvalPolicy":"never"}'],
   ]);
 });
+
+test('Terminal & Editor has the message actions toggle, on by default, and saves it off', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  await click(nav('Terminal & Editor'));
+  const toggle = document.getElementById('message-actions');
+  expect(toggle?.closest('[data-setting-row]')?.textContent).toContain('Message Actions');
+  expect(toggle?.getAttribute('aria-checked')).toBe('true');
+  await click(toggle ?? undefined);
+  expect(sets(calls)).toEqual([['terminal.messageActions', 'false']]);
+});

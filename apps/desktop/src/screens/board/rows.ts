@@ -10,6 +10,9 @@ export const activeSession = (s: SessionRow) => s.managed && (!exited(s) || queu
 /** A session in the Sessions tab that waits for input: what the visual alert counts. */
 export const waitingForInput = (s: SessionRow) =>
   activeSession(s) && WAITING_STATES.has(s.lastState.state);
+/** A Mesa session with an interactive agent, whose native responses Review reads. */
+export const reviewable = (s: SessionRow): s is ManagedRow =>
+  s.managed && s.kind === 'interactive' && s.agent !== 'terminal';
 /** A Mesa session whose agent has exited and whose conversation can reopen. */
 export const resumable = (s: SessionRow) =>
   s.managed && exited(s) && Boolean(s.agentSessionId) && !s.resumedBy;

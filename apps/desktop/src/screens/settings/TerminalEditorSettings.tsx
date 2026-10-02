@@ -3,6 +3,7 @@ import {
   AppWindow,
   Gauge,
   Keyboard,
+  MessageSquareQuote,
   MousePointer2,
   PanelTop,
   SquareTerminal,
@@ -59,6 +60,19 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
               id="natural-selection"
               path="terminal.naturalSelection"
               checked={terminal.naturalSelection}
+            />
+          }
+        />
+        <SettingRow
+          icon={MessageSquareQuote}
+          title="Message Actions"
+          description="Show Copy and Review for the agent's latest response when hovering a session terminal."
+          htmlFor="message-actions"
+          control={
+            <Toggle
+              id="message-actions"
+              path="terminal.messageActions"
+              checked={terminal.messageActions}
             />
           }
         />

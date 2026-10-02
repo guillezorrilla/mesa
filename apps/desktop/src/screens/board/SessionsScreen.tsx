@@ -3,12 +3,14 @@ import type {
   GridGroup,
   GuardrailCheck,
   ManagedRow,
+  NativeResponse,
   ProjectRow,
   SavedPrompt,
   SessionImage,
   TreeRow,
 } from '@mesa/core';
 import {
+  DEFAULT_TERMINAL_PREFERENCES,
   GENERAL_PROJECT,
   isRun,
   projectLabel,
@@ -56,7 +58,7 @@ import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { ResponseReview } from './ResponseReview';
 import { RowMenu } from './RowMenu';
-import { exited, queued, recoverable, resumable } from './rows';
+import { exited, queued, recoverable, resumable, reviewable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
 import { SessionStart } from './SessionStart';
 import { TerminalPanel } from './TerminalPanel';
@@ -136,6 +138,9 @@ export function SessionsScreen(
   const [dialog, setDialog] = useState<OpenDialog>();
   const [image, setImage] = useState<SessionImage>();
   const [reviewOpen, setReviewOpen] = useState(false);
+  // The response a terminal's Review picked, preselected when the review opens.
+  const [reviewResponse, setReviewResponse] = useState<NativeResponse>();
+  const [pendingReview, setPendingReview] = useState<NativeResponse>();
   const [browserOpen, setBrowserOpen] = useState(false);
   const [browserTarget, setBrowserTarget] = useState<{ url: string }>();
   const [pendingBrowser, setPendingBrowser] = useState<{ session: string; url: string }>();
@@ -190,6 +195,8 @@ export function SessionsScreen(
     }
   }, [data, props.selectedSession]);
   const selected = data?.find((row) => row.id === props.selectedSession);
+  const messageActions =
+    props.terminalPreferences?.messageActions ?? DEFAULT_TERMINAL_PREFERENCES.messageActions;
   const promptField = useRef<HTMLTextAreaElement>(null);
   const actionsMenu = useRef<HTMLDetailsElement>(null);
   const handledPromptInsert = useRef<typeof props.promptInsertRequest>(undefined);
@@ -216,6 +223,13 @@ export function SessionsScreen(
     setBrowserOpen(false);
     setBrowserTarget(undefined);
   }, [props.selectedSession]);
+  useEffect(() => {
+    if (!pendingReview || pendingReview.session !== props.selectedSession) return;
+    setReviewResponse(pendingReview);
+    setReviewOpen(true);
+    setBrowserOpen(false);
+    setPendingReview(undefined);
+  }, [pendingReview, props.selectedSession]);
   useEffect(() => {
     if (!pendingBrowser || pendingBrowser.session !== props.selectedSession) return;
     setBrowserTarget({ url: pendingBrowser.url });
@@ -512,22 +526,21 @@ export function SessionsScreen(
             />
           )}
           <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
-          {selected?.managed &&
-            selected.kind === 'interactive' &&
-            selected.agent !== 'terminal' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Review responses"
-                aria-pressed={reviewOpen}
-                onClick={() => {
-                  setBrowserOpen(false);
-                  setReviewOpen((open) => !open);
-                }}
-              >
-                <MessageSquareQuote aria-hidden /> Review
-              </Button>
-            )}
+          {selected && reviewable(selected) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Review responses"
+              aria-pressed={reviewOpen}
+              onClick={() => {
+                setBrowserOpen(false);
+                setReviewResponse(undefined);
+                setReviewOpen((open) => !open);
+              }}
+            >
+              <MessageSquareQuote aria-hidden /> Review
+            </Button>
+          )}
           {selected?.managed && (
             <Button
               variant="ghost"
@@ -992,13 +1005,22 @@ export function SessionsScreen(
               selected={Boolean(props.selectedSession)}
               zoomed={zoomed === id}
               onZoom={() => setZoomed((current) => (current === id ? undefined : id))}
+              onReviewResponse={
+                messageActions && data?.some((row) => row.id === id && reviewable(row))
+                  ? (response) => {
+                      setPendingReview(response);
+                      props.onSelectSession?.(id);
+                    }
+                  : undefined
+              }
             />
           </div>
         ))}
         {selected?.managed && reviewOpen && (
           <ResponseReview
-            key={selected.id}
+            key={`${selected.id}:${reviewResponse?.source ?? ''}`}
             sessionId={selected.id}
+            initialResponse={reviewResponse}
             project={selected.project === GENERAL_PROJECT ? undefined : selected.project}
             checkout={selected.worktree?.path ?? selected.cwd}
           />

@@ -1,10 +1,14 @@
-import type { Config } from '@mesa/core';
+import type { Config, NativeResponse } from '@mesa/core';
 import { ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
 import { Terminal } from '@/components/Terminal';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageActions } from './MessageActions';
 
-/** One session's embedded terminal under the board: open it in the terminal app, or close it. */
+/**
+ * One session's embedded terminal under the board: open it in the terminal app, or close it.
+ * With `onReviewResponse`, hovering it offers Copy and Review for the latest response.
+ */
 export function TerminalPanel(props: {
   sessionId: string;
   preferences?: Config['terminal'];
@@ -17,7 +21,18 @@ export function TerminalPanel(props: {
   selected?: boolean;
   zoomed?: boolean;
   onZoom?: () => void;
+  onReviewResponse?: (response: NativeResponse) => void;
 }) {
+  const fill = props.grid || props.selected;
+  const terminal = (
+    <Terminal
+      sessionId={props.sessionId}
+      preferences={props.preferences}
+      fill={fill}
+      onFileLink={props.onFileLink}
+      onWebLink={props.onWebLink}
+    />
+  );
   return (
     <Card
       data-testid="terminal-panel"
@@ -65,13 +80,17 @@ export function TerminalPanel(props: {
           </div>
         </CardHeader>
       )}
-      <Terminal
-        sessionId={props.sessionId}
-        preferences={props.preferences}
-        fill={props.grid || props.selected}
-        onFileLink={props.onFileLink}
-        onWebLink={props.onWebLink}
-      />
+      {props.onReviewResponse ? (
+        <MessageActions
+          sessionId={props.sessionId}
+          className={fill ? 'flex-1' : undefined}
+          onReview={props.onReviewResponse}
+        >
+          {terminal}
+        </MessageActions>
+      ) : (
+        terminal
+      )}
     </Card>
   );
 }
