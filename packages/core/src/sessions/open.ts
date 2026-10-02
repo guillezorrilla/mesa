@@ -16,6 +16,7 @@ import {
   sessionWindowCommand,
 } from './launch.js';
 import { isOver, type SessionRecord } from './record.js';
+import type { Worktree } from './worktree.js';
 
 type OpenDeps = LaunchDeps & {
   home: string;
@@ -67,6 +68,8 @@ export type OpenInput = {
   base?: string;
   /** A shell in the project checkout, with no coding agent or provider conversation. */
   terminal?: boolean;
+  /** An existing linked worktree it runs in (checkoutWorktree), in place of `branch`. */
+  worktree?: Worktree;
 };
 
 /**
@@ -103,7 +106,7 @@ export async function openSession(
     const parent = parentOf(deps, input);
     const from = parent ? deps.store.get(parent) : undefined;
     const cwd =
-      !input.branch && from?.project === (entry?.name ?? GENERAL_PROJECT)
+      !input.branch && !input.worktree && from?.project === (entry?.name ?? GENERAL_PROJECT)
         ? folderOf(from, entry)
         : input.general
           ? deps.home
@@ -119,6 +122,7 @@ export async function openSession(
         agent: 'terminal',
         parent,
         name: 'Terminal',
+        ...(input.worktree ? { worktree: input.worktree } : {}),
       },
       { command: () => command, branch: input.branch, base: input.base },
     );
@@ -154,6 +158,7 @@ export async function openSession(
     goal: input.goal,
     parent,
     ...(input.general ? { cwd: deps.home } : {}),
+    ...(input.worktree ? { worktree: input.worktree } : {}),
   };
   if (waited && !isOver(waited)) {
     const { branch, base } = input;

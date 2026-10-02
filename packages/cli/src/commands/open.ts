@@ -40,6 +40,11 @@ export const open = defineCommand({
       description:
         'Run it in its own git worktree on this branch, new or existing, under the profile',
     },
+    checkout: {
+      type: 'string',
+      description:
+        'Run it in this existing linked worktree of the project (a detached one gets a new branch)',
+    },
     worktree: {
       type: 'boolean',
       description:
@@ -66,6 +71,7 @@ export const open = defineCommand({
       after: flags.after,
       branch: flags.branch,
       worktree: flags.worktree,
+      checkout: flags.checkout,
       base: flags.base,
       terminal: flags.terminal,
       general: flags.general,

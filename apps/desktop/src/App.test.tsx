@@ -3313,3 +3313,105 @@ test('the Sessions and Projects tabs go back to the session and project last sho
     [...document.querySelectorAll<HTMLElement>('[aria-current="page"]')].map((e) => e.textContent),
   ).toContain('git');
 });
+
+test('worktree cards start a session in a worktree, recycle it, and remove one with work after Delete anyway', async () => {
+  const preview = (action: string, extra = {}) => ({
+    action,
+    project: 'lantern-cove',
+    token: `${action}-token`,
+    paths: ['/h/feature'],
+    branch: 'feature',
+    holders: [],
+    changes: [],
+    ignored: [],
+    unpublished: false,
+    allowed: true,
+    reasons: [],
+    forceable: false,
+    ...extra,
+  });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    'worktrees list': () =>
+      envelope([
+        { path: '/h/src/lantern-cove', main: true, state: 'ready', branch: 'main', holders: [] },
+        { path: '/h/feature', main: false, state: 'ready', branch: 'feature', holders: [] },
+      ]),
+    'worktrees preview': (args) =>
+      envelope(
+        args.includes('--action=remove')
+          ? preview('remove', {
+              allowed: false,
+              forceable: true,
+              reasons: ['worktree has changed or untracked files'],
+              changes: [' M src/app.ts'],
+            })
+          : preview('recycle', { base: 'origin/main' }),
+      ),
+    'worktrees apply': (args) =>
+      envelope({
+        action: args.includes('--action=remove') ? 'remove' : 'recycle',
+        paths: ['/h/feature'],
+        branch: 'feature',
+        base: 'origin/main',
+        receipt: null,
+      }),
+    open: () => envelope(managedRow('dddddddd')),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  const action = (label: string) =>
+    click(document.querySelector<HTMLElement>(`[aria-label="${label}"]`) ?? undefined);
+  // main has New session only; a linked worktree has all three.
+  expect(document.querySelector('[aria-label="Recycle main"]')).toBeNull();
+  await action('New session in feature');
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--checkout=/h/feature',
+    '--',
+    'lantern-cove',
+  ]);
+
+  await openProject(byTestId);
+  await action('Recycle feature');
+  expect(byTestId('worktree-dialog')[0]?.textContent).toContain(
+    'Resets it to origin/main, detached, for a new session. Branch feature stays.',
+  );
+  await click(byTestId('worktree-confirm')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'worktrees',
+    'apply',
+    '--action=recycle',
+    '--token=recycle-token',
+    '--',
+    'lantern-cove',
+    '/h/feature',
+  ]);
+
+  await action('Remove feature');
+  const dialog = byTestId('worktree-dialog')[0];
+  expect(dialog?.textContent).toContain('Worktree has unsaved work');
+  expect(byTestId('worktree-reasons')[0]?.textContent).toContain(' M src/app.ts');
+  expect(byTestId('worktree-confirm')[0]?.textContent).toBe('Delete anyway');
+  await click(byTestId('worktree-confirm')[0]);
+  expect(calls).toContainEqual([
+    '--json',
+    'worktrees',
+    'apply',
+    '--action=remove',
+    '--token=remove-token',
+    '--force',
+    '--',
+    'lantern-cove',
+    '/h/feature',
+  ]);
+  // Nothing stale: Cleanup waits.
+  expect(
+    [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find((b) => b.textContent === 'Cleanup')
+      ?.hasAttribute('disabled'),
+  ).toBe(true);
+});

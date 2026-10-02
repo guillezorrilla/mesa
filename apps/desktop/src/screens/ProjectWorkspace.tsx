@@ -46,6 +46,7 @@ import { RulesWorkspace } from './RulesWorkspace';
 import { SkillsWorkspace } from './SkillsWorkspace';
 import { useGitChangeCount } from './useGitChangeCount';
 import { VaultOverview } from './vault/VaultOverview';
+import { WorktreesSection } from './WorktreesSection';
 
 /** A project page's tabs. */
 export type ProjectTab = 'overview' | 'git' | 'files' | 'skills' | 'rules';
@@ -65,7 +66,12 @@ export function ProjectWorkspace(props: {
   filesDirty: boolean;
   file?: { checkout: string; path: string; line: number };
   onFilesDirtyChange: (dirty: boolean) => void;
-  onNewSession: (project: string, kind: 'main' | 'worktree' | 'terminal') => void;
+  /** A session at once, in `checkout` (an existing linked worktree) when given. */
+  onNewSession: (
+    project: string,
+    kind: 'main' | 'worktree' | 'terminal',
+    checkout?: string,
+  ) => void;
   onAgentSettings: () => void;
 }) {
   const { project } = props;
@@ -443,39 +449,13 @@ export function ProjectWorkspace(props: {
             </div>
           </section>
           {worktrees.data && worktrees.data.length > 0 && (
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <FolderGit2 aria-hidden className="size-4" /> Worktrees ({worktrees.data.length})
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                {worktrees.data.map((tree) => (
-                  <div
-                    key={tree.path}
-                    className="flex min-w-36 flex-col items-start gap-1 rounded-md border bg-card/40 p-3 text-xs"
-                  >
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Folder aria-hidden className="size-3" />
-                      {tree.main ? 'main' : tree.path.split('/').at(-1)}
-                    </span>
-                    <span className="flex items-center gap-1 font-mono text-state-working">
-                      <GitBranch aria-hidden className="size-3" />
-                      {tree.branch ?? 'detached'}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {tree.holders.length ? `${tree.holders.length} session(s)` : tree.state}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="flex h-12 min-w-24 items-center justify-center gap-2 rounded-md border border-dashed px-4 text-xs text-muted-foreground hover:bg-accent"
-                disabled={!project.exists}
-                onClick={() => props.onNewSession(project.name, 'worktree')}
-              >
-                <Plus aria-hidden className="size-3.5" /> New
-              </button>
-            </section>
+            <WorktreesSection
+              project={project.name}
+              exists={project.exists}
+              worktrees={worktrees}
+              onNewSession={(checkout) => props.onNewSession(project.name, 'main', checkout)}
+              onNewWorktree={() => props.onNewSession(project.name, 'worktree')}
+            />
           )}
           <section className="space-y-3">
             <div className="flex items-center justify-between">

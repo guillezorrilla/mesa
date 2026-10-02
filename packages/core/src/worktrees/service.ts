@@ -52,13 +52,19 @@ export function worktreesService(ctx: MesaContext) {
       ),
     preview: (project: string, action: WorktreeAction, selected?: string) =>
       previewWorktreeAction(ctx.open(), ctx.deps.run, ctx.store, project, action, selected),
-    apply: (project: string, action: WorktreeAction, token: string, selected?: string) =>
+    apply: (
+      project: string,
+      action: WorktreeAction,
+      token: string,
+      selected?: string,
+      opts: { force?: boolean; deleteBranch?: boolean } = {},
+    ) =>
       ctx.record(
         {
           summary: (result) => `${action} worktrees in ${project}: ${result.paths.length} changed`,
           failure: `Could not ${action} worktrees in ${project}`,
           project: () => project,
-          inputs: { project, action, selected, token },
+          inputs: { project, action, selected, token, ...opts },
           outputs: (result) => ({ ...result }),
           warning: (result) =>
             result.remaining?.length
@@ -74,6 +80,7 @@ export function worktreesService(ctx: MesaContext) {
             action,
             token,
             selected,
+            opts,
           ),
       ),
   };

@@ -3,13 +3,15 @@ import { isAbsolute, join, relative } from 'node:path';
 import { createCheckedFilePath } from '../files/path.js';
 import { gitWorktrees, resolveCheckout } from '../git/checkout.js';
 import { gitCommand } from '../git/command.js';
+import type { IdSource } from '../lib/ids.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { worktreeHolder } from '../sessions/holders.js';
+import { checkoutHolders, worktreeHolder } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
-import { addWorktree, removeWorktree, worktreePath } from '../sessions/worktree.js';
+import { addWorktree, removeWorktree, type Worktree, worktreePath } from '../sessions/worktree.js';
+import { sessionBranchName } from './branch-name.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
 import { worktreeScript, worktreeSettings } from './settings.js';
 
@@ -51,6 +53,38 @@ export async function sessionWorktree(
     throw new MesaError('usage', `${path} is not ${branch}'s linked worktree`);
   const checkout = await resolveCheckout(profile, run, project.name, path);
   return { worktree: { path: checkout.path, branch }, created: false };
+}
+
+/**
+ * A session's worktree from an existing linked checkout of `project` (mesa open --checkout), one no
+ * unfinished session runs in. A detached one (a recycled worktree) gets a new branch Mesa names,
+ * started where it stands, so its session's work has a branch of its own.
+ */
+export async function checkoutWorktree(
+  profile: Profile,
+  run: Runner,
+  store: SessionStore,
+  project: RegistryEntry,
+  selected: string,
+  newId: IdSource,
+): Promise<Worktree> {
+  const checkout = await resolveCheckout(profile, run, project.name, selected);
+  if (checkout.registered)
+    throw new MesaError('usage', `${checkout.path} is the project's own checkout: drop --checkout`);
+  const root = realpathSync.native(project.path);
+  const running = checkoutHolders(store.list(), project.name, root, checkout.path);
+  if (running.length)
+    throw new MesaError(
+      'usage',
+      `session ${running.map((r) => r.id).join(', ')} runs in ${checkout.path}: use it, or stop it first`,
+    );
+  const linked = (await gitWorktrees(run, root)).find((entry) => entry.path === checkout.path);
+  if (linked?.branch) return { path: checkout.path, branch: linked.branch };
+  const branch = sessionBranchName(newId);
+  const made = await gitCommand(run, checkout.path, ['switch', '--quiet', '-c', branch]);
+  if (!made.ok)
+    throw new MesaError('usage', `cannot start ${branch} in ${checkout.path}: ${made.detail}`);
+  return { path: checkout.path, branch, ...(linked?.head ? { base: linked.head } : {}) };
 }
 
 /**
