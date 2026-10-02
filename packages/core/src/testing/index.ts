@@ -695,4 +695,5 @@ export {
   fakeSignIn,
   memorySecretStore,
   TEST_BROKER,
+  writesImportNotes,
 } from './sources.js';

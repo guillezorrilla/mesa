@@ -21,6 +21,15 @@ All are read scopes: Mesa never writes to Atlassian.
 
 `read:hierarchical-content:confluence` is requested and configured in the app, but in the live sign-in (2026-10-01) Atlassian did not grant it on the token: `GET /wiki/api/v2/pages/{id}/ancestors` answered 401 "scope does not match", while `GET /wiki/api/v2/pages/{id}/direct-children` worked. A page's tree is built from its children, not its ancestors.
 
+## What an import reads
+
+`mesa import` (CONTEXT.md, Import) makes only GETs, each through the authorized fetch:
+
+- Jira: `/ex/jira/<cloud id>/rest/api/3/issue/<key>?expand=renderedFields`, then `/issue/<key>/comment?expand=renderedBody&startAt=<n>&maxResults=100` until every comment is read.
+- Confluence: `/ex/confluence/<cloud id>/wiki/api/v2/pages/<id>?body-format=view`, then each ancestor by the page's `parentId` (`/pages/<parentId>`, while `parentType` is `page`, at most ten). The `/pages/<id>/ancestors` endpoint answers 401 "scope does not match" on real tokens, which lack `read:hierarchical-content:confluence`.
+
+A 404 or 403 means the item is gone or not shared with the signed-in account; the import says so and writes nothing.
+
 ## Callback route
 
 The only callback URL registered with Atlassian is the broker's:

@@ -10,7 +10,7 @@ import { vaultFile, vaultWriteFile } from './scope.js';
 import { withVaultLock } from './vault-lock.js';
 
 /** Where notes go: the vault root and the clock that stamps them. */
-type NotesDeps = { vault: string; clock: Clock };
+export type NotesDeps = { vault: string; clock: Clock };
 /** For a change under the vault lock: `sleep` waits between tries for it. */
 export type LockedNotesDeps = NotesDeps & { sleep: (ms: number) => Promise<void> };
 
@@ -55,10 +55,11 @@ export function refuseForeign(file: string, note: Note | undefined): void {
 
 /**
  * Writes a note at `path` (relative to the vault) atomically. The frontmatter gets `created` (kept
- * from the note it replaces), `updated`, and `source: mesa`, then the caller's fields. A note
- * whose frontmatter says `locked: true` is never replaced.
+ * from the note it replaces), `updated`, and `source` (`mesa`, or the Source an Import snapshot
+ * came from), then the caller's fields. A note whose frontmatter says `locked: true` is never
+ * replaced.
  */
-export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note {
+export function writeNote(deps: NotesDeps, note: { path: string } & Note, source = 'mesa'): Note {
   const project =
     typeof note.frontmatter.project === 'string' ? note.frontmatter.project : undefined;
   const file = vaultWriteFile(deps.vault, note.path, project);
@@ -69,7 +70,7 @@ export function writeNote(deps: NotesDeps, note: { path: string } & Note): Note 
   const frontmatter: Frontmatter = {
     created: previous?.frontmatter.created ?? now,
     updated: now,
-    source: 'mesa',
+    source,
     ...fields,
   };
   mkdirSync(dirname(file), { recursive: true });

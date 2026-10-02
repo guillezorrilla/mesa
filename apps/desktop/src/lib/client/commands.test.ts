@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
+import { importsCommands } from './imports';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
 import { reviewCommands } from './review';
@@ -20,6 +21,7 @@ test('no command name is defined by two domain tables', () => {
     doctorCommands,
     filesCommands,
     gitCommands,
+    importsCommands,
     notificationsCommands,
     projectsCommands,
     reviewCommands,

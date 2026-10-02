@@ -7,6 +7,15 @@ import { parseNote } from '../vault/frontmatter.js';
 
 // The skills Mesa ships (CONTEXT.md, Skill): the repo's `skills/`, one folder per skill.
 
+/** The skill whose run writes an Import's notes (skills/import-notes). */
+export const IMPORT_NOTES = 'import-notes';
+
+/**
+ * Skills Mesa's own pipelines run (an Import's notes): enabled for their own Skill run whatever
+ * the skills lists say, and for nothing else.
+ */
+export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES];
+
 /** A skill's own file, read by both agents. */
 const SKILL_FILE = 'SKILL.md';
 
