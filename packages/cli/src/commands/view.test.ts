@@ -31,7 +31,9 @@ test("view shows a project's sessions side by side, laid out by its mesa.yaml", 
   // One view window of its own, its first pane a terminal on the oldest session's window.
   expect(views().map((w) => w.window)).toEqual(['lantern-cove']);
   expect(views()[0]?.launch).toMatch(
-    new RegExp(`^unset TMUX; exec 'tmux' .*'=_view-\\w+:=claude-${a}'$`),
+    new RegExp(
+      `^unset TMUX; exec 'tmux' .*'link-window' '-k' '-s' '=lantern-cove:=claude-${a}' '-t' '=_view-\\w+:0'$`,
+    ),
   );
   expect((await mesa('windows', '--json')).json.data).toHaveLength(2);
 

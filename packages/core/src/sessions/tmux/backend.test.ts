@@ -306,7 +306,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       .map((l) => l.split(' '));
     expect(panes.map(([left]) => left)).toEqual(['0', '0']);
     expect(new Set(panes.map(([, top]) => top)).size).toBe(2);
-    // Each pane is a terminal on its own window, through a view of its own, as mesa attach makes.
+    // Each pane is a terminal on its own window through a single-window view.
     const current = (session: string) =>
       raw('display-message', '-p', '-t', `=${session}:`, '#{window_name}');
     expect(await eventually(() => current('_view-v2'), /claude-view01/)).toBe('claude-view01');
@@ -327,13 +327,36 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
       'destroy-unattached',
       'on',
     ]);
+    await tmux.killWindow(a);
+    const clients = () => raw('list-clients', '-F', '#{session_name}');
+    expect(await eventually(clients, /^_view-v3$/)).toBe('_view-v3');
+    expect(await raw('list-panes', '-t', '=_view-v1:=lantern', '-F', '#{pane_dead}')).toBe('1\n0');
+    expect(await current('_view-v3')).toBe(b.window);
+    expect(await raw('has-session', '-t', '=_view-v2')).toMatch(/^failed/);
+    // The surviving pane still sends only to its own agent.
+    await raw('send-keys', '-t', '=_view-v1:=lantern.1', '-l', 'still-b');
+    await raw('send-keys', '-t', '=_view-v1:=lantern.1', 'Enter');
+    expect(await eventually(() => tmux.capturePane(b, 5), /still-b/)).toContain('still-b');
     await raw('kill-session', '-t', '=_view-v1');
 
-    await expect(tmux.openView([a], 'sideways', 'lantern', ids)).rejects.toMatchObject({
+    await expect(tmux.openView([b], 'sideways', 'lantern', ids)).rejects.toMatchObject({
       code: 'usage',
       message: expect.stringMatching(/^tmux cannot lay out a view as sideways: /),
     });
     expect(await raw('has-session', '-t', '=_view-v4')).toMatch(/^failed/);
+  });
+
+  test('a view whose source window vanished before linking ends its client', async () => {
+    let n = 0;
+    const view = await tmux.openView([lantern('gone')], 'tiled', 'missing', () => `missing${++n}`);
+    try {
+      expect(
+        await eventually(() => raw('list-panes', '-t', exact(view), '-F', '#{pane_dead}'), /^1$/),
+      ).toBe('1');
+      expect(await raw('has-session', '-t', '=_view-missing2')).toMatch(/^failed/);
+    } finally {
+      await tmux.closeView(view);
+    }
   });
 
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {
