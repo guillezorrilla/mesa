@@ -1,4 +1,5 @@
 import type {
+  Agent,
   Config,
   GridGroup,
   GuardrailCheck,
@@ -44,6 +45,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useCall, useRun } from '@/lib/useCommand';
+import { AgentSwitcher } from './AgentSwitcher';
 import { ArchiveDialog } from './ArchiveDialog';
 import { BrowserPanel } from './BrowserPanel';
 import { DependencyDialog } from './DependencyDialog';
@@ -71,7 +73,6 @@ type OpenDialog =
   | {
       kind:
         | 'rename'
-        | 'handoff'
         | 'log'
         | 'remove'
         | 'archive'
@@ -81,6 +82,8 @@ type OpenDialog =
         | 'remove-descendants';
       row: ManagedRow;
     }
+  /** Hand off, to `agent` when a swap asked for it. */
+  | { kind: 'handoff'; row: ManagedRow; agent?: Agent }
   | {
       kind: 'guardrail';
       id: string;
@@ -327,6 +330,12 @@ export function SessionsScreen(
       close();
       return said(`Handed off ${id} to ${done.to}`, done);
     });
+  const swap = (id: string, agent: Agent) =>
+    act(async () => {
+      const swapped = await run('sessions.swap', { id, agent });
+      if (!swapped) return undefined;
+      return said(`Swapped ${id} to ${agent}`, swapped);
+    });
   const fork = (id: string, branch?: string) =>
     act(async () => {
       const created = await run('sessions.fork', { id, branch });
@@ -463,6 +472,11 @@ export function SessionsScreen(
     );
   };
 
+  /** A panel's window, so a swap, which moves its session to a new one, remounts it. */
+  const panelWindow = (id: string) => {
+    const row = data?.find((r) => r.id === id);
+    return row?.managed ? row.tmux.window : '';
+  };
   const emptyStart = !props.selectedSession && !props.gridMode;
   return (
     <section
@@ -508,7 +522,20 @@ export function SessionsScreen(
               }
             />
           )}
-          <span className="ml-auto text-xs text-muted-foreground">{selected?.agent}</span>
+          <span className="ml-auto" />
+          {selected?.managed &&
+          selected.kind === 'interactive' &&
+          selected.agent !== 'terminal' &&
+          !selected.background ? (
+            <AgentSwitcher
+              row={selected}
+              disabled={acting}
+              onSwap={(agent) => swap(selected.id, agent)}
+              onHandoff={(agent) => setDialog({ kind: 'handoff', row: selected, agent })}
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground">{selected?.agent}</span>
+          )}
           {selected && reviewable(selected) && (
             <Button
               variant="ghost"
@@ -804,6 +831,7 @@ export function SessionsScreen(
       {dialog?.kind === 'handoff' && (
         <HandoffDialog
           row={dialog.row}
+          agent={dialog.agent}
           disabled={acting}
           onHandoff={(note, keep, agent) => handoff(dialog.row.id, note, keep, agent)}
           onCancel={close}
@@ -931,7 +959,8 @@ export function SessionsScreen(
       >
         {panels.map((id) => (
           <div
-            key={id}
+            // A swap moves the session to a new window: its terminal attaches there afresh.
+            key={`${id}-${panelWindow(id)}`}
             data-testid={props.gridMode ? 'grid-tile' : undefined}
             hidden={
               props.selectedSession

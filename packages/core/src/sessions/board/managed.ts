@@ -7,6 +7,7 @@ import type { SessionRecord } from '../record.js';
 import { classifySession, type Placement, type SessionSignals } from '../state.js';
 import { FINAL_STATES, isAgentState } from '../states.js';
 import type { SessionStore } from '../store.js';
+import { hasConversation } from '../swap.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
 import { windowOf } from '../window-name.js';
@@ -115,13 +116,11 @@ export async function managedRow(
   }
   const reader = AGENTS[found.agent];
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
-  // A stopped session keeps its state, so its hook log is not read.
-  const event = found.endedAt
-    ? undefined
-    : deps
-        .events(found.id)
-        .filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload))
-        .at(-1);
+  // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
+  const events = found.endedAt ? [] : deps.events(found.id);
+  const event = events
+    .filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload))
+    .at(-1);
   const signals: SessionSignals = {
     now: now.toISOString(),
     agent: found.agent,
@@ -186,5 +185,6 @@ export async function managedRow(
     ...(listed?.status === undefined ? {} : { agentStatus: listed.status }),
     ...(listed?.nativeState === undefined ? {} : { nativeState: listed.nativeState }),
     ...(lastOutput ? { lastOutput } : {}),
+    ...(hasConversation(record, events) ? { conversation: true as const } : {}),
   };
 }
