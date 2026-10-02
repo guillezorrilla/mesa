@@ -631,3 +631,15 @@ test('worktrees.deleteBranch is off by default and config set --json turns it on
   expect(await deleteBranch()).toBe(true);
   expect((await cli.mesa('config', 'set', 'worktrees.deleteBranch', 'maybe')).code).toBe(4);
 });
+
+test('open --worktree starts a session in a new worktree on a branch Mesa names', async () => {
+  await creationRepo();
+  const opened = await cli.mesa('open', 'lantern-cove', '--worktree', '--no-parent', '--json');
+  expect(opened.code, opened.stdout).toBe(0);
+  const { branch, path } = opened.json.data.worktree;
+  expect(branch).toMatch(/^session\/[a-z]+-[a-z]+-[0-9a-z]{4}$/);
+  expect(path).toBe(join(cli.paths.worktrees, 'lantern-cove', branch.replace('/', '-')));
+  const both = await cli.mesa('open', 'lantern-cove', '--worktree', '--branch', 'x', '--json');
+  expect(both).toMatchObject({ code: 2 });
+  expect(both.json.error.message).toBe('pass --worktree or --branch, not both');
+});

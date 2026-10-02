@@ -1479,12 +1479,13 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
 });
 
 test('Sessions sidebar shows a branch, compact control, and child action', async () => {
-  const { bridge } = fakeBridge({
+  const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () =>
       envelope([
         managedRow('aaaaaaaa', { worktree: { path: '/h/worktrees/feature', branch: 'feature' } }),
       ]),
+    open: () => envelope(managedRow('child001')),
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   const card = () => byTestId('sidebar-session')[0];
@@ -1501,8 +1502,16 @@ test('Sessions sidebar shows a branch, compact control, and child action', async
       '[aria-label="New child session from aaaaaaaa (aaaaaaaa)"]',
     ) as HTMLElement,
   );
-  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New worktree session');
-  expect((byTestId('new-session-project')[0] as HTMLInputElement).readOnly).toBe(true);
+  // At once, in its own worktree on a branch Mesa names.
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--parent',
+    'aaaaaaaa',
+    '--worktree',
+    '--',
+    'lantern-cove',
+  ]);
 });
 
 test('unnamed sessions are told apart by their goal, else their id, and idle is not warm', async () => {
@@ -1557,11 +1566,12 @@ test('Sessions sidebar menu opens the selected session dependency editor', async
 });
 
 test('General session menu can start a child terminal without a project', async () => {
-  const { bridge } = fakeBridge({
+  const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     sessions: () => envelope([managedRow('aaaaaaaa', { project: GENERAL_PROJECT })]),
+    open: () => envelope(managedRow('child001', { project: GENERAL_PROJECT })),
   });
-  const byTestId = await renderWithMesa(<App />, bridge);
+  await renderWithMesa(<App />, bridge);
   await click(
     document.querySelector('[aria-label="More actions for aaaaaaaa (aaaaaaaa)"]') as HTMLElement,
   );
@@ -1571,8 +1581,15 @@ test('General session menu can start a child terminal without a project', async 
     'Set dependency',
   ]);
   await click(options[0]);
-  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New terminal session');
-  expect(byTestId('new-session-project')).toHaveLength(0);
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--parent',
+    'aaaaaaaa',
+    '--terminal',
+    '--general',
+    '--',
+  ]);
 });
 
 test('selected session details read native context by exact id and keep unknown facts honest', async () => {
@@ -2108,8 +2125,6 @@ test('quick terminal tile opens a plain terminal in the selected project', async
   const byTestId = await renderWithMesa(<App />, bridge);
   await openProject(byTestId);
   await click(byTestId('quick-terminal')[0]);
-  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('New terminal session');
-  await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
     'open',
@@ -2150,7 +2165,6 @@ test('project session menu offers three real launch paths and closes after choos
   ]);
   await click(options[1]);
   expect(menu.getAttribute('aria-expanded')).toBe('false');
-  await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
     'open',
@@ -2183,22 +2197,12 @@ test('global New session offers General without a registered project', async () 
     button.textContent?.includes('General Session'),
   );
   await click(general);
-  expect(byTestId('new-session-dialog')[0]?.textContent).toContain('General session');
-  expect(byTestId('new-session-project')).toHaveLength(0);
-  await click(byTestId('new-session-submit')[0]);
   expect(toasts(byTestId)).toContainEqual([
     'alert',
-    "Opened session gener001 on General; Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer",
+    "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer",
   ]);
-  expect(calls).toContainEqual([
-    '--json',
-    'open',
-    '--no-parent',
-    '--agent',
-    'codex',
-    '--general',
-    '--',
-  ]);
+  // No --agent: mesa open takes the profile default (codex here) itself.
+  expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--general', '--']);
   await click(
     [...(byTestId('selected-session')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent === 'General',
@@ -2247,17 +2251,12 @@ test('selected session actions launch a child terminal and a child worktree', as
       button.textContent?.includes('New child worktree session'),
     ),
   );
-  expect((byTestId('new-session-project')[0] as HTMLInputElement).value).toBe('lantern-cove');
-  (byTestId('new-session-branch')[0] as HTMLInputElement).value = 'child-branch';
-  await click(byTestId('new-session-submit')[0]);
   expect(calls).toContainEqual([
     '--json',
     'open',
     '--parent',
     parent.id,
-    '--agent',
-    'claude',
-    '--branch=child-branch',
+    '--worktree',
     '--',
     'lantern-cove',
   ]);
@@ -2458,7 +2457,7 @@ test('an action chosen in Search Mesa keeps the focus it moves: Profile and vaul
   expect((summary.parentElement as HTMLDetailsElement).open).toBe(true);
 });
 
-test('Search Mesa disables New session when no project can start, and opens it when one can', async () => {
+test('Search Mesa disables New session when no project can start, and starts one when one can', async () => {
   const empty = await renderWithMesa(<App />, fakeBridge().bridge);
   await click(empty('search-trigger')[0]);
   expect(
@@ -2466,11 +2465,15 @@ test('Search Mesa disables New session when no project can start, and opens it w
       .find((hit) => hit.textContent?.includes('New session'))
       ?.hasAttribute('disabled'),
   ).toBe(true);
-  const { bridge } = fakeBridge({ projects: () => envelope(PROJECTS) });
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    open: () => envelope(managedRow('dddddddd')),
+  });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('search-trigger')[0]);
   await click(byTestId('palette-hit').find((hit) => hit.textContent?.includes('New session')));
-  expect(byTestId('new-session-dialog')).toHaveLength(1);
+  // The first project that exists, as nothing is in view.
+  expect(calls).toContainEqual(['--json', 'open', '--no-parent', '--', 'lantern-cove']);
 });
 
 test('shortcut settings validate conflicts and update the active profile key', async () => {
@@ -2649,33 +2652,6 @@ test('palette inserts a saved multiline prompt in the selected session without s
   expect(field.closest('details')?.open).toBe(true);
   expect(document.activeElement).toBe(field);
   expect(calls.some((args) => args.includes('send'))).toBe(false);
-});
-
-test('a saved prompt fills a new Claude session goal byte for byte without starting it', async () => {
-  const text = 'First instruction\n\n  Keep this indentation.\n';
-  const { bridge, calls } = fakeBridge({
-    projects: () => envelope(PROJECTS),
-    prompts: () => envelope([{ name: 'Review', text }]),
-    open: () => envelope(managedRow('aaaaaaaa')),
-  });
-  const byTestId = await renderWithMesa(<App />, bridge);
-  await click(document.querySelector('[aria-label="New session in lantern-cove"]') as HTMLElement);
-  await click([...document.querySelectorAll<HTMLElement>('[role="menuitem"]')][0]);
-  await click(
-    [...document.querySelectorAll<HTMLElement>('button')].find(
-      (button) => button.textContent === 'Saved prompts',
-    ),
-  );
-  await click(
-    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-      (item) => item.textContent === 'Review',
-    ),
-  );
-  expect((byTestId('new-session-goal')[0] as HTMLTextAreaElement).value).toBe(text);
-  expect(calls.some((args) => args[1] === 'open')).toBe(false);
-  await click(byTestId('new-session-submit')[0]);
-  const opened = calls.find((args) => args[1] === 'open');
-  expect(opened).toContain(`--goal=${text}`);
 });
 
 test('quitting can be cancelled, and a failed close-time backup keeps the app open', async () => {

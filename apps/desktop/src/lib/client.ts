@@ -952,11 +952,13 @@ const COMMANDS = {
       background?: boolean;
       goal?: string;
       branch?: string;
+      /** Its own worktree on a branch Mesa names. */
+      worktree?: boolean;
       terminal?: boolean;
       parent?: string;
     },
     Recorded<SessionRecord>
-  >(({ project, general, agent, mode, background, goal, branch, terminal, parent }) => [
+  >(({ project, general, agent, mode, background, goal, branch, worktree, terminal, parent }) => [
     'open',
     ...(parent ? ['--parent', parent] : ['--no-parent']),
     ...(agent ? ['--agent', agent] : []),
@@ -964,6 +966,7 @@ const COMMANDS = {
     ...(background ? ['--background'] : []),
     ...(goal?.trim() ? [`--goal=${goal}`] : []),
     ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
+    ...(worktree ? ['--worktree'] : []),
     ...(terminal ? ['--terminal'] : []),
     ...(general ? ['--general'] : []),
     '--',
