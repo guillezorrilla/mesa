@@ -61,6 +61,7 @@ import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
 import { dangerousLaunch, markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
+import { swapAgent } from './swap.js';
 import { killIfThere } from './tmux/backend.js';
 import { vaultStatus } from './vault-status.js';
 import { viewProject } from './view.js';
@@ -855,6 +856,28 @@ export function sessionsService(
           },
           () => resumeSession(openDeps(), id),
         ).then((recorded) => markEnded(ctx, recorded, recorded.result.from)),
+      /** A fresh session's agent swapped in place (CONTEXT.md, Swap), with its receipt. */
+      swap: (id: string, agent: string) =>
+        record(
+          {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
+            type: 'session',
+            summary: (r) => `Swapped session ${r.record.id} to ${r.record.agent}`,
+            failure: `Could not swap session ${id} to ${agent}`,
+            warning: (r) => r.warning,
+            project: (r) => projectScope(r.record.project),
+            session: (r) => r.record.id,
+            agent: (r) => recordAgent(r.record),
+            inputs: { id, agent },
+            outputs: (r) => ({
+              window: r.record.tmux.window,
+              agentSessionId: r.record.agentSessionId,
+              ...dangerousLaunch(r.record, open().config.agents),
+            }),
+          },
+          () => swapAgent({ ...openDeps(), eventsDir: paths.events }, id, agent),
+        ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       fork: (id: string, opts: { branch?: string; base?: string } = {}) =>
         record(
           {

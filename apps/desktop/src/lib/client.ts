@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentCapabilityReport,
   Attached,
   BasesWritten,
   BrowserAnnotationInput,
@@ -540,6 +541,8 @@ const COMMANDS = {
     Recorded<{ path: string; value: unknown }>
   >(({ path, value }) => ['config', 'set', '--', path, JSON.stringify(value)]),
   'doctor.run': command<DoctorReport>('doctor'),
+  /** Each agent Mesa runs: installed, its version, and the operations qualified on it. */
+  'agents.list': command<AgentCapabilityReport>('agents'),
   'diagnostics.list': commandWith<{ event?: string }, DiagnosticReport>(({ event }) => [
     'diagnostics',
     ...(event ? ['--event', event] : []),
@@ -882,6 +885,10 @@ const COMMANDS = {
     '--',
     id,
   ]),
+  /** A fresh session's agent swapped in place (CONTEXT.md, Swap). */
+  'sessions.swap': commandWith<{ id: string; agent: Agent }, Recorded<SessionRecord>>(
+    ({ id, agent }) => ['swap', '--', id, agent],
+  ),
   'sessions.resume': commandWith<{ id: string }, Recorded<SessionRecord>>(({ id }) => [
     'resume',
     '--',

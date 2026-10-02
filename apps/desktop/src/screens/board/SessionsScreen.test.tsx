@@ -573,3 +573,67 @@ test("the row menu's Log shows a session's last output lines, and reads them aga
   expect(byTestId('log-said')[0]?.textContent).toMatch(/^No output log: it has not started/);
   expect(byTestId('log-lines')).toHaveLength(0);
 });
+
+const idle = {
+  state: 'idle' as const,
+  confidence: 0.85,
+  at: '2026-09-25T12:00:00.000Z',
+  source: 'hook' as const,
+};
+const installed = () =>
+  envelope({
+    claude: { installed: true },
+    codex: { installed: true },
+    antigravity: { installed: false },
+  });
+
+test('the header agent swaps a fresh session in place, as the reference app does', async () => {
+  const fresh = managedRow('aaaaaaaa', { lastState: idle });
+  const { bridge, calls } = fakeBridge({
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+    sessions: () => envelope([fresh]),
+    agents: installed,
+    swap: () =>
+      envelope({ ...fresh, agent: 'codex', tmux: { ...fresh.tmux, window: 'codex-aaaaaaaa' } }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const switcher = byTestId('agent-switcher')[0];
+  expect(switcher?.textContent?.trim()).toBe('claude');
+  await click(switcher);
+  const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  expect(items.map((item) => [item.textContent, item.hasAttribute('data-disabled')])).toEqual([
+    ['claude (current)', true],
+    ['Swap to codex', false],
+    ['antigravity Not installed', true],
+  ]);
+  await click(menuItem('Swap to codex'));
+  expect(calls).toContainEqual(['--json', 'swap', '--', 'aaaaaaaa', 'codex']);
+  expect(toastTexts(byTestId)).toContain('Swapped aaaaaaaa to codex');
+});
+
+test('swapping a session with a conversation hands off to that agent instead', async () => {
+  const talked = managedRow('aaaaaaaa', { lastState: idle, conversation: true });
+  const { bridge, calls } = fakeBridge({
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+    sessions: () => envelope([talked]),
+    agents: installed,
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('agent-switcher')[0]);
+  await click(menuItem('Swap to codex'));
+  expect((byTestId('handoff-agent')[0] as HTMLSelectElement).value).toBe('codex');
+  expect(calls.filter((c) => c[1] === 'swap')).toHaveLength(0);
+});
+
+test('the header agent cannot swap while the session works', async () => {
+  const { bridge } = fakeBridge({
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    agents: installed,
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('agent-switcher')[0]?.hasAttribute('disabled')).toBe(true);
+  expect(byTestId('agent-switcher')[0]?.getAttribute('aria-label')).toBe(
+    'Swap coding agent once the session is idle',
+  );
+});
