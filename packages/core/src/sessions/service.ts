@@ -15,6 +15,7 @@ import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { skillsService } from '../skills/service.js';
+import { sessionBranchName } from '../worktrees/branch-name.js';
 import { adoptSession } from './adopt.js';
 import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
@@ -429,20 +430,11 @@ export function sessionsService(
        */
       open: (
         project: string | undefined,
-        opts: Omit<OpenInput, 'project'> & { goalFile?: string } = {},
+        opts: Omit<OpenInput, 'project'> & { goalFile?: string; worktree?: boolean } = {},
       ) => {
-        const {
-          agent,
-          mode,
-          background,
-          parent,
-          noParent,
-          after,
-          branch,
-          base,
-          terminal,
-          general,
-        } = opts;
+        const { agent, mode, background, parent, noParent, after, base, terminal, general } = opts;
+        // A worktree of its own on a branch Mesa names (sessionBranchName).
+        const branch = opts.worktree ? sessionBranchName(deps.newId) : opts.branch;
         let goal: string | undefined;
         let refused: unknown;
         try {
@@ -453,6 +445,8 @@ export function sessionsService(
         } catch (error) {
           refused = error;
         }
+        if (opts.worktree && opts.branch !== undefined)
+          refused = new MesaError('usage', 'pass --worktree or --branch, not both');
         const text = goal ?? opts.goal;
         const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());
         return record(

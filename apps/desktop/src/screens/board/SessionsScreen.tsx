@@ -51,29 +51,21 @@ import { GridToolbar } from './GridToolbar';
 import { GuardrailDialog, guardrailOf } from './GuardrailDialog';
 import { HandoffDialog } from './HandoffDialog';
 import { LogDialog } from './LogDialog';
-import { NewSessionDialog, type NewSessionInput } from './NewSessionDialog';
 import { RemoveDialog } from './RemoveDialog';
 import { RenameDialog } from './RenameDialog';
 import { ResponseReview } from './ResponseReview';
 import { RowMenu } from './RowMenu';
 import { exited, queued, recoverable, resumable } from './rows';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
-import { SessionStart } from './SessionStart';
+import { type NewSessionInput, SessionStart } from './SessionStart';
 import { TerminalPanel } from './TerminalPanel';
 import { useSessions } from './useSessions';
 
 /**
- * The one dialog open in Sessions, if any: New session, a row's Rename, Hand off, Log, or
+ * The one dialog open in Sessions, if any: a row's Rename, Hand off, Log, or
  * Remove, or the guardrail's ask on a prompt a row's Send sent (its form is cleared once sent).
  */
 type OpenDialog =
-  | {
-      kind: 'new';
-      project?: string;
-      general?: boolean;
-      parent?: string;
-      location?: 'main' | 'worktree' | 'terminal';
-    }
   | {
       kind:
         | 'rename'
@@ -107,13 +99,6 @@ export function SessionsScreen(
     onRowsChange?: (rows: TreeRow[]) => void;
     onSessions?: () => void;
     onProject?: (project: string) => void;
-    newSessionRequest?: {
-      count: number;
-      project?: string;
-      general?: boolean;
-      location?: 'main' | 'worktree' | 'terminal';
-      parent?: string;
-    };
     archiveSessionRequest?: { count: number; id: string };
     dependencySessionRequest?: { count: number; id: string };
     terminalPreferences?: Config['terminal'];
@@ -142,16 +127,14 @@ export function SessionsScreen(
   const selectionVersion = useRef(0);
   const handledArchiveRequest = useRef(0);
   const handledDependencyRequest = useRef(0);
+  // A session the app just opened is looked for at once, not at the next two-second look.
+  const lookedFor = useRef<string>(undefined);
   useEffect(() => {
-    if (props.newSessionRequest?.count)
-      setDialog({
-        kind: 'new',
-        project: props.newSessionRequest.project,
-        general: props.newSessionRequest.general,
-        location: props.newSessionRequest.location,
-        parent: props.newSessionRequest.parent,
-      });
-  }, [props.newSessionRequest]);
+    const id = props.selectedSession;
+    if (!id || !data || data.some((row) => row.id === id) || lookedFor.current === id) return;
+    lookedFor.current = id;
+    void look();
+  }, [props.selectedSession, data, look]);
   useEffect(() => {
     const id = props.archiveSessionRequest?.id;
     const row = data?.find(
@@ -587,12 +570,7 @@ export function SessionsScreen(
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        setDialog({
-                          kind: 'new',
-                          project: selected.project,
-                          parent: selected.id,
-                          location: 'worktree',
-                        })
+                        open({ project: selected.project, parent: selected.id, worktree: true })
                       }
                       disabled={exited(selected) || acting}
                     >
@@ -809,19 +787,6 @@ export function SessionsScreen(
             </p>
           )}
         </>
-      )}
-      {dialog?.kind === 'new' && (
-        <NewSessionDialog
-          key={`${dialog.project ?? ''}-${dialog.location ?? ''}`}
-          project={dialog.project}
-          general={dialog.general}
-          parent={dialog.parent}
-          location={dialog.location}
-          savedPrompts={props.savedPrompts}
-          onOpen={open}
-          onCancel={close}
-          disabled={acting}
-        />
       )}
       {dialog?.kind === 'handoff' && (
         <HandoffDialog

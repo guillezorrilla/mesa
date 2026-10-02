@@ -64,13 +64,8 @@ export function App() {
   const openedInitialSession = useRef(false);
   const openedInitialTour = useRef(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [newSessionRequest, setNewSessionRequest] = useState<{
-    count: number;
-    project?: string;
-    general?: boolean;
-    location?: 'main' | 'worktree' | 'terminal';
-    parent?: string;
-  }>({ count: 0 });
+  // Sessions starting, by project (GENERAL_PROJECT for General): the sidebar shows each until it opens.
+  const [starting, setStarting] = useState<string[]>([]);
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<{
     count: number;
     id: string;
@@ -82,12 +77,6 @@ export function App() {
   const [promptInsertRequest, setPromptInsertRequest] = useState<{
     session: string;
     text: string;
-  }>();
-  const [pendingNewSession, setPendingNewSession] = useState<{
-    project?: string;
-    general?: boolean;
-    location?: 'main' | 'worktree' | 'terminal';
-    parent?: string;
   }>();
   const [cloneLink, setCloneLink] = useState<{ url: string; request: number }>();
   const [projectAdd, setProjectAdd] = useState<ProjectAddRequest>();
@@ -259,8 +248,13 @@ export function App() {
   }, [projects.data, sessions, config.data?.onboarding?.status]);
   const shortcuts = config.data?.shortcuts ?? DEFAULT_SHORTCUTS;
   const canStart = projects.data?.some((project) => project.exists) ?? false;
+  /**
+   * Starts a session at once, as Xirp does: no dialog, and no agent, so `mesa open` takes the
+   * project's, else the profile default. With no project named, the one in view, else the first
+   * that exists. Once it opens, it is shown.
+   */
   const requestNewSession = useCallback(
-    (
+    async (
       preset: {
         project?: string;
         general?: boolean;
@@ -268,15 +262,40 @@ export function App() {
         parent?: string;
       } = {},
     ) => {
-      if (filesDirty && view.kind === 'project') {
-        setPendingNewSession(preset);
-        setPendingView({ kind: 'sessions' });
-      } else {
-        setView({ kind: 'sessions' });
-        setNewSessionRequest((request) => ({ count: request.count + 1, ...preset }));
+      const inView =
+        view.kind === 'project'
+          ? view.name
+          : view.kind === 'session'
+            ? sessions.find((session) => session.id === view.id)?.project
+            : undefined;
+      const project = preset.general
+        ? undefined
+        : (preset.project ??
+          (inView && inView !== GENERAL_PROJECT ? inView : undefined) ??
+          projects.data?.find((entry) => entry.exists)?.name);
+      if (!preset.general && !project) {
+        navigate({ kind: 'sessions' });
+        return;
+      }
+      const key = project ?? GENERAL_PROJECT;
+      setStarting((current) => [...current, key]);
+      try {
+        const opened = await run('sessions.open', {
+          ...(project ? { project } : { general: true }),
+          parent: preset.parent,
+          terminal: preset.location === 'terminal' || undefined,
+          worktree: preset.location === 'worktree' || undefined,
+        });
+        if (!opened) return;
+        // No confirmation, as the session shows; a warning (hooks to trust) still says so.
+        const warning = warned(opened.warning);
+        if (warning) toast(warning.text, warning.tone);
+        navigate({ kind: 'session', id: opened.id });
+      } finally {
+        setStarting((current) => current.filter((_, i) => i !== current.indexOf(key)));
       }
     },
-    [filesDirty, view],
+    [view, sessions, projects.data, run, navigate, toast],
   );
   useEffect(() => {
     let active = true;
@@ -540,6 +559,7 @@ export function App() {
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
           onAddProject={setProjectAdd}
+          starting={starting}
           onNewSession={(project, location, parent) =>
             requestNewSession({
               ...(project === GENERAL_PROJECT ? { general: true } : { project }),
@@ -580,7 +600,6 @@ export function App() {
               onRowsChange={setSessions}
               onSessions={() => navigate({ kind: 'sessions' })}
               onProject={(name) => navigate({ kind: 'project', name })}
-              newSessionRequest={newSessionRequest}
               archiveSessionRequest={archiveSessionRequest}
               dependencySessionRequest={dependencySessionRequest}
               terminalPreferences={config.data?.terminal}
@@ -762,18 +781,9 @@ export function App() {
           onSubmit={() => {
             setFilesDirty(false);
             setView(pendingView);
-            if (pendingNewSession)
-              setNewSessionRequest((request) => ({
-                count: request.count + 1,
-                ...pendingNewSession,
-              }));
-            setPendingNewSession(undefined);
             setPendingView(undefined);
           }}
-          onCancel={() => {
-            setPendingView(undefined);
-            setPendingNewSession(undefined);
-          }}
+          onCancel={() => setPendingView(undefined)}
         >
           <p className="text-sm">Unsaved edits will be lost.</p>
         </ActionDialog>

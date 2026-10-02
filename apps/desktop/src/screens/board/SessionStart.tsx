@@ -5,8 +5,17 @@ import type { ProjectAddRequest } from '@/components/AddProjectMenu';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { NewSessionInput } from './NewSessionDialog';
 import { ProjectSelect } from './ProjectSelect';
+
+/** A session the Sessions screen opens itself: the empty state's first message, or a child. */
+export type NewSessionInput = {
+  project?: string;
+  general?: boolean;
+  goal?: string;
+  worktree?: boolean;
+  terminal?: boolean;
+  parent?: string;
+};
 
 export function SessionStart(props: {
   projects?: readonly ProjectRow[];
@@ -50,7 +59,7 @@ export function SessionStart(props: {
           onSubmit={(event) => {
             event.preventDefault();
             if (!props.disabled && goal.trim() && project?.exists)
-              props.onOpen({ project: project.name, goal, branch: '' });
+              props.onOpen({ project: project.name, goal });
           }}
         >
           <Label htmlFor="session-start-goal" className="sr-only">
