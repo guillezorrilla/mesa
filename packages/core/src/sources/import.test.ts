@@ -10,11 +10,14 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { meaningfulReceipt } from '../receipts/policy.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   finishesRun,
   importProfile,
   TEST_BROKER,
+  TEST_CONFLUENCE,
+  TEST_JIRA,
   thrown,
   writesImportNotes,
 } from '../testing/index.js';
@@ -82,6 +85,7 @@ test('a Jira key and a Confluence URL import as snapshots and notes linked from 
     id: 'LC-12',
     title: 'LC-12: Fix the tide alarm',
     fetched: '2026-09-24T12:00',
+    revision: '2026-09-24T12:00:00Z',
   });
   expect(snapshot.body).toContain('- Status: In Progress\n- Labels: tides');
   expect(snapshot.body).toContain('## Description\n\nThe alarm rings **late**.');
@@ -373,4 +377,152 @@ test('Write notes takes 50 items of the longest paths in one run, and refuses 51
   expect(agents.calls.filter((c) => c.args.some((a) => a.includes('/import-notes')))).toHaveLength(
     1,
   );
+});
+
+test('changed-only refresh skips native revisions, refreshes changes with kept text, and seeds legacy snapshots once', async () => {
+  let says = 'Old tide';
+  const { world, mesa, vault, agents } = await importProfile(() => `# Tide\n\n${says}`);
+  world.serveIssue('LC-12', { summary: 'Tide', description: '<p>Old.</p>' });
+  world.servePage('9001', { title: 'Schedule', html: '<p>Old.</p>' });
+  await mesa.imports.add('lantern-cove', ['LC-12', PAGE_URL]);
+  const old = mesa.imports.list('lantern-cove').items;
+  const note = old.find((r) => r.id === 'LC-12')?.note as string;
+  writeFileSync(join(vault, note), `${readFileSync(join(vault, note), 'utf8')}\n${KEPT}\n`);
+  const before = old.map((r) => readFileSync(join(vault, r.snapshot), 'utf8'));
+  const runCount = agents.calls.filter((c) =>
+    c.args.some((a) => a.includes('/import-notes')),
+  ).length;
+  world.requests.length = 0;
+  const unchanged = await mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true });
+  expect(unchanged.result).toMatchObject({
+    checked: ['9001', 'LC-12'],
+    skipped: ['9001', 'LC-12'],
+    refreshed: [],
+    items: [],
+  });
+  expect(unchanged.result.notes).toBeUndefined();
+  expect(unchanged.receipt).not.toBeNull();
+  const receipt = listReceipts(vault).find((r) => r.receipt.id === unchanged.receipt?.id)?.receipt;
+  expect(receipt?.outputs).toMatchObject({
+    checked: ['9001', 'LC-12'],
+    skipped: ['9001', 'LC-12'],
+    refreshed: [],
+  });
+  expect(receipt && meaningfulReceipt(receipt)).toBe(false);
+  expect(world.requests.map((r) => r.url)).toEqual([
+    `${TEST_CONFLUENCE}/pages/9001`,
+    `${TEST_JIRA}/issue/LC-12?fields=updated`,
+  ]);
+  expect(agents.calls.filter((c) => c.args.some((a) => a.includes('/import-notes')))).toHaveLength(
+    runCount,
+  );
+  expect(old.map((r) => readFileSync(join(vault, r.snapshot), 'utf8'))).toEqual(before);
+  expect(mesa.imports.list('lantern-cove').items).toEqual(old);
+
+  says = 'New tide';
+  world.serveIssue('LC-12', {
+    summary: 'Tide',
+    description: '<p>New.</p>',
+    updated: '2026-09-25T12:00:00Z',
+  });
+  const changed = await mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true });
+  expect(changed.result).toMatchObject({
+    skipped: ['9001'],
+    refreshed: ['LC-12'],
+    notes: { ok: true },
+  });
+  expect(readNote(vault, note).body).toBe(`# Tide\n\nNew tide\n\n${KEPT}\n`);
+  expect(readNote(vault, changed.result.items[0]?.snapshot as string).frontmatter.revision).toBe(
+    '2026-09-25T12:00:00Z',
+  );
+  const current = changed.result.items[0]?.snapshot as string;
+  writeFileSync(
+    join(vault, current),
+    readFileSync(join(vault, current), 'utf8').replace(/^revision:.*\n/m, ''),
+  );
+  const seeded = await mesa.imports.refresh('lantern-cove', ['LC-12'], false, {
+    changedOnly: true,
+  });
+  expect(seeded.result.refreshed).toEqual(['LC-12']);
+  const again = await mesa.imports.refresh('lantern-cove', ['LC-12'], false, { changedOnly: true });
+  expect(again.result.skipped).toEqual(['LC-12']);
+  world.servePage('9001', { title: 'Schedule', html: '<p>New schedule.</p>', version: 2 });
+  expect(
+    (await mesa.imports.refresh('lantern-cove', ['9001'], false, { changedOnly: true })).result
+      .refreshed,
+  ).toEqual(['9001']);
+});
+
+test('changed-only refresh preflights every item before snapshots, and batches only changed notes at 50 with a safe agent default', async () => {
+  const { world, mesa, vault, agents, agent, home } = await importProfile();
+  const links = Array.from({ length: 51 }, (_, n) => `https://example.test/tide-${n}`);
+  const serve = (value: string) => {
+    for (const link of links)
+      world.routes[`GET ${link}`] = {
+        html: `<html><head><title>${link.slice(21)}</title></head><body><article><p>${value} tide tables for the week ahead.</p></article></body></html>`,
+      };
+  };
+  serve('Old');
+  await mesa.imports.add('lantern-cove', links, false);
+  const before = mesa.imports.list('lantern-cove').items;
+  serve('New');
+  delete world.routes[`GET ${links[0]}`]; // Latest-first ordering makes this the last check.
+  await expect(
+    mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true }),
+  ).rejects.toMatchObject({ code: 'not_found' });
+  expect(mesa.imports.list('lantern-cove').items).toEqual(before);
+  expect(files(join(vault, 'wiki/notes'))).toEqual([]);
+  serve('New');
+  mesa.config.set('defaultAgent', 'antigravity');
+  agent(finishesRun({ output: '', status: 1, stderr: 'temporary provider failure' }));
+  const failed = await mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true });
+  expect(failed.result.refreshed).toHaveLength(51);
+  expect(failed.result.notes?.ok).toBe(false);
+  const snapshots = mesa.imports.list('lantern-cove').items;
+  const pendingFile = join(home, '.mesa/default/pending-import-notes.yaml');
+  expect(readFileSync(pendingFile, 'utf8').match(/url:/g)).toHaveLength(51);
+  const launchedBefore = agents.calls.length;
+  const owed = readFileSync(pendingFile, 'utf8');
+  expect(
+    (await mesa.imports.refresh('lantern-cove', [], false, { changedOnly: true })).result.notes,
+  ).toBeUndefined();
+  delete world.routes[`GET ${links[0]}`];
+  await expect(
+    mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true }),
+  ).rejects.toMatchObject({ code: 'not_found' });
+  expect(readFileSync(pendingFile, 'utf8')).toBe(owed);
+  expect(agents.calls.length).toBe(launchedBefore);
+  serve('New');
+  agent(writesImportNotes((note) => `# ${note}\n\nRecovered tide.`));
+  const changed = await mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true });
+  expect(changed.result.refreshed).toEqual([]);
+  expect(changed.result.skipped).toHaveLength(51);
+  expect(changed.result.notesRetried).toHaveLength(51);
+  expect(mesa.imports.list('lantern-cove').items.map((i) => i.snapshot)).toEqual(
+    snapshots.map((i) => i.snapshot),
+  );
+  expect(readFileSync(pendingFile, 'utf8').trim()).toBe('[]');
+  expect(changed.result.notesRuns).toHaveLength(2);
+  expect(changed.result.notesRuns?.every((r) => r.ok)).toBe(true);
+  expect(changed.result.items.every((i) => i.note)).toBe(true);
+  const launches = agents.calls
+    .slice(launchedBefore)
+    .flatMap((c) => c.args.filter((a) => a.includes("'/import-notes ")));
+  expect(launches).toHaveLength(2);
+  expect(launches.map((l) => l.match(/raw\/web\//g)?.length)).toEqual([50, 1]);
+  expect(launches.every((l) => l.includes('claude'))).toBe(true);
+  expect(
+    (await mesa.imports.refresh('lantern-cove', [], true, { changedOnly: true })).result.skipped,
+  ).toHaveLength(51);
+  expect(
+    agents.calls
+      .slice(launchedBefore)
+      .flatMap((c) => c.args.filter((a) => a.includes("'/import-notes "))),
+  ).toHaveLength(2);
+  await expect(
+    mesa.imports.refresh('lantern-cove', [], true, {
+      changedOnly: true,
+      agent: 'antigravity' as 'claude',
+    }),
+  ).rejects.toMatchObject({ code: 'usage' });
 });

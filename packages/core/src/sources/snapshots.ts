@@ -36,7 +36,14 @@ export function writeSnapshot(deps: NotesDeps, project: string, item: Item): str
     deps,
     {
       path,
-      frontmatter: { project, url: item.url, id: item.id, title, fetched },
+      frontmatter: {
+        project,
+        url: item.url,
+        id: item.id,
+        title,
+        fetched,
+        ...(item.revision ? { revision: item.revision } : {}),
+      },
       body: `# ${title}\n\n${item.markdown.trim()}\n`,
     },
     item.source,

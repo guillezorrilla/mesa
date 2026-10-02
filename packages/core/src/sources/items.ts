@@ -20,4 +20,4 @@ export type ItemRef = {
 };
 
 /** An item fetched: its title, and its content as Markdown. */
-export type Item = ItemRef & { title: string; markdown: string };
+export type Item = ItemRef & { title: string; markdown: string; revision?: string };

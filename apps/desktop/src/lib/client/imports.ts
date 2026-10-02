@@ -30,15 +30,16 @@ export const importsCommands = {
     ...links,
   ]),
   'imports.refresh': commandWith<
-    { project: string; id: string; notes: boolean },
+    { project: string; id?: string; notes: boolean; changedOnly?: boolean },
     Recorded<ImportResult>
-  >(({ project, id, notes }) => [
+  >(({ project, id, notes, changedOnly }) => [
     'import',
     'refresh',
     '--project',
     project,
     ...notesFlag(notes),
+    ...(changedOnly ? ['--changed-only'] : []),
     '--',
-    id,
+    ...(id ? [id] : []),
   ]),
 };

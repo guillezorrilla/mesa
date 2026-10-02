@@ -117,3 +117,34 @@ test('with Write notes off an import passes --no-notes, and an item without a no
   await click(button('Open example-test in Obsidian'));
   expect(calls).toContainEqual(['--json', 'vault', 'open', '--', PAGE.snapshot]);
 });
+
+test('Refresh changed items passes the explicit flag and keeps checked, skipped and refreshed visible', async () => {
+  const { bridge, calls } = fakeBridge({
+    'import list': () => envelope({ items: [ISSUE] }),
+    'import refresh': () =>
+      envelope({
+        project: 'lantern-cove',
+        items: [],
+        checked: ['LC-12'],
+        skipped: ['LC-12'],
+        refreshed: [],
+      }),
+  });
+  await renderWithMesa(
+    <ImportTab project="lantern-cove" onStartSession={() => undefined} />,
+    bridge,
+  );
+  await click(button('Refresh changed items'));
+  expect(calls).toContainEqual([
+    '--json',
+    'import',
+    'refresh',
+    '--project',
+    'lantern-cove',
+    '--changed-only',
+    '--',
+  ]);
+  expect(document.querySelector('[role="status"]')?.textContent).toBe(
+    'Checked 1, skipped 1, refreshed 0',
+  );
+});

@@ -2,7 +2,7 @@
 
 A receipt is a Markdown note in the profile vault's `receipts/`. Since #274, new receipts record durable knowledge: a deliberate Faro decision with its rationale, a guardrail block or override, or an actual change to a vault note or the profile's vault. Routine session lifecycle, sends, configuration other than a vault switch, polls, no-op retries, and failures outside a guardrail do not create receipts. A command may therefore return `receipt: null` without a warning. A required receipt that cannot be written gives a warning while preserving the action result. Existing receipts remain readable through `mesa receipts` and `mesa receipts show`.
 
-`kind` identifies the new policy's entries: `decision`, `guardrail`, `vault-change`, and `connection` (a Source connected or disconnected, CONTEXT.md, Connection). Older receipts have no `kind`; they retain their `type` (`session`, `skill`, `decision`, or `action`) and remain readable. `mesa receipts [--project <slug>] [--session <id>] [--kind <kind>] [--type <type>] [--limit <n>] --json` filters at the core store and lists newest first. The desktop shows the same filtered entries in project and session context, with direct links to the changed vault note. It has no global receipt feed.
+`kind` identifies the new policy's entries: `decision`, `guardrail`, `vault-change`, `refresh`, and `connection` (a Source connected or disconnected, CONTEXT.md, Connection). Older receipts have no `kind`; they retain their `type` (`session`, `skill`, `decision`, or `action`) and remain readable. `mesa receipts [--project <slug>] [--session <id>] [--kind <kind>] [--type <type>] [--limit <n>] --json` filters at the core store and lists newest first. The desktop shows the same filtered entries in project and session context, with direct links to the changed vault note. It has no global receipt feed.
 
 ## What is kept
 
@@ -16,6 +16,8 @@ A receipt is a Markdown note in the profile vault's `receipts/`. Since #274, new
 
 Session records and run outputs remain under `~/.mesa/<profile>/sessions/`. Their terminal output logs stay local; no raw terminal tail is copied into a new receipt. The note writer still uses an atomic rename, rejects locked notes, and keeps writes inside the vault, including through symlinks. The vault lock serializes note updates and receipt/log pairing. The app uses `mesa vault open <target>` to open a changed note in Obsidian.
 
+`mesa import refresh --changed-only` keeps one `refresh` audit even when nothing changed. Its outputs list `checked`, `skipped`, and `refreshed` ids alongside the ordinary import results. An unchanged check writes no snapshot and runs no agent. The audit stays readable through the receipt APIs; Daily and the Meaningful Bases views include it only when content refreshed or notes were written. Notes batches, when needed, are recorded in `outputs.notesRuns`; `notesRetried` identifies pending notes retried without another snapshot and `notesWritten` counts notes actually landed.
+
 ## Where receipts go
 
 The owner chose both vaults for `mesa config set vault <new>` (#152): after a successful change, Mesa writes one `action` receipt with `kind: vault-change` to the vault it leaves and one to the vault it selects. Each has its own id, `inputs.vault` (the previous vault), and `outputs.value` (the new vault), with home paths and configured secrets redacted. Existing receipts stay where they are. The command's returned `receipt` points to the new vault's entry. Setting the same path again, or an invalid setting, writes neither receipt. If either write fails, Mesa still attempts the other and preserves the successful config change, returning the write warning; the new entry is `receipt: null` if its write failed. Other configuration changes remain routine and create no receipt.
@@ -27,7 +29,7 @@ The owner chose both vaults for `mesa config set vault <new>` (#152): after a su
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `type` | yes | `session`, `skill`, `decision`, or `action` |
-| `kind` | no | New entries use `decision`, `guardrail`, `vault-change`, or `connection`; absent on historical receipts |
+| `kind` | no | New entries use `decision`, `guardrail`, `vault-change`, `refresh`, or `connection`; absent on historical receipts |
 | `id` | yes | A ULID: 26 Crockford base32 characters, time first, so ids sort by time |
 | `profile` | yes | The profile the receipt belongs to |
 | `project` | no | The registered project's name |

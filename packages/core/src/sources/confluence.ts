@@ -5,7 +5,10 @@ import { MesaError } from '../lib/result.js';
 import { confluenceApi, readItem, siteOf } from './atlassian.js';
 import type { Item, ItemRef } from './items.js';
 
-const pageSchema = z.object({
+const revisionSchema = z.object({
+  version: z.object({ number: z.number().int().positive() }).optional(),
+});
+const pageSchema = revisionSchema.extend({
   title: z.string(),
   parentId: z.string().nullish(),
   parentType: z.string().nullish(),
@@ -21,8 +24,21 @@ const DEPTH = 10;
  * lack), up to DEPTH pages, and stop at a parent that is not a page or that the person cannot see.
  * Reads only.
  */
-export async function confluencePage(get: Http, ref: ItemRef): Promise<Item> {
+export async function confluencePage(
+  get: Http,
+  ref: ItemRef,
+  previousRevision?: string,
+): Promise<Item | undefined> {
   const api = confluenceApi(siteOf(ref));
+  if (previousRevision) {
+    const current = await readItem(
+      get,
+      `${api}/pages/${ref.id}`,
+      revisionSchema,
+      `Confluence page ${ref.id}`,
+    );
+    if (current.version && String(current.version.number) === previousRevision) return undefined;
+  }
   const page = await readItem(
     get,
     `${api}/pages/${ref.id}?body-format=view`,
@@ -45,5 +61,10 @@ export async function confluencePage(get: Http, ref: ItemRef): Promise<Item> {
   const markdown = [ancestors.length ? `Ancestors: ${ancestors.join(' > ')}` : '', body]
     .filter(Boolean)
     .join('\n\n');
-  return { ...ref, title: page.title, markdown };
+  return {
+    ...ref,
+    title: page.title,
+    markdown,
+    ...(page.version ? { revision: String(page.version.number) } : {}),
+  };
 }

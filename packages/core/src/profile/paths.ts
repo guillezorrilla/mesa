@@ -35,6 +35,8 @@ export type ProfilePaths = {
   prompts: string;
   /** Optional profile-local automation rules, never installed implicitly. */
   automations: string;
+  /** Failed or unattempted notes batches from change-aware source refresh. */
+  pendingImportNotes: string;
   /** Local archives of settings, project registry, and saved prompts. */
   backups: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
@@ -64,6 +66,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     prEvents: join(root, 'pr-events.json'),
     prompts: join(root, 'prompts.json'),
     automations: join(root, 'automations.yaml'),
+    pendingImportNotes: join(root, 'pending-import-notes.yaml'),
     backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,
   };
