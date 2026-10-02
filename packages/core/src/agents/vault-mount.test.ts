@@ -66,6 +66,31 @@ test('Codex mounts it with its window variables and approval on start, resume, f
   );
 });
 
+test("a read-only headless run turns mesa-vault's save tools off; Antigravity has no per-run rule", () => {
+  const readOnly = { ...MAY, readOnlyVault: true };
+  // Claude: a deny of each save, which wins over the server's allow, before the variadic allow.
+  expect(
+    AGENTS.claude.headless.command(ID, '/import-notes', readOnly, '/src/lantern-cove', SERVER),
+  ).toBe(
+    `claude -p '/import-notes' --session-id ${ID} --output-format json --permission-mode 'default' ${MCP} --disallowedTools 'mcp__mesa-vault__save_decision' 'mcp__mesa-vault__save_summary' 'mcp__mesa-vault__save_note' --allowedTools 'mcp__mesa-vault' 'Bash(git log:*)'`,
+  );
+  // Codex: the server's own deny list.
+  expect(
+    AGENTS.codex.headless.command(
+      undefined,
+      '$import-notes',
+      readOnly,
+      '/src/lantern-cove',
+      SERVER,
+    ),
+  ).toBe(
+    `codex exec --json -C '/src/lantern-cove' -c approval_policy=never -c sandbox_mode=workspace-write ${CODEX} -c 'mcp_servers.mesa-vault.disabled_tools=["save_decision","save_summary","save_note"]' '$import-notes'`,
+  );
+  expect(AGENTS.antigravity.headless.command(undefined, '/import-notes', readOnly, '/l.log')).toBe(
+    `agy --log-file '/l.log' --print '/import-notes' --output-format json`,
+  );
+});
+
 test('a start mounts it per launch for Claude Code and Codex; Antigravity reads its global entry', () => {
   expect(startCommand('claude', SERVER, NATIVE, { agentSessionId: ID, goal: 'go' })).toContain(
     CLAUDE,

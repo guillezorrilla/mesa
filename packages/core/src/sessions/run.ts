@@ -11,6 +11,7 @@ import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { landingOf, landOutput } from '../skills/landing.js';
+import { PIPELINE_SKILLS } from '../skills/library.js';
 import type { SkillRow } from '../skills/sync.js';
 import type { Caller } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
@@ -133,21 +134,17 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   const given = about && aboutInput(deps, about);
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
+  // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
+  const may = { ...deps.profile.config.run, readOnlyVault: PIPELINE_SKILLS.includes(input.skill) };
   const command = (id: string) =>
     agent === 'antigravity'
       ? AGENTS.antigravity.headless.command(
           agentSessionId,
           prompt,
-          deps.profile.config.run,
+          may,
           antigravityLog(deps.logs, id),
         )
-      : spec.headless.command(
-          agentSessionId,
-          prompt,
-          deps.profile.config.run,
-          entry.path,
-          deps.vaultServer,
-        );
+      : spec.headless.command(agentSessionId, prompt, may, entry.path, deps.vaultServer);
   const stdin = (id: string) => (given ? shellWord(runInput(deps.runs, id)) : '/dev/null');
   const line = (id: string) =>
     `exec ${command(id)} <${stdin(id)} >${shellWord(runOutput(deps.runs, id))}`;
@@ -218,13 +215,26 @@ function aboutInput(deps: Pick<RunDeps, 'logs' | 'redact'>, about: SessionRecord
   return deps.redact([...head, '', ...lines, ''].join('\n'));
 }
 
-/** A skill the project sees (the library's or its own) and enables; usage otherwise. */
+/**
+ * A skill the project sees (the library's or its own) and enables; usage otherwise, and for a
+ * pipeline skill, when an entry of the project's own holds its place, so its agent would not load
+ * Mesa's (sync.ts leaves that entry alone).
+ */
 function requireSkill(rows: SkillRow[], skill: string, project: string) {
   const row = rows.find((r) => r.name === skill);
   if (!row) {
     throw new MesaError(
       'usage',
       `no skill ${skill} in the library or in ${project}'s own skills; see mesa skills list ${project}`,
+    );
+  }
+  if (
+    PIPELINE_SKILLS.includes(skill) &&
+    rows.some((r) => r.name === skill && r.source === 'repo')
+  ) {
+    throw new MesaError(
+      'usage',
+      `${project} has a skill entry of its own named ${skill}, so the run would not load Mesa's; rename or remove its .claude/skills/${skill} or .agents/skills/${skill}`,
     );
   }
   if (!row.enabled) {

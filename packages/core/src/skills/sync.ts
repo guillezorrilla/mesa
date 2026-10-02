@@ -5,10 +5,11 @@ import {
   readdirSync,
   readlinkSync,
   realpathSync,
+  rmSync,
   symlinkSync,
   unlinkSync,
 } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { excludeFromGit } from '../git/exclude.js';
 import { type LibrarySkill, readSkill } from './library.js';
 
@@ -45,6 +46,28 @@ function isMesaLink(entry: string, library: string): boolean {
   const real = existsSync(target) ? realpathSync(target) : target;
   return real === root || real.startsWith(`${root}${sep}`);
 }
+
+/** The skill every Mesa library has shipped, which marks a folder as one. */
+const LIBRARY_MARK = 'mesa';
+
+/**
+ * Whether `entry` is a link an earlier Mesa library made (another checkout's, often deleted
+ * since): absolute, as Mesa makes them, to `<library>/<the same name>` in a folder named
+ * `skills`, and gone, or beside that library's own LIBRARY_MARK skill. A link the project or the
+ * user made (relative, to another name, or into a folder that is not a Mesa library) is not one.
+ */
+function isStaleMesaLink(entry: string): boolean {
+  if (!lstatSync(entry, { throwIfNoEntry: false })?.isSymbolicLink()) return false;
+  const target = readlinkSync(entry);
+  const library = dirname(target);
+  if (!isAbsolute(target) || basename(target) !== basename(entry)) return false;
+  if (basename(library) !== 'skills') return false;
+  return !existsSync(target) || existsSync(join(library, LIBRARY_MARK, 'SKILL.md'));
+}
+
+/** Whether `entry` is Mesa's: a link into this library, or one an earlier library made. */
+const madeByMesa = (entry: string, library: string) =>
+  isMesaLink(entry, library) || isStaleMesaLink(entry);
 
 /**
  * The project's skill folders, each once: a folder that is another's alias (`.claude/skills` a
@@ -88,7 +111,7 @@ export function listSkills(input: {
     if (!existsSync(folder)) continue;
     for (const name of readdirSync(folder)) {
       const entry = join(folder, name);
-      if (seen.has(name) || isMesaLink(entry, input.libraryDir)) continue;
+      if (seen.has(name) || madeByMesa(entry, input.libraryDir)) continue;
       seen.add(name);
       let own: ReturnType<typeof readSkill>;
       try {
@@ -103,9 +126,10 @@ export function listSkills(input: {
 }
 
 /**
- * Links the enabled library skills into the project's `.claude/skills` and `.agents/skills`, and
- * removes the links Mesa made for skills no longer enabled. An entry Mesa did not make is never
- * touched: one where a Mesa skill would go is a conflict.
+ * Links the enabled library skills into the project's `.claude/skills` and `.agents/skills`,
+ * repointing a link an earlier library made (isStaleMesaLink), and removes the links Mesa made for
+ * skills no longer enabled. An entry Mesa did not make is never touched: one where a Mesa skill
+ * would go is a conflict.
  */
 export function syncSkills(input: {
   library: readonly LibrarySkill[];
@@ -126,12 +150,14 @@ export function syncSkills(input: {
     for (const name of wanted) {
       const entry = join(folder, name);
       const label = `${dir}/${name}`;
-      if (lstatSync(entry, { throwIfNoEntry: false }) === undefined) {
+      if (isMesaLink(entry, input.libraryDir)) {
+        done.kept.push(label);
+      } else if (isStaleMesaLink(entry) || !lstatSync(entry, { throwIfNoEntry: false })) {
+        // An earlier library's link goes, so the agent finds this one's skill.
+        rmSync(entry, { force: true });
         mkdirSync(folder, { recursive: true });
         symlinkSync((byName.get(name) as LibrarySkill).path, entry);
         done.added.push(label);
-      } else if (isMesaLink(entry, input.libraryDir)) {
-        done.kept.push(label);
       } else {
         done.conflicts.push(label);
       }
@@ -139,7 +165,7 @@ export function syncSkills(input: {
     if (!existsSync(folder)) continue;
     for (const name of readdirSync(folder).sort()) {
       const entry = join(folder, name);
-      if (!wanted.includes(name) && isMesaLink(entry, input.libraryDir)) {
+      if (!wanted.includes(name) && madeByMesa(entry, input.libraryDir)) {
         unlinkSync(entry);
         done.removed.push(`${dir}/${name}`);
       }

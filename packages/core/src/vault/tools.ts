@@ -133,6 +133,11 @@ const TOOLS: Tool[] = [
   }),
 ];
 
+/** The tools that write the vault, the saves: a read-only mount turns them off (vault-mount.ts). */
+export const VAULT_WRITE_TOOLS: readonly string[] = TOOLS.filter((t) =>
+  t.name.startsWith('save_'),
+).map((t) => t.name);
+
 /** The definitions a bound server lists: fixed, whatever the vault holds. */
 export const VAULT_TOOLS: McpTool[] = TOOLS.map(({ name, description, input }) => {
   const { $schema: _, ...inputSchema } = z.toJSONSchema(input);
