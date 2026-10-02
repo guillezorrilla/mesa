@@ -3,23 +3,13 @@ import { newSessionId, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
+import { hasConversation } from './conversation.js';
 import { GENERAL_PROJECT } from './general.js';
-import { eventsLog, type HookEvent, readHookEvents } from './hook-events.js';
+import { eventsLog, readHookEvents } from './hook-events.js';
 import { type LaunchDeps, launchAgent, launched, startSession } from './launch.js';
 import { isOver, type SessionRecord } from './record.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowName, windowOf } from './window-name.js';
-
-/**
- * Whether a session has a conversation a swap would lose, as Mesa cannot carry one across
- * agents: a goal, a prompt Mesa sent, or a prompt its agent's hook logged.
- * ponytail: a prompt typed with hooks off leaves no trace here; read the native transcript if
- * that ever swaps a conversation away.
- */
-export const hasConversation = (record: SessionRecord, events: readonly HookEvent[]) =>
-  Boolean(record.goal?.trim()) ||
-  record.events.some((event) => event.type === 'send') ||
-  events.some((event) => event.event === 'UserPromptSubmit');
 
 /**
  * Swaps a fresh session's agent (CONTEXT.md, Swap): the same Mesa session, folder, and worktree,
@@ -75,6 +65,8 @@ export async function swapAgent(
     lastState: launched(deps.clock().toISOString()),
     vaultMounted: undefined,
   });
+  // The old agent's hooks spoke for it, not for the new one, whose first events come next.
+  rmSync(eventsLog(deps.eventsDir, id), { force: true });
   let started: { record: SessionRecord; warning?: string };
   try {
     started = await startSession(deps, swapped, project, {
@@ -89,8 +81,6 @@ export async function swapAgent(
     deps.store.update(id, before);
     throw error;
   }
-  // The old agent's hooks spoke for it, not for the new one.
-  rmSync(eventsLog(deps.eventsDir, id), { force: true });
   await killIfThere(deps.tmux, windowOf(found));
   return started;
 }

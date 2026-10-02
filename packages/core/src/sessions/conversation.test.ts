@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { newSession } from '../testing/index.js';
+import { hasConversation } from './conversation.js';
 import type { SessionRecord } from './record.js';
-import { hasConversation } from './swap.js';
 
 const at = '2026-09-24T12:00:00.000Z';
 const record = (extra: Partial<SessionRecord> = {}) =>

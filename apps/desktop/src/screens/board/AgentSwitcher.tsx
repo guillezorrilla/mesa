@@ -45,9 +45,12 @@ export function AgentSwitcher(props: {
           {row.agent} <span className="text-muted-foreground">(current)</span>
         </DropdownMenuItem>
         {AGENT_NAMES.filter((agent) => agent !== row.agent).map((agent) =>
-          agents.data?.[agent]?.installed === false ? (
+          !agents.data?.[agent]?.installed ? (
             <DropdownMenuItem key={agent} disabled className="text-xs">
-              {agent} <span className="ml-auto text-muted-foreground">Not installed</span>
+              {agent}{' '}
+              <span className="ml-auto text-muted-foreground">
+                {agents.data ? 'Not installed' : agents.error ? 'Unknown' : 'Checking'}
+              </span>
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem
