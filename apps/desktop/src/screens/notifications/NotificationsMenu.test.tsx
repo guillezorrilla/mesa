@@ -72,6 +72,38 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
   expect(opened).toEqual(['aaaaaaaa']);
 });
 
+test('Clear all asks first, then clears the whole center in one call', async () => {
+  let cleared = false;
+  const closed: boolean[] = [];
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope(cleared ? [] : [hooks, { ...finished, read: true }]),
+    'notifications clear --all': () => {
+      cleared = true;
+      return envelope({ count: 2 });
+    },
+  });
+  const byTestId = await renderWithMesa(
+    <NotificationsMenu
+      open
+      onOpenChange={(open) => closed.push(open)}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />,
+    bridge,
+  );
+  const clears = () => calls.filter((args) => args[2] === 'clear');
+  await click(button('Clear all'));
+  expect(closed).toContain(false);
+  expect(byTestId('clear-notifications-dialog')[0]?.textContent).toContain('2 notices, 1 unread');
+  expect(clears()).toEqual([]);
+  await click(byTestId('confirm-clear-notifications')[0]);
+  expect(clears()).toEqual([['--json', 'notifications', 'clear', '--all']]);
+  expect(byTestId('clear-notifications-dialog')).toHaveLength(0);
+  expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications');
+});
+
 test('notice times read as the reference app writes them', () => {
   const now = Date.parse('2026-09-30T12:00:00.000Z');
   expect(timeAgo('2026-09-30T11:59:40.000Z', now)).toBe('just now');

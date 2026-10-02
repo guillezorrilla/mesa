@@ -261,3 +261,33 @@ test('inbox drops old markers when their notices leave the retained 500', () => 
   expect(state.read).toEqual([]);
   expect(state.cleared).toEqual([]);
 });
+
+test('clearAll clears every current notice at once and keeps hook offsets so none return', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const session = testStore(home).create(() => newSession());
+  const stateFile = profilePaths(home, 'default').notifications;
+  const file = eventsLog(profilePaths(home, 'default').events, session.id);
+  mkdirSync(dirname(file), { recursive: true });
+  const event = (at: string) =>
+    `${JSON.stringify({ at, agent: 'claude', event: 'Stop', payload: {} })}\n`;
+  appendFileSync(file, event('2026-09-24T12:00:00.000Z') + event('2026-09-24T12:00:05.000Z'));
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: [{ name: 'claude hooks', ok: false, status: 'warn', hint: HOOKS_HINT }],
+  });
+  expect(mesa.notifications.list()).toHaveLength(3);
+  expect(mesa.notifications.clearAll()).toBe(3);
+  expect(mesa.notifications.list()).toEqual([]);
+  const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
+    cleared: string[];
+    offsets: Record<string, number>;
+  };
+  expect(state.cleared).toHaveLength(3);
+  expect(state.offsets[session.id]).toBeGreaterThan(0);
+  expect(createMesa('default', testDeps(home)).notifications.list()).toEqual([]);
+  expect(mesa.notifications.clearAll()).toBe(0);
+  appendFileSync(file, event('2026-09-24T12:00:10.000Z'));
+  expect(mesa.notifications.list().map((item) => item.at)).toEqual(['2026-09-24T12:00:10.000Z']);
+});
