@@ -2,7 +2,7 @@
 
 `icon.png` is the original transparent Mesa mark. The generated `128x128.png` supplies the in-app header logo.
 
-`macos-icon.png` is the mark inside a rounded charcoal tile, used for the macOS Dock icon. Both packaged macOS apps and Tauri development runs use `icon.icns`.
+`macos-icon.png` is the mark inside a rounded charcoal tile, used for the macOS Dock icon. It follows Apple's macOS icon grid: a 1024 canvas with an 824 tile at 100,100 and a 185 corner radius, so it matches the other Dock icons. Both packaged macOS apps and Tauri development runs use `icon.icns`.
 
 Regenerate only the macOS icon from the repository root:
 
