@@ -4,7 +4,7 @@ import { columns } from '../output/columns.js';
 
 export const notifications = defineCommand({
   name: 'notifications',
-  summary: 'List profile-local input, finished-turn, subagent, and Doctor notices',
+  summary: 'List profile-local session, Doctor, and automation failure notices',
   example: 'mesa notifications',
   run: ({ mesa }) => {
     const items = mesa.notifications.list();
@@ -58,9 +58,25 @@ export const notificationsDelivery = defineCommand({
   name: 'notifications delivery',
   summary: 'Get the next profile-local macOS notification or digest without requesting permission',
   example: 'mesa notifications delivery',
-  run: ({ mesa }) => {
-    const plan = mesa.notifications.delivery();
+  flags: {
+    claim: {
+      type: 'boolean',
+      description: 'Claim one delivery attempt across desktop and background workers',
+    },
+  },
+  run: ({ mesa, flags }) => {
+    const plan = flags.claim ? mesa.notifications.claimDelivery() : mesa.notifications.delivery();
     return { data: plan, text: plan.kind === 'none' ? 'no delivery pending' : plan.title };
+  },
+});
+
+export const notificationsDeliver = defineCommand({
+  name: 'notifications deliver',
+  summary: 'Deliver pending notices through bundled Mesa without opening its desktop',
+  example: 'mesa notifications deliver',
+  run: async ({ mesa }) => {
+    const data = await mesa.notifications.deliver();
+    return { data, text: data.detail ?? data.status };
   },
 });
 

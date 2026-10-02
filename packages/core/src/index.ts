@@ -66,6 +66,7 @@ export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
+export type { NotificationDelivery } from './notifications/background.js';
 export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';

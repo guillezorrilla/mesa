@@ -46,18 +46,8 @@ test('a held New session key does not start a session per key repeat', async () 
 
 test('a notice is marked delivered before it is sent, so a failed mark never sends it', async () => {
   const sent: string[] = [];
-  const notice = {
-    kind: 'notice' as const,
-    id: '2026-09-24T12:00:01.000Z:abc123',
-    ids: ['2026-09-24T12:00:01.000Z:abc123'],
-    title: 'Session turn finished',
-    body: 'Session aaaaaaaa',
-    sound: true,
-    target: { kind: 'session' as const, id: 'aaaaaaaa' },
-  };
   const { bridge } = fakeBridge({
-    'notifications delivery': () => envelope(notice),
-    'notifications delivered': () => failure('inbox is locked'),
+    'notifications delivery --claim': () => failure('inbox is locked'),
   });
   await renderWithMesa(
     <App />,

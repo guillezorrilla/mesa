@@ -14,6 +14,7 @@ const FIX_LABEL: Record<InboxFix, string> = {
 const ICON = {
   'input-required': [CircleAlert, 'text-state-waiting'],
   doctor: [CircleAlert, 'text-state-waiting'],
+  automation: [CircleAlert, 'text-state-waiting'],
   finished: [CircleCheck, 'text-state-idle'],
   subagent: [Info, 'text-muted-foreground'],
 } as const;
@@ -64,6 +65,11 @@ export function NotificationRow(props: {
               Open Doctor
             </button>
           </div>
+        )}
+        {item.kind === 'automation' && (
+          <button type="button" className={pill} onClick={() => props.onOpen(item)}>
+            Review automation
+          </button>
         )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">

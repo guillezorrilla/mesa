@@ -76,6 +76,7 @@ const ConfigSchema = z.strictObject({
       finished: z.enum(['off', 'silent', 'sound']).default('silent'),
       subagent: z.enum(['off', 'silent', 'sound']).default('silent'),
       doctor: z.enum(['off', 'silent', 'sound']).default('silent'),
+      automation: z.enum(['off', 'silent', 'sound']).default('silent'),
     })
     .prefault({}),
   application: z

@@ -16,6 +16,7 @@ export function NotificationsMenu(props: {
   onOpenChange: (open: boolean) => void;
   onSession: (id: string) => void;
   onDoctor: () => void;
+  onAutomations: () => void;
   onSettings: () => void;
   /** Runs Doctor again, which records what a fix resolved. */
   onRecheck: () => Promise<void>;
@@ -45,6 +46,7 @@ export function NotificationsMenu(props: {
     if (!item.read) void mark('notifications.read', [item]);
     props.onOpenChange(false);
     if (item.target.kind === 'session') props.onSession(item.target.id);
+    else if (item.target.kind === 'automations') props.onAutomations();
     else props.onDoctor();
   };
   const fix = (command: InboxFix) =>

@@ -49,6 +49,14 @@ export function automationLaunchd(ctx: MesaContext) {
         MESA_SESSION_ID: '',
       };
       if (ctx.deps.env.MESA_BROKER_URL) env.MESA_BROKER_URL = ctx.deps.env.MESA_BROKER_URL;
+      if (ctx.deps.env.MESA_NOTIFICATION_HELPER) {
+        if (!isAbsolute(ctx.deps.env.MESA_NOTIFICATION_HELPER))
+          throw new MesaError(
+            'usage',
+            'MESA_NOTIFICATION_HELPER must be an absolute bundled Mesa executable',
+          );
+        env.MESA_NOTIFICATION_HELPER = ctx.deps.env.MESA_NOTIFICATION_HELPER;
+      }
       const args = [...ctx.deps.self, '--profile', ctx.profile, '--json', 'automations', 'tick'];
       const fields = [
         `<key>Label</key>${string(label)}`,
