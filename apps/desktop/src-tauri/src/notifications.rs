@@ -161,13 +161,7 @@ pub fn background(args: &[String]) -> Option<Result<(), String>> {
                 }
                 let notice: BackgroundNotice =
                     serde_json::from_str(&input).map_err(|e| e.to_string())?;
-                if notice.profile.is_empty()
-                    || notice.profile.len() > 100
-                    || !notice
-                        .profile
-                        .bytes()
-                        .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
-                {
+                if notice.profile.is_empty() || notice.profile.len() > 100 {
                     return Err("invalid notification profile".into());
                 }
                 PROFILE
@@ -358,6 +352,9 @@ mod tests {
         .is_none());
         assert!(
             matches!(target_from_id(&notification_id("work", "failure", &Target::Automations)), Some((profile, Target::Automations)) if profile == "work")
+        );
+        assert!(
+            matches!(target_from_id(&notification_id("work.1", "failure", &Target::Automations)), Some((profile, Target::Automations)) if profile == "work.1")
         );
     }
 
