@@ -12,12 +12,14 @@ Classic and granular scopes, space-separated, exactly as the broker asks for the
 | `read:jira-user` | Jira users named on issues |
 | `read:page:confluence` | Confluence pages |
 | `read:space:confluence` | Confluence spaces |
-| `read:hierarchical-content:confluence` | a page's children, for the tree |
+| `read:hierarchical-content:confluence` | a page's ancestors (not granted live, see below) |
 | `search:confluence` | resolving a pasted Confluence link, CQL search |
 | `read:me` | the signed-in account, shown in `mesa sources list` |
 | `offline_access` | a refresh token, so a connection outlives the one-hour access token |
 
 All are read scopes: Mesa never writes to Atlassian.
+
+`read:hierarchical-content:confluence` is requested and configured in the app, but in the live sign-in (2026-10-01) Atlassian did not grant it on the token: `GET /wiki/api/v2/pages/{id}/ancestors` answered 401 "scope does not match", while `GET /wiki/api/v2/pages/{id}/direct-children` worked. A page's tree is built from its children, not its ancestors.
 
 ## Callback route
 

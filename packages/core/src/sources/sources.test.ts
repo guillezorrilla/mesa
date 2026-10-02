@@ -235,3 +235,49 @@ test('connections are per profile', async () => {
   expect((await other.sources.list()).sources[0]?.status).toBe('disconnected');
   expect([...world.secrets.items.keys()]).toEqual([ITEM]);
 });
+
+test('a site listed once per product (Jira, Confluence) is one site, on connect and in list', async () => {
+  const { world, mesa } = setUp();
+  const site = SITES[0];
+  world.routes['GET https://api.atlassian.com/oauth/token/accessible-resources'] = {
+    body: [
+      { ...site, scopes: ['read:jira-work'] },
+      { ...site, scopes: ['read:page:confluence'] },
+    ],
+  };
+  expect((await mesa.sources.connect('atlassian')).result.sites).toEqual(SITES);
+  expect(stored(world).sites).toEqual(SITES);
+  // An item a version before this fix stored, with the site twice.
+  world.secrets.items.set(ITEM, JSON.stringify({ ...stored(world), sites: [site, site] }));
+  expect((await mesa.sources.list()).sources[0]?.sites).toEqual(SITES);
+});
+
+test('list reports needs-reconnect for an app revoked in Atlassian, whose refresh it refuses as unauthorized_client', async () => {
+  const { world, mesa } = setUp();
+  await mesa.sources.connect('atlassian');
+  world.revoke();
+  world.routes[`POST ${TEST_BROKER}/token/atlassian`] = {
+    status: 403,
+    body: { error: 'unauthorized_client', error_description: 'refresh_token is invalid' },
+  };
+  expect((await mesa.sources.list()).sources[0]).toEqual({
+    id: 'atlassian',
+    label: 'Atlassian',
+    connected: true,
+    status: 'needs-reconnect',
+    sites: SITES,
+  });
+  expect(stored(world).status).toBe('needs-reconnect');
+});
+
+test('a broker it cannot use leaves the connection as it was', async () => {
+  const { world, mesa } = setUp();
+  await mesa.sources.connect('atlassian');
+  world.expire();
+  world.routes[`POST ${TEST_BROKER}/token/atlassian`] = {
+    status: 500,
+    body: { error: 'not_configured' },
+  };
+  expect((await mesa.sources.list()).sources[0]?.status).toBe('connected');
+  expect(stored(world).status).toBe('connected');
+});

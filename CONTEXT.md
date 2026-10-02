@@ -364,7 +364,7 @@ Not: IPC, API, backend.
 
 ## Source
 
-An outside tool whose items a project imports into its vault: Atlassian (Jira and Confluence) now, then Notion and ClickUp. One row each in `SOURCES` (`packages/core/src/sources/sources.ts`), with a matching row in the Broker's providers table. A public web link is not a Source: it needs no sign-in.
+An outside tool whose items a project imports into its vault: Atlassian (Jira and Confluence) now, then Notion; ClickUp may come later. One row each in `SOURCES` (`packages/core/src/sources/sources.ts`), with a matching row in the Broker's providers table. A public web link is not a Source: it needs no sign-in.
 Not: integration, provider (the Broker's word for a vendor's OAuth app), connector.
 
 ## Connection

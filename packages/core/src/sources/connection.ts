@@ -3,12 +3,19 @@ import type { SecretStore } from '../lib/secret-store.js';
 
 const siteSchema = z.object({ id: z.string(), name: z.string(), url: z.string() });
 
+/**
+ * Sites with one row per id: Atlassian's accessible-resources lists a site once per product
+ * (Jira, Confluence), with the same id.
+ */
+export const distinctSites = (sites: Site[]) =>
+  sites.filter((site, at) => sites.findIndex((other) => other.id === site.id) === at);
+
 const connectionSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
   /** When the access token stops working, ISO. */
   expiresAt: z.string(),
-  sites: z.array(siteSchema),
+  sites: z.array(siteSchema).transform(distinctSites),
   /** needs-reconnect once the source refused the refresh token (revoked, or expired). */
   status: z.enum(['connected', 'needs-reconnect']),
 });
@@ -23,7 +30,7 @@ export type Site = z.infer<typeof siteSchema>;
 /** The signed-in account, read from the source when shown. */
 export type Account = { id: string; name: string; email?: string };
 
-/** JSON with every character past ASCII escaped, as a Keychain value must be (keychainStore). */
+/** JSON with every character past ASCII escaped: the Keychain takes printable ASCII (keychainStore). */
 const asciiJson = (value: unknown) =>
   JSON.stringify(value).replace(
     /[\u007f-￿]/g,

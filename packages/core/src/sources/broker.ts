@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { Http } from '../lib/http.js';
 import type { Env } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import type { SourceDeps } from './authorized-fetch.js';
 
 /** Mesa's hosted broker (ADR-0014). Self-hosting is MESA_BROKER_URL. */
 export const DEFAULT_BROKER_URL = 'https://mesa-broker.guillecoto94.workers.dev';
@@ -20,17 +20,23 @@ const tokenSchema = z.object({
 });
 
 /**
+ * The OAuth errors that mean the vendor refused this grant, so the person must sign in again:
+ * `invalid_grant` (expired, or already used), and `unauthorized_client`, which Atlassian answers a
+ * refresh token of an app the person revoked with.
+ */
+const REFUSED = ['invalid_grant', 'unauthorized_client'];
+
+/**
  * Exchanges a code or refreshes a token through the broker, which adds the client secret. The
  * new tokens, with `refreshToken` only when the vendor rotated it; undefined when the vendor
- * refused the grant (`invalid_grant`: revoked, expired, or already used).
+ * refused the grant (REFUSED).
  */
 export async function brokerToken(
-  http: Http,
-  broker: string,
+  { http, broker, clock }: Pick<SourceDeps, 'http' | 'broker' | 'clock'>,
   source: string,
   grant: Grant,
-  now: Date,
 ) {
+  const now = clock();
   let response: Response;
   try {
     response = await http(`${broker}/token/${source}`, {
@@ -44,7 +50,7 @@ export async function brokerToken(
   const body: unknown = await response.json().catch(() => undefined);
   const error = z.object({ error: z.string() }).safeParse(body);
   if (!response.ok) {
-    if (error.success && error.data.error === 'invalid_grant') return undefined;
+    if (error.success && REFUSED.includes(error.data.error)) return undefined;
     const why = error.success ? error.data.error : `HTTP ${response.status}`;
     throw new MesaError('internal', `the broker could not get a ${source} token: ${why}`);
   }

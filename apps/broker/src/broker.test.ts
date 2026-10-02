@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { type Env, handle, type Upstream } from './broker.js';
 
 const ENV: Env = { ATLASSIAN_CLIENT_ID: 'client-1', ATLASSIAN_CLIENT_SECRET: 'secret-1' };
@@ -152,4 +152,19 @@ test('the privacy policy and terms are static pages', async () => {
     expect(answer.headers.get('content-type')).toBe('text/html; charset=utf-8');
     expect(await answer.text()).toContain('guillezorrilla');
   }
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+test('no console call carries the code, a token, or the secret across exchange, refresh, and callback', async () => {
+  const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((name) =>
+    vi.spyOn(console, name).mockImplementation(() => {}),
+  );
+  const { upstream } = vendor(200, { access_token: 'at-1', refresh_token: 'rt-2' });
+  await get('/callback/atlassian?code=c1&state=n1.49152');
+  await post('/token/atlassian', { grant_type: 'authorization_code', code: 'c1' }, upstream);
+  await post('/token/atlassian', { grant_type: 'refresh_token', refresh_token: 'rt-1' }, upstream);
+  const said = spies.flatMap((spy) => spy.mock.calls.map((args) => JSON.stringify(args)));
+  for (const secret of ['c1', 'at-1', 'rt-1', 'rt-2', 'secret-1'])
+    expect(said.filter((line) => line.includes(secret))).toEqual([]);
 });

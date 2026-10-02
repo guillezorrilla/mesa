@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { type Http, readJson } from '../lib/http.js';
-import type { Account, Site } from './connection.js';
+import { type Account, distinctSites, type Site } from './connection.js';
 
 const API = 'https://api.atlassian.com';
 
@@ -28,5 +28,5 @@ export async function atlassianSites(get: Http): Promise<Site[]> {
     resourcesSchema,
     'Atlassian accessible-resources',
   );
-  return sites.map(({ id, name, url }) => ({ id, name, url }));
+  return distinctSites(sites.map(({ id, name, url }) => ({ id, name, url })));
 }

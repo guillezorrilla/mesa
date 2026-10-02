@@ -22,7 +22,7 @@ export type SettingsCategory =
   | 'connections'
   | 'advanced';
 
-/** Xirp's categories, in its order, with Mesa's Connections, each with the sections Mesa has settings for. */
+/** Xirp's categories in its order, plus Mesa's Connections; each lists the sections Mesa has settings for. */
 export const CATEGORIES: {
   id: SettingsCategory;
   label: string;

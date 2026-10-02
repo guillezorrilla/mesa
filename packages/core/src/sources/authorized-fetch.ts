@@ -16,6 +16,12 @@ export type SourceDeps = {
 /** A token this close to its expiry is refreshed before it is used. */
 const EARLY_MS = 60_000;
 
+export const notConnectedError = (source: SourceId) =>
+  new MesaError(
+    'not_found',
+    `${SOURCES[source].label} is not connected: run mesa sources connect ${source}`,
+  );
+
 export const reconnectError = (source: SourceId) =>
   new MesaError(
     'invalid_config',
@@ -50,13 +56,10 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
       const stored = await deps.connections.read(source);
       if (stored?.status === 'connected' && stored.accessToken !== connection.accessToken)
         return stored;
-      const tokens = await brokerToken(
-        deps.http,
-        deps.broker,
-        source,
-        { grant_type: 'refresh_token', refresh_token: connection.refreshToken },
-        deps.clock(),
-      );
+      const tokens = await brokerToken(deps, source, {
+        grant_type: 'refresh_token',
+        refresh_token: connection.refreshToken,
+      });
       if (!tokens) throw await needsReconnect(connection);
       const next: Connection = {
         ...connection,
@@ -73,11 +76,7 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
   };
   return async (url, init) => {
     let connection = await deps.connections.read(source);
-    if (!connection)
-      throw new MesaError(
-        'not_found',
-        `${SOURCES[source].label} is not connected: run mesa sources connect ${source}`,
-      );
+    if (!connection) throw notConnectedError(source);
     if (connection.status === 'needs-reconnect') throw reconnectError(source);
     const call = (token: string) => withBearer(deps.http, token)(url, init);
     let refreshed = false;

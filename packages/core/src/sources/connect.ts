@@ -36,13 +36,7 @@ export async function connectSource(
   if (refused) throw new MesaError('usage', `${label} sign-in did not finish: ${refused}`);
   const code = query.get('code');
   if (!code) throw new MesaError('usage', `${label} sign-in came back with no code; try again`);
-  const tokens = await brokerToken(
-    deps.http,
-    deps.broker,
-    source,
-    { grant_type: 'authorization_code', code },
-    deps.clock(),
-  );
+  const tokens = await brokerToken(deps, source, { grant_type: 'authorization_code', code });
   if (!tokens) throw new MesaError('usage', `${label} refused the sign-in code; try again`);
   if (!tokens.refreshToken)
     throw new MesaError('internal', `${label} gave no refresh token (the offline_access scope)`);

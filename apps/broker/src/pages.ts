@@ -16,7 +16,7 @@ ${body}
 
 export const PRIVACY = page(
   'Privacy policy',
-  `<p>Mesa is a local macOS app. This service, the Mesa broker, only relays the OAuth sign-in between Mesa and a source you connect (Atlassian, Notion, or ClickUp).</p>
+  `<p>Mesa is a local macOS app. This service, the Mesa broker, only relays the OAuth sign-in between Mesa and a source you connect, such as Atlassian.</p>
 <ul>
 <li>The broker sees the authorization code and the tokens it exchanges or refreshes with the source, and passes them straight back to Mesa on your Mac. It stores nothing.</li>
 <li>The broker never receives your source content or Mesa's API calls to the source. Mesa calls the source directly.</li>
