@@ -91,7 +91,7 @@ export async function handoffSession(
       sessionWindowCommand(
         agent,
         'interactive',
-        startCommand(agent, deps.vaultServer, {
+        startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
           id: 'xxxxxxxx',
           logs: deps.profile.paths.logs,
           agentSessionId,
@@ -127,7 +127,10 @@ export async function handoffSession(
         });
       },
       command: (successor) =>
-        startCommand(agent, deps.vaultServer, { ...successor, logs: deps.profile.paths.logs }),
+        startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
+          ...successor,
+          logs: deps.profile.paths.logs,
+        }),
     },
   ).catch((error) => {
     if (path) rmSync(path, { force: true });

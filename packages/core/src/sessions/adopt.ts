@@ -97,7 +97,7 @@ export async function adoptSession(
   };
   if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
   await readyAgent(deps.run, agent);
-  const command = () => AGENTS[agent].resume(id, cwd, deps.vaultServer);
+  const command = () => AGENTS[agent].resume(id, cwd, deps.vaultServer, deps.profile.config.agents);
   const { record, warning } = await launchSession(deps, s, { command });
   return { record, warning: joinWarnings(WARNING, warning) ?? WARNING };
 }

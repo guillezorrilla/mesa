@@ -47,6 +47,8 @@ export function endSignals(
       try {
         const recorded = await record(
           {
+            // A start with dangerous launch flags is kept (dangerousLaunch).
+            kind: 'guardrail',
             type: 'session',
             summary: (r) => `Started queued session ${queued.id} on ${r?.record.project}`,
             failure: `Could not start queued session ${queued.id}`,
@@ -54,7 +56,7 @@ export function endSignals(
             session: () => queued.id,
             agent: () => recordAgent(queued),
             inputs: { id: queued.id, after: queued.after },
-            outputs: (r) => (r ? startedOutputs(r.record) : {}),
+            outputs: (r) => (r ? startedOutputs(r.record, ctx.open().config.agents) : {}),
             changed: (r) => r !== undefined,
             warning: (r) => r?.warning,
           },

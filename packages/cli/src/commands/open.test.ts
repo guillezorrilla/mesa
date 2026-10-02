@@ -92,6 +92,18 @@ test('open --mode plan reports native Plan in JSON and passes the provider start
   });
 });
 
+test('config set agents.* --json validates a launch default, which open then passes', async () => {
+  const world = cli.withTmux();
+  await cli.withProject({ layOut: false });
+  const set = await mesa('config', 'set', 'agents.codex.bypass', 'true', '--json');
+  expect(set.json.data).toMatchObject({ path: 'agents.codex.bypass', value: true });
+  const refused = await mesa('config', 'set', 'agents.codex.sandbox', 'everything', '--json');
+  expect(refused.json.error).toMatchObject({ code: 'invalid_config' });
+  const opened = await mesa('open', 'lantern-cove', '--agent', 'codex', '--json');
+  expect(world.windows.at(-1)?.launch).toContain(' --dangerously-bypass-approvals-and-sandbox ');
+  expect(opened.json.data.receipt).not.toBeNull();
+});
+
 test('open --background returns Claude native handle and attaches its terminal view', async () => {
   const world = cli.withTmux();
   await cli.withProject({ layOut: false });

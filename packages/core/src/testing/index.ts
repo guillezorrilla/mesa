@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { codexSessions } from '../agents/codex/paths.js';
+import type { LaunchDefaults } from '../agents/launch-flags.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
@@ -391,6 +392,8 @@ export const CLAUDE_MOUNT = `${CLAUDE_MCP_CONFIG} '--allowedTools=mcp__mesa-vaul
 export const CLAUDE_HEADLESS_MOUNT = `${CLAUDE_MCP_CONFIG} --allowedTools 'mcp__mesa-vault'`;
 /** Codex's four -c overrides. */
 export const CODEX_MOUNT = `-c 'mcp_servers.mesa-vault.command="/usr/local/bin/mesa"' -c 'mcp_servers.mesa-vault.args=["vault","mcp"]' -c 'mcp_servers.mesa-vault.env_vars=["MESA_SESSION_ID","MESA_PROFILE"]' -c 'mcp_servers.mesa-vault.default_tools_approval_mode="approve"'`;
+/** No launch defaults: every agent on its native config, as a new profile has it. */
+export const NATIVE_LAUNCH: LaunchDefaults = { claude: {}, codex: {}, antigravity: {} };
 /** What `codex --version` answers in tests (docs/spikes/codex.md). */
 export const CODEX_VERSION = 'codex-cli 0.154.0';
 
