@@ -90,6 +90,9 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     `MESA_SESSION_ID=${first.id}`,
     '-e',
     'MESA_PROFILE=default',
+    '/usr/bin/env',
+    '-C',
+    dir,
     // Through /bin/sh, never the user's shell, which may quote otherwise (fish, tcsh).
     '/bin/sh',
     '-c',

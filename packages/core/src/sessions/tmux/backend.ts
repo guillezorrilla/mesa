@@ -214,8 +214,8 @@ export function tmuxBackend({
           ]
         : [];
       await must(
-        // Several words: tmux runs them as they are, not through default-shell. sh execs a lone
-        // command, so the pane's pid is the agent's, which the listing matches on.
+        // env changes directory before sh starts: tmux 3.7 can ignore -c when its server's cwd
+        // was deleted. Both env and sh exec, so the pane's pid remains the agent's.
         [
           ...where,
           '-n',
@@ -223,6 +223,9 @@ export function tmuxBackend({
           '-c',
           spec.cwd,
           ...vars,
+          '/usr/bin/env',
+          '-C',
+          spec.cwd,
           '/bin/sh',
           '-c',
           spec.command,

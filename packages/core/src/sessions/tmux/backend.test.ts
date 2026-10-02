@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import { vaultServer } from '../../agents/vault-mount.js';
-import { execRunner, type Runner } from '../../lib/process.js';
+import { execRunner, type Runner, shellWord } from '../../lib/process.js';
 import {
   CLAUDE_MOUNT,
   NATIVE_LAUNCH,
@@ -382,6 +382,78 @@ test('every call goes to the profile socket without the user tmux.conf', async (
     '-a',
   ]);
 });
+
+test('openWindow changes directory before starting sh for both new and existing projects', async () => {
+  for (const exists of [false, true]) {
+    const { run, calls } = scriptedRunner({
+      tmux: (args) =>
+        args.includes('has-session') && !exists
+          ? { ok: false, reason: 'failed', detail: 'no session' }
+          : { ok: true, stdout: '' },
+    });
+    const tmux = tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-work', env: {} });
+    await tmux.openWindow({
+      project: 'lantern',
+      window: 'w',
+      cwd: "/src/it's lantern",
+      command: 'exec cat',
+      env: {},
+    });
+    const args = calls.find((c) => c.args.includes(exists ? 'new-window' : 'new-session'))?.args;
+    expect(args?.slice(args.indexOf('/usr/bin/env'))).toEqual([
+      '/usr/bin/env',
+      '-C',
+      "/src/it's lantern",
+      '/bin/sh',
+      '-c',
+      'exec cat',
+    ]);
+  }
+});
+
+test.skipIf(!hasTmux)(
+  'openWindow starts in its folder after the server folder was deleted',
+  async () => {
+    const socket = `mesa-deleted-${process.pid}`;
+    const origin = tempDir();
+    const cwd = join(tempDir(), "it's lantern");
+    mkdirSync(cwd);
+    const raw = (args: string[]) =>
+      execRunner('tmux', ['-L', socket, '-f', '/dev/null', ...args], 2000);
+    const tmux = tmuxBackend({ sleep: async () => {}, run: execRunner, socket, env: {} });
+    try {
+      expect(
+        (
+          await execRunner(
+            'tmux',
+            ['-L', socket, '-f', '/dev/null', 'new-session', '-d', '-s', 'seed', 'cat'],
+            2000,
+            { cwd: origin },
+          )
+        ).ok,
+      ).toBe(true);
+      rmSync(origin, { recursive: true });
+      for (const window of ['first', 'second']) {
+        const target = { project: 'lantern', window };
+        const out = join(cwd, `${window}.txt`);
+        await tmux.openWindow({
+          ...target,
+          cwd,
+          command: `printf '%s\\n' "$PWD" > ${shellWord(out)}; /bin/pwd >> ${shellWord(out)}; echo cwd-ok; exec cat`,
+          env: {},
+        });
+        const output = await eventually(() => tmux.capturePane(target, 10), /cwd-ok/);
+        expect(output).toBe('cwd-ok');
+        expect(readFileSync(out, 'utf8')).toBe(`${cwd}\n${cwd}\n`);
+        expect((await tmux.findWindow(target))?.dead).toBe(false);
+      }
+    } finally {
+      const path = await raw(['display-message', '-p', '#{socket_path}']);
+      await raw(['kill-server']);
+      if (path.ok) rmSync(path.stdout.trim(), { force: true });
+    }
+  },
+);
 
 test('a sandbox-denied tmux socket is an error, never an exited session', async () => {
   const { run } = scriptedRunner({
