@@ -1,6 +1,6 @@
 import type { Config } from '@mesa/core';
 import { AGENT_LABELS } from '@mesa/core/browser';
-import { Bell, BellOff, Plug, ShieldCheck, Trash2 } from 'lucide-react';
+import { BadgeAlert, Bell, BellOff, Plug, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ const DELIVERY = [
   ['sound', 'Banner with sound'],
 ] as const;
 
-/** macOS banner permission, quiet mode, each kind's delivery, and the hooks that feed them. */
+/** macOS banner permission, quiet mode, the visual alert, each kind's delivery, and the hooks. */
 export function NotificationSettings() {
   const { config } = useSettings();
   return (
@@ -49,6 +49,20 @@ export function NotificationSettings() {
               id="notifications-quiet"
               path="notifications.quiet"
               checked={config.notifications.quiet}
+            />
+          }
+        />
+        <SettingRow
+          icon={BadgeAlert}
+          title="Visual alert"
+          description="Show a Dock badge with the count, and a dot on the Sessions tab, while sessions wait for input."
+          keywords="dock badge sidebar waiting"
+          htmlFor="notifications-visual-alert"
+          control={
+            <Toggle
+              id="notifications-visual-alert"
+              path="notifications.visualAlert"
+              checked={config.notifications.visualAlert}
             />
           }
         />

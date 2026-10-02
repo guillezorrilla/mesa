@@ -70,6 +70,8 @@ const ConfigSchema = z.strictObject({
   notifications: z
     .strictObject({
       quiet: z.boolean().default(false),
+      // The Dock badge and the sidebar's dot while sessions wait for input.
+      visualAlert: z.boolean().default(true),
       inputRequired: z.enum(['off', 'silent', 'sound']).default('sound'),
       finished: z.enum(['off', 'silent', 'sound']).default('silent'),
       subagent: z.enum(['off', 'silent', 'sound']).default('silent'),

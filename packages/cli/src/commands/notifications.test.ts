@@ -46,3 +46,15 @@ test('notifications clear --all clears the whole inbox and reports the count', a
   expect((await cli.mesa('notifications', '--json')).json.data).toEqual([]);
   expect((await cli.mesa('notifications', 'clear', '--json')).json.error.code).toBe('usage');
 });
+
+test('notifications.visualAlert is on by default and config set turns it off', async () => {
+  await cli.withProject();
+  const visualAlert = async () =>
+    (await cli.mesa('config', '--json')).json.data.notifications.visualAlert;
+  expect(await visualAlert()).toBe(true);
+  expect(
+    (await cli.mesa('config', 'set', 'notifications.visualAlert', 'false', '--json')).json.data,
+  ).toMatchObject({ path: 'notifications.visualAlert', value: false });
+  expect(await visualAlert()).toBe(false);
+  expect((await cli.mesa('config', 'set', 'notifications.visualAlert', 'loud')).code).toBe(4);
+});

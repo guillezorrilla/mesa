@@ -32,7 +32,7 @@ import { useAct } from './lib/useAct';
 import { useCommand, useRun } from './lib/useCommand';
 import { useMesaLinks } from './lib/useMesaLinks';
 import { BackupScreen } from './screens/BackupScreen';
-import { activeSession, recoverable } from './screens/board/rows';
+import { activeSession, recoverable, waitingForInput } from './screens/board/rows';
 import { SessionsScreen } from './screens/board/SessionsScreen';
 import { DoctorScreen } from './screens/DoctorScreen';
 import { DailyScreen } from './screens/daily/DailyScreen';
@@ -137,7 +137,7 @@ export function App() {
     },
     [navigate, run],
   );
-  const { notifications, lifecycle } = usePlatform();
+  const { notifications, lifecycle, dock } = usePlatform();
   const { act } = useAct();
   const doctor = useCommand('doctor.run');
   const config = useCommand('config.get');
@@ -206,6 +206,13 @@ export function App() {
       stop?.();
     };
   }, [config.data?.application?.warnBeforeQuit, config.data, lifecycle, finishQuit]);
+  const visualAlert = config.data?.notifications?.visualAlert ?? true;
+  const waiting = visualAlert ? sessions.filter(waitingForInput).length : 0;
+  useEffect(() => {
+    if (!config.data) return;
+    // A badge that fails to set leaves the app as it was; the next change tries again.
+    void dock.badge(waiting).catch(() => {});
+  }, [config.data, dock, waiting]);
   const appearance = config.data?.appearance ?? DEFAULT_APPEARANCE;
   useEffect(() => {
     const root = document.documentElement;
@@ -529,6 +536,7 @@ export function App() {
           sort={projectSort}
           onSort={setProjectSort}
           sessions={sessions}
+          waiting={waiting}
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
           onAddProject={setProjectAdd}

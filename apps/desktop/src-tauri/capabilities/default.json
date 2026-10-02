@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "webviews": ["main"],
-  "permissions": ["core:default", "dialog:allow-open", "deep-link:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-badge-count",
+    "dialog:allow-open",
+    "deep-link:default"
+  ]
 }
