@@ -5,6 +5,7 @@ import { expect, test } from 'vitest';
 import { App } from '@/App';
 import {
   click,
+  deferred,
   envelope,
   fakeBridge,
   fakePlatform,
@@ -114,4 +115,32 @@ test('the overlay never takes keyboard focus from the terminal', async () => {
   await click(button('Copy latest response'));
   expect(platform.pasteboard).toEqual(['A violet otter.']);
   expect(document.activeElement).toBe(input);
+});
+
+test('re-entering shows no actions until the new read answers, so Copy never copies a stale response', async () => {
+  const answer = await config(true);
+  const second = deferred();
+  let reads = 0;
+  const { bridge } = fakeBridge({
+    config: () => answer,
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    'review responses': () =>
+      ++reads === 1 ? envelope({ rows: ROWS, reviews: [], truncated: false }) : second.promise,
+  });
+  const platform = fakePlatform();
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  const terminal = byTestId('terminal-aaaaaaaa')[0] as HTMLElement;
+  await hover(terminal);
+  expect(toolbar()).not.toBeNull();
+  await leave(terminal);
+  await hover(terminal);
+  expect(toolbar()).toBeNull();
+  await act(async () =>
+    second.resolve(
+      envelope({ rows: [response('A newer finch.', 'c'), ...ROWS], reviews: [], truncated: false }),
+    ),
+  );
+  await click(button('Copy latest response'));
+  expect(platform.pasteboard).toEqual(['A newer finch.']);
 });

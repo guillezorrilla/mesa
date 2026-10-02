@@ -38,6 +38,8 @@ export function MessageActions(props: {
       className={cn('relative flex min-h-0 flex-col', props.className)}
       onMouseEnter={() => {
         setHovered(true);
+        // A response read on an earlier hover may be stale: show none until this read answers.
+        setLatest(undefined);
         void look();
       }}
       onMouseLeave={() => setHovered(false)}
