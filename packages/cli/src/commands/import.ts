@@ -26,7 +26,7 @@ function imported(recorded: Recorded<ImportResult>) {
 export const importLinks = defineCommand({
   name: 'import',
   summary:
-    "Import Jira issues (a URL or a key), Confluence pages, and public web pages into a project's vault: a raw/ snapshot each, then one import-notes run that writes a wiki/ note per item, linked from the project hub; exits 1 when the notes were not written",
+    "Import Jira issues (a URL or a key), Confluence pages, Notion pages and database rows, and public web pages into a project's vault: a raw/ snapshot each, then one import-notes run that writes a wiki/ note per item, linked from the project hub; exits 1 when the notes were not written",
   args: ['links...'],
   flags: { project, 'no-notes': noNotes },
   example: 'mesa import https://lantern-cove.atlassian.net/browse/LC-12 --project lantern-cove',

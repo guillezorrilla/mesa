@@ -10,6 +10,7 @@ import {
   LibraryBig,
   type LucideIcon,
   SquareKanban,
+  Table,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,6 +27,8 @@ const ICONS: Record<string, LucideIcon> = {
   jira: SquareKanban,
   project: FolderKanban,
   issue: CircleDot,
+  workspace: Globe,
+  database: Table,
 };
 
 /**

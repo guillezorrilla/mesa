@@ -39,7 +39,7 @@ export function ConnectionSettings() {
           icon={Cable}
           title={source.label}
           description={describeSource(source)}
-          keywords="connect sign in oauth jira confluence"
+          keywords="connect sign in oauth jira confluence notion"
           control={
             <span className="flex gap-2">
               {source.status !== 'connected' && (

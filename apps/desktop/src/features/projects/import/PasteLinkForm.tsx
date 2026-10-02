@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
 /**
- * Paste a link to import: a Jira issue or key, a Confluence page, or any public web page, with the
+ * Paste a link to import: a Jira issue or key, a Confluence or Notion page, or any public web page, with the
  * Write notes toggle every import shares. Cleared once the import ran.
  */
 export function PasteLinkForm(props: {
@@ -25,7 +25,7 @@ export function PasteLinkForm(props: {
     >
       <Input
         aria-label="Link to import"
-        placeholder="Paste a Jira, Confluence, or any public web link"
+        placeholder="Paste a Jira, Confluence, Notion, or any public web link"
         value={link}
         onChange={(event) => setLink(event.target.value)}
         className="min-w-64 flex-1"

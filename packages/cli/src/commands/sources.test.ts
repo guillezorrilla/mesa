@@ -1,4 +1,4 @@
-import { atlassianWorld, TEST_CONFLUENCE } from '@mesa/core/testing';
+import { atlassianWorld, notionPageObject, notionWorld, TEST_CONFLUENCE } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -6,6 +6,7 @@ const cli = cliHarness();
 beforeEach(cli.reset);
 
 const SITES = [{ id: 'cloud-1', name: 'lantern-cove', url: 'https://lantern-cove.atlassian.net' }];
+const NOTION = { id: 'notion', label: 'Notion', connected: false, status: 'disconnected' };
 
 test('sources connect, list, and disconnect print their JSON, and disconnect leaves a receipt', async () => {
   const world = atlassianWorld();
@@ -13,7 +14,10 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
   await cli.withProject();
   const before = await cli.mesa('sources', 'list', '--json');
   expect(before.json.data).toEqual({
-    sources: [{ id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' }],
+    sources: [
+      { id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' },
+      NOTION,
+    ],
   });
   const connected = await cli.mesa('sources', 'connect', 'atlassian', '--json');
   expect(connected.code).toBe(0);
@@ -26,9 +30,11 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
     sites: SITES,
   };
   expect(connected.json.data).toMatchObject({ ...row, receipt: { id: expect.any(String) } });
-  expect((await cli.mesa('sources', 'list', '--json')).json.data).toEqual({ sources: [row] });
+  expect((await cli.mesa('sources', 'list', '--json')).json.data).toEqual({
+    sources: [row, NOTION],
+  });
   expect((await cli.mesa('sources', 'list')).stdout).toBe(
-    'atlassian  connected  Rowan Tide  lantern-cove\n',
+    'atlassian  connected     Rowan Tide  lantern-cove\nnotion     disconnected\n',
   );
   const gone = await cli.mesa('sources', 'disconnect', 'atlassian', '--json');
   expect(gone.json.data).toMatchObject({
@@ -52,7 +58,7 @@ test('an unknown source is a usage error', async () => {
   expect(out.code).toBe(2);
   expect(out.json.error).toEqual({
     code: 'usage',
-    message: 'unknown source linear; one of atlassian',
+    message: 'unknown source linear; one of atlassian, notion',
   });
 });
 
@@ -125,4 +131,33 @@ test('sources browse prints a node children as JSON, follows --cursor to the end
     message: 'Atlassian needs reconnecting: run mesa sources connect atlassian',
     details: { connect: 'atlassian' },
   });
+});
+
+test('Notion connects, browses from its workspace, and a pasted Notion link imports', async () => {
+  const world = notionWorld();
+  cli.deps = world.deps;
+  await cli.withProject();
+  const connected = await cli.mesa('sources', 'connect', 'notion', '--json');
+  expect(connected.json.data).toMatchObject({
+    id: 'notion',
+    status: 'connected',
+    account: { name: 'Rowan Tide' },
+    sites: [{ id: 'ws-1', name: 'Lantern Cove' }],
+  });
+  const root = await cli.mesa('sources', 'browse', 'notion', '--json');
+  expect(root.json.data.children).toMatchObject([{ id: 'workspace:ws-1', kind: 'workspace' }]);
+
+  const id = '1f0c3a5e9b7d4c2a8e6f0b1d2c3e4f5a';
+  world.servePage(id, notionPageObject(id, 'Mesa import test'), 'Twice a day.');
+  const link = `https://www.notion.so/lantern-cove/Mesa-import-test-${id}`;
+  const out = await cli.mesa('import', link, '--project', 'lantern-cove', '--no-notes', '--json');
+  expect(out.json.data.items).toEqual([
+    {
+      source: 'notion',
+      id,
+      title: 'Mesa import test',
+      url: `https://www.notion.so/${id}`,
+      snapshot: `raw/notion/${id}/2026-09-24T1200.md`,
+    },
+  ]);
 });
