@@ -5,6 +5,7 @@ import {
   startClaudeBackground,
   stopClaudeBackground,
 } from '../agents/claude/background.js';
+import { withMesaStatusLine } from '../agents/claude/statusline.js';
 import { hooksStatus as codexHooks } from '../agents/codex/hooks.js';
 import { codexHome } from '../agents/codex/paths.js';
 import { AGENT_NAMES, type Agent } from '../agents/names.js';
@@ -139,8 +140,9 @@ export function sessionWindowCommand(
  * and it has none (kept on the record at once, so a start retried after a kill finds it), then
  * its folder checked, the project's enabled skills linked into it (a failure is the warning
  * returned, never an error), and `command` run in its window, whose output goes to the session's
- * output log while the config's `sessions.log` is on. When anything fails, the worktree it made
- * is removed again, and dropped from the record, so a retry can add it again.
+ * output log while the config's `sessions.log` is on, and whose claude shows its estimated cost
+ * in its status line while `sessions.statusLineCost` is on. When anything fails, the worktree it
+ * made is removed again, and dropped from the record, so a retry can add it again.
  */
 export async function startSession(
   deps: LaunchDeps,
@@ -191,7 +193,9 @@ export async function startSession(
     const { paths, config } = deps.profile;
     const command = record.backgroundId
       ? claudeBackgroundAttach(record.backgroundId)
-      : start.command(record);
+      : record.agent === 'claude' && record.kind === 'interactive' && config.sessions.statusLineCost
+        ? withMesaStatusLine(start.command(record), deps.self)
+        : start.command(record);
     if (!attaching && mountsPerLaunch(record.agent) && !record.vaultMounted)
       record = deps.store.update(record.id, { vaultMounted: true });
     await deps.tmux.openWindow({

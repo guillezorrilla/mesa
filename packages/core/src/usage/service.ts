@@ -4,10 +4,10 @@ import { transcriptFile } from '../agents/claude/transcripts.js';
 import { rolloutForThread } from '../agents/codex/rollouts.js';
 import type { MesaContext } from '../context.js';
 import { loadConfig } from '../profile/config.js';
-import { scanHookEvents } from '../sessions/hook-events.js';
 import { claudeUsage, claudeUsageFiles } from './claude.js';
 import { codexUsage } from './codex.js';
 import type { UsageRecord } from './records.js';
+import { sessionNativeIds, sessionWindow } from './sources.js';
 import { type HookStamp, type SourceStamp, usageStore } from './store.js';
 import { summarizeUsage } from './summary.js';
 
@@ -28,26 +28,14 @@ export function usageService(ctx: MesaContext) {
         const previous = Object.values(cached.sources).filter(
           (source) => source.session === record.id,
         );
-        const hook = cached.hooks[record.id] ?? { offset: 0, nativeIds: [], changedIds: [] };
-        const discovered = new Set(hook.nativeIds);
-        const changed = new Set(hook.changedIds);
-        const offset = scanHookEvents(ctx.paths.events, record.id, hook.offset, (event) => {
-          if (event.agent !== record.agent || !event.agentSessionId) return;
-          if (event.event === 'SessionIdentityChanged') changed.add(event.agentSessionId);
-          else discovered.add(event.agentSessionId);
-        });
-        scannedHooks[record.id] = {
-          offset,
-          nativeIds: [...discovered],
-          changedIds: [...changed],
-        };
-        const nativeIds = new Set([
-          ...(record.agentSessionId ? [record.agentSessionId] : []),
-          ...previous.map((source) => source.nativeSessionId),
-          ...discovered,
-        ]);
-        if ([...changed].some((id) => !nativeIds.has(id)))
-          unknown.push({ session: record.id, reason: 'native session identity changed' });
+        const { nativeIds, hook, lost } = sessionNativeIds(
+          ctx,
+          record,
+          cached.hooks[record.id] ?? { offset: 0, nativeIds: [], changedIds: [] },
+          previous.map((source) => source.nativeSessionId),
+        );
+        scannedHooks[record.id] = hook;
+        if (lost) unknown.push({ session: record.id, reason: 'native session identity changed' });
         if (nativeIds.size === 0) {
           unknown.push({ session: record.id, reason: 'native session id is not available' });
           continue;
@@ -91,19 +79,8 @@ export function usageService(ctx: MesaContext) {
               record.agent === 'claude'
                 ? await claudeUsage(files, record.id, nativeId)
                 : await codexUsage(file, record.id, nativeId);
-            const resumedAt = record.resumedBy
-              ? ctx.store.find(record.resumedBy)?.startedAt
-              : undefined;
-            const until = [record.endedAt, resumedAt]
-              .filter((date): date is string => Boolean(date))
-              .sort()[0];
-            fresh.push(
-              ...readings.filter(
-                (row) =>
-                  Date.parse(row.at) >= Date.parse(record.startedAt) &&
-                  (!until || Date.parse(row.at) < Date.parse(until)),
-              ),
-            );
+            const within = sessionWindow(ctx, record);
+            fresh.push(...readings.filter((row) => within(row.at)));
             scanned[key] = stamp;
           } catch {
             unknown.push({ session: record.id, reason: 'native usage file could not be read' });

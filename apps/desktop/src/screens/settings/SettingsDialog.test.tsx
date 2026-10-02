@@ -69,6 +69,16 @@ test('the window lists Xirp categories and saves the default coding agent, claud
   expect(sets(calls)).toEqual([['defaultAgent', '"codex"']]);
 });
 
+test('Sessions has the status line cost toggle, off by default, saved to sessions.statusLineCost', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  await click(nav('Sessions'));
+  const toggle = document.getElementById('sessions-status-line-cost');
+  expect(toggle?.getAttribute('aria-checked')).toBe('false');
+  await click(toggle ?? undefined);
+  expect(sets(calls)).toEqual([['sessions.statusLineCost', 'true']]);
+});
+
 test('search finds a row in any category and hides the sections without a match', async () => {
   await render(fakeBridge().bridge);
   const search = document.querySelector<HTMLInputElement>('[aria-label="Search settings"]');

@@ -5,6 +5,7 @@ import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
+import { costTally } from '../usage/session-cost.js';
 import { checkoutHolders, worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
@@ -32,7 +33,7 @@ export type Removed = {
 };
 
 /**
- * Removes a session's record, its hook log, its output log, and a run's output, with
+ * Removes a session's record, its hook log, its output log, a run's output, and its cost tally, with
  * `deleteWorktree` its git worktree and with `deleteBranch` its branch. A queued session is refused, to be cancelled first; a live one is
  * refused unless `force`, which closes its window first; git refuses a dirty worktree unless `force`. Every refusal comes before the record goes,
  * so a refused rm leaves the session as it was, to retry.
@@ -47,6 +48,8 @@ export async function removeSession(
     logsDir: string;
     /** The profile's runs/, where a run's output is. */
     runs: string;
+    /** The profile's sessions/costs/, where a session's status line cost tally is. */
+    costs: string;
   },
   id: string,
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
@@ -136,6 +139,7 @@ export async function removeSession(
   removed.runOutput = existsSync(result);
   rmSync(result, { force: true });
   rmSync(runInput(deps.runs, id), { force: true });
+  rmSync(costTally(deps.costs, id), { force: true });
   deps.store.remove(id);
   return removed;
 }
