@@ -26,7 +26,7 @@ export function endSignals(
   ctx: MesaContext,
   deps: {
     /** The board as it is now (listSessions), ended sessions too with `all`. */
-    look: (all?: boolean) => Promise<SessionRow[]>;
+    look: (all?: boolean, opts?: { adapter?: boolean }) => Promise<SessionRow[]>;
     /** What a queued start needs (startQueued). */
     launch: () => Parameters<typeof startQueued>[0];
     /** Where a session's context use is read (refreshContext). */
@@ -95,8 +95,8 @@ export function endSignals(
      * The board, once it has started what it found due: a queued session whose session is over
      * by this look, which a missed signal left waiting.
      */
-    board: async (all = false) => {
-      const rows = await deps.look(all);
+    board: async (all = false, opts: { adapter?: boolean } = {}) => {
+      const rows = await deps.look(all, opts);
       let finishedRun = false;
       for (const row of rows) {
         if (!row.managed || row.endedAt || !isOver(row)) continue;
@@ -128,7 +128,7 @@ export function endSignals(
         const row = rows.find((r) => r.id === id);
         return row?.managed ? isOver(row) : overOrGone(id);
       };
-      return (await startQueue(overNow)).started || finishedRun ? deps.look(all) : rows;
+      return (await startQueue(overNow)).started || finishedRun ? deps.look(all, opts) : rows;
     },
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop reads the

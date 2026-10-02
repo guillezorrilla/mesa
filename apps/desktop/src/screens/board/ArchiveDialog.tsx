@@ -1,4 +1,6 @@
 import type { ManagedRow } from '@mesa/core';
+import { LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,6 +21,12 @@ export function ArchiveDialog(props: {
   onCancel: () => void;
 }) {
   const dismiss = recoverable(props.row);
+  // Which button started the action that `disabled` says runs, so it shows the spinner.
+  const [pressed, setPressed] = useState<'archive' | 'delete'>();
+  const spinner = (button: 'archive' | 'delete') =>
+    props.disabled && pressed === button ? (
+      <LoaderCircle aria-hidden className="animate-spin" />
+    ) : null;
   return (
     <Dialog open onOpenChange={(open) => !open && props.onCancel()}>
       <DialogContent data-testid="archive-dialog" className="bg-card sm:max-w-md">
@@ -37,8 +45,12 @@ export function ArchiveDialog(props: {
               variant="ghost"
               className="text-destructive"
               disabled={props.disabled}
-              onClick={props.onDelete}
+              onClick={() => {
+                setPressed('delete');
+                props.onDelete();
+              }}
             >
+              {spinner('delete')}
               Delete permanently
             </Button>
           )}
@@ -51,8 +63,12 @@ export function ArchiveDialog(props: {
               data-testid="archive-confirm"
               className="bg-ring text-archive-foreground hover:bg-ring/80"
               disabled={props.disabled}
-              onClick={props.onArchive}
+              onClick={() => {
+                setPressed('archive');
+                props.onArchive();
+              }}
             >
+              {spinner('archive')}
               {dismiss ? 'Dismiss session' : 'Archive session'}
             </Button>
           </div>

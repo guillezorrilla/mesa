@@ -128,8 +128,11 @@ export function sessionsService(
       command: () => claudeBackgroundAttach(nativeId),
     });
   };
-  /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
-  const look = (all = false) =>
+  /**
+   * The board: sessions merged with live tmux and the agent listing; ended ones only with `all`.
+   * Without `adapter` it never waits on Faro's adapter, for a look that must be quick.
+   */
+  const look = (all = false, { adapter = true } = {}) =>
     listSessions(
       {
         store,
@@ -140,7 +143,7 @@ export function sessionsService(
         events: (id) => readHookEvents(paths.events, id),
         priorityOf: projectPriorities(open),
         faro: faro.profile(),
-        backends: faro.shared,
+        backends: adapter ? faro.shared : [],
         clock: deps.clock,
         env: deps.env,
         home: deps.home,
@@ -406,7 +409,8 @@ export function sessionsService(
           ),
       },
       /** The board as a tree: children under their parent, each row with its depth. */
-      tree: async (all = false) => sessionTree(await board(all)),
+      tree: async (all = false, opts: { adapter?: boolean } = {}) =>
+        sessionTree(await board(all, opts)),
       moveOnBoard: async (id: string, direction: -1 | 1) => {
         const order = moveBoardSession(
           await sessionTree(await board()),

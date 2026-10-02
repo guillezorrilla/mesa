@@ -141,6 +141,14 @@ test('classifySession asks the adapter only when the rules are unsure, and takes
   // The screen changes: it is asked again.
   await placed({ ...unsure, last: lastState, tail: `${unsure.tail}\n` });
   expect(calls).toHaveLength(1);
+
+  // A quick look (no adapter to ask) keeps the saved answer while the rules stay unsure, even
+  // on a new screen, and yields to them once they are sure.
+  const quick = (signals: SessionSignals) =>
+    classifySession({ profile: adapterProfile, clock: fixedClock() }, signals);
+  const changed = { ...unsure, last: lastState, tail: `${unsure.tail}\n` };
+  expect((await quick(changed)).lastState).toEqual(lastState);
+  expect((await quick({ ...sure, last: lastState })).lastState.source).toBe('hook');
 });
 
 test('Antigravity idle TUI stays idle even when the profile adapter would guess a wait', async () => {
