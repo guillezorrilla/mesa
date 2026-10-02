@@ -180,12 +180,20 @@ export async function classifySession(
   const allowAdapter =
     signals.agent !== 'antigravity' &&
     !(signals.agent === 'codex' && signals.tail && AGENTS.codex.screen.state(signals.tail));
-  const known = allowAdapter && signals.last.source === 'adapter' && signals.last.basis === basis;
+  const fromAdapter = allowAdapter && signals.last.source === 'adapter';
+  const known = fromAdapter && signals.last.basis === basis;
   const backends = [stateRules, ...(allowAdapter && !known ? (deps.backends ?? []) : [])];
   const decision = await decide({ ...deps, backends }, signals, STATE_QUESTIONS);
   const [state] = decision.answers;
   const adapted = decision.backend === 'adapter' && state?.kind === 'Choice' ? state : undefined;
-  const lastState: LastState = known
+  // A quick look has no adapter to ask: its last answer stands while the rules are unsure.
+  const kept =
+    known ||
+    (fromAdapter &&
+      !deps.backends?.length &&
+      state?.kind === 'Choice' &&
+      state.confidence < deps.profile.decisions.threshold);
+  const lastState: LastState = kept
     ? signals.last
     : adapted
       ? {

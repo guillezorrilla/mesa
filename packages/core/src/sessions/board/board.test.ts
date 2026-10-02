@@ -599,3 +599,28 @@ test('a look that read a session before a stop never writes its state over the s
   });
   expect(store.get(live.id).lastState).toEqual(stopped);
 });
+
+test('a look that read a session before another look saved its state never writes over it', async () => {
+  const store = storeIn();
+  const live = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+  );
+  // A quick look reads the record; the adapter's look beside it saves first.
+  const before = store.list();
+  const adapted = {
+    state: 'waiting-question',
+    confidence: 0.9,
+    at: '2026-09-24T12:00:00.000Z',
+    source: 'adapter',
+    basis: '0123456789abcdef',
+  } as const;
+  store.update(live.id, { lastState: adapted });
+  const { run } = scriptedRunner({ tmux: '' });
+  await listSessions({
+    ...noListing,
+    store: { ...store, list: () => before },
+    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  expect(store.get(live.id).lastState).toEqual(adapted);
+});

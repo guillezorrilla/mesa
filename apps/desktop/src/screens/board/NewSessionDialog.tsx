@@ -1,6 +1,6 @@
 import type { Agent, SavedPrompt } from '@mesa/core';
 import { DEFAULT_AGENT, supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
-import { Play } from 'lucide-react';
+import { LoaderCircle, Play } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { SavedPromptPicker } from '@/components/SavedPromptPicker';
@@ -65,7 +65,13 @@ export function NewSessionDialog(props: {
             : "Starts an agent in the project's tmux session."
       }
       submit={{
-        label: (
+        // Disabled only while an open runs.
+        label: props.disabled ? (
+          <>
+            <LoaderCircle aria-hidden className="animate-spin" />
+            Opening
+          </>
+        ) : (
           <>
             <Play aria-hidden />
             Open
