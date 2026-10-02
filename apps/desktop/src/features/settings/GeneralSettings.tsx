@@ -9,25 +9,14 @@ import {
 import { Database, Eye, Palette, Power, RefreshCw, Stethoscope, Type } from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
-import { Choice, Range, TextField, Toggle } from './controls';
-import { SettingRow, SettingSection } from './SettingRow';
+import { Choice } from './controls/Choice';
+import { options } from './controls/options';
+import { Range } from './controls/Range';
+import { TextField } from './controls/TextField';
+import { Toggle } from './controls/Toggle';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
-
-/** Words for core's choices; the choices themselves are core's, so validation and controls agree. */
-const LABEL: Record<string, string> = {
-  system: 'System',
-  dark: 'Dark',
-  light: 'Light',
-  follow: 'Follow interface theme',
-  plex: 'IBM Plex Sans',
-  comfortable: 'Comfortable',
-  compact: 'Compact',
-  normal: 'Normal',
-  'red-green': 'Red-green',
-  'blue-yellow': 'Blue-yellow',
-};
-export const options = <T extends string>(values: readonly T[]) =>
-  values.map((value) => [value, LABEL[value] ?? value] as const);
 
 /** Application behaviour, appearance, accessibility, and Doctor's health checks. */
 export function GeneralSettings(props: {

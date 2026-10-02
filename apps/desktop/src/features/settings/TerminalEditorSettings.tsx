@@ -10,8 +10,12 @@ import {
   TextCursorInput,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Choice, Range, TextField, Toggle } from './controls';
-import { SettingRow, SettingSection } from './SettingRow';
+import { Choice } from './controls/Choice';
+import { Range } from './controls/Range';
+import { TextField } from './controls/TextField';
+import { Toggle } from './controls/Toggle';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /** The editor's external command: an absolute argv with one {file} argument, as JSON. */

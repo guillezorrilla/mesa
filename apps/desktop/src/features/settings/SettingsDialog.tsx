@@ -13,8 +13,8 @@ import { GeneralSettings } from './GeneralSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { ProjectSettings } from './ProjectSettings';
 import { SessionSettings } from './SessionSettings';
-import { SettingsQuery } from './SettingRow';
 import { TerminalEditorSettings } from './TerminalEditorSettings';
+import { SettingsQuery } from './useMatches';
 import { SettingsContext } from './useSettings';
 import { WorktreeSettings } from './WorktreeSettings';
 

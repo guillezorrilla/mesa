@@ -1,42 +1,23 @@
 import type { ProjectRow } from '@mesa/core';
 import { TERMINAL_THEMES } from '@mesa/core/browser';
-import {
-  FolderGit2,
-  GitBranch,
-  type LucideIcon,
-  Palette,
-  Play,
-  RefreshCw,
-  ShieldAlert,
-  Trash2,
-} from 'lucide-react';
+import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { ActionDialog } from '@/components/ActionDialog';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ProjectSelect } from '@/features/sessions/fields/ProjectSelect';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { commaList, lineList, TextField } from './controls';
-import { options } from './GeneralSettings';
-import { SettingRow, SettingSection } from './SettingRow';
+import { options } from './controls/options';
+import { TextField } from './controls/TextField';
+import { commaList } from './controls/textLists';
+import { ApproveScriptsDialog, type PendingScripts } from './project/ApproveScriptsDialog';
+import { profileValue } from './project/profileValue';
+import { ScriptRow } from './project/ScriptRow';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 type Worktrees = NonNullable<ProjectRow['overrides']['worktrees']>;
-type Pending = [string, { argv: string[]; fingerprint: string }][];
-
-/** A profile value as the row that would inherit it names it. */
-const profileValue = (value: string | boolean | readonly string[] | undefined, none: string) => {
-  const words =
-    typeof value === 'boolean'
-      ? value
-        ? 'on'
-        : 'off'
-      : typeof value === 'string'
-        ? value
-        : value?.join(', ');
-  return `Profile: ${words || none}`;
-};
 
 /** An empty field leaves the override out, so the profile's setting applies. */
 const orInherit = (parse: (text: string) => { value: unknown }) => (text: string) => {
@@ -44,76 +25,6 @@ const orInherit = (parse: (text: string) => { value: unknown }) => (text: string
   return { value: Array.isArray(value) && !value.length ? undefined : value };
 };
 const branch = (text: string) => ({ value: text.trim() || undefined });
-
-const SCRIPT_MODES = [
-  ['inherit', 'Use profile setting'],
-  ['none', 'None'],
-  ['custom', 'Custom'],
-] as const;
-
-/**
- * A setup or teardown override: the profile's (left out of mesa.yaml), none (an empty list, so the
- * profile's does not run either), or this project's own argv.
- */
-function ScriptRow(props: {
-  script: 'setup' | 'teardown';
-  title: string;
-  icon: LucideIcon;
-  value: string[] | undefined;
-  profile: string[];
-  acting: boolean;
-  onSave: (value: string[] | undefined) => void;
-}) {
-  const id = `project-worktree-${props.script}`;
-  const [picking, setPicking] = useState(false);
-  const stored = props.value === undefined ? 'inherit' : props.value.length ? 'custom' : 'none';
-  const mode = picking ? 'custom' : stored;
-  return (
-    <SettingRow
-      icon={props.icon}
-      title={props.title}
-      description={`${profileValue(props.profile, 'none')}. The executable and its arguments, one per line; runs without a shell.`}
-      keywords={`project ${props.script}`}
-      htmlFor={`${id}-mode`}
-      control={
-        <NativeSelect
-          id={`${id}-mode`}
-          className="min-w-40"
-          value={mode}
-          disabled={props.acting}
-          onChange={(event) => {
-            const next = event.currentTarget.value as (typeof SCRIPT_MODES)[number][0];
-            setPicking(next === 'custom');
-            if (next === 'inherit') props.onSave(undefined);
-            if (next === 'none') props.onSave([]);
-          }}
-        >
-          {SCRIPT_MODES.map(([value, label]) => (
-            <NativeSelectOption key={value} value={value}>
-              {label}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
-      }
-    >
-      {mode === 'custom' && (
-        <TextField
-          id={id}
-          multiline
-          value={props.value?.join('\n') ?? ''}
-          placeholder={'pnpm\ninstall'}
-          parse={(text) => {
-            const { value } = lineList(text);
-            return value.length
-              ? { value }
-              : { error: 'Enter the executable and its arguments, or choose None.' };
-          }}
-          onSave={(value) => props.onSave(value as string[])}
-        />
-      )}
-    </SettingRow>
-  );
-}
 
 /**
  * One project's overrides of the profile's worktree settings and terminal theme, saved in its
@@ -140,10 +51,10 @@ export function ProjectSettings(props: { onChanged: () => void }) {
       return undefined;
     });
   const themes = options(TERMINAL_THEMES);
-  const pending = Object.entries(project?.unapproved ?? {}) as Pending;
+  const pending = Object.entries(project?.unapproved ?? {}) as PendingScripts;
   // The scripts the dialog shows, frozen when it opens: their fingerprints are what trust approves,
   // so a mesa.yaml that changes meanwhile is refused rather than approved unseen.
-  const [reviewing, setReviewing] = useState<Pending>();
+  const [reviewing, setReviewing] = useState<PendingScripts>();
   return (
     <>
       <SettingSection
@@ -323,13 +234,12 @@ export function ProjectSettings(props: { onChanged: () => void }) {
             />
           </SettingSection>
           {reviewing && (
-            <ActionDialog
-              testId="approve-scripts"
-              title={`Approve ${project.name}'s worktree scripts?`}
-              description="Mesa runs each one without a shell, as written, in every new worktree or before one is removed. Approve them only if you trust this repository."
-              submit={{ label: 'Approve', testId: 'approve-scripts-submit', disabled: acting }}
+            <ApproveScriptsDialog
+              project={project.name}
+              scripts={reviewing}
+              busy={acting}
               onCancel={() => setReviewing(undefined)}
-              onSubmit={() =>
+              onApprove={() =>
                 void act(async () => {
                   const expect = reviewing.map(([, script]) => script.fingerprint);
                   // A refusal (the file changed) toasts; either way the list shows what waits now.
@@ -339,16 +249,7 @@ export function ProjectSettings(props: { onChanged: () => void }) {
                   return undefined;
                 })
               }
-            >
-              {reviewing.map(([script, { argv }]) => (
-                <div key={script} className="space-y-1">
-                  <p className="text-sm">{script === 'setup' ? 'Bootstrap' : 'Teardown'}</p>
-                  <pre className="overflow-x-auto rounded-md border bg-muted/40 p-2 font-mono text-xs">
-                    {argv.map((word) => JSON.stringify(word)).join(' ')}
-                  </pre>
-                </div>
-              ))}
-            </ActionDialog>
+            />
           )}
         </div>
       )}

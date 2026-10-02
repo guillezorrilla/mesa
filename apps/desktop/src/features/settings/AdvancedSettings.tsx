@@ -4,8 +4,10 @@ import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
-import { Choice, TextField } from './controls';
-import { SettingRow, SettingSection } from './SettingRow';
+import { Choice } from './controls/Choice';
+import { TextField } from './controls/TextField';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /** Faro's decisions, and where the profile's data lives and is backed up. */

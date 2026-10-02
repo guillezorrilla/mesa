@@ -1,20 +1,22 @@
 import type { Config, WorkspaceFile } from '@mesa/core';
 import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
-import { PanelLeft, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { ActionDialog } from '@/components/ActionDialog';
 import { said } from '@/components/Toast';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FIXED_SHORTCUTS, pressed } from '@/lib/fixedShortcuts';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { CreateFileDialog } from './dialogs/CreateFileDialog';
+import { DeleteFileDialog } from './dialogs/DeleteFileDialog';
+import { DiscardFileDialog } from './dialogs/DiscardFileDialog';
+import { RenameFileDialog } from './dialogs/RenameFileDialog';
 import { FileEditor } from './FileEditor';
 import { FileEditorSettings } from './FileEditorSettings';
 import { FileSearch } from './FileSearch';
 import { FilesEmptyState } from './FilesEmptyState';
+import { FilesSidePanel } from './FilesSidePanel';
 import { FileTabBar } from './FileTabBar';
 import { FileTree } from './FileTree';
+import { useFilePanes } from './useFilePanes';
+import { useUnloadGuard } from './useUnloadGuard';
 
 type Pending =
   | { kind: 'open'; path: string; line?: number }
@@ -30,10 +32,6 @@ const DEFAULT_EDITOR: Config['editor'] = {
   vim: false,
   external: [],
 };
-const PANES = [
-  ['files', 'Files', PanelLeft],
-  ['search', 'Search', Search],
-] as const;
 
 /**
  * Xirp-style two-pane repository browser over the same checked file commands as the CLI. It owns
@@ -48,10 +46,8 @@ export function FilesTab(props: {
   const [opened, setOpened] = useState<(WorkspaceFile & { targetLine?: number }) | null>(null);
   const [openCount, setOpenCount] = useState(0);
   const [draft, setDraft] = useState('');
-  const [pane, setPane] = useState<'files' | 'search'>('files');
+  const { pane, setPane, focusPane, goToInput, searchInput } = useFilePanes();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const goToInput = useRef<HTMLInputElement>(null);
-  const searchInput = useRef<HTMLInputElement>(null);
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'discard'>();
   const [pending, setPending] = useState<Pending>();
   const loadRequest = useRef(0);
@@ -67,36 +63,7 @@ export function FilesTab(props: {
   });
   const dirty = Boolean(opened && draft !== opened.text);
   useEffect(() => props.onDirtyChange(dirty), [dirty, props.onDirtyChange]);
-  useEffect(() => {
-    if (!dirty) return;
-    const preventClose = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', preventClose);
-    return () => window.removeEventListener('beforeunload', preventClose);
-  }, [dirty]);
-  /** Shows a pane and focuses its field, as Cmd+P and Cmd+Shift+F do. */
-  const focusPane = (name: 'files' | 'search') => {
-    setPane(name);
-    requestAnimationFrame(() => (name === 'search' ? searchInput : goToInput).current?.focus());
-  };
-  const focusPaneRef = useRef(focusPane);
-  focusPaneRef.current = focusPane;
-  useEffect(() => {
-    const shortcut = (event: KeyboardEvent) => {
-      const pane = pressed(event, FIXED_SHORTCUTS.findInFiles)
-        ? 'search'
-        : pressed(event, FIXED_SHORTCUTS.goToFile)
-          ? 'files'
-          : undefined;
-      if (!pane) return;
-      event.preventDefault();
-      focusPaneRef.current(pane);
-    };
-    window.addEventListener('keydown', shortcut);
-    return () => window.removeEventListener('keydown', shortcut);
-  }, []);
+  useUnloadGuard(dirty);
   const load = async (path: string, line?: number, selected = checkout) => {
     const request = ++loadRequest.current;
     const file = await run('files.read', {
@@ -236,22 +203,7 @@ export function FilesTab(props: {
       aria-label="Files"
       className="flex h-[calc(100vh-13rem)] min-h-[30rem] overflow-hidden rounded-lg border bg-card/40"
     >
-      <aside className="flex w-80 shrink-0 flex-col border-r bg-card">
-        <div className="flex shrink-0 border-b" role="tablist">
-          {PANES.map(([name, label, Icon]) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={pane === name}
-              className="-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-sm text-muted-foreground hover:text-foreground aria-selected:border-state-working aria-selected:text-foreground"
-              onClick={() => setPane(name)}
-            >
-              <Icon aria-hidden className="size-4" />
-              {label}
-            </button>
-          ))}
-        </div>
+      <FilesSidePanel pane={pane} onPane={setPane}>
         {pane === 'files' ? (
           <FileTree
             key={checkout}
@@ -278,7 +230,7 @@ export function FilesTab(props: {
             onOpen={(target) => request({ kind: 'open', ...target })}
           />
         )}
-      </aside>
+      </FilesSidePanel>
       <div className="flex min-w-0 flex-1 flex-col bg-background/40">
         {opened ? (
           <>
@@ -320,69 +272,39 @@ export function FilesTab(props: {
         )}
       </div>
       {dialog === 'create' && (
-        <ActionDialog
-          testId="file-create-dialog"
-          title="Create file"
-          description="Create one file in an existing folder of this checkout."
-          submit={{ label: 'Create', testId: 'confirm-file-create', disabled: acting }}
+        <CreateFileDialog
+          busy={acting}
+          onCreate={(path) => void create(path)}
           onCancel={() => setDialog(undefined)}
-          onSubmit={(form) => void create(String(new FormData(form).get('path') ?? ''))}
-        >
-          <Label htmlFor="new-file-path">Repository-relative path</Label>
-          <Input id="new-file-path" name="path" required placeholder="docs/notes.md" />
-        </ActionDialog>
+        />
       )}
       {dialog === 'rename' && opened && (
-        <ActionDialog
-          testId="file-rename-dialog"
-          title="Rename file"
-          description={`Rename ${opened.path} without replacing another file.`}
-          submit={{ label: 'Rename', testId: 'confirm-file-rename', disabled: acting }}
+        <RenameFileDialog
+          path={opened.path}
+          busy={acting}
+          onRename={(path) => void rename(path)}
           onCancel={() => setDialog(undefined)}
-          onSubmit={(form) => void rename(String(new FormData(form).get('path') ?? ''))}
-        >
-          <Label htmlFor="rename-file-path">New repository-relative path</Label>
-          <Input id="rename-file-path" name="path" defaultValue={opened.path} required />
-        </ActionDialog>
+        />
       )}
       {dialog === 'delete' && opened && (
-        <ActionDialog
-          testId="file-delete-dialog"
-          title="Delete file?"
-          description={`Delete ${opened.path} from this checkout. This cannot be undone in Mesa.`}
-          submit={{
-            label: 'Delete',
-            testId: 'confirm-file-delete',
-            disabled: acting,
-            variant: 'destructive',
-          }}
+        <DeleteFileDialog
+          path={opened.path}
+          busy={acting}
+          onDelete={() => void remove()}
           onCancel={() => setDialog(undefined)}
-          onSubmit={() => void remove()}
-        >
-          <p className="font-mono text-sm">{opened.path}</p>
-        </ActionDialog>
+        />
       )}
       {dialog === 'discard' && (
-        <ActionDialog
-          testId="file-discard-dialog"
-          title="Discard unsaved changes?"
-          description="Your edits to this file have not been saved."
-          submit={{
-            label: 'Discard changes',
-            testId: 'confirm-file-discard',
-            disabled: false,
-            variant: 'destructive',
-          }}
+        <DiscardFileDialog
+          path={opened?.path}
           onCancel={() => {
             setDialog(undefined);
             setPending(undefined);
           }}
-          onSubmit={() => {
+          onDiscard={() => {
             if (pending) void perform(pending);
           }}
-        >
-          <p className="font-mono text-sm">{opened?.path}</p>
-        </ActionDialog>
+        />
       )}
     </section>
   );

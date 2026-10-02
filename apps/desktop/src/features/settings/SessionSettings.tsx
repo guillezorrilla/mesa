@@ -1,8 +1,10 @@
 import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
 import { BookMarked, CircleDollarSign, ScrollText, SquareTerminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Choice, Toggle } from './controls';
-import { SettingRow, SettingSection } from './SettingRow';
+import { Choice } from './controls/Choice';
+import { Toggle } from './controls/Toggle';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /**

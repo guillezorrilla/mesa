@@ -11,8 +11,10 @@ import {
 import { useState } from 'react';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
-import { commaList, lineList, TextField } from './controls';
-import { SettingRow, SettingSection } from './SettingRow';
+import { TextField } from './controls/TextField';
+import { commaList, lineList } from './controls/textLists';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 const LOCATIONS = [
