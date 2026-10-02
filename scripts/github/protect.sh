@@ -13,12 +13,16 @@ REPO=${REPO:-guillezorrilla/mesa}
 OWNER_ID=55284328            # guillezorrilla
 ACTIONS_APP_ID=15368         # the GitHub Actions app, source of the required `verify` check
 ADMIN_ROLE=5                 # repository admin; the owner is the only admin of a personal repo
-CHECK=0
-[ "${1:-}" = --check ] && CHECK=1
+case "${1:-}" in
+  "") CHECK=0 ;;
+  --check) CHECK=1 ;;
+  *) echo "usage: $0 [--check]" >&2; exit 2 ;;
+esac
 drift=0
 
-# The wanted state's shape picked out of a GET response, so fields GitHub adds are ignored.
-# Arrays are compared in a stable order, and one of another length is kept whole so it differs.
+# shape($w): the wanted state's shape picked out of a GET response, so fields GitHub adds are
+# ignored. Arrays come out in a stable order (the wanted side goes through it too), and one of
+# another length is kept whole so it differs.
 SHAPE='def shape($w):
   if ($w|type) == "object" then . as $h | reduce ($w|keys[]) as $k ({}; .[$k] = ($h[$k] | shape($w[$k])))
   elif ($w|type) == "array" and (type == "array") then
@@ -26,18 +30,32 @@ SHAPE='def shape($w):
     [ sort_by(.type? // tostring)[] ] as $h | [ $w | sort_by(.type? // tostring) | to_entries[] | . as $e | $h[$e.key] | shape($e.value) ] end
   else . end;'
 
-# get <path>: the response body, or null when the setting is not readable (404, or 403 on a private repo).
+# get <path>: the response body, or null when GitHub refuses the read with a 4xx other than 401:
+# the setting does not exist yet (404), is not offered (403, rulesets on a private repo; 422),
+# or is off (409, the allow list while all actions are allowed). Any other failure stops the
+# whole script, so an unreadable setting is never taken for a missing one and written over.
 get() {
-  local out
-  out=$(gh api "$1" 2>/dev/null) && echo "$out" || echo null
+  local out status
+  if out=$(gh api "$1" 2>/dev/null); then
+    echo "$out"
+    return
+  fi
+  status=$(gh api -i "$1" 2>/dev/null | head -1 | awk '{print $2}')
+  case "$status" in
+    401) ;;
+    4??) echo null; return ;;
+  esac
+  echo "protect.sh: GET $1 failed (HTTP ${status:-none})" >&2
+  kill $$
 }
 
 # ensure <label> <current json> <wanted json> <apply command...>
 ensure() {
-  local label=$1 want=$3 have
-  have=$(jq -cS --argjson w "$want" "$SHAPE shape(\$w)" <<<"$2")
+  local label=$1 have want
+  have=$(jq -cS --argjson w "$3" "$SHAPE shape(\$w)" <<<"$2")
+  want=$(jq -cS "$SHAPE shape(.)" <<<"$3")
   shift 3
-  if [ "$have" = "$(jq -cS . <<<"$want")" ]; then
+  if [ "$have" = "$want" ]; then
     echo "ok       $label"
     return
   fi
@@ -45,7 +63,7 @@ ensure() {
   if [ $CHECK = 1 ]; then
     echo "drift    $label"
     echo "         have $have"
-    echo "         want $(jq -cS . <<<"$want")"
+    echo "         want $want"
   else
     "$@" >/dev/null
     echo "changed  $label"
@@ -54,6 +72,9 @@ ensure() {
 
 send() { gh api -X "$1" "$2" --input - <<<"$3"; }
 
+# setting <label> <method> <path> <wanted json>: a setting read and written at the same path.
+setting() { ensure "$1" "$(get "$3")" "$4" send "$2" "$3" "$4"; }
+
 # --- Repo features and merging ---------------------------------------------------------
 repo_want='{
   "description": "A macOS app and CLI that runs many Claude Code, Codex and Antigravity sessions across projects, with memory in an Obsidian vault.",
@@ -61,10 +82,10 @@ repo_want='{
   "allow_squash_merge": true, "allow_merge_commit": false, "allow_rebase_merge": false,
   "delete_branch_on_merge": true, "pull_request_creation_policy": "collaborators_only"
 }'
-ensure "repo features and merging" "$(get "repos/$REPO")" "$repo_want" send PATCH "repos/$REPO" "$repo_want"
+setting "repo features and merging" PATCH "repos/$REPO" "$repo_want"
 
 topics_want='{"names": ["ai-agents", "claude-code", "cli", "codex", "macos", "obsidian", "tauri", "tmux"]}'
-ensure "topics" "$(get "repos/$REPO/topics")" "$topics_want" send PUT "repos/$REPO/topics" "$topics_want"
+setting "topics" PUT "repos/$REPO/topics" "$topics_want"
 
 # --- Rulesets ----------------------------------------------------------------------------
 # ruleset <wanted json>: creates the ruleset named in it, or updates the one with that name.
@@ -105,27 +126,23 @@ ruleset "$(jq -n --argjson admin $ADMIN_ROLE '{
 
 # --- Actions -----------------------------------------------------------------------------
 perm_want='{"enabled": true, "allowed_actions": "selected", "sha_pinning_required": true}'
-ensure "actions: allowed and SHA-pinned" "$(get "repos/$REPO/actions/permissions")" "$perm_want" \
-  send PUT "repos/$REPO/actions/permissions" "$perm_want"
+setting "actions: allowed and SHA-pinned" PUT "repos/$REPO/actions/permissions" "$perm_want"
 
 # GitHub-owned and verified creators, plus the third-party actions ci.yml uses.
 selected_want='{"github_owned_allowed": true, "verified_allowed": true,
   "patterns_allowed": ["dtolnay/rust-toolchain@*", "pnpm/action-setup@*", "Swatinem/rust-cache@*"]}'
-ensure "actions: allow list" "$(get "repos/$REPO/actions/permissions/selected-actions")" "$selected_want" \
-  send PUT "repos/$REPO/actions/permissions/selected-actions" "$selected_want"
+setting "actions: allow list" PUT "repos/$REPO/actions/permissions/selected-actions" "$selected_want"
 
 token_want='{"default_workflow_permissions": "read", "can_approve_pull_request_reviews": false}'
-ensure "actions: read-only token, no PR approvals" "$(get "repos/$REPO/actions/permissions/workflow")" "$token_want" \
-  send PUT "repos/$REPO/actions/permissions/workflow" "$token_want"
+setting "actions: read-only token, no PR approvals" PUT "repos/$REPO/actions/permissions/workflow" "$token_want"
 
 fork_want='{"approval_policy": "all_external_contributors"}'
-ensure "actions: approve every outside contributor's run" \
-  "$(get "repos/$REPO/actions/permissions/fork-pr-contributor-approval")" "$fork_want" \
-  send PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" "$fork_want"
+setting "actions: approve every outside contributor's run" PUT \
+  "repos/$REPO/actions/permissions/fork-pr-contributor-approval" "$fork_want"
 
 retention_want='{"days": 30}'
-ensure "actions: 30-day log retention" "$(get "repos/$REPO/actions/permissions/artifact-and-log-retention")" \
-  "$retention_want" send PUT "repos/$REPO/actions/permissions/artifact-and-log-retention" "$retention_want"
+setting "actions: 30-day log retention" PUT \
+  "repos/$REPO/actions/permissions/artifact-and-log-retention" "$retention_want"
 
 # --- The release environment -------------------------------------------------------------
 env_want=$(jq -n --argjson me $OWNER_ID '{
@@ -138,11 +155,15 @@ env_have=$(get "repos/$REPO/environments/release" |
           deployment_branch_policy}')
 ensure "environment release: owner approves" "$env_have" "$env_want" send PUT "repos/$REPO/environments/release" "$env_body"
 
-# release_tags_only: the release environment deploys only from v* tags, nothing else.
+# release_tags_only: the release environment deploys only from v* tags. The v* policy is added
+# before any other is removed, so a failure never leaves the environment open to every branch.
 release_tags_only() {
   local path="repos/$REPO/environments/release/deployment-branch-policies" id
-  for id in $(get "$path" | jq -r '.branch_policies[]?.id'); do gh api -X DELETE "$path/$id"; done
-  send POST "$path" '{"name": "v*", "type": "tag"}'
+  get "$path" | jq -e '.branch_policies[]? | select(.name == "v*" and .type == "tag")' >/dev/null ||
+    send POST "$path" '{"name": "v*", "type": "tag"}'
+  for id in $(get "$path" | jq -r '.branch_policies[]? | select(.name != "v*" or .type != "tag") | .id'); do
+    gh api -X DELETE "$path/$id"
+  done
 }
 ensure "environment release: v* tags only" \
   "$(get "repos/$REPO/environments/release/deployment-branch-policies" | jq -c '[.branch_policies[]? | {name, type}]')" \
@@ -151,7 +172,7 @@ ensure "environment release: v* tags only" \
 # --- Security ----------------------------------------------------------------------------
 scan_want='{"security_and_analysis": {"secret_scanning": {"status": "enabled"},
   "secret_scanning_push_protection": {"status": "enabled"}}}'
-ensure "secret scanning with push protection" "$(get "repos/$REPO")" "$scan_want" send PATCH "repos/$REPO" "$scan_want"
+setting "secret scanning with push protection" PATCH "repos/$REPO" "$scan_want"
 
 alerts_have=$(gh api "repos/$REPO/vulnerability-alerts" >/dev/null 2>&1 && echo true || echo false)
 ensure "dependabot alerts" "$alerts_have" true gh api -X PUT "repos/$REPO/vulnerability-alerts"
@@ -163,8 +184,7 @@ ensure "private vulnerability reporting" "$(get "repos/$REPO/private-vulnerabili
   true gh api -X PUT "repos/$REPO/private-vulnerability-reporting"
 
 codeql_want='{"state": "configured", "languages": ["javascript-typescript"], "query_suite": "default"}'
-ensure "codeql default setup" "$(get "repos/$REPO/code-scanning/default-setup")" "$codeql_want" \
-  send PATCH "repos/$REPO/code-scanning/default-setup" "$codeql_want"
+setting "codeql default setup" PATCH "repos/$REPO/code-scanning/default-setup" "$codeql_want"
 
 if [ $CHECK = 1 ] && [ $drift = 1 ]; then
   echo "drift found: run scripts/github/protect.sh to apply"
