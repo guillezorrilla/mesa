@@ -60,7 +60,13 @@ const ConfigSchema = z.strictObject({
       threshold: z.number().min(0).max(1).default(0.7),
     })
     .prefault({}),
-  sessions: z.strictObject({ log: z.boolean().default(true) }).prefault({}),
+  sessions: z
+    .strictObject({
+      log: z.boolean().default(true),
+      // Claude's status line in Mesa sessions ends with the session's estimated cost.
+      statusLineCost: z.boolean().default(false),
+    })
+    .prefault({}),
   usage: z
     .strictObject({
       dailyAlertUsd: z.number().finite().nonnegative().default(0),
