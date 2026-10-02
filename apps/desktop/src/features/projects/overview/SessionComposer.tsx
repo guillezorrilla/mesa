@@ -1,6 +1,9 @@
 import type { Agent, ProjectRow } from '@mesa/core';
 import { supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
-import { Play } from 'lucide-react';
+import { Play, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { IconButton } from '@/components/IconButton';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,11 +21,14 @@ export type SessionStartInput = {
   background?: boolean;
   goal?: string;
   branch?: string;
+  /** The imported item it starts from (Start session in the Import panel). */
+  from?: string;
 };
 
 /**
  * The project's goal box: one line until focused, then the agent, mode, background, and where the
- * session starts, in the main checkout or its own worktree on a new branch.
+ * session starts, in the main checkout or its own worktree on a new branch. Filled in from an
+ * imported item, it names the item, and the session keeps it, until cleared.
  */
 export function SessionComposer(props: {
   project: ProjectRow;
@@ -33,6 +39,12 @@ export function SessionComposer(props: {
   const { project } = props;
   const { location, setLocation, composerOpen, setComposerOpen, selectedAgent, setSelectedAgent } =
     props.state;
+  const { draft, setDraft } = props.state;
+  const goalBox = useRef<HTMLTextAreaElement>(null);
+  // Focused when an item fills it in, which opens the composer.
+  useEffect(() => {
+    if (draft) goalBox.current?.focus();
+  }, [draft]);
   return (
     <form
       data-testid="project-session-form"
@@ -51,17 +63,32 @@ export function SessionComposer(props: {
             values.get('background') === 'on',
           goal,
           branch: location === 'worktree' ? String(values.get('branch') ?? '').trim() : undefined,
+          from: draft?.from,
         });
       }}
     >
+      {draft && (
+        <div
+          data-testid="project-goal-from"
+          className="mb-2 flex min-w-0 items-center gap-2 text-sm"
+        >
+          <Badge variant="secondary">From</Badge>
+          <span className="min-w-0 flex-1 truncate">{draft.title}</span>
+          <IconButton label="Clear the item" icon={X} onClick={() => setDraft(undefined)} />
+        </div>
+      )}
       <Label htmlFor="project-goal" className="sr-only">
         Goal (optional)
       </Label>
       <Textarea
+        // A new item's goal fills it in again; clearing it empties it.
+        key={draft?.from ?? ''}
+        ref={goalBox}
+        defaultValue={draft?.goal}
         id="project-goal"
         name="goal"
         data-testid="project-goal"
-        rows={composerOpen ? 3 : 1}
+        rows={composerOpen ? (draft ? 6 : 3) : 1}
         className="min-h-12 resize-none border-0 bg-transparent px-1 shadow-none focus-visible:ring-0 dark:bg-transparent"
         placeholder="What are we shipping? Describe your goal or paste a ticket URL..."
         onFocus={() => setComposerOpen(true)}

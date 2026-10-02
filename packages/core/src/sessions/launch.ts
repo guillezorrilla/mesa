@@ -114,6 +114,8 @@ type NewLaunch = {
   /** A background process started with the mount, which a resume attaches to again. */
   vaultMounted?: true;
   resumedFrom?: string;
+  /** The imported item it starts from (mesa open --from). */
+  from?: SessionRecord['from'];
 };
 
 /** How a session's agent starts. */
@@ -302,6 +304,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     ...(s.name === undefined ? {} : { name: s.name }),
     ...(s.adopted ? { adopted: s.adopted } : {}),
     ...(s.vaultMounted ? { vaultMounted: s.vaultMounted } : {}),
+    ...(s.from === undefined ? {} : { from: s.from }),
     // Named after the Mesa id, which a resume never reuses, so windows never collide.
     tmux: {
       socket: deps.profile.paths.tmuxSocket,

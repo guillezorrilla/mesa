@@ -18,5 +18,3 @@ export const CONNECTORS: Record<
   confluence: { connection: 'atlassian', fetch: confluencePage },
   web: { fetch: webPage },
 };
-
-export const ITEM_SOURCES = Object.keys(CONNECTORS) as ItemSource[];

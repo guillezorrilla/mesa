@@ -8,7 +8,7 @@ import { RulesTab } from '@/features/rules/RulesTab';
 import { SkillsTab } from '@/features/skills/SkillsTab';
 import { VaultTab } from '@/features/vault/VaultTab';
 import { useAct } from '@/lib/useAct';
-import { useCommand } from '@/lib/useCommand';
+import { useCommand, useRun } from '@/lib/useCommand';
 import { ImportTab } from './import/ImportTab';
 import { OverviewTab } from './overview/OverviewTab';
 import { useOverviewState } from './overview/useOverviewState';
@@ -54,6 +54,16 @@ export function ProjectScreen(props: {
   const [gitRevision, setGitRevision] = useState(0);
   const gitChanges = useGitChangeCount(project.name, gitRevision);
   const { acting, act } = useAct();
+  const run = useRun();
+  // Start session on an imported item: its goal fills in the Overview's composer, to edit there.
+  const startFrom = (from: string) =>
+    void act(async () => {
+      const built = await run('imports.goal', { project: project.name, from });
+      if (!built) return undefined;
+      overview.setDraft({ from: built.id, title: built.title, goal: built.goal });
+      setTab('overview');
+      return undefined;
+    });
   return (
     <section data-testid="project-workspace" className="space-y-6">
       <div className="flex items-center gap-3">
@@ -96,7 +106,7 @@ export function ProjectScreen(props: {
       ) : tab === 'vault' ? (
         <VaultTab project={project.name} onItem={props.onVaultItem} />
       ) : tab === 'import' ? (
-        <ImportTab key={project.name} project={project.name} />
+        <ImportTab key={project.name} project={project.name} onStartSession={startFrom} />
       ) : tab === 'git' ? (
         <GitTab
           key={project.name}

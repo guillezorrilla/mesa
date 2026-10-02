@@ -1,13 +1,10 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import type { Runner } from '../lib/process.js';
 import { listReceipts } from '../receipts/store.js';
 import {
-  agentWorld,
-  atlassianWorld,
   finishesRun,
-  projectProfile,
+  importProfile,
   TEST_BROKER,
   thrown,
   writesImportNotes,
@@ -18,45 +15,10 @@ const SITE = 'https://lantern-cove.atlassian.net';
 const PAGE_URL = `${SITE}/wiki/spaces/LC/pages/9001/Tide+schedule`;
 const KEPT = '<!-- keep -->\n## Mine\nCall the harbour master first.\n<!-- keep -->';
 
-/**
- * lantern-cove's profile with Atlassian connected, over atlassianWorld, and a fake claude whose
- * import-notes run writes each note as `write` says (a heading and its snapshot, by default).
- */
-async function setUp(
-  write: (note: string, snapshot: string) => string = (note, snapshot) =>
-    `# ${note}\n\nFrom ${snapshot}.`,
-) {
-  let now = '2026-09-24T12:00:00.000Z';
-  const world = atlassianWorld();
-  let agent = writesImportNotes(write);
-  const agents = agentWorld({ onOpen: (w) => agent(w) });
-  const run: Runner = (file, ...rest) =>
-    file === '/usr/bin/open' ? world.deps.run(file, ...rest) : agents.run(file, ...rest);
-  const { home, mesa } = projectProfile(run, {
-    ...world.deps,
-    run,
-    clock: () => new Date(now),
-  });
-  await mesa.sources.connect('atlassian');
-  return {
-    world,
-    agents,
-    home,
-    mesa,
-    vault: join(home, 'vault'),
-    at: (iso: string) => {
-      now = iso;
-    },
-    agent: (next: typeof agent) => {
-      agent = next;
-    },
-  };
-}
-
 const files = (dir: string) => (existsSync(dir) ? readdirSync(dir) : []);
 
 test('a Jira key and a Confluence URL import as snapshots and notes linked from the hub, with one receipt and only reads', async () => {
-  const { world, agents, mesa, vault } = await setUp();
+  const { world, agents, mesa, vault } = await importProfile();
   world.serveIssue('LC-12', {
     summary: 'Fix the tide alarm',
     description: '<p>The alarm rings <strong>late</strong>.</p>',
@@ -163,7 +125,7 @@ test('a Jira key and a Confluence URL import as snapshots and notes linked from 
 });
 
 test('a public web page imports cleaned by Defuddle with notes off: one snapshot, no connection, no run', async () => {
-  const { world, agents, mesa, vault } = await setUp();
+  const { world, agents, mesa, vault } = await importProfile();
   world.routes['GET https://example.test/tides?week=40'] = {
     html: '<html><head><title>Tide tables</title></head><body><nav><a href="/">Home</a> <a href="/shop">Shop</a></nav><article><h1>Tide tables</h1><p>The tide at <a href="/cove">the cove</a> turns twice a day, and the table below lists the times for the whole week ahead.</p><p>Check it before you sail.</p></article><footer>Copyright Example</footer></body></html>',
   };
@@ -200,7 +162,7 @@ test('a public web page imports cleaned by Defuddle with notes off: one snapshot
 test('a refresh after a kept-block edit and a source change has the new content and the edit, and a new snapshot', async () => {
   // The agent drops the person's block and makes one of its own: core keeps exactly the person's.
   let says = 'The alarm rings late.';
-  const { world, mesa, vault, at } = await setUp(
+  const { world, mesa, vault, at } = await importProfile(
     () => `# Tide alarm\n\n${says}\n\n<!-- keep -->\nAgent block.\n<!-- keep -->`,
   );
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
@@ -243,7 +205,7 @@ test('a refresh after a kept-block edit and a source change has the new content 
 });
 
 test('a failed Write notes run leaves the snapshots, changes no note, and says why', async () => {
-  const { world, mesa, vault, at, agent } = await setUp();
+  const { world, mesa, vault, at, agent } = await importProfile();
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
   await mesa.imports.add('lantern-cove', ['LC-12']);
   const note = 'wiki/notes/lc-12-fix-the-tide-alarm.md';
@@ -278,7 +240,7 @@ test('a failed Write notes run leaves the snapshots, changes no note, and says w
 });
 
 test('an unsupported, unconnected, or inaccessible link says why and writes nothing', async () => {
-  const { world, mesa, vault } = await setUp();
+  const { world, mesa, vault } = await importProfile();
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
   const refused = async (links: string[]) => {
     const error = await mesa.imports.add('lantern-cove', links).catch((e) => e);
@@ -317,7 +279,7 @@ test('an unsupported, unconnected, or inaccessible link says why and writes noth
 });
 
 test('a bare key on a connection with two sites names them', async () => {
-  const { world, mesa } = await setUp();
+  const { world, mesa } = await importProfile();
   const sites = [
     { id: 'cloud-1', name: 'lantern-cove', url: SITE },
     { id: 'cloud-2', name: 'reef-watch', url: 'https://reef-watch.atlassian.net' },
@@ -332,7 +294,7 @@ test('a bare key on a connection with two sites names them', async () => {
 });
 
 test('Write notes runs on a profile whose skills list predates import-notes, and leaves that list as it is', async () => {
-  const { world, mesa, home } = await setUp();
+  const { world, mesa, home } = await importProfile();
   mesa.config.set('skills', '[mesa]');
   world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
   const { result } = await mesa.imports.add('lantern-cove', ['LC-12']);
@@ -349,7 +311,7 @@ test('Write notes runs on a profile whose skills list predates import-notes, and
 });
 
 test('Write notes takes 50 items of the longest paths in one run, and refuses 51 before fetching any', async () => {
-  const { world, agents, mesa, vault } = await setUp();
+  const { world, agents, mesa, vault } = await importProfile();
   // Each a web page whose slug and title fill the 80 characters of both paths.
   const links = Array.from(
     { length: 51 },

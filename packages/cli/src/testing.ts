@@ -4,6 +4,7 @@ import type { BrowserPageSelection, MesaDeps, Runner } from '@mesa/core';
 import {
   CLAUDE_VERSION,
   fakeTmux,
+  importWorld,
   profilePaths,
   scriptedRunner,
   sequentialIds,
@@ -116,6 +117,17 @@ export function cliHarness() {
       mkdirSync(dir, { recursive: true });
       await h.mesa('register', '--create', dir);
       return dir;
+    },
+    /**
+     * lantern-cove with Atlassian connected, over importWorld; the world, to serve items, the
+     * agents, to read their windows, and `agent`, to swap what claude does.
+     */
+    withImports: async () => {
+      const { world, agents, run, agent } = importWorld();
+      h.deps = { ...world.deps, run };
+      await h.withProject();
+      await h.mesa('sources', 'connect', 'atlassian');
+      return { world, agents, agent };
     },
   };
   return h;

@@ -53,7 +53,11 @@ test('a pasted link imports with Write notes on, and the item then lists with Re
     'import refresh': () => imported(ISSUE, { ok: false, reason: 'claude exited with status 1' }),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
-  const byTestId = await renderWithMesa(<ImportTab project="lantern-cove" />, bridge);
+  const started: string[] = [];
+  const byTestId = await renderWithMesa(
+    <ImportTab project="lantern-cove" onStartSession={(from) => started.push(from)} />,
+    bridge,
+  );
   expect(byTestId('import-tab')[0]?.textContent).toContain('Nothing imported yet.');
   expect(button('Write notes')?.getAttribute('aria-checked')).toBe('true');
 
@@ -66,6 +70,8 @@ test('a pasted link imports with Write notes on, and the item then lists with Re
   ]);
   expect(toasts(byTestId)).toContainEqual(['confirmation', 'Imported LC-12: Fix the tide alarm']);
 
+  await click(button('Start session from LC-12'));
+  expect(started).toEqual(['LC-12']);
   await click(button('Open LC-12 in Obsidian'));
   expect(calls).toContainEqual(['--json', 'vault', 'open', '--', ISSUE.note]);
 
@@ -92,7 +98,10 @@ test('with Write notes off an import passes --no-notes, and an item without a no
     import: () => imported(PAGE),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
-  await renderWithMesa(<ImportTab project="lantern-cove" />, bridge);
+  await renderWithMesa(
+    <ImportTab project="lantern-cove" onStartSession={() => undefined} />,
+    bridge,
+  );
   await click(button('Write notes'));
   await type(field() as HTMLInputElement, 'https://example.test/');
   await click(button('Import'));
