@@ -440,7 +440,8 @@ export function sessionsService(
           checkout?: string;
         } = {},
       ) => {
-        const { agent, mode, background, parent, noParent, after, base, terminal, general } = opts;
+        const { agent, mode, background, parent, noParent, after, base, terminal, general, from } =
+          opts;
         let refused: unknown =
           opts.worktree && opts.branch !== undefined
             ? new MesaError('usage', 'pass --worktree or --branch, not both')
@@ -523,6 +524,7 @@ export function sessionsService(
               branch,
               base,
               terminal,
+              from,
             };
             return openSession(openDeps(), input);
           },

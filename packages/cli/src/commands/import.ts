@@ -57,3 +57,16 @@ export const importRefresh = defineCommand({
   run: async ({ mesa, args, flags }) =>
     imported(await mesa.imports.refresh(flags.project, args.ids, !flags['no-notes'])),
 });
+
+export const importGoal = defineCommand({
+  name: 'import goal',
+  summary:
+    "Print the goal a session started from an imported item gets (mesa open --from), without starting it: the item's title, URL, and vault paths",
+  args: ['item'],
+  flags: { project },
+  example: 'mesa import goal LC-12 --project lantern-cove',
+  run: async ({ mesa, args, flags }) => {
+    const data = await mesa.imports.goal(flags.project, args.item);
+    return { data, text: data.goal };
+  },
+});

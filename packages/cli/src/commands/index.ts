@@ -62,7 +62,7 @@ import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { imagePreview, imageSend } from './image.js';
-import { importLinks, importList, importRefresh } from './import.js';
+import { importGoal, importLinks, importList, importRefresh } from './import.js';
 import { init } from './init.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
@@ -215,6 +215,7 @@ export const COMMANDS: Command[] = [
   importLinks,
   importList,
   importRefresh,
+  importGoal,
   init,
   log,
   logs,

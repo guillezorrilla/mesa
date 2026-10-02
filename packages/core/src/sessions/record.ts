@@ -187,6 +187,8 @@ const SessionRecordFields = z.strictObject({
       }),
     ]),
   ),
+  /** The imported item it was started from (mesa open --from; CONTEXT.md, Import). */
+  from: z.strictObject({ source: z.string(), id: z.string() }).optional(),
   /** The session it continues, which handed off to it (CONTEXT.md, Handoff). */
   handoffFrom: z.string().regex(SHORT_ID).optional(),
   resumedFrom: z.string().optional(),

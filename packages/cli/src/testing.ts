@@ -2,6 +2,8 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BrowserPageSelection, MesaDeps, Runner } from '@mesa/core';
 import {
+  agentWorld,
+  atlassianWorld,
   CLAUDE_VERSION,
   fakeTmux,
   profilePaths,
@@ -10,6 +12,7 @@ import {
   sequentialUuids,
   tempDir,
   testDeps,
+  writesImportNotes,
 } from '@mesa/core/testing';
 import { type CliDeps, runCli } from './cli.js';
 import { COMMANDS } from './commands/index.js';
@@ -116,6 +119,20 @@ export function cliHarness() {
       mkdirSync(dir, { recursive: true });
       await h.mesa('register', '--create', dir);
       return dir;
+    },
+    /**
+     * lantern-cove with Atlassian connected over atlassianWorld, and a claude whose import-notes
+     * run writes each note; the world, to serve items, and the agents, to read their windows.
+     */
+    withImports: async () => {
+      const world = atlassianWorld();
+      const agents = agentWorld({ onOpen: writesImportNotes((note) => `# ${note}\n\nWritten.`) });
+      const run: Runner = (file, ...rest) =>
+        file === '/usr/bin/open' ? world.deps.run(file, ...rest) : agents.run(file, ...rest);
+      h.deps = { ...world.deps, run };
+      await h.withProject();
+      await h.mesa('sources', 'connect', 'atlassian');
+      return { world, agents };
     },
   };
   return h;
