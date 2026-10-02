@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
-import { contextTone } from './ContextBar';
+import { contextTone } from '../ContextBar';
 
 /** The ring's colour for each context tone: the Board's context bar's. */
 const RING = {
