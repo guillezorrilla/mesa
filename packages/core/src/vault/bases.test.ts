@@ -34,6 +34,7 @@ const evaluate = (expression: string, row: Record<string, unknown>) =>
   runInNewContext(
     expression
       .replace(/([\w.]+)\.isType\("string"\)/g, '(typeof $1 === "string")')
+      .replace(/([\w.]+)\.isType\("number"\)/g, '(typeof $1 === "number")')
       .replace(/([\w.]+)\.isType\("list"\)/g, 'Array.isArray($1)')
       .replace(
         /^if\((.*), link\(outputs.target\), file.asLink\(\)\)$/,
@@ -138,6 +139,8 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['refresh', 'ok', { refreshed: [] }, false],
     ['refresh', 'ok', { refreshed: ['LC-12'] }, true],
     ['refresh', 'ok', { refreshed: 'LC-12' }, false],
+    ['refresh', 'ok', { refreshed: [], notesWritten: 1 }, true],
+    ['refresh', 'ok', { refreshed: [], notesWritten: '1' }, false],
     ['refresh', 'failed', { refreshed: ['LC-12'] }, false],
     ['guardrail', 'ok', { override: 'accepted risk' }, true],
     ['guardrail', 'ok', {}, false],

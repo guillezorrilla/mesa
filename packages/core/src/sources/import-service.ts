@@ -11,6 +11,7 @@ import {
 } from './import.js';
 import { importNotes } from './import-notes.js';
 import { resolveLink } from './links.js';
+import { pendingImportNotes } from './pending-notes.js';
 import { snapshotRows } from './snapshots.js';
 
 /** An imported item as `mesa import list` shows it: its latest snapshot, and its note if any. */
@@ -61,7 +62,11 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
         outputs: (r) => ({
           items: r.items,
           ...(r.notes ? { notes: r.notes } : {}),
+          ...(options.changedOnly && r.notes
+            ? { notesWritten: r.items.filter((i) => i.note).length }
+            : {}),
           ...(r.notesRuns ? { notesRuns: r.notesRuns } : {}),
+          ...(r.notesRetried ? { notesRetried: r.notesRetried } : {}),
           ...(r.checked ? { checked: r.checked, skipped: r.skipped, refreshed: r.refreshed } : {}),
           target: r.items[0]?.note ?? r.items[0]?.snapshot,
         }),
@@ -75,7 +80,12 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
           }
         }
         return importLinks(
-          { ...deps, notes: ctx.notes(), http: ctx.deps.http },
+          {
+            ...deps,
+            notes: ctx.notes(),
+            http: ctx.deps.http,
+            pending: pendingImportNotes(ctx.paths.pendingImportNotes),
+          },
           project,
           links,
           notes,

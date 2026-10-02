@@ -14,9 +14,12 @@ import { SourcePickerDialog } from './SourcePickerDialog';
 
 /** What an import says when it ends: what came in, and why no notes were written if none were. */
 function outcome(result: ImportResult & { warning?: string }): Message {
-  const what = result.checked
+  const summary = result.checked
     ? `Checked ${result.checked.length}, skipped ${result.skipped?.length}, refreshed ${result.refreshed?.length}`
     : `Imported ${result.items.map((item) => item.title).join(', ')}`;
+  const what = result.notesRetried?.length
+    ? `${summary}; retried notes for ${result.notesRetried.length}`
+    : summary;
   if (result.notes && !result.notes.ok) {
     return { text: `${what}; notes not written: ${result.notes.reason}`, tone: 'alert' };
   }

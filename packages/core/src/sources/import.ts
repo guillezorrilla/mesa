@@ -7,7 +7,8 @@ import { type NotesRun, type SkillRun, writeNotes } from './import-notes.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { resolveLink } from './links.js';
 import { NOTES_MAX_ITEMS } from './notes-limit.js';
-import { writeSnapshot } from './snapshots.js';
+import type { pendingImportNotes } from './pending-notes.js';
+import { snapshotRows, writeSnapshot } from './snapshots.js';
 import { SOURCE_IDS, type SourceId } from './sources.js';
 
 // The import pipeline (CONTEXT.md, Import): links resolved and fetched, each a new raw/ snapshot,
@@ -24,6 +25,7 @@ export type ImportDeps = {
   /** The sites a Source's connection reaches; none when it has no connection. */
   sites: (source: SourceId) => Promise<Site[] | undefined>;
   run: SkillRun;
+  pending: ReturnType<typeof pendingImportNotes>;
 };
 
 /** One item an import brought in: its snapshot, and the note written for it, if any. */
@@ -50,6 +52,8 @@ export type ImportResult = {
   checked?: string[];
   skipped?: string[];
   refreshed?: string[];
+  /** Previously failed/unattempted notes retried from existing snapshots. */
+  notesRetried?: string[];
 };
 
 export type RefreshOptions = { changedOnly?: boolean; agent?: 'claude' | 'codex' };
@@ -86,10 +90,31 @@ export async function importLinks(
     if (item) items.push(item);
     else skipped.push(ref.id);
   }
+  const pending = refresh && notes ? deps.pending.list(project) : new Set<string>();
+  if (refresh && notes)
+    deps.pending.add(
+      project,
+      items.map((i) => i.url),
+    );
   const snapshots = items.map((item) => ({
     item,
     snapshot: writeSnapshot(deps.notes, project, item),
   }));
+  const retries =
+    refresh && notes
+      ? snapshotRows(deps.notes.vault, project)
+          .filter(
+            (r) =>
+              pending.has(r.url) &&
+              refs.some((ref) => ref.url === r.url) &&
+              !items.some((i) => i.url === r.url),
+          )
+          .map((r) => ({
+            item: { source: r.source, id: r.id, url: r.url, title: r.title, markdown: '' },
+            snapshot: r.snapshot,
+          }))
+      : [];
+  const noteSnapshots = [...snapshots, ...retries];
   const result = (
     more: Omit<ImportResult, 'project' | 'items'> = {},
     written = new Map<string, string>(),
@@ -98,28 +123,26 @@ export async function importLinks(
     ...(refresh
       ? { checked: refs.map((r) => r.id), skipped, refreshed: items.map((i) => i.id) }
       : {}),
-    items: snapshots.map(({ item, snapshot }): ImportedItem => {
+    ...(retries.length ? { notesRetried: retries.map((r) => r.item.id) } : {}),
+    items: noteSnapshots.map(({ item, snapshot }): ImportedItem => {
       const note = written.get(item.url);
       const { source, id, title, url } = item;
       return { source, id, title, url, snapshot, ...(note ? { note } : {}) };
     }),
     ...more,
   });
-  if (!notes || !snapshots.length) return result();
+  if (!notes || !noteSnapshots.length) return result();
   const written = new Map<string, string>();
   const runs: NotesRun[] = [];
   const locked: string[] = [];
-  for (let at = 0; at < snapshots.length; at += NOTES_MAX_ITEMS) {
-    const batch = await writeNotes(
-      deps,
-      project,
-      snapshots.slice(at, at + NOTES_MAX_ITEMS),
-      refresh?.agent,
-    );
+  for (let at = 0; at < noteSnapshots.length; at += NOTES_MAX_ITEMS) {
+    const selected = noteSnapshots.slice(at, at + NOTES_MAX_ITEMS);
+    const batch = await writeNotes(deps, project, selected, refresh?.agent);
     runs.push(batch.notes);
     for (const [url, path] of batch.written) written.set(url, path);
     locked.push(...(batch.locked ?? []));
     if (!batch.notes.ok) break;
+    if (refresh) deps.pending.complete(project, [...batch.written.keys()]);
   }
   return result(
     {

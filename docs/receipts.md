@@ -16,7 +16,7 @@ A receipt is a Markdown note in the profile vault's `receipts/`. Since #274, new
 
 Session records and run outputs remain under `~/.mesa/<profile>/sessions/`. Their terminal output logs stay local; no raw terminal tail is copied into a new receipt. The note writer still uses an atomic rename, rejects locked notes, and keeps writes inside the vault, including through symlinks. The vault lock serializes note updates and receipt/log pairing. The app uses `mesa vault open <target>` to open a changed note in Obsidian.
 
-`mesa import refresh --changed-only` keeps one `refresh` audit even when nothing changed. Its outputs list `checked`, `skipped`, and `refreshed` ids alongside the ordinary import results. An unchanged check writes no snapshot and runs no agent. The audit stays readable through the receipt APIs; Daily and the Meaningful Bases views include it only when `refreshed` is nonempty. Notes batches, when needed, are recorded in `outputs.notesRuns`.
+`mesa import refresh --changed-only` keeps one `refresh` audit even when nothing changed. Its outputs list `checked`, `skipped`, and `refreshed` ids alongside the ordinary import results. An unchanged check writes no snapshot and runs no agent. The audit stays readable through the receipt APIs; Daily and the Meaningful Bases views include it only when content refreshed or notes were written. Notes batches, when needed, are recorded in `outputs.notesRuns`; `notesRetried` identifies pending notes retried without another snapshot and `notesWritten` counts notes actually landed.
 
 ## Where receipts go
 
