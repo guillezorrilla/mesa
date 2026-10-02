@@ -1,7 +1,8 @@
 // An item a project imports (CONTEXT.md, Import): a Jira issue, a Confluence page, or a web page.
 
 /** Where an item comes from: its folder under `raw/`, and its snapshots' `source`. */
-export type ItemSource = 'jira' | 'confluence' | 'web';
+export const ITEM_SOURCES = ['jira', 'confluence', 'web'] as const;
+export type ItemSource = (typeof ITEM_SOURCES)[number];
 
 /** A link resolved to one item (links.ts). */
 export type ItemRef = {

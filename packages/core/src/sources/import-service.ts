@@ -65,16 +65,21 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
     /**
      * The item `project` imported that `from` names: its id, else a link (or key) that resolves to
      * it. With `importing`, a link to an item not imported yet is imported first, with notes or
-     * not; without, it is not_found. A link that cannot be imported is refused with why.
+     * not, and `notes` says how its Write notes run went; without, it is not_found. A link that
+     * cannot be imported is refused with why.
      */
-    item: async (project: string, from: string, importing?: { notes: boolean }) => {
+    item: async (
+      project: string,
+      from: string,
+      importing?: { notes: boolean },
+    ): Promise<{ item: ImportListRow; notes?: ImportResult['notes'] }> => {
       findProject(ctx.open(), project);
       const byId = list(project).find((item) => item.id === from.trim());
-      if (byId) return byId;
+      if (byId) return { item: byId };
       const ref = resolveLink(from, await reachedSites(deps.sites));
       const known = () => list(project).find((i) => i.source === ref.source && i.id === ref.id);
       const found = known();
-      if (found) return found;
+      if (found) return { item: found };
       if (!importing) {
         throw new MesaError(
           'not_found',
@@ -82,10 +87,10 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
         );
       }
       prepare(project);
-      await run(project, [ref.url], importing.notes);
+      const { result } = await run(project, [ref.url], importing.notes);
       const imported = known();
       if (!imported) throw new MesaError('internal', `${from} was imported but is not listed`);
-      return imported;
+      return { item: imported, ...(result.notes ? { notes: result.notes } : {}) };
     },
     /** Imports `project`'s items again, those of `ids` (an item's id) or all of them. */
     refresh: async (project: string, ids: readonly string[] = [], notes = true) => {

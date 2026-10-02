@@ -694,6 +694,7 @@ export {
   fakeHttp,
   fakeSignIn,
   importProfile,
+  importWorld,
   memorySecretStore,
   TEST_BROKER,
   writesImportNotes,

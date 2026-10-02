@@ -1,4 +1,3 @@
-import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { requireTty } from '../guards.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -74,10 +73,7 @@ export const open = defineCommand({
   run: async ({ mesa, args, flags, tty }) => {
     // Checked first, so a session is never opened that this terminal cannot then attach to.
     if (flags.attach) requireTty(tty, 'mesa attach --app');
-    if (flags.from === undefined && (flags['no-notes'] || flags['exact-goal'])) {
-      throw new MesaError('usage', '--no-notes and --exact-goal need --from');
-    }
-    const options = {
+    const recorded = await mesa.imports.open(args.project, {
       agent: flags.agent,
       mode: flags.mode,
       background: flags.background,
@@ -92,16 +88,10 @@ export const open = defineCommand({
       base: flags.base,
       terminal: flags.terminal,
       general: flags.general,
-    };
-    const recorded =
-      flags.from === undefined
-        ? await mesa.sessions.open(args.project, options)
-        : await mesa.imports.open(args.project, {
-            ...options,
-            from: flags.from,
-            notes: !flags['no-notes'],
-            exactGoal: flags['exact-goal'],
-          });
+      from: flags.from,
+      notes: !flags['no-notes'],
+      exactGoal: flags['exact-goal'],
+    });
     const session = recorded.result;
     const exec = flags.attach ? (await mesa.sessions.attach(session.id)).exec : undefined;
     return { ...recordedOutput(recorded, { data: session, text: session.id }), exec };

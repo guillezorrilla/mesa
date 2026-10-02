@@ -223,19 +223,33 @@ export const writesImportNotes =
   };
 
 /**
- * lantern-cove's profile with Atlassian connected, over atlassianWorld, and a fake claude whose
- * import-notes run writes each note as `write` says (a heading and its snapshot, by default).
+ * Atlassian over atlassianWorld, and a fake claude whose import-notes run writes each note as
+ * `write` says (a heading and its snapshot, by default; `agent` swaps it): `run` sends the
+ * browser's `/usr/bin/open` to the sign-in and the rest to the agents.
  */
-export async function importProfile(
+export function importWorld(
   write: (note: string, snapshot: string) => string = (note, snapshot) =>
     `# ${note}\n\nFrom ${snapshot}.`,
 ) {
-  let now = '2026-09-24T12:00:00.000Z';
   const world = atlassianWorld();
   let agent = writesImportNotes(write);
   const agents = agentWorld({ onOpen: (w) => agent(w) });
   const run: Runner = (file, ...rest) =>
     file === '/usr/bin/open' ? world.deps.run(file, ...rest) : agents.run(file, ...rest);
+  return {
+    world,
+    agents,
+    run,
+    agent: (next: typeof agent) => {
+      agent = next;
+    },
+  };
+}
+
+/** lantern-cove's profile over importWorld(`write`), with Atlassian connected. */
+export async function importProfile(write?: (note: string, snapshot: string) => string) {
+  let now = '2026-09-24T12:00:00.000Z';
+  const { world, agents, run, agent } = importWorld(write);
   const { home, mesa } = projectProfile(run, {
     ...world.deps,
     run,
@@ -251,8 +265,6 @@ export async function importProfile(
     at: (iso: string) => {
       now = iso;
     },
-    agent: (next: typeof agent) => {
-      agent = next;
-    },
+    agent,
   };
 }
