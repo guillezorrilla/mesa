@@ -16,6 +16,9 @@ export const IMPORT_NOTES = 'import-notes';
  */
 export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES];
 
+/** Whether `skill` is one of Mesa's own pipeline skills. */
+export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill);
+
 /** A skill's own file, read by both agents. */
 const SKILL_FILE = 'SKILL.md';
 

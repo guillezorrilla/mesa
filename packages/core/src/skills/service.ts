@@ -5,7 +5,7 @@ import { MesaError } from '../lib/result.js';
 import { readProjectFile, setProjectSkills } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
 import { skillInventory } from './inventory.js';
-import { PIPELINE_SKILLS, readLibrary } from './library.js';
+import { isPipelineSkill, readLibrary } from './library.js';
 import { listSkills, syncSkills } from './sync.js';
 
 /** Mesa's skills: the library, what a profile and a project enable, and linking them in. */
@@ -19,7 +19,7 @@ export function skillsService(ctx: MesaContext) {
     const profile = ctx.open();
     const entry = project === undefined ? undefined : findProject(profile, project);
     const extras = entry ? (readProjectFile(entry.path).skills ?? []) : [];
-    const own = run && PIPELINE_SKILLS.includes(run) ? [run] : [];
+    const own = run && isPipelineSkill(run) ? [run] : [];
     return {
       projectDir: entry?.path,
       enabled: new Set([...profile.config.skills, ...extras, ...own]),
