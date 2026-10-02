@@ -1,7 +1,18 @@
 import type { ProjectRow } from '@mesa/core';
 import { TERMINAL_THEMES } from '@mesa/core/browser';
-import { FolderGit2, GitBranch, Palette, Play, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  FolderGit2,
+  GitBranch,
+  type LucideIcon,
+  Palette,
+  Play,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
+import { ActionDialog } from '@/components/ActionDialog';
+import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -33,9 +44,80 @@ const orInherit = (parse: (text: string) => { value: unknown }) => (text: string
 };
 const branch = (text: string) => ({ value: text.trim() || undefined });
 
+const SCRIPT_MODES = [
+  ['inherit', 'Use profile setting'],
+  ['none', 'None'],
+  ['custom', 'Custom'],
+] as const;
+
+/**
+ * A setup or teardown override: the profile's (left out of mesa.yaml), none (an empty list, so the
+ * profile's does not run either), or this project's own argv.
+ */
+function ScriptRow(props: {
+  script: 'setup' | 'teardown';
+  title: string;
+  icon: LucideIcon;
+  value: string[] | undefined;
+  profile: string[];
+  acting: boolean;
+  onSave: (value: string[] | undefined) => void;
+}) {
+  const id = `project-worktree-${props.script}`;
+  const [picking, setPicking] = useState(false);
+  const stored = props.value === undefined ? 'inherit' : props.value.length ? 'custom' : 'none';
+  const mode = picking ? 'custom' : stored;
+  return (
+    <SettingRow
+      icon={props.icon}
+      title={props.title}
+      description={`${profileValue(props.profile, 'none')}. The executable and its arguments, one per line; runs without a shell.`}
+      keywords={`project ${props.script}`}
+      htmlFor={`${id}-mode`}
+      control={
+        <NativeSelect
+          id={`${id}-mode`}
+          className="min-w-40"
+          value={mode}
+          disabled={props.acting}
+          onChange={(event) => {
+            const next = event.currentTarget.value as (typeof SCRIPT_MODES)[number][0];
+            setPicking(next === 'custom');
+            if (next === 'inherit') props.onSave(undefined);
+            if (next === 'none') props.onSave([]);
+          }}
+        >
+          {SCRIPT_MODES.map(([value, label]) => (
+            <NativeSelectOption key={value} value={value}>
+              {label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
+      }
+    >
+      {mode === 'custom' && (
+        <TextField
+          id={id}
+          multiline
+          value={props.value?.join('\n') ?? ''}
+          placeholder={'pnpm\ninstall'}
+          parse={(text) => {
+            const { value } = lineList(text);
+            return value.length
+              ? { value }
+              : { error: 'Enter the executable and its arguments, or choose None.' };
+          }}
+          onSave={(value) => props.onSave(value as string[])}
+        />
+      )}
+    </SettingRow>
+  );
+}
+
 /**
  * One project's overrides of the profile's worktree settings and terminal theme, saved in its
  * mesa.yaml through `mesa projects set`; each row names the profile value it otherwise inherits.
+ * Scripts its mesa.yaml names that this profile has not approved are shown, exactly, for approval.
  */
 export function ProjectSettings(props: { onChanged: () => void }) {
   const { config } = useSettings();
@@ -57,6 +139,8 @@ export function ProjectSettings(props: { onChanged: () => void }) {
       return undefined;
     });
   const themes = options(TERMINAL_THEMES);
+  const [reviewing, setReviewing] = useState(false);
+  const pending = Object.entries(project?.unapproved ?? {}) as [string, string[]][];
   return (
     <>
       <SettingSection
@@ -195,40 +279,72 @@ export function ProjectSettings(props: { onChanged: () => void }) {
           <SettingSection
             id="project-scripts"
             title="Scripts"
-            description="This project's worktree setup and teardown; empty uses the profile's"
+            description="This project's worktree setup and teardown, run only once this profile approves them"
           >
-            <SettingRow
-              icon={Play}
+            {pending.length > 0 && (
+              <SettingRow
+                icon={ShieldAlert}
+                tone="danger"
+                title="Scripts waiting for approval"
+                description="This project's mesa.yaml names commands this profile has not approved. New worktrees refuse to run them until you approve them."
+                keywords="project approve trust"
+                control={
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={acting}
+                    onClick={() => setReviewing(true)}
+                  >
+                    Review
+                  </Button>
+                }
+              />
+            )}
+            <ScriptRow
+              script="setup"
               title="Bootstrap script"
-              description={profileValue(profile.setup, 'none')}
-              keywords="project setup"
-              htmlFor="project-worktree-setup"
-            >
-              <TextField
-                id="project-worktree-setup"
-                multiline
-                value={worktrees.setup?.join('\n') ?? ''}
-                placeholder="e.g. pnpm install"
-                parse={orInherit(lineList)}
-                onSave={(value) => save('worktrees.setup', value)}
-              />
-            </SettingRow>
-            <SettingRow
-              icon={Trash2}
+              icon={Play}
+              value={worktrees.setup}
+              profile={profile.setup}
+              acting={acting}
+              onSave={(value) => save('worktrees.setup', value)}
+            />
+            <ScriptRow
+              script="teardown"
               title="Teardown script"
-              description={profileValue(profile.teardown, 'none')}
-              keywords="project teardown"
-              htmlFor="project-worktree-teardown"
-            >
-              <TextField
-                id="project-worktree-teardown"
-                multiline
-                value={worktrees.teardown?.join('\n') ?? ''}
-                parse={orInherit(lineList)}
-                onSave={(value) => save('worktrees.teardown', value)}
-              />
-            </SettingRow>
+              icon={Trash2}
+              value={worktrees.teardown}
+              profile={profile.teardown}
+              acting={acting}
+              onSave={(value) => save('worktrees.teardown', value)}
+            />
           </SettingSection>
+          {reviewing && (
+            <ActionDialog
+              testId="approve-scripts"
+              title={`Approve ${project.name}'s worktree scripts?`}
+              description="Mesa runs each one without a shell, as written, in every new worktree or before one is removed. Approve them only if you trust this repository."
+              submit={{ label: 'Approve', testId: 'approve-scripts-submit', disabled: acting }}
+              onCancel={() => setReviewing(false)}
+              onSubmit={() =>
+                void act(async () => {
+                  if (!(await run('projects.trust', { name: project.name }))) return undefined;
+                  setReviewing(false);
+                  await projects.refresh();
+                  return undefined;
+                })
+              }
+            >
+              {pending.map(([script, argv]) => (
+                <div key={script} className="space-y-1">
+                  <p className="text-sm">{script === 'setup' ? 'Bootstrap' : 'Teardown'}</p>
+                  <pre className="overflow-x-auto rounded-md border bg-muted/40 p-2 font-mono text-xs">
+                    {argv.map((word) => JSON.stringify(word)).join(' ')}
+                  </pre>
+                </div>
+              ))}
+            </ActionDialog>
+          )}
         </div>
       )}
     </>

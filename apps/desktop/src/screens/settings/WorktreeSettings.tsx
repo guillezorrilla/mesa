@@ -153,14 +153,14 @@ export function WorktreeSettings() {
         <SettingRow
           icon={Play}
           title="Bootstrap script"
-          description="Commands run in a new worktree after checkout, one per line."
+          description="Runs in a new worktree after checkout. The executable and its arguments, one per line; runs without a shell."
           htmlFor="worktree-setup"
         >
           <TextField
             id="worktree-setup"
             multiline
             value={worktrees.setup.join('\n')}
-            placeholder="e.g. pnpm install"
+            placeholder={'pnpm\ninstall'}
             parse={lineList}
             onSave={(value) => update({ setup: value as string[] })}
           />
@@ -168,7 +168,7 @@ export function WorktreeSettings() {
         <SettingRow
           icon={Trash2}
           title="Teardown script"
-          description="Commands run before a worktree folder is deleted, one per line."
+          description="Runs before a worktree folder is deleted. The executable and its arguments, one per line; runs without a shell."
           htmlFor="worktree-teardown"
         >
           <TextField

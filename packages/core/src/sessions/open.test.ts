@@ -740,6 +740,7 @@ test("a failed session launch preserves data written by the project's own worktr
   const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, keep.txt]\n';
   const { home, dir, mesa } = await setUp(world, { run, mesaYaml });
   gitRepo(dir);
+  mesa.projects.trust('lantern-cove');
   await expect(mesa.sessions.open('lantern-cove', { branch: 'with-setup' })).rejects.toMatchObject({
     code: 'internal',
   });

@@ -7,23 +7,35 @@ import {
   gitRepo,
   isolateGit,
   projectProfile,
+  tempDir,
   testGit,
   withRealGit,
 } from '../testing/index.js';
 
 isolateGit({ beforeAll, afterAll });
 
-/** Real git; `/usr/bin/true` records the argv it was given instead of running. */
-function recordingRun() {
+/**
+ * Real git, where a clone copies `cloneFrom`; `/usr/bin/true` records the argv it was given
+ * instead of running.
+ */
+function recordingRun(cloneFrom?: string) {
   const ran: string[][] = [];
   const git = withRealGit(agentWorld().run);
   const run: Runner = (file, args, ms, options) => {
+    if (file === 'git' && args[0] === 'clone' && cloneFrom)
+      return git(file, ['clone', '-q', '--', cloneFrom, args.at(-1) ?? ''], ms, options);
     if (file !== '/usr/bin/true') return git(file, args, ms, options);
     ran.push(args);
     return Promise.resolve({ ok: true, stdout: '' });
   };
   return { ran, run };
 }
+
+/** The worktrees Git lists for the repository in `dir`, its main checkout included. */
+const checkouts = (dir: string) =>
+  testGit(dir, 'worktree', 'list', '--porcelain')
+    .split('\n')
+    .filter((line) => line.startsWith('worktree '));
 
 /** lantern-cove as a repository with an older commit on `older`, and an ignored cache folder. */
 function repository(dir: string) {
@@ -63,6 +75,12 @@ test("a new worktree takes the project's mesa.yaml settings over the profile's",
   const { dir, mesa } = projectProfile(run, { mesaYaml: PROJECT_YAML });
   repository(dir);
   mesa.config.set('worktrees', PROFILE_WORKTREES);
+  // The repository's own setup runs only once this profile approves it.
+  await expect(mesa.worktrees.create('lantern-cove', 'feature')).rejects.toMatchObject({
+    code: 'needs_approval',
+  });
+  expect(checkouts(dir)).toHaveLength(1);
+  mesa.projects.trust('lantern-cove');
 
   const { result } = await mesa.worktrees.create('lantern-cove', 'feature');
   expect(testGit(result.path, 'rev-parse', 'HEAD')).toBe(testGit(dir, 'rev-parse', 'older'));
@@ -110,9 +128,79 @@ test("removing a worktree runs the project's teardown, the one its preview showe
   mesa.config.set('worktrees.carryIgnoredDirectories', '[]');
 
   const { result } = await mesa.worktrees.create('lantern-cove', 'feature');
+  await expect(mesa.worktrees.preview('lantern-cove', 'remove', result.path)).rejects.toMatchObject(
+    { code: 'needs_approval' },
+  );
+  mesa.projects.trust('lantern-cove');
   const preview = await mesa.worktrees.preview('lantern-cove', 'remove', result.path);
   expect(preview).toMatchObject({ allowed: true, teardown: ['/usr/bin/true', 'project-teardown'] });
   await mesa.worktrees.apply('lantern-cove', 'remove', preview.token, result.path);
   expect(ran).toEqual([['profile-setup'], ['project-teardown']]);
   expect(existsSync(result.path)).toBe(false);
+
+  // A teardown changed after the approval asks again.
+  const { result: next } = await mesa.worktrees.create('lantern-cove', 'next');
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    'name: lantern-cove\nworktrees:\n  teardown: [/usr/bin/true, changed-teardown]\n',
+  );
+  await expect(mesa.worktrees.preview('lantern-cove', 'remove', next.path)).rejects.toMatchObject({
+    code: 'needs_approval',
+    message: expect.stringContaining('["/usr/bin/true","changed-teardown"]'),
+  });
+});
+
+test('a cloned repository runs its own setup only after trust, and again only after a change is approved', async () => {
+  const source = join(tempDir(), 'reef');
+  mkdirSync(source);
+  writeFileSync(
+    join(source, 'mesa.yaml'),
+    'name: reef\nworktrees:\n  setup: [/usr/bin/true, cloned-setup]\n',
+  );
+  gitRepo(source);
+  const { ran, run } = recordingRun(source);
+  const { mesa } = projectProfile(run, { mesaYaml: 'name: lantern-cove\n' });
+  const { result: cloned } = await mesa.projects.clone('https://example.com/team/reef.git');
+  const dir = cloned.path;
+
+  const refused = await mesa.worktrees.create('reef', 'feature').catch((error) => error);
+  expect(refused).toMatchObject({
+    code: 'needs_approval',
+    details: { project: 'reef', scripts: { setup: ['/usr/bin/true', 'cloned-setup'] } },
+  });
+  expect(refused.message).toContain('mesa projects trust reef');
+  expect(mesa.projects.list().find((row) => row.name === 'reef')?.unapproved).toEqual({
+    setup: ['/usr/bin/true', 'cloned-setup'],
+  });
+  expect(checkouts(dir)).toHaveLength(1);
+  expect(ran).toEqual([]);
+
+  const { result: trusted } = mesa.projects.trust('reef');
+  expect(trusted).toEqual({ project: 'reef', setup: ['/usr/bin/true', 'cloned-setup'] });
+  expect(mesa.projects.list().find((row) => row.name === 'reef')?.unapproved).toEqual({});
+  const { result: first } = await mesa.worktrees.create('reef', 'feature');
+  expect(ran).toEqual([['cloned-setup']]);
+
+  // A pull, a checkout, or an agent's edit changes the argv: refused again, the rerun too.
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    'name: reef\nworktrees:\n  setup: [/usr/bin/true, pulled-setup]\n',
+  );
+  await expect(mesa.worktrees.create('reef', 'second')).rejects.toMatchObject({
+    code: 'needs_approval',
+  });
+  await expect(mesa.worktrees.rerun('reef', first.path)).rejects.toMatchObject({
+    code: 'needs_approval',
+  });
+  expect(checkouts(dir)).toHaveLength(2);
+  expect(ran).toEqual([['cloned-setup']]);
+
+  // A setup a person writes through mesa projects set is approved as written.
+  mesa.projects.override('reef', 'worktrees.setup', '[/usr/bin/true, written-setup]');
+  await mesa.worktrees.create('reef', 'second');
+  expect(ran.at(-1)).toEqual(['written-setup']);
+  // An explicit empty setup runs nothing, and needs no approval.
+  mesa.projects.override('reef', 'worktrees.setup', '[]');
+  await mesa.worktrees.create('reef', 'third');
+  expect(ran).toHaveLength(2);
 });

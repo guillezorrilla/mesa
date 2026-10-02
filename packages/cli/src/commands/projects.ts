@@ -82,6 +82,26 @@ export const projectsSet = defineCommand({
   },
 });
 
+/** Repository-supplied worktree scripts run only once a person approves their exact argv here. */
+export const projectsTrust = defineCommand({
+  name: 'projects trust',
+  summary: "Approve the setup and teardown a project's mesa.yaml names now, so worktrees run them",
+  args: ['project'],
+  example: 'mesa projects trust lantern-cove',
+  run: ({ mesa, args }) => {
+    const recorded = mesa.projects.trust(args.project);
+    const { setup, teardown } = recorded.result;
+    const approved = [
+      ...(setup ? [`setup ${JSON.stringify(setup)}`] : []),
+      ...(teardown ? [`teardown ${JSON.stringify(teardown)}`] : []),
+    ];
+    const text = approved.length
+      ? `approved ${approved.join(' and ')} for ${args.project}`
+      : `${args.project}'s mesa.yaml names no setup or teardown`;
+    return recordedOutput(recorded, { data: recorded.result, text });
+  },
+});
+
 export const projectsDiscover = defineCommand({
   name: 'projects discover',
   summary: 'Find local Git repositories or mesa.yaml projects under a folder, within three levels',

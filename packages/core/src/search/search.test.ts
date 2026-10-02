@@ -13,6 +13,7 @@ const projects: ProjectRow[] = [
     skills: [],
     overrides: {},
     terminalTheme: 'follow',
+    unapproved: {},
     exists: true,
     pinned: false,
     hidden: false,

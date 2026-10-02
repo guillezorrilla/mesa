@@ -13,6 +13,8 @@ export type RegistryEntry = {
   hidden?: boolean;
   visitedAt?: string;
   visits?: number;
+  /** sha256 of the exact setup and teardown argv from its mesa.yaml this profile approved. */
+  approved?: { setup?: string; teardown?: string };
 };
 
 const RegistrySchema = z.strictObject({
@@ -25,6 +27,18 @@ const RegistrySchema = z.strictObject({
       hidden: z.boolean().optional(),
       visitedAt: z.iso.datetime().optional(),
       visits: z.number().int().nonnegative().optional(),
+      approved: z
+        .strictObject({
+          setup: z
+            .string()
+            .regex(/^[0-9a-f]{64}$/)
+            .optional(),
+          teardown: z
+            .string()
+            .regex(/^[0-9a-f]{64}$/)
+            .optional(),
+        })
+        .optional(),
     }),
   ),
 });

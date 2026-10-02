@@ -19,7 +19,7 @@ import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { sessionWorktree } from '../worktrees/create.js';
-import { worktreeSettings } from '../worktrees/settings.js';
+import { worktreeScript } from '../worktrees/settings.js';
 import { WINDOW_VARS, windowEnv } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { prepareOutputLog } from './output-log.js';
@@ -161,7 +161,7 @@ export async function startSession(
       if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
       const selected = await worktreeFor(deps, project, start.branch, start.base);
       // A configured setup can create user data. A failed agent launch must leave it intact.
-      if (selected.created && !worktreeSettings(deps.profile, project.path).setup.length)
+      if (selected.created && !worktreeScript(deps.profile, project, 'setup').length)
         made = selected.worktree;
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }

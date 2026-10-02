@@ -633,6 +633,10 @@ const COMMANDS = {
       ? ['projects', 'set', '--unset', '--', name, path]
       : ['projects', 'set', '--', name, path, JSON.stringify(value)],
   ),
+  'projects.trust': commandWith<
+    { name: string },
+    Recorded<{ project: string; setup?: string[]; teardown?: string[] }>
+  >(({ name }) => ['projects', 'trust', '--', name]),
   'projects.unregister': commandWith<{ name: string }, Recorded<{ name: string; path: string }>>(
     ({ name }) => ['unregister', '--', name],
   ),

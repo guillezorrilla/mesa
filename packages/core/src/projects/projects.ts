@@ -6,6 +6,12 @@ import { valueAt } from '../lib/yaml-file.js';
 import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
 import {
+  approveScripts,
+  unapprovedScripts,
+  WORKTREE_SCRIPTS,
+  type WorktreeScripts,
+} from '../worktrees/approval.js';
+import {
   DEFAULT_PRIORITY,
   minimalProject,
   type Project,
@@ -28,6 +34,8 @@ export type ProjectRow = {
   overrides: ProjectOverrides;
   /** Its session terminals' theme: the project's override, else the profile's. */
   terminalTheme: Config['terminal']['theme'] | null;
+  /** Its mesa.yaml's setup and teardown this profile has not approved, which will not run. */
+  unapproved: WorktreeScripts;
   /** False when the directory or its mesa.yaml is gone; the other fields are then unknown. */
   exists: boolean;
   pinned: boolean;
@@ -72,7 +80,8 @@ export function registerProject(
 }
 
 export function listProjects(profile: Profile): ProjectRow[] {
-  return readRegistry(profile.paths.registry).map(({ name, path, label, pinned, hidden }) => {
+  return readRegistry(profile.paths.registry).map((entry) => {
+    const { name, path, label, pinned, hidden } = entry;
     const display = {
       name,
       label: label ?? name,
@@ -88,6 +97,7 @@ export function listProjects(profile: Profile): ProjectRow[] {
         skills: [],
         overrides: {},
         terminalTheme: null,
+        unapproved: {},
         exists: false,
       };
     }
@@ -103,6 +113,7 @@ export function listProjects(profile: Profile): ProjectRow[] {
         ...(p.terminal ? { terminal: p.terminal } : {}),
       },
       terminalTheme: p.terminal?.theme ?? profile.config.terminal.theme,
+      unapproved: unapprovedScripts(p, entry),
       exists: true,
     };
   });
@@ -173,7 +184,30 @@ export function overrideProject(
   // A mesa.yaml that is gone is not_found with its fix, before anything is written.
   readProjectFile(dir);
   const next = setProjectOverride(dir, dotted, value === undefined ? undefined : parse(value));
+  // A person wrote this setup or teardown, so this profile approves exactly it.
+  const script = WORKTREE_SCRIPTS.find((kind) => dotted === `worktrees.${kind}`);
+  if (script) approveScripts(profile, name, { [script]: next.worktrees?.[script] });
   return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
+}
+
+/**
+ * Approves, in this profile, the exact setup and teardown the project's mesa.yaml names now, so a
+ * worktree runs them; any later change to them asks again. Returns what was approved.
+ */
+export function trustProject(
+  profile: Profile,
+  name: string,
+): { project: string } & WorktreeScripts {
+  const project = readProjectFile(findProject(profile, name).path);
+  const scripts: WorktreeScripts = {
+    setup: project.worktrees?.setup,
+    teardown: project.worktrees?.teardown,
+  };
+  approveScripts(profile, name, scripts);
+  return {
+    project: name,
+    ...Object.fromEntries(Object.entries(scripts).filter(([, argv]) => argv?.length)),
+  };
 }
 
 /** The registry entry named `name`; not_found otherwise. */

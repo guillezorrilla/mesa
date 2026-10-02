@@ -5,11 +5,12 @@ import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
+import { findProject } from '../projects/projects.js';
 import { checkoutHolders } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { worktreeCommand } from './create.js';
 import { listWorktrees, type WorktreeRow } from './inventory.js';
-import { worktreeSettings } from './settings.js';
+import { worktreeScript } from './settings.js';
 
 export type WorktreeAction = 'remove' | 'recycle' | 'cleanup';
 export type WorktreePreview = {
@@ -165,7 +166,10 @@ export async function previewWorktreeAction(
     upstream,
     ahead,
     unpublished,
-    teardown: action === 'remove' ? worktreeSettings(profile, root).teardown : undefined,
+    teardown:
+      action === 'remove'
+        ? worktreeScript(profile, findProject(profile, project), 'teardown')
+        : undefined,
   };
   const token = fingerprint(facts);
   const destination =

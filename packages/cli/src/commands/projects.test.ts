@@ -1,9 +1,12 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { beforeEach, expect, test } from 'vitest';
+import { isolateGit, withRealGit } from '@mesa/core/testing';
+import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
+isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 const { mesa } = cli;
 
@@ -27,6 +30,7 @@ test('register, projects, unregister', async () => {
       skills: [],
       overrides: {},
       terminalTheme: 'follow',
+      unapproved: {},
       exists: true,
       pinned: false,
       hidden: false,
@@ -197,4 +201,68 @@ test('projects set writes one mesa.yaml override and --unset removes it, keeping
   expect((await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'neon')).code).toBe(4);
   expect((await mesa('projects', 'set', 'unknown', 'terminal.theme', 'dark')).code).toBe(3);
   expect(file()).toBe(original);
+});
+
+test('projects trust approves the setup a repository names, records a receipt, and a change asks again', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('vault', 'init');
+  const dir = join(cli.home, 'reef');
+  mkdirSync(dir);
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    'name: reef\nworktrees:\n  setup: [/usr/bin/true, invented]\n',
+  );
+  const git = (...args: string[]) =>
+    execFileSync('git', [
+      '-C',
+      dir,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@example.com',
+      ...args,
+    ]);
+  git('init', '-q', '-b', 'main');
+  git('add', '.');
+  git('commit', '-qm', 'first');
+  await mesa('register', dir);
+  const ran: string[][] = [];
+  const real = withRealGit(cli.run);
+  cli.run = (file, args, ms, options) => {
+    if (file !== '/usr/bin/true') return real(file, args, ms, options);
+    ran.push(args);
+    return Promise.resolve({ ok: true, stdout: '' });
+  };
+
+  const refused = await mesa('worktrees', 'create', 'reef', 'feature', '--json');
+  expect(refused.code).toBe(10);
+  expect(refused.json.error).toMatchObject({ code: 'needs_approval' });
+  expect(refused.json.error.message).toContain('setup ["/usr/bin/true","invented"]');
+  expect((await mesa('projects', '--json')).json.data[0].unapproved).toEqual({
+    setup: ['/usr/bin/true', 'invented'],
+  });
+
+  const trusted = await mesa('projects', 'trust', 'reef', '--json');
+  expect(trusted.code).toBe(0);
+  expect(trusted.json.data).toMatchObject({
+    project: 'reef',
+    setup: ['/usr/bin/true', 'invented'],
+  });
+  expect(trusted.json.data.receipt).toMatchObject({ id: expect.any(String) });
+  expect((await mesa('receipts', '--json')).json.data[0]).toMatchObject({
+    summary: 'Approved worktree scripts in reef',
+  });
+  expect((await mesa('worktrees', 'create', 'reef', 'feature')).code).toBe(0);
+  expect(ran).toEqual([['invented']]);
+
+  writeFileSync(
+    join(dir, 'mesa.yaml'),
+    'name: reef\nworktrees:\n  setup: [/usr/bin/true, changed]\n',
+  );
+  expect((await mesa('worktrees', 'create', 'reef', 'second')).code).toBe(10);
+  expect((await mesa('projects', 'trust', 'reef')).stdout).toBe(
+    'approved setup ["/usr/bin/true","changed"] for reef\n',
+  );
+  expect((await mesa('worktrees', 'create', 'reef', 'second')).code).toBe(0);
+  expect(ran.at(-1)).toEqual(['changed']);
 });

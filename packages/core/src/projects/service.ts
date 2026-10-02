@@ -7,6 +7,7 @@ import {
   overrideProject,
   type ProjectUpdate,
   registerProject,
+  trustProject,
   unregisterProject,
   updateProject,
   visitProject,
@@ -80,6 +81,23 @@ export function projectsService(ctx: MesaContext) {
           outputs: (r) => ({ value: r.value }),
         },
         () => overrideProject(open(), name, path, value),
+      ),
+    /** Approves the setup and teardown the project's mesa.yaml names now: a person's override. */
+    trust: (name: string) =>
+      record(
+        {
+          kind: 'guardrail',
+          summary: () => `Approved worktree scripts in ${name}`,
+          failure: `Could not approve worktree scripts in ${name}`,
+          project: () => name,
+          inputs: { name },
+          outputs: (r) => ({
+            override: 'trusted',
+            ...(r.setup ? { setup: r.setup } : {}),
+            ...(r.teardown ? { teardown: r.teardown } : {}),
+          }),
+        },
+        () => trustProject(open(), name),
       ),
     unregister: (name: string) =>
       record(
