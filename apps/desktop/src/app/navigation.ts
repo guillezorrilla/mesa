@@ -11,6 +11,7 @@ export type WorkspaceView =
         | 'preferences'
         | 'prompts'
         | 'backup'
+        | 'automations'
         | 'tour'
         | 'map'
         | 'usage'
@@ -36,6 +37,7 @@ const PALETTE_DESTINATIONS = [
   'preferences',
   'prompts',
   'backup',
+  'automations',
   'shortcuts',
 ] as const;
 

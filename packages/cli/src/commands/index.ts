@@ -3,6 +3,13 @@ import { adopt } from './adopt.js';
 import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
+import {
+  automationsAdd,
+  automationsDisable,
+  automationsEnable,
+  automationsList,
+  automationsRemove,
+} from './automations.js';
 import { backupCreate, backupRestore } from './backup.js';
 import { board, boardMove } from './board.js';
 import {
@@ -149,6 +156,11 @@ export const COMMANDS: Command[] = [
   agents,
   archive,
   attach,
+  automationsList,
+  automationsAdd,
+  automationsRemove,
+  automationsEnable,
+  automationsDisable,
   backupCreate,
   backupRestore,
   board,

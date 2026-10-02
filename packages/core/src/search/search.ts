@@ -15,6 +15,12 @@ const ACTIONS: SearchHit[] = [
   { kind: 'action', id: 'sessions', label: 'Sessions', detail: 'Open session workspace' },
   { kind: 'action', id: 'grid', label: 'Open Grid View', detail: 'Live session terminals' },
   { kind: 'action', id: 'new-session', label: 'New session', detail: 'Start an agent' },
+  {
+    kind: 'action',
+    id: 'automations',
+    label: 'Automations',
+    detail: 'Manage optional profile rules',
+  },
   { kind: 'action', id: 'doctor', label: 'Doctor', detail: 'Check Mesa health' },
   { kind: 'action', id: 'help', label: 'Help', detail: 'Commands and guidance' },
   {

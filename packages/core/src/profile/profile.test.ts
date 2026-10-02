@@ -27,6 +27,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     notifications: '/h/.mesa/work/notifications.json',
     prEvents: '/h/.mesa/work/pr-events.json',
     prompts: '/h/.mesa/work/prompts.json',
+    automations: '/h/.mesa/work/automations.yaml',
     backups: '/h/.mesa/work/backups',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',
