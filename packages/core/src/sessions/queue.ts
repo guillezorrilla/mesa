@@ -68,7 +68,10 @@ export async function startQueued(
       ? {}
       : await startSession(deps, claimed, entry, {
           command: (r) =>
-            startCommand(agent, deps.vaultServer, { ...r, logs: deps.profile.paths.logs }),
+            startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
+              ...r,
+              logs: deps.profile.paths.logs,
+            }),
           branch,
           base,
         });

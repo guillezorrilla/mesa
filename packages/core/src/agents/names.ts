@@ -107,3 +107,10 @@ export const CLAUDE_PERMISSION_MODES = [
   'dontAsk',
   'plan',
 ] as const;
+
+/** The approval policies `codex --ask-for-approval` takes (Codex 0.159.2). */
+export const CODEX_APPROVAL_POLICIES = ['on-request', 'never'] as const;
+/** The sandbox policies `codex --sandbox` takes (Codex 0.159.2). */
+export const CODEX_SANDBOXES = ['read-only', 'workspace-write', 'danger-full-access'] as const;
+/** The execution modes `agy --mode` takes (Antigravity CLI 1.2.14). */
+export const ANTIGRAVITY_MODES = ['accept-edits', 'plan'] as const;
