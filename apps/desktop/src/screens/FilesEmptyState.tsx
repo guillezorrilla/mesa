@@ -1,4 +1,5 @@
 import { FileX } from 'lucide-react';
+import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
 
 /** No file open: the prompt and the two shortcuts, each also a button. */
 export function FilesEmptyState(props: { onGoTo: () => void; onSearch: () => void }) {
@@ -10,10 +11,10 @@ export function FilesEmptyState(props: { onGoTo: () => void; onSearch: () => voi
         <p>Pick a file from the tree to edit it.</p>
         <div className="flex gap-2 text-xs">
           <button type="button" className={chip} onClick={props.onGoTo}>
-            Cmd+P to go to file
+            {keyCaps(FIXED_SHORTCUTS.goToFile).join('')} to go to file
           </button>
           <button type="button" className={chip} onClick={props.onSearch}>
-            Cmd+Shift+F to search
+            {keyCaps(FIXED_SHORTCUTS.findInFiles).join('')} to search
           </button>
         </div>
       </div>

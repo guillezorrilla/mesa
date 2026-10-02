@@ -115,6 +115,23 @@ test('global shortcuts open from the top bar with either sidebar layout, without
   }
 });
 
+test('Settings > Keyboard Shortcuts opens the shortcuts dialog', async () => {
+  const byTestId = await renderWithMesa(<App />, fakeBridge().bridge);
+  await click(byTestId('open-settings')[0]);
+  await click(
+    [
+      ...document.querySelectorAll<HTMLButtonElement>('[aria-label="Settings categories"] button'),
+    ].find((button) => button.textContent === 'Terminal & Editor'),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Customize',
+    ),
+  );
+  expect(byTestId('settings')).toHaveLength(0);
+  expect(byTestId('shortcut-settings')).toHaveLength(1);
+});
+
 test('Help is a menu of keyboard shortcuts and the command reference; Cmd+/ opens shortcuts', async () => {
   const byTestId = await renderWithMesa(<App />, fakeBridge({ help: () => envelope([]) }).bridge);
   const items = () =>
@@ -2523,10 +2540,20 @@ test('shortcut settings validate conflicts and update the active profile key', a
   const press = async (key: string) =>
     act(async () =>
       byTestId('shortcut-search')[0]?.dispatchEvent(
-        new KeyboardEvent('keydown', { key, metaKey: true, bubbles: true }),
+        // Cancelable, as a real key press is: the dialog prevents Escape while recording.
+        new KeyboardEvent('keydown', { key, metaKey: true, bubbles: true, cancelable: true }),
       ),
     );
   const said = () => byTestId('shortcut-settings')[0]?.querySelector('[role="alert"]')?.textContent;
+  // Escape while recording cancels the recording and keeps the dialog open.
+  expect(byTestId('shortcut-search')).toHaveLength(1);
+  await press('Escape');
+  expect(byTestId('shortcut-settings')).toHaveLength(1);
+  expect(byTestId('shortcut-search')).toHaveLength(0);
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Customize Command palette"]') ??
+      undefined,
+  );
   await press('q');
   expect(said()).toContain('common window keys are reserved');
   await press('1');

@@ -33,11 +33,24 @@ export function KeyboardShortcutsDialog(props: {
   onChanged: () => void;
 }) {
   const shortcuts = props.shortcuts ?? DEFAULT_SHORTCUTS;
+  // Which shortcut is recording: while one is, Escape cancels it instead of closing the dialog.
+  const [recording, setRecording] = useState<keyof Shortcuts>();
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        setRecording(undefined);
+        props.onOpenChange(open);
+      }}
+    >
       <DialogContent
         data-testid="shortcut-settings"
         showCloseButton={false}
+        onEscapeKeyDown={(event) => {
+          if (!recording) return;
+          event.preventDefault();
+          setRecording(undefined);
+        }}
         className="gap-0 overflow-hidden bg-card p-0 sm:max-w-3xl"
       >
         <div className="flex items-center justify-between border-b p-4">
@@ -58,6 +71,8 @@ export function KeyboardShortcutsDialog(props: {
                 name={key}
                 label={label}
                 shortcuts={shortcuts}
+                recording={recording === key}
+                onRecording={(on) => setRecording(on ? key : undefined)}
                 onChanged={props.onChanged}
               />
             ))}
@@ -105,16 +120,18 @@ function CustomShortcut(props: {
   name: keyof Shortcuts;
   label: string;
   shortcuts: Shortcuts;
+  recording: boolean;
+  onRecording: (on: boolean) => void;
   onChanged: () => void;
 }) {
-  const [recording, setRecording] = useState(false);
   const [error, setError] = useState('');
   const run = useRun();
   const { acting, act } = useAct();
   const record = (event: React.KeyboardEvent) => {
+    // Escape is the dialog's (onEscapeKeyDown), which cancels the recording.
+    if (event.key === 'Escape') return;
     event.preventDefault();
     event.stopPropagation();
-    if (event.key === 'Escape') return setRecording(false);
     if (['Meta', 'Control', 'Shift', 'Alt'].includes(event.key)) return;
     const value = shortcutFromKeys(event);
     if (!value) return setError('Use Mod plus a letter or digit; common window keys are reserved.');
@@ -122,7 +139,7 @@ function CustomShortcut(props: {
       CUSTOM.find(({ key }) => key !== props.name && props.shortcuts[key] === value)?.label ??
       FIXED.find(([, shortcut]) => shortcut === value)?.[0];
     if (taken) return setError(`Already used by ${taken}.`);
-    setRecording(false);
+    props.onRecording(false);
     setError('');
     if (value === props.shortcuts[props.name]) return;
     void act(async () => {
@@ -135,7 +152,7 @@ function CustomShortcut(props: {
   return (
     <div>
       <ShortcutRow label={props.label} shortcut={props.shortcuts[props.name]}>
-        {recording ? (
+        {props.recording ? (
           <button
             type="button"
             data-testid={`shortcut-${props.name}`}
@@ -143,7 +160,7 @@ function CustomShortcut(props: {
             autoFocus
             className="rounded border border-state-working px-2 py-0.5 text-xs text-state-working"
             onKeyDown={record}
-            onBlur={() => setRecording(false)}
+            onBlur={() => props.onRecording(false)}
           >
             Press keys...
           </button>
@@ -156,7 +173,7 @@ function CustomShortcut(props: {
             className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             onClick={() => {
               setError('');
-              setRecording(true);
+              props.onRecording(true);
             }}
           />
         )}

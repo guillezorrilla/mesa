@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from './components/ui/dropdown-menu';
 import { WorkspaceSidebar, type WorkspaceView } from './components/WorkspaceSidebar';
-import { FIXED_SHORTCUTS, pressed } from './lib/fixedShortcuts';
+import { FIXED_SHORTCUTS, keyCaps, pressed } from './lib/fixedShortcuts';
 import { usePlatform } from './lib/MesaRoot';
 import type { NativeNotice } from './lib/platform';
 import { useAct } from './lib/useAct';
@@ -359,6 +359,7 @@ export function App() {
         }
       } else if (pressed(event, FIXED_SHORTCUTS.keyboardShortcuts)) {
         event.preventDefault();
+        setSearchOpen(false);
         setOverlay('shortcuts');
       } else if (key === shortcuts.board) {
         event.preventDefault();
@@ -415,7 +416,7 @@ export function App() {
             <span className="flex items-center gap-2">
               <Search aria-hidden className="size-4" /> Search Mesa
             </span>
-            <kbd className="text-xs">{shortcuts.search.replace('Mod', '⌘')}</kbd>
+            <kbd className="text-xs">{keyCaps(shortcuts.search).join('')}</kbd>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
