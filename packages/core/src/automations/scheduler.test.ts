@@ -437,3 +437,26 @@ test('failed interrupted-session cleanup stays durable and retries before anothe
   );
   await restarted.automations.uninstall();
 });
+
+test('an interrupted installation reports actionable recovery instead of claiming success', async () => {
+  const { home, deps } = setup();
+  const file = profilePaths(home, 'default').automationState;
+  const { stringify } = await import('yaml');
+  writeFileSync(
+    file,
+    stringify({
+      installed: true,
+      observations: {},
+      runs: [],
+      operation: { token: 'dead-install', pid: 101 },
+    }),
+  );
+  const restarted = createMesa(
+    'default',
+    testDeps(home, { ...deps, processAlive: (pid) => pid !== 101 }),
+  );
+  await expect(restarted.automations.install()).rejects.toThrow('uninstall, then install again');
+  await restarted.automations.uninstall();
+  expect(await restarted.automations.install()).toMatchObject({ installed: true, loaded: true });
+  await restarted.automations.uninstall();
+});

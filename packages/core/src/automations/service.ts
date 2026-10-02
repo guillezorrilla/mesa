@@ -134,7 +134,15 @@ export function automationsService(ctx: MesaContext, faro: Faro, actions: Automa
         ctx.open();
         if (state.read().stopping)
           throw new MesaError('locked', 'finish uninstalling before reinstalling');
-        if (state.read().installed) return status();
+        if (state.read().installed) {
+          const existing = await status();
+          if (!existing.loaded)
+            throw new MesaError(
+              'locked',
+              'scheduler is marked installed but is not loaded; run automations uninstall, then install again',
+            );
+          return existing;
+        }
         if (launchd.exists())
           throw new MesaError(
             'usage',
