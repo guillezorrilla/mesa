@@ -75,6 +75,9 @@ export function WorkspaceSidebar(props: {
   sort: ProjectSort;
   onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
+  /** The session and project last shown: the Sessions and Projects tabs go back to them. */
+  lastSession?: string;
+  lastProject?: string;
   /** Sessions starting, by project (GENERAL_PROJECT for General), shown until they open. */
   starting?: readonly string[];
   onNewSession?: (project: string, kind: 'main' | 'worktree' | 'terminal', parent?: string) => void;
@@ -99,6 +102,12 @@ export function WorkspaceSidebar(props: {
     (session) => !session.project || !registered.has(session.project),
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
+  /** The Projects tab, back on the project last shown while it is still listed. */
+  const openProjects = () => {
+    setProjectTab(true);
+    const last = visible.find((project) => project.name === props.lastProject);
+    if (last && view.kind !== 'project') onView({ kind: 'project', name: last.name });
+  };
   const startingIn = (project: string) =>
     (props.starting ?? [])
       .filter((name) => name === project)
@@ -271,8 +280,11 @@ export function WorkspaceSidebar(props: {
               )}
               onClick={() => {
                 setProjectTab(false);
-                const first = view.kind === 'session' ? view.id : (active[0] ?? stranded[0])?.id;
-                onView(first ? { kind: 'session', id: first } : { kind: 'sessions' });
+                if (view.kind === 'session') return;
+                const listed = [...active, ...stranded];
+                const back =
+                  listed.find((session) => session.id === props.lastSession) ?? listed[0];
+                onView(back ? { kind: 'session', id: back.id } : { kind: 'sessions' });
               }}
             >
               Sessions{' '}
@@ -294,7 +306,7 @@ export function WorkspaceSidebar(props: {
                 'flex-1 border-b-2 border-transparent py-2 text-xs font-semibold text-muted-foreground',
                 projectTab && 'border-ring text-foreground',
               )}
-              onClick={() => setProjectTab(true)}
+              onClick={openProjects}
             >
               Projects
             </button>
@@ -319,7 +331,7 @@ export function WorkspaceSidebar(props: {
               aria-label="Projects"
               title="Projects"
               onClick={() => {
-                setProjectTab(true);
+                openProjects();
                 props.onCollapse();
               }}
             >

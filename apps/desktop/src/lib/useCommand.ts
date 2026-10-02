@@ -1,7 +1,7 @@
 import type { Result } from '@mesa/core';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useToast } from '../components/Toast';
-import type { CallArgs, CommandName, DataOf } from './client';
+import type { CallArgs, Client, CommandName, DataOf } from './client';
 import { useClient } from './MesaRoot';
 
 /**
@@ -41,6 +41,21 @@ export function useRun() {
 }
 
 type CommandError = Extract<Result<unknown>, { ok: false }>['error'];
+
+/**
+ * The last good reply to each command and its arguments, per client (one per MesaRoot): a screen
+ * shown again starts from it while it reloads, rather than from nothing.
+ * ponytail: unbounded, one entry per command and arguments read; an LRU if that ever grows large.
+ */
+const replies = new WeakMap<Client, Map<string, unknown>>();
+function repliesOf(client: Client) {
+  let found = replies.get(client);
+  if (!found) {
+    found = new Map();
+    replies.set(client, found);
+  }
+  return found;
+}
 export type CommandState<T> = {
   data: T | undefined;
   error?: CommandError;
@@ -49,8 +64,9 @@ export type CommandState<T> = {
 };
 
 /**
- * Runs a command on mount, again when its arguments change, and on `refresh()`. A refresh keeps
- * the last good data for the same command and arguments; superseded replies cannot replace it.
+ * Runs a command on mount, again when its arguments change, and on `refresh()`. Until it answers,
+ * the data is the last good reply to the same command and arguments, even from before a remount
+ * (repliesOf), so a screen shown again never starts blank; superseded replies cannot replace it.
  */
 export function useCommand<K extends CommandName>(
   name: K,
@@ -58,6 +74,7 @@ export function useCommand<K extends CommandName>(
 ): CommandState<DataOf<K>> {
   const call = useCall();
   const toast = useToast();
+  const cached = repliesOf(useClient());
   // By value: a caller passes a fresh object each render.
   const key = JSON.stringify([name, args]);
   const currentKey = useRef(key);
@@ -72,7 +89,7 @@ export function useCommand<K extends CommandName>(
     busy: boolean;
   }>({
     key,
-    data: undefined,
+    data: cached.get(key) as DataOf<K> | undefined,
     busy: false,
   });
 
@@ -80,18 +97,20 @@ export function useCommand<K extends CommandName>(
     const id = ++request.current;
     setState((last) => ({
       key,
-      data: last.key === key ? last.data : undefined,
+      data: last.key === key ? last.data : (cached.get(key) as DataOf<K> | undefined),
       error: last.key === key ? last.error : undefined,
       busy: true,
     }));
     const result = await call(name, ...(JSON.parse(key)[1] as CallArgs<K>));
     if (id !== request.current || key !== currentKey.current) return;
-    if (result.ok) setState({ key, data: result.data, busy: false });
-    else {
+    if (result.ok) {
+      cached.set(key, result.data);
+      setState({ key, data: result.data, busy: false });
+    } else {
       setState((last) => ({ ...last, error: result.error, busy: false }));
       toast(result.error.message);
     }
-  }, [call, toast, name, key]);
+  }, [call, toast, cached, name, key]);
 
   useEffect(() => {
     void refresh();
@@ -101,7 +120,7 @@ export function useCommand<K extends CommandName>(
   }, [refresh]);
 
   return {
-    data: state.key === key ? state.data : undefined,
+    data: state.key === key ? state.data : (cached.get(key) as DataOf<K> | undefined),
     error: state.key === key ? state.error : undefined,
     busy: state.key === key && state.busy,
     refresh,

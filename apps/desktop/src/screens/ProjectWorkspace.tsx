@@ -21,7 +21,7 @@ import {
   Plus,
   TerminalSquare,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { CountPill } from '@/components/CountPill';
 import { KnowledgeContext } from '@/components/KnowledgeContext';
@@ -47,9 +47,15 @@ import { SkillsWorkspace } from './SkillsWorkspace';
 import { useGitChangeCount } from './useGitChangeCount';
 import { VaultOverview } from './vault/VaultOverview';
 
+/** A project page's tabs. */
+export type ProjectTab = 'overview' | 'git' | 'files' | 'skills' | 'rules';
+
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectWorkspace(props: {
   project: ProjectRow;
+  /** The tab it opens on: the one it was left on, so coming back keeps it. */
+  initialTab?: ProjectTab;
+  onTabChange?: (tab: ProjectTab) => void;
   sessions: readonly TreeRow[];
   onSession: (id: string) => void;
   /** Opens the Vault screen with this item selected. */
@@ -63,10 +69,13 @@ export function ProjectWorkspace(props: {
   onAgentSettings: () => void;
 }) {
   const { project } = props;
-  const [tab, setTab] = useState<'overview' | 'git' | 'files' | 'skills' | 'rules'>('overview');
+  const [tab, setTab] = useState<ProjectTab>(props.initialTab ?? 'overview');
   useEffect(() => {
     if (props.file) setTab('files');
   }, [props.file]);
+  const onTabChange = useRef(props.onTabChange);
+  onTabChange.current = props.onTabChange;
+  useEffect(() => onTabChange.current?.(tab), [tab]);
   const [pendingTab, setPendingTab] = useState<typeof tab>();
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);

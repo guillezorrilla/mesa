@@ -1417,9 +1417,9 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   await openProject(byTestId, 1);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
   await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
+  // Projects goes back to the project last shown, with none picked.
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
-  expect(byTestId('selected-session')).toHaveLength(1);
-  await click(byTestId('sidebar-project')[1]);
+  expect(byTestId('selected-session')).toHaveLength(0);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
@@ -3283,4 +3283,33 @@ test('with sessions.prEvents off, the app never delivers PR events', async () =>
   } finally {
     vi.useRealTimers();
   }
+});
+
+test('the Sessions and Projects tabs go back to the session and project last shown, on its tab', async () => {
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const sidebarTab = (label: string) =>
+    click(
+      [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find((tab) =>
+        tab.textContent?.startsWith(label),
+      ),
+    );
+  // The second session, then a project's Git tab.
+  await click(byTestId('sidebar-session')[1]);
+  expect(byTestId('selected-session')[0]?.textContent).toContain('bbbbbbbb');
+  await openProject(byTestId);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent === 'git'),
+  );
+  await sidebarTab('Sessions');
+  expect(byTestId('selected-session')[0]?.textContent).toContain('bbbbbbbb');
+  // Projects opens that project again, on Git, with no project picked.
+  await sidebarTab('Projects');
+  expect(byTestId('project-workspace')).toHaveLength(1);
+  expect(
+    [...document.querySelectorAll<HTMLElement>('[aria-current="page"]')].map((e) => e.textContent),
+  ).toContain('git');
 });
