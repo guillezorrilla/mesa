@@ -1098,6 +1098,17 @@ test('launch defaults reach new, resumed, and background sessions; a dangerous s
     listReceipts(vault, 10, { session: resumed.result.record.id })[0]?.receipt.outputs,
   ).toMatchObject({ dangerousFlags: '--dangerously-skip-permissions' });
 
-  await mesa.sessions.open('lantern-cove', { background: true });
+  const bg = (await mesa.sessions.open('lantern-cove', { background: true })).result;
   expect(background).toContain('--dangerously-skip-permissions');
+  // A resume only attaches to that process, with no flags: no dangerous start to keep.
+  exitAll(world);
+  const attached = await mesa.sessions.resume(bg.id);
+  expect(launch()).toBe('unset NO_COLOR; exec claude attach abcdef12');
+  expect(attached.receipt).toBeNull();
+
+  // A dependency change that starts nothing is no dangerous start either.
+  const running = (await mesa.sessions.open('lantern-cove')).result;
+  expect(
+    (await mesa.sessions.dependencies(running.id, { parent: claude.result.id })).receipt,
+  ).toBeNull();
 });

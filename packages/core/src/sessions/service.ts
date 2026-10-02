@@ -891,16 +891,20 @@ export function sessionsService(
             outputs: (r) => ({
               parent: r.record.parent ?? null,
               after: r.record.after ?? null,
-              ...dangerousLaunch(r.record, open().config.agents),
+              ...(r.started ? dangerousLaunch(r.record, open().config.agents) : {}),
             }),
           },
           async () => {
             const changed = changeDependencies(store, id, change);
             if (change.after && isOver(store.get(change.after))) {
               const started = await startQueued(openDeps(), id, change.after);
-              return { record: started?.record ?? store.get(id), warning: started?.warning };
+              return {
+                record: started?.record ?? store.get(id),
+                warning: started?.warning,
+                started: Boolean(started),
+              };
             }
-            return { record: changed, warning: undefined };
+            return { record: changed, warning: undefined, started: false };
           },
         ).then((recorded) => ({ ...recorded, result: recorded.result.record })),
       forceStart: (id: string) =>

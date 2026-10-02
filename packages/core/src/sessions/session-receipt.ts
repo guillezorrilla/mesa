@@ -15,11 +15,13 @@ type ReceiptContext = Pick<MesaContext, 'notes' | 'paths' | 'secrets' | 'deps'>;
 /**
  * The launch flags an agent session started with that turn off its agent's permission checks or
  * sandbox (launch-flags.ts), as one line, which keeps its guardrail receipt (receipts/policy.ts);
- * nothing when there are none, or it has not started.
+ * nothing when there are none, or it has not started, or it resumed by attaching to a background
+ * process started before it, which takes no flags (claude attach).
  */
 export function dangerousLaunch(r: SessionRecord, defaults: LaunchDefaults) {
   if (r.kind !== 'interactive' || r.agent === 'terminal' || r.lastState.state === 'queued')
     return {};
+  if (r.resumedFrom && r.backgroundId) return {};
   const flags = dangerousFlags(r.agent, defaults, r.mode);
   return flags.length ? { dangerousFlags: flags.join(' ') } : {};
 }

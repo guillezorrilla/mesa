@@ -39,6 +39,8 @@ function LaunchRow<A extends keyof Launch>(props: {
   icon: LucideIcon;
   options: readonly (readonly [string, string])[];
   danger?: boolean;
+  /** A value that turns off the agent's checks, so the row is red while it is set. */
+  dangerousValue?: string;
 }) {
   const { config } = useSettings();
   const current: Record<string, unknown> = config.agents[props.agent];
@@ -51,7 +53,9 @@ function LaunchRow<A extends keyof Launch>(props: {
       description={props.description}
       keywords={`${AGENT_LABELS[props.agent]} launch native`}
       htmlFor={id}
-      tone={props.danger ? 'danger' : undefined}
+      tone={
+        props.danger || (set !== undefined && set === props.dangerousValue) ? 'danger' : undefined
+      }
       control={
         <Choice
           id={id}
@@ -107,8 +111,9 @@ function LaunchSettings() {
           field="sandbox"
           icon={Box}
           title="Sandbox"
-          description="Codex's --sandbox; danger-full-access runs commands with no sandbox."
+          description="Codex's --sandbox. Danger: danger-full-access runs commands with no sandbox."
           options={values(CODEX_SANDBOXES)}
+          dangerousValue="danger-full-access"
         />
         <LaunchRow
           agent="codex"
