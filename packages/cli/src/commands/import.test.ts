@@ -59,6 +59,21 @@ test('mesa import takes a Confluence URL and a Jira key, prints each item, and l
   expect(again.json.data.items).toMatchObject([
     { id: 'LC-12', snapshot: 'raw/jira/LC-12/2026-09-24T1200-2.md' },
   ]);
+  const checked = await cli.mesa(
+    'import',
+    'refresh',
+    '--project',
+    'lantern-cove',
+    '--changed-only',
+    '--json',
+  );
+  expect(checked.json.data).toMatchObject({
+    checked: ['LC-12', '9001'],
+    skipped: ['LC-12', '9001'],
+    refreshed: [],
+    items: [],
+    receipt: { id: expect.any(String) },
+  });
   expect(
     world.requests
       .filter((r) => r.url.includes('api.atlassian.com/ex/'))

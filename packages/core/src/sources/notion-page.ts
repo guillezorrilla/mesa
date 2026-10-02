@@ -5,7 +5,11 @@ import { notionCall, parentSchema } from './notion.js';
 import { notionMarkdown } from './notion-markdown.js';
 import { pageTitle, propertiesSchema, propertyLines } from './notion-properties.js';
 
-const pageSchema = z.object({ parent: parentSchema, properties: propertiesSchema });
+const pageSchema = z.object({
+  parent: parentSchema,
+  properties: propertiesSchema,
+  last_edited_time: z.string().optional(),
+});
 const markdownSchema = z.object({ markdown: z.string(), truncated: z.boolean().optional() });
 
 /**
@@ -13,9 +17,14 @@ const markdownSchema = z.object({ markdown: z.string(), truncated: z.boolean().o
  * a row's properties as a list, and its content from Notion's own page-as-Markdown endpoint, its
  * links to other items made Markdown links (notionMarkdown). Two GETs; reads only.
  */
-export async function notionPage(get: Http, ref: ItemRef): Promise<Item> {
+export async function notionPage(
+  get: Http,
+  ref: ItemRef,
+  previousRevision?: string,
+): Promise<Item | undefined> {
   const what = `Notion page ${ref.id}`;
   const page = await notionCall(get, `/pages/${ref.id}`, pageSchema, what);
+  if (page.last_edited_time && page.last_edited_time === previousRevision) return undefined;
   const { markdown, truncated } = await notionCall(
     get,
     `/pages/${ref.id}/markdown`,
@@ -31,6 +40,7 @@ export async function notionPage(get: Http, ref: ItemRef): Promise<Item> {
   return {
     ...ref,
     title: pageTitle(page.properties) || 'Untitled',
+    ...(page.last_edited_time ? { revision: page.last_edited_time } : {}),
     markdown: sections.filter(Boolean).join('\n\n'),
   };
 }

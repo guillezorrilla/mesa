@@ -19,6 +19,10 @@ function imported(recorded: Recorded<ImportResult>) {
   const lines = columns(items.map((i) => [i.source, i.id, i.title, i.snapshot, i.note]));
   if (notes) lines.push(notes.ok ? 'notes written' : `notes not written (${notes.reason})`);
   if (locked?.length) lines.push(`locked, left as they are: ${locked.join(', ')}`);
+  if (recorded.result.checked)
+    lines.push(
+      `checked ${recorded.result.checked.length}, skipped ${recorded.result.skipped?.length}, refreshed ${recorded.result.refreshed?.length}`,
+    );
   const out = recordedOutput(recorded, { data: recorded.result, text: lines.join('\n') });
   return { ...out, code: notes && !notes.ok ? EXIT_CODES.internal : 0 };
 }
@@ -52,10 +56,22 @@ export const importRefresh = defineCommand({
   summary:
     "Import a project's items again (the ids given, else all): a new snapshot each, and their notes updated, keeping their <!-- keep --> blocks",
   args: ['ids...'],
-  flags: { project, 'no-notes': noNotes },
+  flags: {
+    project,
+    'no-notes': noNotes,
+    'changed-only': {
+      type: 'boolean',
+      description:
+        'Check revisions, skip unchanged items, and write changed notes in batches of 50 using Claude',
+    },
+  },
   example: 'mesa import refresh LC-12 --project lantern-cove',
   run: async ({ mesa, args, flags }) =>
-    imported(await mesa.imports.refresh(flags.project, args.ids, !flags['no-notes'])),
+    imported(
+      await mesa.imports.refresh(flags.project, args.ids, !flags['no-notes'], {
+        changedOnly: flags['changed-only'],
+      }),
+    ),
 });
 
 export const importGoal = defineCommand({

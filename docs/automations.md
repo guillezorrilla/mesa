@@ -30,3 +30,11 @@ Cron supports numeric values, `*`, comma lists, inclusive ranges and positive st
 | `run: refresh` | Optional `notes: false` to avoid notes runs |
 
 Skill, Open and Refresh can specify `agent: claude` or `agent: codex`. Every rule must explicitly choose `guardrail: ask` or `guardrail: allow`; Allow never implies overriding Mesa's blocking guardrails. An absent `enabled` means true.
+
+## Change-aware refresh
+
+`mesa import refresh --project <slug> --changed-only [--no-notes] --json` checks every selected item before writing. It compares [Confluence `version.number`](https://developer.atlassian.com/cloud/confluence/rest/v2/api-group-page/#api-pages-id-get), [Jira `fields.updated`](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-get), [Notion `last_edited_time`](https://developers.notion.com/reference/page), and the SHA-256 of a web page's HTML. Native unchanged items need only a metadata GET; public web pages need a GET to hash their content. Each snapshot keeps the revision of the content actually fetched. Legacy snapshots without one refresh once to seed it.
+
+One receipt lists checked, skipped, and refreshed ids. Skipped items create no snapshot and run no agent. All source reads must succeed before the first snapshot write; an inaccessible item leaves earlier snapshots and notes intact. Changed notes run in batches of at most 50, preserving the existing locked-note and `<!-- keep -->` behavior. Change-aware notes use Claude by default, even if the project's default is Antigravity. The core caller may explicitly choose Codex. Write notes can be turned off.
+
+The project's Context tab has **Refresh changed items** and shows the last check's counts. Ordinary per-item Refresh and CLI refresh without `--changed-only` keep their prior behavior. A failed notes run leaves its new snapshots and reports the failure. Changed notes are marked pending in the profile before snapshot writes. The next check still preflights every source, then retries failed or unattempted notes from the existing snapshots, without creating duplicate snapshots. `notesRetried` lists those ids. Locked notes stay pending until unlocked; Write notes off leaves pending work alone.

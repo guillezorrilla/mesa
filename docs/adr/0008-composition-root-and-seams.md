@@ -46,3 +46,7 @@ A codebase review (issues #101 to #106) found `createMesa` at 554 lines holding 
 ## Amendment 2026-09-27: recording policy has one owner (#274)
 
 `receipts/policy.ts` selects deliberate decisions, material guardrail interventions, and actual vault changes. The shared recorder returns `receipt: null` silently when it omits a routine action; failures to write a selected receipt remain warnings. Core receipt reads own the project, session, kind, and type filters; the CLI and app call those reads rather than filtering their own copies.
+
+## Amendment 2026-10-02: explicit change-aware refresh audits (#422)
+
+P9 (#39) requires a receipt for each source check, including unchanged checks. The existing receipt policy now owns a narrow `refresh` kind for `import refresh --changed-only`: its checked/skipped/refreshed ids are retained, while Daily and Meaningful Bases exclude it unless content refreshed or notes were written. This does not retain routine polls, configuration, or session activity. Snapshots own source revisions, connectors compare them, and the import owner preflights every selected item before writes and batches changed notes using the existing notes writer. The profile owns pending note URLs so a failed or unattempted batch survives a restart and retries from its existing snapshot after source preflight.

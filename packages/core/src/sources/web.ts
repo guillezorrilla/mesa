@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Defuddle } from 'defuddle/node';
 import { parseHTML } from 'linkedom';
 import { htmlToMarkdown } from '../lib/html-markdown.js';
@@ -9,7 +10,11 @@ import type { Item, ItemRef } from './items.js';
  * A public web page as an item: fetched with no sign-in, cleaned by Defuddle, as Markdown. A page
  * that does not answer 2xx, or answers with something other than HTML, is refused.
  */
-export async function webPage(get: Http, ref: ItemRef): Promise<Item> {
+export async function webPage(
+  get: Http,
+  ref: ItemRef,
+  previousRevision?: string,
+): Promise<Item | undefined> {
   const response = await get(ref.url, { headers: { accept: 'text/html' } });
   if (!response.ok) {
     throw new MesaError(
@@ -21,8 +26,11 @@ export async function webPage(get: Http, ref: ItemRef): Promise<Item> {
   if (!type.includes('html')) {
     throw new MesaError('usage', `${ref.url} is ${type.split(';')[0]}, not a web page`);
   }
-  const { title, markdown } = await readablePage(await response.text(), ref.url);
-  return { ...ref, title: title || ref.url, markdown };
+  const html = await response.text();
+  const revision = createHash('sha256').update(html).digest('hex');
+  if (revision === previousRevision) return undefined;
+  const { title, markdown } = await readablePage(html, ref.url);
+  return { ...ref, title: title || ref.url, markdown, revision };
 }
 
 /** A whole web page's main content, cleaned by Defuddle (no menus, ads, or footers), as Markdown. */

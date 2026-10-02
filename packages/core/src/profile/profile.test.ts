@@ -28,6 +28,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     prEvents: '/h/.mesa/work/pr-events.json',
     prompts: '/h/.mesa/work/prompts.json',
     automations: '/h/.mesa/work/automations.yaml',
+    pendingImportNotes: '/h/.mesa/work/pending-import-notes.yaml',
     backups: '/h/.mesa/work/backups',
     attachScripts: '/h/.mesa/work/attach',
     worktrees: '/h/.mesa/work/worktrees',

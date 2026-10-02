@@ -218,6 +218,21 @@ test('a Notion link that names no page, is not shared, or has no connection says
   expect(world.requests.filter((r) => r.url.includes('/pages/'))).toHaveLength(1);
 });
 
+test('changed-only Notion refresh checks last_edited_time before content and refreshes after an edit', async () => {
+  const { world, mesa, vault } = await setUp();
+  const page = notionPageObject(dashed(PAGE), 'Tide schedule');
+  world.servePage(PAGE, page, 'Old tide.');
+  await mesa.imports.add('lantern-cove', [`https://notion.so/${PAGE}`], false);
+  world.requests.length = 0;
+  const unchanged = await mesa.imports.refresh('lantern-cove', [], false, { changedOnly: true });
+  expect(unchanged.result).toMatchObject({ skipped: [PAGE], refreshed: [] });
+  expect(world.requests.map((r) => r.url)).toEqual([`${TEST_NOTION}/pages/${PAGE}`]);
+  world.servePage(PAGE, { ...page, last_edited_time: '2026-09-25T12:00:00Z' }, 'New tide.');
+  const changed = await mesa.imports.refresh('lantern-cove', [], false, { changedOnly: true });
+  expect(changed.result.refreshed).toEqual([PAGE]);
+  expect(readNote(vault, changed.result.items[0]?.snapshot as string).body).toContain('New tide.');
+});
+
 test('the root lists the workspace, and the workspace its top pages and databases, page by page', async () => {
   const { world, browse } = await setUp();
   expect(await browse()).toEqual({
