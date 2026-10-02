@@ -424,8 +424,8 @@ export function App() {
   return (
     <div className="flex h-screen min-h-[480px] flex-col">
       <header
-        data-tauri-drag-region
-        className="relative z-40 flex h-12 shrink-0 items-center gap-3 border-b bg-background pr-4 pl-20"
+        data-tauri-drag-region="deep"
+        className="relative z-40 flex h-12 shrink-0 select-none items-center gap-3 border-b bg-background pr-4 pl-20"
       >
         <h1
           data-testid="app-name"
@@ -528,7 +528,10 @@ export function App() {
           >
             <UserRound aria-hidden className="size-4" />
           </summary>
-          <div className="absolute right-0 z-50 mt-2 w-80 space-y-3 rounded-lg border bg-popover p-4 shadow-lg">
+          <div
+            data-tauri-drag-region="false"
+            className="absolute right-0 z-50 mt-2 w-80 select-text space-y-3 rounded-lg border bg-popover p-4 shadow-lg"
+          >
             <ProfileSummary doctor={doctor.data} />
             <button
               type="button"
