@@ -12,6 +12,8 @@ import { writeReceipt } from './store.js';
 type ActionSpec<T> = {
   /** Only a deliberate decision, material guardrail intervention, or actual vault change is knowledge. */
   kind?: RecordKind;
+  /** Also record a vault switch in the vault the profile leaves. */
+  alsoVault?: string;
   /** `action` unless the work is a session's, a skill run's, or a decision asked for itself. */
   type?: 'action' | 'session' | 'skill' | 'decision';
   summary: (result: T) => string;
@@ -66,9 +68,10 @@ export function actionRecorder(deps: {
     input: Omit<ReceiptInput, 'profile' | 'command' | 'decisions'>,
     made: readonly Decision[],
     argv?: readonly string[],
+    vaultOverride?: string,
   ): Omit<Recorded<unknown>, 'result'> => {
     try {
-      const vault = deps.vault();
+      const vault = vaultOverride ?? deps.vault();
       if (!vault) return { receipt: null, warning: 'no receipt: the profile has no vault yet' };
       if (!acceptsMesaWrites(vault)) {
         return {
@@ -119,24 +122,22 @@ export function actionRecorder(deps: {
     if (!keepSuccess(spec.kind, outputs)) {
       return { result, receipt: null, ...(own ? { warning: own } : {}) };
     }
-    const written = write(
-      {
-        type: spec.type ?? 'action',
-        kind: spec.kind,
-        status: 'ok',
-        summary: spec.summary(result),
-        project: spec.project?.(result) ?? spec.scope?.project,
-        session: spec.session?.(result) ?? spec.scope?.session,
-        agent: spec.agent?.(result) ?? spec.scope?.agent,
-        actor: spec.scope?.actor,
-        cost: spec.cost?.(result),
-        inputs: spec.inputs,
-        outputs,
-      },
-      made,
-      spec.argv,
-    );
-    const warning = joinWarnings(own, written.warning);
+    const input: Omit<ReceiptInput, 'profile' | 'command' | 'decisions'> = {
+      type: spec.type ?? 'action',
+      kind: spec.kind,
+      status: 'ok',
+      summary: spec.summary(result),
+      project: spec.project?.(result) ?? spec.scope?.project,
+      session: spec.session?.(result) ?? spec.scope?.session,
+      agent: spec.agent?.(result) ?? spec.scope?.agent,
+      actor: spec.scope?.actor,
+      cost: spec.cost?.(result),
+      inputs: spec.inputs,
+      outputs,
+    };
+    const written = write(input, made, spec.argv);
+    const departure = spec.alsoVault ? write(input, made, spec.argv, spec.alsoVault) : undefined;
+    const warning = joinWarnings(own, written.warning, departure?.warning);
     return { result, receipt: written.receipt, ...(warning ? { warning } : {}) };
   };
 

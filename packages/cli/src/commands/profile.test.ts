@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { VERSION } from '../cli.js';
 import { cliHarness } from '../testing.js';
@@ -66,6 +67,73 @@ test('config set redacts key values without routine vault history', async () => 
   expect(failed).toEqual([]);
   expect(JSON.stringify(failed)).not.toContain('sk-live-abcdef');
 });
+
+test('config set vault records departure and arrival, readable in both vaults', async () => {
+  const oldVault = join(cli.home, 'old-secret-marker');
+  const newVault = join(cli.home, 'new-secret-marker');
+  await mesa('init', '--vault', oldVault);
+  await mesa('vault', 'init');
+  await mesa('--profile', 'old-reader', 'init', '--vault', oldVault);
+  await mesa('--profile', 'arrival', 'init', '--vault', newVault);
+  await mesa('--profile', 'arrival', 'vault', 'init');
+
+  await mesa('config', 'set', 'keys.api', 'secret-marker');
+  const switched = await mesa('config', 'set', 'vault', newVault, '--json');
+  expect(switched.code).toBe(0);
+  expect(switched.json.data.receipt).not.toBeNull();
+  expect(switched.json.data.warning).toBeUndefined();
+  expect((await mesa('config', '--json')).json.data.vault).toBe(newVault);
+  for (const profile of ['old-reader', 'default']) {
+    const entries = (await mesa('--profile', profile, 'receipts', '--json')).json.data;
+    expect(entries).toHaveLength(1);
+    const entry = entries[0];
+    expect(entry.receipt).toMatchObject({
+      type: 'action',
+      kind: 'vault-change',
+      profile: 'default',
+      status: 'ok',
+      inputs: { path: 'vault', vault: '~/old-***' },
+      outputs: { value: '~/new-***' },
+    });
+    expect(JSON.stringify(entry)).not.toContain(cli.home);
+    expect(JSON.stringify(entry)).not.toContain('secret-marker');
+    expect(
+      (await mesa('--profile', profile, 'receipts', 'show', entry.receipt.id, '--json')).json.data,
+    ).toEqual(entry);
+    const vault = profile === 'old-reader' ? oldVault : newVault;
+    expect(readFileSync(join(vault, 'log.md'), 'utf8')).toContain(entry.path.replace(/\.md$/, ''));
+    if (profile === 'default') expect(switched.json.data.receipt.id).toBe(entry.receipt.id);
+  }
+  expect((await mesa('config', 'set', 'vault', newVault, '--json')).json.data.receipt).toBeNull();
+  expect((await mesa('config', 'set', 'vault', 'relative', '--json')).code).toBe(4);
+  for (const profile of ['old-reader', 'default'])
+    expect((await mesa('--profile', profile, 'receipts', '--json')).json.data).toHaveLength(1);
+});
+
+test.each(['old', 'new'])(
+  'a failed %s vault receipt does not prevent the other or the config switch',
+  async (failed) => {
+    const oldVault = join(cli.home, 'old-vault');
+    const newVault = join(cli.home, 'new-vault');
+    await mesa('init', '--vault', oldVault);
+    await mesa('vault', 'init');
+    await mesa('--profile', 'old-reader', 'init', '--vault', oldVault);
+    await mesa('--profile', 'arrival', 'init', '--vault', newVault);
+    await mesa('--profile', 'arrival', 'vault', 'init');
+    const broken = failed === 'old' ? oldVault : newVault;
+    rmSync(join(broken, 'receipts'), { recursive: true });
+    writeFileSync(join(broken, 'receipts'), 'not a folder');
+
+    const switched = await mesa('config', 'set', 'vault', newVault, '--json');
+    expect(switched.code).toBe(0);
+    expect(switched.json.data.warning).toContain('no receipt:');
+    if (failed === 'new') expect(switched.json.data.receipt).toBeNull();
+    else expect(switched.json.data.receipt).not.toBeNull();
+    expect((await mesa('config', '--json')).json.data.vault).toBe(newVault);
+    const goodProfile = failed === 'old' ? 'default' : 'old-reader';
+    expect((await mesa('--profile', goodProfile, 'receipts', '--json')).json.data).toHaveLength(1);
+  },
+);
 
 test('profile and version', async () => {
   expect((await mesa('profile', '--json')).json).toEqual({
