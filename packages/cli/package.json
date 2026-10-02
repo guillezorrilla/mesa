@@ -14,5 +14,8 @@
   "dependencies": {
     "@mesa/core": "workspace:*",
     "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

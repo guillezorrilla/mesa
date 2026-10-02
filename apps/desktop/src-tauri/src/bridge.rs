@@ -6,11 +6,15 @@ use std::process::Command;
 
 use serde_json::Value;
 
-/// Builds the command that runs the mesa CLI: `cli` if given (the `MESA_CLI` override), else node
+/// Builds the command that runs the mesa CLI: `cli` if given (the `MESA_CLI` override), else in a
+/// release build the `mesa` executable beside the app's (Contents/MacOS/mesa, ADR-0017), else node
 /// on this workspace's build.
 pub fn mesa_command(cli: Option<OsString>) -> Result<Command, String> {
     let mut cmd = if let Some(cli) = cli {
         Command::new(cli)
+    } else if !cfg!(debug_assertions) {
+        let exe = std::env::current_exe().map_err(|e| format!("cannot find the app: {e}"))?;
+        Command::new(exe.with_file_name("mesa"))
     } else {
         let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../..")
@@ -26,7 +30,7 @@ pub fn mesa_command(cli: Option<OsString>) -> Result<Command, String> {
     Ok(cmd)
 }
 
-/// Runs `mesa <args>` (the `MESA_CLI` override, else this workspace's build) and returns its
+/// Runs `mesa <args>` (see `mesa_command` for which mesa) and returns its
 /// envelope: the one path from the app to the CLI, for `run_mesa` and the terminal's attach.
 pub fn run(args: &[String]) -> Result<Value, String> {
     let output = mesa_command(std::env::var_os("MESA_CLI"))?
