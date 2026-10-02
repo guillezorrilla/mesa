@@ -1417,9 +1417,9 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   await openProject(byTestId, 1);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
   await click(tabs().find((tab) => tab.textContent?.includes('Sessions')));
+  // Projects goes back to the project last shown, with none picked.
   await click(tabs().find((tab) => tab.textContent?.includes('Projects')));
-  expect(byTestId('selected-session')).toHaveLength(1);
-  await click(byTestId('sidebar-project')[1]);
+  expect(byTestId('selected-session')).toHaveLength(0);
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
