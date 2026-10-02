@@ -1,5 +1,6 @@
 import { MesaError } from '../lib/result.js';
 import { truncatedSlug } from '../projects/slug.js';
+import { issueUrl, pageUrl } from './atlassian.js';
 import { notConnectedError } from './authorized-fetch.js';
 import type { Site } from './connection.js';
 import type { ItemRef } from './items.js';
@@ -14,11 +15,10 @@ const ISSUE = /^\/browse\/([A-Z][A-Z0-9_]+-\d+)\/?$/;
 const PAGE = /^\/wiki\/spaces\/([^/]+)\/pages\/(\d+)(?:\/|$)/;
 
 const usage = (message: string) => new MesaError('usage', message);
-const origin = (site: Site) => site.url.replace(/\/+$/, '');
 const jiraRef = (site: Site, key: string): ItemRef => ({
   source: 'jira',
   id: key,
-  url: `${origin(site)}/browse/${key}`,
+  url: issueUrl(site, key),
   site: site.id,
 });
 
@@ -70,7 +70,7 @@ export function resolveLink(link: string, sites: Partial<Record<SourceId, Site[]
     return {
       source: 'confluence',
       id: page[2],
-      url: `${origin(site)}/wiki/spaces/${page[1]}/pages/${page[2]}`,
+      url: pageUrl(site, page[1], page[2]),
       site: site.id,
     };
   }

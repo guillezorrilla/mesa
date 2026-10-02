@@ -30,6 +30,16 @@ All are read scopes: Mesa never writes to Atlassian.
 
 A 404 or 403 means the item is gone or not shared with the signed-in account; the import says so and writes nothing.
 
+## What a browse reads
+
+`mesa sources browse atlassian` (CONTEXT.md, Picker) makes only GETs through the same authorized fetch, 25 children to a page:
+
+- Confluence: `/wiki/api/v2/spaces`, a space's top pages with `/spaces/<id>/pages?depth=root`, and a page's children with `/pages/<id>/direct-children` (pages only: folders and whiteboards are left out). Each follows `_links.next`'s `cursor`. The v2 lists say nothing of a page's own children, so every page reports `hasChildren: true` and one without opens on nothing. Descendants are walked by `direct-children`, never `/descendants` or `/ancestors`.
+- Confluence search: CQL on `/wiki/rest/api/search`, `type = page and title ~ "<q>"`, narrowed by `space = "<key>"` in a space or `ancestor = <id>` under a page.
+- Jira: `/rest/api/3/project/search` (`startAt`, until `isLast`), and a project's issues by `/rest/api/3/search/jql` with `project = "<KEY>" ORDER BY updated DESC` (`nextPageToken`); a search is `text ~ "<q>"`.
+
+A 429, or a 503 with `Retry-After`, waits as `Retry-After` asks (at most 60 s; 1 s then 2 s without one) and tries again, three tries in all, for imports and browses alike.
+
 ## Callback route
 
 The only callback URL registered with Atlassian is the broker's:

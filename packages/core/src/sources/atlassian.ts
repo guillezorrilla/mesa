@@ -37,6 +37,20 @@ export async function atlassianSites(get: Http): Promise<Site[]> {
 export const jiraApi = (site: string) => `${API}/ex/jira/${site}/rest/api/3`;
 /** Confluence's REST API (v2) on the site with cloud id `site`. */
 export const confluenceApi = (site: string) => `${API}/ex/confluence/${site}/wiki/api/v2`;
+/** Confluence's older REST API (v1), which alone has CQL search, on the site with cloud id `site`. */
+export const confluenceSearchApi = (site: string) =>
+  `${API}/ex/confluence/${site}/wiki/rest/api/search`;
+
+/** A site's web address, with no trailing slash. */
+export const siteOrigin = (site: Site) => site.url.replace(/\/+$/, '');
+/** A Jira issue's canonical URL, which an import takes. */
+export const issueUrl = (site: Site, key: string) => `${siteOrigin(site)}/browse/${key}`;
+/** A Confluence page's canonical URL, which an import takes. */
+export const pageUrl = (site: Site, space: string, id: string) =>
+  `${siteOrigin(site)}/wiki/spaces/${space}/pages/${id}`;
+
+/** `text` as a JQL or CQL string literal. */
+export const quoted = (text: string) => `"${text.replace(/["\\]/g, '\\$&')}"`;
 
 /** The cloud id of the site an Atlassian item lives on (links.ts sets it). */
 export function siteOf(ref: ItemRef): string {

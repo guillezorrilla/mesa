@@ -25,6 +25,13 @@ import {
 } from '@/lib/testing';
 import { App } from './App';
 
+/** Opens the open project's tab `name`. */
+const openTab = (name: string) =>
+  click(
+    [...document.querySelectorAll<HTMLButtonElement>('nav[aria-label$=" tabs"] button')].find(
+      (tab) => tab.textContent === name,
+    ),
+  );
 const openProject = async (byTestId: (id: string) => HTMLElement[], index = 0) => {
   await click(
     [...document.querySelectorAll<HTMLElement>('[role="tab"]')].find(
@@ -47,7 +54,7 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     [...document.querySelectorAll('nav[aria-label="lantern-cove tabs"] button')].map(
       (tab) => tab.textContent,
     ),
-  ).toEqual(['overview', 'git', 'files', 'skills', 'rules']);
+  ).toEqual(['overview', 'vault', 'import', 'git', 'files', 'skills', 'rules']);
   await click(
     [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent?.toLowerCase() === 'skills',
@@ -343,7 +350,7 @@ test('a project folder that is not a Git repository opens without a Git badge or
   const byTestId = await renderWithMesa(<App />, bridge);
   await openProject(byTestId);
   expect(
-    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(2)')?.textContent,
+    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(4)')?.textContent,
   ).toBe('git');
   expect(toasts(byTestId)).toEqual([]);
 });
@@ -657,6 +664,7 @@ test('project and session show scoped decisions and note changes with exact Obsi
     fakePlatform({ terminal: fakeTerminals().host }),
   );
   await openProject(byTestId);
+  await openTab('vault');
   expect(byTestId('knowledge-context')[0]?.textContent).toContain(
     'The migration must stay reversible',
   );
@@ -667,6 +675,7 @@ test('project and session show scoped decisions and note changes with exact Obsi
     ) ?? undefined,
   );
   expect(calls).toContainEqual(['--json', 'vault', 'open', '--', 'projects/lantern-cove.md']);
+  await openTab('overview');
   await click(byTestId('project-active-session')[0]);
   await click(document.querySelector('[aria-label="Session actions"]') as HTMLElement);
   expect(byTestId('knowledge-context')[0]?.textContent).toContain('Chose the release plan');
@@ -708,6 +717,7 @@ test("a note in the project's vault overview opens in the Vault screen, selected
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await openProject(byTestId);
+  await openTab('vault');
   await click(byTestId('vault-overview-note')[0]);
   expect(byTestId('vault-panel')).toHaveLength(1);
   expect(byTestId('vault-item')[0]?.querySelector('[data-fact="Path"]')?.textContent).toBe(
@@ -1094,7 +1104,7 @@ test('project Git actions stage, unstage and commit through the CLI bridge', asy
   );
   // The tab badge recounts after the commit.
   expect(
-    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(2)')?.textContent,
+    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(4)')?.textContent,
   ).toBe('git');
   expect(calls.some((args) => args.includes('commit') && args.includes('--message=Add note'))).toBe(
     true,

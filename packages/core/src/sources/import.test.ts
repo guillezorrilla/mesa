@@ -347,3 +347,32 @@ test('Write notes runs on a profile whose skills list predates import-notes, and
     false,
   );
 });
+
+test('Write notes takes 50 items of the longest paths in one run, and refuses 51 before fetching any', async () => {
+  const { world, agents, mesa, vault } = await setUp();
+  // Each a web page whose slug and title fill the 80 characters of both paths.
+  const links = Array.from(
+    { length: 51 },
+    (_, at) => `https://example.test/${String(at).padStart(2, '0')}${'x'.repeat(90)}`,
+  );
+  for (const link of links) {
+    world.routes[`GET ${link}`] = {
+      html: `<html><head><title>${link.slice(20)}</title></head><body><article><p>The tide table for the week ahead, page ${link.slice(20, 22)}.</p></article></body></html>`,
+    };
+  }
+  const error = await mesa.imports.add('lantern-cove', links).catch((e) => e);
+  expect(error).toMatchObject({
+    code: 'usage',
+    message:
+      'Write notes takes at most 50 items in one import, and this one has 51: import them in batches, or with Write notes off (--no-notes)',
+  });
+  expect(world.requests.some((r) => r.url.startsWith('https://example.test/'))).toBe(false);
+  expect(files(join(vault, 'raw'))).toEqual([]);
+
+  const { result } = await mesa.imports.add('lantern-cove', links.slice(0, 50));
+  expect(result.notes).toMatchObject({ ok: true });
+  expect(result.items.every((i) => i.note?.length === 'wiki/notes/.md'.length + 80)).toBe(true);
+  expect(agents.calls.filter((c) => c.args.some((a) => a.includes('/import-notes')))).toHaveLength(
+    1,
+  );
+});

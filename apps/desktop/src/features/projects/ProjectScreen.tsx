@@ -6,15 +6,17 @@ import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
 import { RulesTab } from '@/features/rules/RulesTab';
 import { SkillsTab } from '@/features/skills/SkillsTab';
+import { VaultTab } from '@/features/vault/VaultTab';
 import { useAct } from '@/lib/useAct';
 import { useCommand } from '@/lib/useCommand';
+import { ImportTab } from './import/ImportTab';
 import { OverviewTab } from './overview/OverviewTab';
 import { useOverviewState } from './overview/useOverviewState';
 import { ProjectActionsMenu } from './ProjectActionsMenu';
 import { ProjectTabBar } from './ProjectTabBar';
 
 /** A project page's tabs. */
-export type ProjectTab = 'overview' | 'git' | 'files' | 'skills' | 'rules';
+export type ProjectTab = 'overview' | 'vault' | 'import' | 'git' | 'files' | 'skills' | 'rules';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectScreen(props: {
@@ -89,9 +91,12 @@ export function ProjectScreen(props: {
           acting={acting}
           act={act}
           onSession={props.onSession}
-          onVaultItem={props.onVaultItem}
           onNewSession={props.onNewSession}
         />
+      ) : tab === 'vault' ? (
+        <VaultTab project={project.name} onItem={props.onVaultItem} />
+      ) : tab === 'import' ? (
+        <ImportTab key={project.name} project={project.name} />
       ) : tab === 'git' ? (
         <GitTab
           key={project.name}
