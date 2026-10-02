@@ -1,6 +1,7 @@
 import type { Config, DoctorReport, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
 import { useCallback, useRef } from 'react';
 import { Muted } from '@/components/Muted';
+import { AutomationsScreen } from '@/features/automations/AutomationsScreen';
 import { BackupScreen } from '@/features/backup/BackupScreen';
 import { DailyScreen } from '@/features/daily/DailyScreen';
 import { DoctorScreen } from '@/features/doctor/DoctorScreen';
@@ -140,6 +141,7 @@ export function WorkspaceMain(props: {
       {view.kind === 'prompts' && (
         <SavedPromptsScreen prompts={prompts.data} onChanged={() => void prompts.refresh()} />
       )}
+      {view.kind === 'automations' && <AutomationsScreen />}
       {view.kind === 'backup' && <BackupScreen />}
       {view.kind === 'tour' && config.data && (
         <TourScreen

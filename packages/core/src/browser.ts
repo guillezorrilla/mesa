@@ -48,7 +48,7 @@ export {
   type PresentationGroup,
   presentSessions,
 } from './sessions/presentation.js';
-export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
+export { AGENT_STATES, FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { parseSessionUri, sessionUri } from './sessions/uri.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';
