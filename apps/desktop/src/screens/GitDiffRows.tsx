@@ -47,7 +47,12 @@ function unified(lines: Line[]): Line[] {
 }
 
 /** Side-by-side or inline rows of one file's diff, unchanged runs folded as Xirp does. */
-export function GitDiffRows(props: { rows: DiffRow[]; layout: 'inline' | 'side-by-side' }) {
+export function GitDiffRows(props: {
+  rows: DiffRow[];
+  layout: 'inline' | 'side-by-side';
+  /** The profile's diff text size in px. */
+  fontSize: number;
+}) {
   const [open, setOpen] = useState<Set<number>>(new Set());
   const lines = props.rows.filter((row): row is Line => row.kind !== 'meta');
   const notes = props.rows.filter(
@@ -58,8 +63,9 @@ export function GitDiffRows(props: { rows: DiffRow[]; layout: 'inline' | 'side-b
   return (
     <div
       data-testid={side ? 'git-side-diff' : 'git-inline-diff'}
+      style={{ fontSize: props.fontSize }}
       className={cn(
-        'grid font-mono text-[13px] leading-6',
+        'grid font-mono leading-6',
         side
           ? 'grid-cols-[3rem_minmax(0,1fr)_3rem_minmax(0,1fr)]'
           : 'grid-cols-[3rem_3rem_1.25rem_minmax(0,1fr)]',

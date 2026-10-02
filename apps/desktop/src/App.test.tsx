@@ -2493,6 +2493,8 @@ test('shortcut settings validate conflicts and update the active profile key', a
       theme: 'system',
       font: 'plex',
       fontSize: 16,
+      diffFontSize: 13,
+      fileTreeFontSize: 14,
       density: 'comfortable',
       colorVision: 'normal',
     },

@@ -93,6 +93,13 @@ const ConfigSchema = z.strictObject({
       theme: z.enum(INTERFACE_THEMES).default(DEFAULT_APPEARANCE.theme),
       font: z.enum(INTERFACE_FONTS).default(DEFAULT_APPEARANCE.font),
       fontSize: z.number().int().min(12).max(20).default(DEFAULT_APPEARANCE.fontSize),
+      diffFontSize: z.number().int().min(10).max(20).default(DEFAULT_APPEARANCE.diffFontSize),
+      fileTreeFontSize: z
+        .number()
+        .int()
+        .min(10)
+        .max(20)
+        .default(DEFAULT_APPEARANCE.fileTreeFontSize),
       density: z.enum(INTERFACE_DENSITIES).default(DEFAULT_APPEARANCE.density),
       colorVision: z.enum(COLOR_VISION_MODES).default(DEFAULT_APPEARANCE.colorVision),
     })

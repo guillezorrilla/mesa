@@ -1,4 +1,5 @@
 import type { Config, WorkspaceFile } from '@mesa/core';
+import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
 import { PanelLeft, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
@@ -57,6 +58,8 @@ export function FilesWorkspace(props: {
   const run = useRun();
   const config = useCommand('config.get');
   const preferences = config.data?.editor ?? DEFAULT_EDITOR;
+  const treeFontSize =
+    config.data?.appearance.fileTreeFontSize ?? DEFAULT_APPEARANCE.fileTreeFontSize;
   const { acting, act } = useAct();
   const tree = useCommand('files.tree', {
     project: props.project,
@@ -263,6 +266,7 @@ export function FilesWorkspace(props: {
             onRefresh={() => void tree.refresh()}
             onOpen={(target) => request({ kind: 'open', ...target })}
             goToRef={goToInput}
+            fontSize={treeFontSize}
           />
         ) : (
           <FileSearch
@@ -270,6 +274,7 @@ export function FilesWorkspace(props: {
             project={props.project}
             checkout={checkout || undefined}
             inputRef={searchInput}
+            fontSize={treeFontSize}
             onOpen={(target) => request({ kind: 'open', ...target })}
           />
         )}

@@ -51,6 +51,8 @@ export function FileTree(props: {
   onRefresh: () => void;
   onOpen: (target: { path: string; line?: number }) => void;
   goToRef: RefObject<HTMLInputElement | null>;
+  /** The profile's file tree text size in px. */
+  fontSize: number;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [goTo, setGoTo] = useState('');
@@ -120,7 +122,11 @@ export function FileTree(props: {
           placeholder="Search..."
         />
       </form>
-      <section className="min-h-0 flex-1 overflow-auto px-2 pb-2" aria-label="File tree">
+      <section
+        className="min-h-0 flex-1 overflow-auto px-2 pb-2"
+        style={{ fontSize: props.fontSize }}
+        aria-label="File tree"
+      >
         {visible.map((entry) => {
           const folder = entry.kind === 'directory';
           const [Icon, tone] = folder
@@ -134,7 +140,7 @@ export function FileTree(props: {
               onKeyDown={moveListFocus}
               aria-current={props.openedPath === entry.path || undefined}
               title={entry.path}
-              className="flex w-full items-center gap-1.5 rounded-md border border-transparent py-1 pr-2 text-left font-mono text-sm hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:border-state-working/60 aria-[current=true]:bg-accent"
+              className="flex w-full items-center gap-1.5 rounded-md border border-transparent py-1 pr-2 text-left font-mono hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:border-state-working/60 aria-[current=true]:bg-accent"
               style={{ paddingLeft: `${filter ? 8 : entry.depth * 16 + 8}px` }}
               onClick={() => (folder ? toggle(entry.path) : props.onOpen({ path: entry.path }))}
             >

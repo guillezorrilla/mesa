@@ -26,7 +26,7 @@ const folds = () =>
 
 test('unchanged runs beyond three lines of a change fold, and a fold opens in place', async () => {
   const byTestId = await renderWithMesa(
-    <GitDiffRows rows={rows} layout="side-by-side" />,
+    <GitDiffRows rows={rows} layout="side-by-side" fontSize={13} />,
     fakeBridge().bridge,
   );
   expect(folds()).toEqual(['6 unmodified lines', '7 unmodified lines']);
@@ -45,7 +45,7 @@ test('inline reads a change block as all removed lines, then all added ones', as
     { kind: 'change', left: 'b', right: '', oldLine: 2 },
   ];
   const byTestId = await renderWithMesa(
-    <GitDiffRows rows={block} layout="inline" />,
+    <GitDiffRows rows={block} layout="inline" fontSize={13} />,
     fakeBridge().bridge,
   );
   expect(byTestId('git-inline-diff')[0]?.textContent).toBe('1-a2-b1+x');
