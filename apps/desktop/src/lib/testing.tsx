@@ -6,6 +6,7 @@ import type {
   GuardrailCheck,
   HooksStatus,
   ManagedRow,
+  PrEventList,
   ProfileInfo,
   ProjectContext,
   ProjectRow,
@@ -65,7 +66,7 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
       defaultAgent: 'claude',
       skills: [],
       decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
-      sessions: { log: true, statusLineCost: false },
+      sessions: { log: true, statusLineCost: false, prEvents: false },
       usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
       notifications: {
         quiet: false,
@@ -153,6 +154,13 @@ const HEALTHY: Record<string, (args: string[]) => unknown> = {
     } satisfies UsageReport);
   },
   windows: () => envelope([] satisfies TmuxWindow[]),
+  'pr-events': () =>
+    envelope({
+      enabled: false,
+      gh: { state: 'ready', version: 'gh version 2.test' },
+      events: [],
+      problems: [],
+    } satisfies PrEventList),
   'hooks status': () =>
     envelope({
       path: '/h/.claude/settings.json',

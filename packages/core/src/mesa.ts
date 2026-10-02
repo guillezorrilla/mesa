@@ -11,6 +11,7 @@ import { createFaro } from './decisions/faro.js';
 import { diagnosticsService } from './diagnostics/service.js';
 import { inboxCheck, runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
+import { prEventsService } from './git/pr-event-delivery.js';
 import { gitService } from './git/service.js';
 import { mapService } from './map/service.js';
 import { inbox } from './notifications/inbox.js';
@@ -42,6 +43,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const notifications = inbox(ctx);
   const usage = usageService(ctx);
   const vaults = vaultService(ctx);
+  const sessions = sessionsService(ctx, faro, skills);
   return {
     ...profileApi,
     projects: projectsService(ctx),
@@ -53,7 +55,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     ...mapService(ctx),
     ...dailyService(ctx),
     receipts: receiptsService(ctx),
-    ...sessionsService(ctx, faro, skills),
+    ...sessions,
+    prEvents: prEventsService(ctx, {
+      board: () => sessions.sessions.list(),
+      send: sessions.sessions.send,
+    }),
     hooks: hooksService(ctx),
     skills,
     usage,

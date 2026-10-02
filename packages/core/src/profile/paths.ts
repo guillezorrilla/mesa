@@ -29,6 +29,8 @@ export type ProfilePaths = {
   usage: string;
   /** Read and clear markers for the profile-local notification inbox. */
   notifications: string;
+  /** The PR events forwarded into sessions, so each is sent once (CONTEXT.md, PR event). */
+  prEvents: string;
   /** Named, literal prompts saved only in this profile. */
   prompts: string;
   /** Local archives of settings, project registry, and saved prompts. */
@@ -57,6 +59,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     handoffs: join(root, 'handoffs'),
     usage: join(root, 'usage.json'),
     notifications: join(root, 'notifications.json'),
+    prEvents: join(root, 'pr-events.json'),
     prompts: join(root, 'prompts.json'),
     backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,

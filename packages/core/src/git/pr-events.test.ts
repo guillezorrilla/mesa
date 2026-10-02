@@ -1,0 +1,215 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { expect, test } from 'vitest';
+import { type FakePullRequest, fakeGh, scriptedRunner, tempDir } from '../testing/index.js';
+import { prEventLedger } from './pr-event-ledger.js';
+import { type PrWatch, scanPrEvents } from './pr-events.js';
+
+// Invented pull request data only: a scripted gh, never the real GitHub.
+
+const since = '2026-09-24T12:00:00.000Z';
+const watch: PrWatch = {
+  session: 'aaaaaaaa',
+  project: 'lantern-cove',
+  branch: 'feature',
+  cwd: '/src/lantern-cove-feature',
+  since,
+};
+const pr = (over: Partial<FakePullRequest> = {}): FakePullRequest => ({
+  number: 42,
+  branch: 'feature',
+  checks: [],
+  reviews: [],
+  comments: [],
+  reviewComments: [],
+  ...over,
+});
+const checkRun = (conclusion: string, completedAt: string) => ({
+  __typename: 'CheckRun',
+  name: 'build',
+  workflowName: 'CI',
+  status: 'COMPLETED',
+  conclusion,
+  completedAt,
+  detailsUrl: 'https://github.com/example/repo/actions/runs/7',
+});
+const untold = () => ({ delivered: new Set<string>(), failing: new Set<string>() });
+
+test('finds failed checks, reviews with state and author, and review and issue comments since the session started', async () => {
+  const gh = fakeGh([
+    pr({
+      checks: [
+        checkRun('FAILURE', '2026-09-24T12:05:00Z'),
+        { ...checkRun('CANCELLED', '2026-09-24T12:06:00Z'), name: 'lint' },
+        { ...checkRun('FAILURE', '2026-09-24T11:00:00Z'), name: 'old' },
+        {
+          __typename: 'StatusContext',
+          context: 'deploy',
+          state: 'ERROR',
+          startedAt: '2026-09-24T12:07:00Z',
+          targetUrl: '',
+        },
+      ],
+      reviews: [
+        {
+          id: 'R1',
+          author: { login: 'marlow' },
+          state: 'CHANGES_REQUESTED',
+          body: 'Please  rename\nthe helper.',
+          submittedAt: '2026-09-24T12:10:00Z',
+        },
+        {
+          id: 'R0',
+          author: { login: 'marlow' },
+          state: 'APPROVED',
+          body: '',
+          submittedAt: '2026-09-24T11:59:00Z',
+        },
+        { id: 'R2', author: { login: 'marlow' }, state: 'PENDING', body: '', submittedAt: null },
+      ],
+      comments: [
+        {
+          id: 'C1',
+          author: { login: 'tamsin' },
+          body: 'Does this cover the empty case?',
+          createdAt: '2026-09-24T12:20:00Z',
+          url: 'https://github.com/example/repo/pull/42#issuecomment-1',
+        },
+      ],
+      reviewComments: [
+        {
+          id: 9,
+          user: { login: 'marlow' },
+          body: 'Off by one here.',
+          path: 'src/tide.ts',
+          created_at: '2026-09-24T12:11:00Z',
+          html_url: 'https://github.com/example/repo/pull/42#discussion_r9',
+        },
+      ],
+    }),
+    pr({
+      number: 43,
+      branch: 'other',
+      comments: [{ id: 'X', body: 'not ours', createdAt: '2026-09-24T12:30:00Z' }],
+    }),
+    pr({
+      number: 41,
+      branch: 'feature',
+      state: 'CLOSED',
+      comments: [{ id: 'Y', body: 'closed one', createdAt: '2026-09-24T12:30:00Z' }],
+    }),
+  ]);
+  const { run, calls } = scriptedRunner({ gh: gh.answer });
+  const found = await scanPrEvents(run, [watch], untold());
+  expect(found.gh).toEqual({ state: 'ready', version: 'gh version 2.test (2026-09-01)' });
+  expect(found.problems).toEqual([]);
+  expect(
+    found.events.map((e) => [e.kind, e.check ?? e.author, e.state ?? e.excerpt ?? e.path]),
+  ).toEqual([
+    ['check-failed', 'CI / build', undefined],
+    ['check-failed', 'deploy', undefined],
+    ['review', 'marlow', 'CHANGES_REQUESTED'],
+    ['review-comment', 'marlow', 'Off by one here.'],
+    ['comment', 'tamsin', 'Does this cover the empty case?'],
+  ]);
+  expect(found.events[2]).toMatchObject({
+    id: 'aaaaaaaa:review:42:R1',
+    session: 'aaaaaaaa',
+    project: 'lantern-cove',
+    excerpt: 'Please rename the helper.',
+    pr: { number: 42, url: 'https://github.com/example/repo/pull/42' },
+  });
+  // A status with no link of its own links to its pull request.
+  expect(found.events[1]?.url).toBe('https://github.com/example/repo/pull/42');
+  expect(found.events[3]).toMatchObject({
+    path: 'src/tide.ts',
+    url: 'https://github.com/example/repo/pull/42#discussion_r9',
+  });
+  // One list for the project, then one view and one api call for its one open matched PR.
+  expect(calls.map((c) => c.args.slice(0, 2).join(' '))).toEqual([
+    '--version',
+    'auth status',
+    'pr list',
+    'pr view',
+    `api repos/{owner}/{repo}/pulls/42/comments?sort=created&direction=desc&per_page=100`,
+  ]);
+});
+
+test('the ledger remembers what was delivered in the profile, and a fix is news only after a told failure', async () => {
+  const file = join(tempDir(), 'pr-events.json');
+  const gh = fakeGh([pr({ checks: [checkRun('FAILURE', '2026-09-24T12:05:00Z')] })]);
+  const { run } = scriptedRunner({ gh: gh.answer });
+  const ledger = prEventLedger(file);
+  const first = await scanPrEvents(run, [watch], ledger.read());
+  expect(first.events.map((e) => e.kind)).toEqual(['check-failed']);
+  expect(ledger.claim(first.events)).toHaveLength(1);
+  // A second claim of the same events, as another process would make, takes none.
+  expect(ledger.claim(first.events)).toEqual([]);
+  // A restart reads the same file.
+  const reopened = prEventLedger(file);
+  expect((await scanPrEvents(run, [watch], reopened.read())).events).toEqual([]);
+  expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
+    delivered: ['aaaaaaaa:check-failed:42:CI / build:2026-09-24T12:05:00Z'],
+    failing: ['aaaaaaaa:42:CI / build'],
+  });
+
+  const pull = gh.pullRequests[0];
+  if (pull) pull.checks = [checkRun('SUCCESS', '2026-09-24T12:30:00Z')];
+  const fixed = await scanPrEvents(run, [watch], reopened.read());
+  expect(fixed.events.map((e) => [e.kind, e.check])).toEqual([['check-fixed', 'CI / build']]);
+  // A send that typed nothing gives its claim back: the fix is still news, the failure still told.
+  reopened.claim(fixed.events);
+  reopened.release(fixed.events);
+  expect((await scanPrEvents(run, [watch], reopened.read())).events).toHaveLength(1);
+  reopened.claim(fixed.events);
+  expect((await scanPrEvents(run, [watch], reopened.read())).events).toEqual([]);
+  expect(reopened.read().failing.size).toBe(0);
+
+  // A passing check never failed for this session is not news.
+  const other = { ...watch, session: 'bbbbbbbb' };
+  expect((await scanPrEvents(run, [other], reopened.read())).events).toEqual([]);
+});
+
+test('gh missing, logged out, or failing is a reported state, never an error or an invented event', async () => {
+  const missing = scriptedRunner({}, { missing: ['gh'] });
+  expect(await scanPrEvents(missing.run, [watch], untold())).toEqual({
+    gh: { state: 'missing' },
+    events: [],
+    problems: [],
+  });
+  const gh = fakeGh([
+    pr({ comments: [{ id: 'C1', body: 'hi', createdAt: '2026-09-24T12:20:00Z' }] }),
+  ]);
+  gh.loggedIn = false;
+  const loggedOut = scriptedRunner({ gh: gh.answer });
+  expect(await scanPrEvents(loggedOut.run, [watch], untold())).toEqual({
+    gh: { state: 'unauthenticated', version: 'gh version 2.test (2026-09-01)' },
+    events: [],
+    problems: [],
+  });
+  expect(loggedOut.calls.map((c) => c.args[0])).toEqual(['--version', 'auth']);
+  const slow = scriptedRunner({}, { slow: ['gh'] });
+  expect((await scanPrEvents(slow.run, [watch], untold())).gh).toEqual({
+    state: 'unavailable',
+    reason: 'timeout',
+  });
+  // A list that fails after gh is ready is that project's problem.
+  const broken = scriptedRunner({
+    gh: (args) =>
+      args[0] === 'pr'
+        ? { ok: false, reason: 'failed', detail: 'HTTP 502' }
+        : 'gh version 2.test\n',
+  });
+  expect(await scanPrEvents(broken.run, [watch], untold())).toEqual({
+    gh: { state: 'ready', version: 'gh version 2.test' },
+    events: [],
+    problems: [{ project: 'lantern-cove', reason: 'failed' }],
+  });
+  const garbled = scriptedRunner({
+    gh: (args) => (args[0] === 'pr' && args[1] === 'view' ? '{"reviews": 3}' : gh.answer(args)),
+  });
+  gh.loggedIn = true;
+  expect((await scanPrEvents(garbled.run, [watch], untold())).problems).toEqual([
+    { project: 'lantern-cove', pr: 42, reason: 'invalid-data' },
+  ]);
+});
