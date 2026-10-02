@@ -107,6 +107,7 @@ export function ProjectScreen(props: {
       ) : tab === 'vault' ? (
         <VaultTab
           key={props.vault}
+          vault={props.vault}
           project={project.name}
           onItem={props.onVaultItem}
           onImport={() => setTab('import')}

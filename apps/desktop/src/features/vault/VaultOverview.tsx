@@ -21,8 +21,8 @@ export function VaultOverview(props: {
 }) {
   const { data, error } = useCommand('vault.context', { project: props.project });
   const run = useRun();
-  if (!data)
-    return <Muted role="status">{error ? error.message : 'Reading project knowledge...'}</Muted>;
+  if (error) return <Muted role="status">{error.message}</Muted>;
+  if (!data) return <Muted role="status">Reading project knowledge...</Muted>;
   const { hub, notes, goals } = data;
   return (
     <section data-testid="vault-overview" aria-label="Vault overview" className="space-y-5">

@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { useToast, warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
-import { useCall, useRun } from '@/lib/useCommand';
+import { CommandScope, useCall, useRun } from '@/lib/useCommand';
 import { useVaultLook } from './useVaultLook';
 import { VaultBrowser } from './VaultBrowser';
 import { VaultEmpty, VaultNotLaidOut, VaultUnlisted } from './VaultState';
@@ -133,16 +133,18 @@ export function VaultScreen({
   return (
     <section data-testid="vault-panel" className="space-y-4">
       {look?.list.ok ? (
-        <VaultContent
-          key={JSON.stringify([look.list.data.vault, query, path])}
-          inventory={look.list.data}
-          looks={look.count}
-          status={look.status}
-          query={query}
-          path={path}
-          actions={actions}
-          setup={setup}
-        />
+        <CommandScope value={look.list.data.vault}>
+          <VaultContent
+            key={JSON.stringify([look.list.data.vault, query, path])}
+            inventory={look.list.data}
+            looks={look.count}
+            status={look.status}
+            query={query}
+            path={path}
+            actions={actions}
+            setup={setup}
+          />
+        </CommandScope>
       ) : (
         <>
           <PageHeader title="Vault" description="Every item in this profile's vault.">

@@ -3516,3 +3516,68 @@ test('the empty project Vault opens its existing Import tab', async () => {
   expect(byTestId('vault-overview')).toEqual([]);
   expect(document.querySelector('[aria-label="Paste a link"]')).not.toBeNull();
 });
+
+test('switching to an unreadable vault hides the former project notes and history during loading and after failure', async () => {
+  let config = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
+  const next = deferred();
+  const { bridge } = fakeBridge({
+    config: () => envelope(config),
+    projects: () => envelope(PROJECTS),
+    'config set': (args) => {
+      config = { ...config, vault: JSON.parse(args.at(-1) ?? 'null') };
+      return envelope({ path: 'vault', value: config.vault, receipt: null });
+    },
+    'vault context': () =>
+      config.vault === '/h/vault'
+        ? envelope({
+            project: 'lantern-cove',
+            hub: null,
+            index: [],
+            decisions: [],
+            goals: [],
+            more: '',
+            notes: [
+              {
+                path: 'wiki/old.md',
+                title: 'Previous vault note',
+                modified: '2026-10-02T12:00:00Z',
+              },
+            ],
+          })
+        : next.promise,
+    receipts: () =>
+      config.vault === '/h/vault'
+        ? envelope([
+            {
+              path: 'receipts/old.md',
+              summary: 'Previous vault decision',
+              receipt: {
+                id: 'old',
+                inputs: {},
+                outputs: {},
+                decisions: [],
+                started: '2026-10-02T12:00:00Z',
+                status: 'ok',
+              },
+            },
+          ])
+        : failure('vault not readable'),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ folder: '/h/unreadable' }));
+  await openProject(byTestId);
+  await openTab('vault');
+  expect(document.body.textContent).toContain('Previous vault note');
+  expect(document.body.textContent).toContain('Previous vault decision');
+  await click(byTestId('open-settings')[0]);
+  await click(
+    [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Change folder'),
+    ),
+  );
+  expect(document.body.textContent).not.toContain('Previous vault note');
+  expect(document.body.textContent).not.toContain('Previous vault decision');
+  await act(async () => next.resolve(failure('vault not readable')));
+  expect(document.body.textContent).toContain('vault not readable');
+  expect(document.body.textContent).not.toContain('Previous vault note');
+  expect(document.body.textContent).not.toContain('Previous vault decision');
+});
