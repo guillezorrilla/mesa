@@ -151,7 +151,10 @@ function ClearCenter() {
             size="sm"
             variant="secondary"
             disabled={!items.length}
-            onClick={() => setClearing(true)}
+            onClick={() => {
+              // The count the confirmation states is read now, not when Settings opened.
+              void inbox.refresh().then(() => setClearing(true));
+            }}
           >
             Clear
           </Button>
