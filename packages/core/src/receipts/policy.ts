@@ -1,7 +1,7 @@
 import type { Receipt } from './schema.js';
 
 /** Knowledge worth keeping in the vault. Historical receipts may have no kind. */
-export const RECORD_KINDS = ['decision', 'guardrail', 'vault-change'] as const;
+export const RECORD_KINDS = ['decision', 'guardrail', 'vault-change', 'connection'] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
 /**
@@ -11,6 +11,7 @@ export type RecordKind = (typeof RECORD_KINDS)[number];
 export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string, unknown>) =>
   kind === 'decision' ||
   kind === 'vault-change' ||
+  kind === 'connection' ||
   (kind === 'guardrail' &&
     (typeof outputs.override === 'string' || typeof outputs.dangerousFlags === 'string'));
 
@@ -20,7 +21,7 @@ export const keepFailure = (kind: RecordKind | undefined, code: string) =>
 /** The same meaningful history policy in Obsidian Bases' expression syntax. */
 export const BASES_MEANINGFUL_FILTER = [
   '!(outputs && outputs.target.isType("string") && (outputs.target == "daily" || outputs.target.startsWith("daily/")))',
-  '&& ((status == "ok" && (kind == "decision" || kind == "vault-change"',
+  '&& ((status == "ok" && (kind == "decision" || kind == "vault-change" || kind == "connection"',
   '|| (kind == "guardrail" && outputs',
   '&& (outputs.override.isType("string") || outputs.dangerousFlags.isType("string")))))',
   '|| ((status == "failed" || status == "blocked") && kind == "guardrail"',

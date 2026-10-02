@@ -9,6 +9,7 @@ import { rulesCommands } from './rules';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
+import { sourcesCommands } from './sources';
 import { usageCommands } from './usage';
 import { vaultCommands } from './vault';
 import { worktreesCommands } from './worktrees';
@@ -26,6 +27,7 @@ const COMMANDS = {
   ...worktreesCommands,
   ...skillsCommands,
   ...rulesCommands,
+  ...sourcesCommands,
   ...vaultCommands,
   ...settingsCommands,
   ...notificationsCommands,

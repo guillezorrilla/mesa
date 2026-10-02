@@ -9,6 +9,7 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { AdvancedSettings } from './AdvancedSettings';
 import { AgentSettings } from './AgentSettings';
+import { ConnectionSettings } from './ConnectionSettings';
 import { CATEGORIES, type SettingsCategory } from './categories';
 import { GeneralSettings } from './GeneralSettings';
 import { NotificationSettings } from './NotificationSettings';
@@ -95,6 +96,7 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
       projects: <ProjectSettings onChanged={props.onChanged} />,
       notifications: <NotificationSettings />,
       agents: <AgentSettings doctor={props.doctor} />,
+      connections: <ConnectionSettings />,
       advanced: <AdvancedSettings onBackup={() => go('backup')} onUsage={() => go('usage')} />,
     })[id];
   const current = CATEGORIES.find((entry) => entry.id === category) ?? CATEGORIES[0];

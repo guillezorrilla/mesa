@@ -1,9 +1,11 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Clock } from './lib/clock.js';
+import type { Http } from './lib/http.js';
 import type { IdSource } from './lib/ids.js';
 import type { Env, Runner } from './lib/process.js';
 import { redactWhole } from './lib/redact.js';
+import type { SecretStore } from './lib/secret-store.js';
 import { type Config, resolveKey } from './profile/config.js';
 import { profilePaths } from './profile/paths.js';
 import { openProfile, type Profile } from './profile/profile.js';
@@ -12,6 +14,7 @@ import { actionRecorder } from './receipts/recorder.js';
 import type { BrowserPageSelection } from './sessions/browser-annotation.js';
 import { sessionStore } from './sessions/store.js';
 import { tmuxBackend } from './sessions/tmux/backend.js';
+import type { CallbackListen } from './sources/callback-listener.js';
 import type { ObsidianPaths } from './vault/obsidian.js';
 
 /** Everything Mesa takes from the outside world. Only an entrypoint builds the real one. */
@@ -30,6 +33,12 @@ export type MesaDeps = {
   /** For `env:VAR` key values, so a receipt can redact them too. */
   env: Env;
   run: Runner;
+  /** HTTP to the broker and the sources' APIs (ADR-0014). */
+  http: Http;
+  /** Where a source's browser sign-in comes back: a loopback listener. */
+  listen: CallbackListen;
+  /** The sources' tokens: the macOS Keychain. */
+  secretStore: SecretStore;
   /** Whether the native browser owner still exists after a renderer/app restart. */
   processAlive: (pid: number) => boolean;
   /** Read the current element from the owning native webview before browser feedback is sent. */

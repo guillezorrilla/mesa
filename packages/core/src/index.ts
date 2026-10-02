@@ -55,10 +55,12 @@ export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export { type Clock, systemClock } from './lib/clock.js';
+export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export type { McpTool, Stdio } from './lib/mcp-server.js';
 export { type Env, execRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
+export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
@@ -131,6 +133,10 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-stat
 export type { Worktree } from './sessions/worktree.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
+export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
+export type { Account, Site } from './sources/connection.js';
+export type { SourceRow } from './sources/service.js';
+export type { SourceId } from './sources/sources.js';
 export type {
   UsageBreakdown,
   UsageRecord,
