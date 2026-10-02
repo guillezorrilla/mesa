@@ -13,14 +13,12 @@ cd "$(dirname "$0")/../.."
 NODE_VERSION=26.10.0
 NODE_SHA256_arm64=751fdf7439f115d87ee2a8f3f18c065b6151852068e3e666ac60ac2996f75ac9
 NODE_SHA256_x64=ebbe9ab9b58ad6bb54390d6e2c862c1afa7d4475fb7e8ae8146acde211bf70df
-TARGET=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
-
 if [ $adhoc = 0 ]; then
   require APPLE_API_KEY APPLE_API_ISSUER TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
   api_key_file
   # CI: the certificate goes into a keychain of its own, which the workflow deletes after.
-  if [ -n "${APPLE_CERTIFICATE:-}" ]; then
-    require APPLE_CERTIFICATE_PASSWORD RUNNER_TEMP
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    require APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD RUNNER_TEMP
     keychain="$RUNNER_TEMP/mesa-release.keychain-db"
     keychain_password=$(openssl rand -hex 24)
     security create-keychain -p "$keychain_password" "$keychain"
@@ -34,12 +32,7 @@ if [ $adhoc = 0 ]; then
     # shellcheck disable=SC2046 # the existing keychains, one word each
     security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
   fi
-  if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
-    APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning |
-      sed -n 's/.*"\(Developer ID Application: .*\)"$/\1/p' | head -1)
-    export APPLE_SIGNING_IDENTITY
-  fi
-  require APPLE_SIGNING_IDENTITY
+  signing_identity
 fi
 
 # --- The CLI as one universal executable --------------------------------------------------
@@ -99,12 +92,12 @@ rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null
   --config src-tauri/tauri.release.conf.json \
   --config "{\"bundle\":{$overrides}}")
 
-cp "$TARGET/dmg/Mesa_${version}_universal.dmg" "$DIST/"
+cp "$BUNDLE/dmg/$dmg" "$DIST/"
 [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] ||
-  cp "$TARGET/macos/Mesa.app.tar.gz" "$TARGET/macos/Mesa.app.tar.gz.sig" "$DIST/"
+  cp "$BUNDLE/macos/Mesa.app.tar.gz" "$BUNDLE/macos/Mesa.app.tar.gz.sig" "$DIST/"
 
 # --- Smoke checks: both slices of the bundled mesa run and report this version --------------
-mesa="$TARGET/macos/Mesa.app/Contents/MacOS/mesa"
+mesa="$BUNDLE/macos/Mesa.app/Contents/MacOS/mesa"
 [ "$(lipo -archs "$mesa")" = "x86_64 arm64" ] || { echo "release: $mesa is not universal" >&2; exit 1; }
 for arch in arm64 x86_64; do
   got=$(arch -"$arch" "$mesa" --version)

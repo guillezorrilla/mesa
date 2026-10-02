@@ -399,3 +399,8 @@ An optional named rule in the Profile's `automations.yaml`, never in a project's
 
 `mesa automations list|add|remove|enable|disable --json` manages these rules with private, atomic, locked writes. With no file, list returns an empty array without creating one. CRUD is inert: adding or enabling never installs a scheduler, starts a session, or changes the vault. The Automations screen offers the same rule form and toggles. Execution, scheduler installation and run history are defined by the scheduler delivery (#423).
 Not: workflow, task, webhook, project config.
+
+## Release
+
+A published Mesa version, `vX.Y.Z` (stable) or `vX.Y.Z-beta.N` (a prerelease on the beta channel), with one version for the app, the CLI and core (`pnpm release:version`, checked by `pnpm check:version`). Its GitHub Release holds the signed, notarised DMG (`Mesa_X.Y.Z_universal.dmg`, and `Mesa_universal.dmg` under a name that never changes), the update archive (`Mesa.app.tar.gz` and its `.sig`), `latest.json` (the updater's feed; a beta also replaces the one on the prerelease `beta`), and `SHA256SUMS`. A stable release also updates the Homebrew cask. The app carries the CLI as the bundled mesa, `Contents/MacOS/mesa`: a Node single executable whose skill library unpacks to `~/.mesa/.skills/`. `docs/release.md`, ADR-0017.
+Not: build, deploy, sidecar (the bundled mesa is one).

@@ -9,6 +9,8 @@ RELEASE_VARS="APPLE_SIGNING_IDENTITY APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KE
 REPO=${REPO:-guillezorrilla/mesa}
 TAP=${TAP:-guillezorrilla/homebrew-tap}
 DIST=release/dist
+# Where Tauri leaves the universal build: the app, its update archive, the DMG.
+BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle
 
 for name in $RELEASE_VARS; do
   eval "given=\${$name+set}"
@@ -38,10 +40,22 @@ require() {
 # version: the one version (scripts/release/version.sh); beta: whether it is a beta.
 version=$(sh scripts/release/version.sh)
 case $version in *-beta.*) beta=1 ;; *) beta=0 ;; esac
+dmg="Mesa_${version}_universal.dmg"
 
 # adhoc: APPLE_SIGNING_IDENTITY "-" makes an ad-hoc signed test build, never notarised or published.
 adhoc=0
 [ "${APPLE_SIGNING_IDENTITY:-}" = "-" ] && adhoc=1
+
+# signing_identity: APPLE_SIGNING_IDENTITY, else the Developer ID Application certificate's name in
+# the keychains (the login one by hand, the temporary one in CI).
+signing_identity() {
+  if [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+    APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning |
+      sed -n 's/.*"\(Developer ID Application: .*\)"$/\1/p' | head -1)
+    export APPLE_SIGNING_IDENTITY
+  fi
+  require APPLE_SIGNING_IDENTITY
+}
 
 # api_key_file: writes the App Store Connect key to a file for notarisation, deleted on exit.
 api_key_file() {

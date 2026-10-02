@@ -8,7 +8,6 @@ cd "$(dirname "$0")/../.."
 . scripts/release/env.sh
 
 tag="v$version"
-dmg="Mesa_${version}_universal.dmg"
 for file in "$dmg" Mesa.app.tar.gz Mesa.app.tar.gz.sig; do
   [ -f "$DIST/$file" ] || { echo "release: no $DIST/$file; run pnpm release:build first" >&2; exit 1; }
 done

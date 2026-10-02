@@ -53,7 +53,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable on 2026-10-01
         with:
           toolchain: stable
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      # build.sh runs the bundled mesa's x64 slice to check it.
+      - name: Rosetta
+        run: arch -x86_64 /usr/bin/true 2>/dev/null || sudo softwareupdate --install-rosetta --agree-to-license
       - run: pnpm install --frozen-lockfile
       - name: Build, sign and notarise
         run: pnpm release:build

@@ -7,7 +7,6 @@ cd "$(dirname "$0")/../.."
 . scripts/release/env.sh
 [ $beta = 0 ] || { echo "release: $version is a beta; the cask follows stable releases only" >&2; exit 1; }
 
-dmg="Mesa_${version}_universal.dmg"
 sha=$(gh release download "v$version" -R "$REPO" -p SHA256SUMS -O - | awk -v f="$dmg" '$2 == f {print $1}')
 [ -n "$sha" ] || { echo "release: no $dmg in v$version's SHA256SUMS; publish it first" >&2; exit 1; }
 
