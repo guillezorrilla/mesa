@@ -36,13 +36,15 @@ export function automationLaunchd(ctx: MesaContext) {
   return {
     status,
     exists: () => existsSync(plist),
-    install: async (owned: boolean) => {
-      if (existsSync(plist) && !owned)
+    install: async () => {
+      if (existsSync(plist))
         throw new MesaError('usage', `${plist} already exists and is not owned by this scheduler`);
       if (!ctx.deps.self.length || !isAbsolute(ctx.deps.self[0] as string))
         throw new MesaError('usage', 'scheduler needs an absolute Mesa CLI executable');
       const env: Record<string, string> = {
         HOME: ctx.deps.home,
+        LANG: 'en_US.UTF-8',
+        LC_CTYPE: 'en_US.UTF-8',
         PATH: ctx.deps.env.PATH ?? '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
         MESA_SESSION_ID: '',
       };
@@ -61,7 +63,6 @@ export function automationLaunchd(ctx: MesaContext) {
       ];
       mkdirSync(dir, { recursive: true });
       const user = await domain();
-      if (owned) await ctx.deps.run('/bin/launchctl', ['bootout', `${user}/${label}`], 5000);
       writeFileAtomic(
         plist,
         `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>${fields.join('')}</dict></plist>\n`,

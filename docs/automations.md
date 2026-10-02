@@ -50,7 +50,7 @@ mesa --profile work automations cancel RUN_ID --json
 mesa --profile work automations uninstall --json
 ```
 
-Installation creates only `~/Library/LaunchAgents/com.mesa.automations.work.plist` in the logged-in user's GUI domain. It calls the same absolute Mesa CLI, with an explicit PATH and profile working directory, every 30 seconds. Source tokens stay in that user's Keychain. The app can be closed. `automations tick --json` runs one observation/dispatch pass when installed; otherwise it is inert.
+Installation creates only `~/Library/LaunchAgents/com.mesa.automations.work.plist` in the logged-in user's GUI domain. It calls the same absolute Mesa CLI, with an explicit PATH, UTF-8 locale and profile working directory, every 30 seconds. Source tokens stay in that user's Keychain. The app can be closed. `automations tick --json` runs one observation/dispatch pass when installed; otherwise it is inert.
 
 Cron uses local time. Restricted day-of-month and weekday fields match either one. Missed schedule occurrences coalesce to the latest due minute; a restart does not replay every missed interval. Files and Faro state transitions establish a baseline on their first observation. Polling cannot detect a change reverted before the next tick. One profile worker runs queued actions serially. Ask creates a saved pending approval; approving it lets that occurrence pass an ask, but never bypasses a block. Allow still uses the project's normal guardrail.
 

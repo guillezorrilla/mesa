@@ -42,14 +42,7 @@ export function automationsService(ctx: MesaContext, faro: Faro, actions: Automa
         });
       }
       if (s.worker && ctx.deps.processAlive(s.worker.pid)) return false;
-      for (const run of s.runs.filter((r) => r.status === 'running')) {
-        interrupted.add(run.id);
-        Object.assign(run, {
-          status: 'failed',
-          reason: 'scheduler interrupted; action was not replayed',
-          endedAt: now(),
-        });
-      }
+      for (const run of s.runs.filter((r) => r.status === 'running')) interrupted.add(run.id);
       s.worker = { token, pid: ctx.deps.processId };
       return true;
     });
@@ -60,6 +53,14 @@ export function automationsService(ctx: MesaContext, faro: Faro, actions: Automa
         .list()
         .filter((r) => r.automation && interrupted.has(r.automation.run) && !isOver(r)))
         await actions.sessions.stop(session.id, true);
+      state.update((s) => {
+        for (const run of s.runs.filter((r) => interrupted.has(r.id) && r.status === 'running'))
+          Object.assign(run, {
+            status: 'failed',
+            reason: 'scheduler interrupted; action was not replayed',
+            endedAt: now(),
+          });
+      });
       for (;;) {
         const currentRules = rules.list();
         const run = state.update((s) => {
@@ -109,82 +110,98 @@ export function automationsService(ctx: MesaContext, faro: Faro, actions: Automa
     }
     return { inert: false, runs: completed };
   };
+  const lifecycle = async <T>(action: () => Promise<T>): Promise<T> => {
+    const token = ctx.deps.newId();
+    state.update((s) => {
+      if (s.operation && ctx.deps.processAlive(s.operation.pid))
+        throw new MesaError('locked', 'another scheduler install or uninstall is still running');
+      s.operation = { token, pid: ctx.deps.processId };
+    });
+    try {
+      return await action();
+    } finally {
+      state.update((s) => {
+        if (s.operation?.token === token) delete s.operation;
+      });
+    }
+  };
   return {
     ...rules,
     status,
     tick,
-    install: async () => {
-      ctx.open();
-      if (state.read().stopping)
-        throw new MesaError('locked', 'finish uninstalling before reinstalling');
-      if (state.read().installed) return status();
-      const owned = false;
-      if (launchd.exists() && !owned)
-        throw new MesaError(
-          'usage',
-          'scheduler plist already exists and is not owned by this profile',
-        );
-      if (state.read().worker)
-        throw new MesaError('locked', 'uninstall the existing scheduler before reinstalling');
-      state.update((s) => {
-        if (s.installed || s.stopping)
-          throw new MesaError('locked', 'scheduler installation is already in progress');
-        s.installed = true;
-      });
-      try {
-        await launchd.install(owned);
-      } catch (error) {
+    install: () =>
+      lifecycle(async () => {
+        ctx.open();
+        if (state.read().stopping)
+          throw new MesaError('locked', 'finish uninstalling before reinstalling');
+        if (state.read().installed) return status();
+        if (launchd.exists())
+          throw new MesaError(
+            'usage',
+            'scheduler plist already exists and is not owned by this profile',
+          );
+        if (state.read().worker)
+          throw new MesaError('locked', 'uninstall the existing scheduler before reinstalling');
+        state.update((s) => {
+          if (s.installed || s.stopping)
+            throw new MesaError('locked', 'scheduler installation is already in progress');
+          s.installed = true;
+        });
+        try {
+          await launchd.install();
+        } catch (error) {
+          state.update((s) => {
+            s.installed = false;
+          });
+          throw error;
+        }
+        return status();
+      }),
+    uninstall: () =>
+      lifecycle(async () => {
+        ctx.open();
+        if (!state.read().installed && !state.read().stopping) return status();
         state.update((s) => {
           s.installed = false;
+          s.stopping = true;
+          for (const run of s.runs.filter((r) => r.status === 'pending' || r.status === 'queued')) {
+            Object.assign(run, {
+              status: 'cancelled',
+              endedAt: now(),
+              reason: 'scheduler uninstalled',
+            });
+          }
         });
-        throw error;
-      }
-      return status();
-    },
-    uninstall: async () => {
-      ctx.open();
-      if (!state.read().installed && !state.read().stopping) return status();
-      state.update((s) => {
-        s.installed = false;
-        s.stopping = true;
-        for (const run of s.runs.filter((r) => r.status === 'pending' || r.status === 'queued')) {
-          Object.assign(run, {
-            status: 'cancelled',
-            endedAt: now(),
-            reason: 'scheduler uninstalled',
-          });
+        await launchd.uninstall();
+        for (let attempt = 0; attempt < 50; attempt++) {
+          const s = state.read();
+          const ids = new Set(s.runs.map((r) => r.id));
+          for (const session of ctx.store
+            .list()
+            .filter((r) => r.automation && ids.has(r.automation.run) && !isOver(r))) {
+            await actions.sessions.stop(session.id, true);
+          }
+          if (!s.worker || !ctx.deps.processAlive(s.worker.pid)) {
+            state.update((next) => {
+              delete next.worker;
+              delete next.stopping;
+              for (const run of next.runs.filter((r) => r.status === 'running')) {
+                Object.assign(run, {
+                  status: 'cancelled',
+                  endedAt: now(),
+                  reason: 'scheduler uninstalled',
+                });
+              }
+            });
+            return status();
+          }
+          await ctx.deps.sleep(100);
         }
-      });
-      await launchd.uninstall();
-      for (let attempt = 0; attempt < 50; attempt++) {
-        const s = state.read();
-        const ids = new Set(s.runs.map((r) => r.id));
-        for (const session of ctx.store
-          .list()
-          .filter((r) => r.automation && ids.has(r.automation.run) && !isOver(r))) {
-          await actions.sessions.stop(session.id, true);
-        }
-        if (!s.worker || !ctx.deps.processAlive(s.worker.pid)) {
-          state.update((next) => {
-            delete next.worker;
-            delete next.stopping;
-            for (const run of next.runs.filter((r) => r.status === 'running')) {
-              Object.assign(run, {
-                status: 'cancelled',
-                endedAt: now(),
-                reason: 'scheduler uninstalled',
-              });
-            }
-          });
-          return status();
-        }
-        await ctx.deps.sleep(100);
-      }
-      throw new MesaError(
-        'locked',
-        'scheduler unloaded, but an owned tick is still stopping; retry uninstall after it exits',
-      );
-    },
+        throw new MesaError(
+          'locked',
+          'scheduler unloaded, but an owned tick is still stopping; retry uninstall after it exits',
+        );
+      }),
     approve: (id: string) =>
       state.update((s) => {
         if (!s.installed) throw new MesaError('usage', 'scheduler is not installed');
@@ -195,13 +212,15 @@ export function automationsService(ctx: MesaContext, faro: Faro, actions: Automa
         Object.assign(run, { approved: true, status: 'queued', reason: undefined });
         return run;
       }),
-    cancel: (id: string) => {
-      const run = state.read().runs.find((r) => r.id === id);
-      if (!run) throw new MesaError('not_found', `no automation run ${id}`);
-      if (run.status !== 'pending' && run.status !== 'queued')
-        throw new MesaError('usage', 'only waiting runs can be cancelled');
-      return updateRun(id, { status: 'cancelled', endedAt: now(), reason: 'cancelled by user' });
-    },
+    cancel: (id: string) =>
+      state.update((s) => {
+        const run = s.runs.find((r) => r.id === id);
+        if (!run) throw new MesaError('not_found', `no automation run ${id}`);
+        if (run.status !== 'pending' && run.status !== 'queued')
+          throw new MesaError('usage', 'only waiting runs can be cancelled');
+        Object.assign(run, { status: 'cancelled', endedAt: now(), reason: 'cancelled by user' });
+        return run;
+      }),
   };
 }
 export type AutomationStatus = Awaited<ReturnType<ReturnType<typeof automationsService>['status']>>;

@@ -85,6 +85,7 @@ test('no rules or installation is inert; explicit GUI installation is private, s
   expect(plist).toContain(`<key>WorkingDirectory</key><string>${paths.root}</string>`);
   expect(plist).toContain('/opt/agents/bin:/usr/bin:/bin');
   expect(plist).not.toContain('never serialize');
+  expect(plist).toContain('<key>LC_CTYPE</key><string>en_US.UTF-8</string>');
   expect(statSync(installed.plist).mode & 0o777).toBe(0o600);
   expect(world.calls.some((c) => c.args.includes('gui/501'))).toBe(true);
   expect(await mesa.automations.uninstall()).toMatchObject({ installed: false, loaded: false });
@@ -227,11 +228,9 @@ test('scheduled refresh is change-aware and a second tick queues without overlap
   await started;
   advance();
   expect(await mesa.automations.tick()).toMatchObject({ busy: true, runs: [] });
-  expect((await mesa.automations.status()).runs.map((r) => r.status)).toEqual([
-    'done',
-    'running',
-    'queued',
-  ]);
+  const concurrent = (await mesa.automations.status()).runs;
+  expect(concurrent.map((r) => r.status)).toEqual(['done', 'running', 'queued']);
+  expect(() => mesa.automations.cancel(concurrent[1]?.id as string)).toThrow('only waiting');
   release?.();
   const settled = await running;
   expect(settled.runs).toHaveLength(2);
@@ -356,6 +355,82 @@ test('an interrupted worker is not replayed and its remaining owned session stop
     reason: expect.stringContaining('not replayed'),
   });
   expect(testStore(home).get(session).endedAt).toBeDefined();
+  const calls = world.calls.slice(before);
+  expect(calls.findIndex((c) => c.args.includes('kill-window'))).toBeLessThan(
+    calls.findIndex((c) => c.args.includes('new-window') || c.args.includes('new-session')),
+  );
+  await restarted.automations.uninstall();
+});
+
+test('install and uninstall cannot complete out of order across async launchctl calls', async () => {
+  const { mesa, deps } = setup();
+  let enter: (() => void) | undefined;
+  let release: (() => void) | undefined;
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve;
+  });
+  const original = deps.run;
+  let pause = true;
+  deps.run = async (file, args, timeout) => {
+    if (file === '/usr/bin/id' && pause) {
+      pause = false;
+      enter?.();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    }
+    return original(file, args, timeout);
+  };
+  // The context retains the injected runner, so replace it on the shared deps before constructing.
+  const { home } = projectProfile(deps.run, deps);
+  const current = createMesa('default', testDeps(home, deps));
+  current.automations.add(cron);
+  const installing = current.automations.install();
+  await entered;
+  await expect(current.automations.uninstall()).rejects.toThrow('still running');
+  release?.();
+  expect(await installing).toMatchObject({ installed: true, loaded: true });
+  const stopped = await current.automations.uninstall();
+  expect(stopped).toMatchObject({ installed: false, loaded: false });
+  expect(existsSync(stopped.plist)).toBe(false);
+  expect((await mesa.automations.status()).installed).toBe(false);
+});
+
+test('failed interrupted-session cleanup stays durable and retries before another action', async () => {
+  const { mesa, home, deps, advance, world } = setup();
+  mesa.automations.add(cron);
+  await mesa.automations.install();
+  const first = (await mesa.automations.tick()).runs[0];
+  const old = first?.result?.session as string;
+  const file = profilePaths(home, 'default').automationState;
+  const { parse, stringify } = await import('yaml');
+  const saved = parse(readFileSync(file, 'utf8'));
+  saved.worker = { token: 'dead-worker', pid: 101 };
+  saved.runs[0].status = 'running';
+  delete saved.runs[0].endedAt;
+  writeFileSync(file, stringify(saved));
+  advance();
+  let fail = true;
+  const restarted = createMesa(
+    'default',
+    testDeps(home, {
+      ...deps,
+      processAlive: (pid) => pid !== 101,
+      run: async (binary, args, timeout) => {
+        if (fail && binary === 'tmux' && args.includes('kill-window')) {
+          fail = false;
+          return { ok: false, reason: 'timeout', detail: 'controlled stop timeout' };
+        }
+        return deps.run(binary, args, timeout);
+      },
+    }),
+  );
+  await expect(restarted.automations.tick()).rejects.toMatchObject({ code: 'tmux_unavailable' });
+  expect(testStore(home).get(old).endedAt).toBeUndefined();
+  expect((await restarted.automations.status()).runs[0]?.status).toBe('running');
+  const before = world.calls.length;
+  expect((await restarted.automations.tick()).runs).toHaveLength(1);
+  expect(testStore(home).get(old).endedAt).toBeDefined();
   const calls = world.calls.slice(before);
   expect(calls.findIndex((c) => c.args.includes('kill-window'))).toBeLessThan(
     calls.findIndex((c) => c.args.includes('new-window') || c.args.includes('new-session')),

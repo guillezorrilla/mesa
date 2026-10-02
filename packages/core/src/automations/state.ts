@@ -32,6 +32,7 @@ export type AutomationRun = z.infer<typeof RunSchema>;
 const StateSchema = z.strictObject({
   installed: z.boolean(),
   stopping: z.boolean().optional(),
+  operation: z.strictObject({ token: z.string(), pid: z.number().int().positive() }).optional(),
   observations: z.record(z.string(), z.string()),
   observedAt: z.iso.datetime().optional(),
   worker: z.strictObject({ token: z.string(), pid: z.number().int().positive() }).optional(),
