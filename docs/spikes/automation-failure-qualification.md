@@ -23,11 +23,13 @@ Rule CRUD, inert empty rules, Board rule attribution, file transitions, Context 
 
 The native test bundle required LaunchServices registration from Applications before macOS recognized its notification client. Only the disposable bundle's permission was enabled. Browser preview screenshots in the earlier reports remain UI evidence; the native pictures below come from the actual Tauri app.
 
-## Remaining local verification and cleanup
+## Final status and cleanup
 
-The connection's follow-up `sources list` read is blocked by macOS Keychain access to the updated disposable item. Computer control refuses the protected SecurityAgent app. The owner has been asked to authorize that exact item locally; no password is requested in chat. The successful reconnect error establishes completion of the source owner's write, but a fresh public status read is still pending.
+A fresh public `mesa sources list --json` read confirmed Notion was connected with `status: needs-reconnect`. `mesa sources disconnect notion --json` then returned `removed: true` with receipt `01M3ZA5NQPA3XK16S4JZSSE3VZ`. The next fresh listing showed `connected: false`, `status: disconnected`.
 
-Both owned macOS bundles and their LaunchServices registrations have been removed, the disposable notification permission is off, owned browser tabs are closed, and the HTTP fixture is stopped. Final removal of the disposable Keychain item, profile, vault and temporary worktree remains pending. This report does not claim #424 or #39 complete before that check and cleanup finish.
+The owned profile, vault and project have been removed. All owned sessions ended, the scheduler remains unloaded with 12 terminal runs, and no owned worker or plist remains. Both owned macOS bundles and their LaunchServices registrations were removed, the disposable notification permission is off, owned browser tabs are closed, the HTTP fixture and owned tmux server are stopped, and the owned Claude project/session cache was removed. The Notion child remains recoverable in Trash. At the final local check, real-profile configuration/registry hashes and existing launchd rows still matched their baseline.
+
+The qualification worktree and enclosing temporary root are removed after the final push and before merge. Their actual absence is recorded in the PR's final review/cleanup receipt; this document does not predate that check with a completion claim.
 
 ![Native inbox reconnect guidance](automation-native-inbox.jpg)
 
