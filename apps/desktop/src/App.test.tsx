@@ -95,7 +95,6 @@ test('global shortcuts open from the top bar with either sidebar layout, without
     expect(byTestId('nav-usage')).toHaveLength(0);
     for (const [id, label, panel] of [
       ['cost', 'Cost', 'usage-panel'],
-      ['help', 'Help', 'help-screen'],
       ['inbox', 'Notifications', 'inbox-panel'],
     ] as const) {
       const buttons = byTestId(`nav-${id}`);
@@ -105,23 +104,41 @@ test('global shortcuts open from the top bar with either sidebar layout, without
       expect(buttons[0]?.getAttribute('aria-label')).toBe(label);
       await click(buttons[0]);
       expect(byTestId(panel)).toHaveLength(1);
-      if (id === 'help') {
-        expect(buttons[0]?.getAttribute('aria-current')).toBe('page');
-        await click(
-          document.querySelector<HTMLElement>('[role="tab"]') ?? byTestId('nav-sessions')[0],
-        );
-        expect(buttons[0]?.getAttribute('aria-current')).toBeNull();
-      } else {
-        // The usage window and the notifications menu open over the view and close on Escape.
-        await act(async () =>
-          document.activeElement?.dispatchEvent(
-            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
-          ),
-        );
-        expect(byTestId(panel)).toHaveLength(0);
-      }
+      // The usage window and the notifications menu open over the view and close on Escape.
+      await act(async () =>
+        document.activeElement?.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        ),
+      );
+      expect(byTestId(panel)).toHaveLength(0);
     }
   }
+});
+
+test('Help is a menu of keyboard shortcuts and the command reference; Cmd+/ opens shortcuts', async () => {
+  const byTestId = await renderWithMesa(<App />, fakeBridge({ help: () => envelope([]) }).bridge);
+  const items = () =>
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) =>
+      item.textContent?.trim(),
+    );
+  await click(byTestId('nav-help')[0]);
+  expect(items()).toEqual(['Keyboard shortcuts(⌘/)', 'Command reference']);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) =>
+      item.textContent?.includes('Keyboard shortcuts'),
+    ),
+  );
+  expect(byTestId('shortcut-settings')[0]?.textContent).toContain('Go to file⌘P');
+  await act(async () =>
+    document.activeElement?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    ),
+  );
+  expect(byTestId('shortcut-settings')).toHaveLength(0);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '/', metaKey: true }));
+  });
+  expect(byTestId('shortcut-settings')).toHaveLength(1);
 });
 
 test('the sidebar Add project menu keeps the selected project open and refreshes after Add', async () => {
@@ -2499,25 +2516,32 @@ test('shortcut settings validate conflicts and update the active profile key', a
   });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-shortcuts')[0]);
-  const input = byTestId('shortcut-search')[0] as HTMLInputElement;
-  const type = async (value: string) =>
-    act(async () => {
-      input.value = value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  await type('Mod+Q');
-  expect(byTestId('save-shortcut-search')[0]?.hasAttribute('disabled')).toBe(true);
-  await type('Mod+1');
-  expect(byTestId('save-shortcut-search')[0]?.hasAttribute('disabled')).toBe(true);
-  await type('Mod+P');
-  await click(byTestId('save-shortcut-search')[0]);
-  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'shortcuts.search', '"Mod+P"']);
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Customize Command palette"]') ??
+      undefined,
+  );
+  const press = async (key: string) =>
+    act(async () =>
+      byTestId('shortcut-search')[0]?.dispatchEvent(
+        new KeyboardEvent('keydown', { key, metaKey: true, bubbles: true }),
+      ),
+    );
+  const said = () => byTestId('shortcut-settings')[0]?.querySelector('[role="alert"]')?.textContent;
+  await press('q');
+  expect(said()).toContain('common window keys are reserved');
+  await press('1');
+  expect(said()).toBe('Already used by Go to Sessions.');
+  await press('p');
+  expect(said()).toBe('Already used by Go to file.');
+  expect(calls.some((args) => args[2] === 'set')).toBe(false);
+  await press('j');
+  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'shortcuts.search', '"Mod+J"']);
   await act(async () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
   });
   expect(byTestId('command-palette')).toHaveLength(0);
   await act(async () => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'p', metaKey: true }));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true }));
   });
   expect(byTestId('command-palette')).toHaveLength(1);
 });

@@ -31,6 +31,11 @@ test('the Help screen lists every command from mesa help --agent, with its flags
   const { bridge, calls } = fakeBridge({ help: () => envelope(reference) });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-help')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent?.trim() === 'Command reference',
+    ),
+  );
 
   expect(calls).toContainEqual(['--json', 'help', '--agent']);
   const commands = byTestId('help-command');
