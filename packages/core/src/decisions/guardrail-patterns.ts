@@ -20,7 +20,7 @@ export const SECRET_PATTERNS: readonly Pattern[] = [
   { name: 'a Google API key', matches: /\bAIza[\w-]{35}(?![\w-])/ },
   {
     name: 'a private key',
-    // An incomplete paste is still secret: mask through its matching end marker, or all the rest.
+    // An incomplete paste is still secret: match through its matching end marker, or all the rest.
     matches: /-----BEGIN ((?:[A-Z0-9]+ )*PRIVATE KEY)-----[\s\S]*?(?:-----END \1-----|$)/,
   },
 ];
@@ -72,10 +72,3 @@ export const DESTRUCTIVE_PATTERNS: readonly Pattern[] = [
 /** The name of the first pattern `text` matches, if any. */
 export const firstMatch = (text: string, patterns: readonly Pattern[]) =>
   patterns.find((p) => p.matches.test(text))?.name;
-
-/** `text` with every match of `patterns` replaced by `mask`. */
-export const maskMatches = (text: string, patterns: readonly Pattern[], mask: string) =>
-  patterns.reduce(
-    (t, p) => t.replace(new RegExp(p.matches.source, `${p.matches.flags}g`), mask),
-    text,
-  );

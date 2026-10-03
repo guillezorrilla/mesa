@@ -510,7 +510,7 @@ test('open --from starts from an imported item, imports a new link first, and se
   );
   expect(edited.json.data).toMatchObject({ goal: 'Only the alarm.', from: { id: 'LC-12' } });
 
-  const rows = (await mesa('sessions', '--no-adapter', '--json')).json.data;
+  const rows = (await mesa('sessions', '--json')).json.data;
   expect(
     rows.filter((r: { from?: unknown }) => r.from).map((r: { from: unknown }) => r.from),
   ).toEqual(

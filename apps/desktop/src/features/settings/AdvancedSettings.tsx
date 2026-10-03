@@ -1,18 +1,16 @@
-import { AGENT_LABELS, AGENT_NAMES, DECISIONS_BACKENDS } from '@mesa/core/browser';
 import { Archive, BrainCircuit, DollarSign, ExternalLink, Library } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
-import { Choice } from './controls/Choice';
-import { TextField } from './controls/TextField';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /** Faro's decisions, and where the profile's data lives and is backed up. */
 export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => void }) {
-  const { config, save } = useSettings();
+  const { config } = useSettings();
   const run = useRun();
   const { acting, act } = useAct();
   return (
@@ -26,48 +24,8 @@ export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => v
       >
         <SettingRow
           title="Backend"
-          description="Rules decide alone, or rules first with the adapter below the threshold."
-          htmlFor="decisions-backend"
-          control={
-            <Choice
-              id="decisions-backend"
-              path="decisions.backend"
-              value={config.decisions.backend}
-              options={DECISIONS_BACKENDS.map((backend) => [backend, backend] as const)}
-            />
-          }
-        />
-        <SettingRow
-          title="Adapter agent"
-          description="The agent asked in headless mode when rules are not confident."
-          htmlFor="decisions-adapter"
-          control={
-            <Choice
-              id="decisions-adapter"
-              path="decisions.adapter"
-              value={config.decisions.adapter}
-              options={AGENT_NAMES.map((agent) => [agent, AGENT_LABELS[agent]] as const)}
-            />
-          }
-        />
-        <SettingRow
-          title="Confidence threshold"
-          description="Below this confidence, a decision goes to the adapter (0 to 1)."
-          htmlFor="decisions-threshold"
-          control={
-            <TextField
-              id="decisions-threshold"
-              className="w-20 text-xs"
-              value={String(config.decisions.threshold)}
-              parse={(text) => {
-                const value = Number(text);
-                return text.trim() !== '' && value >= 0 && value <= 1
-                  ? { value }
-                  : { error: 'Enter a number from 0 to 1.' };
-              }}
-              onSave={(value) => save('decisions.threshold', value)}
-            />
-          }
+          description="Faro answers with its rules alone, so nothing waits on a model."
+          control={<Muted size="xs">Rules only</Muted>}
         />
       </SettingSection>
       <SettingSection id="data" title="Data" description="The profile's vault, usage, and backups">

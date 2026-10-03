@@ -28,7 +28,7 @@ test('set rewrites one field, keeps the others and every comment, and redacts ke
   expect(loadConfig(file)).toMatchObject({
     vault: '/tmp/v',
     defaultAgent: 'codex',
-    decisions: { backend: 'adapter', threshold: 0.5 },
+    decisions: { backend: 'rules', threshold: 0.5 },
   });
   expect(redactConfig(loadConfig(file)).keys).toEqual({ jev: '***' });
 });
@@ -51,8 +51,18 @@ test('an invalid value or file is invalid_config with the failing field, and the
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: jev\n');
   expect(thrown(() => loadConfig(file))).toEqual({
     code: 'invalid_config',
-    message: `${file}: decisions.backend: Invalid option: expected one of "rules"|"adapter"`,
+    message: `${file}: decisions.backend: Invalid input: expected "rules"`,
   });
+});
+
+test('a config that still names the removed adapter loads, and acts as rules', () => {
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: adapter\n  adapter: codex\n');
+  expect(loadConfig(file).decisions).toEqual({ backend: 'rules', threshold: 0.7 });
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  adapter: claude\n  threshold: 0.5\n');
+  expect(loadConfig(file).decisions).toEqual({ backend: 'rules', threshold: 0.5 });
+  // Any other unknown field is still an error.
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  model: haiku\n');
+  expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
 });
 
 test('Board preferences validate manual order without touching unrelated config', () => {

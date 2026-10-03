@@ -5,7 +5,6 @@ import { readProjectFile } from '../projects/project-file.js';
 import { readRegistry } from '../projects/registry.js';
 import { recordScope } from '../receipts/record-scope.js';
 import { recordAgent } from '../sessions/record.js';
-import { adapterBackend } from './adapter.js';
 import { decide, type FaroProfile } from './decide.js';
 import {
   checkGuardrail,
@@ -17,23 +16,11 @@ import {
 import { rulesBackend } from './rules.js';
 import type { Decision, DecisionRecorder, Question } from './types.js';
 
-/**
- * Faro for one profile: the shared backends, the profile's view of them, `mesa decide`, and the
- * guardrail.
- */
+/** Faro for one profile: the profile's view of it, `mesa decide`, and the guardrail. */
 export function createFaro(ctx: MesaContext) {
   const { deps } = ctx;
-  /** Faro's shared backends, asked when a decision site's own rules are unsure. */
-  const shared = [
-    adapterBackend<unknown>({
-      run: deps.run,
-      directory: ctx.paths.root,
-      agent: () => ctx.configIfAny()?.decisions.adapter ?? 'claude',
-      redact: (value, maxString) => redactPayload(value, deps.home, ctx.secrets(), maxString),
-    }),
-  ];
   /** For questions no rules know (mesa decide), the rules answer evenly. */
-  const outside = [rulesBackend<unknown>([]), ...shared];
+  const outside = [rulesBackend<unknown>([])];
   /** Faro's view of the profile; before init, rules only (nothing else is configured). */
   const profile = (): FaroProfile => ({
     decisions: ctx.configIfAny()?.decisions ?? { backend: 'rules', threshold: 1 },
@@ -44,7 +31,6 @@ export function createFaro(ctx: MesaContext) {
    * cannot read has none.
    */
   const guard = (recorder?: DecisionRecorder): GuardrailDeps => ({
-    shared,
     profile: profile(),
     clock: deps.clock,
     ...(recorder ? { recorder } : {}),
@@ -59,13 +45,12 @@ export function createFaro(ctx: MesaContext) {
     },
   });
   return {
-    shared,
     profile,
     /**
      * Faro, for questions from outside (mesa decide): no rules know them, so the rules backend
      * answers evenly. Decision sites bring their own rules backend. It writes a decision receipt:
      * the answers in its `decisions`, what it was asked (redacted) in its `inputs`, and the
-     * adapter's list price as its `cost`.
+     * backend's list price, if it reports one, as its `cost`.
      */
     decide: (
       state: unknown,

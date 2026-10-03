@@ -65,7 +65,7 @@ const certainty = (a: Answer) =>
       : 1;
 
 /** The rules are unsure: their least sure answer is below `decisions.threshold` (ADR-0003). */
-export const unsure = (answers: readonly Answer[], profile: FaroProfile) =>
+const unsure = (answers: readonly Answer[], profile: FaroProfile) =>
   Math.min(...answers.map(certainty)) < profile.decisions.threshold;
 
 const Reply = z.union([

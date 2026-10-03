@@ -40,7 +40,7 @@ test('a session started from an imported item by id or link gets its goal and ke
   expect(byLink.result).toMatchObject({ goal: LC12_GOAL, from: { source: 'jira', id: 'LC-12' } });
   expect(mesa.imports.list('lantern-cove').items).toHaveLength(1);
 
-  const rows = await mesa.sessions.list(false, { adapter: false });
+  const rows = await mesa.sessions.list(false);
   const started = rows.flatMap((r) => (r.managed && r.kind === 'interactive' ? [r.from] : []));
   expect(started).toEqual([
     { source: 'jira', id: 'LC-12' },

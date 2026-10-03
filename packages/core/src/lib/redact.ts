@@ -19,8 +19,8 @@ const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /**
  * Values under a key naming a secret become `***`, as do configured key values; the home
  * directory becomes `~` (also in the escaped form Claude uses in project folder names); strings
- * longer than `maxString` are cut. The one redactor for hook logs and for what Faro's adapter
- * sends.
+ * longer than `maxString` are cut. The one redactor for hook logs and for what Faro keeps in a
+ * decision receipt.
  */
 export function redactPayload(
   value: unknown,

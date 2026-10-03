@@ -70,7 +70,8 @@ type DecisionsInUse = { named: BackendName; threshold: number };
 function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   if (!decisions) return [];
   const { named, threshold } = decisions;
-  const hint = named === 'rules' ? '' : `rules first; ${named} below confidence ${threshold}`;
+  const hint =
+    named === 'rules' ? 'rules only' : `rules first; ${named} below confidence ${threshold}`;
   return [{ name: 'decisions', ok: true, version: named, hint }];
 }
 

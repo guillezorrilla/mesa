@@ -36,7 +36,7 @@ export function duration(seconds: number): string {
   return m ? `${m}m${two(s)}s` : `${s}s`;
 }
 
-/** What an adapter's answer cost at list price, as ` (list price $0.0123)`; nothing when free. */
+/** What a run or a decision cost at list price, as ` (list price $0.0123)`; nothing when free. */
 export const listPrice = (costUsd: number | undefined) =>
   costUsd === undefined ? '' : ` (list price $${costUsd.toFixed(4)})`;
 

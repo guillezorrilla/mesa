@@ -16,6 +16,11 @@ const rules = rulesBackend<State>([
 const profile = (backend: Backend['name']): FaroProfile => ({
   decisions: { backend, threshold: 0.7 },
 });
+/**
+ * No backend but rules ships (ADR-0020), so the seam a hosted model plugs into is checked with a
+ * stand-in name the profile cannot yet write.
+ */
+const MODEL = 'model' as unknown as Backend['name'];
 /** A stand-in for the backend the profile names: answers whatever `answer` gives. */
 const fake = (name: Backend['name'], answer: () => Promise<unknown>): Backend<State> => ({
   name,
@@ -62,29 +67,29 @@ test('decide returns a Decision from the rules backend and records it; a failing
 });
 
 test('the profile names the backend: used when this site has it, else rules', () => {
-  const all = [rules, fake('adapter', working)];
-  expect(selectBackend(all, profile('adapter')).name).toBe('adapter');
+  const all = [rules, fake(MODEL, working)];
+  expect(selectBackend(all, profile(MODEL)).name).toBe(MODEL);
   expect(selectBackend(all, profile('rules')).name).toBe('rules');
-  expect(selectBackend([rules], profile('adapter')).name).toBe('rules');
+  expect(selectBackend([rules], profile(MODEL)).name).toBe('rules');
   expect(selectBackend([], profile('rules')).name).toBe('rules');
 });
 
 test('rules answer first; the named backend only below the threshold, and only when well formed', async () => {
-  const used = async (adapter: () => Promise<unknown>, state: State = { idle: false }) =>
+  const used = async (model: () => Promise<unknown>, state: State = { idle: false }) =>
     (
       await decide(
         {
-          backends: [rules, fake('adapter', adapter)],
-          profile: profile('adapter'),
+          backends: [rules, fake(MODEL, model)],
+          profile: profile(MODEL),
           clock: fixedClock(),
         },
         state,
         questions,
       )
     ).backend;
-  // Rules are sure (1 and 0.8): the adapter is not asked. Unsure (even): it is.
+  // Rules are sure (1 and 0.8): the named backend is not asked. Unsure (even): it is.
   expect(await used(working, { idle: true })).toBe('rules');
-  expect(await used(working)).toBe('adapter');
+  expect(await used(working)).toBe(MODEL);
   // Its failures keep the rules' answers, marked as a fallback.
   expect(await used(() => Promise.reject(new Error('timeout')))).toBe('rules-fallback');
   expect(await used(async () => (await working()).map((a) => ({ ...a, id: 'other' })))).toBe(
@@ -100,12 +105,12 @@ test('rules answer first; the named backend only below the threshold, and only w
   expect(await used(async () => [choice])).toBe('rules-fallback');
   expect(await used(async () => [{ ...choice, answer: 'asleep' }, noul])).toBe('rules-fallback');
 
-  // A Score between levels is not doubt: an even Score alone never asks the adapter.
+  // A Score between levels is not doubt: an even Score alone never asks the named backend.
   const score: Question[] = [{ kind: 'Score', id: 'urgency', levels: ['low', 'high'] }];
   const scored = await decide(
     {
-      backends: [rules, fake('adapter', () => Promise.reject(new Error('asked')))],
-      profile: profile('adapter'),
+      backends: [rules, fake(MODEL, () => Promise.reject(new Error('asked')))],
+      profile: profile(MODEL),
       clock: fixedClock(),
     },
     { idle: false },
@@ -123,7 +128,7 @@ test('rules answer first; the named backend only below the threshold, and only w
     },
   ]);
   const even = await decide(
-    { backends: [broken], profile: profile('adapter'), clock: fixedClock() },
+    { backends: [broken], profile: profile(MODEL), clock: fixedClock() },
     { idle: true },
     questions,
   );

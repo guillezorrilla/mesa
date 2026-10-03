@@ -79,3 +79,7 @@ The earlier receipt rule above described P3. A deliberate `mesa decide` call kee
 ## Amendment 2026-10-03: a local model backend (#459)
 
 ADR-0019 adds a local Strands Decider backend behind Faro, with optional `instructions` and `criteria` wording on questions, per-site acceptance and abstention, and frozen quality gates. Faro remains the only owner of questions, validation and fallback; this ADR's primitives and answer shapes are unchanged.
+
+## Amendment 2026-10-03: the adapter is removed (ADR-0020)
+
+#487 found the adapter slower and less accurate than the rules alone (`docs/spikes/faro-value.md`), so ADR-0020 removed it. What this ADR says about the `adapter` backend, in the decision above and in the amendments on Claude Code headless, the adapter as built (#26), the guardrail's adapter paragraph (#31) and the Codex adapter (#160), no longer applies. `decisions.backend` is `rules`; a config that names `adapter` acts as `rules`. The primitives, the interface and the receipts stay.

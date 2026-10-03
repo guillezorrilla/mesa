@@ -5,8 +5,15 @@ import { DECISIONS_BACKENDS } from './backends.js';
 export const DecisionsBackendSchema = z.enum(DECISIONS_BACKENDS);
 export type BackendName = z.infer<typeof DecisionsBackendSchema>;
 
-/** Who answered a Decision: a backend, or `rules-fallback` when the named one was asked and failed. */
-export const DecidedBySchema = z.union([DecisionsBackendSchema, z.literal('rules-fallback')]);
+/**
+ * Who answered a Decision: a backend, or `rules-fallback` when the named one was asked and failed.
+ * `adapter`, the headless agent backend ADR-0020 removed, is still named by older receipts and runs.
+ */
+export const DecidedBySchema = z.union([
+  DecisionsBackendSchema,
+  z.literal('rules-fallback'),
+  z.literal('adapter'),
+]);
 
 // Faro's question primitives, exactly Jev's (ADR-0004), and the shapes every backend answers in.
 
@@ -91,8 +98,7 @@ export type Decision = {
    */
   backend: z.infer<typeof DecidedBySchema>;
   /**
-   * The call's price as the adapter reports it (`total_cost_usd`, list price: on the subscription
-   * nothing is charged), for information only.
+   * The call's price as the backend reports it, for information only.
    */
   costUsd?: number;
   /** With `rules-fallback`: why the named backend's answer was not used. */

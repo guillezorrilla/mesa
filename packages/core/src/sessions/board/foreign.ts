@@ -30,19 +30,14 @@ export async function foreignRow(
     confidence: 0.5,
   };
   const last = { ...listed, at: now.toISOString(), source: 'listing' as const };
-  // ponytail: rules only; with no record to keep its basis, the adapter would be asked again
-  // on every look. Give foreign sessions a basis cache if they need the adapter.
-  const classified = await classifySession(
-    { ...faro, backends: [] },
-    {
-      now: now.toISOString(),
-      agent: p.agent,
-      last,
-      ended: false,
-      listed: process,
-      priority: deps.priorityOf(project),
-    },
-  );
+  const classified = await classifySession(faro, {
+    now: now.toISOString(),
+    agent: p.agent,
+    last,
+    ended: false,
+    listed: process,
+    priority: deps.priorityOf(project),
+  });
   return {
     ...p,
     ...classified,

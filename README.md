@@ -66,12 +66,12 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 
 Mesa makes many small judgments while your agents work: is this session waiting for you, did it finish or fail, is this prompt about to leak a secret or run something destructive. Faro is the layer that makes them, and it makes them in a way you can check.
 
-- **Rules first, a model only when unsure.** Deterministic rules answer first, instantly and at no cost. Only when their confidence is below your threshold does Faro ask an agent, Claude Code or Codex on your own subscription, with no API key.
-- **Every answer has a confidence.** Each decision carries its probabilities and how sure it is, so you can see how far to trust it, and an unsure rule never decides alone.
+- **Rules, instantly and at no cost.** Deterministic rules answer every judgment, so nothing waits on a model and your agents work as they would on their own.
+- **Every answer has a confidence.** Each decision carries its probabilities and how sure it is, so you can see how far to trust it.
 - **An audit trail you own.** Deliberate decisions and guardrail blocks or overrides are saved as Receipts in your vault, with the evidence behind them.
-- **Guardrails before actions.** Prompts sent to a session and other outside actions pass a guardrail that can allow, ask, or block. Secrets are masked before any model sees them.
+- **Guardrails before actions.** Prompts sent to a session and other outside actions pass a guardrail that can allow, ask, or block. No model ever sees a prompt before it is sent.
 
-Read more in the [Faro docs](packages/core/src/decisions/README.md), [ADR-0004](docs/adr/0004-faro-primitives-and-backends.md) and [Receipts](docs/receipts.md).
+Read more in the [Faro docs](packages/core/src/decisions/README.md), [ADR-0004](docs/adr/0004-faro-primitives-and-backends.md), [ADR-0020](docs/adr/0020-faro-rules-only-by-default.md) and [Receipts](docs/receipts.md).
 
 ## Install
 

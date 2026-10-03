@@ -36,9 +36,7 @@ export const sessionsCommands = {
     name,
   ]),
   // The board as mesa orders it: attention, children under their parent.
-  // The board's quick look: it never waits on Faro's adapter (sessions.adapterLook asks it).
-  'sessions.list': command<TreeRow[]>('sessions', '--tree', '--no-adapter'),
-  'sessions.adapterLook': command<TreeRow[]>('sessions', '--tree'),
+  'sessions.list': command<TreeRow[]>('sessions', '--tree'),
   'image.preview': commandWith<{ id: string; path: string }, SessionImage>(({ id, path }) => [
     'image',
     'preview',

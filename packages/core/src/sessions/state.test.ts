@@ -79,79 +79,27 @@ test('a waiting session always outranks a working one, and climbs with time and 
   expect(at('idle', 600, 0)).toBeGreaterThan(at('idle', 0, 0));
 });
 
-test('classifySession asks the adapter only when the rules are unsure, and takes its state', async () => {
-  const calls: string[] = [];
-  const adapter = {
-    name: 'adapter' as const,
-    answer: async (s: SessionSignals) => {
-      calls.push(s.tail ?? 'no tail');
-      return {
-        answers: [
-          {
-            id: 'state',
-            kind: 'Choice',
-            answer: 'waiting-question',
-            probabilities: Object.fromEntries(
-              AGENT_STATES.map((n) => [n, n === 'waiting-question' ? 0.9 : 0.02]),
-            ),
-            confidence: 0.9,
-          },
-          {
-            id: 'attention',
-            kind: 'Score',
-            answer: 0.75,
-            probabilities: { none: 0, low: 0, medium: 0, high: 1, urgent: 0 },
-            confidence: 1,
-          },
-          { id: 'human', kind: 'Noul', answer: true, probabilities: 0.9 },
-        ],
-        costUsd: 0.003,
-      };
-    },
-  };
-  const adapterProfile: FaroProfile = {
-    decisions: { backend: 'adapter', threshold: 0.7 },
-  };
-  const sure = fixtures.find((f) => f.name === 'permission-request-fresh.json')
-    ?.input as SessionSignals;
+test('classifySession asks only the rules: an unsure screen replaces a state the adapter saved', async () => {
   const unsure = fixtures.find((f) => f.name === 'tail-busy-screen.json')?.input as SessionSignals;
-  const placed = (signals: SessionSignals) =>
-    classifySession({ profile: adapterProfile, clock: fixedClock(), backends: [adapter] }, signals);
-
-  // A fresh hook (0.95): the rules stand and the adapter is never asked.
-  expect((await placed(sure)).decision.backend).toBe('rules');
-  expect(calls).toEqual([]);
-  // The tail alone (0.6, below 0.7): the adapter answers, and its state is the row's.
-  const { lastState, decision } = await placed(unsure);
-  expect(calls).toHaveLength(1);
-  expect(decision).toMatchObject({ backend: 'adapter', costUsd: 0.003 });
-  expect(lastState).toMatchObject({
+  const adapted: SessionSignals['last'] = {
     state: 'waiting-question',
     confidence: 0.9,
+    at: '2026-09-24T11:59:00.000Z',
     source: 'adapter',
+    basis: '0123456789abcdef',
+  };
+  // The tail alone (0.6, below the 0.7 threshold): the rules' reading still stands.
+  const { lastState, decision } = await classifySession(deps, { ...unsure, last: adapted });
+  expect(decision.backend).toBe('rules');
+  expect(lastState).toEqual({
+    state: 'working',
+    confidence: 0.6,
+    source: 'tmux',
+    at: '2026-09-24T12:00:00.000Z',
   });
-  // Attention is the rules' band for the adapter's state: a wait, at least 0.75.
-  expect((await placed(unsure)).attention).toBeGreaterThanOrEqual(0.75);
-
-  // The next look sees the same screen: the saved answer stands, and the adapter is not asked.
-  calls.length = 0;
-  const again = await placed({ ...unsure, last: lastState });
-  expect(calls).toEqual([]);
-  expect(again.lastState).toEqual(lastState);
-  // The screen changes: it is asked again.
-  await placed({ ...unsure, last: lastState, tail: `${unsure.tail}\n` });
-  expect(calls).toHaveLength(1);
-
-  // A quick look (no adapter to ask) keeps the saved answer while the rules stay unsure, even
-  // on a new screen, and yields to them once they are sure.
-  const quick = (signals: SessionSignals) =>
-    classifySession({ profile: adapterProfile, clock: fixedClock() }, signals);
-  const changed = { ...unsure, last: lastState, tail: `${unsure.tail}\n` };
-  expect((await quick(changed)).lastState).toEqual(lastState);
-  expect((await quick({ ...sure, last: lastState })).lastState.source).toBe('hook');
 });
 
-test('Antigravity idle TUI stays idle even when the profile adapter would guess a wait', async () => {
+test('Antigravity idle TUI clears a wait the adapter saved', async () => {
   const signals: SessionSignals = {
     now: '2026-09-24T12:00:00.000Z',
     agent: 'antigravity',
@@ -167,22 +115,12 @@ test('Antigravity idle TUI stays idle even when the profile adapter would guess 
     tail: '>\n? for shortcuts',
     priority: 0.5,
   };
-  const answer = async () => {
-    throw new Error('adapter must not run');
-  };
-  const placed = await classifySession(
-    {
-      profile: { decisions: { backend: 'adapter', threshold: 0.7 } },
-      clock: fixedClock(),
-      backends: [{ name: 'adapter', answer }],
-    },
-    signals,
-  );
+  const placed = await classifySession(deps, signals);
   expect(placed.lastState).toMatchObject({ state: 'idle', source: 'tmux' });
   expect(placed.decision.backend).toBe('rules');
 });
 
-test('an explicit Codex idle prompt clears an adapter false wait', async () => {
+test('an explicit Codex idle prompt clears a false wait the adapter saved', async () => {
   const signals: SessionSignals = {
     now: '2026-09-28T21:56:30.000Z',
     agent: 'codex',
@@ -198,17 +136,7 @@ test('an explicit Codex idle prompt clears an adapter false wait', async () => {
     tail: '• ONE\n\n› Ask Codex to do anything\n? for shortcuts',
     priority: 0,
   };
-  const answer = async () => {
-    throw new Error('adapter must not override the native idle marker');
-  };
-  const placed = await classifySession(
-    {
-      profile: { decisions: { backend: 'adapter', threshold: 0.7 } },
-      clock: fixedClock(),
-      backends: [{ name: 'adapter', answer }],
-    },
-    signals,
-  );
+  const placed = await classifySession(deps, signals);
   expect(placed.lastState).toMatchObject({ state: 'idle', source: 'tmux' });
   expect(placed.decision.backend).toBe('rules');
 });

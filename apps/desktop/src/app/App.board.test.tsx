@@ -237,30 +237,8 @@ test('a recorded action says its warning with its confirmation, so a missing rec
   );
 });
 
-/** The board's own look, which never waits on Faro's adapter. */
-const quick = (args: string[]) => args.includes('--no-adapter');
-
-test("a slow adapter look never holds up the board's looks or an action", async () => {
-  vi.useFakeTimers();
-  try {
-    const { bridge, calls } = fakeBridge({
-      resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
-      // The adapter's look never lands.
-      sessions: (args) => (quick(args) ? envelope([asking]) : new Promise(() => {})),
-      stop: () => envelope({ ...asking, outcome: 'exited', receipt: null }),
-    });
-    await renderSession(<App />, bridge);
-    await act(async () => vi.advanceTimersByTime(2000));
-    await act(async () => vi.advanceTimersByTime(2000));
-    expect(calls.filter(quick)).toHaveLength(3);
-    expect(calls.filter((c) => c[1] === 'sessions' && !quick(c))).toHaveLength(1);
-    await click(button('Stop'));
-    expect(calls.filter((c) => c[1] === 'stop')).toHaveLength(1);
-    expect(button('Stop')?.hasAttribute('disabled')).toBe(false);
-  } finally {
-    vi.useRealTimers();
-  }
-});
+/** The board's look. */
+const look = (args: string[]) => args[1] === 'sessions';
 
 test('an action ends once Sessions shows what it did, even with a look already in flight', async () => {
   vi.useFakeTimers();
@@ -269,8 +247,8 @@ test('an action ends once Sessions shows what it did, even with a look already i
     let slow = false;
     const { bridge, calls } = fakeBridge({
       resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
-      sessions: (args) =>
-        slow && quick(args)
+      sessions: () =>
+        slow
           ? new Promise((done) => (release = () => done(envelope([asking]))))
           : envelope([asking]),
       stop: () => envelope({ ...asking, outcome: 'exited', receipt: null }),
@@ -299,13 +277,13 @@ test('Sessions refreshes every two seconds without overlapping requests', async 
     let slow = false;
     const { bridge, calls } = fakeBridge({
       resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
-      sessions: (args) =>
-        slow && quick(args)
+      sessions: () =>
+        slow
           ? new Promise((done) => (release = () => done(envelope([asking]))))
           : envelope([asking]),
     });
     await renderSession(<App />, bridge);
-    const looks = () => calls.filter(quick).length;
+    const looks = () => calls.filter(look).length;
     expect(looks()).toBe(1);
     await act(async () => vi.advanceTimersByTime(1000));
     await act(async () => vi.advanceTimersByTime(1000));

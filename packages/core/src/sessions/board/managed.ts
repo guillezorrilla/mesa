@@ -17,8 +17,8 @@ import { type ManagedRow, secondsBetween } from './rows.js';
  * Saves what a look learned onto the record as it is now: a new state, or an agent session id (the
  * one a /clear moved it to, or the one its agent picked). A stopped session keeps the stop's
  * state, and takes only an id it has none of, one its agent picked before the stop. A state
- * another look saved since this one read the record (the adapter's, beside a quick look) is newer
- * and stays. A record another process holds locked (busy, or a lock left by a killed mesa) is not
+ * another look saved since this one read the record (a pane-died hook's, or another mesa's look)
+ * is newer and stays. A record another process holds locked (busy, or a lock left by a killed mesa) is not
  * waited for or written: this look still shows what it learned, and the next one tries again.
  */
 function saveLook(
@@ -155,9 +155,9 @@ export async function managedRow(
   const classified: Placement = ran
     ? await classifySession(deps.faro, signals)
     : { lastState: found.lastState, attention: 0 };
-  const { state, source, basis } = found.lastState;
+  const { state, source } = found.lastState;
   const next = classified.lastState;
-  const changed = next.state !== state || next.source !== source || next.basis !== basis;
+  const changed = next.state !== state || next.source !== source;
   // Listed by its pane's pid under another id: a /clear started a new conversation there.
   const moved =
     listed && listed.agentSessionId !== found.agentSessionId ? listed.agentSessionId : undefined;
