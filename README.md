@@ -53,10 +53,10 @@ Every session is the agent's own terminal UI, unchanged, running in tmux. Mesa a
 
 **Download** the DMG from the [latest release](https://github.com/guillezorrilla/mesa/releases/latest), open it, and drag Mesa to Applications. The first signed release is still being prepared; until it is out, [build from source](#building-from-source).
 
-**Homebrew** (coming with the first release):
+The `mesa` command ships inside the app. To use it from a terminal, link it onto your PATH:
 
 ```sh
-brew install --cask guillezorrilla/tap/mesa
+mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.local/bin/mesa
 ```
 
 **Requirements:**
