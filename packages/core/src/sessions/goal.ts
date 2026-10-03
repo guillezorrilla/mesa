@@ -1,3 +1,4 @@
+import type { Agent } from '../agents/names.js';
 import { MesaError } from '../lib/result.js';
 import { readTextFile } from '../lib/text-file.js';
 import type { SessionStore } from './store.js';
@@ -36,6 +37,33 @@ export function requireCommandFits(command: string): void {
     throw new MesaError(
       'usage',
       `the goal makes a ${bytes}-byte command, over the ${MAX_COMMAND_BYTES} Mesa passes to tmux: shorten it, or keep the long part in a file the goal names`,
+    );
+  }
+}
+
+// Claude Code refuses a longer /goal condition and starts no work (measured on 2.1.288: "Goal
+// condition is limited to 4000 characters (got 4048)").
+const MAX_GOAL_CONDITION = 4000;
+
+/**
+ * Refuses a goal opening Claude Code's `/goal` command where it would not run: another agent takes
+ * it as plain text, and Claude Code refuses a condition over 4000 characters. The condition is
+ * every line after `/goal`, as Claude Code keeps them all.
+ */
+export function requireGoalCommandRuns(goal: string | undefined, agent: Agent): void {
+  const command = goal?.match(/^\/goal(?:\s([\s\S]*))?$/);
+  if (!command) return;
+  if (agent !== 'claude') {
+    throw new MesaError(
+      'usage',
+      `${agent} has no /goal command and would take the goal as plain text: start it with claude, or drop /goal`,
+    );
+  }
+  const length = (command[1] ?? '').trim().length;
+  if (length > MAX_GOAL_CONDITION) {
+    throw new MesaError(
+      'usage',
+      `the /goal condition is ${length} characters, over the ${MAX_GOAL_CONDITION} Claude Code takes: shorten it, or keep the long part in a file the goal names`,
     );
   }
 }

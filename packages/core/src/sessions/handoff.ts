@@ -5,7 +5,7 @@ import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { GENERAL_PROJECT } from './general.js';
-import { requireCommandFits } from './goal.js';
+import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
 import { type LaunchDeps, launchProject, launchSession, sessionWindowCommand } from './launch.js';
 import { refuseRun, type SessionRecord } from './record.js';
@@ -86,6 +86,7 @@ export async function handoffSession(
   const { goal } = from;
   // Checked before anything is written, with a note path as long as the successor's will be.
   const placeholder = handoffGoal(goal, join(deps.handoffs, 'xxxxxxxx.md'));
+  requireGoalCommandRuns(placeholder, agent);
   if (!background)
     requireCommandFits(
       sessionWindowCommand(

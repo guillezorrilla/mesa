@@ -586,6 +586,18 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
       'the goal makes a 12230-byte command, over the 12000 Mesa passes to tmux: shorten it, or keep the long part in a file the goal names',
     ],
   ];
+  cases.push(
+    [
+      { goal: `/goal ${'x'.repeat(4001)}` },
+      'usage',
+      'the /goal condition is 4001 characters, over the 4000 Claude Code takes: shorten it, or keep the long part in a file the goal names',
+    ],
+    [
+      { goal: '/goal Ship it', agent: 'codex' },
+      'usage',
+      'codex has no /goal command and would take the goal as plain text: start it with claude, or drop /goal',
+    ],
+  );
   for (const [opts, code, message] of cases) {
     await expect(mesa.sessions.open('lantern-cove', opts)).rejects.toMatchObject({ code, message });
   }
