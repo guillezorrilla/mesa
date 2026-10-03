@@ -9,6 +9,7 @@ import { useAct } from '@/lib/useAct';
 import { CommandScope, useCall, useRun } from '@/lib/useCommand';
 import { useVaultLook } from './useVaultLook';
 import { VaultBrowser } from './VaultBrowser';
+import { VaultHealthPanel } from './VaultHealthPanel';
 import { VaultEmpty, VaultNotLaidOut, VaultUnlisted } from './VaultState';
 
 /** The listed vault's browser and Bases action share the existing remount boundary. */
@@ -26,6 +27,7 @@ function VaultContent(props: {
   const toast = useToast();
   const [writing, setWriting] = useState(false);
   const [bases, setBases] = useState<BasesWritten>();
+  const [selected, setSelected] = useState(props.path);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
@@ -60,6 +62,7 @@ function VaultContent(props: {
           Bases: wrote {bases.written.length}, kept {bases.kept.length}.
         </Muted>
       )}
+      <VaultHealthPanel onSelect={setSelected} />
       {inventory.total === 0 ? (
         <VaultEmpty
           vault={inventory.vault}
@@ -72,7 +75,8 @@ function VaultContent(props: {
             inventory={inventory}
             looks={props.looks}
             query={props.query}
-            path={props.path}
+            selected={selected}
+            onSelect={setSelected}
           />
         </>
       )}

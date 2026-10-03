@@ -157,6 +157,7 @@ export type {
 export type { WeeklyRewind } from './usage/rewind.js';
 export type { BasesWritten } from './vault/bases.js';
 export type { CanvasData, CanvasEdge, CanvasNode } from './vault/canvas.js';
+export type { VaultHealth, VaultHealthFinding, VaultHealthKind } from './vault/health.js';
 export type { VaultInventory } from './vault/inventory.js';
 export {
   type Unavailable,

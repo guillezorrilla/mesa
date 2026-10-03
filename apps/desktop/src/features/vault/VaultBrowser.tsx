@@ -78,23 +78,24 @@ function ItemDetails(props: {
 
 /**
  * One vault's inventory as a folder tree, filtered by project and type with core's own rule, and
- * the selected item's details and reader beside it: the item at `path` first, when given. A
+ * the selected item's details and reader beside it, with selection owned by the Vault screen. A
  * search (`mesa vault search`, from `query` at first) shows its results in the tree's place.
  */
 export function VaultBrowser({
   inventory,
   looks,
   query: initial,
-  path,
+  selected,
+  onSelect,
 }: {
   inventory: VaultInventory;
   looks: number;
   query: string;
-  path?: string;
+  selected?: string;
+  onSelect: (path: string) => void;
 }) {
   const [project, setProject] = useState('');
   const [type, setType] = useState('');
-  const [selected, setSelected] = useState(path);
   const [draft, setDraft] = useState(initial);
   const [query, setQuery] = useState(initial.trim());
   const items = inventory.items;
@@ -188,17 +189,17 @@ export function VaultBrowser({
               project={project || undefined}
               type={type || undefined}
               selected={selected}
-              onSelect={setSelected}
+              onSelect={onSelect}
             />
           ) : (
-            <VaultTree items={shown} selected={selected} onSelect={setSelected} />
+            <VaultTree items={shown} selected={selected} onSelect={onSelect} />
           )}
         </div>
         <ItemDetails
           selected={selected}
           item={items.find((item) => item.path === selected)}
           looks={looks}
-          onSelect={setSelected}
+          onSelect={onSelect}
         />
       </div>
     </>

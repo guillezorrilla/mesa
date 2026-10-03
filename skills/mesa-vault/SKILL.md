@@ -1,6 +1,6 @@
 ---
 name: mesa-vault
-description: Reads and saves project knowledge in the profile's Obsidian vault. Use when starting work on a project, when you need an earlier decision, note, or session goal, and when a decision, a session summary, or a finding should outlast the session.
+description: Reads, updates, and saves project knowledge in the profile's Obsidian vault. Use when starting work, recalling earlier decisions, making a durable decision, finding reusable knowledge, reaching a meaningful checkpoint, or checking vault health.
 ---
 
 # Mesa vault
@@ -23,7 +23,13 @@ The profile's Obsidian vault holds what the person and earlier sessions know abo
 
 Save knowledge a later session acts on; everything else stays in the session. Each save returns `{path, changed, receipt}`, and Mesa writes the log line, the one history entry, and a new decision's or note's index line for you. The same save again returns `changed: false` and adds nothing, so a retry is safe.
 
-- **Decision**: a choice with its reason, which a successor must not reopen. `save_decision` takes a title, the decision, the rationale, and the probabilities and confidence when `mesa decide` gave them. It lands in `wiki/decisions/<YYYY-MM-DD>-<slug>.md`.
+1. **Recognize durable value.** Save when a choice affects future work, a finding prevents repeated investigation, or a checkpoint leaves useful results and open work. Make these saves as part of the authorized work, without waiting for a separate save request. Save after the evidence or choice is established, while its reason is still available.
+2. **Search before saving.** Search for the topic and read the relevant existing notes. If the knowledge is already represented, keep it as it is. Update a Mesa-owned note at its existing path with `save_note` when the same topic changes; retain its useful context and links. A user-owned or locked note stays intact: report the finding and, when useful, save a separate linked note.
+3. **Preserve evidence.** Say what was observed, inferred, assumed, or remains uncertain. Include the source note, file/test locator, or external source URL and date when relevant. Conversation assertions alone do not establish a fact. Keep conflicting evidence visible and state what would change the conclusion.
+4. **Connect the knowledge.** Link relevant existing notes with exact-path `[[wikilinks]]`, using paths returned by reads or search. Keep one topic per note and its project association so later project context can find it. Shared notes may omit a project; retrieve them with whole-vault search when relevant.
+5. **Verify the save.** Check the returned path and `changed`, then read that exact note to confirm the intended content. Include saved decision links in a meaningful session summary. A failed save is unfinished work; report its reason.
+
+- **Decision**: a choice and its reason that a successor should follow while the evidence holds. `save_decision` takes a title, the decision, the rationale, and the probabilities and confidence when `mesa decide` gave them. It lands in `wiki/decisions/<YYYY-MM-DD>-<slug>.md`. When new evidence changes a choice, save a new decision naming the earlier decision's link in the rationale; retain the old record and explain why it is superseded.
 - **Summary**: what the session did, as Goal, Done, Assumed, Left, and Decisions (the `session-summary` skill's shape). `save_summary` lands it in `wiki/sessions/<id>.md`.
 - **Note**: a fact, a finding, or how something works, one topic each. `save_note` lands it in `wiki/notes/`, or at a path you give under `wiki/` or `projects/<project>/`.
 
@@ -36,6 +42,10 @@ mesa vault save note --project lantern-cove --title "Tide table sources" --file 
 `--probability <option>=<p>` (repeated) and `--confidence <c>` add Faro's numbers to a decision.
 
 Routine events are never saved: a session opened, resumed, or stopped, a prompt sent, a status read, a poll, a retry, a test run, a configuration change. Mesa's session records already hold them.
+
+## Health
+
+When asked to audit vault health, or when broken navigation or missing project knowledge obstructs the task, run `mesa vault health --json`. It reports file-level broken and ambiguous links, stale index links, unlinked notes, invalid frontmatter, missing wiki project associations, and unavailable items. Inspect the named paths and lines; an unlinked or shared note may be intentional. The check is read-only and does not assess heading/block fragments, semantic contradictions, or factual freshness. Report findings before making repairs; apply only repairs within the user's authorized scope, then recheck.
 
 ## Conventions
 
