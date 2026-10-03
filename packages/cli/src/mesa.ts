@@ -8,16 +8,32 @@ const argv = process.argv.slice(2);
 // `mesa hook tmux`, typed without --profile first, is tmux's, which never has a session id.
 if (argv[0] === 'hook' && argv[1] !== 'tmux' && !process.env.MESA_SESSION_ID) process.exit(0);
 
-const [{ randomBytes, randomUUID }, { homedir }, { setTimeout: sleep }, { fileURLToPath }] =
-  await Promise.all([
-    import('node:crypto'),
-    import('node:os'),
-    import('node:timers/promises'),
-    import('node:url'),
-  ]);
-const { execRunner, keychainStore, loopbackListener, macObsidianPaths, systemClock, ulidSource } =
-  await import('@mesa/core');
-const { runCli } = await import('./cli.js');
+const [
+  { randomBytes, randomUUID },
+  { homedir },
+  { join },
+  sea,
+  { setTimeout: sleep },
+  { fileURLToPath },
+] = await Promise.all([
+  import('node:crypto'),
+  import('node:os'),
+  import('node:path'),
+  import('node:sea'),
+  import('node:timers/promises'),
+  import('node:url'),
+]);
+const {
+  execRunner,
+  keychainStore,
+  loopbackListener,
+  macObsidianPaths,
+  profilesDir,
+  systemClock,
+  ulidSource,
+} = await import('@mesa/core');
+const { runCli, VERSION } = await import('./cli.js');
+const { unpackSkills } = await import('./bundled-skills.js');
 const { COMMANDS } = await import('./commands/index.js');
 const { terminalConfirm } = await import('./confirm.js');
 const { browserSelection } = await import('./browser-selection.js');
@@ -30,6 +46,8 @@ const readStdin = async () => {
 };
 
 const home = homedir();
+// Inside the app, mesa is one executable (ADR-0017) that carries its skill library as assets.
+const bundled = sea.isSea();
 const { code, stdout, stderr, exec, serve } = await runCli(argv, {
   commands: COMMANDS,
   env: process.env,
@@ -46,8 +64,9 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     sleep: async (ms) => {
       await sleep(ms);
     },
-    // This node and this script, so hooks run the same mesa whatever the hook's PATH holds.
-    self: [process.execPath, fileURLToPath(import.meta.url)],
+    // This node and this script (or the one executable), so hooks run the same mesa whatever the
+    // hook's PATH holds.
+    self: bundled ? [process.execPath] : [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
     run: execRunner,
     http: (url, init) => fetch(url, init),
@@ -66,8 +85,14 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     browserSelection,
     obsidian: macObsidianPaths(home),
     argv,
-    // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js).
-    skillsDir: fileURLToPath(new URL('../../../skills', import.meta.url)),
+    // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js), or the
+    // executable's, unpacked where projects can link to them.
+    skillsDir: bundled
+      ? unpackSkills(join(profilesDir(home), '.skills'), VERSION, {
+          keys: sea.getAssetKeys,
+          get: (key) => sea.getAsset(key),
+        })
+      : fileURLToPath(new URL('../../../skills', import.meta.url)),
   },
 });
 if (exec) {

@@ -1,6 +1,8 @@
 mod bridge;
 mod browser;
+mod install_location;
 mod notifications;
+mod shell_path;
 mod terminal;
 
 use serde_json::Value;
@@ -23,11 +25,13 @@ pub fn run() {
         }
         return;
     }
+    shell_path::fix();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .manage(terminal::Terms::default())
         .setup(|app| {
+            install_location::warn(app.handle());
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),
                 std::env::var("MESA_PROFILE").unwrap_or_else(|_| "default".into()),

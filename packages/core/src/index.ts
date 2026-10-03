@@ -69,6 +69,7 @@ export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
 export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
+export { profilesDir } from './profile/paths.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
 export {
   DEFAULT_SHORTCUTS,

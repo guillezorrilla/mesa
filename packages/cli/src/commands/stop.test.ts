@@ -50,8 +50,9 @@ test('stop and resume print the updated and the new record', async () => {
   expect((await mesa('resume', third, '--json')).json.data.warning).toMatch(
     new RegExp(`^session ${third} not marked resumed: session`),
   );
-  // Each locked record is waited for, about 2 s, before the warning.
-}, 15_000);
+  // Each locked record is waited for, 400 pauses of 5 ms, before the warning: about 2 s here and
+  // two or three times that on a CI runner, whose timers are coarser.
+}, 30_000);
 
 test('stop and rm descendants require the confirmed IDs and report each item', async () => {
   cli.withTmux();

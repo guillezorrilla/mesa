@@ -1,5 +1,6 @@
 {
   "name": "mesa-monorepo",
+  "version": "0.1.0",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -14,10 +15,16 @@
     "format": "biome format --write .",
     "mesa": "node packages/cli/dist/mesa.js",
     "check:dashes": "sh scripts/check-dashes.sh",
+    "check:version": "sh scripts/release/version.sh --check",
     "verify": "sh scripts/verify.sh",
     "prepare": "git config core.hooksPath .githooks",
     "dev:cli": "tsc --build --watch --incremental --preserveWatchOutput packages/core packages/cli",
-    "dev:desktop": "pnpm -C apps/desktop dev"
+    "dev:desktop": "pnpm -C apps/desktop dev",
+    "release:version": "sh scripts/release/version.sh",
+    "release:build": "sh scripts/release/build.sh",
+    "release:sign": "sh scripts/release/sign.sh",
+    "release:publish": "sh scripts/release/publish.sh",
+    "release:brew": "sh scripts/release/brew.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { getAsset, isSea } from 'node:sea';
 import { parseArgs } from 'node:util';
 import {
   createMesa,
@@ -22,7 +23,10 @@ import {
 } from './command.js';
 import { commandHelp, groupUsage, mainHelp, usage, usageWithSubcommands } from './help/usage.js';
 
-export const VERSION: string = createRequire(import.meta.url)('../package.json').version;
+// Inside the app's single executable (ADR-0017) the version is an asset; elsewhere package.json's.
+export const VERSION: string = isSea()
+  ? getAsset('version', 'utf8')
+  : createRequire(import.meta.url)('../package.json').version;
 
 export type CliDeps = {
   commands: Command[];

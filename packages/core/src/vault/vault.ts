@@ -1,13 +1,17 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { getAsset, isSea } from 'node:sea';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { RECEIPT_FILE } from '../receipts/receipt-file.js';
 import { VAULT, VAULT_FOLDERS } from './layout.js';
 
 export const VAULT_INIT_MARK = 'vault initialised by mesa';
-// Relative to this module, so it resolves from src (vitest) and from dist (the built CLI).
+// Relative to this module, so it resolves from src (vitest) and from dist (the built CLI); inside
+// the app's single executable (ADR-0017) it is an asset.
 const TEMPLATE = new URL('../../templates/vault-AGENTS.md', import.meta.url);
+const template = () =>
+  isSea() ? getAsset('vault-AGENTS.md', 'utf8') : readFileSync(TEMPLATE, 'utf8');
 const INDEX = '# Index\n\nOne line per note in `wiki/` and `projects/`: a link and a summary.\n';
 
 type Item =
@@ -22,7 +26,7 @@ const LAYOUT: Item[] = [
     kind: 'file',
     content: (now) => `- ${now.toISOString()} ${VAULT_INIT_MARK}\n`,
   },
-  { name: VAULT.agents, kind: 'file', content: () => readFileSync(TEMPLATE, 'utf8') },
+  { name: VAULT.agents, kind: 'file', content: template },
   { name: VAULT.index, kind: 'file', content: () => INDEX },
   ...VAULT_FOLDERS.map((name) => ({
     name,
