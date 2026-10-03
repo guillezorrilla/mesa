@@ -71,7 +71,7 @@ pnpm release:build      # builds, signs, notarises (several minutes)
 pnpm release:publish    # creates the tag v<version> at HEAD and the release
 ```
 
-`publish` refuses a commit that is not on `origin/main`. A hand release has no provenance attestation, because only the workflow can sign one.
+`publish` refuses a commit that is not on `origin/main`. The tag it creates starts the Release workflow, which finds the release already made and builds nothing. A hand release has no provenance attestation, because only the workflow can sign one.
 
 A test build needs no secrets. `APPLE_SIGNING_IDENTITY=- pnpm release:build` makes an ad-hoc signed app and DMG, without notarisation or update archives, that runs only on this Mac.
 
