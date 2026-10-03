@@ -9,7 +9,6 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { ImportedItems } from './ImportedItems';
 import { PasteLinkForm } from './PasteLinkForm';
-import { RefreshSchedulePanel } from './RefreshSchedulePanel';
 import { SourceCards } from './SourceCards';
 import { SourcePickerDialog } from './SourcePickerDialog';
 
@@ -59,7 +58,6 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
   };
   return (
     <div data-testid="import-tab" className="space-y-8">
-      <RefreshSchedulePanel project={project} />
       <section aria-label="Sources" className="space-y-3">
         <SectionLabel className="flex items-center gap-2">
           <Plug aria-hidden className="size-4" /> Sources

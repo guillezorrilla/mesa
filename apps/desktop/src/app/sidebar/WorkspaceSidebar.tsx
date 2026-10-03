@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../hooks/useStartSession';
@@ -74,8 +75,16 @@ export function WorkspaceSidebar(props: {
     const last = visible.find((project) => project.name === props.lastProject);
     if (last && view.kind !== 'project') onView({ kind: 'project', name: last.name });
   };
-  const nav = (label: string, icon: typeof TerminalSquare, target: WorkspaceView) => (
-    <SidebarNavButton label={label} icon={icon} target={target} view={view} onView={onView} />
+  const pendingRuns = usePendingRuns();
+  const nav = (label: string, icon: typeof TerminalSquare, target: WorkspaceView, count = 0) => (
+    <SidebarNavButton
+      label={label}
+      icon={icon}
+      target={target}
+      view={view}
+      onView={onView}
+      count={count}
+    />
   );
   return (
     <aside
@@ -150,7 +159,7 @@ export function WorkspaceSidebar(props: {
         {nav('Vault', Library, { kind: 'vault' })}
         {nav('Map', MapIcon, { kind: 'map' })}
         {nav('Daily', Clock3, { kind: 'daily' })}
-        {nav('Automations', CalendarClock, { kind: 'automations' })}
+        {nav('Automations', CalendarClock, { kind: 'automations' }, pendingRuns)}
         {nav('Doctor', Stethoscope, { kind: 'doctor' })}
         {nav('Shortcuts', Keyboard, { kind: 'shortcuts' })}
       </div>

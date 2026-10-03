@@ -54,7 +54,7 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     [...document.querySelectorAll('nav[aria-label="lantern-cove tabs"] button')].map(
       (tab) => tab.textContent,
     ),
-  ).toEqual(['overview', 'vault', 'Context', 'git', 'files', 'skills', 'rules']);
+  ).toEqual(['overview', 'vault', 'Context', 'git', 'files', 'skills', 'rules', 'automations']);
   await click(
     [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent?.toLowerCase() === 'skills',
@@ -122,6 +122,42 @@ test('global shortcuts open from the top bar with either sidebar layout, without
       expect(byTestId(panel)).toHaveLength(0);
     }
   }
+});
+
+test('the sidebar Automations button counts runs waiting for approval', async () => {
+  const rule = {
+    name: 'Standup',
+    project: 'lantern-cove',
+    enabled: true,
+    when: 'cron',
+    cron: '0 9 * * 1-5',
+    run: 'refresh',
+    guardrail: 'ask',
+  };
+  const run = (id: string, status: string) => ({
+    id,
+    rule,
+    trigger: { kind: 'cron', at: '2026-10-02T09:00:00Z' },
+    status,
+    approved: false,
+  });
+  const { bridge } = fakeBridge({
+    notifications: () => envelope([]),
+    'automations status': () =>
+      envelope({
+        installed: true,
+        loaded: true,
+        runs: [
+          run('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'pending'),
+          run('01ARZ3NDEKTSV4RRFFQ69G5FAW', 'pending'),
+          run('01ARZ3NDEKTSV4RRFFQ69G5FAX', 'done'),
+        ],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const automations = byTestId('nav-automations')[0];
+  expect(automations?.getAttribute('aria-label')).toBe('Automations, 2 waiting');
+  expect(automations?.textContent).toBe('2');
 });
 
 test('Settings > Keyboard Shortcuts opens the shortcuts dialog', async () => {

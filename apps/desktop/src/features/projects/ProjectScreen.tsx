@@ -1,6 +1,7 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
 import { Folder } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { AutomationsTab } from '@/features/automations/AutomationsTab';
 import { FilesTab } from '@/features/files/FilesTab';
 import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
@@ -16,7 +17,15 @@ import { ProjectActionsMenu } from './ProjectActionsMenu';
 import { ProjectTabBar } from './ProjectTabBar';
 
 /** A project page's tabs. */
-export type ProjectTab = 'overview' | 'vault' | 'import' | 'git' | 'files' | 'skills' | 'rules';
+export type ProjectTab =
+  | 'overview'
+  | 'vault'
+  | 'import'
+  | 'git'
+  | 'files'
+  | 'skills'
+  | 'rules'
+  | 'automations';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
 export function ProjectScreen(props: {
@@ -133,8 +142,10 @@ export function ProjectScreen(props: {
           onDirtyChange={props.onFilesDirtyChange}
           onAgentSettings={props.onAgentSettings}
         />
-      ) : (
+      ) : tab === 'rules' ? (
         <RulesTab project={project.name} onDirtyChange={props.onFilesDirtyChange} />
+      ) : (
+        <AutomationsTab key={project.name} project={project.name} />
       )}
     </section>
   );

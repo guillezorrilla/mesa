@@ -13,6 +13,7 @@ import {
   toastTexts,
 } from '@/lib/testing';
 import { AutomationsScreen } from './AutomationsScreen';
+import { AutomationsTab } from './AutomationsTab';
 
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(
@@ -166,4 +167,55 @@ test('install, saved approvals, failure history and uninstall use explicit clien
   expect(byTestId('automations-screen')[0]?.textContent).toContain('Refresh docs: queued');
   await click(button('Uninstall scheduler'));
   expect(installed).toBe(false);
+});
+
+test('a project tab lists only its rules as sentences, warns while the scheduler is not installed and preselects the project', async () => {
+  let installed = false;
+  const rule = (name: string, project: string): AutomationRule => ({
+    name,
+    project,
+    enabled: true,
+    when: 'cron',
+    cron: '0 9 * * 1-5',
+    run: 'skill',
+    skill: 'standup',
+    guardrail: 'ask',
+  });
+  const { bridge, calls } = fakeBridge({
+    'automations list': () => envelope([rule('Standup', 'tide'), rule('Other', 'lantern-cove')]),
+    'automations status': () =>
+      envelope({
+        installed,
+        loaded: installed,
+        runs: [
+          {
+            id: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+            rule: rule('Standup', 'tide'),
+            trigger: { kind: 'cron', at: '2026-10-02T09:00:00Z' },
+            status: 'failed',
+            reason: 'Skill missing',
+            approved: false,
+          },
+        ],
+      }),
+    'automations install': () => {
+      installed = true;
+      return envelope({ installed, loaded: installed, runs: [] });
+    },
+    projects: () => envelope(PROJECTS.map((p) => ({ ...p, exists: true }))),
+  });
+  const byTestId = await renderWithMesa(<AutomationsTab project="tide" />, bridge);
+  const text = () => document.body.textContent ?? '';
+  expect(text()).toContain('Weekdays at 09:00: run skill standup, asks first');
+  expect(text()).toContain('Last run failed');
+  expect(text()).toContain('Skill missing');
+  expect(text()).not.toContain('Other');
+  expect(byTestId('scheduler-alert')[0]?.textContent).toContain(
+    "Scheduler not installed: rules won't run",
+  );
+  await click(button('Install scheduler'));
+  expect(calls).toContainEqual(['--json', 'automations', 'install']);
+  expect(byTestId('scheduler-alert')).toHaveLength(0);
+  await click(button('Add automation'));
+  expect((document.getElementById('automation-project') as HTMLSelectElement).value).toBe('tide');
 });

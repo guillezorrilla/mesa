@@ -11,7 +11,12 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
 /** A rule's trigger, action and explicit permission choice. Saving never starts it. */
-export function AutomationRuleDialog(props: { onClose: () => void; onChanged: () => void }) {
+export function AutomationRuleDialog(props: {
+  /** The project chosen at first. */
+  project?: string;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const [when, setWhen] = useState<AutomationRule['when']>('cron');
   const [action, setAction] = useState<AutomationRule['run']>('refresh');
   const projects = useCommand('projects.list');
@@ -75,7 +80,14 @@ export function AutomationRuleDialog(props: { onClose: () => void; onChanged: ()
       {field('name', 'Name')}
       <div className="space-y-1">
         <Label htmlFor="automation-project">Project</Label>
-        <ProjectSelect id="automation-project" projects={projects.data} />
+        {/* Mounted with its options, so the uncontrolled select starts on `project`. */}
+        {projects.data && (
+          <ProjectSelect
+            id="automation-project"
+            projects={projects.data}
+            defaultValue={props.project}
+          />
+        )}
       </div>
       {projects.error && (
         <p role="alert" className="text-sm text-destructive">

@@ -412,7 +412,7 @@ Not: Vault browser, explorer, finder.
 
 An optional named rule in the Profile's `automations.yaml`, never in a project's `mesa.yaml`. Each names a registered Project, an enabled toggle, `when: cron | file | state`, `run: skill | send | open | refresh`, and an explicit `guardrail: ask | allow`. Trigger details are `cron` (five numeric local-time fields), `file` (a project-relative path without `..`), or `state` (one of Faro's Agent states). Action details are `skill` and optional literal `args`, `session` and `prompt`, `goal`, or optional `notes` for Refresh. Skill, Open and Refresh may select `agent: claude | codex`; unattended notes do not default to Antigravity. Names are unique ignoring case.
 
-`mesa automations list|add|remove|enable|disable --json` manages these rules with private, atomic, locked writes. With no file, list returns an empty array without creating one. CRUD is inert: adding or enabling never installs a scheduler, starts a session, or changes the vault. The Automations screen offers the same rule form and toggles. Execution, scheduler installation and run history are defined by the scheduler delivery (#423).
+`mesa automations list|add|remove|enable|disable --json` manages these rules with private, atomic, locked writes. With no file, list returns an empty array without creating one. CRUD is inert: adding or enabling never installs a scheduler, starts a session, or changes the vault. The Automations screen and each project's Automations tab offer the same rule form and toggles, with each rule as a sentence (`describeAutomation`). Execution, scheduler installation and run history are defined by the scheduler delivery (#423).
 Not: workflow, task, webhook, project config.
 
 ## Release
