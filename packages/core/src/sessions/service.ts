@@ -35,6 +35,7 @@ import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
 import { applyDescendants } from './descendants.js';
 import { discoverNative } from './discovery.js';
+import { applyEach } from './each.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
 import { forkSession } from './fork.js';
@@ -244,6 +245,29 @@ export function sessionsService(
           opts,
         ),
     );
+  /** Ends a live session at once and hides it from the board, keeping its record and logs. */
+  const archive = async (id: string) => {
+    const found = store.get(id);
+    if (!found.archivedAt && !found.endedAt) await stop(id, true);
+    return record(
+      {
+        type: 'session',
+        summary: () => `Archived session ${id}`,
+        failure: `Could not archive session ${id}`,
+        project: (r) => projectScope(r.project),
+        session: () => id,
+        agent: (r) => recordAgent(r),
+        inputs: { id },
+        outputs: (r) => ({ archivedAt: r.archivedAt }),
+        changed: () => !found.archivedAt,
+      },
+      () =>
+        store.update(id, (current) => ({
+          archivedAt: current.archivedAt ?? deps.clock().toISOString(),
+        })),
+    );
+  };
+
   const send = (
     id: string,
     prompt: string,
@@ -708,27 +732,20 @@ export function sessionsService(
           },
           expected,
         ),
-      archive: async (id: string) => {
-        const found = store.get(id);
-        if (!found.archivedAt && !found.endedAt) await stop(id, true);
-        return record(
-          {
-            type: 'session',
-            summary: () => `Archived session ${id}`,
-            failure: `Could not archive session ${id}`,
-            project: (r) => projectScope(r.project),
-            session: () => id,
-            agent: (r) => recordAgent(r),
-            inputs: { id },
-            outputs: (r) => ({ archivedAt: r.archivedAt }),
-            changed: () => !found.archivedAt,
+      archive,
+      /**
+       * Archives each id through `archive`, one session receipt each; an unknown id refuses them
+       * all before any is archived.
+       */
+      archiveEach: (ids: readonly string[]) =>
+        applyEach(
+          ids,
+          (id) => store.find(id) !== undefined,
+          async (id) => {
+            const recorded = await archive(id);
+            return { ...recorded.result, receipt: recorded.receipt, warning: recorded.warning };
           },
-          () =>
-            store.update(id, (current) => ({
-              archivedAt: current.archivedAt ?? deps.clock().toISOString(),
-            })),
-        );
-      },
+        ),
       unarchive: (id: string) => {
         const found = store.get(id);
         return record(

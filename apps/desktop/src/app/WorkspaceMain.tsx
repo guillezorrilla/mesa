@@ -20,7 +20,7 @@ import type { SessionPreset } from './hooks/useStartSession';
 import type { WorkspaceView } from './navigation';
 
 /** A sidebar request the Sessions screen acts on once per new `count`. */
-export type SessionRequest = { count: number; id: string };
+export type SessionRequest = { count: number; ids: string[] };
 
 /** The main pane: the screen for the view. */
 export function WorkspaceMain(props: {
@@ -45,6 +45,8 @@ export function WorkspaceMain(props: {
   onVaultSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
+  /** Several sessions were archived together from the sidebar's selection. */
+  onSessionsArchived?: () => void;
   promptInsertRequest?: { session: string; text: string };
 }) {
   const { view, project, navigate, config, projects, prompts, needsProfileSetup } = props;
@@ -85,6 +87,7 @@ export function WorkspaceMain(props: {
           onProject={(name) => navigate({ kind: 'project', name })}
           archiveSessionRequest={props.archiveSessionRequest}
           dependencySessionRequest={props.dependencySessionRequest}
+          onArchived={props.onSessionsArchived}
           terminalPreferences={config.data?.terminal}
           savedPrompts={prompts.data}
           promptInsertRequest={props.promptInsertRequest}

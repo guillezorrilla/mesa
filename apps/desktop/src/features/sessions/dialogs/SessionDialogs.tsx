@@ -20,13 +20,14 @@ export type OpenDialog =
         | 'rename'
         | 'log'
         | 'remove'
-        | 'archive'
         | 'fork'
         | 'dependency'
         | 'stop-descendants'
         | 'remove-descendants';
       row: ManagedRow;
     }
+  /** Archive one session, or several confirmed together. */
+  | { kind: 'archive'; rows: ManagedRow[] }
   /** Hand off, to `agent` when a swap asked for it. */
   | { kind: 'handoff'; row: ManagedRow; agent?: Agent }
   | {
@@ -141,10 +142,10 @@ export function SessionDialogs({
       )}
       {dialog?.kind === 'archive' && (
         <ArchiveDialog
-          row={dialog.row}
+          rows={dialog.rows}
           disabled={acting}
-          onArchive={() => commands.archive(dialog.row.id)}
-          onDelete={() => commands.deletePermanently(dialog.row.id)}
+          onArchive={() => commands.archive(dialog.rows.map((row) => row.id))}
+          onDelete={(id) => commands.deletePermanently(id)}
           onCancel={onClose}
         />
       )}

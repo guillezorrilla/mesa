@@ -22,3 +22,15 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
 }
 
 export type SidebarGroups = ReturnType<typeof sidebarGroups>;
+
+/**
+ * The session ids in the order the Sessions tab shows their cards: each listed project's (none
+ * for a folded one), then General, Other, and Recoverable.
+ */
+export function sidebarOrder(groups: SidebarGroups, closedProjects: readonly string[]) {
+  const { visible, active, stranded, general, other } = groups;
+  const projects = visible
+    .filter((project) => !closedProjects.includes(project.name))
+    .flatMap((project) => active.filter((session) => session.project === project.name));
+  return [...projects, ...general, ...other, ...stranded].map((session) => session.id);
+}

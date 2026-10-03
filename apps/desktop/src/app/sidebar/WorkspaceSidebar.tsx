@@ -23,7 +23,8 @@ import { ProjectsSection } from './ProjectsSection';
 import { SessionsSection } from './SessionsSection';
 import { SidebarNavButton } from './SidebarNavButton';
 import { SidebarTabs } from './SidebarTabs';
-import { sidebarGroups } from './sidebarGroups';
+import { sidebarGroups, sidebarOrder } from './sidebarGroups';
+import { useSessionSelection } from './useSessionSelection';
 
 /** `list` with `value` added, or removed when it is there. */
 const toggled = (list: string[], value: string) =>
@@ -49,6 +50,10 @@ export function WorkspaceSidebar(props: {
   starting?: readonly string[];
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
+  /** Archives the selected sessions together, after one confirmation. */
+  onArchiveSessions?: (ids: string[]) => void;
+  /** A new count when the selected sessions were archived: the selection starts over. */
+  sessionsArchived?: number;
   onDependencySession?: (id: string) => void;
 }) {
   const { view, onView, collapsed } = props;
@@ -61,6 +66,11 @@ export function WorkspaceSidebar(props: {
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
+  const selection = useSessionSelection(
+    sidebarOrder(groups, closedProjects),
+    view.kind === 'session' ? view.id : undefined,
+    props.sessionsArchived,
+  );
   /** The Sessions tab, back on the session last shown while it is still listed, else the first. */
   const openSessions = () => {
     setProjectTab(false);
@@ -147,6 +157,9 @@ export function WorkspaceSidebar(props: {
             onToggleProject={(name) => setClosedProjects((current) => toggled(current, name))}
             compactSessions={compactSessions}
             onToggleCompact={(id) => setCompactSessions((current) => toggled(current, id))}
+            chosen={selection.ids}
+            onSelection={selection.apply}
+            onArchiveSessions={props.onArchiveSessions}
             starting={props.starting}
             onNewSession={props.onNewSession}
             onArchiveSession={props.onArchiveSession}
