@@ -11,6 +11,7 @@ import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
+import { SetupScreen } from '@/features/tour/SetupScreen';
 import { TourScreen } from '@/features/tour/TourScreen';
 import { VaultScreen } from '@/features/vault/VaultScreen';
 import { type CommandState, useRun } from '@/lib/useCommand';
@@ -29,6 +30,8 @@ export function WorkspaceMain(props: {
   config: CommandState<Config>;
   projects: CommandState<ProjectRow[]>;
   needsProfileSetup: boolean;
+  onProfileInitialised: () => Promise<void>;
+  onStartTour: () => void;
   prompts: CommandState<SavedPrompt[]>;
   doctor: CommandState<DoctorReport>;
   sessions: readonly TreeRow[];
@@ -143,6 +146,14 @@ export function WorkspaceMain(props: {
       )}
       {view.kind === 'automations' && <AutomationsScreen />}
       {view.kind === 'backup' && <BackupScreen />}
+      {view.kind === 'setup' && (
+        <SetupScreen
+          doctor={props.doctor}
+          profileExists={config.data !== undefined}
+          onInitialised={props.onProfileInitialised}
+          onContinue={props.onStartTour}
+        />
+      )}
       {view.kind === 'tour' && config.data && (
         <TourScreen
           state={config.data.onboarding}

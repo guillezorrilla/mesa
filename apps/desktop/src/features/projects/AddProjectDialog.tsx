@@ -1,7 +1,6 @@
 import { FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
-import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,12 +13,9 @@ export function AddProjectDialog(props: {
   onCancel: () => void;
   onRegistered: () => Promise<void>;
   returnFocus?: HTMLElement | null;
-  needsProfileSetup?: boolean;
-  onInitialised?: () => Promise<void>;
 }) {
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
-  const [vault, setVault] = useState('');
   const { pickFolder } = usePlatform();
   const { acting, act } = useAct();
   const run = useRun();
@@ -40,17 +36,13 @@ export function AddProjectDialog(props: {
           </>
         ),
         testId: 'register-folder',
-        disabled: acting || !path.trim() || Boolean(props.needsProfileSetup && !vault.trim()),
+        disabled: acting || !path.trim(),
       }}
       onCancel={() => !acting && props.onCancel()}
       returnFocus={props.returnFocus}
       onSubmit={() => {
-        if (!path.trim() || (props.needsProfileSetup && !vault.trim())) return;
+        if (!path.trim()) return;
         void act(async () => {
-          if (props.needsProfileSetup) {
-            if (!(await run('profile.init', { vault: vault.trim() }))) return undefined;
-            await props.onInitialised?.();
-          }
           const label = name.trim();
           const registered = await run('projects.register', {
             path: path.trim(),
@@ -63,38 +55,6 @@ export function AddProjectDialog(props: {
         });
       }}
     >
-      {props.needsProfileSetup && (
-        <div className="space-y-2">
-          <Label htmlFor="project-vault">Vault folder</Label>
-          <Muted>Choose your local Obsidian vault folder to set up Mesa.</Muted>
-          <div className="flex items-center gap-2">
-            <Input
-              id="project-vault"
-              placeholder="/path/to/vault"
-              className="font-mono"
-              value={vault}
-              disabled={acting}
-              onChange={(event) => setVault(event.target.value)}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Choose vault folder"
-              disabled={acting}
-              onClick={() =>
-                void act(async () => {
-                  const chosen = await pickFolder();
-                  if (chosen) setVault(chosen);
-                  return undefined;
-                })
-              }
-            >
-              <FolderOpen aria-hidden />
-            </Button>
-          </div>
-        </div>
-      )}
       <div className="space-y-2">
         <Label htmlFor="project-path">Path</Label>
         <div className="flex items-center gap-2">

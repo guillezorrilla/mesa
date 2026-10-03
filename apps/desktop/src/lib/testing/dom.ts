@@ -7,6 +7,14 @@ export const toasts = (byTestId: (id: string) => HTMLElement[]) =>
 export const toastTexts = (byTestId: (id: string) => HTMLElement[]) =>
   byTestId('toast').map((t) => t.querySelector('pre')?.textContent);
 
+/** Types `value` into the input with `id` as a person does: the input event React's onChange reads. */
+export const fill = (id: string, value: string) =>
+  act(async () => {
+    const input = document.getElementById(id) as HTMLInputElement;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
 export const click = (element: HTMLElement | undefined) =>
   act(async () => {
     element?.dispatchEvent(

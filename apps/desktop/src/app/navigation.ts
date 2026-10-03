@@ -13,6 +13,7 @@ export type WorkspaceView =
         | 'backup'
         | 'automations'
         | 'tour'
+        | 'setup'
         | 'map'
         | 'usage'
         | 'inbox';
