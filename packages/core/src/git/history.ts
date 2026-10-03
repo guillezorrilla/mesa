@@ -12,6 +12,8 @@ export type GitGraphCommit = {
   subject: string;
   author: string;
   authoredAt: string;
+  /** Branch, remote and tag names pointing at this commit, as `git log %D` prints them. */
+  refs: string[];
 };
 export type GitGraphRow = { graph: string; commit?: GitGraphCommit };
 export type GitGraph = {
@@ -58,7 +60,7 @@ export async function readGitGraph(
       '--color=never',
       '--topo-order',
       '--max-count=100',
-      '--format=%H%x00%P%x00%s%x00%an%x00%aI',
+      '--format=%H%x00%P%x00%s%x00%an%x00%aI%x00%D',
       ...(branch ? [`refs/heads/${branch}`] : ['--branches']),
     ],
     15_000,
@@ -72,9 +74,8 @@ export async function readGitGraph(
       const marker = /[0-9a-f]{40,64}\0/.exec(line);
       if (!marker) return { graph: line };
       const graph = line.slice(0, marker.index);
-      const [oid = '', parentText = '', subject = '', author = '', authoredAt = ''] = line
-        .slice(marker.index)
-        .split('\0');
+      const [oid = '', parentText = '', subject = '', author = '', authoredAt = '', refText = ''] =
+        line.slice(marker.index).split('\0');
       return {
         graph,
         commit: {
@@ -83,6 +84,7 @@ export async function readGitGraph(
           subject,
           author,
           authoredAt,
+          refs: refText ? refText.split(', ') : [],
         },
       };
     });

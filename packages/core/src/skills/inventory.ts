@@ -208,6 +208,16 @@ export function skillInventory(input: {
         precedence: 'only-discovered-source',
       };
     });
+  // Library folders by their real paths, so a link into the library is known however it is named.
+  const libraryPaths = new Set(
+    [...byName.values()].flatMap((skill) => {
+      try {
+        return [realpathSync.native(skill.path)];
+      } catch {
+        return [];
+      }
+    }),
+  );
   const seen = new Map<string, SkillInventoryRow>();
   for (const root of nativeRoots(input.home, input.projectDir, enabledPlugins)) {
     for (const entry of entries(root.path)) {
@@ -221,8 +231,7 @@ export function skillInventory(input: {
       } catch {
         continue;
       }
-      const librarySkill = [...byName.values()].some((skill) => skill.path === canonical);
-      if (librarySkill) continue;
+      if (libraryPaths.has(canonical)) continue;
       const existing = seen.get(canonical);
       if (existing) {
         existing.providers = [...new Set([...existing.providers, ...root.providers])];
@@ -255,8 +264,9 @@ export function skillInventory(input: {
       }
       if (readable && !skill) invalidReason = 'SKILL.md has invalid metadata';
       if (!readable) invalidReason = 'SKILL.md is not a readable file';
-      const writable =
-        root.scope !== 'plugin' && !entry.isSymbolicLink() && !linkedFile && readable;
+      // A linked folder is the user's own (Mesa's library links were skipped above), so an edit
+      // lands where the link points; a linked SKILL.md alone stays read-only.
+      const writable = root.scope !== 'plugin' && !linkedFile && readable;
       const row: SkillInventoryRow = {
         id: path,
         name: skill?.name ?? entry.name,
@@ -275,9 +285,7 @@ export function skillInventory(input: {
                 ? 'SKILL.md is not a readable file'
                 : root.scope === 'plugin'
                   ? 'Managed by a provider plugin'
-                  : entry.isSymbolicLink()
-                    ? 'Linked skill folder'
-                    : 'Linked SKILL.md',
+                  : 'Linked SKILL.md',
             }
           : {}),
         conflicts: [],

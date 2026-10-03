@@ -14,6 +14,8 @@ export function FileEditor(props: {
   targetLine?: number;
   preferences: Config['editor'];
   readOnly?: boolean;
+  /** False when the page around the editor owns the Markdown preview. */
+  previewToggle?: boolean;
 }) {
   const [preview, setPreview] = useState(Boolean(props.readOnly));
   const textArea = useRef<HTMLTextAreaElement>(null);
@@ -27,7 +29,7 @@ export function FileEditor(props: {
     textArea.current?.focus();
     textArea.current?.setSelectionRange(position, position);
   }, [props.targetLine, props.initialText, props.preferences.vim, preview]);
-  const markdown = /\.md(?:own)?$/i.test(props.path);
+  const markdown = props.previewToggle !== false && /\.md(?:own)?$/i.test(props.path);
   return (
     <div className="min-h-0 flex-1 space-y-3">
       {markdown && (

@@ -32,13 +32,9 @@ export function VaultSearchResults(props: {
       : `${data.total} ${data.total === 1 ? 'item matches' : 'items match'} ${what}.` +
         (data.truncated ? ` Showing the first ${data.items.length}.` : '');
   return (
-    <section
-      aria-label="Vault search results"
-      data-testid="vault-results"
-      className="max-h-[36rem] min-w-0 overflow-auto rounded-lg border bg-card/40 p-1"
-    >
+    <section aria-label="Vault search results" data-testid="vault-results" className="min-w-0 py-1">
       {said && (
-        <Muted data-testid="vault-results-said" size="xs" className="p-2">
+        <Muted data-testid="vault-results-said" size="xs" className="px-3 py-2">
           {said}
         </Muted>
       )}
@@ -52,8 +48,8 @@ export function VaultSearchResults(props: {
             aria-pressed={props.selected === hit.path}
             title={hit.path}
             className={cn(
-              'block w-full min-w-0 rounded px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
-              props.selected === hit.path && 'bg-accent',
+              'block w-full min-w-0 px-3 py-2 text-left text-sm hover:bg-accent/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+              props.selected === hit.path && 'bg-accent hover:bg-accent',
             )}
             onClick={() => props.onSelect(hit.path)}
           >

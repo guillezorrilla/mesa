@@ -433,3 +433,30 @@ test('links into a folder inside the project (an adopted session in a subfolder)
   expect(existsSync(join(dir, 'sub/.claude/skills/a/SKILL.md'))).toBe(true);
   expect(testGit(dir, 'status', '--porcelain')).toBe('');
 });
+
+test('a skill linked into a native folder is edited where its link points', () => {
+  const { home, mesa } = setUp();
+  skill(join(home, '.agents/skills'), 'linked', 'Linked skill');
+  mkdirSync(join(home, '.claude/skills'), { recursive: true });
+  symlinkSync('../../.agents/skills/linked', join(home, '.claude/skills/linked'));
+  const row = mesa.skills.inventory().find((each) => each.name === 'linked');
+  expect(row).toMatchObject({ writable: true, providers: ['claude', 'codex'] });
+  const opened = mesa.skills.read(row?.id ?? '');
+  mesa.skills.write(row?.id ?? '', `${opened.text}Edited.\n`, opened.revision);
+  expect(readFileSync(join(home, '.agents/skills/linked/SKILL.md'), 'utf8')).toContain('Edited.');
+  expect(lstatSync(join(home, '.claude/skills/linked')).isSymbolicLink()).toBe(true);
+});
+
+test("Mesa's library links stay Mesa skills when the library is reached through a link", () => {
+  const { home, dir } = setUp();
+  // The same library, named through a linked folder (as /var is /private/var on macOS).
+  symlinkSync(join(home, 'library'), join(home, 'linked-library'));
+  const mesa = createMesa(
+    'default',
+    testDeps(home, { run: scriptedRunner().run, skillsDir: join(home, 'linked-library') }),
+  );
+  mesa.skills.sync('lantern-cove');
+  expect(existsSync(join(dir, '.claude/skills/a'))).toBe(true);
+  const rows = mesa.skills.inventory('lantern-cove').filter((row) => row.name === 'a');
+  expect(rows.map((row) => [row.scope, row.writable])).toEqual([['mesa', false]]);
+});

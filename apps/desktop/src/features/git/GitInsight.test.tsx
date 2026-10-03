@@ -58,7 +58,7 @@ test('the Insights control explicitly reads source, freshness, and branch-matche
   );
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-      (button) => button.textContent === 'Insights',
+      (button) => button.getAttribute('aria-label') === 'Insights',
     ),
   );
   expect(calls.some((args) => args[1] === 'git' && args[2] === 'insight')).toBe(true);

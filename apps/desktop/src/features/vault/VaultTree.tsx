@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 export const KIND_ICONS: Record<VaultKind, LucideIcon> = {
@@ -57,7 +56,7 @@ function foldersOf(items: readonly VaultItem[]): FolderNode {
 }
 
 const ROW =
-  'flex w-full items-center gap-2 rounded py-1 pr-2 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring';
+  'flex w-full items-center gap-2 py-1.5 pr-3 text-left text-sm hover:bg-accent/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring';
 
 /**
  * The inventory as a folder tree with a count on each folder. Only the top level shows at first:
@@ -102,12 +101,10 @@ export function VaultTree(props: {
           style={indent(depth)}
           onClick={() => toggle(child.path)}
         >
-          <Chevron aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-          <Icon aria-hidden className="size-3.5 shrink-0" />
+          <Chevron aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{child.name}</span>
-          <Badge variant="secondary" className="ml-auto">
-            {child.count}
-          </Badge>
+          <span className="ml-auto text-xs text-muted-foreground">{child.count}</span>
         </button>,
         ...(expanded ? rows(child, depth + 1) : []),
       ];
@@ -124,25 +121,22 @@ export function VaultTree(props: {
           title={item.unavailable ? `${item.path}: ${item.unavailable}` : item.path}
           className={cn(
             ROW,
-            props.selected === item.path && 'bg-accent',
+            props.selected === item.path && 'bg-accent hover:bg-accent',
             item.unavailable && 'text-muted-foreground',
           )}
           // Files line up under their folder's name, past its chevron.
           style={indent(depth + 1.5)}
           onClick={() => props.onSelect(item.path)}
         >
-          <Icon aria-hidden className="size-3.5 shrink-0" />
+          <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{item.path.split('/').at(-1)}</span>
-          <span className="ml-auto text-[11px] text-muted-foreground">{item.kind}</span>
+          <span className="ml-auto text-[11px] text-muted-foreground/70">{item.kind}</span>
         </button>
       );
     }),
   ];
   return (
-    <section
-      aria-label="Vault tree"
-      className="max-h-[36rem] min-w-0 overflow-auto rounded-lg border bg-card/40 p-1"
-    >
+    <section aria-label="Vault tree" className="min-w-0 py-1">
       {rows(foldersOf(props.items), 0)}
       {props.items.length === 0 && (
         <Muted size="xs" className="p-2">

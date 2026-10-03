@@ -290,6 +290,13 @@ test('project Skills and Rules tabs preview and save only through their checked 
       ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
     ].find((b) => b.textContent?.includes('sunset-map')),
   );
+  // The page reads the skill first; Edit opens it in the editor.
+  expect(byTestId('skills-workspace')[0]?.querySelector('h1')?.textContent).toBe('Sunset map');
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.trim() === 'Edit'),
+  );
   expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Sunset map\n');
   await act(async () => {
     const editor = byTestId('file-editor-text')[0] as HTMLTextAreaElement;
@@ -302,7 +309,7 @@ test('project Skills and Rules tabs preview and save only through their checked 
   await click(
     [
       ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
-    ].find((b) => b.textContent === 'Save'),
+    ].find((b) => b.textContent?.trim() === 'Save'),
   );
   expect(calls).toContainEqual([
     '--json',
@@ -391,10 +398,12 @@ test('project Skills scope filters show how many skills each holds', async () =>
     ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('fieldset button') ??
       []),
   ];
+  // All is the person's own skills; a plugin's skill has its own tab.
   expect(scopes().map((button) => button.textContent)).toEqual([
-    'all (3)',
-    'global (2)',
+    'all (2)',
+    'global (1)',
     'project (1)',
+    'plugins (1)',
   ]);
   await click(scopes()[2]);
   expect(byTestId('skills-workspace')[0]?.textContent).toContain('sunset-map');
@@ -433,6 +442,11 @@ test('project Skills can enable a shipped skill through the project policy and s
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (b) => b.textContent === 'skills',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('fieldset button')].find((b) =>
+      b.textContent?.startsWith('mesa'),
     ),
   );
   await click(
@@ -488,6 +502,11 @@ test('project Skills does not offer to disable a skill inherited from the profil
   await openProject(byTestId);
   await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
   await click(
+    [...document.querySelectorAll<HTMLButtonElement>('fieldset button')].find((b) =>
+      b.textContent?.startsWith('mesa'),
+    ),
+  );
+  await click(
     [
       ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
     ].find((b) => b.textContent?.includes('session-summary')),
@@ -531,13 +550,18 @@ test('project Skills lists the vault and Obsidian skills Mesa ships, with their 
   const byTestId = await renderWithMesa(<App />, bridge);
   await openProject(byTestId);
   await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('fieldset button')].find((b) =>
+      b.textContent?.startsWith('mesa'),
+    ),
+  );
   const card = (name: string) =>
     [
       ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
     ].find((b) => b.textContent?.startsWith(name));
-  expect(card('mesa-vault')?.textContent).toContain('mesa-vaultEnabled');
+  expect(card('mesa-vault')?.textContent).toContain('Enabled');
   for (const name of ['obsidian-markdown', 'obsidian-bases', 'json-canvas', 'obsidian-cli']) {
-    expect(card(name)?.textContent).toContain(`${name}Off`);
+    expect(card(name)?.textContent).toContain('Off');
   }
   await click(card('obsidian-cli'));
   const text = byTestId('skills-workspace')[0]?.textContent ?? '';
@@ -1276,7 +1300,8 @@ test('project Git remote panel shows its upstream and confirms an explicit push'
     ),
   );
   expect(document.querySelectorAll('[aria-label="Git graph"]')).toHaveLength(1);
-  expect(document.querySelectorAll('[aria-label="Local branches"]')).toHaveLength(1);
+  // The graph has its own branch filter; the branch list belongs to Status.
+  expect(document.querySelectorAll('[aria-label="Local branches"]')).toHaveLength(0);
 });
 
 test('project Git graph filters a branch and compares a selected commit', async () => {
@@ -1287,6 +1312,7 @@ test('project Git graph filters a branch and compares a selected commit', async 
     subject: 'Feature commit',
     author: 'Test',
     authoredAt: '2026-09-27T12:00:00Z',
+    refs: ['feature'],
   };
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -1340,6 +1366,9 @@ test('project Git graph filters a branch and compares a selected commit', async 
   await click(
     document.querySelector<HTMLButtonElement>('[aria-label="Commits"] button') ?? undefined,
   );
+  await click(
+    document.querySelector<HTMLButtonElement>('[aria-label="Compare refs"]') ?? undefined,
+  );
   const base = document.querySelector<HTMLInputElement>('[aria-label="Compare base"]');
   await act(async () => {
     if (base) {
@@ -1348,7 +1377,7 @@ test('project Git graph filters a branch and compares a selected commit', async 
     }
   });
   await click(
-    [...document.querySelectorAll<HTMLButtonElement>('[aria-label="Git graph"] button')].find(
+    [...document.querySelectorAll<HTMLButtonElement>('button')].find(
       (button) => button.textContent === 'Compare',
     ),
   );

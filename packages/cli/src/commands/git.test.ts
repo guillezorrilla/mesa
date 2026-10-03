@@ -525,6 +525,11 @@ test('commit graph filters local branches and compares divergent refs', async ()
       commit: expect.objectContaining({ subject: 'feature work', parents: [expect.any(String)] }),
     }),
   );
+  expect(all.json.data.rows).toContainEqual(
+    expect.objectContaining({
+      commit: expect.objectContaining({ subject: 'main work', refs: ['HEAD -> main'] }),
+    }),
+  );
   expect(all.json.data.rows.some((row: { graph: string }) => row.graph.includes('*'))).toBe(true);
   const filtered = await cli.mesa('git', 'graph', 'lantern-cove', '--branch', 'feature', '--json');
   expect(filtered.json.data.commits).toBe(2);

@@ -1,14 +1,15 @@
-import type { Config, SkillInventoryRow, WorkspaceFile } from '@mesa/core';
-import { FileText, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import type { Config, SkillInventoryRow } from '@mesa/core';
+import { RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { FileEditor } from '@/features/files/FileEditor';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
+import { SkillCard } from './SkillCard';
+import { SkillPanel } from './SkillPanel';
+import { inTab, SKILL_TABS, type SkillTab, skillCards } from './skillScopes';
 
 const DEFAULT_EDITOR: Config['editor'] = {
   fontSize: 13,
@@ -18,7 +19,7 @@ const DEFAULT_EDITOR: Config['editor'] = {
   external: [],
 };
 
-/** Installed skills are browsed here; their invocation stays in the agent terminal. */
+/** Installed skills are browsed here, one page per skill; their invocation stays in the terminal. */
 export function SkillsTab(props: {
   project: string;
   onDirtyChange: (dirty: boolean) => void;
@@ -29,56 +30,11 @@ export function SkillsTab(props: {
   const projects = useCommand('projects.list');
   const run = useRun();
   const { acting, act } = useAct();
-  const [filter, setFilter] = useState<'all' | 'global' | 'project'>('all');
-  const [selected, setSelected] = useState<SkillInventoryRow>();
-  const [file, setFile] = useState('SKILL.md');
-  const [opened, setOpened] = useState<WorkspaceFile>();
-  const [draft, setDraft] = useState('');
-  const dirty = Boolean(opened && opened.text !== draft);
-  useEffect(() => props.onDirtyChange(dirty), [dirty, props.onDirtyChange]);
-  useEffect(() => {
-    if (!dirty) return;
-    const preventClose = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', preventClose);
-    return () => window.removeEventListener('beforeunload', preventClose);
-  }, [dirty]);
-  const inScope = (scope: typeof filter) =>
-    (skills.data ?? []).filter(
-      (row) =>
-        scope === 'all' || (scope === 'global' ? row.scope !== 'project' : row.scope === 'project'),
-    );
-  const visible = inScope(filter);
-  const open = async (row: SkillInventoryRow, nextFile = 'SKILL.md') => {
-    if (dirty) return;
-    const document = await run('skills.read', {
-      id: row.id,
-      project: props.project,
-      file: nextFile,
-    });
-    if (!document) return;
-    setSelected(row);
-    setFile(nextFile);
-    setOpened(document);
-    setDraft(document.text);
-  };
-  const save = () =>
-    act(async () => {
-      if (!selected || !opened || !selected.writable) return undefined;
-      const result = await run('skills.write', {
-        id: selected.id,
-        project: props.project,
-        file,
-        text: draft,
-        revision: opened.revision,
-      });
-      if (!result) return undefined;
-      setOpened({ ...opened, text: draft, revision: result.revision ?? opened.revision });
-      await skills.refresh();
-      return said(`Saved ${selected.name}/${file}`, result);
-    });
+  const [tab, setTab] = useState<SkillTab>('all');
+  const [picked, setPicked] = useState<string>();
+  const cards = skillCards(skills.data ?? []);
+  // The open skill as the latest list has it, so a toggle or save shows on its page.
+  const selected = cards.find((card) => card.id === picked);
   const toggle = (row: SkillInventoryRow) =>
     act(async () => {
       const enabled = config.data?.skills ?? [];
@@ -104,104 +60,23 @@ export function SkillsTab(props: {
       if (!synced) return undefined;
       return said(`${row.name} ${enabled ? 'added to' : 'removed from'} project policy`, synced);
     });
-  const inProfile = selected && config.data?.skills.includes(selected.name);
-  const inProject =
-    selected &&
-    projects.data?.find((row) => row.name === props.project)?.skills.includes(selected.name);
-  return (
-    <section data-testid="skills-workspace" className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold">Skills</h3>
-          <Muted size="xs">
-            Invoke an enabled skill from the session terminal with your agent's command.
-          </Muted>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="ghost" onClick={props.onAgentSettings}>
-            Coding agents
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={acting}
-            onClick={() =>
-              void act(async () => {
-                const synced = await run('skills.sync', { project: props.project });
-                if (!synced) return undefined;
-                await skills.refresh();
-                return said(`Synced skills in ${props.project}`, synced);
-              })
-            }
-          >
-            <RefreshCw aria-hidden className="size-4" /> Sync
-          </Button>
-        </div>
-      </div>
-      <fieldset className="flex gap-1">
-        <legend className="sr-only">Skill scope</legend>
-        {(['all', 'global', 'project'] as const).map((scope) => (
-          <Button
-            key={scope}
-            size="sm"
-            variant={filter === scope ? 'secondary' : 'ghost'}
-            onClick={() => setFilter(scope)}
-            className="capitalize"
-          >
-            {scope} ({inScope(scope).length})
-          </Button>
-        ))}
-      </fieldset>
-      <div className="grid gap-3 md:grid-cols-2">
-        {visible.map((row) => (
-          <button
-            key={row.id}
-            type="button"
-            disabled={dirty}
-            onClick={() => void open(row)}
-            className="rounded-lg text-left focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50"
-          >
-            <Card className={selected?.id === row.id ? 'border-ring' : 'hover:border-ring/70'}>
-              <CardContent className="space-y-2 p-4">
-                <div className="flex items-center gap-2">
-                  <FileText aria-hidden className="size-4 text-ring" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{row.name}</span>
-                  <Badge variant={row.enabled ? 'secondary' : 'outline'}>
-                    {row.invalidReason
-                      ? 'Invalid'
-                      : row.source === 'mesa'
-                        ? row.enabled
-                          ? 'Enabled'
-                          : 'Off'
-                        : row.enabled
-                          ? 'Available'
-                          : 'Disabled'}
-                  </Badge>
-                </div>
-                <Muted size="xs" className="line-clamp-2">
-                  {row.description || row.path}
-                </Muted>
-                <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
-                  <span className="capitalize">{row.scope}</span>
-                  <span>· {row.providers.join(', ')}</span>
-                  {row.conflicts.length > 0 && (
-                    <span className="text-state-attention">· Conflict</span>
-                  )}
-                  {Boolean(row.disabledFor?.length) && (
-                    <span>· Disabled in {row.disabledFor?.join(', ')}</span>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </button>
-        ))}
-      </div>
-      {visible.length === 0 && <Muted>No skills found.</Muted>}
-      {selected && opened && (
-        <section className="space-y-3 rounded-lg border bg-card/35 p-4" aria-label="Skill details">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="min-w-0 flex-1 truncate font-medium">{selected.name}</h4>
-            {selected.source === 'mesa' && (
+  if (selected) {
+    const inProfile = config.data?.skills.includes(selected.name);
+    const inProject = projects.data
+      ?.find((row) => row.name === props.project)
+      ?.skills.includes(selected.name);
+    return (
+      <section data-testid="skills-workspace">
+        <SkillPanel
+          key={selected.id}
+          project={props.project}
+          row={selected}
+          editor={config.data?.editor ?? DEFAULT_EDITOR}
+          onBack={() => setPicked(undefined)}
+          onSaved={skills.refresh}
+          onDirtyChange={props.onDirtyChange}
+          actions={
+            selected.source === 'mesa' && (
               <>
                 <Button
                   size="sm"
@@ -226,62 +101,82 @@ export function SkillsTab(props: {
                   </Button>
                 )}
               </>
-            )}
-            {selected.writable && dirty && (
-              <Button size="sm" variant="ghost" onClick={() => setDraft(opened.text)}>
-                Discard
-              </Button>
-            )}
-            {selected.writable && (
-              <Button size="sm" disabled={acting || !dirty} onClick={() => void save()}>
-                Save
-              </Button>
-            )}
-          </div>
-          <Muted size="xs" className="break-all">
-            {selected.path}
-          </Muted>
-          {selected.readOnlyReason && (
-            <p className="text-xs">Read-only: {selected.readOnlyReason}</p>
-          )}
-          {selected.invalidReason && <p className="text-xs">{selected.invalidReason}</p>}
-          {selected.enabled && selected.source === 'mesa' && !inProfile && inProject && (
-            <p className="text-xs">Enabled by the project's mesa.yaml skill policy.</p>
-          )}
-          {selected.source === 'mesa' && inProfile && (
-            <p className="text-xs">Enabled by the profile in every project.</p>
-          )}
-          {selected.conflicts.length > 0 && (
-            <p className="break-all text-xs text-state-attention">
-              Same-name skill also found at {selected.conflicts.join(', ')}. The provider decides
-              which to offer; Mesa does not choose a winner.
-            </p>
-          )}
-          <fieldset className="flex flex-wrap gap-1">
-            <legend className="sr-only">Skill files</legend>
-            {['SKILL.md', ...selected.supportFiles].map((name) => (
-              <Button
+            )
+          }
+          notes={
+            <>
+              {selected.invalidReason && <p>{selected.invalidReason}</p>}
+              {selected.enabled && selected.source === 'mesa' && !inProfile && inProject && (
+                <p>Enabled by the project's mesa.yaml skill policy.</p>
+              )}
+              {selected.source === 'mesa' && inProfile && (
+                <p>Enabled by the profile in every project.</p>
+              )}
+              {selected.conflicts.length > 0 && (
+                <p className="break-all text-state-waiting">
+                  Same-name skill also found at {selected.conflicts.join(', ')}. The provider
+                  decides which to offer; Mesa does not choose a winner.
+                </p>
+              )}
+            </>
+          }
+        />
+      </section>
+    );
+  }
+  const visible = inTab(cards, tab);
+  return (
+    <section data-testid="skills-workspace" className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <fieldset className="flex flex-wrap gap-1">
+          <legend className="sr-only">Skill scope</legend>
+          {SKILL_TABS.filter((name) => name === 'all' || inTab(cards, name).length > 0).map(
+            (name) => (
+              <button
                 key={name}
-                size="sm"
-                variant={file === name ? 'secondary' : 'ghost'}
-                disabled={dirty}
-                onClick={() => void open(selected, name)}
+                type="button"
+                aria-pressed={tab === name}
+                className={cn(
+                  'rounded-full px-3 py-1 text-sm capitalize text-muted-foreground hover:text-foreground',
+                  'aria-pressed:bg-accent aria-pressed:text-foreground',
+                )}
+                onClick={() => setTab(name)}
               >
-                {name}
-              </Button>
-            ))}
-          </fieldset>
-          <FileEditor
-            key={`${selected.id}/${file}`}
-            path={file}
-            value={draft}
-            initialText={opened.text}
-            onChange={setDraft}
-            preferences={config.data?.editor ?? DEFAULT_EDITOR}
-            readOnly={!selected.writable}
-          />
-        </section>
-      )}
+                {name} ({inTab(cards, name).length})
+              </button>
+            ),
+          )}
+        </fieldset>
+        <span className="ml-auto flex gap-2">
+          <Button size="sm" variant="ghost" onClick={props.onAgentSettings}>
+            Coding agents
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={acting}
+            onClick={() =>
+              void act(async () => {
+                const synced = await run('skills.sync', { project: props.project });
+                if (!synced) return undefined;
+                await skills.refresh();
+                return said(`Synced skills in ${props.project}`, synced);
+              })
+            }
+          >
+            <RefreshCw aria-hidden className="size-4" /> Sync
+          </Button>
+        </span>
+      </div>
+      <Muted size="xs">
+        Invoke an enabled skill from the session terminal with your agent's command.
+      </Muted>
+      <div className="grid gap-3 md:grid-cols-2">
+        {visible.map((row) => (
+          <SkillCard key={row.id} row={row} onOpen={() => setPicked(row.id)} />
+        ))}
+      </div>
+      {visible.length === 0 && <Muted>No skills found.</Muted>}
     </section>
   );
 }

@@ -10,6 +10,8 @@ const commit = {
   subject: 'Feature commit',
   author: 'Test',
   authoredAt: '2026-09-27T12:00:00Z',
+  parents: ['a'.repeat(40)],
+  refs: ['HEAD -> main', 'origin/main'],
 };
 const bridge = () =>
   fakeBridge({
@@ -38,11 +40,17 @@ const bridge = () =>
         head: commit.oid,
         behind: 0,
         ahead: 1,
-        patch: '+feature\n',
-        rows: [{ kind: 'change', left: '', right: 'feature' }],
+        patch: 'diff --git a/src/feature.ts b/src/feature.ts\n@@ -0,0 +1 @@\n+feature\n',
+        rows: [
+          { kind: 'meta', left: 'diff --git a/src/feature.ts b/src/feature.ts', right: '' },
+          { kind: 'meta', left: '@@ -0,0 +1 @@', right: '' },
+          { kind: 'change', left: '', right: 'feature', newLine: 1 },
+        ],
       }),
     'worktrees list': () => envelope([]),
   }).bridge;
+const commitRow = () =>
+  document.querySelector<HTMLButtonElement>('[aria-label="Commits"] button') ?? undefined;
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(
     (each) => each.textContent === label || each.getAttribute('aria-label') === label,
@@ -57,9 +65,22 @@ test('the diff, both layouts, and the change list use the profile diff and tree 
   expect(row && getComputedStyle(row).fontSize).toBe('11px');
 });
 
-test('the commit compare patch uses the profile diff size', async () => {
+test('a graph commit opens its changed files and diff at the profile diff size', async () => {
+  const byTestId = await renderWithMesa(<GitTab project="lantern-cove" />, bridge());
+  await click(button('Graph'));
+  expect(document.querySelector('[aria-label="Git graph"] svg circle')).not.toBeNull();
+  expect(document.querySelector('[aria-label="Commits"]')?.textContent).toContain('origin/main');
+  await click(commitRow());
+  const panel = document.querySelector('[aria-label="Git comparison"]');
+  expect(panel?.textContent).toContain('feature.ts');
+  expect(panel?.textContent).toContain('1 file changed');
+  expect(byTestId('git-side-diff')[0]?.style.fontSize).toBe('17px');
+});
+
+test('two refs compare from the graph toolbar', async () => {
   await renderWithMesa(<GitTab project="lantern-cove" />, bridge());
   await click(button('Graph'));
+  await click(button('Compare refs'));
   const base = document.querySelector<HTMLInputElement>('[aria-label="Compare base"]');
   const head = document.querySelector<HTMLInputElement>('[aria-label="Compare head"]');
   await act(async () => {
@@ -72,7 +93,7 @@ test('the commit compare patch uses the profile diff size', async () => {
     }
   });
   await click(button('Compare'));
-  const patch = document.querySelector<HTMLElement>('[aria-label="Git comparison"] pre');
-  expect(patch?.textContent).toBe('+feature\n');
-  expect(patch?.style.fontSize).toBe('17px');
+  const panel = document.querySelector('[aria-label="Git comparison"]');
+  expect(panel?.textContent).toContain('0 behind, 1 ahead');
+  expect(panel?.textContent).toContain('feature');
 });

@@ -1,12 +1,8 @@
 import type { VaultInventory, VaultItem } from '@mesa/core';
 import { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from '@mesa/core/browser';
 import { FileText, Link2Off, Search } from 'lucide-react';
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   NativeSelect,
   NativeSelectOptGroup,
@@ -29,15 +25,19 @@ function ItemDetails(props: {
   const { item, onSelect } = props;
   if (!item)
     return (
-      <Card
+      <div
         data-testid="vault-item"
-        className="min-h-64 items-center justify-center gap-3 border-dashed bg-card/40 p-8 text-center text-sm text-muted-foreground"
+        className="grid min-w-0 flex-1 place-items-center p-8 text-center text-sm text-muted-foreground"
       >
-        <FileText aria-hidden className="size-8 text-muted-foreground/60" />
-        {props.selected
-          ? `This item no longer exists: ${props.selected}.`
-          : 'Select an item to read it here.'}
-      </Card>
+        <div className="space-y-3">
+          <FileText aria-hidden className="mx-auto size-10 opacity-40" />
+          <p>
+            {props.selected
+              ? `This item no longer exists: ${props.selected}.`
+              : 'Select an item to read it here.'}
+          </p>
+        </div>
+      </div>
     );
   const Icon = KIND_ICONS[item.kind];
   const facts: [string, string][] = [
@@ -49,30 +49,32 @@ function ItemDetails(props: {
     ['Modified', item.modified],
   ];
   return (
-    <Card data-testid="vault-item" className="min-w-0 gap-3 p-4">
-      <h3 className="flex min-w-0 items-center gap-2 font-medium">
-        <Icon aria-hidden className="size-4 shrink-0" />
+    <article data-testid="vault-item" className="flex min-w-0 flex-1 flex-col">
+      <h3 className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5 text-sm font-medium">
+        <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate">{item.path.split('/').at(-1)}</span>
       </h3>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+      <dl className="flex shrink-0 flex-wrap gap-x-5 gap-y-1 border-b px-4 py-2 text-xs">
         {facts.map(([label, value]) => (
-          <Fragment key={label}>
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd data-fact={label} className="break-all font-mono text-xs leading-5">
+          <div key={label} className="flex min-w-0 max-w-full gap-1.5">
+            <dt className="shrink-0 text-muted-foreground">{label}</dt>
+            <dd data-fact={label} className="truncate font-mono" title={value}>
               {value}
             </dd>
-          </Fragment>
+          </div>
         ))}
       </dl>
-      {item.unavailable ? (
-        <p data-testid="vault-item-unavailable" className="flex items-center gap-2 text-sm">
-          <Link2Off aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          Unavailable: {item.unavailable}. Mesa lists it and never reads it.
-        </p>
-      ) : (
-        <VaultReader path={item.path} looks={props.looks} onSelect={onSelect} />
-      )}
-    </Card>
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">
+        {item.unavailable ? (
+          <p data-testid="vault-item-unavailable" className="flex items-center gap-2 text-sm">
+            <Link2Off aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            Unavailable: {item.unavailable}. Mesa lists it and never reads it.
+          </p>
+        ) : (
+          <VaultReader path={item.path} looks={props.looks} onSelect={onSelect} />
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -106,39 +108,41 @@ export function VaultBrowser({
     matchesVaultFilter(item, { project: project || undefined, type: type || undefined }),
   );
   return (
-    <>
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card/60 p-4">
-        <form
-          className="grid w-72 gap-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setQuery(draft.trim());
-          }}
-        >
-          <Label htmlFor="vault-search">Search</Label>
-          <div className="flex gap-2">
-            <Input
-              id="vault-search"
-              data-testid="vault-search"
-              type="search"
-              value={draft}
-              onInput={(event) => {
-                const text = event.currentTarget.value;
-                setDraft(text);
-                // Emptied, the tree comes back without waiting for Enter.
-                if (!text.trim()) setQuery('');
-              }}
-              placeholder="Words in paths, notes, canvases, bases"
-            />
-            <Button type="submit" variant="outline" size="icon" aria-label="Search the vault">
-              <Search aria-hidden />
-            </Button>
-          </div>
-        </form>
-        <div className="grid w-56 gap-1">
-          <Label htmlFor="vault-project">Project</Label>
+    <section
+      aria-label="Vault browser"
+      className="flex h-[calc(100vh-17rem)] min-h-[30rem] flex-col overflow-hidden rounded-lg border bg-card/40"
+    >
+      <form
+        className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setQuery(draft.trim());
+        }}
+      >
+        <label className="flex w-80 items-center gap-2 rounded-lg bg-background px-2.5 py-1.5">
+          <Search aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <input
+            id="vault-search"
+            data-testid="vault-search"
+            type="search"
+            aria-label="Search"
+            className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
+            value={draft}
+            onInput={(event) => {
+              const text = event.currentTarget.value;
+              setDraft(text);
+              // Emptied, the tree comes back without waiting for Enter.
+              if (!text.trim()) setQuery('');
+            }}
+            placeholder="Search the vault, then Enter"
+          />
+        </label>
+        <div className="w-44">
           <NativeSelect
             id="vault-project"
+            aria-label="Project"
+            size="sm"
+            className="bg-background dark:bg-background"
             value={project}
             onChange={(event) => setProject(event.target.value)}
           >
@@ -150,10 +154,12 @@ export function VaultBrowser({
             ))}
           </NativeSelect>
         </div>
-        <div className="grid w-56 gap-1">
-          <Label htmlFor="vault-type">Type</Label>
+        <div className="w-44">
           <NativeSelect
             id="vault-type"
+            aria-label="Type"
+            size="sm"
+            className="bg-background dark:bg-background"
             value={type}
             onChange={(event) => setType(event.target.value)}
           >
@@ -175,13 +181,13 @@ export function VaultBrowser({
           </NativeSelect>
         </div>
         {(project || type) && !query && (
-          <Muted data-testid="vault-shown" className="pb-2">
+          <Muted data-testid="vault-shown" size="xs">
             {shown.length} of {inventory.total} shown
           </Muted>
         )}
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
-        <div className="min-w-0 rounded-xl border bg-card/40 p-3">
+      </form>
+      <div className="flex min-h-0 flex-1">
+        <aside className="w-80 shrink-0 overflow-y-auto border-r bg-card">
           {query ? (
             <VaultSearchResults
               looks={looks}
@@ -194,7 +200,7 @@ export function VaultBrowser({
           ) : (
             <VaultTree items={shown} selected={selected} onSelect={onSelect} />
           )}
-        </div>
+        </aside>
         <ItemDetails
           selected={selected}
           item={items.find((item) => item.path === selected)}
@@ -202,6 +208,6 @@ export function VaultBrowser({
           onSelect={onSelect}
         />
       </div>
-    </>
+    </section>
   );
 }
