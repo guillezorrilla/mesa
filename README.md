@@ -44,7 +44,7 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 - **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid.
 - **Every agent, the same controls.** Start Claude Code, Codex or Antigravity CLI in a project, a new worktree or a branch. Swap the agent of a fresh session, queue a session to start after another ends, and hand work to a successor, in the same agent or another, before its context fills.
 - **Shared memory in your vault.** Each profile owns an Obsidian vault: project hubs, notes, decisions, session summaries and a project map. Every agent reaches it through the same `mesa-vault` tools, and Obsidian opens it as is.
-- **Faro, the decisions layer.** Recurring judgments, such as whether a prompt sent to a session is allowed, go through rules first and then an agent. Each decision is kept in a Receipt with its probabilities and confidence.
+- **Faro, the decisions layer.** Every judgment Mesa makes for you, such as what state a session is in or whether a prompt is safe to send, goes through Faro and is kept with its evidence. See [Decisions with Faro](#decisions-with-faro).
 - **Your project knowledge, imported.** Connect Atlassian and Notion once, then pick the Jira issues, Confluence pages and Notion pages to import, or paste any public link. Each import lands in the vault, and can start a session.
 - **Automations.** Per project, run a skill, start a session, message one, or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.
 - **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too.
@@ -61,6 +61,17 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
     <td align="center">The map of projects and sessions</td>
   </tr>
 </table>
+
+## Decisions with Faro
+
+Mesa makes many small judgments while your agents work: is this session waiting for you, did it finish or fail, is this prompt about to leak a secret or run something destructive. Faro is the layer that makes them, and it makes them in a way you can check.
+
+- **Rules first, a model only when unsure.** Deterministic rules answer first, instantly and at no cost. Only when their confidence is below your threshold does Faro ask an agent, Claude Code or Codex on your own subscription, with no API key.
+- **Every answer has a confidence.** Each decision carries its probabilities and how sure it is, so you can see how far to trust it, and an unsure rule never decides alone.
+- **An audit trail you own.** Deliberate decisions and guardrail blocks or overrides are saved as Receipts in your vault, with the evidence behind them.
+- **Guardrails before actions.** Prompts sent to a session and other outside actions pass a guardrail that can allow, ask, or block. Secrets are masked before any model sees them.
+
+Read more in the [Faro docs](packages/core/src/decisions/README.md), [ADR-0004](docs/adr/0004-faro-primitives-and-backends.md) and [Receipts](docs/receipts.md).
 
 ## Install
 
