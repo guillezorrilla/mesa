@@ -48,7 +48,6 @@ test('empty Sessions starts the selected project with the exact first message an
   expect(byTestId('board-layout')).toHaveLength(0);
   expect(byTestId('sessions-ended')).toHaveLength(0);
   const submit = byTestId('session-start-submit')[0];
-  expect(submit?.hasAttribute('disabled')).toBe(true);
   await choose(document.getElementById('session-start-project') ?? undefined, 'tide');
   const goal = 'Fix the redirect\nthen run tests';
   await fill(byTestId('session-start-goal')[0] as HTMLTextAreaElement, goal);
@@ -64,6 +63,28 @@ test('empty Sessions starts the selected project with the exact first message an
   expect(byTestId('session-start')).toHaveLength(0);
   expect(byTestId('selected-session')[0]?.textContent).toContain('new00001');
   expect(byTestId('terminal-new00001')).toHaveLength(1);
+});
+
+test('empty Sessions starts with no first message, and not on a project whose folder is missing', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS.map((project, i) => ({ ...project, exists: i === 0 }))),
+    open: () => envelope({ id: 'new00001', project: 'lantern-cove', receipt: null }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const submit = byTestId('session-start-submit')[0];
+  await choose(document.getElementById('session-start-project') ?? undefined, 'tide');
+  expect(submit?.hasAttribute('disabled')).toBe(true);
+  await choose(document.getElementById('session-start-project') ?? undefined, 'lantern-cove');
+  await fill(byTestId('session-start-goal')[0] as HTMLTextAreaElement, '  \n ');
+  expect(submit?.hasAttribute('disabled')).toBe(false);
+  await click(submit);
+  expect(calls.find((args) => args[1] === 'open')).toEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--',
+    'lantern-cove',
+  ]);
 });
 
 test('empty Sessions has only Add project when none exist, and registration reveals the composer', async () => {

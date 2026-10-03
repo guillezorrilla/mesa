@@ -57,8 +57,7 @@ export function SessionStart(props: {
           className="w-full max-w-3xl space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!props.disabled && goal.trim() && project?.exists)
-              props.onOpen({ project: project.name, goal });
+            if (!props.disabled && project?.exists) props.onOpen({ project: project.name, goal });
           }}
         >
           <Label htmlFor="session-start-goal" className="sr-only">
@@ -80,7 +79,7 @@ export function SessionStart(props: {
               size="icon"
               aria-label="Start session"
               data-testid="session-start-submit"
-              disabled={props.disabled || !goal.trim() || !project?.exists}
+              disabled={props.disabled || !project?.exists}
             >
               <Send aria-hidden />
             </Button>
