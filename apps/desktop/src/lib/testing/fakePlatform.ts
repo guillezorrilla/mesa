@@ -1,4 +1,39 @@
-import type { BrowserHost, Platform, TerminalHost } from '../platform';
+import type { BrowserHost, Platform, TerminalHost, UpdateHost, UpdateStatus } from '../platform';
+
+/** The updater in memory: `push` plays a status, and every action is recorded. */
+export function fakeUpdates(initial: Partial<UpdateStatus> = {}) {
+  const calls: string[] = [];
+  let status: UpdateStatus = {
+    phase: 'idle',
+    version: null,
+    channel: 'beta',
+    message: null,
+    page: 'https://github.com/guillezorrilla/mesa/releases',
+    revoked: null,
+    dismissed: false,
+    ...initial,
+  };
+  const listeners = new Set<(status: UpdateStatus) => void>();
+  const push = (change: Partial<UpdateStatus>) => {
+    status = { ...status, ...change };
+    for (const listener of listeners) listener(status);
+  };
+  const host: UpdateHost = {
+    status: async () => status,
+    onStatus: async (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    check: async () => void calls.push('check'),
+    later: async () => {
+      calls.push('later');
+      push({ dismissed: true });
+    },
+    install: async () => void calls.push('install'),
+    openPage: async () => void calls.push('openPage'),
+  };
+  return { host, calls, push };
+}
 
 /** Terminals in memory: every call recorded, and `push` plays output into an open one. */
 export function fakeTerminals() {
@@ -62,6 +97,7 @@ export const fakePlatform = ({
     takeOpened: async () => null,
   },
   lifecycle = { onCloseRequested: async () => () => {}, close: async () => {} },
+  updates = fakeUpdates().host,
 }: {
   folder?: string | null;
   file?: string | null;
@@ -70,6 +106,7 @@ export const fakePlatform = ({
   deepLinks?: Platform['deepLinks'];
   notifications?: Platform['notifications'];
   lifecycle?: Platform['lifecycle'];
+  updates?: UpdateHost;
 } = {}): Platform & {
   pasteboard: string[];
   badges: number[];
@@ -88,5 +125,6 @@ export const fakePlatform = ({
     pasteboard,
     dock: { badge: async (count) => void badges.push(count) },
     badges,
+    updates,
   };
 };

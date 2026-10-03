@@ -4,8 +4,10 @@ mod install_location;
 mod notifications;
 mod shell_path;
 mod terminal;
+mod updater;
 
 use serde_json::Value;
+use tauri_plugin_deep_link::DeepLinkExt;
 
 /// Runs `mesa <args>` with the current environment (MESA_PROFILE included) and returns its envelope.
 #[tauri::command]
@@ -29,9 +31,22 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(terminal::Terms::default())
+        .manage(updater::Updates::default())
         .setup(|app| {
             install_location::warn(app.handle());
+            updater::start(app.handle());
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                if event
+                    .urls()
+                    .iter()
+                    .any(|url| url.as_str() == updater::UPDATE_LINK)
+                {
+                    tauri::async_runtime::spawn(updater::check(handle.clone(), true));
+                }
+            });
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),
                 std::env::var("MESA_PROFILE").unwrap_or_else(|_| "default".into()),
@@ -66,7 +81,12 @@ pub fn run() {
             browser::browser_reload,
             browser::browser_pick_start,
             browser::browser_pick_result,
-            browser::browser_owner
+            browser::browser_owner,
+            updater::update_status,
+            updater::update_check,
+            updater::update_later,
+            updater::update_install,
+            updater::update_open_page
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

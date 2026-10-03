@@ -85,6 +85,7 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     browserSelection,
     obsidian: macObsidianPaths(home),
     argv,
+    version: VERSION,
     // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js), or the
     // executable's, unpacked where projects can link to them.
     skillsDir: bundled

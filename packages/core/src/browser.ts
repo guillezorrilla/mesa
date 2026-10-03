@@ -53,5 +53,6 @@ export { parseSessionUri, sessionUri } from './sessions/uri.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';
 export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
+export { UPDATE_CHANNELS, UPDATE_LINK } from './update/feeds.js';
 export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';
 export { MAP_PATH } from './vault/layout.js';

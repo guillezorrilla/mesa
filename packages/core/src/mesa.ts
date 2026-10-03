@@ -27,6 +27,7 @@ import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
 import { sourcesService } from './sources/service.js';
+import { updateService } from './update/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
 import { statusLineService } from './usage/statusline.js';
@@ -84,6 +85,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     statusLine: statusLineService(ctx),
     notifications,
     diagnostics: diagnosticsService(ctx),
+    update: updateService(ctx, profileApi.config),
     rules: rulesService(ctx),
     sources,
     imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },

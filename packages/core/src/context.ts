@@ -50,6 +50,8 @@ export type MesaDeps = {
   argv: readonly string[];
   /** The skill library Mesa ships, the repo's `skills/` (CONTEXT.md, Skill). */
   skillsDir: string;
+  /** This Mesa's version (one for the app, the CLI and core, ADR-0017). */
+  version: string;
 };
 
 /**

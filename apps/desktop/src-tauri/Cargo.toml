@@ -30,6 +30,8 @@ block2 = "0.6.2"
 objc2 = "0.6.4"
 objc2-foundation = "0.3.2"
 objc2-user-notifications = "0.3.2"
+tauri-plugin-updater = "2"
+tokio = { version = "1", features = ["time"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

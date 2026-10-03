@@ -48,6 +48,33 @@ export type BrowserHost = {
   onLoad: (listener: (event: { session: string; url: string }) => void) => Promise<() => void>;
 };
 
+/** What the app's updater reports (Rust updater.rs, ADR-0018). */
+export type UpdateStatus = {
+  phase: 'idle' | 'checking' | 'downloading' | 'ready' | 'up-to-date' | 'unsupported' | 'failed';
+  /** The newer version, once a check found one. */
+  version: string | null;
+  channel: string | null;
+  /** Why the check failed, or why this build cannot update itself. */
+  message: string | null;
+  /** Where to download Mesa by hand. */
+  page: string | null;
+  revoked: { version: string; reason: string } | null;
+  /** Later was chosen for `version`. */
+  dismissed: boolean;
+};
+
+/** The app's own updates: Rust checks, downloads and verifies; the renderer only shows them. */
+export type UpdateHost = {
+  status: () => Promise<UpdateStatus>;
+  onStatus: (listener: (status: UpdateStatus) => void) => Promise<() => void>;
+  /** A check asked for by the person: shows a dismissed update again. */
+  check: () => Promise<void>;
+  later: () => Promise<void>;
+  /** Replaces the app and relaunches it. */
+  install: () => Promise<void>;
+  openPage: () => Promise<void>;
+};
+
 /** What the app asks of the OS itself, apart from mesa: dialogs, terminals, the pasteboard. A seam like the bridge. */
 export type Platform = {
   lifecycle: {
@@ -78,4 +105,5 @@ export type Platform = {
   /** The macOS pasteboard, through Rust: WKWebView refuses `navigator.clipboard` (SP-3). Paste
    * needs no seam: Cmd+V fires a paste event that xterm handles. */
   clipboard: { write: (text: string) => Promise<void> };
+  updates: UpdateHost;
 };

@@ -24,7 +24,10 @@
     }
   },
   "plugins": {
-    "deep-link": { "desktop": { "schemes": ["mesa"] } }
+    "deep-link": { "desktop": { "schemes": ["mesa"] } },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDMEM3OUVFNkE4MEEwNTMKUldSVG9JQnE3bmtNckp5a3daa05YaUZMVENkcjlzenl6T1h0WjFRRGgzNm9WMGNGSU5KL20wRTAK"
+    }
   },
   "bundle": {
     "active": true,

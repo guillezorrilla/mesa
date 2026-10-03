@@ -146,6 +146,8 @@ export type { ImportListRow } from './sources/import-service.js';
 export type { ItemSource } from './sources/items.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
+export { UPDATE_CHANNELS, type UpdateChannel } from './update/feeds.js';
+export type { Revoked, UpdateCheck, UpdateInstall } from './update/service.js';
 export type {
   UsageBreakdown,
   UsageRecord,

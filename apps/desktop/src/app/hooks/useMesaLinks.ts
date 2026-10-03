@@ -1,4 +1,4 @@
-import { parseSessionUri, repositoryUrl } from '@mesa/core/browser';
+import { parseSessionUri, repositoryUrl, UPDATE_LINK } from '@mesa/core/browser';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useCall } from '@/lib/useCommand';
@@ -33,7 +33,8 @@ export function useMesaLinks(actions: {
     };
     const open = async (urls: string[]) => {
       for (const url of urls) {
-        if (!current() || !url.startsWith('mesa:')) continue;
+        // The update link is the updater's, in Rust (`mesa update install`).
+        if (!current() || !url.startsWith('mesa:') || url === UPDATE_LINK) continue;
         const target = parseSessionUri(url);
         if (target && loading) {
           pending.push(url);

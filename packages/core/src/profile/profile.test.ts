@@ -81,6 +81,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     agents: { claude: {}, codex: {}, antigravity: {} },
+    update: {},
     keys: {},
   });
 });
