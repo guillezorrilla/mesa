@@ -1,6 +1,6 @@
 [package]
 name = "mesa-desktop"
-version = "0.1.0-beta.6"
+version = "0.1.0"
 description = "Mesa desktop app"
 authors = ["Guille Zorrilla"]
 edition = "2021"
