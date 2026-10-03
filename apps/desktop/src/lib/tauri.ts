@@ -5,7 +5,7 @@ import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
 import { open } from '@tauri-apps/plugin-dialog';
 import { fromBase64 } from './bytes';
 import type { Bridge } from './client';
-import type { BrowserSelection, Platform } from './platform';
+import type { BrowserSelection, Platform, UpdateStatus } from './platform';
 
 /** The real bridge: the Rust `run_mesa` command, which spawns the mesa CLI. */
 export const tauriBridge: Bridge = (args) => invoke('run_mesa', { args });
@@ -98,4 +98,14 @@ export const tauriPlatform: Platform = {
       ),
   },
   clipboard: { write: (text) => invoke('clipboard_write', { text }) },
+  updates: {
+    status: () => invoke('update_status'),
+    onStatus: (listener) =>
+      listen<UpdateStatus>('update://state', (event) => listener(event.payload)),
+    check: () => invoke('update_check'),
+    later: () => invoke('update_later'),
+    install: () => invoke('update_install'),
+    openPage: () => invoke('update_open_page'),
+    quit: () => invoke('update_quit'),
+  },
 };

@@ -129,6 +129,7 @@ import { stop } from './stop.js';
 import { swap } from './swap.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
+import { updateChannel, updateCheck, updateInstall, updateRevoked } from './update.js';
 import { usage } from './usage.js';
 import {
   vaultBases,
@@ -300,6 +301,10 @@ export const COMMANDS: Command[] = [
   stop,
   unregister,
   unarchive,
+  updateCheck,
+  updateChannel,
+  updateInstall,
+  updateRevoked,
   usage,
   vaultBases,
   vaultInit,

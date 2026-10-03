@@ -78,6 +78,21 @@ pnpm release:publish    # creates the tag v<version> at HEAD and the release
 
 A test build needs no secrets. `APPLE_SIGNING_IDENTITY=- pnpm release:build` makes an ad-hoc signed app and DMG, without notarisation or update archives, that runs only on this Mac.
 
+## Updates and revoking a version
+
+Installed copies read `latest.json` from the channel they follow (ADR-0018): beta reads the `beta` prerelease's and stable's, stable only `releases/latest`. A beta release must keep replacing `latest.json` on `beta`, and a stable release must be the repository's latest release. `mesa update check --json` shows what an installed copy sees.
+
+To revoke a version, so every copy running it blocks with the reason until it updates, upload `revoked.json` to the `beta` prerelease. `version` is one version or a semver range:
+
+```sh
+cat > revoked.json <<'JSON'
+{"schemaVersion": 1, "revokedVersions": [{"version": "0.1.0-beta.4", "reason": "It loses session logs. Update to the next version."}]}
+JSON
+gh release upload beta revoked.json --clobber -R guillezorrilla/mesa
+```
+
+Remove an entry the same way. A copy reads the list at launch and at each check; a list it cannot read never blocks it.
+
 ## Renewals
 
 - **Developer ID certificate**: it is valid for five years. Before it expires, create a new one (step 2), then replace `APPLE_CERTIFICATE` and `APPLE_CERTIFICATE_PASSWORD` in the `release` environment. Installed copies keep working, because notarised apps stay valid after their certificate expires.

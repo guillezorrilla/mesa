@@ -404,3 +404,8 @@ Not: workflow, task, webhook, project config.
 
 A published Mesa version, `vX.Y.Z` (stable) or `vX.Y.Z-beta.N` (a prerelease on the beta channel), with one version for the app, the CLI and core (`pnpm release:version`, checked by `pnpm check:version`). Its GitHub Release holds the signed, notarised DMG (`Mesa_X.Y.Z_universal.dmg`, and `Mesa_universal.dmg` under a name that never changes), the update archive (`Mesa.app.tar.gz` and its `.sig`), `latest.json` (the updater's feed; a beta also replaces the one on the prerelease `beta`), and `SHA256SUMS`. The app carries the CLI as the bundled mesa, `Contents/MacOS/mesa`: a Node single executable whose skill library unpacks to `~/.mesa/.skills/`. `docs/release.md`, ADR-0017.
 Not: build, deploy, sidecar (the bundled mesa is one).
+
+## Update channel
+
+Which Releases Mesa updates to: `stable` reads only stable releases; `beta` reads the beta feed and stable too, and takes whichever is newer. Set per profile in `update.channel` (`mesa update channel [stable|beta]`, Settings > General); unset, it follows the running version, so a beta tracks betas. Only a version above the running one is offered, never a downgrade. A version listed in `revoked.json` on the `beta` prerelease is revoked: the app blocks with its reason until an update replaces it. ADR-0018.
+Not: track, ring, branch.

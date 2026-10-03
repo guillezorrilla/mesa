@@ -1,6 +1,6 @@
 export { cells, choose, click, toasts, toastTexts } from './dom';
 export { fakeBridge } from './fakeBridge';
-export { fakePlatform, fakeTerminals } from './fakePlatform';
+export { fakePlatform, fakeTerminals, fakeUpdates } from './fakePlatform';
 export {
   asking,
   busy,

@@ -28,13 +28,22 @@ export function unpackSkills(dir: string, version: string, assets: Assets): stri
     writeFileSync(file, new Uint8Array(assets.get(key)));
   }
   writeFileSync(join(stage, MARK), version);
-  rmSync(dir, { recursive: true, force: true });
+  // Renames only, so mesa processes started together after an update never remove a folder
+  // another one is moving in: the old library goes aside whole, then the new one takes its place.
+  const old = `${stage}.old`;
+  try {
+    renameSync(dir, old);
+  } catch {
+    // No library yet, or another mesa moved it aside first.
+  }
   try {
     renameSync(stage, dir);
   } catch (error) {
     // Another mesa unpacked the same version first.
-    rmSync(stage, { recursive: true, force: true });
     if (current() !== version) throw error;
+  } finally {
+    rmSync(stage, { recursive: true, force: true });
+    rmSync(old, { recursive: true, force: true });
   }
   return dir;
 }

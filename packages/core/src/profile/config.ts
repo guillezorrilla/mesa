@@ -20,6 +20,7 @@ import {
   BOARD_VIEWS,
   DEFAULT_BOARD_PREFERENCES,
 } from '../sessions/presentation.js';
+import { UPDATE_CHANNELS } from '../update/feeds.js';
 import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
 import {
   COLOR_VISION_MODES,
@@ -227,6 +228,8 @@ const ConfigSchema = z.strictObject({
     .prefault({}),
   /** Each agent's native launch flags on new and resumed sessions; unset uses its native config. */
   agents: LaunchDefaultsSchema,
+  /** Which releases Mesa updates to (ADR-0018); unset follows the running version's channel. */
+  update: z.strictObject({ channel: z.enum(UPDATE_CHANNELS).optional() }).prefault({}),
   /** Name to a literal value or an `env:VAR` reference. Never printed in the clear. */
   keys: z.record(z.string(), z.string()).default({}),
 });

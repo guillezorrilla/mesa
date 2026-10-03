@@ -36,10 +36,11 @@ export type FakeRequest = {
 type FakeAnswer = { status?: number; headers?: Record<string, string> } & (
   | { body: unknown }
   | { html: string }
+  | { bytes: Uint8Array<ArrayBuffer> }
 );
 
 /**
- * HTTP answered from `routes` by `<METHOD> <url>`, a JSON body each (or an HTML page), or a
+ * HTTP answered from `routes` by `<METHOD> <url>`, a JSON body each (or an HTML page or bytes), or a
  * function of the request; any other request is a 404. Every request is recorded, and `routes` may
  * change mid-test.
  */
@@ -59,6 +60,7 @@ export function fakeHttp(
     const answer = typeof route === 'function' ? route(request) : route;
     const status = answer ? (answer.status ?? 200) : 404;
     const headers = answer?.headers ?? {};
+    if (answer && 'bytes' in answer) return new Response(answer.bytes, { status, headers });
     if (answer && 'html' in answer) {
       return new Response(answer.html, {
         status,

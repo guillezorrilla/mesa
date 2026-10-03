@@ -25,8 +25,12 @@
   "dependencies": {
     "defuddle": "^0.19.4",
     "linkedom": "^0.18.13",
+    "semver": "^7.8.5",
     "smol-toml": "^1.9.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.8.0"
   }
 }

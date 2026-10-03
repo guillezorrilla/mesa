@@ -35,6 +35,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   'projects visit': (args) =>
     envelope({ name: args.at(-1), visits: 1, visitedAt: '2026-09-30T12:00:00.000Z' }),
   'skills list': () => envelope([]),
+  'update channel': () => envelope({ channel: 'beta' }),
   'rules list': () => envelope([]),
   // Settings > Connections, which a settings search renders too.
   'sources list': () =>
@@ -103,6 +104,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       grid: { groups: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },
       agents: { claude: {}, codex: {}, antigravity: {} },
+      update: {},
       keys: {},
     } satisfies Config),
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),

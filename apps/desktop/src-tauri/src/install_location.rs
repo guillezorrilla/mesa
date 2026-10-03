@@ -7,7 +7,7 @@ use tauri::AppHandle;
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 /// Whether `exe` is in a mounted volume (the DMG) or a translocated copy.
-fn not_installed(exe: &Path) -> bool {
+pub fn not_installed(exe: &Path) -> bool {
     let path = exe.to_string_lossy();
     path.starts_with("/Volumes/") || path.contains("/AppTranslocation/")
 }

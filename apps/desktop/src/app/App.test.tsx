@@ -2565,6 +2565,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     agents: { claude: {}, codex: {}, antigravity: {} },
+    update: {},
     keys: {},
   });
   const { bridge, calls } = fakeBridge({

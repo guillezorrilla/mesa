@@ -548,6 +548,7 @@ export const testDeps = (home: string, overrides: Partial<MesaDeps> = {}): MesaD
   argv: ['test'],
   // The repo's own library: tests that need another pass their own.
   skillsDir: fileURLToPath(new URL('../../../../skills', import.meta.url)),
+  version: '0.1.0-beta.4',
   obsidian: {
     registered: join(home, 'bin/obsidian'),
     bundle: join(home, 'Obsidian.app/obsidian-cli'),
@@ -706,3 +707,4 @@ export {
   TEST_NOTION,
   writesImportNotes,
 } from './sources.js';
+export { minisignKey } from './update.js';

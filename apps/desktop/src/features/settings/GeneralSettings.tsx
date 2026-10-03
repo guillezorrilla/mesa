@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
+import { UpdateSettings } from '@/features/update/UpdateSettings';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { Choice } from './controls/Choice';
@@ -30,7 +31,7 @@ import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
-/** Application behaviour, appearance, accessibility, and Doctor's health checks. */
+/** Application behaviour, updates, appearance, accessibility, and Doctor's health checks. */
 export function GeneralSettings(props: {
   doctor?: DoctorReport;
   doctorBusy: boolean;
@@ -87,6 +88,7 @@ export function GeneralSettings(props: {
           }
         />
       </SettingSection>
+      <UpdateSettings />
       <SettingSection
         id="vault"
         title="Vault"
