@@ -1,4 +1,4 @@
-# ADR-0019: Faro keeps ownership; a local Strands Decider worker answers behind it
+# ADR-0019: Faro keeps ownership; Strands Decider answers behind it, in the user's own Space or locally
 
 Status: accepted
 Date: 2026-10-03
@@ -36,7 +36,16 @@ Thresholds fitted on the 15-case calibration split per site (#459, MLX), by one 
 | next-step | 0.721 |
 | evidence | 0.766 |
 
-### Runtime, worker and transport
+### Where the model runs: the user's own Space first, local optional
+
+The owner decided on 2026-10-03, after the pilot below: the default path is the user's own Hugging Face Space, connected by pasting one Hugging Face token; the local runtime is optional and Mesa says plainly, before anything starts, that it downloads about 5 GB. Every setup surface is one clear step with plain words, in the CLI and the app alike (Settings > Decisions).
+
+- **Own Space (default).** The user pastes a Hugging Face token once (stdin or a protected field, stored in the Keychain owner, masked everywhere). Mesa creates a private Space in the user's account from the pinned template in this repository (`deploy/decision-space/`), uploaded with the user's own token (it needs write access; Mesa says why), on ZeroGPU, and talks to it directly over the documented Gradio call API: no Mesa relay, no shared key. Free ZeroGPU hosting needs an account in good standing older than 30 days with a verified email (at most 2 such Spaces); callers have 5 GPU minutes a day on a free account; the Space sleeps when idle. Mesa states these limits, and that PRO accounts are billed past their daily quota, before it creates anything, and shows waking, queued, quota-exhausted and unauthorized states. Session content then goes to the user's own Space; Mesa says so. ZeroGPU supports Gradio only and PyTorch 2.8 or later, so the template is qualified on its own pinned stack (#464).
+- **Local (optional).** The pinned runtime below, installed only when the user asks.
+- **Off.** Without either, rules answer, as today.
+- Never a silent fallback from one path to another, from free to paid, or a model download from a hook or session. OpenRouter was considered and rejected: its free tier serves generic chat models (20 requests a minute, 50 a day without bought credits), not a typed decision model.
+
+### Local runtime, worker and transport
 
 - Nothing ships in the app or the release. The owner decided on 2026-10-03 that the app must stay small: the model (about 4.4 GB) and its Python runtime (about 0.8 GB) are an explicit, opt-in local install (`mesa decisions install`, Settings > Decisions), showing size and resources first. Until then decision assistance is off and rules answer, with no download, ever, from a hook or session.
 - Pinned artifacts: strands-decider at git `6d5dec6bd9c36fb63317803363a92ebcfcdfd207` with its `mlx` extra, Python 3.12, torch 2.7.1, transformers 5.17.0, peft 0.21.0, mlx 0.32.3, mlx-lm 0.32.0; checkpoint `StrandsAgents/strands-decider-2B-hobson-v19` at revision `bb282d786bc251fd4e3068de3ada9ddbb38127cd` (verified by its own `MANIFEST.sha256`); base `Qwen/Qwen3.5-2B-Base` at revision `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`, the revision v19's `provenance.json` records. Upstream's loader does not pin the base, so Mesa installs a local checkpoint view whose `hobson_config.json` names the pinned local base folder and runs with `HF_HUB_OFFLINE=1`. Every file is checksummed at install; a mismatch never activates.
@@ -47,13 +56,10 @@ Thresholds fitted on the 15-case calibration split per site (#459, MLX), by one 
 
 ### Delivery into sessions
 
+- Decisions never block a turn. The pilot showed a synchronous per-turn call on a loaded Mac timing out every time (the 5 GB model was paged out between turns; a cold call took 1.6 to 2.1 s). Mesa asks for advice in the background: for the saved goal while the coding CLI starts (it knows the goal at launch), and for later turns as soon as an event allows. The turn's hook only reads a ready answer for exactly that prompt and session, and otherwise sends nothing.
 - Automatic advice is delivered only at native events the #459 probe proved (see the provider matrix in the feasibility report), with a fixed packet budget and a hard deadline; on a miss, abstention or slow worker, the turn proceeds with no advice. Session start uses the existing pointer (ADR-0010). Per-turn delivery uses Claude Code's and Codex's `UserPromptSubmit` `additionalContext`, and Antigravity's `PreInvocation` ephemeral message, re-sent unchanged on every invocation of the same turn because a packet sent before a tool call was not kept. Mesa's own packet deadline (1,500 ms) stays well under the native hook timeout, because a native timeout blocks the whole turn for its full length and then drops the context with little or no notice.
 - On-demand use is the `decision_evaluate` MCP tool served by `mesa decisions mcp` (stdio, bound per request through the existing session binding owner), and `mesa decisions evaluate|context|advise --json` for the CLI.
 - Routine evaluations are ephemeral: no receipt, no vault note, no log of prompts. Only an explicit, meaningful decision goes through the existing `faro.decide` receipt path.
-
-### Hosted endpoints
-
-Optional and explicit only (#464): a user's own endpoint or Hugging Face ZeroGPU Space, credentials in Keychain, no Mesa relay, no silent fallback from local to remote or from free to paid. ZeroGPU currently supports Gradio only and PyTorch 2.8 or later, so the Space template needs its own qualified stack; PRO accounts are billed automatically past the daily quota, which Mesa must state before enabling.
 
 ## Frozen gates
 
@@ -74,11 +80,13 @@ These numbers are fixed before the held-out evaluation (#465) and are not lowere
 
 **Concurrency and safety.** With 8 concurrent sessions, every request either answers within its deadline or is reported unavailable; no answer is delivered to a session, profile or model other than the one that asked; zero cross-session cache hits.
 
-**Paired workflows (#465).** At least 6 invented coding tasks, each run with assistance off and on, same main model and setup, order randomised, 2 repetitions per arm (24 runs or more). Assistance passes only if task success with it is at least as high as without, median wall time is no more than 10% worse, and at least one of these improves: success (+1 task or more) or median wall time (10% or more faster). Faster inference or more decision calls alone does not pass.
+**Paired workflows (#465).** At least 6 invented coding tasks, each run with assistance off and on, same main model and setup, order randomised, 2 repetitions per arm (24 runs or more). Assistance passes only if task success with it is at least as high as without, its time per successful task (the arm's total wall time divided by its successful runs; unbounded with none) is no more than 10% worse, and at least one of these improves: success (+1 task or more) or time per successful task (10% or more lower). Faster inference or more decision calls alone does not pass.
+
+Owner revision, 2026-10-03, before any final evaluation: the paired gate first read "median wall time no more than 10% worse". The pilot showed that measuring raw time rewards finishing fast and wrong: with the right note injected, success went from 0/12 to 10/12 while median wall time rose from 10.6 s to 15.9 s. The owner chose time per successful task instead. No other gate changed.
 
 ## Evidence
 
-`docs/spikes/decision-assistance-feasibility.md`: hardware (Apple M1 Pro, 10 cores, 32 GB, macOS 26.6.2), install, offline inference, MPS and MLX latency by input size, 1/4/8 clients, strict-window refusal, cancellation, crash, memory and disk, the provider delivery probe, hosted-path facts, and the calibration-split results with the rules baseline.
+`docs/spikes/decision-assistance-feasibility.md`: the paired pilot, hardware (Apple M1 Pro, 10 cores, 32 GB, macOS 26.6.2), install, offline inference, MPS and MLX latency by input size, 1/4/8 clients, strict-window refusal, cancellation, crash, memory and disk, the provider delivery probe, hosted-path facts, and the calibration-split results with the rules baseline.
 
 ## Consequences
 

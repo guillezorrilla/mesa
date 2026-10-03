@@ -4,7 +4,7 @@ Date: 2026-10-03. Owner-authorized spike on the owner's Mac. Only invented conte
 
 ## Verdict
 
-Go for a local, opt-in Strands Decider v19 runtime on MLX behind Faro. The pinned official CLI installs reproducibly, runs offline, answers all three primitives through Mesa's own wire client, refuses overflow under `--strict-window`, and fits the target Mac (5.3 GB footprint, about 10 s cold start, 0.25 to 0.55 s warm for short inputs). Quality is site-dependent: on the calibration split, relevance and next-step met their full gate, supervision was accurate when it accepted but did not beat the rules' screen reader, and evidence sufficiency accepted only 3 of 15 cases. Whether any site ships automatic is decided by the held-out run in #465 against the gates ADR-0019 froze. Laya and the WebGPU conversion were not evaluated: nothing here rejects the primary candidate.
+Go for Strands Decider v19 behind Faro, with the user's own Hugging Face Space as the default path and the local MLX runtime optional (owner decision after the pilot below). The pinned official CLI installs reproducibly, runs offline, answers all three primitives through Mesa's own wire client, refuses overflow under `--strict-window`, and fits the target Mac (5.3 GB footprint, about 10 s cold start, 0.25 to 0.55 s warm for short inputs). Quality is site-dependent: on the calibration split, relevance and next-step met their full gate, supervision was accurate when it accepted but did not beat the rules' screen reader, and evidence sufficiency accepted only 3 of 15 cases. Whether any site ships automatic is decided by the held-out run in #465 against the gates ADR-0019 froze. Laya and the WebGPU conversion were not evaluated: nothing here rejects the primary candidate.
 
 Per the owner (2026-10-03), nothing of this ships inside the app. The model and runtime are an explicit local install the user is prompted for.
 
@@ -89,6 +89,22 @@ Live probe on 2026-10-03 with an invented project and invented markers only: Cla
 - **Trust.** Claude runs no hook until its folder trust is accepted. Codex asks for folder trust and then a separate hook review (accepted once, for the two probe hooks only). Antigravity asks for folder trust only and loads hooks with no review, including a project-level `.agents/hooks.json` (in an already trusted folder; untrusted is untested).
 - **Not tested:** compact and clear, Antigravity `PostInvocation`, timeouts above 5 s, worktree, handoff and queued launches (P4 proved the pointer on those paths, ADR-0010), and the on-demand MCP tool, which is #463's qualification.
 - **Cleanup.** Antigravity's global hooks file was restored byte for byte (SHA-256 `4106c89c...` before and after). The temporary Codex home, its copied login and its background app-server were removed. Neither `~/.codex` nor `~/.claude/settings.json` was written. Folder-trust entries for the invented probe folder remain in `~/.claude.json` and Antigravity's `trustedWorkspaces` until the epic's final cleanup.
+
+## Paired pilot: does advice make a coding session smarter or faster?
+
+Run on 2026-10-03 after the calibration fit, to test value before building the integration (owner: "if this takes longer and is not helping, don't add it"). Six invented convention-dependent tasks in a small Node project (`basalt-queue`): each needs a team convention written only in one of ten project notes (four are distractors), and a hidden `node:test` file checks behaviour and convention. Every task's reference solution passes and a plausible convention-ignoring one fails. Claude Code 2.1.288 headless (`claude -p --model sonnet`, edits accepted, Bash limited to `node`, `ls`, `cat`), 2 repetitions per arm, randomised order, the same notes present in every arm. Advice was a `UserPromptSubmit` `additionalContext` packet with the top-ranked note.
+
+| Arm | Success | Median wall | Median turns | Advice delivered |
+| --- | --- | --- | --- | --- |
+| Off: the agent may find the notes itself | 0/12 | 10.6 s | 3 | none |
+| Right note injected (a BM25 ranker as a test baseline; it ranked all 6 pilot prompts right) | 10/12 | 15.9 s | 5.5 | 12/12 |
+| Strands, asked live per turn (1,500 ms deadline, 300-character excerpts) | 0/12 | 17.1 s | 4.5 | 0/12: every call timed out (1,505 to 1,560 ms) |
+| Strands, asked at launch while Claude starts (200-character excerpts) | 4/12 | 15.6 s | n/a | 7/12 in time; 5 live fallbacks timed out |
+
+- **Context is worth having.** With no help, the agents never opened the notes and every run failed its convention. The right note turned 0/12 into 10/12. Time rose because the agents then did the work properly; raw wall time therefore rewards finishing fast and wrong, which led the owner to revise the paired gate to time per successful task (ADR-0019).
+- **Strands chose well but not always.** For the six pilot prompts it chose the right note four times and a wrong one twice, confidently (`fetch-timeout` got the retry note at margin 0.68; `log-failures` got the queue-errors note at 0.94). On the harder invented corpus it was 80% right against BM25's 33% (no BM25 threshold reached the gate), so the pilot prompts favour keyword matching more than real ones would.
+- **Local delivery under memory pressure.** The owner's Mac was using 18.4 GB of 19.5 GB swap; between Claude runs macOS paged out the server's 5 GB (resident memory fell to 81 MB), and a cold call took 1.6 to 2.1 s, past the per-turn deadline. With the model warm, the same 200-character packet took 843 ms at p95. A synchronous per-turn call is not dependable on a loaded Mac; deciding in the background at launch delivered advice in 7 of 12 runs. ADR-0019 therefore makes decisions non-blocking, and the owner made the user's own Hugging Face Space the default path with the local runtime optional.
+- **Not proven here:** Codex and Antigravity, other models, real projects, a hosted Space, and a gate pass. This is a pilot; #465 runs the frozen evaluation.
 
 ## Hosted path (Hugging Face)
 
