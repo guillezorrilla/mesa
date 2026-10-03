@@ -75,3 +75,7 @@ The owner dropped Jev on 2026-09-26, and P3 leaves it out: the issues for the Je
 ## Amendment 2026-09-27: keep material decisions, not every action (#274)
 
 The earlier receipt rule above described P3. A deliberate `mesa decide` call keeps its answers, probabilities, context, and rationale in a `decision` receipt. A guardrail keeps its decision evidence when it blocks an action or an explicit override passes; an ordinary allow creates no receipt. The policy is owned by `receipts/policy.ts`, so routine actions and probes no longer fill the vault.
+
+## Amendment 2026-10-03: a local model backend (#459)
+
+ADR-0019 adds a local Strands Decider backend behind Faro, with optional `instructions` and `criteria` wording on questions, per-site acceptance and abstention, and frozen quality gates. Faro remains the only owner of questions, validation and fallback; this ADR's primitives and answer shapes are unchanged.

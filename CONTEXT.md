@@ -349,6 +349,16 @@ Not: the AI, the brain, the classifier.
 A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules` or `adapter`) and the **session backend** (`tmux`). Say which one.
 Not: provider, driver, engine.
 
+## Decision site
+
+A place where Mesa asks Faro a bounded question and acts on the answer only when it is decisive enough: `supervision`, `relevance`, `next-step`, and `evidence` (ADR-0019, `decisions/sites.ts`). Each site owns its question wording and its acceptance threshold on the answer's margin; below the threshold Mesa abstains and keeps its rules' result or gives no advice. A site is automatic only after it meets its frozen quality gates on the held-out corpus.
+Not: use case, hook, feature.
+
+## Abstain
+
+What a decision site does with an answer that is not decisive enough: it is kept as evidence but not acted on. Distinct from unavailable, when no answer came (no worker, a deadline, a refused or malformed reply).
+Not: fail, error, skip.
+
 ## Guardrail
 
 A decision Faro makes before an external action (send a prompt, run a skill, push, delete): allow, ask, or block, with confidence. Recorded when the guardrail blocks an action or a person overrides it. It asks one Choice (`verdict`: allow, ask, block) and one Noul (`secret-or-destructive`: "This text contains a secret or a destructive instruction") of its own rules, which block a text holding a secret (a known key shape, or one of the profile's key values) or a destructive command (`rm -rf`, `git push --force`, `DROP TABLE`, and the rest in `decisions/guardrail-patterns.ts`), ask in a project whose `guardrail` level in `mesa.yaml` is `strict` (or whose level cannot be read), and allow otherwise, each at 0.95, so the adapter is asked only above that threshold. That level is an input to the decision, not a guardrail itself. `mesa send` and `mesa run` ask it, each once its own refusals pass and before anything is typed or started. An ask prompts `y/N` in a terminal; with `--json` or no terminal it is `guardrail_blocked` (exit 5), with the verdict, the reason, and the decision in the error's details, unless `--yes`. A block is `guardrail_blocked` unless `--force`. Both flags work for every caller, a person or another session, and a kept receipt notes the override in `outputs.override` (`yes`, `confirmed` for a person's `y`, or `force`); a stopped action's receipt is `blocked`. The Board's Send shows an ask in a dialog whose Send anyway sends again with `--yes`, and a block in the toast, with no override (`--force` is the CLI's); skills are invoked from a session terminal. `mesa guardrail check <text> [--project <p>]` prints the verdict and the decision and writes no receipt.
