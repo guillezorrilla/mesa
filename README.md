@@ -5,12 +5,21 @@
 <h1 align="center">Mesa</h1>
 
 <p align="center">
-  <strong>One Mac app for every coding agent session, across all your projects.</strong>
+  <strong>The vendor-neutral workspace for AI coding agents.</strong><br>
+  Run Claude Code, Codex and Gemini side by side, keep their context, and never get locked in.
+</p>
+
+<p align="center">
+  <a href="https://github.com/guillezorrilla/mesa/releases/latest"><strong>Download for macOS</strong></a>
+  &nbsp;&middot;&nbsp;
+  <a href="#quick-start">Quick start</a>
+  &nbsp;&middot;&nbsp;
+  <a href="#features">Features</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/guillezorrilla/mesa/actions/workflows/ci.yml"><img src="https://github.com/guillezorrilla/mesa/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/guillezorrilla/mesa/releases/latest"><img src="https://img.shields.io/github/v/release/guillezorrilla/mesa?include_prereleases&label=release" alt="Latest release"></a>
+  <a href="https://github.com/guillezorrilla/mesa/releases/latest"><img src="https://img.shields.io/github/v/release/guillezorrilla/mesa?label=release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-lightgrey?logo=apple" alt="macOS 14 or later">
 </p>
@@ -19,22 +28,26 @@
   <img src="docs/assets/board.png" alt="Mesa with sessions from three projects in the sidebar and two Claude Code sessions side by side in the terminal grid">
 </p>
 
-## What Mesa is
+## Why Mesa
 
-Running one coding agent in one terminal is easy. Running six across four repositories is not: you lose track of which one is waiting for an answer, which one finished, and what each decided last week.
+One agent in one terminal is easy. Six agents across four repositories is not: you lose track of which one is waiting for you, which one finished, and what each one decided last week. And every vendor wants you inside their own app.
 
-Mesa runs Claude Code, Codex and Antigravity sessions for you, shows them all on one Board grouped by project, and keeps what they learn in an Obsidian vault so the next session starts with it. It is for developers who already work with coding agents and want to run several at once without a wall of terminal tabs.
+Mesa is the layer above the agents. It is a Mac app and a `mesa` CLI for engineers who already work with coding agents and want to run several at once.
 
-Every session is the agent's own terminal UI, unchanged, running in tmux. Mesa adds the layer around it: where each session is, what it needs from you, and what it should remember.
+- **Use every agent, depend on none.** Claude Code, Codex and Gemini (through Antigravity CLI) run as their own unchanged terminal apps, signed in with your own subscriptions. Mesa needs no API keys and has no account. Switch tools whenever a better one ships.
+- **Run many sessions at once.** Start sessions across all your projects, each in its own Git worktree or branch if you want, and see them all on one Board. Mesa tells you which ones are working, finished, or waiting for an answer.
+- **Keep context when you switch tools.** Hand a session's work to another agent with its goal and a handoff note (`mesa handoff <id> --agent codex`). Every agent reads and writes the same memory, so the next session, in any tool, starts where the last one stopped.
+- **Own your memory.** What your agents learn lives in an Obsidian vault of plain Markdown on your Mac: project notes, decisions, session summaries. No vendor's cloud holds it, and it outlives any tool.
 
 ## Features
 
-- **Every session on one Board.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one to get its live terminal, or tile several in the terminal grid.
-- **Claude Code, Codex and Antigravity.** Start any of them in a project, in a new Git worktree, or on a branch; swap the agent of a fresh session; queue a session to start after another ends; hand a session's work to a successor before its context fills.
-- **The Obsidian vault as memory.** Each profile owns a vault of plain Markdown: project hubs, notes, decisions, session summaries and a project map. Sessions read and write it through the `mesa-vault` tools, and Obsidian opens it as is.
+- **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid.
+- **Every agent, the same controls.** Start Claude Code, Codex or Antigravity CLI in a project, a new worktree or a branch. Swap the agent of a fresh session, queue a session to start after another ends, and hand work to a successor, in the same agent or another, before its context fills.
+- **Shared memory in your vault.** Each profile owns an Obsidian vault: project hubs, notes, decisions, session summaries and a project map. Every agent reaches it through the same `mesa-vault` tools, and Obsidian opens it as is.
 - **Faro, the decisions layer.** Recurring judgments, such as whether a prompt sent to a session is allowed, go through rules first and then an agent. Each decision is kept in a Receipt with its probabilities and confidence.
-- **Import from Atlassian and Notion.** Connect once in the browser, then browse Jira, Confluence and Notion and tick the pages and issues to import; public web pages work by link. Each import lands in the vault as a snapshot plus a note, and can start a session.
-- **The `mesa` CLI for everything the app does.** Every screen is backed by a command, and every command has `--json`, so scripts and agents can drive Mesa too.
+- **Your project knowledge, imported.** Connect Atlassian and Notion once, then pick the Jira issues, Confluence pages and Notion pages to import, or paste any public link. Each import lands in the vault, and can start a session.
+- **Automations.** Per project, run a skill, start a session, message one, or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.
+- **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too.
 
 <table>
   <tr>
@@ -63,12 +76,12 @@ mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.loc
 
 - macOS 14 or later.
 - [tmux](https://github.com/tmux/tmux): `brew install tmux`.
-- At least one coding agent, signed in with its own subscription: [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), or Antigravity. Mesa needs no API keys and has no account of its own.
+- At least one coding agent, signed in with its own subscription: [Claude Code](https://docs.claude.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), or Antigravity CLI for Gemini. Mesa needs no API keys and has no account of its own.
 - [Obsidian](https://obsidian.md) is optional: the vault is plain Markdown, and Obsidian is only needed to open it there.
 
 ## Quick start
 
-1. **First run.** Open Mesa. A short tour walks through projects and sessions; you can leave it and resume it later.
+1. **First run.** Open Mesa. The Set up screen asks for a vault folder, creates your profile, and checks tmux and your agents. A short tour follows; you can leave it and resume it later.
 2. **Add a project.** In Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder. The project appears in the sidebar.
 3. **Start a session.** Press **+** beside the project. A session starts at once with the project's agent (Claude Code unless you chose another) and opens in its own terminal. The sidebar shows its state: working, waiting for an answer, idle, or queued.
 4. **Use the CLI.** Everything above works from a terminal too:
