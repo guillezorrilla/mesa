@@ -66,7 +66,11 @@ export function SessionsSection(props: {
       role="listbox"
       aria-multiselectable="true"
       aria-label="Sessions"
-      onKeyDown={(event) => event.key === 'Escape' && onSelection({ kind: 'escape' })}
+      onKeyDown={(event) => {
+        // An open menu's Escape bubbles here through React's tree, though its DOM is elsewhere.
+        if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node))
+          onSelection({ kind: 'escape' });
+      }}
     >
       {visible.map((project) => (
         <ProjectSessionsGroup

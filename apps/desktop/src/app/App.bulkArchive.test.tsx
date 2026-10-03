@@ -37,8 +37,11 @@ const rightClick = (element: HTMLElement | undefined) =>
 const menuItems = () =>
   [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => item.textContent);
 
-/** Three live sessions in one project; `archive` archives the ids it is given, except `failing`. */
-async function setup(failing?: string) {
+/**
+ * Three live sessions in one project; `archive` archives the ids it is given, except `failing`,
+ * and says `warned` archived with a warning.
+ */
+async function setup({ failing, warned }: { failing?: string; warned?: string } = {}) {
   const archived = new Set<string>();
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -52,7 +55,12 @@ async function setup(failing?: string) {
         return {
           id,
           ok: true,
-          result: { ...managedRow(id), archivedAt: '2026-10-03T12:00:00.000Z', receipt: null },
+          result: {
+            ...managedRow(id),
+            archivedAt: '2026-10-03T12:00:00.000Z',
+            receipt: null,
+            ...(id === warned ? { warning: 'receipt not written' } : {}),
+          },
         };
       });
       return envelope({ items });
@@ -124,7 +132,7 @@ test('right-click on an unselected card makes it the selection: Archive session'
 });
 
 test('a failed item gives an alert naming it, and its card stays', async () => {
-  const { byTestId } = await setup('bbbbbbbb');
+  const { byTestId } = await setup({ failing: 'bbbbbbbb' });
   await click(card('aaaaaaaa'));
   await clickWith(card('cccccccc'), { shiftKey: true });
   await rightClick(card('aaaaaaaa'));
@@ -136,4 +144,49 @@ test('a failed item gives an alert naming it, and its card stays', async () => {
   ]);
   expect(byTestId('sidebar-session')).toHaveLength(1);
   expect(card('bbbbbbbb')).toBeDefined();
+});
+
+/** Clicks the first card, Shift-clicks the third, and right-clicks the second. */
+async function menuOnThree() {
+  await click(card('aaaaaaaa'));
+  await clickWith(card('cccccccc'), { shiftKey: true });
+  await rightClick(card('bbbbbbbb'));
+  expect(menuItems()).toEqual(['Archive 3 sessions']);
+}
+
+test('Escape on the open menu closes it and keeps the selection', async () => {
+  await setup();
+  await menuOnThree();
+  await act(async () => {
+    document
+      .querySelector('[role="menuitem"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+  expect(menuItems()).toEqual([]);
+  expect(selected()).toEqual(IDS);
+});
+
+test('a pointerdown outside the open menu closes it', async () => {
+  await setup();
+  await menuOnThree();
+  await act(async () => {
+    // Radix starts listening for outside pointerdowns on the next tick after it opens.
+    await new Promise((done) => setTimeout(done, 0));
+    document.body.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerType: 'mouse' }),
+    );
+  });
+  expect(menuItems()).toEqual([]);
+  expect(selected()).toEqual(IDS);
+});
+
+test('a warning on an archived item is listed, with no alert when none failed', async () => {
+  const { byTestId } = await setup({ warned: 'bbbbbbbb' });
+  await menuOnThree();
+  await click(document.querySelector<HTMLElement>('[role="menuitem"]') ?? undefined);
+  await click(byTestId('archive-confirm')[0]);
+  expect(toasts(byTestId)).toContainEqual([
+    'confirmation',
+    'Archived 3 sessions\nbbbbbbbb: receipt not written',
+  ]);
 });

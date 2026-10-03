@@ -186,7 +186,7 @@ export function useSessionCommands({
       ].filter(Boolean);
       return {
         text: lines.join('\n'),
-        tone: lines.length > 1 || done.length === 0 ? 'alert' : 'confirmation',
+        tone: done.length < result.items.length ? 'alert' : 'confirmation',
       };
     });
   const deletePermanently = (id: string) =>

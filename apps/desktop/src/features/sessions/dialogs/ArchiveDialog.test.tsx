@@ -65,3 +65,22 @@ test('one row keeps the single-session text and Delete permanently', async () =>
   expect(buttons(dialog)).toContain('Delete permanently');
   expect(byTestId('archive-confirm')[0]?.textContent).toBe('Archive session');
 });
+
+test('several recoverable rows are dismissed, as one recoverable row is', async () => {
+  const ended = (id: string) =>
+    managedRow(id, {
+      alive: false,
+      lastState: { state: 'done', confidence: 1, at: '2026-09-27T12:00:00.000Z', source: 'tmux' },
+    }) as ManagedRow;
+  let byTestId = await render([ended('aaaaaaaa')]);
+  expect(byTestId('archive-dialog')[0]?.querySelector('h2')?.textContent).toBe(
+    'Dismiss this session?',
+  );
+  expect(byTestId('archive-confirm')[0]?.textContent).toBe('Dismiss session');
+  byTestId = await render([ended('aaaaaaaa'), ended('bbbbbbbb'), ended('cccccccc')]);
+  expect(byTestId('archive-dialog')[0]?.querySelector('h2')?.textContent).toBe(
+    'Dismiss 3 sessions?',
+  );
+  expect(byTestId('archive-confirm')[0]?.textContent).toBe('Dismiss 3 sessions');
+  expect(byTestId('archive-dialog')[0]?.textContent).not.toContain('terminate');
+});
