@@ -211,3 +211,23 @@ test('days outside 1 to 365 are refused, and a machine with nothing on it finds 
     truncated: false,
   });
 });
+
+test('a linked worktree whose main checkout is gone is its own project folder', async () => {
+  const { mesa, home } = setUp();
+  const worktree = join(home, 'wt/tide-pool-fix');
+  mkdirSync(worktree, { recursive: true });
+  writeFileSync(join(worktree, '.git'), `gitdir: ${home}/src/gone/.git/worktrees/tide-pool-fix\n`);
+  transcript(home, ids.worktree, worktree, '2026-09-22T10:00:00.000Z');
+  const found = await mesa.sessions.discover(30);
+  expect(found.conversations).toMatchObject([{ id: ids.worktree, project: worktree }]);
+  expect(found.projects).toEqual([
+    {
+      path: worktree,
+      name: 'tide-pool-fix',
+      configured: false,
+      registered: false,
+      conversations: 1,
+      live: 0,
+    },
+  ]);
+});

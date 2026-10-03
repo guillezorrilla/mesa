@@ -38,8 +38,9 @@ const adoptable = (p: AgentProcess): p is AgentProcess & { agent: (typeof ADOPTS
 /**
  * Records a native session Mesa did not start, found live (the listing) or on disk (its
  * transcript), as an adopted session of the project its folder is in (else `project`), named
- * `name`, else as its agent names it, and, unless `noResume`, reopens its conversation in a Mesa window, in that folder. The warning is
- * always the same: the original terminal still holds the conversation.
+ * `name`, else as its agent names it, and, unless `noResume`, reopens its conversation in a Mesa
+ * window, in that folder. The warning is always the same: the original terminal still holds the
+ * conversation.
  */
 export async function adoptSession(
   deps: AdoptDeps,

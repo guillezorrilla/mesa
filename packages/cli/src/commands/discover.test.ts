@@ -74,3 +74,18 @@ test('--days outside 1 to 365 is a usage error; an empty machine finds nothing a
   expect(code).toBe(0);
   expect(stdout).toBe('nothing found in the last 30 days\n');
 });
+
+test('conversations in no project folder are counted on their own line', async () => {
+  await cli.withProject();
+  const loose = join(cli.home, 'scratch');
+  const file = plantTranscript(
+    cli.home,
+    CLAUDE_ID,
+    loose,
+    JSON.stringify({ type: 'user', cwd: loose }),
+  );
+  utimesSync(file, new Date('2026-09-23T10:00:00.000Z'), new Date('2026-09-23T10:00:00.000Z'));
+  const { stdout, code } = await cli.mesa('discover');
+  expect(code).toBe(0);
+  expect(stdout).toBe('1 conversation in no project folder\n');
+});
