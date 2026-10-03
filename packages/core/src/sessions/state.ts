@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
 import { AGENTS } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
-import { decide, type FaroDeps, unsure } from '../decisions/decide.js';
+import { decide, type FaroDeps } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
-import type { Backend, Decision, Question } from '../decisions/types.js';
+import type { Decision, Question } from '../decisions/types.js';
 import type { AgentProcess } from './agent-listing.js';
 import type { SessionRecord } from './record.js';
 import { AGENT_STATES, FINAL_STATES, type SessionState, WAITING_STATES } from './states.js';
@@ -152,54 +151,18 @@ const stateRules = rulesBackend<SessionSignals>([{ when: () => true, answer: (_,
  */
 export type Placement = { lastState: LastState; attention: number; decision?: Decision };
 
-/** What the adapter saw, as a short hash: while it is unchanged, the adapter's answer stands. */
-const basisOf = (s: SessionSignals) =>
-  createHash('sha256')
-    .update(JSON.stringify([s.agent, s.ended, s.event, s.listed, s.window, s.tail]))
-    .digest('hex')
-    .slice(0, 16);
-
 /**
  * Faro places one session: a Choice over the six agent states, a Score for attention, and a Noul for
- * "a human is needed now", asked through `decide` with the state rules first and `backends`
- * (the adapter) when they are unsure. The adapter's Choice, when it answered, is the state, kept
- * with the `basis` it saw: the board refreshes every few seconds, and while nothing it saw has
- * changed the adapter is not asked again. Attention always comes from the rules' bands, applied
- * to the state that stands, so a wait outranks work whoever named the state.
+ * "a human is needed now", asked through `decide` of the state rules alone (ADR-0020). Their
+ * reading is the state, so a state an older Mesa saved from the adapter yields to the first look
+ * that reads anything. Attention comes from the rules' bands, applied to that state.
  */
 export async function classifySession(
-  deps: Omit<FaroDeps<SessionSignals>, 'backends'> & {
-    backends?: readonly Backend<SessionSignals>[];
-  },
+  deps: Omit<FaroDeps<SessionSignals>, 'backends'>,
   signals: SessionSignals,
 ): Promise<Required<Placement>> {
-  const basis = basisOf(signals);
-  // An explicit Codex idle/working/gate marker is more reliable than an adapter guess. In a
-  // live Codex pane the adapter mistook "? for shortcuts" for a question after the turn ended.
-  // Antigravity has no qualified semantic feed, so never ask the adapter for its TUI state.
-  const allowAdapter =
-    signals.agent !== 'antigravity' &&
-    !(signals.agent === 'codex' && signals.tail && AGENTS.codex.screen.state(signals.tail));
-  const fromAdapter = allowAdapter && signals.last.source === 'adapter';
-  const known = fromAdapter && signals.last.basis === basis;
-  const backends = [stateRules, ...(allowAdapter && !known ? (deps.backends ?? []) : [])];
-  const decision = await decide({ ...deps, backends }, signals, STATE_QUESTIONS);
-  const [state] = decision.answers;
-  const adapted = decision.backend === 'adapter' && state?.kind === 'Choice' ? state : undefined;
-  // A quick look has no adapter to ask: its last answer stands while the rules are unsure.
-  const kept =
-    known || (fromAdapter && !deps.backends?.length && unsure(decision.answers, deps.profile));
-  const lastState: LastState = kept
-    ? signals.last
-    : adapted
-      ? {
-          state: adapted.answer as SessionState,
-          confidence: adapted.confidence,
-          source: 'adapter',
-          at: adapted.answer === signals.last.state ? signals.last.at : signals.now,
-          basis,
-        }
-      : classify(signals);
+  const decision = await decide({ ...deps, backends: [stateRules] }, signals, STATE_QUESTIONS);
+  const lastState = classify(signals);
   const attention = toAnswer(ATTENTION, attentionWeights(lastState, signals));
   return { lastState, attention: attention.kind === 'Score' ? attention.answer : 0, decision };
 }

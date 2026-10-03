@@ -44,7 +44,7 @@ test('doctor reports { healthy, checks } and exits 3 when unhealthy', async () =
   expect(sick.stdout).toContain('doctor: tmux and at least one agent');
 });
 
-test('decide answers the questions on stdin, rules first, then the adapter; doctor names it', async () => {
+test('decide answers the questions on stdin with rules alone; doctor says rules only', async () => {
   // Before init there is nothing configured: rules answer.
   cli.stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'x', statement: 'It holds' }] });
   expect((await mesa('decide')).stdout).toBe(
@@ -60,61 +60,38 @@ test('decide answers the questions on stdin, rules first, then the adapter; doct
       { kind: 'Noul', id: 'destructive', statement: 'The prompt deletes files' },
     ],
   });
-  // No rules know these questions, so they are even and unsure: the adapter (the default) is
-  // asked. Its `claude -p` result here is invented, shaped like a recorded one.
-  const structured = {
-    route: { answer: 'ask', probabilities: { ingest: 0.2, ask: 0.8 }, confidence: 0.8 },
-    urgency: { answer: 'high', probabilities: { low: 0, medium: 0.4, high: 0.6 }, confidence: 0.7 },
-    destructive: { answer: false, confidence: 0.9 },
-  };
-  const result = {
-    type: 'result',
-    subtype: 'success',
-    is_error: false,
-    structured_output: structured,
-    total_cost_usd: 0.0021,
-  };
-  cli.run = scriptedRunner({
-    claude: (args) => (args[0] === '-p' ? JSON.stringify(result) : '[]'),
-  }).run;
+  // No rules know these questions, so they are even and unsure; still no model is asked.
+  const scripted = scriptedRunner({ claude: () => '[]' });
+  cli.run = scripted.run;
   expect((await mesa('decide')).stdout).toBe(
     [
-      'route        Choice  ask    confidence 0.80',
-      'urgency      Score   0.80   confidence 0.70',
-      'destructive  Noul    false  p 0.10',
-      'backend adapter (list price $0.0021)',
+      'route        Choice  ingest  confidence 0.50',
+      'urgency      Score   0.50    confidence 0.33',
+      'destructive  Noul    false   p 0.50',
+      'backend rules',
       '',
     ].join('\n'),
   );
   const { json } = await mesa('decide', '--json');
   expect(json.data).toMatchObject({
-    backend: 'adapter',
-    costUsd: 0.0021,
+    backend: 'rules',
     at: '2026-09-24T12:00:00.000Z',
     latencyMs: 0,
   });
+  expect(json.data).not.toHaveProperty('costUsd');
   const receipt = (await mesa('receipts', 'show', json.data.receipt.id, '--json')).json.data
     .receipt;
   expect(receipt).toMatchObject({
     type: 'decision',
     status: 'ok',
-    cost: 0.0021,
     inputs: { state: { anything: true } },
     decisions: [
-      {
-        question: 'route',
-        answer: 'ask',
-        probabilities: { ingest: 0.2, ask: 0.8 },
-        confidence: 0.8,
-      },
-      { question: 'urgency', probabilities: { low: 0, medium: 0.4, high: 0.6 }, confidence: 0.7 },
-      { question: 'destructive', answer: false, probabilities: 0.1 },
+      { question: 'route', probabilities: { ingest: 0.5, ask: 0.5 }, backend: 'rules' },
+      { question: 'urgency', backend: 'rules' },
+      { question: 'destructive', answer: false, probabilities: 0.5, backend: 'rules' },
     ],
   });
-  // A claude that cannot answer: the even rules stand, marked as a fallback.
-  cli.run = scriptedRunner({}, { missing: ['claude'] }).run;
-  expect((await mesa('decide')).stdout).toContain('backend rules-fallback\n');
-  expect(json.data.answers).toHaveLength(3);
+  expect(receipt).not.toHaveProperty('cost');
 
   cli.stdin = 'not json';
   expect(await mesa('decide')).toMatchObject({
@@ -127,15 +104,16 @@ test('decide answers the questions on stdin, rules first, then the adapter; doct
     stderr: expect.stringContaining('invalid questions: 0.options'),
   });
 
-  // The profile names adapter (the default): doctor says rules come first.
+  // Doctor names the rules, and probes claude only for its version: never claude -p.
   const { json: report } = await mesa('doctor', '--json');
   expect(report.data.checks).toContainEqual({
     name: 'decisions',
     ok: true,
     status: 'ok',
-    version: 'adapter',
-    hint: 'rules first; adapter below confidence 0.7',
+    version: 'rules',
+    hint: 'rules only',
   });
+  expect(scripted.calls.filter((c) => c.file === 'claude' && c.args[0] === '-p')).toEqual([]);
 });
 
 test('doctor reports Claude settings that do not read as a warning, not a failure', async () => {

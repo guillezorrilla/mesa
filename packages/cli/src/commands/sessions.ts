@@ -22,18 +22,11 @@ export const sessions = defineCommand({
       type: 'boolean',
       description: 'Children under their parent, indented; --json adds each row its depth',
     },
-    'no-adapter': {
-      type: 'boolean',
-      description: "Never wait on Faro's adapter: unsure states keep their last answer",
-    },
   },
   example: 'mesa sessions --tree',
   run: async ({ mesa, flags }) => {
     const all = flags.all ?? false;
-    const opts = { adapter: !flags['no-adapter'] };
-    const rows = flags.tree
-      ? await mesa.sessions.tree(all, opts)
-      : await mesa.sessions.list(all, opts);
+    const rows = flags.tree ? await mesa.sessions.tree(all) : await mesa.sessions.list(all);
     // Only --tree rows carry a depth.
     const indent = (s: object) =>
       '  '.repeat('depth' in s && typeof s.depth === 'number' ? s.depth : 0);

@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
-import { fixedClock, memoryRecorder, scriptedRunner, tempDir } from '../testing/index.js';
-import { adapterBackend } from './adapter.js';
+import { fixedClock, memoryRecorder } from '../testing/index.js';
 import type { FaroProfile } from './decide.js';
 import {
   checkGuardrail,
@@ -9,7 +8,6 @@ import {
   passGuardrail,
   type Verdict,
 } from './guardrail.js';
-import type { Backend } from './types.js';
 
 // Invented keys, built here so no key-shaped string sits in the repo.
 const x = (n: number) => 'x'.repeat(n);
@@ -22,10 +20,9 @@ const FAKE = {
 
 const LEVELS: Record<string, GuardrailLevel> = { harbour: 'normal', lighthouse: 'strict' };
 const profile = (threshold = 0.7): FaroProfile => ({
-  decisions: { backend: 'adapter', threshold },
+  decisions: { backend: 'rules', threshold },
 });
 const deps = (over: Partial<GuardrailDeps> = {}): GuardrailDeps => ({
-  shared: [],
   profile: profile(),
   clock: fixedClock(),
   level: (project) => LEVELS[project],
@@ -105,33 +102,13 @@ test.each(FIXTURES)('$verdict: $text', async ({ text, project, verdict, reason }
   expect(checked.decision.backend).toBe('rules');
 });
 
-test('the rules are 0.95 sure: the adapter is asked above that threshold only, and never sees a secret', async () => {
-  const seen: unknown[] = [];
-  const adapter: Backend = {
-    name: 'adapter',
-    answer: async (state) => {
-      seen.push(state);
-      throw new Error('offline');
-    },
-  };
-  await check(`use ${FAKE.anthropic} and ${FAKE.profileKey}`, undefined, { shared: [adapter] });
-  expect(seen).toEqual([]);
-  const unsure = await check(`use ${FAKE.anthropic} and ${FAKE.profileKey}`, 'lighthouse', {
-    shared: [adapter],
-    profile: profile(0.99),
+test('the guardrail asks only its rules, at any threshold', async () => {
+  const strict = await check(`use ${FAKE.anthropic}`, 'lighthouse', { profile: profile(0.99) });
+  expect(strict).toMatchObject({
+    verdict: 'block',
+    reason: 'the text holds an Anthropic API key',
+    decision: { backend: 'rules' },
   });
-  expect(seen).toEqual([
-    {
-      action: 'send',
-      target: 'a1b2c3d4',
-      text: 'use *** and ***',
-      project: 'lighthouse',
-      level: 'strict',
-      secret: 'an Anthropic API key',
-    },
-  ]);
-  // It failed, so the rules' answers stand, and so does their reason.
-  expect(unsure).toMatchObject({ verdict: 'block', decision: { backend: 'rules-fallback' } });
 });
 
 test('the decision goes to the recorder it is given', async () => {
@@ -181,25 +158,3 @@ test('an allow passes; a block passes only --force; an ask passes --yes, --force
     'Project lighthouse has guardrail: strict. Send it?',
   ]);
 });
-
-test.each(['', '\n-----END OPENSSH PRIVATE KEY-----\nkeep this suffix'])(
-  'the adapter prompt masks the complete private key, with terminator %j',
-  async (end) => {
-    const body = 'invented-private-material';
-    const runner = scriptedRunner({
-      claude: () => ({ ok: false, reason: 'missing', detail: 'offline' }),
-    });
-    const adapter = adapterBackend({ run: runner.run, directory: tempDir(), redact: (v) => v });
-    const result = await check(`inspect ${FAKE.privateKey}\n${body}${end}`, undefined, {
-      shared: [adapter],
-      profile: profile(0.99),
-    });
-    expect(result).toMatchObject({ verdict: 'block', decision: { backend: 'rules-fallback' } });
-    expect(runner.calls).toHaveLength(1);
-    const prompt = runner.calls[0]?.args[1];
-    expect(prompt).toContain('inspect ***');
-    expect(prompt).not.toContain(body);
-    expect(prompt).not.toContain('-----');
-    if (end) expect(prompt).toContain('keep this suffix');
-  },
-);

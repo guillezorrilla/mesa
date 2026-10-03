@@ -1,12 +1,11 @@
 import type { FaroProfile } from '../../decisions/decide.js';
-import type { Backend, DecisionRecorder } from '../../decisions/types.js';
+import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import type { AgentProcess } from '../agent-listing.js';
 import type { HookEvent } from '../hook-events.js';
 import type { SessionRecord } from '../record.js';
-import type { SessionSignals } from '../state.js';
 import type { SessionStore } from '../store.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import { targetLabel } from '../tmux/format.js';
@@ -45,8 +44,6 @@ export async function listSessions(
     faro: FaroProfile;
     /** Where each row's Decision goes; receipts implement it in P3. */
     recorder?: DecisionRecorder;
-    /** Faro's shared backends (the adapter), asked when the state rules are unsure. */
-    backends?: readonly Backend<SessionSignals>[];
     projects: readonly RegistryEntry[];
     /** Agent session ids that other profiles' records hold: not foreign, not this board's. */
     elsewhere: () => ReadonlySet<string>;
@@ -88,12 +85,7 @@ export async function listSessions(
   const looked = records.map((r) => ({ ...r, agentSessionId: r.agentSessionId ?? read.get(r.id) }));
   const { runs, listedAs: listedFor } = matchListed(looked, windowList, listed);
   const byLabel = new Map(windowList.map((w) => [targetLabel(w), w]));
-  const faro = {
-    profile: deps.faro,
-    clock: deps.clock,
-    recorder: deps.recorder,
-    backends: deps.backends,
-  };
+  const faro = { profile: deps.faro, clock: deps.clock, recorder: deps.recorder };
   const managed = await Promise.all(
     records.map((found) =>
       managedRow({ ...deps, faro }, found, {

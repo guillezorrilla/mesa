@@ -76,7 +76,7 @@ export function createContext(profile: string, deps: MesaDeps) {
   };
   /**
    * Both the stored key values and what their env: references resolve to. None when the config
-   * does not read: receipts and the adapter, the writes that use these, need that config to run.
+   * does not read: receipts, the writes that use these, need that config to run.
    */
   const secrets = () => {
     const config = configIfAny();

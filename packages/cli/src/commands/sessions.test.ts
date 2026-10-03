@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   newSession,
@@ -201,62 +201,46 @@ test('a Stop reads the context use: mesa sessions shows ctx, mesa show --json th
   expect(await row()).toContain(' ctx - ');
 });
 
-test('sessions --no-adapter never asks the adapter; its saved answer stands while the rules are unsure', async () => {
+test('sessions asks only the rules, under a config and a record an older Mesa wrote for the adapter', async () => {
   await mesa('init', '--vault', 'vault');
+  // A config from before ADR-0020: it still loads, and acts as rules.
+  const config = readFileSync(cli.paths.config, 'utf8');
+  expect(config).toContain('decisions:\n  backend: rules\n');
+  writeFileSync(
+    cli.paths.config,
+    config.replace('  backend: rules\n', '  backend: adapter\n  adapter: codex\n'),
+  );
   const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
-  store.create((id) => ({
+  const { id } = store.create((id) => ({
     ...newSession({ project: 'lantern-cove', startedAt: '2026-09-24T11:00:00.000Z' }),
     tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${id.slice(0, 6)}` },
   }));
-  // No hook or listing speaks, so only the screen does (0.6): unsure, the adapter's case.
-  let screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
-  const asked: string[][] = [];
-  const answer = (state: string) =>
-    JSON.stringify({
-      type: 'result',
-      subtype: 'success',
-      is_error: false,
-      structured_output: {
-        state: {
-          answer: state,
-          probabilities: Object.fromEntries(
-            ['working', 'waiting-permission', 'waiting-question', 'idle', 'done', 'failed'].map(
-              (s) => [s, s === state ? 0.9 : 0.02],
-            ),
-          ),
-          confidence: 0.9,
-        },
-        attention: {
-          answer: 'high',
-          probabilities: { none: 0, low: 0, medium: 0, high: 1, urgent: 0 },
-          confidence: 1,
-        },
-        human: { answer: true, confidence: 0.9 },
-      },
-    });
-  cli.run = scriptedRunner({
+  store.update(id, {
+    lastState: {
+      state: 'waiting-question',
+      confidence: 0.9,
+      at: '2026-09-24T11:59:00.000Z',
+      source: 'adapter',
+      basis: '0123456789abcdef',
+    },
+  });
+  // No hook or listing speaks, so only the screen does (0.6), once the adapter's case.
+  const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
+  const scripted = scriptedRunner({
     tmux: (args) =>
       args.includes('capture-pane')
         ? screen
         : `${tmuxLine({ project: 'lantern-cove', window: 'claude-aaaaaa' })}\n`,
-    claude: (args) => {
-      if (args[0] !== '-p') return '[]';
-      asked.push(args);
-      return answer('waiting-question');
-    },
-  }).run;
-  const state = async (...flags: string[]) =>
-    (await mesa('sessions', ...flags, '--json')).json.data[0].lastState;
-
-  expect(await state('--no-adapter')).toMatchObject({ state: 'idle', source: 'tmux' });
-  expect(asked).toHaveLength(0);
-  expect(await state()).toMatchObject({ state: 'waiting-question', source: 'adapter' });
-  expect(asked).toHaveLength(1);
-  // A new screen the rules are still unsure of: the quick look keeps the adapter's answer.
-  screen = `${screen}\n`;
-  expect(await state('--no-adapter')).toMatchObject({
-    state: 'waiting-question',
-    source: 'adapter',
+    claude: () => '[]',
   });
-  expect(asked).toHaveLength(1);
+  cli.run = scripted.run;
+
+  const { json } = await mesa('sessions', '--json');
+  expect(json.data[0].lastState).toMatchObject({ state: 'idle', source: 'tmux' });
+  expect(store.get(id).lastState).not.toHaveProperty('basis');
+  expect(scripted.calls.filter((c) => c.file === 'claude' && c.args[0] === '-p')).toEqual([]);
+  expect((await mesa('config', '--json')).json.data.decisions).toEqual({
+    backend: 'rules',
+    threshold: 0.7,
+  });
 });

@@ -1,10 +1,9 @@
-import { AGENT_LABELS, AGENT_NAMES, DECISIONS_BACKENDS } from '@mesa/core/browser';
 import { Archive, BrainCircuit, DollarSign, ExternalLink, Library } from 'lucide-react';
+import { Muted } from '@/components/Muted';
 import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
-import { Choice } from './controls/Choice';
 import { TextField } from './controls/TextField';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
@@ -26,33 +25,12 @@ export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => v
       >
         <SettingRow
           title="Backend"
-          description="Rules decide alone, or rules first with the adapter below the threshold."
-          htmlFor="decisions-backend"
-          control={
-            <Choice
-              id="decisions-backend"
-              path="decisions.backend"
-              value={config.decisions.backend}
-              options={DECISIONS_BACKENDS.map((backend) => [backend, backend] as const)}
-            />
-          }
-        />
-        <SettingRow
-          title="Adapter agent"
-          description="The agent asked in headless mode when rules are not confident."
-          htmlFor="decisions-adapter"
-          control={
-            <Choice
-              id="decisions-adapter"
-              path="decisions.adapter"
-              value={config.decisions.adapter}
-              options={AGENT_NAMES.map((agent) => [agent, AGENT_LABELS[agent]] as const)}
-            />
-          }
+          description="Faro answers with its rules alone, so nothing waits on a model."
+          control={<Muted size="xs">Rules only</Muted>}
         />
         <SettingRow
           title="Confidence threshold"
-          description="Below this confidence, a decision goes to the adapter (0 to 1)."
+          description="Mesa acts on an idle reading only at or above this confidence, such as delivering PR events to a session (0 to 1)."
           htmlFor="decisions-threshold"
           control={
             <TextField

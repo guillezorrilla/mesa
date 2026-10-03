@@ -38,6 +38,16 @@ import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
 export { TERMINAL_APPS } from './preferences.js';
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
 
+/**
+ * A file written before ADR-0020 may still name Faro's removed adapter, as
+ * `decisions.backend: adapter` or `decisions.adapter`: it loads, and acts as rules.
+ */
+const withoutAdapter = (decisions: unknown) => {
+  if (!decisions || typeof decisions !== 'object') return decisions;
+  const { adapter: _, ...rest } = decisions as Record<string, unknown>;
+  return rest.backend === 'adapter' ? { ...rest, backend: 'rules' } : rest;
+};
+
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 const ConfigSchema = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
@@ -46,11 +56,13 @@ const ConfigSchema = z.strictObject({
   // to read and save the profile vault's knowledge (skills/mesa-vault).
   skills: z.array(z.string()).default(['mesa', 'mesa-handoff', 'mesa-vault']),
   decisions: z
-    .strictObject({
-      backend: DecisionsBackendSchema.default('adapter'),
-      adapter: AgentSchema.default('claude'),
-      threshold: z.number().min(0).max(1).default(0.7),
-    })
+    .preprocess(
+      withoutAdapter,
+      z.strictObject({
+        backend: DecisionsBackendSchema.default('rules'),
+        threshold: z.number().min(0).max(1).default(0.7),
+      }),
+    )
     .prefault({}),
   sessions: z
     .strictObject({

@@ -133,3 +133,7 @@ Mesa now installs seven Codex events in `$CODEX_HOME/hooks.json`, sharing Claude
 Codex's first SessionStart claims the window's record. Later events find the active record by payload `session_id`, while still requiring the calling environment to name a recorded Mesa Codex window. Unknown nested ids are dropped. A prompt-less SessionEnd logs `done` without claiming an id. The matched record id also reaches queue and receipt effects. Codex's Interrupt is `idle`, and SessionEnd is `done` regardless of reason; the other mappings and 0.95 confidence follow docs/spikes/codex.md. Claude's existing log-only fallback and `/clear` behavior stay intact.
 
 Trust is TOML, including comments and multiline strings, so the reader uses smol-toml instead of matching text. Invalid config fails closed without echoing parser excerpts that might hold keys. The existing Doctor screen and CLI show installation and each event's recorded trust. Evidence: Codex hook fixtures and tests, CLI/Doctor tests, and the live check in docs/spikes/codex.md.
+
+## Amendment 2026-10-03: rules only (ADR-0020)
+
+ADR-0020 removed the adapter backend. The rules' reading is the session's state, sure or not, and no model is asked below the threshold. The signal order and confidences above are unchanged.

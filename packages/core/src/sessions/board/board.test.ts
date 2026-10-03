@@ -605,16 +605,15 @@ test('a look that read a session before another look saved its state never write
   const live = store.create(() =>
     inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
   );
-  // A quick look reads the record; the adapter's look beside it saves first.
+  // A look reads the record; another mesa's look beside it saves first.
   const before = store.list();
-  const adapted = {
+  const saved = {
     state: 'waiting-question',
-    confidence: 0.9,
+    confidence: 0.95,
     at: '2026-09-24T12:00:00.000Z',
-    source: 'adapter',
-    basis: '0123456789abcdef',
+    source: 'hook',
   } as const;
-  store.update(live.id, { lastState: adapted });
+  store.update(live.id, { lastState: saved });
   const { run } = scriptedRunner({ tmux: '' });
   await listSessions({
     ...noListing,
@@ -622,5 +621,35 @@ test('a look that read a session before another look saved its state never write
     tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
-  expect(store.get(live.id).lastState).toEqual(adapted);
+  expect(store.get(live.id).lastState).toEqual(saved);
+});
+
+test("a record an older Mesa saved with the adapter's state loads, and a look replaces it with the rules", async () => {
+  const store = storeIn();
+  const live = store.create(() =>
+    inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
+  );
+  store.update(live.id, {
+    lastState: {
+      state: 'waiting-question',
+      confidence: 0.9,
+      at: '2026-09-24T11:59:30.000Z',
+      source: 'adapter',
+      basis: '0123456789abcdef',
+    },
+  });
+  // No hook or listing speaks: the screen, a finished reply, is the rules' only signal.
+  const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
+  const { run } = scriptedRunner({
+    tmux: (args) => (args.includes('capture-pane') ? screen : LIVE_LINE),
+  });
+  const rows = await listSessions({
+    ...noListing,
+    store,
+    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  });
+  const read = { state: 'idle', confidence: 0.6, at: '2026-09-24T12:00:00.000Z', source: 'tmux' };
+  expect(rows).toMatchObject([{ id: live.id, lastState: read }]);
+  expect(store.get(live.id).lastState).toEqual(read);
 });

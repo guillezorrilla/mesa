@@ -53,7 +53,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       vault: '/h/vault',
       defaultAgent: 'claude',
       skills: [],
-      decisions: { backend: 'adapter', adapter: 'claude', threshold: 0.7 },
+      decisions: { backend: 'rules', threshold: 0.7 },
       sessions: { log: true, statusLineCost: false, prEvents: false },
       usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
       notifications: {

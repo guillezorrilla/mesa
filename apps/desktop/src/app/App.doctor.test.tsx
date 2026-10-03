@@ -68,18 +68,13 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
     name: 'decisions',
     ok: true,
     status: 'ok',
-    version: 'adapter',
-    hint: 'rules first; adapter below confidence 0.7',
+    version: 'rules',
+    hint: 'rules only',
   };
   const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.6'), decisions])) });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-doctor')[0]);
-  expect(cells(byTestId('doctor-row')[1])).toEqual([
-    'decisions',
-    '✓',
-    'adapter',
-    'rules first; adapter below confidence 0.7',
-  ]);
+  expect(cells(byTestId('doctor-row')[1])).toEqual(['decisions', '✓', 'rules', 'rules only']);
 });
 
 test('the Doctor screen lists the windows on the Mesa tmux server', async () => {

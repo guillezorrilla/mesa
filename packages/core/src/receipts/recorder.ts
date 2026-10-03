@@ -28,7 +28,7 @@ type ActionSpec<T> = {
   agent?: (result: T) => Agent | undefined;
   /** Context known before an action returns, retained when a guardrail blocks it. */
   scope?: { project?: string; session?: string; agent?: Agent; actor?: string };
-  /** What the work cost in US dollars, for information (an adapter decision's list price). */
+  /** What the work cost in US dollars, for information (a decision backend's list price). */
   cost?: (result: T) => number | undefined;
   /** False when the action changed nothing: then no receipt. */
   changed?: (result: T) => boolean;

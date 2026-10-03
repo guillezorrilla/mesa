@@ -118,6 +118,9 @@ test("a decision keeps Faro's answer and who decided it, a rules fallback too", 
   });
   const { receipt } = writeReceipt(deps(), decided('rules-fallback') as typeof EXAMPLES.decision);
   expect(receipt.decisions[0]?.backend).toBe('rules-fallback');
+  // Receipts from before ADR-0020 name its removed adapter: they still read.
+  const older = writeReceipt(deps(), decided('adapter') as typeof EXAMPLES.decision).receipt;
+  expect(older.decisions[0]?.backend).toBe('adapter');
   // A Score is a position from 0 to 1, as Faro gives it.
   const score = {
     question: 'How urgent?',

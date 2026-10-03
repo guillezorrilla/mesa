@@ -1,15 +1,10 @@
-import { REDACTED, redactText } from '../lib/redact.js';
+import { redactText } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import type { Project } from '../projects/project-file.js';
 import { decide, type FaroDeps } from './decide.js';
-import {
-  DESTRUCTIVE_PATTERNS,
-  firstMatch,
-  maskMatches,
-  SECRET_PATTERNS,
-} from './guardrail-patterns.js';
+import { DESTRUCTIVE_PATTERNS, firstMatch, SECRET_PATTERNS } from './guardrail-patterns.js';
 import { rulesBackend } from './rules.js';
-import type { Backend, Decision, Question } from './types.js';
+import type { Decision, Question } from './types.js';
 
 /** An external action Mesa is about to take, as the guardrail sees it. */
 export type Guarded = {
@@ -42,7 +37,7 @@ export type Overrides = {
   confirm?: (question: string) => Promise<boolean>;
 };
 
-/** What the rules (and the adapter, when asked) see: the text with its secrets masked. */
+/** What the rules see: the action, its project's level, and what the text holds. */
 type GuardState = Omit<Guarded, 'project'> & {
   project: string | null;
   /** Undefined when the project's mesa.yaml cannot be read. */
@@ -53,8 +48,6 @@ type GuardState = Omit<Guarded, 'project'> & {
 };
 
 export type GuardrailDeps = Omit<FaroDeps<GuardState>, 'backends'> & {
-  /** Faro's shared backends (the adapter), asked only when these rules are unsure. */
-  shared: readonly Backend<unknown>[];
   /** A project's `guardrail` level from its mesa.yaml; undefined when that cannot be read. */
   level: (project: string) => GuardrailLevel | undefined;
   /** The profile's key values: a text holding one is blocked like any other secret. */
@@ -69,9 +62,9 @@ const HARMFUL: Question = {
 };
 
 /**
- * The rules, 0.95 sure of every answer. A match, or the project's level, is a fact the rules
- * read, not a guess, so the adapter is not asked for these at any threshold up to 0.95 (the
- * default is 0.7). The 0.05 left is what the rules cannot see: a text that only mentions a
+ * The rules, 0.95 sure of every answer: a match, or the project's level, is a fact the rules
+ * read, not a guess. They are the guardrail's only backend: no model ever sees a text before it
+ * is sent (ADR-0020). The 0.05 left is what the rules cannot see: a text that only mentions a
  * command, and a secret or command no pattern lists. Most of it goes to ask, the verdict between.
  */
 const guardRules = rulesBackend<GuardState>(
@@ -89,8 +82,7 @@ const guardRules = rulesBackend<GuardState>(
 );
 
 /** Why, in words a person reads: what matched, or the project's level. */
-function reasonOf(s: GuardState, decision: Decision, verdict: Verdict) {
-  if (decision.backend === 'adapter') return `Faro's adapter judged it ${verdict}`;
+function reasonOf(s: GuardState) {
   if (s.secret) return `the text holds ${s.secret}`;
   if (s.destructive) return `the text holds a destructive command (${s.destructive})`;
   if (s.level === 'strict') return `project ${s.project} has guardrail: strict`;
@@ -117,18 +109,16 @@ export async function checkGuardrail(deps: GuardrailDeps, input: Guarded): Promi
   const state: GuardState = {
     action: input.action,
     target: input.target,
-    // The adapter, when asked, never sees a secret it would pass on.
-    text: redactText(maskMatches(text, SECRET_PATTERNS, REDACTED), deps.secrets),
+    text,
     project: project ?? null,
     level: project === undefined ? 'normal' : deps.level(project),
     ...(secret ? { secret } : {}),
     ...(destructive ? { destructive } : {}),
   };
-  const backends = [guardRules, ...deps.shared];
-  const decision = await decide({ ...deps, backends }, state, [VERDICT, HARMFUL]);
+  const decision = await decide({ ...deps, backends: [guardRules] }, state, [VERDICT, HARMFUL]);
   const [answer] = decision.answers;
   const verdict = (answer?.kind === 'Choice' ? answer.answer : 'block') as Verdict;
-  return { verdict, reason: reasonOf(state, decision, verdict), decision };
+  return { verdict, reason: reasonOf(state), decision };
 }
 
 /**
