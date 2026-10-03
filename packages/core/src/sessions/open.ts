@@ -5,7 +5,7 @@ import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Caller } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
-import { requireCommandFits } from './goal.js';
+import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
 import {
   createRecord,
   folderOf,
@@ -141,6 +141,7 @@ export async function openSession(
   if (input.background && !supportsAgentCapability(agent, 'background')) {
     throw new MesaError('usage', `${agent} has no qualified native background mode`);
   }
+  requireGoalCommandRuns(input.goal, agent);
 
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
   const command = (id: string) =>

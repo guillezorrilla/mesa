@@ -69,6 +69,23 @@ test('--keep is refused for a session in its own worktree, before anything is wr
   expect(existsSync(profilePaths(home, 'default').handoffs)).toBe(false);
 });
 
+test('a /goal goal is handed off only to an agent that runs /goal, within its 4000 characters', async () => {
+  const { tmux, home, mesa, note } = setUp();
+  // A condition at the limit opens; its successor's note line would carry it over.
+  const a = (await mesa.sessions.open('lantern-cove', { goal: `/goal ${'x'.repeat(4000)}` }))
+    .result;
+  await expect(mesa.sessions.handoff(a.id, { note })).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('over the 4000 Claude Code takes'),
+  });
+  await expect(mesa.sessions.handoff(a.id, { note, agent: 'codex' })).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('codex has no /goal command'),
+  });
+  expect(tmux.windows).toHaveLength(1);
+  expect(existsSync(profilePaths(home, 'default').handoffs)).toBe(false);
+});
+
 test('a window that cannot open removes the successor and its note again', async () => {
   // The first window comes with its tmux session (new-session); the successor's is a new-window.
   const { home, mesa, note } = setUp('new-window');
