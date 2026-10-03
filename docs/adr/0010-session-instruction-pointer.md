@@ -32,3 +32,7 @@ The same recheck found that the first goal ran behind Codex's hook-review dialog
 ## Consequences
 
 The pointer stays small and is generated from the session record at startup, so it cannot silently change the saved goal or provider trust. A missing, stale, or untrusted hook is visible in JSON and the app. Provider-native resume and clear/compact must be checked separately because a configured hook alone is insufficient evidence of repeated delivery.
+
+## Amendment 2026-10-03: per-turn delivery (#459)
+
+The #459 probe found per-turn context delivery and consumption for all three providers: Claude Code's and Codex's `UserPromptSubmit` `additionalContext`, and Antigravity's `PreInvocation` ephemeral message, which fires before every model call and must be re-sent on each. Codex runs `SessionStart` at the first prompt rather than at launch; Antigravity has no session-start event. A hook past its native timeout blocks the turn for that whole timeout and is then dropped. ADR-0019 uses these events for decision advice; this pointer is unchanged. Evidence: `docs/spikes/decision-assistance-feasibility.md`.

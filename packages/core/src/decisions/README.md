@@ -15,6 +15,10 @@
 
 - `guardrail.ts`: the decision site in front of an external action (CONTEXT.md, Guardrail). `checkGuardrail` asks a Choice (`verdict`: allow, ask, block) and a Noul (`secret-or-destructive`) of its own rules over the patterns in `guardrail-patterns.ts` and the project's `guardrail` level; `passGuardrail` applies `yes`, `force`, and a person's `confirm`, or throws `guardrail_blocked`. Every rules answer is 0.95 sure, since a match or a level is a fact the rules read, so the adapter is asked only when the threshold is above that. The adapter never sees a secret: the state's text has them masked.
 
+- `strands.ts`: `strandsBackend`, the client for a local `strands-decider serve` (ADR-0019). It sends each question's optional `instructions` and `criteria`, maps Score indices to 0-1, renormalises the wire's rounded probabilities, and throws on a refused (422 strict window), missing or off-question answer. Tests replay `fixtures/strands/`, recorded from the pinned server.
+- `sites.ts`: the four decision sites (supervision, relevance, next-step, evidence), their wording, and when an answer is accepted: its margin `(n * max p - 1) / (n - 1)` reaches the site's `ACCEPT_AT`, fitted on the calibration split.
+- `corpus.ts`, `corpus/`, `evaluation.ts`: the invented evaluation corpus and its scorer. `pnpm decisions:evaluate --backend rules|strands --dataset calibration|heldout [--url <server>] [--json]` prints per-site coverage, selective accuracy, calibration and latency, and whether each site meets its frozen gate (ADR-0019). The rules baseline needs nothing; `strands` needs a running server.
+
 Every decision site brings its own rules backend; the adapter backend is shared. `mesa decide` asks from the command line: questions no rules know, so the answers are even.
 
 In the examples, `profile` is Faro's view of the profile (`FaroProfile`: its `decisions` settings), which `createFaro` (`faro.ts`) builds for each profile, and `clock` is the injected clock.

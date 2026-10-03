@@ -346,8 +346,18 @@ Not: the AI, the brain, the classifier.
 
 ## Backend
 
-A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules` or `adapter`) and the **session backend** (`tmux`). Say which one.
+A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules`, `adapter`, or `strands`, the local Strands Decider worker of ADR-0019, which only the evaluation runner uses until #461 makes it selectable) and the **session backend** (`tmux`). Say which one.
 Not: provider, driver, engine.
+
+## Decision site
+
+A place where Mesa asks Faro a bounded question and acts on the answer only when it is decisive enough: `supervision`, `relevance`, `next-step`, and `evidence` (ADR-0019, `decisions/sites.ts`). Each site owns its question wording and its acceptance threshold on the answer's margin; below the threshold Mesa abstains and keeps its rules' result or gives no advice. A site is automatic only after it meets its frozen quality gates on the held-out corpus.
+Not: use case, hook, feature.
+
+## Abstain
+
+What a decision site does with an answer that is not decisive enough: it is kept as evidence but not acted on. Distinct from unavailable, when no answer came (no worker, a deadline, a refused or malformed reply).
+Not: fail, error, skip.
 
 ## Guardrail
 

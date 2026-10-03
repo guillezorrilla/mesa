@@ -33,7 +33,7 @@ export function selectBackend<S>(backends: readonly Backend<S>[], profile: FaroP
 }
 
 /** A backend's answers, used only when they answer exactly these questions, in order. */
-function checked(questions: Question[], raw: unknown): Answer[] {
+export function checked(questions: Question[], raw: unknown): Answer[] {
   const answers = z.array(AnswerSchema).length(questions.length).parse(raw);
   const fits = (q: Question, a: Answer) => {
     if (a.id !== q.id || a.kind !== q.kind) return false;
