@@ -113,7 +113,7 @@ test('listSessions marks a session whose window is gone done from tmux, and save
   expect(store.get(stopped.id).lastState.source).toBe('mesa');
   // One list-windows, and one capture for the live window no hook or listing speaks for (no
   // pane-died hook here: this backend has no mesa to run).
-  expect(calls.map((c) => c.args[4])).toEqual(['list-windows', 'capture-pane']);
+  expect(calls.map((c) => c.args[5])).toEqual(['list-windows', 'capture-pane']);
 
   // Marked once: the next list writes nothing new, and the clock stays stopped for it.
   const later = { ...deps, clock: fixedClock('2026-09-24T13:00:00.000Z') };

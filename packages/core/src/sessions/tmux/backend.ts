@@ -60,10 +60,13 @@ export function tmuxBackend({
   /** This mesa and its profile, for what tmux runs back into it (the pane-died hook, runMesaLater); tests leave it out. */
   mesa?: { self: readonly string[]; profile: string };
 }) {
+  // -u: the client is UTF-8 whatever the locale. An app opened from Finder has no LANG, and tmux
+  // would then print the list format's tabs as `_`. -f /dev/null: the user's tmux.conf never
+  // shapes Mesa's server (ADR-0001 amendment).
+  const server = ['-u', '-L', socket, '-f', '/dev/null'];
   /** One tmux call on Mesa's socket. A missing or hung tmux throws; a failed command returns. */
   const tmux = async (args: string[]) => {
-    // -f /dev/null: the user's tmux.conf never shapes Mesa's server (ADR-0001 amendment).
-    const res = await run('tmux', ['-L', socket, '-f', '/dev/null', ...args], TIMEOUT_MS);
+    const res = await run('tmux', [...server, ...args], TIMEOUT_MS);
     if (res.ok || res.reason === 'failed') return res;
     throw new MesaError(
       'tmux_unavailable',
@@ -124,10 +127,7 @@ export function tmuxBackend({
    */
   const attachArgv = (target: WindowTarget, view: string, naturalSelection = false) => [
     'tmux',
-    '-L',
-    socket,
-    '-f',
-    '/dev/null',
+    ...server,
     'new-session',
     '-t',
     `=${target.project}`,
@@ -323,10 +323,7 @@ export function tmuxBackend({
         // that window destroys the session and exits the client instead of selecting a sibling.
         const argv = [
           'tmux',
-          '-L',
-          socket,
-          '-f',
-          '/dev/null',
+          ...server,
           'new-session',
           '-s',
           paneView,
@@ -375,10 +372,7 @@ export function tmuxBackend({
      */
     viewAttachArgv: (view: WindowTarget) => [
       'tmux',
-      '-L',
-      socket,
-      '-f',
-      '/dev/null',
+      ...server,
       'attach-session',
       '-t',
       `=${view.project}`,

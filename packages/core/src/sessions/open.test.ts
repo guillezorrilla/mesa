@@ -74,6 +74,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
   });
   const opened = world.calls.find((c) => c.args.includes('new-session'));
   expect(opened?.args).toEqual([
+    '-u',
     '-L',
     'mesa-default',
     '-f',
@@ -125,7 +126,7 @@ test('open starts claude with its session id in a new tmux session, then in a ne
 
   const { result: second } = await mesa.sessions.open('lantern-cove');
   const added = world.calls.find((c) => c.args.includes('new-window'))?.args;
-  expect(added?.slice(4, 10)).toEqual([
+  expect(added?.slice(5, 11)).toEqual([
     'new-window',
     '-d',
     '-t',
@@ -473,6 +474,7 @@ test('an open session attaches to its exact window on the profile socket', async
   const { result } = await mesa.sessions.open('lantern-cove');
   expect((await mesa.sessions.attach(result.id)).exec).toEqual([
     'tmux',
+    '-u',
     '-L',
     'mesa-default',
     '-f',

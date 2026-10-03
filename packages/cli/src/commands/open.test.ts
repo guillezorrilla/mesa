@@ -34,6 +34,7 @@ test('open prints the session id, --json the record, and --attach hands back the
   const id = attached.stdout.trim();
   expect(attached.exec).toEqual([
     'tmux',
+    '-u',
     '-L',
     'mesa-default',
     '-f',

@@ -128,7 +128,7 @@ test('a multi-line prompt goes as one literal chunk, then one Enter', async () =
   await mesa.sessions.send(opened.id, prompt);
   expect(window.typed).toEqual([prompt]);
   const keys = calls
-    .filter((c) => c.args[4] === 'send-keys')
+    .filter((c) => c.args[5] === 'send-keys')
     // After `send-keys -t <target>`.
     .map((c) => c.args.slice(c.args.indexOf('send-keys') + 3));
   expect(keys).toEqual([['-l', '--', prompt], ['Enter']]);
