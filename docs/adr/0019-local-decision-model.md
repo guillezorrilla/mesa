@@ -93,3 +93,16 @@ Owner revision, 2026-10-03, before any final evaluation: the paired gate first r
 - Mesa owns a small HTTP client, a supervisor and a site policy; it adds no Python to the app bundle.
 - The first answers on supervision were weak on uncalibrated wording; quality may fail its gates on some sites, which then stay off. That is an acceptable outcome of this design, not a reason to lower a gate.
 - Upgrading the checkpoint, base or runtime is a new runtime id: a new install, a new calibration run and new held-out evidence before it may be automatic.
+
+## Amendment, 2026-10-03: API only, and the user picks the model
+
+The owner decided after #487: "no local model downloaded locally, that will make the app very slow, just using API for decisions models".
+- The local runtime above (the worker, the supervisor, `mesa decisions install` and MLX) is withdrawn. #460 is closed as not planned.
+- Strands Decider runs only through a hosted Space or Endpoint that the user owns.
+- The person chooses Jev (a TypeSafe key), CLEF (a Cloudflare key), Strands (a Hugging Face key) or none, and none is the default. Each key is kept only in the Keychain and shown once (#488).
+- With no key, rules answer and no model is asked.
+
+#487 (`docs/spikes/faro-value.md`) measured the `claude -p` adapter that ADR-0003 and ADR-0004 placed behind the rules on the Board.
+- It is slower: the Board waits 13 to 19 s whenever it is asked.
+- It is less accurate: rules alone were right 61 of 65 times, rules plus adapter 52 of 65.
+- So it is dropped as the default. Any hosted model must pass this ADR's held-out supervision gate, and must run beside the Board read rather than inside it, before it may place a session.
