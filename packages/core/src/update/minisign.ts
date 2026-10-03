@@ -8,7 +8,7 @@ import { MesaError } from '../lib/result.js';
 export const UPDATE_PUBLIC_KEY =
   'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDMEM3OUVFNkE4MEEwNTMKUldSVG9JQnE3bmtNckp5a3daa05YaUZMVENkcjlzenl6T1h0WjFRRGgzNm9WMGNGSU5KL20wRTAK';
 
-/** The second line of a base64-wrapped minisign file (what Tauri's keys and `.sig` files are). */
+/** The lines of a base64-wrapped minisign file (what Tauri's keys and `.sig` files are). */
 const lines = (wrapped: string) => Buffer.from(wrapped, 'base64').toString('utf8').split('\n');
 
 const refuse = (why: string) =>

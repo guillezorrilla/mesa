@@ -133,6 +133,7 @@ export function updateService(
       const { found, newer: best } = await inspect();
       if (!best) return { ...found, outcome: 'up-to-date' };
       const app = appBundle(ctx.deps.self, RELEASES_PAGE);
+      // ponytail: one universal archive (ADR-0017) serves both entries; pick by arch if they split.
       const platform =
         best.manifest.platforms['darwin-aarch64'] ?? best.manifest.platforms['darwin-x86_64'];
       if (!platform) throw new MesaError('not_found', `${best.feed} has no macOS archive`);

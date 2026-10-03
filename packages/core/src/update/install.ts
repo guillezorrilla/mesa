@@ -25,6 +25,7 @@ export function appBundle(self: readonly string[], page: string): string {
  */
 export async function replaceBundle(app: string, archive: Uint8Array, run: Runner) {
   const work = mkdtempSync(join(dirname(app), '.mesa-update-'));
+  let keep = false;
   try {
     const file = join(work, 'Mesa.app.tar.gz');
     writeFileSync(file, archive);
@@ -38,10 +39,13 @@ export async function replaceBundle(app: string, archive: Uint8Array, run: Runne
     try {
       renameSync(fresh, app);
     } catch (error) {
+      // Should putting it back fail too, the old app stays in `work` for a person to move.
+      keep = true;
       renameSync(old, app);
+      keep = false;
       throw error;
     }
   } finally {
-    rmSync(work, { recursive: true, force: true });
+    if (!keep) rmSync(work, { recursive: true, force: true });
   }
 }

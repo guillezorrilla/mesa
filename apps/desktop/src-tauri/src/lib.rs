@@ -44,7 +44,7 @@ pub fn run() {
                     .iter()
                     .any(|url| url.as_str() == updater::UPDATE_LINK)
                 {
-                    tauri::async_runtime::spawn(updater::check(handle.clone(), true));
+                    tauri::async_runtime::spawn(updater::check_now(handle.clone()));
                 }
             });
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
@@ -86,7 +86,8 @@ pub fn run() {
             updater::update_check,
             updater::update_later,
             updater::update_install,
-            updater::update_open_page
+            updater::update_open_page,
+            updater::update_quit
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -25,7 +25,8 @@ export function useUpdate() {
       stop?.();
     };
   }, [updates]);
-  return { ...updates, status };
+  const busy = status?.phase === 'checking' || status?.phase === 'downloading';
+  return { ...updates, status, busy };
 }
 
 /** One line on where the updater is, for the menu and Settings. */

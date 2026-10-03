@@ -14,11 +14,10 @@ const CHANNELS = [
 
 /** Settings > General's Updates: the channel the profile follows, and a check on demand. */
 export function UpdateSettings() {
-  const { status, check } = useUpdate();
+  const { status, busy, check } = useUpdate();
   const channel = useCommand('update.channel');
   const call = useCall();
   const { acting, act } = useAct();
-  const busy = status?.phase === 'checking' || status?.phase === 'downloading';
   return (
     <SettingSection id="updates" title="Updates" description="How Mesa keeps itself current">
       <SettingRow

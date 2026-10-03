@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { usePlatform } from '@/lib/MesaRoot';
 import { describeUpdate, useUpdate } from './useUpdate';
 
 /**
@@ -17,8 +16,7 @@ import { describeUpdate, useUpdate } from './useUpdate';
  * blocking, a running version that was revoked.
  */
 export function UpdateDialog() {
-  const { status, check, later, install, openPage } = useUpdate();
-  const { lifecycle } = usePlatform();
+  const { status, busy, check, later, install, openPage, quit } = useUpdate();
   if (!status) return null;
   const ready = status.phase === 'ready';
   if (status.revoked) {
@@ -40,16 +38,13 @@ export function UpdateDialog() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">{describeUpdate(status)}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => void lifecycle.close()}>
+            <Button variant="outline" onClick={() => void quit()}>
               Quit
             </Button>
             {ready ? (
               <Button onClick={() => void install()}>Install v{status.version}</Button>
             ) : (
-              <Button
-                disabled={status.phase === 'checking' || status.phase === 'downloading'}
-                onClick={() => void check()}
-              >
+              <Button disabled={busy} onClick={() => void check()}>
                 Check for update
               </Button>
             )}

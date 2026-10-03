@@ -2,7 +2,7 @@ import type { DoctorReport } from '@mesa/core';
 import { CircleArrowUp, RefreshCw, Settings2, UserRound } from 'lucide-react';
 import type { RefObject } from 'react';
 import { ProfileSummary } from '@/features/profile/ProfileSummary';
-import { useUpdate } from '@/features/update/useUpdate';
+import { describeUpdate, useUpdate } from '@/features/update/useUpdate';
 
 /**
  * The profile button and its popover: the profile summary, updates, and Settings. `ref` is the
@@ -13,11 +13,10 @@ export function ProfileMenu(props: {
   doctor: DoctorReport | undefined;
   onSettings: () => void;
 }) {
-  const { status, check } = useUpdate();
+  const { status, busy, check } = useUpdate();
   const close = () => {
     if (props.ref.current) props.ref.current.open = false;
   };
-  const busy = status?.phase === 'checking' || status?.phase === 'downloading';
   return (
     <details ref={props.ref} className="relative shrink-0">
       <summary
@@ -58,6 +57,11 @@ export function ProfileMenu(props: {
           <RefreshCw aria-hidden className={busy ? 'size-4 animate-spin' : 'size-4'} /> Check for
           updates
         </button>
+        {status && status.phase !== 'idle' && status.phase !== 'ready' && (
+          <p data-testid="update-status" className="px-2 text-xs text-muted-foreground">
+            {describeUpdate(status)}
+          </p>
+        )}
         <button
           type="button"
           data-testid="open-settings"

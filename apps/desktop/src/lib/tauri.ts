@@ -106,5 +106,6 @@ export const tauriPlatform: Platform = {
     later: () => invoke('update_later'),
     install: () => invoke('update_install'),
     openPage: () => invoke('update_open_page'),
+    quit: () => invoke('update_quit'),
   },
 };

@@ -73,6 +73,8 @@ export type UpdateHost = {
   /** Replaces the app and relaunches it. */
   install: () => Promise<void>;
   openPage: () => Promise<void>;
+  /** Quits at once, from the revoked dialog. */
+  quit: () => Promise<void>;
 };
 
 /** What the app asks of the OS itself, apart from mesa: dialogs, terminals, the pasteboard. A seam like the bridge. */

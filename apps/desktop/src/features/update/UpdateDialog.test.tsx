@@ -82,7 +82,8 @@ test('a revoked version blocks with its reason, Check for update, and Quit', asy
   await click(button('Install v0.1.0-beta.5'));
   expect(calls).toEqual(['check', 'install']);
   await click(button('Quit'));
-  expect(closed()).toBe(1);
+  expect(calls).toEqual(['check', 'install', 'quit']);
+  expect(closed()).toBe(0);
 });
 
 test('the profile menu checks for updates and keeps an Update ready entry after Later', async () => {
@@ -96,6 +97,11 @@ test('the profile menu checks for updates and keeps an Update ready entry after 
   expect(byTestId('update-ready-entry')[0]?.textContent).toContain('Update ready: v0.1.0-beta.5');
   await click(byTestId('update-ready-entry')[0]);
   expect(calls).toEqual(['check', 'check']);
+  await push({
+    phase: 'failed',
+    message: 'The update to 0.1.0-beta.5 was refused: signature mismatch. Nothing was changed.',
+  });
+  expect(byTestId('update-status')[0]?.textContent).toContain('was refused');
 });
 
 test('Settings switches the channel through core and checks the new feed', async () => {

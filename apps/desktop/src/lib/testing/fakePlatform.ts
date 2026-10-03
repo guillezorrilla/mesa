@@ -31,6 +31,7 @@ export function fakeUpdates(initial: Partial<UpdateStatus> = {}) {
     },
     install: async () => void calls.push('install'),
     openPage: async () => void calls.push('openPage'),
+    quit: async () => void calls.push('quit'),
   };
   return { host, calls, push };
 }

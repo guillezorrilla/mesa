@@ -152,8 +152,12 @@ pub async fn check(app: AppHandle, manual: bool) {
         }
     });
     let found = mesa(&["update", "check"]).await;
-    let unsupported = cannot_update();
+    let unsupported = tauri::async_runtime::spawn_blocking(cannot_update)
+        .await
+        .unwrap_or(None);
     let download = updates.with(&app, |inner| {
+        // A failed check counts too: the floor holds whatever the outcome.
+        inner.last = Some((Instant::now(), channel.clone()));
         let found = match found {
             Ok(found) => found,
             Err(message) => {
@@ -162,7 +166,6 @@ pub async fn check(app: AppHandle, manual: bool) {
                 return None;
             }
         };
-        inner.last = Some((Instant::now(), channel.clone()));
         let latest = found["latest"].as_str().map(str::to_string);
         let status = &mut inner.status;
         status.channel = found["channel"].as_str().map(str::to_string);
@@ -205,10 +208,15 @@ pub async fn check(app: AppHandle, manual: bool) {
         Err(message) => {
             inner.status.phase = "failed";
             inner.status.message = Some(message);
-            // The next check tries again rather than waiting out the floor.
-            inner.last = None;
         }
     });
+}
+
+/// A check asked for by `mesa update install`, which has just found a newer version: it reaches
+/// the feeds even inside the floor, so the handed-over update is always offered.
+pub async fn check_now(app: AppHandle) {
+    app.state::<Updates>().with(&app, |inner| inner.last = None);
+    check(app, true).await;
 }
 
 /// Downloads the release `feed` announces; the plugin refuses an archive whose signature does
@@ -277,7 +285,10 @@ pub fn update_later(app: AppHandle, updates: tauri::State<'_, Updates>) {
 /// Replaces the app with the verified download and relaunches it. Sessions live in tmux, so they
 /// keep running and the relaunched app shows them again.
 #[tauri::command]
-pub fn update_install(app: AppHandle, updates: tauri::State<'_, Updates>) -> Result<(), String> {
+pub async fn update_install(app: AppHandle) -> Result<(), String> {
+    let updates = app.state::<Updates>();
+    // Not while a check may replace the download.
+    let _busy = updates.busy.lock().await;
     let ready = updates
         .inner
         .lock()
@@ -293,6 +304,12 @@ pub fn update_install(app: AppHandle, updates: tauri::State<'_, Updates>) -> Res
         return Err(error.to_string());
     }
     app.restart();
+}
+
+/// Quits from the revoked dialog: no window-close question, the version is not to be used.
+#[tauri::command]
+pub fn update_quit(app: AppHandle) {
+    app.exit(0);
 }
 
 /// Opens the download page in the browser, for a build that cannot update itself.
