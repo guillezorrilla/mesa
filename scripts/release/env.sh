@@ -7,7 +7,6 @@
 RELEASE_VARS="APPLE_SIGNING_IDENTITY APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_BASE64
   TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
 REPO=${REPO:-guillezorrilla/mesa}
-TAP=${TAP:-guillezorrilla/homebrew-tap}
 DIST=release/dist
 # Where Tauri leaves the universal build: the app, its update archive, the DMG.
 BUNDLE=apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle

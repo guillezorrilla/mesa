@@ -23,8 +23,7 @@
     "release:version": "sh scripts/release/version.sh",
     "release:build": "sh scripts/release/build.sh",
     "release:sign": "sh scripts/release/sign.sh",
-    "release:publish": "sh scripts/release/publish.sh",
-    "release:brew": "sh scripts/release/brew.sh"
+    "release:publish": "sh scripts/release/publish.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
