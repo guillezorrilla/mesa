@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { DropdownMenu as Primitive } from 'radix-ui';
 import type * as React from 'react';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,30 @@ export function DropdownMenuItem({
       )}
       {...props}
     />
+  );
+}
+
+export function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Primitive.CheckboxItem>) {
+  return (
+    <Primitive.CheckboxItem
+      data-slot="dropdown-menu-checkbox-item"
+      className={cn(
+        'relative flex items-center gap-2 rounded py-1.5 pr-2 pl-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+        className,
+      )}
+      {...props}
+    >
+      <span className="absolute left-2 flex size-4 items-center justify-center">
+        <Primitive.ItemIndicator>
+          <Check aria-hidden className="size-4" />
+        </Primitive.ItemIndicator>
+      </span>
+      {children}
+    </Primitive.CheckboxItem>
   );
 }
 

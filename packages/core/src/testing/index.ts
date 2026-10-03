@@ -665,6 +665,25 @@ export function gitRepo(dir: string) {
   testGit(dir, 'commit', '-q', '-m', 'init');
 }
 
+/**
+ * Another registered project beside projectProfile's lantern-cove, `name` under `home`/src, a git
+ * repository on main with its mesa.yaml (`mesaYaml`, else a minimal one): an additional project's
+ * (mesa open --with). Its folder.
+ */
+export function gitProject(
+  mesa: ReturnType<typeof createMesa>,
+  home: string,
+  name: string,
+  mesaYaml = `name: ${name}\n`,
+) {
+  const dir = join(home, 'src', name);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'mesa.yaml'), mesaYaml);
+  gitRepo(dir);
+  mesa.projects.register(dir);
+  return dir;
+}
+
 /** A session's lock as a mesa killed while holding it leaves it; its path, for the test to remove. */
 export function staleLock(home: string, id: string, holder = 'a killed mesa', profile = 'default') {
   const lock = join(profilePaths(home, profile).sessions, `${id}.lock`);

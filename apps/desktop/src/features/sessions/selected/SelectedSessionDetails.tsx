@@ -36,6 +36,8 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   const tone = context ? contextTone(context.used) : 'normal';
   const cwd =
     record?.cwd ?? row.cwd ?? record?.worktree?.path ?? row.worktree?.path ?? props.projectPath;
+  // The other projects it works in (CONTEXT.md, Additional project), each in its worktree.
+  const additional = record?.additional ?? row.additional;
   const date = (at: string) => new Date(at).toLocaleString();
   return (
     <>
@@ -73,6 +75,20 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dd className="break-all font-mono">{row.id}</dd>
             <dt className="text-muted-foreground">Working Dir</dt>
             <dd className="break-all font-mono">{cwd ?? 'Unknown'}</dd>
+            {additional && (
+              <>
+                <dt className="text-muted-foreground">Also in</dt>
+                <dd data-testid="session-also-in">
+                  <ul className="grid gap-1">
+                    {additional.map((a) => (
+                      <li key={a.project}>
+                        {a.project} <span className="break-all font-mono">{a.worktree.path}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </>
+            )}
             <dt className="text-muted-foreground">Model</dt>
             <dd>{context?.model ?? 'Unknown'}</dd>
             <dt className="text-muted-foreground">Effort</dt>

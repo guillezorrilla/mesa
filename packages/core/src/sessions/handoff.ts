@@ -29,7 +29,7 @@ type HandoffDeps = LaunchDeps & {
 
 /**
  * Starts the successor of session `id`: on the same project, with the chosen agent, in the same
- * folder, taking over its worktree, with `parent` and `handoffFrom` the session, and a goal made
+ * folder, taking over its worktree and its additional projects', with `parent` and `handoffFrom` the session, and a goal made
  * of the session's plus a line naming the note, copied to `handoffs/<successor id>.md`. Both
  * records get a `handoff` event. A skill run has nothing to hand off. Every refusal comes before
  * anything is written, and a window that cannot open removes the successor and its note again.
@@ -98,6 +98,7 @@ export async function handoffSession(
           agentSessionId,
           goal: placeholder,
           mode,
+          additional: from.additional,
         }),
       ),
     );
@@ -114,6 +115,7 @@ export async function handoffSession(
       agentSessionId,
       parent: id,
       ...(worktree ? { worktree } : {}),
+      ...(from.additional ? { additional: from.additional } : {}),
       ...(from.cwd ? { cwd: from.cwd } : {}),
     },
     {

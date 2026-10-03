@@ -6,7 +6,7 @@ import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
-import { checkoutHolders } from '../sessions/holders.js';
+import { checkoutHolders, heldWorktrees } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { defaultBranchRef } from './base.js';
 import { worktreeCommand } from './create.js';
@@ -249,16 +249,20 @@ export async function previewWorktreeAction(
 function references(store: SessionStore, project: string, root: string, path: string) {
   const records = store.list();
   const live = checkoutHolders(records, project, root, path).map((record) => record.id);
-  const retained = records.flatMap((record) => {
-    if (record.project !== project || !record.worktree) return [];
-    let held = record.worktree.path;
-    try {
-      held = realpathSync.native(held);
-    } catch {
-      /* A stale worktree has no real path. */
-    }
-    return held === path ? [record.id] : [];
-  });
+  const retained = records.flatMap((record) =>
+    heldWorktrees(record).some(({ project: of, worktree }) => {
+      if (of !== project) return false;
+      let held = worktree.path;
+      try {
+        held = realpathSync.native(held);
+      } catch {
+        /* A stale worktree has no real path. */
+      }
+      return held === path;
+    })
+      ? [record.id]
+      : [],
+  );
   return [...new Set([...live, ...retained])].sort();
 }
 

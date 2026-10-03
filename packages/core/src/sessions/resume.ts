@@ -5,6 +5,7 @@ import { claudeBackgroundAttach } from '../agents/claude/background.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import { additionalDirs } from './additional.js';
 import { GENERAL_PROJECT } from './general.js';
 import { requireOwnWorktree, resumerOf } from './holders.js';
 import { folderOf, type LaunchDeps, launchSession } from './launch.js';
@@ -13,8 +14,9 @@ import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
 
 /**
- * Reopens a session's agent conversation (`claude --resume`, `codex resume`) in its folder, in a
- * new window, as a new record
+ * Reopens a session's agent conversation (`claude --resume`, `codex resume`) in its folder, with
+ * its additional projects' worktrees (launchSession refuses one that is gone), in a new window,
+ * as a new record
  * linked both ways: `resumedFrom` on the new one, `resumedBy` and `endedAt` on the old one. A
  * dead window the old session left is removed first; a live one refuses.
  */
@@ -76,6 +78,7 @@ export async function resumeSession(
       // Its place in the tree too, and its folder: claude finds the conversation by its cwd.
       parent: old.parent,
       worktree: old.worktree,
+      additional: old.additional,
       cwd: old.cwd,
       name: old.name,
       adopted: old.adopted,
@@ -92,6 +95,7 @@ export async function resumeSession(
             prepareAntigravityLog(deps.profile.paths.logs, record.id),
             deps.profile.config.agents,
             old.mode,
+            additionalDirs(old),
           );
         return AGENTS[agent].resume(
           agentId,
@@ -99,6 +103,7 @@ export async function resumeSession(
           deps.vaultServer,
           deps.profile.config.agents,
           old.mode,
+          additionalDirs(old),
         );
       },
     },

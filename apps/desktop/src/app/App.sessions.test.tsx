@@ -281,3 +281,54 @@ test('archiving the last project session returns to the Sessions composer', asyn
   expect(byTestId('session-start')[0]?.closest('[hidden]')).toBeNull();
   expect(byTestId('project-workspace')).toHaveLength(0);
 });
+
+test('empty Sessions adds other projects to a new session, which then starts in worktrees', async () => {
+  const tidePool = {
+    ...PROJECTS[0],
+    name: 'tide-pool',
+    label: 'tide-pool',
+    path: '/src/tide-pool',
+  };
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope([...PROJECTS, tidePool] as typeof PROJECTS),
+    open: () => envelope({ id: 'new00001', project: 'lantern-cove', receipt: null }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await choose(document.getElementById('session-start-project') ?? undefined, 'lantern-cove');
+  await click(byTestId('session-with-trigger')[0]);
+  expect(byTestId('session-with-option-lantern-cove')).toHaveLength(0);
+  await click(byTestId('session-with-option-tide-pool')[0]);
+  expect(byTestId('session-with-chip-tide-pool')).toHaveLength(1);
+  await click(byTestId('session-start-submit')[0]);
+  expect(calls.find((args) => args[1] === 'open')).toEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--with=tide-pool',
+    '--worktree',
+    '--',
+    'lantern-cove',
+  ]);
+});
+
+test('session details list the additional projects with their worktree paths', async () => {
+  const path = '/w/tide-pool/session-amber-badger-0001';
+  const row = managedRow('aaaaaaaa', {
+    worktree: { path: '/w/lantern-cove/session-amber-badger-0001', branch: 'b' },
+    additional: [{ project: 'tide-pool', worktree: { path, branch: 'b' } }],
+  });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+        vault: { state: 'missing', reason: 'Run mesa hooks install' },
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(byTestId('selected-session-details')[0]?.textContent).toContain('Also in');
+  expect(byTestId('session-also-in')[0]?.textContent).toBe(`tide-pool ${path}`);
+});

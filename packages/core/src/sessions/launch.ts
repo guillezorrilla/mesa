@@ -19,7 +19,7 @@ import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { sessionWorktree } from '../worktrees/create.js';
-import { worktreeScript } from '../worktrees/settings.js';
+import { additionalDirs, createAdditional, launchWorktrees } from './additional.js';
 import { WINDOW_VARS, windowEnv } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { prepareOutputLog } from './output-log.js';
@@ -28,7 +28,7 @@ import { PROCESS } from './state.js';
 import type { SessionStore } from './store.js';
 import { nestedAgentVars, type TmuxBackend } from './tmux/backend.js';
 import { windowName } from './window-name.js';
-import { removeWorktree, type Worktree } from './worktree.js';
+import type { Worktree } from './worktree.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
@@ -109,6 +109,8 @@ type NewLaunch = {
   after?: string;
   pending?: SessionRecord['pending'];
   worktree?: Worktree;
+  /** The additional projects' worktrees it takes over (a resume's, a handoff's). */
+  additional?: SessionRecord['additional'];
   cwd?: string;
   name?: string;
   adopted?: true;
@@ -126,6 +128,8 @@ type Start = {
   /** Its own worktree on this branch first (CONTEXT.md, Worktree), from `base` if new. */
   branch?: string;
   base?: string;
+  /** Then a worktree on that branch in each of these (mesa open --with; additional.ts). */
+  additional?: readonly RegistryEntry[];
 };
 
 /** The command tmux receives, including Claude's color and process-identity setup. */
@@ -142,11 +146,13 @@ export function sessionWindowCommand(
 /**
  * Starts the agent of a session already written: its worktree first when `branch` is asked for
  * and it has none (kept on the record at once, so a start retried after a kill finds it), then
- * its folder checked, the project's enabled skills linked into it (a failure is the warning
+ * one on that branch in each of `additional`'s projects (createAdditional), then its folders
+ * checked, the project's enabled skills linked into it (a failure is the warning
  * returned, never an error), and `command` run in its window, whose output goes to the session's
  * output log while the config's `sessions.log` is on, and whose claude shows its estimated cost
- * in its status line while `sessions.statusLineCost` is on. When anything fails, the worktree it
- * made is removed again, and dropped from the record, so a retry can add it again.
+ * in its status line while `sessions.statusLineCost` is on. When anything fails, every worktree
+ * it made is removed again (launchWorktrees: one whose setup ran stays, named in the error), and
+ * dropped from the record, so a retry can add it again.
  */
 export async function startSession(
   deps: LaunchDeps,
@@ -157,22 +163,24 @@ export async function startSession(
   let record = written;
   // A background process started before this launch keeps the mount it was started with.
   const attaching = Boolean(written.backgroundId);
-  let made: Worktree | undefined;
+  // A configured setup can create user data. A failed agent launch must leave it intact.
+  const made = launchWorktrees(deps.run);
   let backgroundId: string | undefined;
   try {
     if (!record.worktree && start.branch !== undefined) {
       if (!project) throw new MesaError('usage', 'General sessions cannot use a worktree');
       const selected = await worktreeFor(deps, project, start.branch, start.base);
-      // A configured setup can create user data. A failed agent launch must leave it intact.
-      if (selected.created && !worktreeScript(deps.profile, project, 'setup').length)
-        made = selected.worktree;
+      made.add(deps.profile, project, selected);
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
+    if (start.additional?.length)
+      record = await createAdditional(deps, record, start.additional, start.base, made);
     const cwd = agentFolder(record, project);
     const hooks =
       record.agent === 'codex' ? codexHooks(codexHome(deps.env, deps.home), deps.self) : undefined;
     const warning = joinWarnings(
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd),
+      ...(record.additional ?? []).map((a) => syncSkillsInto(deps, a.project, a.worktree.path)),
       hooks?.events.SessionStart && !hooks.trusted.SessionStart
         ? "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer"
         : undefined,
@@ -189,6 +197,7 @@ export async function startSession(
         deps.vaultServer,
         windowEnv(record.id, deps.profileName),
         deps.profile.config.agents,
+        additionalDirs(record),
         record.goal,
         record.mode,
         env,
@@ -215,11 +224,10 @@ export async function startSession(
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);
-    if (made && project) {
-      await removeWorktree(deps.run, project.path, made);
-      deps.store.update(record.id, { worktree: undefined });
-    }
-    throw error;
+    // Only a new session makes additional worktrees, and its record goes with them.
+    if (await made.undo())
+      deps.store.update(record.id, { worktree: undefined, additional: undefined });
+    throw made.named(error);
   }
 }
 
@@ -244,13 +252,21 @@ export async function launchSession(
 }
 
 /**
- * The folder a session's agent runs in, which must still be there: not_found when it is gone, as
- * tmux would start the agent in $HOME, and a skills sync would make the folder again.
+ * The folder a session's agent runs in, which must still be there, as must each additional
+ * project's worktree: not_found when one is gone, as tmux would start the agent in $HOME, and a
+ * skills sync would make the folder again.
  */
 function agentFolder(record: SessionRecord, project: RegistryEntry | null) {
   const folder = folderOf(record, project);
   if (!existsSync(folder)) {
     throw new MesaError('not_found', `${folder} is gone: its agent has nowhere to run`);
+  }
+  for (const { project: other, worktree } of record.additional ?? []) {
+    if (!existsSync(worktree.path))
+      throw new MesaError(
+        'not_found',
+        `${other}'s worktree ${worktree.path} is gone: the session works there too`,
+      );
   }
   return folder;
 }
@@ -302,6 +318,7 @@ export function createRecord(deps: Pick<LaunchDeps, 'store' | 'clock' | 'profile
     ...(s.after === undefined ? {} : { after: s.after }),
     ...(s.pending === undefined ? {} : { pending: s.pending }),
     ...(s.worktree === undefined ? {} : { worktree: s.worktree }),
+    ...(s.additional === undefined ? {} : { additional: s.additional }),
     ...(s.cwd === undefined ? {} : { cwd: s.cwd }),
     ...(s.name === undefined ? {} : { name: s.name }),
     ...(s.adopted ? { adopted: s.adopted } : {}),

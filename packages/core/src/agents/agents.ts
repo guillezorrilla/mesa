@@ -40,6 +40,18 @@ const flags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan') =>
     .map((flag) => ` ${flag}`)
     .join('');
 
+/**
+ * The extra folders an agent works in, an additional project's worktree each (CONTEXT.md,
+ * Additional project): `--add-dir=<path>`, one shell word each (Claude Code, whose --add-dir takes
+ * every word after it, and Antigravity CLI), or `--add-dir <path>` (Codex).
+ */
+const addDirs = (dirs: readonly string[], form: '=' | ' ' = '=') =>
+  dirs
+    .map((dir) =>
+      form === '=' ? ` ${shellWord(`--add-dir=${dir}`)}` : ` --add-dir ${shellWord(dir)}`,
+    )
+    .join('');
+
 /** Claude Code's mesa-vault mount as shell words (vault-mount.ts). */
 const claudeMount = (server: VaultServer) => claudeVaultArgs(server).map(shellWord).join(' ');
 /** Codex's mesa-vault mount as its four -c overrides (vault-mount.ts). */
@@ -80,7 +92,7 @@ export const AGENTS = {
     ownSessionId: undefined,
     /**
      * The command a Mesa window runs, under the id Mesa chose, with the profile's launch
-     * defaults, mesa-vault mounted, and the goal as the first prompt.
+     * defaults, mesa-vault mounted, the extra `dirs`, and the goal as the first prompt.
      */
     start: (
       sessionId: string,
@@ -88,8 +100,9 @@ export const AGENTS = {
       defaults: LaunchDefaults,
       goal?: string,
       mode?: 'plan',
+      dirs: readonly string[] = [],
     ) =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${goalWord(goal)}`,
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs(dirs)}${goalWord(goal)}`,
     /**
      * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
      * mount and the launch defaults are not part of the conversation, so they come again.
@@ -100,16 +113,18 @@ export const AGENTS = {
       server: VaultServer,
       defaults: LaunchDefaults,
       mode?: 'plan',
+      dirs: readonly string[] = [],
     ) =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}`,
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs(dirs)}`,
     fork: (
       sessionId: string,
       _folder: string,
       server: VaultServer,
       defaults: LaunchDefaults,
       mode?: 'plan',
+      dirs: readonly string[] = [],
     ) =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}`,
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs(dirs)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -169,8 +184,13 @@ export const AGENTS = {
      * The command a Mesa window runs, with mesa-vault mounted; `--` so a goal such as `review` is
      * a prompt, not a subcommand.
      */
-    start: (server: VaultServer, defaults: LaunchDefaults, goal?: string) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+    start: (
+      server: VaultServer,
+      defaults: LaunchDefaults,
+      goal?: string,
+      dirs: readonly string[] = [],
+    ) =>
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)}${addDirs(dirs, ' ')}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
      * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
      * is not part of the thread, so it comes again.
@@ -181,10 +201,18 @@ export const AGENTS = {
       server: VaultServer,
       defaults: LaunchDefaults,
       _mode?: 'plan',
+      dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}`,
-    fork: (sessionId: string, folder: string, server: VaultServer, defaults: LaunchDefaults) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs(dirs, ' ')}`,
+    fork: (
+      sessionId: string,
+      folder: string,
+      server: VaultServer,
+      defaults: LaunchDefaults,
+      _mode?: 'plan',
+      dirs: readonly string[] = [],
+    ) =>
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs(dirs, ' ')}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
@@ -215,10 +243,22 @@ export const AGENTS = {
     install: 'https://antigravity.google/docs/cli/install/',
     /** The first prompt writes the native ID to this window's unique CLI log. */
     ownSessionId: antigravitySessionId,
-    start: (goal: string | undefined, log: string, defaults: LaunchDefaults, mode?: 'plan') =>
-      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
-    resume: (sessionId: string, log: string, defaults: LaunchDefaults, mode?: 'plan') =>
-      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}`,
+    start: (
+      goal: string | undefined,
+      log: string,
+      defaults: LaunchDefaults,
+      mode?: 'plan',
+      dirs: readonly string[] = [],
+    ) =>
+      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${addDirs(dirs)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
+    resume: (
+      sessionId: string,
+      log: string,
+      defaults: LaunchDefaults,
+      mode?: 'plan',
+      dirs: readonly string[] = [],
+    ) =>
+      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${addDirs(dirs)}`,
     quit: '/exit',
     submitDelayMs: 300,
     headless: {
@@ -268,24 +308,33 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
 /**
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take, with the
- * profile's launch `defaults`, and `server` mounted for an agent that takes it per launch
- * (Antigravity's is global).
+ * profile's launch `defaults`, `server` mounted for an agent that takes it per launch
+ * (Antigravity's is global), and each additional project's worktree as an extra folder.
  */
 export function startCommand(
   agent: Agent,
   server: VaultServer,
   defaults: LaunchDefaults,
-  s: { id?: string; logs?: string; agentSessionId?: string; goal?: string; mode?: 'plan' },
+  s: {
+    id?: string;
+    logs?: string;
+    agentSessionId?: string;
+    goal?: string;
+    mode?: 'plan';
+    additional?: readonly { worktree: { path: string } }[];
+  },
 ) {
+  const dirs = (s.additional ?? []).map((a) => a.worktree.path);
   if (agent === 'antigravity') {
     if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
-    return AGENTS.antigravity.start(s.goal, prepareAntigravityLog(s.logs, s.id), defaults, s.mode);
+    const log = prepareAntigravityLog(s.logs, s.id);
+    return AGENTS.antigravity.start(s.goal, log, defaults, s.mode, dirs);
   }
-  if (agent === 'codex') return AGENTS.codex.start(server, defaults, s.goal);
+  if (agent === 'codex') return AGENTS.codex.start(server, defaults, s.goal, dirs);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, server, defaults, s.goal, s.mode);
+  return AGENTS.claude.start(s.agentSessionId, server, defaults, s.goal, s.mode, dirs);
 }
 
 /** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */

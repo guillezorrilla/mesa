@@ -12,7 +12,7 @@ import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowName, windowOf } from './window-name.js';
 
 /**
- * Swaps a fresh session's agent (CONTEXT.md, Swap): the same Mesa session, folder, and worktree,
+ * Swaps a fresh session's agent (CONTEXT.md, Swap): the same Mesa session, folder, and worktrees,
  * with `to` started in a new window `<to>-<id>` under a new agent session id, then the old window
  * closed. The record moves to the new window first, so the old pane's death is no session's. A
  * launch that fails puts the record back, with the old agent still running. A session with a
@@ -75,6 +75,7 @@ export async function swapAgent(
           id: record.id,
           logs: deps.profile.paths.logs,
           agentSessionId,
+          additional: record.additional,
         }),
     });
   } catch (error) {

@@ -27,8 +27,8 @@ export function dangerousLaunch(r: SessionRecord, defaults: LaunchDefaults) {
 }
 
 /**
- * What a session receipt says of a session that started: its window, conversation, place, and
- * any dangerous launch flags under the profile's launch `defaults`.
+ * What a session receipt says of a session that started: its window, conversation, place (with
+ * its additional projects'), and any dangerous launch flags under the profile's launch `defaults`.
  */
 export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   window: r.tmux.window,
@@ -36,6 +36,7 @@ export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   lastState: r.lastState,
   parent: r.parent ?? null,
   ...(r.worktree ? { worktree: r.worktree } : {}),
+  ...(r.additional ? { additional: r.additional } : {}),
   ...dangerousLaunch(r, defaults),
 });
 
