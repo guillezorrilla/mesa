@@ -51,7 +51,7 @@ Every session is the agent's own terminal UI, unchanged, running in tmux. Mesa a
 
 ## Install
 
-**Download** the DMG from the [latest release](https://github.com/guillezorrilla/mesa/releases/latest), open it, and drag Mesa to Applications. The first signed release is still being prepared; until it is out, [build from source](#building-from-source).
+**Download** the DMG from the [latest release](https://github.com/guillezorrilla/mesa/releases/latest), open it, and drag Mesa to Applications. On first launch, the Set up screen creates your profile and vault and checks tmux and the agents.
 
 The `mesa` command ships inside the app. To use it from a terminal, link it onto your PATH:
 
