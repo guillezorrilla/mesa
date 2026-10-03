@@ -1,4 +1,5 @@
 import type { Command } from '../command.js';
+import { about, aboutLicenses } from './about.js';
 import { adopt } from './adopt.js';
 import { agents } from './agents.js';
 import { archive } from './archive.js';
@@ -161,6 +162,8 @@ import {
 // Every mesa subcommand, in help order. A command lives in the file named for its first word
 // (`hooks install` in hooks.ts), and has one entry here.
 export const COMMANDS: Command[] = [
+  about,
+  aboutLicenses,
   adopt,
   agents,
   archive,

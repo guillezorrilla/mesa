@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
-import type { CommandReference } from '@mesa/core';
+import type { About, CommandReference } from '@mesa/core';
+import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, envelope, fakeBridge, fakePlatform, renderWithMesa } from '@/lib/testing';
 import { App } from './App';
 
 test('the Help screen lists every command from mesa help --agent, with its flags and example', async () => {
@@ -50,4 +51,47 @@ test('the Help screen lists every command from mesa help --agent, with its flags
     'mesa send a1b2c3d4 "run the tests"',
     'mesa init --vault ~/vault',
   ]);
+});
+
+const ABOUT: About = {
+  version: '0.1.0-beta.6',
+  build: '512',
+  license: 'MIT',
+  links: {
+    docs: 'https://docs.test',
+    support: 'https://support.test',
+    releases: 'https://releases.test',
+  },
+  attributions: [],
+};
+
+test('About Mesa opens from the Help menu and from the macOS app menu', async () => {
+  let aboutMenu = () => {};
+  const platform = fakePlatform({
+    menu: {
+      onAbout: async (handler) => {
+        aboutMenu = handler;
+        return () => {};
+      },
+    },
+  });
+  const { bridge } = fakeBridge({ about: () => envelope(ABOUT) });
+  const byTestId = await renderWithMesa(<App />, bridge, platform);
+  await click(byTestId('nav-help')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent?.trim() === 'About Mesa',
+    ),
+  );
+  expect(byTestId('about-screen')[0]?.textContent).toContain('Version 0.1.0-beta.6 (build 512)');
+
+  await click(byTestId('nav-help')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent?.trim() === 'Command reference',
+    ),
+  );
+  expect(byTestId('about-screen')).toEqual([]);
+  await act(async () => aboutMenu());
+  expect(byTestId('about-screen')).toHaveLength(1);
 });

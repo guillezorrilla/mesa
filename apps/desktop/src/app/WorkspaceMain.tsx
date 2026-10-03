@@ -1,6 +1,7 @@
 import type { Config, DoctorReport, ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
 import { useCallback, useRef } from 'react';
 import { Muted } from '@/components/Muted';
+import { AboutScreen } from '@/features/about/AboutScreen';
 import { AutomationsScreen } from '@/features/automations/AutomationsScreen';
 import { BackupScreen } from '@/features/backup/BackupScreen';
 import { DailyScreen } from '@/features/daily/DailyScreen';
@@ -141,6 +142,7 @@ export function WorkspaceMain(props: {
         />
       )}
       {view.kind === 'help' && <HelpScreen />}
+      {view.kind === 'about' && <AboutScreen />}
       {view.kind === 'prompts' && (
         <SavedPromptsScreen prompts={prompts.data} onChanged={() => void prompts.refresh()} />
       )}

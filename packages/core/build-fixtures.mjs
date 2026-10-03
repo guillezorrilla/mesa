@@ -1,17 +1,19 @@
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, rmSync } from 'node:fs';
 
-// tsc emits code only. The published testing seam also reads these invented provider fixtures.
-for (const agent of ['claude', 'codex']) {
+// tsc emits code only. The published testing seam also reads these invented provider fixtures
+// and the invented attributions file.
+for (const dir of ['agents/claude', 'agents/codex', 'about']) {
   cpSync(
-    new URL(`src/agents/${agent}/fixtures`, import.meta.url),
-    new URL(`dist/agents/${agent}/fixtures`, import.meta.url),
+    new URL(`src/${dir}/fixtures`, import.meta.url),
+    new URL(`dist/${dir}/fixtures`, import.meta.url),
     { recursive: true },
   );
 }
 
 // Exercise the package export, without Vitest's source alias hiding missing build assets.
-const { claudeResult, codexResult, codexWorld } = await import('@mesa/core/testing');
+const { claudeResult, codexResult, codexWorld, fakeRelease } = await import('@mesa/core/testing');
+assert.ok(JSON.parse(fakeRelease().attributions()).length > 0);
 for (const name of ['success', 'not-logged-in']) assert.ok(JSON.parse(claudeResult(name)));
 for (const name of ['success', 'skill-stdin']) {
   for (const line of codexResult(name).trim().split('\n')) assert.ok(JSON.parse(line));

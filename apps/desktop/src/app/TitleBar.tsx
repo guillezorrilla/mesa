@@ -82,6 +82,7 @@ export function TitleBar(props: {
         <HelpMenu
           onShortcuts={() => props.onOverlay('shortcuts')}
           onReference={() => navigate({ kind: 'help' })}
+          onAbout={() => navigate({ kind: 'about' })}
         />
         <NotificationsMenu
           open={props.overlay === 'inbox'}

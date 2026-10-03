@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { aboutCommands } from './about';
 import { automationsCommands } from './automations';
 import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
@@ -19,6 +20,7 @@ import { worktreesCommands } from './worktrees';
 // COMMANDS spreads the domain tables, so a name in two of them would silently keep the last.
 test('no command name is defined by two domain tables', () => {
   const names = [
+    aboutCommands,
     automationsCommands,
     doctorCommands,
     filesCommands,

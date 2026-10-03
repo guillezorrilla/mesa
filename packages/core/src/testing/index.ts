@@ -573,6 +573,7 @@ export function newSession(overrides: Partial<NewSession> = {}): NewSession {
   };
 }
 
+export { fakeRelease } from './about.js';
 export { isolateTmp, tempDir } from './tmp.js';
 
 /** The MesaError a call throws, as `{ code, message }`; throws if it returns or throws anything else. */

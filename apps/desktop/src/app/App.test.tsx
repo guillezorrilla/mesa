@@ -177,14 +177,14 @@ test('Settings > Keyboard Shortcuts opens the shortcuts dialog', async () => {
   expect(byTestId('shortcut-settings')).toHaveLength(1);
 });
 
-test('Help is a menu of keyboard shortcuts and the command reference; Cmd+/ opens shortcuts', async () => {
+test('Help is a menu of keyboard shortcuts, the command reference and About Mesa; Cmd+/ opens shortcuts', async () => {
   const byTestId = await renderWithMesa(<App />, fakeBridge({ help: () => envelope([]) }).bridge);
   const items = () =>
     [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) =>
       item.textContent?.trim(),
     );
   await click(byTestId('nav-help')[0]);
-  expect(items()).toEqual(['Keyboard shortcuts(⌘/)', 'Command reference']);
+  expect(items()).toEqual(['Keyboard shortcuts(⌘/)', 'Command reference', 'About Mesa']);
   await click(
     [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) =>
       item.textContent?.includes('Keyboard shortcuts'),

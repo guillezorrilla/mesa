@@ -1,4 +1,5 @@
 import type { Result } from '@mesa/core';
+import { aboutCommands } from './about';
 import { automationsCommands } from './automations';
 import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
@@ -22,6 +23,7 @@ export type Bridge = (args: string[]) => Promise<unknown>;
 
 /** Every command the app runs: its mesa argv and the type of its data. The client adds --json. */
 const COMMANDS = {
+  ...aboutCommands,
   ...automationsCommands,
   ...sessionsCommands,
   ...reviewCommands,

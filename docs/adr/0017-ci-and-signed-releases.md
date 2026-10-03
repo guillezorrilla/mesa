@@ -32,3 +32,7 @@ On 2026-10-02 an ad-hoc build (`APPLE_SIGNING_IDENTITY=- pnpm release:build`) on
 ## Consequences
 
 The DMG is about 100 MB, mostly two copies of Node. A release needs Apple's yearly developer membership and the secrets listed in `docs/release.md`; losing the updater key means no installed copy can update again. `~/.mesa/.skills` is a dot-folder beside the profiles; `otherProfilesSessions` reads it as a profile with no sessions. Node's version for the executable is pinned in `build.sh` apart from `.nvmrc` (24, the development Node), so updating either one is a deliberate change.
+
+## Amendment 2026-10-03: build number and attributions are assets (#478)
+
+The single executable also carries `build`, the commit count that is the app's `CFBundleVersion`, and `attributions.json`, which `scripts/release/licenses.mjs` writes: the pinned Node's `LICENSE` (now extracted from its tarball too), the production npm packages of `@mesa/cli` with its workspace packages and of `@mesa/desktop`, the app's Rust crates (normal dependencies, for both Mac targets), and the vendored skills with a `LICENSE` or `NOTICE`. `mesa about --json` returns them, and the app's About Mesa screen reads them through it, so the file never enters the frontend bundle. Outside the executable the build is `dev` and the list is empty with a note. The macOS app menu's About Mesa opens that screen instead of the native panel.

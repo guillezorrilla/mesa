@@ -41,11 +41,13 @@ rm -rf "$work" "$DIST"
 mkdir -p "$work" "$DIST" release/node
 for arch in arm64 x64; do
   dir=release/node/node-v$NODE_VERSION-darwin-$arch
-  if [ ! -x "$dir/bin/node" ]; then
+  # Node's LICENSE too, for the attributions (#478).
+  if [ ! -x "$dir/bin/node" ] || [ ! -f "$dir/LICENSE" ]; then
     curl -fsSL -o "$dir.tar.gz" "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-darwin-$arch.tar.gz"
     eval "sum=\$NODE_SHA256_$arch"
     echo "$sum  $dir.tar.gz" | shasum -a 256 -c --quiet
-    tar -xzf "$dir.tar.gz" -C release/node "node-v$NODE_VERSION-darwin-$arch/bin/node"
+    tar -xzf "$dir.tar.gz" -C release/node "node-v$NODE_VERSION-darwin-$arch/bin/node" \
+      "node-v$NODE_VERSION-darwin-$arch/LICENSE"
     rm "$dir.tar.gz"
   fi
 done
@@ -58,13 +60,20 @@ pnpm --filter @mesa/cli exec esbuild dist/mesa.js --bundle --platform=node --for
   --target=node26 --outfile="$PWD/$work/mesa.mjs" --log-level=warning \
   --banner:js="import { createRequire as __mesaRequire } from 'node:module'; const require = __mesaRequire(import.meta.url);"
 printf %s "$version" >"$work/version"
+# The build number only grows: main's history is linear (protect.sh), so its commit count does.
+build_number=$(git rev-list --count HEAD)
+printf %s "$build_number" >"$work/build"
+# Run by the pinned Node, so the Node it attributes is the one the executable is built from.
+"$node" scripts/release/licenses.mjs "$work/attributions.json"
 
-# The assets mesa reads inside the executable: the version, the vault template, the skills.
+# The assets mesa reads inside the executable: the version, the build number, the attributions,
+# the vault template, the skills.
 for arch in arm64 x64; do
   git ls-files skills | "$node" -e '
     const [work, arch, base] = process.argv.slice(1);
     const files = require("node:fs").readFileSync(0, "utf8").trim().split("\n");
-    const assets = { version: `${work}/version`, "vault-AGENTS.md": "packages/core/templates/vault-AGENTS.md" };
+    const assets = { version: `${work}/version`, build: `${work}/build`,
+      "attributions.json": `${work}/attributions.json`, "vault-AGENTS.md": "packages/core/templates/vault-AGENTS.md" };
     for (const file of files) assets[file] = file;
     console.log(JSON.stringify({ main: `${work}/mesa.mjs`, mainFormat: "module", output: `${work}/mesa-${arch}`,
       executable: base, assets, disableExperimentalSEAWarning: true }));
@@ -80,8 +89,6 @@ cp "$work/mesa-x64" "$bin-x86_64-apple-darwin"
 lipo -create "$work/mesa-arm64" "$work/mesa-x64" -output "$bin-universal-apple-darwin"
 
 # --- The app, its DMG and its update archive -----------------------------------------------
-# The build number only grows: main's history is linear (protect.sh), so its commit count does.
-build_number=$(git rev-list --count HEAD)
 overrides="\"macOS\":{\"bundleVersion\":\"$build_number\"}"
 # An ad-hoc build without the updater key makes no update archive.
 [ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ] || overrides="$overrides,\"createUpdaterArtifacts\":false"

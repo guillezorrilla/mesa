@@ -108,4 +108,5 @@ export const tauriPlatform: Platform = {
     openPage: () => invoke('update_open_page'),
     quit: () => invoke('update_quit'),
   },
+  menu: { onAbout: (handler) => listen('menu://about', () => handler()) },
 };

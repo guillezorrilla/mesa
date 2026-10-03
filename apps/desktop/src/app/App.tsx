@@ -10,6 +10,7 @@ import { CommandPalette } from '@/features/search/CommandPalette';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useAppearance } from './hooks/useAppearance';
+import { useAppMenu } from './hooks/useAppMenu';
 import { useCloseGuard } from './hooks/useCloseGuard';
 import { useCostAlerts } from './hooks/useCostAlerts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
@@ -108,6 +109,7 @@ export function App() {
       setView((current) => (current.kind === 'session' ? { kind: 'sessions' } : current)),
   });
   useNativeNotifications(navigateLatest);
+  useAppMenu(navigateLatest);
   useGlobalShortcuts({
     shortcuts,
     onSearch: () => (search.searchOpen ? search.closeSearch() : search.openSearch()),
