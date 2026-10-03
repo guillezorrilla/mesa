@@ -32,7 +32,7 @@
 
 One agent in one terminal is easy. Six agents across four repositories is not: you lose track of which one is waiting for you, which one finished, and what each one decided last week. And every vendor wants you inside their own app.
 
-Mesa is the layer above the agents. It is a Mac app and a `mesa` CLI for engineers who already work with coding agents and want to run several at once.
+Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called an agentic development environment or a multi-agent orchestrator. It is a Mac app and a `mesa` CLI for engineers who already work with AI coding agents and want to run several at once.
 
 - **Use every agent, depend on none.** Claude Code, Codex and Gemini (through Antigravity CLI) run as their own unchanged terminal apps, signed in with your own subscriptions. Mesa needs no API keys and has no account. Switch tools whenever a better one ships.
 - **Run many sessions at once.** Start sessions across all your projects, each in its own Git worktree or branch if you want, and see them all on one Board. Mesa tells you which ones are working, finished, or waiting for an answer.
