@@ -4,13 +4,14 @@ import { warned } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
+import { TextField } from './controls/TextField';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /** Faro's decisions, and where the profile's data lives and is backed up. */
 export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => void }) {
-  const { config } = useSettings();
+  const { config, save } = useSettings();
   const run = useRun();
   const { acting, act } = useAct();
   return (
@@ -26,6 +27,25 @@ export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => v
           title="Backend"
           description="Faro answers with its rules alone, so nothing waits on a model."
           control={<Muted size="xs">Rules only</Muted>}
+        />
+        <SettingRow
+          title="Confidence threshold"
+          description="Mesa acts on an idle reading only at or above this confidence, such as delivering PR events to a session (0 to 1)."
+          htmlFor="decisions-threshold"
+          control={
+            <TextField
+              id="decisions-threshold"
+              className="w-20 text-xs"
+              value={String(config.decisions.threshold)}
+              parse={(text) => {
+                const value = Number(text);
+                return text.trim() !== '' && value >= 0 && value <= 1
+                  ? { value }
+                  : { error: 'Enter a number from 0 to 1.' };
+              }}
+              onSave={(value) => save('decisions.threshold', value)}
+            />
+          }
         />
       </SettingSection>
       <SettingSection id="data" title="Data" description="The profile's vault, usage, and backups">
