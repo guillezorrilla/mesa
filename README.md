@@ -56,7 +56,7 @@ Every session is the agent's own terminal UI, unchanged, running in tmux. Mesa a
 The `mesa` command ships inside the app. To use it from a terminal, link it onto your PATH:
 
 ```sh
-ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.local/bin/mesa
+mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.local/bin/mesa
 ```
 
 **Requirements:**
