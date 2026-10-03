@@ -22,7 +22,28 @@ permissions:
   contents: read
 
 jobs:
+  # `pnpm release:publish` by hand pushes its tag too; that push finds the release already made
+  # and builds nothing, so it never waits for approval or replaces the hand-built assets.
+  published:
+    runs-on: ubuntu-latest
+    outputs:
+      by-hand: ${{ steps.check.outputs.by-hand }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ] && gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "$TAG was released by hand; nothing to build"
+            echo by-hand=true >>"$GITHUB_OUTPUT"
+          else
+            echo by-hand=false >>"$GITHUB_OUTPUT"
+          fi
+
   verify:
+    needs: published
+    if: needs.published.outputs.by-hand != 'true'
     uses: ./.github/workflows/ci.yml
 
   release:
