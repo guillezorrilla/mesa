@@ -16,6 +16,7 @@ export {
   supportsAgentCapability,
   supportsPlanStart,
 } from './agents/names.js';
+export { describeAutomation } from './automations/describe.js';
 export { DECISIONS_BACKENDS } from './decisions/backends.js';
 export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';

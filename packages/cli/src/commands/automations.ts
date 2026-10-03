@@ -1,4 +1,4 @@
-import { MesaError } from '@mesa/core';
+import { describeAutomation, MesaError } from '@mesa/core';
 import { parseDocument, stringify } from 'yaml';
 import { defineCommand } from '../command.js';
 
@@ -8,7 +8,11 @@ export const automationsList = defineCommand({
   example: 'mesa automations list',
   run: ({ mesa }) => {
     const data = mesa.automations.list();
-    return { data, text: data.length ? stringify(data).trimEnd() : 'No automations.' };
+    const lines = data.map(
+      (rule) =>
+        `${rule.name} (${rule.project}, ${rule.enabled ? 'enabled' : 'disabled'}): ${describeAutomation(rule)}`,
+    );
+    return { data, text: lines.length ? lines.join('\n') : 'No automations.' };
   },
 });
 

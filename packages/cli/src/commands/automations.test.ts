@@ -23,6 +23,9 @@ test('automation CRUD JSON is inert, validated and isolated to its profile', asy
     enabled: true,
     notes: false,
   });
+  expect((await mesa('automations', 'list')).stdout.trim()).toBe(
+    'refresh-docs (lantern-cove, enabled): Every 2 minutes: refresh sources, runs without asking',
+  );
   expect((await mesa('automations', 'disable', 'refresh-docs', '--json')).json.data.enabled).toBe(
     false,
   );

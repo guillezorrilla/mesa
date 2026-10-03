@@ -16,6 +16,7 @@ export {
   supportsAgentCapability,
   supportsPlanStart,
 } from './agents/names.js';
+export { describeAutomation } from './automations/describe.js';
 export type { AutomationRule } from './automations/schema.js';
 export type { AutomationStatus } from './automations/service.js';
 export type { AutomationRun, AutomationTrigger } from './automations/state.js';
