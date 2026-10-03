@@ -41,6 +41,8 @@ export function GitHistory(props: {
     setHead(commit.oid);
     if (shown?.commit?.oid === commit.oid) setShown(undefined);
     else if (commit.parents[0]) void compare(commit.parents[0], commit.oid, commit);
+    // The root commit has no parent to compare with.
+    else setShown(undefined);
   };
   const toggle = (name: 'compare' | 'insight') => setPanel(panel === name ? undefined : name);
   return (

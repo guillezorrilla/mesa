@@ -83,7 +83,7 @@ export function SkillPanel(props: {
         </Button>
         <span className="ml-auto flex flex-wrap items-center gap-2">
           {props.actions}
-          {editing && dirty && (
+          {dirty && (
             <Button size="sm" variant="ghost" onClick={() => opened && setDraft(opened.text)}>
               Discard
             </Button>

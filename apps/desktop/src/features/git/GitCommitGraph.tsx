@@ -22,18 +22,18 @@ export function branchRefs(refs: string[]) {
 
 /** One lane line: straight in a lane, otherwise a curve where it changes lane. */
 function Edge(props: { edge: LaneEdge }) {
-  const { fromRow, fromColumn, toRow, toColumn, color } = props.edge;
+  const { fromRow, fromColumn, toRow, toColumn, color, merge } = props.edge;
   const [x1, y1, x2, y2] = [x(fromColumn), y(fromRow), x(toColumn), y(toRow)];
   const stroke = { stroke: laneColor(color), strokeWidth: 2, strokeOpacity: 0.6, fill: 'none' };
   if (x1 === x2) return <line x1={x1} y1={y1} x2={x2} y2={y2} {...stroke} />;
   /** An S-curve over one row, from this line's lane to its parent's. */
   const bend = (top: number) =>
     `C ${x1} ${top + ROW * 0.6}, ${x2} ${top + ROW * 0.4}, ${x2} ${top + ROW}`;
-  // A branch leaves its parent lane at once; a line rejoining a lane on its left bends last.
-  const d =
-    x2 > x1
-      ? `M ${x1} ${y1} ${bend(y1)} L ${x2} ${y2}`
-      : `M ${x1} ${y1} L ${x1} ${y2 - ROW} ${bend(y2 - ROW)}`;
+  // A merge line leaves for the merged branch's lane at once; a first-parent line stays in the
+  // commit's lane and bends into its parent's last.
+  const d = merge
+    ? `M ${x1} ${y1} ${bend(y1)} L ${x2} ${y2}`
+    : `M ${x1} ${y1} L ${x1} ${y2 - ROW} ${bend(y2 - ROW)}`;
   return <path d={d} {...stroke} />;
 }
 

@@ -11,6 +11,8 @@ export type LaneEdge = {
   toRow: number;
   toColumn: number;
   color: number;
+  /** A line to a merged-in parent (not the first): it leaves the commit's lane at once. */
+  merge: boolean;
 };
 
 /**
@@ -29,7 +31,7 @@ export function graphLanes(commits: LaneCommit[]) {
     return open === -1 ? lanes.length : open;
   };
   const rows: LaneRow[] = [];
-  const links: Pick<LaneEdge, 'fromRow' | 'fromColumn' | 'toRow'>[] = [];
+  const links: Pick<LaneEdge, 'fromRow' | 'fromColumn' | 'toRow' | 'merge'>[] = [];
   commits.forEach((commit, row) => {
     // A line that ran down a lane to this commit has arrived; its lane opens again.
     lanes.forEach((lane, at) => {
@@ -54,15 +56,16 @@ export function graphLanes(commits: LaneCommit[]) {
       const toRow = rowOf.get(parent);
       // ponytail: a parent past the commit limit has no row, so its line is not drawn.
       if (toRow !== undefined && toRow > row)
-        links.push({ fromRow: row, fromColumn: column, toRow });
+        links.push({ fromRow: row, fromColumn: column, toRow, merge: index > 0 });
     });
     rows.push({ column, color });
   });
-  // A line ends where its parent finally sits, in the colour of the lane it runs down.
+  // A line ends where its parent finally sits, in the colour of the lane it runs down: a merge
+  // line runs down the merged branch, a first-parent line down the commit's own lane.
   const edges: LaneEdge[] = links.map((link) => {
     const to = rows[link.toRow] ?? { column: link.fromColumn, color: 0 };
     const from = rows[link.fromRow] ?? to;
-    return { ...link, toColumn: to.column, color: (from.column > to.column ? from : to).color };
+    return { ...link, toColumn: to.column, color: (link.merge ? to : from).color };
   });
   return { rows, edges, columns: Math.max(0, ...rows.map((row) => row.column)) + 1 };
 }

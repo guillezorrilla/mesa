@@ -34,7 +34,23 @@ test('a merged branch runs in a second lane of its own colour and rejoins the fi
   expect(rows[3]?.color).toBe(rows[0]?.color);
   expect(rows.map((row) => row.color)).toEqual([0, 1, 1, 0, 0]);
   // f1 rejoins the first lane in the branch colour.
-  expect(edges).toContainEqual({ fromRow: 2, fromColumn: 1, toRow: 4, toColumn: 0, color: 1 });
+  expect(edges).toContainEqual({
+    fromRow: 2,
+    fromColumn: 1,
+    toRow: 4,
+    toColumn: 0,
+    color: 1,
+    merge: false,
+  });
+  // The merge line runs down the branch, in its colour.
+  expect(edges).toContainEqual({
+    fromRow: 0,
+    fromColumn: 0,
+    toRow: 1,
+    toColumn: 1,
+    color: 1,
+    merge: true,
+  });
 });
 
 test('a parent past the commit limit draws no line', () => {

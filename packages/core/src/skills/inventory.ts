@@ -208,6 +208,16 @@ export function skillInventory(input: {
         precedence: 'only-discovered-source',
       };
     });
+  // Library folders by their real paths, so a link into the library is known however it is named.
+  const libraryPaths = new Set(
+    [...byName.values()].flatMap((skill) => {
+      try {
+        return [realpathSync.native(skill.path)];
+      } catch {
+        return [];
+      }
+    }),
+  );
   const seen = new Map<string, SkillInventoryRow>();
   for (const root of nativeRoots(input.home, input.projectDir, enabledPlugins)) {
     for (const entry of entries(root.path)) {
@@ -221,8 +231,7 @@ export function skillInventory(input: {
       } catch {
         continue;
       }
-      const librarySkill = [...byName.values()].some((skill) => skill.path === canonical);
-      if (librarySkill) continue;
+      if (libraryPaths.has(canonical)) continue;
       const existing = seen.get(canonical);
       if (existing) {
         existing.providers = [...new Set([...existing.providers, ...root.providers])];
