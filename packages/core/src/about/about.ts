@@ -1,7 +1,5 @@
 import { z } from 'zod';
-import { RELEASES_PAGE } from '../update/feeds.js';
-
-const REPOSITORY = 'https://github.com/guillezorrilla/mesa';
+import { RELEASES_PAGE, REPOSITORY } from '../update/feeds.js';
 
 /** Where an attribution's package comes from: the executable's Node, npm, a Rust crate, a skill. */
 export const ATTRIBUTION_SOURCES = ['node', 'npm', 'crate', 'skill'] as const;

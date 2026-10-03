@@ -1,5 +1,7 @@
+/** Mesa's GitHub repository. */
+export const REPOSITORY = 'https://github.com/guillezorrilla/mesa';
 /** Where Mesa's releases live (#431, ADR-0017): static GitHub Release assets, never api.github.com. */
-export const RELEASES_PAGE = 'https://github.com/guillezorrilla/mesa/releases';
+export const RELEASES_PAGE = `${REPOSITORY}/releases`;
 
 export const UPDATE_CHANNELS = ['stable', 'beta'] as const;
 export type UpdateChannel = (typeof UPDATE_CHANNELS)[number];
