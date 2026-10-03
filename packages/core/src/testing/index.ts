@@ -292,12 +292,12 @@ export function fakeTmux(
     }
   };
   /**
-   * Every call: `-L <socket> -f /dev/null` first, then commands. As tmux reads its arguments, a
-   * word ending in `;` ends a command (the `;` dropped), and a closing `\;` is a literal `;`.
+   * Every call: `-u -L <socket> -f /dev/null` first, then commands. As tmux reads its arguments,
+   * a word ending in `;` ends a command (the `;` dropped), and a closing `\;` is a literal `;`.
    */
   const answer = (args: string[]): RunResult => {
     const commands: string[][] = [[]];
-    for (const word of args.slice(4)) {
+    for (const word of args.slice(5)) {
       if (word.endsWith('\\;')) commands.at(-1)?.push(`${word.slice(0, -2)};`);
       else if (word.endsWith(';')) {
         if (word.length > 1) commands.at(-1)?.push(word.slice(0, -1));
@@ -475,7 +475,7 @@ export function timedAgentWorld(opts: Parameters<typeof agentWorld>[0] = {}) {
   const world = agentWorld(opts);
   const log: string[] = [];
   const run: Runner = (file, args, ms) => {
-    if (file === 'tmux' && args[4] === 'send-keys') log.push(`keys ${args.at(-1)}`);
+    if (file === 'tmux' && args[5] === 'send-keys') log.push(`keys ${args.at(-1)}`);
     return world.run(file, args, ms);
   };
   const sleep = async (ms: number) => {

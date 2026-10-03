@@ -43,6 +43,7 @@ test("view shows a project's sessions side by side, laid out by its mesa.yaml", 
   expect(here.stdout).toBe('viewing 2 sessions of lantern-cove, even-vertical, here\n');
   expect(here.exec).toEqual([
     'tmux',
+    '-u',
     '-L',
     'mesa-default',
     '-f',

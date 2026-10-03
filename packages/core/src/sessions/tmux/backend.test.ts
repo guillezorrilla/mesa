@@ -322,6 +322,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     expect((await tmux.listWindows()).some((w) => w.project.startsWith('_view-'))).toBe(false);
     expect(tmux.viewAttachArgv(view)).toEqual([
       'tmux',
+      '-u',
       '-L',
       socket,
       '-f',
@@ -403,7 +404,8 @@ test('every call goes to the profile socket without the user tmux.conf', async (
       dead: false,
     },
   ]);
-  expect(calls[0]?.args.slice(0, 6)).toEqual([
+  expect(calls[0]?.args.slice(0, 7)).toEqual([
+    '-u',
     '-L',
     'mesa-work',
     '-f',
@@ -481,6 +483,26 @@ test.skipIf(!hasTmux)(
       const path = await raw(['display-message', '-p', '#{socket_path}']);
       await raw(['kill-server']);
       if (path.ok) rmSync(path.stdout.trim(), { force: true });
+    }
+  },
+);
+
+test.skipIf(!hasTmux)(
+  'windows list without a locale, as from an app opened in Finder',
+  async () => {
+    // No LANG: tmux then prints the list format's tabs as `_`, unless told the client is UTF-8.
+    const socket = `mesa-nolocale-${process.pid}`;
+    const run: Runner = (file, args, timeoutMs) =>
+      execRunner('env', ['-u', 'LANG', '-u', 'LC_ALL', '-u', 'LC_CTYPE', file, ...args], timeoutMs);
+    const tmux = tmuxBackend({ sleep: async () => {}, run, socket, env: {} });
+    const target = { project: 'lantern', window: 'claude-nolocale' };
+    try {
+      await tmux.openWindow({ ...target, cwd: tempDir(), command: 'exec cat', env: {} });
+      const found = await tmux.findWindow(target);
+      expect(found?.window).toBe('claude-nolocale');
+      expect(Number.isNaN(Date.parse(found?.activity ?? ''))).toBe(false);
+    } finally {
+      await execRunner('tmux', ['-L', socket, 'kill-server'], 2000);
     }
   },
 );

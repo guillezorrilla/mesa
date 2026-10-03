@@ -151,7 +151,8 @@ test('windows lists the profile tmux server; none is an empty list, no tmux exit
   expect((await mesa('windows', 'lantern')).stdout).toBe(
     'lantern:claude-aaaaaa  (exited)  /src/lantern\n',
   );
-  expect(scripted.calls[1]?.args.slice(0, 6)).toEqual([
+  expect(scripted.calls[1]?.args.slice(0, 7)).toEqual([
+    '-u',
     '-L',
     'mesa-default',
     '-f',
