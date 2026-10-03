@@ -12,24 +12,35 @@ export const DecidedBySchema = z.union([DecisionsBackendSchema, z.literal('rules
 
 const id = z.string().min(1);
 const distinct = (words: string[]) => new Set(words).size === words.length;
+/**
+ * Optional wording a model backend reads (ADR-0019): what to decide, and a description per
+ * option, level, or (for a Noul) `true`/`false`. Rules ignore both; answers stay keyed by name.
+ */
+const instructions = z.string().min(1).optional();
+const criteria = z.record(z.string(), z.string()).optional();
 
 /** Pick one of 2 to 255 options. */
 const ChoiceSchema = z.strictObject({
   kind: z.literal('Choice'),
   id,
   options: z.array(z.string().min(1)).min(2).max(255).refine(distinct, 'options must differ'),
+  instructions,
+  criteria,
 });
 /** A position on an ordered rubric of 2 to 10 levels, lowest first. */
 const ScoreSchema = z.strictObject({
   kind: z.literal('Score'),
   id,
   levels: z.array(z.string().min(1)).min(2).max(10).refine(distinct, 'levels must differ'),
+  instructions,
+  criteria,
 });
 /** Yes or no, as one calibrated probability that `statement` is true. */
 const NoulSchema = z.strictObject({
   kind: z.literal('Noul'),
   id,
   statement: z.string().min(1),
+  criteria,
 });
 
 const QuestionSchema = z.discriminatedUnion('kind', [ChoiceSchema, ScoreSchema, NoulSchema]);
