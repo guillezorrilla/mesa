@@ -59,16 +59,29 @@ export function App() {
     view.kind === 'project' ? view.name : undefined,
   );
   const needsProfileSetup = config.error?.code === 'not_found';
-  const initialView = useInitialView({
+  useInitialView({
     config: config.data,
+    needsProfileSetup,
     projects: projects.data,
     sessions,
     setView,
   });
   const profileInitialised = async () => {
-    initialView.skipTour();
-    await Promise.all([config.refresh(), doctor.refresh(), prompts.refresh()]);
+    await Promise.all([config.refresh(), doctor.refresh(), prompts.refresh(), projects.refresh()]);
   };
+  const startTour = () =>
+    void act(async () => {
+      if (
+        !(await run('config.set', {
+          path: 'onboarding',
+          value: { status: 'active', step: 0 },
+        }))
+      )
+        return undefined;
+      await config.refresh();
+      navigate({ kind: 'tour' });
+      return undefined;
+    });
   const projectRegistered = async () => {
     await projects.refresh();
   };
@@ -168,6 +181,8 @@ export function App() {
           config={config}
           projects={projects}
           needsProfileSetup={needsProfileSetup}
+          onProfileInitialised={profileInitialised}
+          onStartTour={startTour}
           prompts={prompts}
           doctor={doctor}
           sessions={sessions}
@@ -213,20 +228,7 @@ export function App() {
         doctor={doctor}
         onProjectsChanged={() => void projects.refresh()}
         navigate={navigate}
-        onReplayTour={() =>
-          void act(async () => {
-            if (
-              !(await run('config.set', {
-                path: 'onboarding',
-                value: { status: 'active', step: 0 },
-              }))
-            )
-              return undefined;
-            await config.refresh();
-            navigate({ kind: 'tour' });
-            return undefined;
-          })
-        }
+        onReplayTour={startTour}
       />
       {cloneLink && (
         <CloneProjectDialog
@@ -241,8 +243,6 @@ export function App() {
       )}
       {projectAdd?.kind === 'local' && (
         <AddProjectDialog
-          needsProfileSetup={needsProfileSetup}
-          onInitialised={profileInitialised}
           onCancel={() => setProjectAdd(undefined)}
           onRegistered={projectRegistered}
           returnFocus={projectAdd.returnFocus}

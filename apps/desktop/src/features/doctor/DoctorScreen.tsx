@@ -1,4 +1,4 @@
-import type { Check, DoctorReport } from '@mesa/core';
+import type { DoctorReport } from '@mesa/core';
 import {
   AGENT_CAPABILITIES,
   AGENT_LABELS,
@@ -10,28 +10,13 @@ import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
 import { warned } from '@/components/Toast';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useAct } from '@/lib/useAct';
 import { type CommandState, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-
-const MARK: Record<Check['status'], string> = { ok: '✓', warn: '!', fail: '✗' };
-const TONE: Record<Check['status'], string> = {
-  ok: 'text-state-idle',
-  warn: 'text-state-waiting',
-  fail: 'text-state-failed',
-};
+import { DoctorChecksPanel } from './DoctorChecksPanel';
 
 /**
  * The doctor state is the App's, so the header's verdict and this screen show the same run. The
@@ -76,37 +61,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           {busy ? 'Checking...' : 'Recheck'}
         </Button>
       </PageHeader>
-      {data && !data.healthy && (
-        <Alert variant="destructive">
-          <AlertDescription data-testid="doctor-summary">{data.summary}</AlertDescription>
-        </Alert>
-      )}
-      <Card className="py-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Check</TableHead>
-              <TableHead>OK</TableHead>
-              <TableHead>Version</TableHead>
-              <TableHead>Hint</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data?.checks.map((c) => (
-              <TableRow key={c.name} data-testid="doctor-row" data-status={c.status}>
-                <TableCell className="font-medium">{c.name}</TableCell>
-                <TableCell aria-label={c.status} className={cn('font-mono', TONE[c.status])}>
-                  {MARK[c.status]}
-                </TableCell>
-                <TableCell className="font-mono text-xs">{c.version ?? ''}</TableCell>
-                <TableCell className="whitespace-normal text-muted-foreground text-xs">
-                  {c.hint}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+      <DoctorChecksPanel report={data} />
       {agents && (
         <Card>
           <CardHeader>

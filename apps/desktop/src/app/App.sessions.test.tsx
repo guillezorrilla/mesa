@@ -94,14 +94,15 @@ test('empty Sessions has only Add project when none exist, and registration reve
   expect(byTestId('session-start-goal')).toHaveLength(1);
 });
 
-test('a missing profile shows Add project rather than an endless project loading state', async () => {
+test('a missing profile opens Set up, and Add project no longer asks for a vault', async () => {
   const missing = failure('config.yaml not found; run mesa init --vault <path>');
   const { bridge } = fakeBridge({ config: () => missing, projects: () => missing });
   const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('setup-screen')).toHaveLength(1);
   expect(byTestId('session-start')[0]?.textContent).not.toContain('Loading projects');
-  expect(byTestId('empty-add-project')).toHaveLength(1);
   await click(byTestId('empty-add-project')[0]);
   expect(byTestId('add-project-dialog')).toHaveLength(1);
+  expect(document.getElementById('project-vault')).toBeNull();
 });
 
 test('a failed project lookup displays its error and retries instead of pretending to load forever', async () => {
