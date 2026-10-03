@@ -5,6 +5,7 @@ import { callerOf } from '../sessions/caller.js';
 import { GENERAL_PROJECT } from '../sessions/general.js';
 import { writeBases } from './bases.js';
 import { vaultBinding } from './binding.js';
+import { vaultHealth } from './health.js';
 import { listVault, type VaultInventory } from './inventory.js';
 import type { VaultFilter } from './item.js';
 import { openInObsidian } from './obsidian.js';
@@ -57,6 +58,7 @@ export function vaultService(ctx: MesaContext) {
           () => initVault({ path: vaultOf(), force, clock: deps.clock }),
         ),
       status: () => vaultStatus(vaultOf()),
+      health: () => vaultHealth(vaultOf()),
       bases: () => writeBases({ vault: vaultOf(), sleep: deps.sleep }),
       /** Every item in the vault (listVault), with the vault and how many are listed. */
       list: (filter?: VaultFilter): VaultInventory => {

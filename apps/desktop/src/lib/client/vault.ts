@@ -6,6 +6,7 @@ import type {
   Opened,
   ProjectContext,
   ReceiptEntry,
+  VaultHealth,
   VaultInventory,
   VaultRead,
   VaultSearch,
@@ -46,6 +47,7 @@ export const vaultCommands = {
     project,
   ]),
   'vault.list': command<VaultInventory>('vault', 'list'),
+  'vault.health': command<VaultHealth>('vault', 'health'),
   'vault.bases': command<BasesWritten>('vault', 'bases'),
   'vault.open': command<Recorded<Opened>>('vault', 'open'),
   'vault.openNote': commandWith<{ note: string }, Opened>(({ note }) => [
