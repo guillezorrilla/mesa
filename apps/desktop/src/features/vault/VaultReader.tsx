@@ -121,10 +121,13 @@ function Properties({ frontmatter }: { frontmatter: Record<string, unknown> }) {
       <TableBody>
         {entries.map(([key, value]) => (
           <TableRow key={key}>
-            <TableHead scope="row" className="w-1/3 font-normal text-muted-foreground">
+            <TableHead
+              scope="row"
+              className="h-auto w-1/3 py-1.5 font-normal text-muted-foreground"
+            >
               {key}
             </TableHead>
-            <TableCell className="whitespace-normal break-all font-mono text-xs">
+            <TableCell className="whitespace-normal break-all py-1.5 font-mono text-xs">
               {shown(value)}
             </TableCell>
           </TableRow>
@@ -258,7 +261,7 @@ export function VaultReader(props: { path: string; looks: number; onSelect: Sele
     );
   if (!read) return <Muted>Reading {path}...</Muted>;
   return (
-    <div data-testid="vault-reader" className="min-w-0 space-y-4 border-t pt-4">
+    <div data-testid="vault-reader" className="min-w-0 space-y-4">
       <Preview read={read} onSelect={onSelect} />
       <Backlinks paths={read.backlinks} onSelect={onSelect} />
     </div>

@@ -433,3 +433,16 @@ test('links into a folder inside the project (an adopted session in a subfolder)
   expect(existsSync(join(dir, 'sub/.claude/skills/a/SKILL.md'))).toBe(true);
   expect(testGit(dir, 'status', '--porcelain')).toBe('');
 });
+
+test('a skill linked into a native folder is edited where its link points', () => {
+  const { home, mesa } = setUp();
+  skill(join(home, '.agents/skills'), 'linked', 'Linked skill');
+  mkdirSync(join(home, '.claude/skills'), { recursive: true });
+  symlinkSync('../../.agents/skills/linked', join(home, '.claude/skills/linked'));
+  const row = mesa.skills.inventory().find((each) => each.name === 'linked');
+  expect(row).toMatchObject({ writable: true, providers: ['claude', 'codex'] });
+  const opened = mesa.skills.read(row?.id ?? '');
+  mesa.skills.write(row?.id ?? '', `${opened.text}Edited.\n`, opened.revision);
+  expect(readFileSync(join(home, '.agents/skills/linked/SKILL.md'), 'utf8')).toContain('Edited.');
+  expect(lstatSync(join(home, '.claude/skills/linked')).isSymbolicLink()).toBe(true);
+});

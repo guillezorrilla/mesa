@@ -3,7 +3,6 @@ import { ScanSearch } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { useCall } from '@/lib/useCommand';
 
 /** An explicit read-only check; the containing VaultContent remounts when its profile changes. */
@@ -30,15 +29,20 @@ export function VaultHealthPanel({ onSelect }: { onSelect: (path: string) => voi
     else setError(result.error.message);
   };
   return (
-    <Card data-testid="vault-health-panel" className="gap-3 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-medium">Vault health</h3>
-          <Muted>Check links and note metadata. Your files stay as they are.</Muted>
-        </div>
+    <section
+      data-testid="vault-health-panel"
+      aria-label="Vault health"
+      className="space-y-3 rounded-lg border bg-card/40 px-4 py-2.5"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h3 className="text-sm font-medium">Vault health</h3>
+        <Muted size="xs" className="mr-auto">
+          Check links and note metadata. Your files stay as they are.
+        </Muted>
         <Button
           data-testid="vault-health-check"
           variant="outline"
+          size="sm"
           disabled={checking}
           onClick={() => void check()}
         >
@@ -87,6 +91,6 @@ export function VaultHealthPanel({ onSelect }: { onSelect: (path: string) => voi
           <Muted>Results reflect the last check. Check again after editing notes.</Muted>
         </>
       )}
-    </Card>
+    </section>
   );
 }

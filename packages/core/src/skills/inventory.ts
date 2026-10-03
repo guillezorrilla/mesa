@@ -255,8 +255,9 @@ export function skillInventory(input: {
       }
       if (readable && !skill) invalidReason = 'SKILL.md has invalid metadata';
       if (!readable) invalidReason = 'SKILL.md is not a readable file';
-      const writable =
-        root.scope !== 'plugin' && !entry.isSymbolicLink() && !linkedFile && readable;
+      // A linked folder is the user's own (Mesa's library links were skipped above), so an edit
+      // lands where the link points; a linked SKILL.md alone stays read-only.
+      const writable = root.scope !== 'plugin' && !linkedFile && readable;
       const row: SkillInventoryRow = {
         id: path,
         name: skill?.name ?? entry.name,
@@ -275,9 +276,7 @@ export function skillInventory(input: {
                 ? 'SKILL.md is not a readable file'
                 : root.scope === 'plugin'
                   ? 'Managed by a provider plugin'
-                  : entry.isSymbolicLink()
-                    ? 'Linked skill folder'
-                    : 'Linked SKILL.md',
+                  : 'Linked SKILL.md',
             }
           : {}),
         conflicts: [],
