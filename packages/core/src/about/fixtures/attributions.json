@@ -1,0 +1,30 @@
+[
+  {
+    "name": "node",
+    "version": "26.10.0",
+    "license": "MIT",
+    "source": "node",
+    "text": "Lantern Runtime license: invented text for tests."
+  },
+  {
+    "name": "harbor-lights",
+    "version": "2.4.1",
+    "license": "MIT",
+    "source": "npm",
+    "text": "MIT License\n\nCopyright (c) 2026 Harbor Lights contributors"
+  },
+  {
+    "name": "tauri",
+    "version": "2.11.0",
+    "license": "Apache-2.0 OR MIT",
+    "source": "crate",
+    "text": "Apache License, Version 2.0: invented text for tests."
+  },
+  {
+    "name": "tide-tables",
+    "version": "3ccff53",
+    "license": "MIT",
+    "source": "skill",
+    "text": "MIT License\n\nCopyright (c) 2026 Tide Tables authors"
+  }
+]

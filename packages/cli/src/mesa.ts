@@ -86,6 +86,15 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     obsidian: macObsidianPaths(home),
     argv,
     version: VERSION,
+    // The build number and attributions build.sh embeds beside the version.
+    ...(bundled
+      ? {
+          release: {
+            build: sea.getAsset('build', 'utf8'),
+            attributions: () => sea.getAsset('attributions.json', 'utf8'),
+          },
+        }
+      : {}),
     // The repo's skills/, beside packages/ (this file is packages/cli/dist/mesa.js), or the
     // executable's, unpacked where projects can link to them.
     skillsDir: bundled

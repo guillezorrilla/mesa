@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import type { ReleaseBuild } from './about/about.js';
 import type { Clock } from './lib/clock.js';
 import type { Http } from './lib/http.js';
 import type { IdSource } from './lib/ids.js';
@@ -52,6 +53,8 @@ export type MesaDeps = {
   skillsDir: string;
   /** This Mesa's version (one for the app, the CLI and core, ADR-0017). */
   version: string;
+  /** The build number and attributions a release's single executable carries; none elsewhere. */
+  release?: ReleaseBuild;
 };
 
 /**

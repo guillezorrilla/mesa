@@ -7,6 +7,7 @@ A release is a signed, notarised, stapled universal DMG with the `mesa` CLI insi
 | `pnpm release:version X.Y.Z[-beta.N]` | `scripts/release/version.sh` | Writes the one version into every `package.json`, `Cargo.toml` and `Cargo.lock` |
 | `pnpm check:version` | same, `--check` | Fails on drift; part of `pnpm verify` |
 | `pnpm release:build` | `scripts/release/build.sh` | Builds the CLI executable, the app, the DMG and update archive into `release/dist`, then runs `release:sign` |
+| (run by `release:build`) | `scripts/release/licenses.mjs <out>` | Writes the third-party attributions the CLI executable embeds, which `mesa about` and About Mesa show |
 | `pnpm release:sign` | `scripts/release/sign.sh` | Signs, notarises and staples the DMG, then checks Gatekeeper and the entitlements |
 | `pnpm release:publish` | `scripts/release/publish.sh` | Creates the GitHub Release `v<version>` and uploads every asset |
 

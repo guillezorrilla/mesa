@@ -1,4 +1,4 @@
-import { BookOpen, CircleHelp, Keyboard } from 'lucide-react';
+import { BookOpen, CircleHelp, Info, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -8,8 +8,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
 
-/** The header's help menu: keyboard shortcuts and Mesa's command reference. */
-export function HelpMenu(props: { onShortcuts: () => void; onReference: () => void }) {
+/** The header's help menu: keyboard shortcuts, Mesa's command reference, and About Mesa. */
+export function HelpMenu(props: {
+  onShortcuts: () => void;
+  onReference: () => void;
+  onAbout: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -33,6 +37,9 @@ export function HelpMenu(props: { onShortcuts: () => void; onReference: () => vo
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={props.onReference}>
           <BookOpen aria-hidden className="size-4" /> Command reference
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={props.onAbout}>
+          <Info aria-hidden className="size-4" /> About Mesa
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

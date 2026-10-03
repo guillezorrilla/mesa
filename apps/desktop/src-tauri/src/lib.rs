@@ -1,6 +1,7 @@
 mod bridge;
 mod browser;
 mod install_location;
+mod menu;
 mod notifications;
 mod shell_path;
 mod terminal;
@@ -35,6 +36,7 @@ pub fn run() {
         .manage(terminal::Terms::default())
         .manage(updater::Updates::default())
         .setup(|app| {
+            menu::install(app)?;
             install_location::warn(app.handle());
             updater::start(app.handle());
             let handle = app.handle().clone();

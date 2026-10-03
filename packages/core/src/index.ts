@@ -1,6 +1,7 @@
 // The public interface of @mesa/core: the composition root, the real implementations of its
 // seams, the result envelope, and the data types callers render. Everything else is internal.
 
+export type { About, Attribution } from './about/about.js';
 export type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 export type { CodexHooksStatus } from './agents/codex/hooks.js';
 export type { HooksStatus } from './agents/hooks-service.js';

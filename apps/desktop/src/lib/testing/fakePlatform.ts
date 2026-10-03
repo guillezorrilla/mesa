@@ -99,6 +99,7 @@ export const fakePlatform = ({
   },
   lifecycle = { onCloseRequested: async () => () => {}, close: async () => {} },
   updates = fakeUpdates().host,
+  menu = { onAbout: async () => () => {} },
 }: {
   folder?: string | null;
   file?: string | null;
@@ -108,6 +109,7 @@ export const fakePlatform = ({
   notifications?: Platform['notifications'];
   lifecycle?: Platform['lifecycle'];
   updates?: UpdateHost;
+  menu?: Platform['menu'];
 } = {}): Platform & {
   pasteboard: string[];
   badges: number[];
@@ -127,5 +129,6 @@ export const fakePlatform = ({
     dock: { badge: async (count) => void badges.push(count) },
     badges,
     updates,
+    menu,
   };
 };

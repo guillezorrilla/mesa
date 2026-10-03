@@ -108,4 +108,6 @@ export type Platform = {
    * needs no seam: Cmd+V fires a paste event that xterm handles. */
   clipboard: { write: (text: string) => Promise<void> };
   updates: UpdateHost;
+  /** The macOS app menu's items that open a screen: About Mesa. Returns the unsubscribe. */
+  menu: { onAbout: (handler: () => void) => Promise<() => void> };
 };

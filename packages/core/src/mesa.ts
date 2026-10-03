@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { about } from './about/about.js';
 import { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
 import { vaultMountStatus } from './agents/antigravity/vault-mount.js';
 import { hooksStatus } from './agents/claude/hooks.js';
@@ -58,6 +59,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     run: sessions.sessions.run,
   });
   return {
+    about: () => about(deps.version, deps.release),
     ...profileApi,
     projects: projectsService(ctx),
     automations: automationsService(ctx, faro, {

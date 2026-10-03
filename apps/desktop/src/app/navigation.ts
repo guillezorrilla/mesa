@@ -7,6 +7,7 @@ export type WorkspaceView =
         | 'grid'
         | 'doctor'
         | 'help'
+        | 'about'
         | 'shortcuts'
         | 'preferences'
         | 'prompts'
