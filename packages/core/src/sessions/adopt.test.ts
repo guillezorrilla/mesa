@@ -216,3 +216,25 @@ test('a headless Codex rollout is not imported as an interactive conversation', 
   await expect(mesa.sessions.adopt(thread)).rejects.toMatchObject({ code: 'not_found' });
   expect(testStore(home).list()).toEqual([]);
 });
+
+test('an adoption keeps the name its agent shows, unless --name gives one; an unnamed one stays so', async () => {
+  const codex = codexWorld();
+  const { run } = scriptedRunner({ claude: '[]' });
+  const { mesa, dir, home } = projectProfile(run, { env: codex.env });
+  const title = (customTitle: string) => JSON.stringify({ type: 'custom-title', customTitle });
+  const ai = (aiTitle: string) => JSON.stringify({ type: 'ai-title', aiTitle });
+  const cwd = JSON.stringify({ type: 'user', cwd: dir, message: { role: 'user', content: 'x' } });
+  plantTranscript(home, ON_DISK, dir, [cwd, title('Tide tables'), ai('Harbor charts')].join('\n'));
+  const thread = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  codex.rollout({ id: thread, cwd: dir, startedAt: '2026-09-20T11:58:00.000Z' });
+  codex.name(thread, 'Lantern lights');
+  const unnamed = '01a0e14e-be41-72f1-a81b-e25d2198602b';
+  codex.rollout({ id: unnamed, cwd: dir, startedAt: '2026-09-20T11:59:00.000Z' });
+
+  const claude = await mesa.sessions.adopt(ON_DISK, { noResume: true });
+  expect(claude.result.record.name).toBe('Tide tables');
+  const named = await mesa.sessions.adopt(thread, { noResume: true, name: 'beacon' });
+  expect(named.result.record.name).toBe('beacon');
+  const plain = await mesa.sessions.adopt(unnamed, { noResume: true });
+  expect(plain.result.record).not.toHaveProperty('name');
+});

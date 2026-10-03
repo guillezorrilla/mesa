@@ -1,4 +1,4 @@
-import { FolderPlus, FolderSearch } from 'lucide-react';
+import { FolderPlus, FolderSearch, History } from 'lucide-react';
 import { type ReactNode, useRef } from 'react';
 import {
   DropdownMenu,
@@ -7,7 +7,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export type ProjectAddRequest = { kind: 'local' | 'import'; returnFocus: HTMLElement | null };
+export type ProjectAddRequest = {
+  kind: 'local' | 'import' | 'discover';
+  returnFocus: HTMLElement | null;
+};
 
 export function AddProjectMenu(props: {
   children: ReactNode;
@@ -29,6 +32,11 @@ export function AddProjectMenu(props: {
           onSelect={() => props.onSelect({ kind: 'import', returnFocus: trigger.current })}
         >
           <FolderSearch aria-hidden /> Import workspace
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => props.onSelect({ kind: 'discover', returnFocus: trigger.current })}
+        >
+          <History aria-hidden /> Find from sessions
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

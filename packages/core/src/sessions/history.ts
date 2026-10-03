@@ -4,6 +4,7 @@ import { codexHistory } from '../agents/codex/rollouts.js';
 import type { Env } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
+import { withName } from './native-name.js';
 import type { SessionStore } from './store.js';
 
 /** A bounded view of native conversations; Mesa never copies or edits their transcripts. */
@@ -12,6 +13,8 @@ export type NativeHistoryRow = {
   id: string;
   cwd: string;
   updatedAt: string;
+  /** Its native name (native-name.ts), when it has one. */
+  name?: string;
   importedAs?: string;
   heldElsewhere?: true;
 };
@@ -22,7 +25,8 @@ export type NativeHistory = {
 };
 
 const LIMIT = 100;
-const UNSUPPORTED = [
+/** The agents whose native conversations Mesa cannot list, and why. */
+export const UNSUPPORTED_HISTORY = [
   { agent: 'antigravity' as const, reason: 'No qualified native CLI history source' },
 ];
 
@@ -57,10 +61,11 @@ export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeH
       id: row.id,
       cwd: row.cwd,
       updatedAt: row.updatedAt,
+      ...withName(deps, row),
       ...(imported.has(row.id) ? { importedAs: imported.get(row.id) } : {}),
       ...(elsewhere.has(row.id) ? { heldElsewhere: true as const } : {}),
     })),
     total: rows.length,
-    unsupported: UNSUPPORTED,
+    unsupported: UNSUPPORTED_HISTORY,
   };
 }

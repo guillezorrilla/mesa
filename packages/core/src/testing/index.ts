@@ -3,7 +3,7 @@ import { appendFileSync, mkdirSync, readFileSync, utimesSync, writeFileSync } fr
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { claudeTranscripts } from '../agents/claude/paths.js';
-import { codexSessions } from '../agents/codex/paths.js';
+import { codexSessionIndex, codexSessions } from '../agents/codex/paths.js';
 import type { LaunchDefaults } from '../agents/launch-flags.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
@@ -409,7 +409,7 @@ const ROLLOUT = readFileSync(
  * a thread's rollout there, in its start's local-date folder, named as Codex names it, with the
  * fixture's lines under a first line naming `id`, `cwd`, and `startedAt`. `originator` is
  * `codex-tui` (an interactive codex) unless `codex_exec`; the file was last written at
- * `writtenAt`, else at `startedAt`.
+ * `writtenAt`, else at `startedAt`. `name` names a thread in the session index.
  */
 export function codexWorld() {
   const home = tempDir('codex-');
@@ -440,7 +440,13 @@ export function codexWorld() {
     utimesSync(file, written, written);
     return file;
   };
-  return { home, env: { CODEX_HOME: home }, rollout };
+  /** Names thread `id` as a rename in Codex does: a line appended to its session index. */
+  const name = (id: string, threadName: string) =>
+    appendFileSync(
+      codexSessionIndex(home),
+      `${JSON.stringify({ id, thread_name: threadName, updated_at: '2026-09-20T12:00:00.000Z' })}\n`,
+    );
+  return { home, env: { CODEX_HOME: home }, rollout, name };
 }
 
 /**
@@ -675,7 +681,7 @@ export function plantOutputLog(home: string, id: string, text: string | Buffer) 
 
 /**
  * A Claude Code transcript on disk, as it writes one: conversation `id`, run in `cwd`, which it
- * names on a line after the first; `content` in place of those lines when given.
+ * names on a line after the first; `content` in place of those lines when given. Its path.
  */
 export function plantTranscript(home: string, id: string, cwd: string, content?: string) {
   const folder = join(claudeTranscripts(home), cwd.replaceAll(/[^A-Za-z0-9]/g, '-'));
@@ -684,10 +690,9 @@ export function plantTranscript(home: string, id: string, cwd: string, content?:
     { type: 'last-prompt', sessionId: id },
     { type: 'user', sessionId: id, cwd, message: { role: 'user', content: 'Remember lantern' } },
   ];
-  writeFileSync(
-    join(folder, `${id}.jsonl`),
-    content ?? lines.map((l) => JSON.stringify(l)).join('\n'),
-  );
+  const file = join(folder, `${id}.jsonl`);
+  writeFileSync(file, content ?? lines.map((l) => JSON.stringify(l)).join('\n'));
+  return file;
 }
 
 export { type FakePullRequest, fakeGh } from './gh.js';

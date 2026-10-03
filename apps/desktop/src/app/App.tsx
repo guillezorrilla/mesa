@@ -5,6 +5,7 @@ import { warned } from '@/components/Toast';
 import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { CloneProjectDialog } from '@/features/projects/CloneProjectDialog';
+import { DiscoveryDialog } from '@/features/projects/DiscoveryDialog';
 import { ImportWorkspaceDialog } from '@/features/projects/ImportWorkspaceDialog';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useAct } from '@/lib/useAct';
@@ -252,6 +253,13 @@ export function App() {
       )}
       {projectAdd?.kind === 'import' && (
         <ImportWorkspaceDialog
+          onCancel={() => setProjectAdd(undefined)}
+          onRegistered={projectRegistered}
+          returnFocus={projectAdd.returnFocus}
+        />
+      )}
+      {projectAdd?.kind === 'discover' && (
+        <DiscoveryDialog
           onCancel={() => setProjectAdd(undefined)}
           onRegistered={projectRegistered}
           returnFocus={projectAdd.returnFocus}

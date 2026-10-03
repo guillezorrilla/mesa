@@ -29,6 +29,7 @@ export type { DiagnosticEvent, DiagnosticReport } from './diagnostics/service.js
 export {
   attentionScore,
   contextPercent,
+  counted,
   duration,
   isRun,
   listPrice,
@@ -105,6 +106,12 @@ export type {
   ChangeReviewPreview,
 } from './sessions/change-review.js';
 export type { DescendantResult } from './sessions/descendants.js';
+export type {
+  NativeConversation,
+  NativeDiscovery,
+  NativeLive,
+  NativeProject,
+} from './sessions/discovery.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';

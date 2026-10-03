@@ -24,3 +24,29 @@ test('native history lists project transcripts, ownership and unsupported provid
     { agent: 'antigravity', reason: 'No qualified native CLI history source' },
   ]);
 });
+
+test('history rows carry the native name of a conversation that has one', () => {
+  const codex = codexWorld();
+  const { run } = scriptedRunner();
+  const { mesa, home, dir } = projectProfile(run, { env: codex.env });
+  const claudeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  const named = '01a0e14e-be41-72f1-a81b-e25d2198602a';
+  const unnamed = '01a0e14e-be41-72f1-a81b-e25d2198602b';
+  const lines = [
+    { type: 'user', cwd: dir, message: { role: 'user', content: 'Chart the tide' } },
+    { type: 'ai-title', aiTitle: 'Tide tables' },
+  ];
+  plantTranscript(home, claudeId, dir, lines.map((l) => JSON.stringify(l)).join('\n'));
+  codex.rollout({ id: named, cwd: dir, startedAt: '2026-09-20T11:58:00.000Z' });
+  codex.rollout({ id: unnamed, cwd: dir, startedAt: '2026-09-20T11:57:00.000Z' });
+  codex.name(named, 'Lantern lights');
+
+  const names = Object.fromEntries(
+    mesa.sessions.history('lantern-cove').rows.map((row) => [row.id, row.name]),
+  );
+  expect(names).toEqual({
+    [claudeId]: 'Tide tables',
+    [named]: 'Lantern lights',
+    [unnamed]: undefined,
+  });
+});

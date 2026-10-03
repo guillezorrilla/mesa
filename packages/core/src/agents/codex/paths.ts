@@ -9,6 +9,9 @@ export const codexHome = (env: Env, home: string) => env.CODEX_HOME || join(home
 /** Every thread's rollout, `<local YYYY>/<MM>/<DD>/rollout-<local time>-<thread id>.jsonl`. */
 export const codexSessions = (codexHome: string) => join(codexHome, 'sessions');
 
+/** Each thread's name as Codex shows it, one JSONL line per rename: `{id, thread_name, updated_at}`. */
+export const codexSessionIndex = (codexHome: string) => join(codexHome, 'session_index.jsonl');
+
 /** The app-server daemon's socket, there while it runs: a plain `codex` then attaches to it. */
 export const codexDaemonSocket = (codexHome: string) =>
   join(codexHome, 'app-server-control', 'app-server-control.sock');

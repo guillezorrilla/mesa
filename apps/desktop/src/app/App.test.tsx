@@ -225,6 +225,7 @@ test('the sidebar Add project menu keeps the selected project open and refreshes
   expect(items.map((item) => item.textContent?.trim())).toEqual([
     'Add project',
     'Import workspace',
+    'Find from sessions',
   ]);
   await click(items[0]);
   expect(byTestId('add-project-dialog')).toHaveLength(1);
@@ -241,6 +242,33 @@ test('the sidebar Add project menu keeps the selected project open and refreshes
   ).toBe(true);
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
   expect(document.activeElement).toBe(addTrigger);
+});
+
+test('the sidebar Add project menu finds projects from native sessions', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    discover: () =>
+      envelope({
+        since: '2026-08-25T12:00:00.000Z',
+        days: 30,
+        projects: [],
+        live: [],
+        conversations: [],
+        total: 0,
+        truncated: false,
+        unsupported: [],
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  await click(document.querySelector<HTMLElement>('[aria-label="Add project"]') ?? undefined);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent?.trim() === 'Find from sessions',
+    ),
+  );
+  expect(byTestId('discovery-dialog')).toHaveLength(1);
+  expect(calls).toContainEqual(['--json', 'discover']);
 });
 
 test('sidebar opens Map without creating a missing saved map', async () => {
@@ -622,6 +650,7 @@ test('project native history imports a Codex conversation through the existing s
             id: nativeId,
             cwd: '/src/lantern-cove',
             updatedAt: '2026-09-20T12:00:00.000Z',
+            name: 'Tide tables',
           },
         ],
         total: 1,
@@ -652,6 +681,7 @@ test('project native history imports a Codex conversation through the existing s
     ),
   );
   expect(byTestId('native-history')[0]?.textContent).toContain(nativeId);
+  expect(byTestId('native-history-name')[0]?.textContent).toContain('Tide tables');
   await act(async () => {
     const query = byTestId('native-history-query')[0] as HTMLInputElement;
     query.value = 'harbor';

@@ -18,8 +18,11 @@ export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
 export const sessionBranch = (s: SessionRow) =>
   s.managed ? (s.worktree?.branch ?? s.pending?.branch) : undefined;
 
+/** A number of things as it reads: `1 conversation`, `2 conversations`. */
+export const counted = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */
-export const sessionCount = (n: number) => `${n} session${n === 1 ? '' : 's'}`;
+export const sessionCount = (n: number) => counted(n, 'session');
 
 /** What a queued session shows in place of its output. */
 export const waitingOn = (after: string | undefined) => `waiting on ${after}`;

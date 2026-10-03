@@ -37,10 +37,10 @@ function cwdIn(file: string): string | undefined {
   return undefined;
 }
 
-/** Native Claude conversations on disk, newest activity first. */
+/** Native Claude conversations on disk, each with its transcript `file`. */
 export function claudeHistory(transcripts: string) {
   if (!existsSync(transcripts)) return [];
-  const rows: { agent: 'claude'; id: string; cwd: string; updatedAt: string }[] = [];
+  const rows: { agent: 'claude'; id: string; cwd: string; updatedAt: string; file: string }[] = [];
   let folders: Dirent[];
   try {
     folders = readdirSync(transcripts, { withFileTypes: true });
@@ -71,6 +71,7 @@ export function claudeHistory(transcripts: string) {
             id: entry.name.slice(0, -6),
             cwd,
             updatedAt: statSync(file).mtime.toISOString(),
+            file,
           });
       } catch {
         // A transcript may disappear while native history is read.

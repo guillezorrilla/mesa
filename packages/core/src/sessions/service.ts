@@ -34,6 +34,7 @@ import { changeReview, previewChangeReview } from './change-review.js';
 import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
 import { applyDescendants } from './descendants.js';
+import { discoverNative } from './discovery.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
 import { forkSession } from './fork.js';
@@ -1015,6 +1016,12 @@ export function sessionsService(
         ),
       /** Native provider conversations on disk for a project, with import ownership. */
       history: (project: string) => nativeHistory(nativeDeps(), project),
+      /** Native projects, running sessions and conversations of the last `days`, machine-wide. */
+      discover: (days: number) =>
+        discoverNative(
+          { ...nativeDeps(), clock: deps.clock, listing: () => listAgentProcesses(deps) },
+          { days },
+        ),
       /** Bounded local text search over native provider conversations. */
       search: (project: string, query: string) => searchConversations(nativeDeps(), project, query),
     },

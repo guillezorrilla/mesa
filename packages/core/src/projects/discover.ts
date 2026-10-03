@@ -13,6 +13,28 @@ export type DiscoveredProject = {
   error?: string;
 };
 
+/** A folder that can be a project: what discovery says of it before the registry is asked. */
+export type ProjectCandidate = Omit<DiscoveredProject, 'registered'>;
+
+/**
+ * `path` as a project candidate when it holds mesa.yaml or `.git`: named by its mesa.yaml, else
+ * by its folder; an unreadable mesa.yaml is its `error`. None for any other folder.
+ */
+export function projectCandidate(path: string): ProjectCandidate | undefined {
+  const configured = existsSync(projectFile(path));
+  if (!configured && !existsSync(join(path, '.git'))) return undefined;
+  let name = slugify(basename(path));
+  let error: string | undefined;
+  if (configured) {
+    try {
+      name = readProjectFile(path).name;
+    } catch {
+      error = 'Invalid mesa.yaml';
+    }
+  }
+  return { path, name, configured, ...(error ? { error } : {}) };
+}
+
 /** A bounded local scan: at most 500 folders, three levels below the chosen root, 100 results. */
 export function discoverProjects(profile: Profile, root: string): DiscoveredProject[] {
   if (!existsSync(root) || !statSync(root).isDirectory()) {
@@ -27,22 +49,11 @@ export function discoverProjects(profile: Profile, root: string): DiscoveredProj
     const current = pending.shift();
     if (!current) break;
     visited++;
-    const configured = existsSync(projectFile(current.path));
-    const git = existsSync(join(current.path, '.git'));
-    if (configured || git) {
-      let name = slugify(basename(current.path));
-      let error: string | undefined;
-      if (configured) {
-        try {
-          name = readProjectFile(current.path).name;
-        } catch {
-          error = 'Invalid mesa.yaml';
-        }
-      }
+    const candidate = projectCandidate(current.path);
+    if (candidate) {
+      const { error, ...fields } = candidate;
       found.push({
-        path: current.path,
-        name,
-        configured,
+        ...fields,
         registered: registered.has(current.path),
         ...(error ? { error } : {}),
       });

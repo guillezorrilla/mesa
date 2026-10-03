@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import {
   attentionScore,
   contextPercent,
+  counted,
   duration,
   listPrice,
   percent,
@@ -28,6 +29,7 @@ test('a row reads as its name, else its id; its branch is its worktree, else the
   expect(sessionBranch(foreign)).toBeUndefined();
   expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
   expect([1, 2].map(sessionCount)).toEqual(['1 session', '2 sessions']);
+  expect([1, 30].map((n) => counted(n, 'day'))).toEqual(['1 day', '30 days']);
 });
 
 test('durations and list prices read the same everywhere', () => {

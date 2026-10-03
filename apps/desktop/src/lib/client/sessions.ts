@@ -5,6 +5,7 @@ import type {
   DescendantResult,
   GridGroup,
   InstructionStatus,
+  NativeDiscovery,
   NativeHistory,
   Removed,
   Sent,
@@ -239,6 +240,8 @@ export const sessionsCommands = {
     '--',
     project,
   ]),
+  // The default 30 days, machine-wide.
+  'sessions.discover': command<NativeDiscovery>('discover'),
   'sessions.search': commandWith<{ project: string; query: string }, ConversationSearch>(
     ({ project, query }) => ['history', 'search', '--', project, query],
   ),
