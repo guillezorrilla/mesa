@@ -36,6 +36,7 @@ A release is a signed, notarised, stapled universal DMG with the `mesa` CLI insi
    base64 -i AuthKey_<KEYID>.p8 | gh secret set APPLE_API_KEY_BASE64 --env release
    gh secret set TAURI_SIGNING_PRIVATE_KEY --env release < ~/.tauri/mesa.key
    gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --env release    # prompts
+   gh secret set RELEASE_TOKEN --env release                         # prompts; see below
    ```
 
    For releases by hand, in the login Keychain (service `mesa-release`, account = the name). `-w` last makes `security` prompt for the value:
@@ -47,6 +48,8 @@ A release is a signed, notarised, stapled universal DMG with the `mesa` CLI insi
    security add-generic-password -U -s mesa-release -a TAURI_SIGNING_PRIVATE_KEY -w "$(cat ~/.tauri/mesa.key)"
    security add-generic-password -U -s mesa-release -a TAURI_SIGNING_PRIVATE_KEY_PASSWORD -w
    ```
+
+   `RELEASE_TOKEN` is a fine-grained token of the owner's, from github.com/settings/personal-access-tokens/new: repository `guillezorrilla/mesa` only, Repository permissions > Contents: Read and write, one year. The workflow publishes with it because GitHub lets only an actor who may create a protected `v*` tag make a release on it, and on a personal repo the Actions token cannot bypass the `release tags` ruleset. By hand, `gh` uses your own sign-in.
 
    The certificate stays in the login keychain, and `build.sh` finds its identity. Set `APPLE_SIGNING_IDENTITY` when there is more than one. Instead of the Keychain, the same `NAME=value` lines can go in `.env.release.local` at the repo root, which git ignores.
 
@@ -78,6 +81,7 @@ A test build needs no secrets. `APPLE_SIGNING_IDENTITY=- pnpm release:build` mak
 ## Renewals
 
 - **Developer ID certificate**: it is valid for five years. Before it expires, create a new one (step 2), then replace `APPLE_CERTIFICATE` and `APPLE_CERTIFICATE_PASSWORD` in the `release` environment. Installed copies keep working, because notarised apps stay valid after their certificate expires.
+- **RELEASE_TOKEN**: it expires after a year. Create a new one the same way and replace the secret.
 - **App Store Connect API key**: it does not expire. If it leaks, revoke it in App Store Connect and repeat step 3.
 - **Updater key**: never rotate it casually. Copies already installed accept only updates signed with the key they shipped with.
 - **Apple Developer Program**: renew it yearly. A lapsed membership stops notarisation, though copies already shipped still open.
