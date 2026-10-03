@@ -4,7 +4,7 @@ Date: 2026-10-03. Owner-authorized spike on the owner's Mac. Only invented conte
 
 ## Verdict
 
-Go for a local, opt-in Strands Decider v19 runtime on MLX behind Faro. The pinned official CLI installs reproducibly, runs offline, answers all three primitives through Mesa's own wire client, refuses overflow under `--strict-window`, and fits the target Mac (5.3 GB footprint, about 10 s cold start, 0.25 to 0.55 s warm for short inputs). Quality is site-dependent: on the calibration split, relevance, supervision and next-step reached their gate accuracy at useful coverage, while evidence sufficiency accepted only 3 of 15 cases. Whether any site ships automatic is decided by the held-out run in #465 against the gates ADR-0019 froze. Laya and the WebGPU conversion were not evaluated: nothing here rejects the primary candidate.
+Go for a local, opt-in Strands Decider v19 runtime on MLX behind Faro. The pinned official CLI installs reproducibly, runs offline, answers all three primitives through Mesa's own wire client, refuses overflow under `--strict-window`, and fits the target Mac (5.3 GB footprint, about 10 s cold start, 0.25 to 0.55 s warm for short inputs). Quality is site-dependent: on the calibration split, relevance and next-step met their full gate, supervision was accurate when it accepted but did not beat the rules' screen reader, and evidence sufficiency accepted only 3 of 15 cases. Whether any site ships automatic is decided by the held-out run in #465 against the gates ADR-0019 froze. Laya and the WebGPU conversion were not evaluated: nothing here rejects the primary candidate.
 
 Per the owner (2026-10-03), nothing of this ships inside the app. The model and runtime are an explicit local install the user is prompted for.
 
@@ -13,7 +13,7 @@ Per the owner (2026-10-03), nothing of this ships inside the app. The model and 
 - Apple M1 Pro, 10 cores, 32 GB, macOS 26.6.2. These numbers are for this machine only.
 - uv 0.11.29, Python 3.12.13 venv. torch 2.7.1, transformers 5.17.0, peft 0.21.0, mlx 0.32.3, mlx-lm 0.32.0, huggingface-hub 1.33.0.
 - strands-decider from git `6d5dec6bd9c36fb63317803363a92ebcfcdfd207` with the `mlx` extra (PyPI 0.1.0 has no device extras).
-- Checkpoint `StrandsAgents/strands-decider-2B-hobson-v19` at `bb282d786bc251fd4e3068de3ada9ddbb38127cd`: its own `MANIFEST.sha256` verified OK. Base `Qwen/Qwen3.5-2B-Base` at `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`, which v19's `provenance.json` records as its training base. Both Apache-2.0 (checkpoint `LICENSE.md` lists the training data sources).
+- Checkpoint `StrandsAgents/strands-decider-2B-hobson-v19` at `bb282d786bc251fd4e3068de3ada9ddbb38127cd`: its own `MANIFEST.sha256` verified OK. Base `Qwen/Qwen3.5-2B-Base` at `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`, which v19's `provenance.json` records as its training base. Both Apache-2.0 (checkpoint `LICENSE.md` lists the training data sources). The tokenizer (`tokenizer.json`, `tokenizer_config.json`), the head, the LoRA adapter and the calibration temperatures (`hobson_config.json`: global 0.963; noul 0.911, choice 0.734, score 1.328) are files of that checkpoint revision, so its pin pins them; `MANIFEST.sha256` covers them.
 - The upstream loader does not pin the base revision. The spike used a checkpoint view: symlinks to the v19 files plus a `hobson_config.json` whose `base_model` is the local pinned base folder, run with `HF_HUB_OFFLINE=1`.
 
 Install (owner-authorized, into a disposable scratch folder with its own `HF_HOME`; nothing under `~/.cache`):
@@ -44,7 +44,7 @@ Public downloads needed no token. Disk: base 4.3 GB, checkpoint 88 MB, venv 778 
 | ~1,200 words | 2,594 / 3,025 ms | 1,476 / 1,494 ms |
 | ~2,800 words | 5,723 / 6,159 ms | 3,159 / 3,259 ms |
 | Three primitives on one state | 3,750 ms | 597 ms |
-| Physical footprint | not captured (GPU memory outside RSS) | 5,258 MB, peak 5,978 MB |
+| Physical footprint | not captured (GPU memory outside RSS; MPS was not selected) | 5,258 MB, peak 5,978 MB |
 
 MPS and MLX gave the same answers to three decimals on the three-primitive request. The recorded MLX reply with Mesa's option descriptions (`decisions/fixtures/strands/three-kinds.json`) chose `waiting-permission` at 0.80 over three options; the Noul "A human is needed now" answered 0.28 on the same permission prompt, a reminder that Noul wording matters and that statements need their own calibration.
 
@@ -72,7 +72,7 @@ Direct concurrent requests were slower than serialized ones and drifted by 0 her
 
 ## Native delivery probe
 
-Live probe on 2026-10-03 with an invented project and invented markers only: Claude Code 2.1.288, Codex CLI 0.160.0 and Antigravity CLI 1.2.16, each on its default model. One hook script logged every run (event, stdin hash, timing) and injected a different marker per event and turn; the model was then asked to repeat only the markers it received. Configured means the hook is in the provider's config, executed means the hook ran, delivered means the provider's transcript holds the text, consumed means the answer repeated the marker. Every hook had a 5 s timeout. Each cell was tested once.
+Live probe on 2026-10-03 with an invented project and invented markers only: Claude Code 2.1.288, Codex CLI 0.160.0 and Antigravity CLI 1.2.16, each on its default model. One hook script logged every run (event, stdin hash, timing) and injected a different marker per event and turn; the model was then asked to repeat only the markers it received. Configured means the hook is in the provider's config, executed means the hook ran (its log line), delivered means the provider's transcript holds the text, consumed means the answer repeated the marker. Every cell marked consumed was also configured, executed and delivered; the only delivered-but-not-consumed cell is Antigravity's tool-call turn below. Every hook had a 5 s timeout. Each cell was tested once.
 
 | Path | Claude Code | Codex | Antigravity |
 | --- | --- | --- | --- |
@@ -108,12 +108,12 @@ Checked against the live documentation on 2026-10-03; no Space was created and n
 
 | Site | Accepted | Coverage | Selective accuracy | Accuracy |
 | --- | --- | --- | --- | --- |
-| supervision | 16 | 53.3% | 62.5% | 36.7% |
-| relevance | 0 | 0% | - | 33.3% |
-| next-step | 0 | 0% | - | 36.7% |
-| evidence | 0 | 0% | - | 50.0% |
+| supervision | 16 | 53.3% | 62.5% | 33.3% |
+| relevance | 0 | 0% | - | 0% |
+| next-step | 0 | 0% | - | 0% |
+| evidence | 0 | 0% | - | 0% |
 
-Supervision's rules read the screen as the board does with no hook or listing (`classify`, tail at 0.6); Claude's reader calls any screen without a busy or menu marker idle, which is why its accepted answers are often wrong. The other sites have no rules and always abstain.
+Supervision's rules read the screen as the board does with no hook or listing (`classify`, tail at 0.6), and the baseline's non-even answers stand, as on the board; Claude's reader calls any screen without a busy or menu marker idle, which is why its accepted answers are often wrong. The other sites have no rules: their answers are even, never counted right, and always abstain.
 
 ## Calibration split, local model
 
@@ -121,12 +121,12 @@ Supervision's rules read the screen as the board does with no hook or listing (`
 
 | Site | Accepted | Coverage | Selective accuracy | Accuracy | p50 / p95 |
 | --- | --- | --- | --- | --- | --- |
-| supervision | 7 | 46.7% | 100% | 73.3% | 368 / 1,989 ms |
-| relevance | 14 | 93.3% | 85.7% | 80.0% | 299 / 929 ms |
-| next-step | 7 | 46.7% | 85.7% | 60.0% | 260 / 1,285 ms |
-| evidence | 3 | 20.0% | 100% | 66.7% | 261 / 1,699 ms |
+| supervision | 7 | 46.7% | 100% | 73.3% | 371 / 1,975 ms |
+| relevance | 14 | 93.3% | 85.7% | 80.0% | 292 / 936 ms |
+| next-step | 7 | 46.7% | 85.7% | 60.0% | 258 / 1,264 ms |
+| evidence | 3 | 20.0% | 100% | 66.7% | 260 / 1,686 ms |
 
-Rules on the same calibration split: supervision 10 accepted at 80.0%, the rest 0 accepted. The thresholds were fitted on these 15 cases per site by the rule in ADR-0019 (supervision 0.663, relevance 0.5, next-step 0.721, evidence 0.766); the quality gates were written before this run and not changed after it.
+Rules on the same calibration split: supervision 10 accepted at 80.0% (8 right), the rest 0 accepted; so on calibration the model's supervision (7 right and accepted) does not beat the rules, and only relevance and next-step meet their full gate. These model numbers are in-sample: the thresholds were fitted on these same 15 cases per site, so 100% on 3 to 7 accepted cases says little; only the held-out run counts. The p95 latencies above 1,500 ms come from the long-input cases (up to about 4,900 characters), far over the 1,024-token automatic packet ADR-0019 allows; automatic packets must stay short or skip. The thresholds were fitted by the rule in ADR-0019 (supervision 0.663, relevance 0.5, next-step 0.721, evidence 0.766); the quality gates were written before this run and not changed after it.
 
 ## Cleanup
 

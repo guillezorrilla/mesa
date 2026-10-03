@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { steppingClock, tempDir } from '../testing/index.js';
 import { type EvalCase, readCorpus } from './corpus.js';
 import { type EvalBackend, meetsGate, report, runCases } from './evaluation.js';
-import { DECISION_SITES } from './sites.js';
+import { DECISION_SITES, siteQuestion } from './sites.js';
 
 const STATES = ['working', 'waiting-permission', 'waiting-question', 'idle', 'done', 'failed'];
 const permission = [
@@ -85,10 +85,23 @@ test('a backend that fails or answers off-question is unavailable, and the repor
     coverage: 0.25,
     selectiveAccuracy: 0,
     accuracy: 0.25,
-    latencyMs: { p50: 10, p95: 10, total: 40 },
+    latencyMs: { p50: 10, p95: 10, total: 20 },
   });
   expect(out.misses.map((m) => m.id)).toEqual(['e1', 'e2', 'e3']);
   expect(out.sites.evidence?.byTag.injection?.n).toBe(4);
+});
+
+test('a site adds its wording under the descriptions a caller gave', () => {
+  const asked = siteQuestion('relevance', {
+    kind: 'Choice',
+    id: 'source',
+    options: ['note:a.md', 'none'],
+    criteria: { 'note:a.md': 'Retry policy' },
+  });
+  expect(asked).toMatchObject({
+    instructions: 'Which candidate source is most relevant to the query?',
+    criteria: { 'note:a.md': 'Retry policy', none: 'No candidate is relevant to the query.' },
+  });
 });
 
 test('a site meets its gate only above its accuracy and coverage, and beating the rules', () => {
@@ -109,6 +122,8 @@ test('a corpus line that breaks the schema is a usage error naming its line', ()
     `${good}\n\n${JSON.stringify({ ...evidence('e2', true), expected: 'yes' })}\n`,
   );
   expect(() => readCorpus(path)).toThrow(/bad\.jsonl:3: expected must be a boolean/);
+  writeFileSync(path, `${good}\n{"id": \n`);
+  expect(() => readCorpus(path)).toThrow(/bad\.jsonl:2: not JSON/);
 });
 
 test('the shipped corpus parses, keeps its splits apart and has 25+ held-out cases per site', () => {

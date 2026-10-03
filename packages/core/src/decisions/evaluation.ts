@@ -102,7 +102,8 @@ export async function runCases(
         p,
         margin: margin(answer),
         accepted: deps.backend ? accepted(c.site, answer) : margin(answer) > 0,
-        correct: said === c.expected,
+        // An even answer picks nothing: it is never right, whatever its first option is.
+        correct: margin(answer) > 0 && said === c.expected,
       });
     } catch (error) {
       const latencyMs = deps.clock().getTime() - started;
@@ -142,7 +143,8 @@ function ece(rows: readonly { p: number; correct: boolean }[]) {
 function summarise(results: readonly CaseResult[]) {
   const answered = results.flatMap((r) => ('unavailable' in r ? [] : [r]));
   const taken = answered.filter((r) => r.accepted);
-  const latencies = results.map((r) => r.latencyMs);
+  // A refusal (the strict window's 422) returns at once: latency counts answered cases only.
+  const latencies = answered.map((r) => r.latencyMs);
   return {
     n: results.length,
     answered: answered.length,

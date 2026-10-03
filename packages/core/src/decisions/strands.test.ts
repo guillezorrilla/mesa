@@ -96,6 +96,13 @@ test('the strict window, a missing answer and an answer outside the options all 
       questions,
     ),
   ).rejects.toThrow('did not answer state');
+  const unlikely = { ...reply.answers.state, choice: 'idle' };
+  await expect(
+    backend({ body: { ...reply, answers: { ...reply.answers, state: unlikely } } }).strands.answer(
+      's',
+      questions,
+    ),
+  ).rejects.toThrow('did not answer state');
 });
 
 test('health names the model and window, and refuses something that is not a Strands server', async () => {

@@ -71,17 +71,21 @@ function toFaro(q: Question, wire: z.infer<typeof WireAnswer>): Answer | undefin
     if (wire.type !== 'noul' || wire.noul < 0 || wire.noul > 1) return undefined;
     return { id: q.id, kind: 'Noul', answer: wire.noul > 0.5, probabilities: wire.noul };
   }
+  if (wire.type === 'noul') return undefined;
   const names = namesOf(q);
-  const confidence = Math.min(1, Math.max(0, wire.type === 'noul' ? -1 : wire.confidence));
+  const confidence = Math.min(1, Math.max(0, wire.confidence));
   if (q.kind === 'Choice') {
     if (wire.type !== 'choice' || !names.includes(wire.choice)) return undefined;
     const probabilities = normalised(
       names,
       names.map((n) => wire.probabilities[n]),
     );
-    return (
-      probabilities && { id: q.id, kind: 'Choice', answer: wire.choice, probabilities, confidence }
-    );
+    // The pick must be the likeliest option (to the wire's rounding), or the reply contradicts itself.
+    const top = probabilities && Math.max(...Object.values(probabilities));
+    if (!probabilities || top === undefined || (probabilities[wire.choice] ?? 0) < top - 1e-3) {
+      return undefined;
+    }
+    return { id: q.id, kind: 'Choice', answer: wire.choice, probabilities, confidence };
   }
   // A Score's probabilities are keyed by level index ("0", "1", ...), lowest first.
   if (wire.type !== 'score') return undefined;

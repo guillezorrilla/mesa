@@ -346,7 +346,7 @@ Not: the AI, the brain, the classifier.
 
 ## Backend
 
-A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules` or `adapter`) and the **session backend** (`tmux`). Say which one.
+A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules`, `adapter`, or `strands`, the local Strands Decider worker of ADR-0019, which only the evaluation runner uses until #461 makes it selectable) and the **session backend** (`tmux`). Say which one.
 Not: provider, driver, engine.
 
 ## Decision site

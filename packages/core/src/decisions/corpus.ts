@@ -56,7 +56,13 @@ export function readCorpus(path: string): EvalCase[] {
     .split('\n')
     .flatMap((line, i) => {
       if (!line.trim()) return [];
-      const parsed = EvalCaseSchema.safeParse(JSON.parse(line));
+      let json: unknown;
+      try {
+        json = JSON.parse(line);
+      } catch {
+        throw new MesaError('usage', `${path}:${i + 1}: not JSON`);
+      }
+      const parsed = EvalCaseSchema.safeParse(json);
       if (!parsed.success) {
         throw new MesaError('usage', `${path}:${i + 1}: ${parsed.error.issues[0]?.message}`);
       }

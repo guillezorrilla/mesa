@@ -2,6 +2,7 @@
 //   --backend rules|strands   rules (the default) needs nothing; strands needs a running server
 //   --dataset calibration|heldout
 //   --url http://127.0.0.1:8099   the strands server
+// Each request may take 60 s: this measures quality, not the per-turn deadline (ADR-0019).
 //   --json                    the full report; otherwise a table per site
 import { parseArgs } from 'node:util';
 import { readCorpus } from '../../packages/core/dist/decisions/corpus.js';
@@ -30,6 +31,11 @@ const backend =
     ? strandsBackend({ http: fetch, url: values.url, deadlineMs: 60_000 })
     : undefined;
 const results = await runCases({ backend, clock }, cases);
+// No answer at all (a server that is not running) is a failed run, not a report.
+if (results.every((r) => 'unavailable' in r)) {
+  console.error(`no case was answered: ${results[0]?.unavailable}`);
+  process.exit(1);
+}
 const out = report(values.backend, values.dataset, results);
 const baseline =
   values.backend === 'rules'

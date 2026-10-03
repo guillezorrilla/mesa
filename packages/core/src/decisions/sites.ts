@@ -1,4 +1,4 @@
-import { AGENT_STATES } from '../sessions/states.js';
+import type { AGENT_STATES } from '../sessions/states.js';
 import type { Answer, Question } from './types.js';
 
 // The four first-release decision sites (ADR-0019): what each asks a model, and when Mesa accepts
@@ -45,13 +45,17 @@ const WORDING: Record<DecisionSite, Wording> = {
   },
 };
 
-/** `question` with its site's wording: instructions and the descriptions it has for its names. */
+/**
+ * `question` with its site's wording: its instructions, and the site's descriptions for the names
+ * it has, under any the caller gave (a candidate's own description wins).
+ */
 export function siteQuestion(site: DecisionSite, question: Question): Question {
   const { instructions, criteria } = WORDING[site];
-  if (question.kind === 'Noul') return { ...question, criteria };
+  if (question.kind === 'Noul')
+    return { ...question, criteria: { ...criteria, ...question.criteria } };
   const names = question.kind === 'Choice' ? question.options : question.levels;
   const known = Object.fromEntries(names.flatMap((n) => (criteria[n] ? [[n, criteria[n]]] : [])));
-  return { ...question, instructions, criteria: known };
+  return { ...question, instructions, criteria: { ...known, ...question.criteria } };
 }
 
 /**
