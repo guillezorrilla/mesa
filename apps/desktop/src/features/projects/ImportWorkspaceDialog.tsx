@@ -3,7 +3,6 @@ import { FolderOpen, FolderSearch } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { said } from '@/components/Toast';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
+import { DiscoveredProjectRow } from './DiscoveredProjectRow';
 
 export function ImportWorkspaceDialog(props: {
   onCancel: () => void;
@@ -105,46 +105,25 @@ export function ImportWorkspaceDialog(props: {
               <Muted>No projects found within three folder levels.</Muted>
             )}
             {discovered.map((candidate) => (
-              <div
+              <DiscoveredProjectRow
                 key={candidate.path}
-                data-testid="discovered-project"
-                className="flex items-center gap-3 rounded-md border p-3 text-sm"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{candidate.name}</div>
-                  <div
-                    className="truncate font-mono text-muted-foreground text-xs"
-                    title={candidate.path}
-                  >
-                    {candidate.path}
-                  </div>
-                  {candidate.error && <p className="text-destructive text-xs">{candidate.error}</p>}
-                </div>
-                {candidate.registered ? (
-                  <Badge variant="secondary">Imported</Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={acting || Boolean(candidate.error)}
-                    onClick={() =>
-                      void act(async () => {
-                        const registered = await run('projects.register', { path: candidate.path });
-                        if (!registered) return undefined;
-                        setDiscovered((rows) =>
-                          rows?.map((row) =>
-                            row.path === candidate.path ? { ...row, registered: true } : row,
-                          ),
-                        );
-                        await props.onRegistered();
-                        return said(`Imported project ${registered.name}`, registered);
-                      })
-                    }
-                  >
-                    Import
-                  </Button>
-                )}
-              </div>
+                project={candidate}
+                verb="Import"
+                disabled={acting}
+                onRegister={() =>
+                  void act(async () => {
+                    const registered = await run('projects.register', { path: candidate.path });
+                    if (!registered) return undefined;
+                    setDiscovered((rows) =>
+                      rows?.map((row) =>
+                        row.path === candidate.path ? { ...row, registered: true } : row,
+                      ),
+                    );
+                    await props.onRegistered();
+                    return said(`Imported project ${registered.name}`, registered);
+                  })
+                }
+              />
             ))}
           </div>
         )}

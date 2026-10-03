@@ -11,6 +11,7 @@ import { joinWarnings } from '../receipts/recorder.js';
 import type { AgentProcess } from './agent-listing.js';
 import { agentSessionHolder } from './holders.js';
 import { createRecord, type LaunchDeps, launchSession } from './launch.js';
+import { withName } from './native-name.js';
 import type { SessionRecord } from './record.js';
 import { sessionName } from './rename.js';
 
@@ -36,8 +37,8 @@ const adoptable = (p: AgentProcess): p is AgentProcess & { agent: (typeof ADOPTS
 
 /**
  * Records a native session Mesa did not start, found live (the listing) or on disk (its
- * transcript), as an adopted session of the project its folder is in (else `project`), and,
- * unless `noResume`, reopens its conversation in a Mesa window, in that folder. The warning is
+ * transcript), as an adopted session of the project its folder is in (else `project`), named
+ * `name`, else as its agent names it, and, unless `noResume`, reopens its conversation in a Mesa window, in that folder. The warning is
  * always the same: the original terminal still holds the conversation.
  */
 export async function adoptSession(
@@ -48,7 +49,7 @@ export async function adoptSession(
   if (!UUID.test(id)) {
     throw new MesaError('usage', `${id} is not a native session id (a lowercase UUID)`);
   }
-  const named = input.name === undefined ? {} : { name: sessionName(input.name) };
+  const given = input.name === undefined ? undefined : sessionName(input.name);
   const held = agentSessionHolder(deps.store, id);
   if (held) throw new MesaError('usage', `Mesa has ${id} already, as session ${held.id}`);
   if (deps.elsewhere().has(id)) {
@@ -71,6 +72,8 @@ export async function adoptSession(
     throw new MesaError('not_found', `no ${agents} session ${id}, live or in ${dirs}`);
   }
   const { agent, cwd } = ran;
+  // The name given, else the one the agent shows (native-name.ts), else none.
+  const named = given === undefined ? withName(deps, { agent, id }) : { name: given };
   const found = projectOf(cwd, readRegistry(deps.profile.paths.registry));
   if (found && input.project !== undefined && input.project !== found) {
     throw new MesaError(

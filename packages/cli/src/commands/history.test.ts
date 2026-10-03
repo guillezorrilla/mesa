@@ -13,6 +13,7 @@ test('history --json exposes native identities and the unsupported provider', as
   const codexId = '01a0e14e-be41-72f1-a81b-e25d2198602a';
   plantTranscript(cli.home, claudeId, dir);
   codex.rollout({ id: codexId, cwd: dir, startedAt: '2026-09-20T11:58:00.000Z' });
+  codex.name(codexId, 'Lantern lights');
   const { json } = await cli.mesa('history', 'lantern-cove', '--json');
   expect(json).toMatchObject({
     ok: true,
@@ -20,7 +21,7 @@ test('history --json exposes native identities and the unsupported provider', as
       total: 2,
       rows: expect.arrayContaining([
         expect.objectContaining({ agent: 'claude', id: claudeId, cwd: dir }),
-        expect.objectContaining({ agent: 'codex', id: codexId, cwd: dir }),
+        expect.objectContaining({ agent: 'codex', id: codexId, cwd: dir, name: 'Lantern lights' }),
       ]),
       unsupported: [{ agent: 'antigravity', reason: expect.any(String) }],
     },

@@ -105,8 +105,11 @@ export function NativeHistory(props: { project: string; onSession: (id: string) 
           key={`${row.agent}:${row.id}`}
           className="flex items-center gap-3 border-b py-2 last:border-b-0"
         >
-          <span className="min-w-0 flex-1 truncate font-mono text-xs" title={row.cwd}>
-            {row.agent} · {row.id}
+          <span className="min-w-0 flex-1 truncate text-xs" title={row.cwd}>
+            {row.name && <span data-testid="native-history-name">{row.name} </span>}
+            <span className={row.name ? 'font-mono text-muted-foreground' : 'font-mono'}>
+              {row.agent} · {row.id}
+            </span>
           </span>
           <time className="text-xs text-muted-foreground" dateTime={row.updatedAt}>
             {new Date(row.updatedAt).toLocaleDateString()}

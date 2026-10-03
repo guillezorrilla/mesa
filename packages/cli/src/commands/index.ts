@@ -31,6 +31,7 @@ import { daily } from './daily.js';
 import { decide } from './decide.js';
 import { dependency } from './dependency.js';
 import { diagnostics } from './diagnostics.js';
+import { discover } from './discover.js';
 import { doctor } from './doctor.js';
 import {
   filesCreate,
@@ -194,6 +195,7 @@ export const COMMANDS: Command[] = [
   decide,
   daily,
   diagnostics,
+  discover,
   doctor,
   filesCreate,
   filesDelete,
