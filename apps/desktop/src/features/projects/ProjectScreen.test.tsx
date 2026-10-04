@@ -14,6 +14,8 @@ const ISSUE: ImportListRow = {
   fetched: '2026-09-24T12:00',
   snapshot: 'raw/jira/LC-12/2026-09-24T1200.md',
 };
+/** A third project, whose folder is there. */
+const TIDE_POOL = { ...PROJECT, name: 'tide-pool', label: 'tide-pool', path: '/src/tide-pool' };
 const GOAL = 'Work on the imported Jira issue LC-12: Fix the tide alarm\nSource: x';
 
 test('Context opens imported items; Start session fills the Overview composer and keeps the item', async () => {
@@ -87,4 +89,55 @@ test('Context opens imported items; Start session fills the Overview composer an
   // Started, the composer is blank again.
   expect(byTestId('project-goal-from')).toHaveLength(0);
   expect(goal().value).toBe('');
+});
+
+test('the composer adds another project: its chip shows, Start in is its own worktree, and Start sends --with', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope([...PROJECTS, TIDE_POOL]),
+    'worktrees list': () => envelope([]),
+    open: () => envelope(managedRow('newnewne')),
+  });
+  const byTestId = await renderWithMesa(
+    <ProjectScreen
+      project={PROJECT}
+      sessions={[]}
+      onSession={() => undefined}
+      onVaultItem={() => undefined}
+      onChanged={() => undefined}
+      onUnregistered={() => undefined}
+      filesDirty={false}
+      onFilesDirtyChange={() => undefined}
+      onNewSession={() => undefined}
+      onAgentSettings={() => undefined}
+    />,
+    bridge,
+  );
+  await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
+  await click(byTestId('session-with-trigger')[0]);
+  expect(byTestId('session-with-option-lantern-cove')).toHaveLength(0);
+  // A project whose folder is gone cannot be added.
+  expect(byTestId('session-with-option-tide')[0]?.hasAttribute('data-disabled')).toBe(true);
+  await click(byTestId('session-with-option-tide-pool')[0]);
+  expect(byTestId('session-with-chip-tide-pool')).toHaveLength(1);
+  const location = document.getElementById('session-location') as HTMLSelectElement;
+  expect(location.value).toBe('worktree');
+  expect(location.disabled).toBe(true);
+  const branch = byTestId('project-branch')[0] as HTMLInputElement;
+  expect(branch.required).toBe(false);
+  expect(branch.placeholder).toBe('Mesa names one');
+  const form = byTestId('project-session-form')[0] as HTMLFormElement;
+  await act(async () => form.requestSubmit());
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'claude',
+    '--with=tide-pool',
+    '--worktree',
+    '--',
+    'lantern-cove',
+  ]);
+  // Started, the next session starts with no other project again.
+  expect(byTestId('session-with-chip-tide-pool')).toHaveLength(0);
 });

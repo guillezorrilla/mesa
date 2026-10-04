@@ -5,12 +5,32 @@ import type { SessionStore } from './store.js';
 
 // Which session holds what only one session may: a worktree, an agent conversation, a resume.
 
+/**
+ * The worktrees a session holds, each with its project: its own, then each additional project's
+ * (CONTEXT.md, Additional project). The one rule every holder check below reads.
+ */
+export const heldWorktrees = (
+  r: Pick<SessionRecord, 'project' | 'worktree' | 'additional'>,
+): { project: string; worktree: NonNullable<SessionRecord['worktree']> }[] => [
+  ...(r.worktree ? [{ project: r.project, worktree: r.worktree }] : []),
+  ...(r.additional ?? []),
+];
+
 /** The session a worktree is: the newest with it, as a resume keeps it. */
 export const worktreeHolder = (store: SessionStore, path: string) =>
   store
     .list()
-    .filter((r) => r.worktree?.path === path)
+    .filter((r) => heldWorktrees(r).some((held) => held.worktree.path === path))
     .at(-1);
+
+/** `path` as the file system resolves it; as it is when it is gone (a stale worktree). */
+export const real = (path: string) => {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return path;
+  }
+};
 
 /** An unfinished session using a checkout, including a session in a folder below its root. */
 export const checkoutHolders = (
@@ -20,32 +40,30 @@ export const checkoutHolders = (
   path: string,
 ) =>
   records.filter((r) => {
-    if (r.project !== project || r.endedAt) return false;
-    const held = r.worktree?.path ?? r.cwd ?? root;
-    let cwd: string;
-    try {
-      cwd = realpathSync.native(held);
-    } catch {
-      cwd = held;
-    }
-    return cwd === path || cwd.startsWith(`${path}/`);
+    if (r.endedAt) return false;
+    const folders = heldWorktrees(r)
+      .filter((held) => held.project === project)
+      .map((held) => held.worktree.path);
+    if (r.project === project && !r.worktree) folders.push(r.cwd ?? root);
+    return folders.map(real).some((cwd) => cwd === path || cwd.startsWith(`${path}/`));
   });
 
 export const checkoutHolder = (store: SessionStore, project: string, root: string, path: string) =>
   checkoutHolders(store.list(), project, root, path).at(-1);
 
 /**
- * Refuses `r`'s worktree once a newer session has it (a resume or a handoff took it over): two
+ * Refuses `r`'s worktrees once a newer session has one (a resume or a handoff took it over): two
  * sessions never share one. A session without a worktree passes.
  */
 export function requireOwnWorktree(store: SessionStore, r: SessionRecord) {
-  if (!r.worktree) return;
-  const holder = worktreeHolder(store, r.worktree.path);
-  if (holder && holder.id !== r.id) {
-    throw new MesaError(
-      'usage',
-      `the worktree at ${r.worktree.path} is session ${holder.id}'s now: two sessions never share one`,
-    );
+  for (const { worktree } of heldWorktrees(r)) {
+    const holder = worktreeHolder(store, worktree.path);
+    if (holder && holder.id !== r.id) {
+      throw new MesaError(
+        'usage',
+        `the worktree at ${worktree.path} is session ${holder.id}'s now: two sessions never share one`,
+      );
+    }
   }
 }
 

@@ -26,6 +26,13 @@ export const isForeignId = (id: string) => id.startsWith(FOREIGN);
 export const foreignId = (p: { pid?: number; agentSessionId: string }) =>
   `${FOREIGN}${p.pid ?? p.agentSessionId}` as const;
 
+/** A session's own git worktree (CONTEXT.md, Worktree): the primary's, and each additional project's. */
+const WorktreeSchema = z.strictObject({
+  path: z.string(),
+  branch: z.string(),
+  base: z.string().optional(),
+});
+
 const SessionRecordFields = z.strictObject({
   /** Short: typed in `mesa stop <id>`. */
   id: z.string().regex(SHORT_ID),
@@ -89,8 +96,14 @@ const SessionRecordFields = z.strictObject({
    */
   cwd: z.string().optional(),
   /** The git worktree it runs in (mesa open --branch; CONTEXT.md, Worktree). */
-  worktree: z
-    .strictObject({ path: z.string(), branch: z.string(), base: z.string().optional() })
+  worktree: WorktreeSchema.optional(),
+  /**
+   * The other projects it works in, each in its own worktree on the session's branch (mesa open
+   * --with; CONTEXT.md, Additional project). Absent means none.
+   */
+  additional: z
+    .array(z.strictObject({ project: z.string(), worktree: WorktreeSchema }))
+    .min(1)
     .optional(),
   tmux: z.strictObject({ socket: z.string(), session: z.string(), window: z.string() }),
   startedAt: z.iso.datetime(),
@@ -201,6 +214,21 @@ const SessionRecordFields = z.strictObject({
   resumedBy: z.string().optional(),
 });
 
+/**
+ * Additional projects' structure (CONTEXT.md, Additional project): a project session with its own
+ * worktree, and each other project once. Their shared branch is checked at open.
+ */
+const validAdditional = (r: z.infer<typeof SessionRecordFields>) => {
+  if (!r.additional) return true;
+  const projects = r.additional.map((a) => a.project);
+  return (
+    r.project !== GENERAL_PROJECT &&
+    Boolean(r.worktree) &&
+    !projects.includes(r.project) &&
+    new Set(projects).size === projects.length
+  );
+};
+
 export const SessionRecordSchema = SessionRecordFields.refine(
   (record) =>
     (record.kind === 'terminal') === (record.agent === 'terminal') &&
@@ -210,8 +238,9 @@ export const SessionRecordSchema = SessionRecordFields.refine(
       (record.agent !== 'terminal' && supportsAgentCapability(record.agent, 'background'))) &&
     (!record.backgroundId || record.background) &&
     (record.project !== GENERAL_PROJECT ||
-      (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)),
-  'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree',
+      (Boolean(record.cwd && isAbsolute(record.cwd)) && !record.worktree)) &&
+    validAdditional(record),
+  'plain terminals need terminal kind and agent; General sessions need an absolute cwd and no worktree; additional projects need a project worktree and are each another project, once',
 );
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 /** A plain terminal has no coding agent or provider conversation. */

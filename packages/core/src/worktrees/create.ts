@@ -8,12 +8,23 @@ import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { checkoutHolders, worktreeHolder } from '../sessions/holders.js';
+import { checkoutHolders, heldWorktrees, worktreeHolder } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { addWorktree, removeWorktree, type Worktree, worktreePath } from '../sessions/worktree.js';
 import { sessionBranchName } from './branch-name.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
 import { worktreeScript, worktreeSettings } from './settings.js';
+
+/** Refuses the worktree at `path` while a session holds it (heldWorktrees), naming that session. */
+function refuseHeld(store: SessionStore, path: string) {
+  const holder = worktreeHolder(store, path);
+  const held = holder && heldWorktrees(holder).find(({ worktree }) => worktree.path === path);
+  if (holder && held)
+    throw new MesaError(
+      'usage',
+      `session ${holder.id} has ${held.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
+    );
+}
 
 /** A session may take an existing unheld worktree at its configured branch path. */
 export async function sessionWorktree(
@@ -34,12 +45,7 @@ export async function sessionWorktree(
   const taken = () =>
     new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   if (present.isSymbolicLink() || !present.isDirectory()) throw taken();
-  const holder = worktreeHolder(store, path);
-  if (holder?.worktree)
-    throw new MesaError(
-      'usage',
-      `session ${holder.id} has ${holder.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
-    );
+  refuseHeld(store, path);
   if (base) throw new MesaError('usage', 'an existing worktree keeps its branch; drop --base');
   let canonical: string;
   try {
@@ -108,13 +114,7 @@ export async function createWorktree(
 ) {
   const root = worktreeRoot(profile, project);
   const path = worktreePath(root, branch);
-  const holder = worktreeHolder(store, path);
-  if (holder?.worktree && lstatSync(path, { throwIfNoEntry: false })) {
-    throw new MesaError(
-      'usage',
-      `session ${holder.id} has ${holder.worktree.branch}'s worktree at ${path}: use that session, or pick another branch`,
-    );
-  }
+  if (lstatSync(path, { throwIfNoEntry: false })) refuseHeld(store, path);
   const settings = worktreeSettings(profile, project);
   // Before Git adds anything: an unapproved project setup leaves no worktree behind.
   const setup = worktreeScript(profile, project, 'setup');

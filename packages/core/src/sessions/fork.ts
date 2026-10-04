@@ -27,6 +27,11 @@ export async function forkSession(
   if (!nativeId) {
     throw new MesaError('not_found', `session ${id} has no native conversation ID to fork`);
   }
+  if (source.additional)
+    throw new MesaError(
+      'usage',
+      `session ${id} works in more than one project (--with); forking it is not supported yet`,
+    );
   if (opts.base && !opts.branch) throw new MesaError('usage', '--base needs --branch');
   if (opts.branch && source.project === GENERAL_PROJECT) {
     throw new MesaError('usage', 'General sessions cannot use a worktree');

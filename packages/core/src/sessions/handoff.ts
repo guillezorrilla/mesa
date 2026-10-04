@@ -4,6 +4,7 @@ import { AgentSchema, newSessionId, readyAgent, startCommand } from '../agents/a
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
+import { additionalDirs } from './additional.js';
 import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
 import { requireOwnWorktree } from './holders.js';
@@ -29,7 +30,7 @@ type HandoffDeps = LaunchDeps & {
 
 /**
  * Starts the successor of session `id`: on the same project, with the chosen agent, in the same
- * folder, taking over its worktree, with `parent` and `handoffFrom` the session, and a goal made
+ * folder, taking over its worktree and its additional projects', with `parent` and `handoffFrom` the session, and a goal made
  * of the session's plus a line naming the note, copied to `handoffs/<successor id>.md`. Both
  * records get a `handoff` event. A skill run has nothing to hand off. Every refusal comes before
  * anything is written, and a window that cannot open removes the successor and its note again.
@@ -76,7 +77,7 @@ export async function handoffSession(
   if (worktree && keep) {
     throw new MesaError(
       'usage',
-      `session ${id} runs in its own worktree, which its successor takes over; two sessions never share one, so it cannot be kept`,
+      `session ${id} runs in its own worktree${from.additional ? `, and in ${from.additional.map((a) => a.project).join(', ')}'s,` : ''} which its successor takes over; two sessions never share one, so it cannot be kept`,
     );
   }
   requireOwnWorktree(deps.store, from);
@@ -92,13 +93,19 @@ export async function handoffSession(
       sessionWindowCommand(
         agent,
         'interactive',
-        startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-          id: 'xxxxxxxx',
-          logs: deps.profile.paths.logs,
-          agentSessionId,
-          goal: placeholder,
-          mode,
-        }),
+        startCommand(
+          agent,
+          deps.vaultServer,
+          deps.profile.config.agents,
+          {
+            id: 'xxxxxxxx',
+            logs: deps.profile.paths.logs,
+            agentSessionId,
+            goal: placeholder,
+            mode,
+          },
+          additionalDirs(from),
+        ),
       ),
     );
   const at = deps.clock().toISOString();
@@ -114,6 +121,7 @@ export async function handoffSession(
       agentSessionId,
       parent: id,
       ...(worktree ? { worktree } : {}),
+      ...(from.additional ? { additional: from.additional } : {}),
       ...(from.cwd ? { cwd: from.cwd } : {}),
     },
     {
@@ -128,10 +136,13 @@ export async function handoffSession(
         });
       },
       command: (successor) =>
-        startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-          ...successor,
-          logs: deps.profile.paths.logs,
-        }),
+        startCommand(
+          agent,
+          deps.vaultServer,
+          deps.profile.config.agents,
+          { ...successor, logs: deps.profile.paths.logs },
+          additionalDirs(successor),
+        ),
     },
   ).catch((error) => {
     if (path) rmSync(path, { force: true });

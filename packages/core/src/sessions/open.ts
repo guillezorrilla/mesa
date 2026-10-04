@@ -3,6 +3,7 @@ import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import { additionalDirs, additionalProjects, plannedAdditional } from './additional.js';
 import type { Caller } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
@@ -73,6 +74,11 @@ export type OpenInput = {
   worktree?: Worktree;
   /** The imported item it starts from (mesa open --from), kept on the record. */
   from?: SessionRecord['from'];
+  /**
+   * Its additional projects (CONTEXT.md, Additional project), each in its own worktree on
+   * `branch`, which the caller names when none is asked for.
+   */
+  with?: readonly string[];
 };
 
 /**
@@ -82,6 +88,9 @@ export type OpenInput = {
  * that picks its own (codex: a look at the board reads it), and removed again, with the worktree,
  * if the window cannot open. With `after` a session that is not over yet, it is only queued: the
  * record, `queued`, with no window, worktree, or agent session id until it starts (startQueued).
+ * With `with`, each of those projects gets its own worktree on `branch` too, which its agent is
+ * given as extra folders (CONTEXT.md, Additional project): every one is checked first
+ * (additionalProjects), and the command fitted to where each will be, before any is made.
  */
 export async function openSession(
   deps: OpenDeps,
@@ -89,6 +98,16 @@ export async function openSession(
 ): Promise<{ record: SessionRecord; warning?: string }> {
   if (Boolean(input.project) === Boolean(input.general)) {
     throw new MesaError('usage', 'pass a project or --general, not both');
+  }
+  const extra = input.with?.length ? input.with : undefined;
+  if (extra && (input.general || input.terminal || input.after !== undefined)) {
+    throw new MesaError(
+      'usage',
+      '--with cannot use --general, --terminal, or --after: a session across projects starts at once, with an agent',
+    );
+  }
+  if (extra && input.branch === undefined) {
+    throw new MesaError('usage', '--with needs --branch or --worktree');
   }
   if (input.general && (input.branch || input.base || input.after)) {
     throw new MesaError('usage', 'General sessions cannot use --branch, --base, or --after');
@@ -142,18 +161,36 @@ export async function openSession(
     throw new MesaError('usage', `${agent} has no qualified native background mode`);
   }
   requireGoalCommandRuns(input.goal, agent);
+  if (extra && !supportsAgentCapability(agent, 'addDir')) {
+    throw new MesaError('usage', `${agent} has no qualified way to add a folder, so no --with`);
+  }
+  // Every --with checked before the first git write, and the command fitted to where each goes.
+  const additional =
+    extra && selected ? await additionalProjects(deps, selected.entry, extra) : undefined;
+  const planned =
+    additional && input.branch !== undefined
+      ? plannedAdditional(deps.profile, additional, input.branch)
+      : undefined;
 
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
-  const command = (id: string) =>
-    startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-      id,
-      logs: deps.profile.paths.logs,
-      agentSessionId,
-      goal: input.goal,
-      mode: input.mode === 'plan' ? 'plan' : undefined,
-    });
+  const command = (id: string, more: Pick<SessionRecord, 'additional'>) =>
+    startCommand(
+      agent,
+      deps.vaultServer,
+      deps.profile.config.agents,
+      {
+        id,
+        logs: deps.profile.paths.logs,
+        agentSessionId,
+        goal: input.goal,
+        mode: input.mode === 'plan' ? 'plan' : undefined,
+      },
+      additionalDirs(more),
+    );
   if (!input.background)
-    requireCommandFits(sessionWindowCommand(agent, 'interactive', command('xxxxxxxx')));
+    requireCommandFits(
+      sessionWindowCommand(agent, 'interactive', command('xxxxxxxx', { additional: planned })),
+    );
   const session = {
     project: selected?.entry ?? null,
     agent,
@@ -177,7 +214,12 @@ export async function openSession(
   return launchSession(
     deps,
     { ...session, ...(waited ? { after: waited.id } : {}), agentSessionId },
-    { command: (record) => command(record.id), branch: input.branch, base: input.base },
+    {
+      command: (record) => command(record.id, record),
+      branch: input.branch,
+      base: input.base,
+      ...(additional ? { additional } : {}),
+    },
   );
 }
 

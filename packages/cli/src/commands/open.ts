@@ -63,6 +63,12 @@ export const open = defineCommand({
       description:
         'Run it in its own git worktree on a new branch Mesa names: session/<words>-<4 characters>',
     },
+    with: {
+      type: 'string',
+      multiple: true,
+      description:
+        'Also work in this registered project, in its own worktree on the same branch; implies --worktree without --branch',
+    },
     base: {
       type: 'string',
       description:
@@ -86,6 +92,7 @@ export const open = defineCommand({
       worktree: flags.worktree,
       checkout: flags.checkout,
       base: flags.base,
+      with: flags.with,
       terminal: flags.terminal,
       general: flags.general,
       from: flags.from,

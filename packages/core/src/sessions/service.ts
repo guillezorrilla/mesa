@@ -466,14 +466,19 @@ export function sessionsService(
           opts.worktree && opts.branch !== undefined
             ? new MesaError('usage', 'pass --worktree or --branch, not both')
             : opts.checkout !== undefined &&
-                (opts.worktree || opts.branch !== undefined || opts.general || opts.after)
+                (opts.worktree ||
+                  opts.branch !== undefined ||
+                  opts.with?.length ||
+                  opts.general ||
+                  opts.after)
               ? new MesaError(
                   'usage',
-                  '--checkout cannot use --worktree, --branch, --general, or --after',
+                  '--checkout cannot use --worktree, --branch, --with, --general, or --after',
                 )
               : undefined;
-        // A worktree of its own on a branch Mesa names (sessionBranchName).
-        const branch = opts.worktree && !refused ? sessionBranchName(deps.newId) : opts.branch;
+        // A worktree of its own on a branch Mesa names (sessionBranchName); --with implies it.
+        const named = opts.worktree || (opts.with?.length && opts.branch === undefined);
+        const branch = named && !refused ? sessionBranchName(deps.newId) : opts.branch;
         let goal: string | undefined;
         try {
           goal = readGoal({
@@ -514,6 +519,7 @@ export function sessionsService(
               ...(base === undefined ? {} : { base }),
               ...(terminal ? { terminal: true } : {}),
               ...(opts.checkout === undefined ? {} : { checkout: opts.checkout }),
+              ...(opts.with?.length ? { with: opts.with } : {}),
             },
             outputs: ({ record: r }) => startedOutputs(r, open().config.agents),
           },
@@ -546,6 +552,7 @@ export function sessionsService(
               terminal,
               from,
               automation: opts.automation,
+              with: opts.with,
             };
             return openSession(openDeps(), input);
           },

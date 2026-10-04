@@ -197,6 +197,8 @@ export const sessionsCommands = {
       parent?: string;
       /** The imported item it starts from; `goal` is then its whole goal, as edited. */
       from?: string;
+      /** Its additional projects, each in a worktree on its branch (implies `worktree`). */
+      with?: readonly string[];
     },
     Recorded<SessionRecord>
   >(
@@ -213,6 +215,7 @@ export const sessionsCommands = {
       terminal,
       parent,
       from,
+      with: extra,
     }) => [
       'open',
       ...(from ? [`--from=${from}`, '--exact-goal'] : []),
@@ -221,6 +224,7 @@ export const sessionsCommands = {
       ...(mode ? ['--mode', mode] : []),
       ...(background ? ['--background'] : []),
       ...(goal?.trim() ? [`--goal=${goal}`] : []),
+      ...(extra ?? []).map((name) => `--with=${name}`),
       ...(branch?.trim() ? [`--branch=${branch.trim()}`] : []),
       ...(worktree ? ['--worktree'] : []),
       ...(checkout ? [`--checkout=${checkout}`] : []),

@@ -10,14 +10,19 @@ export type ItemDraft = { from: string; title: string; goal: string };
 
 /**
  * The composer's open state, where a session starts, the agent picked (back to the project's
- * own when that changes), the imported item it starts from, if any, and whether native history
- * shows.
+ * own when that changes), the imported item it starts from, if any, the other projects it also
+ * works in, and whether native history shows.
  */
 export function useOverviewState(project: ProjectRow) {
   const [location, setLocation] = useState<'main' | 'worktree'>('main');
   const [composerOpen, setComposerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [draft, setDraft] = useState<ItemDraft>();
+  // The other projects the next session also works in, kept with the project they were chosen
+  // for, so another project starts with none.
+  const [chosen, setChosen] = useState<{ project: string; names: string[] }>();
+  const additional = chosen?.project === project.name ? chosen.names : [];
+  const setAdditional = (names: string[]) => setChosen({ project: project.name, names });
   const [selectedAgent, setSelectedAgent] = useState<Agent>(
     (project.agent as Agent | undefined) ?? DEFAULT_AGENT,
   );
@@ -36,5 +41,7 @@ export function useOverviewState(project: ProjectRow) {
     setSelectedAgent,
     draft,
     setDraft,
+    additional,
+    setAdditional,
   };
 }

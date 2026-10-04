@@ -51,6 +51,22 @@ async function defaultBase(run: Runner, repo: string, branch: string) {
   return base;
 }
 
+/** Refuses `repo` unless it is a git repository's top folder, where a worktree is added from. */
+export async function requireGitTop(run: Runner, repo: string) {
+  const below = await must(
+    run,
+    repo,
+    ['rev-parse', '--show-prefix'],
+    `${repo} is not a git repository`,
+  );
+  if (below) {
+    throw new MesaError(
+      'usage',
+      `${repo} is below the top folder of its git repository: --branch needs a project at the top`,
+    );
+  }
+}
+
 /**
  * Where addWorktree puts `branch`'s worktree under `root`: a `/` in it becomes `-`. Absolute, as
  * git also finds a worktree by the end of a relative path.
@@ -78,18 +94,7 @@ export async function addWorktree(
   },
 ): Promise<Worktree> {
   const { repo, branch } = input;
-  const below = await must(
-    run,
-    repo,
-    ['rev-parse', '--show-prefix'],
-    `${repo} is not a git repository`,
-  );
-  if (below) {
-    throw new MesaError(
-      'usage',
-      `${repo} is below the top folder of its git repository: --branch needs a project at the top`,
-    );
-  }
+  await requireGitTop(run, repo);
   // git prints the name it would use: a different one (`@{-1}`) is not the branch asked for.
   if ((await ask(run, repo, ['check-ref-format', '--branch', branch])) !== branch) {
     throw new MesaError('usage', `${branch} is not a valid branch name`);

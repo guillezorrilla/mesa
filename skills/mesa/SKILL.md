@@ -26,6 +26,8 @@ Start a session on a project with a first prompt, in its own git worktree and br
 mesa open lantern-cove --goal "Fix the flaky tide-table test, then open a PR" --branch fix/tide-flake
 ```
 
+`--with tide-pool` (repeatable) has the session work in another registered project too: each gets its own worktree on the same branch (one Mesa names, without `--branch`), and your agent gets them as extra folders. `mesa show <id> --json` lists them under `additional`.
+
 `--agent codex` starts Codex CLI instead of Claude Code (the project's `mesa.yaml` `agent`, else the profile's default, when not given). A Codex session's `agentSessionId` appears in `mesa show <id> --json` once it has answered its first prompt.
 
 Start a child: the same `mesa open` from inside your window makes the new session your child. `--no-parent` starts one that is not.

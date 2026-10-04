@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { AdditionalProjectsField } from '@/features/sessions/fields/AdditionalProjectsField';
 import { AgentField } from '@/features/sessions/fields/AgentField';
 import { BackgroundField } from '@/features/sessions/fields/BackgroundField';
 import { SessionModeField } from '@/features/sessions/fields/SessionModeField';
+import { useCommand } from '@/lib/useCommand';
 import type { OverviewState } from './useOverviewState';
 
 /** What a session starts with: its agent, mode, goal, and the branch of its own worktree. */
@@ -21,14 +23,19 @@ export type SessionStartInput = {
   background?: boolean;
   goal?: string;
   branch?: string;
+  /** Its own worktree on a branch Mesa names: with `with` and no branch. */
+  worktree?: boolean;
+  /** The other projects it also works in, each in a worktree on its branch. */
+  with?: string[];
   /** The imported item it starts from (Start session in the Import panel). */
   from?: string;
 };
 
 /**
- * The project's goal box: one line until focused, then the agent, mode, background, and where the
- * session starts, in the main checkout or its own worktree on a new branch. Filled in from an
- * imported item, it names the item, and the session keeps it, until cleared.
+ * The project's goal box: one line until focused, then the agent, mode, background, other
+ * projects it also works in, and where the session starts, in the main checkout or its own
+ * worktree on a new branch (always, with another project, on a branch Mesa names unless given).
+ * Filled in from an imported item, it names the item, and the session keeps it, until cleared.
  */
 export function SessionComposer(props: {
   project: ProjectRow;
@@ -40,6 +47,11 @@ export function SessionComposer(props: {
   const { location, setLocation, composerOpen, setComposerOpen, selectedAgent, setSelectedAgent } =
     props.state;
   const { draft, setDraft } = props.state;
+  const projects = useCommand('projects.list').data;
+  const { additional: chosen, setAdditional: setChosen } = props.state;
+  // The field is hidden for an agent that cannot add a folder, and sends nothing then.
+  const extra = supportsAgentCapability(selectedAgent, 'addDir') ? chosen : [];
+  const where = extra.length ? 'worktree' : location;
   const goalBox = useRef<HTMLTextAreaElement>(null);
   // Focused when an item fills it in, which opens the composer.
   useEffect(() => {
@@ -54,6 +66,7 @@ export function SessionComposer(props: {
         const form = event.currentTarget;
         const values = new FormData(form);
         const goal = (form.elements.namedItem('goal') as HTMLTextAreaElement).value;
+        const branch = where === 'worktree' ? String(values.get('branch') ?? '').trim() : '';
         props.onStart({
           agent: String(values.get('agent')) as Agent,
           mode:
@@ -62,7 +75,8 @@ export function SessionComposer(props: {
             supportsAgentCapability(selectedAgent, 'background') &&
             values.get('background') === 'on',
           goal,
-          branch: location === 'worktree' ? String(values.get('branch') ?? '').trim() : undefined,
+          branch: branch || undefined,
+          ...(extra.length ? { with: extra, ...(branch ? {} : { worktree: true }) } : {}),
           from: draft?.from,
         });
       }}
@@ -98,20 +112,28 @@ export function SessionComposer(props: {
           <AgentField defaultValue={project.agent ?? undefined} onValueChange={setSelectedAgent} />
           <SessionModeField agent={selectedAgent} />
           <BackgroundField agent={selectedAgent} />
+          <AdditionalProjectsField
+            agent={selectedAgent}
+            project={project.name}
+            projects={projects}
+            value={chosen}
+            onChange={setChosen}
+          />
           <div className="grid gap-1">
             <Label htmlFor="session-location" className="text-xs">
               Start in
             </Label>
             <NativeSelect
               id="session-location"
-              value={location}
+              value={where}
+              disabled={extra.length > 0}
               onChange={(event) => setLocation(event.target.value as 'main' | 'worktree')}
             >
               <NativeSelectOption value="main">Main checkout</NativeSelectOption>
               <NativeSelectOption value="worktree">Own worktree</NativeSelectOption>
             </NativeSelect>
           </div>
-          {location === 'worktree' && (
+          {where === 'worktree' && (
             <div className="grid gap-1">
               <Label htmlFor="project-branch" className="text-xs">
                 Branch
@@ -120,8 +142,8 @@ export function SessionComposer(props: {
                 id="project-branch"
                 name="branch"
                 data-testid="project-branch"
-                required
-                placeholder="feature/my-work"
+                required={!extra.length}
+                placeholder={extra.length ? 'Mesa names one' : 'feature/my-work'}
               />
             </div>
           )}

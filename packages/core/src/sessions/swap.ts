@@ -3,6 +3,7 @@ import { newSessionId, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
+import { additionalDirs } from './additional.js';
 import { hasConversation } from './conversation.js';
 import { GENERAL_PROJECT } from './general.js';
 import { eventsLog, readHookEvents } from './hook-events.js';
@@ -12,7 +13,7 @@ import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowName, windowOf } from './window-name.js';
 
 /**
- * Swaps a fresh session's agent (CONTEXT.md, Swap): the same Mesa session, folder, and worktree,
+ * Swaps a fresh session's agent (CONTEXT.md, Swap): the same Mesa session, folder, and worktrees,
  * with `to` started in a new window `<to>-<id>` under a new agent session id, then the old window
  * closed. The record moves to the new window first, so the old pane's death is no session's. A
  * launch that fails puts the record back, with the old agent still running. A session with a
@@ -71,11 +72,17 @@ export async function swapAgent(
   try {
     started = await startSession(deps, swapped, project, {
       command: (record) =>
-        startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-          id: record.id,
-          logs: deps.profile.paths.logs,
-          agentSessionId,
-        }),
+        startCommand(
+          agent,
+          deps.vaultServer,
+          deps.profile.config.agents,
+          {
+            id: record.id,
+            logs: deps.profile.paths.logs,
+            agentSessionId,
+          },
+          additionalDirs(record),
+        ),
     });
   } catch (error) {
     deps.store.update(id, before);

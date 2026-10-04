@@ -92,10 +92,10 @@ test("a read-only headless run turns mesa-vault's save tools off; Antigravity ha
 });
 
 test('a start mounts it per launch for Claude Code and Codex; Antigravity reads its global entry', () => {
-  expect(startCommand('claude', SERVER, NATIVE, { agentSessionId: ID, goal: 'go' })).toContain(
+  expect(startCommand('claude', SERVER, NATIVE, { agentSessionId: ID, goal: 'go' }, [])).toContain(
     CLAUDE,
   );
-  expect(startCommand('codex', SERVER, NATIVE, { goal: 'go' })).toContain(CODEX);
-  const agy = startCommand('antigravity', SERVER, NATIVE, { id: 'aaaaaaaa', logs: tempDir() });
+  expect(startCommand('codex', SERVER, NATIVE, { goal: 'go' }, [])).toContain(CODEX);
+  const agy = startCommand('antigravity', SERVER, NATIVE, { id: 'aaaaaaaa', logs: tempDir() }, []);
   expect(agy).not.toContain('mesa-vault');
 });

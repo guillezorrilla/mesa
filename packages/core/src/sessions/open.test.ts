@@ -17,6 +17,7 @@ import {
   agentWorld,
   CLAUDE_MOUNT,
   CODEX_MOUNT,
+  gitProject,
   gitRepo,
   isolateGit,
   profilePaths,
@@ -1094,6 +1095,27 @@ test('open links the enabled skills where the agent runs before its window opens
   expect(opened.warning).toMatch(/^skills not synced into .*lantern-cove: /);
 });
 
+test("each additional project's worktree gets its own enabled skills; a failed link only warns", async () => {
+  const world = agentWorld();
+  const { home, mesa } = await acrossProjects(world);
+  const { result, warning } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
+  const tide = result.additional?.[0]?.worktree.path ?? '';
+  expect(existsSync(join(tide, '.claude/skills/mesa/SKILL.md'))).toBe(true);
+  expect(warning).toBeUndefined();
+
+  // A worktree whose checkout has a file where the links go: the session opens anyway, and says so.
+  const harbor = gitProject(mesa, home, 'harbor');
+  writeFileSync(join(harbor, '.agents'), 'not a folder');
+  testGit(harbor, 'add', '.agents');
+  testGit(harbor, 'commit', '-q', '-m', 'a file');
+  const opened = await mesa.sessions.open('lantern-cove', { with: ['harbor'] });
+  const path = opened.result.additional?.[0]?.worktree.path ?? '';
+  expect(opened.warning).toMatch(new RegExp(`^skills not synced into ${path}: `));
+  expect(existsSync(join(opened.result.worktree?.path ?? '', '.agents/skills/mesa/SKILL.md'))).toBe(
+    true,
+  );
+});
+
 test('resume links the enabled skills where the conversation reopens, as open does', async () => {
   const world = agentWorld();
   const { dir, mesa } = await setUp(world);
@@ -1167,4 +1189,128 @@ test('launch defaults reach new, resumed, and background sessions; a dangerous s
   expect(
     (await mesa.sessions.dependencies(running.id, { parent: claude.result.id })).receipt,
   ).toBeNull();
+});
+
+/** lantern-cove and tide-pool as git repositories, through the real git. */
+async function acrossProjects(world: ReturnType<typeof agentWorld>, run?: Runner) {
+  const set = await setUp(world, { env: world.codex.env, ...(run ? { run } : {}) });
+  gitRepo(set.dir);
+  return { ...set, tide: gitProject(set.mesa, set.home, 'tide-pool') };
+}
+
+test('each agent gets the additional worktrees as extra folders in its own form', async () => {
+  const world = agentWorld();
+  const { mesa } = await acrossProjects(world);
+  const launch = () => world.tmux.windows.at(-1)?.launch ?? '';
+  const opened = async (agent: string, branch: string) => {
+    const { result } = await mesa.sessions.open('lantern-cove', {
+      agent,
+      with: ['tide-pool'],
+      branch,
+      goal: 'go',
+    });
+    return { ...result, extra: result.additional?.[0]?.worktree.path ?? '' };
+  };
+  const claude = await opened('claude', 'c');
+  expect(launch()).toBe(
+    `unset NO_COLOR; exec claude --session-id ${claude.agentSessionId} ${CLAUDE_MOUNT} '--add-dir=${claude.extra}' 'go'`,
+  );
+  const codex = await opened('codex', 'x');
+  expect(launch()).toBe(
+    `codex -c mesa.embedded=true ${CODEX_MOUNT} --add-dir '${codex.extra}' -- 'go'`,
+  );
+  const { extra: agy } = await opened('antigravity', 'a');
+  expect(launch()).toContain(` '--add-dir=${agy}' --prompt-interactive 'go'`);
+});
+
+test("resume, handoff and swap carry a session's additional projects; a gone one is not_found", async () => {
+  const world = agentWorld();
+  const { home, mesa } = await acrossProjects(world);
+  const launch = () => world.tmux.windows.at(-1)?.launch ?? '';
+  const { result: fresh } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
+  const extra = fresh.additional?.[0]?.worktree.path ?? '';
+  // Swap: the same session, the new agent given the same folders.
+  const swapped = (await mesa.sessions.swap(fresh.id, 'codex')).result;
+  expect(swapped.additional).toEqual(fresh.additional);
+  expect(launch()).toContain(` --add-dir '${extra}'`);
+
+  const { result: first } = await mesa.sessions.open('lantern-cove', {
+    with: ['tide-pool'],
+    goal: 'Tie them',
+  });
+  const path = first.additional?.[0]?.worktree.path ?? '';
+  exitAll(world);
+  const { result: resumed } = await mesa.sessions.resume(first.id);
+  expect(resumed.record.additional).toEqual(first.additional);
+  expect(launch()).toContain(
+    `--resume ${first.agentSessionId} ${CLAUDE_MOUNT} '--add-dir=${path}'`,
+  );
+
+  const note = join(home, 'note.md');
+  writeFileSync(note, '## Left\n');
+  await expect(
+    mesa.sessions.handoff(resumed.record.id, { note, keep: true }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${resumed.record.id} runs in its own worktree, and in tide-pool's, which its successor takes over; two sessions never share one, so it cannot be kept`,
+  });
+  const { to } = (await mesa.sessions.handoff(resumed.record.id, { note })).result;
+  expect(to).toMatchObject({ worktree: first.worktree, additional: first.additional });
+  expect(launch()).toContain(`'--add-dir=${path}' 'Tie them`);
+
+  exitAll(world);
+  await mesa.sessions.stop(to.id, true);
+  rmSync(path, { recursive: true });
+  const before = (await mesa.sessions.list(true)).length;
+  await expect(mesa.sessions.resume(to.id)).rejects.toMatchObject({
+    code: 'not_found',
+    message: `tide-pool's worktree ${path} is gone: the session works there too`,
+  });
+  expect(await mesa.sessions.list(true)).toHaveLength(before);
+});
+
+test("Claude's background start carries the additional folders before its goal", async () => {
+  const world = agentWorld();
+  const base = withGit(world);
+  let background: readonly string[] = [];
+  const run: Runner = (file, args, ms, options) => {
+    if (file === 'claude' && args[0] === '--bg') {
+      background = args;
+      return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
+    }
+    return base(file, args, ms, options);
+  };
+  const { mesa } = await acrossProjects(world, run);
+  const { result } = await mesa.sessions.open('lantern-cove', {
+    with: ['tide-pool'],
+    background: true,
+    goal: 'Tie them',
+  });
+  expect(background.slice(-2)).toEqual([
+    `--add-dir=${result.additional?.[0]?.worktree.path}`,
+    'Tie them',
+  ]);
+});
+
+test('--with is refused where a session cannot span projects, and fork and rm of one wait for #498', async () => {
+  const world = agentWorld();
+  const { home, mesa } = await acrossProjects(world);
+  const refused = (opts: Parameters<typeof mesa.sessions.open>[1], project?: string) =>
+    expect(mesa.sessions.open(project, { with: ['tide-pool'], ...opts })).rejects.toMatchObject({
+      code: 'usage',
+    });
+  await refused({ general: true });
+  await refused({ terminal: true }, 'lantern-cove');
+  await refused({ checkout: home }, 'lantern-cove');
+  const { result: first } = await mesa.sessions.open('lantern-cove');
+  await refused({ after: first.id }, 'lantern-cove');
+  expect(await mesa.sessions.list()).toHaveLength(1);
+
+  const { result } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
+  await expect(mesa.sessions.fork(result.id)).rejects.toMatchObject({ code: 'usage' });
+  exitAll(world);
+  await mesa.sessions.stop(result.id, true);
+  for (const opts of [{ deleteWorktree: true }, { deleteBranch: true }])
+    await expect(mesa.sessions.remove(result.id, opts)).rejects.toMatchObject({ code: 'usage' });
+  expect(existsSync(result.additional?.[0]?.worktree.path ?? '')).toBe(true);
 });

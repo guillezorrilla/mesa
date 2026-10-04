@@ -74,6 +74,12 @@ export async function removeSession(
     );
   }
   const { worktree } = record;
+  if ((dropWorktree || dropBranch) && record.additional) {
+    throw new MesaError(
+      'usage',
+      `session ${id} works in more than one project (--with); remove its worktrees with mesa worktrees, then mesa rm ${id}`,
+    );
+  }
   if ((dropWorktree || dropBranch) && !worktree) {
     throw new MesaError('usage', `session ${id} has no worktree or branch of its own`);
   }

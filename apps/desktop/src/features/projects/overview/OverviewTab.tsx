@@ -42,6 +42,7 @@ export function OverviewTab(props: {
       const session = await run('sessions.open', { project: project.name, ...input });
       if (!session) return undefined;
       if (input.from) props.state.setDraft(undefined);
+      props.state.setAdditional([]);
       props.onSession(session.id);
       return said(`Opened session ${session.id} on ${project.name}`, session);
     });

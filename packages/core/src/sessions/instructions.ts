@@ -62,13 +62,35 @@ export function mesaPointer(record: SessionRecord, profile: string, cwd: string)
     record.project === GENERAL_PROJECT
       ? 'mesa vault context --general --json'
       : `mesa vault context ${record.project} --json`;
-  return [
+  const lines = [
     `Mesa session ${record.id}; profile ${profile}; project ${record.project}; cwd ${JSON.stringify(cwd)}.`,
     `Your saved goal is in the startup prompt; keep it unchanged. mesa show ${record.id} --json shows its record.`,
-    `Syntax: mesa help --agent. Skills: ${skills}, invoked in this terminal as ${prefix}skill-name.`,
+    `Syntax: mesa help --agent. Skills: ${skills}, invoked here as ${prefix}skill-name.`,
     'Coordinate with mesa sessions --json, mesa open [--after], mesa send, and mesa handoff; check state before messaging. Only a human answers permission and question prompts.',
     'Mesa guardrails check sent prompts; do not bypass a block without the user.',
     "Vault: call mesa-vault's project_context first; read_note, search_vault, session_goals on demand. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
     `Without the tools: ${vault} and the mesa-vault skill.`,
-  ].join('\n');
+  ];
+  if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));
+  return lines.join('\n');
+}
+
+/** The cap a pointer stays under, in UTF-8 bytes. */
+const POINTER_BYTES = 1000;
+
+/**
+ * The pointer's line naming a session's additional projects (CONTEXT.md, Additional project):
+ * as many as fit in what `used` leaves of the cap, then `and N more`.
+ */
+function alsoIn(record: SessionRecord, used: number) {
+  const names = (record.additional ?? []).map((a) => a.project);
+  const line = (shown: string[]) => {
+    const more = names.length - shown.length;
+    return `Also in projects ${[...shown, ...(more ? [`and ${more} more`] : [])].join(', ')}.`;
+  };
+  let shown = names;
+  // One byte for the line's newline.
+  while (shown.length && used + 1 + Buffer.byteLength(line(shown)) >= POINTER_BYTES)
+    shown = shown.slice(0, -1);
+  return line(shown);
 }

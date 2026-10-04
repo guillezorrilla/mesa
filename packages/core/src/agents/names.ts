@@ -28,6 +28,7 @@ export const AGENT_CAPABILITIES = {
     history: true,
     search: true,
     context: true,
+    addDir: true,
     nativeState: 'hook-and-listing',
   },
   codex: {
@@ -43,6 +44,7 @@ export const AGENT_CAPABILITIES = {
     history: true,
     search: true,
     context: true,
+    addDir: true,
     nativeState: 'hook-or-screen',
   },
   antigravity: {
@@ -58,6 +60,7 @@ export const AGENT_CAPABILITIES = {
     history: false,
     search: false,
     context: false,
+    addDir: true,
     nativeState: 'screen-only',
   },
 } as const;

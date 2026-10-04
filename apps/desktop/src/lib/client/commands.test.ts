@@ -40,3 +40,24 @@ test('no command name is defined by two domain tables', () => {
   ].flatMap(Object.keys);
   expect(names.filter((name, at) => names.indexOf(name) !== at)).toEqual([]);
 });
+
+test("sessions.open names each additional project with --with=, before the session's branch", () => {
+  const open = sessionsCommands['sessions.open'].argv;
+  expect(open({ project: 'lantern-cove', with: ['tide-pool', 'harbor'], worktree: true })).toEqual([
+    'open',
+    '--no-parent',
+    '--with=tide-pool',
+    '--with=harbor',
+    '--worktree',
+    '--',
+    'lantern-cove',
+  ]);
+  expect(open({ project: 'lantern-cove', with: ['tide-pool'], branch: 'shared' })).toEqual([
+    'open',
+    '--no-parent',
+    '--with=tide-pool',
+    '--branch=shared',
+    '--',
+    'lantern-cove',
+  ]);
+});

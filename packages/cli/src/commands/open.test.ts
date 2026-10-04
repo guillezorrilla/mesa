@@ -1,10 +1,20 @@
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CLAUDE_MOUNT, finishesRun, scriptedRunner, testStore } from '@mesa/core/testing';
-import { beforeEach, describe, expect, test } from 'vitest';
+import {
+  CLAUDE_MOUNT,
+  finishesRun,
+  gitRepo,
+  isolateGit,
+  scriptedRunner,
+  testGit,
+  testStore,
+  withRealGit,
+} from '@mesa/core/testing';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
+isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 const { mesa } = cli;
 
@@ -549,4 +559,59 @@ test('open --from starts from an imported item, imports a new link first, and se
   expect(warned.stdout).toMatch(
     /^[0-9a-z]{8}\nwarning: notes not written for 9002 \(claude printed no result/,
   );
+});
+
+test('open --with gives each project a worktree on one branch; refusals leave nothing', async () => {
+  const tmux = cli.withTmux();
+  cli.run = withRealGit(cli.run);
+  const dir = await cli.withProject();
+  gitRepo(dir);
+  const tide = join(cli.home, 'src/tide-pool');
+  const harbor = join(cli.home, 'src/harbor');
+  for (const folder of [tide, harbor]) {
+    mkdirSync(folder, { recursive: true });
+    await cli.mesa('register', '--create', folder);
+    gitRepo(folder);
+  }
+  const state = () =>
+    [dir, tide, harbor].map((repo) => testGit(repo, 'worktree', 'list', '--porcelain'));
+  const before = state();
+  const refused = [
+    [['--with', 'lantern-cove'], 2],
+    [['--with', 'nope'], 3],
+  ] as const;
+  for (const [flags, code] of refused) {
+    const out = await cli.mesa('open', 'lantern-cove', ...flags, '--json');
+    expect(out.code, out.stdout).toBe(code);
+    expect(state()).toEqual(before);
+    expect(testGit(dir, 'branch', '--list', 'session/*')).toBe('');
+  }
+  expect((await cli.mesa('sessions', '--json')).json.data).toEqual([]);
+
+  const out = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--with',
+    'tide-pool',
+    '--with',
+    'harbor',
+    '--worktree',
+    '--json',
+  );
+  expect(out.code, out.stdout).toBe(0);
+  const data = out.json.data;
+  expect(data.additional.map((a: { project: string }) => a.project)).toEqual([
+    'tide-pool',
+    'harbor',
+  ]);
+  const root = cli.paths.worktrees;
+  expect(data.worktree.path.startsWith(`${root}/lantern-cove/`)).toBe(true);
+  for (const a of data.additional) {
+    expect(a.worktree.branch).toBe(data.worktree.branch);
+    expect(a.worktree.path.startsWith(`${root}/${a.project}/`)).toBe(true);
+  }
+  const launch = tmux.windows.find((w) => w.window === `claude-${data.id}`)?.launch ?? '';
+  expect(launch).toContain(`--add-dir=${data.additional[0].worktree.path}`);
+  const shown = (await cli.mesa('show', data.id, '--json')).json.data;
+  expect(shown.additional).toEqual(data.additional);
 });

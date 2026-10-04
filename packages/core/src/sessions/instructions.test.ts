@@ -21,6 +21,7 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   (agent) => {
     const pointer = mesaPointer(record({ agent }), PROFILE, CWD);
     expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+    expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
     expect(pointer).toContain(`Mesa session abcdefgh; profile ${PROFILE}; project ${PROJECT};`);
     expect(pointer).toContain(
       "Vault: call mesa-vault's project_context first; read_note, search_vault, session_goals on demand. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
@@ -35,4 +36,29 @@ test('a General pointer falls back to the General vault context, with no project
   expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
   expect(pointer).toContain('Without the tools: mesa vault context --general --json');
   expect(pointer).not.toContain(`mesa vault context ${GENERAL_PROJECT}`);
+});
+
+test('a session across projects names them in one line, eliding past the 1,000-byte cap', () => {
+  const name = (c: string) => `${c.repeat(52)}-project`;
+  const additional = ['a', 'b', 'c'].map((c) => ({
+    project: name(c),
+    worktree: { path: `/w/${name(c)}`, branch: 'issue-1234-long-branch-name-for-feature' },
+  }));
+  expect(name('a')).toHaveLength(60);
+  const worktree = { path: CWD, branch: 'issue-1234-long-branch-name-for-feature' };
+  const two = mesaPointer(record({ worktree, additional: additional.slice(0, 2) }), PROFILE, CWD);
+  expect(two.split('\n')[1]).toBe('Also in projects and 2 more.');
+  expect(Buffer.byteLength(two)).toBeLessThan(1000);
+  // As many as fit, then the rest counted; shorter names all fit.
+  const short = mesaPointer(record({ worktree, additional }), PROFILE, '/src/lantern-cove');
+  expect(short.split('\n')[1]).toBe(`Also in projects ${name('a')}, and 2 more.`);
+  const named = ['tide-pool', 'harbor'].map((project) => ({ project, worktree }));
+  const fits = mesaPointer(record({ worktree, additional: named }), PROFILE, '/src/lantern-cove');
+  expect(fits.split('\n')[1]).toBe('Also in projects tide-pool, harbor.');
+  for (const agent of ['claude', 'codex', 'antigravity'] as const) {
+    const pointer = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD);
+    expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
+    expect(pointer).toMatch(/^Also in projects (.+, )?and \d more\.$/m);
+  }
+  expect(mesaPointer(record({}), PROFILE, CWD)).not.toContain('Also in');
 });
