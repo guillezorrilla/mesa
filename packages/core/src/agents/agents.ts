@@ -309,7 +309,8 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take, with the
  * profile's launch `defaults`, `server` mounted for an agent that takes it per launch
- * (Antigravity's is global), and each additional project's worktree as an extra folder.
+ * (Antigravity's is global), and `dirs`, an additional project's worktree each, as extra folders
+ * (sessions/additional.ts, additionalDirs).
  */
 export function startCommand(
   agent: Agent,
@@ -321,10 +322,9 @@ export function startCommand(
     agentSessionId?: string;
     goal?: string;
     mode?: 'plan';
-    additional?: readonly { worktree: { path: string } }[];
   },
+  dirs: readonly string[],
 ) {
-  const dirs = (s.additional ?? []).map((a) => a.worktree.path);
   if (agent === 'antigravity') {
     if (!s.id || !s.logs) throw new MesaError('internal', 'agy needs a Mesa session log');
     const log = prepareAntigravityLog(s.logs, s.id);

@@ -1,6 +1,7 @@
 import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
+import { additionalDirs } from './additional.js';
 import { type LaunchDeps, launched, launchProject, startSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -68,10 +69,13 @@ export async function startQueued(
       ? {}
       : await startSession(deps, claimed, entry, {
           command: (r) =>
-            startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-              ...r,
-              logs: deps.profile.paths.logs,
-            }),
+            startCommand(
+              agent,
+              deps.vaultServer,
+              deps.profile.config.agents,
+              { ...r, logs: deps.profile.paths.logs },
+              additionalDirs(r),
+            ),
           branch,
           base,
         });

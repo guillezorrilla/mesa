@@ -138,4 +138,6 @@ test('the composer adds another project: its chip shows, Start in is its own wor
     '--',
     'lantern-cove',
   ]);
+  // Started, the next session starts with no other project again.
+  expect(byTestId('session-with-chip-tide-pool')).toHaveLength(0);
 });

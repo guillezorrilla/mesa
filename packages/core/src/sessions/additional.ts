@@ -66,6 +66,7 @@ export const plannedAdditional = (
 export function launchWorktrees(run: Runner) {
   const made: { repo: string; worktree: Worktree }[] = [];
   const kept: string[] = [];
+  const stuck: string[] = [];
   return {
     /** One sessionWorktree selected for `entry`: noted when it made it. */
     add(
@@ -77,17 +78,29 @@ export function launchWorktrees(run: Runner) {
       if (worktreeScript(profile, entry, 'setup').length) kept.push(selected.worktree.path);
       else made.push({ repo: entry.path, worktree: selected.worktree });
     },
-    /** Removes what it made, newest first; whether there was any. */
+    /**
+     * Removes what it made, newest first, each on its own: one that cannot be removed is named in
+     * the error (named) and the rest still go. Whether there was any; never throws.
+     */
     async undo() {
-      for (const { repo, worktree } of [...made].reverse())
-        await removeWorktree(run, repo, worktree);
+      for (const { repo, worktree } of [...made].reverse()) {
+        try {
+          await removeWorktree(run, repo, worktree);
+        } catch {
+          stuck.push(worktree.path);
+        }
+      }
       return made.length > 0;
     },
-    /** `error`, naming the worktrees kept. */
+    /** `error`, naming the worktrees kept and those that could not be removed. */
     named(error: unknown) {
-      if (!kept.length) return error;
+      if (!kept.length && !stuck.length) return error;
       const { code, message } = toFail(error).error;
-      return new MesaError(code, `${message}; kept ${kept.join(', ')}, where setup ran`);
+      const left = [
+        ...(kept.length ? [`kept ${kept.join(', ')}, where setup ran`] : []),
+        ...(stuck.length ? [`could not remove ${stuck.join(', ')}`] : []),
+      ];
+      return new MesaError(code, [message, ...left].join('; '));
     },
   };
 }

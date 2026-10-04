@@ -1,7 +1,7 @@
 import type { Agent, ProjectRow } from '@mesa/core';
 import { supportsAgentCapability, supportsPlanStart } from '@mesa/core/browser';
 import { Play, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export function SessionComposer(props: {
     props.state;
   const { draft, setDraft } = props.state;
   const projects = useCommand('projects.list').data;
-  const [chosen, setChosen] = useState<string[]>([]);
+  const { additional: chosen, setAdditional: setChosen } = props.state;
   // The field is hidden for an agent that cannot add a folder, and sends nothing then.
   const extra = supportsAgentCapability(selectedAgent, 'addDir') ? chosen : [];
   const where = extra.length ? 'worktree' : location;

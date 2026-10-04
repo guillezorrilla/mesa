@@ -13,24 +13,26 @@ const FOLDER = '/src/lantern-cove';
 const set = (patch: Partial<LaunchDefaults>): LaunchDefaults => ({ ...NATIVE_LAUNCH, ...patch });
 
 test('unset defaults emit nothing, so each agent starts on its native config', () => {
-  expect(startCommand('claude', SERVER, NATIVE_LAUNCH, { agentSessionId: ID })).toBe(
+  expect(startCommand('claude', SERVER, NATIVE_LAUNCH, { agentSessionId: ID }, [])).toBe(
     `claude --session-id ${ID} ${CLAUDE_MOUNT}`,
   );
-  expect(startCommand('codex', SERVER, NATIVE_LAUNCH, {})).toBe(
+  expect(startCommand('codex', SERVER, NATIVE_LAUNCH, {}, [])).toBe(
     `codex -c mesa.embedded=true ${CODEX_MOUNT}`,
   );
-  expect(startCommand('antigravity', SERVER, NATIVE_LAUNCH, { id: 'a1', logs: tempDir() })).toMatch(
-    /^umask 077; exec agy --log-file '[^']+'$/,
-  );
+  expect(
+    startCommand('antigravity', SERVER, NATIVE_LAUNCH, { id: 'a1', logs: tempDir() }, []),
+  ).toMatch(/^umask 077; exec agy --log-file '[^']+'$/);
   // False is the same as unset.
   const off = set({ claude: { skipPermissions: false }, codex: { bypass: false } });
-  expect(startCommand('claude', SERVER, off, { agentSessionId: ID })).not.toContain('dangerous');
-  expect(startCommand('codex', SERVER, off, {})).not.toContain('dangerous');
+  expect(startCommand('claude', SERVER, off, { agentSessionId: ID }, [])).not.toContain(
+    'dangerous',
+  );
+  expect(startCommand('codex', SERVER, off, {}, [])).not.toContain('dangerous');
 });
 
 test('Claude Code skips permissions on start, resume, and fork; plan from the session wins', () => {
   const skip = set({ claude: { skipPermissions: true } });
-  expect(startCommand('claude', SERVER, skip, { agentSessionId: ID, goal: 'go' })).toBe(
+  expect(startCommand('claude', SERVER, skip, { agentSessionId: ID, goal: 'go' }, [])).toBe(
     `claude --session-id ${ID} --dangerously-skip-permissions ${CLAUDE_MOUNT} 'go'`,
   );
   expect(AGENTS.claude.resume(ID, FOLDER, SERVER, skip)).toBe(
@@ -39,7 +41,7 @@ test('Claude Code skips permissions on start, resume, and fork; plan from the se
   expect(AGENTS.claude.fork(ID, FOLDER, SERVER, skip)).toBe(
     `claude --resume '${ID}' --fork-session --dangerously-skip-permissions ${CLAUDE_MOUNT}`,
   );
-  expect(startCommand('claude', SERVER, skip, { agentSessionId: ID, mode: 'plan' })).toBe(
+  expect(startCommand('claude', SERVER, skip, { agentSessionId: ID, mode: 'plan' }, [])).toBe(
     `claude --session-id ${ID} --permission-mode plan ${CLAUDE_MOUNT}`,
   );
   expect(AGENTS.claude.resume(ID, FOLDER, SERVER, skip, 'plan')).toBe(
@@ -50,7 +52,7 @@ test('Claude Code skips permissions on start, resume, and fork; plan from the se
 test('Codex takes its approval policy and sandbox; bypass replaces both', () => {
   const both = set({ codex: { approvalPolicy: 'on-request', sandbox: 'workspace-write' } });
   const flags = '--ask-for-approval=on-request --sandbox=workspace-write';
-  expect(startCommand('codex', SERVER, both, { goal: 'review' })).toBe(
+  expect(startCommand('codex', SERVER, both, { goal: 'review' }, [])).toBe(
     `codex -c mesa.embedded=true ${flags} ${CODEX_MOUNT} -- 'review'`,
   );
   expect(AGENTS.codex.resume('019a', FOLDER, SERVER, both)).toBe(
@@ -59,11 +61,11 @@ test('Codex takes its approval policy and sandbox; bypass replaces both', () => 
   expect(AGENTS.codex.fork('019a', FOLDER, SERVER, both)).toBe(
     `codex -c mesa.embedded=true ${flags} ${CODEX_MOUNT} fork '019a' -C '${FOLDER}'`,
   );
-  expect(startCommand('codex', SERVER, set({ codex: { sandbox: 'read-only' } }), {})).toBe(
+  expect(startCommand('codex', SERVER, set({ codex: { sandbox: 'read-only' } }), {}, [])).toBe(
     `codex -c mesa.embedded=true --sandbox=read-only ${CODEX_MOUNT}`,
   );
   const bypass = set({ codex: { approvalPolicy: 'never', sandbox: 'read-only', bypass: true } });
-  expect(startCommand('codex', SERVER, bypass, {})).toBe(
+  expect(startCommand('codex', SERVER, bypass, {}, [])).toBe(
     `codex -c mesa.embedded=true --dangerously-bypass-approvals-and-sandbox ${CODEX_MOUNT}`,
   );
   expect(AGENTS.codex.resume('019a', FOLDER, SERVER, bypass)).toBe(
@@ -77,13 +79,13 @@ test('Antigravity takes skip permissions, its mode, and sandbox; plan from the s
     antigravity: { skipPermissions: true, mode: 'accept-edits', sandbox: true },
   });
   const flags = '--dangerously-skip-permissions --mode=accept-edits --sandbox';
-  expect(startCommand('antigravity', SERVER, all, { id: 'a1', logs, goal: 'go' })).toMatch(
+  expect(startCommand('antigravity', SERVER, all, { id: 'a1', logs, goal: 'go' }, [])).toMatch(
     new RegExp(`^umask 077; exec agy --log-file '[^']+' ${flags} --prompt-interactive 'go'$`),
   );
   expect(AGENTS.antigravity.resume('conv-1', '/l.log', all)).toBe(
     `umask 077; exec agy --log-file '/l.log' --conversation 'conv-1' ${flags}`,
   );
-  expect(startCommand('antigravity', SERVER, all, { id: 'a2', logs, mode: 'plan' })).toMatch(
+  expect(startCommand('antigravity', SERVER, all, { id: 'a2', logs, mode: 'plan' }, [])).toMatch(
     / --mode=plan --dangerously-skip-permissions --sandbox$/,
   );
   expect(AGENTS.antigravity.resume('conv-1', '/l.log', all, 'plan')).toBe(

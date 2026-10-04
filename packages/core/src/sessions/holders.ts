@@ -23,8 +23,8 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .filter((r) => heldWorktrees(r).some((held) => held.worktree.path === path))
     .at(-1);
 
-/** `path` as the file system resolves it; as it is when it is gone. */
-const real = (path: string) => {
+/** `path` as the file system resolves it; as it is when it is gone (a stale worktree). */
+export const real = (path: string) => {
   try {
     return realpathSync.native(path);
   } catch {

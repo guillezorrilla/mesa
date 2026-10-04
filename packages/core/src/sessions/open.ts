@@ -3,7 +3,7 @@ import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import type { IdSource } from '../lib/ids.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import { additionalProjects, plannedAdditional } from './additional.js';
+import { additionalDirs, additionalProjects, plannedAdditional } from './additional.js';
 import type { Caller } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
@@ -173,17 +173,24 @@ export async function openSession(
       : undefined;
 
   const agentSessionId = input.background ? undefined : newSessionId(agent, deps.newUuid);
-  const command = (id: string, more?: SessionRecord['additional']) =>
-    startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-      id,
-      logs: deps.profile.paths.logs,
-      agentSessionId,
-      goal: input.goal,
-      mode: input.mode === 'plan' ? 'plan' : undefined,
-      additional: more,
-    });
+  const command = (id: string, more: Pick<SessionRecord, 'additional'>) =>
+    startCommand(
+      agent,
+      deps.vaultServer,
+      deps.profile.config.agents,
+      {
+        id,
+        logs: deps.profile.paths.logs,
+        agentSessionId,
+        goal: input.goal,
+        mode: input.mode === 'plan' ? 'plan' : undefined,
+      },
+      additionalDirs(more),
+    );
   if (!input.background)
-    requireCommandFits(sessionWindowCommand(agent, 'interactive', command('xxxxxxxx', planned)));
+    requireCommandFits(
+      sessionWindowCommand(agent, 'interactive', command('xxxxxxxx', { additional: planned })),
+    );
   const session = {
     project: selected?.entry ?? null,
     agent,
@@ -208,7 +215,7 @@ export async function openSession(
     deps,
     { ...session, ...(waited ? { after: waited.id } : {}), agentSessionId },
     {
-      command: (record) => command(record.id, record.additional),
+      command: (record) => command(record.id, record),
       branch: input.branch,
       base: input.base,
       ...(additional ? { additional } : {}),

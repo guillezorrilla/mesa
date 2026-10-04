@@ -3,6 +3,7 @@ import { newSessionId, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
+import { additionalDirs } from './additional.js';
 import { hasConversation } from './conversation.js';
 import { GENERAL_PROJECT } from './general.js';
 import { eventsLog, readHookEvents } from './hook-events.js';
@@ -71,12 +72,17 @@ export async function swapAgent(
   try {
     started = await startSession(deps, swapped, project, {
       command: (record) =>
-        startCommand(agent, deps.vaultServer, deps.profile.config.agents, {
-          id: record.id,
-          logs: deps.profile.paths.logs,
-          agentSessionId,
-          additional: record.additional,
-        }),
+        startCommand(
+          agent,
+          deps.vaultServer,
+          deps.profile.config.agents,
+          {
+            id: record.id,
+            logs: deps.profile.paths.logs,
+            agentSessionId,
+          },
+          additionalDirs(record),
+        ),
     });
   } catch (error) {
     deps.store.update(id, before);

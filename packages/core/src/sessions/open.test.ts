@@ -1095,6 +1095,27 @@ test('open links the enabled skills where the agent runs before its window opens
   expect(opened.warning).toMatch(/^skills not synced into .*lantern-cove: /);
 });
 
+test("each additional project's worktree gets its own enabled skills; a failed link only warns", async () => {
+  const world = agentWorld();
+  const { home, mesa } = await acrossProjects(world);
+  const { result, warning } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
+  const tide = result.additional?.[0]?.worktree.path ?? '';
+  expect(existsSync(join(tide, '.claude/skills/mesa/SKILL.md'))).toBe(true);
+  expect(warning).toBeUndefined();
+
+  // A worktree whose checkout has a file where the links go: the session opens anyway, and says so.
+  const harbor = gitProject(mesa, home, 'harbor');
+  writeFileSync(join(harbor, '.agents'), 'not a folder');
+  testGit(harbor, 'add', '.agents');
+  testGit(harbor, 'commit', '-q', '-m', 'a file');
+  const opened = await mesa.sessions.open('lantern-cove', { with: ['harbor'] });
+  const path = opened.result.additional?.[0]?.worktree.path ?? '';
+  expect(opened.warning).toMatch(new RegExp(`^skills not synced into ${path}: `));
+  expect(existsSync(join(opened.result.worktree?.path ?? '', '.agents/skills/mesa/SKILL.md'))).toBe(
+    true,
+  );
+});
+
 test('resume links the enabled skills where the conversation reopens, as open does', async () => {
   const world = agentWorld();
   const { dir, mesa } = await setUp(world);
@@ -1229,7 +1250,10 @@ test("resume, handoff and swap carry a session's additional projects; a gone one
   writeFileSync(note, '## Left\n');
   await expect(
     mesa.sessions.handoff(resumed.record.id, { note, keep: true }),
-  ).rejects.toMatchObject({ code: 'usage' });
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${resumed.record.id} runs in its own worktree, and in tide-pool's, which its successor takes over; two sessions never share one, so it cannot be kept`,
+  });
   const { to } = (await mesa.sessions.handoff(resumed.record.id, { note })).result;
   expect(to).toMatchObject({ worktree: first.worktree, additional: first.additional });
   expect(launch()).toContain(`'--add-dir=${path}' 'Tie them`);
