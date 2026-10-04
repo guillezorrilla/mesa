@@ -2498,6 +2498,25 @@ test('selected session can fork its native conversation in place or into a workt
   expect(calls).toContainEqual(['--json', 'fork', '--branch=try/fork', '--', source.id]);
 });
 
+test('a session across several projects offers only a fork into worktrees', async () => {
+  const worktree = { path: '/wt/tide-pool/shared', branch: 'shared' };
+  const source = managedRow('parent01', {
+    worktree: { path: '/wt/lantern-cove/shared', branch: 'shared' },
+    additional: [{ project: 'tide-pool', worktree }],
+  });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([source]),
+  });
+  await renderWithMesa(<App />, bridge);
+  const actions = () => document.querySelector('[aria-label="Session actions"]') as HTMLElement;
+  await click(actions());
+  const labels = [...(actions().parentElement?.querySelectorAll('button') ?? [])].map((button) =>
+    button.textContent?.trim(),
+  );
+  expect(labels.filter((label) => label?.includes('Fork'))).toEqual(['Fork into worktree']);
+});
+
 test('project controls update profile presentation and leave the slug available when hidden', async () => {
   let rows = PROJECTS.map((row) => ({ ...row }));
   const { bridge, calls } = fakeBridge({
@@ -2931,6 +2950,22 @@ test('welcome tour resumes, skips, and replays without starting an agent', async
   await click(buttons('settings').find((button) => button.textContent === 'Replay tour'));
   expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 1 of 3');
   expect(calls.some((args) => args.includes('open'))).toBe(false);
+});
+
+test('replaying the tour after skipping discovery leaves discovery as the skip set it', async () => {
+  const { byTestId, calls } = await launchWith('pending', []);
+  await click(byTestId('discovery-skip')[0]);
+  await click(byTestId('open-settings')[0]);
+  await click(
+    [...(byTestId('settings')[0]?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Replay tour',
+    ),
+  );
+  const sets = calls.filter((args) => args[1] === 'config' && args[2] === 'set');
+  expect(sets.filter((args) => args.join(' ').includes('discovery'))).toEqual([
+    ['--json', 'config', 'set', '--', 'onboarding.discovery', '"dismissed"'],
+  ]);
+  expect(sets.map((args) => args.slice(4))).toContainEqual(['onboarding.status', '"active"']);
 });
 
 test('the avatar shows the profile and doctor verdict, without vault details or a log form', async () => {

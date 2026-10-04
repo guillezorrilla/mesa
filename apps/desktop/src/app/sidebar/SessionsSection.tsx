@@ -34,7 +34,7 @@ export function SessionsSection(props: {
   onDependencySession?: (id: string) => void;
 }) {
   const { groups, view, onView } = props;
-  const { visible, active, stranded, general, other } = groups;
+  const { visible, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection } = props;
   const card = (session: TreeRow) => (
     <SessionsMenu
@@ -81,7 +81,7 @@ export function SessionsSection(props: {
           starting={props.starting}
           onNewSession={props.onNewSession}
         >
-          {active.filter((session) => session.project === project.name).map(card)}
+          {inProject(project.name).map(card)}
         </ProjectSessionsGroup>
       ))}
       {(general.length > 0 || props.starting?.includes(GENERAL_PROJECT)) && (

@@ -2,11 +2,9 @@ import type { TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
 import { useRef, useState } from 'react';
 import { warned } from '@/components/Toast';
-import { AddProjectDialog } from '@/features/projects/AddProjectDialog';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { CloneProjectDialog } from '@/features/projects/CloneProjectDialog';
-import { DiscoveryDialog } from '@/features/projects/DiscoveryDialog';
-import { ImportWorkspaceDialog } from '@/features/projects/ImportWorkspaceDialog';
+import { ProjectAddDialog } from '@/features/projects/ProjectAddDialog';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -41,8 +39,6 @@ export function App() {
   const search = useSearchPalette();
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<SessionRequest>();
   const [dependencySessionRequest, setDependencySessionRequest] = useState<SessionRequest>();
-  // Bumped when the sidebar's selected sessions were archived together, which clears it.
-  const [sessionsArchived, setSessionsArchived] = useState(0);
   const [promptInsertRequest, setPromptInsertRequest] = useState<{
     session: string;
     text: string;
@@ -82,13 +78,9 @@ export function App() {
   };
   const startTour = () =>
     void act(async () => {
-      if (
-        !(await run('config.set', {
-          path: 'onboarding',
-          // The tour's fields only: discovery keeps its state.
-          value: { ...config.data?.onboarding, status: 'active', step: 0 },
-        }))
-      )
+      // The tour's fields only, by path: discovery keeps its state.
+      if (!(await run('config.set', { path: 'onboarding.step', value: 0 }))) return undefined;
+      if (!(await run('config.set', { path: 'onboarding.status', value: 'active' })))
         return undefined;
       await config.refresh();
       navigate({ kind: 'tour' });
@@ -188,7 +180,6 @@ export function App() {
           onArchiveSessions={(ids) =>
             setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
           }
-          sessionsArchived={sessionsArchived}
           onDependencySession={(id) => {
             navigate({ kind: 'session', id });
             setDependencySessionRequest((request) => ({
@@ -218,7 +209,6 @@ export function App() {
           onVaultSettings={() => workspace.openSettings('general')}
           archiveSessionRequest={archiveSessionRequest}
           dependencySessionRequest={dependencySessionRequest}
-          onSessionsArchived={() => setSessionsArchived((count) => count + 1)}
           promptInsertRequest={promptInsertRequest}
         />
       </div>
@@ -265,25 +255,11 @@ export function App() {
           }}
         />
       )}
-      {projectAdd?.kind === 'local' && (
-        <AddProjectDialog
+      {projectAdd && (
+        <ProjectAddDialog
+          request={projectAdd}
           onCancel={() => setProjectAdd(undefined)}
           onRegistered={projectRegistered}
-          returnFocus={projectAdd.returnFocus}
-        />
-      )}
-      {projectAdd?.kind === 'import' && (
-        <ImportWorkspaceDialog
-          onCancel={() => setProjectAdd(undefined)}
-          onRegistered={projectRegistered}
-          returnFocus={projectAdd.returnFocus}
-        />
-      )}
-      {projectAdd?.kind === 'discover' && (
-        <DiscoveryDialog
-          onCancel={() => setProjectAdd(undefined)}
-          onRegistered={projectRegistered}
-          returnFocus={projectAdd.returnFocus}
         />
       )}
       {workspace.pendingView && (

@@ -1,6 +1,6 @@
 import type { Env, Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { type LaunchDefaults, launchFlags } from '../launch-flags.js';
+import { addDirArgs, type LaunchDefaults, launchFlags } from '../launch-flags.js';
 import { claudeVaultArgs, type VaultServer } from '../vault-mount.js';
 
 const TIMEOUT_MS = 20_000;
@@ -33,8 +33,7 @@ export async function startClaudeBackground(
     ...launchFlags('claude', defaults, mode),
     `--settings=${JSON.stringify({ env: binding })}`,
     ...claudeVaultArgs(server),
-    // The = form: --add-dir takes every word after it, the goal too.
-    ...dirs.map((dir) => `--add-dir=${dir}`),
+    ...addDirArgs('claude', dirs),
     ...(goal ? [goal] : []),
   ];
   const result = await run('claude', args, TIMEOUT_MS, { cwd, env });

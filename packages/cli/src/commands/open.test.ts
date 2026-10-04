@@ -5,10 +5,10 @@ import {
   finishesRun,
   gitRepo,
   isolateGit,
+  repoState,
   scriptedRunner,
   testGit,
   testStore,
-  withRealGit,
 } from '@mesa/core/testing';
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -562,19 +562,12 @@ test('open --from starts from an imported item, imports a new link first, and se
 });
 
 test('open --with gives each project a worktree on one branch; refusals leave nothing', async () => {
-  const tmux = cli.withTmux();
-  cli.run = withRealGit(cli.run);
-  const dir = await cli.withProject();
-  gitRepo(dir);
-  const tide = join(cli.home, 'src/tide-pool');
+  const { tmux, dir, tide } = await cli.withTwoProjects();
   const harbor = join(cli.home, 'src/harbor');
-  for (const folder of [tide, harbor]) {
-    mkdirSync(folder, { recursive: true });
-    await cli.mesa('register', '--create', folder);
-    gitRepo(folder);
-  }
-  const state = () =>
-    [dir, tide, harbor].map((repo) => testGit(repo, 'worktree', 'list', '--porcelain'));
+  mkdirSync(harbor, { recursive: true });
+  await cli.mesa('register', '--create', harbor);
+  gitRepo(harbor);
+  const state = () => [dir, tide, harbor].map(repoState);
   const before = state();
   const refused = [
     [['--with', 'lantern-cove'], 2],

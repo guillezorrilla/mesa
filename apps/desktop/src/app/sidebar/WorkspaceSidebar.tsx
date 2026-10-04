@@ -52,8 +52,6 @@ export function WorkspaceSidebar(props: {
   onArchiveSession?: (id: string) => void;
   /** Archives the selected sessions together, after one confirmation. */
   onArchiveSessions?: (ids: string[]) => void;
-  /** A new count when the selected sessions were archived: the selection starts over. */
-  sessionsArchived?: number;
   onDependencySession?: (id: string) => void;
 }) {
   const { view, onView, collapsed } = props;
@@ -69,7 +67,6 @@ export function WorkspaceSidebar(props: {
   const selection = useSessionSelection(
     sidebarOrder(groups, closedProjects),
     view.kind === 'session' ? view.id : undefined,
-    props.sessionsArchived,
   );
   /** The Sessions tab, back on the session last shown while it is still listed, else the first. */
   const openSessions = () => {
@@ -141,7 +138,7 @@ export function WorkspaceSidebar(props: {
         ) : projectTab ? (
           <ProjectsSection
             projects={visible}
-            active={active}
+            inProject={groups.inProject}
             view={view}
             onView={onView}
             sort={props.sort}

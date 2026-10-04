@@ -45,8 +45,6 @@ export function WorkspaceMain(props: {
   onVaultSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
-  /** Several sessions were archived together from the sidebar's selection. */
-  onSessionsArchived?: () => void;
   promptInsertRequest?: { session: string; text: string };
 }) {
   const { view, project, navigate, config, projects, prompts, needsProfileSetup } = props;
@@ -87,7 +85,6 @@ export function WorkspaceMain(props: {
           onProject={(name) => navigate({ kind: 'project', name })}
           archiveSessionRequest={props.archiveSessionRequest}
           dependencySessionRequest={props.dependencySessionRequest}
-          onArchived={props.onSessionsArchived}
           terminalPreferences={config.data?.terminal}
           savedPrompts={prompts.data}
           promptInsertRequest={props.promptInsertRequest}

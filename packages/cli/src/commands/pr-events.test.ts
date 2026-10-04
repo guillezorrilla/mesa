@@ -241,7 +241,7 @@ test('a delivery pass drops the failing mark of a check that is gone', async () 
   finishTurn(id);
   await cli.mesa('pr-events', '--deliver', '--json');
   const failing = () => JSON.parse(readFileSync(cli.paths.prEvents, 'utf8')).failing;
-  expect(failing()).toEqual([`${id}:42:CI / build`]);
+  expect(failing()).toEqual([`${id}:lantern-cove:42:CI / build`]);
   const pr = gh.pullRequests[0];
   if (pr) pr.checks = [];
   await cli.mesa('pr-events', '--deliver', '--json');

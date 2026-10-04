@@ -229,9 +229,20 @@ export async function startSession(
     return { record, ...(warning ? { warning } : {}) };
   } catch (error) {
     if (backgroundId) await stopClaudeBackground(deps.run, backgroundId).catch(() => undefined);
-    // Only a new session makes additional worktrees, and its record goes with them.
-    if (await made.undo())
-      deps.store.update(record.id, { worktree: undefined, additional: undefined });
+    // What it removed leaves the record, so a retry makes it again; a worktree kept or stuck
+    // stays. The additional ones are on the primary's branch, so they go with it.
+    const removed = await made.undo();
+    if (removed.length)
+      deps.store.update(record.id, (r) => {
+        const own = r.worktree !== undefined && removed.includes(r.worktree.path);
+        const left = own
+          ? []
+          : (r.additional ?? []).filter((a) => !removed.includes(a.worktree.path));
+        return {
+          ...(own ? { worktree: undefined } : {}),
+          additional: left.length ? left : undefined,
+        };
+      });
     throw made.named(error);
   }
 }

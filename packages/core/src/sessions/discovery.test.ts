@@ -186,6 +186,20 @@ test('past 300 recent conversations, the newest 300 are listed and the rest coun
   expect(found.projects).toMatchObject([{ path: dir, conversations: 301, live: 0 }]);
 });
 
+test('conversations in no project folder are counted past the newest 300 too', async () => {
+  const { mesa, home, dir } = setUp();
+  const loose = join(home, 'loose/notes');
+  mkdirSync(loose, { recursive: true });
+  for (let i = 0; i < 301; i++) {
+    const id = `5b1e2f40-9c3d-4e7a-8f10-${String(i).padStart(12, '0')}`;
+    const at = new Date(Date.parse('2026-09-24T00:00:00.000Z') - i * 60_000).toISOString();
+    transcript(home, id, i === 300 ? loose : dir, at);
+  }
+  const found = await mesa.sessions.discover(7);
+  expect(found.conversations.filter((c) => c.project === null)).toEqual([]);
+  expect(found.unplaced).toBe(1);
+});
+
 test('days outside 1 to 365 are refused, and a machine with nothing on it finds nothing', async () => {
   const { mesa } = setUp();
   for (const days of [0, 366, 1.5]) {

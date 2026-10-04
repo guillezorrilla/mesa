@@ -27,6 +27,7 @@ import {
   testDeps,
   testGit,
   withRealGit,
+  worktreeAt,
 } from '../testing/index.js';
 import { GENERAL_PROJECT } from './general.js';
 
@@ -675,10 +676,6 @@ const cwdOf = (world: ReturnType<typeof agentWorld>) => {
   return args[args.indexOf('-c') + 1];
 };
 
-/** Where Mesa puts lantern-cove's worktree for a branch. */
-const worktreeAt = (home: string, folder: string) =>
-  join(profilePaths(home, 'default').worktrees, 'lantern-cove', folder);
-
 /** The branch's upstream, or undefined when it tracks nothing. */
 const upstreamOf = (dir: string, branch: string) => {
   try {
@@ -693,7 +690,7 @@ test('--branch starts the agent in a new worktree under the profile, from the de
   const { home, dir, mesa } = await setUp(world);
   gitRepo(dir);
   const { result } = await mesa.sessions.open('lantern-cove', { branch: 'try/worktree' });
-  const path = worktreeAt(home, 'try-worktree');
+  const path = worktreeAt(home, 'lantern-cove', 'try-worktree');
   // No origin: the current branch is the default.
   expect(result.worktree).toEqual({ path, branch: 'try/worktree', base: 'main' });
   expect(cwdOf(world)).toBe(path);
@@ -741,7 +738,9 @@ test('a failed session launch preserves data written by configured worktree setu
   await expect(mesa.sessions.open('lantern-cove', { branch: 'with-setup' })).rejects.toMatchObject({
     code: 'internal',
   });
-  expect(readFileSync(join(worktreeAt(home, 'with-setup'), 'keep.txt'), 'utf8')).toBe('setup data');
+  expect(
+    readFileSync(join(worktreeAt(home, 'lantern-cove', 'with-setup'), 'keep.txt'), 'utf8'),
+  ).toBe('setup data');
   expect(await mesa.sessions.list()).toEqual([]);
 });
 
@@ -754,7 +753,7 @@ test("--branch refuses a project's unapproved worktree setup and creates nothing
     code: 'needs_approval',
     message: expect.stringContaining('setup ["/usr/bin/touch","repo-file"]'),
   });
-  expect(existsSync(worktreeAt(home, 'unreviewed'))).toBe(false);
+  expect(existsSync(worktreeAt(home, 'lantern-cove', 'unreviewed'))).toBe(false);
   expect(testGit(dir, 'branch', '--list', 'unreviewed')).toBe('');
   expect(testGit(dir, 'worktree', 'list', '--porcelain').match(/^worktree /gm)).toHaveLength(1);
   expect(await mesa.sessions.list()).toEqual([]);
@@ -781,7 +780,9 @@ test("a failed session launch preserves data written by the project's own worktr
   await expect(mesa.sessions.open('lantern-cove', { branch: 'with-setup' })).rejects.toMatchObject({
     code: 'internal',
   });
-  expect(readFileSync(join(worktreeAt(home, 'with-setup'), 'keep.txt'), 'utf8')).toBe('setup data');
+  expect(
+    readFileSync(join(worktreeAt(home, 'lantern-cove', 'with-setup'), 'keep.txt'), 'utf8'),
+  ).toBe('setup data');
 });
 
 test("with an origin, a new branch starts from origin's HEAD, tracking nothing, or from its branch there, tracking it", async () => {
@@ -804,7 +805,7 @@ test("with an origin, a new branch starts from origin's HEAD, tracking nothing, 
   // A branch only on origin continues from there, and pulls from it.
   const { result: shared } = await mesa.sessions.open('lantern-cove', { branch: 'shared' });
   expect(shared.worktree?.base).toBe('origin/shared');
-  expect(testGit(worktreeAt(home, 'shared'), 'rev-parse', 'HEAD')).toBe(
+  expect(testGit(worktreeAt(home, 'lantern-cove', 'shared'), 'rev-parse', 'HEAD')).toBe(
     testGit(dir, 'rev-parse', 'origin/shared'),
   );
   expect(upstreamOf(dir, 'shared')).toBe('refs/heads/shared');
@@ -818,7 +819,7 @@ test('--base starts the new branch there; an existing branch is reused as it is'
   testGit(dir, 'branch', 'older', 'HEAD~1');
   const { result } = await mesa.sessions.open('lantern-cove', { branch: 'fix', base: 'older' });
   expect(result.worktree?.base).toBe('older');
-  expect(testGit(worktreeAt(home, 'fix'), 'rev-parse', 'HEAD')).toBe(
+  expect(testGit(worktreeAt(home, 'lantern-cove', 'fix'), 'rev-parse', 'HEAD')).toBe(
     testGit(dir, 'rev-parse', 'older'),
   );
 
@@ -831,8 +832,11 @@ test('--base starts the new branch there; an existing branch is reused as it is'
   });
   const { result: reused } = await mesa.sessions.open('lantern-cove', { branch: 'kept' });
   // No base: nothing was started from one.
-  expect(reused.worktree).toEqual({ path: worktreeAt(home, 'kept'), branch: 'kept' });
-  expect(testGit(worktreeAt(home, 'kept'), 'rev-parse', 'HEAD')).toBe(
+  expect(reused.worktree).toEqual({
+    path: worktreeAt(home, 'lantern-cove', 'kept'),
+    branch: 'kept',
+  });
+  expect(testGit(worktreeAt(home, 'lantern-cove', 'kept'), 'rev-parse', 'HEAD')).toBe(
     testGit(dir, 'rev-parse', 'kept'),
   );
 
@@ -842,27 +846,30 @@ test('--base starts the new branch there; an existing branch is reused as it is'
   const { result: resumed } = await mesa.sessions.resume(reused.id);
   await expect(mesa.sessions.open('lantern-cove', { branch: 'kept' })).rejects.toMatchObject({
     code: 'usage',
-    message: `session ${resumed.record.id} has kept's worktree at ${worktreeAt(home, 'kept')}: use that session, or pick another branch`,
+    message: `session ${resumed.record.id} has kept's worktree at ${worktreeAt(home, 'lantern-cove', 'kept')}: use that session, or pick another branch`,
   });
   const { result: slashed } = await mesa.sessions.open('lantern-cove', { branch: 'a/b' });
   await expect(mesa.sessions.open('lantern-cove', { branch: 'a-b' })).rejects.toMatchObject({
     code: 'usage',
-    message: `session ${slashed.id} has a/b's worktree at ${worktreeAt(home, 'a-b')}: use that session, or pick another branch`,
+    message: `session ${slashed.id} has a/b's worktree at ${worktreeAt(home, 'lantern-cove', 'a-b')}: use that session, or pick another branch`,
   });
   // A worktree removed by hand is not the session's any more: the branch opens again.
-  testGit(dir, 'worktree', 'remove', worktreeAt(home, 'fix'));
+  testGit(dir, 'worktree', 'remove', worktreeAt(home, 'lantern-cove', 'fix'));
   const { result: fixAgain } = await mesa.sessions.open('lantern-cove', { branch: 'fix' });
-  expect(fixAgain.worktree).toEqual({ path: worktreeAt(home, 'fix'), branch: 'fix' });
+  expect(fixAgain.worktree).toEqual({
+    path: worktreeAt(home, 'lantern-cove', 'fix'),
+    branch: 'fix',
+  });
   // The first session on fix cannot resume into the worktree the new one has.
   await expect(mesa.sessions.resume(result.id)).rejects.toMatchObject({
     code: 'usage',
-    message: `the worktree at ${worktreeAt(home, 'fix')} is session ${fixAgain.id}'s now: two sessions never share one`,
+    message: `the worktree at ${worktreeAt(home, 'lantern-cove', 'fix')} is session ${fixAgain.id}'s now: two sessions never share one`,
   });
   // Its worktree gone, the session cannot resume: its conversation was there.
-  testGit(dir, 'worktree', 'remove', worktreeAt(home, 'kept'));
+  testGit(dir, 'worktree', 'remove', worktreeAt(home, 'lantern-cove', 'kept'));
   await expect(mesa.sessions.resume(resumed.record.id)).rejects.toMatchObject({
     code: 'not_found',
-    message: `session ${resumed.record.id}'s folder ${worktreeAt(home, 'kept')} is gone, and claude resumes its conversation only there`,
+    message: `session ${resumed.record.id}'s folder ${worktreeAt(home, 'lantern-cove', 'kept')} is gone, and claude resumes its conversation only there`,
   });
 });
 
@@ -911,13 +918,13 @@ test('a non-git project, a branch in use, or a bad branch or base is usage with 
   });
   testGit(dir, 'checkout', '-q', 'main');
   // A path taken (two branches can map to one folder) is left alone.
-  mkdirSync(worktreeAt(home, 'p-q'), { recursive: true });
-  writeFileSync(join(worktreeAt(home, 'p-q'), 'notes.md'), 'mine\n');
+  mkdirSync(worktreeAt(home, 'lantern-cove', 'p-q'), { recursive: true });
+  writeFileSync(join(worktreeAt(home, 'lantern-cove', 'p-q'), 'notes.md'), 'mine\n');
   await expect(mesa.sessions.open('lantern-cove', { branch: 'p/q' })).rejects.toMatchObject({
     code: 'usage',
-    message: `${worktreeAt(home, 'p-q')} already exists: pick another branch, or remove it`,
+    message: `${worktreeAt(home, 'lantern-cove', 'p-q')} already exists: pick another branch, or remove it`,
   });
-  expect(existsSync(join(worktreeAt(home, 'p-q'), 'notes.md'))).toBe(true);
+  expect(existsSync(join(worktreeAt(home, 'lantern-cove', 'p-q'), 'notes.md'))).toBe(true);
   // A project in a folder below the repository's top.
   const sub = join(dir, 'harbor');
   mkdirSync(sub);
@@ -956,19 +963,19 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
     code: 'internal',
     message: 'git did not answer within 60 s',
   });
-  expect(existsSync(worktreeAt(home, 'slow'))).toBe(false);
+  expect(existsSync(worktreeAt(home, 'lantern-cove', 'slow'))).toBe(false);
   expect(testGit(dir, 'branch', '--list', 'slow')).toBe('');
   // A branch it reused stays.
   await expect(mesa.sessions.open('lantern-cove', { branch: 'kept' })).rejects.toMatchObject({
     message: 'git did not answer within 60 s',
   });
-  expect(existsSync(worktreeAt(home, 'kept'))).toBe(false);
+  expect(existsSync(worktreeAt(home, 'lantern-cove', 'kept'))).toBe(false);
   expect(testGit(dir, 'branch', '--list', 'kept')).toBe('kept');
   killed = 'during';
   await expect(mesa.sessions.open('lantern-cove', { branch: 'slow' })).rejects.toMatchObject({
     message: 'git did not answer within 60 s',
   });
-  expect(existsSync(worktreeAt(home, 'slow'))).toBe(false);
+  expect(existsSync(worktreeAt(home, 'lantern-cove', 'slow'))).toBe(false);
   killed = undefined;
   // The branch someone else made first is theirs, and stays.
   await expect(mesa.sessions.open('lantern-cove', { branch: 'raced' })).rejects.toMatchObject({
@@ -977,11 +984,11 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
   expect(testGit(dir, 'branch', '--list', 'raced')).toBe('raced');
 
   // A worktree git still lists whose folder is gone is refused, and stays git's.
-  testGit(dir, 'worktree', 'add', '-q', worktreeAt(home, 'p-q'), '-b', 'p-q');
-  rmSync(worktreeAt(home, 'p-q'), { recursive: true });
+  testGit(dir, 'worktree', 'add', '-q', worktreeAt(home, 'lantern-cove', 'p-q'), '-b', 'p-q');
+  rmSync(worktreeAt(home, 'lantern-cove', 'p-q'), { recursive: true });
   await expect(mesa.sessions.open('lantern-cove', { branch: 'p/q' })).rejects.toMatchObject({
     code: 'usage',
-    message: `git lists a worktree at ${worktreeAt(home, 'p-q')} already: pick another branch, or see git worktree list`,
+    message: `git lists a worktree at ${worktreeAt(home, 'lantern-cove', 'p-q')} already: pick another branch, or see git worktree list`,
   });
   expect(testGit(dir, 'branch', '--list', 'p/q')).toBe('');
   expect(testGit(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/p-q');
@@ -991,7 +998,7 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
     [1, 2].map(() => mesa.sessions.open('lantern-cove', { branch: 'race' })),
   );
   expect(both.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
-  expect(existsSync(join(worktreeAt(home, 'race'), 'mesa.yaml'))).toBe(true);
+  expect(existsSync(join(worktreeAt(home, 'lantern-cove', 'race'), 'mesa.yaml'))).toBe(true);
   expect(testGit(dir, 'worktree', 'list', '--porcelain')).toContain('branch refs/heads/race');
 
   // The window cannot open: the branch Mesa made goes, the one it reused stays.
@@ -1003,7 +1010,7 @@ test('a failed or killed add, or a window that cannot open, leaves no worktree a
     await expect(again.mesa.sessions.open('lantern-cove', { branch })).rejects.toMatchObject({
       code: 'internal',
     });
-    expect(existsSync(worktreeAt(again.home, branch))).toBe(false);
+    expect(existsSync(worktreeAt(again.home, 'lantern-cove', branch))).toBe(false);
   }
   expect(testGit(again.dir, 'worktree', 'list', '--porcelain')).not.toContain('.mesa');
   const { result: manual } = await again.mesa.worktrees.create('lantern-cove', 'manual');
@@ -1051,14 +1058,14 @@ test('every refusal before the window comes before the worktree, and a missing g
 test('through a symlinked home, a worktree git lists is still seen', async () => {
   const { home, dir, mesa } = await setUp(agentWorld(), { linkedHome: true });
   gitRepo(dir);
-  testGit(dir, 'worktree', 'add', '-q', worktreeAt(home, 'gone'), '-b', 'gone-old');
-  rmSync(worktreeAt(home, 'gone'), { recursive: true });
+  testGit(dir, 'worktree', 'add', '-q', worktreeAt(home, 'lantern-cove', 'gone'), '-b', 'gone-old');
+  rmSync(worktreeAt(home, 'lantern-cove', 'gone'), { recursive: true });
   await expect(mesa.sessions.open('lantern-cove', { branch: 'gone' })).rejects.toMatchObject({
     code: 'usage',
-    message: `git lists a worktree at ${worktreeAt(home, 'gone')} already: pick another branch, or see git worktree list`,
+    message: `git lists a worktree at ${worktreeAt(home, 'lantern-cove', 'gone')} already: pick another branch, or see git worktree list`,
   });
   const { result } = await mesa.sessions.open('lantern-cove', { branch: 'fine' });
-  expect(result.worktree?.path).toBe(worktreeAt(home, 'fine'));
+  expect(result.worktree?.path).toBe(worktreeAt(home, 'lantern-cove', 'fine'));
 });
 
 test('open links the enabled skills where the agent runs before its window opens; a failure warns', async () => {
@@ -1217,7 +1224,7 @@ test('each agent gets the additional worktrees as extra folders in its own form'
   );
   const codex = await opened('codex', 'x');
   expect(launch()).toBe(
-    `codex -c mesa.embedded=true ${CODEX_MOUNT} --add-dir '${codex.extra}' -- 'go'`,
+    `codex -c mesa.embedded=true ${CODEX_MOUNT} '--add-dir' '${codex.extra}' -- 'go'`,
   );
   const { extra: agy } = await opened('antigravity', 'a');
   expect(launch()).toContain(` '--add-dir=${agy}' --prompt-interactive 'go'`);
@@ -1232,7 +1239,7 @@ test("resume, handoff and swap carry a session's additional projects; a gone one
   // Swap: the same session, the new agent given the same folders.
   const swapped = (await mesa.sessions.swap(fresh.id, 'codex')).result;
   expect(swapped.additional).toEqual(fresh.additional);
-  expect(launch()).toContain(` --add-dir '${extra}'`);
+  expect(launch()).toContain(` '--add-dir' '${extra}'`);
 
   const { result: first } = await mesa.sessions.open('lantern-cove', {
     with: ['tide-pool'],

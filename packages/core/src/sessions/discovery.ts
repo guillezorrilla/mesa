@@ -47,6 +47,8 @@ export type NativeDiscovery = {
   live: NativeLive[];
   conversations: NativeConversation[];
   total: number;
+  /** Of `total`, those in no project folder: all of them, not only the ones listed. */
+  unplaced: number;
   truncated: boolean;
   unsupported: typeof UNSUPPORTED_HISTORY;
 };
@@ -64,6 +66,8 @@ export type DiscoveryDeps = {
 };
 
 const LIMIT = 300;
+/** How many days back discovery looks unless asked (mesa discover, the first-run offer). */
+export const DISCOVERY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const listed = (p: AgentProcess): p is AgentProcess & { agent: 'claude' | 'codex' } =>
@@ -118,14 +122,14 @@ export async function discoverNative(
     }));
   const projects = new Map<string, NativeProject>();
   const registered = new Set(readRegistry(deps.profile.paths.registry).map((e) => e.path));
-  const count = (folder: string | null, key: 'conversations' | 'live') => {
-    if (folder === null) return;
-    let row = projects.get(folder);
+  const count = (at: string | null, key: 'conversations' | 'live') => {
+    if (at === null) return;
+    let row = projects.get(at);
     if (!row) {
-      const candidate = projectCandidate(folder);
+      const candidate = projectCandidate(at);
       if (!candidate) return;
-      row = { ...candidate, registered: registered.has(folder), conversations: 0, live: 0 };
-      projects.set(folder, row);
+      row = { ...candidate, registered: registered.has(at), conversations: 0, live: 0 };
+      projects.set(at, row);
     }
     row[key]++;
   };
@@ -146,6 +150,7 @@ export async function discoverNative(
       ...named(row),
     })),
     total: recent.length,
+    unplaced: recent.filter((row) => folderOf(row.cwd) === null).length,
     truncated: recent.length > LIMIT,
     unsupported: UNSUPPORTED_HISTORY,
   };

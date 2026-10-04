@@ -19,7 +19,7 @@ import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
-import { type LaunchDefaults, launchFlags } from './launch-flags.js';
+import { addDirArgs, type LaunchDefaults, launchFlags } from './launch-flags.js';
 import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 import {
   CLAUDE_VAULT_TOOLS,
@@ -40,16 +40,10 @@ const flags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan') =>
     .map((flag) => ` ${flag}`)
     .join('');
 
-/**
- * The extra folders an agent works in, an additional project's worktree each (CONTEXT.md,
- * Additional project): `--add-dir=<path>`, one shell word each (Claude Code, whose --add-dir takes
- * every word after it, and Antigravity CLI), or `--add-dir <path>` (Codex).
- */
-const addDirs = (dirs: readonly string[], form: '=' | ' ' = '=') =>
-  dirs
-    .map((dir) =>
-      form === '=' ? ` ${shellWord(`--add-dir=${dir}`)}` : ` --add-dir ${shellWord(dir)}`,
-    )
+/** The extra folders `agent` works in as shell words (launch-flags.ts). */
+const addDirs = (agent: Agent, dirs: readonly string[]) =>
+  addDirArgs(agent, dirs)
+    .map((arg) => ` ${shellWord(arg)}`)
     .join('');
 
 /** Claude Code's mesa-vault mount as shell words (vault-mount.ts). */
@@ -102,7 +96,7 @@ export const AGENTS = {
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs(dirs)}${goalWord(goal)}`,
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs('claude', dirs)}${goalWord(goal)}`,
     /**
      * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
      * mount and the launch defaults are not part of the conversation, so they come again.
@@ -115,7 +109,7 @@ export const AGENTS = {
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs(dirs)}`,
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs('claude', dirs)}`,
     fork: (
       sessionId: string,
       _folder: string,
@@ -124,7 +118,7 @@ export const AGENTS = {
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs(dirs)}`,
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs('claude', dirs)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -190,7 +184,7 @@ export const AGENTS = {
       goal?: string,
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)}${addDirs(dirs, ' ')}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
      * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
      * is not part of the thread, so it comes again.
@@ -203,7 +197,7 @@ export const AGENTS = {
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs(dirs, ' ')}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     fork: (
       sessionId: string,
       folder: string,
@@ -212,7 +206,7 @@ export const AGENTS = {
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs(dirs, ' ')}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
@@ -250,7 +244,7 @@ export const AGENTS = {
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${addDirs(dirs)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
+      `umask 077; exec agy --log-file ${shellWord(log)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${addDirs('antigravity', dirs)}${goal === undefined ? '' : ` --prompt-interactive ${shellWord(goal)}`}`,
     resume: (
       sessionId: string,
       log: string,
@@ -258,7 +252,7 @@ export const AGENTS = {
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${addDirs(dirs)}`,
+      `umask 077; exec agy --log-file ${shellWord(log)} --conversation ${shellWord(sessionId)}${mode ? ' --mode=plan' : ''}${flags('antigravity', defaults, mode)}${addDirs('antigravity', dirs)}`,
     quit: '/exit',
     submitDelayMs: 300,
     headless: {

@@ -1,12 +1,16 @@
 import { existsSync } from 'node:fs';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { vaultServer } from '../agents/vault-mount.js';
+import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
 import { openProfile } from '../profile/profile.js';
 import {
+  agentWorld,
   CLAUDE_VERSION,
   fakeTmux,
   fixedClock,
+  gitProject,
+  gitRepo,
   isolateGit,
   projectProfile,
   repoState,
@@ -15,6 +19,7 @@ import {
   testGit,
   testStore,
   twoProjects,
+  withRealGit,
   worktreeAt,
 } from '../testing/index.js';
 import { startQueued } from './queue.js';
@@ -159,4 +164,64 @@ test('a queued --with start failing on the second repo leaves it failed and both
   expect(failed.worktree).toBeUndefined();
   expect(failed.additional).toBeUndefined();
   expect({ alpha: repoState(dir), beta: repoState(tide) }).toEqual(before);
+});
+
+test('a queued --with start whose window fails keeps the worktree its setup ran in on the record, and the other repo as it was', async () => {
+  const world = agentWorld();
+  const git = withRealGit(world.run);
+  // The queued session's window is the one tmux refuses.
+  let refused = '';
+  const run: Runner = (file, args, ms, options) =>
+    file === 'tmux' && refused && args.includes(refused)
+      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'no space for a new window' })
+      : git(file, args, ms, options);
+  const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, keep.txt]\n';
+  const { home, dir, mesa } = projectProfile(run, { mesaYaml });
+  gitRepo(dir);
+  const tide = gitProject(mesa, home, 'tide-pool');
+  const pending = Object.values(mesa.projects.pending('lantern-cove'));
+  mesa.projects.trust(
+    'lantern-cove',
+    pending.map((script) => script.fingerprint),
+  );
+  const a = (await mesa.sessions.open('lantern-cove')).result;
+  const b = (
+    await mesa.sessions.open('lantern-cove', { after: a.id, with: ['tide-pool'], branch: 'shared' })
+  ).result;
+  refused = `claude-${b.id}`;
+  const before = repoState(tide);
+  await mesa.sessions.stop(a.id, true);
+  const failed = await mesa.sessions.show(b.id);
+  expect(failed.lastState.state).toBe('failed');
+  const kept = worktreeAt(home, 'lantern-cove', 'shared');
+  expect(existsSync(kept)).toBe(true);
+  expect(failed.worktree).toEqual({ path: kept, branch: 'shared', base: 'main' });
+  expect(failed.additional).toBeUndefined();
+  expect(repoState(tide)).toEqual(before);
+});
+
+test('a queued --with start retried after a kill takes the worktrees already on its record', async () => {
+  const { home, dir, tide, mesa } = twoProjects();
+  const a = (await mesa.sessions.open('lantern-cove')).result;
+  const b = (
+    await mesa.sessions.open('lantern-cove', { after: a.id, with: ['tide-pool'], branch: 'shared' })
+  ).result;
+  // The killed start made both worktrees and wrote them to the record, then its claim went stale.
+  const own = worktreeAt(home, 'lantern-cove', 'shared');
+  const other = worktreeAt(home, 'tide-pool', 'shared');
+  testGit(dir, 'worktree', 'add', '-q', '-b', 'shared', own);
+  testGit(tide, 'worktree', 'add', '-q', '-b', 'shared', other);
+  testStore(home).update(b.id, (r) => ({
+    worktree: { path: own, branch: 'shared', base: 'main' },
+    additional: [
+      { project: 'tide-pool', worktree: { path: other, branch: 'shared', base: 'main' } },
+    ],
+    pending: { ...r.pending, claimedAt: '2026-01-01T00:00:00.000Z' },
+  }));
+  await mesa.sessions.stop(a.id, true);
+  const started = await mesa.sessions.show(b.id);
+  expect(started.lastState.state).toBe('idle');
+  expect(started.additional).toEqual([
+    { project: 'tide-pool', worktree: { path: other, branch: 'shared', base: 'main' } },
+  ]);
 });

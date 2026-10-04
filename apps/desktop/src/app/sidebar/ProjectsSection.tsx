@@ -10,8 +10,8 @@ import { ProjectSortMenu } from './ProjectSortMenu';
 /** The Projects tab: Add project, the sort, and each visible project with its active session count. */
 export function ProjectsSection(props: {
   projects: readonly ProjectRow[];
-  /** The active sessions, counted per project. */
-  active: readonly TreeRow[];
+  /** A project's active sessions, counted (sidebarGroups). */
+  inProject: (name: string) => readonly TreeRow[];
   view: WorkspaceView;
   onView: (view: WorkspaceView) => void;
   sort: ProjectSort;
@@ -53,7 +53,7 @@ export function ProjectsSection(props: {
           <Folder aria-hidden className="size-4 shrink-0" />
           <span className="truncate">{project.label}</span>
           <span className="ml-auto text-muted-foreground">
-            {props.active.filter((session) => session.project === project.name).length || ''}
+            {props.inProject(project.name).length || ''}
           </span>
         </Button>
       ))}

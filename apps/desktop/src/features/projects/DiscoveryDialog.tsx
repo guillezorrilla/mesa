@@ -106,7 +106,7 @@ export function DiscoveryDialog(props: {
                   }
                   disabled={acting}
                   tick={{
-                    checked: !unticked.has(project.path),
+                    checked: !project.error && !unticked.has(project.path),
                     onChange: (on) => setUnticked((set) => toggled(set, project.path, !on)),
                   }}
                 />

@@ -209,6 +209,16 @@ test('an untracked file in an additional worktree refuses before anything goes; 
   expect(branches()).toEqual(['shared', 'shared']);
 });
 
+test('a retried rm passes over a worktree and branch already gone in one repository', async () => {
+  const { mesa, dir, session, own, other, branches } = await acrossProjects();
+  // An rm that failed mid-way: lantern-cove's worktree and branch went, tide-pool's did not.
+  testGit(dir, 'worktree', 'remove', own);
+  testGit(dir, 'branch', '-D', 'shared');
+  await mesa.sessions.remove(session.id, { deleteWorktree: true, deleteBranch: true });
+  expect([existsSync(own), existsSync(other)]).toEqual([false, false]);
+  expect(branches()).toEqual(['', '']);
+});
+
 test('worktrees a resumed successor holds now are refused, naming the project and path', async () => {
   const { mesa, session, own, other } = await acrossProjects();
   const { result: resumed } = await mesa.sessions.resume(session.id);

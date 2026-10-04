@@ -1,4 +1,4 @@
-import { counted } from '@mesa/core';
+import { counted, DISCOVERY_DAYS } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../guards.js';
 import { columns } from '../output/columns.js';
@@ -6,8 +6,10 @@ import { recordedOutput } from '../output/recorded.js';
 
 const daysFlag = {
   type: 'string',
-  description: 'How many days back to look, 1 to 365 (default: 30)',
+  description: `How many days back to look, 1 to 365 (default: ${DISCOVERY_DAYS})`,
 } as const;
+const daysOf = (flag?: string) =>
+  flag === undefined ? DISCOVERY_DAYS : wholeNumber(flag, '--days');
 
 export const discover = defineCommand({
   name: 'discover',
@@ -16,9 +18,8 @@ export const discover = defineCommand({
   flags: { days: daysFlag },
   example: 'mesa discover --days 7',
   run: async ({ mesa, flags }) => {
-    const days = flags.days === undefined ? 30 : wholeNumber(flags.days, '--days');
+    const days = daysOf(flags.days);
     const found = await mesa.sessions.discover(days);
-    const loose = found.conversations.filter((c) => c.project === null).length;
     const text = [
       ...columns(
         found.projects.map((p) => [
@@ -29,7 +30,7 @@ export const discover = defineCommand({
         ]),
       ),
       ...columns(found.live.map((s) => ['running', s.name ?? s.id, s.agent, s.cwd])),
-      loose ? `${counted(loose, 'conversation')} in no project folder` : '',
+      found.unplaced ? `${counted(found.unplaced, 'conversation')} in no project folder` : '',
       found.truncated ? `showing newest ${found.conversations.length} of ${found.total}` : '',
     ].filter(Boolean);
     return {
@@ -53,7 +54,7 @@ export const discoverAdopt = defineCommand({
   },
   example: 'mesa discover adopt ~/src/lantern-cove --live',
   run: async ({ mesa, args, flags }) => {
-    const days = flags.days === undefined ? 30 : wholeNumber(flags.days, '--days');
+    const days = daysOf(flags.days);
     const recorded = await mesa.sessions.adoptDiscovered({
       path: args.path,
       days,
