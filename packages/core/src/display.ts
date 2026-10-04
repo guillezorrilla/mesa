@@ -24,6 +24,10 @@ export const counted = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' 
 /** A number of sessions as it reads: `1 session`, `2 sessions`. */
 export const sessionCount = (n: number) => counted(n, 'session');
 
+/** Said with every adoption (CONTEXT.md, Adopted session): two agents on one transcript interleave it. */
+export const ADOPTION_WARNING =
+  'end the session in its original terminal first: both hold the same transcript';
+
 /** What a queued session shows in place of its output. */
 export const waitingOn = (after: string | undefined) => `waiting on ${after}`;
 

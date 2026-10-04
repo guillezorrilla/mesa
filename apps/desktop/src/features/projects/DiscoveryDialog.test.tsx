@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import type { NativeDiscovery } from '@mesa/core';
+import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, deferred, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { DiscoveryDialog } from './DiscoveryDialog';
 
 const FOUND: NativeDiscovery = {
@@ -15,6 +16,14 @@ const FOUND: NativeDiscovery = {
       registered: false,
       conversations: 12,
       live: 1,
+    },
+    {
+      path: '/src/harbor',
+      name: 'harbor',
+      configured: false,
+      registered: false,
+      conversations: 3,
+      live: 0,
     },
     {
       path: '/src/lantern-cove',
@@ -42,42 +51,144 @@ const FOUND: NativeDiscovery = {
     },
   ],
   conversations: [],
-  total: 13,
+  total: 16,
   truncated: false,
   unsupported: [{ agent: 'antigravity', reason: 'No qualified native CLI history source' }],
 };
 
-test('Find from sessions lists folders with counts and running sessions, and registers one', async () => {
+/** The dialog over FOUND, its `discover adopt` replies from `adopt`; config sets echo. */
+async function open(adopt: (args: string[]) => unknown = (args) => envelope(adoption(args))) {
+  const onCancel = vi.fn();
   const onRegistered = vi.fn(async () => {});
   const { bridge, calls } = fakeBridge({
     discover: () => envelope(FOUND),
-    register: () => envelope({ name: 'tide-pool', receipt: null }),
+    'discover adopt': adopt,
+    'config set': (args) => envelope({ path: args.at(-2), value: JSON.parse(args.at(-1) ?? '') }),
   });
   const byTestId = await renderWithMesa(
-    <DiscoveryDialog onCancel={() => {}} onRegistered={onRegistered} />,
+    <DiscoveryDialog onCancel={onCancel} onRegistered={onRegistered} />,
     bridge,
   );
+  return { byTestId, calls, onCancel, onRegistered };
+}
+
+/** `discover adopt`'s reply for the folder its args name: registered, one session adopted. */
+const adoption = (args: string[]) => ({
+  project: args.at(-1)?.split('/').at(-1),
+  registered: true,
+  adopted: [{ id: 'aaaaaaaa', agentSessionId: 'x', agent: 'claude' }],
+  reopened: [],
+  failed: [],
+  receipt: null,
+});
+const discovery = (value: string) => [
+  '--json',
+  'config',
+  'set',
+  '--',
+  'onboarding.discovery',
+  JSON.stringify(value),
+];
+const adopts = (calls: string[][]) => calls.filter((args) => args[2] === 'adopt');
+const checked = (el: HTMLElement | undefined) => el?.getAttribute('aria-checked') === 'true';
+
+test('Find from sessions ticks each unregistered folder and no running session', async () => {
+  const { byTestId, calls } = await open();
   expect(calls).toEqual([['--json', 'discover']]);
   const rows = byTestId('discovered-project');
   expect(rows.map((row) => row.textContent)).toEqual([
     expect.stringContaining('12 conversations, 1 running'),
-    expect.stringContaining('1 conversation'),
+    expect.stringContaining('3 conversations'),
+    expect.stringContaining('Registered'),
   ]);
-  expect(rows[0]?.textContent).toContain('/src/tide-pool');
-  expect(rows[1]?.querySelector('button')).toBeNull();
-  expect(rows[1]?.textContent).toContain('Registered');
+  expect(byTestId('discovery-tick').map(checked)).toEqual([true, true]);
+  expect(rows[2]?.querySelector('[data-testid="discovery-tick"]')).toBeNull();
+  expect(byTestId('discovery-dialog')[0]?.textContent).toContain(
+    'end the session in its original terminal first: both hold the same transcript',
+  );
   const live = byTestId('discovery-live')[0]?.querySelectorAll('li') ?? [];
   expect([...live].map((li) => li.textContent)).toEqual([
     'Tide tablesclaude/src/tide-pool',
     '01a0e14e-be41-72f1-a81b-e25d2198602acodex/src/tide-pool/docs',
   ]);
-  expect(byTestId('discovery-total')[0]?.textContent).toBe('13 conversations in the last 30 days.');
+  expect(byTestId('discovery-live-tick').map(checked)).toEqual([false, false]);
+  expect(byTestId('discovery-total')[0]?.textContent).toBe('16 conversations in the last 30 days.');
 
-  await click(rows[0]?.querySelector('button') as HTMLElement);
-  expect(calls.filter((args) => args[1] === 'register')).toEqual([
-    ['--json', 'register', '--create', '--', '/src/tide-pool'],
+  await click(byTestId('discovery-tick')[0]);
+  await click(byTestId('discovery-tick')[1]);
+  expect(byTestId('discovery-add')[0]?.hasAttribute('disabled')).toBe(true);
+});
+
+test('Add to Mesa writes started, adopts each ticked folder with progress, then complete and the summary', async () => {
+  const replies = [deferred(), deferred()];
+  const { byTestId, calls, onCancel, onRegistered } = await open(
+    () => replies[adopts(calls).length - 1]?.promise,
+  );
+  await click(byTestId('discovery-live-tick')[0]);
+  // Both run in tide-pool: --live reopens them together.
+  expect(byTestId('discovery-live-tick').map(checked)).toEqual([true, true]);
+  await click(byTestId('discovery-add')[0]);
+  expect(calls.slice(1)).toEqual([
+    discovery('started'),
+    ['--json', 'discover', 'adopt', '--live', '--', '/src/tide-pool'],
   ]);
+  expect(byTestId('discovery-progress')[0]?.textContent).toBe('Adding tide-pool (1 of 2)');
+  await act(async () => replies[0]?.resolve(envelope(adoption(['/src/tide-pool']))));
+  expect(byTestId('discovery-progress')[0]?.textContent).toBe('Adding harbor (2 of 2)');
+  expect(adopts(calls).at(-1)).toEqual(['--json', 'discover', 'adopt', '--', '/src/harbor']);
+  await act(async () =>
+    replies[1]?.resolve(
+      envelope({
+        ...adoption(['/src/harbor']),
+        failed: [{ agentSessionId: 'bbbbbbbb-0000', reason: 'transcript unreadable' }],
+      }),
+    ),
+  );
+  expect(calls.at(-1)).toEqual(discovery('complete'));
   expect(onRegistered).toHaveBeenCalledOnce();
-  expect(byTestId('discovered-project')[0]?.textContent).toContain('Registered');
-  expect(byTestId('discovered-project')[0]?.querySelector('button')).toBeNull();
+  expect(byTestId('discovery-summary')[0]?.textContent).toBe(
+    '2 projects registered, 2 sessions adopted.bbbbbbbb-0000: transcript unreadable',
+  );
+  await click(byTestId('discovery-done')[0]);
+  expect(onCancel).toHaveBeenCalledOnce();
+});
+
+test('Skip writes dismissed and closes', async () => {
+  const { byTestId, calls, onCancel } = await open();
+  await click(byTestId('discovery-skip')[0]);
+  expect(calls.slice(1)).toEqual([discovery('dismissed')]);
+  expect(onCancel).toHaveBeenCalledOnce();
+});
+
+test('Skip during a run stops after the current folder, then writes dismissed and closes', async () => {
+  const reply = deferred();
+  const { byTestId, calls, onCancel } = await open(() => reply.promise);
+  await click(byTestId('discovery-add')[0]);
+  await click(byTestId('discovery-skip')[0]);
+  expect(onCancel).not.toHaveBeenCalled();
+  await act(async () => reply.resolve(envelope(adoption(['/src/tide-pool']))));
+  expect(adopts(calls)).toHaveLength(1);
+  expect(calls.slice(1)).toEqual([
+    discovery('started'),
+    ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
+    discovery('dismissed'),
+  ]);
+  expect(onCancel).toHaveBeenCalledOnce();
+});
+
+test('Escape during a run keeps the dialog open and writes no config', async () => {
+  const reply = deferred();
+  const { byTestId, calls, onCancel } = await open(() => reply.promise);
+  await click(byTestId('discovery-add')[0]);
+  await act(async () => {
+    byTestId('discovery-dialog')[0]?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+  });
+  expect(onCancel).not.toHaveBeenCalled();
+  expect(byTestId('discovery-progress')).toHaveLength(1);
+  expect(calls.slice(1)).toEqual([
+    discovery('started'),
+    ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
+  ]);
 });

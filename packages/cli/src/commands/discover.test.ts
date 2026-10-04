@@ -1,6 +1,6 @@
-import { utimesSync } from 'node:fs';
+import { mkdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { codexWorld, plantTranscript } from '@mesa/core/testing';
+import { codexWorld, datedTranscript, plantTranscript } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -10,6 +10,8 @@ beforeEach(cli.reset);
 const CLAUDE_ID = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
 const CODEX_ID = '01a0e14e-be41-72f1-a81b-e25d2198602a';
 const LIVE_ID = '01a0e14e-be41-72f1-a81b-e25d2198602b';
+const OTHER_ID = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e70';
+const FAILING_ID = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e71';
 
 test('discover --json prints the scan; text has one line per project folder', async () => {
   const dir = await cli.withProject();
@@ -88,4 +90,63 @@ test('conversations in no project folder are counted on their own line', async (
   const { stdout, code } = await cli.mesa('discover');
   expect(code).toBe(0);
   expect(stdout).toBe('1 conversation in no project folder\n');
+});
+
+/** tide-pool, an unregistered repository below the home, with two recent conversations. */
+function tidePool() {
+  const tide = join(cli.home, 'src/tide-pool');
+  mkdirSync(join(tide, '.git'), { recursive: true });
+  const title = { type: 'custom-title', customTitle: 'Tide tables' };
+  datedTranscript(cli.home, CLAUDE_ID, tide, '2026-09-23T10:00:00.000Z', title);
+  datedTranscript(cli.home, OTHER_ID, tide, '2026-09-22T10:00:00.000Z');
+  return tide;
+}
+
+test('discover adopt --json registers the folder and adopts its conversations; a second run adopts none', async () => {
+  await cli.withProject();
+  const tide = tidePool();
+  const { json } = await cli.mesa('discover', 'adopt', tide, '--json');
+  expect(json).toMatchObject({
+    ok: true,
+    data: {
+      project: 'tide-pool',
+      registered: true,
+      adopted: [
+        { id: expect.any(String), agentSessionId: CLAUDE_ID, agent: 'claude', name: 'Tide tables' },
+        { id: expect.any(String), agentSessionId: OTHER_ID, agent: 'claude' },
+      ],
+      reopened: [],
+      failed: [],
+      receipt: null,
+    },
+  });
+  const { stdout, code } = await cli.mesa('discover', 'adopt', tide, '--days', '7');
+  expect(code).toBe(0);
+  expect(stdout).toBe('tide-pool: 0 sessions adopted\n');
+});
+
+test('discover adopt text says registered, the counts, and each failure', async () => {
+  await cli.withProject();
+  const tide = tidePool();
+  // A linked worktree of tide-pool registered as its own project: its conversation fails.
+  const worktree = join(cli.home, 'wt/tide-pool-fix');
+  mkdirSync(join(tide, '.git/worktrees/tide-pool-fix'), { recursive: true });
+  mkdirSync(worktree, { recursive: true });
+  writeFileSync(join(worktree, '.git'), `gitdir: ${tide}/.git/worktrees/tide-pool-fix\n`);
+  await cli.mesa('register', '--create', worktree);
+  datedTranscript(cli.home, FAILING_ID, worktree, '2026-09-21T10:00:00.000Z');
+  const { stdout, code } = await cli.mesa('discover', 'adopt', tide);
+  expect(code).toBe(0);
+  expect(stdout.split('\n')).toEqual([
+    'tide-pool: registered, 2 sessions adopted, 1 failed',
+    expect.stringMatching(new RegExp(`^failed ${FAILING_ID}: session .* in project tide-pool-fix`)),
+    '',
+  ]);
+});
+
+test('discover adopt of a path that is not a folder is not_found', async () => {
+  await cli.withProject();
+  const { json, code } = await cli.mesa('discover', 'adopt', join(cli.home, 'nowhere'), '--json');
+  expect(code).not.toBe(0);
+  expect(json).toMatchObject({ ok: false, error: { code: 'not_found' } });
 });

@@ -1,19 +1,22 @@
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /**
  * A found folder that can be registered as a project: its name, path, any error, `detail` below
- * them, and `verb` (Import, Register) as its button, or the past tense as a badge once registered.
+ * them, and `verb` (Import, Register) as its button, or `tick` as a checkbox in its place, or the
+ * past tense as a badge once registered.
  */
 export function DiscoveredProjectRow(props: {
   project: { name: string; path: string; registered: boolean; error?: string };
   verb: 'Import' | 'Register';
   detail?: ReactNode;
   disabled: boolean;
-  onRegister: () => void;
+  onRegister?: () => void;
+  tick?: { checked: boolean; onChange: (checked: boolean) => void };
 }) {
-  const { project } = props;
+  const { project, tick } = props;
   return (
     <div
       data-testid="discovered-project"
@@ -29,6 +32,14 @@ export function DiscoveredProjectRow(props: {
       </div>
       {project.registered ? (
         <Badge variant="secondary">{props.verb}ed</Badge>
+      ) : tick ? (
+        <Checkbox
+          data-testid="discovery-tick"
+          aria-label={`Add ${project.name}`}
+          checked={tick.checked}
+          disabled={props.disabled || Boolean(project.error)}
+          onCheckedChange={(checked) => tick.onChange(checked === true)}
+        />
       ) : (
         <Button
           size="sm"

@@ -6,6 +6,7 @@ import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
+import { counted } from '../display.js';
 import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
@@ -35,6 +36,7 @@ import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
 import { applyDescendants } from './descendants.js';
 import { discoverNative } from './discovery.js';
+import { adoptDiscovered } from './discovery-adopt.js';
 import { applyEach } from './each.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
@@ -110,6 +112,12 @@ export function sessionsService(
     shell: deps.env.SHELL || '/bin/zsh',
     home: deps.home,
     self: deps.self,
+  });
+  /** What an adoption takes: a launch's, the agent listing, and the other profiles' sessions. */
+  const adoptDeps = () => ({
+    ...openDeps(),
+    listing: () => listAgentProcesses(deps),
+    elsewhere: () => otherProfilesSessions(deps.home, profile),
   });
   const nativeDeps = () => ({
     profile: open(),
@@ -871,16 +879,36 @@ export function sessionsService(
               ...(opts.noResume ? {} : dangerousLaunch(r, open().config.agents)),
             }),
           },
-          () =>
-            adoptSession(
-              {
-                ...openDeps(),
-                listing: () => listAgentProcesses(deps),
-                elsewhere: () => otherProfilesSessions(deps.home, profile),
-                home: deps.home,
-              },
-              { agentSessionId, ...opts },
-            ),
+          () => adoptSession(adoptDeps(), { agentSessionId, ...opts }),
+        ),
+      /**
+       * Registers a project folder unless registered and adopts the native conversations of its
+       * last `days` record-only, and, with `live`, its running sessions reopened: one receipt.
+       */
+      adoptDiscovered: (input: { path: string; days: number; live?: boolean }) =>
+        record(
+          {
+            // Reopened sessions with dangerous launch flags are kept (dangerousLaunch).
+            kind: 'guardrail',
+            type: 'session',
+            summary: (r) =>
+              `Adopted ${counted(r.adopted.length + r.reopened.length, 'session')} on ${r.project}`,
+            failure: `Could not adopt the sessions of ${absolute(input.path)}`,
+            warning: (r) => r.warning,
+            project: (r) => r.project,
+            inputs: { ...input, path: absolute(input.path) },
+            outputs: (r) => {
+              const first = r.reopened[0];
+              return {
+                registered: r.registered,
+                adopted: r.adopted.map((a) => a.id),
+                reopened: r.reopened.map((a) => a.id),
+                failed: r.failed,
+                ...(first ? dangerousLaunch(store.get(first.id), open().config.agents) : {}),
+              };
+            },
+          },
+          () => adoptDiscovered(adoptDeps(), { ...input, path: absolute(input.path) }),
         ),
       /** Reopens a session's conversation in a new window, as a new record linked to the old. */
       resume: (id: string) =>
