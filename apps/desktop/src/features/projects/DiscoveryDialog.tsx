@@ -42,6 +42,7 @@ export function DiscoveryDialog(props: {
   const adoption = useDiscoveryAdoption({ onClose: props.onCancel, onAdded: props.onRegistered });
   const { progress } = adoption;
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
+  // By folder: `--live` reopens every running session of a folder, so they tick together.
   const [liveTicked, setLiveTicked] = useState<ReadonlySet<string>>(new Set());
   const data = found.data;
   const ticked = (data?.projects ?? []).filter(
@@ -55,7 +56,7 @@ export function DiscoveryDialog(props: {
         ticked.map((p) => ({
           path: p.path,
           name: p.name,
-          live: (data?.live ?? []).some((s) => s.project === p.path && liveTicked.has(s.id)),
+          live: liveTicked.has(p.path),
         })),
       );
       return undefined;
@@ -114,16 +115,17 @@ export function DiscoveryDialog(props: {
             {data.live.length > 0 && (
               <div className="space-y-1">
                 <Muted size="xs">Running now: {ADOPTION_WARNING}</Muted>
+                <Muted size="xs">A tick reopens every running session in that folder.</Muted>
                 <ul data-testid="discovery-live" className="space-y-1 text-sm">
                   {data.live.map((session) => (
                     <li key={session.id} className="flex items-center gap-2">
                       <Checkbox
                         data-testid="discovery-live-tick"
                         aria-label={`Reopen ${session.name ?? session.id}`}
-                        checked={folderTicked(session) && liveTicked.has(session.id)}
+                        checked={folderTicked(session) && liveTicked.has(session.project ?? '')}
                         disabled={acting || !folderTicked(session)}
                         onCheckedChange={(on) =>
-                          setLiveTicked((set) => toggled(set, session.id, on === true))
+                          setLiveTicked((set) => toggled(set, session.project ?? '', on === true))
                         }
                       />
                       <span className="min-w-0 flex-1 truncate">{session.name ?? session.id}</span>

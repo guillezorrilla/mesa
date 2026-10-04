@@ -125,6 +125,8 @@ test('Add to Mesa writes started, adopts each ticked folder with progress, then 
     () => replies[adopts(calls).length - 1]?.promise,
   );
   await click(byTestId('discovery-live-tick')[0]);
+  // Both run in tide-pool: --live reopens them together.
+  expect(byTestId('discovery-live-tick').map(checked)).toEqual([true, true]);
   await click(byTestId('discovery-add')[0]);
   expect(calls.slice(1)).toEqual([
     discovery('started'),
@@ -172,4 +174,21 @@ test('Skip during a run stops after the current folder, then writes dismissed an
     discovery('dismissed'),
   ]);
   expect(onCancel).toHaveBeenCalledOnce();
+});
+
+test('Escape during a run keeps the dialog open and writes no config', async () => {
+  const reply = deferred();
+  const { byTestId, calls, onCancel } = await open(() => reply.promise);
+  await click(byTestId('discovery-add')[0]);
+  await act(async () => {
+    byTestId('discovery-dialog')[0]?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+  });
+  expect(onCancel).not.toHaveBeenCalled();
+  expect(byTestId('discovery-progress')).toHaveLength(1);
+  expect(calls.slice(1)).toEqual([
+    discovery('started'),
+    ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
+  ]);
 });
