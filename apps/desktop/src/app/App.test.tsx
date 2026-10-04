@@ -15,6 +15,7 @@ import {
   fakeBridge,
   fakePlatform,
   fakeTerminals,
+  fill,
   foreignRow,
   managedRow,
   PROJECTS,
@@ -269,6 +270,84 @@ test('the sidebar Add project menu finds projects from native sessions', async (
   );
   expect(byTestId('discovery-dialog')).toHaveLength(1);
   expect(calls).toContainEqual(['--json', 'discover']);
+});
+
+const NOTHING_FOUND = {
+  since: '2026-08-25T12:00:00.000Z',
+  days: 30,
+  projects: [],
+  live: [],
+  conversations: [],
+  total: 0,
+  truncated: false,
+  unsupported: [],
+};
+
+/** The App at launch with onboarding.discovery `discovery` and `projects` registered. */
+async function launchWith(discovery: string, projects: unknown[]) {
+  const baseline = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+  const { bridge, calls } = fakeBridge({
+    config: () =>
+      envelope({ ...baseline.data, onboarding: { ...baseline.data.onboarding, discovery } }),
+    projects: () => envelope(projects),
+    discover: () => envelope(NOTHING_FOUND),
+  });
+  return { byTestId: await renderWithMesa(<App />, bridge), calls };
+}
+
+test.each([
+  ['pending with no projects', 'pending', []],
+  ['started with projects', 'started', PROJECTS],
+])('the discovery dialog opens at launch when %s', async (_, discovery, projects) => {
+  const { byTestId, calls } = await launchWith(discovery, projects);
+  expect(byTestId('discovery-dialog')).toHaveLength(1);
+  expect(calls).toContainEqual(['--json', 'discover']);
+});
+
+test.each([
+  ['complete', 'complete', []],
+  ['dismissed', 'dismissed', []],
+  ['pending with a project', 'pending', PROJECTS],
+])('the discovery dialog stays closed at launch when %s', async (_, discovery, projects) => {
+  const { byTestId, calls } = await launchWith(discovery, projects);
+  expect(byTestId('discovery-dialog')).toEqual([]);
+  expect(calls).not.toContainEqual(['--json', 'discover']);
+});
+
+test('the discovery dialog never covers setup-screen, and opens after its Continue', async () => {
+  let profile = false;
+  const baseline = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
+  const missing = failure('config.yaml not found; run mesa init --vault <path>');
+  const { bridge } = fakeBridge({
+    config: () =>
+      profile
+        ? envelope({
+            ...baseline.data,
+            onboarding: { status: 'active', step: 0, discovery: 'pending' },
+          })
+        : missing,
+    projects: () => (profile ? envelope([]) : missing),
+    init: () => {
+      profile = true;
+      return envelope({
+        profile: 'default',
+        dir: '/h/.mesa/default',
+        created: true,
+        receipt: null,
+      });
+    },
+    'config set': (args) => envelope({ path: args.at(-2), value: JSON.parse(args.at(-1) ?? '') }),
+    discover: () => envelope(NOTHING_FOUND),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('setup-screen')).toHaveLength(1);
+  await fill('setup-vault', '/h/vault');
+  await click(byTestId('setup-create')[0]);
+  expect(byTestId('setup-screen')).toHaveLength(1);
+  expect(byTestId('discovery-dialog')).toEqual([]);
+  await click(byTestId('setup-continue')[0]);
+  expect(byTestId('setup-screen')).toEqual([]);
+  expect(byTestId('discovery-dialog')).toHaveLength(1);
 });
 
 test('sidebar opens Map without creating a missing saved map', async () => {
@@ -2622,7 +2701,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       automation: 'silent',
     },
     application: { warnBeforeQuit: true, backupOnClose: false },
-    onboarding: { status: 'complete', step: 0 },
+    onboarding: { status: 'complete', step: 0, discovery: 'complete' },
     appearance: {
       theme: 'system',
       font: 'plex',

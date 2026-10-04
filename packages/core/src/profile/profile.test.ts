@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { tempDir, thrown } from '../testing/index.js';
-import { loadConfig } from './config.js';
+import { loadConfig, setConfigValue } from './config.js';
 import { profilePaths } from './paths.js';
 import { DEFAULT_APPEARANCE, DEFAULT_TERMINAL_PREFERENCES } from './preferences.js';
 import { initProfile, openProfile, resolveProfileName } from './profile.js';
@@ -63,7 +63,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       automation: 'silent',
     },
     application: { warnBeforeQuit: true, backupOnClose: false },
-    onboarding: { status: 'active', step: 0 },
+    onboarding: { status: 'active', step: 0, discovery: 'pending' },
     appearance: DEFAULT_APPEARANCE,
     terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
@@ -110,4 +110,17 @@ test('opening an uninitialised profile is not_found with the init hint', () => {
   const { code, message } = thrown(() => openProfile(profilePaths(tempDir(), 'none')));
   expect(code).toBe('not_found');
   expect(message).toContain('run mesa init');
+});
+
+test('onboarding.discovery defaults to pending, takes its four states, and refuses any other', () => {
+  const paths = profilePaths(tempDir(), 'default');
+  initProfile(paths, { vault: '/tmp/v' });
+  expect(loadConfig(paths.config).onboarding.discovery).toBe('pending');
+  for (const state of ['started', 'complete', 'dismissed', 'pending']) {
+    expect(setConfigValue(paths.config, 'onboarding.discovery', state).value).toBe(state);
+  }
+  expect(thrown(() => setConfigValue(paths.config, 'onboarding.discovery', 'done')).code).toBe(
+    'invalid_config',
+  );
+  expect(loadConfig(paths.config).onboarding.discovery).toBe('pending');
 });

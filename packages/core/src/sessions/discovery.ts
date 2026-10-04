@@ -71,12 +71,13 @@ const listed = (p: AgentProcess): p is AgentProcess & { agent: 'claude' | 'codex
 
 /**
  * The project folders, running sessions, and conversations of the last `days` (1 to 365) found on
- * this machine that no session of this or another profile holds. Names are read only for the rows
- * returned; at most 300 conversations, newest first, `truncated` past that.
+ * this machine that no session of this or another profile holds, only project folder `folder`'s
+ * when given. Names are read only for the rows returned; at most 300 conversations, newest first,
+ * `truncated` past that.
  */
 export async function discoverNative(
   deps: DiscoveryDeps,
-  { days }: { days: number },
+  { days, folder }: { days: number; folder?: string },
 ): Promise<NativeDiscovery> {
   if (!Number.isInteger(days) || days < 1 || days > 365) {
     throw new MesaError('usage', `days must be a whole number from 1 to 365, not ${days}`);
@@ -90,20 +91,23 @@ export async function discoverNative(
   const live = new Set(running.map((p) => p.agentSessionId));
   const history = [...claudeHistory(claudeTranscripts(deps.home)), ...codexHistory(deps)];
   const files = new Map(history.flatMap((row) => ('file' in row ? [[row.id, row.file]] : [])));
-  const recent = history
-    .filter((row) => row.updatedAt >= since && !live.has(row.id) && !held.has(row.id))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   // Conversations share folders: each is looked up once.
   const folders = new Map<string, string | null>();
   const folderOf = (cwd: string) => {
     if (!folders.has(cwd)) folders.set(cwd, projectFolder(deps.home, cwd));
     return folders.get(cwd) ?? null;
   };
+  const wanted = (cwd: string) => folder === undefined || folderOf(cwd) === folder;
+  const recent = history
+    .filter(
+      (row) => row.updatedAt >= since && !live.has(row.id) && !held.has(row.id) && wanted(row.cwd),
+    )
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const named = (c: { agent: 'claude' | 'codex'; id: string }) =>
     withName(deps, { ...c, file: files.get(c.id) });
 
   const liveRows = running
-    .filter((p) => !held.has(p.agentSessionId))
+    .filter((p) => !held.has(p.agentSessionId) && wanted(p.cwd))
     .map((p) => ({
       agent: p.agent,
       id: p.agentSessionId,

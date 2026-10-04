@@ -1,14 +1,14 @@
-import { mkdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
   codexWorld,
   newSession,
-  plantTranscript,
   projectProfile,
   scriptedRunner,
   shortIds,
   testStore,
+  datedTranscript as transcript,
 } from '../testing/index.js';
 
 // The fixed clock is 2026-09-24T12:00:00.000Z.
@@ -25,18 +25,6 @@ const ids = {
   codex: '01a0e14e-be41-72f1-a81b-e25d21986020',
   codexLive: '01a0e14e-be41-72f1-a81b-e25d21986021',
 };
-
-/** A transcript's lines: one naming its folder, then `extra` (title entries). */
-const lines = (cwd: string, ...extra: object[]) =>
-  [{ type: 'user', cwd, message: { role: 'user', content: 'Chart the tide' } }, ...extra]
-    .map((l) => JSON.stringify(l))
-    .join('\n');
-
-/** A Claude Code transcript last written at `at`. */
-function transcript(home: string, id: string, cwd: string, at: string, ...extra: object[]) {
-  const file = plantTranscript(home, id, cwd, lines(cwd, ...extra));
-  utimesSync(file, new Date(at), new Date(at));
-}
 
 /** A profile with lantern-cove registered and claude listing `listed` live. */
 function setUp(listed: { sessionId: string; cwd: string; status?: string }[] = []) {

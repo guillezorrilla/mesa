@@ -14,6 +14,7 @@ import { useAppearance } from './hooks/useAppearance';
 import { useAppMenu } from './hooks/useAppMenu';
 import { useCloseGuard } from './hooks/useCloseGuard';
 import { useCostAlerts } from './hooks/useCostAlerts';
+import { useDiscoveryOffer } from './hooks/useDiscoveryOffer';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useInitialView } from './hooks/useInitialView';
 import { useMesaLinks } from './hooks/useMesaLinks';
@@ -70,6 +71,12 @@ export function App() {
     sessions,
     setView,
   });
+  useDiscoveryOffer({
+    config: config.data,
+    projects: projects.data,
+    settingUp: needsProfileSetup || view.kind === 'setup',
+    offer: () => setProjectAdd({ kind: 'discover', returnFocus: null }),
+  });
   const profileInitialised = async () => {
     await Promise.all([config.refresh(), doctor.refresh(), prompts.refresh(), projects.refresh()]);
   };
@@ -78,7 +85,8 @@ export function App() {
       if (
         !(await run('config.set', {
           path: 'onboarding',
-          value: { status: 'active', step: 0 },
+          // The tour's fields only: discovery keeps its state.
+          value: { ...config.data?.onboarding, status: 'active', step: 0 },
         }))
       )
         return undefined;

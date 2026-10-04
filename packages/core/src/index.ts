@@ -112,6 +112,7 @@ export type {
   NativeLive,
   NativeProject,
 } from './sessions/discovery.js';
+export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/discovery-adopt.js';
 export type { EachResult, ItemResult } from './sessions/each.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export type { GridGroup } from './sessions/grid-groups.js';

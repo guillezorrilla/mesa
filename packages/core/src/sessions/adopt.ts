@@ -4,6 +4,7 @@ import { transcriptCwd } from '../agents/claude/transcripts.js';
 import { codexHome, codexSessions } from '../agents/codex/paths.js';
 import { threadForId } from '../agents/codex/rollouts.js';
 import { AGENT_LABELS } from '../agents/names.js';
+import { ADOPTION_WARNING } from '../display.js';
 import { MesaError } from '../lib/result.js';
 import { findProject, projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
@@ -17,16 +18,13 @@ import { sessionName } from './rename.js';
 
 // Adopting a native conversation Mesa did not start (CONTEXT.md, Adopted session).
 
-type AdoptDeps = LaunchDeps & {
+export type AdoptDeps = LaunchDeps & {
   /** The live agent sessions (listAgentProcesses). */
   listing: () => Promise<AgentProcess[]>;
   /** Agent session ids other profiles' records hold. */
   elsewhere: () => ReadonlySet<string>;
   home: string;
 };
-
-/** Said with every adoption: two agents writing one transcript would interleave it. */
-const WARNING = 'end the session in its original terminal first: both hold the same transcript';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -99,11 +97,11 @@ export async function adoptSession(
     ...(cwd === project.path ? {} : { cwd }),
     ...named,
   };
-  if (input.noResume) return { record: createRecord(deps, s), warning: WARNING };
+  if (input.noResume) return { record: createRecord(deps, s), warning: ADOPTION_WARNING };
   await readyAgent(deps.run, agent);
   const command = () => AGENTS[agent].resume(id, cwd, deps.vaultServer, deps.profile.config.agents);
   const { record, warning } = await launchSession(deps, s, { command });
-  return { record, warning: joinWarnings(WARNING, warning) ?? WARNING };
+  return { record, warning: joinWarnings(ADOPTION_WARNING, warning) ?? ADOPTION_WARNING };
 }
 
 /** The agent whose transcripts hold conversation `id`, and the folder it ran in. */

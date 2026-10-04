@@ -714,6 +714,28 @@ export function plantTranscript(home: string, id: string, cwd: string, content?:
   return file;
 }
 
+/**
+ * A Claude Code transcript last written at `at`: one user line naming `cwd`, then `extra` (title
+ * entries, `{ type: 'custom-title', customTitle }`).
+ */
+export function datedTranscript(
+  home: string,
+  id: string,
+  cwd: string,
+  at: string,
+  ...extra: object[]
+) {
+  const lines = [{ type: 'user', cwd, message: { role: 'user', content: 'Chart the tide' } }];
+  const file = plantTranscript(
+    home,
+    id,
+    cwd,
+    [...lines, ...extra].map((l) => JSON.stringify(l)).join('\n'),
+  );
+  utimesSync(file, new Date(at), new Date(at));
+  return file;
+}
+
 export { type FakePullRequest, fakeGh } from './gh.js';
 export {
   atlassianWorld,

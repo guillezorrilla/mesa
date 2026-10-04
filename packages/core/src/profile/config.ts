@@ -102,6 +102,8 @@ const ConfigSchema = z.strictObject({
     .strictObject({
       status: z.enum(['active', 'complete']).default('complete'),
       step: z.number().int().min(0).max(2).default(0),
+      // First-run discovery (CONTEXT.md): offered at launch while pending with no projects, or started.
+      discovery: z.enum(['pending', 'started', 'complete', 'dismissed']).default('pending'),
     })
     .prefault({}),
   appearance: z
