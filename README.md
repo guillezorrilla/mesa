@@ -41,10 +41,13 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 
 ## Features
 
-- **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid.
+- **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid. Shift-click or Cmd-click several sessions and archive them together from a right-click menu.
+- **Bring the sessions you already have.** Mesa finds the Claude Code and Codex conversations of the last 30 days on your Mac, with the folders they ran in and the names you gave them. On first run it offers to add those projects and adopt their conversations in one step, so each one is a session you can resume. Later, **Add project > Find from sessions** or `mesa discover` does the same.
+- **One session across several repositories.** Work that spans an API and its web client, or a library and the app using it, runs as one session: `mesa open api --with web` gives every repository a worktree on the same branch and lets the agent read and change them all. Queue, fork and remove act on every worktree together, and nothing is removed while any of them has unsaved work.
 - **Every agent, the same controls.** Start Claude Code, Codex or Antigravity CLI in a project, a new worktree or a branch. Swap the agent of a fresh session, queue a session to start after another ends, and hand work to a successor, in the same agent or another, before its context fills.
 - **Shared memory in your vault.** Each profile owns an Obsidian vault: project hubs, notes, decisions, session summaries and a project map. Every agent reaches it through the same `mesa-vault` tools, and Obsidian opens it as is.
-- **Faro, the decisions layer.** Every judgment Mesa makes for you, such as what state a session is in or whether a prompt is safe to send, goes through Faro and is kept with its evidence. See [Decisions with Faro](#decisions-with-faro).
+- **Guardrails you can check.** Prompts sent into a session and other outside actions pass a guardrail that can allow, ask or block, and each block or override is saved as a Receipt in your vault with the evidence behind it.
+- **Light on your context.** Mesa adds a few hundred tokens to a session: a short note, three skills and the vault tools. The rest of the window stays for your work.
 - **Your project knowledge, imported.** Connect Atlassian and Notion once, then pick the Jira issues, Confluence pages and Notion pages to import, or paste any public link. Each import lands in the vault, and can start a session.
 - **Automations.** Per project, run a skill, start a session, message one, or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.
 - **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too.
@@ -61,17 +64,6 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
     <td align="center">The map of projects and sessions</td>
   </tr>
 </table>
-
-## Decisions with Faro
-
-Mesa makes many small judgments while your agents work: is this session waiting for you, did it finish or fail, is this prompt about to leak a secret or run something destructive. Faro is the layer that makes them, and it makes them in a way you can check.
-
-- **Rules, instantly and at no cost.** Deterministic rules answer every judgment, so nothing waits on a model and your agents work as they would on their own.
-- **Every answer has a confidence.** Each decision carries its probabilities and how sure it is, so you can see how far to trust it.
-- **An audit trail you own.** Deliberate decisions and guardrail blocks or overrides are saved as Receipts in your vault, with the evidence behind them.
-- **Guardrails before actions.** Prompts sent to a session and other outside actions pass a guardrail that can allow, ask, or block. No model ever sees a prompt before it is sent.
-
-Read more in the [Faro docs](packages/core/src/decisions/README.md), [ADR-0004](docs/adr/0004-faro-primitives-and-backends.md), [ADR-0020](docs/adr/0020-faro-rules-only-by-default.md) and [Receipts](docs/receipts.md).
 
 ## Install
 
@@ -93,7 +85,7 @@ mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.loc
 ## Quick start
 
 1. **First run.** Open Mesa. The Set up screen asks for a vault folder, creates your profile, and checks tmux and your agents. A short tour follows; you can leave it and resume it later.
-2. **Add a project.** In Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder. The project appears in the sidebar.
+2. **Add your projects.** If you already use Claude Code or Codex, Mesa offers after Set up to find your recent conversations: tick the folders to add, and their conversations become sessions you can resume, under their own names. Otherwise, in Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder.
 3. **Start a session.** Press **+** beside the project. A session starts at once with the project's agent (Claude Code unless you chose another) and opens in its own terminal. The sidebar shows its state: working, waiting for an answer, idle, or queued.
 4. **Use the CLI.** Everything above works from a terminal too:
 
@@ -103,6 +95,8 @@ mesa doctor                                  # check tmux, the agents, Obsidian,
 mesa hooks install                           # let Mesa follow each agent's state
 mesa register ~/code/my-app --create         # add a project
 mesa open my-app --goal "Fix the flaky login test"
+mesa open my-api --with my-web --worktree    # one session in two repositories, one branch
+mesa discover                                # recent Claude Code and Codex conversations on this Mac
 mesa sessions                                # every session, highest attention first
 mesa attach <session>                        # its terminal, right here
 ```
