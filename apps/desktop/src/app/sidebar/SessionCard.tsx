@@ -19,28 +19,35 @@ import { SessionCardMenu } from './SessionCardMenu';
  */
 export function SessionCard(props: {
   session: TreeRow;
+  /** The shown session's card. */
   selected: boolean;
+  /** In the tab's multi-selection. */
+  chosen: boolean;
   compact: boolean;
   onToggleCompact: () => void;
-  onSelect: () => void;
+  /** A click, with Shift to range or Cmd to toggle. */
+  onSelect: (keys: { shift: boolean; toggle: boolean }) => void;
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
   onDependencySession?: (id: string) => void;
 }) {
-  const { session, selected, compact } = props;
+  const { session, selected, chosen, compact } = props;
   return (
     <div className="group relative mb-1">
       <button
         type="button"
         data-testid="sidebar-session"
+        role="option"
+        aria-selected={chosen}
         aria-current={selected ? 'page' : undefined}
         className={cn(
-          'flex w-full flex-col justify-center gap-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
+          'flex w-full select-none flex-col justify-center gap-1 rounded-md border border-border/70 bg-card/40 px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring',
           compact ? 'min-h-9' : 'min-h-14',
+          chosen && 'border-ring/60 bg-accent',
           selected && 'border-ring bg-ring/15',
         )}
         title={`${projectLabel(session.project)}: ${sessionLabel(session)}: ${session.lastState.state}`}
-        onClick={props.onSelect}
+        onClick={(event) => props.onSelect({ shift: event.shiftKey, toggle: event.metaKey })}
       >
         <span className="flex w-full min-w-0 items-center gap-2 font-medium">
           {session.managed && session.kind === 'terminal' ? (

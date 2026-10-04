@@ -110,7 +110,7 @@ export function SelectedSessionBar({
           variant="ghost"
           size="icon-sm"
           aria-label="Archive session"
-          onClick={() => onDialog({ kind: 'archive', row })}
+          onClick={() => onDialog({ kind: 'archive', rows: [row] })}
         >
           <Archive aria-hidden />
         </Button>

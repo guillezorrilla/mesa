@@ -37,7 +37,7 @@ export function SessionRecovery({
       <Button
         variant="outline"
         disabled={acting}
-        onClick={() => onDialog({ kind: 'archive', row })}
+        onClick={() => onDialog({ kind: 'archive', rows: [row] })}
       >
         Dismiss
       </Button>

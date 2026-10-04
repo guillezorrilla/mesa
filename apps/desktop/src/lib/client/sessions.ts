@@ -3,6 +3,7 @@ import type {
   Attached,
   ConversationSearch,
   DescendantResult,
+  EachResult,
   GridGroup,
   InstructionStatus,
   NativeDiscovery,
@@ -91,6 +92,10 @@ export const sessionsCommands = {
     '--',
     id,
   ]),
+  'sessions.archiveEach': commandWith<
+    { ids: string[] },
+    EachResult<SessionRecord & { warning?: string }>
+  >(({ ids }) => ['archive', '--', ...ids]),
   'sessions.stop': commandWith<{ id: string }, Recorded<SessionRecord & { outcome: StopOutcome }>>(
     ({ id }) => ['stop', '--', id],
   ),

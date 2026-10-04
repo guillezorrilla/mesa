@@ -38,8 +38,10 @@ export function SessionsScreen(
     onRowsChange?: (rows: TreeRow[]) => void;
     onSessions?: () => void;
     onProject?: (project: string) => void;
-    archiveSessionRequest?: { count: number; id: string };
-    dependencySessionRequest?: { count: number; id: string };
+    archiveSessionRequest?: { count: number; ids: string[] };
+    dependencySessionRequest?: { count: number; ids: string[] };
+    /** Several sessions were archived together. */
+    onArchived?: () => void;
     terminalPreferences?: Config['terminal'];
     savedPrompts?: readonly SavedPrompt[];
     promptInsertRequest?: { session: string; text: string };
@@ -82,6 +84,7 @@ export function SessionsScreen(
     selectionVersion,
     onSelectSession: props.onSelectSession,
     onSessions: props.onSessions,
+    onArchived: props.onArchived,
   });
   const grid = useGrid({ panels, act, onGroupsChanged: props.onGridGroupsChanged });
 

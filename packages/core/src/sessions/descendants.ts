@@ -1,4 +1,5 @@
-import { type ErrorCode, MesaError, toFail } from '../lib/result.js';
+import { MesaError, toFail } from '../lib/result.js';
+import type { EachResult } from './each.js';
 
 type Linked = { id: string; parent?: string };
 
@@ -26,13 +27,7 @@ export function descendantOrder<T extends Linked>(records: readonly T[], id: str
   return ordered;
 }
 
-export type DescendantResult<T> = {
-  root: string;
-  items: (
-    | { id: string; ok: true; result: T }
-    | { id: string; ok: false; error: { code: ErrorCode; message: string }; skipped?: true }
-  )[];
-};
+export type DescendantResult<T> = EachResult<T> & { root: string };
 
 /** Apply an explicitly confirmed subtree one item at a time, preserving failures for retry. */
 export async function applyDescendants<T extends Linked, R>(

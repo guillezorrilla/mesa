@@ -21,6 +21,7 @@ export function useSessionCommands({
   selectionVersion,
   onSelectSession,
   onSessions,
+  onArchived,
 }: {
   act: SessionAct;
   once: SessionAct;
@@ -31,6 +32,8 @@ export function useSessionCommands({
   selectionVersion: RefObject<number>;
   onSelectSession?: (id: string) => void;
   onSessions?: () => void;
+  /** Several sessions were archived together: the sidebar clears its selection. */
+  onArchived?: () => void;
 }) {
   const run = useRun();
   const openTerminal = (id: string) =>
@@ -110,7 +113,7 @@ export function useSessionCommands({
       const removed = await run('sessions.remove', { id, ...opts });
       if (!removed) return undefined;
       closeDialog();
-      if (selectedSession === id) leaveClosedSession(id);
+      if (selectedSession === id) leaveClosedSession([id]);
       const also = [
         removed.worktree && 'its worktree',
         removed.branch && `branch ${removed.branch}`,
@@ -136,7 +139,7 @@ export function useSessionCommands({
         selectedSession &&
         result.items.some((item) => item.ok && item.id === selectedSession)
       )
-        leaveClosedSession(selectedSession);
+        leaveClosedSession([selectedSession]);
       const lines = result.items.map((item) =>
         item.ok
           ? `${item.id}: ${'outcome' in item.result ? item.result.outcome : 'removed'}${item.result.warning ? `; ${item.result.warning}` : ''}`
@@ -149,25 +152,49 @@ export function useSessionCommands({
           : 'confirmation',
       };
     });
-  const leaveClosedSession = (id: string) => {
-    const next = rows?.find((row) => row.id !== id && row.managed && !exited(row));
+  /** When the shown session is among `ids`, which closed, shows the next listed one that did not. */
+  const leaveClosedSession = (ids: readonly string[]) => {
+    if (!selectedSession || !ids.includes(selectedSession)) return;
+    const next = rows?.find((row) => !ids.includes(row.id) && row.managed && !exited(row));
     if (next) onSelectSession?.(next.id);
     else onSessions?.();
   };
-  const archive = (id: string) =>
+  /** Archives one session, or several in one `mesa archive`, which reports each. */
+  const archive = ([id, ...more]: string[]) =>
     act(async () => {
-      const archived = await run('sessions.archive', { id });
-      if (!archived) return undefined;
+      if (!id) return undefined;
+      if (more.length === 0) {
+        const archived = await run('sessions.archive', { id });
+        if (!archived) return undefined;
+        closeDialog();
+        leaveClosedSession([id]);
+        return said(`Archived session ${id}`, archived);
+      }
+      const result = await run('sessions.archiveEach', { ids: [id, ...more] });
+      if (!result) return undefined;
       closeDialog();
-      leaveClosedSession(id);
-      return said(`Archived session ${id}`, archived);
+      onArchived?.();
+      const done = result.items.flatMap((item) => (item.ok ? [item] : []));
+      leaveClosedSession(done.map((item) => item.id));
+      const lines = [
+        done.length > 0 && `Archived ${done.length} ${done.length === 1 ? 'session' : 'sessions'}`,
+        ...result.items.map((item) =>
+          item.ok
+            ? item.result.warning && `${item.id}: ${item.result.warning}`
+            : `${item.id}: ${item.error.message}`,
+        ),
+      ].filter(Boolean);
+      return {
+        text: lines.join('\n'),
+        tone: done.length < result.items.length ? 'alert' : 'confirmation',
+      };
     });
   const deletePermanently = (id: string) =>
     act(async () => {
       const removed = await run('sessions.remove', { id, force: true });
       if (!removed) return undefined;
       closeDialog();
-      leaveClosedSession(id);
+      leaveClosedSession([id]);
       return said(`Deleted session ${id}`, removed);
     });
   const open = (input: NewSessionInput) =>

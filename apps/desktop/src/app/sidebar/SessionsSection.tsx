@@ -5,10 +5,15 @@ import type { SessionLocation } from '../hooks/useStartSession';
 import type { WorkspaceView } from '../navigation';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
+import { SessionsMenu } from './SessionsMenu';
 import { StartingSessions } from './StartingSessions';
+import type { SelectionInput } from './sessionSelection';
 import type { SidebarGroups } from './sidebarGroups';
 
-/** The Sessions tab: active sessions by project, then General, Other, and Recoverable. */
+/**
+ * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
+ * multi-select list whose right-click menu archives the selection.
+ */
 export function SessionsSection(props: {
   groups: SidebarGroups;
   view: WorkspaceView;
@@ -19,6 +24,10 @@ export function SessionsSection(props: {
   /** Sessions whose cards show only their title. */
   compactSessions: readonly string[];
   onToggleCompact: (id: string) => void;
+  /** The selected sessions, in selection order. */
+  chosen: readonly string[];
+  onSelection: (input: SelectionInput) => void;
+  onArchiveSessions?: (ids: string[]) => void;
   starting?: readonly string[];
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onArchiveSession?: (id: string) => void;
@@ -26,21 +35,43 @@ export function SessionsSection(props: {
 }) {
   const { groups, view, onView } = props;
   const { visible, active, stranded, general, other } = groups;
+  const { chosen, onSelection } = props;
   const card = (session: TreeRow) => (
-    <SessionCard
+    <SessionsMenu
       key={session.id}
-      session={session}
-      selected={view.kind === 'session' && view.id === session.id}
-      compact={props.compactSessions.includes(session.id)}
-      onToggleCompact={() => props.onToggleCompact(session.id)}
-      onSelect={() => onView({ kind: 'session', id: session.id })}
-      onNewSession={props.onNewSession}
-      onArchiveSession={props.onArchiveSession}
-      onDependencySession={props.onDependencySession}
-    />
+      count={chosen.includes(session.id) ? chosen.length : 1}
+      onOpen={() => onSelection({ kind: 'context', id: session.id })}
+      onArchive={() =>
+        props.onArchiveSessions?.(chosen.includes(session.id) ? [...chosen] : [session.id])
+      }
+    >
+      <SessionCard
+        session={session}
+        selected={view.kind === 'session' && view.id === session.id}
+        chosen={chosen.includes(session.id)}
+        compact={props.compactSessions.includes(session.id)}
+        onToggleCompact={() => props.onToggleCompact(session.id)}
+        onSelect={(keys) => {
+          onSelection({ kind: 'click', id: session.id, ...keys });
+          if (!keys.shift && !keys.toggle) onView({ kind: 'session', id: session.id });
+        }}
+        onNewSession={props.onNewSession}
+        onArchiveSession={props.onArchiveSession}
+        onDependencySession={props.onDependencySession}
+      />
+    </SessionsMenu>
   );
   return (
-    <>
+    <div
+      role="listbox"
+      aria-multiselectable="true"
+      aria-label="Sessions"
+      onKeyDown={(event) => {
+        // An open menu's Escape bubbles here through React's tree, though its DOM is elsewhere.
+        if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node))
+          onSelection({ kind: 'escape' });
+      }}
+    >
       {visible.map((project) => (
         <ProjectSessionsGroup
           key={project.name}
@@ -83,6 +114,6 @@ export function SessionsSection(props: {
           No active sessions
         </Muted>
       )}
-    </>
+    </div>
   );
 }

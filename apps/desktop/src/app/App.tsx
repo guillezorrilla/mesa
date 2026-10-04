@@ -40,6 +40,8 @@ export function App() {
   const search = useSearchPalette();
   const [archiveSessionRequest, setArchiveSessionRequest] = useState<SessionRequest>();
   const [dependencySessionRequest, setDependencySessionRequest] = useState<SessionRequest>();
+  // Bumped when the sidebar's selected sessions were archived together, which clears it.
+  const [sessionsArchived, setSessionsArchived] = useState(0);
   const [promptInsertRequest, setPromptInsertRequest] = useState<{
     session: string;
     text: string;
@@ -170,11 +172,21 @@ export function App() {
           }
           onArchiveSession={(id) => {
             navigate({ kind: 'session', id });
-            setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, id }));
+            setArchiveSessionRequest((request) => ({
+              count: (request?.count ?? 0) + 1,
+              ids: [id],
+            }));
           }}
+          onArchiveSessions={(ids) =>
+            setArchiveSessionRequest((request) => ({ count: (request?.count ?? 0) + 1, ids }))
+          }
+          sessionsArchived={sessionsArchived}
           onDependencySession={(id) => {
             navigate({ kind: 'session', id });
-            setDependencySessionRequest((request) => ({ count: (request?.count ?? 0) + 1, id }));
+            setDependencySessionRequest((request) => ({
+              count: (request?.count ?? 0) + 1,
+              ids: [id],
+            }));
           }}
         />
         <WorkspaceMain
@@ -198,6 +210,7 @@ export function App() {
           onVaultSettings={() => workspace.openSettings('general')}
           archiveSessionRequest={archiveSessionRequest}
           dependencySessionRequest={dependencySessionRequest}
+          onSessionsArchived={() => setSessionsArchived((count) => count + 1)}
           promptInsertRequest={promptInsertRequest}
         />
       </div>
