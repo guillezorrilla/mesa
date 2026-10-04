@@ -51,12 +51,7 @@ export function discoverProjects(profile: Profile, root: string): DiscoveredProj
     visited++;
     const candidate = projectCandidate(current.path);
     if (candidate) {
-      const { error, ...fields } = candidate;
-      found.push({
-        ...fields,
-        registered: registered.has(current.path),
-        ...(error ? { error } : {}),
-      });
+      found.push({ ...candidate, registered: registered.has(current.path) });
       continue;
     }
     if (current.depth === 3) continue;

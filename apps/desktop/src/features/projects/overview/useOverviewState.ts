@@ -18,11 +18,7 @@ export function useOverviewState(project: ProjectRow) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [draft, setDraft] = useState<ItemDraft>();
-  // The other projects the next session also works in, kept with the project they were chosen
-  // for, so another project starts with none.
-  const [chosen, setChosen] = useState<{ project: string; names: string[] }>();
-  const additional = chosen?.project === project.name ? chosen.names : [];
-  const setAdditional = (names: string[]) => setChosen({ project: project.name, names });
+  const [additional, setAdditional] = useState<string[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent>(
     (project.agent as Agent | undefined) ?? DEFAULT_AGENT,
   );

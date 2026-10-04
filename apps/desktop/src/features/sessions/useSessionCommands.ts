@@ -21,7 +21,6 @@ export function useSessionCommands({
   selectionVersion,
   onSelectSession,
   onSessions,
-  onArchived,
 }: {
   act: SessionAct;
   once: SessionAct;
@@ -32,8 +31,6 @@ export function useSessionCommands({
   selectionVersion: RefObject<number>;
   onSelectSession?: (id: string) => void;
   onSessions?: () => void;
-  /** Several sessions were archived together: the sidebar clears its selection. */
-  onArchived?: () => void;
 }) {
   const run = useRun();
   const openTerminal = (id: string) =>
@@ -174,7 +171,6 @@ export function useSessionCommands({
       const result = await run('sessions.archiveEach', { ids: [id, ...more] });
       if (!result) return undefined;
       closeDialog();
-      onArchived?.();
       const done = result.items.flatMap((item) => (item.ok ? [item] : []));
       leaveClosedSession(done.map((item) => item.id));
       const lines = [

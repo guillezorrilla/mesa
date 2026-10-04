@@ -4,7 +4,8 @@ import { activeSession, recoverable } from '@/features/sessions/rows';
 
 /**
  * The sidebar's lists: the visible projects (pinned first), the active sessions, the recoverable
- * ones, and the active ones in no listed project, split into General and Other.
+ * ones, and the active ones in no listed project, split into General and Other; and a project's
+ * active sessions (inProject).
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
   const visible = projects
@@ -18,7 +19,8 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   );
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
-  return { visible, active, stranded, general, other };
+  const inProject = (name: string) => active.filter((session) => session.project === name);
+  return { visible, active, stranded, general, other, inProject };
 }
 
 export type SidebarGroups = ReturnType<typeof sidebarGroups>;
@@ -28,9 +30,9 @@ export type SidebarGroups = ReturnType<typeof sidebarGroups>;
  * for a folded one), then General, Other, and Recoverable.
  */
 export function sidebarOrder(groups: SidebarGroups, closedProjects: readonly string[]) {
-  const { visible, active, stranded, general, other } = groups;
+  const { visible, stranded, general, other, inProject } = groups;
   const projects = visible
     .filter((project) => !closedProjects.includes(project.name))
-    .flatMap((project) => active.filter((session) => session.project === project.name));
+    .flatMap((project) => inProject(project.name));
   return [...projects, ...general, ...other, ...stranded].map((session) => session.id);
 }

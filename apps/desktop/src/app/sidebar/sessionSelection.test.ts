@@ -138,3 +138,15 @@ test('a card that is no longer listed drops out of the selection', () => {
     ),
   ).toEqual(['cove0001']);
 });
+
+test('every chosen card gone, so the shown one is selected', () => {
+  // A right-click on another card, then its Archive: the card goes, the shown one stays.
+  const selection = nextSelection({}, { kind: 'context', id: 'tide0001' }, order, 'cove0001');
+  expect(
+    selectedIds(
+      selection,
+      order.filter((id) => id !== 'tide0001'),
+      'cove0001',
+    ),
+  ).toEqual(['cove0001']);
+});

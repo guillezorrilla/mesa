@@ -7,11 +7,11 @@ import {
 } from './sessionSelection';
 
 /**
- * The Sessions tab's selected cards, given their rendered `order`. A new shown session, or a new
- * `cleared` count (its selection was archived), starts over from the shown session alone.
+ * The Sessions tab's selected cards, given their rendered `order`. A new shown session starts over
+ * from the shown session alone.
  */
-export function useSessionSelection(order: readonly string[], shown?: string, cleared = 0) {
-  const key = `${shown ?? ''}:${cleared}`;
+export function useSessionSelection(order: readonly string[], shown?: string) {
+  const key = shown ?? '';
   const [state, setState] = useState<{ key: string; selection: SessionSelection }>({
     key,
     selection: {},

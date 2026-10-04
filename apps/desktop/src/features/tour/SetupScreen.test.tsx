@@ -144,13 +144,10 @@ test('Continue, enabled once the profile exists even with doctor unhealthy, open
   expect(byTestId('doctor-summary')).toHaveLength(1);
   expect(disabled(byTestId('setup-continue')[0])).toBe(false);
   await click(byTestId('setup-continue')[0]);
-  expect(calls).toContainEqual([
-    '--json',
-    'config',
-    'set',
-    '--',
-    'onboarding',
-    JSON.stringify({ status: 'active', step: 0 }),
+  const sets = calls.filter((args) => args[1] === 'config' && args[2] === 'set');
+  expect(sets.map((args) => args.slice(4))).toEqual([
+    ['onboarding.step', '0'],
+    ['onboarding.status', '"active"'],
   ]);
   expect(byTestId('setup-screen')).toEqual([]);
   expect(byTestId('welcome-tour')).toHaveLength(1);

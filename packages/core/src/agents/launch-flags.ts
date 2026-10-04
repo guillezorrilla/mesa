@@ -68,3 +68,11 @@ export function launchFlags(agent: Agent, defaults: LaunchDefaults, mode?: 'plan
 /** The launch flags of `agent` that turn off its permission checks or sandbox, for its receipt. */
 export const dangerousFlags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan') =>
   launchFlags(agent, defaults, mode).filter((flag) => DANGEROUS.has(flag));
+
+/**
+ * The extra folders an agent works in, an additional project's worktree each (CONTEXT.md,
+ * Additional project), as its arguments: `--add-dir=<path>` (Claude Code, whose --add-dir takes
+ * every word after it, the goal too, and Antigravity CLI), or `--add-dir <path>` (Codex).
+ */
+export const addDirArgs = (agent: Agent, dirs: readonly string[]) =>
+  dirs.flatMap((dir) => (agent === 'codex' ? ['--add-dir', dir] : [`--add-dir=${dir}`]));

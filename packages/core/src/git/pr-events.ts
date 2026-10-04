@@ -61,15 +61,22 @@ export type PrScan = {
    * The pull requests read in full, for the ledger to drop failing checks that are gone: each
    * session's open one with the checks it has now, and a closed or merged one with none.
    */
-  checked: { session: string; pr: number; checks: string[] }[];
+  checked: { session: string; project: string; pr: number; checks: string[] }[];
 };
 
 /** What was delivered: event ids, and the checks a delivered failure left failing. */
 export type PrDelivered = { delivered: ReadonlySet<string>; failing: ReadonlySet<string> };
 
-/** The key of one check of one pull request, as a session was told it failed. */
-export const failingKey = (event: { session: string; pr: { number: number }; check?: string }) =>
-  `${event.session}:${event.pr.number}:${event.check ?? ''}`;
+/**
+ * The key of one check of one pull request, as a session was told it failed: in its project, as
+ * each of a session's projects has its own pull requests (CONTEXT.md, Additional project).
+ */
+export const failingKey = (event: {
+  session: string;
+  project: string;
+  pr: { number: number };
+  check?: string;
+}) => `${event.session}:${event.project}:${event.pr.number}:${event.check ?? ''}`;
 
 const Author = z.object({ login: z.string() }).nullable().optional();
 /** gh prints these with every review and comment; the REST review comments as author_association. */
@@ -350,7 +357,8 @@ export async function scanPrEvents(
       branches.set(watch.branch, [...(branches.get(watch.branch) ?? []), watch.session]);
     for (const { pr, sessionIds } of matchBranches(listed.pullRequests, branches)) {
       if (pr.state !== 'OPEN') {
-        for (const session of sessionIds) checked.push({ session, pr: pr.number, checks: [] });
+        for (const session of sessionIds)
+          checked.push({ session, project, pr: pr.number, checks: [] });
         continue;
       }
       const activity = await readActivity(run, cwd, pr.number);
@@ -360,7 +368,12 @@ export async function scanPrEvents(
       }
       for (const watch of group.filter((w) => sessionIds.includes(w.session))) {
         events.push(...eventsFor(watch, pr, activity.data, told));
-        checked.push({ session: watch.session, pr: pr.number, checks: checkNames(activity.data) });
+        checked.push({
+          session: watch.session,
+          project,
+          pr: pr.number,
+          checks: checkNames(activity.data),
+        });
       }
     }
   }

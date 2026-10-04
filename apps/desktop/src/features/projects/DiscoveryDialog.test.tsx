@@ -52,16 +52,20 @@ const FOUND: NativeDiscovery = {
   ],
   conversations: [],
   total: 16,
+  unplaced: 0,
   truncated: false,
   unsupported: [{ agent: 'antigravity', reason: 'No qualified native CLI history source' }],
 };
 
-/** The dialog over FOUND, its `discover adopt` replies from `adopt`; config sets echo. */
-async function open(adopt: (args: string[]) => unknown = (args) => envelope(adoption(args))) {
+/** The dialog over `found`, its `discover adopt` replies from `adopt`; config sets echo. */
+async function open(
+  adopt: (args: string[]) => unknown = (args) => envelope(adoption(args)),
+  found: NativeDiscovery = FOUND,
+) {
   const onCancel = vi.fn();
   const onRegistered = vi.fn(async () => {});
   const { bridge, calls } = fakeBridge({
-    discover: () => envelope(FOUND),
+    discover: () => envelope(found),
     'discover adopt': adopt,
     'config set': (args) => envelope({ path: args.at(-2), value: JSON.parse(args.at(-1) ?? '') }),
   });
@@ -116,6 +120,21 @@ test('Find from sessions ticks each unregistered folder and no running session',
 
   await click(byTestId('discovery-tick')[0]);
   await click(byTestId('discovery-tick')[1]);
+  expect(byTestId('discovery-add')[0]?.hasAttribute('disabled')).toBe(true);
+});
+
+test('a folder with an error is shown unticked, as it is never added', async () => {
+  const reef = {
+    path: '/src/reef',
+    name: 'reef',
+    configured: true,
+    registered: false,
+    error: 'mesa.yaml: name is missing',
+    conversations: 2,
+    live: 0,
+  };
+  const { byTestId } = await open(undefined, { ...FOUND, projects: [reef] });
+  expect(byTestId('discovery-tick').map(checked)).toEqual([false]);
   expect(byTestId('discovery-add')[0]?.hasAttribute('disabled')).toBe(true);
 });
 

@@ -205,8 +205,13 @@ export async function deleteWorktree(
   await must(run, repo, args, `cannot remove the worktree ${worktree.path}`, ADD_MS);
 }
 
-/** Deletes a session's branch (mesa rm --delete-branch); git refuses one checked out elsewhere. */
+/**
+ * Deletes a session's branch (mesa rm --delete-branch); git refuses one checked out elsewhere. One
+ * already gone (an rm retried after a git failure) is left as it is.
+ */
 export async function deleteBranch(run: Runner, repo: string, branch: string) {
+  if ((await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`])) === undefined)
+    return;
   await must(
     run,
     repo,

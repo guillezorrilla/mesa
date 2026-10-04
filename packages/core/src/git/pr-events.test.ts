@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import type { Runner } from '../lib/process.js';
 import { type FakePullRequest, fakeGh, scriptedRunner, tempDir } from '../testing/index.js';
 import { prEventLedger } from './pr-event-ledger.js';
 import { type PrWatch, scanPrEvents } from './pr-events.js';
@@ -132,8 +133,13 @@ test('finds failed checks, reviews with state and author, and review and issue c
   expect(found.events[3]).toMatchObject({ trusted: true, excerpt: 'Off by one here.' });
   // Read in full: the open PR with its checks now, and the closed one on the same branch.
   expect(found.checked).toEqual([
-    { session: 'aaaaaaaa', pr: 42, checks: ['CI / build', 'CI / lint', 'CI / old', 'deploy'] },
-    { session: 'aaaaaaaa', pr: 41, checks: [] },
+    {
+      session: 'aaaaaaaa',
+      project: 'lantern-cove',
+      pr: 42,
+      checks: ['CI / build', 'CI / lint', 'CI / old', 'deploy'],
+    },
+    { session: 'aaaaaaaa', project: 'lantern-cove', pr: 41, checks: [] },
   ]);
   expect(found.events[2]).toMatchObject({
     id: 'aaaaaaaa:review:42:R1',
@@ -173,7 +179,7 @@ test('the ledger remembers what was delivered in the profile, and a fix is news 
   expect((await scanPrEvents(run, [watch], reopened.read())).events).toEqual([]);
   expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
     delivered: ['aaaaaaaa:check-failed:42:CI / build:2026-09-24T12:05:00Z'],
-    failing: ['aaaaaaaa:42:CI / build'],
+    failing: ['aaaaaaaa:lantern-cove:42:CI / build'],
   });
 
   const pull = gh.pullRequests[0];
@@ -191,6 +197,31 @@ test('the ledger remembers what was delivered in the profile, and a fix is news 
   // A passing check never failed for this session is not news.
   const other = { ...watch, session: 'bbbbbbbb' };
   expect((await scanPrEvents(run, [other], reopened.read())).events).toEqual([]);
+});
+
+test('a check passing in one repository of a session is not the fix of the same check failing in another', async () => {
+  const ledger = prEventLedger(join(tempDir(), 'pr-events.json'));
+  // The session's own repository and an additional project's, each with a PR #42 on its branch.
+  const tide: PrWatch = { ...watch, project: 'tide-pool', cwd: '/src/tide-pool-feature' };
+  const lantern = fakeGh([pr({ checks: [checkRun('FAILURE', '2026-09-24T12:05:00Z')] })]);
+  const tidePool = fakeGh([pr({ checks: [checkRun('SUCCESS', '2026-09-24T12:06:00Z')] })]);
+  const inLantern = scriptedRunner({ gh: lantern.answer }).run;
+  const inTide = scriptedRunner({ gh: tidePool.answer }).run;
+  const run: Runner = (file, args, ms, options) =>
+    (options?.cwd === tide.cwd ? inTide : inLantern)(file, args, ms, options);
+  const first = await scanPrEvents(run, [tide, watch], ledger.read());
+  expect(first.events.map((e) => [e.kind, e.project])).toEqual([['check-failed', 'lantern-cove']]);
+  ledger.claim(first.events);
+  expect((await scanPrEvents(run, [tide, watch], ledger.read())).events).toEqual([]);
+  // A read of tide-pool's PR without that check leaves lantern-cove's failure to be fixed.
+  ledger.prune(new Set(['aaaaaaaa']), [
+    { session: 'aaaaaaaa', project: 'tide-pool', pr: 42, checks: [] },
+    { session: 'aaaaaaaa', project: 'lantern-cove', pr: 42, checks: ['CI / build'] },
+  ]);
+  const pull = lantern.pullRequests[0];
+  if (pull) pull.checks = [checkRun('SUCCESS', '2026-09-24T12:30:00Z')];
+  const fixed = await scanPrEvents(run, [tide, watch], ledger.read());
+  expect(fixed.events.map((e) => [e.kind, e.project])).toEqual([['check-fixed', 'lantern-cove']]);
 });
 
 test('gh missing, logged out, or failing is a reported state, never an error or an invented event', async () => {
@@ -280,10 +311,13 @@ test('the ledger drops failing checks of a session gone, a PR closed, or a check
     failed('bbbbbbbb', 42, 'CI / build'),
   ]);
   ledger.prune(new Set(['aaaaaaaa']), [
-    { session: 'aaaaaaaa', pr: 42, checks: ['CI / build'] },
-    { session: 'aaaaaaaa', pr: 41, checks: [] },
+    { session: 'aaaaaaaa', project: 'lantern-cove', pr: 42, checks: ['CI / build'] },
+    { session: 'aaaaaaaa', project: 'lantern-cove', pr: 41, checks: [] },
   ]);
-  expect([...ledger.read().failing]).toEqual(['aaaaaaaa:42:CI / build', 'aaaaaaaa:40:CI / build']);
+  expect([...ledger.read().failing]).toEqual([
+    'aaaaaaaa:lantern-cove:42:CI / build',
+    'aaaaaaaa:lantern-cove:40:CI / build',
+  ]);
 });
 
 test('a link that is not one plain HTTPS URL falls back to the pull request', async () => {

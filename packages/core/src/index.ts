@@ -107,11 +107,12 @@ export type {
   ChangeReviewPreview,
 } from './sessions/change-review.js';
 export type { DescendantResult } from './sessions/descendants.js';
-export type {
-  NativeConversation,
-  NativeDiscovery,
-  NativeLive,
-  NativeProject,
+export {
+  DISCOVERY_DAYS,
+  type NativeConversation,
+  type NativeDiscovery,
+  type NativeLive,
+  type NativeProject,
 } from './sessions/discovery.js';
 export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/discovery-adopt.js';
 export type { EachResult, ItemResult } from './sessions/each.js';

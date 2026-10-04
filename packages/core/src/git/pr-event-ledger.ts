@@ -87,7 +87,7 @@ export function prEventLedger(file: string) {
      */
     prune: (live: ReadonlySet<string>, checked: PrScan['checked']) => {
       const keyOf = (c: PrScan['checked'][number], check = '') =>
-        failingKey({ session: c.session, pr: { number: c.pr }, check });
+        failingKey({ session: c.session, project: c.project, pr: { number: c.pr }, check });
       const keep = (key: string) => {
         if (![...live].some((session) => key.startsWith(`${session}:`))) return false;
         const read = checked.find((c) => key.startsWith(keyOf(c)));

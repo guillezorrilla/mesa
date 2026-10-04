@@ -10,14 +10,18 @@ export type SelectionInput =
   | { kind: 'context'; id: string }
   | { kind: 'escape' };
 
-/** The selected ids still shown as cards, in selection order; by default the shown session. */
+/**
+ * The selected ids still shown as cards, in selection order; by default the shown session, and
+ * again once every chosen card is gone (archived).
+ */
 export function selectedIds(
   selection: SessionSelection,
   order: readonly string[],
   shown?: string,
 ): string[] {
-  const ids = selection.ids ?? (shown ? [shown] : []);
-  return ids.filter((id) => order.includes(id));
+  const fallback = shown && order.includes(shown) ? [shown] : [];
+  const listed = (selection.ids ?? fallback).filter((id) => order.includes(id));
+  return selection.ids?.length && !listed.length ? fallback : listed;
 }
 
 /** The selection after `input`, given the cards' rendered `order` and the shown session. */

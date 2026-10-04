@@ -128,14 +128,17 @@ export function SessionActionsMenu({
             row.agent !== 'terminal' &&
             supportsAgentCapability(row.agent, 'fork') && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => commands.fork(row.id)}
-                  disabled={!row.agentSessionId || acting}
-                >
-                  <Plus aria-hidden /> Fork session
-                </Button>
+                {/* A session across several projects forks only onto a branch of its own. */}
+                {!row.additional && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => commands.fork(row.id)}
+                    disabled={!row.agentSessionId || acting}
+                  >
+                    <Plus aria-hidden /> Fork session
+                  </Button>
+                )}
                 {row.project !== GENERAL_PROJECT && (
                   <Button
                     variant="outline"

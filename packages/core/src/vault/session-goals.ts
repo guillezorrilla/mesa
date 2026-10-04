@@ -34,7 +34,8 @@ const holds = (vault: string, path: string) =>
 
 /**
  * The agent sessions in the project, as its primary or an additional project (neither plain
- * terminals nor skill runs), ended and archived ones too, newest first, at most `limit` (a positive whole number, else usage), without `exclude`.
+ * terminals nor skill runs), ended and archived ones too, newest first, at most `limit` (a
+ * positive whole number, else usage), without `exclude`.
  */
 export function sessionGoals(
   deps: { store: SessionStore; vault: string },

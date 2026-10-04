@@ -57,16 +57,18 @@ export async function adoptDiscovered(
   const failed: DiscoveryAdoption['failed'] = [];
   const warnings: string[] = [];
   const adopt = async (
-    rows: readonly { agent: 'claude' | 'codex'; id: string }[],
+    rows: readonly { agent: 'claude' | 'codex'; id: string; name?: string }[],
     resume: boolean,
   ) => {
     const done: DiscoveredAdoption[] = [];
-    for (const { agent, id } of rows) {
+    for (const { agent, id, name } of rows) {
       try {
+        // The native name discovery read already, not read again.
         const { record, warning } = await adoptSession(batch, {
           agentSessionId: id,
           project,
           noResume: !resume,
+          ...(name !== undefined && { name }),
         });
         done.push({
           id: record.id,

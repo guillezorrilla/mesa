@@ -80,17 +80,19 @@ export function launchWorktrees(run: Runner) {
     },
     /**
      * Removes what it made, newest first, each on its own: one that cannot be removed is named in
-     * the error (named) and the rest still go. Whether there was any; never throws.
+     * the error (named) and the rest still go. The paths it removed; never throws.
      */
     async undo() {
+      const removed: string[] = [];
       for (const { repo, worktree } of [...made].reverse()) {
         try {
           await removeWorktree(run, repo, worktree);
+          removed.push(worktree.path);
         } catch {
           stuck.push(worktree.path);
         }
       }
-      return made.length > 0;
+      return removed;
     },
     /** `error`, naming the worktrees kept and those that could not be removed. */
     named(error: unknown) {
@@ -111,7 +113,7 @@ export type AdditionalStart = { entry: RegistryEntry; base?: string | undefined 
 /**
  * Makes each additional project's worktree in order on the session's branch, from its `base` if
  * new (sessionWorktree: an unheld one there is taken as it is), each written to the record and
- * noted in `made` as it is made.
+ * noted in `made` as it is made. One already on the record (a start retried after a kill) stays.
  */
 export async function createAdditional(
   deps: { profile: Profile; run: Runner; store: SessionStore },
@@ -124,6 +126,7 @@ export async function createAdditional(
     throw new MesaError('internal', 'additional projects need the session worktree first');
   let current = record;
   for (const { entry, base } of entries) {
+    if (current.additional?.some((a) => a.project === entry.name)) continue;
     const selected = await sessionWorktree(deps.profile, deps.run, deps.store, entry, branch, base);
     made.add(deps.profile, entry, selected);
     const added = { project: entry.name, worktree: selected.worktree };
