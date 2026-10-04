@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
 import type { SessionRecord } from '../sessions/record.js';
+import { sessionProjects } from '../sessions/session-projects.js';
 import type { SessionStore } from '../sessions/store.js';
 import { sessionSummaryPath } from './layout.js';
 import { outOfScope } from './scope.js';
@@ -32,8 +33,8 @@ const holds = (vault: string, path: string) =>
   statSync(join(vault, path), { throwIfNoEntry: false })?.isFile() === true;
 
 /**
- * The project's agent sessions (neither plain terminals nor skill runs), ended and archived ones
- * too, newest first, at most `limit` (a positive whole number, else usage), without `exclude`.
+ * The agent sessions in the project, as its primary or an additional project (neither plain
+ * terminals nor skill runs), ended and archived ones too, newest first, at most `limit` (a positive whole number, else usage), without `exclude`.
  */
 export function sessionGoals(
   deps: { store: SessionStore; vault: string },
@@ -45,7 +46,9 @@ export function sessionGoals(
   }
   return deps.store
     .list()
-    .filter((r) => r.project === project && r.kind === 'interactive' && r.id !== exclude)
+    .filter(
+      (r) => sessionProjects(r).includes(project) && r.kind === 'interactive' && r.id !== exclude,
+    )
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt) || b.id.localeCompare(a.id))
     .slice(0, limit)
     .map((r) => {

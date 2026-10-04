@@ -66,3 +66,16 @@ test('workspace search offers Sessions instead of the removed desktop Board view
     detail: 'Open session workspace',
   });
 });
+
+test('a session hit names its additional projects after its own', () => {
+  const across = {
+    ...session('aaaaaaaa', '2026-09-25'),
+    additional: [
+      { project: 'tide-pool', worktree: { path: '/w/tide-pool/b', branch: 'b' } },
+      { project: 'driftwood', worktree: { path: '/w/driftwood/b', branch: 'b' } },
+    ],
+  } as TreeRow;
+  const [hit] = searchWorkspace(projects, [across], 'aaaaaaaa');
+  expect(hit?.detail).toBe('lantern-cove +tide-pool,driftwood · claude · working');
+  expect(searchWorkspace(projects, [across], 'driftwood').map((h) => h.id)).toContain('aaaaaaaa');
+});

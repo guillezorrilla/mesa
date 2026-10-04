@@ -579,6 +579,19 @@ export function newSession(overrides: Partial<NewSession> = {}): NewSession {
   };
 }
 
+/**
+ * A session record across two projects (mesa open --with): lantern-cove, with tide-pool as its
+ * additional project, each in its worktree on `feature` under /w, unless `overrides` say otherwise.
+ */
+export function multiProjectSession(overrides: Partial<NewSession> = {}): NewSession {
+  const at = (project: string) => ({ path: `/w/${project}/feature`, branch: 'feature' });
+  return newSession({
+    worktree: at('lantern-cove'),
+    additional: [{ project: 'tide-pool', worktree: at('tide-pool') }],
+    ...overrides,
+  });
+}
+
 export { fakeRelease } from './about.js';
 export { isolateTmp, tempDir } from './tmp.js';
 

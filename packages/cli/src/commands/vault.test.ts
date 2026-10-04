@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { newSession, shortIds, testStore } from '@mesa/core/testing';
+import { multiProjectSession, newSession, shortIds, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { VERSION } from '../cli.js';
 import { cliHarness } from '../testing.js';
@@ -400,6 +400,40 @@ test('vault open opens the exact item, a canvas or a file with no extension', as
       `obsidian://open?vault=vault&file=${encodeURIComponent(path)}`,
     );
   }
+});
+
+test("vault save note --project names any of the session's projects, an additional one too", async () => {
+  await cli.withProject();
+  for (const name of ['tide-pool', 'driftwood']) {
+    mkdirSync(join(cli.home, 'src', name));
+    await mesa('register', '--create', join(cli.home, 'src', name));
+  }
+  const { id } = testStore(cli.home).create(() => multiProjectSession());
+  const note = (project: string) =>
+    mesa(
+      'vault',
+      'save',
+      'note',
+      '--project',
+      project,
+      '--session',
+      id,
+      '--title',
+      'Client',
+      '--text',
+      'Invented.',
+      '--json',
+    );
+  const saved = await note('tide-pool');
+  expect(saved.code, saved.stdout).toBe(0);
+  const text = readFileSync(join(cli.home, 'vault', saved.json.data.path), 'utf8');
+  expect(text).toContain('project: tide-pool\n');
+  expect(text).toContain(`session: "${id}"\n`);
+  const elsewhere = await note('driftwood');
+  expect(elsewhere.code).toBe(2);
+  expect(elsewhere.json.error.message).toBe(
+    `session ${id} is on lantern-cove, tide-pool, not driftwood`,
+  );
 });
 
 test('vault save decision, summary, and note print {path, changed, receipt}; a repeat adds no receipt', async () => {

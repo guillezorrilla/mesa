@@ -1,4 +1,4 @@
-import { sessionLabel } from '../display.js';
+import { additionalLabel, sessionLabel } from '../display.js';
 import type { ProjectRow } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
@@ -86,7 +86,7 @@ export function searchWorkspace(
         kind: 'session',
         id: session.id,
         label: sessionLabel(session),
-        detail: `${session.project ?? 'General'} · ${session.agent} · ${session.lastState.state}`,
+        detail: `${[session.project ?? 'General', additionalLabel(session)].filter(Boolean).join(' ')} · ${session.agent} · ${session.lastState.state}`,
       }),
     )
     .filter(matches)

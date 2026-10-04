@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import {
+  multiProjectSession,
   newSession,
   projectProfile,
   scriptedRunner,
@@ -74,4 +75,15 @@ test('the calling session is left out by default; a bad limit and an unknown pro
     message: 'the limit must be a positive whole number, not 0',
   });
   expect(thrown(() => mesa.vault.goals('driftwood')).code).toBe('not_found');
+});
+
+test('a session lists its goal on each of its projects, its additional ones too', () => {
+  mkdirSync(join(home, 'src/tide-pool'));
+  mesa.projects.register(join(home, 'src/tide-pool'), true);
+  const across = sessions.create(() =>
+    multiProjectSession({ startedAt: at(2), goal: 'Wire both' }),
+  );
+  sessions.create(() => newSession({ startedAt: at(1), project: 'driftwood', goal: 'Elsewhere' }));
+  expect(mesa.vault.goals('tide-pool').map((g) => g.id)).toEqual([across.id]);
+  expect(mesa.vault.goals('lantern-cove').map((g) => g.goal)).toEqual(['Wire both']);
 });
