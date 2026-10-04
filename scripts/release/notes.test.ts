@@ -11,6 +11,7 @@ describe('section', () => {
     const notes = section('0.1.2', '2026-10-03', [
       'chore(release): 0.1.2 (#610)',
       'feat(sessions): queue a session after another (#609)',
+      'feat: start without an area (#611)',
       'fix(vault): keep one index line per note (#608)',
       'perf(app): open the board faster (#607)',
       'feat(app)!: drop the old sidebar (#606)',
@@ -24,6 +25,7 @@ describe('section', () => {
 ### Features
 
 - **sessions**: queue a session after another (#609)
+- start without an area (#611)
 
 ### Fixes
 
@@ -39,7 +41,7 @@ describe('section', () => {
 
 ### Other
 
-- say how releases work (#605)
+- **docs**: say how releases work (#605)
 - **sessions**: list native projects machine-wide (#495) (#502)
 - Initial commit
 `);
@@ -92,10 +94,12 @@ describe('CHANGELOG.md', () => {
     );
   });
 
-  it('replaces the section of the same version instead of adding another', () => {
+  it('replaces the section of the same version in its place instead of adding another', () => {
     const once = withSection(`# Changelog\n\n${old}`, '0.1.2', fresh);
     const again = fresh.replace('new', 'newer');
     expect(withSection(once, '0.1.2', again)).toBe(`# Changelog\n\n${again}\n${old}`);
+    const older = old.replace('old', 'older');
+    expect(withSection(once, '0.1.1', older)).toBe(`# Changelog\n\n${fresh}\n${older}`);
   });
 
   it("reads a version's section without its heading, or nothing", () => {

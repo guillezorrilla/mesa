@@ -14,7 +14,9 @@ import { join } from 'node:path';
 const HEADINGS = { feat: 'Features', fix: 'Fixes', perf: 'Performance' };
 const ORDER = ['Features', 'Fixes', 'Performance', 'Breaking changes', 'Other'];
 const TYPES = ['feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'build', 'ci', 'chore'];
-// A typed subject, or a legacy `area: summary` one, whose area then stands where the type does.
+// A typed subject, or a legacy `area: summary` one, whose area then stands where the type does. A
+// typed one without a scope outside Features, Fixes and Performance keeps its type as its area,
+// since a legacy `docs: ...` reads the same.
 const SUBJECT = /^([a-z0-9-]+)(?:\(([a-z0-9-]+)\))?(!)?: (.+)$/;
 
 /** A subject's heading and line, or undefined for a version bump. */
@@ -24,7 +26,7 @@ function entry(subject) {
   const [, word, scope, breaking, summary] = match;
   if ((word === 'chore' && scope === 'release') || (word === 'release' && !scope)) return;
   const typed = TYPES.includes(word);
-  const area = typed ? scope : word;
+  const area = typed && (scope || HEADINGS[word]) ? scope : word;
   const heading = breaking ? 'Breaking changes' : (typed && HEADINGS[word]) || 'Other';
   return { heading, line: `- ${area ? `**${area}**: ` : ''}${summary}` };
 }
@@ -59,11 +61,13 @@ export function subjects(version, dir) {
 
 const versionSection = (version) => (part) => part.startsWith(`## ${version} `);
 
-/** `changelog` with `text` as `version`'s section, the newest under the title. */
+/** `changelog` with `text` as `version`'s section: in its place when it has one, else first. */
 export function withSection(changelog, version, text) {
   const [title, ...parts] = (changelog || '# Changelog\n').split(/^(?=## )/m);
-  const others = parts.filter((part) => !versionSection(version)(part));
-  return `${[title, text, ...others].map((part) => part.trim()).join('\n\n')}\n`;
+  const at = parts.findIndex(versionSection(version));
+  if (at === -1) parts.unshift(text);
+  else parts[at] = text;
+  return `${[title, ...parts].map((part) => part.trim()).join('\n\n')}\n`;
 }
 
 /** `version`'s section in `changelog` without its heading, or '' when it has none. */
@@ -85,7 +89,7 @@ if (import.meta.main) {
     const notes = published(changelog, version);
     if (notes) console.log(notes);
   } else {
-    const date = new Date().toISOString().slice(0, 10);
+    const date = new Date().toISOString().slice(0, 10); // UTC
     const text = section(version, date, subjects(version, root));
     if (mode === '--write') {
       writeFileSync(file, withSection(changelog, version, text));

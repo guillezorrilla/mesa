@@ -2,7 +2,7 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
-## 0.1.1 - 2026-10-03
+## 0.1.1 - 2026-10-04
 
 ### Features
 
