@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest';
+import { existsSync } from 'node:fs';
+import { afterAll, beforeAll, expect, test } from 'vitest';
 import { vaultServer } from '../agents/vault-mount.js';
 import { profilePaths } from '../profile/paths.js';
 import { openProfile } from '../profile/profile.js';
@@ -6,13 +7,20 @@ import {
   CLAUDE_VERSION,
   fakeTmux,
   fixedClock,
+  isolateGit,
   projectProfile,
+  repoState,
   scriptedRunner,
   sequentialUuids,
+  testGit,
   testStore,
+  twoProjects,
+  worktreeAt,
 } from '../testing/index.js';
 import { startQueued } from './queue.js';
 import { tmuxBackend } from './tmux/backend.js';
+
+isolateGit({ beforeAll, afterAll });
 
 const now = '2026-09-24T12:00:00.000Z';
 
@@ -104,4 +112,51 @@ test('a start that fails leaves it failed and ended, with no conversation to res
   expect(failed.pending).toBeUndefined();
   expect(failed.agentSessionId).toBeUndefined();
   expect(windows()).toHaveLength(0);
+});
+
+test('a queued --with session has no worktree while queued, and one in each project once its target ends', async () => {
+  const { world, home, mesa } = twoProjects();
+  const a = (await mesa.sessions.open('lantern-cove')).result;
+  const b = (
+    await mesa.sessions.open('lantern-cove', { after: a.id, with: ['tide-pool'], branch: 'shared' })
+  ).result;
+  expect(b).toMatchObject({
+    lastState: { state: 'queued' },
+    pending: { branch: 'shared', with: ['tide-pool'] },
+  });
+  expect(b.worktree).toBeUndefined();
+  expect(b.additional).toBeUndefined();
+  for (const project of ['lantern-cove', 'tide-pool'])
+    expect(existsSync(worktreeAt(home, project, 'shared'))).toBe(false);
+
+  await mesa.sessions.stop(a.id, true);
+  const started = await mesa.sessions.show(b.id);
+  expect(started.lastState.state).not.toBe('queued');
+  expect(started.pending).toBeUndefined();
+  expect(started.worktree?.path).toBe(worktreeAt(home, 'lantern-cove', 'shared'));
+  const tide = worktreeAt(home, 'tide-pool', 'shared');
+  expect(started.additional).toEqual([
+    { project: 'tide-pool', worktree: { path: tide, branch: 'shared', base: 'main' } },
+  ]);
+  expect(existsSync(tide)).toBe(true);
+  const window = world.tmux.windows.find((w) => w.window === `claude-${b.id}`);
+  expect(window?.launch).toContain(`'--add-dir=${tide}'`);
+});
+
+test('a queued --with start failing on the second repo leaves it failed and both repos as they were', async () => {
+  const { dir, tide, mesa } = twoProjects();
+  const a = (await mesa.sessions.open('lantern-cove')).result;
+  const b = (
+    await mesa.sessions.open('lantern-cove', { after: a.id, with: ['tide-pool'], branch: 'shared' })
+  ).result;
+  // The branch is checked out in tide-pool by the time it starts: its worktree cannot be added.
+  testGit(tide, 'checkout', '-q', '-b', 'shared');
+  const before = { alpha: repoState(dir), beta: repoState(tide) };
+  await mesa.sessions.stop(a.id, true);
+  const failed = await mesa.sessions.show(b.id);
+  expect(failed).toMatchObject({ lastState: { state: 'failed' } });
+  expect(failed.endedAt).toBeDefined();
+  expect(failed.worktree).toBeUndefined();
+  expect(failed.additional).toBeUndefined();
+  expect({ alpha: repoState(dir), beta: repoState(tide) }).toEqual(before);
 });

@@ -4,6 +4,7 @@ import type { BrowserPageSelection, MesaDeps, Runner } from '@mesa/core';
 import {
   CLAUDE_VERSION,
   fakeTmux,
+  gitRepo,
   importWorld,
   profilePaths,
   scriptedRunner,
@@ -11,6 +12,7 @@ import {
   sequentialUuids,
   tempDir,
   testDeps,
+  withRealGit,
 } from '@mesa/core/testing';
 import { type CliDeps, runCli } from './cli.js';
 import { COMMANDS } from './commands/index.js';
@@ -117,6 +119,22 @@ export function cliHarness() {
       mkdirSync(dir, { recursive: true });
       await h.mesa('register', '--create', dir);
       return dir;
+    },
+    /**
+     * lantern-cove and tide-pool registered, each a git repository on main through the real git
+     * (the test file calls isolateGit), over a tmux server in memory: for a session across
+     * projects (--with). The server, and both folders.
+     */
+    withTwoProjects: async () => {
+      const tmux = h.withTmux();
+      h.run = withRealGit(h.run);
+      const dir = await h.withProject();
+      gitRepo(dir);
+      const tide = join(h.home, 'src/tide-pool');
+      mkdirSync(tide, { recursive: true });
+      await h.mesa('register', '--create', tide);
+      gitRepo(tide);
+      return { tmux, dir, tide };
     },
     /**
      * lantern-cove with Atlassian connected, over importWorld; the world, to serve items, the

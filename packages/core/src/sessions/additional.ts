@@ -105,23 +105,25 @@ export function launchWorktrees(run: Runner) {
   };
 }
 
+/** An additional project a launch gives a worktree, and the ref its new branch starts from. */
+export type AdditionalStart = { entry: RegistryEntry; base?: string | undefined };
+
 /**
- * Makes each additional project's worktree in order on the session's branch, from `base` if new
- * (sessionWorktree: an unheld one there is taken as it is), each written to the record and noted
- * in `made` as it is made.
+ * Makes each additional project's worktree in order on the session's branch, from its `base` if
+ * new (sessionWorktree: an unheld one there is taken as it is), each written to the record and
+ * noted in `made` as it is made.
  */
 export async function createAdditional(
   deps: { profile: Profile; run: Runner; store: SessionStore },
   record: SessionRecord,
-  entries: readonly RegistryEntry[],
-  base: string | undefined,
+  entries: readonly AdditionalStart[],
   made: ReturnType<typeof launchWorktrees>,
 ): Promise<SessionRecord> {
   const branch = record.worktree?.branch;
   if (branch === undefined)
     throw new MesaError('internal', 'additional projects need the session worktree first');
   let current = record;
-  for (const entry of entries) {
+  for (const { entry, base } of entries) {
     const selected = await sessionWorktree(deps.profile, deps.run, deps.store, entry, branch, base);
     made.add(deps.profile, entry, selected);
     const added = { project: entry.name, worktree: selected.worktree };

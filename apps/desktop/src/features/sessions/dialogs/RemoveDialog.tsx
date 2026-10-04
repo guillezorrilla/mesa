@@ -9,7 +9,9 @@ import { useDeleteBranch } from './useDeleteBranch';
 
 /**
  * Confirms removing an ended session by listing what will be deleted: its record, hook log, and
- * output log, and, when asked, its worktree and branch. Git refuses a worktree with changes; the toast says so.
+ * output log, and, when asked, its worktree and branch, and each additional project's (listed
+ * under the two choices). Mesa refuses a worktree with changes before anything goes; the toast
+ * says so.
  */
 export function RemoveDialog(props: {
   row: ManagedRow;
@@ -20,10 +22,15 @@ export function RemoveDialog(props: {
   const { row } = props;
   const [deleteWorktree, setDeleteWorktree] = useState(false);
   const [deleteBranch, setDeleteBranch] = useDeleteBranch();
+  const others = row.additional ?? [];
   const goes = [
     `session ${row.id}'s record, its hook log, and its output log`,
     ...(row.worktree && deleteWorktree ? [`its worktree ${row.worktree.path}`] : []),
     ...(row.worktree && deleteBranch ? [`its branch ${row.worktree.branch}`] : []),
+    ...others.flatMap((a) => [
+      ...(deleteWorktree ? [`${a.project}'s worktree ${a.worktree.path}`] : []),
+      ...(deleteBranch ? [`${a.project}'s branch ${a.worktree.branch}`] : []),
+    ]),
   ];
   return (
     <ActionDialog
@@ -70,6 +77,19 @@ export function RemoveDialog(props: {
             />
             <Label htmlFor="remove-branch">Also delete its branch</Label>
           </div>
+          {others.length > 0 && (
+            <ul className="grid gap-1 pl-6">
+              {others.map((a) => (
+                <li
+                  key={a.project}
+                  data-testid={`remove-additional-${a.project}`}
+                  className="break-all text-xs text-muted-foreground"
+                >
+                  {a.project}: worktree {a.worktree.path}, branch {a.worktree.branch}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </ActionDialog>

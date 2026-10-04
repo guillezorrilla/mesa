@@ -1,7 +1,7 @@
 import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
-import { additionalDirs } from './additional.js';
+import { additionalDirs, additionalProjects } from './additional.js';
 import { type LaunchDeps, launched, launchProject, startSession } from './launch.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -30,8 +30,9 @@ export const dueToStart = (store: SessionStore, over: (id: string) => boolean, n
 /**
  * Starts a queued session the way `mesa open` starts one (its agent checked, its worktree, its
  * skills, its window), exactly once: the claim is taken under the record's lock, so of two
- * signals at once, one starts it and the other gets undefined. A start that fails leaves the
- * session `failed` and ended, its new worktree removed (startSession), and throws.
+ * signals at once, one starts it and the other gets undefined. Its `pending.with` projects each get
+ * a worktree on its branch too (additional.ts). A start that fails leaves the session `failed` and
+ * ended, every new worktree removed (startSession), and throws.
  */
 export async function startQueued(
   deps: LaunchDeps & { newUuid: IdSource; tmux: Pick<TmuxBackend, 'openWindow' | 'findWindow'> },
@@ -62,7 +63,9 @@ export async function startQueued(
   try {
     const { entry } = launchProject(deps.profile, claimed.project);
     await readyAgent(deps.run, claimed.agent);
-    const { branch, base } = claimed.pending ?? {};
+    const { branch, base, with: extra } = claimed.pending ?? {};
+    // Checked again: a project may have gone, or its setup changed, since it was queued.
+    const additional = extra && entry ? await additionalProjects(deps, entry, extra) : undefined;
     // A start killed after its window opened left that window, its worktree and skills already
     // made: it is this session's.
     const { warning } = (await deps.tmux.findWindow(windowOf(claimed)))
@@ -78,6 +81,7 @@ export async function startQueued(
             ),
           branch,
           base,
+          ...(additional ? { additional: additional.map((e) => ({ entry: e, base })) } : {}),
         });
     const started = deps.store.update(id, {
       pending: undefined,

@@ -615,3 +615,32 @@ test('open --with gives each project a worktree on one branch; refusals leave no
   const shown = (await cli.mesa('show', data.id, '--json')).json.data;
   expect(shown.additional).toEqual(data.additional);
 });
+
+test('open --after --with queues with pending.with, and starts with both worktrees once its target ends', async () => {
+  const { tmux } = await cli.withTwoProjects();
+  const a = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
+  const queued = await cli.mesa(
+    'open',
+    'lantern-cove',
+    '--after',
+    a.id,
+    '--with',
+    'tide-pool',
+    '--json',
+  );
+  expect(queued.code, queued.stdout).toBe(0);
+  const b = queued.json.data;
+  expect(b).toMatchObject({
+    lastState: { state: 'queued' },
+    pending: { branch: expect.stringMatching(/^session\//), with: ['tide-pool'] },
+  });
+  expect(b.additional).toBeUndefined();
+  expect((await cli.mesa('stop', a.id, '--force')).code).toBe(0);
+  const started = (await cli.mesa('show', b.id, '--json')).json.data;
+  expect(started.worktree.branch).toBe(b.pending.branch);
+  expect(started.additional).toMatchObject([
+    { project: 'tide-pool', worktree: { branch: b.pending.branch } },
+  ]);
+  const launch = tmux.windows.find((w) => w.window === `claude-${b.id}`)?.launch ?? '';
+  expect(launch).toContain(`--add-dir=${started.additional[0].worktree.path}`);
+});

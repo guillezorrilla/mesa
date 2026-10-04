@@ -12,6 +12,7 @@ import {
   projectProfile,
   scriptedRunner,
   testGit,
+  twoProjects,
   withRealGit,
 } from '../testing/index.js';
 import { costTally } from '../usage/session-cost.js';
@@ -130,7 +131,7 @@ test('--delete-worktree removes a clean worktree, refuses a dirty one unless --f
   writeFileSync(join(dirty.worktree?.path ?? '', 'notes.md'), 'unsaved\n');
   await expect(mesa.sessions.remove(dirty.id, { deleteWorktree: true })).rejects.toMatchObject({
     code: 'usage',
-    message: expect.stringMatching(/^cannot remove the worktree .*dirty: fatal: .*untracked files/),
+    message: `lantern-cove's worktree at ${dirty.worktree?.path} has changes or untracked files: commit or remove them, or pass --force`,
   });
   // Refused before the record went: it is still there to retry.
   expect((await mesa.sessions.show(dirty.id)).worktree?.branch).toBe('dirty');
@@ -155,9 +156,87 @@ test('rm of a session resumed since leaves the worktree the newer session has', 
   const { result: resumed } = await mesa.sessions.resume(first.id);
   await expect(mesa.sessions.remove(first.id, { deleteWorktree: true })).rejects.toMatchObject({
     code: 'usage',
-    message: `the worktree at ${first.worktree?.path} is session ${resumed.record.id}'s now; remove that one instead`,
+    message: `lantern-cove's worktree at ${first.worktree?.path} is session ${resumed.record.id}'s now; remove that one instead`,
   });
   // Without the flag, the old record goes and the worktree stays with the new one.
   await mesa.sessions.remove(first.id);
   expect(existsSync(first.worktree?.path ?? '')).toBe(true);
+});
+
+/** A stopped session across lantern-cove and tide-pool on `branch`, through the real git. */
+async function acrossProjects(branch = 'shared') {
+  const made = twoProjects();
+  const { result } = await made.mesa.sessions.open('lantern-cove', { with: ['tide-pool'], branch });
+  await made.mesa.sessions.stop(result.id, true);
+  const own = result.worktree?.path ?? '';
+  const other = result.additional?.[0]?.worktree.path ?? '';
+  const branches = () =>
+    [made.dir, made.tide].map((repo) => testGit(repo, 'branch', '--list', branch));
+  return { ...made, session: result, own, other, branches };
+}
+
+test("--delete-worktree --delete-branch removes every project's worktree and branch, and says so", async () => {
+  const { mesa, session, own, other, branches } = await acrossProjects();
+  const { result } = await mesa.sessions.remove(session.id, {
+    deleteWorktree: true,
+    deleteBranch: true,
+  });
+  expect(result).toMatchObject({
+    worktree: own,
+    branch: 'shared',
+    additional: [{ project: 'tide-pool', worktree: other, branch: 'shared' }],
+  });
+  expect([existsSync(own), existsSync(other)]).toEqual([false, false]);
+  expect(branches()).toEqual(['', '']);
+});
+
+test('an untracked file in an additional worktree refuses before anything goes; --force removes both', async () => {
+  const { mesa, session, own, other, branches } = await acrossProjects();
+  writeFileSync(join(other, 'notes.md'), 'unsaved\n');
+  await expect(
+    mesa.sessions.remove(session.id, { deleteWorktree: true, deleteBranch: true }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: `tide-pool's worktree at ${other} has changes or untracked files: commit or remove them, or pass --force`,
+  });
+  expect([existsSync(own), existsSync(other)]).toEqual([true, true]);
+  expect(branches()).toEqual(['+ shared', '+ shared']);
+  expect((await mesa.sessions.show(session.id)).additional).toEqual(session.additional);
+
+  await mesa.sessions.remove(session.id, { deleteWorktree: true, force: true });
+  expect([existsSync(own), existsSync(other)]).toEqual([false, false]);
+  // The branches stay without --delete-branch.
+  expect(branches()).toEqual(['shared', 'shared']);
+});
+
+test('worktrees a resumed successor holds now are refused, naming the project and path', async () => {
+  const { mesa, session, own, other } = await acrossProjects();
+  const { result: resumed } = await mesa.sessions.resume(session.id);
+  await expect(mesa.sessions.remove(session.id, { deleteWorktree: true })).rejects.toMatchObject({
+    code: 'usage',
+    message: `lantern-cove's worktree at ${own} is session ${resumed.record.id}'s now; remove that one instead`,
+  });
+  expect([existsSync(own), existsSync(other)]).toEqual([true, true]);
+  expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
+});
+
+test("rm --descendants --delete-worktree removes a descendant's worktrees in every project", async () => {
+  const { mesa, tide } = twoProjects();
+  const parent = (await mesa.sessions.open('lantern-cove')).result;
+  const child = (
+    await mesa.sessions.open('lantern-cove', { parent: parent.id, with: ['tide-pool'] })
+  ).result;
+  for (const id of [child.id, parent.id]) await mesa.sessions.stop(id, true);
+  const removed = await mesa.sessions.removeDescendants(
+    parent.id,
+    { deleteWorktree: true, deleteBranch: true },
+    [child.id, parent.id],
+  );
+  expect(removed.items.map((item) => [item.id, item.ok])).toEqual([
+    [child.id, true],
+    [parent.id, true],
+  ]);
+  const other = child.additional?.[0]?.worktree;
+  expect(existsSync(other?.path ?? '')).toBe(false);
+  expect(testGit(tide, 'branch', '--list', other?.branch ?? '')).toBe('');
 });

@@ -4,16 +4,13 @@ import { afterAll, beforeAll, expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import { listReceipts } from '../receipts/store.js';
 import {
-  agentWorld,
-  gitProject,
-  gitRepo,
   isolateGit,
   newSession,
-  profilePaths,
-  projectProfile,
+  repoState,
   sequentialIds,
   testGit,
-  withRealGit,
+  twoProjects,
+  worktreeAt,
 } from '../testing/index.js';
 import { GENERAL_PROJECT } from './general.js';
 import { SessionRecordSchema } from './record.js';
@@ -23,34 +20,8 @@ isolateGit({ beforeAll, afterAll });
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();
 
-/** lantern-cove and tide-pool, both git repositories on main, through the real git. */
-function twoProjects({
-  run,
-  mesaYaml,
-}: {
-  run?: (world: Runner) => Runner;
-  mesaYaml?: string;
-} = {}) {
-  const world = agentWorld();
-  const git = withRealGit(world.run);
-  const { home, dir, mesa } = projectProfile(run ? run(git) : git, { newId });
-  gitRepo(dir);
-  const tide = gitProject(mesa, home, 'tide-pool', mesaYaml);
-  return { world, home, dir, tide, mesa };
-}
-
-/** Where Mesa puts `project`'s worktree for a branch folder. */
-const worktreeAt = (home: string, project: string, folder: string) =>
-  join(profilePaths(home, 'default').worktrees, project, folder);
-
-/** A repository as a launch leaves it: its worktrees, and its branches. */
-const repoState = (dir: string) => ({
-  worktrees: testGit(dir, 'worktree', 'list', '--porcelain').match(/^worktree /gm)?.length,
-  branches: testGit(dir, 'branch', '--list', '--format=%(refname:short)'),
-});
-
 test('--worktree with --with gives every project a worktree on one Mesa-named branch', async () => {
-  const { world, home, mesa } = twoProjects();
+  const { world, home, mesa } = twoProjects({ newId });
   const { result } = await mesa.sessions.open('lantern-cove', {
     with: ['tide-pool'],
     goal: 'Tie the two together',
@@ -73,7 +44,7 @@ test('--worktree with --with gives every project a worktree on one Mesa-named br
 });
 
 test('the open receipt names the additional projects as inputs and outputs', async () => {
-  const { home, mesa } = twoProjects();
+  const { home, mesa } = twoProjects({ newId });
   // A dangerous start keeps its receipt (dangerousLaunch).
   mesa.config.set('agents.claude.skipPermissions', 'true');
   const { result } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
@@ -86,7 +57,7 @@ test('the open receipt names the additional projects as inputs and outputs', asy
 
 test('every --with is checked before any git write: nothing is made in either repo', async () => {
   const yaml = 'name: tide-pool\nworktrees:\n  setup: [/usr/bin/touch, repo-file]\n';
-  const { home, dir, tide, mesa } = twoProjects();
+  const { home, dir, tide, mesa } = twoProjects({ newId });
   const before = { alpha: repoState(dir), beta: repoState(tide) };
   const refused = async (
     opts: Parameters<typeof mesa.sessions.open>[1],
@@ -125,7 +96,7 @@ test('every --with is checked before any git write: nothing is made in either re
 });
 
 test('the command is fitted with the planned worktree paths before any worktree exists', async () => {
-  const { world, dir, tide, mesa } = twoProjects();
+  const { world, dir, tide, mesa } = twoProjects({ newId });
   // A goal that leaves 20 bytes under tmux's limit for a session without --with.
   const plain = (await mesa.sessions.open('lantern-cove', { goal: 'g' })).result;
   const used = Buffer.byteLength(
@@ -141,7 +112,7 @@ test('the command is fitted with the planned worktree paths before any worktree 
 });
 
 test('a branch checked out in the second repo fails after the first worktree exists, and both repos end as they were', async () => {
-  const { home, dir, tide, mesa } = twoProjects();
+  const { home, dir, tide, mesa } = twoProjects({ newId });
   testGit(tide, 'checkout', '-q', '-b', 'shared');
   const before = { alpha: repoState(dir), beta: repoState(tide) };
   await expect(
@@ -157,6 +128,7 @@ test('a branch checked out in the second repo fails after the first worktree exi
 
 test('a worktree whose setup ran is kept and named in the error; the rest of the launch goes', async () => {
   const { home, dir, tide, mesa } = twoProjects({
+    newId,
     run:
       (git): Runner =>
       (file, args, ms, options) => {

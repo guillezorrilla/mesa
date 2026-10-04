@@ -8,7 +8,9 @@ import {
   projectProfile,
   steppingClock,
   testGit,
+  twoProjects,
   withRealGit,
+  worktreeAt,
 } from '../testing/index.js';
 
 isolateGit({ beforeAll, afterAll });
@@ -96,4 +98,35 @@ test('a new fork branch starts at the source checkout HEAD, while an existing br
   expect(testGit(existing.worktree?.path ?? '', 'rev-parse', 'HEAD')).toBe(
     testGit(dir, 'rev-parse', 'main'),
   );
+});
+
+test('a fork across projects needs --branch, and gives every project a worktree from where its source stands', async () => {
+  const { world, home, mesa } = twoProjects();
+  const source = (
+    await mesa.sessions.open('lantern-cove', { with: ['tide-pool'], branch: 'source' })
+  ).result;
+  await expect(mesa.sessions.fork(source.id)).rejects.toMatchObject({
+    code: 'usage',
+    message: `session ${source.id} works in several projects: pass --branch so its fork gets worktrees of its own`,
+  });
+  const own = source.worktree?.path ?? '';
+  const other = source.additional?.[0]?.worktree.path ?? '';
+  testGit(other, 'commit', '--allow-empty', '-m', 'tide progress');
+  const head = (dir: string) => testGit(dir, 'rev-parse', 'HEAD');
+
+  const fork = (await mesa.sessions.fork(source.id, { branch: 'try/x' })).result;
+  const forked = worktreeAt(home, 'tide-pool', 'try-x');
+  expect(fork).toMatchObject({
+    parent: source.id,
+    worktree: { path: worktreeAt(home, 'lantern-cove', 'try-x'), branch: 'try/x', base: head(own) },
+  });
+  expect(fork.additional).toEqual([
+    { project: 'tide-pool', worktree: { path: forked, branch: 'try/x', base: head(other) } },
+  ]);
+  expect(head(fork.worktree?.path ?? '')).toBe(head(own));
+  expect(head(forked)).toBe(head(other));
+  const window = world.tmux.windows.find((w) => w.window === `claude-${fork.id}`);
+  expect(window).toMatchObject({ path: fork.worktree?.path });
+  expect(window?.launch).toContain(`--fork-session`);
+  expect(window?.launch).toContain(`'--add-dir=${forked}'`);
 });

@@ -19,7 +19,12 @@ import { findProject } from '../projects/projects.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { sessionWorktree } from '../worktrees/create.js';
-import { additionalDirs, createAdditional, launchWorktrees } from './additional.js';
+import {
+  type AdditionalStart,
+  additionalDirs,
+  createAdditional,
+  launchWorktrees,
+} from './additional.js';
 import { WINDOW_VARS, windowEnv } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { prepareOutputLog } from './output-log.js';
@@ -129,7 +134,7 @@ type Start = {
   branch?: string;
   base?: string;
   /** Then a worktree on that branch in each of these (mesa open --with; additional.ts). */
-  additional?: readonly RegistryEntry[];
+  additional?: readonly AdditionalStart[];
 };
 
 /** The command tmux receives, including Claude's color and process-identity setup. */
@@ -174,7 +179,7 @@ export async function startSession(
       record = deps.store.update(record.id, { worktree: selected.worktree });
     }
     if (start.additional?.length)
-      record = await createAdditional(deps, record, start.additional, start.base, made);
+      record = await createAdditional(deps, record, start.additional, made);
     const cwd = agentFolder(record, project);
     const hooks =
       record.agent === 'codex' ? codexHooks(codexHome(deps.env, deps.home), deps.self) : undefined;
