@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import {
+  multiProjectSession,
   newSession,
   profilePaths,
   tempDir,
@@ -68,4 +69,27 @@ test('project sorting uses durable visits and session history, preserves pins an
   expect(thrown(() => mesa.projects.visit('absent')).code).toBe('not_found');
   expect(readFileSync(profilePaths(home, 'default').registry, 'utf8')).toBe(registry);
   expect(thrown(() => mesa.projects.list('not-a-sort')).code).toBe('usage');
+});
+
+test('a session counts for every project it works in, an additional one too', () => {
+  const home = tempDir();
+  const mesa = createMesa('default', testDeps(home));
+  mesa.init({ vault: 'vault' });
+  for (const name of ['driftwood', 'lantern-cove', 'tide-pool']) {
+    const dir = join(home, name);
+    mkdirSync(dir);
+    mesa.projects.register(dir, true);
+  }
+  const store = testStore(home);
+  store.create(() =>
+    newSession({
+      project: 'driftwood',
+      startedAt: '2026-09-23T12:00:00.000Z',
+      endedAt: '2026-09-23T13:00:00.000Z',
+    }),
+  );
+  store.create(() => multiProjectSession({ startedAt: '2026-09-25T12:00:00.000Z' }));
+  const names = (mode: string) => mesa.projects.list(mode).map((row) => row.name);
+  expect(names('active-sessions')).toEqual(['lantern-cove', 'tide-pool', 'driftwood']);
+  expect(names('last-session')).toEqual(['lantern-cove', 'tide-pool', 'driftwood']);
 });

@@ -1,4 +1,5 @@
 import {
+  additionalLabel,
   attentionScore,
   contextPercent,
   duration,
@@ -36,7 +37,7 @@ export const sessions = defineCommand({
             // A name a person gave it stands in for the id; --json keeps both.
             `${indent(s)}${sessionLabel(s)}`,
             sessionBranch(s)
-              ? `${projectLabel(s.project)} (${sessionBranch(s)})`
+              ? `${[projectLabel(s.project), additionalLabel(s)].filter(Boolean).join(' ')} (${sessionBranch(s)})`
               : s.project
                 ? projectLabel(s.project)
                 : '-',

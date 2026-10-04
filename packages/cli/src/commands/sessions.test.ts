@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  multiProjectSession,
   newSession,
   plantTranscript,
   scriptedRunner,
@@ -56,6 +57,16 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
       'bbbbbbbb  tide            claude  working  95%  0.00  ctx -  10m00s',
       '',
     ].join('\n'),
+  );
+});
+
+test('a session across several projects shows them after its own, before its branch', async () => {
+  await mesa('init', '--vault', 'vault');
+  const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
+  store.create(() => multiProjectSession());
+  cli.run = scriptedRunner({ tmux: '' }).run;
+  expect((await mesa('sessions')).stdout).toMatch(
+    /^aaaaaaaa {2}lantern-cove \+tide-pool \(feature\) /,
   );
 });
 

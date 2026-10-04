@@ -332,3 +332,18 @@ test('session details list the additional projects with their worktree paths', a
   expect(byTestId('selected-session-details')[0]?.textContent).toContain('Also in');
   expect(byTestId('session-also-in')[0]?.textContent).toBe(`tide-pool ${path}`);
 });
+
+test('a session row shows a badge per additional project', async () => {
+  const row = managedRow('aaaaaaaa', {
+    worktree: { path: '/w/lantern-cove/b', branch: 'b' },
+    additional: [{ project: 'tide-pool', worktree: { path: '/w/tide-pool/b', branch: 'b' } }],
+  });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row, managedRow('bbbbbbbb')]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('session-additional-tide-pool').map((badge) => badge.textContent)).toEqual([
+    '+tide-pool',
+  ]);
+});

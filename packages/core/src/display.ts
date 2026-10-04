@@ -1,7 +1,8 @@
 import type { SessionRow } from './sessions/board/rows.js';
+import { sessionProjects } from './sessions/session-projects.js';
 
 // How Mesa shows a session row, its numbers, and its log to a person, the same in the CLI and on
-// the Board. Pure, and with type imports only, so the app bundles it (`@mesa/core/browser`).
+// the Board. Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
 
 /** A session's name when a person gave it one, else its id. */
 export const sessionLabel = (s: { id: string; name?: string; managed?: boolean }) =>
@@ -13,6 +14,13 @@ export const sessionTitle = (s: SessionRow) =>
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
 export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';
+
+/**
+ * A Mesa session's additional projects as its row names them after its own, `+tide-pool,driftwood`
+ * (CONTEXT.md, Additional project); none without.
+ */
+export const additionalLabel = (s: SessionRow) =>
+  s.managed && s.additional ? `+${sessionProjects(s).slice(1).join(',')}` : undefined;
 
 /** The branch a Mesa session runs on (its worktree's), or will once it starts (a queued one's). */
 export const sessionBranch = (s: SessionRow) =>

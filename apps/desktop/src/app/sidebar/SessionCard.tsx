@@ -7,6 +7,7 @@ import {
   WAITING_STATES,
 } from '@mesa/core/browser';
 import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../hooks/useStartSession';
@@ -14,8 +15,9 @@ import { HoverAction } from './HoverAction';
 import { SessionCardMenu } from './SessionCardMenu';
 
 /**
- * One session in the sidebar: its state and title, and while not compact its branch and state
- * line; on hover, a child session, compact, archive, and More actions.
+ * One session in the sidebar: its state and title with a badge per additional project, and while
+ * not compact its branch and state line; on hover, a child session, compact, archive, and More
+ * actions.
  */
 export function SessionCard(props: {
   session: TreeRow;
@@ -66,6 +68,18 @@ export function SessionCard(props: {
             />
           )}
           <span className="truncate">{sessionTitle(session)}</span>
+          {session.managed &&
+            session.additional?.map(({ project }) => (
+              <Badge
+                key={project}
+                variant="outline"
+                data-testid={`session-additional-${project}`}
+                title={`Also in ${projectLabel(project)}`}
+                className="px-1.5 py-0 font-mono text-[10px] text-muted-foreground"
+              >
+                +{project}
+              </Badge>
+            ))}
         </span>
         {session.managed && session.automation && (
           <AutomationBanner rule={session.automation.rule} />

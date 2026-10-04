@@ -4,6 +4,8 @@ import { MesaError } from '../lib/result.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { projectScope } from '../sessions/general.js';
 import type { SessionRecord } from '../sessions/record.js';
+import { sessionProjects } from '../sessions/session-projects.js';
+import { itemProject } from './item.js';
 import type { ProjectContext } from './project-context.js';
 import type { VaultRead } from './reader.js';
 import { DEFAULT_VAULT_SEARCH_LIMIT, type VaultSearch, type VaultSearchFilter } from './search.js';
@@ -51,6 +53,17 @@ function projectOf(session: SessionRecord): string {
   const project = projectScope(session.project);
   if (!project) throw new MesaError('usage', 'a General session has no project to save it for');
   return project;
+}
+
+/**
+ * The project a note is saved for: the project whose folder `path` is in, when the session works
+ * in it (CONTEXT.md, Additional project), else the session's own.
+ */
+function noteProject(session: SessionRecord, path: string | undefined) {
+  const folder = path === undefined ? undefined : itemProject(path);
+  return folder && sessionProjects(session).includes(folder)
+    ? folder
+    : projectScope(session.project);
 }
 
 const unit = z.number().min(0).max(1);
@@ -128,7 +141,7 @@ const TOOLS: Tool[] = [
     }),
     call: (owners, session, args) =>
       saved(
-        owners.saveNote({ ...args, project: projectScope(session.project), session: session.id }),
+        owners.saveNote({ ...args, project: noteProject(session, args.path), session: session.id }),
       ),
   }),
 ];

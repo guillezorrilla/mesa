@@ -2,6 +2,7 @@ import type { Clock } from '../lib/clock.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
+import { heldWorktrees } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { listWorktrees } from '../worktrees/inventory.js';
 import { gitCommand } from './command.js';
@@ -67,10 +68,12 @@ export async function readRepositoryInsight(
   const observedAt = clock().toISOString();
   const branchSessions = new Map<string, string[]>();
   for (const session of store.list()) {
-    if (session.project !== project || !session.worktree?.branch) continue;
-    const ids = branchSessions.get(session.worktree.branch) ?? [];
-    ids.push(session.id);
-    branchSessions.set(session.worktree.branch, ids);
+    for (const held of heldWorktrees(session)) {
+      if (held.project !== project || !held.worktree.branch) continue;
+      const ids = branchSessions.get(held.worktree.branch) ?? [];
+      ids.push(session.id);
+      branchSessions.set(held.worktree.branch, ids);
+    }
   }
   const version = await ghVersion(run);
   const base: RepositoryInsight = {

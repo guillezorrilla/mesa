@@ -4,6 +4,7 @@ import type { Decision } from '../decisions/types.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Recorded } from '../receipts/recorder.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
+import { heldWorktrees } from '../sessions/holders.js';
 import type { Sent } from '../sessions/send.js';
 import type { SessionState } from '../sessions/states.js';
 import type { GhState } from './gh.js';
@@ -165,13 +166,16 @@ export function prEventsService(
   const ledger = prEventLedger(ctx.paths.prEvents);
   const scan = async () => {
     const rows = (await deps.board()).filter(watched);
-    const watches: PrWatch[] = rows.map((row) => ({
-      session: row.id,
-      project: row.project,
-      branch: row.worktree.branch,
-      cwd: row.worktree.path,
-      since: row.startedAt,
-    }));
+    // One watch per worktree it holds, each in its own repository (CONTEXT.md, Additional project).
+    const watches: PrWatch[] = rows.flatMap((row) =>
+      heldWorktrees(row).map(({ project, worktree }) => ({
+        session: row.id,
+        project,
+        branch: worktree.branch,
+        cwd: worktree.path,
+        since: row.startedAt,
+      })),
+    );
     return { rows, found: await scanPrEvents(ctx.deps.run, watches, ledger.read()) };
   };
   const enabled = () => ctx.open().config.sessions.prEvents;

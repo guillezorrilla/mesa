@@ -52,4 +52,4 @@ The same run showed `mesa worktrees list beta --json` with the session as the be
 - A session's other repositories are held, listed and cleaned up as its own worktree is, and every agent sees them from its first prompt.
 - A mesa older than this refuses a record with `additional`.
 - Codex's first `--with` session in a repository it has not trusted exits at once, with Codex's own message in the pane. Trusting the repository in Codex once (any plain Codex session there), or `agents.codex.sandbox: workspace-write`, avoids it.
-- Board badges, git insight, PR events, project sort, session goals, search and vault scoping still read only the primary until #499; fork, queued start and worktree deletion across several projects came in #498.
+- Since #499, board badges, git insight, PR events, project sort, session goals, search and vault scoping count every project of a session (`sessionProjects` in `sessions/session-projects.ts`, with `heldWorktrees`); fork, queued start and worktree deletion across several projects came in #498.
