@@ -4,14 +4,19 @@ A release is a signed, notarised, stapled universal DMG with the `mesa` CLI insi
 
 | Command | Script | What it does |
 | --- | --- | --- |
-| `pnpm release:version X.Y.Z[-beta.N]` | `scripts/release/version.sh` | Writes the one version into every `package.json`, `Cargo.toml` and `Cargo.lock` |
+| `pnpm release:version X.Y.Z[-beta.N]` | `scripts/release/version.sh` | Writes the one version into every `package.json`, `Cargo.toml` and `Cargo.lock`, and its section into `CHANGELOG.md` |
+| (run by `release:version` and `release:publish`) | `scripts/release/notes.mjs <version>` | Prints the version's release notes from the pull request titles; `--write` puts them in `CHANGELOG.md`, `--published` reads them back |
 | `pnpm check:version` | same, `--check` | Fails on drift; part of `pnpm verify` |
 | `pnpm release:build` | `scripts/release/build.sh` | Builds the CLI executable, the app, the DMG and update archive into `release/dist`, then runs `release:sign` |
 | (run by `release:build`) | `scripts/release/licenses.mjs <out>` | Writes the third-party attributions the CLI executable embeds, which `mesa about` and About Mesa show |
 | `pnpm release:sign` | `scripts/release/sign.sh` | Signs, notarises and staples the DMG, then checks Gatekeeper and the entitlements |
 | `pnpm release:publish` | `scripts/release/publish.sh` | Creates the GitHub Release `v<version>` and uploads every asset |
 
-`vX.Y.Z` is a stable release. `vX.Y.Z-beta.N` is a prerelease on the beta channel, which also replaces `latest.json` on the fixed prerelease `beta`. A release holds `Mesa_X.Y.Z_universal.dmg`, `Mesa_universal.dmg` (the same file under a name that stays the same), `Mesa.app.tar.gz`, `Mesa.app.tar.gz.sig`, `latest.json` and `SHA256SUMS`. Release notes are GitHub's generated notes, grouped by label through `.github/release.yml`.
+`vX.Y.Z` is a stable release. `vX.Y.Z-beta.N` is a prerelease on the beta channel, which also replaces `latest.json` on the fixed prerelease `beta`. A release holds `Mesa_X.Y.Z_universal.dmg`, `Mesa_universal.dmg` (the same file under a name that stays the same), `Mesa.app.tar.gz`, `Mesa.app.tar.gz.sig`, `latest.json` and `SHA256SUMS`. Release notes are the version's section of `CHANGELOG.md`.
+
+## Release notes
+
+Pull request titles, which become the squash commits on `main`, are `type(area): summary` (AGENTS.md), and the `pr-title` check fails a pull request whose title is not. `pnpm release:version X.Y.Z` runs `scripts/release/notes.mjs`, which reads the squash subjects since the last stable tag (for a beta, since the last tag of any kind) and writes the version's section under the title of `CHANGELOG.md`: `## X.Y.Z - <date>`, then `### Features` (`feat`), `### Fixes` (`fix`), `### Performance` (`perf`), `### Breaking changes` (a `!`) and `### Other` (the rest, older untyped titles included), each line `- **<area>**: <summary> (#<pr>)`. Empty groups are left out, and so are the version bump commits (`chore(release): ...`). Running it again for the same version replaces its section. The bump pull request carries the section, so edit it there to read well: merge lines, reword, drop what users never see. `publish.sh` creates the release with that section as its notes, and falls back to GitHub's generated notes, grouped by label through `.github/release.yml`, when `CHANGELOG.md` has no section for the version.
 
 ## One-time setup
 
@@ -58,7 +63,7 @@ Every script checks each variable it needs before it uses it, and names the miss
 
 ## Cut a release with CI
 
-1. Open a pull request that runs `pnpm release:version 0.1.0-beta.2` (or `0.1.0`), and merge it.
+1. Open a pull request titled `chore(release): 0.1.0-beta.2` that runs `pnpm release:version 0.1.0-beta.2` (or `0.1.0`), review its `CHANGELOG.md` section, and merge it.
 2. From `main` at that commit, push the tag: `git tag v0.1.0-beta.2 && git push origin v0.1.0-beta.2`.
 3. Approve the `release` environment in the workflow run (Actions > Release > Review deployments).
 4. Check the result: `gh release view v0.1.0-beta.2` and `gh attestation verify Mesa_0.1.0-beta.2_universal.dmg -R guillezorrilla/mesa`.

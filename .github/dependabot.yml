@@ -1,15 +1,25 @@
-# Keeps the SHA-pinned actions and the dependencies current (ADR-0017).
+# Keeps the SHA-pinned actions and the dependencies current (ADR-0017). Its titles are typed,
+# build(deps): ..., as the pr-title check wants (AGENTS.md).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: build
+      include: scope
   - package-ecosystem: cargo
     directory: /apps/desktop/src-tauri
     schedule:
       interval: weekly
+    commit-message:
+      prefix: build
+      include: scope

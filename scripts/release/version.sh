@@ -3,7 +3,7 @@
 # Cargo.lock; tauri.conf.json reads apps/desktop/package.json's.
 #
 #   scripts/release/version.sh                     print it
-#   scripts/release/version.sh X.Y.Z[-beta.N]      write it everywhere
+#   scripts/release/version.sh X.Y.Z[-beta.N]      write it everywhere, and its section in CHANGELOG.md
 #   scripts/release/version.sh --check             exit 1, naming each file, on any drift
 set -eu
 cd "$(dirname "$0")/../.."
@@ -52,6 +52,7 @@ if (arg === '--check') {
   writeFileSync(cargo, read(cargo).replace(CARGO_RE, `$1${arg}"`));
   writeFileSync(lock, read(lock).replace(LOCK_RE, `$1${arg}"`));
   console.log(`version ${arg} written`);
+  execFileSync(process.execPath, ['scripts/release/notes.mjs', arg, '--write'], { stdio: 'inherit' });
 } else {
   console.log(want);
 }
