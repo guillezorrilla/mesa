@@ -1292,7 +1292,7 @@ test("Claude's background start carries the additional folders before its goal",
   ]);
 });
 
-test('--with is refused where a session cannot span projects, and fork and rm of one wait for #498', async () => {
+test('--with is refused where a session cannot span projects', async () => {
   const world = agentWorld();
   const { home, mesa } = await acrossProjects(world);
   const refused = (opts: Parameters<typeof mesa.sessions.open>[1], project?: string) =>
@@ -1302,15 +1302,5 @@ test('--with is refused where a session cannot span projects, and fork and rm of
   await refused({ general: true });
   await refused({ terminal: true }, 'lantern-cove');
   await refused({ checkout: home }, 'lantern-cove');
-  const { result: first } = await mesa.sessions.open('lantern-cove');
-  await refused({ after: first.id }, 'lantern-cove');
-  expect(await mesa.sessions.list()).toHaveLength(1);
-
-  const { result } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
-  await expect(mesa.sessions.fork(result.id)).rejects.toMatchObject({ code: 'usage' });
-  exitAll(world);
-  await mesa.sessions.stop(result.id, true);
-  for (const opts of [{ deleteWorktree: true }, { deleteBranch: true }])
-    await expect(mesa.sessions.remove(result.id, opts)).rejects.toMatchObject({ code: 'usage' });
-  expect(existsSync(result.additional?.[0]?.worktree.path ?? '')).toBe(true);
+  expect(await mesa.sessions.list()).toEqual([]);
 });

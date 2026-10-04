@@ -69,13 +69,15 @@ const SessionRecordFields = z.strictObject({
   after: z.string().regex(SHORT_ID).optional(),
   /**
    * A queued session's start, still to come: the worktree it gets then (mesa open --after
-   * --branch), and `claimedAt`, set under the record's lock by whoever starts it, so it starts
-   * once. Gone once it starts.
+   * --branch), the additional projects that each get one on that branch too (--with), and
+   * `claimedAt`, set under the record's lock by whoever starts it, so it starts once. Gone once it
+   * starts.
    */
   pending: z
     .strictObject({
       branch: z.string().optional(),
       base: z.string().optional(),
+      with: z.array(z.string()).min(1).optional(),
       claimedAt: z.iso.datetime().optional(),
     })
     .optional(),

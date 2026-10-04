@@ -115,7 +115,8 @@ export function useSessionCommands({
       closeDialog();
       if (selectedSession === id) leaveClosedSession([id]);
       const also = [
-        removed.worktree && 'its worktree',
+        removed.worktree &&
+          (removed.additional?.some((a) => a.worktree) ? 'its worktrees' : 'its worktree'),
         removed.branch && `branch ${removed.branch}`,
       ];
       const extra = also.filter(Boolean).join(' and ');

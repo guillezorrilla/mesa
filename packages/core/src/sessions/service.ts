@@ -44,6 +44,7 @@ import { readGoal, sessionGoal } from './goal.js';
 import { type GridGroup, removeGridGroup, saveGridGroup } from './grid-groups.js';
 import { handoffSession, stopHandedOff } from './handoff.js';
 import { nativeHistory } from './history.js';
+import { heldWorktrees } from './holders.js';
 import { readHookEvents } from './hook-events.js';
 import { previewSessionImage, sessionImagePrompt } from './images.js';
 import { instructionStatus } from './instructions.js';
@@ -222,7 +223,7 @@ export function sessionsService(
       {
         type: 'session',
         summary: (r) =>
-          `Removed session ${id}${r.worktree ? ', its worktree' : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
+          `Removed session ${id}${r.worktree ? `, its worktree${r.additional?.some((a) => a.worktree) ? 's' : ''}` : ''}${r.branch ? `, branch ${r.branch}` : ''}`,
         failure: `Could not remove session ${id}`,
         project: (r) => projectScope(r.project),
         session: () => id,
@@ -731,7 +732,7 @@ export function sessionsService(
           async (session) => {
             const recorded = await remove(session.id, {
               force: opts.force,
-              ...(session.worktree
+              ...(heldWorktrees(session).length
                 ? { deleteWorktree: opts.deleteWorktree, deleteBranch: opts.deleteBranch }
                 : {}),
             });

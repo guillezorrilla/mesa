@@ -684,6 +684,35 @@ export function gitProject(
   return dir;
 }
 
+/**
+ * lantern-cove and tide-pool, both git repositories on main through the real git, over agentWorld:
+ * for a session across two projects (mesa open --with). `run` wraps that runner when given.
+ */
+export function twoProjects({
+  run,
+  newId,
+}: {
+  run?: (git: Runner) => Runner;
+  newId?: IdSource;
+} = {}) {
+  const world = agentWorld();
+  const git = withRealGit(world.run);
+  const { home, dir, mesa } = projectProfile(run ? run(git) : git, newId ? { newId } : {});
+  gitRepo(dir);
+  const tide = gitProject(mesa, home, 'tide-pool');
+  return { world, home, dir, tide, mesa };
+}
+
+/** Where Mesa puts `project`'s worktree for a branch folder, in the default profile. */
+export const worktreeAt = (home: string, project: string, folder: string) =>
+  join(profilePaths(home, 'default').worktrees, project, folder);
+
+/** A repository's worktree count and branches, to compare before and after. */
+export const repoState = (dir: string) => ({
+  worktrees: testGit(dir, 'worktree', 'list', '--porcelain').match(/^worktree /gm)?.length,
+  branches: testGit(dir, 'branch', '--list', '--format=%(refname:short)'),
+});
+
 /** A session's lock as a mesa killed while holding it leaves it; its path, for the test to remove. */
 export function staleLock(home: string, id: string, holder = 'a killed mesa', profile = 'default') {
   const lock = join(profilePaths(home, profile).sessions, `${id}.lock`);

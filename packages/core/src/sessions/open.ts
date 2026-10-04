@@ -87,7 +87,8 @@ export type OpenInput = {
  * first, with the agent session id Mesa chose (docs/spikes/session-ids.md), or none for an agent
  * that picks its own (codex: a look at the board reads it), and removed again, with the worktree,
  * if the window cannot open. With `after` a session that is not over yet, it is only queued: the
- * record, `queued`, with no window, worktree, or agent session id until it starts (startQueued).
+ * record, `queued`, with no window, worktree, or agent session id until it starts (startQueued),
+ * its `with` kept in `pending` for then.
  * With `with`, each of those projects gets its own worktree on `branch` too, which its agent is
  * given as extra folders (CONTEXT.md, Additional project): every one is checked first
  * (additionalProjects), and the command fitted to where each will be, before any is made.
@@ -100,10 +101,10 @@ export async function openSession(
     throw new MesaError('usage', 'pass a project or --general, not both');
   }
   const extra = input.with?.length ? input.with : undefined;
-  if (extra && (input.general || input.terminal || input.after !== undefined)) {
+  if (extra && (input.general || input.terminal)) {
     throw new MesaError(
       'usage',
-      '--with cannot use --general, --terminal, or --after: a session across projects starts at once, with an agent',
+      '--with cannot use --general or --terminal: a session across projects runs an agent',
     );
   }
   if (extra && input.branch === undefined) {
@@ -208,6 +209,7 @@ export async function openSession(
     const pending = {
       ...(branch === undefined ? {} : { branch }),
       ...(base === undefined ? {} : { base }),
+      ...(extra ? { with: [...extra] } : {}),
     };
     return { record: createRecord(deps, { ...session, after: waited.id, pending }) };
   }
@@ -218,7 +220,9 @@ export async function openSession(
       command: (record) => command(record.id, record),
       branch: input.branch,
       base: input.base,
-      ...(additional ? { additional } : {}),
+      ...(additional
+        ? { additional: additional.map((entry) => ({ entry, base: input.base })) }
+        : {}),
     },
   );
 }

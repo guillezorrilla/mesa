@@ -77,7 +77,7 @@ export function SessionDialogs({
       )}
       {dialog?.kind === 'fork' && (
         <ForkDialog
-          sessionId={dialog.row.id}
+          row={dialog.row}
           disabled={acting}
           onFork={(branch) => commands.fork(dialog.row.id, branch)}
           onCancel={onClose}

@@ -12,8 +12,14 @@ export const rm = defineCommand({
       type: 'boolean',
       description: 'Close a live session first, and remove a worktree with changes',
     },
-    'delete-worktree': { type: 'boolean', description: 'Also remove its git worktree' },
-    'delete-branch': { type: 'boolean', description: 'Also delete its branch' },
+    'delete-worktree': {
+      type: 'boolean',
+      description: "Also remove its git worktree, and each additional project's",
+    },
+    'delete-branch': {
+      type: 'boolean',
+      description: "Also delete its branch, and each additional project's",
+    },
     descendants: {
       type: 'boolean',
       description: 'Also remove every parent-linked descendant, child first',
@@ -60,6 +66,10 @@ export const rm = defineCommand({
       r.runOutput && 'its run output',
       r.worktree && `worktree ${r.worktree}`,
       r.branch && `branch ${r.branch}`,
+      ...(r.additional ?? []).flatMap((a) => [
+        a.worktree && `${a.project}'s worktree ${a.worktree}`,
+        a.branch && `${a.project}'s branch ${a.branch}`,
+      ]),
     ].filter(Boolean);
     const text = `removed ${r.id}${also.length ? `, with ${also.join(', ')}` : ''}`;
     return recordedOutput(recorded, { data: r, text });
