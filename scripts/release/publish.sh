@@ -1,8 +1,10 @@
 #!/bin/sh
 # Publishes what build.sh made as the GitHub Release v<version> (ADR-0017, docs/release.md): the
 # DMG under its versioned and its stable "latest" name, the update archive and its signature,
-# latest.json for the updater (#429), and SHA256SUMS. A beta is a prerelease and also replaces
-# latest.json on the fixed prerelease `beta`, the beta channel's feed. Re-running replaces assets.
+# latest.json for the updater (#429), and SHA256SUMS. Its notes are the version's CHANGELOG.md
+# section (scripts/release/notes.mjs), else GitHub's generated notes. A beta is a prerelease and
+# also replaces latest.json on the fixed prerelease `beta`, the beta channel's feed. Re-running
+# replaces assets.
 set -eu
 cd "$(dirname "$0")/../.."
 . scripts/release/env.sh
@@ -34,9 +36,11 @@ if gh release view "$tag" -R "$REPO" >/dev/null 2>&1; then
   echo "release: $tag exists; replacing its assets"
 else
   if [ $beta = 1 ]; then channel="--prerelease --latest=false"; else channel="--latest"; fi
-  # shellcheck disable=SC2086 # the channel flags
+  node scripts/release/notes.mjs "$version" --published >"$DIST/notes.md"
+  if [ -s "$DIST/notes.md" ]; then notes="--notes-file $DIST/notes.md"; else notes=--generate-notes; fi
+  # shellcheck disable=SC2086 # the channel and notes flags
   gh release create "$tag" -R "$REPO" --target "$(git rev-parse HEAD)" --title "Mesa $version" \
-    --generate-notes $channel
+    $notes $channel
 fi
 # shellcheck disable=SC2086 # one word per asset
 (cd "$DIST" && gh release upload "$tag" -R "$REPO" --clobber $assets SHA256SUMS)

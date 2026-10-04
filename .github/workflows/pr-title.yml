@@ -1,0 +1,24 @@
+name: PR title
+
+# A pull request's title becomes its squash commit on main, and the release notes are grouped by
+# it (scripts/release/notes.mjs), so `pr-title` is a required check beside `verify`
+# (scripts/github/protect.sh). It is its own workflow because a retitle (`edited`) must re-run it
+# without re-running, cancelling or skipping ci.yml's `verify`.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if ! printf '%s\n' "$TITLE" | grep -Eq '^(feat|fix|perf|refactor|docs|test|build|ci|chore)(\([a-z0-9-]+\))?!?: .+'; then
+            echo "::error::PR title is not type(area): summary, with type one of feat, fix, perf, refactor, docs, test, build, ci or chore, and ! after the area for a breaking change (AGENTS.md): $TITLE"
+            exit 1
+          fi
+          echo "PR title ok: $TITLE"

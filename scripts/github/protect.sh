@@ -11,7 +11,7 @@ set -euo pipefail
 
 REPO=${REPO:-guillezorrilla/mesa}
 OWNER_ID=55284328            # guillezorrilla
-ACTIONS_APP_ID=15368         # the GitHub Actions app, source of the required `verify` check
+ACTIONS_APP_ID=15368         # the GitHub Actions app, source of the required checks
 ADMIN_ROLE=5                 # repository admin; the owner is the only admin of a personal repo
 case "${1:-}" in
   "") CHECK=0 ;;
@@ -101,7 +101,8 @@ ruleset() {
 }
 
 # main: pull requests only (0 approvals, so the owner is never locked out), squash, linear,
-# and the `verify` check from Actions. The owner bypasses only through a pull request.
+# and the `verify` and `pr-title` checks from Actions. The owner bypasses only through a pull
+# request.
 ruleset "$(jq -n --argjson app $ACTIONS_APP_ID --argjson admin $ADMIN_ROLE '{
   name: "main", target: "branch", enforcement: "active",
   conditions: {ref_name: {include: ["~DEFAULT_BRANCH"], exclude: []}},
@@ -114,7 +115,8 @@ ruleset "$(jq -n --argjson app $ACTIONS_APP_ID --argjson admin $ADMIN_ROLE '{
       required_review_thread_resolution: false, allowed_merge_methods: ["squash"]}},
     {type: "required_status_checks", parameters: {
       strict_required_status_checks_policy: false,
-      required_status_checks: [{context: "verify", integration_id: $app}]}}
+      required_status_checks: [
+        {context: "verify", integration_id: $app}, {context: "pr-title", integration_id: $app}]}}
   ]}')"
 
 # Release tags: only the owner creates, moves or deletes a v* tag.

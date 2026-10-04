@@ -27,6 +27,7 @@ export default defineConfig({
       'apps/broker/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.ts',
       'apps/desktop/src/**/*.test.tsx',
+      'scripts/**/*.test.ts',
     ],
   },
 });
