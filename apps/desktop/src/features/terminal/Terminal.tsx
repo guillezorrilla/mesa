@@ -9,6 +9,7 @@ import { usePlatform } from '@/lib/MesaRoot';
 import { oneAtATime } from '@/lib/oneAtATime';
 import { useRun } from '@/lib/useCommand';
 import { terminalInputForKey } from './terminalInput';
+import { wheelForwarder } from './terminalWheel';
 
 /**
  * An OSC 52 payload (`c;<base64>`): the text a tmux copy sends out, or null for a query or a
@@ -78,6 +79,25 @@ export function Terminal(props: {
     let termId: string | undefined;
     let closed = false;
     let sent = '';
+    const wheel = wheelForwarder({
+      view: () => ({
+        mouse: term.modes.mouseTrackingMode !== 'none',
+        alternate: term.buffer.active.type === 'alternate',
+        rows: term.rows,
+        cols: term.cols,
+        box: term.element?.querySelector('.xterm-screen')?.getBoundingClientRect(),
+      }),
+      speed: () => preferencesRef.current.scrollSpeed,
+      // Wrapped: the browser's frame functions throw when called off `window`.
+      frames: {
+        request: (run) => requestAnimationFrame(run),
+        cancel: (id) => cancelAnimationFrame(id),
+      },
+      send: (reports) => {
+        if (termId) terminal.write(termId, reports).catch(() => {});
+      },
+    });
+    term.attachCustomWheelEventHandler(wheel.onWheel);
     const offs: (() => void)[] = [];
     // The window follows only a real change, one `mesa resize` at a time: a resize drag fires
     // many observations, each `mesa resize` is a CLI run, and two in flight could finish out of
@@ -167,6 +187,7 @@ export function Terminal(props: {
     observer.observe(el);
     return () => {
       closed = true;
+      wheel.dispose();
       observer.disconnect();
       for (const off of offs) off();
       links.dispose();
@@ -201,6 +222,7 @@ export function Terminal(props: {
     term.options.fontSize = preferences.fontSize;
     term.options.fontFamily = preferences.fontFamily;
     term.options.macOptionIsMeta = preferences.optionAsMeta;
+    // Scrolls xterm's own buffer only; tmux's history follows terminalWheel.ts.
     term.options.scrollSensitivity = preferences.scrollSpeed;
     apply();
     refit.current?.();

@@ -83,7 +83,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
         <SettingRow
           icon={Gauge}
           title="Scroll Speed"
-          description={`Terminal scroll multiplier (${terminal.scrollSpeed})`}
+          description={`How far the wheel scrolls: 3 follows the finger, 6 goes twice as far (${terminal.scrollSpeed})`}
           htmlFor="scroll-speed"
           control={
             <Range
