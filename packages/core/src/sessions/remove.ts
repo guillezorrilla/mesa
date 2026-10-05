@@ -1,20 +1,21 @@
 import { existsSync, rmSync } from 'node:fs';
 import { antigravityLog } from '../agents/antigravity/log.js';
 import { stopClaudeBackground } from '../agents/claude/background.js';
+import { gitWorktrees } from '../git/checkout.js';
 import { readGitStatus } from '../git/status.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
 import { costTally } from '../usage/session-cost.js';
-import { checkoutHolders, heldWorktrees, worktreeHolder } from './holders.js';
+import { checkoutHolders, heldWorktrees, real, worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
 import { runInput, runOutput } from './run.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';
-import { deleteBranch, deleteWorktree, type Worktree } from './worktree.js';
+import { deleteBranch, deleteWorktree, hasSubmodules, type Worktree } from './worktree.js';
 
 /** What `mesa rm` took away: always the record, the rest when there was one to remove. */
 export type Removed = {
@@ -39,9 +40,10 @@ export type Removed = {
  * Removes a session's record, its hook log, its output log, a run's output, and its cost tally,
  * with `deleteWorktree` its git worktree and each additional project's, and with `deleteBranch`
  * their branch. A queued session is refused, to be cancelled first; a live one is refused unless
- * `force`, which closes its window first; a worktree another session holds or runs in is refused,
- * and one with changes unless `force`. Every refusal, for every repository, comes before anything
- * goes, so a refused rm leaves the session as it was, to retry.
+ * `force`, which closes its window first; a worktree another session holds or runs in, or git has
+ * locked, is refused, and one with changes or submodules unless `force`; a branch checked out where
+ * the session does not hold it is refused. Every refusal, for every repository, comes before
+ * anything goes, so a refused rm leaves the session as it was, to retry.
  */
 export async function removeSession(
   deps: {
@@ -88,7 +90,9 @@ export async function removeSession(
     ? held.map((h) => ({ ...h, repo: findProject(profile, h.project).path }))
     : [];
   // Every refusal for every repository comes before anything is removed.
-  if (dropWorktree && profile) await refuseRemoval(deps, profile, id, repos, force);
+  const registered = profile
+    ? await refuseRemoval(deps, profile, id, repos, { force, dropWorktree, dropBranch })
+    : new Set<string>();
   const removed: Removed = {
     id,
     project: record.project,
@@ -109,7 +113,8 @@ export async function removeSession(
   for (const { worktree, repo } of dropWorktree ? repos : []) {
     if (existsSync(worktree.path)) await deleteWorktree(deps.run, repo, worktree, { force });
     // Its folder already gone: clear git's registration of it, if git still has one.
-    else await deleteWorktree(deps.run, repo, worktree, { force: true }).catch(() => undefined);
+    else if (registered.has(worktree.path))
+      await deleteWorktree(deps.run, repo, worktree, { force: true });
   }
   for (const { worktree, repo } of dropBranch ? repos : [])
     await deleteBranch(deps.run, repo, worktree.branch);
@@ -139,19 +144,41 @@ export async function removeSession(
 
 /**
  * Refuses removing any of these worktrees, naming its project and path: one a newer session holds
- * now (a resume took it over), one another unfinished session runs in, and, without `force`, one
- * with changes or untracked files, as git would refuse it only once others were gone.
+ * now (a resume took it over), one another unfinished session runs in, one git has locked (even
+ * with `force`, as git needs it twice), and, without `force`, one with submodules or with changes
+ * or untracked files, as git would refuse it only once others were gone; with `dropBranch`, a branch
+ * checked out in a worktree the session does not hold. One `git worktree list` per repository; it
+ * returns the held worktrees git lists, whose registration rm clears when the folder is gone.
  */
 async function refuseRemoval(
   deps: { store: SessionStore; run: Runner },
   profile: Profile,
   id: string,
   repos: readonly { project: string; worktree: Worktree; repo: string }[],
-  force: boolean,
+  {
+    force,
+    dropWorktree,
+    dropBranch,
+  }: { force: boolean; dropWorktree: boolean; dropBranch: boolean },
 ) {
   const records = deps.store.list();
+  const registered = new Set<string>();
   for (const { project, worktree, repo } of repos) {
     const where = `${project}'s worktree at ${worktree.path}`;
+    // git lists real paths.
+    const at = real(worktree.path);
+    const listed = (await gitWorktrees(deps.run, repo)).map((w) => ({ ...w, path: real(w.path) }));
+    const own = listed.find((w) => w.path === at);
+    if (own) registered.add(worktree.path);
+    const elsewhere = dropBranch
+      ? listed.find((w) => w.branch === worktree.branch && w.path !== at)
+      : undefined;
+    if (elsewhere)
+      throw new MesaError(
+        'usage',
+        `${project}'s branch ${worktree.branch} is checked out at ${elsewhere.path}`,
+      );
+    if (!dropWorktree) continue;
     const holder = worktreeHolder(deps.store, worktree.path);
     if (holder && holder.id !== id)
       throw new MesaError(
@@ -161,7 +188,17 @@ async function refuseRemoval(
     const using = checkoutHolders(records, project, repo, worktree.path).find((r) => r.id !== id);
     if (using)
       throw new MesaError('usage', `session ${using.id} still uses ${where}; stop it first`);
+    if (own?.locked !== undefined)
+      throw new MesaError(
+        'usage',
+        `${where} is locked${own.locked ? ` (${own.locked})` : ''}: git worktree unlock ${worktree.path} first`,
+      );
     if (force || !existsSync(worktree.path)) continue;
+    if (await hasSubmodules(deps.run, worktree.path))
+      throw new MesaError(
+        'usage',
+        `${where} has submodules: pass --force to remove it with their git data`,
+      );
     const { changes } = await readGitStatus(profile, deps.run, project, worktree.path);
     if (changes.length)
       throw new MesaError(
@@ -169,4 +206,5 @@ async function refuseRemoval(
         `${where} has changes or untracked files: commit or remove them, or pass --force`,
       );
   }
+  return registered;
 }

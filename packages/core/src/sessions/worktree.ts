@@ -1,4 +1,4 @@
-import { mkdirSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
@@ -203,6 +203,12 @@ export async function deleteWorktree(
     worktree.path,
   ];
   await must(run, repo, args, `cannot remove the worktree ${worktree.path}`, ADD_MS);
+}
+
+/** Whether a worktree has an initialized submodule: git keeps its git data in the worktree's `modules`. */
+export async function hasSubmodules(run: Runner, path: string) {
+  const modules = await ask(run, path, ['rev-parse', '--git-path', 'modules']);
+  return modules !== undefined && existsSync(resolve(path, modules));
 }
 
 /**
