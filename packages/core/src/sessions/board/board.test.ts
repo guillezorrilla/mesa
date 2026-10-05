@@ -6,6 +6,7 @@ import {
   listingDeps,
   newSession,
   plantLiveSession,
+  plantTranscript,
   SPIKE_LISTING,
   scriptedRunner,
   sequentialIds,
@@ -263,6 +264,52 @@ test('a /rename in Claude Code is saved as the agent name once, and a later one 
   expect(store.get(session.id)).toEqual(saved);
   await look('harbor-lights');
   expect(store.get(session.id).agentName).toBe('harbor-lights');
+});
+
+test("a look reads a live session's context when its state changes, not on every look", async () => {
+  const store = storeIn();
+  const session = store.create(() => ({
+    ...inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
+    agentSessionId: SPIKE_ID,
+  }));
+  const home = tempDir();
+  const reply = (tokens: number) =>
+    plantTranscript(
+      home,
+      SPIKE_ID,
+      '/src/lantern-cove',
+      JSON.stringify({
+        type: 'assistant',
+        timestamp: '2026-09-24T11:59:00.000Z',
+        message: { model: 'claude-sonnet-4-20250514', usage: { input_tokens: tokens } },
+      }),
+    );
+  const deps = {
+    ...noListing,
+    store,
+    home,
+    tmux: tmuxBackend({
+      sleep: async () => {},
+      run: scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run,
+      socket: 'mesa-default',
+      env: {},
+    }),
+    listing: listingOf(SPIKE_LISTING.idle),
+    clock: fixedClock('2026-09-24T12:00:00.000Z'),
+  };
+  reply(50_000);
+  // The listing's idle is a new state: its context is read and kept.
+  const [row] = await listSessions(deps);
+  expect(row).toMatchObject({ context: { used: 25, window: 200_000 } });
+  expect(store.get(session.id).context?.used).toBe(25);
+  // Still idle, with a reading: the transcript is not read again.
+  reply(100_000);
+  const [again] = await listSessions(deps);
+  expect(again).toMatchObject({ context: { used: 25 } });
+  // A new turn changes its state again: the new reading replaces the old one.
+  const [next] = await listSessions({ ...deps, listing: listingOf(SPIKE_LISTING.permission) });
+  expect(next).toMatchObject({ context: { used: 50 } });
+  expect(store.get(session.id).context?.used).toBe(50);
 });
 
 test('a Codex listing row gives no state: a foreign one is a guess at working, a Mesa one reads its window', async () => {

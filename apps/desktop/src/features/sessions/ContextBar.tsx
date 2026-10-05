@@ -12,6 +12,13 @@ export const contextTone = (used: number) => {
   return shown >= RED ? 'red' : shown >= AMBER ? 'amber' : 'normal';
 };
 
+/** The progress indicator's colour for a context tone, so every context bar reads alike. */
+export const toneIndicator = (tone: ReturnType<typeof contextTone>) =>
+  cn(
+    tone === 'amber' && '[&>[data-slot=progress-indicator]]:bg-state-waiting',
+    tone === 'red' && '[&>[data-slot=progress-indicator]]:bg-state-failed',
+  );
+
 /** How full a session's context is: a bar with its percent, amber from 55% and red from 60%. */
 export function ContextBar(props: { used: number; window: number }) {
   const shown = contextPercent(props.used);
@@ -26,11 +33,7 @@ export function ContextBar(props: { used: number; window: number }) {
       <Progress
         value={shown}
         aria-label="Context used"
-        className={cn(
-          'h-1.5 w-16',
-          tone === 'amber' && '[&>[data-slot=progress-indicator]]:bg-state-waiting',
-          tone === 'red' && '[&>[data-slot=progress-indicator]]:bg-state-failed',
-        )}
+        className={cn('h-1.5 w-16', toneIndicator(tone))}
       />
       <span className="font-mono text-xs tabular-nums">{shown}%</span>
     </div>

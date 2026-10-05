@@ -1763,8 +1763,8 @@ test('selected session details read native context by exact id and keep unknown 
   );
   expect(details?.textContent).toContain('58% of 258,400 tokens');
   expect(details?.textContent).toContain('transcript');
-  const ring = document.querySelector('[aria-label="Context window: 58%"]');
-  expect(ring?.getAttribute('role')).toBe('progressbar');
+  const ring = document.querySelector<HTMLElement>('[aria-label="Context window: 58%"]');
+  expect(ring?.tagName).toBe('BUTTON');
   // The Board's context bar tones: amber from 55%.
   expect(ring?.getAttribute('data-tone')).toBe('amber');
   reading = false;
@@ -1775,9 +1775,12 @@ test('selected session details read native context by exact id and keep unknown 
   expect(details?.textContent).toContain('EffortUnknown');
   expect(details?.textContent).toContain('Instructionsmissing: Run mesa hooks install');
   expect(details?.textContent).toContain('Vaultunsupported: A plain terminal runs no agent');
-  expect(
-    document.querySelector('[aria-label="Context window: unknown"]')?.getAttribute('role'),
-  ).toBe('img');
+  const unknown = document.querySelector<HTMLElement>('[aria-label="Context window: unknown"]');
+  expect(unknown?.tagName).toBe('BUTTON');
+  await click(unknown ?? undefined);
+  expect(document.querySelector('[data-testid="context-panel"]')?.textContent).toContain(
+    "No context reading yet: one appears after the agent's first reply.",
+  );
 });
 
 test("selected session details list the vault server's tools for an agent session", async () => {
@@ -1847,9 +1850,14 @@ test("a selected session's context ring stops at 100% and turns red, as the Boar
     sessions: () => envelope([managedRow('aaaaaaaa', { context })]),
   });
   await renderWithMesa(<App />, bridge);
-  const ring = document.querySelector('[aria-label="Context window: 100%"]');
-  expect(ring?.getAttribute('aria-valuenow')).toBe('100');
+  const ring = document.querySelector<HTMLElement>('[aria-label="Context window: 100%"]');
   expect(ring?.getAttribute('data-tone')).toBe('red');
+  // Clicking the ring opens its context use.
+  await click(ring ?? undefined);
+  const panel = document.querySelector('[data-testid="context-panel"]')?.textContent;
+  expect(panel).toContain('100% used');
+  expect(panel).toMatch(/of [\d,]+ tokens/);
+  expect(panel).toContain('Model');
 });
 
 test('selected-session image preview can be removed or sent only to the selected Claude session', async () => {
