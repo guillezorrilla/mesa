@@ -119,7 +119,7 @@ test('an unknown or malformed id, a blank name, or another profile holding it is
   const { home, mesa } = setUp();
   await expect(mesa.sessions.adopt(ON_DISK)).rejects.toMatchObject({
     code: 'not_found',
-    message: `no Claude Code or Codex session ${ON_DISK}, live or in ${join(home, '.claude/projects')}, ${codexSessions(codexHome({}, home))}`,
+    message: `no Claude Code or Codex session ${ON_DISK}, live or in ${join(home, '.claude/projects')}, ${codexSessions(codexHome(home, {}))}`,
   });
   for (const id of ['../../etc/passwd', LIVE.toUpperCase(), 'a1b2c3d4']) {
     await expect(mesa.sessions.adopt(id)).rejects.toMatchObject({

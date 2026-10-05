@@ -290,7 +290,7 @@ test('sidebar opens Map without creating a missing saved map', async () => {
   expect(calls.some((args) => args[1] === 'map')).toBe(false);
 });
 
-test('project Skills and Rules tabs preview and save only through their checked commands', async () => {
+test('project Skills and Instructions tabs preview and save only through their checked commands', async () => {
   const skillId = '/src/lantern-cove/.claude/skills/sunset-map';
   const instructionId = '/src/lantern-cove/AGENTS.md';
   const revision = 'a'.repeat(64);

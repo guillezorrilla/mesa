@@ -17,6 +17,10 @@ export const antigravityCliSettings = (home: string) => join(antigravityCli(home
 
 /** Its plugins, each a folder that may hold `rules` and `skills`. */
 export const antigravityPlugins = (home: string) => join(antigravityCli(home), 'plugins');
+export const antigravityPluginRules = (home: string, plugin: string) =>
+  join(antigravityPlugins(home), plugin, 'rules');
+export const antigravityPluginSkills = (home: string, plugin: string) =>
+  join(antigravityPlugins(home), plugin, 'skills');
 
 /** Its global instruction files: `AGENTS.md` and `GEMINI.md`, in its home and in its config. */
 export const antigravityInstructions = (home: string) =>

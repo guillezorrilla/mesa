@@ -4,7 +4,7 @@ import type { Env } from '../../lib/process.js';
 // Where Claude Code keeps its files under a home directory: the one module that knows them.
 
 /** Claude Code's config folder: `CLAUDE_CONFIG_DIR` when `env` sets it, else `~/.claude`. */
-export const claudeHome = (env: Env, home: string) =>
+export const claudeHome = (home: string, env: Env) =>
   env.CLAUDE_CONFIG_DIR || join(home, '.claude');
 
 /**
@@ -12,16 +12,16 @@ export const claudeHome = (env: Env, home: string) =>
  * as Claude reads them there.
  */
 export const claudeSettings = (home: string, env: Env = {}) =>
-  join(claudeHome(env, home), 'settings.json');
+  join(claudeHome(home, env), 'settings.json');
 
-/** Its user instruction file, `CLAUDE.md`, and the folder of `.md` rules beside it. */
-export const claudeMemory = (claudeHome: string) => join(claudeHome, 'CLAUDE.md');
-export const claudeRules = (claudeHome: string) => join(claudeHome, 'rules');
+/** In a Claude folder (its config folder or a project's `.claude`) or a project: `CLAUDE.md`, and the folder of `.md` rules. */
+export const claudeMemory = (folder: string) => join(folder, 'CLAUDE.md');
+export const claudeRules = (folder: string) => join(folder, 'rules');
 
 /** Its user skills folder, and the plugins Claude Code installed, each with a `skills` folder. */
-export const claudeSkills = (claudeHome: string) => join(claudeHome, 'skills');
-export const claudeInstalledPlugins = (claudeHome: string) =>
-  join(claudeHome, 'plugins', 'installed_plugins.json');
+export const claudeSkills = (folder: string) => join(folder, 'skills');
+export const claudeInstalledPlugins = (claudeDir: string) =>
+  join(claudeDir, 'plugins', 'installed_plugins.json');
 
 /** A project's own Claude Code files, relative to the project. */
 export const CLAUDE_PROJECT_DIR = '.claude';

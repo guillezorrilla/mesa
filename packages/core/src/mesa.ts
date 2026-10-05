@@ -107,12 +107,12 @@ export function createMesa(profile: string, deps: MesaDeps) {
         decisions: faro.inUse(),
         hooks: {
           claude: () => hooksStatus(deps.home, deps.self),
-          codex: () => codexHooksStatus(codexHome(deps.env, deps.home), deps.self),
+          codex: () => codexHooksStatus(codexHome(deps.home, deps.env), deps.self),
           antigravity: () => antigravityHooksStatus(deps.home, deps.self),
           antigravityVault: () => vaultMountStatus(deps.home, deps.self),
           tmux: ctx.tmuxHook,
         },
-        codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),
+        codexDaemon: codexDaemonSocket(codexHome(deps.home, deps.env)),
         ...(existsSync(ctx.paths.config) ? { vault: vaults.vault.status } : {}),
       });
       // A profile that was never initialised has no inbox: doctor must not create its folder.

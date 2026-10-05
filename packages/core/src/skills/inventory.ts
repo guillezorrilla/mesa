@@ -3,6 +3,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { parse } from 'smol-toml';
 import {
   ANTIGRAVITY_PROJECT_SKILLS,
+  antigravityPluginSkills,
   antigravityPlugins,
   antigravitySkills,
 } from '../agents/antigravity/paths.js';
@@ -77,12 +78,12 @@ function readSettings(file: string): Record<string, unknown> {
 
 function nativeRoots(
   home: string,
-  claude: string,
+  claudeDir: string,
   projectDir?: string,
   enabledPlugins?: Record<string, unknown>,
 ): Root[] {
   const roots: Root[] = [
-    { path: claudeSkills(claude), scope: 'global', providers: ['claude'] },
+    { path: claudeSkills(claudeDir), scope: 'global', providers: ['claude'] },
     { path: join(home, CODEX_SKILLS), scope: 'global', providers: ['codex'] },
     { path: antigravitySkills(home), scope: 'global', providers: ['antigravity'] },
   ];
@@ -101,17 +102,16 @@ function nativeRoots(
       },
     );
   }
-  const plugins = antigravityPlugins(home);
-  for (const plugin of entries(plugins)) {
+  for (const plugin of entries(antigravityPlugins(home))) {
     if (plugin.isDirectory()) {
       roots.push({
-        path: join(plugins, plugin.name, 'skills'),
+        path: antigravityPluginSkills(home, plugin.name),
         scope: 'plugin',
         providers: ['antigravity'],
       });
     }
   }
-  const installed = claudeInstalledPlugins(claude);
+  const installed = claudeInstalledPlugins(claudeDir);
   if (existsSync(installed)) {
     let metadata: unknown;
     try {
@@ -197,15 +197,15 @@ export function skillInventory(input: {
   codexConfig?: string;
 }): SkillInventoryRow[] {
   const disabled = codexDisabledSkills(input.codexConfig);
-  const claudeDir = claudeHome(input.env, input.home);
-  const claude = readSettings(claudeSettings(input.home, input.env));
+  const claudeDir = claudeHome(input.home, input.env);
+  const claudeSettingsJson = readSettings(claudeSettings(input.home, input.env));
   const enabledPlugins =
-    claude.enabledPlugins && typeof claude.enabledPlugins === 'object'
-      ? (claude.enabledPlugins as Record<string, unknown>)
+    claudeSettingsJson.enabledPlugins && typeof claudeSettingsJson.enabledPlugins === 'object'
+      ? (claudeSettingsJson.enabledPlugins as Record<string, unknown>)
       : {};
   const skillOverrides =
-    claude.skillOverrides && typeof claude.skillOverrides === 'object'
-      ? (claude.skillOverrides as Record<string, unknown>)
+    claudeSettingsJson.skillOverrides && typeof claudeSettingsJson.skillOverrides === 'object'
+      ? (claudeSettingsJson.skillOverrides as Record<string, unknown>)
       : {};
   const byName = new Map(input.library.map((skill) => [skill.name, skill]));
   const rows: SkillInventoryRow[] = input.listed

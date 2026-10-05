@@ -149,7 +149,7 @@ export async function startSession(
       record = await createAdditional(deps, record, start.additional, made);
     const cwd = agentFolder(record, project);
     const hooks =
-      record.agent === 'codex' ? codexHooks(codexHome(deps.env, deps.home), deps.self) : undefined;
+      record.agent === 'codex' ? codexHooks(codexHome(deps.home, deps.env), deps.self) : undefined;
     const warning = joinWarnings(
       record.kind === 'terminal' || !project ? undefined : syncSkillsInto(deps, project.name, cwd),
       ...(record.additional ?? []).map((a) => syncSkillsInto(deps, a.project, a.worktree.path)),

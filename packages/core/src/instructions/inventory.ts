@@ -4,6 +4,7 @@ import {
   ANTIGRAVITY_PROJECT_INSTRUCTIONS,
   ANTIGRAVITY_PROJECT_RULES,
   antigravityInstructions,
+  antigravityPluginRules,
   antigravityPlugins,
   antigravityRules,
 } from '../agents/antigravity/paths.js';
@@ -60,11 +61,13 @@ export function instructionInventory(
   env: Env,
   projectDir?: string,
 ): InstructionRow[] {
-  const claude = claudeHome(env, home);
-  const codex = codexHome(env, home);
+  const claudeDir = claudeHome(home, env);
+  const codexDir = codexHome(home, env);
   const paths: InstructionPath[] = [
-    ...sources([codexInstructions(codex), codexInstructionsOverride(codex)], 'global', ['codex']),
-    ...sources([claudeMemory(claude), ...files(claudeRules(claude))], 'global', ['claude']),
+    ...sources([codexInstructions(codexDir), codexInstructionsOverride(codexDir)], 'global', [
+      'codex',
+    ]),
+    ...sources([claudeMemory(claudeDir), ...files(claudeRules(claudeDir))], 'global', ['claude']),
     ...sources(
       [...antigravityInstructions(home), ...antigravityRules(home).flatMap(files)],
       'global',
@@ -72,14 +75,14 @@ export function instructionInventory(
     ),
   ];
   if (projectDir) {
-    const claudeProject = join(projectDir, CLAUDE_PROJECT_DIR);
+    const claudeProjectDir = join(projectDir, CLAUDE_PROJECT_DIR);
     paths.push(
       ...sources([join(projectDir, 'AGENTS.md')], 'project', ['claude', 'codex', 'antigravity']),
       ...sources(
         [
           claudeMemory(projectDir),
-          claudeMemory(claudeProject),
-          ...files(claudeRules(claudeProject)),
+          claudeMemory(claudeProjectDir),
+          ...files(claudeRules(claudeProjectDir)),
         ],
         'project',
         ['claude'],
@@ -94,10 +97,11 @@ export function instructionInventory(
       ),
     );
   }
-  const plugins = antigravityPlugins(home);
-  for (const plugin of entries(plugins)) {
+  for (const plugin of entries(antigravityPlugins(home))) {
     if (plugin.isDirectory())
-      paths.push(...sources(files(join(plugins, plugin.name, 'rules')), 'plugin', ['antigravity']));
+      paths.push(
+        ...sources(files(antigravityPluginRules(home, plugin.name)), 'plugin', ['antigravity']),
+      );
   }
   return paths
     .flatMap((source) => {

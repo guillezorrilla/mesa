@@ -34,7 +34,7 @@ export function skillsService(ctx: MesaContext) {
       library,
       listed: listSkills({ library, libraryDir, ...selected }),
       projectDir: selected.projectDir,
-      codexConfig: codexConfig(codexHome(ctx.deps.env, ctx.deps.home)),
+      codexConfig: codexConfig(codexHome(ctx.deps.home, ctx.deps.env)),
     });
   };
   const document = (id: string, project?: string, file = 'SKILL.md') => {
