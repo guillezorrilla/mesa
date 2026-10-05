@@ -67,35 +67,45 @@ export function updateService(
     return parsed.data;
   };
 
-  /** The newest release across the channel's feeds, with the feed it came from. */
-  const newest = async (on: UpdateChannel) => {
+  /** Every release the channel's feeds name, with the feed each came from. */
+  const releases = async (on: UpdateChannel) => {
     const found = await Promise.all(
       FEEDS[on].map(async (feed) => ({ feed, manifest: await manifest(feed) })),
     );
-    return found
-      .filter((f): f is { feed: string; manifest: Manifest } => f.manifest !== undefined)
-      .sort((a, b) => compare(b.manifest.version, a.manifest.version))[0];
+    return found.filter((f): f is { feed: string; manifest: Manifest } => f.manifest !== undefined);
   };
 
-  /** The running version's revocation, if `revoked.json` lists it; a failed read never blocks. */
-  const revoked = async (): Promise<Revoked | undefined> => {
+  /** `revoked.json`'s entries; a failed or malformed read never blocks, so it lists none. */
+  const revocations = async (): Promise<Revoked[]> => {
     try {
       const response = await http(REVOKED_LIST);
-      if (!response.ok) return undefined;
-      const list = RevokedSchema.parse(await response.json());
-      const hit = list.revokedVersions.find((entry) =>
-        satisfies(current, entry.version, { includePrerelease: true }),
-      );
-      return hit && { version: hit.version, reason: hit.reason };
+      if (!response.ok) return [];
+      return RevokedSchema.parse(await response.json()).revokedVersions;
     } catch {
-      return undefined;
+      return [];
     }
   };
+
+  /** The entry that revokes `version` (a version or a semver range), if any. */
+  const revocationOf = (list: Revoked[], version: string): Revoked | undefined => {
+    const hit = list.find((entry) =>
+      satisfies(version, entry.version, { includePrerelease: true }),
+    );
+    return hit && { version: hit.version, reason: hit.reason };
+  };
+
+  /** The running version's revocation, if `revoked.json` lists it. */
+  const revoked = async () => revocationOf(await revocations(), current);
 
   /** What a person running this version sees on the profile's channel. */
   const check = async (): Promise<UpdateCheck> => {
     const on = channel();
-    const [best, revocation] = await Promise.all([newest(on), revoked()]);
+    const [found, list] = await Promise.all([releases(on), revocations()]);
+    // A revoked release is never offered: the newest one not revoked is.
+    const best = found
+      .filter((f) => !revocationOf(list, f.manifest.version))
+      .sort((a, b) => compare(b.manifest.version, a.manifest.version))[0];
+    const revocation = revocationOf(list, current);
     // Downgrades are never offered: only a version above the running one is available.
     const available = best !== undefined && compare(best.manifest.version, current) > 0;
     return {

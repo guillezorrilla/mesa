@@ -92,6 +92,32 @@ test('the running version is revoked by version or by range; a failed read never
   expect(both).toMatchObject({ available: true, revoked: { reason: 'Loses session logs' } });
 });
 
+test('a revoked release is never offered; the newest one not revoked is', async () => {
+  const { update } = world({
+    [`GET ${BETA}`]: manifest('0.1.0-beta.6'),
+    [`GET ${STABLE}`]: manifest('0.1.0-beta.5'),
+    [`GET ${REVOKED_LIST}`]: {
+      body: { schemaVersion: 1, revokedVersions: [{ version: '0.1.0-beta.6', reason: 'Pulled' }] },
+    },
+  });
+  expect(await update.check()).toMatchObject({
+    available: true,
+    latest: '0.1.0-beta.5',
+    feed: STABLE,
+  });
+  const pulled = world({
+    [`GET ${BETA}`]: manifest('0.1.0-beta.6'),
+    [`GET ${REVOKED_LIST}`]: {
+      body: {
+        schemaVersion: 1,
+        revokedVersions: [{ version: '>=0.1.0-beta.5', reason: 'Pulled' }],
+      },
+    },
+  });
+  expect(await pulled.update.check()).toMatchObject({ available: false });
+  expect((await pulled.update.check()).latest).toBeUndefined();
+});
+
 const APP = '/Applications/Mesa.app';
 const SELF = [`${APP}/Contents/MacOS/mesa`];
 

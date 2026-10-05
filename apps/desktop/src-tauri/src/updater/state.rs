@@ -147,6 +147,15 @@ impl<T> State<T> {
         status.page = found.page;
         status.revoked = found.revoked.filter(|r| !r.is_null());
         status.message = None;
+        // A kept download that is no longer the newest release (pulled, revoked, superseded, or
+        // another channel's) is never offered again.
+        if self
+            .ready
+            .as_ref()
+            .is_some_and(|ready| Some(&ready.version) != latest.as_ref())
+        {
+            self.ready = None;
+        }
         if status.version != latest {
             status.dismissed = false;
         }
@@ -193,8 +202,8 @@ impl<T> State<T> {
         }
     }
 
-    /// A failed check or download. A verified download already here is still newer than the
-    /// running version, so it stays offered.
+    /// A failed check or download. A verified download still here is the one the last successful
+    /// check named, so it stays offered.
     fn fail(&mut self, message: String) {
         self.status.message = Some(message);
         match &self.ready {
@@ -411,22 +420,43 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_check_or_download_keeps_a_verified_update_offered() {
+    fn a_failed_check_keeps_the_verified_update_the_last_check_named() {
         let mut state = holding_beta5();
         state.begin("beta", Trigger::Person, at(11));
         state.checked("beta".into(), Err("HTTP 503".into()), None, at(11));
-        assert_eq!(state.status.phase, Phase::Ready);
-        assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
-        // A newer version that fails to download leaves the older verified one to install.
-        state.begin("beta", Trigger::Person, at(22));
-        state.checked("beta".into(), Ok(newer("0.1.0-beta.6")), None, at(22));
-        state.downloaded(Err("refused".into()));
         assert_eq!(state.status.phase, Phase::Ready);
         assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
         assert_eq!(
             state.take_ready().map(|r| r.version).as_deref(),
             Some("0.1.0-beta.5")
         );
+    }
+
+    #[test]
+    fn a_pulled_revoked_or_superseded_download_is_never_offered_again() {
+        // beta.5 was pulled and the feed now names beta.6, whose download fails: beta.5 is
+        // dropped, not offered.
+        let mut state = holding_beta5();
+        state.begin("beta", Trigger::Person, at(11));
+        assert!(state
+            .checked("beta".into(), Ok(newer("0.1.0-beta.6")), None, at(11))
+            .is_some());
+        state.downloaded(Err("refused".into()));
+        assert_eq!(state.status.phase, Phase::Failed);
+        assert!(state.take_ready().is_none());
+        // Then a check that fails offline has nothing stale to bring back.
+        state.begin("beta", Trigger::Person, at(12));
+        state.checked("beta".into(), Err("offline".into()), None, at(12));
+        assert_eq!(state.status.phase, Phase::Failed);
+        // Revoked with nothing newer: core offers nothing, and the download is dropped.
+        let mut revoked = holding_beta5();
+        revoked.begin("beta", Trigger::Person, at(11));
+        let mut nothing = newer("0.1.0-beta.5");
+        nothing.available = false;
+        nothing.latest = None;
+        revoked.checked("beta".into(), Ok(nothing), None, at(11));
+        assert_eq!(revoked.status.phase, Phase::UpToDate);
+        assert!(revoked.take_ready().is_none());
     }
 
     #[test]

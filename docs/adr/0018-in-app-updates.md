@@ -19,7 +19,7 @@ Date: 2026-10-02
 
 **The CLI.** `mesa update check --json` prints `{current, latest?, available, channel, notes?, revoked?, feed?, page}`. `mesa update install` downloads nothing: when a newer version is available it runs `open -a <its Mesa.app> mesa://update/install`, which starts the app if it is closed, and the app checks, downloads, verifies and shows its dialog, so a person still chooses Install. Up to date, it opens nothing and names the download page; a `mesa` outside an installed `Mesa.app` refuses and names the download page.
 
-**Revocation.** `revoked.json` is `{schemaVersion: 1, revokedVersions: [{version, reason}]}`, where `version` is a version or a semver range. When the running version matches, the app shows a blocking dialog with the reason, "Check for update" and "Quit". A failed or malformed read never blocks.
+**Revocation.** `revoked.json` is `{schemaVersion: 1, revokedVersions: [{version, reason}]}`, where `version` is a version or a semver range. When the running version matches, the app shows a blocking dialog with the reason, "Check for update" and "Quit". A revoked release is never offered: the check takes the newest release the list does not revoke, and the app drops a kept download that a successful check no longer names (it is kept only when the check itself fails). A failed or malformed read never blocks.
 
 **Why sessions survive.** Sessions run in the profile's tmux server, not in the app (ADR-0007); the app's terminals are tmux clients. Replacing and relaunching the app ends only those clients. The relaunched app lists the same sessions from `mesa sessions` and reattaches.
 
