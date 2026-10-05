@@ -1,5 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
 import type { SessionLocation } from '../hooks/useStartSession';
 import type { WorkspaceView } from '../navigation';
@@ -8,11 +9,11 @@ import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
 import { StartingSessions } from './StartingSessions';
 import type { SelectionInput } from './sessionSelection';
-import type { SidebarGroups } from './sidebarGroups';
+import { type SidebarGroups, sidebarOrder } from './sidebarGroups';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
- * multi-select list whose right-click menu archives the selection.
+ * multi-selection that the right-click menu or a chosen card's More menu archives.
  */
 export function SessionsSection(props: {
   groups: SidebarGroups;
@@ -36,35 +37,50 @@ export function SessionsSection(props: {
   const { groups, view, onView } = props;
   const { visible, active, stranded, general, other, inProject } = groups;
   const { chosen, onSelection } = props;
-  const card = (session: TreeRow) => (
-    <SessionsMenu
-      key={session.id}
-      count={chosen.includes(session.id) ? chosen.length : 1}
-      onOpen={() => onSelection({ kind: 'context', id: session.id })}
-      onArchive={() =>
-        props.onArchiveSessions?.(chosen.includes(session.id) ? [...chosen] : [session.id])
-      }
-    >
-      <SessionCard
-        session={session}
-        selected={view.kind === 'session' && view.id === session.id}
-        chosen={chosen.includes(session.id)}
-        compact={props.compactSessions.includes(session.id)}
-        onToggleCompact={() => props.onToggleCompact(session.id)}
-        onSelect={(keys) => {
-          onSelection({ kind: 'click', id: session.id, ...keys });
-          if (!keys.shift && !keys.toggle) onView({ kind: 'session', id: session.id });
-        }}
-        onNewSession={props.onNewSession}
-        onArchiveSession={props.onArchiveSession}
-        onDependencySession={props.onDependencySession}
-      />
-    </SessionsMenu>
-  );
+  const list = useRef<HTMLDivElement>(null);
+  const order = sidebarOrder(groups, props.closedProjects);
+  /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
+  const step = (id: string, by: number, shift: boolean) => {
+    const next = order[order.indexOf(id) + by];
+    if (!next) return;
+    list.current?.querySelector<HTMLElement>(`[data-session-id="${next}"]`)?.focus();
+    if (shift) onSelection({ kind: 'click', id: next, shift: true });
+  };
+  const card = (session: TreeRow) => {
+    const count = chosen.includes(session.id) ? chosen.length : 1;
+    const archive = () => props.onArchiveSessions?.(count > 1 ? [...chosen] : [session.id]);
+    return (
+      <SessionsMenu
+        key={session.id}
+        count={count}
+        onOpen={() => onSelection({ kind: 'context', id: session.id })}
+        onArchive={archive}
+      >
+        <SessionCard
+          session={session}
+          selected={view.kind === 'session' && view.id === session.id}
+          chosen={chosen.includes(session.id)}
+          compact={props.compactSessions.includes(session.id)}
+          onToggleCompact={() => props.onToggleCompact(session.id)}
+          onSelect={(keys) => {
+            onSelection({ kind: 'click', id: session.id, ...keys });
+            if (!keys.shift && !keys.toggle) onView({ kind: 'session', id: session.id });
+          }}
+          onStep={(by, shift) => step(session.id, by, shift)}
+          chosenCount={count}
+          onArchiveChosen={archive}
+          onNewSession={props.onNewSession}
+          onArchiveSession={props.onArchiveSession}
+          onDependencySession={props.onDependencySession}
+        />
+      </SessionsMenu>
+    );
+  };
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a fieldset is for form controls; this groups cards.
     <div
-      role="listbox"
-      aria-multiselectable="true"
+      ref={list}
+      role="group"
       aria-label="Sessions"
       onKeyDown={(event) => {
         // An open menu's Escape bubbles here through React's tree, though its DOM is elsewhere.

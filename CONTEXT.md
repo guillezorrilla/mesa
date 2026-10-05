@@ -121,7 +121,7 @@ Not: task, job, run (`kind: run` qualifies a session, it is not another name for
 
 ## Archived session
 
-`mesa archive <id>...` ends each named session and sets `archivedAt`, keeping its record, output log, and worktree; with several ids it reports one item per id, and an unknown id archives none. The active Board and project session list hide it; `mesa sessions --all` still finds it. `mesa unarchive <id>` clears `archivedAt` without restarting the process. Permanent removal remains `mesa rm` and its confirmation, and the selected session's close control offers archive or permanent deletion. The sidebar's Sessions tab archives a multi-selection together (Shift-click a range, Cmd-click to toggle, then Archive from the right-click menu) behind one confirmation.
+`mesa archive <id>...` ends each named session and sets `archivedAt`, keeping its record, output log, and worktree; with several ids it reports one item per id, and an unknown id archives none. The active Board and project session list hide it; `mesa sessions --all` still finds it. `mesa unarchive <id>` clears `archivedAt` without restarting the process. Permanent removal remains `mesa rm` and its confirmation, and the selected session's close control offers archive or permanent deletion. The sidebar's Sessions tab archives a multi-selection together (Shift-click a range, Cmd-click to toggle, then Archive from the right-click menu, or from the keyboard, Shift+Arrow or Shift+Enter to range, Cmd+Enter to toggle, then Archive N sessions from the card's More menu) behind one confirmation.
 
 ## Workflow status
 
