@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { scriptedRunner, tempDir, testDeps } from '../testing/index.js';
-import { obsidianUri, openInObsidian } from './obsidian.js';
+import { obsidianUri, openInObsidian, vaultChoices } from './obsidian.js';
 
 let home: string;
 let vault: string;
@@ -134,4 +134,29 @@ test('two known vaults with the same folder name are refused, not guessed', asyn
     message: expect.stringContaining('2 vaults named Lantern Cove'),
   });
   expect(calls).toEqual([]);
+});
+
+test('vault choices: existing vaults, most recently opened first, and a new folder to suggest', () => {
+  const tide = join(home, 'Tide Pool');
+  mkdirSync(tide);
+  mkdirSync(dirname(obsidian.vaultList), { recursive: true });
+  writeFileSync(
+    obsidian.vaultList,
+    JSON.stringify({
+      vaults: {
+        a: { path: vault, ts: 1 },
+        b: { path: tide, ts: 2 },
+        c: { path: join(home, 'gone'), ts: 3 },
+      },
+    }),
+  );
+  expect(vaultChoices(obsidian, home)).toEqual({
+    vaults: [
+      { path: tide, name: 'Tide Pool' },
+      { path: vault, name: 'Lantern Cove' },
+    ],
+    suggested: join(home, 'Documents/Mesa'),
+  });
+  writeFileSync(obsidian.vaultList, 'not json');
+  expect(vaultChoices(obsidian, home).vaults).toEqual([]);
 });

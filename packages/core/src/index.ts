@@ -182,7 +182,12 @@ export {
   type VaultKind,
 } from './vault/item.js';
 export type { LinkResolution, NoteLink, VaultLink } from './vault/links.js';
-export { macObsidianPaths, type ObsidianPaths, type Opened } from './vault/obsidian.js';
+export {
+  macObsidianPaths,
+  type ObsidianPaths,
+  type Opened,
+  type VaultChoices,
+} from './vault/obsidian.js';
 export type { ProjectContext } from './vault/project-context.js';
 export type { VaultPreview, VaultRead } from './vault/reader.js';
 export {

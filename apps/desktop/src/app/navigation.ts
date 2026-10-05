@@ -13,8 +13,7 @@ export type WorkspaceView =
         | 'prompts'
         | 'backup'
         | 'automations'
-        | 'tour'
-        | 'setup'
+        | 'onboarding'
         | 'map'
         | 'usage'
         | 'inbox';

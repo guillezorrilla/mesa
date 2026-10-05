@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { UpdateSettings } from '@/features/update/UpdateSettings';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
+import { CliLinkRow } from './CliLinkRow';
 import { Choice } from './controls/Choice';
 import { options } from './controls/options';
 import { Range } from './controls/Range';
@@ -79,14 +80,16 @@ export function GeneralSettings(props: {
           }
         />
         <SettingRow
-          title="Welcome tour"
-          description="Replay the first-run walkthrough at any time."
+          title="Setup guide"
+          description="Walk through setup again: requirements, projects, and a first session."
+          keywords="onboarding tour welcome"
           control={
             <Button size="sm" variant="ghost" disabled={acting} onClick={props.onReplayTour}>
-              Replay tour
+              Run again
             </Button>
           }
         />
+        <CliLinkRow />
       </SettingSection>
       <UpdateSettings />
       <SettingSection

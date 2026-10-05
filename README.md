@@ -68,7 +68,7 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 
 ## Install
 
-**Download** the DMG from the [latest release](https://github.com/guillezorrilla/mesa/releases/latest), open it, and drag Mesa to Applications. On first launch, the Set up screen creates your profile and vault and checks tmux and the agents.
+**Download** the DMG from the [latest release](https://github.com/guillezorrilla/mesa/releases/latest), open it, and drag Mesa to Applications. On first launch, a short setup picks your vault, installs what sessions need, adds your projects, and starts your first session.
 
 The `mesa` command ships inside the app. To use it from a terminal, link it onto your PATH:
 
@@ -85,8 +85,8 @@ mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.loc
 
 ## Quick start
 
-1. **First run.** Open Mesa. The Set up screen asks for a vault folder, creates your profile, and checks tmux and your agents. A short tour follows, after the offer in step 2 if there is one; you can leave it and resume it later.
-2. **Add your projects.** If you already use Claude Code or Codex, Mesa offers after Set up to find your recent conversations: tick the folders to add, and their conversations become sessions you can resume, under their own names, and then the tour starts. Otherwise, in Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder.
+1. **First run.** Open Mesa. Pick a vault (one of your Obsidian vaults, or a new one), install tmux, an agent and Mesa's session hooks with a click each, choose your projects, and start your first session. You can leave and resume it later.
+2. **Add your projects.** If you already use Claude Code or Codex, the first run lists the folders you used them in; later, **Add project > Find from sessions** adopts their conversations as sessions you can resume, under their own names. Otherwise, in Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder.
 3. **Start a session.** Press **+** beside the project. A session starts at once with the project's agent (Claude Code unless you chose another) and opens in its own terminal. The sidebar shows its state: working, waiting for an answer, idle, or queued.
 4. **Use the CLI.** Everything above works from a terminal too:
 

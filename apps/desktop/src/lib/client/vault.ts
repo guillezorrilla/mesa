@@ -6,6 +6,7 @@ import type {
   Opened,
   ProjectContext,
   ReceiptEntry,
+  VaultChoices,
   VaultHealth,
   VaultInventory,
   VaultRead,
@@ -73,6 +74,8 @@ export const vaultCommands = {
     ],
   ),
   'vault.status': command<VaultStatus>('vault', 'status'),
+  /** Obsidian's vaults and a suggested new folder, for a first vault; needs no profile. */
+  'obsidian.vaults': command<VaultChoices>('obsidian', 'vaults'),
   'vault.init': command<Recorded<{ path: string; created: string[] }>>('vault', 'init'),
   /** The mesa-vault server's tool definitions, as it lists them to a live session (ADR-0011). */
   'vault.tools': command<{ tools: McpTool[] }>('vault', 'mcp', '--tools'),

@@ -4,8 +4,8 @@ import { activeSession, recoverable } from '@/features/sessions/rows';
 import type { WorkspaceView } from '../navigation';
 
 /**
- * Opens the first view once, while the Board is still showing: Set up with no profile, the tour
- * while onboarding is active, else the first live or recoverable session.
+ * Opens the first view once, while the Board is still showing: onboarding with no profile or
+ * while it is active, else the first live or recoverable session.
  */
 export function useInitialView(props: {
   config: Config | undefined;
@@ -20,12 +20,8 @@ export function useInitialView(props: {
   useEffect(() => {
     if ((!config && !needsProfileSetup) || openedFirstView.current) return;
     openedFirstView.current = true;
-    const first = needsProfileSetup
-      ? 'setup'
-      : config?.onboarding?.status === 'active'
-        ? 'tour'
-        : undefined;
-    if (first) setView((current) => (current.kind === 'sessions' ? { kind: first } : current));
+    if (needsProfileSetup || config?.onboarding?.status === 'active')
+      setView((current) => (current.kind === 'sessions' ? { kind: 'onboarding' } : current));
   }, [config, needsProfileSetup, setView]);
   useEffect(() => {
     if (
