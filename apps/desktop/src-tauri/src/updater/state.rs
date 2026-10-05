@@ -17,6 +17,8 @@ pub const BACKOFF: [Duration; 4] = [
     Duration::from_secs(60 * 60),
     EVERY,
 ];
+/// How long Later holds the prompt back on a Mac that is never relaunched.
+pub const LATER: Duration = Duration::from_secs(24 * 60 * 60);
 /// No two checks of one channel come closer than this, unless the link asks or a person retries
 /// a failure.
 pub const FLOOR: Duration = Duration::from_secs(10 * 60);
@@ -73,7 +75,8 @@ pub struct Status {
     pub page: Option<String>,
     /// `{version, reason}` when the running version is revoked.
     pub revoked: Option<Value>,
-    /// Later was chosen for `version`: hidden until a newer one, a person's check, or a relaunch.
+    /// Later was chosen for `version`: hidden until a newer one, a person's check, a relaunch,
+    /// or `LATER` has passed.
     pub dismissed: bool,
 }
 
@@ -89,6 +92,8 @@ pub struct State<T> {
     last: Option<(SystemTime, String)>,
     /// Failed checks and downloads in a row, for the backoff.
     failures: usize,
+    /// When Later was chosen.
+    later_at: Option<SystemTime>,
     ready: Option<Ready<T>>,
 }
 
@@ -98,6 +103,7 @@ impl<T> Default for State<T> {
             status: Status::default(),
             last: None,
             failures: 0,
+            later_at: None,
             ready: None,
         }
     }
@@ -237,9 +243,20 @@ impl<T> State<T> {
         }
     }
 
-    /// Later: hides the update until a newer one, a person's check, or a relaunch.
-    pub fn later(&mut self) {
+    /// Later: hides the update until a newer one, a person's check, a relaunch, or `LATER`.
+    pub fn later(&mut self, now: SystemTime) {
         self.status.dismissed = true;
+        self.later_at = Some(now);
+    }
+
+    /// Whether a Later has run out, so the prompt should come back (`remind`).
+    pub fn remind_due(&self, now: SystemTime) -> bool {
+        self.status.dismissed && self.later_at.is_none_or(|at| since(now, at) >= LATER)
+    }
+
+    /// Shows a dismissed update again.
+    pub fn remind(&mut self) {
+        self.status.dismissed = false;
     }
 
     /// The verified download, for Install.
@@ -325,7 +342,7 @@ mod tests {
     #[test]
     fn the_floor_keeps_the_last_result_for_ten_minutes_per_channel() {
         let mut state = holding_beta5();
-        state.later();
+        state.later(at(0));
         assert!(!state.begin("beta", Trigger::Schedule, at(9)));
         // A person inside the floor gets the last result, and sees a dismissed update again.
         assert!(!state.begin("beta", Trigger::Person, at(9)));
@@ -375,7 +392,7 @@ mod tests {
     #[test]
     fn later_holds_until_a_newer_version_or_a_person_asks() {
         let mut state = holding_beta5();
-        state.later();
+        state.later(at(0));
         // The schedule finds the same version: still dismissed.
         state.begin("beta", Trigger::Schedule, at(240));
         state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(240));
@@ -385,7 +402,7 @@ mod tests {
         state.checked("beta".into(), Ok(newer("0.1.0-beta.6")), None, at(480));
         assert!(!state.status.dismissed);
         state.downloaded(ready("0.1.0-beta.6"));
-        state.later();
+        state.later(at(0));
         state.begin("beta", Trigger::Person, at(481));
         assert!(!state.status.dismissed);
     }
@@ -574,5 +591,19 @@ mod tests {
         assert!(state
             .checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(10))
             .is_some());
+    }
+
+    #[test]
+    fn later_runs_out_after_a_day_on_a_mac_that_is_never_relaunched() {
+        let mut state = holding_beta5();
+        state.later(at(60));
+        assert!(!state.remind_due(at(60 + 24 * 60 - 1)));
+        assert!(state.remind_due(at(60 + 24 * 60)));
+        state.remind();
+        assert!(!state.status.dismissed);
+        assert!(!state.remind_due(at(60 + 48 * 60)));
+        // Later again starts a new day.
+        state.later(at(3000));
+        assert!(!state.remind_due(at(3001)));
     }
 }

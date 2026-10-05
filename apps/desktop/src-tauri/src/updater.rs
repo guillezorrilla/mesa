@@ -168,8 +168,8 @@ async fn fetch(app: &AppHandle, feed: &str) -> Result<Ready<Download>, String> {
 }
 
 /// At launch: the running version's revocation, then a check after 15 s and every 4 hours of
-/// wall-clock time, counting the last check whoever asked. A development build checks only when
-/// asked.
+/// wall-clock time, counting the last check whoever asked, and a Later that has run out shows
+/// the prompt again. A development build checks only when asked.
 pub fn start(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -182,9 +182,12 @@ pub fn start(app: &AppHandle) {
         }
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
-            let due = app
-                .state::<Updates>()
-                .read(|state| state.due(SystemTime::now()));
+            let updates = app.state::<Updates>();
+            let now = SystemTime::now();
+            if updates.read(|state| state.remind_due(now)) {
+                updates.with(&app, |state| state.remind());
+            }
+            let due = updates.read(|state| state.due(now));
             if due {
                 check(app.clone(), Trigger::Schedule).await;
             }
@@ -205,7 +208,7 @@ pub async fn update_check(app: AppHandle) {
 
 #[tauri::command]
 pub fn update_later(app: AppHandle, updates: tauri::State<'_, Updates>) {
-    updates.with(&app, |state| state.later());
+    updates.with(&app, |state| state.later(SystemTime::now()));
 }
 
 /// Replaces the app with the verified download and relaunches it. Sessions live in tmux, so they
