@@ -12,7 +12,7 @@ import { useAppearance } from './hooks/useAppearance';
 import { useAppMenu } from './hooks/useAppMenu';
 import { useCloseGuard } from './hooks/useCloseGuard';
 import { useCostAlerts } from './hooks/useCostAlerts';
-import { useDiscoveryOffer } from './hooks/useDiscoveryOffer';
+import { discoveryOffered, useDiscoveryOffer } from './hooks/useDiscoveryOffer';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useInitialView } from './hooks/useInitialView';
 import { useMesaLinks } from './hooks/useMesaLinks';
@@ -86,6 +86,19 @@ export function App() {
       navigate({ kind: 'tour' });
       return undefined;
     });
+  // Set up's Continue leaves the tour until Find from sessions closes, when discovery is offered.
+  const tourAfterDiscovery = useRef(false);
+  const continueSetup = () => {
+    if (!discoveryOffered(config.data, projects.data)) return startTour();
+    tourAfterDiscovery.current = true;
+    navigate({ kind: 'sessions' });
+  };
+  const closeProjectAdd = () => {
+    setProjectAdd(undefined);
+    if (!tourAfterDiscovery.current) return;
+    tourAfterDiscovery.current = false;
+    startTour();
+  };
   const projectRegistered = async () => {
     await projects.refresh();
   };
@@ -196,7 +209,7 @@ export function App() {
           projects={projects}
           needsProfileSetup={needsProfileSetup}
           onProfileInitialised={profileInitialised}
-          onStartTour={startTour}
+          onSetupContinue={continueSetup}
           prompts={prompts}
           doctor={doctor}
           sessions={sessions}
@@ -258,7 +271,7 @@ export function App() {
       {projectAdd && (
         <ProjectAddDialog
           request={projectAdd}
-          onCancel={() => setProjectAdd(undefined)}
+          onCancel={closeProjectAdd}
           onRegistered={projectRegistered}
         />
       )}

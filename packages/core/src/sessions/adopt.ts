@@ -11,8 +11,9 @@ import { readRegistry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { AgentProcess } from './agent-listing.js';
 import { agentSessionHolder } from './holders.js';
-import { createRecord, type LaunchDeps, launchSession } from './launch.js';
+import { type LaunchDeps, launchSession } from './launch.js';
 import { withName } from './native-name.js';
+import { createRecord } from './new-record.js';
 import type { SessionRecord } from './record.js';
 import { sessionName } from './rename.js';
 
