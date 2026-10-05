@@ -14,7 +14,7 @@ const steps = [
   },
   {
     title: 'Search and context',
-    body: 'Search across projects and sessions from the top bar. In a project, contextual decisions and vault changes are available beside the work, while Faro keeps the evidence behind its judgments.',
+    body: 'Search across projects and sessions from the top bar. In a project, its vault changes sit beside the work.',
   },
   {
     title: 'Your Obsidian vault',
