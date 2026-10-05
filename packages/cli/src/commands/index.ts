@@ -79,6 +79,7 @@ import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { imagePreview, imageSend } from './image.js';
 import { importGoal, importLinks, importList, importRefresh } from './import.js';
 import { init } from './init.js';
+import { instructionsList, instructionsRead, instructionsWrite } from './instructions.js';
 import { log } from './log.js';
 import { logs } from './logs.js';
 import { map } from './map.js';
@@ -119,7 +120,6 @@ import {
 } from './review.js';
 import { rewind } from './rewind.js';
 import { rm } from './rm.js';
-import { rulesList, rulesRead, rulesWrite } from './rules.js';
 import { run } from './run.js';
 import { search } from './search.js';
 import { send } from './send.js';
@@ -253,6 +253,9 @@ export const COMMANDS: Command[] = [
   importRefresh,
   importGoal,
   init,
+  instructionsList,
+  instructionsRead,
+  instructionsWrite,
   log,
   logs,
   map,
@@ -286,9 +289,6 @@ export const COMMANDS: Command[] = [
   reviewChanges,
   reviewChangePreview,
   reviewChangeSend,
-  rulesList,
-  rulesRead,
-  rulesWrite,
   resize,
   resume,
   rm,

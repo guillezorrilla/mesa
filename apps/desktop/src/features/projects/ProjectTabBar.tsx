@@ -43,7 +43,16 @@ export function ProjectTabBar(props: {
       )}
       <nav aria-label={`${props.project} tabs`} className="flex gap-4 border-b">
         {(
-          ['overview', 'vault', 'import', 'git', 'files', 'skills', 'rules', 'automations'] as const
+          [
+            'overview',
+            'vault',
+            'import',
+            'git',
+            'files',
+            'skills',
+            'instructions',
+            'automations',
+          ] as const
         ).map((name) => (
           <button
             key={name}

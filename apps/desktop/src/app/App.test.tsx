@@ -54,7 +54,16 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     [...document.querySelectorAll('nav[aria-label="lantern-cove tabs"] button')].map(
       (tab) => tab.textContent,
     ),
-  ).toEqual(['overview', 'vault', 'Context', 'git', 'files', 'skills', 'rules', 'automations']);
+  ).toEqual([
+    'overview',
+    'vault',
+    'Context',
+    'git',
+    'files',
+    'skills',
+    'instructions',
+    'automations',
+  ]);
   await click(
     [...(byTestId('project-workspace')[0]?.querySelectorAll('button') ?? [])].find(
       (button) => button.textContent?.toLowerCase() === 'skills',
@@ -283,7 +292,7 @@ test('sidebar opens Map without creating a missing saved map', async () => {
 
 test('project Skills and Rules tabs preview and save only through their checked commands', async () => {
   const skillId = '/src/lantern-cove/.claude/skills/sunset-map';
-  const ruleId = '/src/lantern-cove/AGENTS.md';
+  const instructionId = '/src/lantern-cove/AGENTS.md';
   const revision = 'a'.repeat(64);
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
@@ -320,22 +329,22 @@ test('project Skills and Rules tabs preview and save only through their checked 
         revision: 'b'.repeat(64),
         receipt: null,
       }),
-    'rules list': () =>
+    'instructions list': () =>
       envelope([
         {
-          id: ruleId,
-          path: ruleId,
+          id: instructionId,
+          path: instructionId,
           name: 'AGENTS.md',
           scope: 'project',
           providers: ['claude', 'codex', 'antigravity'],
           writable: true,
         },
       ]),
-    'rules read': () =>
+    'instructions read': () =>
       envelope({
         checkout: { project: 'lantern-cove', path: '/src/lantern-cove', registered: false },
         path: 'AGENTS.md',
-        text: '# Rules\n',
+        text: '# Instructions\n',
         revision,
         lines: 2,
       }),
@@ -391,24 +400,25 @@ test('project Skills and Rules tabs preview and save only through their checked 
   ]);
   await click(
     [...document.querySelectorAll<HTMLButtonElement>('button')].find(
-      (b) => b.textContent === 'rules',
+      (b) => b.textContent === 'instructions',
     ),
   );
-  expect(byTestId('rules-workspace')[0]?.textContent).toContain('AGENTS.md');
+  expect(byTestId('instructions-workspace')[0]?.textContent).toContain('AGENTS.md');
   await click(
-    [...(byTestId('rules-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find(
-      (b) => b.textContent?.includes('AGENTS.md'),
-    ),
+    [
+      ...(byTestId('instructions-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ??
+        []),
+    ].find((b) => b.textContent?.includes('AGENTS.md')),
   );
-  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Rules\n');
+  expect((byTestId('file-editor-text')[0] as HTMLTextAreaElement).value).toBe('# Instructions\n');
   expect(calls).toContainEqual([
     '--json',
-    'rules',
+    'instructions',
     'read',
     '--project',
     'lantern-cove',
     '--',
-    ruleId,
+    instructionId,
   ]);
 });
 

@@ -5,10 +5,10 @@ import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
 import { importsCommands } from './imports';
+import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
 import { reviewCommands } from './review';
-import { rulesCommands } from './rules';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
@@ -32,7 +32,7 @@ const COMMANDS = {
   ...gitCommands,
   ...worktreesCommands,
   ...skillsCommands,
-  ...rulesCommands,
+  ...instructionsCommands,
   ...sourcesCommands,
   ...importsCommands,
   ...vaultCommands,

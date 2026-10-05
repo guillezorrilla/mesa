@@ -2,7 +2,7 @@ import { lstatSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Agent } from '../agents/names.js';
 
-export type RuleRow = {
+export type InstructionRow = {
   id: string;
   name: string;
   path: string;
@@ -12,7 +12,7 @@ export type RuleRow = {
   readOnlyReason?: string;
 };
 
-type RulePath = Pick<RuleRow, 'scope' | 'providers'> & { path: string };
+type InstructionPath = Pick<InstructionRow, 'scope' | 'providers'> & { path: string };
 
 const files = (folder: string) => {
   try {
@@ -25,8 +25,8 @@ const files = (folder: string) => {
 };
 
 /** Provider instruction files already on disk. Mesa never creates a provider instruction file. */
-export function ruleInventory(home: string, projectDir?: string): RuleRow[] {
-  const paths: RulePath[] = [
+export function instructionInventory(home: string, projectDir?: string): InstructionRow[] {
+  const paths: InstructionPath[] = [
     { path: join(home, '.codex/AGENTS.md'), scope: 'global', providers: ['codex'] },
     { path: join(home, '.codex/AGENTS.override.md'), scope: 'global', providers: ['codex'] },
     { path: join(home, '.claude/CLAUDE.md'), scope: 'global', providers: ['claude'] },
@@ -108,7 +108,9 @@ export function ruleInventory(home: string, projectDir?: string): RuleRow[] {
           ...(!writable
             ? {
                 readOnlyReason:
-                  source.scope === 'plugin' ? 'Managed by a provider plugin' : 'Linked rule file',
+                  source.scope === 'plugin'
+                    ? 'Managed by a provider plugin'
+                    : 'Linked instruction file',
               }
             : {}),
         },
