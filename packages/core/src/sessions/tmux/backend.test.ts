@@ -25,6 +25,22 @@ const raw = async (...args: string[]) => {
   return res.ok ? res.stdout.trim() : `failed: ${res.detail}`;
 };
 
+/**
+ * Kills the tmux server on socket `on` and removes its socket file, which kill-server leaves
+ * behind; the file's path, none when no server answered.
+ */
+async function killServer(on: string) {
+  const path = await execRunner(
+    'tmux',
+    ['-L', on, 'display-message', '-p', '#{socket_path}'],
+    2000,
+  );
+  await execRunner('tmux', ['-L', on, 'kill-server'], 2000);
+  if (!path.ok) return undefined;
+  rmSync(path.stdout.trim(), { force: true });
+  return path.stdout.trim();
+}
+
 // The server starts under a Claude Code parent's variables, which the backend must keep away
 // from its windows. `env` sets them for the tmux process, as a real parent would.
 const PARENT = {
@@ -59,12 +75,7 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     tmux.openWindow({ ...target, cwd, command, env });
   const lantern = (window: string) => ({ project: 'lantern', window });
 
-  afterAll(async () => {
-    const path = await raw('display-message', '-p', '#{socket_path}');
-    await raw('kill-server');
-    // kill-server leaves the socket file behind.
-    if (!path.startsWith('failed')) rmSync(path, { force: true });
-  });
+  afterAll(() => killServer(socket));
 
   test("openWindow creates the project's tmux session, then adds windows to it, with Mesa options", async () => {
     const first = lantern('claude-aaaaaa');
@@ -450,8 +461,6 @@ test.skipIf(!hasTmux)(
     const origin = tempDir();
     const cwd = join(tempDir(), "it's lantern");
     mkdirSync(cwd);
-    const raw = (args: string[]) =>
-      execRunner('tmux', ['-L', socket, '-f', '/dev/null', ...args], 2000);
     const tmux = tmuxBackend({ sleep: async () => {}, run: execRunner, socket, env: {} });
     try {
       expect(
@@ -480,9 +489,7 @@ test.skipIf(!hasTmux)(
         expect((await tmux.findWindow(target))?.dead).toBe(false);
       }
     } finally {
-      const path = await raw(['display-message', '-p', '#{socket_path}']);
-      await raw(['kill-server']);
-      if (path.ok) rmSync(path.stdout.trim(), { force: true });
+      await killServer(socket);
     }
   },
 );
@@ -502,7 +509,9 @@ test.skipIf(!hasTmux)(
       expect(found?.window).toBe('claude-nolocale');
       expect(Number.isNaN(Date.parse(found?.activity ?? ''))).toBe(false);
     } finally {
-      await execRunner('tmux', ['-L', socket, 'kill-server'], 2000);
+      const left = await killServer(socket);
+      // No socket file left behind in the tmux folder, run after run.
+      expect(left !== undefined && existsSync(left)).toBe(false);
     }
   },
 );
