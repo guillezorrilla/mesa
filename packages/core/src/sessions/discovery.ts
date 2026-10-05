@@ -11,6 +11,7 @@ import { readRegistry } from '../projects/registry.js';
 import type { AgentProcess } from './agent-listing.js';
 import { UNSUPPORTED_HISTORY } from './history.js';
 import { withName } from './native-name.js';
+import { nativePrompt } from './native-prompt.js';
 import type { SessionStore } from './store.js';
 
 // What runs and ran on this machine outside Mesa, machine-wide: the project folders native
@@ -30,6 +31,10 @@ export type NativeLive = {
   /** Its project folder (projectFolder), none when it has none. */
   project: string | null;
   name?: string;
+  /** Its first prompt, on one line (native-prompt.ts): what shows when it has no name. */
+  prompt?: string;
+  /** When its transcript or rollout was last written. */
+  updatedAt?: string;
   status?: string;
 };
 export type NativeConversation = {
@@ -116,8 +121,8 @@ function scanOf(deps: DiscoveryDeps, files: ReadonlyMap<string, string> = new Ma
 
 /**
  * The running Claude Code and Codex sessions no session of this or another profile holds, each in
- * its project folder (projectFolder) and with its native name, only those in `folders` when
- * given. Reads no transcript or rollout heads.
+ * its project folder (projectFolder), with its native name, first prompt and last write, only
+ * those in `folders` when given. Reads only their own transcript or rollout heads.
  */
 export async function nativeLive(
   deps: DiscoveryDeps,
@@ -134,6 +139,7 @@ export async function nativeLive(
         cwd: p.cwd,
         project,
         ...scan.named({ agent: p.agent, id: p.agentSessionId }),
+        ...nativePrompt(deps, { agent: p.agent, id: p.agentSessionId }),
         ...(p.status ? { status: p.status } : {}),
       },
     ];

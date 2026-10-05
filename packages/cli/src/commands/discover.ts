@@ -30,7 +30,7 @@ export const discover = defineCommand({
           p.registered ? '(registered)' : '',
         ]),
       ),
-      ...columns(found.live.map((s) => ['running', s.name ?? s.id, s.agent, s.cwd])),
+      ...columns(found.live.map((s) => ['running', s.name ?? s.prompt ?? s.id, s.agent, s.cwd])),
       found.unplaced ? `${counted(found.unplaced, 'conversation')} in no project folder` : '',
       found.truncated ? `showing newest ${found.conversations.length} of ${found.total}` : '',
     ].filter(Boolean);

@@ -56,6 +56,8 @@ const FOUND: NativeDiscovery = {
       id: '01a0e14e-be41-72f1-a81b-e25d2198602a',
       cwd: '/src/tide-pool/docs',
       project: '/src/tide-pool',
+      prompt: 'Wire the lantern relay',
+      updatedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(),
     },
   ],
   conversations: [],
@@ -179,7 +181,12 @@ test('Find from sessions ticks each unregistered folder and no running session',
   const live = byTestId('discovery-live')[0]?.querySelectorAll('li') ?? [];
   expect([...live].map((li) => li.textContent)).toEqual([
     'Tide tablesclaude/src/tide-pool',
-    '01a0e14e-be41-72f1-a81b-e25d2198602acodex/src/tide-pool/docs',
+    'Wire the lantern relaycodex · 2h ago/src/tide-pool/docs',
+  ]);
+  // The id is never row text, only the row's tooltip.
+  expect([...live].map((li) => li.title)).toEqual([
+    '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f',
+    '01a0e14e-be41-72f1-a81b-e25d2198602a',
   ]);
   expect(byTestId('discovery-live-tick').map(checked)).toEqual([false, false]);
   expect(byTestId('discovery-total')[0]?.textContent).toBe('16 conversations in the last 30 days.');
@@ -343,6 +350,9 @@ test('a running session that cannot be ticked says why', async () => {
   expect(adopt.map((b) => b.getAttribute('aria-label'))).toEqual(['Adopt Lamp wicks']);
   const rows = [...(byTestId('discovery-live')[0]?.querySelectorAll('li') ?? [])];
   expect(rows[0]?.contains(adopt[0] ?? null)).toBe(true);
+  // A session with no name and no prompt is untitled, never its id.
+  expect(rows[1]?.textContent).toContain('Untitled session');
+  expect(rows[1]?.textContent).not.toContain('01a0e14e');
   // Only harbor's session, in an unregistered folder without an error, keeps its tick.
   const tick = byTestId('discovery-live-tick');
   expect(tick).toHaveLength(1);
