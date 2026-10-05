@@ -25,6 +25,7 @@ test('project sorting uses durable visits and session history, preserves pins an
   }
   const names = (mode: string) => mesa.projects.list(mode).map((row) => row.name);
   expect(names('recent')).toEqual(['lantern', 'tide', 'cove', 'empty']);
+  expect(names('name')).toEqual(['cove', 'empty', 'lantern', 'tide']);
   const yaml = readFileSync(join(home, 'lantern/mesa.yaml'), 'utf8');
   mesa.projects.visit('lantern');
   mesa.projects.visit('lantern');
@@ -55,6 +56,8 @@ test('project sorting uses durable visits and session history, preserves pins an
   expect(names('active-sessions')).toEqual(['tide', 'lantern', 'cove', 'empty']);
   mesa.projects.update('empty', { pinned: true });
   expect(names('active-sessions')).toEqual(['empty', 'tide', 'lantern', 'cove']);
+  mesa.projects.update('tide', { label: 'Abalone' });
+  expect(names('name')).toEqual(['empty', 'tide', 'cove', 'lantern']);
   mesa.projects.update('tide', { hidden: true });
   expect(mesa.projects.list('recent').find((row) => row.name === 'tide')?.hidden).toBe(true);
   const reloaded = createMesa('default', deps);

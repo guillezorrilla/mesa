@@ -77,6 +77,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       deleteBranch: false,
     },
     shortcuts: DEFAULT_SHORTCUTS,
+    projects: { sort: 'name' },
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },

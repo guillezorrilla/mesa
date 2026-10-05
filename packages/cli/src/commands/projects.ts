@@ -7,11 +7,15 @@ export const projects = defineCommand({
   name: 'projects',
   summary: 'List the projects registered with this profile',
   flags: {
-    sort: { type: 'string', description: 'recent, last-session, active-sessions, or most-visited' },
+    sort: {
+      type: 'string',
+      description:
+        'name, recent, last-session, active-sessions, or most-visited; default the profile projects.sort',
+    },
   },
-  example: 'mesa projects --sort recent',
+  example: 'mesa projects --sort name',
   run: ({ mesa, flags }) => {
-    const rows = mesa.projects.list(flags.sort);
+    const rows = mesa.projects.list(flags.sort ?? mesa.config.get().projects.sort);
     const text = rows.length
       ? columns(
           rows.map((p) => [p.name, p.path, p.agent, p.priority, p.exists ? '' : '(missing)']),
