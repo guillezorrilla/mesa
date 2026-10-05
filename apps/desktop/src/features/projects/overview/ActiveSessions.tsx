@@ -6,9 +6,11 @@ import { SectionLabel } from '@/components/SectionLabel';
 import { Badge } from '@/components/ui/badge';
 import { exited, queued } from '@/features/sessions/rows';
 import { StateBadge } from '@/features/sessions/StateBadge';
+import { FromProjectBadge } from './FromProjectBadge';
 
 /** The project's running and queued sessions, a card each, with the quick start under them. */
 export function ActiveSessions(props: {
+  project: string;
   sessions: readonly (TreeRow & ManagedRow)[];
   /** The main checkout's branch, for a session that does not name its own. */
   mainBranch?: string;
@@ -34,7 +36,10 @@ export function ActiveSessions(props: {
             className="flex min-h-24 w-[310px] flex-col items-start gap-1 rounded-lg border bg-card/65 p-3 text-left hover:border-ring focus-visible:outline-2 focus-visible:outline-ring"
             onClick={() => props.onSession(session.id)}
           >
-            <StateBadge state={session.lastState.state} compact />
+            <span className="flex items-center gap-1">
+              <StateBadge state={session.lastState.state} compact />
+              <FromProjectBadge session={session} project={props.project} />
+            </span>
             <span className="w-full truncate text-sm font-medium">{sessionTitle(session)}</span>
             <span className="flex w-full min-w-0 items-center gap-1 truncate font-mono text-xs text-state-working">
               <GitBranch aria-hidden className="size-3" />{' '}

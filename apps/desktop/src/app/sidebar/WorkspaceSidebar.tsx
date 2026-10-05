@@ -138,7 +138,7 @@ export function WorkspaceSidebar(props: {
         ) : projectTab ? (
           <ProjectsSection
             projects={visible}
-            inProject={groups.inProject}
+            touching={groups.touching}
             view={view}
             onView={onView}
             sort={props.sort}

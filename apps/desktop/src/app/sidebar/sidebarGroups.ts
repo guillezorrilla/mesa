@@ -1,11 +1,12 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { GENERAL_PROJECT, sessionProjects } from '@mesa/core/browser';
 import { activeSession, recoverable } from '@/features/sessions/rows';
 
 /**
  * The sidebar's lists: the visible projects (pinned first), the active sessions, the recoverable
- * ones, and the active ones in no listed project, split into General and Other; and a project's
- * active sessions (inProject).
+ * ones, and the active ones in no listed project, split into General and Other; a project's
+ * active sessions by primary (inProject, the Sessions tab's groups); and those it is primary or
+ * additional in (touching, the Projects tab's count; CONTEXT.md, Additional project).
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
   const visible = projects
@@ -20,7 +21,9 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
   const general = unassigned.filter((session) => session.project === GENERAL_PROJECT);
   const other = unassigned.filter((session) => session.project !== GENERAL_PROJECT);
   const inProject = (name: string) => active.filter((session) => session.project === name);
-  return { visible, active, stranded, general, other, inProject };
+  const touching = (name: string) =>
+    active.filter((session) => session.managed && sessionProjects(session).includes(name));
+  return { visible, active, stranded, general, other, inProject, touching };
 }
 
 export type SidebarGroups = ReturnType<typeof sidebarGroups>;
