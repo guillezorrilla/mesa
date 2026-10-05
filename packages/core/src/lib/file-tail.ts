@@ -2,17 +2,22 @@ import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
 
 const CHUNK = 1 << 16;
 
-/** Find the last useful JSONL line without loading an entire growing transcript. */
+/**
+ * Find the last useful JSONL line without loading an entire growing transcript. With `limit`, only
+ * the last `limit` bytes are read and a line cut at that limit is skipped.
+ */
 export function lastMatchingLine<T>(
   file: string,
   read: (line: string) => T | undefined,
+  limit?: number,
 ): T | undefined {
   const fd = openSync(file, 'r');
   try {
     let end = fstatSync(fd).size;
+    const floor = limit === undefined ? 0 : Math.max(0, end - limit);
     let rest = Buffer.alloc(0);
-    while (end > 0) {
-      const start = Math.max(0, end - CHUNK);
+    while (end > floor) {
+      const start = Math.max(floor, end - CHUNK);
       const chunk = Buffer.alloc(end - start);
       readSync(fd, chunk, 0, chunk.length, start);
       end = start;
