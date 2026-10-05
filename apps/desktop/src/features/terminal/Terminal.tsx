@@ -34,6 +34,8 @@ export function Terminal(props: {
   sessionId: string;
   preferences?: Config['terminal'];
   fill?: boolean;
+  /** Takes the keyboard once attached, and again whenever it turns true: the session in view. */
+  focus?: boolean;
   onFileLink?: (session: string, target: string) => void;
   onWebLink?: (session: string, url: string) => void;
 }) {
@@ -44,6 +46,8 @@ export function Terminal(props: {
   onFileLink.current = props.onFileLink;
   const onWebLink = useRef(props.onWebLink);
   onWebLink.current = props.onWebLink;
+  const focusRef = useRef(props.focus);
+  focusRef.current = props.focus;
   const preferencesRef = useRef(props.preferences ?? DEFAULT_TERMINAL_PREFERENCES);
   preferencesRef.current = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
   const platform = usePlatform();
@@ -150,6 +154,7 @@ export function Terminal(props: {
         return terminal.close(id);
       }
       await terminal.ready(id);
+      if (focusRef.current) term.focus();
       await size();
     })().catch((e) => {
       if (!closed)
@@ -171,6 +176,10 @@ export function Terminal(props: {
       refit.current = null;
     };
   }, [platform, run, props.sessionId]);
+  // Selecting another session (or opening a new one) puts the cursor in its agent.
+  useEffect(() => {
+    if (props.focus) xterm.current?.focus();
+  }, [props.focus]);
   const preferences = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
   useEffect(() => {
     const term = xterm.current;
