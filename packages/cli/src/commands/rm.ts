@@ -10,7 +10,7 @@ export const rm = defineCommand({
   flags: {
     force: {
       type: 'boolean',
-      description: 'Close a live session first, and remove a worktree with changes',
+      description: 'Close a live session first, and remove a worktree with changes or submodules',
     },
     'delete-worktree': {
       type: 'boolean',

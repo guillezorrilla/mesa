@@ -9,6 +9,9 @@ import type { Env } from '../lib/process.js';
 // A native conversation's name, as its agent shows it (CONTEXT.md, Adopted session): the one
 // owner. Read from the end of each file, which a long transcript reaches megabytes before.
 
+/** How far back from a Claude Code transcript's end its name is looked for. */
+const CLAUDE_NAME_TAIL = 1 << 20;
+
 type Title = { type?: unknown; customTitle?: unknown; aiTitle?: unknown };
 
 /** A trimmed name, or none for a blank or missing one. */
@@ -17,24 +20,28 @@ const named = (value: unknown) =>
 
 /**
  * A Claude Code transcript's name: the `customTitle` of its latest `custom-title` entry (the
- * person's), else the `aiTitle` of its latest `ai-title` entry. One pass from the end, which stops
- * at a custom title and reads the whole file only when it has none.
+ * person's), else the `aiTitle` of its latest `ai-title` entry, both within its last
+ * `CLAUDE_NAME_TAIL` bytes. One pass from the end, which stops at a custom title.
  */
 function claudeName(file: string): string | undefined {
   let ai: string | undefined;
-  const custom = lastMatchingLine(file, (line) => {
-    // Cheap check first: most lines are messages and tool results.
-    if (!line.includes('-title"')) return undefined;
-    let entry: Title;
-    try {
-      entry = JSON.parse(line);
-    } catch {
+  const custom = lastMatchingLine(
+    file,
+    (line) => {
+      // Cheap check first: most lines are messages and tool results.
+      if (!line.includes('-title"')) return undefined;
+      let entry: Title;
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        return undefined;
+      }
+      if (entry.type === 'custom-title') return named(entry.customTitle);
+      if (entry.type === 'ai-title') ai ??= named(entry.aiTitle);
       return undefined;
-    }
-    if (entry.type === 'custom-title') return named(entry.customTitle);
-    if (entry.type === 'ai-title') ai ??= named(entry.aiTitle);
-    return undefined;
-  });
+    },
+    CLAUDE_NAME_TAIL,
+  );
   return custom ?? ai;
 }
 
