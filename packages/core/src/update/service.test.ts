@@ -118,6 +118,22 @@ test('a revoked release is never offered; the newest one not revoked is', async 
   expect((await pulled.update.check()).latest).toBeUndefined();
 });
 
+test('every feed and revoked.json request carries a timeout', async () => {
+  const signals: (AbortSignal | null | undefined)[] = [];
+  const { update } = world(
+    {},
+    {
+      http: async (_url, init) => {
+        signals.push(init?.signal);
+        return new Response('{}', { status: 404 });
+      },
+    },
+  );
+  await update.check();
+  expect(signals).toHaveLength(3);
+  for (const signal of signals) expect(signal).toBeInstanceOf(AbortSignal);
+});
+
 const APP = '/Applications/Mesa.app';
 const SELF = [`${APP}/Contents/MacOS/mesa`];
 

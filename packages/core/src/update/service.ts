@@ -41,6 +41,13 @@ export type UpdateInstall = UpdateCheck & {
   app?: string;
 };
 
+/**
+ * How long one feed or `revoked.json` request may take. The app's check waits on this command
+ * while it holds its one-check-at-a-time lock, so a stalled request must end.
+ */
+const REQUEST_TIMEOUT_MS = 30_000;
+const bounded = () => ({ signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+
 /** A channel nobody chose follows the running version: a beta tracks betas, a stable stables. */
 const defaultChannel = (current: string): UpdateChannel =>
   prerelease(current) ? 'beta' : 'stable';
@@ -59,7 +66,7 @@ export function updateService(
 
   /** A feed's manifest; none when the channel has no release yet (404). */
   const manifest = async (feed: string): Promise<Manifest | undefined> => {
-    const response = await http(feed);
+    const response = await http(feed, bounded());
     if (response.status === 404) return undefined;
     if (!response.ok) throw new MesaError('internal', `${feed} answered HTTP ${response.status}`);
     const parsed = ManifestSchema.safeParse(await response.json().catch(() => undefined));
@@ -78,7 +85,7 @@ export function updateService(
   /** `revoked.json`'s entries; a failed or malformed read never blocks, so it lists none. */
   const revocations = async (): Promise<Revoked[]> => {
     try {
-      const response = await http(REVOKED_LIST);
+      const response = await http(REVOKED_LIST, bounded());
       if (!response.ok) return [];
       return RevokedSchema.parse(await response.json()).revokedVersions;
     } catch {

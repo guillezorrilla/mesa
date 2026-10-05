@@ -556,4 +556,23 @@ mod tests {
         assert!(state.due(at(600)));
         assert!(state.begin("beta", Trigger::Schedule, at(600)));
     }
+
+    #[test]
+    fn a_download_that_times_out_fails_and_the_schedule_retries_it() {
+        let mut state = State::<()>::default();
+        state.begin("beta", Trigger::Schedule, at(0));
+        assert!(state
+            .checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(0))
+            .is_some());
+        state.downloaded(Err(
+            "The update to 0.1.0-beta.5 was refused: operation timed out.".into(),
+        ));
+        assert_eq!(state.status.phase, Phase::Failed);
+        assert!(!state.due(at(9)));
+        assert!(state.due(at(10)));
+        assert!(state.begin("beta", Trigger::Schedule, at(10)));
+        assert!(state
+            .checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(10))
+            .is_some());
+    }
 }

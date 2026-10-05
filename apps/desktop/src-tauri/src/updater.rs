@@ -24,6 +24,13 @@ const FIRST_CHECK: Duration = Duration::from_secs(15);
 /// tick sleeps: a Mac that slept past either checks within a minute of waking. A tick is one
 /// mutex read.
 const TICK: Duration = Duration::from_secs(60);
+/// How long reading the feed may take: a small JSON file.
+const FEED_TIMEOUT: Duration = Duration::from_secs(30);
+/// How long the whole archive download may take. Generous for a slow link (a 100 MB archive at
+/// about 1 Mbit/s), but bounded: a stalled download holds the busy lock, so without it every
+/// later check and Install would wait until a relaunch. On timeout the check fails, the lock is
+/// released, and the schedule's backoff tries again.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 /// What `mesa update install` opens (core's UPDATE_LINK).
 const UPDATE_LINK: &str = "mesa://update/install";
 
@@ -136,15 +143,18 @@ pub async fn check(app: AppHandle, trigger: Trigger) {
 /// not verify with tauri.conf.json's public key.
 async fn fetch(app: &AppHandle, feed: &str) -> Result<Ready<Download>, String> {
     let url = Url::parse(feed).map_err(|e| e.to_string())?;
-    let update = app
+    let mut update = app
         .updater_builder()
         .endpoints(vec![url])
-        .and_then(|builder| builder.build())
+        .and_then(|builder| builder.timeout(FEED_TIMEOUT).build())
         .map_err(|e| e.to_string())?
         .check()
         .await
         .map_err(|e| format!("Cannot read the update: {e}"))?
         .ok_or("The update is no longer published.")?;
+    // The builder's timeout covers only the feed: tauri-plugin-updater 2.12 builds the Update
+    // with `timeout: None`, so the download gets its own.
+    update.timeout = Some(DOWNLOAD_TIMEOUT);
     let bytes = update.download(|_, _| {}, || {}).await.map_err(|e| {
         format!(
             "The update to {} was refused: {e}. Nothing was changed.",
@@ -236,7 +246,16 @@ pub fn update_open_page(updates: tauri::State<'_, Updates>) -> Result<(), String
 
 #[cfg(test)]
 mod tests {
-    use super::{adhoc, asks_to_install, UPDATE_LINK};
+    use super::state::BACKOFF;
+    use super::{adhoc, asks_to_install, DOWNLOAD_TIMEOUT, FEED_TIMEOUT, UPDATE_LINK};
+
+    #[test]
+    fn a_stalled_download_ends_before_the_schedule_would_retry_it_twice() {
+        // Bounded, and short enough that a timed-out download is retried by the backoff's
+        // second step rather than blocking the lock past it.
+        assert!(FEED_TIMEOUT < DOWNLOAD_TIMEOUT);
+        assert!(DOWNLOAD_TIMEOUT < BACKOFF[1]);
+    }
     use tauri::Url;
 
     #[test]
