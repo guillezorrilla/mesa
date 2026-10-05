@@ -1,10 +1,10 @@
-import type { NativeLive } from '@mesa/core';
+import type { NativeLive, NativeProject } from '@mesa/core';
 import { ADOPTION_WARNING, counted } from '@mesa/core/browser';
 import { History } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
+import { said } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -14,9 +14,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAct } from '@/lib/useAct';
-import { useCommand } from '@/lib/useCommand';
+import { useCommand, useRun } from '@/lib/useCommand';
 import { DiscoveredProjectRow } from './DiscoveredProjectRow';
 import { DiscoveryProgressPanel } from './DiscoveryProgressPanel';
+import { RunningSessionRow } from './RunningSessionRow';
 import { useDiscoveryAdoption } from './useDiscoveryAdoption';
 
 /** `set` with `key` in it when `on`, else without. */
@@ -27,10 +28,18 @@ const toggled = (set: ReadonlySet<string>, key: string, on: boolean) => {
   return next;
 };
 
+/** Why running session `session`, in folder `folder`, cannot be ticked; none when it can. */
+const untickable = (session: NativeLive, folder: NativeProject | undefined) => {
+  if (session.project === null) return 'no project folder';
+  if (folder?.registered) return 'in a registered project';
+  if (!folder || folder.error) return 'its folder cannot be added';
+};
+
 /**
  * Find from sessions (CONTEXT.md, First-run discovery): the folders where Claude Code and Codex
  * ran lately on this machine, each unregistered one ticked, and the sessions running now, none
  * ticked. Add to Mesa registers the ticked folders and adopts their conversations; Skip dismisses.
+ * A running session in a registered folder is adopted on its own, by Adopt, as the Board does.
  */
 export function DiscoveryDialog(props: {
   onCancel: () => void;
@@ -39,17 +48,27 @@ export function DiscoveryDialog(props: {
 }) {
   const found = useCommand('sessions.discover');
   const { acting, act } = useAct();
+  const run = useRun();
   const adoption = useDiscoveryAdoption({ onClose: props.onCancel, onAdded: props.onRegistered });
   const { progress } = adoption;
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   // By folder: `--live` reopens every running session of a folder, so they tick together.
   const [liveTicked, setLiveTicked] = useState<ReadonlySet<string>>(new Set());
+  // Each running session adopted by Adopt, by its agent session id, to its Mesa id.
+  const [adopted, setAdopted] = useState<ReadonlyMap<string, string>>(new Map());
   const data = found.data;
   const ticked = (data?.projects ?? []).filter(
     (p) => !p.registered && !p.error && !unticked.has(p.path),
   );
   const folderTicked = (s: NativeLive) => ticked.some((p) => p.path === s.project);
   const running = Boolean(progress && !progress.summary);
+  const adopt = (session: NativeLive) =>
+    void act(async () => {
+      const done = await run('sessions.adopt', { agentSessionId: session.id });
+      if (!done) return undefined;
+      setAdopted((map) => new Map(map).set(session.id, done.id));
+      return said(`Adopted as ${done.id}`, done);
+    });
   const add = () =>
     void act(async () => {
       await adoption.add(
@@ -117,27 +136,27 @@ export function DiscoveryDialog(props: {
                 <Muted size="xs">Running now: {ADOPTION_WARNING}</Muted>
                 <Muted size="xs">A tick reopens every running session in that folder.</Muted>
                 <ul data-testid="discovery-live" className="space-y-1 text-sm">
-                  {data.live.map((session) => (
-                    <li key={session.id} className="flex items-center gap-2">
-                      <Checkbox
-                        data-testid="discovery-live-tick"
-                        aria-label={`Reopen ${session.name ?? session.id}`}
-                        checked={folderTicked(session) && liveTicked.has(session.project ?? '')}
-                        disabled={acting || !folderTicked(session)}
-                        onCheckedChange={(on) =>
-                          setLiveTicked((set) => toggled(set, session.project ?? '', on === true))
+                  {data.live.map((session) => {
+                    const folder = data.projects.find((p) => p.path === session.project);
+                    const adoptedAs = adopted.get(session.id);
+                    return (
+                      <RunningSessionRow
+                        key={session.id}
+                        session={session}
+                        disabled={acting}
+                        reason={adoptedAs ? `adopted as ${adoptedAs}` : untickable(session, folder)}
+                        onAdopt={
+                          folder?.registered && !adoptedAs ? () => adopt(session) : undefined
                         }
+                        tick={{
+                          checked: folderTicked(session) && liveTicked.has(session.project ?? ''),
+                          disabled: !folderTicked(session),
+                          onChange: (on) =>
+                            setLiveTicked((set) => toggled(set, session.project ?? '', on)),
+                        }}
                       />
-                      <span className="min-w-0 flex-1 truncate">{session.name ?? session.id}</span>
-                      <span className="text-muted-foreground text-xs">{session.agent}</span>
-                      <span
-                        className="max-w-48 truncate font-mono text-muted-foreground text-xs"
-                        title={session.cwd}
-                      >
-                        {session.cwd}
-                      </span>
-                    </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </div>
             )}
