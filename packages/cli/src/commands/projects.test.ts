@@ -145,6 +145,11 @@ test('projects sorting and visits use the profile registry without vault receipt
       'lantern',
     ]);
   }
+  const plain = async () =>
+    (await mesa('projects', '--json')).json.data.map((project: { name: string }) => project.name);
+  expect(await plain()).toEqual(['lantern', 'tide']);
+  await mesa('config', 'set', 'projects.sort', 'recent');
+  expect(await plain()).toEqual(['tide', 'lantern']);
   expect((await mesa('projects', '--sort', 'bad', '--json')).code).toBe(2);
   expect((await mesa('projects', 'visit', 'absent', '--json')).code).toBe(3);
   expect((await mesa('receipts', '--json')).json.data).toEqual(before);

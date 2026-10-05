@@ -29,6 +29,7 @@ import {
   INTERFACE_DENSITIES,
   INTERFACE_FONTS,
   INTERFACE_THEMES,
+  PROJECT_SORTS,
   TERMINAL_APPS,
   TERMINAL_THEMES,
 } from './preferences.js';
@@ -203,6 +204,8 @@ const ConfigSchema = z.strictObject({
     })
     .refine((keys) => new Set(Object.values(keys)).size === 3, 'shortcuts must be unique')
     .prefault({}),
+  // The sidebar's project order, and `mesa projects` without --sort.
+  projects: z.strictObject({ sort: z.enum(PROJECT_SORTS).default('name') }).prefault({}),
   board: z
     .strictObject({
       view: z.enum(BOARD_VIEWS).default(DEFAULT_BOARD_PREFERENCES.view),

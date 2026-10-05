@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const OPTIONS: readonly [ProjectSort, string][] = [
+  ['name', 'Name'],
   ['recent', 'Recent'],
   ['last-session', 'Last session'],
   ['active-sessions', 'Active sessions'],

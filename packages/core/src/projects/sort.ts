@@ -1,11 +1,12 @@
 import { MesaError } from '../lib/result.js';
+import { PROJECT_SORTS } from '../profile/preferences.js';
 import type { SessionRecord } from '../sessions/record.js';
 import { sessionProjects } from '../sessions/session-projects.js';
 import { FINAL_STATES } from '../sessions/states.js';
 import type { ProjectRow } from './projects.js';
 import type { RegistryEntry } from './registry.js';
 
-export const PROJECT_SORTS = ['recent', 'last-session', 'active-sessions', 'most-visited'] as const;
+export { PROJECT_SORTS };
 export type ProjectSort = (typeof PROJECT_SORTS)[number];
 
 /** Sidebar ordering never rewrites manual registry order or changes project identity. */
@@ -44,7 +45,11 @@ export function sortProjects(
         return visits.get(name)?.visits ?? 0;
     }
   };
+  const byLabel = (a: ProjectRow, b: ProjectRow) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
   return [...projects].sort(
-    (a, b) => Number(b.pinned) - Number(a.pinned) || score(b.name) - score(a.name),
+    (a, b) =>
+      Number(b.pinned) - Number(a.pinned) ||
+      (sort === 'name' ? byLabel(a, b) : score(b.name) - score(a.name)),
   );
 }

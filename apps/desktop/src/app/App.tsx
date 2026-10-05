@@ -58,6 +58,7 @@ export function App() {
     projects.data,
     sessions,
     view.kind === 'project' ? view.name : undefined,
+    config.data?.projects?.sort,
   );
   const needsProfileSetup = config.error?.code === 'not_found';
   useInitialView({

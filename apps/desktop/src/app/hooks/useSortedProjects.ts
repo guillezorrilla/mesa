@@ -1,19 +1,22 @@
 import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCommand, useRun } from '@/lib/useCommand';
 
 /**
- * The sidebar's project order: the chosen sort over `projects`, refreshed when the list changes,
- * when sessions change under an activity-based sort, and after `visited` (the project in view) is
- * recorded as visited.
+ * The sidebar's project order: the profile's saved sort (`projects.sort`) over `projects`,
+ * refreshed when the list changes, when sessions change under an activity-based sort, and when a
+ * sort is picked, which saves it. Selecting `visited` records the visit but never reorders the
+ * list under the cursor; a visit-based order catches up on the next launch or pick.
  */
 export function useSortedProjects(
   projects: readonly ProjectRow[] | undefined,
   sessions: readonly TreeRow[],
   visited: string | undefined,
+  saved: ProjectSort | undefined,
 ) {
   const run = useRun();
-  const [sort, setSort] = useState<ProjectSort>('recent');
+  const [picked, setPicked] = useState<ProjectSort>();
+  const sort = picked ?? saved ?? 'name';
   const sorted = useCommand('projects.sorted', sort);
   useEffect(() => {
     if (projects) void sorted.refresh();
@@ -22,10 +25,13 @@ export function useSortedProjects(
   useEffect(() => {
     if (sort === 'active-sessions' || sort === 'last-session') void sorted.refresh();
   }, [sessions, sort, sorted.refresh]);
-  const refreshSorted = useRef(sorted.refresh);
-  refreshSorted.current = sorted.refresh;
   useEffect(() => {
-    if (visited) void run('projects.visit', { name: visited }).then(() => refreshSorted.current());
+    if (visited) void run('projects.visit', { name: visited });
   }, [visited, run]);
+  const setSort = (next: ProjectSort) => {
+    setPicked(next);
+    if (next === sort) void sorted.refresh();
+    void run('config.set', { path: 'projects.sort', value: next });
+  };
   return { sort, setSort, sorted: sorted.data };
 }

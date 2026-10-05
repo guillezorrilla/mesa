@@ -100,6 +100,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         deleteBranch: false,
       },
       shortcuts: { ...DEFAULT_SHORTCUTS },
+      projects: { sort: 'name' },
       board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
       grid: { groups: [] },
       run: { permissionMode: 'acceptEdits', allowedTools: [] },

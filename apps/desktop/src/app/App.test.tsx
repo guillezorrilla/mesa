@@ -2675,6 +2675,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       deleteBranch: false,
     },
     shortcuts,
+    projects: { sort: 'name' },
     board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
@@ -3259,6 +3260,41 @@ test('project sorting reorders sidebar folders without replacing the current wor
   expect(calls).toContainEqual(['--json', 'projects', '--sort', 'most-visited']);
   expect(byTestId('projects-screen')).toHaveLength(0);
   expect(byTestId('nav-projects')).toHaveLength(0);
+});
+
+test('selecting projects under the saved recent sort records visits but never reorders the sidebar; a picked sort is saved', async () => {
+  const base = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
+  const visited: string[] = [];
+  const { bridge, calls } = fakeBridge({
+    config: () => envelope({ ...base, projects: { sort: 'recent' } }),
+    // The real recent sort: the latest visit first.
+    projects: () =>
+      envelope(
+        [...PROJECTS].sort((a, b) => visited.lastIndexOf(b.name) - visited.lastIndexOf(a.name)),
+      ),
+    'projects visit': (args) => {
+      visited.push(args.at(-1) ?? '');
+      return envelope({ name: args.at(-1), visits: 1 });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const order = () => byTestId('sidebar-project').map((item) => item.textContent);
+  await openProject(byTestId, 1);
+  const before = order();
+  expect(calls).toContainEqual(['--json', 'projects', '--sort', 'recent']);
+  for (const index of [0, 1, 0]) {
+    await click(byTestId('sidebar-project')[index]);
+    expect(order()).toEqual(before);
+  }
+  expect(visited).toEqual(['tide', 'lantern-cove', 'tide', 'lantern-cove']);
+  await click(byTestId('project-sort')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find(
+      (item) => item.textContent?.trim() === 'Name',
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'projects.sort', '"name"']);
+  expect(calls).toContainEqual(['--json', 'projects', '--sort', 'name']);
 });
 
 test('the visual alert badges the Dock and dots the Sessions tab with the waiting count', async () => {
