@@ -1,8 +1,9 @@
 import type { UsageReport } from '@mesa/core';
+import { AGENT_LABELS } from '@mesa/core/browser';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { SectionLabel } from '@/components/SectionLabel';
-import { AGENT_LABEL, allTokens, compact, dayLabel, modelKey, money, tokenLine } from './format';
+import { allTokens, compact, dayLabel, modelKey, money, tokenLine } from './format';
 
 /** The chart's days that had usage, newest first; each opens onto its models. */
 export function UsageByDay(props: { daily: UsageReport['daily'] }) {
@@ -53,7 +54,7 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
                         {row.model}
                       </span>
                       <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        {AGENT_LABEL[row.agent] ?? row.agent}
+                        {AGENT_LABELS[row.agent]}
                       </span>
                       <span className="text-muted-foreground">{tokenLine(row.totals)}</span>
                       <span className="w-16 text-right font-medium">

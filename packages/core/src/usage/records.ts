@@ -1,8 +1,10 @@
+import type { Agent } from '../agents/names.js';
+
 /** One native provider usage reading, tied to a Mesa session without copying prompt content. */
 export type UsageRecord = {
   id: string;
   session: string;
-  agent: 'claude' | 'codex';
+  agent: Agent;
   nativeSessionId: string;
   model?: string;
   at: string;

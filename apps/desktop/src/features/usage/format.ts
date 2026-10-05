@@ -35,8 +35,6 @@ export const dayLabel = (day: string, weekday = true) =>
     timeZone: 'UTC',
   });
 
-export const AGENT_LABEL: Record<string, string> = { claude: 'Claude Code', codex: 'Codex' };
-
 export const modelKey = (row: UsageBreakdown[number]) => `${row.agent}:${row.model}`;
 
 /** Chart colours in fixed order; a ninth model and beyond share the last slot as Other. */

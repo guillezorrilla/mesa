@@ -1,9 +1,10 @@
 import type { UsageReport } from '@mesa/core';
+import { AGENT_LABELS } from '@mesa/core/browser';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
-import { AGENT_LABEL, modelKey, money, seriesColor, tokenLine } from './format';
+import { modelKey, money, seriesColor, tokenLine } from './format';
 
 /** The 90-day cost of each model, grouped under its provider, with its share as a bar. */
 export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
@@ -40,7 +41,7 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
                   ) : (
                     <ChevronRight aria-hidden className="size-3" />
                   )}
-                  {AGENT_LABEL[agent] ?? agent}
+                  {AGENT_LABELS[agent]}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {money(totals.estimatedCostUsd)}

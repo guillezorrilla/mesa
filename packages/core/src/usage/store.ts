@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
+import { AgentSchema } from '../agents/agents.js';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
@@ -19,7 +20,7 @@ const Rows = z.array(
   z.strictObject({
     id: z.string(),
     session: z.string(),
-    agent: z.enum(['claude', 'codex']),
+    agent: AgentSchema,
     nativeSessionId: z.string(),
     model: z.string().optional(),
     at: z.iso.datetime(),
