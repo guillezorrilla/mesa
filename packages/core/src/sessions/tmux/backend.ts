@@ -11,7 +11,12 @@ import {
   type WindowTarget,
 } from './format.js';
 import { mesaCommand, paneDiedHook } from './mesa-command.js';
-import { COPY_BINDINGS, SERVER_OPTIONS } from './server-options.js';
+import {
+  COPY_BINDINGS,
+  SERVER_OPTIONS,
+  WHEEL_BINDINGS,
+  WHEEL_LINES_OPTION,
+} from './server-options.js';
 
 // The session backend: ADR-0001's tmux commands on the profile's own socket, never the user's
 // tmux server. Command lines and options follow docs/spikes/session-ids.md.
@@ -109,7 +114,7 @@ export function tmuxBackend({
       ? [';', 'set-hook', '-g', 'pane-died', paneDiedHook(mesa.self, mesa.profile)]
       : [];
     await must(
-      ['start-server', ...options, ...COPY_BINDINGS, ...unset, ...hook],
+      ['start-server', ...options, ...COPY_BINDINGS, ...WHEEL_BINDINGS, ...unset, ...hook],
       'internal',
       'could not start tmux',
     );
@@ -124,8 +129,14 @@ export function tmuxBackend({
    * terminal gets its own view: a session grouped with the project's (same windows, its own
    * current window) that tmux destroys when the terminal detaches. Attaching to the project's
    * session itself would switch every attached terminal to this window (ADR-0001 amendment).
+   * The app's own terminal (`embedded`) scrolls one line per wheel report; others keep tmux's 5.
    */
-  const attachArgv = (target: WindowTarget, view: string, naturalSelection = false) => [
+  const attachArgv = (
+    target: WindowTarget,
+    view: string,
+    naturalSelection = false,
+    embedded = false,
+  ) => [
     'tmux',
     ...server,
     'new-session',
@@ -135,6 +146,9 @@ export function tmuxBackend({
     `${VIEW_PREFIX}${view}`,
     ...(naturalSelection
       ? [';', 'set-option', '-t', `=${VIEW_PREFIX}${view}`, 'mouse', 'off']
+      : []),
+    ...(embedded
+      ? [';', 'set-option', '-t', `=${VIEW_PREFIX}${view}`, WHEEL_LINES_OPTION, '1']
       : []),
     ';',
     'set-option',

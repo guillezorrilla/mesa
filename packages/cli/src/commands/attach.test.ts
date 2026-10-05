@@ -30,6 +30,9 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   expect(printed.json.data.argv.slice(0, 9)).toEqual(here.exec?.slice(0, 9));
   expect(printed.json.data.argv[10]).not.toBe(here.exec?.[10]);
   expect(printed.exec).toBeUndefined();
+  // Only the app's terminal scrolls one line per wheel report; one attached here keeps tmux's 5.
+  expect(printed.json.data.argv.join(' ')).toContain('@mesa-wheel-lines 1');
+  expect(here.exec?.join(' ')).not.toContain('@mesa-wheel-lines');
   cli.tty = true;
   // resize: the window takes the view's size, then the size goes back to tmux's own policy.
   const { run: sized, calls } = scriptedRunner({ tmux: '' });

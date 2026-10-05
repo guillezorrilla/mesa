@@ -16,6 +16,44 @@ export const COPY_BINDINGS = ['copy-mode', 'copy-mode-vi'].flatMap((table) => [
   'pbcopy',
 ]);
 
+/** The view-session option a terminal sets for how many lines one wheel report scrolls. */
+export const WHEEL_LINES_OPTION = '@mesa-wheel-lines';
+const WHEEL_LINES = `#{?${WHEEL_LINES_OPTION},#{${WHEEL_LINES_OPTION}},5}`;
+
+/**
+ * The wheel scrolls tmux's history by the view's `@mesa-wheel-lines`, else tmux's 5: the app's
+ * terminal sets 1, so a trackpad moves one row per report (docs/spikes/terminal-scrolling.md).
+ * The root binding is tmux's own condition, and its first report scrolls as it enters copy mode.
+ */
+export const WHEEL_BINDINGS = [
+  ...['copy-mode', 'copy-mode-vi'].flatMap((table) =>
+    (['Up', 'Down'] as const).flatMap((way) => [
+      ';',
+      'bind-key',
+      '-T',
+      table,
+      `Wheel${way}Pane`,
+      'select-pane',
+      '\\;',
+      'send-keys',
+      '-X',
+      '-N',
+      WHEEL_LINES,
+      `scroll-${way.toLowerCase()}`,
+    ]),
+  ),
+  ';',
+  'bind-key',
+  '-T',
+  'root',
+  'WheelUpPane',
+  'if-shell',
+  '-F',
+  '#{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}}',
+  'send-keys -M',
+  `copy-mode -e ; send-keys -X -N '${WHEEL_LINES}' scroll-up`,
+];
+
 // Set on every start, before any window exists: history-limit applies only to panes made after it.
 export const SERVER_OPTIONS = [
   // Mesa's server outlives its last window, so the options below hold for the next open.
