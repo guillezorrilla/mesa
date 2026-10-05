@@ -65,7 +65,7 @@ import { sendReview } from './reviews.js';
 import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from './run.js';
 import { searchConversations } from './search.js';
 import { sendPrompt } from './send.js';
-import { dangerousLaunch, markEnded, startedOutputs } from './session-receipt.js';
+import { launchGuardrail, markEnded, startedOutputs } from './session-receipt.js';
 import { stopSession } from './stop.js';
 import { swapAgent } from './swap.js';
 import { killIfThere } from './tmux/backend.js';
@@ -127,10 +127,10 @@ export function sessionsService(
     reopened: r.reopened.map((a) => a.id),
     failed: r.failed,
   });
-  /** The first reopened session's dangerous launch flags (dangerousLaunch), which keep the receipt. */
+  /** The first reopened session's launchGuardrail, which keeps the receipt. */
   const reopenedLaunch = (adoptions: readonly DiscoveryAdoption[]) => {
     const first = adoptions.flatMap((r) => r.reopened)[0];
-    return first ? dangerousLaunch(store.get(first.id), open().config.agents) : {};
+    return first ? launchGuardrail(store.get(first.id), open().config.agents) : {};
   };
   const nativeDeps = () => ({
     profile: open(),
@@ -513,7 +513,7 @@ export function sessionsService(
         const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());
         return record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             ...(kept ? { argv: kept.argv } : {}),
@@ -815,7 +815,7 @@ export function sessionsService(
         const keep = opts.keep ?? false;
         return record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) => `Handed off session ${id} to ${r.to.id} (${r.stop})`,
@@ -830,7 +830,7 @@ export function sessionsService(
               to: r.to.id,
               note: r.note,
               stop: r.stop,
-              ...dangerousLaunch(r.to, open().config.agents),
+              ...launchGuardrail(r.to, open().config.agents),
             }),
           },
           async () => {
@@ -874,7 +874,7 @@ export function sessionsService(
       ) =>
         record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: ({ record: r }) =>
@@ -889,7 +889,7 @@ export function sessionsService(
               window: r.tmux.window,
               resumed: !opts.noResume,
               ...(r.cwd ? { cwd: r.cwd } : {}),
-              ...(opts.noResume ? {} : dangerousLaunch(r, open().config.agents)),
+              ...(opts.noResume ? {} : launchGuardrail(r, open().config.agents)),
             }),
           },
           () => adoptSession(adoptDeps(), { agentSessionId, ...opts }),
@@ -910,7 +910,7 @@ export function sessionsService(
       }) =>
         record(
           {
-            // Reopened sessions with dangerous launch flags are kept (dangerousLaunch).
+            // Reopened sessions with dangerous launch flags are kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) =>
@@ -956,7 +956,7 @@ export function sessionsService(
       resume: (id: string) =>
         record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) =>
@@ -971,7 +971,7 @@ export function sessionsService(
               window: r.record.tmux.window,
               agentSessionId: r.record.agentSessionId,
               resumedFrom: r.from.id,
-              ...dangerousLaunch(r.record, open().config.agents),
+              ...launchGuardrail(r.record, open().config.agents),
             }),
           },
           () => resumeSession(openDeps(), id),
@@ -980,7 +980,7 @@ export function sessionsService(
       swap: (id: string, agent: string) =>
         record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) => `Swapped session ${r.record.id} to ${r.record.agent}`,
@@ -993,7 +993,7 @@ export function sessionsService(
             outputs: (r) => ({
               window: r.record.tmux.window,
               agentSessionId: r.record.agentSessionId,
-              ...dangerousLaunch(r.record, open().config.agents),
+              ...launchGuardrail(r.record, open().config.agents),
             }),
           },
           () => swapAgent({ ...openDeps(), eventsDir: paths.events }, id, agent),
@@ -1001,7 +1001,7 @@ export function sessionsService(
       fork: (id: string, opts: { branch?: string; base?: string } = {}) =>
         record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) => `Forked session ${id} as ${r.record.id}`,
@@ -1014,7 +1014,7 @@ export function sessionsService(
             outputs: (r) => ({
               window: r.record.tmux.window,
               parent: id,
-              ...dangerousLaunch(r.record, open().config.agents),
+              ...launchGuardrail(r.record, open().config.agents),
             }),
           },
           () => forkSession(openDeps(), id, opts),
@@ -1022,7 +1022,7 @@ export function sessionsService(
       dependencies: (id: string, change: { parent?: string | null; after?: string }) =>
         record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) => `Updated dependencies of session ${r.record.id}`,
@@ -1034,7 +1034,7 @@ export function sessionsService(
             outputs: (r) => ({
               parent: r.record.parent ?? null,
               after: r.record.after ?? null,
-              ...(r.started ? dangerousLaunch(r.record, open().config.agents) : {}),
+              ...(r.started ? launchGuardrail(r.record, open().config.agents) : {}),
             }),
           },
           async () => {
@@ -1053,7 +1053,7 @@ export function sessionsService(
       forceStart: (id: string) =>
         record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) => `Started queued session ${r.record.id} now`,

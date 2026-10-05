@@ -14,32 +14,27 @@ import type { HeadlessResult } from './run.js';
 type ReceiptContext = Pick<MesaContext, 'notes' | 'paths' | 'secrets' | 'deps'>;
 
 /**
- * The launch flags an agent session started with that turn off its agent's permission checks or
- * sandbox (launch-flags.ts), as one line, which keeps its guardrail receipt (receipts/policy.ts);
- * nothing when there are none, or it has not started, or it resumed by attaching to a background
- * process started before it, which takes no flags (claude attach).
+ * What a session's start keeps its guardrail receipt for (receipts/policy.ts): the launch flags
+ * that turn off its agent's permission checks or sandbox (launch-flags.ts) as one line, and how it
+ * overrode the profile's sandbox for its additional projects (sandboxOverride). Nothing when there
+ * is neither, or it has not started, or it resumed by attaching to a background process started
+ * before it, which takes no flags (claude attach). Every start's receipt reads it.
  */
-export function dangerousLaunch(r: SessionRecord, defaults: LaunchDefaults) {
+export function launchGuardrail(r: SessionRecord, defaults: LaunchDefaults) {
   if (r.kind !== 'interactive' || r.agent === 'terminal' || r.lastState.state === 'queued')
     return {};
   if (r.resumedFrom && r.backgroundId) return {};
   const flags = dangerousFlags(r.agent, defaults, r.mode);
-  return flags.length ? { dangerousFlags: flags.join(' ') } : {};
-}
-
-/**
- * How the session overrides the profile's sandbox for its additional projects (sandboxOverride),
- * which keeps its guardrail receipt (receipts/policy.ts); nothing when it does not.
- */
-function sandboxLaunch(r: SessionRecord, defaults: LaunchDefaults) {
   const override = sandboxOverride(r.agent, defaults, additionalDirs(r));
-  return override ? { sandboxOverride: override.receipt } : {};
+  return {
+    ...(flags.length ? { dangerousFlags: flags.join(' ') } : {}),
+    ...(override ? { sandboxOverride: override.receipt } : {}),
+  };
 }
 
 /**
  * What a session receipt says of a session that started: its window, conversation, place (with
- * its additional projects'), any dangerous launch flags under the profile's launch `defaults`, and
- * any sandbox Mesa overrode for its additional projects.
+ * its additional projects'), and its launchGuardrail under the profile's launch `defaults`.
  */
 export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   window: r.tmux.window,
@@ -48,8 +43,7 @@ export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   parent: r.parent ?? null,
   ...(r.worktree ? { worktree: r.worktree } : {}),
   ...(r.additional ? { additional: r.additional } : {}),
-  ...dangerousLaunch(r, defaults),
-  ...sandboxLaunch(r, defaults),
+  ...launchGuardrail(r, defaults),
 });
 
 /** Text from the profile's logs as a receipt keeps it (redactWhole). */

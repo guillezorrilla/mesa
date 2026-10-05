@@ -45,7 +45,7 @@ test('--worktree with --with gives every project a worktree on one Mesa-named br
 
 test('the open receipt names the additional projects as inputs and outputs', async () => {
   const { home, mesa } = twoProjects({ newId });
-  // A dangerous start keeps its receipt (dangerousLaunch).
+  // A dangerous start keeps its receipt (launchGuardrail).
   mesa.config.set('agents.claude.skipPermissions', 'true');
   const { result } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'] });
   const [kept] = listReceipts(join(home, 'vault'), 10, { session: result.id });
