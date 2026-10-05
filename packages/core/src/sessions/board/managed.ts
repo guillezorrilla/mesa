@@ -15,8 +15,9 @@ import { type ManagedRow, secondsBetween } from './rows.js';
 
 /**
  * Saves what a look learned onto the record as it is now: a new state, the name its agent gives
- * it, or an agent session id (the one a /clear moved it to, or the one its agent picked). A stopped session keeps the stop's
- * state, and takes only an id it has none of, one its agent picked before the stop. A state
+ * it, or an agent session id (the one a /clear moved it to, or the one its agent picked). A
+ * stopped session keeps the stop's state, and takes only a name and an id it has none of, one its
+ * agent picked before the stop. A state
  * another look saved since this one read the record (a pane-died hook's, or another mesa's look)
  * is newer and stays. A record another process holds locked (busy, or a lock left by a killed mesa) is not
  * waited for or written: this look still shows what it learned, and the next one tries again.
@@ -27,9 +28,11 @@ function saveLook(
   learned: Partial<Pick<SessionRecord, 'lastState' | 'agentSessionId' | 'agentName'>>,
 ): SessionRecord {
   try {
-    const { agentSessionId: id } = learned;
-    const stopped = (current: SessionRecord) =>
-      id && !current.agentSessionId ? { agentSessionId: id } : {};
+    const { agentSessionId: id, agentName } = learned;
+    const stopped = (current: SessionRecord) => ({
+      ...(id && !current.agentSessionId ? { agentSessionId: id } : {}),
+      ...(agentName ? { agentName } : {}),
+    });
     const { lastState, ...rest } = learned;
     return store.update(
       found.id,

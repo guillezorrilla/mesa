@@ -41,9 +41,13 @@ test("a Claude Code process's name is the one a person gave it with /rename, nev
       )
     )[0]?.name;
   expect(await list()).toBeUndefined();
-  plantLiveSession(home, 67213, { name: 'lantern-cove-7', nameSource: 'derived' });
+  const sessionId = SPIKE_LISTING.idle.sessionId;
+  plantLiveSession(home, 67213, { sessionId, name: 'lantern-cove-7', nameSource: 'derived' });
   expect(await list()).toBeUndefined();
-  plantLiveSession(home, 67213, { name: ' guest-3-sentry-issues ', nameSource: 'user' });
+  // A file another session left behind under the same pid is not this one's.
+  plantLiveSession(home, 67213, { sessionId: 'other', name: 'stale', nameSource: 'user' });
+  expect(await list()).toBeUndefined();
+  plantLiveSession(home, 67213, { sessionId, name: ' guest-3-sentry-issues ', nameSource: 'user' });
   expect(await list()).toBe('guest-3-sentry-issues');
 });
 

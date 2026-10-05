@@ -24,15 +24,16 @@ const ListingSchema = z.array(
 );
 
 /**
- * The name a person gave live process `pid` with /rename, from its state file; none for the name
- * Claude Code derives from the folder, or a file it cannot read.
+ * The name a person gave session `sessionId`'s live process `pid` with /rename, from its state
+ * file; none for the name Claude Code derives from the folder, a file another session left, or one
+ * it cannot read.
  */
-function renamed(home: string, pid: number | undefined): string | undefined {
+function renamed(home: string, pid: number | undefined, sessionId: string): string | undefined {
   if (!pid) return undefined;
   try {
     const state = JSON.parse(readFileSync(join(claudeLiveSessions(home), `${pid}.json`), 'utf8'));
     const name = typeof state?.name === 'string' ? state.name.trim() : '';
-    return state?.nameSource === 'user' && name ? name : undefined;
+    return state?.nameSource === 'user' && state.sessionId === sessionId && name ? name : undefined;
   } catch {
     return undefined;
   }
@@ -60,7 +61,7 @@ export async function listClaudeProcesses({
   const parsed = ListingSchema.safeParse(raw);
   if (!parsed.success) return [];
   return parsed.data.map((p) => {
-    const name = renamed(home, p.pid);
+    const name = renamed(home, p.pid, p.sessionId);
     return {
       agent: 'claude' as const,
       ...(p.pid ? { pid: p.pid } : {}),

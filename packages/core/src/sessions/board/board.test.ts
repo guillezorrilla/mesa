@@ -238,7 +238,7 @@ test('a /rename in Claude Code is saved as the agent name once, and a later one 
   }));
   const home = tempDir();
   const look = (name: string, nameSource = 'user') => {
-    plantLiveSession(home, 67213, { name, nameSource });
+    plantLiveSession(home, 67213, { sessionId: SPIKE_ID, name, nameSource });
     const { run } = scriptedRunner({ claude: JSON.stringify([SPIKE_LISTING.idle]) });
     return listSessions({
       ...noListing,

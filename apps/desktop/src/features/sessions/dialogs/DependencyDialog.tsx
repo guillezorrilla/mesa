@@ -18,7 +18,10 @@ export function DependencyDialog(props: {
   const [after, setAfter] = useState(props.row.after ?? '');
   const candidates = props.rows
     .filter((row): row is ManagedRow & TreeRow => row.managed && row.id !== props.row.id)
-    .map((row) => ({ id: row.id, label: row.name ? `${row.name} (${row.id})` : row.id }));
+    .map((row) => {
+      const label = sessionLabel(row);
+      return { id: row.id, label: label === row.id ? row.id : `${label} (${row.id})` };
+    });
   for (const id of [props.row.parent, props.row.after]) {
     if (id && !candidates.some((candidate) => candidate.id === id))
       candidates.push({ id, label: id });
