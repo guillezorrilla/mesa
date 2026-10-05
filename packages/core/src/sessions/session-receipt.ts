@@ -1,9 +1,10 @@
-import { dangerousFlags, type LaunchDefaults } from '../agents/launch-flags.js';
+import { dangerousFlags, type LaunchDefaults, sandboxOverride } from '../agents/launch-flags.js';
 import type { MesaContext } from '../context.js';
 import { redactWhole } from '../lib/redact.js';
 import { toFail } from '../lib/result.js';
 import { joinWarnings, type Recorded } from '../receipts/recorder.js';
 import { sessionReceipt, updateSessionReceipt } from '../receipts/store.js';
+import { additionalDirs } from './additional.js';
 import type { SessionRecord } from './record.js';
 import type { HeadlessResult } from './run.js';
 
@@ -27,8 +28,18 @@ export function dangerousLaunch(r: SessionRecord, defaults: LaunchDefaults) {
 }
 
 /**
+ * How the session overrides the profile's sandbox for its additional projects (sandboxOverride),
+ * which keeps its guardrail receipt (receipts/policy.ts); nothing when it does not.
+ */
+function sandboxLaunch(r: SessionRecord, defaults: LaunchDefaults) {
+  const override = sandboxOverride(r.agent, defaults, additionalDirs(r));
+  return override ? { sandboxOverride: override.receipt } : {};
+}
+
+/**
  * What a session receipt says of a session that started: its window, conversation, place (with
- * its additional projects'), and any dangerous launch flags under the profile's launch `defaults`.
+ * its additional projects'), any dangerous launch flags under the profile's launch `defaults`, and
+ * any sandbox Mesa overrode for its additional projects.
  */
 export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   window: r.tmux.window,
@@ -38,6 +49,7 @@ export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   ...(r.worktree ? { worktree: r.worktree } : {}),
   ...(r.additional ? { additional: r.additional } : {}),
   ...dangerousLaunch(r, defaults),
+  ...sandboxLaunch(r, defaults),
 });
 
 /** Text from the profile's logs as a receipt keeps it (redactWhole). */

@@ -12,8 +12,9 @@ export const RECORD_KINDS = [
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
 /**
- * A guardrail entry is material when a person overrode it, or when a session started with launch
- * flags that turn off its agent's own permission checks or sandbox (`dangerousFlags`).
+ * A guardrail entry is material when a person overrode it, when a session started with launch
+ * flags that turn off its agent's own permission checks or sandbox (`dangerousFlags`), or when
+ * Mesa widened the profile's sandbox for a session's additional projects (`sandboxOverride`).
  */
 export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string, unknown>) =>
   kind === 'decision' ||
@@ -22,7 +23,9 @@ export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string
   kind === 'refresh' ||
   kind === 'automation' ||
   (kind === 'guardrail' &&
-    (typeof outputs.override === 'string' || typeof outputs.dangerousFlags === 'string'));
+    (typeof outputs.override === 'string' ||
+      typeof outputs.dangerousFlags === 'string' ||
+      typeof outputs.sandboxOverride === 'string'));
 
 export const keepFailure = (kind: RecordKind | undefined, code: string) =>
   kind === 'automation' || (kind === 'guardrail' && code === 'guardrail_blocked');
@@ -34,7 +37,8 @@ export const BASES_MEANINGFUL_FILTER = [
   '|| (kind == "refresh" && outputs && ((outputs.refreshed.isType("list") && outputs.refreshed.length > 0)',
   '|| (outputs.notesWritten.isType("number") && outputs.notesWritten > 0)))',
   '|| (kind == "guardrail" && outputs',
-  '&& (outputs.override.isType("string") || outputs.dangerousFlags.isType("string")))))',
+  '&& (outputs.override.isType("string") || outputs.dangerousFlags.isType("string")',
+  '|| outputs.sandboxOverride.isType("string")))))',
   '|| ((status == "failed" || status == "blocked") && kind == "guardrail"',
   '&& outputs && outputs.error && outputs.error.code == "guardrail_blocked"))',
 ].join(' ');

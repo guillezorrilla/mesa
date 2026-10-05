@@ -8,6 +8,7 @@ import {
 import { withMesaStatusLine } from '../agents/claude/statusline.js';
 import { hooksStatus as codexHooks } from '../agents/codex/hooks.js';
 import { codexHome } from '../agents/codex/paths.js';
+import { sandboxOverride } from '../agents/launch-flags.js';
 import { AGENT_NAMES } from '../agents/names.js';
 import { mountsPerLaunch, type VaultServer } from '../agents/vault-mount.js';
 import type { Clock } from '../lib/clock.js';
@@ -155,6 +156,7 @@ export async function startSession(
       hooks?.events.SessionStart && !hooks.trusted.SessionStart
         ? "Review and trust Mesa's hooks in Codex; this session starts without the Mesa pointer"
         : undefined,
+      sandboxOverride(record.agent, deps.profile.config.agents, additionalDirs(record))?.warning,
     );
     if (record.background && !record.backgroundId) {
       const env = { ...deps.env };

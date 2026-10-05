@@ -1224,10 +1224,45 @@ test('each agent gets the additional worktrees as extra folders in its own form'
   );
   const codex = await opened('codex', 'x');
   expect(launch()).toBe(
-    `codex -c mesa.embedded=true ${CODEX_MOUNT} '--add-dir' '${codex.extra}' -- 'go'`,
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} '--add-dir' '${codex.extra}' -- 'go'`,
   );
   const { extra: agy } = await opened('antigravity', 'a');
   expect(launch()).toContain(` '--add-dir=${agy}' --prompt-interactive 'go'`);
+});
+
+test("a read-only profile's Codex --with session gets workspace-write, a warning and a kept receipt", async () => {
+  const world = agentWorld();
+  const { mesa, home } = await acrossProjects(world);
+  const launch = () => world.tmux.windows.at(-1)?.launch ?? '';
+  const open = (branch: string) =>
+    mesa.sessions.open('lantern-cove', { agent: 'codex', with: ['tide-pool'], branch, goal: 'go' });
+
+  // Unset: workspace-write, as for any Codex --with session, with no warning and no receipt.
+  const native = await open('n');
+  expect(native.warning).toBeUndefined();
+  expect(native.receipt).toBeNull();
+
+  mesa.config.set('agents.codex.sandbox', 'read-only');
+  const { result, warning, receipt } = await open('r');
+  const extra = result.additional?.[0]?.worktree.path ?? '';
+  expect(launch()).toBe(
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} '--add-dir' '${extra}' -- 'go'`,
+  );
+  expect(warning).toBe(
+    'Codex runs read-only in this profile; this session gets workspace-write so it can change the other projects',
+  );
+  expect(receipt).not.toBeNull();
+  expect(listReceipts(join(home, 'vault'), 10, { session: result.id })[0]?.receipt).toMatchObject({
+    kind: 'guardrail',
+    type: 'session',
+    outputs: { sandboxOverride: 'read-only to workspace-write' },
+  });
+
+  // Without --with, the configured read-only stays, with no override.
+  const alone = await mesa.sessions.open('lantern-cove', { agent: 'codex' });
+  expect(launch()).toContain(' --sandbox=read-only ');
+  expect(alone.warning).toBeUndefined();
+  expect(alone.receipt).toBeNull();
 });
 
 test("resume, handoff and swap carry a session's additional projects; a gone one is not_found", async () => {

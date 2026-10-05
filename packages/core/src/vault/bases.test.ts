@@ -148,6 +148,8 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['guardrail', 'ok', { dangerousFlags: '--dangerously-skip-permissions' }, true],
     ['guardrail', 'ok', { dangerousFlags: ['--sandbox'] }, false],
     [undefined, 'ok', { dangerousFlags: '--dangerously-skip-permissions' }, false],
+    ['guardrail', 'ok', { sandboxOverride: 'read-only to workspace-write' }, true],
+    ['guardrail', 'ok', { sandboxOverride: true }, false],
     ['guardrail', 'failed', { error: { code: 'guardrail_blocked' } }, true],
     ['guardrail', 'blocked', { error: { code: 'guardrail_blocked' } }, true],
     ['guardrail', 'failed', { error: { code: 'io_error' } }, false],

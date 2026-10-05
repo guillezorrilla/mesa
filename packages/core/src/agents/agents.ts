@@ -34,9 +34,12 @@ import {
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
 
-/** The profile's launch defaults for `agent` as they follow its executable (launch-flags.ts). */
-const flags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan') =>
-  launchFlags(agent, defaults, mode)
+/**
+ * The profile's launch defaults for `agent` as they follow its executable, for a session with
+ * extra folders `dirs` (launch-flags.ts).
+ */
+const flags = (agent: Agent, defaults: LaunchDefaults, mode?: 'plan', dirs?: readonly string[]) =>
+  launchFlags(agent, defaults, mode, dirs)
     .map((flag) => ` ${flag}`)
     .join('');
 
@@ -184,7 +187,7 @@ export const AGENTS = {
       goal?: string,
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(server)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
      * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
      * is not part of the thread, so it comes again.
@@ -197,7 +200,7 @@ export const AGENTS = {
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     fork: (
       sessionId: string,
       folder: string,
@@ -206,7 +209,7 @@ export const AGENTS = {
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
