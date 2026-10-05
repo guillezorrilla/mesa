@@ -7,7 +7,8 @@ use std::time::{Duration, SystemTime};
 use serde::Serialize;
 use serde_json::Value;
 
-/// No two checks of one channel come closer than this, unless the link asks.
+/// No two checks of one channel come closer than this, unless the link asks or a person retries
+/// a failure.
 pub const FLOOR: Duration = Duration::from_secs(10 * 60);
 
 /// Who asked for a check.
@@ -83,7 +84,7 @@ fn since(now: SystemTime, at: SystemTime) -> Duration {
 
 impl<T> State<T> {
     /// Starts a check of `channel`, and says whether it reaches the feeds. Inside the floor it
-    /// keeps the last result, except for the link.
+    /// keeps the last result, except for the link and a person retrying a failure.
     pub fn begin(&mut self, channel: &str, trigger: Trigger, now: SystemTime) -> bool {
         if trigger != Trigger::Schedule {
             self.status.dismissed = false;
@@ -91,7 +92,8 @@ impl<T> State<T> {
         let recent =
             matches!(&self.last, Some((at, on)) if on == channel && since(now, *at) < FLOOR);
         let reach = match trigger {
-            Trigger::Schedule | Trigger::Person => !recent,
+            Trigger::Schedule => !recent,
+            Trigger::Person => !recent || self.status.phase == "failed",
             Trigger::Link => true,
         };
         if reach && self.status.phase != "ready" {
@@ -329,5 +331,25 @@ mod tests {
             None
         );
         assert_eq!(state.status.phase, "ready");
+    }
+
+    #[test]
+    fn a_person_retries_a_failure_inside_the_floor() {
+        let mut state = State::<()>::default();
+        state.begin("beta", Trigger::Person, at(0));
+        let feed = state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(0));
+        assert!(feed.is_some());
+        state.downloaded(Err("The update to 0.1.0-beta.5 was refused: timeout.".into()));
+        assert_eq!(state.status.phase, "failed");
+        // The schedule waits; a person's retry downloads again at once.
+        assert!(!state.begin("beta", Trigger::Schedule, at(1)));
+        assert!(state.begin("beta", Trigger::Person, at(1)));
+        assert_eq!(state.status.phase, "checking");
+        assert!(state
+            .checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(1))
+            .is_some());
+        state.downloaded(ready("0.1.0-beta.5"));
+        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.message, None);
     }
 }
