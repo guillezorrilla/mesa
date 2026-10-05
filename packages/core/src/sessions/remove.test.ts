@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
@@ -217,6 +217,65 @@ test('a retried rm passes over a worktree and branch already gone in one reposit
   await mesa.sessions.remove(session.id, { deleteWorktree: true, deleteBranch: true });
   expect([existsSync(own), existsSync(other)]).toEqual([false, false]);
   expect(branches()).toEqual(['', '']);
+});
+
+test('a locked worktree in the second repository refuses rm, even with --force, before anything goes', async () => {
+  const { mesa, tide, session, own, other, branches } = await acrossProjects();
+  testGit(tide, 'worktree', 'lock', '--reason', 'on usb', other);
+  await expect(
+    mesa.sessions.remove(session.id, { deleteWorktree: true, force: true }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: `tide-pool's worktree at ${other} is locked (on usb): git worktree unlock ${other} first`,
+  });
+  expect([existsSync(own), existsSync(other)]).toEqual([true, true]);
+  expect(branches()).toEqual(['+ shared', '+ shared']);
+  expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
+});
+
+test('a locked worktree whose folder is gone is refused, not reported removed', async () => {
+  const { mesa, tide, session, other } = await acrossProjects();
+  testGit(tide, 'worktree', 'lock', '--reason', 'on usb', other);
+  rmSync(other, { recursive: true });
+  await expect(
+    mesa.sessions.remove(session.id, { deleteWorktree: true, force: true }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: `tide-pool's worktree at ${other} is locked (on usb): git worktree unlock ${other} first`,
+  });
+  expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
+  expect(testGit(tide, 'worktree', 'list', '--porcelain')).toContain(`worktree ${other}\n`);
+});
+
+test('an initialized submodule in the second repository refuses rm without --force; --force removes both', async () => {
+  const { mesa, dir, session, own, other, branches } = await acrossProjects();
+  testGit(other, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', dir, 'sub');
+  testGit(other, 'commit', '-qm', 'sub');
+  await expect(mesa.sessions.remove(session.id, { deleteWorktree: true })).rejects.toMatchObject({
+    code: 'usage',
+    message: `tide-pool's worktree at ${other} has submodules: pass --force to remove it with their git data`,
+  });
+  expect([existsSync(own), existsSync(other)]).toEqual([true, true]);
+  expect(branches()).toEqual(['+ shared', '+ shared']);
+  expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
+
+  await mesa.sessions.remove(session.id, { deleteWorktree: true, force: true });
+  expect([existsSync(own), existsSync(other)]).toEqual([false, false]);
+});
+
+test('a branch checked out elsewhere in the second repository refuses --delete-branch before anything goes', async () => {
+  const { mesa, home, tide, session, own, other, branches } = await acrossProjects();
+  const elsewhere = join(home, 'elsewhere');
+  testGit(tide, 'worktree', 'add', '-f', elsewhere, 'shared');
+  await expect(
+    mesa.sessions.remove(session.id, { deleteWorktree: true, deleteBranch: true }),
+  ).rejects.toMatchObject({
+    code: 'usage',
+    message: `tide-pool's branch shared is checked out at ${elsewhere}`,
+  });
+  expect([existsSync(own), existsSync(other)]).toEqual([true, true]);
+  expect(branches()).toEqual(['+ shared', '+ shared']);
+  expect((await mesa.sessions.show(session.id)).id).toBe(session.id);
 });
 
 test('worktrees a resumed successor holds now are refused, naming the project and path', async () => {
