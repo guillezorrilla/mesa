@@ -4,9 +4,12 @@
  */
 export type SessionSelection = { ids?: readonly string[]; anchor?: string };
 
-/** A click on a card (Shift ranges, Cmd toggles), a right-click on one, or Escape. */
+/**
+ * A click on a card (Shift ranges, Cmd toggles; `from`, the card a Shift+Arrow stepped from), a
+ * right-click on one, or Escape.
+ */
 export type SelectionInput =
-  | { kind: 'click'; id: string; shift?: boolean; toggle?: boolean }
+  | { kind: 'click'; id: string; shift?: boolean; toggle?: boolean; from?: string }
   | { kind: 'context'; id: string }
   | { kind: 'escape' };
 
@@ -39,7 +42,8 @@ export function nextSelection(
     const ids = current.includes(id) ? current.filter((other) => other !== id) : [...current, id];
     return { ids, anchor: id };
   }
-  const anchor = [selection.anchor, shown].find((card) => card && order.includes(card));
+  // With no anchor and no shown card listed, a Shift+Arrow ranges from the card it left.
+  const anchor = [selection.anchor, shown, input.from].find((card) => card && order.includes(card));
   if (input.shift && anchor) {
     const [from, to] = [order.indexOf(anchor), order.indexOf(id)];
     return { ids: order.slice(Math.min(from, to), Math.max(from, to) + 1), anchor };

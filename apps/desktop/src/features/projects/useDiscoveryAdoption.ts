@@ -25,8 +25,8 @@ const DISCOVERY = 'onboarding.discovery';
 /**
  * Add to Mesa (CONTEXT.md, First-run discovery): writes `started`, runs `mesa discover adopt` for
  * each folder in order, with the conversation ids the dialog's scan listed so none scans again,
- * then writes `complete`. Skip writes `dismissed` and closes, after the folder
- * being added when a run is going.
+ * then writes `complete`. Skip writes `dismissed` and closes, after the folder being added when a
+ * run is going.
  */
 export function useDiscoveryAdoption(props: { onClose: () => void; onAdded: () => Promise<void> }) {
   const call = useCall();

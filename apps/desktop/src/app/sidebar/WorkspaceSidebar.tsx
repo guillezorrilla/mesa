@@ -64,10 +64,8 @@ export function WorkspaceSidebar(props: {
   }, [view.kind]);
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
-  const selection = useSessionSelection(
-    sidebarOrder(groups, closedProjects),
-    view.kind === 'session' ? view.id : undefined,
-  );
+  const order = sidebarOrder(groups, closedProjects);
+  const selection = useSessionSelection(order, view.kind === 'session' ? view.id : undefined);
   /** The Sessions tab, back on the session last shown while it is still listed, else the first. */
   const openSessions = () => {
     setProjectTab(false);
@@ -148,6 +146,7 @@ export function WorkspaceSidebar(props: {
         ) : (
           <SessionsSection
             groups={groups}
+            order={order}
             view={view}
             onView={onView}
             closedProjects={closedProjects}
