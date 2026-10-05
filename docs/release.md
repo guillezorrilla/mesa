@@ -86,7 +86,7 @@ A test build needs no secrets. `APPLE_SIGNING_IDENTITY=- pnpm release:build` mak
 
 ## Updates and revoking a version
 
-Installed copies read `latest.json` from the channel they follow (ADR-0018): beta reads the `beta` prerelease's and stable's, stable only `releases/latest`. A beta release must keep replacing `latest.json` on `beta`, and a stable release must be the repository's latest release. `mesa update check --json` shows what an installed copy sees.
+Installed copies read `latest.json` from the channel they follow (ADR-0018): beta reads the `beta` prerelease's and stable's, stable only `releases/latest`. A beta release must keep replacing `latest.json` on `beta`, and a stable release must be the repository's latest release. `mesa update check --json` shows what an installed copy sees. The app is the only installer: its updater downloads the archive, verifies its signature with the public key in `tauri.conf.json`, and replaces the bundle when a person chooses Install. `mesa update install` downloads nothing; it opens the installed Mesa.app with `mesa://update/install` (starting it if closed), and the app offers the update.
 
 To revoke a version, so every copy running it blocks with the reason until it updates, upload `revoked.json` to the `beta` prerelease. `version` is one version or a semver range:
 

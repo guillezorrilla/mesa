@@ -3,9 +3,8 @@ import { z } from 'zod';
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import type { profileService } from '../profile/service.js';
+import { appBundle } from './bundle.js';
 import { FEEDS, RELEASES_PAGE, REVOKED_LIST, UPDATE_LINK, type UpdateChannel } from './feeds.js';
-import { appBundle, replaceBundle } from './install.js';
-import { UPDATE_PUBLIC_KEY, verifyMinisign } from './minisign.js';
 
 /** A Tauri update manifest (`latest.json`), as #431 publishes it. */
 const ManifestSchema = z.object({
@@ -36,10 +35,18 @@ export type UpdateCheck = {
   page: string;
 };
 export type UpdateInstall = UpdateCheck & {
-  /** Nothing newer, the running app was asked to install it, or the app bundle was replaced. */
-  outcome: 'up-to-date' | 'handed-to-app' | 'replaced';
+  /** Nothing newer, or the app was asked to download, verify and offer it. */
+  outcome: 'up-to-date' | 'handed-to-app';
+  /** The installed Mesa.app that was asked. */
   app?: string;
 };
+
+/**
+ * How long one feed or `revoked.json` request may take. The app's check waits on this command
+ * while it holds its one-check-at-a-time lock, so a stalled request must end.
+ */
+const REQUEST_TIMEOUT_MS = 30_000;
+const bounded = () => ({ signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
 
 /** A channel nobody chose follows the running version: a beta tracks betas, a stable stables. */
 const defaultChannel = (current: string): UpdateChannel =>
@@ -47,21 +54,19 @@ const defaultChannel = (current: string): UpdateChannel =>
 
 /**
  * Mesa's own updates (ADR-0018): the channel the profile follows, the newest version on it, the
- * versions revoked, and an install for the CLI. The app's updater installs through Tauri's plugin
- * from the feed `check` picks.
+ * versions revoked. Only the app installs: its updater downloads and verifies through Tauri's plugin
+ * from the feed `check` picks, and `install` hands the update to it.
  */
 export function updateService(
   ctx: MesaContext,
   config: Pick<ReturnType<typeof profileService>['config'], 'set'>,
-  /** The key updates must be signed with: #431's, or a test's own. */
-  publicKey = UPDATE_PUBLIC_KEY,
 ) {
   const { http, version: current } = ctx.deps;
   const channel = (): UpdateChannel => ctx.configIfAny()?.update.channel ?? defaultChannel(current);
 
   /** A feed's manifest; none when the channel has no release yet (404). */
   const manifest = async (feed: string): Promise<Manifest | undefined> => {
-    const response = await http(feed);
+    const response = await http(feed, bounded());
     if (response.status === 404) return undefined;
     if (!response.ok) throw new MesaError('internal', `${feed} answered HTTP ${response.status}`);
     const parsed = ManifestSchema.safeParse(await response.json().catch(() => undefined));
@@ -69,38 +74,48 @@ export function updateService(
     return parsed.data;
   };
 
-  /** The newest release across the channel's feeds, with the feed it came from. */
-  const newest = async (on: UpdateChannel) => {
+  /** Every release the channel's feeds name, with the feed each came from. */
+  const releases = async (on: UpdateChannel) => {
     const found = await Promise.all(
       FEEDS[on].map(async (feed) => ({ feed, manifest: await manifest(feed) })),
     );
-    return found
-      .filter((f): f is { feed: string; manifest: Manifest } => f.manifest !== undefined)
-      .sort((a, b) => compare(b.manifest.version, a.manifest.version))[0];
+    return found.filter((f): f is { feed: string; manifest: Manifest } => f.manifest !== undefined);
   };
 
-  /** The running version's revocation, if `revoked.json` lists it; a failed read never blocks. */
-  const revoked = async (): Promise<Revoked | undefined> => {
+  /** `revoked.json`'s entries; a failed or malformed read never blocks, so it lists none. */
+  const revocations = async (): Promise<Revoked[]> => {
     try {
-      const response = await http(REVOKED_LIST);
-      if (!response.ok) return undefined;
-      const list = RevokedSchema.parse(await response.json());
-      const hit = list.revokedVersions.find((entry) =>
-        satisfies(current, entry.version, { includePrerelease: true }),
-      );
-      return hit && { version: hit.version, reason: hit.reason };
+      const response = await http(REVOKED_LIST, bounded());
+      if (!response.ok) return [];
+      return RevokedSchema.parse(await response.json()).revokedVersions;
     } catch {
-      return undefined;
+      return [];
     }
   };
 
-  /** The check, and the newer release's manifest when there is one. */
-  const inspect = async () => {
+  /** The entry that revokes `version` (a version or a semver range), if any. */
+  const revocationOf = (list: Revoked[], version: string): Revoked | undefined => {
+    const hit = list.find((entry) =>
+      satisfies(version, entry.version, { includePrerelease: true }),
+    );
+    return hit && { version: hit.version, reason: hit.reason };
+  };
+
+  /** The running version's revocation, if `revoked.json` lists it. */
+  const revoked = async () => revocationOf(await revocations(), current);
+
+  /** What a person running this version sees on the profile's channel. */
+  const check = async (): Promise<UpdateCheck> => {
     const on = channel();
-    const [best, revocation] = await Promise.all([newest(on), revoked()]);
+    const [found, list] = await Promise.all([releases(on), revocations()]);
+    // A revoked release is never offered: the newest one not revoked is.
+    const best = found
+      .filter((f) => !revocationOf(list, f.manifest.version))
+      .sort((a, b) => compare(b.manifest.version, a.manifest.version))[0];
+    const revocation = revocationOf(list, current);
     // Downgrades are never offered: only a version above the running one is available.
     const available = best !== undefined && compare(best.manifest.version, current) > 0;
-    const found: UpdateCheck = {
+    return {
       current,
       channel: on,
       available,
@@ -114,7 +129,6 @@ export function updateService(
       ...(revocation ? { revoked: revocation } : {}),
       page: RELEASES_PAGE,
     };
-    return { found, newer: available ? best : undefined };
   };
 
   return {
@@ -123,33 +137,20 @@ export function updateService(
       get: channel,
       set: (to: UpdateChannel) => config.set('update.channel', to),
     },
-    check: async () => (await inspect()).found,
+    check,
     revoked,
     /**
-     * Downloads the newest version, verifies its signature, and hands the install to the running
-     * app (which offers it in its dialog) or, with the app closed, replaces this app bundle.
+     * Hands a newer version to the installed app this mesa belongs to: `open -a <app>` with
+     * UPDATE_LINK starts the app if it is closed, and the app checks, downloads, verifies and
+     * offers it, so a person still chooses Install. Nothing here downloads or replaces a file.
      */
     install: async (): Promise<UpdateInstall> => {
-      const { found, newer: best } = await inspect();
-      if (!best) return { ...found, outcome: 'up-to-date' };
+      const found = await check();
+      if (!found.available) return { ...found, outcome: 'up-to-date' };
       const app = appBundle(ctx.deps.self, RELEASES_PAGE);
-      // ponytail: one universal archive (ADR-0017) serves both entries; pick by arch if they split.
-      const platform =
-        best.manifest.platforms['darwin-aarch64'] ?? best.manifest.platforms['darwin-x86_64'];
-      if (!platform) throw new MesaError('not_found', `${best.feed} has no macOS archive`);
-      const response = await http(platform.url);
-      if (!response.ok)
-        throw new MesaError('internal', `${platform.url} answered HTTP ${response.status}`);
-      const archive = new Uint8Array(await response.arrayBuffer());
-      verifyMinisign(archive, platform.signature, publicKey);
-      const { run } = ctx.deps;
-      if ((await run('/usr/bin/pgrep', ['-x', 'mesa-desktop'], 5_000)).ok) {
-        const opened = await run('/usr/bin/open', [UPDATE_LINK], 10_000);
-        if (!opened.ok) throw new MesaError('internal', `Cannot reach the app: ${opened.detail}`);
-        return { ...found, outcome: 'handed-to-app', app };
-      }
-      await replaceBundle(app, archive, run);
-      return { ...found, outcome: 'replaced', app };
+      const opened = await ctx.deps.run('/usr/bin/open', ['-a', app, UPDATE_LINK], 10_000);
+      if (!opened.ok) throw new MesaError('internal', `Cannot open ${app}: ${opened.detail}`);
+      return { ...found, outcome: 'handed-to-app', app };
     },
   };
 }

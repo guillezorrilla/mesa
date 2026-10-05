@@ -1,19 +1,14 @@
-import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createContext } from '../context.js';
-import { execRunner, type Runner } from '../lib/process.js';
 import { profileService } from '../profile/service.js';
-import { fakeHttp, minisignKey, tempDir, testDeps } from '../testing/index.js';
+import { fakeHttp, scriptedRunner, tempDir, testDeps } from '../testing/index.js';
 import { FEEDS, REVOKED_LIST, UPDATE_LINK } from './feeds.js';
-import { UPDATE_PUBLIC_KEY } from './minisign.js';
 import { updateService } from './service.js';
 
 const [BETA, STABLE] = FEEDS.beta as [string, string];
 const ARCHIVE = 'https://downloads.example.test/Mesa.app.tar.gz';
 
-const manifest = (version: string, signature = 'unsigned') => ({
+const manifest = (version: string, signature = 'sig') => ({
   body: {
     version,
     notes: `https://github.com/guillezorrilla/mesa/releases/tag/v${version}`,
@@ -25,14 +20,10 @@ const manifest = (version: string, signature = 'unsigned') => ({
 });
 
 /** The update service over a fake web; the running version is testDeps' 0.1.0-beta.4. */
-function world(
-  routes: Parameters<typeof fakeHttp>[0],
-  deps: Parameters<typeof testDeps>[1] = {},
-  publicKey?: string,
-) {
+function world(routes: Parameters<typeof fakeHttp>[0], deps: Parameters<typeof testDeps>[1] = {}) {
   const web = fakeHttp(routes);
   const ctx = createContext('default', testDeps(tempDir(), { http: web.http, ...deps }));
-  return { web, update: updateService(ctx, profileService(ctx).config, publicKey) };
+  return { web, update: updateService(ctx, profileService(ctx).config) };
 }
 
 test('a beta follows the beta feed and is offered a newer beta, from that feed', async () => {
@@ -101,119 +92,94 @@ test('the running version is revoked by version or by range; a failed read never
   expect(both).toMatchObject({ available: true, revoked: { reason: 'Loses session logs' } });
 });
 
-test('the CLI key is the one the app verifies updates with', () => {
-  const conf = JSON.parse(
-    readFileSync(
-      new URL('../../../../apps/desktop/src-tauri/tauri.conf.json', import.meta.url),
-      'utf8',
-    ),
-  );
-  expect(conf.plugins.updater.pubkey).toBe(UPDATE_PUBLIC_KEY);
+test('a revoked release is never offered; the newest one not revoked is', async () => {
+  const { update } = world({
+    [`GET ${BETA}`]: manifest('0.1.0-beta.6'),
+    [`GET ${STABLE}`]: manifest('0.1.0-beta.5'),
+    [`GET ${REVOKED_LIST}`]: {
+      body: { schemaVersion: 1, revokedVersions: [{ version: '0.1.0-beta.6', reason: 'Pulled' }] },
+    },
+  });
+  expect(await update.check()).toMatchObject({
+    available: true,
+    latest: '0.1.0-beta.5',
+    feed: STABLE,
+  });
+  const pulled = world({
+    [`GET ${BETA}`]: manifest('0.1.0-beta.6'),
+    [`GET ${REVOKED_LIST}`]: {
+      body: {
+        schemaVersion: 1,
+        revokedVersions: [{ version: '>=0.1.0-beta.5', reason: 'Pulled' }],
+      },
+    },
+  });
+  expect(await pulled.update.check()).toMatchObject({ available: false });
+  expect((await pulled.update.check()).latest).toBeUndefined();
 });
 
-/** An installed /Applications/Mesa.app at `version`, and a signed archive of the next one. */
-function installed(version: string) {
-  const root = tempDir();
-  const app = join(root, 'Applications/Mesa.app');
-  mkdirSync(join(app, 'Contents/MacOS'), { recursive: true });
-  writeFileSync(join(app, 'Contents/version'), version);
-  const staged = join(root, 'staged');
-  mkdirSync(join(staged, 'Mesa.app/Contents/MacOS'), { recursive: true });
-  writeFileSync(join(staged, 'Mesa.app/Contents/version'), '0.1.0-beta.5');
-  execFileSync('tar', ['-czf', join(root, 'next.tar.gz'), '-C', staged, 'Mesa.app']);
-  return {
-    app,
-    self: [join(app, 'Contents/MacOS/mesa')],
-    archive: new Uint8Array(readFileSync(join(root, 'next.tar.gz'))),
-    version: () => readFileSync(join(app, 'Contents/version'), 'utf8'),
-  };
+test('every feed and revoked.json request carries a timeout', async () => {
+  const signals: (AbortSignal | null | undefined)[] = [];
+  const { update } = world(
+    {},
+    {
+      http: async (_url, init) => {
+        signals.push(init?.signal);
+        return new Response('{}', { status: 404 });
+      },
+    },
+  );
+  await update.check();
+  expect(signals).toHaveLength(3);
+  for (const signal of signals) expect(signal).toBeInstanceOf(AbortSignal);
+});
+
+const APP = '/Applications/Mesa.app';
+const SELF = [`${APP}/Contents/MacOS/mesa`];
+
+/** Every command it runs, with `open` failing when asked. */
+function machine(openFails = false) {
+  const { run, calls } = scriptedRunner({}, openFails ? { failing: ['/usr/bin/open'] } : {});
+  return { run, ran: () => calls.map((c) => [c.file, ...c.args]) };
 }
 
-/** Real tar; pgrep finds the app running or not; open is recorded. */
-function machine(appRunning: boolean) {
-  const opened: string[] = [];
-  const run: Runner = async (file, args, timeoutMs, options) => {
-    if (file === '/usr/bin/pgrep')
-      return appRunning
-        ? { ok: true, stdout: '4242\n' }
-        : { ok: false, reason: 'failed', detail: '' };
-    if (file === '/usr/bin/open') {
-      opened.push(...args);
-      return { ok: true, stdout: '' };
-    }
-    return execRunner(file, args, timeoutMs, options);
-  };
-  return { run, opened };
-}
-
-test('install verifies the archive and replaces the closed app with the new version', async () => {
-  const key = minisignKey();
-  const mac = installed('0.1.0-beta.4');
-  const { run, opened } = machine(false);
-  const { update } = world(
-    {
-      [`GET ${BETA}`]: manifest('0.1.0-beta.5', key.sign(mac.archive)),
-      [`GET ${ARCHIVE}`]: { bytes: mac.archive },
-    },
-    { self: mac.self, run },
-    key.publicKey,
-  );
-  expect(await update.install()).toMatchObject({ outcome: 'replaced', app: mac.app });
-  expect(mac.version()).toBe('0.1.0-beta.5');
-  expect(opened).toEqual([]);
+test('install hands a newer version to the installed app through its link, open or closed', async () => {
+  const { run, ran } = machine();
+  const { web, update } = world({ [`GET ${BETA}`]: manifest('0.1.0-beta.5') }, { self: SELF, run });
+  expect(await update.install()).toMatchObject({
+    outcome: 'handed-to-app',
+    latest: '0.1.0-beta.5',
+    app: APP,
+  });
+  // `open -a` starts the app when it is closed, and reaches this app, not another copy.
+  expect(ran()).toEqual([['/usr/bin/open', '-a', APP, UPDATE_LINK]]);
+  // The app downloads and verifies; the CLI never fetches the archive.
+  expect(web.requests.map((r) => r.url)).not.toContain(ARCHIVE);
 });
 
-test('install hands a running app the update through its link', async () => {
-  const key = minisignKey();
-  const mac = installed('0.1.0-beta.4');
-  const { run, opened } = machine(true);
-  const { update } = world(
-    {
-      [`GET ${BETA}`]: manifest('0.1.0-beta.5', key.sign(mac.archive)),
-      [`GET ${ARCHIVE}`]: { bytes: mac.archive },
-    },
-    { self: mac.self, run },
-    key.publicKey,
-  );
-  expect(await update.install()).toMatchObject({ outcome: 'handed-to-app' });
-  expect(opened).toEqual([UPDATE_LINK]);
-  expect(mac.version()).toBe('0.1.0-beta.4');
+test('install says so when the app cannot be opened', async () => {
+  const { run } = machine(true);
+  const { update } = world({ [`GET ${BETA}`]: manifest('0.1.0-beta.5') }, { self: SELF, run });
+  await expect(update.install()).rejects.toThrow(/Cannot open \/Applications\/Mesa.app/);
 });
 
-test('an archive signed with another key, or changed after signing, is refused and nothing changes', async () => {
-  const mac = installed('0.1.0-beta.4');
-  const { run } = machine(false);
-  const tampered = mac.archive.slice();
-  tampered[100] = (tampered[100] ?? 0) ^ 1;
-  const ours = minisignKey();
-  for (const [signature, bytes, why] of [
-    [
-      minisignKey(Buffer.from('fedcba9876543210', 'hex')).sign(mac.archive),
-      mac.archive,
-      /another key/,
-    ],
-    [minisignKey().sign(mac.archive), mac.archive, /not the one that was signed/],
-    [ours.sign(mac.archive), tampered, /not the one that was signed/],
-  ] as const) {
-    const { update } = world(
-      { [`GET ${BETA}`]: manifest('0.1.0-beta.5', signature), [`GET ${ARCHIVE}`]: { bytes } },
-      { self: mac.self, run },
-      ours.publicKey,
+test('install refuses a mesa outside an installed app, and opens nothing when up to date', async () => {
+  for (const self of [undefined, ['/Volumes/Mesa/Mesa.app/Contents/MacOS/mesa']]) {
+    const { run, ran } = machine();
+    const outside = world(
+      { [`GET ${BETA}`]: manifest('0.1.0-beta.5') },
+      { run, ...(self ? { self } : {}) },
     );
-    await expect(update.install()).rejects.toThrow(why);
-    expect(mac.version()).toBe('0.1.0-beta.4');
+    await expect(outside.update.install()).rejects.toThrow(
+      /not part of an installed Mesa.app.*github.com\/guillezorrilla\/mesa\/releases/,
+    );
+    expect(ran()).toEqual([]);
   }
-});
-
-test('install refuses a mesa outside an installed app, and does nothing when up to date', async () => {
-  const dev = world({ [`GET ${BETA}`]: manifest('0.1.0-beta.5') });
-  await expect(dev.update.install()).rejects.toThrow(/not part of an installed Mesa.app/);
-  const dmg = world(
-    { [`GET ${BETA}`]: manifest('0.1.0-beta.5') },
-    { self: ['/Volumes/Mesa/Mesa.app/Contents/MacOS/mesa'] },
-  );
-  await expect(dmg.update.install()).rejects.toThrow(/not part of an installed Mesa.app/);
-  const current = world({ [`GET ${BETA}`]: manifest('0.1.0-beta.4') });
-  expect(await current.update.install()).toMatchObject({ outcome: 'up-to-date' });
-  expect(current.web.requests.map((r) => r.url)).not.toContain(ARCHIVE);
+  const { run, ran } = machine();
+  const current = world({ [`GET ${BETA}`]: manifest('0.1.0-beta.4') }, { self: SELF, run });
+  expect(await current.update.install()).toMatchObject({
+    outcome: 'up-to-date',
+    page: 'https://github.com/guillezorrilla/mesa/releases',
+  });
+  expect(ran()).toEqual([]);
 });

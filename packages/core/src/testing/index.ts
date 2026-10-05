@@ -831,4 +831,3 @@ export {
   TEST_NOTION,
   writesImportNotes,
 } from './sources.js';
-export { minisignKey } from './update.js';
