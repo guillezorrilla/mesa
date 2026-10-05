@@ -2,6 +2,22 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.1.3 - 2026-10-05
+
+### Features
+
+- **app**: sort projects by name by default, remember the sort, never reorder on select (#564)
+
+### Fixes
+
+- **sessions**: widen Find from sessions, one scroll, readable running session names (#565)
+- **app**: drop Faro and decisions from the tour (#563)
+
+### Other
+
+- **docs**: say in the README that features ship only if they beat plain agents (#556)
+- **spikes**: audit transcripts for knowledge lost between sessions (#557)
+
 ## 0.1.2 - 2026-10-05
 
 ### Features
