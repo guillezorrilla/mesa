@@ -3,7 +3,7 @@ import { ADOPTION_WARNING, counted } from '@mesa/core/browser';
 import { History } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -76,7 +76,7 @@ export function DiscoveryDialog(props: {
       const done = await run('sessions.adopt', { agentSessionId: session.id });
       if (!done) return undefined;
       setAdopted((map) => new Map(map).set(session.id, done.id));
-      return said(`Adopted as ${done.id}`, done);
+      return warningOf(done);
     });
   const add = () =>
     void act(async () => {

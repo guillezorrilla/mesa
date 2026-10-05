@@ -1,6 +1,6 @@
 import type { SourceRow } from '@mesa/core';
 import { Cable } from 'lucide-react';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { describeSource } from '@/lib/describeSource';
 import { useAct } from '@/lib/useAct';
@@ -19,13 +19,13 @@ export function ConnectionSettings() {
     void act(async () => {
       const result = await signIn(source.id);
       await list.refresh();
-      return result && said(`Connected ${source.label}`, result);
+      return result && warningOf(result);
     });
   const disconnect = (source: SourceRow) =>
     void act(async () => {
       const result = await run('sources.disconnect', { source: source.id });
       await list.refresh();
-      return result && said(`Disconnected ${source.label}`, result);
+      return result && warningOf(result);
     });
   return (
     <SettingSection

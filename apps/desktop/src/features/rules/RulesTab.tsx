@@ -2,7 +2,7 @@ import type { RuleRow, WorkspaceFile } from '@mesa/core';
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -56,7 +56,7 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
       if (!result) return undefined;
       setOpened({ ...opened, text: draft, revision: result.revision ?? opened.revision });
       await rules.refresh();
-      return said(`Saved ${selected.name}`, result);
+      return warningOf(result);
     });
   return (
     <section data-testid="rules-workspace" className="space-y-5">

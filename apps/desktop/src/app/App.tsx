@@ -1,7 +1,7 @@
 import type { TreeRow } from '@mesa/core';
 import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
 import { useRef, useState } from 'react';
-import { warned } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { CloneProjectDialog } from '@/features/projects/CloneProjectDialog';
 import { ProjectAddDialog } from '@/features/projects/ProjectAddDialog';
@@ -241,7 +241,7 @@ export function App() {
           } else if (target) navigate(target);
           else if (hit.id === 'new-session') requestNewSession();
           else if (hit.id === 'open-vault') {
-            void act(async () => warned((await run('vault.open'))?.warning));
+            void act(async () => warningOf(await run('vault.open')));
           } else if (hit.id === 'profile') {
             if (profileMenu.current) profileMenu.current.open = true;
             profileMenu.current?.querySelector('summary')?.focus();

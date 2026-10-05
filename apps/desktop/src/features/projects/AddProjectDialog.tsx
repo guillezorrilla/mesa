@@ -1,7 +1,7 @@
 import { FolderOpen, FolderPlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,7 +51,7 @@ export function AddProjectDialog(props: {
           if (!registered) return undefined;
           await props.onRegistered();
           props.onCancel();
-          return said(`Added project ${registered.label ?? registered.name}`, registered);
+          return warningOf(registered);
         });
       }}
     >

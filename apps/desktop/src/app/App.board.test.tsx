@@ -180,7 +180,7 @@ test("the guardrail's ask opens a dialog with its reason and decision; Send anyw
   ]);
   expect(byTestId('guardrail-dialog')).toEqual([]);
   expect(box().value).toBe('');
-  expect(toastTexts(byTestId)).toEqual(['Sent 5 characters to aaaaaaaa']);
+  expect(toastTexts(byTestId)).toEqual([]);
 });
 
 test("the guardrail's block is said in the toast, with no way past it in the app", async () => {
@@ -232,9 +232,8 @@ test('a recorded action says its warning with its confirmation, so a missing rec
   });
   const byTestId = await renderSession(<App />, bridge);
   await click(button('Stop'));
-  expect(byTestId('toast')[0]?.textContent).toContain(
-    'Stopped session aaaaaaaa; no receipt: the profile has no vault yet',
-  );
+  // No confirmation for what the screen shows, but its warning still does.
+  expect(toastTexts(byTestId)).toEqual(['no receipt: the profile has no vault yet']);
 });
 
 /** The board's look. */
@@ -322,7 +321,7 @@ test('Hand off asks for the note, then hands the session off; one without a goal
   expect(calls.filter((c) => c[1] === 'handoff')).toEqual([
     ['--json', 'handoff', '--note', '/h/note.md', '--keep', '--agent', 'codex', '--', 'bbbbbbbb'],
   ]);
-  expect(byTestId('toast')[0]?.textContent).toContain('Handed off bbbbbbbb to eeeeeeee');
+  expect(toastTexts(byTestId)).toEqual([]);
   expect(byTestId('handoff-dialog')).toHaveLength(0);
 });
 
@@ -405,7 +404,7 @@ test("the row menu's Rename names a session; Sessions shows the name in place of
   (byTestId('rename-name')[0] as HTMLInputElement).value = 'tide tables';
   await click(byTestId('rename-submit')[0]);
   expect(calls).toContainEqual(['--json', 'rename', '--', 'bbbbbbbb', 'tide tables']);
-  expect(byTestId('toast')[0]?.textContent).toContain('Renamed bbbbbbbb to tide tables');
+  expect(toastTexts(byTestId)).toEqual([]);
   expect(byTestId('rename-dialog')).toHaveLength(0);
   expect(byTestId('selected-session')[0]?.textContent).toContain('tide tables');
 });
@@ -509,7 +508,7 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
   expect(listed()).toContain(`its worktree ${worktree.path}`);
   await click(byTestId('remove-confirm')[0]);
   expect(calls).toContainEqual(['--json', 'rm', '--delete-worktree', '--', 'cccccccc']);
-  expect(byTestId('toast')[0]?.textContent).toContain('Removed session cccccccc with its worktree');
+  expect(toastTexts(byTestId)).toEqual([]);
   expect(byTestId('remove-dialog')).toHaveLength(0);
   // The removed session is gone, so the view moves to the live one rather than staying on it.
   expect(byTestId('selected-session')[0]?.textContent).toContain('bbbbbbbb');
@@ -588,7 +587,7 @@ test('the header agent swaps a fresh session in place', async () => {
   ]);
   await click(menuItem('Swap to codex'));
   expect(calls).toContainEqual(['--json', 'swap', '--', 'aaaaaaaa', 'codex']);
-  expect(toastTexts(byTestId)).toContain('Swapped aaaaaaaa to codex');
+  expect(toastTexts(byTestId)).toEqual([]);
 });
 
 test('swapping a session with a conversation hands off to that agent instead', async () => {

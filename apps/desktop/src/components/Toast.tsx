@@ -22,9 +22,12 @@ export const said = (message: string, data?: { warning?: string }): Message =>
     ? { text: `${message}; ${data.warning}`, tone: 'alert' }
     : { text: message, tone: 'confirmation' };
 
-/** A command's own warning, if it has one, as an alert. */
-export const warned = (warning: string | undefined): Message | undefined =>
-  warning ? { text: warning, tone: 'alert' } : undefined;
+/**
+ * No confirmation, only the warning a command's data carries, as an alert: for an action whose
+ * result the screen already shows.
+ */
+export const warningOf = (data?: { warning?: string }): Message | undefined =>
+  data?.warning ? { text: data.warning, tone: 'alert' } : undefined;
 
 // ponytail: long enough to read one line; a setting if someone reads slower.
 /** How long a confirmation stays. */

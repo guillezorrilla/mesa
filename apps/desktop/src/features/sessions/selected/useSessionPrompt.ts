@@ -1,6 +1,6 @@
 import type { SessionImage } from '@mesa/core';
 import { type RefObject, useEffect, useState } from 'react';
-import { type Message, said } from '@/components/Toast';
+import { type Message, warningOf } from '@/components/Toast';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useCall } from '@/lib/useCommand';
 import { guardrailOf } from '../dialogs/GuardrailDialog';
@@ -50,7 +50,7 @@ export function useSessionPrompt({
         if (attachment) setImage(undefined);
         closeDialog();
         // Typed either way: a warning says so, so the prompt is not sent twice.
-        return said(`Sent ${sent.data.chars} characters to ${id}`, sent.data);
+        return warningOf(sent.data);
       }
       const { error } = sent;
       const check = guardrailOf(error);
@@ -70,7 +70,7 @@ export function useSessionPrompt({
       if (version !== selectionVersion.current) return undefined;
       if (!preview.ok) return { text: preview.error.message, tone: 'alert' };
       setImage(preview.data);
-      return said(`Selected ${preview.data.name} for session ${id}`);
+      return undefined;
     });
   return { image, clearImage: () => setImage(undefined), send, pickImage };
 }

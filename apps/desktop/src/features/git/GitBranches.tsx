@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAct } from '@/lib/useAct';
@@ -33,7 +33,7 @@ export function GitBranches(props: { project: string; checkout?: string; onChang
       setName('');
       setBase('');
       await changed();
-      return said(`Created branch ${result.name}`, result);
+      return warningOf(result);
     });
   const change = (action: 'checkout' | 'delete', branch: string) =>
     act(async () => {
@@ -45,7 +45,7 @@ export function GitBranches(props: { project: string; checkout?: string; onChang
       if (!result) return undefined;
       setDeleteName(undefined);
       await changed();
-      return said(`${action === 'checkout' ? 'Checked out' : 'Deleted'} branch ${branch}`, result);
+      return warningOf(result);
     });
   return (
     <section aria-label="Local branches" className="shrink-0 border-t bg-card">

@@ -1,7 +1,7 @@
 import type { SourceRow } from '@mesa/core';
 import { Cable, FolderTree } from 'lucide-react';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import type { DataOf } from '@/lib/client';
 import { describeSource } from '@/lib/describeSource';
@@ -24,7 +24,7 @@ export function SourceCards(props: {
     void props.act(async () => {
       const result = await connect(source.id);
       await props.sources.refresh();
-      return result && said(`Connected ${source.label}`, result);
+      return result && warningOf(result);
     });
   return (
     <ul className="grid gap-3 sm:grid-cols-2">

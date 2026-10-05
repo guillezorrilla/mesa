@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
 import { useAct } from '@/lib/useAct';
@@ -144,7 +144,7 @@ function CustomShortcut(props: {
       const result = await run('config.set', { path: `shortcuts.${props.name}`, value });
       if (!result) return undefined;
       props.onChanged();
-      return said(`Saved ${props.label} shortcut`, result);
+      return warningOf(result);
     });
   };
   return (

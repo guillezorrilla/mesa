@@ -1,6 +1,6 @@
 import type { ManagedRow, ProjectRow, TreeRow } from '@mesa/core';
 import { sessionProjects } from '@mesa/core/browser';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { WorktreesSection } from '@/features/worktrees/WorktreesSection';
 import type { DataOf } from '@/lib/client';
@@ -45,7 +45,7 @@ export function OverviewTab(props: {
       if (input.from) props.state.setDraft(undefined);
       props.state.setAdditional([]);
       props.onSession(session.id);
-      return said(`Opened session ${session.id} on ${project.name}`, session);
+      return warningOf(session);
     });
   return (
     <div className="space-y-8">

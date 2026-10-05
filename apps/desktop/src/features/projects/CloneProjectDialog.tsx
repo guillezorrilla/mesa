@@ -1,7 +1,7 @@
 import { repositoryUrl } from '@mesa/core/browser';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Input } from '@/components/ui/input';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
@@ -36,7 +36,7 @@ export function CloneProjectDialog(props: {
           if (!cloned) return undefined;
           await props.onCloned(cloned.name);
           props.onCancel();
-          return said(`Cloned project ${cloned.name}`, cloned);
+          return warningOf(cloned);
         });
       }}
     >

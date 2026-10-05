@@ -3,7 +3,7 @@ import { ArrowLeft, Eye, Pencil, Save } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { FileEditor } from '@/features/files/FileEditor';
 import { useUnloadGuard } from '@/features/files/useUnloadGuard';
@@ -64,7 +64,7 @@ export function SkillPanel(props: {
       if (!result) return undefined;
       setOpened({ ...opened, text: draft, revision: result.revision ?? opened.revision });
       await props.onSaved();
-      return said(`Saved ${row.name}/${file}`, result);
+      return warningOf(result);
     });
   const files = ['SKILL.md', ...row.supportFiles];
   const markdown = /\.md(?:own)?$/i.test(file);

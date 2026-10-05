@@ -2,7 +2,7 @@ import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
 import { Bell, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAct } from '@/lib/useAct';
@@ -56,10 +56,7 @@ export function NotificationsMenu(props: {
       if (!result) return undefined;
       await props.onRecheck();
       await inbox.refresh();
-      return said(
-        command === 'hooks install' ? 'Enabled session hooks' : 'Set up the vault',
-        result,
-      );
+      return warningOf(result);
     });
   return (
     <>

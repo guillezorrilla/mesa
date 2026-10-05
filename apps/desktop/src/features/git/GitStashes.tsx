@@ -2,7 +2,7 @@ import type { StashEntry } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { said, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAct } from '@/lib/useAct';
@@ -29,7 +29,7 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
       if (!result) return undefined;
       setMessage('');
       await changed();
-      return said(result.created ? 'Saved stash' : 'No changes to stash', result);
+      return result.created ? warningOf(result) : said('No changes to stash', result);
     });
   // The listed oid goes along: a stash pushed meanwhile shifts every ref, and core refuses then.
   const change = (action: 'Apply' | 'Pop' | 'Drop', { ref, oid }: StashEntry) =>
@@ -43,10 +43,7 @@ export function GitStashes(props: { project: string; checkout?: string; onChange
       if (!result) return undefined;
       setDropping(undefined);
       await changed();
-      return said(
-        `${action === 'Apply' ? 'Applied' : action === 'Pop' ? 'Popped' : 'Dropped'} ${ref}`,
-        result,
-      );
+      return warningOf(result);
     });
   return (
     <section aria-label="Git stashes" className="space-y-3 rounded-lg border p-3">

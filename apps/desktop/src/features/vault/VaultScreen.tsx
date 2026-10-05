@@ -3,7 +3,7 @@ import { ExternalLink, FolderPlus, Settings2, Table2 } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
-import { useToast, warned } from '@/components/Toast';
+import { useToast, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { CommandScope, useCall, useRun } from '@/lib/useCommand';
@@ -128,7 +128,7 @@ export function VaultScreen({
         data-testid="open-vault"
         variant="outline"
         disabled={acting || !look?.list.ok}
-        onClick={() => void act(async () => warned((await run('vault.open'))?.warning))}
+        onClick={() => void act(async () => warningOf(await run('vault.open')))}
       >
         <ExternalLink aria-hidden /> Open in Obsidian
       </Button>

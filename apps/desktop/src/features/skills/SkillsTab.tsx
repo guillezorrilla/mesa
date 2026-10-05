@@ -2,7 +2,7 @@ import type { Config, SkillInventoryRow } from '@mesa/core';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -46,10 +46,7 @@ export function SkillsTab(props: {
       const synced = await run('skills.sync', { project: props.project });
       await Promise.all([config.refresh(), skills.refresh()]);
       if (!synced) return undefined;
-      return said(
-        `${row.name} ${next.includes(row.name) ? 'enabled' : 'disabled'} in profile`,
-        synced,
-      );
+      return warningOf(synced);
     });
   const toggleProject = (row: SkillInventoryRow, enabled: boolean) =>
     act(async () => {
@@ -58,7 +55,7 @@ export function SkillsTab(props: {
       const synced = await run('skills.sync', { project: props.project });
       await Promise.all([projects.refresh(), skills.refresh()]);
       if (!synced) return undefined;
-      return said(`${row.name} ${enabled ? 'added to' : 'removed from'} project policy`, synced);
+      return warningOf(synced);
     });
   if (selected) {
     const inProfile = config.data?.skills.includes(selected.name);
@@ -160,7 +157,7 @@ export function SkillsTab(props: {
                 const synced = await run('skills.sync', { project: props.project });
                 if (!synced) return undefined;
                 await skills.refresh();
-                return said(`Synced skills in ${props.project}`, synced);
+                return warningOf(synced);
               })
             }
           >
