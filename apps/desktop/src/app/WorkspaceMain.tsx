@@ -32,7 +32,8 @@ export function WorkspaceMain(props: {
   projects: CommandState<ProjectRow[]>;
   needsProfileSetup: boolean;
   onProfileInitialised: () => Promise<void>;
-  onStartTour: () => void;
+  /** Set up's Continue: Find from sessions first when it is offered, then the welcome tour. */
+  onSetupContinue: () => void;
   prompts: CommandState<SavedPrompt[]>;
   doctor: CommandState<DoctorReport>;
   sessions: readonly TreeRow[];
@@ -153,7 +154,7 @@ export function WorkspaceMain(props: {
           doctor={props.doctor}
           profileExists={config.data !== undefined}
           onInitialised={props.onProfileInitialised}
-          onContinue={props.onStartTour}
+          onContinue={props.onSetupContinue}
         />
       )}
       {view.kind === 'tour' && config.data && (
