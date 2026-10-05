@@ -347,3 +347,18 @@ test('a session row shows a badge per additional project', async () => {
     '+tide-pool',
   ]);
 });
+
+test('the Projects tab counts a session for its additional project; the Sessions tab shows it once', async () => {
+  const row = managedRow('aaaaaaaa', {
+    worktree: { path: '/w/lantern-cove/b', branch: 'b' },
+    additional: [{ project: 'tide', worktree: { path: '/w/tide/b', branch: 'b' } }],
+  });
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row, managedRow('bbbbbbbb', { project: 'tide' })]),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  expect(byTestId('sidebar-session')).toHaveLength(2);
+  await click(tab('Projects'));
+  expect(byTestId('sidebar-project-count').map((count) => count.textContent)).toEqual(['1', '2']);
+});

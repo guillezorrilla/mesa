@@ -1,4 +1,5 @@
 import type { ManagedRow, ProjectRow, TreeRow } from '@mesa/core';
+import { sessionProjects } from '@mesa/core/browser';
 import { said } from '@/components/Toast';
 import { Badge } from '@/components/ui/badge';
 import { WorktreesSection } from '@/features/worktrees/WorktreesSection';
@@ -13,8 +14,8 @@ import { SessionComposer, type SessionStartInput } from './SessionComposer';
 import type { OverviewState } from './useOverviewState';
 
 /**
- * The project's Overview tab: start a session, and its sessions and worktrees. Its vault and its
- * context have their own tabs.
+ * The project's Overview tab: start a session, and its sessions (those where it is additional too)
+ * and worktrees. Its vault and its context have their own tabs.
  */
 export function OverviewTab(props: {
   project: ProjectRow;
@@ -35,7 +36,7 @@ export function OverviewTab(props: {
   const { project, worktrees, acting } = props;
   const run = useRun();
   const sessions = props.sessions.filter(
-    (s): s is TreeRow & ManagedRow => s.managed && s.project === project.name,
+    (s): s is TreeRow & ManagedRow => s.managed && sessionProjects(s).includes(project.name),
   );
   const open = (input: SessionStartInput) =>
     props.act(async () => {
@@ -55,6 +56,7 @@ export function OverviewTab(props: {
         onStart={(input) => void open(input)}
       />
       <ActiveSessions
+        project={project.name}
         sessions={sessions}
         mainBranch={worktrees.data?.find((tree) => tree.main)?.branch}
         onSession={props.onSession}
