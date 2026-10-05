@@ -1,6 +1,13 @@
 import { expect, test } from 'vitest';
 import { AGENTS } from '../agents/agents.js';
-import { codexWorld, listingDeps, SPIKE_LISTING, scriptedRunner } from '../testing/index.js';
+import {
+  codexWorld,
+  listingDeps,
+  plantLiveSession,
+  SPIKE_LISTING,
+  scriptedRunner,
+  tempDir,
+} from '../testing/index.js';
 import { listAgentProcesses } from './agent-listing.js';
 
 const listing = (...rows: object[]) => JSON.stringify(rows);
@@ -23,6 +30,21 @@ test('listAgentProcesses parses claude agents --json --all with a 2 second timeo
   expect(await listAgentProcesses(listingDeps(waiting))).toMatchObject([
     { status: 'waiting', waitingFor: 'permission prompt' },
   ]);
+});
+
+test("a Claude Code process's name is the one a person gave it with /rename, never the derived one", async () => {
+  const home = tempDir();
+  const list = async () =>
+    (
+      await listAgentProcesses(
+        listingDeps(scriptedRunner({ claude: listing(SPIKE_LISTING.idle) }).run, { home }),
+      )
+    )[0]?.name;
+  expect(await list()).toBeUndefined();
+  plantLiveSession(home, 67213, { name: 'lantern-cove-7', nameSource: 'derived' });
+  expect(await list()).toBeUndefined();
+  plantLiveSession(home, 67213, { name: ' guest-3-sentry-issues ', nameSource: 'user' });
+  expect(await list()).toBe('guest-3-sentry-issues');
 });
 
 test('Claude background listing keeps the handle and distinguishes a stopped process', async () => {

@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
 import type { Runner } from '../../lib/process.js';
 import type { AgentProcess } from '../../sessions/agent-listing.js';
 import type { SessionState } from '../../sessions/states.js';
+import { claudeLiveSessions } from './paths.js';
 
 // Claude Code's agent listing, ADR-0003's second signal: `claude agents --json --all` names
 // live sessions and stopped background handles, Mesa's and the owner's alike.
@@ -20,11 +23,32 @@ const ListingSchema = z.array(
   }),
 );
 
+/**
+ * The name a person gave live process `pid` with /rename, from its state file; none for the name
+ * Claude Code derives from the folder, or a file it cannot read.
+ */
+function renamed(home: string, pid: number | undefined): string | undefined {
+  if (!pid) return undefined;
+  try {
+    const state = JSON.parse(readFileSync(join(claudeLiveSessions(home), `${pid}.json`), 'utf8'));
+    const name = typeof state?.name === 'string' ? state.name.trim() : '';
+    return state?.nameSource === 'user' && name ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Each call took about 0.5 s in the spike; a slow or broken listing must not hold the board up. */
 const LISTING_TIMEOUT_MS = 2000;
 
 /** Claude Code sessions, or `[]` when the listing fails, times out, or does not parse. */
-export async function listClaudeProcesses({ run }: { run: Runner }): Promise<AgentProcess[]> {
+export async function listClaudeProcesses({
+  run,
+  home,
+}: {
+  run: Runner;
+  home: string;
+}): Promise<AgentProcess[]> {
   const res = await run('claude', ['agents', '--json', '--all'], LISTING_TIMEOUT_MS);
   if (!res.ok) return [];
   let raw: unknown;
@@ -35,17 +59,21 @@ export async function listClaudeProcesses({ run }: { run: Runner }): Promise<Age
   }
   const parsed = ListingSchema.safeParse(raw);
   if (!parsed.success) return [];
-  return parsed.data.map((p) => ({
-    agent: 'claude',
-    ...(p.pid ? { pid: p.pid } : {}),
-    cwd: p.cwd,
-    agentSessionId: p.sessionId,
-    ...(p.id ? { backgroundId: p.id } : {}),
-    ...(p.state ? { nativeState: p.state } : {}),
-    startedAt: new Date(p.startedAt).toISOString(),
-    ...(p.status ? { status: p.status } : {}),
-    ...(p.waitingFor === undefined ? {} : { waitingFor: p.waitingFor }),
-  }));
+  return parsed.data.map((p) => {
+    const name = renamed(home, p.pid);
+    return {
+      agent: 'claude' as const,
+      ...(p.pid ? { pid: p.pid } : {}),
+      cwd: p.cwd,
+      agentSessionId: p.sessionId,
+      ...(name ? { name } : {}),
+      ...(p.id ? { backgroundId: p.id } : {}),
+      ...(p.state ? { nativeState: p.state } : {}),
+      startedAt: new Date(p.startedAt).toISOString(),
+      ...(p.status ? { status: p.status } : {}),
+      ...(p.waitingFor === undefined ? {} : { waitingFor: p.waitingFor }),
+    };
+  });
 }
 
 /** What each listed status means as a session state (docs/spikes/state-signals.md). */

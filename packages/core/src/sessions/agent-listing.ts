@@ -14,6 +14,8 @@ export type AgentProcess = {
   pid?: number;
   cwd: string;
   agentSessionId: string;
+  /** The name a person gave it in its agent (Claude Code's /rename), when there is one. */
+  name?: string;
   /** Claude's short background handle, when this is a native background session. */
   backgroundId?: string;
   /** Native process lifecycle, distinct from its idle/busy turn status. */

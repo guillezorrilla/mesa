@@ -12,3 +12,9 @@ export const claudeSettings = (home: string, env: Env = {}) =>
 
 /** Every session's transcript, `<folder>/<agent session id>.jsonl`, one folder per working folder. */
 export const claudeTranscripts = (home: string) => join(home, '.claude', 'projects');
+
+/**
+ * Each live Claude Code process's state, `<pid>.json`: among it the session's `name`, and
+ * `nameSource`, `user` for a /rename and `derived` for the one Claude Code makes from its folder.
+ */
+export const claudeLiveSessions = (home: string) => join(home, '.claude', 'sessions');

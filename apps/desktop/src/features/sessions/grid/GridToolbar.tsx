@@ -1,5 +1,5 @@
 import type { GridGroup, ManagedRow } from '@mesa/core';
-import { projectLabel } from '@mesa/core/browser';
+import { projectLabel, sessionLabel } from '@mesa/core/browser';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -64,7 +64,7 @@ export function GridToolbar(props: {
           <option value="">Choose live session</option>
           {available.map((row) => (
             <option key={row.id} value={row.id}>
-              {row.name ?? row.id} ({projectLabel(row.project)})
+              {sessionLabel(row)} ({projectLabel(row.project)})
             </option>
           ))}
         </select>

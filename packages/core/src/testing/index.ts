@@ -3,7 +3,7 @@ import fs, { appendFileSync, mkdirSync, readFileSync, utimesSync, writeFileSync 
 import { syncBuiltinESMExports } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { claudeTranscripts } from '../agents/claude/paths.js';
+import { claudeLiveSessions, claudeTranscripts } from '../agents/claude/paths.js';
 import { codexSessionIndex, codexSessions } from '../agents/codex/paths.js';
 import type { LaunchDefaults } from '../agents/launch-flags.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
@@ -739,6 +739,12 @@ export function plantOutputLog(home: string, id: string, text: string | Buffer) 
   const file = prepareOutputLog(profilePaths(home, 'default').logs, id);
   writeFileSync(file, text);
   return file;
+}
+
+/** A live Claude Code process `pid`'s state file, with `fields` such as `name` and `nameSource`. */
+export function plantLiveSession(home: string, pid: number, fields: object) {
+  mkdirSync(claudeLiveSessions(home), { recursive: true });
+  writeFileSync(join(claudeLiveSessions(home), `${pid}.json`), JSON.stringify({ pid, ...fields }));
 }
 
 /**
