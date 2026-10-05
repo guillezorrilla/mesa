@@ -2,6 +2,34 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.1.2 - 2026-10-05
+
+### Features
+
+- **app**: honest roles and keyboard multi-select in the Sessions tab (#512) (#550)
+- **app**: explain or adopt running sessions discovery cannot tick (#510) (#549)
+- **app**: show sessions where a project is additional on that project's views (#548)
+- **app**: show first-run discovery before the tour (#546)
+- **release**: write release notes and CHANGELOG from typed PR titles (#518)
+
+### Fixes
+
+- **sessions**: quality pass over P13 (#537) (#553)
+- **sessions**: cut the bytes mesa discover reads, scan once per Add to Mesa run (#551)
+- **sessions**: one partial-failure exit for bulk commands, adopt worktree conversations under their project (#547)
+- **sessions**: start Codex --with sessions with the workspace-write sandbox (#515) (#544)
+- **sessions**: check every repo for git blockers before rm across projects (#543)
+
+### Performance
+
+- **sessions**: read a Claude Code name from the last 1 MiB of its transcript (#513) (#542)
+
+### Other
+
+- **readme**: describe P13 multi-project and discovery changes (#552)
+- **sessions**: move new-session record creation out of launch.ts (#545)
+- **readme**: drop Faro, add discovery, multi-project sessions and bulk archive (#519)
+
 ## 0.1.1 - 2026-10-04
 
 ### Features
