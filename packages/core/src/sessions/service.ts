@@ -36,7 +36,7 @@ import { refreshContext } from './context-use.js';
 import { changeDependencies } from './dependencies.js';
 import { applyDescendants } from './descendants.js';
 import { discoverNative } from './discovery.js';
-import { adoptDiscovered } from './discovery-adopt.js';
+import { adoptDiscovered, type DiscoveryAdoption } from './discovery-adopt.js';
 import { applyEach } from './each.js';
 import { otherProfilesSessions } from './elsewhere.js';
 import { endSignals } from './end-signals.js';
@@ -120,6 +120,18 @@ export function sessionsService(
     listing: () => listAgentProcesses(deps),
     elsewhere: () => otherProfilesSessions(deps.home, profile),
   });
+  /** What a discovery adoption's receipt keeps of one folder. */
+  const adoptionOutputs = (r: DiscoveryAdoption) => ({
+    registered: r.registered,
+    adopted: r.adopted.map((a) => a.id),
+    reopened: r.reopened.map((a) => a.id),
+    failed: r.failed,
+  });
+  /** The first reopened session's dangerous launch flags (dangerousLaunch), which keep the receipt. */
+  const reopenedLaunch = (adoptions: readonly DiscoveryAdoption[]) => {
+    const first = adoptions.flatMap((r) => r.reopened)[0];
+    return first ? dangerousLaunch(store.get(first.id), open().config.agents) : {};
+  };
   const nativeDeps = () => ({
     profile: open(),
     store,
@@ -884,9 +896,18 @@ export function sessionsService(
         ),
       /**
        * Registers a project folder unless registered and adopts the native conversations of its
-       * last `days` record-only, and, with `live`, its running sessions reopened: one receipt.
+       * last `days` record-only, or exactly those of `ids` without a scan, and, with `live`, its
+       * running sessions reopened: one receipt.
        */
-      adoptDiscovered: (input: { path: string; days: number; live?: boolean }) =>
+      adoptDiscovered: ({
+        path,
+        ...input
+      }: {
+        path: string;
+        days: number;
+        live?: boolean;
+        ids?: readonly string[];
+      }) =>
         record(
           {
             // Reopened sessions with dangerous launch flags are kept (dangerousLaunch).
@@ -894,23 +915,43 @@ export function sessionsService(
             type: 'session',
             summary: (r) =>
               `Adopted ${counted(r.adopted.length + r.reopened.length, 'session')} on ${r.project}`,
-            failure: `Could not adopt the sessions of ${absolute(input.path)}`,
+            failure: `Could not adopt the sessions of ${absolute(path)}`,
             warning: (r) => r.warning,
             project: (r) => r.project,
-            inputs: { ...input, path: absolute(input.path) },
-            outputs: (r) => {
-              const first = r.reopened[0];
-              return {
-                registered: r.registered,
-                adopted: r.adopted.map((a) => a.id),
-                reopened: r.reopened.map((a) => a.id),
-                failed: r.failed,
-                ...(first ? dangerousLaunch(store.get(first.id), open().config.agents) : {}),
-              };
-            },
+            inputs: { ...input, path: absolute(path) },
+            outputs: (r) => ({ ...adoptionOutputs(r), ...reopenedLaunch([r]) }),
           },
-          () => adoptDiscovered(adoptDeps(), { ...input, path: absolute(input.path) }),
+          async () => {
+            const [one] = await adoptDiscovered(adoptDeps(), { ...input, paths: [absolute(path)] });
+            return one as DiscoveryAdoption;
+          },
         ),
+      /**
+       * adoptDiscovered for several project folders, in order, over one scan of the machine: one
+       * receipt for them all.
+       */
+      adoptDiscoveredEach: (input: { paths: readonly string[]; days: number; live?: boolean }) => {
+        const paths = input.paths.map(absolute);
+        return record(
+          {
+            kind: 'guardrail',
+            type: 'session',
+            summary: (r) =>
+              `Adopted ${counted(
+                r.items.reduce((n, i) => n + i.adopted.length + i.reopened.length, 0),
+                'session',
+              )} on ${r.items.map((i) => i.project).join(', ')}`,
+            failure: `Could not adopt the sessions of ${paths.join(', ')}`,
+            warning: (r) => joinWarnings(...new Set(r.items.map((i) => i.warning))),
+            inputs: { ...input, paths },
+            outputs: (r) => ({
+              items: r.items.map(adoptionOutputs),
+              ...reopenedLaunch(r.items),
+            }),
+          },
+          async () => ({ items: await adoptDiscovered(adoptDeps(), { ...input, paths }) }),
+        );
+      },
       /** Reopens a session's conversation in a new window, as a new record linked to the old. */
       resume: (id: string) =>
         record(

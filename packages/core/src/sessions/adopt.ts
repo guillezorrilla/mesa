@@ -36,14 +36,20 @@ const adoptable = (p: AgentProcess): p is AgentProcess & { agent: (typeof ADOPTS
 
 /**
  * Records a native session Mesa did not start, found live (the listing) or on disk (its
- * transcript), as an adopted session of the project its folder is in (else `project`), named
- * `name`, else as its agent names it, and, unless `noResume`, reopens its conversation in a Mesa
- * window, in that folder. The warning is always the same: the original terminal still holds the
- * conversation.
+ * transcript, unless the caller found it already: `ran`), as an adopted session of the project its
+ * folder is in (else `project`), named `name`, else as its agent names it, and, unless `noResume`,
+ * reopens its conversation in a Mesa window, in that folder. The warning is always the same: the
+ * original terminal still holds the conversation.
  */
 export async function adoptSession(
   deps: AdoptDeps,
-  input: { agentSessionId: string; project?: string; name?: string; noResume?: boolean },
+  input: {
+    agentSessionId: string;
+    project?: string;
+    name?: string;
+    noResume?: boolean;
+    ran?: NativeConversation;
+  },
 ): Promise<{ record: SessionRecord; warning: string }> {
   const id = input.agentSessionId;
   if (!UUID.test(id)) {
@@ -63,7 +69,7 @@ export async function adoptSession(
       `${id} is a ${AGENT_LABELS[live.agent]} session; Mesa adopts ${adopts} sessions`,
     );
   }
-  const ran = live ?? onDisk(deps.home, deps.env, id);
+  const ran = live ?? input.ran ?? nativeConversation(deps, id);
   if (ran === undefined) {
     const agents = ADOPTS.map((a) => AGENT_LABELS[a]).join(' or ');
     const dirs = [claudeTranscripts(deps.home), codexSessions(codexHome(deps.env, deps.home))].join(
@@ -105,10 +111,20 @@ export async function adoptSession(
   return { record, warning: joinWarnings(ADOPTION_WARNING, warning) ?? ADOPTION_WARNING };
 }
 
-/** The agent whose transcripts hold conversation `id`, and the folder it ran in. */
-function onDisk(home: string, env: LaunchDeps['env'], id: string) {
-  const cwd = transcriptCwd(claudeTranscripts(home), id);
-  if (cwd !== undefined) return { agent: 'claude' as const, cwd };
-  const thread = threadForId({ home, env }, id);
-  return thread && { agent: 'codex' as const, cwd: thread.cwd };
+/** Where a native conversation ran: its agent and folder. */
+export type NativeConversation = { agent: (typeof ADOPTS)[number]; cwd: string };
+
+/**
+ * The agent whose transcripts hold conversation `id`, and the folder it ran in; none for an id
+ * that is not a native session id or is on disk nowhere.
+ */
+export function nativeConversation(
+  deps: { home: string; env: LaunchDeps['env'] },
+  id: string,
+): NativeConversation | undefined {
+  if (!UUID.test(id)) return undefined;
+  const cwd = transcriptCwd(claudeTranscripts(deps.home), id);
+  if (cwd !== undefined) return { agent: 'claude', cwd };
+  const thread = threadForId(deps, id);
+  return thread && { agent: 'codex', cwd: thread.cwd };
 }

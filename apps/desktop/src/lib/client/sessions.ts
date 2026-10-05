@@ -252,11 +252,20 @@ export const sessionsCommands = {
   ]),
   // The default 30 days, machine-wide.
   'sessions.discover': command<NativeDiscovery>('discover'),
-  // One folder registered and its last 30 days adopted; `live` reopens its running sessions too.
+  // One folder registered and the conversations `ids` (from sessions.discover) adopted, without a
+  // scan; `live` reopens its running sessions too.
   'sessions.adoptDiscovered': commandWith<
-    { path: string; live: boolean },
+    { path: string; ids: readonly string[]; live: boolean },
     Recorded<DiscoveryAdoption>
-  >(({ path, live }) => ['discover', 'adopt', ...(live ? ['--live'] : []), '--', path]),
+  >(({ path, ids, live }) => [
+    'discover',
+    'adopt',
+    ...(live ? ['--live'] : []),
+    '--ids',
+    ids.join(','),
+    '--',
+    path,
+  ]),
   'sessions.search': commandWith<{ project: string; query: string }, ConversationSearch>(
     ({ project, query }) => ['history', 'search', '--', project, query],
   ),

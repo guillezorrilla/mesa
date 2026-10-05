@@ -4,6 +4,8 @@ import { expect, test } from 'vitest';
 import { listReceipts } from '../receipts/store.js';
 import {
   CLAUDE_MOUNT,
+  codexWorld,
+  countReads,
   datedTranscript,
   fakeTmux,
   newSession,
@@ -190,4 +192,100 @@ test('a path that is not a folder is not_found', async () => {
   await expect(
     mesa.sessions.adoptDiscovered({ path: join(home, 'nowhere'), days: 30 }),
   ).rejects.toMatchObject({ code: 'not_found' });
+});
+
+test('adopting three folders scans once', async () => {
+  const codex = codexWorld();
+  const { run } = scriptedRunner({
+    tmux: fakeTmux().answer,
+    claude: (args) => (args.includes('agents') ? '[]' : '2.1.283 (Claude Code)'),
+  });
+  const { home, mesa, dir } = projectProfile(run, { env: codex.env, newId: sequentialIds() });
+  const folders = ['tide-pool', 'harbor', 'reef'].map((name) => {
+    const folder = join(home, 'src', name);
+    mkdirSync(join(folder, '.git'), { recursive: true });
+    return folder;
+  });
+  for (const [i, folder] of folders.entries()) {
+    datedTranscript(
+      home,
+      `5b1e2f40-9c3d-4e7a-8f10-00000000000${i}`,
+      folder,
+      '2026-09-23T10:00:00.000Z',
+    );
+    codex.rollout({
+      id: `01a0e14e-be41-72f1-a81b-00000000000${i}`,
+      cwd: folder,
+      startedAt: '2026-09-22T10:00:00.000Z',
+    });
+  }
+  // Not adopted: one this profile holds, two in lantern-cove, one older than 30 days.
+  const kept = [
+    datedTranscript(home, ids.held, folders[0] ?? '', '2026-09-23T11:00:00.000Z'),
+    datedTranscript(home, ids.elsewhere, dir, '2026-09-23T11:00:00.000Z'),
+    codex.rollout({
+      id: '01a0e14e-be41-72f1-a81b-000000000009',
+      cwd: dir,
+      startedAt: '2026-09-22T11:00:00.000Z',
+    }),
+    datedTranscript(home, ids.old, folders[1] ?? '', '2026-08-24T11:00:00.000Z'),
+  ];
+  testStore(home, 'default', shortIds('hhhhhhhh')).create(() =>
+    newSession({ agentSessionId: ids.held }),
+  );
+
+  const reads = countReads();
+  let items: { project: string; adopted: unknown[] }[] = [];
+  try {
+    ({
+      result: { items },
+    } = await mesa.sessions.adoptDiscoveredEach({ paths: folders, days: 30 }));
+  } finally {
+    reads.restore();
+  }
+  expect(items.map((i) => [i.project, i.adopted.length])).toEqual([
+    ['tide-pool', 2],
+    ['harbor', 2],
+    ['reef', 2],
+  ]);
+  for (const file of kept) {
+    expect(reads.opened.filter((f) => f === file).length).toBeLessThanOrEqual(1);
+  }
+});
+
+test('with ids, exactly those are adopted without a scan, and the rest land in failed with a reason', async () => {
+  const { home, mesa, tide } = setUp(true);
+  const unknown = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
+  const reads = countReads();
+  let result: Awaited<ReturnType<typeof mesa.sessions.adoptDiscovered>>['result'];
+  try {
+    ({ result } = await mesa.sessions.adoptDiscovered({
+      path: tide,
+      days: 30,
+      live: true,
+      ids: [ids.root, ids.held, ids.elsewhere, unknown, '../../etc/passwd'],
+    }));
+  } finally {
+    reads.restore();
+  }
+  expect(result).toMatchObject({
+    project: 'tide-pool',
+    registered: true,
+    adopted: [{ agentSessionId: ids.root, agent: 'claude', name: 'Tide tables' }],
+    reopened: [{ agentSessionId: ids.live, agent: 'claude', name: 'Live tide' }],
+    failed: [
+      { agentSessionId: ids.elsewhere, reason: expect.stringContaining('outside') },
+      { agentSessionId: unknown, reason: expect.stringContaining('not a Claude Code or Codex') },
+      { agentSessionId: '../../etc/passwd', reason: expect.stringContaining('not a Claude Code') },
+      { agentSessionId: ids.held, reason: expect.stringContaining('Mesa has') },
+    ],
+  });
+  // No scan: the conversations not named are never opened.
+  const unnamed = (id: string) => reads.opened.some((f) => f.endsWith(`${id}.jsonl`));
+  expect([ids.docs, ids.old].filter(unnamed)).toEqual([]);
+  expect(
+    testStore(home)
+      .list()
+      .filter((s) => s.project === 'tide-pool'),
+  ).toHaveLength(2);
 });

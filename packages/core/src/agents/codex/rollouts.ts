@@ -10,8 +10,8 @@ import { codexHome, codexSessions } from './paths.js';
 // names the thread, the folder it runs in, when it started, and what started it. A thread gets
 // its rollout at its first prompt, not at launch.
 
-// ponytail: the first line holds Codex's base instructions (about 20 KiB in 0.154.0); a longer
-// one is skipped, so read more if Codex's grow.
+// ponytail: the first line holds Codex's base instructions (about 20 KiB in 0.154.0), read up to
+// its newline; one longer than this is skipped, so read more if Codex's grow.
 const HEAD_BYTES = 256 << 10;
 
 const MetaSchema = z.object({
@@ -68,25 +68,29 @@ export function threadForId(deps: { env: Env; home: string }, id: string): Codex
   return thread?.id === id ? thread : undefined;
 }
 
-/** Native interactive Codex conversations on disk, including older rollouts. */
-export function codexHistory(deps: { env: Env; home: string }) {
+/**
+ * Native interactive Codex conversations on disk, including older rollouts; with `since` (epoch
+ * ms), only those last written then or later, the others not opened.
+ */
+export function codexHistory(deps: { env: Env; home: string }, since?: number) {
   return rolloutFiles(deps).flatMap((file) => {
-    const thread = threadOf(file);
-    if (!thread) return [];
+    let mtime: Date | undefined;
     try {
-      return [
-        { agent: 'codex' as const, ...thread, updatedAt: statSync(file).mtime.toISOString() },
-      ];
+      mtime = statSync(file, { throwIfNoEntry: false })?.mtime;
     } catch {
       return [];
     }
+    if (!mtime || (since !== undefined && mtime.getTime() < since)) return [];
+    const thread = threadOf(file);
+    return thread ? [{ agent: 'codex' as const, ...thread, updatedAt: mtime.toISOString() }] : [];
   });
 }
 
 /** An interactive thread's rollout, read from its first line; none for anything else. */
 function threadOf(file: string): CodexThread | undefined {
   try {
-    const [first = ''] = fileHead(file, HEAD_BYTES).split('\n', 1);
+    const head = fileHead(file, HEAD_BYTES, (h) => h.includes('\n'));
+    const [first = ''] = head.split('\n', 1);
     const meta = MetaSchema.safeParse(JSON.parse(first));
     if (!meta.success || meta.data.payload.originator !== 'codex-tui') return undefined;
     const { id, cwd, timestamp } = meta.data.payload;

@@ -197,10 +197,27 @@ test('a folder with an error is shown unticked, as it is never added', async () 
   expect(byTestId('discovery-add')[0]?.hasAttribute('disabled')).toBe(true);
 });
 
+/** The scan's conversations: two in tide-pool, one in harbor, one registered, one in no folder. */
+const conversation = (id: string, project: string | null) => ({
+  agent: 'claude' as const,
+  id,
+  cwd: project ?? '/tmp/loose',
+  project,
+  updatedAt: '2026-09-23T10:00:00.000Z',
+});
+const CONVERSATIONS = [
+  conversation('aaaaaaaa-0001', '/src/tide-pool'),
+  conversation('aaaaaaaa-0002', '/src/harbor'),
+  conversation('aaaaaaaa-0003', '/src/lantern-cove'),
+  conversation('aaaaaaaa-0004', '/src/tide-pool'),
+  conversation('aaaaaaaa-0005', null),
+];
+
 test('Add to Mesa writes started, adopts each ticked folder with progress, then complete and the summary', async () => {
   const replies = [deferred(), deferred()];
   const { byTestId, calls, onCancel, onRegistered } = await open(
     () => replies[adopts(calls).length - 1]?.promise,
+    { ...FOUND, conversations: CONVERSATIONS },
   );
   await click(byTestId('discovery-live-tick')[0]);
   // Both run in tide-pool: --live reopens them together.
@@ -208,12 +225,29 @@ test('Add to Mesa writes started, adopts each ticked folder with progress, then 
   await click(byTestId('discovery-add')[0]);
   expect(calls.slice(1)).toEqual([
     discovery('started'),
-    ['--json', 'discover', 'adopt', '--live', '--', '/src/tide-pool'],
+    [
+      '--json',
+      'discover',
+      'adopt',
+      '--live',
+      '--ids',
+      'aaaaaaaa-0001,aaaaaaaa-0004',
+      '--',
+      '/src/tide-pool',
+    ],
   ]);
   expect(byTestId('discovery-progress')[0]?.textContent).toBe('Adding tide-pool (1 of 2)');
   await act(async () => replies[0]?.resolve(envelope(adoption(['/src/tide-pool']))));
   expect(byTestId('discovery-progress')[0]?.textContent).toBe('Adding harbor (2 of 2)');
-  expect(adopts(calls).at(-1)).toEqual(['--json', 'discover', 'adopt', '--', '/src/harbor']);
+  expect(adopts(calls).at(-1)).toEqual([
+    '--json',
+    'discover',
+    'adopt',
+    '--ids',
+    'aaaaaaaa-0002',
+    '--',
+    '/src/harbor',
+  ]);
   await act(async () =>
     replies[1]?.resolve(
       envelope({
@@ -248,7 +282,7 @@ test('Skip during a run stops after the current folder, then writes dismissed an
   expect(adopts(calls)).toHaveLength(1);
   expect(calls.slice(1)).toEqual([
     discovery('started'),
-    ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
+    ['--json', 'discover', 'adopt', '--ids', '', '--', '/src/tide-pool'],
     discovery('dismissed'),
   ]);
   expect(onCancel).toHaveBeenCalledOnce();
@@ -267,7 +301,7 @@ test('Escape during a run keeps the dialog open and writes no config', async () 
   expect(byTestId('discovery-progress')).toHaveLength(1);
   expect(calls.slice(1)).toEqual([
     discovery('started'),
-    ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
+    ['--json', 'discover', 'adopt', '--ids', '', '--', '/src/tide-pool'],
   ]);
 });
 

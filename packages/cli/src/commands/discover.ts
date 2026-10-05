@@ -1,4 +1,4 @@
-import { counted, DISCOVERY_DAYS } from '@mesa/core';
+import { counted, DISCOVERY_DAYS, type DiscoveryAdoption, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../guards.js';
 import { bulkExit } from '../output/bulk.js';
@@ -44,40 +44,66 @@ export const discover = defineCommand({
 export const discoverAdopt = defineCommand({
   name: 'discover adopt',
   summary:
-    'Register a project folder unless registered, and adopt its recent native conversations as resumable sessions under their own names; exits 2 when any item failed',
-  args: ['path'],
+    'Register project folders unless registered, and adopt their recent native conversations as resumable sessions under their own names, over one scan; exits 2 when any item failed',
+  args: ['path', 'more...'],
   flags: {
     days: daysFlag,
     live: {
       type: 'boolean',
-      description: "Also adopt the folder's running sessions, reopening them in Mesa windows",
+      description: "Also adopt the folders' running sessions, reopening them in Mesa windows",
+    },
+    ids: {
+      type: 'string',
+      description:
+        'Adopt exactly these conversations of the one folder, comma separated, without scanning (from mesa discover)',
     },
   },
   example: 'mesa discover adopt ~/src/lantern-cove --live',
   run: async ({ mesa, args, flags }) => {
     const days = daysOf(flags.days);
+    const ids = flags.ids?.split(',').filter(Boolean);
+    if (ids && args.more.length > 0) throw new MesaError('usage', '--ids takes one path');
+    if (args.more.length > 0) {
+      const recorded = await mesa.sessions.adoptDiscoveredEach({
+        paths: [args.path, ...args.more],
+        days,
+        live: flags.live,
+      });
+      const { items } = recorded.result;
+      return {
+        ...recordedOutput(recorded, {
+          data: recorded.result,
+          text: items.map(adoptionText).join('\n'),
+        }),
+        code: bulkExit(items.some((i) => i.failed.length > 0)),
+      };
+    }
     const recorded = await mesa.sessions.adoptDiscovered({
       path: args.path,
       days,
       live: flags.live,
+      ...(ids && { ids }),
     });
-    const { project, registered, adopted, reopened, failed } = recorded.result;
-    const summary = [
-      registered ? 'registered' : '',
-      `${counted(adopted.length, 'session')} adopted`,
-      reopened.length ? `${reopened.length} reopened` : '',
-      failed.length ? `${failed.length} failed` : '',
-    ].filter(Boolean);
-    const text = [
-      `${project}: ${summary.join(', ')}`,
-      ...[...adopted, ...reopened].flatMap((a) =>
-        a.project ? [`adopted ${a.agentSessionId} into ${a.project}`] : [],
-      ),
-      ...failed.map((f) => `failed ${f.agentSessionId}: ${f.reason}`),
-    ].join('\n');
     return {
-      ...recordedOutput(recorded, { data: recorded.result, text }),
-      code: bulkExit(failed.length > 0),
+      ...recordedOutput(recorded, { data: recorded.result, text: adoptionText(recorded.result) }),
+      code: bulkExit(recorded.result.failed.length > 0),
     };
   },
 });
+
+/** One folder's adoption: its counts, conversations adopted into another project, failures. */
+function adoptionText({ project, registered, adopted, reopened, failed }: DiscoveryAdoption) {
+  const summary = [
+    registered ? 'registered' : '',
+    `${counted(adopted.length, 'session')} adopted`,
+    reopened.length ? `${reopened.length} reopened` : '',
+    failed.length ? `${failed.length} failed` : '',
+  ].filter(Boolean);
+  return [
+    `${project}: ${summary.join(', ')}`,
+    ...[...adopted, ...reopened].flatMap((a) =>
+      a.project ? [`adopted ${a.agentSessionId} into ${a.project}`] : [],
+    ),
+    ...failed.map((f) => `failed ${f.agentSessionId}: ${f.reason}`),
+  ].join('\n');
+}

@@ -6,7 +6,7 @@ import { lastMatchingLine } from '../../lib/file-tail.js';
 // Claude Code's transcripts, `<transcripts>/<folder>/<agent session id>.jsonl`: what Mesa reads
 // from them.
 
-// ponytail: the folder is on a transcript's first lines; 1 MiB holds them, read more if one does not.
+// ponytail: the folder is on a transcript's first lines, read up to 1 MiB; read more if one is not.
 const HEAD_BYTES = 1 << 20;
 
 // ponytail: looks in every folder; derive the folder from the session's cwd if that gets slow.
@@ -25,8 +25,13 @@ export function transcriptCwd(transcripts: string, id: string): string | undefin
   return cwdIn(file);
 }
 
+/** The first line of `file` naming a cwd, read only until one does. */
 function cwdIn(file: string): string | undefined {
-  for (const line of fileHead(file, HEAD_BYTES).split('\n')) {
+  return cwdOf(fileHead(file, HEAD_BYTES, (head) => cwdOf(head) !== undefined));
+}
+
+function cwdOf(head: string): string | undefined {
+  for (const line of head.split('\n')) {
     try {
       const cwd = (JSON.parse(line) as { cwd?: unknown }).cwd;
       if (typeof cwd === 'string') return cwd;
@@ -37,8 +42,11 @@ function cwdIn(file: string): string | undefined {
   return undefined;
 }
 
-/** Native Claude conversations on disk, each with its transcript `file`. */
-export function claudeHistory(transcripts: string) {
+/**
+ * Native Claude conversations on disk, each with its transcript `file`; with `since` (epoch ms),
+ * only those last written then or later, the others not opened.
+ */
+export function claudeHistory(transcripts: string, since?: number) {
   if (!existsSync(transcripts)) return [];
   const rows: { agent: 'claude'; id: string; cwd: string; updatedAt: string; file: string }[] = [];
   let folders: Dirent[];
@@ -64,13 +72,15 @@ export function claudeHistory(transcripts: string) {
         continue;
       const file = join(dir, entry.name);
       try {
+        const { mtime } = statSync(file);
+        if (since !== undefined && mtime.getTime() < since) continue;
         const cwd = cwdIn(file);
         if (cwd)
           rows.push({
             agent: 'claude',
             id: entry.name.slice(0, -6),
             cwd,
-            updatedAt: statSync(file).mtime.toISOString(),
+            updatedAt: mtime.toISOString(),
             file,
           });
       } catch {

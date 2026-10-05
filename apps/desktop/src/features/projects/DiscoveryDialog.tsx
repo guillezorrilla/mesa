@@ -75,6 +75,7 @@ export function DiscoveryDialog(props: {
         ticked.map((p) => ({
           path: p.path,
           name: p.name,
+          ids: (data?.conversations ?? []).flatMap((c) => (c.project === p.path ? [c.id] : [])),
           live: liveTicked.has(p.path),
         })),
       );
