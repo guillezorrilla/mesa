@@ -289,3 +289,32 @@ test('with ids, exactly those are adopted without a scan, and the rest land in f
       .filter((s) => s.project === 'tide-pool'),
   ).toHaveLength(2);
 });
+
+test('with ids, a running session lands in failed without live, and is reopened, not recorded, with it', async () => {
+  const { mesa, tide, world } = setUp(true);
+  const { result } = await mesa.sessions.adoptDiscovered({
+    path: tide,
+    days: 30,
+    ids: [ids.live, ids.root],
+  });
+  expect(result).toMatchObject({
+    adopted: [{ agentSessionId: ids.root }],
+    reopened: [],
+    failed: [
+      { agentSessionId: ids.live, reason: `${ids.live} is running: pass --live to reopen it` },
+    ],
+  });
+  expect(world.windows).toEqual([]);
+
+  const again = await mesa.sessions.adoptDiscovered({
+    path: tide,
+    days: 30,
+    live: true,
+    ids: [ids.live, ids.docs],
+  });
+  expect(again.result).toMatchObject({
+    adopted: [{ agentSessionId: ids.docs }],
+    reopened: [{ agentSessionId: ids.live }],
+    failed: [],
+  });
+});

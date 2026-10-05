@@ -80,6 +80,10 @@ export function readOnce<D extends Pick<DiscoveryDeps, 'listing' | 'elsewhere'>>
   return { ...deps, listing: () => listing, elsewhere: () => elsewhere };
 }
 
+/** The agent session ids of the running Claude Code and Codex sessions (the listing). */
+export const runningIds = async (deps: Pick<DiscoveryDeps, 'listing'>) =>
+  new Set((await deps.listing()).filter(listed).map((p) => p.agentSessionId));
+
 /** Agent session ids a session of this or another profile holds. */
 const heldIds = (deps: DiscoveryDeps) =>
   new Set([
@@ -131,7 +135,7 @@ export async function discoverNative(
   const start = deps.clock().getTime() - days * DAY_MS;
   const once = readOnce(deps);
   const held = heldIds(once);
-  const live = new Set((await once.listing()).filter(listed).map((p) => p.agentSessionId));
+  const live = await runningIds(once);
   const history = [
     ...claudeHistory(claudeTranscripts(deps.home), start),
     ...codexHistory(deps, start),

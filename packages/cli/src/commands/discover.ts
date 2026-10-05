@@ -58,7 +58,8 @@ export const discoverAdopt = defineCommand({
         'Adopt exactly these conversations of the one folder, comma separated, without scanning (from mesa discover)',
     },
   },
-  example: 'mesa discover adopt ~/src/lantern-cove --live',
+  example:
+    'mesa discover adopt ~/src/lantern-cove --ids 5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f --live',
   run: async ({ mesa, args, flags }) => {
     const days = daysOf(flags.days);
     const ids = flags.ids?.split(',').filter(Boolean);

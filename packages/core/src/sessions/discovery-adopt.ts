@@ -5,7 +5,13 @@ import { projectOf, registerProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { type AdoptDeps, adoptSession, nativeConversation } from './adopt.js';
-import { type DiscoveryDeps, discoverNative, nativeLive, readOnce } from './discovery.js';
+import {
+  type DiscoveryDeps,
+  discoverNative,
+  nativeLive,
+  readOnce,
+  runningIds,
+} from './discovery.js';
 
 // First-run discovery's bulk (CONTEXT.md, First-run discovery): project folders registered, and
 // the native conversations discovery places in each adopted as resumable sessions.
@@ -42,8 +48,8 @@ type Failed = DiscoveryAdoption['failed'][number];
 
 /**
  * For each folder of `paths`, in order: registers it unless registered (a minimal mesa.yaml when
- * it has none), then adopts, record-only, its conversations: those of `ids` (one folder only),
- * each looked up on its own, else every conversation of the last `days` that one discoverNative
+ * it has none), then adopts, record-only, its conversations: those of `ids` (given for one
+ * folder), each looked up on its own, a running one only reopened with `live`, else every conversation of the last `days` that one discoverNative
  * scan, shared by all the folders, places in it. Each is adopted under its native name and in the
  * registered project its cwd is in (`mesa adopt`'s), else the folder's; with `live`, the folder's
  * running sessions too, reopened in Mesa windows. One failing adoption, or an id that is no native
@@ -60,26 +66,30 @@ export async function adoptDiscovered(
     }
     return realpathSync(path);
   });
-  if (input.ids && folders.length !== 1) {
-    throw new MesaError('usage', 'conversation ids are adopted into one folder: give one path');
-  }
   const batch = readOnce(deps);
   const scan = input.ids ? undefined : await discoverNative(batch, { days: input.days, folders });
+  const running = input.ids ? await runningIds(batch) : new Set<string>();
   const done: DiscoveryAdoption[] = [];
   for (const path of folders) {
     const failed: Failed[] = [];
-    const conversations = scan
-      ? scan.conversations.filter((c) => c.project === path)
-      : (input.ids ?? []).flatMap((id) => {
-          const row = conversationIn(deps, path, id);
-          if ('reason' in row) failed.push(row);
-          return 'reason' in row ? [] : [row];
-        });
     const live = !input.live
       ? []
       : scan
         ? scan.live.filter((s) => s.project === path)
         : await nativeLive(batch, [path]);
+    const reopened = new Set(live.map((s) => s.id));
+    const conversations = scan
+      ? scan.conversations.filter((c) => c.project === path)
+      : (input.ids ?? []).flatMap((id) => {
+          // A running session is only reopened (`live`), never recorded as a past conversation.
+          if (reopened.has(id)) return [];
+          const row =
+            running.has(id) && !input.live
+              ? { agentSessionId: id, reason: `${id} is running: pass --live to reopen it` }
+              : conversationIn(deps, path, id);
+          if ('reason' in row) failed.push(row);
+          return 'reason' in row ? [] : [row];
+        });
     done.push(await adoptInto(batch, path, { conversations, live, failed }));
   }
   return done;

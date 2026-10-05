@@ -265,6 +265,22 @@ test('Add to Mesa writes started, adopts each ticked folder with progress, then 
   expect(onCancel).toHaveBeenCalledOnce();
 });
 
+test('a folder the truncated scan did not list in full is adopted by its own scan, the rest by --ids', async () => {
+  const { byTestId, calls } = await open(undefined, {
+    ...FOUND,
+    // tide-pool has 12 conversations, of which the newest 300 machine-wide hold only one; harbor's
+    // one is listed.
+    projects: FOUND.projects.map((p) => (p.name === 'harbor' ? { ...p, conversations: 1 } : p)),
+    conversations: CONVERSATIONS.filter((c) => c.id !== 'aaaaaaaa-0004'),
+    truncated: true,
+  });
+  await click(byTestId('discovery-add')[0]);
+  expect(adopts(calls)).toEqual([
+    ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
+    ['--json', 'discover', 'adopt', '--ids', 'aaaaaaaa-0002', '--', '/src/harbor'],
+  ]);
+});
+
 test('Skip writes dismissed and closes', async () => {
   const { byTestId, calls, onCancel } = await open();
   await click(byTestId('discovery-skip')[0]);

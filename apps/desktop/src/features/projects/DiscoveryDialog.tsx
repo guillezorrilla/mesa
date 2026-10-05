@@ -1,4 +1,4 @@
-import type { NativeLive, NativeProject } from '@mesa/core';
+import type { NativeDiscovery, NativeLive, NativeProject } from '@mesa/core';
 import { ADOPTION_WARNING, counted } from '@mesa/core/browser';
 import { History } from 'lucide-react';
 import { useState } from 'react';
@@ -26,6 +26,15 @@ const toggled = (set: ReadonlySet<string>, key: string, on: boolean) => {
   if (on) next.add(key);
   else next.delete(key);
   return next;
+};
+
+/**
+ * Folder `folder`'s conversations as the scan listed them, for `--ids`; none, so that its adoption
+ * scans the folder itself, when the scan was cut short before listing them all.
+ */
+const listedIds = (found: NativeDiscovery, folder: NativeProject) => {
+  const ids = found.conversations.flatMap((c) => (c.project === folder.path ? [c.id] : []));
+  return found.truncated && ids.length < folder.conversations ? undefined : ids;
 };
 
 /** Why running session `session`, in folder `folder`, cannot be ticked; none when it can. */
@@ -75,7 +84,7 @@ export function DiscoveryDialog(props: {
         ticked.map((p) => ({
           path: p.path,
           name: p.name,
-          ids: (data?.conversations ?? []).flatMap((c) => (c.project === p.path ? [c.id] : [])),
+          ...(data && { ids: listedIds(data, p) }),
           live: liveTicked.has(p.path),
         })),
       );
