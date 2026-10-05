@@ -186,10 +186,12 @@ impl<T> State<T> {
         self.ready.take()
     }
 
-    /// Install failed: says why.
-    pub fn install_failed(&mut self, version: &str, error: &str) {
+    /// Install failed: says why, and keeps the download, so a person's check offers it again
+    /// without downloading it twice.
+    pub fn install_failed(&mut self, ready: Ready<T>, error: &str) {
         self.status.phase = "failed";
-        self.status.message = Some(format!("Installing {version} failed: {error}"));
+        self.status.message = Some(format!("Installing {} failed: {error}", ready.version));
+        self.ready = Some(ready);
     }
 
     /// The running version's revocation, read at launch.
@@ -374,5 +376,20 @@ mod tests {
         assert_eq!(state.status.phase, "ready");
         assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
         assert_eq!(state.take_ready().map(|r| r.version).as_deref(), Some("0.1.0-beta.5"));
+    }
+
+    #[test]
+    fn a_failed_install_keeps_the_download_for_the_next_try() {
+        let mut state = holding_beta5();
+        let taken = state.take_ready().unwrap();
+        state.install_failed(taken, "Permission denied");
+        assert_eq!(state.status.phase, "failed");
+        assert_eq!(
+            state.status.message.as_deref(),
+            Some("Installing 0.1.0-beta.5 failed: Permission denied")
+        );
+        assert!(state.begin("beta", Trigger::Person, at(1)));
+        assert_eq!(state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(1)), None);
+        assert_eq!(state.status.phase, "ready");
     }
 }

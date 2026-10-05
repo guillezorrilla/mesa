@@ -198,13 +198,11 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .take_ready();
-    let Ready {
-        version,
-        payload: (update, bytes),
-    } = ready.ok_or("No update is ready to install.")?;
-    if let Err(error) = update.install(&bytes) {
+    let ready = ready.ok_or("No update is ready to install.")?;
+    let (update, bytes) = &ready.payload;
+    if let Err(error) = update.install(bytes) {
         let error = error.to_string();
-        updates.with(&app, |state| state.install_failed(&version, &error));
+        updates.with(&app, |state| state.install_failed(ready, &error));
         return Err(error);
     }
     app.restart();
