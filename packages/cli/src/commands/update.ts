@@ -43,15 +43,14 @@ export const updateChannel = defineCommand({
 export const updateInstall = defineCommand({
   name: 'update install',
   summary:
-    'Download and verify the newer Mesa, then let the open app install it or replace the closed one',
+    'Open Mesa.app (starting it if closed) to download, verify and offer the newer Mesa; Install there',
   example: 'mesa update install',
   run: async ({ mesa }) => {
     const data = await mesa.update.install();
-    const text = {
-      'up-to-date': describe(data),
-      'handed-to-app': `Mesa ${data.latest} is verified. The open app offers it: choose Install there.`,
-      replaced: `Installed Mesa ${data.latest} in ${data.app}.`,
-    }[data.outcome];
+    const text =
+      data.outcome === 'handed-to-app'
+        ? `Mesa ${data.latest} is available. ${data.app} downloads and verifies it, then offers it: choose Install there.`
+        : `${describe(data)} Nothing to install. Every release is at ${data.page}`;
     return { data, text };
   },
 });

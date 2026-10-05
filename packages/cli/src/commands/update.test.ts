@@ -1,4 +1,4 @@
-import { fakeHttp } from '@mesa/core/testing';
+import { fakeHttp, scriptedRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -61,4 +61,20 @@ test('update install from a mesa outside an installed app says where to download
   cli.deps = { http: fakeHttp({ [`GET ${BETA}`]: release('0.1.0-beta.5') }).http };
   const out = await cli.mesa('update', 'install', '--json');
   expect(out.json.error.message).toMatch(/not part of an installed Mesa.app.*releases/);
+});
+
+test('update install hands the newer version to the installed app, which starts if closed', async () => {
+  const app = '/Applications/Mesa.app';
+  const runner = scriptedRunner();
+  cli.run = runner.run;
+  cli.deps = {
+    http: fakeHttp({ [`GET ${BETA}`]: release('0.1.0-beta.5') }).http,
+    self: [`${app}/Contents/MacOS/mesa`],
+  };
+  const out = await cli.mesa('update', 'install');
+  expect(out.stdout).toContain('Mesa 0.1.0-beta.5 is available.');
+  expect(out.stdout).toContain('choose Install there');
+  expect(runner.calls.map((c) => [c.file, ...c.args])).toEqual([
+    ['/usr/bin/open', '-a', app, 'mesa://update/install'],
+  ]);
 });
