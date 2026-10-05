@@ -1,7 +1,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { beforeEach, expect, test } from 'vitest';
 import { tempDir, thrown } from '../testing/index.js';
-import { loadConfig, redactConfig, resolveKey, setConfigValue } from './config.js';
+import {
+  buildBackupSettings,
+  loadConfig,
+  redactConfig,
+  resolveKey,
+  setConfigValue,
+} from './config.js';
 import { profilePaths } from './paths.js';
 import { initProfile } from './profile.js';
 
@@ -65,15 +71,20 @@ test('a config that still names the removed adapter loads, and acts as rules', (
   expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
 });
 
-test('Board preferences validate manual order without touching unrelated config', () => {
-  setConfigValue(file, 'board.view', 'cards');
-  setConfigValue(file, 'board.order', '[aaaaaaaa, bbbbbbbb]');
-  expect(loadConfig(file).board).toMatchObject({ view: 'cards', order: ['aaaaaaaa', 'bbbbbbbb'] });
-  const before = readFileSync(file, 'utf8');
-  expect(thrown(() => setConfigValue(file, 'board.order', '[aaaaaaaa, aaaaaaaa]')).code).toBe(
-    'invalid_config',
+test('a config that still holds the removed board settings loads, and ignores them', () => {
+  writeFileSync(
+    file,
+    'vault: /tmp/v\nboard:\n  view: cards\n  sort: manual\n  order: [aaaaaaaa]\n',
   );
+  const config = loadConfig(file);
+  expect(config.vault).toBe('/tmp/v');
+  expect(config).not.toHaveProperty('board');
+  expect(setConfigValue(file, 'projects.sort', 'recent').value).toBe('recent');
+  const before = readFileSync(file, 'utf8');
+  expect(thrown(() => setConfigValue(file, 'board.view', 'list')).code).toBe('invalid_config');
   expect(readFileSync(file, 'utf8')).toBe(before);
+  // A backup taken before the removal restores too.
+  expect(buildBackupSettings({ board: { view: 'cards' } }, file)).not.toHaveProperty('board');
 });
 
 test('usage alert thresholds default off and reject negative budgets', () => {

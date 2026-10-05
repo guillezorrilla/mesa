@@ -38,16 +38,6 @@ export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
-export {
-  BOARD_DENSITIES,
-  BOARD_GROUPS,
-  BOARD_SORTS,
-  BOARD_VIEWS,
-  type BoardPreferences,
-  DEFAULT_BOARD_PREFERENCES,
-  type PresentationGroup,
-  presentSessions,
-} from './sessions/presentation.js';
 export { sessionProjects } from './sessions/session-projects.js';
 export { AGENT_STATES, FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { parseSessionUri, sessionUri } from './sessions/uri.js';

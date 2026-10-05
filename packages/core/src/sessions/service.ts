@@ -53,7 +53,6 @@ import { instructionStatus } from './instructions.js';
 import { launchProject, startSession } from './launch.js';
 import { type OpenInput, openSession } from './open.js';
 import { outputLog, sessionLog } from './output-log.js';
-import { moveBoardSession } from './presentation.js';
 import { startQueued } from './queue.js';
 import { isOver, recordAgent } from './record.js';
 import { removeSession } from './remove.js';
@@ -456,16 +455,6 @@ export function sessionsService(
       },
       /** The board as a tree: children under their parent, each row with its depth. */
       tree: async (all = false) => sessionTree(await board(all)),
-      moveOnBoard: async (id: string, direction: -1 | 1) => {
-        const order = moveBoardSession(
-          await sessionTree(await board()),
-          open().config.board,
-          id,
-          direction,
-        );
-        const recorded = setConfig('board.order', JSON.stringify(order));
-        return { ...recorded, result: { order } };
-      },
       /**
        * Starts `agent` (else the project's, else the profile's) in a new window, with the goal
        * as its first prompt, and with `branch`, in its own git worktree. The goal is read first,

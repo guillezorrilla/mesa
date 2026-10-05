@@ -186,3 +186,5 @@ At the Board's 2 s poll, one busy unsure session could ask up to 1,800 times an 
 4. **A hosted model (#488) may answer session state only under two conditions.** First, it runs beside the Board read and never inside it, the way the quick look already works, so no command or agent tool call ever waits on it. Second, it first passes the ADR-0019 held-out supervision gate on Mesa's panes: selective accuracy of at least 0.90, coverage of at least 0.40, and more answers right and accepted than the rules. Until a model passes, the user's key turns nothing on for that site, and the Settings card says so.
 5. **Fix the real cause of unsure rows.** They come from sessions with no hook and no listing. With hooks installed, the measured runs made 0 adapter calls, so making sure Mesa's hooks are installed, for example from the Set up screen, removes most unsure rows without any model.
 6. **Record what a model costs.** If a model returns at the Board site, each answer records its latency, cost and fallback. Today that site records nothing.
+
+Note 2026-10-05: `mesa board` was removed in #599.

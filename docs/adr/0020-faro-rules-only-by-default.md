@@ -39,3 +39,5 @@ This supersedes the adapter parts of ADR-0003 ("The adapter backend is consulted
 - A session no hook and no listing speaks for is read from its screen alone, at 0.6. The spike's fix for those rows is installing Mesa's hooks, not a model.
 - `Decision.costUsd` and the receipt's `cost` stay for a backend that reports a price; no decision fills them today.
 - A hosted model that returns must record its latency, cost and fallbacks at the Board site, which today records nothing.
+
+Note 2026-10-05: `mesa board` was removed in #599.
