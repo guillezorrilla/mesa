@@ -1,5 +1,5 @@
 import type { AutomationRule } from '@mesa/core';
-import { AGENT_STATES } from '@mesa/core/browser';
+import { AGENT_LABELS, AGENT_STATES } from '@mesa/core/browser';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ProjectSelect } from '@/features/sessions/fields/ProjectSelect';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+
+/** The agents an automation can run, as core's rule schema allows them. */
+const AUTOMATION_AGENTS: NonNullable<AutomationRule['agent']>[] = ['claude', 'codex'];
 
 /** A rule's trigger, action and explicit permission choice. Saving never starts it. */
 export function AutomationRuleDialog(props: {
@@ -159,8 +162,11 @@ export function AutomationRuleDialog(props: {
         <div className="space-y-1">
           <Label htmlFor="automation-agent">Agent</Label>
           <NativeSelect id="automation-agent" name="agent">
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
+            {AUTOMATION_AGENTS.map((agent) => (
+              <option key={agent} value={agent}>
+                {AGENT_LABELS[agent]}
+              </option>
+            ))}
           </NativeSelect>
         </div>
       )}
