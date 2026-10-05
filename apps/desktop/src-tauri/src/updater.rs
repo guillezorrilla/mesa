@@ -16,7 +16,7 @@ use tauri::{AppHandle, Emitter, Manager, Url};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 pub use state::Trigger;
-use state::{Ready, State, Status};
+use state::{Check, Ready, State, Status};
 
 const FIRST_CHECK: Duration = Duration::from_secs(15);
 /// How often the schedule asks whether a check is due. Tokio's clock stops while the Mac sleeps,
@@ -41,6 +41,10 @@ pub struct Updates {
 }
 
 impl Updates {
+    fn read<T>(&self, look: impl FnOnce(&State<Download>) -> T) -> T {
+        look(&self.inner.lock().unwrap_or_else(|e| e.into_inner()))
+    }
+
     fn with<T>(&self, app: &AppHandle, change: impl FnOnce(&mut State<Download>) -> T) -> T {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let out = change(&mut inner);
@@ -111,7 +115,10 @@ pub async fn check(app: AppHandle, trigger: Trigger) {
     }) {
         return;
     }
-    let found = mesa(&["update", "check"]).await;
+    let found = mesa(&["update", "check"]).await.and_then(|data| {
+        serde_json::from_value::<Check>(data)
+            .map_err(|e| format!("mesa update check printed an unexpected answer: {e}"))
+    });
     let unsupported = tauri::async_runtime::spawn_blocking(cannot_update)
         .await
         .unwrap_or(None);
@@ -165,10 +172,7 @@ pub fn start(app: &AppHandle) {
         loop {
             let due = app
                 .state::<Updates>()
-                .inner
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .due(SystemTime::now());
+                .read(|state| state.due(SystemTime::now()));
             if due {
                 check(app.clone(), Trigger::Schedule).await;
             }
@@ -179,12 +183,7 @@ pub fn start(app: &AppHandle) {
 
 #[tauri::command]
 pub fn update_status(updates: tauri::State<'_, Updates>) -> Status {
-    updates
-        .inner
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .status
-        .clone()
+    updates.read(|state| state.status.clone())
 }
 
 #[tauri::command]
@@ -204,11 +203,7 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
     let updates = app.state::<Updates>();
     // Not while a check may replace the download.
     let _busy = updates.busy.lock().await;
-    let ready = updates
-        .inner
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .take_ready();
+    let ready = updates.with(&app, |state| state.take_ready());
     let ready = ready.ok_or("No update is ready to install.")?;
     let (update, bytes) = &ready.payload;
     if let Err(error) = update.install(bytes) {
@@ -228,13 +223,7 @@ pub fn update_quit(app: AppHandle) {
 /// Opens the download page in the browser, for a build that cannot update itself.
 #[tauri::command]
 pub fn update_open_page(updates: tauri::State<'_, Updates>) -> Result<(), String> {
-    let page = updates
-        .inner
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .status
-        .page
-        .clone();
+    let page = updates.read(|state| state.status.page.clone());
     let page = page.ok_or("No download page is known yet.")?;
     std::process::Command::new("/usr/bin/open")
         .arg(page)

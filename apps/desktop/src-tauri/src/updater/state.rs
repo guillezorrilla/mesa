@@ -4,7 +4,7 @@
 
 use std::time::{Duration, SystemTime};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// How often the schedule reads the feeds, in wall-clock time, so a Mac that sleeps still checks.
@@ -24,12 +24,39 @@ pub enum Trigger {
     Link,
 }
 
+/// Where the updater is; the renderer reads it in kebab case (`up-to-date`).
+#[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum Phase {
+    #[default]
+    Idle,
+    Checking,
+    Downloading,
+    Ready,
+    UpToDate,
+    /// This build cannot replace itself (`message` says why).
+    Unsupported,
+    Failed,
+}
+
+/// What `mesa update check --json` prints, as far as the updater reads it.
+#[derive(Deserialize, Debug, Default, Clone)]
+pub struct Check {
+    pub channel: Option<String>,
+    pub available: bool,
+    pub latest: Option<String>,
+    /// The manifest `latest` came from.
+    pub feed: Option<String>,
+    pub page: Option<String>,
+    /// `{version, reason}` when the running version is revoked.
+    pub revoked: Option<Value>,
+}
+
 /// What the renderer shows: the step, the newer version, and a revocation of the running one.
-#[derive(Clone, Serialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {
-    /// idle, checking, downloading, ready, up-to-date, unsupported or failed.
-    pub phase: &'static str,
+    pub phase: Phase,
     pub version: Option<String>,
     pub channel: Option<String>,
     /// Why the check failed, or why this build cannot update itself.
@@ -40,20 +67,6 @@ pub struct Status {
     pub revoked: Option<Value>,
     /// Later was chosen for `version`: hidden until a newer one, a person's check, or a relaunch.
     pub dismissed: bool,
-}
-
-impl Default for Status {
-    fn default() -> Self {
-        Status {
-            phase: "idle",
-            version: None,
-            channel: None,
-            message: None,
-            page: None,
-            revoked: None,
-            dismissed: false,
-        }
-    }
 }
 
 /// A verified download of `version`; `payload` is the plugin's update and bytes in the app.
@@ -102,11 +115,11 @@ impl<T> State<T> {
             matches!(&self.last, Some((at, on)) if on == channel && since(now, *at) < FLOOR);
         let reach = match trigger {
             Trigger::Schedule => !recent,
-            Trigger::Person => !recent || self.status.phase == "failed",
+            Trigger::Person => !recent || self.status.phase == Phase::Failed,
             Trigger::Link => true,
         };
-        if reach && self.status.phase != "ready" {
-            self.status.phase = "checking";
+        if reach && self.status.phase != Phase::Ready {
+            self.status.phase = Phase::Checking;
         }
         reach
     }
@@ -116,7 +129,7 @@ impl<T> State<T> {
     pub fn checked(
         &mut self,
         channel: String,
-        found: Result<Value, String>,
+        found: Result<Check, String>,
         unsupported: Option<String>,
         now: SystemTime,
     ) -> Option<String> {
@@ -128,23 +141,23 @@ impl<T> State<T> {
                 return None;
             }
         };
-        let latest = found["latest"].as_str().map(str::to_string);
+        let latest = found.latest;
         let status = &mut self.status;
-        status.channel = found["channel"].as_str().map(str::to_string);
-        status.page = found["page"].as_str().map(str::to_string);
-        status.revoked = Some(found["revoked"].clone()).filter(|r| !r.is_null());
+        status.channel = found.channel;
+        status.page = found.page;
+        status.revoked = found.revoked.filter(|r| !r.is_null());
         status.message = None;
         if status.version != latest {
             status.dismissed = false;
         }
         status.version = latest.clone();
-        if found["available"] != true {
-            status.phase = "up-to-date";
+        if !found.available {
+            status.phase = Phase::UpToDate;
             self.ready = None;
             return None;
         }
         if let Some(reason) = unsupported {
-            status.phase = "unsupported";
+            status.phase = Phase::Unsupported;
             status.message = Some(reason);
             return None;
         }
@@ -153,13 +166,13 @@ impl<T> State<T> {
             .as_ref()
             .is_some_and(|ready| Some(&ready.version) == latest.as_ref())
         {
-            status.phase = "ready";
+            status.phase = Phase::Ready;
             return None;
         }
-        match found["feed"].as_str() {
+        match found.feed {
             Some(feed) => {
-                status.phase = "downloading";
-                Some(feed.to_string())
+                status.phase = Phase::Downloading;
+                Some(feed)
             }
             None => {
                 self.fail("The check named no feed to download from.".into());
@@ -172,7 +185,7 @@ impl<T> State<T> {
     pub fn downloaded(&mut self, result: Result<Ready<T>, String>) {
         match result {
             Ok(ready) => {
-                self.status.phase = "ready";
+                self.status.phase = Phase::Ready;
                 self.status.version = Some(ready.version.clone());
                 self.ready = Some(ready);
             }
@@ -186,10 +199,10 @@ impl<T> State<T> {
         self.status.message = Some(message);
         match &self.ready {
             Some(ready) => {
-                self.status.phase = "ready";
+                self.status.phase = Phase::Ready;
                 self.status.version = Some(ready.version.clone());
             }
-            None => self.status.phase = "failed",
+            None => self.status.phase = Phase::Failed,
         }
     }
 
@@ -206,7 +219,7 @@ impl<T> State<T> {
     /// Install failed: says why, and keeps the download, so a person's check offers it again
     /// without downloading it twice.
     pub fn install_failed(&mut self, ready: Ready<T>, error: &str) {
-        self.status.phase = "failed";
+        self.status.phase = Phase::Failed;
         self.status.message = Some(format!("Installing {} failed: {error}", ready.version));
         self.ready = Some(ready);
     }
@@ -229,16 +242,22 @@ mod tests {
         T0 + MIN * minutes as u32
     }
 
-    fn newer(version: &str) -> Value {
-        json!({
-            "current": "0.1.0-beta.4", "channel": "beta", "available": true, "latest": version,
-            "feed": "https://feeds.example.test/beta.json", "page": "https://example.test/releases",
-        })
+    fn check(json: Value) -> Check {
+        serde_json::from_value(json).unwrap()
     }
 
-    fn current() -> Value {
-        json!({ "current": "0.1.0-beta.4", "channel": "stable", "available": false,
-                "latest": "0.0.9", "page": "https://example.test/releases" })
+    fn newer(version: &str) -> Check {
+        check(json!({
+            "current": "0.1.0-beta.4", "channel": "beta", "available": true, "latest": version,
+            "feed": "https://feeds.example.test/beta.json", "page": "https://example.test/releases",
+        }))
+    }
+
+    fn current() -> Check {
+        check(
+            json!({ "current": "0.1.0-beta.4", "channel": "stable", "available": false,
+                "latest": "0.0.9", "page": "https://example.test/releases" }),
+        )
     }
 
     fn ready(version: &str) -> Result<Ready<()>, String> {
@@ -257,9 +276,19 @@ mod tests {
             feed.as_deref(),
             Some("https://feeds.example.test/beta.json")
         );
-        assert_eq!(state.status.phase, "downloading");
+        assert_eq!(state.status.phase, Phase::Downloading);
         state.downloaded(ready("0.1.0-beta.5"));
         state
+    }
+
+    #[test]
+    fn the_phase_reads_in_kebab_case_and_a_check_reads_what_mesa_prints() {
+        assert_eq!(json!(Phase::UpToDate), json!("up-to-date"));
+        assert_eq!(json!(Status::default())["phase"], json!("idle"));
+        // Fields the updater does not read, and a missing revocation, are fine.
+        let found = check(json!({ "current": "0.1.0-beta.4", "channel": "beta",
+            "available": false, "page": "https://example.test/releases" }));
+        assert!(!found.available && found.latest.is_none() && found.revoked.is_none());
     }
 
     #[test]
@@ -270,7 +299,7 @@ mod tests {
         // A person inside the floor gets the last result, and sees a dismissed update again.
         assert!(!state.begin("beta", Trigger::Person, at(9)));
         assert!(!state.status.dismissed);
-        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.phase, Phase::Ready);
         assert!(state.begin("beta", Trigger::Person, at(10)));
         // Another channel is not inside the floor.
         let mut other = holding_beta5();
@@ -287,7 +316,7 @@ mod tests {
             state.checked("stable".into(), Ok(current()), None, at(1)),
             None
         );
-        assert_eq!(state.status.phase, "up-to-date");
+        assert_eq!(state.status.phase, Phase::UpToDate);
         assert_eq!(state.status.channel.as_deref(), Some("stable"));
         assert!(state.take_ready().is_none());
     }
@@ -304,7 +333,7 @@ mod tests {
             at(0),
         );
         assert_eq!(feed, None);
-        assert_eq!(state.status.phase, "unsupported");
+        assert_eq!(state.status.phase, Phase::Unsupported);
         assert_eq!(state.status.message.as_deref(), Some(why));
         assert_eq!(
             state.status.page.as_deref(),
@@ -356,7 +385,7 @@ mod tests {
             state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(0)),
             None
         );
-        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.phase, Phase::Ready);
     }
 
     #[test]
@@ -368,16 +397,16 @@ mod tests {
         state.downloaded(Err(
             "The update to 0.1.0-beta.5 was refused: timeout.".into()
         ));
-        assert_eq!(state.status.phase, "failed");
+        assert_eq!(state.status.phase, Phase::Failed);
         // The schedule waits; a person's retry downloads again at once.
         assert!(!state.begin("beta", Trigger::Schedule, at(1)));
         assert!(state.begin("beta", Trigger::Person, at(1)));
-        assert_eq!(state.status.phase, "checking");
+        assert_eq!(state.status.phase, Phase::Checking);
         assert!(state
             .checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(1))
             .is_some());
         state.downloaded(ready("0.1.0-beta.5"));
-        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.phase, Phase::Ready);
         assert_eq!(state.status.message, None);
     }
 
@@ -386,13 +415,13 @@ mod tests {
         let mut state = holding_beta5();
         state.begin("beta", Trigger::Person, at(11));
         state.checked("beta".into(), Err("HTTP 503".into()), None, at(11));
-        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.phase, Phase::Ready);
         assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
         // A newer version that fails to download leaves the older verified one to install.
         state.begin("beta", Trigger::Person, at(22));
         state.checked("beta".into(), Ok(newer("0.1.0-beta.6")), None, at(22));
         state.downloaded(Err("refused".into()));
-        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.phase, Phase::Ready);
         assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
         assert_eq!(
             state.take_ready().map(|r| r.version).as_deref(),
@@ -405,7 +434,7 @@ mod tests {
         let mut state = holding_beta5();
         let taken = state.take_ready().unwrap();
         state.install_failed(taken, "Permission denied");
-        assert_eq!(state.status.phase, "failed");
+        assert_eq!(state.status.phase, Phase::Failed);
         assert_eq!(
             state.status.message.as_deref(),
             Some("Installing 0.1.0-beta.5 failed: Permission denied")
@@ -415,7 +444,7 @@ mod tests {
             state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(1)),
             None
         );
-        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.phase, Phase::Ready);
     }
 
     #[test]
@@ -435,8 +464,8 @@ mod tests {
         let mut state = State::<()>::default();
         state.begin("beta", Trigger::Person, at(0));
         let mut found = newer("0.1.0-beta.5");
-        found.as_object_mut().unwrap().remove("feed");
+        found.feed = None;
         assert_eq!(state.checked("beta".into(), Ok(found), None, at(0)), None);
-        assert_eq!(state.status.phase, "failed");
+        assert_eq!(state.status.phase, Phase::Failed);
     }
 }
