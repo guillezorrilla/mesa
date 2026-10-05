@@ -20,8 +20,10 @@ use state::{Check, Ready, State, Status};
 
 const FIRST_CHECK: Duration = Duration::from_secs(15);
 /// How often the schedule asks whether a check is due. Tokio's clock stops while the Mac sleeps,
-/// so the 4 hours are measured on the wall clock (`State::due`) and only this tick sleeps.
-const TICK: Duration = Duration::from_secs(10 * 60);
+/// so the cadence and the backoff are measured on the wall clock (`State::due`) and only this
+/// tick sleeps: a Mac that slept past either checks within a minute of waking. A tick is one
+/// mutex read.
+const TICK: Duration = Duration::from_secs(60);
 /// What `mesa update install` opens (core's UPDATE_LINK).
 const UPDATE_LINK: &str = "mesa://update/install";
 

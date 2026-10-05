@@ -9,6 +9,14 @@ use serde_json::Value;
 
 /// How often the schedule reads the feeds, in wall-clock time, so a Mac that sleeps still checks.
 pub const EVERY: Duration = Duration::from_secs(4 * 60 * 60);
+/// How long the schedule waits after one, two, three and more failures in a row before it tries
+/// again, up to the usual cadence. A success starts over.
+pub const BACKOFF: [Duration; 4] = [
+    Duration::from_secs(10 * 60),
+    Duration::from_secs(30 * 60),
+    Duration::from_secs(60 * 60),
+    EVERY,
+];
 /// No two checks of one channel come closer than this, unless the link asks or a person retries
 /// a failure.
 pub const FLOOR: Duration = Duration::from_secs(10 * 60);
@@ -79,6 +87,8 @@ pub struct State<T> {
     pub status: Status,
     /// When, and on which channel, the last check reached the feeds, whatever its outcome.
     last: Option<(SystemTime, String)>,
+    /// Failed checks and downloads in a row, for the backoff.
+    failures: usize,
     ready: Option<Ready<T>>,
 }
 
@@ -87,6 +97,7 @@ impl<T> Default for State<T> {
         State {
             status: Status::default(),
             last: None,
+            failures: 0,
             ready: None,
         }
     }
@@ -98,11 +109,17 @@ fn since(now: SystemTime, at: SystemTime) -> Duration {
 }
 
 impl<T> State<T> {
-    /// Whether the schedule should check now: never checked, or the last check is `EVERY` old.
+    /// Whether the schedule should check now: never checked, the last check is `EVERY` old, or
+    /// it failed and its backoff has passed. Wall-clock time, so a Mac that slept past either
+    /// checks at the next tick after it wakes.
     pub fn due(&self, now: SystemTime) -> bool {
+        let wait = match self.failures {
+            0 => EVERY,
+            n => BACKOFF[n.min(BACKOFF.len()) - 1],
+        };
         self.last
             .as_ref()
-            .is_none_or(|(at, _)| since(now, *at) >= EVERY)
+            .is_none_or(|(at, _)| since(now, *at) >= wait)
     }
 
     /// Starts a check of `channel`, and says whether it reaches the feeds. Inside the floor it
@@ -163,11 +180,13 @@ impl<T> State<T> {
         if !found.available {
             status.phase = Phase::UpToDate;
             self.ready = None;
+            self.failures = 0;
             return None;
         }
         if let Some(reason) = unsupported {
             status.phase = Phase::Unsupported;
             status.message = Some(reason);
+            self.failures = 0;
             return None;
         }
         if self
@@ -176,6 +195,7 @@ impl<T> State<T> {
             .is_some_and(|ready| Some(&ready.version) == latest.as_ref())
         {
             status.phase = Phase::Ready;
+            self.failures = 0;
             return None;
         }
         match found.feed {
@@ -197,6 +217,7 @@ impl<T> State<T> {
                 self.status.phase = Phase::Ready;
                 self.status.version = Some(ready.version.clone());
                 self.ready = Some(ready);
+                self.failures = 0;
             }
             Err(message) => self.fail(message),
         }
@@ -205,6 +226,7 @@ impl<T> State<T> {
     /// A failed check or download. A verified download still here is the one the last successful
     /// check named, so it stays offered.
     fn fail(&mut self, message: String) {
+        self.failures += 1;
         self.status.message = Some(message);
         match &self.ready {
             Some(ready) => {
@@ -497,5 +519,41 @@ mod tests {
         found.feed = None;
         assert_eq!(state.checked("beta".into(), Ok(found), None, at(0)), None);
         assert_eq!(state.status.phase, Phase::Failed);
+    }
+
+    #[test]
+    fn a_failed_check_retries_with_backoff_and_a_success_starts_over() {
+        let mut state = State::<()>::default();
+        let fail_at = |state: &mut State<()>, minute: u64| {
+            assert!(state.due(at(minute)), "due at {minute}");
+            state.begin("beta", Trigger::Schedule, at(minute));
+            state.checked("beta".into(), Err("offline".into()), None, at(minute));
+        };
+        // A Mac that wakes offline tries again after 10 min, 30 min, 1 h, then every 4 h.
+        fail_at(&mut state, 0);
+        assert!(!state.due(at(9)));
+        fail_at(&mut state, 10);
+        assert!(!state.due(at(39)));
+        fail_at(&mut state, 40);
+        assert!(!state.due(at(99)));
+        fail_at(&mut state, 100);
+        assert!(!state.due(at(339)));
+        fail_at(&mut state, 340);
+        assert!(!state.due(at(579)));
+        // A success goes back to every 4 hours.
+        state.begin("beta", Trigger::Schedule, at(580));
+        state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(580));
+        state.downloaded(ready("0.1.0-beta.5"));
+        assert!(!state.due(at(819)));
+        assert!(state.due(at(820)));
+    }
+
+    #[test]
+    fn a_mac_that_slept_past_the_cadence_checks_at_the_next_tick() {
+        let mut state = holding_beta5();
+        // Asleep from minute 30 to minute 600: the wall-clock gap says a check is due on waking.
+        assert!(!state.due(at(30)));
+        assert!(state.due(at(600)));
+        assert!(state.begin("beta", Trigger::Schedule, at(600)));
     }
 }
