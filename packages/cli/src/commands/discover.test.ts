@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
   CLAUDE_VERSION,
   codexWorld,
+  countReads,
   datedTranscript,
   plantTranscript,
   scriptedRunner,
@@ -179,4 +180,67 @@ test('discover adopt of a path that is not a folder is not_found', async () => {
   const { json, code } = await cli.mesa('discover', 'adopt', join(cli.home, 'nowhere'), '--json');
   expect(code).toBe(3);
   expect(json).toMatchObject({ ok: false, error: { code: 'not_found' } });
+});
+
+test('discover adopt with two paths prints both items and scans once', async () => {
+  const dir = await cli.withProject();
+  const tide = tidePool();
+  const harbor = join(cli.home, 'src/harbor');
+  mkdirSync(join(harbor, '.git'), { recursive: true });
+  datedTranscript(cli.home, WORKTREE_ID, harbor, '2026-09-21T10:00:00.000Z');
+  // In lantern-cove, not adopted: its head is read by the one scan only.
+  const kept = datedTranscript(cli.home, LIVE_ID, dir, '2026-09-21T10:00:00.000Z');
+  const reads = countReads();
+  let out: Awaited<ReturnType<typeof cli.mesa>>;
+  try {
+    out = await cli.mesa('discover', 'adopt', tide, harbor);
+  } finally {
+    reads.restore();
+  }
+  expect(out.code).toBe(0);
+  expect(out.stdout).toBe(
+    'tide-pool: registered, 2 sessions adopted\nharbor: registered, 1 session adopted\n',
+  );
+  expect(reads.opened.filter((f) => f === kept)).toHaveLength(1);
+
+  const { json, code } = await cli.mesa('discover', 'adopt', tide, harbor, '--json');
+  expect(code).toBe(0);
+  expect(json).toMatchObject({
+    ok: true,
+    data: {
+      items: [
+        { project: 'tide-pool', registered: false, adopted: [] },
+        { project: 'harbor', registered: false, adopted: [] },
+      ],
+    },
+  });
+});
+
+test('discover adopt --ids adopts exactly those, exits 2 for one it cannot, and takes one path', async () => {
+  await cli.withProject();
+  const tide = tidePool();
+  const { json, code } = await cli.mesa(
+    'discover',
+    'adopt',
+    tide,
+    '--ids',
+    `${CLAUDE_ID},${LIVE_ID}`,
+    '--json',
+  );
+  expect(code).toBe(2);
+  expect(json).toMatchObject({
+    ok: true,
+    data: {
+      project: 'tide-pool',
+      adopted: [{ agentSessionId: CLAUDE_ID, name: 'Tide tables' }],
+      failed: [{ agentSessionId: LIVE_ID, reason: expect.stringContaining('not a Claude Code') }],
+    },
+  });
+  // None given: nothing adopted, and no scan finds OTHER_ID.
+  const none = await cli.mesa('discover', 'adopt', tide, '--ids', '', '--json');
+  expect(none.code).toBe(0);
+  expect(none.json).toMatchObject({ ok: true, data: { adopted: [], failed: [] } });
+  const both = await cli.mesa('discover', 'adopt', tide, tide, '--ids', OTHER_ID, '--json');
+  expect(both.code).toBe(2);
+  expect(both.json).toMatchObject({ ok: false, error: { code: 'usage' } });
 });

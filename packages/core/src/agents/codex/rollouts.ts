@@ -10,8 +10,8 @@ import { codexHome, codexSessions } from './paths.js';
 // names the thread, the folder it runs in, when it started, and what started it. A thread gets
 // its rollout at its first prompt, not at launch.
 
-// ponytail: the first line holds Codex's base instructions (about 20 KiB in 0.154.0); a longer
-// one is skipped, so read more if Codex's grow.
+// ponytail: the first line holds Codex's base instructions (about 20 KiB in 0.154.0), read up to
+// its newline; one longer than this is skipped, so read more if Codex's grow.
 const HEAD_BYTES = 256 << 10;
 
 const MetaSchema = z.object({
@@ -29,10 +29,6 @@ const MetaSchema = z.object({
 /** One interactive Codex thread, from its rollout's first line. */
 export type CodexThread = { id: string; cwd: string; startedAt: string };
 
-/**
- * Rollouts written at or after `since`. A resumed thread stays in its original date folder.
- * ponytail: stats every rollout on each look; add an mtime index if large histories slow the Board.
- */
 function rolloutFiles(deps: { env: Env; home: string }) {
   const sessions = codexSessions(codexHome(deps.env, deps.home));
   let names: string[];
@@ -46,12 +42,18 @@ function rolloutFiles(deps: { env: Env; home: string }) {
     .map((name) => join(sessions, name));
 }
 
+/**
+ * Rollouts written at or after `since`, each with when it was last written; the others are not
+ * opened. A resumed thread stays in its original date folder.
+ * ponytail: stats every rollout on each look; add an mtime index if large histories slow the Board.
+ */
 function rollouts(deps: { env: Env; home: string }, since: number) {
-  return rolloutFiles(deps).filter((file) => {
+  return rolloutFiles(deps).flatMap((file) => {
     try {
-      return (statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0) >= since;
+      const mtime = statSync(file, { throwIfNoEntry: false })?.mtime;
+      return mtime && mtime.getTime() >= since ? [{ file, mtime }] : [];
     } catch {
-      return false;
+      return [];
     }
   });
 }
@@ -68,25 +70,22 @@ export function threadForId(deps: { env: Env; home: string }, id: string): Codex
   return thread?.id === id ? thread : undefined;
 }
 
-/** Native interactive Codex conversations on disk, including older rollouts. */
-export function codexHistory(deps: { env: Env; home: string }) {
-  return rolloutFiles(deps).flatMap((file) => {
+/**
+ * Native interactive Codex conversations on disk, including older rollouts; with `since` (epoch
+ * ms), only those last written then or later, the others not opened.
+ */
+export function codexHistory(deps: { env: Env; home: string }, since = Number.NEGATIVE_INFINITY) {
+  return rollouts(deps, since).flatMap(({ file, mtime }) => {
     const thread = threadOf(file);
-    if (!thread) return [];
-    try {
-      return [
-        { agent: 'codex' as const, ...thread, updatedAt: statSync(file).mtime.toISOString() },
-      ];
-    } catch {
-      return [];
-    }
+    return thread ? [{ agent: 'codex' as const, ...thread, updatedAt: mtime.toISOString() }] : [];
   });
 }
 
 /** An interactive thread's rollout, read from its first line; none for anything else. */
 function threadOf(file: string): CodexThread | undefined {
   try {
-    const [first = ''] = fileHead(file, HEAD_BYTES).split('\n', 1);
+    const head = fileHead(file, HEAD_BYTES, (h) => h.includes('\n'));
+    const [first = ''] = head.split('\n', 1);
     const meta = MetaSchema.safeParse(JSON.parse(first));
     if (!meta.success || meta.data.payload.originator !== 'codex-tui') return undefined;
     const { id, cwd, timestamp } = meta.data.payload;
@@ -99,7 +98,7 @@ function threadOf(file: string): CodexThread | undefined {
 
 /** The interactive threads whose rollout was written at or after `since`. */
 export function recentThreads(deps: { env: Env; home: string }, since: number) {
-  return rollouts(deps, since).flatMap((file) => threadOf(file) ?? []);
+  return rollouts(deps, since).flatMap(({ file }) => threadOf(file) ?? []);
 }
 
 /**
@@ -119,7 +118,7 @@ export function codexSessionId(
   const within = (t: CodexThread) =>
     Date.parse(t.startedAt) >= since && Date.parse(t.startedAt) < until;
   return rollouts(deps, since)
-    .flatMap((file) => threadOf(file) ?? [])
+    .flatMap(({ file }) => threadOf(file) ?? [])
     .filter((t) => t.cwd === s.folder && within(t) && !taken.has(t.id))
     .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0]?.id;
 }

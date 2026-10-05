@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react';
 import { useCall, useRun } from '@/lib/useCommand';
 
-/** A ticked folder, and whether one of its running sessions is ticked too. */
-export type DiscoveryFolder = { path: string; name: string; live: boolean };
+/**
+ * A ticked folder, its conversations as the dialog's scan listed them (none when it did not list
+ * them all), and whether one of its running sessions is ticked too.
+ */
+export type DiscoveryFolder = { path: string; name: string; ids?: string[]; live: boolean };
 
 /** Where Add to Mesa is: the folder being added, then the summary once every folder is done. */
 export type DiscoveryProgress = {
@@ -21,7 +24,8 @@ const DISCOVERY = 'onboarding.discovery';
 
 /**
  * Add to Mesa (CONTEXT.md, First-run discovery): writes `started`, runs `mesa discover adopt` for
- * each folder in order, then writes `complete`. Skip writes `dismissed` and closes, after the folder
+ * each folder in order, with the conversation ids the dialog's scan listed so none scans again,
+ * then writes `complete`. Skip writes `dismissed` and closes, after the folder
  * being added when a run is going.
  */
 export function useDiscoveryAdoption(props: { onClose: () => void; onAdded: () => Promise<void> }) {
@@ -52,6 +56,7 @@ export function useDiscoveryAdoption(props: { onClose: () => void; onAdded: () =
       setProgress({ total, done, current: { name: folder.name, index: done + 1 } });
       const result = await call('sessions.adoptDiscovered', {
         path: folder.path,
+        ...(folder.ids && { ids: folder.ids }),
         live: folder.live,
       });
       if (!result.ok) {

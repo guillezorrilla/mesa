@@ -1,9 +1,19 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+  writeSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
   codexWorld,
+  countReads,
   newSession,
+  plantTranscript,
   projectProfile,
   scriptedRunner,
   shortIds,
@@ -232,4 +242,68 @@ test('a linked worktree whose main checkout is gone is its own project folder', 
       live: 0,
     },
   ]);
+});
+
+const KiB = 1024;
+const MiB = 1024 * KiB;
+const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * `file` rewritten as `size` bytes, sparse: `head`, a hole, then `last` as its last line; last
+ * written `at`.
+ */
+function sparse(file: string, size: number, head: string, last: string, at: Date) {
+  const fd = openSync(file, 'w');
+  writeSync(fd, head, 0);
+  writeSync(fd, `\n${last}`, size - Buffer.byteLength(last) - 1);
+  closeSync(fd);
+  utimesSync(file, at, at);
+}
+
+test('discovery reads under 40 MiB of 300 transcripts and 600 rollouts', async () => {
+  const { mesa, home, codex } = setUp();
+  const reefs = [0, 1, 2].map((i) => {
+    const reef = join(home, `src/reef-${i}`);
+    mkdirSync(join(reef, '.git'), { recursive: true });
+    return reef;
+  });
+  const now = Date.parse('2026-09-24T12:00:00.000Z');
+  // Two in three written in the last 30 days, a day or more ago; the rest 60 days ago.
+  const writtenAt = (i: number, recent: boolean) =>
+    new Date(now - (recent ? 1 + (i % 28) : 60) * DAY);
+  const old: string[] = [];
+  for (let i = 0; i < 300; i++) {
+    const id = `5b1e2f40-9c3d-4e7a-8f10-${String(i).padStart(12, '0')}`;
+    const cwd = reefs[i % 3] ?? '';
+    const file = plantTranscript(home, id, cwd);
+    const [first = '', second = ''] = readFileSync(file, 'utf8').split('\n');
+    const title = JSON.stringify({ type: 'custom-title', customTitle: `Reef ${i}` });
+    sparse(file, 512 * KiB, `${first}\n${second}\n`, title, writtenAt(i, i < 200));
+    if (i >= 200) old.push(file);
+  }
+  for (let i = 0; i < 600; i++) {
+    const at = writtenAt(i, i < 400);
+    const id = `01a0e14e-be41-72f1-a81b-${String(i).padStart(12, '0')}`;
+    const file = codex.rollout({ id, cwd: reefs[i % 3] ?? '', startedAt: at.toISOString() });
+    const [first = '', second = ''] = readFileSync(file, 'utf8').split('\n');
+    const meta = JSON.parse(first);
+    // Codex's base instructions make its first line about 20 KiB.
+    meta.payload.base_instructions = { text: 'x'.repeat(20 * KiB - first.length) };
+    sparse(file, 256 * KiB, `${JSON.stringify(meta)}\n`, second, at);
+    if (i >= 400) old.push(file);
+  }
+
+  const reads = countReads();
+  let found: Awaited<ReturnType<typeof mesa.sessions.discover>>;
+  try {
+    found = await mesa.sessions.discover(30);
+  } finally {
+    reads.restore();
+  }
+  console.log(
+    `discovery read ${(reads.bytes() / MiB).toFixed(1)} MiB, opening ${reads.opened.length} files`,
+  );
+  expect(found).toMatchObject({ total: 600, truncated: true });
+  expect(reads.bytes()).toBeLessThan(40 * MiB);
+  expect(reads.opened.filter((f) => old.includes(f))).toEqual([]);
 });
