@@ -41,16 +41,16 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 
 ## Features
 
-- **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid. Shift-click or Cmd-click several sessions and archive them together from a right-click menu.
-- **Bring the sessions you already have.** Mesa finds the Claude Code and Codex conversations of the last 30 days on your Mac, with the folders they ran in and the names you gave them. On first run it offers to add those projects and adopt their conversations in one step, so each one is a session you can resume. Later, **Add project > Find from sessions** or `mesa discover` does the same.
-- **One session across several repositories.** Work that spans an API and its web client, or a library and the app using it, runs as one session: `mesa open api --with web` gives every repository a worktree on the same branch and lets the agent read and change them all. Queue, fork and remove act on every worktree together, and nothing is removed while any of them has unsaved work.
+- **One Board for every session.** Sessions from all your projects in one sidebar, grouped by project, with what each one is doing. Open one for its live terminal, or tile several in a grid. Shift-click or Cmd-click several sessions and archive them together from a right-click menu, or select with the keyboard: Shift+Arrow for a range, Cmd+Enter to toggle.
+- **Bring the sessions you already have.** Mesa finds the Claude Code and Codex conversations of the last 30 days on your Mac, with the folders they ran in and the names you gave them. On first run it offers to add those projects and adopt their conversations in one step, so each one is a session you can resume. A session still running outside Mesa in a registered project can be adopted from the same dialog. Later, **Add project > Find from sessions** or `mesa discover` does the same.
+- **One session across several repositories.** Work that spans an API and its web client, or a library and the app using it, runs as one session: `mesa open api --with web` gives every repository a worktree on the same branch and lets the agent read and change them all, Codex included. Queue, fork and remove act on every worktree together, and nothing is removed while any of them has unsaved work, a locked worktree, submodules (without `--force`), or a branch checked out elsewhere. Each additional repository also shows the session on its Overview, marked "from" the primary one.
 - **Every agent, the same controls.** Start Claude Code, Codex or Antigravity CLI in a project, a new worktree or a branch. Swap the agent of a fresh session, queue a session to start after another ends, and hand work to a successor, in the same agent or another, before its context fills.
 - **Shared memory in your vault.** Each profile owns an Obsidian vault: project hubs, notes, decisions, session summaries and a project map. Every agent reaches it through the same `mesa-vault` tools, and Obsidian opens it as is.
 - **Guardrails you can check.** Prompts sent into a session and other outside actions pass a guardrail that can allow, ask or block, and each block or override is saved as a Receipt in your vault with the evidence behind it.
 - **Light on your context.** Mesa adds a few hundred tokens to a session: a short note, three skills and the vault tools. The rest of the window stays for your work.
 - **Your project knowledge, imported.** Connect Atlassian and Notion once, then pick the Jira issues, Confluence pages and Notion pages to import, or paste any public link. Each import lands in the vault, and can start a session.
 - **Automations.** Per project, run a skill, start a session, message one, or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.
-- **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too.
+- **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too. Bulk commands (archive, `stop` and `rm --descendants`, `discover adopt`) report every item and exit 2 when any failed.
 
 <table>
   <tr>
@@ -84,8 +84,8 @@ mkdir -p ~/.local/bin && ln -s /Applications/Mesa.app/Contents/MacOS/mesa ~/.loc
 
 ## Quick start
 
-1. **First run.** Open Mesa. The Set up screen asks for a vault folder, creates your profile, and checks tmux and your agents. A short tour follows; you can leave it and resume it later.
-2. **Add your projects.** If you already use Claude Code or Codex, Mesa offers after Set up to find your recent conversations: tick the folders to add, and their conversations become sessions you can resume, under their own names. Otherwise, in Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder.
+1. **First run.** Open Mesa. The Set up screen asks for a vault folder, creates your profile, and checks tmux and your agents. A short tour follows, after the offer in step 2 if there is one; you can leave it and resume it later.
+2. **Add your projects.** If you already use Claude Code or Codex, Mesa offers after Set up to find your recent conversations: tick the folders to add, and their conversations become sessions you can resume, under their own names, and then the tour starts. Otherwise, in Projects, choose **Add project** and pick a Git repository, or **Import workspace** to find every repository under a folder.
 3. **Start a session.** Press **+** beside the project. A session starts at once with the project's agent (Claude Code unless you chose another) and opens in its own terminal. The sidebar shows its state: working, waiting for an answer, idle, or queued.
 4. **Use the CLI.** Everything above works from a terminal too:
 
