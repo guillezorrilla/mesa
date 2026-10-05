@@ -15,7 +15,11 @@ const groups = sidebarGroups(PROJECTS, [
   managedRow('other001', { project: 'beta' }),
   managedRow('tide0001', { project: 'tide' }),
   managedRow('cove0001'),
-  managedRow('cove0002'),
+  // Additional in tide, it stays one card, under its primary (ADR-0021).
+  managedRow('cove0002', {
+    worktree: { path: '/w/lantern-cove/b', branch: 'b' },
+    additional: [{ project: 'tide', worktree: { path: '/w/tide/b', branch: 'b' } }],
+  }),
   managedRow('tide0002', { project: 'tide' }),
 ]);
 const order = sidebarOrder(groups, []);

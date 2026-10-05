@@ -141,3 +141,41 @@ test('the composer adds another project: its chip shows, Start in is its own wor
   // Started, the next session starts with no other project again.
   expect(byTestId('session-with-chip-tide-pool')).toHaveLength(0);
 });
+
+test('the Overview lists a session where the project is additional, marked from its primary', async () => {
+  const placed = {
+    worktree: { path: '/w/lantern-cove/b', branch: 'b' },
+    additional: [{ project: 'tide-pool', worktree: { path: '/w/tide-pool/b', branch: 'b' } }],
+  };
+  const ended = {
+    state: 'done',
+    confidence: 1,
+    at: '2026-09-25T13:00:00.000Z',
+    source: 'tmux',
+  } as const;
+  const { bridge } = fakeBridge({ 'worktrees list': () => envelope([]) });
+  const byTestId = await renderWithMesa(
+    <ProjectScreen
+      project={TIDE_POOL}
+      sessions={[
+        managedRow('aaaaaaaa', placed),
+        managedRow('bbbbbbbb', { ...placed, alive: false, lastState: ended }),
+      ]}
+      onSession={() => undefined}
+      onVaultItem={() => undefined}
+      onChanged={() => undefined}
+      onUnregistered={() => undefined}
+      filesDirty={false}
+      onFilesDirtyChange={() => undefined}
+      onNewSession={() => undefined}
+      onAgentSettings={() => undefined}
+    />,
+    bridge,
+  );
+  expect(byTestId('project-active-session')).toHaveLength(1);
+  expect(byTestId('project-recent-session')).toHaveLength(1);
+  expect(byTestId('session-from-lantern-cove').map((badge) => badge.textContent)).toEqual([
+    'from lantern-cove',
+    'from lantern-cove',
+  ]);
+});

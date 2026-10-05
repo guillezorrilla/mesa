@@ -1,10 +1,11 @@
 import { defineCommand } from '../command.js';
+import { bulkExit } from '../output/bulk.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const archive = defineCommand({
   name: 'archive',
   summary:
-    'End sessions and hide them from the active board, keeping their records and logs; an unknown id archives none',
+    'End sessions and hide them from the active board, keeping their records and logs; an unknown id archives none, and it exits 2 when any item failed',
   args: ['session', 'more...'],
   example: 'mesa archive a1b2c3d4',
   run: async ({ mesa, args }) => {
@@ -15,7 +16,7 @@ export const archive = defineCommand({
         text: data.items
           .map((item) => `${item.id}: ${item.ok ? 'archived' : item.error.message}`)
           .join('\n'),
-        code: data.items.some((item) => !item.ok) ? 2 : 0,
+        code: bulkExit(data.items.some((item) => !item.ok)),
       };
     }
     const recorded = await mesa.sessions.archive(args.session);

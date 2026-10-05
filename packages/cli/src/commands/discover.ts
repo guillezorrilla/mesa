@@ -1,6 +1,7 @@
 import { counted, DISCOVERY_DAYS } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { wholeNumber } from '../guards.js';
+import { bulkExit } from '../output/bulk.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -43,7 +44,7 @@ export const discover = defineCommand({
 export const discoverAdopt = defineCommand({
   name: 'discover adopt',
   summary:
-    'Register a project folder unless registered, and adopt its recent native conversations as resumable sessions under their own names',
+    'Register a project folder unless registered, and adopt its recent native conversations as resumable sessions under their own names; exits 2 when any item failed',
   args: ['path'],
   flags: {
     days: daysFlag,
@@ -69,8 +70,14 @@ export const discoverAdopt = defineCommand({
     ].filter(Boolean);
     const text = [
       `${project}: ${summary.join(', ')}`,
+      ...[...adopted, ...reopened].flatMap((a) =>
+        a.project ? [`adopted ${a.agentSessionId} into ${a.project}`] : [],
+      ),
       ...failed.map((f) => `failed ${f.agentSessionId}: ${f.reason}`),
     ].join('\n');
-    return recordedOutput(recorded, { data: recorded.result, text });
+    return {
+      ...recordedOutput(recorded, { data: recorded.result, text }),
+      code: bulkExit(failed.length > 0),
+    };
   },
 });

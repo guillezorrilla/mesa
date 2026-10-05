@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { exited, queued } from '@/features/sessions/rows';
 import { NativeHistory } from '../NativeHistory';
+import { FromProjectBadge } from './FromProjectBadge';
 import type { OverviewState } from './useOverviewState';
 
 /** The project's ended sessions, newest first, and its native history on request. */
@@ -37,11 +38,13 @@ export function RecentSessions(props: {
         <button
           key={session.id}
           type="button"
+          data-testid="project-recent-session"
           className="flex w-full items-center gap-3 border-b py-2 text-left text-sm hover:text-primary"
           onClick={() => props.onSession(session.id)}
         >
           <Badge variant="outline">{session.lastState.state}</Badge>
           <span>{sessionLabel(session)}</span>
+          <FromProjectBadge session={session} project={props.project} />
           <span className="ml-auto text-xs text-muted-foreground">{session.agent}</span>
         </button>
       ))}

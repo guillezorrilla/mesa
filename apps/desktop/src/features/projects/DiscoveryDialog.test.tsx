@@ -2,7 +2,15 @@
 import type { NativeDiscovery } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
-import { click, deferred, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import {
+  click,
+  deferred,
+  envelope,
+  failure,
+  fakeBridge,
+  renderWithMesa,
+  toasts,
+} from '@/lib/testing';
 import { DiscoveryDialog } from './DiscoveryDialog';
 
 const FOUND: NativeDiscovery = {
@@ -57,16 +65,67 @@ const FOUND: NativeDiscovery = {
   unsupported: [{ agent: 'antigravity', reason: 'No qualified native CLI history source' }],
 };
 
-/** The dialog over `found`, its `discover adopt` replies from `adopt`; config sets echo. */
+/** A running session in each case: a registered folder, none, one with an error, one to tick. */
+const CANNOT_TICK: NativeDiscovery = {
+  ...FOUND,
+  projects: [
+    { ...FOUND.projects[2], conversations: 0, live: 1 },
+    {
+      path: '/src/reef',
+      name: 'reef',
+      configured: true,
+      registered: false,
+      error: 'mesa.yaml: name is missing',
+      conversations: 0,
+      live: 1,
+    },
+    { ...FOUND.projects[1], live: 1 },
+  ] as NativeDiscovery['projects'],
+  live: [
+    {
+      agent: 'claude',
+      id: '7c2d3e4f-1a2b-4c3d-9e8f-0a1b2c3d4e5f',
+      cwd: '/src/lantern-cove',
+      project: '/src/lantern-cove',
+      name: 'Lamp wicks',
+    },
+    { agent: 'codex', id: '01a0e14e-be41-72f1-a81b-e25d21986099', cwd: '/tmp', project: null },
+    {
+      agent: 'claude',
+      id: '3e4f5a6b-2c3d-4e5f-8a9b-1c2d3e4f5a6b',
+      cwd: '/src/reef',
+      project: '/src/reef',
+    },
+    {
+      agent: 'claude',
+      id: '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f',
+      cwd: '/src/harbor',
+      project: '/src/harbor',
+    },
+  ],
+};
+
+/** `mesa adopt`'s reply: the running session adopted and reopened, with the adoption warning. */
+const ADOPTED = {
+  id: 'c0ffee12',
+  warning: 'end the session in its original terminal first: both hold the same transcript',
+};
+
+/**
+ * The dialog over `found`, its `discover adopt` replies from `adopt` and its `adopt` replies from
+ * `adoptOne`; config sets echo.
+ */
 async function open(
   adopt: (args: string[]) => unknown = (args) => envelope(adoption(args)),
   found: NativeDiscovery = FOUND,
+  adoptOne: (args: string[]) => unknown = () => envelope(ADOPTED),
 ) {
   const onCancel = vi.fn();
   const onRegistered = vi.fn(async () => {});
   const { bridge, calls } = fakeBridge({
     discover: () => envelope(found),
     'discover adopt': adopt,
+    adopt: adoptOne,
     'config set': (args) => envelope({ path: args.at(-2), value: JSON.parse(args.at(-1) ?? '') }),
   });
   const byTestId = await renderWithMesa(
@@ -210,4 +269,64 @@ test('Escape during a run keeps the dialog open and writes no config', async () 
     discovery('started'),
     ['--json', 'discover', 'adopt', '--', '/src/tide-pool'],
   ]);
+});
+
+const reasons = (byTestId: (id: string) => HTMLElement[]) =>
+  byTestId('discovery-live-reason').map((el) => el.textContent);
+
+test('a running session that cannot be ticked says why', async () => {
+  const { byTestId } = await open(undefined, CANNOT_TICK);
+  expect(reasons(byTestId)).toEqual([
+    'in a registered project',
+    'no project folder',
+    'its folder cannot be added',
+  ]);
+  const adopt = byTestId('discovery-live-adopt');
+  expect(adopt.map((b) => b.getAttribute('aria-label'))).toEqual(['Adopt Lamp wicks']);
+  const rows = [...(byTestId('discovery-live')[0]?.querySelectorAll('li') ?? [])];
+  expect(rows[0]?.contains(adopt[0] ?? null)).toBe(true);
+  // Only harbor's session, in an unregistered folder without an error, keeps its tick.
+  const tick = byTestId('discovery-live-tick');
+  expect(tick).toHaveLength(1);
+  expect(rows[3]?.contains(tick[0] ?? null)).toBe(true);
+  expect(checked(tick[0])).toBe(false);
+  const harbor = byTestId('discovery-tick')[1];
+  await click(harbor);
+  expect(byTestId('discovery-live-tick')[0]?.hasAttribute('disabled')).toBe(true);
+  await click(harbor);
+  expect(byTestId('discovery-live-tick')[0]?.hasAttribute('disabled')).toBe(false);
+  expect(checked(byTestId('discovery-live-tick')[0])).toBe(false);
+});
+
+test('Adopt adopts and reopens just that running session', async () => {
+  const { byTestId, calls } = await open(undefined, CANNOT_TICK);
+  await click(byTestId('discovery-live-adopt')[0]);
+  expect(calls.slice(1)).toEqual([
+    ['--json', 'adopt', '--', '7c2d3e4f-1a2b-4c3d-9e8f-0a1b2c3d4e5f'],
+  ]);
+  expect(calls.some((args) => args[1] === 'discover' && args[2] === 'adopt')).toBe(false);
+  expect(toasts(byTestId)).toEqual([
+    [
+      'alert',
+      'Adopted as c0ffee12; end the session in its original terminal first: both hold the same transcript',
+    ],
+  ]);
+  expect(reasons(byTestId)).toEqual([
+    'adopted as c0ffee12',
+    'no project folder',
+    'its folder cannot be added',
+  ]);
+  expect(byTestId('discovery-live-adopt')).toHaveLength(0);
+  expect(byTestId('discovery-live-tick')).toHaveLength(1);
+  expect(byTestId('discovery-add')[0]?.hasAttribute('disabled')).toBe(false);
+});
+
+test('a failed Adopt shows its error and keeps the button', async () => {
+  const { byTestId } = await open(undefined, CANNOT_TICK, () =>
+    failure('No running claude session 7c2d3e4f'),
+  );
+  await click(byTestId('discovery-live-adopt')[0]);
+  expect(toasts(byTestId)).toEqual([['alert', 'No running claude session 7c2d3e4f']]);
+  expect(reasons(byTestId)[0]).toBe('in a registered project');
+  expect(byTestId('discovery-live-adopt')).toHaveLength(1);
 });
