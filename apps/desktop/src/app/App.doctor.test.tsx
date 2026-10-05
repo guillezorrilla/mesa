@@ -351,7 +351,7 @@ test('Install on a missing tmux runs doctor install, then doctor again so the ro
   expect(byTestId('install-button')).toHaveLength(0);
 });
 
-test('Install without Homebrew says so, with brew.sh and the command to copy', async () => {
+test("Install without Homebrew says so, with brew.sh and Homebrew's installer to copy", async () => {
   const missing: Check = {
     name: 'tmux',
     ok: false,
@@ -367,6 +367,6 @@ test('Install without Homebrew says so, with brew.sh and the command to copy', a
   await click(byTestId('nav-doctor')[0]);
   await click(byTestId('install-button')[0]);
   expect(byTestId('install-no-brew')[0]?.textContent).toBe(
-    'Homebrew is required.brew.sh Copy brew install tmux',
+    "Homebrew is required.brew.sh Copy Homebrew's installer",
   );
 });

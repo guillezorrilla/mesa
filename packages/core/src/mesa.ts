@@ -95,7 +95,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
     /** Installs a missing tmux or agent with Homebrew (`mesa doctor install`). */
-    install: (name: string) => installRequirement(deps.run, name),
+    installRequirement: (name: string) => installRequirement(deps.run, name),
     doctor: async () => {
       const report = await runDoctor({
         run: deps.run,

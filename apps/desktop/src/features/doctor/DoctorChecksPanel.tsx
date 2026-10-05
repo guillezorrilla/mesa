@@ -57,9 +57,7 @@ export function DoctorChecksPanel({
                 <TableCell className="font-mono text-xs">{c.version ?? ''}</TableCell>
                 <TableCell className="space-y-2 whitespace-normal text-muted-foreground text-xs">
                   <p>{c.hint}</p>
-                  {c.install && (
-                    <InstallButton check={{ ...c, install: c.install }} onInstalled={onInstalled} />
-                  )}
+                  {c.install && <InstallButton name={c.name} onInstalled={onInstalled} />}
                 </TableCell>
               </TableRow>
             ))}

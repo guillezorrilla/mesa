@@ -1,18 +1,9 @@
-import { BINARIES } from './doctor.js';
-import { homebrewInstall } from './lib/probe.js';
+import { INSTALLABLE } from './doctor.js';
 import type { Runner } from './lib/process.js';
 import { MesaError } from './lib/result.js';
 
 // ponytail: 15 minutes for a cask download on a slow line; stream progress if users wait longer.
 const INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
-
-/** The doctor rows Mesa can install itself, each with its Homebrew command. */
-export const INSTALLABLE = new Map(
-  BINARIES.flatMap((b) => {
-    const command = homebrewInstall(b);
-    return command ? [[b.name, command] as const] : [];
-  }),
-);
 
 /**
  * Installs a missing requirement (tmux or an agent) with its Homebrew command. Mesa never

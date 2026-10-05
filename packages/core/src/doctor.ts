@@ -40,10 +40,18 @@ export type DoctorReport = { healthy: boolean; summary: string; checks: Check[] 
 type Finding = Omit<Check, 'status'>;
 
 // tmux is required on its own; the agents are required as a group: at least one of them.
-export const BINARIES: Binary[] = [
+const BINARIES: Binary[] = [
   { name: 'tmux', args: ['-V'], role: 'required', install: TMUX_INSTALL },
   ...AGENT_NAMES.map((name) => agentBinary(name)),
 ];
+
+/** The rows Mesa can install itself (`mesa doctor install`), each with its Homebrew command. */
+export const INSTALLABLE = new Map(
+  BINARIES.flatMap((b) => {
+    const command = homebrewInstall(b);
+    return command ? [[b.name, command] as const] : [];
+  }),
+);
 
 const REQUIREMENT = `tmux and at least one agent (${AGENT_NAMES.join(' or ')}) are required`;
 
@@ -253,7 +261,7 @@ export async function runDoctor(deps: {
     Promise.all(
       BINARIES.map(async (b) => ({
         role: b.role,
-        install: homebrewInstall(b),
+        install: INSTALLABLE.get(b.name),
         check: await probe(deps.run, b),
       })),
     ),

@@ -1,4 +1,3 @@
-import type { Check } from '@mesa/core';
 import { Copy, Download, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useToast } from '@/components/Toast';
@@ -6,15 +5,15 @@ import { Button } from '@/components/ui/button';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useCall, useRun } from '@/lib/useCommand';
 
+/** Homebrew's installer, as brew.sh gives it: it asks for the password itself, so Mesa never runs it. */
+const HOMEBREW_INSTALL =
+  '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';
+
 /**
  * Installs a missing tmux or agent with Homebrew, then reruns the doctor so the row turns ok.
- * Without Homebrew it says so, with brew.sh and the command to copy once Homebrew is there.
+ * Without Homebrew it says so, with brew.sh and Homebrew's own installer to copy into a terminal.
  */
-export function InstallButton(props: {
-  check: Check & { install: string };
-  onInstalled: () => Promise<void>;
-}) {
-  const { check } = props;
+export function InstallButton(props: { name: string; onInstalled: () => Promise<void> }) {
   const call = useCall();
   const run = useRun();
   const toast = useToast();
@@ -22,7 +21,7 @@ export function InstallButton(props: {
   const [state, setState] = useState<'idle' | 'installing' | 'no-brew'>('idle');
   const install = async () => {
     setState('installing');
-    const result = await call('doctor.install', { name: check.name });
+    const result = await call('doctor.install', { name: props.name });
     if (result.ok) {
       await props.onInstalled();
       return setState('idle');
@@ -46,11 +45,11 @@ export function InstallButton(props: {
           variant="outline"
           size="sm"
           onClick={async () => {
-            await clipboard.write(check.install);
+            await clipboard.write(HOMEBREW_INSTALL);
             toast('Command copied', 'confirmation');
           }}
         >
-          <Copy aria-hidden /> Copy {check.install}
+          <Copy aria-hidden /> Copy Homebrew's installer
         </Button>
       </div>
     );
@@ -66,7 +65,7 @@ export function InstallButton(props: {
       ) : (
         <Download aria-hidden />
       )}
-      {state === 'installing' ? 'Installing...' : `Install ${check.name}`}
+      {state === 'installing' ? 'Installing...' : `Install ${props.name}`}
     </Button>
   );
 }

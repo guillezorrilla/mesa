@@ -35,7 +35,7 @@ export const doctorInstall = defineCommand({
   args: ['name'],
   example: 'mesa doctor install tmux',
   run: async ({ mesa, args }) => {
-    const data = await mesa.install(args.name);
+    const data = await mesa.installRequirement(args.name);
     return { data, text: `installed ${data.name}` };
   },
 });
