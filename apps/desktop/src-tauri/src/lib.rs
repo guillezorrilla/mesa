@@ -42,14 +42,20 @@ pub fn run() {
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 if updater::asks_to_install(&event.urls()) {
-                    tauri::async_runtime::spawn(updater::check_now(handle.clone()));
+                    tauri::async_runtime::spawn(updater::check(
+                        handle.clone(),
+                        updater::Trigger::Link,
+                    ));
                 }
             });
             // Started by the link (`mesa update install` with the app closed): macOS may deliver
             // it before the listener above exists, and the plugin then only keeps it as current.
             let current = app.deep_link().get_current().ok().flatten();
             if current.is_some_and(|urls| updater::asks_to_install(&urls)) {
-                tauri::async_runtime::spawn(updater::check_now(app.handle().clone()));
+                tauri::async_runtime::spawn(updater::check(
+                    app.handle().clone(),
+                    updater::Trigger::Link,
+                ));
             }
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),

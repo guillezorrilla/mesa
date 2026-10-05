@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 use serde::Serialize;
 use serde_json::Value;
 
-/// No two checks of one channel come closer than this, whoever asks.
+/// No two checks of one channel come closer than this, unless the link asks.
 pub const FLOOR: Duration = Duration::from_secs(10 * 60);
 
 /// Who asked for a check.
@@ -15,8 +15,10 @@ pub const FLOOR: Duration = Duration::from_secs(10 * 60);
 pub enum Trigger {
     /// The launch and 4-hourly schedule.
     Schedule,
-    /// The profile menu, Settings, the revoked dialog or the link: shows a dismissed update again.
+    /// The profile menu, Settings or the revoked dialog: shows a dismissed update again.
     Person,
+    /// `mesa update install`, which has just found a newer version: always reaches the feeds.
+    Link,
 }
 
 /// What the renderer shows: the step, the newer version, and a revocation of the running one.
@@ -80,20 +82,18 @@ fn since(now: SystemTime, at: SystemTime) -> Duration {
 }
 
 impl<T> State<T> {
-    /// Forgets the last check, so the next one reaches the feeds (`mesa update install`).
-    pub fn forget(&mut self) {
-        self.last = None;
-    }
-
-    /// Starts a check of `channel`, and says whether it reaches the feeds: inside the floor it
-    /// keeps the last result.
+    /// Starts a check of `channel`, and says whether it reaches the feeds. Inside the floor it
+    /// keeps the last result, except for the link.
     pub fn begin(&mut self, channel: &str, trigger: Trigger, now: SystemTime) -> bool {
         if trigger != Trigger::Schedule {
             self.status.dismissed = false;
         }
         let recent =
             matches!(&self.last, Some((at, on)) if on == channel && since(now, *at) < FLOOR);
-        let reach = !recent;
+        let reach = match trigger {
+            Trigger::Schedule | Trigger::Person => !recent,
+            Trigger::Link => true,
+        };
         if reach && self.status.phase != "ready" {
             self.status.phase = "checking";
         }
@@ -315,5 +315,19 @@ mod tests {
         assert_eq!(state.status.revoked, None);
         state.set_revoked(Value::Null);
         assert_eq!(state.status.revoked, None);
+    }
+
+    #[test]
+    fn the_link_always_reaches_the_feeds_even_right_after_another_check() {
+        // `mesa update install` may land while the schedule's check holds the lock; once that
+        // check is done the link's still reads the feeds, inside the floor.
+        let mut state = holding_beta5();
+        assert!(state.begin("beta", Trigger::Link, at(0)));
+        // The verified download of the same version is reused, not downloaded again.
+        assert_eq!(
+            state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(0)),
+            None
+        );
+        assert_eq!(state.status.phase, "ready");
     }
 }

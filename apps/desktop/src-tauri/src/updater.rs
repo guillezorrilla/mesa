@@ -121,13 +121,6 @@ pub async fn check(app: AppHandle, trigger: Trigger) {
     updates.with(&app, |state| state.downloaded(downloaded));
 }
 
-/// A check asked for by `mesa update install`, which has just found a newer version: it reaches
-/// the feeds even inside the floor, so the handed-over update is always offered.
-pub async fn check_now(app: AppHandle) {
-    app.state::<Updates>().with(&app, |state| state.forget());
-    check(app, Trigger::Person).await;
-}
-
 /// Downloads the release `feed` announces; the plugin refuses an archive whose signature does
 /// not verify with tauri.conf.json's public key.
 async fn fetch(app: &AppHandle, feed: &str) -> Result<Ready<Download>, String> {
