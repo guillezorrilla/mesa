@@ -10,6 +10,11 @@ on:
 
 permissions: {}
 
+# A newer event on the same pull request (a retitle, a push) supersedes an older run.
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   pr-title:
     runs-on: ubuntu-latest
