@@ -1,7 +1,7 @@
 import type { ProjectRow } from '@mesa/core';
 import { ArrowDown, ArrowUp, MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import type { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
@@ -31,7 +31,7 @@ export function ProjectActionsMenu(props: {
       if (!changed) return undefined;
       setDialog(undefined);
       props.onChanged();
-      return said(`Updated project ${project.name}`, changed);
+      return warningOf(changed);
     });
   const unregister = () =>
     act(async () => {
@@ -39,7 +39,7 @@ export function ProjectActionsMenu(props: {
       if (!removed) return undefined;
       setDialog(undefined);
       props.onUnregistered();
-      return said(`Unregistered project ${project.name}`, removed);
+      return warningOf(removed);
     });
   return (
     <>

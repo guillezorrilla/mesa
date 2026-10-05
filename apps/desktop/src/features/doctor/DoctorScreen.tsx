@@ -9,7 +9,7 @@ import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { PageHeader } from '@/components/PageHeader';
-import { warned } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,7 +46,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
       if (!changed) return undefined;
       // The doctor's own hook rows change too.
       await Promise.all([hooks.refresh(), refresh()]);
-      return warned(changed.warning);
+      return warningOf(changed);
     });
   return (
     <section data-testid="doctor-panel" className="space-y-4">

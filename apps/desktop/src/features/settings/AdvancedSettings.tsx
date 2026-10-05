@@ -1,6 +1,6 @@
 import { Archive, BrainCircuit, DollarSign, ExternalLink, Library } from 'lucide-react';
 import { Muted } from '@/components/Muted';
-import { warned } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
@@ -59,7 +59,7 @@ export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => v
               size="sm"
               variant="ghost"
               disabled={acting}
-              onClick={() => void act(async () => warned((await run('vault.open'))?.warning))}
+              onClick={() => void act(async () => warningOf(await run('vault.open')))}
             >
               Open in Obsidian <ExternalLink aria-hidden />
             </Button>

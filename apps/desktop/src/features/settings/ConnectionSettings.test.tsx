@@ -47,7 +47,7 @@ test('a disconnected source offers Connect, which signs in and then shows the ac
   expect(calls).toContainEqual(['--json', 'sources', 'connect', 'atlassian']);
   expect(row()?.textContent).toContain('Signed in as Rowan Tide. Sites: lantern-cove');
   expect(labels()).toEqual(['Disconnect']);
-  expect(toastTexts(byTestId)).toContain('Connected Atlassian');
+  expect(toastTexts(byTestId)).toEqual([]);
 });
 
 test('a connection that needs reconnecting offers Reconnect and Disconnect', async () => {

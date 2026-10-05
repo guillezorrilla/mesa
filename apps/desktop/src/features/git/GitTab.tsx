@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { CountPill } from '@/components/CountPill';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { said, warningOf } from '@/components/Toast';
 import { CheckoutPicker } from '@/features/worktrees/CheckoutPicker';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -65,8 +65,7 @@ export function GitTab(props: {
       }
       await changed();
       if (!result) return undefined;
-      const what = paths.length === 1 ? paths[0] : `${paths.length} files`;
-      return said(`${action === 'stage' ? 'Staged' : 'Unstaged'} ${what}`, result);
+      return warningOf(result);
     });
   const commit = async (message: string) => {
     let done = false;

@@ -1,7 +1,7 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
 import { useCallback, useRef, useState } from 'react';
-import { useToast, warned } from '@/components/Toast';
+import { useToast, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 import type { WorkspaceView } from '../navigation';
 
@@ -71,7 +71,7 @@ export function useStartSession(props: {
         });
         if (!opened) return;
         // No confirmation, as the session shows; a warning (hooks to trust) still says so.
-        const warning = warned(opened.warning);
+        const warning = warningOf(opened);
         if (warning) toast(warning.text, warning.tone);
         navigateLatest({ kind: 'session', id: opened.id });
       } finally {

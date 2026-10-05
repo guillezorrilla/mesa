@@ -1,6 +1,6 @@
 import type { Config } from '@mesa/core';
 import { PageHeader } from '@/components/PageHeader';
-import { warned } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -83,7 +83,7 @@ export function TourScreen(props: {
           {step === 2 && (
             <Button
               variant="outline"
-              onClick={() => void act(async () => warned((await run('vault.open'))?.warning))}
+              onClick={() => void act(async () => warningOf(await run('vault.open')))}
             >
               Open in Obsidian
             </Button>

@@ -2960,29 +2960,18 @@ async function send(prompt: string) {
   );
 }
 
-test('a confirmation is neutral, shows every time, and goes by itself', async () => {
-  vi.useFakeTimers();
-  try {
-    const { bridge } = fakeBridge({
-      resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
-      sessions: () => envelope([managedRow('aaaaaaaa')]),
-      send: () => envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5 }),
-    });
-    const byTestId = await renderWithMesa(<App />, bridge);
-    await send('hello');
-    await send('hello');
-    expect(toasts(byTestId)).toEqual([
-      ['confirmation', 'Sent 5 characters to aaaaaaaa'],
-      ['confirmation', 'Sent 5 characters to aaaaaaaa'],
-    ]);
-    await act(async () => vi.advanceTimersByTime(CONFIRMATION_MS));
-    expect(toasts(byTestId)).toEqual([]);
-  } finally {
-    vi.useRealTimers();
-  }
+test('sending a prompt shows no banner: the terminal shows it arrive', async () => {
+  const { bridge } = fakeBridge({
+    resize: (args) => envelope({ session: args[3], target: 'x', cols: 80, rows: 24 }),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    send: () => envelope({ sent: true, session: 'aaaaaaaa', from: null, chars: 5 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await send('hello');
+  expect(toasts(byTestId)).toEqual([]);
 });
 
-test('a failure, or a confirmation with a warning, is an alert: warm, once, and it stays', async () => {
+test("a failure, or a dropped confirmation's warning, is an alert: warm, once, and it stays", async () => {
   vi.useFakeTimers();
   try {
     let fails = true;
@@ -3008,7 +2997,7 @@ test('a failure, or a confirmation with a warning, is an alert: warm, once, and 
     await act(async () => vi.advanceTimersByTime(2 * CONFIRMATION_MS));
     expect(toasts(byTestId)).toEqual([
       ['alert', 'session aaaaaaaa waits on a person'],
-      ['alert', 'Sent 5 characters to aaaaaaaa; no receipt'],
+      ['alert', 'no receipt'],
     ]);
   } finally {
     vi.useRealTimers();

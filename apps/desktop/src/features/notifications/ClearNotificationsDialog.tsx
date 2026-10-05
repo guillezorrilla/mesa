@@ -1,6 +1,5 @@
 import { Trash2 } from 'lucide-react';
 import { ActionDialog } from '@/components/ActionDialog';
-import { said } from '@/components/Toast';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 
@@ -34,7 +33,7 @@ export function ClearNotificationsDialog(props: {
           const result = await run('notifications.clearAll');
           if (!result) return undefined;
           props.onCleared();
-          return said(`Cleared ${result.count} notifications`);
+          return undefined;
         })
       }
       onCancel={props.onCancel}

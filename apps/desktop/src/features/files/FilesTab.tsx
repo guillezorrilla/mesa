@@ -1,7 +1,7 @@
 import type { Config, WorkspaceFile } from '@mesa/core';
 import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
 import { useEffect, useRef, useState } from 'react';
-import { said } from '@/components/Toast';
+import { said, warningOf } from '@/components/Toast';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { CreateFileDialog } from './dialogs/CreateFileDialog';
@@ -133,14 +133,14 @@ export function FilesTab(props: {
           revision: result.revision ?? opened.revision,
         });
       await tree.refresh();
-      return said(`Saved ${opened.path}`, result);
+      return warningOf(result);
     });
   const savePreference = (path: keyof Config['editor'], value: unknown) =>
     act(async () => {
       const result = await run('config.set', { path: `editor.${path}`, value });
       if (!result) return undefined;
       await config.refresh();
-      return said(`Saved editor ${path}`, result);
+      return warningOf(result);
     });
   const openExternally = () =>
     act(async () => {
@@ -164,7 +164,7 @@ export function FilesTab(props: {
       setDialog(undefined);
       await tree.refresh();
       await load(path);
-      return said(`Created ${path}`, result);
+      return warningOf(result);
     });
   const rename = (path: string) =>
     act(async () => {
@@ -180,7 +180,7 @@ export function FilesTab(props: {
       setDialog(undefined);
       await tree.refresh();
       await load(path);
-      return said(`Renamed to ${path}`, result);
+      return warningOf(result);
     });
   const remove = () =>
     act(async () => {
@@ -195,7 +195,7 @@ export function FilesTab(props: {
       setDialog(undefined);
       setOpened(null);
       await tree.refresh();
-      return said(`Deleted ${result.path}`, result);
+      return warningOf(result);
     });
   return (
     <section

@@ -1,6 +1,6 @@
 import { AGENT_LABELS } from '@mesa/core/browser';
 import { Plug } from 'lucide-react';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -37,7 +37,7 @@ export function SessionHooks() {
             void act(async () => {
               const result = await run('hooks.install');
               await hooks.refresh();
-              return result && said('Installed session hooks', result);
+              return result && warningOf(result);
             })
           }
         >

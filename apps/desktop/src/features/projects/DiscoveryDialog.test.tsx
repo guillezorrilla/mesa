@@ -374,10 +374,7 @@ test('Adopt adopts and reopens just that running session', async () => {
   ]);
   expect(calls.some((args) => args[1] === 'discover' && args[2] === 'adopt')).toBe(false);
   expect(toasts(byTestId)).toEqual([
-    [
-      'alert',
-      'Adopted as c0ffee12; end the session in its original terminal first: both hold the same transcript',
-    ],
+    ['alert', 'end the session in its original terminal first: both hold the same transcript'],
   ]);
   expect(reasons(byTestId)).toEqual([
     'adopted as c0ffee12',

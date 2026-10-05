@@ -2,7 +2,7 @@ import type { ConversationSearch, NativeHistoryRow } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +34,7 @@ export function NativeHistory(props: { project: string; onSession: (id: string) 
       setSelected(undefined);
       await history.refresh();
       props.onSession(adopted.id);
-      return said(`Imported ${selected.agent} session as ${adopted.id}`, adopted);
+      return warningOf(adopted);
     });
   return (
     <div

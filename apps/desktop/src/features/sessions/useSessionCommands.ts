@@ -1,7 +1,7 @@
 import type { Agent, ManagedRow, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT, projectLabel } from '@mesa/core/browser';
+import { GENERAL_PROJECT } from '@mesa/core/browser';
 import type { RefObject } from 'react';
-import { said } from '@/components/Toast';
+import { said, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 import { exited } from './rows';
 import type { NewSessionInput } from './SessionStart';
@@ -43,12 +43,7 @@ export function useSessionCommands({
       const stopped = await run('sessions.stop', { id });
       if (!stopped) return undefined;
       if (stopped.outcome === 'already-ended') return said(`Session ${id} had already ended`);
-      return said(
-        stopped.outcome === 'cancelled'
-          ? `Cancelled session ${id}: it never starts`
-          : `Stopped session ${id}`,
-        stopped,
-      );
+      return warningOf(stopped);
     });
   const resume = (id: string) =>
     once(async () => {
@@ -58,30 +53,30 @@ export function useSessionCommands({
       // Its successor is shown only while it is still the session selected.
       if (resumed && selectedSession === id && version === selectionVersion.current)
         onSelectSession?.(resumed.id);
-      return resumed && said(`Resumed session ${id} as ${resumed.id}`, resumed);
+      return resumed && warningOf(resumed);
     });
   const forceStart = (id: string) =>
     act(async () => {
       const started = await run('sessions.forceStart', { id });
-      return started && said(`Started queued session ${id}`, started);
+      return started && warningOf(started);
     });
   const adopt = (agentSessionId: string, project?: string) =>
     act(async () => {
       const adopted = await run('sessions.adopt', { agentSessionId, project });
-      return adopted && said(`Adopted as ${adopted.id}`, adopted);
+      return adopted && warningOf(adopted);
     });
   const handoff = (id: string, note: string, keep: boolean, agent?: string) =>
     act(async () => {
       const done = await run('sessions.handoff', { id, note, keep, agent });
       if (!done) return undefined;
       closeDialog();
-      return said(`Handed off ${id} to ${done.to}`, done);
+      return warningOf(done);
     });
   const swap = (id: string, agent: Agent) =>
     act(async () => {
       const swapped = await run('sessions.swap', { id, agent });
       if (!swapped) return undefined;
-      return said(`Swapped ${id} to ${agent}`, swapped);
+      return warningOf(swapped);
     });
   const fork = (id: string, branch?: string) =>
     act(async () => {
@@ -89,21 +84,21 @@ export function useSessionCommands({
       if (!created) return undefined;
       closeDialog();
       onSelectSession?.(created.id);
-      return said(`Forked session ${id} as ${created.id}`, created);
+      return warningOf(created);
     });
   const saveDependency = (id: string, change: { parent?: string | null; after?: string }) =>
     act(async () => {
       const changed = await run('sessions.dependencies', { id, ...change });
       if (!changed) return undefined;
       closeDialog();
-      return said(`Updated dependencies of session ${id}`, changed);
+      return warningOf(changed);
     });
   const rename = (id: string, name: string) =>
     act(async () => {
       const renamed = await run('sessions.rename', { id, name });
       if (!renamed) return undefined;
       closeDialog();
-      return said(`Renamed ${id} to ${renamed.name}`, renamed);
+      return warningOf(renamed);
     });
   const remove = (id: string, opts: { deleteWorktree: boolean; deleteBranch: boolean }) =>
     act(async () => {
@@ -111,13 +106,7 @@ export function useSessionCommands({
       if (!removed) return undefined;
       closeDialog();
       if (selectedSession === id) leaveClosedSession([id]);
-      const also = [
-        removed.worktree &&
-          (removed.additional?.some((a) => a.worktree) ? 'its worktrees' : 'its worktree'),
-        removed.branch && `branch ${removed.branch}`,
-      ];
-      const extra = also.filter(Boolean).join(' and ');
-      return said(`Removed session ${id}${extra ? ` with ${extra}` : ''}`, removed);
+      return warningOf(removed);
     });
   const cascade = (
     kind: 'stop' | 'remove',
@@ -166,7 +155,7 @@ export function useSessionCommands({
         if (!archived) return undefined;
         closeDialog();
         leaveClosedSession([id]);
-        return said(`Archived session ${id}`, archived);
+        return warningOf(archived);
       }
       const result = await run('sessions.archiveEach', { ids: [id, ...more] });
       if (!result) return undefined;
@@ -192,7 +181,7 @@ export function useSessionCommands({
       if (!removed) return undefined;
       closeDialog();
       leaveClosedSession([id]);
-      return said(`Deleted session ${id}`, removed);
+      return warningOf(removed);
     });
   const open = (input: NewSessionInput) =>
     once(async () => {
@@ -201,7 +190,7 @@ export function useSessionCommands({
       if (!opened) return undefined;
       closeDialog();
       onSelectSession?.(opened.id);
-      return said(`Opened session ${opened.id} on ${projectLabel(opened.project)}`, opened);
+      return warningOf(opened);
     });
   const openChildTerminal = (row: ManagedRow) =>
     once(async () => {
@@ -213,7 +202,7 @@ export function useSessionCommands({
       await look();
       if (!opened) return undefined;
       onSelectSession?.(opened.id);
-      return said(`Opened child terminal ${opened.id}`, opened);
+      return warningOf(opened);
     });
   return {
     openTerminal,

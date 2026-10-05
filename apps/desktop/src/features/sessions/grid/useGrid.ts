@@ -1,6 +1,6 @@
 import type { GridGroup } from '@mesa/core';
 import { useState } from 'react';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 import type { TerminalPanels } from '../terminals/useTerminalPanels';
 import type { SessionAct } from '../useSessionAct';
@@ -34,14 +34,14 @@ export function useGrid({
       });
       if (!saved) return undefined;
       onGroupsChanged?.();
-      return said(`Saved grid group ${name}`, saved);
+      return warningOf(saved);
     });
   const removeGroup = (name: string) =>
     act(async () => {
       const removed = await run('grid.remove', { name });
       if (!removed) return undefined;
       onGroupsChanged?.();
-      return said(`Removed grid group ${name}; sessions kept`, removed);
+      return warningOf(removed);
     });
   const openGroup = (group: GridGroup) => {
     const available = group.sessions.filter((id) => live.has(id));

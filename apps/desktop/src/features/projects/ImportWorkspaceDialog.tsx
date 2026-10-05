@@ -2,7 +2,7 @@ import type { DiscoveredProject } from '@mesa/core';
 import { FolderOpen, FolderSearch } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { said } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -120,7 +120,7 @@ export function ImportWorkspaceDialog(props: {
                       ),
                     );
                     await props.onRegistered();
-                    return said(`Imported project ${registered.name}`, registered);
+                    return warningOf(registered);
                   })
                 }
               />
