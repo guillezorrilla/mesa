@@ -1,3 +1,4 @@
+import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
 import {
   Bell,
   Bot,
@@ -98,9 +99,7 @@ export const CATEGORIES: {
     icon: Bot,
     sections: [
       ['overview', 'Overview'],
-      ['claude', 'Claude Code'],
-      ['codex', 'Codex'],
-      ['antigravity', 'Antigravity CLI'],
+      ...AGENT_NAMES.map((agent) => [agent, AGENT_LABELS[agent]] as const),
       ['headless', 'Headless runs'],
     ],
   },

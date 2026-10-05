@@ -73,6 +73,27 @@ test('the dialog shows period cards, the daily chart by model, agents, and days 
   );
 });
 
+test('agent rows take their names from core, Antigravity included', async () => {
+  // Core reads no Antigravity usage yet; the cast stands in for the day it does.
+  const agent = 'antigravity' as never;
+  const row = { agent, model: 'gemini-invented', totals: opus };
+  const report: UsageReport = {
+    ...used,
+    daily: [...used.daily.slice(0, -1), day('2026-09-26', [row])],
+    breakdown: [row],
+    agents: [{ agent, totals: opus }],
+  };
+  const { bridge } = fakeBridge({ usage: () => envelope(report) });
+  await renderWithMesa(<UsageDialog open onOpenChange={() => {}} onSession={() => {}} />, bridge);
+  expect(document.querySelector('[aria-label="Cost by agent"]')?.textContent).toContain(
+    'Antigravity CLI',
+  );
+  await click(button('Sat, Sep 26gemini-invented207.4k tokens$0.27'));
+  expect(document.querySelector('[aria-label="Daily usage and cost"]')?.textContent).toContain(
+    'Antigravity CLI8 in',
+  );
+});
+
 test('cost alerts show progress, save every changed limit, and preview without spending', async () => {
   const base = ((await fakeBridge().bridge(['--json', 'config'])) as { data: Config }).data;
   const config = { ...base, usage: { dailyAlertUsd: 1, weeklyAlertUsd: 0, monthlyAlertUsd: 0 } };
