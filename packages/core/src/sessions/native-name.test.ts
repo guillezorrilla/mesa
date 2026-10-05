@@ -17,11 +17,30 @@ function claudeNamed(...entries: object[]) {
 const custom = (customTitle: string) => ({ type: 'custom-title', customTitle });
 const ai = (aiTitle: string) => ({ type: 'ai-title', aiTitle });
 
+const KIB = 1 << 10;
+const MIB = 1 << 20;
+/** `bytes` of assistant message lines (rounded up), 1 KiB each with its newline. */
+const messages = (bytes: number) =>
+  Array.from({ length: Math.ceil(bytes / KIB) }, () => ({
+    type: 'assistant',
+    message: { role: 'assistant', content: 'Tide pump notes. '.repeat(57).slice(0, 959) },
+  }));
+
 test("a Claude Code name is the person's latest custom title, else the latest ai title", () => {
   expect(claudeNamed(custom('Tide tables'), ai('Harbor charts'))).toBe('Tide tables');
   expect(claudeNamed(custom('First'), custom('Second'))).toBe('Second');
   expect(claudeNamed(ai('First guess'), ai('Fix the tide pump'))).toBe('Fix the tide pump');
   expect(claudeNamed()).toBeUndefined();
+});
+
+test('a Claude Code name is read from the last 1 MiB of its transcript', () => {
+  expect(claudeNamed(ai('Harbor charts'), ...messages(2 * MIB))).toBeUndefined();
+  expect(
+    claudeNamed(custom('Tide tables'), ...messages(2 * MIB), ai('Harbor charts'), ...messages(KIB)),
+  ).toBe('Harbor charts');
+  expect(
+    claudeNamed(...messages(5 * MIB - 100 * KIB), custom('Tide tables'), ...messages(90 * KIB)),
+  ).toBe('Tide tables');
 });
 
 test('a blank name is no name', () => {
