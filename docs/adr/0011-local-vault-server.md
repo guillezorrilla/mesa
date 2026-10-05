@@ -26,7 +26,7 @@ Every Mesa session should reach its profile's vault on demand, with a standing c
   | `save_note title body [path]` | `vault.saveNote` | `mesa vault save note` |
 
 - **Recording.** The server records nothing of its own: starting, listing, and refusing create no receipt. Reads create no receipt. A save records exactly as its Session write does: one receipt and one log line for a substantive change, and nothing for a repeat (#274).
-- **Size.** The definitions are fixed. The `tools/list` result, `{"tools":[...]}` as compact JSON, is **2,590 bytes** whatever the vault holds. As a JSON-RPC line with its id it is 2,624 bytes. `mesa vault mcp --tools --json` prints the same list without serving, for the app's Session details and for this record. `packages/cli/src/commands/vault.test.ts` asserts the size, so a change to a description or schema must update this ADR.
+- **Size.** The definitions are fixed. The `tools/list` result, `{"tools":[...]}` as compact JSON, is **2,608 bytes** whatever the vault holds (2,590 until #558 reworded `project_context`). As a JSON-RPC line with its id it is 2,642 bytes. `mesa vault mcp --tools --json` prints the same list without serving, for the app's Session details and for this record. `packages/cli/src/commands/vault.test.ts` asserts the size, so a change to a description or schema must update this ADR.
 
 ## Evidence
 
