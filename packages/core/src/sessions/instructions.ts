@@ -64,11 +64,11 @@ export function mesaPointer(record: SessionRecord, profile: string, cwd: string)
       : `mesa vault context ${record.project} --json`;
   const lines = [
     `Mesa session ${record.id}; profile ${profile}; project ${record.project}; cwd ${JSON.stringify(cwd)}.`,
-    `Your saved goal is in the startup prompt; keep it unchanged. mesa show ${record.id} --json shows its record.`,
-    `Syntax: mesa help --agent. Skills: ${skills}, invoked here as ${prefix}skill-name.`,
-    'Coordinate with mesa sessions --json, mesa open [--after], mesa send, and mesa handoff; check state before messaging. Only a human answers permission and question prompts.',
-    'Mesa guardrails check sent prompts; do not bypass a block without the user.',
-    "Vault: call mesa-vault's project_context first; read_note, search_vault, session_goals on demand. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
+    `Your saved goal is in the startup prompt; keep it. Record: mesa show ${record.id} --json.`,
+    `Help: mesa help --agent. Skills: ${skills}, invoked here as ${prefix}skill-name.`,
+    'Coordinate: mesa sessions --json, mesa open [--after], send, handoff; check state before sending. Only a human answers permission or question prompts.',
+    'Guardrails check sent prompts; never bypass a block without the user.',
+    "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when earlier decisions, notes or goals bear on the task. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
     `Without the tools: ${vault} and the mesa-vault skill.`,
   ];
   if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));

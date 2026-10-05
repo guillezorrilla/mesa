@@ -73,7 +73,7 @@ const TOOLS: Tool[] = [
   tool({
     name: 'project_context',
     description:
-      "This project's overview: hub, index, notes, decisions, earlier goals. Call first.",
+      "This project's overview: hub, index, notes, decisions, earlier goals. Call it when earlier work bears on the task.",
     input: z.strictObject({ project: z.string().optional().describe('Another project instead') }),
     call: (owners, session, { project }) =>
       owners.context(project ?? session.project, { exclude: session.id }),
