@@ -156,8 +156,16 @@ impl<T> State<T> {
             status.phase = "ready";
             return None;
         }
-        status.phase = "downloading";
-        found["feed"].as_str().map(str::to_string)
+        match found["feed"].as_str() {
+            Some(feed) => {
+                status.phase = "downloading";
+                Some(feed.to_string())
+            }
+            None => {
+                self.fail("The check named no feed to download from.".into());
+                None
+            }
+        }
     }
 
     /// Takes the download's outcome.
@@ -420,5 +428,15 @@ mod tests {
         assert!(state.due(at(240)));
         // A clock set back does not stall the schedule.
         assert!(state.due(T0 - MIN));
+    }
+
+    #[test]
+    fn a_check_without_a_feed_fails_instead_of_downloading_forever() {
+        let mut state = State::<()>::default();
+        state.begin("beta", Trigger::Person, at(0));
+        let mut found = newer("0.1.0-beta.5");
+        found.as_object_mut().unwrap().remove("feed");
+        assert_eq!(state.checked("beta".into(), Ok(found), None, at(0)), None);
+        assert_eq!(state.status.phase, "failed");
     }
 }
