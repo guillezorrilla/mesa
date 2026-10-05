@@ -43,14 +43,20 @@ const withoutAdapter = (decisions: unknown) => {
 };
 
 /**
- * A file written before the Board view and `mesa board` were removed may still hold `board`
- * settings: it loads, and they are ignored.
+ * Top-level sections Mesa no longer reads, each with the reason `mesa config set` gives. A file
+ * written before one was removed still loads, and the section is ignored.
  */
-const withoutBoard = (config: unknown) => {
-  if (!config || typeof config !== 'object') return config;
-  const { board: _, ...rest } = config as Record<string, unknown>;
-  return rest;
+const REMOVED_KEYS: Record<string, string> = {
+  board: 'board settings were removed with the Board view',
 };
+
+const WithoutRemovedKeys = z
+  .unknown()
+  .transform((config) =>
+    config && typeof config === 'object'
+      ? Object.fromEntries(Object.entries(config).filter(([key]) => !(key in REMOVED_KEYS)))
+      : config,
+  );
 
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 const ConfigShape = z.strictObject({
@@ -242,12 +248,9 @@ const ConfigShape = z.strictObject({
   keys: z.record(z.string(), z.string()).default({}),
 });
 
-const ConfigSchema = z.preprocess(withoutBoard, ConfigShape);
+const ConfigSchema = WithoutRemovedKeys.pipe(ConfigShape);
 export type Config = z.infer<typeof ConfigShape>;
-const BackupSettingsSchema = z.preprocess(
-  withoutBoard,
-  ConfigShape.omit({ vault: true, keys: true }),
-);
+const BackupSettingsSchema = WithoutRemovedKeys.pipe(ConfigShape.omit({ vault: true, keys: true }));
 export type BackupSettings = z.infer<typeof BackupSettingsSchema>;
 export const buildBackupSettings = (input: unknown, file: string): BackupSettings =>
   parseWith(BackupSettingsSchema, input, file);
@@ -298,9 +301,8 @@ export function setConfigValue(
   /** Throws to refuse the new config, before anything is written. */
   check?: (next: Config) => void,
 ): { value: unknown; changed: boolean } {
-  if (dotted.split('.')[0] === 'board') {
-    throw new MesaError('invalid_config', `${file}: board settings were removed`);
-  }
+  const removed = REMOVED_KEYS[dotted.split('.')[0] as string];
+  if (removed) throw new MesaError('invalid_config', `${file}: ${removed}`);
   const before = currentValue(file, dotted);
   const next = setYamlPath(file, ConfigSchema, dotted, parse(value), check);
   return {
