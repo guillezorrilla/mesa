@@ -2,6 +2,19 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.1.5 - 2026-10-05
+
+### Features
+
+- **app**: a new first run that goes from choosing a vault to a running session: pick an Obsidian vault or create one, install what sessions need, choose your projects, and start your first session (#588)
+- **doctor**: install a missing tmux, Claude Code or Codex from the app with one click, through Homebrew (#587)
+
+### Fixes
+
+- **app**: show expected absences as empty states instead of error banners, and lay out the vault when the profile is created (#584)
+- **app**: drop confirmation banners the screen already shows (#583)
+- **sessions**: scroll a session's terminal one line per row of wheel travel (#579, #580)
+
 ## 0.1.4 - 2026-10-05
 
 ### Features
