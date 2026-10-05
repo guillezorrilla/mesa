@@ -1,6 +1,6 @@
 import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT, sessionTitle } from '@mesa/core/browser';
-import { MoreVertical } from 'lucide-react';
+import { Archive, MoreVertical } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,11 +10,17 @@ import {
 import type { SessionLocation } from '../hooks/useStartSession';
 import { HoverAction } from './HoverAction';
 
-/** A managed session card's More actions: a terminal or child worktree session from it, or a dependency. */
+/**
+ * A managed session card's More actions: a terminal or child worktree session from it, a
+ * dependency, and while several cards are chosen with it, archiving them together.
+ */
 export function SessionCardMenu(props: {
   session: Extract<TreeRow, { managed: true }>;
   onNewSession?: (project: string, kind: SessionLocation, parent?: string) => void;
   onDependencySession?: (id: string) => void;
+  /** How many cards are chosen when this one is, else 1. */
+  chosenCount: number;
+  onArchiveChosen: () => void;
 }) {
   const { session } = props;
   return (
@@ -43,6 +49,12 @@ export function SessionCardMenu(props: {
         <DropdownMenuItem onSelect={() => props.onDependencySession?.(session.id)}>
           Set dependency
         </DropdownMenuItem>
+        {props.chosenCount > 1 && (
+          <DropdownMenuItem onSelect={props.onArchiveChosen}>
+            <Archive aria-hidden />
+            Archive {props.chosenCount} sessions
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1653,7 +1653,7 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   });
   const byTestId = await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terms.host }));
   expect(byTestId('sidebar-session').map((item) => item.textContent)).toEqual([
-    'aaaaaaaaworking',
+    'aaaaaaaaworking, selected',
     'bbbbbbbbworking',
   ]);
   await click(byTestId('sidebar-session')[1]);
@@ -1698,7 +1698,7 @@ test('Sessions sidebar shows a branch, compact control, and child action', async
   expect(card()?.textContent).toContain('feature');
   expect(card()?.textContent).toContain('working');
   await click(document.querySelector('[aria-label="Compact aaaaaaaa card"]') as HTMLElement);
-  expect(card()?.textContent).toBe('aaaaaaaa');
+  expect(card()?.textContent).toBe('aaaaaaaa, selected');
   expect(byTestId('selected-session')).toHaveLength(1);
   await click(document.querySelector('[aria-label="Expand aaaaaaaa card"]') as HTMLElement);
   expect(card()?.textContent).toContain('feature');

@@ -19,7 +19,7 @@ const card = (id: string) =>
   undefined;
 const selected = () =>
   [...document.querySelectorAll<HTMLElement>('[data-testid="sidebar-session"]')]
-    .filter((element) => element.getAttribute('aria-selected') === 'true')
+    .filter((element) => element.dataset.chosen === 'true')
     .map((element) => IDS.find((id) => element.title.includes(id)));
 const clickWith = (
   element: HTMLElement | undefined,
@@ -32,6 +32,16 @@ const rightClick = (element: HTMLElement | undefined) =>
   act(async () => {
     element?.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }),
+    );
+  });
+const press = (
+  element: HTMLElement | undefined,
+  key: string,
+  keys: { shiftKey?: boolean; metaKey?: boolean } = {},
+) =>
+  act(async () => {
+    element?.dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...keys }),
     );
   });
 const menuItems = () =>
@@ -72,9 +82,11 @@ async function setup({ failing, warned }: { failing?: string; warned?: string } 
 
 test('Shift-click selects three cards and the right-click menu archives them together', async () => {
   const { byTestId, calls } = await setup();
-  const list = document.querySelector('[role="listbox"]');
-  expect(list?.getAttribute('aria-multiselectable')).toBe('true');
-  expect(list?.getAttribute('aria-label')).toBe('Sessions');
+  const list = document.querySelector('[role="group"][aria-label="Sessions"]');
+  expect(list?.hasAttribute('aria-multiselectable')).toBe(false);
+  expect(document.querySelector('[role="listbox"]')).toBeNull();
+  expect(document.querySelector('[aria-multiselectable]')).toBeNull();
+  expect(document.querySelector('[role="option"]')).toBeNull();
   await click(card('aaaaaaaa'));
   expect(card('aaaaaaaa')?.getAttribute('aria-current')).toBe('page');
   await clickWith(card('cccccccc'), { shiftKey: true });
@@ -189,4 +201,39 @@ test('a warning on an archived item is listed, with no alert when none failed', 
     'confirmation',
     'Archived 3 sessions\nbbbbbbbb: receipt not written',
   ]);
+});
+
+test('the keyboard ranges, toggles and archives a selection', async () => {
+  const { byTestId } = await setup();
+  await click(card('aaaaaaaa'));
+  card('aaaaaaaa')?.focus();
+  await press(card('aaaaaaaa'), 'ArrowDown', { shiftKey: true });
+  await press(document.activeElement as HTMLElement, 'ArrowDown', { shiftKey: true });
+  expect(document.activeElement).toBe(card('cccccccc'));
+  expect(selected()).toEqual(IDS);
+  expect(card('cccccccc')?.textContent).toMatch(/, selected$/);
+  expect(card('aaaaaaaa')?.getAttribute('aria-current')).toBe('page');
+
+  await press(card('cccccccc'), 'Enter', { metaKey: true });
+  expect(selected()).toEqual(['aaaaaaaa', 'bbbbbbbb']);
+  expect(card('cccccccc')?.hasAttribute('data-chosen')).toBe(false);
+  expect(card('cccccccc')?.textContent).not.toContain(', selected');
+  expect(card('aaaaaaaa')?.getAttribute('aria-current')).toBe('page');
+  await press(card('cccccccc'), 'ArrowUp');
+  expect(document.activeElement).toBe(card('bbbbbbbb'));
+  expect(selected()).toEqual(['aaaaaaaa', 'bbbbbbbb']);
+
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="More actions for bbbbbbbb (bbbbbbbb)"]') ??
+      undefined,
+  );
+  expect(menuItems()).toContain('Archive 2 sessions');
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent === 'Archive 2 sessions',
+    ),
+  );
+  expect(byTestId('archive-dialog')[0]?.querySelector('h2')?.textContent).toBe(
+    'Archive 2 sessions?',
+  );
 });
