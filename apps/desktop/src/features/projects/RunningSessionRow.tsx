@@ -1,9 +1,11 @@
 import type { NativeLive } from '@mesa/core';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { timeAgo } from '@/lib/timeAgo';
 
 /**
- * A session running now outside Mesa, in Find from sessions: its name, agent and cwd, with `tick`
+ * A session running now outside Mesa, in Find from sessions: its name, else its first prompt, with
+ * its agent, last write and cwd, its id only on hover, with `tick`
  * as a checkbox, or, when it cannot be ticked, `reason` in its place and `onAdopt` as an Adopt
  * button when it can be adopted on its own.
  */
@@ -15,9 +17,9 @@ export function RunningSessionRow(props: {
   tick: { checked: boolean; disabled: boolean; onChange: (checked: boolean) => void };
 }) {
   const { session, tick } = props;
-  const name = session.name ?? session.id;
+  const name = session.name ?? session.prompt ?? 'Untitled session';
   return (
-    <li className="flex items-center gap-2">
+    <li className="flex items-center gap-2" title={session.id}>
       {props.reason === undefined && (
         <Checkbox
           data-testid="discovery-live-tick"
@@ -35,7 +37,10 @@ export function RunningSessionRow(props: {
           </span>
         )}
       </span>
-      <span className="text-muted-foreground text-xs">{session.agent}</span>
+      <span data-testid="discovery-live-meta" className="shrink-0 text-muted-foreground text-xs">
+        {session.agent}
+        {session.updatedAt ? ` · ${timeAgo(session.updatedAt)}` : ''}
+      </span>
       <span
         className="max-w-48 truncate font-mono text-muted-foreground text-xs"
         title={session.cwd}

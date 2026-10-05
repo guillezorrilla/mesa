@@ -94,7 +94,7 @@ export function DiscoveryDialog(props: {
     <Dialog open onOpenChange={(open) => !open && !running && props.onCancel()}>
       <DialogContent
         data-testid="discovery-dialog"
-        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl"
+        className="flex max-h-[calc(100vh-2rem)] flex-col sm:max-w-3xl"
         onCloseAutoFocus={
           props.returnFocus
             ? (event) => {
@@ -118,7 +118,10 @@ export function DiscoveryDialog(props: {
         {!progress && !data && found.busy && <Muted>Looking for sessions...</Muted>}
         {!progress && data && (
           <>
-            <div className="max-h-80 space-y-2 overflow-y-auto">
+            <div
+              data-testid="discovery-folders"
+              className="min-h-24 flex-1 space-y-2 overflow-y-auto"
+            >
               {data.projects.length === 0 && (
                 <Muted>No project folders in the last {counted(data.days, 'day')}.</Muted>
               )}
@@ -145,7 +148,10 @@ export function DiscoveryDialog(props: {
               <div className="space-y-1">
                 <Muted size="xs">Running now: {ADOPTION_WARNING}</Muted>
                 <Muted size="xs">A tick reopens every running session in that folder.</Muted>
-                <ul data-testid="discovery-live" className="space-y-1 text-sm">
+                <ul
+                  data-testid="discovery-live"
+                  className="max-h-40 space-y-1 overflow-y-auto text-sm"
+                >
                   {data.live.map((session) => {
                     const folder = data.projects.find((p) => p.path === session.project);
                     const adoptedAs = adopted.get(session.id);

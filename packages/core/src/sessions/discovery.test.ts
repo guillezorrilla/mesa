@@ -159,8 +159,23 @@ test('discover groups recent native conversations and live sessions by project f
     },
   ]);
   expect(found.live).toEqual([
-    { agent: 'claude', id: ids.live, cwd: dir, project: dir, name: 'Live lantern', status: 'busy' },
-    { agent: 'codex', id: ids.codexLive, cwd: tide, project: tide },
+    {
+      agent: 'claude',
+      id: ids.live,
+      cwd: dir,
+      project: dir,
+      name: 'Live lantern',
+      prompt: 'Chart the tide',
+      updatedAt: '2026-09-24T11:59:00.000Z',
+      status: 'busy',
+    },
+    {
+      agent: 'codex',
+      id: ids.codexLive,
+      cwd: tide,
+      project: tide,
+      updatedAt: '2026-09-24T11:55:00.000Z',
+    },
   ]);
   expect(found.projects).toEqual([
     {
