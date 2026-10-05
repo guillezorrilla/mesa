@@ -36,3 +36,7 @@ The pointer stays small and is generated from the session record at startup, so 
 ## Amendment 2026-10-03: per-turn delivery (#459)
 
 The #459 probe found per-turn context delivery and consumption for all three providers: Claude Code's and Codex's `UserPromptSubmit` `additionalContext`, and Antigravity's `PreInvocation` ephemeral message, which fires before every model call and must be re-sent on each. Codex runs `SessionStart` at the first prompt rather than at launch; Antigravity has no session-start event. A hook past its native timeout blocks the turn for that whole timeout and is then dropped. ADR-0019 uses these events for decision advice; this pointer is unchanged. Evidence: `docs/spikes/decision-assistance-feasibility.md`.
+
+## Amendment 2026-10-05: vault reads on demand (#558)
+
+The pointer, the `project_context` tool description and the `mesa-vault` skill now describe the vault read tools as on demand, used when earlier decisions, notes or goals bear on the task, instead of `project_context` first. Evidence: the #555 audit (`docs/spikes/learning-loop-audit.md`) found 1 of 16 Mesa sessions in 30 days called any `mesa-vault` tool (2 calls in all, none a save), and P11 (`docs/spikes/decision-assistance-feasibility.md`) measured 0 of 12 pull calls. The tools stay mounted, and the pointer still carries no vault content; injecting it would need its own ADR and a pilot.

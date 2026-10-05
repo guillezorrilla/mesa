@@ -66,7 +66,11 @@ test('SessionStart gives only the owning native session a bounded Mesa pointer',
   );
   expect(start.stdout).toContain(`mesa show ${opened.id} --json`);
   expect(start.stdout).toContain('invoked here as /skill-name');
-  expect(start.stdout).toContain("call mesa-vault's project_context first");
+  expect(start.stdout).toContain(
+    'project_context, read_note, search_vault and session_goals on demand',
+  );
+  // On demand: no first step to promise (#558).
+  expect(start.stdout).not.toMatch(/\bfirst\b/);
   expect(start.stdout).toContain('mesa vault context lantern-cove --json');
   expect(start.stdout).not.toContain('unavailable until P5');
   cli.stdin = JSON.stringify({ session_id: opened.agentSessionId, hook_event_name: 'Stop' });

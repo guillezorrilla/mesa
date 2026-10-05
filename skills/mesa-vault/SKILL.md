@@ -9,7 +9,7 @@ The profile's Obsidian vault holds what the person and earlier sessions know abo
 
 ## Read
 
-1. **Overview first.** Call `project_context` once, before other work on the project. It returns the project hub's excerpt, the index lines naming the project, recent notes and decisions, and earlier session goals, with `more` when there is more.
+1. **Overview when it bears on the task.** Call `project_context` when earlier decisions, notes or goals bear on the task, not before all other work. It returns the project hub's excerpt, the index lines naming the project, recent notes and decisions, and earlier session goals, with `more` when there is more.
 2. **The rest on demand.** `read_note` for a path the overview or a link names, `search_vault` for a word or topic, `session_goals` for what earlier sessions set out to do. Done when you have read the notes your task touches, and no more.
 
 | Tool | Command |

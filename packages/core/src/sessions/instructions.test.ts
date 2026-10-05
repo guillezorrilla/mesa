@@ -21,13 +21,14 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   (agent) => {
     const pointer = mesaPointer(record({ agent }), PROFILE, CWD);
     expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
-    expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
     expect(pointer).toContain(`Mesa session abcdefgh; profile ${PROFILE}; project ${PROJECT};`);
     expect(pointer).toContain(
-      "Vault: call mesa-vault's project_context first; read_note, search_vault, session_goals on demand. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
+      "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when earlier decisions, notes or goals bear on the task. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
     );
     expect(pointer).toContain(`Without the tools: mesa vault context ${PROJECT} --json`);
     expect(pointer).not.toContain('unavailable until P5');
+    // The vault tools are on demand: no pointer promises a first step agents skip (#555).
+    expect(pointer).not.toContain('first');
   },
 );
 
@@ -59,6 +60,8 @@ test('a session across projects names them in one line, eliding past the 1,000-b
     const pointer = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD);
     expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
     expect(pointer).toMatch(/^Also in projects (.+, )?and \d more\.$/m);
+    expect(pointer).toContain('session_goals on demand');
+    expect(pointer).not.toContain('first');
   }
   expect(mesaPointer(record({}), PROFILE, CWD)).not.toContain('Also in');
 });
