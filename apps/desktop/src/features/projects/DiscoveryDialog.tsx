@@ -148,7 +148,10 @@ export function DiscoveryDialog(props: {
               <div className="space-y-1">
                 <Muted size="xs">Running now: {ADOPTION_WARNING}</Muted>
                 <Muted size="xs">A tick reopens every running session in that folder.</Muted>
-                <ul data-testid="discovery-live" className="space-y-1 text-sm">
+                <ul
+                  data-testid="discovery-live"
+                  className="max-h-40 space-y-1 overflow-y-auto text-sm"
+                >
                   {data.live.map((session) => {
                     const folder = data.projects.find((p) => p.path === session.project);
                     const adoptedAs = adopted.get(session.id);

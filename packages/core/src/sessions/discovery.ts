@@ -105,6 +105,11 @@ type Scan = {
   held: ReadonlySet<string>;
   folderOf: (cwd: string) => string | null;
   named: (c: { agent: 'claude' | 'codex'; id: string }) => { name?: string };
+  /** Its first prompt and last write (native-prompt.ts), through the same transcript. */
+  prompted: (c: { agent: 'claude' | 'codex'; id: string }) => {
+    prompt?: string;
+    updatedAt?: string;
+  };
 };
 
 function scanOf(deps: DiscoveryDeps, files: ReadonlyMap<string, string> = new Map()): Scan {
@@ -116,6 +121,7 @@ function scanOf(deps: DiscoveryDeps, files: ReadonlyMap<string, string> = new Ma
       return placed.get(cwd) ?? null;
     },
     named: (c) => withName(deps, { ...c, file: files.get(c.id) }),
+    prompted: (c) => nativePrompt(deps, { ...c, file: files.get(c.id) }),
   };
 }
 
@@ -139,7 +145,7 @@ export async function nativeLive(
         cwd: p.cwd,
         project,
         ...scan.named({ agent: p.agent, id: p.agentSessionId }),
-        ...nativePrompt(deps, { agent: p.agent, id: p.agentSessionId }),
+        ...scan.prompted({ agent: p.agent, id: p.agentSessionId }),
         ...(p.status ? { status: p.status } : {}),
       },
     ];

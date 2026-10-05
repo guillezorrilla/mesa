@@ -71,13 +71,15 @@ export function threadForId(deps: { env: Env; home: string }, id: string): Codex
 }
 
 /**
- * Native interactive Codex conversations on disk, including older rollouts; with `since` (epoch
- * ms), only those last written then or later, the others not opened.
+ * Native interactive Codex conversations on disk, each with its rollout `file`, including older
+ * rollouts; with `since` (epoch ms), only those last written then or later, the others not opened.
  */
 export function codexHistory(deps: { env: Env; home: string }, since = Number.NEGATIVE_INFINITY) {
   return rollouts(deps, since).flatMap(({ file, mtime }) => {
     const thread = threadOf(file);
-    return thread ? [{ agent: 'codex' as const, ...thread, updatedAt: mtime.toISOString() }] : [];
+    return thread
+      ? [{ agent: 'codex' as const, ...thread, file, updatedAt: mtime.toISOString() }]
+      : [];
   });
 }
 
