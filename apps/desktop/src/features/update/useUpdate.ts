@@ -39,7 +39,8 @@ export function describeUpdate(status: UpdateStatus | undefined): string {
     case 'ready':
       return `v${status.version} is ready to install.`;
     case 'up-to-date':
-      return 'Mesa is up to date.';
+      // A withdrawn version is not up to date, even with nothing newer published yet.
+      return status.revoked ? 'No newer version is published yet.' : 'Mesa is up to date.';
     case 'unsupported':
       return `v${status.version} is available. ${status.message}`;
     case 'failed':
