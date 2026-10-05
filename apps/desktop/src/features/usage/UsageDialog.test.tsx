@@ -74,14 +74,12 @@ test('the dialog shows period cards, the daily chart by model, agents, and days 
 });
 
 test('agent rows take their names from core, Antigravity included', async () => {
-  // Core reads no Antigravity usage yet; the cast stands in for the day it does.
-  const agent = 'antigravity' as never;
-  const row = { agent, model: 'gemini-invented', totals: opus };
+  const row = { agent: 'antigravity' as const, model: 'gemini-invented', totals: opus };
   const report: UsageReport = {
     ...used,
     daily: [...used.daily.slice(0, -1), day('2026-09-26', [row])],
     breakdown: [row],
-    agents: [{ agent, totals: opus }],
+    agents: [{ agent: 'antigravity', totals: opus }],
   };
   const { bridge } = fakeBridge({ usage: () => envelope(report) });
   await renderWithMesa(<UsageDialog open onOpenChange={() => {}} onSession={() => {}} />, bridge);
