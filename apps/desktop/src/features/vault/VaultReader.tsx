@@ -6,7 +6,7 @@ import { Muted } from '@/components/Muted';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useOptional, useRun } from '@/lib/useCommand';
 import { useVaultRefresh } from './useVaultLook';
 
 type Select = (path: string) => void;
@@ -251,8 +251,9 @@ function Preview({ read, onSelect }: { read: VaultRead; onSelect: Select }) {
  */
 export function VaultReader(props: { path: string; looks: number; onSelect: Select }) {
   const { path, looks, onSelect } = props;
-  const { data: read, error, busy, refresh } = useCommand('vault.read', { path });
+  const { data: read, error, busy, refresh } = useOptional('vault.read', { path });
   useVaultRefresh(looks, busy, refresh);
+  if (error?.code === 'not_found') return <Muted role="status">Nothing at {path} yet.</Muted>;
   if (error)
     return (
       <Muted role="status">

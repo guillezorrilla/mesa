@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -34,6 +34,8 @@ test('vault health prints the same advisory findings in JSON and text without re
 
 test('vault health explains a missing vault and reports a laid-out empty vault as clean', async () => {
   await cli.mesa('init', '--vault', 'vault');
+  // init lays the vault out; a vault folder that is gone is not.
+  rmSync(join(cli.home, 'vault'), { recursive: true });
   const missing = await cli.mesa('vault', 'health', '--json');
   expect(missing.json).toMatchObject({ ok: false, error: { code: 'not_found' } });
   await cli.mesa('vault', 'init');

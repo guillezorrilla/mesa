@@ -23,7 +23,7 @@ test('the Help screen lists every command from mesa help --agent, with its flags
     {
       name: 'init',
       usage: 'mesa init --vault <string>',
-      description: 'Create the profile directory and its config.yaml',
+      description: 'Create the profile directory and its config.yaml, and lay out its vault',
       args: [],
       flags: [{ name: 'vault', type: 'string', required: true, description: 'The vault path' }],
       example: 'mesa init --vault ~/vault',

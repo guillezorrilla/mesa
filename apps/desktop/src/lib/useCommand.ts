@@ -74,11 +74,30 @@ export type CommandState<T> = {
 };
 
 /**
- * Runs a command on mount, again when its arguments change, and on `refresh()`. Until it answers,
- * the data is the last good reply to the same command and arguments, even from before a remount
+ * Runs a command on mount, again when its arguments change, and on `refresh()`; a failure toasts.
+ * Until it answers, the data is the last good reply to the same command and arguments, even from before a remount
  * (repliesOf), so a screen shown again never starts blank; superseded replies cannot replace it.
  */
 export function useCommand<K extends CommandName>(
+  name: K,
+  ...args: CallArgs<K>
+): CommandState<DataOf<K>> {
+  return useRead(true, name, ...args);
+}
+
+/**
+ * useCommand for a read whose `not_found` is a state the screen shows from `error` (today's note
+ * not written yet, a map not made), so only another failure toasts.
+ */
+export function useOptional<K extends CommandName>(
+  name: K,
+  ...args: CallArgs<K>
+): CommandState<DataOf<K>> {
+  return useRead(false, name, ...args);
+}
+
+function useRead<K extends CommandName>(
+  toastMissing: boolean,
   name: K,
   ...args: CallArgs<K>
 ): CommandState<DataOf<K>> {
@@ -118,9 +137,9 @@ export function useCommand<K extends CommandName>(
       setState({ key, data: result.data, busy: false });
     } else {
       setState((last) => ({ ...last, error: result.error, busy: false }));
-      toast(result.error.message);
+      if (toastMissing || result.error.code !== 'not_found') toast(result.error.message);
     }
-  }, [call, toast, cached, name, key]);
+  }, [call, toast, cached, name, key, toastMissing]);
 
   useEffect(() => {
     void refresh();
