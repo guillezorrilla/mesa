@@ -7,7 +7,8 @@ import { joinWarnings } from '../receipts/recorder.js';
 import { type AdoptDeps, adoptSession, nativeConversation } from './adopt.js';
 import {
   type DiscoveryDeps,
-  discoverNative,
+  type NativeLive,
+  nativeInFolders,
   nativeLive,
   readOnce,
   runningIds,
@@ -42,19 +43,23 @@ export type DiscoveryAdoption = {
   warning?: string;
 };
 
-/** A conversation or running session to adopt, as discovery found it. */
-type Found = { agent: 'claude' | 'codex'; id: string; cwd: string; name?: string };
+/**
+ * A conversation or running session to adopt, as discovery found it: `name` null when its name
+ * was read and it has none, absent when it was not read.
+ */
+type Found = { agent: 'claude' | 'codex'; id: string; cwd: string; name?: string | null };
 type Failed = DiscoveryAdoption['failed'][number];
 
 /**
  * For each folder of `paths`, in order: registers it unless registered (a minimal mesa.yaml when
  * it has none), then adopts, record-only, its conversations: those of `ids` (given for one
- * folder), each looked up on its own, a running one only reopened with `live`, else every conversation of the last `days` that one discoverNative
- * scan, shared by all the folders, places in it. Each is adopted under its native name and in the
- * registered project its cwd is in (`mesa adopt`'s), else the folder's; with `live`, the folder's
- * running sessions too, reopened in Mesa windows. One failing adoption, or an id that is no native
- * conversation in the folder, is reported in `failed` and the rest go on; held conversations are
- * not found again, so a second run adopts nothing new. A path that is not a folder refuses all.
+ * folder), each looked up on its own, a running one only reopened with `live`, else every
+ * conversation of the last `days` that one scan (nativeInFolders), shared by all the folders,
+ * places in it. Each is adopted under its native name and in the registered project its cwd is in
+ * (`mesa adopt`'s), else the folder's; with `live`, the folder's running sessions too, reopened in
+ * Mesa windows. One failing adoption, or an id that is no native conversation in the folder, is
+ * reported in `failed` and the rest go on; held conversations are not found again, so a second run
+ * adopts nothing new. A path that is not a folder refuses all.
  */
 export async function adoptDiscovered(
   deps: AdoptDeps & DiscoveryDeps,
@@ -67,19 +72,17 @@ export async function adoptDiscovered(
     return realpathSync(path);
   });
   const batch = readOnce(deps);
-  const scan = input.ids ? undefined : await discoverNative(batch, { days: input.days, folders });
+  const scan = input.ids ? undefined : await nativeInFolders(batch, { days: input.days, folders });
   const running = input.ids ? await runningIds(batch) : new Set<string>();
   const done: DiscoveryAdoption[] = [];
   for (const path of folders) {
     const failed: Failed[] = [];
     const live = !input.live
       ? []
-      : scan
-        ? scan.live.filter((s) => s.project === path)
-        : await nativeLive(batch, [path]);
+      : read(scan ? scan.live.filter((s) => s.project === path) : await nativeLive(batch, [path]));
     const reopened = new Set(live.map((s) => s.id));
     const conversations = scan
-      ? scan.conversations.filter((c) => c.project === path)
+      ? read(scan.conversations.filter((c) => c.project === path))
       : (input.ids ?? []).flatMap((id) => {
           // A running session is only reopened (`live`), never recorded as a past conversation.
           if (reopened.has(id)) return [];
@@ -94,6 +97,10 @@ export async function adoptDiscovered(
   }
   return done;
 }
+
+/** Rows discovery read names for: one with none has `name` null, so it is not read again. */
+const read = (rows: readonly Pick<NativeLive, 'agent' | 'id' | 'cwd' | 'name'>[]): Found[] =>
+  rows.map(({ agent, id, cwd, name }) => ({ agent, id, cwd, name: name ?? null }));
 
 /** Native conversation `id`, read on its own, when it ran in project folder `path`. */
 function conversationIn(deps: DiscoveryDeps, path: string, id: string): Found | Failed {
@@ -116,17 +123,20 @@ async function adoptInto(
   path: string,
   found: { conversations: readonly Found[]; live: readonly Found[]; failed: Failed[] },
 ): Promise<DiscoveryAdoption> {
-  const known = readRegistry(deps.profile.paths.registry).find((e) => e.path === path);
+  const before = readRegistry(deps.profile.paths.registry);
+  const known = before.find((e) => e.path === path);
   const project =
     known?.name ?? registerProject(deps.profile, { dir: path, create: true }).project.name;
-  const registry = readRegistry(deps.profile.paths.registry);
+  // Read again only when this run registered the folder.
+  const registry = known ? before : readRegistry(deps.profile.paths.registry);
   const { failed } = found;
   const warnings: string[] = [];
   const adopt = async (rows: readonly Found[], resume: boolean) => {
     const done: DiscoveredAdoption[] = [];
     for (const { agent, id, cwd, name } of rows) {
       try {
-        // Where it ran and its native name, as discovery read them, not read again.
+        // Where it ran and its native name, as discovery read them, not read again. adoptSession
+        // refuses a project its cwd is not in, so the cwd's comes first.
         const { record, warning } = await adoptSession(deps, {
           agentSessionId: id,
           project: projectOf(cwd, registry) ?? project,
