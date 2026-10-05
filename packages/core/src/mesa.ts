@@ -15,6 +15,7 @@ import { inboxCheck, runDoctor } from './doctor.js';
 import { filesService } from './files/service.js';
 import { prEventsService } from './git/pr-event-delivery.js';
 import { gitService } from './git/service.js';
+import { installRequirement } from './install.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
@@ -93,6 +94,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
+    /** Installs a missing tmux or agent with Homebrew (`mesa doctor install`). */
+    install: (name: string) => installRequirement(deps.run, name),
     doctor: async () => {
       const report = await runDoctor({
         run: deps.run,

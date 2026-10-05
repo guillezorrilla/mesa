@@ -108,7 +108,7 @@ export function SetupScreen(props: {
               {doctor.busy ? 'Checking...' : 'Recheck'}
             </Button>
           </div>
-          <DoctorChecksPanel report={report} />
+          <DoctorChecksPanel report={report} onInstalled={doctor.refresh} />
         </div>
       )}
       <Card>

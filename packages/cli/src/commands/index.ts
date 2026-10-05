@@ -32,7 +32,7 @@ import { decide } from './decide.js';
 import { dependency } from './dependency.js';
 import { diagnostics } from './diagnostics.js';
 import { discover, discoverAdopt } from './discover.js';
-import { doctor } from './doctor.js';
+import { doctor, doctorInstall } from './doctor.js';
 import {
   filesCreate,
   filesDelete,
@@ -198,6 +198,7 @@ export const COMMANDS: Command[] = [
   discover,
   discoverAdopt,
   doctor,
+  doctorInstall,
   filesCreate,
   filesDelete,
   filesLink,

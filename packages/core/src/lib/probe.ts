@@ -12,6 +12,10 @@ export type Binary = {
   install: string;
 };
 
+/** The binary's Homebrew command, when it installs with one (Mesa can run it). */
+export const homebrewInstall = (b: Binary) =>
+  b.install.startsWith('brew ') ? b.install : undefined;
+
 /** What a probe found: its version, or `hint`, why it failed and how to install it. */
 export type Probe = { name: string; ok: boolean; version?: string; hint: string };
 

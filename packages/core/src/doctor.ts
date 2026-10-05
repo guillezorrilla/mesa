@@ -7,7 +7,13 @@ import type { CodexHooksStatus } from './agents/codex/hooks.js';
 import type { TmuxHookStatus } from './agents/hooks-service.js';
 import { AGENT_NAMES } from './agents/names.js';
 import type { BackendName } from './decisions/types.js';
-import { type Binary, CHECK_TIMEOUT_MS, firstVersion, probe } from './lib/probe.js';
+import {
+  type Binary,
+  CHECK_TIMEOUT_MS,
+  firstVersion,
+  homebrewInstall,
+  probe,
+} from './lib/probe.js';
 import type { Runner } from './lib/process.js';
 import { toFail } from './lib/result.js';
 import { TMUX_INSTALL } from './sessions/tmux/backend.js';
@@ -23,6 +29,8 @@ export type Check = {
   hint: string;
   path?: string;
   registered?: boolean;
+  /** On a missing binary Mesa can install: its Homebrew command (`mesa doctor install`). */
+  install?: string;
 };
 
 /** Decided here once: `healthy` when tmux and at least one agent answered; `summary` says why not. */
@@ -32,7 +40,7 @@ export type DoctorReport = { healthy: boolean; summary: string; checks: Check[] 
 type Finding = Omit<Check, 'status'>;
 
 // tmux is required on its own; the agents are required as a group: at least one of them.
-const BINARIES: Binary[] = [
+export const BINARIES: Binary[] = [
   { name: 'tmux', args: ['-V'], role: 'required', install: TMUX_INSTALL },
   ...AGENT_NAMES.map((name) => agentBinary(name)),
 ];
@@ -242,7 +250,13 @@ export async function runDoctor(deps: {
   vault?: () => VaultStatus;
 }): Promise<DoctorReport> {
   const [binaries, obsidian, hooks] = await Promise.all([
-    Promise.all(BINARIES.map(async (b) => ({ role: b.role, check: await probe(deps.run, b) }))),
+    Promise.all(
+      BINARIES.map(async (b) => ({
+        role: b.role,
+        install: homebrewInstall(b),
+        check: await probe(deps.run, b),
+      })),
+    ),
     obsidianCheck(deps.run, deps.obsidian),
     deps.hooks?.tmux(),
   ]);
@@ -250,7 +264,11 @@ export async function runDoctor(deps: {
   const healthy = anAgent && binaries.every((b) => b.role !== 'required' || b.check.ok);
   const blocking = (b: (typeof binaries)[number]) => b.role === 'required' || !anAgent;
   const checks: Check[] = [
-    ...binaries.map((b) => ({ ...b.check, status: statusOf(b.check.ok, blocking(b)) })),
+    ...binaries.map((b) => ({
+      ...b.check,
+      status: statusOf(b.check.ok, blocking(b)),
+      ...(!b.check.ok && b.install ? { install: b.install } : {}),
+    })),
     ...[
       obsidian,
       profileDirCheck(deps.profileDir),

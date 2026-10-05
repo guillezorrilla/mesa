@@ -61,7 +61,7 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
           {busy ? 'Checking...' : 'Recheck'}
         </Button>
       </PageHeader>
-      <DoctorChecksPanel report={data} />
+      <DoctorChecksPanel report={data} onInstalled={refresh} />
       {agents && (
         <Card>
           <CardHeader>
