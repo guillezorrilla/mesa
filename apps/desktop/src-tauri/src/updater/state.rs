@@ -163,10 +163,17 @@ impl<T> State<T> {
         }
     }
 
-    /// A failed check or download.
+    /// A failed check or download. A verified download already here is still newer than the
+    /// running version, so it stays offered.
     fn fail(&mut self, message: String) {
         self.status.message = Some(message);
-        self.status.phase = "failed";
+        match &self.ready {
+            Some(ready) => {
+                self.status.phase = "ready";
+                self.status.version = Some(ready.version.clone());
+            }
+            None => self.status.phase = "failed",
+        }
     }
 
     /// Later: hides the update until a newer one, a person's check, or a relaunch.
@@ -351,5 +358,21 @@ mod tests {
         state.downloaded(ready("0.1.0-beta.5"));
         assert_eq!(state.status.phase, "ready");
         assert_eq!(state.status.message, None);
+    }
+
+    #[test]
+    fn a_failed_check_or_download_keeps_a_verified_update_offered() {
+        let mut state = holding_beta5();
+        state.begin("beta", Trigger::Person, at(11));
+        state.checked("beta".into(), Err("HTTP 503".into()), None, at(11));
+        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
+        // A newer version that fails to download leaves the older verified one to install.
+        state.begin("beta", Trigger::Person, at(22));
+        state.checked("beta".into(), Ok(newer("0.1.0-beta.6")), None, at(22));
+        state.downloaded(Err("refused".into()));
+        assert_eq!(state.status.phase, "ready");
+        assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
+        assert_eq!(state.take_ready().map(|r| r.version).as_deref(), Some("0.1.0-beta.5"));
     }
 }
