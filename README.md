@@ -38,6 +38,7 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 - **Run many sessions at once.** Start sessions across all your projects, each in its own Git worktree or branch if you want, and see them all on one Board. Mesa tells you which ones are working, finished, or waiting for an answer.
 - **Keep context when you switch tools.** Hand a session's work to another agent with its goal and a handoff note (`mesa handoff <id> --agent codex`). Every agent reads and writes the same memory, so the next session, in any tool, starts where the last one stopped.
 - **Own your memory.** What your agents learn lives in an Obsidian vault of plain Markdown on your Mac: project notes, decisions, session summaries. No vendor's cloud holds it, and it outlives any tool.
+- **Proven before it ships.** A feature meant to make agents work better, like carrying what one session learned into the next, ships only if it beats plain Claude Code or Codex on the same tasks in a paired test: more tasks solved, at no more than 25% extra cost or time per solved task. Anything that cannot clear that bar stays out, so Mesa never slows your agents down for nothing. It matters because knowledge that sits in notes is not enough: in an [earlier pilot](docs/spikes/decision-assistance-feasibility.md#paired-pilot-does-advice-make-a-coding-session-smarter-or-faster) on six invented tasks, agents never opened the note holding a project's convention (0 of 12 runs passed), and with the right note handed to them at start, 10 of 12 passed.
 
 ## Features
 
