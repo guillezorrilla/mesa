@@ -1,4 +1,5 @@
 import { realpathSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { MesaError } from '../lib/result.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
@@ -23,12 +24,16 @@ export const worktreeHolder = (store: SessionStore, path: string) =>
     .filter((r) => heldWorktrees(r).some((held) => held.worktree.path === path))
     .at(-1);
 
-/** `path` as the file system resolves it; as it is when it is gone (a stale worktree). */
-export const real = (path: string) => {
+/**
+ * `path` as the file system resolves it; when it is gone (a stale worktree), its nearest folder
+ * that is there resolved, with the rest as written.
+ */
+export const real = (path: string): string => {
   try {
     return realpathSync.native(path);
   } catch {
-    return path;
+    const parent = dirname(path);
+    return parent === path ? path : join(real(parent), basename(path));
   }
 };
 

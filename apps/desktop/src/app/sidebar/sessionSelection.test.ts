@@ -91,6 +91,20 @@ test('Shift-click with no anchor ranges from the shown session', () => {
   ]);
 });
 
+test('Shift+Arrow with no anchor and no shown card ranges from the card it stepped from', () => {
+  // The Board shows no session, or the shown one is in a folded project.
+  expect(after(undefined, { ...click('cove0002', { shift: true }), from: 'cove0001' })).toEqual([
+    'cove0001',
+    'cove0002',
+  ]);
+  // An anchor, or a shown card, still comes first.
+  expect(after('tide0002', { ...click('cove0002', { shift: true }), from: 'cove0001' })).toEqual([
+    'cove0002',
+    'tide0001',
+    'tide0002',
+  ]);
+});
+
 test('a Shift range skips the cards of a folded project', () => {
   const folded = sidebarOrder(groups, ['tide']);
   const selection = nextSelection(

@@ -102,6 +102,13 @@ const CANNOT_TICK: NativeDiscovery = {
       cwd: '/src/harbor',
       project: '/src/harbor',
     },
+    // A project folder the scan did not list.
+    {
+      agent: 'claude',
+      id: '2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e',
+      cwd: '/src/kelp',
+      project: '/src/kelp',
+    },
   ],
 };
 
@@ -330,6 +337,7 @@ test('a running session that cannot be ticked says why', async () => {
     'in a registered project',
     'no project folder',
     'its folder cannot be added',
+    'its folder cannot be added',
   ]);
   const adopt = byTestId('discovery-live-adopt');
   expect(adopt.map((b) => b.getAttribute('aria-label'))).toEqual(['Adopt Lamp wicks']);
@@ -364,6 +372,7 @@ test('Adopt adopts and reopens just that running session', async () => {
   expect(reasons(byTestId)).toEqual([
     'adopted as c0ffee12',
     'no project folder',
+    'its folder cannot be added',
     'its folder cannot be added',
   ]);
   expect(byTestId('discovery-live-adopt')).toHaveLength(0);

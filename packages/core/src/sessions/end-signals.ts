@@ -47,7 +47,7 @@ export function endSignals(
       try {
         const recorded = await record(
           {
-            // A start with dangerous launch flags is kept (dangerousLaunch).
+            // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
             kind: 'guardrail',
             type: 'session',
             summary: (r) => `Started queued session ${queued.id} on ${r?.record.project}`,

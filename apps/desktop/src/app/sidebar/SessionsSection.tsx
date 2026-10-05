@@ -9,7 +9,7 @@ import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
 import { StartingSessions } from './StartingSessions';
 import type { SelectionInput } from './sessionSelection';
-import { type SidebarGroups, sidebarOrder } from './sidebarGroups';
+import type { SidebarGroups } from './sidebarGroups';
 
 /**
  * The Sessions tab: active sessions by project, then General, Other, and Recoverable, as one
@@ -17,6 +17,8 @@ import { type SidebarGroups, sidebarOrder } from './sidebarGroups';
  */
 export function SessionsSection(props: {
   groups: SidebarGroups;
+  /** The cards' rendered order (sidebarOrder), which the arrow keys step through. */
+  order: readonly string[];
   view: WorkspaceView;
   onView: (view: WorkspaceView) => void;
   /** Projects whose session cards are folded away. */
@@ -36,15 +38,14 @@ export function SessionsSection(props: {
 }) {
   const { groups, view, onView } = props;
   const { visible, active, stranded, general, other, inProject } = groups;
-  const { chosen, onSelection } = props;
+  const { chosen, onSelection, order } = props;
   const list = useRef<HTMLDivElement>(null);
-  const order = sidebarOrder(groups, props.closedProjects);
   /** Focuses the card `by` places from `id`, Shift-clicking it with `shift`; none past either end. */
   const step = (id: string, by: number, shift: boolean) => {
     const next = order[order.indexOf(id) + by];
     if (!next) return;
     list.current?.querySelector<HTMLElement>(`[data-session-id="${next}"]`)?.focus();
-    if (shift) onSelection({ kind: 'click', id: next, shift: true });
+    if (shift) onSelection({ kind: 'click', id: next, shift: true, from: id });
   };
   const card = (session: TreeRow) => {
     const count = chosen.includes(session.id) ? chosen.length : 1;

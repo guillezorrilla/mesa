@@ -44,10 +44,10 @@ export const discover = defineCommand({
 export const discoverAdopt = defineCommand({
   name: 'discover adopt',
   summary:
-    'Register project folders unless registered, and adopt their recent native conversations as resumable sessions under their own names, over one scan; exits 2 when any item failed',
+    'Register project folders unless registered, and adopt their recent native conversations as resumable sessions under their own names, over one scan; with several paths --json prints {items}, one per folder; exits 2 when any item failed',
   args: ['path', 'more...'],
   flags: {
-    days: daysFlag,
+    days: { ...daysFlag, description: `${daysFlag.description}; not with --ids` },
     live: {
       type: 'boolean',
       description: "Also adopt the folders' running sessions, reopening them in Mesa windows",
@@ -61,9 +61,11 @@ export const discoverAdopt = defineCommand({
   example:
     'mesa discover adopt ~/src/lantern-cove --ids 5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f --live',
   run: async ({ mesa, args, flags }) => {
-    const days = daysOf(flags.days);
     const ids = flags.ids?.split(',').filter(Boolean);
     if (ids && args.more.length > 0) throw new MesaError('usage', '--ids takes one path');
+    if (ids && flags.days !== undefined)
+      throw new MesaError('usage', '--ids adopts those conversations without a scan: drop --days');
+    const days = daysOf(flags.days);
     if (args.more.length > 0) {
       const recorded = await mesa.sessions.adoptDiscoveredEach({
         paths: [args.path, ...args.more],

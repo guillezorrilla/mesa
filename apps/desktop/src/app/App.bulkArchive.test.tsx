@@ -237,3 +237,14 @@ test('the keyboard ranges, toggles and archives a selection', async () => {
     'Archive 2 sessions?',
   );
 });
+
+test('Shift+ArrowDown from a focused card with no session shown selects both cards', async () => {
+  const { byTestId } = await setup();
+  // The Grid shows no one session.
+  await click(byTestId('nav-grid')[0]);
+  expect(document.querySelector('[data-testid="sidebar-session"][aria-current="page"]')).toBeNull();
+  card('aaaaaaaa')?.focus();
+  await press(card('aaaaaaaa'), 'ArrowDown', { shiftKey: true });
+  expect(document.activeElement).toBe(card('bbbbbbbb'));
+  expect(selected()).toEqual(['aaaaaaaa', 'bbbbbbbb']);
+});

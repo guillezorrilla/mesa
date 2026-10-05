@@ -243,4 +243,23 @@ test('discover adopt --ids adopts exactly those, exits 2 for one it cannot, and 
   const both = await cli.mesa('discover', 'adopt', tide, tide, '--ids', OTHER_ID, '--json');
   expect(both.code).toBe(2);
   expect(both.json).toMatchObject({ ok: false, error: { code: 'usage' } });
+  // --ids scans nothing, so a window of days means nothing with it.
+  const days = await cli.mesa(
+    'discover',
+    'adopt',
+    tide,
+    '--days',
+    '0',
+    '--ids',
+    OTHER_ID,
+    '--json',
+  );
+  expect(days.code).toBe(2);
+  expect(days.json).toMatchObject({
+    ok: false,
+    error: {
+      code: 'usage',
+      message: '--ids adopts those conversations without a scan: drop --days',
+    },
+  });
 });

@@ -19,7 +19,8 @@ export const rm = defineCommand({
     },
     'delete-branch': {
       type: 'boolean',
-      description: "Also delete its branch, and each additional project's",
+      description:
+        "Also delete its branch, and each additional project's; with --delete-worktree while its worktree is there",
     },
     descendants: {
       type: 'boolean',

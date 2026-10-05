@@ -57,10 +57,9 @@ export function launchFlags(
     return defaults.claude.skipPermissions && !mode ? ['--dangerously-skip-permissions'] : [];
   }
   if (agent === 'codex') {
-    const { approvalPolicy, sandbox: configured, bypass } = defaults.codex;
+    const { approvalPolicy, bypass } = defaults.codex;
     if (bypass) return ['--dangerously-bypass-approvals-and-sandbox'];
-    const sandbox =
-      dirs.length && configured !== 'danger-full-access' ? 'workspace-write' : configured;
+    const sandbox = codexSandbox(defaults.codex, dirs);
     return [
       ...(approvalPolicy ? [`--ask-for-approval=${approvalPolicy}`] : []),
       ...(sandbox ? [`--sandbox=${sandbox}`] : []),
@@ -79,9 +78,17 @@ export const dangerousFlags = (agent: Agent, defaults: LaunchDefaults, mode?: 'p
   launchFlags(agent, defaults, mode).filter((flag) => DANGEROUS.has(flag));
 
 /**
- * How a session of `agent` (a plain terminal's too) with extra folders `dirs` overrides the profile's configured sandbox
- * (launchFlags): a read-only Codex runs workspace-write, said in its start's warning and kept in
- * its receipt (receipts/policy.ts). Undefined when it does not.
+ * The sandbox a Codex session with extra folders `dirs` runs in: workspace-write unless
+ * danger-full-access is configured, else the configured one (ADR-0021).
+ */
+const codexSandbox = ({ sandbox }: LaunchDefaults['codex'], dirs: readonly string[]) =>
+  dirs.length && sandbox !== 'danger-full-access' ? 'workspace-write' : sandbox;
+
+/**
+ * How a session with extra folders `dirs` overrides the profile's configured sandbox (launchFlags):
+ * a read-only Codex runs workspace-write, said in its start's warning and kept in its receipt
+ * (receipts/policy.ts). It takes a record's agent; a terminal never overrides. Undefined when it
+ * does not.
  */
 export function sandboxOverride(
   agent: Agent | 'terminal',
@@ -89,11 +96,13 @@ export function sandboxOverride(
   dirs: readonly string[],
 ) {
   const { sandbox, bypass } = defaults.codex;
-  if (agent !== 'codex' || bypass || !dirs.length || sandbox !== 'read-only') return undefined;
+  if (agent !== 'codex' || bypass || sandbox !== 'read-only') return undefined;
+  if (codexSandbox(defaults.codex, dirs) === sandbox) return undefined;
   return {
     receipt: 'read-only to workspace-write',
     warning:
-      'Codex runs read-only in this profile; this session gets workspace-write so it can change the other projects',
+      'Codex runs read-only in this profile; this session gets workspace-write so it can change ' +
+      'the other projects',
   };
 }
 

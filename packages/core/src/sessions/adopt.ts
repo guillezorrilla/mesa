@@ -37,25 +37,26 @@ const adoptable = (p: AgentProcess): p is AgentProcess & { agent: (typeof ADOPTS
 /**
  * Records a native session Mesa did not start, found live (the listing) or on disk (its
  * transcript, unless the caller found it already: `ran`), as an adopted session of the project its
- * folder is in (else `project`), named `name`, else as its agent names it, and, unless `noResume`,
- * reopens its conversation in a Mesa window, in that folder. The warning is always the same: the
- * original terminal still holds the conversation.
+ * folder is in (else `project`), named `name`, else as its agent names it (unless the caller read
+ * that already: `name` null), and, unless `noResume`, reopens its conversation in a Mesa window, in
+ * that folder. The warning is always the same: the original terminal still holds the conversation.
  */
 export async function adoptSession(
   deps: AdoptDeps,
   input: {
     agentSessionId: string;
     project?: string;
-    name?: string;
+    /** Its name; null when the caller read its native name and it has none. */
+    name?: string | null;
     noResume?: boolean;
-    ran?: NativeConversation;
+    ran?: NativeOrigin;
   },
 ): Promise<{ record: SessionRecord; warning: string }> {
   const id = input.agentSessionId;
   if (!UUID.test(id)) {
     throw new MesaError('usage', `${id} is not a native session id (a lowercase UUID)`);
   }
-  const given = input.name === undefined ? undefined : sessionName(input.name);
+  const given = typeof input.name === 'string' ? sessionName(input.name) : undefined;
   const held = agentSessionHolder(deps.store, id);
   if (held) throw new MesaError('usage', `Mesa has ${id} already, as session ${held.id}`);
   if (deps.elsewhere().has(id)) {
@@ -78,8 +79,13 @@ export async function adoptSession(
     throw new MesaError('not_found', `no ${agents} session ${id}, live or in ${dirs}`);
   }
   const { agent, cwd } = ran;
-  // The name given, else the one the agent shows (native-name.ts), else none.
-  const named = given === undefined ? withName(deps, { agent, id }) : { name: given };
+  // The name given, else the one the agent shows (native-name.ts) unless read already, else none.
+  const named =
+    given !== undefined
+      ? { name: given }
+      : input.name === null
+        ? {}
+        : withName(deps, { agent, id });
   const found = projectOf(cwd, readRegistry(deps.profile.paths.registry));
   if (found && input.project !== undefined && input.project !== found) {
     throw new MesaError(
@@ -112,7 +118,7 @@ export async function adoptSession(
 }
 
 /** Where a native conversation ran: its agent and folder. */
-export type NativeConversation = { agent: (typeof ADOPTS)[number]; cwd: string };
+export type NativeOrigin = { agent: (typeof ADOPTS)[number]; cwd: string };
 
 /**
  * The agent whose transcripts hold conversation `id`, and the folder it ran in; none for an id
@@ -121,7 +127,7 @@ export type NativeConversation = { agent: (typeof ADOPTS)[number]; cwd: string }
 export function nativeConversation(
   deps: { home: string; env: LaunchDeps['env'] },
   id: string,
-): NativeConversation | undefined {
+): NativeOrigin | undefined {
   if (!UUID.test(id)) return undefined;
   const cwd = transcriptCwd(claudeTranscripts(deps.home), id);
   if (cwd !== undefined) return { agent: 'claude', cwd };

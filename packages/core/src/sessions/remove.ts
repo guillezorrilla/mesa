@@ -42,8 +42,9 @@ export type Removed = {
  * their branch. A queued session is refused, to be cancelled first; a live one is refused unless
  * `force`, which closes its window first; a worktree another session holds or runs in, or git has
  * locked, is refused, and one with changes or submodules unless `force`; a branch checked out where
- * the session does not hold it is refused. Every refusal, for every repository, comes before
- * anything goes, so a refused rm leaves the session as it was, to retry.
+ * the session does not hold it is refused, as is one its own worktree has without
+ * `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a refused
+ * rm leaves the session as it was, to retry.
  */
 export async function removeSession(
   deps: {
@@ -147,8 +148,9 @@ export async function removeSession(
  * now (a resume took it over), one another unfinished session runs in, one git has locked (even
  * with `force`, as git needs it twice), and, without `force`, one with submodules or with changes
  * or untracked files, as git would refuse it only once others were gone; with `dropBranch`, a branch
- * checked out in a worktree the session does not hold. One `git worktree list` per repository; it
- * returns the held worktrees git lists, whose registration rm clears when the folder is gone.
+ * checked out in a worktree the session does not hold, or, without `dropWorktree`, in the one it
+ * holds. One `git worktree list` per repository; it returns the held worktrees git lists, whose
+ * registration rm clears when the folder is gone.
  */
 async function refuseRemoval(
   deps: { store: SessionStore; run: Runner },
@@ -170,6 +172,12 @@ async function refuseRemoval(
     const listed = (await gitWorktrees(deps.run, repo)).map((w) => ({ ...w, path: real(w.path) }));
     const own = listed.find((w) => w.path === at);
     if (own) registered.add(worktree.path);
+    // git deletes no branch a worktree has checked out, so the worktree has to go first.
+    if (dropBranch && !dropWorktree && own?.branch === worktree.branch)
+      throw new MesaError(
+        'usage',
+        `${project}'s branch ${worktree.branch} is checked out in the session's worktree at ${worktree.path}: pass --delete-worktree too`,
+      );
     const elsewhere = dropBranch
       ? listed.find((w) => w.branch === worktree.branch && w.path !== at)
       : undefined;
@@ -185,7 +193,7 @@ async function refuseRemoval(
         'usage',
         `${where} is session ${holder.id}'s now; remove that one instead`,
       );
-    const using = checkoutHolders(records, project, repo, worktree.path).find((r) => r.id !== id);
+    const using = checkoutHolders(records, project, repo, at).find((r) => r.id !== id);
     if (using)
       throw new MesaError('usage', `session ${using.id} still uses ${where}; stop it first`);
     if (own?.locked !== undefined)
