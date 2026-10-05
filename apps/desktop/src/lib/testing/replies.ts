@@ -11,7 +11,10 @@ export const deferred = () => {
   return { promise, resolve };
 };
 
-export const failure = (message: string) => ({ ok: false, error: { code: 'not_found', message } });
+export const failure = (message: string, code = 'not_found') => ({
+  ok: false,
+  error: { code, message },
+});
 
 /** The envelope `mesa send --json` or `mesa run --json` prints when the guardrail stops its text. */
 export const guardrailStopped = (verdict: 'ask' | 'block', reason: string) => ({

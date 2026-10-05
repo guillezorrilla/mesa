@@ -186,3 +186,20 @@ test.each([true, false])(
     expect(toastTexts(byTestId)).toEqual([]);
   },
 );
+
+test('a day with no note yet is an empty day, not an error banner', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-10-05T12:00:00Z'));
+  try {
+    const { bridge } = fakeBridge({
+      'vault list': () => envelope({ vault: '/h/vault', total: 0, items: [] }),
+      'vault read': (args) => failure(`no item at ${args.at(-1)} in /h/vault`),
+    });
+    const byTestId = await renderWithMesa(<DailyScreen onVaultItem={() => {}} />, bridge);
+    expect(document.body.textContent).toContain('Nothing at daily/2026-10-05.md yet.');
+    expect(toastTexts(byTestId)).toEqual([]);
+    expect(byTestId('daily-rebuild')[0]?.hasAttribute('disabled')).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});

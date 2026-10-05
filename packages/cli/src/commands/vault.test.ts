@@ -74,11 +74,19 @@ test('vault bases refuses an escaping destination before writing the other file'
 });
 
 test('vault init lays out the vault once; vault status finds what is missing', async () => {
-  await mesa('init', '--vault', 'vault');
-  // Routine setup leaves no receipt.
-  expect((await mesa('vault', 'init')).stdout).toBe(
-    `created log.md, AGENTS.md, index.md, raw, wiki, projects, receipts, daily in ${cli.home}/vault\n`,
-  );
+  // A new profile starts with its vault laid out; routine setup leaves no receipt.
+  const made = await mesa('init', '--vault', 'vault', '--json');
+  expect(made.json.data.vaultCreated).toEqual([
+    'log.md',
+    'AGENTS.md',
+    'index.md',
+    'raw',
+    'wiki',
+    'projects',
+    'receipts',
+    'daily',
+  ]);
+  expect((await mesa('vault', 'init')).stdout).toBe('vault already initialised\n');
   const log = readFileSync(join(cli.home, 'vault/log.md'), 'utf8').split('\n');
   expect(log[0]).toBe('- 2026-09-24T12:00:00.000Z vault initialised by mesa');
   expect(log[1]).toBe('');
@@ -111,8 +119,6 @@ test('vault init refuses a non-empty folder that is not a vault unless --force',
 
 test('log appends to log.md and to the daily note it creates', async () => {
   await mesa('init', '--vault', 'vault');
-  expect((await mesa('log', 'hello')).code).toBe(3); // the vault is not laid out yet
-  await mesa('vault', 'init');
   const out = await mesa('log', 'hello', '--json');
   expect(out.code).toBe(0);
   expect(out.json.data.entry).toBe('- 2026-09-24T12:00:00.000Z hello <!-- mesa:log -->');

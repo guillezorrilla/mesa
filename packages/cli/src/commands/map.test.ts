@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { newSession, shortIds, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
@@ -46,6 +46,8 @@ test('map CLI emits exact counts, --all and no-op text and reads the saved struc
 
 test('map refuses an uninitialized vault with the normal JSON error envelope', async () => {
   await cli.mesa('init', '--vault', 'vault');
+  // init lays the vault out; a vault folder that is gone is not.
+  rmSync(join(cli.home, 'vault'), { recursive: true });
   const out = await cli.mesa('map', '--json');
   expect(out.code).toBe(3);
   expect(out.json).toMatchObject({

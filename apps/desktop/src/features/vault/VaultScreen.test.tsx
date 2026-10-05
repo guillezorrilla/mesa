@@ -627,7 +627,8 @@ test('a selected note that stops reading explains the failure without retaining 
   let missing = false;
   const quick = readerBridge();
   const { bridge } = readerBridge({
-    'vault read': (args) => (missing ? failure('The note no longer reads') : quick.bridge(args)),
+    'vault read': (args) =>
+      missing ? failure('The note no longer reads', 'internal') : quick.bridge(args),
   });
   const byTestId = await renderWithMesa(<VaultScreen path="wiki/currents.md" />, bridge);
   expect(byTestId('vault-markdown')).toHaveLength(1);
@@ -635,6 +636,7 @@ test('a selected note that stops reading explains the failure without retaining 
   await focus();
   expect(byTestId('vault-markdown')).toEqual([]);
   expect(byTestId('vault-item')[0]?.textContent).toContain('The note no longer reads');
+  expect(toastTexts(byTestId)).toContain('The note no longer reads');
   missing = false;
   await focus();
   expect(byTestId('vault-markdown')).toHaveLength(1);

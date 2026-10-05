@@ -119,7 +119,12 @@ test('missing, empty and malformed saved maps are explicit and do not cause rege
       { 'vault read': () => envelope({ ...read, canvas: null }) },
       'Map unavailable: invalid Canvas geometry or references',
     ],
-    [{ 'vault read': () => failure('map was removed') }, 'Map unavailable: map was removed'],
+    // A map not made yet is a state; any other failure says why.
+    [{ 'vault read': () => failure('map was removed') }, 'No map yet. Use Update map.'],
+    [
+      { 'vault read': () => failure('map is unreadable', 'internal') },
+      'Map unavailable: map is unreadable',
+    ],
   ] as const) {
     const { bridge, calls } = fakeBridge({ ...answers, ...extra });
     await renderWithMesa(<MapScreen onSession={() => {}} onVaultItem={() => {}} />, bridge);

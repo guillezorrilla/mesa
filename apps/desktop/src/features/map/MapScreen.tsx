@@ -5,7 +5,7 @@ import { useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useVaultLook, useVaultRefresh, type VaultLook } from '@/features/vault/useVaultLook';
 import { VaultUnlisted } from '@/features/vault/VaultState';
-import { useCall, useCommand } from '@/lib/useCommand';
+import { useCall, useOptional } from '@/lib/useCommand';
 import { CanvasView } from './CanvasView';
 
 function SavedMap(props: {
@@ -13,8 +13,9 @@ function SavedMap(props: {
   onSession: (id: string) => void;
   onVaultItem: (path: string) => void;
 }) {
-  const read = useCommand('vault.read', { path: MAP_PATH });
+  const read = useOptional('vault.read', { path: MAP_PATH });
   useVaultRefresh(props.looks, read.busy, read.refresh);
+  if (read.error?.code === 'not_found') return <p role="status">No map yet. Use Update map.</p>;
   if (read.error) return <p role="status">Map unavailable: {read.error.message}</p>;
   if (!read.data) return <p role="status">Reading map...</p>;
   if (read.data.preview !== 'canvas' || !read.data.canvas) {

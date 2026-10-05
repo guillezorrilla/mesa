@@ -334,6 +334,8 @@ test('a save needs a laid-out vault', async () => {
   const home = tempDir();
   const mesa = createMesa('default', testDeps(home));
   mesa.init({ vault: 'vault' });
+  // init lays the vault out; an emptied one is not laid out.
+  rmSync(join(home, 'vault'), { recursive: true });
   mkdirSync(join(home, 'vault'), { recursive: true });
   expect((await rejected(mesa.vault.saveNote({ title: 'X', body: 'x' }))).code).toBe('not_found');
 });
