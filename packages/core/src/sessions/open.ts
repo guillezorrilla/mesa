@@ -8,7 +8,6 @@ import type { Caller } from './caller.js';
 import { GENERAL_PROJECT } from './general.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
 import {
-  createRecord,
   folderOf,
   type LaunchDeps,
   launchAgent,
@@ -16,6 +15,7 @@ import {
   launchSession,
   sessionWindowCommand,
 } from './launch.js';
+import { createRecord } from './new-record.js';
 import { isOver, type SessionRecord } from './record.js';
 import type { Worktree } from './worktree.js';
 
