@@ -7,6 +7,8 @@ use std::time::{Duration, SystemTime};
 use serde::Serialize;
 use serde_json::Value;
 
+/// How often the schedule reads the feeds, in wall-clock time, so a Mac that sleeps still checks.
+pub const EVERY: Duration = Duration::from_secs(4 * 60 * 60);
 /// No two checks of one channel come closer than this, unless the link asks or a person retries
 /// a failure.
 pub const FLOOR: Duration = Duration::from_secs(10 * 60);
@@ -83,6 +85,13 @@ fn since(now: SystemTime, at: SystemTime) -> Duration {
 }
 
 impl<T> State<T> {
+    /// Whether the schedule should check now: never checked, or the last check is `EVERY` old.
+    pub fn due(&self, now: SystemTime) -> bool {
+        self.last
+            .as_ref()
+            .is_none_or(|(at, _)| since(now, *at) >= EVERY)
+    }
+
     /// Starts a check of `channel`, and says whether it reaches the feeds. Inside the floor it
     /// keeps the last result, except for the link and a person retrying a failure.
     pub fn begin(&mut self, channel: &str, trigger: Trigger, now: SystemTime) -> bool {
@@ -348,7 +357,9 @@ mod tests {
         state.begin("beta", Trigger::Person, at(0));
         let feed = state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(0));
         assert!(feed.is_some());
-        state.downloaded(Err("The update to 0.1.0-beta.5 was refused: timeout.".into()));
+        state.downloaded(Err(
+            "The update to 0.1.0-beta.5 was refused: timeout.".into()
+        ));
         assert_eq!(state.status.phase, "failed");
         // The schedule waits; a person's retry downloads again at once.
         assert!(!state.begin("beta", Trigger::Schedule, at(1)));
@@ -375,7 +386,10 @@ mod tests {
         state.downloaded(Err("refused".into()));
         assert_eq!(state.status.phase, "ready");
         assert_eq!(state.status.version.as_deref(), Some("0.1.0-beta.5"));
-        assert_eq!(state.take_ready().map(|r| r.version).as_deref(), Some("0.1.0-beta.5"));
+        assert_eq!(
+            state.take_ready().map(|r| r.version).as_deref(),
+            Some("0.1.0-beta.5")
+        );
     }
 
     #[test]
@@ -389,7 +403,22 @@ mod tests {
             Some("Installing 0.1.0-beta.5 failed: Permission denied")
         );
         assert!(state.begin("beta", Trigger::Person, at(1)));
-        assert_eq!(state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(1)), None);
+        assert_eq!(
+            state.checked("beta".into(), Ok(newer("0.1.0-beta.5")), None, at(1)),
+            None
+        );
         assert_eq!(state.status.phase, "ready");
+    }
+
+    #[test]
+    fn the_schedule_is_due_at_first_then_every_four_hours_of_wall_clock() {
+        let mut state = State::<()>::default();
+        assert!(state.due(at(0)));
+        state.begin("beta", Trigger::Schedule, at(0));
+        state.checked("beta".into(), Ok(current()), None, at(0));
+        assert!(!state.due(at(239)));
+        assert!(state.due(at(240)));
+        // A clock set back does not stall the schedule.
+        assert!(state.due(T0 - MIN));
     }
 }

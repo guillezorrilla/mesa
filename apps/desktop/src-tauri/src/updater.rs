@@ -19,7 +19,9 @@ pub use state::Trigger;
 use state::{Ready, State, Status};
 
 const FIRST_CHECK: Duration = Duration::from_secs(15);
-const EVERY: Duration = Duration::from_secs(4 * 60 * 60);
+/// How often the schedule asks whether a check is due. Tokio's clock stops while the Mac sleeps,
+/// so the 4 hours are measured on the wall clock (`State::due`) and only this tick sleeps.
+const TICK: Duration = Duration::from_secs(10 * 60);
 /// What `mesa update install` opens (core's UPDATE_LINK).
 const UPDATE_LINK: &str = "mesa://update/install";
 
@@ -146,8 +148,9 @@ async fn fetch(app: &AppHandle, feed: &str) -> Result<Ready<Download>, String> {
     })
 }
 
-/// At launch: the running version's revocation, then a check after 15 s and every 4 hours. A
-/// development build checks only when asked.
+/// At launch: the running version's revocation, then a check after 15 s and every 4 hours of
+/// wall-clock time, counting the last check whoever asked. A development build checks only when
+/// asked.
 pub fn start(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -160,8 +163,16 @@ pub fn start(app: &AppHandle) {
         }
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
-            check(app.clone(), Trigger::Schedule).await;
-            tokio::time::sleep(EVERY).await;
+            let due = app
+                .state::<Updates>()
+                .inner
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .due(SystemTime::now());
+            if due {
+                check(app.clone(), Trigger::Schedule).await;
+            }
+            tokio::time::sleep(TICK).await;
         }
     });
 }
