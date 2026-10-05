@@ -18,7 +18,6 @@ import {
   automationsUninstall,
 } from './automations.js';
 import { backupCreate, backupRestore } from './backup.js';
-import { board, boardMove } from './board.js';
 import {
   browserAnnotationPreview,
   browserAnnotationSend,
@@ -183,8 +182,6 @@ export const COMMANDS: Command[] = [
   automationsDisable,
   backupCreate,
   backupRestore,
-  board,
-  boardMove,
   browserAnnotationPreview,
   browserAnnotationSend,
   browserSelect,

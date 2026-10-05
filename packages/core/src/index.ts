@@ -122,16 +122,6 @@ export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
 export type { SessionImage } from './sessions/images.js';
 export type { InstructionStatus } from './sessions/instructions.js';
 export type { SessionLog } from './sessions/output-log.js';
-export {
-  BOARD_DENSITIES,
-  BOARD_GROUPS,
-  BOARD_SORTS,
-  BOARD_VIEWS,
-  type BoardPreferences,
-  DEFAULT_BOARD_PREFERENCES,
-  type PresentationGroup,
-  presentSessions,
-} from './sessions/presentation.js';
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
 export type {

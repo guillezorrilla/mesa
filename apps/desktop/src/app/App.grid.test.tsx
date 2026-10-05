@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import type { GridGroup } from '@mesa/core';
-import { DEFAULT_BOARD_PREFERENCES, DEFAULT_SHORTCUTS } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test } from 'vitest';
 import {
@@ -22,7 +22,6 @@ test('grid project tabs, zoom and saved groups retain exact terminal clients', a
     config: () =>
       envelope({
         shortcuts: DEFAULT_SHORTCUTS,
-        board: DEFAULT_BOARD_PREFERENCES,
         grid: { groups },
       }),
     sessions: () => envelope([managedRow('aaaaaaaa'), managedRow('bbbbbbbb', { project: 'tide' })]),

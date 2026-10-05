@@ -13,13 +13,6 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
-import {
-  BOARD_DENSITIES,
-  BOARD_GROUPS,
-  BOARD_SORTS,
-  BOARD_VIEWS,
-  DEFAULT_BOARD_PREFERENCES,
-} from '../sessions/presentation.js';
 import { UPDATE_CHANNELS } from '../update/feeds.js';
 import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
 import {
@@ -49,8 +42,18 @@ const withoutAdapter = (decisions: unknown) => {
   return rest.backend === 'adapter' ? { ...rest, backend: 'rules' } : rest;
 };
 
+/**
+ * A file written before the Board view and `mesa board` were removed may still hold `board`
+ * settings: it loads, and they are ignored.
+ */
+const withoutBoard = (config: unknown) => {
+  if (!config || typeof config !== 'object') return config;
+  const { board: _, ...rest } = config as Record<string, unknown>;
+  return rest;
+};
+
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
-const ConfigSchema = z.strictObject({
+const ConfigShape = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
   defaultAgent: AgentSchema.default(DEFAULT_AGENT),
   // The mesa skill teaches every agent Mesa starts to drive Mesa (skills/mesa), and mesa-vault
@@ -206,18 +209,6 @@ const ConfigSchema = z.strictObject({
     .prefault({}),
   // The sidebar's project order, and `mesa projects` without --sort.
   projects: z.strictObject({ sort: z.enum(PROJECT_SORTS).default('name') }).prefault({}),
-  board: z
-    .strictObject({
-      view: z.enum(BOARD_VIEWS).default(DEFAULT_BOARD_PREFERENCES.view),
-      group: z.enum(BOARD_GROUPS).default(DEFAULT_BOARD_PREFERENCES.group),
-      density: z.enum(BOARD_DENSITIES).default(DEFAULT_BOARD_PREFERENCES.density),
-      sort: z.enum(BOARD_SORTS).default(DEFAULT_BOARD_PREFERENCES.sort),
-      order: z
-        .array(z.string().regex(/^[0-9a-z]{8}$/))
-        .refine((ids) => new Set(ids).size === ids.length, 'ids must be unique')
-        .default([]),
-    })
-    .prefault({}),
   grid: z
     .strictObject({
       groups: z
@@ -251,8 +242,12 @@ const ConfigSchema = z.strictObject({
   keys: z.record(z.string(), z.string()).default({}),
 });
 
-export type Config = z.infer<typeof ConfigSchema>;
-const BackupSettingsSchema = ConfigSchema.omit({ vault: true, keys: true });
+const ConfigSchema = z.preprocess(withoutBoard, ConfigShape);
+export type Config = z.infer<typeof ConfigShape>;
+const BackupSettingsSchema = z.preprocess(
+  withoutBoard,
+  ConfigShape.omit({ vault: true, keys: true }),
+);
 export type BackupSettings = z.infer<typeof BackupSettingsSchema>;
 export const buildBackupSettings = (input: unknown, file: string): BackupSettings =>
   parseWith(BackupSettingsSchema, input, file);
@@ -303,6 +298,9 @@ export function setConfigValue(
   /** Throws to refuse the new config, before anything is written. */
   check?: (next: Config) => void,
 ): { value: unknown; changed: boolean } {
+  if (dotted.split('.')[0] === 'board') {
+    throw new MesaError('invalid_config', `${file}: board settings were removed`);
+  }
   const before = currentValue(file, dotted);
   const next = setYamlPath(file, ConfigSchema, dotted, parse(value), check);
   return {

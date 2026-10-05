@@ -2684,7 +2684,6 @@ test('shortcut settings validate conflicts and update the active profile key', a
     },
     shortcuts,
     projects: { sort: 'name' },
-    board: { view: 'list', group: 'none', density: 'comfortable', sort: 'attention', order: [] },
     grid: { groups: [] },
     run: { permissionMode: 'acceptEdits', allowedTools: [] },
     agents: { claude: {}, codex: {}, antigravity: {} },
