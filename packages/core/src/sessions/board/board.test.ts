@@ -5,6 +5,7 @@ import {
   fixedClock,
   listingDeps,
   newSession,
+  plantLiveSession,
   SPIKE_LISTING,
   scriptedRunner,
   sequentialIds,
@@ -227,6 +228,41 @@ test('a /clear moved the agent session id: a look saves the one the listing name
   const saved = store.get(cleared.id);
   await listSessions(deps);
   expect(store.get(cleared.id)).toEqual(saved);
+});
+
+test('a /rename in Claude Code is saved as the agent name once, and a later one replaces it', async () => {
+  const store = storeIn();
+  const session = store.create(() => ({
+    ...inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
+    agentSessionId: SPIKE_ID,
+  }));
+  const home = tempDir();
+  const look = (name: string, nameSource = 'user') => {
+    plantLiveSession(home, 67213, { sessionId: SPIKE_ID, name, nameSource });
+    const { run } = scriptedRunner({ claude: JSON.stringify([SPIKE_LISTING.idle]) });
+    return listSessions({
+      ...noListing,
+      store,
+      tmux: tmuxBackend({
+        sleep: async () => {},
+        run: scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run,
+        socket: 'mesa-default',
+        env: {},
+      }),
+      listing: () => listAgentProcesses(listingDeps(run, { home })),
+      clock: fixedClock('2026-09-24T12:00:00.000Z'),
+    });
+  };
+  // The name Claude Code derives from the folder is no name.
+  await look('lantern-cove-7', 'derived');
+  expect(store.get(session.id).agentName).toBeUndefined();
+  const [row] = await look('tide-charts');
+  expect(row).toMatchObject({ id: session.id, agentName: 'tide-charts' });
+  const saved = store.get(session.id);
+  await look('tide-charts');
+  expect(store.get(session.id)).toEqual(saved);
+  await look('harbor-lights');
+  expect(store.get(session.id).agentName).toBe('harbor-lights');
 });
 
 test('a Codex listing row gives no state: a foreign one is a guess at working, a Mesa one reads its window', async () => {

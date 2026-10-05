@@ -4,13 +4,20 @@ import { sessionProjects } from './sessions/session-projects.js';
 // How Mesa shows a session row, its numbers, and its log to a person, the same in the CLI and on
 // the Board. Pure, importing only pure modules, so the app bundles it (`@mesa/core/browser`).
 
-/** A session's name when a person gave it one, else its id. */
-export const sessionLabel = (s: { id: string; name?: string; managed?: boolean }) =>
-  s.managed !== false && s.name ? s.name : s.id;
+/** A session's name when a person gave it one, else the one its agent gives it, else its id. */
+export const sessionLabel = (s: {
+  id: string;
+  name?: string;
+  agentName?: string;
+  managed?: boolean;
+}) => (s.managed !== false && (s.name || s.agentName)) || s.id;
 
-/** What a session's card calls it: its name, else its goal's first line, else its id. */
+/**
+ * What a session's card calls it: its name, else the one its agent gives it, else its goal's first
+ * line, else its id.
+ */
 export const sessionTitle = (s: SessionRow) =>
-  (s.managed && (s.name || s.goal?.trim().split(/\r?\n/, 1)[0])) || s.id;
+  (s.managed && (s.name || s.agentName || s.goal?.trim().split(/\r?\n/, 1)[0])) || s.id;
 
 /** A Mesa session that runs a skill headlessly (CONTEXT.md, Skill run). */
 export const isRun = (s: SessionRow) => s.managed && s.kind === 'run';

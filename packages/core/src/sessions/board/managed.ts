@@ -14,9 +14,10 @@ import { windowOf } from '../window-name.js';
 import { type ManagedRow, secondsBetween } from './rows.js';
 
 /**
- * Saves what a look learned onto the record as it is now: a new state, or an agent session id (the
- * one a /clear moved it to, or the one its agent picked). A stopped session keeps the stop's
- * state, and takes only an id it has none of, one its agent picked before the stop. A state
+ * Saves what a look learned onto the record as it is now: a new state, the name its agent gives
+ * it, or an agent session id (the one a /clear moved it to, or the one its agent picked). A
+ * stopped session keeps the stop's state, and takes only a name and an id it has none of, one its
+ * agent picked before the stop. A state
  * another look saved since this one read the record (a pane-died hook's, or another mesa's look)
  * is newer and stays. A record another process holds locked (busy, or a lock left by a killed mesa) is not
  * waited for or written: this look still shows what it learned, and the next one tries again.
@@ -24,12 +25,14 @@ import { type ManagedRow, secondsBetween } from './rows.js';
 function saveLook(
   store: SessionStore,
   found: SessionRecord,
-  learned: Partial<Pick<SessionRecord, 'lastState' | 'agentSessionId'>>,
+  learned: Partial<Pick<SessionRecord, 'lastState' | 'agentSessionId' | 'agentName'>>,
 ): SessionRecord {
   try {
-    const { agentSessionId: id } = learned;
-    const stopped = (current: SessionRecord) =>
-      id && !current.agentSessionId ? { agentSessionId: id } : {};
+    const { agentSessionId: id, agentName } = learned;
+    const stopped = (current: SessionRecord) => ({
+      ...(id && !current.agentSessionId ? { agentSessionId: id } : {}),
+      ...(agentName ? { agentName } : {}),
+    });
     const { lastState, ...rest } = learned;
     return store.update(
       found.id,
@@ -163,11 +166,15 @@ export async function managedRow(
     listed && listed.agentSessionId !== found.agentSessionId ? listed.agentSessionId : undefined;
   // Else the one read for an agent that picks its own (Codex).
   const agentSessionId = moved ?? seen.agentSessionId;
+  // A /rename in the agent, as the listing names it now.
+  const agentName = listed?.name && listed.name !== found.agentName ? listed.name : undefined;
   const learned = {
     ...(changed ? { lastState: next } : {}),
     ...(agentSessionId ? { agentSessionId } : {}),
+    ...(agentName ? { agentName } : {}),
   };
-  const record = changed || agentSessionId ? saveLook(deps.store, found, learned) : found;
+  const record =
+    changed || agentSessionId || agentName ? saveLook(deps.store, found, learned) : found;
   // An ended session stops the clock when it ended, or when it was seen to; one that never
   // ran has none.
   const end =

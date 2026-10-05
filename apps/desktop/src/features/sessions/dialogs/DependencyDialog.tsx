@@ -1,4 +1,5 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
+import { sessionLabel } from '@mesa/core/browser';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Label } from '@/components/ui/label';
@@ -17,7 +18,10 @@ export function DependencyDialog(props: {
   const [after, setAfter] = useState(props.row.after ?? '');
   const candidates = props.rows
     .filter((row): row is ManagedRow & TreeRow => row.managed && row.id !== props.row.id)
-    .map((row) => ({ id: row.id, label: row.name ? `${row.name} (${row.id})` : row.id }));
+    .map((row) => {
+      const label = sessionLabel(row);
+      return { id: row.id, label: label === row.id ? row.id : `${label} (${row.id})` };
+    });
   for (const id of [props.row.parent, props.row.after]) {
     if (id && !candidates.some((candidate) => candidate.id === id))
       candidates.push({ id, label: id });
@@ -26,7 +30,7 @@ export function DependencyDialog(props: {
   return (
     <ActionDialog
       testId="dependency-dialog"
-      title={`Set dependency for ${props.row.name ?? props.row.id}`}
+      title={`Set dependency for ${sessionLabel(props.row)}`}
       description="Parent places a session in the tree. Starts after controls when a queued session launches. Changing either link does not change Git history."
       submit={{
         label: 'Save links',

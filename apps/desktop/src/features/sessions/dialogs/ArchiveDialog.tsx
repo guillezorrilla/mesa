@@ -51,7 +51,7 @@ export function ArchiveDialog(props: {
               ? `${running > 0 ? `This will terminate ${running} running ${running === 1 ? 'session' : 'sessions'}. ` : ''}Their records and logs stay in the archive.`
               : dismiss
                 ? 'This hides the ended session from Sessions. Its record and logs stay in the archive.'
-                : `This will terminate "${row?.name ?? 'Untitled session'}" and its ${row?.background ? 'Claude background process and tmux view' : 'tmux process'}. This action cannot be undone.`}
+                : `This will terminate "${row ? sessionTitle(row) : 'Untitled session'}" and its ${row?.background ? 'Claude background process and tmux view' : 'tmux process'}. This action cannot be undone.`}
           </DialogDescription>
         </DialogHeader>
         {several && (
