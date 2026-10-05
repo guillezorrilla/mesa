@@ -29,6 +29,7 @@ export function TerminalPanel(props: {
       sessionId={props.sessionId}
       preferences={props.preferences}
       fill={fill}
+      focus={props.selected}
       onFileLink={props.onFileLink}
       onWebLink={props.onWebLink}
     />
