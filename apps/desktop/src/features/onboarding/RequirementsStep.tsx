@@ -6,7 +6,7 @@ import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DoctorChecksPanel } from '@/features/doctor/DoctorChecksPanel';
-import { hooksReady } from '@/features/doctor/hookAgents';
+import { hooksReady } from '@/features/settings/notifications/hookAgents';
 import { useAct } from '@/lib/useAct';
 import { type CommandState, useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';

@@ -9,8 +9,6 @@ import { ProjectsStep } from './ProjectsStep';
 import { RequirementsStep } from './RequirementsStep';
 import { VaultStep } from './VaultStep';
 
-const STEPS = ['Vault', 'Requirements', 'Projects', 'First session'] as const;
-
 /**
  * The first run, one step at a time: a vault (which creates the profile), what sessions need,
  * the projects, then a first session. After the vault, the step is `onboarding.step` plus one,
@@ -28,14 +26,42 @@ export function OnboardingScreen(props: {
 }) {
   const run = useRun();
   const { act } = useAct();
-  const step = props.config ? Math.min(props.config.onboarding.step + 1, STEPS.length - 1) : 0;
+  const obsidian = props.doctor.data?.checks.find((c) => c.name === 'obsidian')?.ok ?? true;
+  // Each step's title and body, in order; after Vault, the saved `onboarding.step` indexes the rest.
+  const steps = [
+    {
+      title: 'Vault',
+      body: () => <VaultStep obsidian={obsidian} onCreated={props.onInitialised} />,
+    },
+    { title: 'Requirements', body: () => <RequirementsStep doctor={props.doctor} onNext={next} /> },
+    {
+      title: 'Projects',
+      body: () => (
+        <ProjectsStep
+          registered={props.projects.length}
+          onRegistered={props.onProjectsChanged}
+          onNext={next}
+        />
+      ),
+    },
+    {
+      title: 'First session',
+      body: () => (
+        <FirstSessionStep
+          projects={props.projects}
+          doctor={props.doctor.data}
+          onDone={props.onDone}
+        />
+      ),
+    },
+  ];
+  const step = props.config ? Math.min(props.config.onboarding.step + 1, steps.length - 1) : 0;
   const next = () =>
     void act(async () => {
       if (!(await run('config.set', { path: 'onboarding.step', value: step }))) return undefined;
       await props.onConfigChanged();
       return undefined;
     });
-  const obsidian = props.doctor.data?.checks.find((c) => c.name === 'obsidian')?.ok ?? true;
   return (
     <section data-testid="onboarding" className="mx-auto max-w-2xl space-y-4">
       <PageHeader
@@ -43,7 +69,7 @@ export function OnboardingScreen(props: {
         description="A few steps and your first session is running."
       />
       <ol className="flex gap-2 text-xs" aria-label="Steps">
-        {STEPS.map((title, index) => (
+        {steps.map(({ title }, index) => (
           <li
             key={title}
             aria-current={index === step ? 'step' : undefined}
@@ -58,26 +84,9 @@ export function OnboardingScreen(props: {
       </ol>
       <Card>
         <CardHeader>
-          <CardTitle data-testid="onboarding-step">{STEPS[step]}</CardTitle>
+          <CardTitle data-testid="onboarding-step">{steps[step]?.title}</CardTitle>
         </CardHeader>
-        <CardContent>
-          {step === 0 && <VaultStep obsidian={obsidian} onCreated={props.onInitialised} />}
-          {step === 1 && <RequirementsStep doctor={props.doctor} onNext={next} />}
-          {step === 2 && (
-            <ProjectsStep
-              registered={props.projects.length}
-              onRegistered={props.onProjectsChanged}
-              onNext={next}
-            />
-          )}
-          {step === 3 && (
-            <FirstSessionStep
-              projects={props.projects}
-              doctor={props.doctor.data}
-              onDone={props.onDone}
-            />
-          )}
-        </CardContent>
+        <CardContent>{steps[step]?.body()}</CardContent>
       </Card>
     </section>
   );

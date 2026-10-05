@@ -1,16 +1,15 @@
+import { counted } from '@mesa/core/browser';
 import { FolderPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { DiscoveredProjectRow } from '@/features/projects/DiscoveredProjectRow';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { ChoiceRow } from './ChoiceRow';
 
 /** How many of the folders used most are ticked to start with. */
 const TICKED = 3;
-
-const counted = (n: number) => `${n} ${n === 1 ? 'conversation' : 'conversations'}`;
 
 /**
  * The projects Mesa starts with (CONTEXT.md, First-run discovery): the folders Claude Code or
@@ -33,10 +32,16 @@ export function ProjectsStep(props: {
     ...(found.data?.projects ?? [])
       .filter((p) => !p.registered && !p.error)
       .sort((a, b) => b.conversations - a.conversations)
-      .map((p) => ({ path: p.path, title: p.name, detail: counted(p.conversations) })),
-    ...picked.map((path) => ({ path, title: path.split('/').at(-1) ?? path, detail: path })),
+      .map((p) => ({
+        path: p.path,
+        name: p.name,
+        detail: counted(p.conversations, 'conversation'),
+      })),
+    ...picked.map((path) => ({ path, name: path.split('/').at(-1) ?? path, detail: '' })),
   ];
-  const ticked = ticks ?? new Set(folders.slice(0, TICKED).map((f) => f.path));
+  // Run again with projects already there ticks nothing, so a quick Continue adds none.
+  const ticked =
+    ticks ?? new Set(props.registered ? [] : folders.slice(0, TICKED).map((f) => f.path));
   const tick = (path: string, on: boolean) => {
     const next = new Set(ticked);
     if (on) next.add(path);
@@ -62,15 +67,15 @@ export function ProjectsStep(props: {
       {found.busy && !found.data && <Muted>Looking for your projects...</Muted>}
       <div className="space-y-2">
         {folders.map((folder) => (
-          <ChoiceRow
+          <DiscoveredProjectRow
             key={folder.path}
-            testId="project-choice"
-            type="checkbox"
-            name="project"
-            checked={ticked.has(folder.path)}
-            onChange={(on) => tick(folder.path, on)}
-            title={folder.title}
-            detail={folder.detail}
+            project={{ name: folder.name, path: folder.path, registered: false }}
+            verb="Register"
+            detail={
+              folder.detail && <p className="text-muted-foreground text-xs">{folder.detail}</p>
+            }
+            disabled={acting}
+            tick={{ checked: ticked.has(folder.path), onChange: (on) => tick(folder.path, on) }}
           />
         ))}
       </div>

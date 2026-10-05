@@ -33,7 +33,8 @@ export function FirstSessionStep(props: {
         ? await run('sessions.open', { project: chosenProject, agent: chosenAgent })
         : undefined;
       if (start && !opened) return undefined;
-      await run('config.set', { path: 'onboarding.status', value: 'complete' });
+      if (!(await run('config.set', { path: 'onboarding.status', value: 'complete' })))
+        return undefined;
       props.onDone(opened?.id);
       return undefined;
     });

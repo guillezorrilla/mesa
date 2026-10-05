@@ -1,11 +1,11 @@
 import { Plug } from 'lucide-react';
 import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { hookAgents, hooksReady } from '@/features/doctor/hookAgents';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { SettingRow } from '../SettingRow';
+import { hookAgents, hooksReady } from './hookAgents';
 
 /** Mesa's hooks in each agent: what lets it tell when a session needs you. */
 export function SessionHooks() {

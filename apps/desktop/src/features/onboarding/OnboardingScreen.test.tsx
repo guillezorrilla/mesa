@@ -133,16 +133,38 @@ test('Vault: Obsidian vaults first, a new one suggested; one Continue creates th
     'Notes/h/Notes',
     'Create a new vault/h/Documents/Mesa',
   ]);
-  expect(byTestId('vault-choice')[0]?.querySelector('input')?.checked).toBe(true);
-  await click(byTestId('vault-choice')[1]?.querySelector('input') ?? undefined);
+  expect(
+    byTestId('vault-choice')[0]?.querySelector('[role="radio"]')?.getAttribute('data-state'),
+  ).toBe('checked');
+  await click(
+    byTestId('vault-choice')[1]?.querySelector<HTMLElement>('[role="radio"]') ?? undefined,
+  );
   await click(byTestId('onboarding-continue')[0]);
   expect(calls).toContainEqual(['--json', 'init', '--vault=/h/Documents/Mesa']);
   expect(stepTitle(byTestId)).toBe('Requirements');
 });
 
-test('Vault: without Obsidian, Get Obsidian shows', async () => {
+test('Vault: without Obsidian, Create a new vault is preselected and Get Obsidian shows', async () => {
   const { byTestId } = await setup({ obsidian: false });
   expect(byTestId('onboarding')[0]?.textContent).toContain('Get Obsidian');
+  const states = byTestId('vault-choice').map((row) =>
+    row.querySelector('[role="radio"]')?.getAttribute('data-state'),
+  );
+  expect(states).toEqual(['unchecked', 'checked']);
+});
+
+test('Projects: Continue needs a ticked folder with no project yet; with one, nothing starts ticked', async () => {
+  const first = await setup({ profile: true, step: 1 });
+  await click(first.byTestId('discovery-tick')[0]);
+  await click(first.byTestId('discovery-tick')[1]);
+  expect(disabled(first.byTestId('onboarding-continue')[0])).toBe(true);
+  document.body.innerHTML = '';
+  const again = await setup({ profile: true, step: 1, projects: [project('harbor')] });
+  expect(again.byTestId('discovery-tick').map((tick) => tick.getAttribute('data-state'))).toEqual([
+    'unchecked',
+    'unchecked',
+  ]);
+  expect(disabled(again.byTestId('onboarding-continue')[0])).toBe(false);
 });
 
 test('Requirements: Continue waits for tmux and the hooks; Install fixes tmux, Install hooks the hooks', async () => {
@@ -177,11 +199,11 @@ test('Requirements: Skip for now moves on without the hooks', async () => {
 test('Projects: folders by conversations, ticked; Continue registers them and completes discovery', async () => {
   const { byTestId, calls } = await setup({ profile: true, step: 1 });
   expect(stepTitle(byTestId)).toBe('Projects');
-  expect(byTestId('project-choice').map((row) => row.textContent)).toEqual([
-    'cove9 conversations',
-    'tide2 conversations',
+  expect(byTestId('discovered-project').map((row) => row.textContent)).toEqual([
+    'cove/src/cove9 conversations',
+    'tide/src/tide2 conversations',
   ]);
-  await click(byTestId('project-choice')[1]?.querySelector('input') ?? undefined);
+  await click(byTestId('discovery-tick')[1]);
   await click(
     [...(byTestId('onboarding')[0]?.querySelectorAll('button') ?? [])].find((b) =>
       b.textContent?.includes('Add another folder'),
