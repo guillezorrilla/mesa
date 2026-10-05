@@ -86,6 +86,19 @@ test('a revoked version blocks with its reason, Check for update, and Quit', asy
   expect(closed()).toBe(0);
 });
 
+test('a revoked build that cannot update itself offers the download page', async () => {
+  const { byTestId, calls } = await render(<UpdateDialog />, {
+    phase: 'unsupported',
+    version: '0.1.0-beta.5',
+    message: 'Mesa is running from the disk image or a temporary copy.',
+    revoked: { version: '0.1.0-beta.4', reason: 'It loses session logs.' },
+  });
+  expect(byTestId('update-revoked')[0]?.textContent).toContain('disk image');
+  expect(button('Check for update')).toBeUndefined();
+  await click(button('Open download page'));
+  expect(calls).toEqual(['openPage']);
+});
+
 test('the profile menu checks for updates and keeps an Update ready entry after Later', async () => {
   const { byTestId, calls, push } = await render(
     <ProfileMenu ref={createRef()} doctor={undefined} onSettings={() => {}} />,

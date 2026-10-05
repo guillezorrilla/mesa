@@ -19,6 +19,7 @@ export function UpdateDialog() {
   const { status, busy, check, later, install, openPage, quit } = useUpdate();
   if (!status) return null;
   const ready = status.phase === 'ready';
+  const unsupported = status.phase === 'unsupported';
   if (status.revoked) {
     return (
       <Dialog open>
@@ -43,6 +44,9 @@ export function UpdateDialog() {
             </Button>
             {ready ? (
               <Button onClick={() => void install()}>Install v{status.version}</Button>
+            ) : unsupported ? (
+              // This build cannot replace itself: the way off a withdrawn version is by hand.
+              <Button onClick={() => void openPage()}>Open download page</Button>
             ) : (
               <Button disabled={busy} onClick={() => void check()}>
                 Check for update
@@ -53,7 +57,6 @@ export function UpdateDialog() {
       </Dialog>
     );
   }
-  const unsupported = status.phase === 'unsupported';
   if ((!ready && !unsupported) || status.dismissed) return null;
   return (
     <Dialog open onOpenChange={(open) => !open && void later()}>
