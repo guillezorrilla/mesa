@@ -2,6 +2,18 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.1.4 - 2026-10-05
+
+### Features
+
+- **app**: fill the context ring on its own and open context use on click (#570)
+
+### Fixes
+
+- **vault**: describe the vault read tools as on-demand, not first (#574)
+- **app**: focus the agent's terminal when a session opens or is selected (#573)
+- **sessions**: show the name a session got in Claude Code instead of its id (#568)
+
 ## 0.1.3 - 2026-10-05
 
 ### Features
