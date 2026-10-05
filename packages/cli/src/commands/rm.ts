@@ -1,11 +1,12 @@
 import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { bulkExit } from '../output/bulk.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const rm = defineCommand({
   name: 'rm',
   summary:
-    "Remove a session's record, hook log, output log, and a run's output, and with flags its worktree and branch",
+    "Remove a session's record, hook log, output log, and a run's output, and with flags its worktree and branch; with --descendants, exits 2 when any item failed",
   args: ['session'],
   flags: {
     force: {
@@ -50,7 +51,7 @@ export const rm = defineCommand({
         text: data.items
           .map((item) => `${item.id}: ${item.ok ? 'removed' : item.error.message}`)
           .join('\n'),
-        code: data.items.some((item) => !item.ok) ? 2 : 0,
+        code: bulkExit(data.items.some((item) => !item.ok)),
       };
     }
     const recorded = await mesa.sessions.remove(args.session, {

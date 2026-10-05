@@ -31,9 +31,9 @@ const title = (customTitle: string) => ({ type: 'custom-title', customTitle });
 /**
  * A profile with lantern-cove registered, a fake tmux, and an unregistered repository, tide-pool,
  * with two recent conversations, one older than 30 days, and one this profile holds; claude lists
- * `live` running in tide-pool when given.
+ * `live` running in tide-pool when given, and fails its version check when `broken`.
  */
-function setUp(live = false) {
+function setUp(live = false, broken = false) {
   const world = fakeTmux();
   let tide = '';
   const scripted = scriptedRunner({
@@ -43,7 +43,9 @@ function setUp(live = false) {
         ? JSON.stringify(
             live ? [{ pid: 4200, startedAt: 1790276764032, sessionId: ids.live, cwd: tide }] : [],
           )
-        : '2.1.283 (Claude Code)',
+        : broken
+          ? { ok: false, reason: 'failed', detail: 'exit 1' }
+          : '2.1.283 (Claude Code)',
   });
   const made = projectProfile(scripted.run, { newId: sequentialIds() });
   const { home } = made;
@@ -136,11 +138,11 @@ test('without live, a running session is left alone', async () => {
   expect(world.windows).toEqual([]);
 });
 
-test('a conversation that cannot be adopted lands in failed while the rest are adopted', async () => {
+test('a conversation in a worktree registered as its own project is adopted under that project', async () => {
   const { home, mesa, tide } = setUp();
   mesa.projects.register(tide, true);
-  // A linked worktree of tide-pool, registered as its own project: its conversation is
-  // tide-pool's folder's, but the registry places it in tide-pool-fix.
+  // A linked worktree of tide-pool, registered as its own project: discovery places its
+  // conversation in tide-pool's folder, and the registry in tide-pool-fix, as `mesa adopt` would.
   const worktree = join(home, 'wt/tide-pool-fix');
   mkdirSync(worktree, { recursive: true });
   writeFileSync(join(worktree, '.git'), `gitdir: ${tide}/.git/worktrees/tide-pool-fix\n`);
@@ -149,17 +151,38 @@ test('a conversation that cannot be adopted lands in failed while the rest are a
   datedTranscript(home, ids.worktree, worktree, '2026-09-24T10:00:00.000Z');
 
   const { result } = await mesa.sessions.adoptDiscovered({ path: tide, days: 30 });
-  expect(result).toMatchObject({
+  expect(result).toEqual({
     project: 'tide-pool',
     registered: false,
-    adopted: [{ agentSessionId: ids.root }, { agentSessionId: ids.docs }],
-    failed: [
+    adopted: [
       {
+        id: expect.any(String),
         agentSessionId: ids.worktree,
-        reason: expect.stringContaining('in project tide-pool-fix'),
+        agent: 'claude',
+        project: 'tide-pool-fix',
       },
+      { id: expect.any(String), agentSessionId: ids.root, agent: 'claude', name: 'Tide tables' },
+      { id: expect.any(String), agentSessionId: ids.docs, agent: 'claude' },
     ],
+    reopened: [],
+    failed: [],
   });
+  const record = testStore(home).get(result.adopted[0]?.id ?? '');
+  expect(record).toMatchObject({ project: 'tide-pool-fix', agentSessionId: ids.worktree });
+  expect(record).not.toHaveProperty('cwd');
+});
+
+test('a running session whose agent is missing lands in failed while the rest are adopted', async () => {
+  const { mesa, tide, world } = setUp(true, true);
+  const { result } = await mesa.sessions.adoptDiscovered({ path: tide, days: 30, live: true });
+  expect(result).toMatchObject({
+    project: 'tide-pool',
+    adopted: [{ agentSessionId: ids.root }, { agentSessionId: ids.docs }],
+    reopened: [],
+    failed: [{ agentSessionId: ids.live, reason: expect.stringContaining('claude') }],
+  });
+  expect(result).not.toHaveProperty('warning');
+  expect(world.windows).toEqual([]);
 });
 
 test('a path that is not a folder is not_found', async () => {
