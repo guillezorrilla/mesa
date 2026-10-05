@@ -1208,5 +1208,5 @@ test('vault mcp --tools prints the fixed tool definitions, one line each, withou
   expect(Buffer.byteLength(JSON.stringify({ tools }))).toBe(2590);
   const text = (await mesa('vault', 'mcp', '--tools')).stdout.split('\n');
   expect(text.map((line) => line.split(' ')[0])).toEqual([...TOOLS, '']);
-  expect(text[0]).toMatch(/^project_context {2}This project's overview: hub, index, notes/);
+  expect(text[0]).toMatch(/^project_context {2}Project overview: hub, index, notes/);
 });
