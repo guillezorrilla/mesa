@@ -22,10 +22,12 @@ export async function attachSession(
   },
   id: string,
   app?: TerminalApp,
+  /** The app's own terminal (`mesa attach --print`), which scrolls one line per wheel report. */
+  embedded = false,
 ): Promise<{ attached: Attached; exec?: string[] }> {
   const target = windowOf(deps.store.get(id));
   if (!(await deps.tmux.windowExists(target))) throw sessionEnded();
-  const argv = deps.tmux.attachArgv(target, deps.viewId(), deps.naturalSelection);
+  const argv = deps.tmux.attachArgv(target, deps.viewId(), deps.naturalSelection, embedded);
   const attached: Attached = {
     opened: true,
     target: targetLabel(target),

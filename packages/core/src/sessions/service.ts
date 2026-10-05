@@ -1077,8 +1077,11 @@ export function sessionsService(
       /** Sizes a session's window to a view now (the app's terminal, after each fit). */
       resize: (id: string, cols: number, rows: number) =>
         resizeSession({ store, tmux }, id, cols, rows),
-      /** Attaches to a live session: here (the argv to exec), or in config `terminal.app`. */
-      attach: async (id: string, app = false) => {
+      /**
+       * Attaches to a live session: here (the argv to exec), or in config `terminal.app`;
+       * `embedded` for the app's own terminal, which scrolls one line per wheel report.
+       */
+      attach: async (id: string, app = false, embedded = false) => {
         await ensureBackgroundView(id);
         return attachSession(
           {
@@ -1090,6 +1093,7 @@ export function sessionsService(
           },
           id,
           app ? terminalApp() : undefined,
+          embedded,
         );
       },
       /**

@@ -557,6 +557,31 @@ test('the server takes the app terminal options: mouse, no status, OSC 52, drag 
     );
   }
   expect(args).not.toContain('allow-passthrough');
+  // The wheel scrolls by the view's @mesa-wheel-lines, else tmux's 5 (terminal-scrolling spike).
+  const lines = '#{?@mesa-wheel-lines,#{@mesa-wheel-lines},5}';
+  for (const table of ['copy-mode', 'copy-mode-vi']) {
+    for (const way of ['Up', 'Down']) {
+      expect(args).toContain(
+        `bind-key -T ${table} Wheel${way}Pane select-pane \\; send-keys -X -N ${lines} scroll-${way.toLowerCase()}`,
+      );
+    }
+  }
+  expect(args).toContain(
+    `bind-key -T root WheelUpPane if-shell -F #{||:#{alternate_on},#{pane_in_mode},#{mouse_any_flag}} send-keys -M copy-mode -e ; send-keys -X -N '${lines}' scroll-up`,
+  );
+});
+
+test("only the app's own terminal scrolls one line per wheel report", () => {
+  const tmux = tmuxBackend({
+    sleep: async () => {},
+    run: scriptedRunner().run,
+    socket: 's',
+    env: {},
+  });
+  const target = { project: 'lantern-cove', window: 'claude-aaaaaa' };
+  const wheel = ['set-option', '-t', '=_view-v1', '@mesa-wheel-lines', '1'].join(' ');
+  expect(tmux.attachArgv(target, 'v1', false, true).join(' ')).toContain(wheel);
+  expect(tmux.attachArgv(target, 'v1').join(' ')).not.toContain('@mesa-wheel-lines');
 });
 
 test('a missing or hung tmux is tmux_unavailable', async () => {
