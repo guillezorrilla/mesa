@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { InstallButton } from './InstallButton';
 
 const MARK: Record<Check['status'], string> = { ok: '✓', warn: '!', fail: '✗' };
 const TONE: Record<Check['status'], string> = {
@@ -18,8 +19,17 @@ const TONE: Record<Check['status'], string> = {
   fail: 'text-state-failed',
 };
 
-/** A doctor report's checks, one row each, under its summary when it is not healthy. */
-export function DoctorChecksPanel({ report }: { report: DoctorReport | undefined }) {
+/**
+ * A doctor report's checks, one row each, under its summary when it is not healthy. A missing
+ * binary Mesa can install offers Install; `onInstalled` reruns the doctor.
+ */
+export function DoctorChecksPanel({
+  report,
+  onInstalled,
+}: {
+  report: DoctorReport | undefined;
+  onInstalled: () => Promise<void>;
+}) {
   return (
     <>
       {report && !report.healthy && (
@@ -45,8 +55,9 @@ export function DoctorChecksPanel({ report }: { report: DoctorReport | undefined
                   {MARK[c.status]}
                 </TableCell>
                 <TableCell className="font-mono text-xs">{c.version ?? ''}</TableCell>
-                <TableCell className="whitespace-normal text-muted-foreground text-xs">
-                  {c.hint}
+                <TableCell className="space-y-2 whitespace-normal text-muted-foreground text-xs">
+                  <p>{c.hint}</p>
+                  {c.install && <InstallButton name={c.name} onInstalled={onInstalled} />}
                 </TableCell>
               </TableRow>
             ))}

@@ -158,3 +158,21 @@ test('doctor leaves a never-initialised profile unwritten and warns when the inb
     hint: expect.stringContaining('inbox state is not valid JSON'),
   });
 });
+
+test('doctor install runs Homebrew and prints { name, installed }; a missing one names install', async () => {
+  const runner = scriptedRunner({}, { missing: ['tmux'] });
+  cli.run = runner.run;
+  const tmux = (await mesa('doctor', '--json')).json.data.checks[0];
+  expect(tmux).toMatchObject({ name: 'tmux', install: 'brew install tmux' });
+
+  const installed = await mesa('doctor', 'install', 'tmux', '--json');
+  expect(installed.code).toBe(0);
+  expect(installed.json.data).toEqual({ name: 'tmux', installed: true });
+  expect(runner.calls.at(-1)).toMatchObject({ file: 'brew', args: ['install', 'tmux'] });
+
+  expect((await mesa('doctor', 'install', 'nope', '--json')).code).toBe(2);
+  cli.run = scriptedRunner({}, { missing: ['brew'] }).run;
+  const noBrew = await mesa('doctor', 'install', 'claude', '--json');
+  expect(noBrew.code).toBe(3);
+  expect(noBrew.json.error.message).toContain('https://brew.sh');
+});

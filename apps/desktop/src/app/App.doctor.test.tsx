@@ -2,7 +2,7 @@
 import type { Check, TmuxWindow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { cells, click, envelope, fakeBridge, renderWithMesa, report } from '@/lib/testing';
+import { cells, click, envelope, failure, fakeBridge, renderWithMesa, report } from '@/lib/testing';
 import { App } from './App';
 
 const check = (version: string): Check => ({
@@ -325,4 +325,48 @@ test('Doctor installs the missing Antigravity instruction hook', async () => {
   await click(byTestId('hooks-install')[0]);
   expect(calls).toContainEqual(['--json', 'hooks', 'install']);
   expect(byTestId('antigravity-hooks-status')[0]?.textContent).toContain('Installed');
+});
+
+test('Install on a missing tmux runs doctor install, then doctor again so the row turns ok', async () => {
+  let installed = false;
+  const missing: Check = {
+    name: 'tmux',
+    ok: false,
+    status: 'fail',
+    hint: 'not found on PATH',
+    install: 'brew install tmux',
+  };
+  const { bridge, calls } = fakeBridge({
+    doctor: () => envelope(report([installed ? check('3.7c') : missing])),
+    'doctor install': () => {
+      installed = true;
+      return envelope({ name: 'tmux', installed: true });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  await click(byTestId('install-button')[0]);
+  expect(calls).toContainEqual(['--json', 'doctor', 'install', 'tmux']);
+  expect(byTestId('doctor-row')[0]?.dataset.status).toBe('ok');
+  expect(byTestId('install-button')).toHaveLength(0);
+});
+
+test("Install without Homebrew says so, with brew.sh and Homebrew's installer to copy", async () => {
+  const missing: Check = {
+    name: 'tmux',
+    ok: false,
+    status: 'fail',
+    hint: 'not found on PATH',
+    install: 'brew install tmux',
+  };
+  const { bridge } = fakeBridge({
+    doctor: () => envelope(report([missing])),
+    'doctor install': () => failure('Homebrew is not installed; see https://brew.sh', 'not_found'),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  await click(byTestId('install-button')[0]);
+  expect(byTestId('install-no-brew')[0]?.textContent).toBe(
+    "Homebrew is required.brew.sh Copy Homebrew's installer",
+  );
 });
