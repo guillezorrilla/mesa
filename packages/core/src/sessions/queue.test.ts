@@ -225,3 +225,25 @@ test('a queued --with start retried after a kill takes the worktrees already on 
     { project: 'tide-pool', worktree: { path: other, branch: 'shared', base: 'main' } },
   ]);
 });
+
+test("a read-only profile's queued Codex --with session says it gets workspace-write at its start", async () => {
+  const { world, mesa } = twoProjects();
+  mesa.config.set('agents.codex.sandbox', 'read-only');
+  const a = (await mesa.sessions.open('lantern-cove')).result;
+  const b = (
+    await mesa.sessions.open('lantern-cove', {
+      agent: 'codex',
+      after: a.id,
+      with: ['tide-pool'],
+      branch: 'shared',
+    })
+  ).result;
+  expect(world.tmux.windows.some((w) => w.window === `codex-${b.id}`)).toBe(false);
+
+  const { warning } = await mesa.sessions.stop(a.id, true);
+  expect(warning).toContain(
+    'Codex runs read-only in this profile; this session gets workspace-write so it can change the other projects',
+  );
+  const window = world.tmux.windows.find((w) => w.window === `codex-${b.id}`);
+  expect(window?.launch).toContain(' --sandbox=workspace-write ');
+});
