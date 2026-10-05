@@ -1,4 +1,4 @@
-import type { RuleRow, WorkspaceFile } from '@mesa/core';
+import type { InstructionRow, WorkspaceFile } from '@mesa/core';
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -10,14 +10,17 @@ import { FileEditor } from '@/features/files/FileEditor';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
-/** Existing native rules, edited only through the same checked file path as Files. */
-export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolean) => void }) {
-  const rules = useCommand('rules.list', { project: props.project });
+/** Existing provider instruction files, edited only through the same checked file path as Files. */
+export function InstructionsTab(props: {
+  project: string;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
+  const files = useCommand('instructions.list', { project: props.project });
   const config = useCommand('config.get');
   const run = useRun();
   const { acting, act } = useAct();
   const [filter, setFilter] = useState<'all' | 'global' | 'project'>('all');
-  const [selected, setSelected] = useState<RuleRow>();
+  const [selected, setSelected] = useState<InstructionRow>();
   const [opened, setOpened] = useState<WorkspaceFile>();
   const [draft, setDraft] = useState('');
   const dirty = Boolean(opened && draft !== opened.text);
@@ -31,14 +34,14 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
     window.addEventListener('beforeunload', preventClose);
     return () => window.removeEventListener('beforeunload', preventClose);
   }, [dirty]);
-  const visible = (rules.data ?? []).filter(
+  const visible = (files.data ?? []).filter(
     (row) =>
       filter === 'all' ||
       (filter === 'project' ? row.scope === 'project' : row.scope !== 'project'),
   );
-  const open = async (row: RuleRow) => {
+  const open = async (row: InstructionRow) => {
     if (dirty) return;
-    const document = await run('rules.read', { id: row.id, project: props.project });
+    const document = await run('instructions.read', { id: row.id, project: props.project });
     if (!document) return;
     setSelected(row);
     setOpened(document);
@@ -47,7 +50,7 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
   const save = () =>
     act(async () => {
       if (!selected || !opened || !selected.writable) return undefined;
-      const result = await run('rules.write', {
+      const result = await run('instructions.write', {
         id: selected.id,
         project: props.project,
         text: draft,
@@ -55,17 +58,17 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
       });
       if (!result) return undefined;
       setOpened({ ...opened, text: draft, revision: result.revision ?? opened.revision });
-      await rules.refresh();
+      await files.refresh();
       return warningOf(result);
     });
   return (
-    <section data-testid="rules-workspace" className="space-y-5">
+    <section data-testid="instructions-workspace" className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold">Rules</h3>
+        <h3 className="text-base font-semibold">Instructions</h3>
         <Muted size="xs">Native instruction files from your project, profile, and providers.</Muted>
       </div>
       <fieldset className="flex gap-1">
-        <legend className="sr-only">Rule scope</legend>
+        <legend className="sr-only">Instruction file scope</legend>
         {(['all', 'global', 'project'] as const).map((scope) => (
           <Button
             key={scope}
@@ -105,9 +108,12 @@ export function RulesTab(props: { project: string; onDirtyChange: (dirty: boolea
           </button>
         ))}
       </div>
-      {visible.length === 0 && <Muted>No rules found.</Muted>}
+      {visible.length === 0 && <Muted>No instruction files found.</Muted>}
       {selected && opened && (
-        <section className="space-y-3 rounded-lg border bg-card/35 p-4" aria-label="Rule details">
+        <section
+          className="space-y-3 rounded-lg border bg-card/35 p-4"
+          aria-label="Instruction file details"
+        >
           <div className="flex items-center gap-2">
             <h4 className="min-w-0 flex-1 truncate font-medium">{selected.name}</h4>
             {selected.writable && dirty && (

@@ -35,7 +35,7 @@ export function instructionStatus(
         ? { state: 'configured', reason: 'PreInvocation hook is configured' }
         : { state: 'missing', reason: 'Run mesa hooks install' };
     }
-    const codex = agent === 'codex' ? codexHooks(codexHome(env, home), self) : undefined;
+    const codex = agent === 'codex' ? codexHooks(codexHome(home, env), self) : undefined;
     const hooks = codex ?? claudeHooks(home, self);
     if (hooks.stale) return { state: 'conflicting', reason: 'Mesa SessionStart hook is stale' };
     if (!hooks.events.SessionStart) return { state: 'missing', reason: 'Run mesa hooks install' };

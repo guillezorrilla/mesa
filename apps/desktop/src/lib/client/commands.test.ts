@@ -5,10 +5,10 @@ import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
 import { importsCommands } from './imports';
+import { instructionsCommands } from './instructions';
 import { notificationsCommands } from './notifications';
 import { projectsCommands } from './projects';
 import { reviewCommands } from './review';
-import { rulesCommands } from './rules';
 import { sessionsCommands } from './sessions';
 import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
@@ -29,7 +29,7 @@ test('no command name is defined by two domain tables', () => {
     notificationsCommands,
     projectsCommands,
     reviewCommands,
-    rulesCommands,
+    instructionsCommands,
     sessionsCommands,
     settingsCommands,
     skillsCommands,

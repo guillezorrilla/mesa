@@ -75,7 +75,7 @@ export function nativeName(
       return file ? claudeName(file) : undefined;
     }
     if (c.agent === 'codex') {
-      return codexName(codexSessionIndex(codexHome(deps.env, deps.home)), c.id);
+      return codexName(codexSessionIndex(codexHome(deps.home, deps.env)), c.id);
     }
   } catch {
     // A file may disappear while it is read.

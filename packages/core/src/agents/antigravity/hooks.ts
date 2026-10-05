@@ -1,13 +1,12 @@
 import { existsSync, unlinkSync } from 'node:fs';
-import { join } from 'node:path';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { SESSION_ID_VAR } from '../../sessions/caller.js';
 import { read, write } from '../hooks.js';
+import { antigravityHooks } from './paths.js';
 
 const NAME = 'mesa-session-instructions';
 const CREATED_FILE = 'Mesa created this hooks file';
-const path = (home: string) => join(home, '.gemini', 'config', 'hooks.json');
 
 /** Antigravity's global hook is inert outside a Mesa window and always returns valid hook JSON. */
 export const hookCommand = (self: readonly string[]) =>
@@ -34,7 +33,7 @@ function owned(
 }
 
 function config(home: string) {
-  const file = path(home);
+  const file = antigravityHooks(home);
   const loaded = read(file);
   const entry = loaded.settings[NAME];
   if (entry !== undefined && !owned(entry))

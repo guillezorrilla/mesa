@@ -73,7 +73,7 @@ export async function adoptSession(
   const ran = live ?? input.ran ?? nativeConversation(deps, id);
   if (ran === undefined) {
     const agents = ADOPTS.map((a) => AGENT_LABELS[a]).join(' or ');
-    const dirs = [claudeTranscripts(deps.home), codexSessions(codexHome(deps.env, deps.home))].join(
+    const dirs = [claudeTranscripts(deps.home), codexSessions(codexHome(deps.home, deps.env))].join(
       ', ',
     );
     throw new MesaError('not_found', `no ${agents} session ${id}, live or in ${dirs}`);

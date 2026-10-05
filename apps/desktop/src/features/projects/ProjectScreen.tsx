@@ -5,7 +5,7 @@ import { AutomationsTab } from '@/features/automations/AutomationsTab';
 import { FilesTab } from '@/features/files/FilesTab';
 import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
-import { RulesTab } from '@/features/rules/RulesTab';
+import { InstructionsTab } from '@/features/instructions/InstructionsTab';
 import { SkillsTab } from '@/features/skills/SkillsTab';
 import { VaultTab } from '@/features/vault/VaultTab';
 import { useAct } from '@/lib/useAct';
@@ -24,7 +24,7 @@ export type ProjectTab =
   | 'git'
   | 'files'
   | 'skills'
-  | 'rules'
+  | 'instructions'
   | 'automations';
 
 /** The selected project's existing information and effective skills, in its own workspace. */
@@ -142,8 +142,8 @@ export function ProjectScreen(props: {
           onDirtyChange={props.onFilesDirtyChange}
           onAgentSettings={props.onAgentSettings}
         />
-      ) : tab === 'rules' ? (
-        <RulesTab project={project.name} onDirtyChange={props.onFilesDirtyChange} />
+      ) : tab === 'instructions' ? (
+        <InstructionsTab project={project.name} onDirtyChange={props.onFilesDirtyChange} />
       ) : (
         <AutomationsTab key={project.name} project={project.name} />
       )}

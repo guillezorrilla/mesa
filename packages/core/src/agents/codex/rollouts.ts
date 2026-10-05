@@ -30,7 +30,7 @@ const MetaSchema = z.object({
 export type CodexThread = { id: string; cwd: string; startedAt: string };
 
 function rolloutFiles(deps: { env: Env; home: string }) {
-  const sessions = codexSessions(codexHome(deps.env, deps.home));
+  const sessions = codexSessions(codexHome(deps.home, deps.env));
   let names: string[];
   try {
     names = readdirSync(sessions, { recursive: true, encoding: 'utf8' });

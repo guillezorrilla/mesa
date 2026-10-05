@@ -4,48 +4,48 @@ import { recordedOutput } from '../output/recorded.js';
 
 const project = { type: 'string' as const, description: 'Registered project scope' };
 
-export const rulesList = defineCommand({
-  name: 'rules list',
+export const instructionsList = defineCommand({
+  name: 'instructions list',
   summary: 'List installed provider instruction files',
   flags: { project },
-  example: 'mesa rules list --project lantern-cove',
+  example: 'mesa instructions list --project lantern-cove',
   run: ({ mesa, flags }) => {
-    const rows = mesa.rules.list(flags.project);
+    const rows = mesa.instructions.list(flags.project);
     return {
       data: rows,
       text: rows.length
         ? columns(rows.map((row) => [row.name, row.scope, row.providers.join(','), row.path])).join(
             '\n',
           )
-        : 'no rules found',
+        : 'no instruction files found',
     };
   },
 });
 
-export const rulesRead = defineCommand({
-  name: 'rules read',
+export const instructionsRead = defineCommand({
+  name: 'instructions read',
   summary: 'Preview an installed instruction file with its revision',
   args: ['id'],
   flags: { project },
-  example: 'mesa rules read /path/to/AGENTS.md --project lantern-cove',
+  example: 'mesa instructions read /path/to/AGENTS.md --project lantern-cove',
   run: ({ mesa, args, flags }) => {
-    const data = mesa.rules.read(args.id, flags.project);
+    const data = mesa.instructions.read(args.id, flags.project);
     return { data, text: data.text };
   },
 });
 
-export const rulesWrite = defineCommand({
-  name: 'rules write',
+export const instructionsWrite = defineCommand({
+  name: 'instructions write',
   summary: 'Save a writable instruction file when its read revision is current',
   args: ['id'],
   flags: {
     project,
     text: { type: 'string', required: true, description: 'New UTF-8 text' },
-    revision: { type: 'string', required: true, description: 'Revision from rules read' },
+    revision: { type: 'string', required: true, description: 'Revision from instructions read' },
   },
-  example: 'mesa rules write /path/to/AGENTS.md --text "New text" --revision <sha256>',
+  example: 'mesa instructions write /path/to/AGENTS.md --text "New text" --revision <sha256>',
   run: ({ mesa, args, flags }) => {
-    const recorded = mesa.rules.write(args.id, flags.text, flags.revision, flags.project);
+    const recorded = mesa.instructions.write(args.id, flags.text, flags.revision, flags.project);
     return recordedOutput(recorded, { data: recorded.result, text: `saved ${args.id}` });
   },
 });

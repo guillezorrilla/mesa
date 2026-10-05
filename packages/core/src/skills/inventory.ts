@@ -1,7 +1,22 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { parse } from 'smol-toml';
+import {
+  ANTIGRAVITY_PROJECT_SKILLS,
+  antigravityPluginSkills,
+  antigravityPlugins,
+  antigravitySkills,
+} from '../agents/antigravity/paths.js';
+import {
+  CLAUDE_PROJECT_SKILLS,
+  claudeHome,
+  claudeInstalledPlugins,
+  claudeSettings,
+  claudeSkills,
+} from '../agents/claude/paths.js';
+import { CODEX_SKILLS } from '../agents/codex/paths.js';
 import type { Agent } from '../agents/names.js';
+import type { Env } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { LibrarySkill } from './library.js';
 import { readSkill } from './library.js';
@@ -52,9 +67,9 @@ function supportFiles(folder: string): string[] {
   return files.sort();
 }
 
-function claudeSettings(home: string): Record<string, unknown> {
+function readSettings(file: string): Record<string, unknown> {
   try {
-    const settings: unknown = JSON.parse(readFileSync(join(home, '.claude/settings.json'), 'utf8'));
+    const settings: unknown = JSON.parse(readFileSync(file, 'utf8'));
     return settings && typeof settings === 'object' ? (settings as Record<string, unknown>) : {};
   } catch {
     return {};
@@ -63,40 +78,40 @@ function claudeSettings(home: string): Record<string, unknown> {
 
 function nativeRoots(
   home: string,
+  claudeDir: string,
   projectDir?: string,
   enabledPlugins?: Record<string, unknown>,
 ): Root[] {
   const roots: Root[] = [
-    { path: join(home, '.claude/skills'), scope: 'global', providers: ['claude'] },
-    { path: join(home, '.agents/skills'), scope: 'global', providers: ['codex'] },
-    {
-      path: join(home, '.gemini/antigravity-cli/skills'),
-      scope: 'global',
-      providers: ['antigravity'],
-    },
+    { path: claudeSkills(claudeDir), scope: 'global', providers: ['claude'] },
+    { path: join(home, CODEX_SKILLS), scope: 'global', providers: ['codex'] },
+    { path: antigravitySkills(home), scope: 'global', providers: ['antigravity'] },
   ];
   if (projectDir) {
     roots.unshift(
-      { path: join(projectDir, '.claude/skills'), scope: 'project', providers: ['claude'] },
+      { path: join(projectDir, CLAUDE_PROJECT_SKILLS), scope: 'project', providers: ['claude'] },
       {
-        path: join(projectDir, '.agents/skills'),
+        path: join(projectDir, CODEX_SKILLS),
         scope: 'project',
         providers: ['codex', 'antigravity'],
       },
-      { path: join(projectDir, '.agent/skills'), scope: 'project', providers: ['antigravity'] },
+      {
+        path: join(projectDir, ANTIGRAVITY_PROJECT_SKILLS),
+        scope: 'project',
+        providers: ['antigravity'],
+      },
     );
   }
-  const plugins = join(home, '.gemini/antigravity-cli/plugins');
-  for (const plugin of entries(plugins)) {
+  for (const plugin of entries(antigravityPlugins(home))) {
     if (plugin.isDirectory()) {
       roots.push({
-        path: join(plugins, plugin.name, 'skills'),
+        path: antigravityPluginSkills(home, plugin.name),
         scope: 'plugin',
         providers: ['antigravity'],
       });
     }
   }
-  const installed = join(home, '.claude/plugins/installed_plugins.json');
+  const installed = claudeInstalledPlugins(claudeDir);
   if (existsSync(installed)) {
     let metadata: unknown;
     try {
@@ -174,20 +189,23 @@ function codexDisabledSkills(config?: string): Set<string> {
 /** Installed skill paths, with collisions left visible rather than guessing provider precedence. */
 export function skillInventory(input: {
   home: string;
+  /** Where Claude Code's config folder is (`CLAUDE_CONFIG_DIR`). */
+  env: Env;
   library: LibrarySkill[];
   listed: SkillRow[];
   projectDir?: string;
   codexConfig?: string;
 }): SkillInventoryRow[] {
   const disabled = codexDisabledSkills(input.codexConfig);
-  const claude = claudeSettings(input.home);
+  const claudeDir = claudeHome(input.home, input.env);
+  const claudeSettingsJson = readSettings(claudeSettings(input.home, input.env));
   const enabledPlugins =
-    claude.enabledPlugins && typeof claude.enabledPlugins === 'object'
-      ? (claude.enabledPlugins as Record<string, unknown>)
+    claudeSettingsJson.enabledPlugins && typeof claudeSettingsJson.enabledPlugins === 'object'
+      ? (claudeSettingsJson.enabledPlugins as Record<string, unknown>)
       : {};
   const skillOverrides =
-    claude.skillOverrides && typeof claude.skillOverrides === 'object'
-      ? (claude.skillOverrides as Record<string, unknown>)
+    claudeSettingsJson.skillOverrides && typeof claudeSettingsJson.skillOverrides === 'object'
+      ? (claudeSettingsJson.skillOverrides as Record<string, unknown>)
       : {};
   const byName = new Map(input.library.map((skill) => [skill.name, skill]));
   const rows: SkillInventoryRow[] = input.listed
@@ -219,7 +237,7 @@ export function skillInventory(input: {
     }),
   );
   const seen = new Map<string, SkillInventoryRow>();
-  for (const root of nativeRoots(input.home, input.projectDir, enabledPlugins)) {
+  for (const root of nativeRoots(input.home, claudeDir, input.projectDir, enabledPlugins)) {
     for (const entry of entries(root.path)) {
       if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       const path = join(root.path, entry.name);

@@ -20,7 +20,7 @@ export type HooksStatus = ClaudeHooksStatus & {
  */
 export function hooksService(ctx: MesaContext) {
   const { record, deps } = ctx;
-  const home = codexHome(deps.env, deps.home);
+  const home = codexHome(deps.home, deps.env);
   const change = (install: boolean) => {
     // Validate every file before changing any, including Codex's read-only trust config.
     hooksStatus(deps.home, deps.self);

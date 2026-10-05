@@ -36,7 +36,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
     envelope({ name: args.at(-1), visits: 1, visitedAt: '2026-09-30T12:00:00.000Z' }),
   'skills list': () => envelope([]),
   'update channel': () => envelope({ channel: 'beta' }),
-  'rules list': () => envelope([]),
+  'instructions list': () => envelope([]),
   // Settings > Connections, which a settings search renders too.
   'sources list': () =>
     envelope({

@@ -37,7 +37,7 @@ function skill(dir: string, name: string, description = `The ${name} skill`, as 
  * A profile over a temp home with its own library (skills a and b), `a` enabled in the profile,
  * and lantern-cove registered with `b` as its mesa.yaml extra.
  */
-function setUp() {
+function setUp(env: Record<string, string> = {}) {
   const home = tempDir();
   const library = join(home, 'library');
   skill(library, 'a');
@@ -47,7 +47,7 @@ function setUp() {
   writeFileSync(join(dir, 'mesa.yaml'), 'name: lantern-cove\nskills: [b]\n');
   const mesa = createMesa(
     'default',
-    testDeps(home, { run: scriptedRunner().run, skillsDir: library }),
+    testDeps(home, { run: scriptedRunner().run, skillsDir: library, env }),
   );
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
@@ -268,6 +268,44 @@ test('inventory reports a skill disabled by Codex without editing its native con
     precedence: 'only-discovered-source',
   });
   expect(readFileSync(join(home, '.codex/config.toml'), 'utf8')).toBe(config);
+});
+
+test('inventory reads Claude and Codex settings from the homes the injected env names', () => {
+  const base = tempDir();
+  const claudeHome = join(base, 'claude');
+  const codexHome = join(base, 'codex');
+  const { home, mesa } = setUp({ CLAUDE_CONFIG_DIR: claudeHome, CODEX_HOME: codexHome });
+  skill(join(claudeHome, 'skills'), 'quiet');
+  skill(join(claudeHome, 'skills'), 'loud');
+  writeFileSync(
+    join(claudeHome, 'settings.json'),
+    JSON.stringify({ skillOverrides: { quiet: 'off' } }),
+  );
+  // Claude reads no ~/.claude while CLAUDE_CONFIG_DIR is set.
+  skill(join(home, '.claude/skills'), 'unread');
+  skill(join(home, '.agents/skills'), 'codex-only');
+  mkdirSync(codexHome, { recursive: true });
+  const file = join(home, '.agents/skills/codex-only/SKILL.md');
+  writeFileSync(
+    join(codexHome, 'config.toml'),
+    `[[skills.config]]\npath = ${JSON.stringify(file)}\nenabled = false\n`,
+  );
+  const rows = mesa.skills.inventory();
+  expect(rows.find((row) => row.name === 'loud')).toMatchObject({
+    path: join(claudeHome, 'skills/loud'),
+    scope: 'global',
+    providers: ['claude'],
+    enabled: true,
+  });
+  expect(rows.find((row) => row.name === 'quiet')).toMatchObject({
+    enabled: false,
+    disabledFor: ['claude'],
+  });
+  expect(rows.find((row) => row.name === 'codex-only')).toMatchObject({
+    enabled: false,
+    disabledFor: ['codex'],
+  });
+  expect(rows.some((row) => row.name === 'unread')).toBe(false);
 });
 
 test('project skill policy changes preserve mesa.yaml comments and leave profile policy alone', () => {

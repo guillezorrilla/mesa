@@ -16,6 +16,7 @@ import { filesService } from './files/service.js';
 import { prEventsService } from './git/pr-event-delivery.js';
 import { gitService } from './git/service.js';
 import { installRequirement } from './install.js';
+import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
@@ -23,7 +24,6 @@ import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { promptsService } from './prompts/prompts.js';
 import { receiptsService } from './receipts/service.js';
-import { rulesService } from './rules/service.js';
 import { sessionsService } from './sessions/service.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
@@ -90,7 +90,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
     notifications,
     diagnostics: diagnosticsService(ctx),
     update: updateService(ctx, profileApi.config),
-    rules: rulesService(ctx),
+    instructions: instructionsService(ctx),
     sources,
     imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
     decide: faro.decide,
@@ -107,12 +107,12 @@ export function createMesa(profile: string, deps: MesaDeps) {
         decisions: faro.inUse(),
         hooks: {
           claude: () => hooksStatus(deps.home, deps.self),
-          codex: () => codexHooksStatus(codexHome(deps.env, deps.home), deps.self),
+          codex: () => codexHooksStatus(codexHome(deps.home, deps.env), deps.self),
           antigravity: () => antigravityHooksStatus(deps.home, deps.self),
           antigravityVault: () => vaultMountStatus(deps.home, deps.self),
           tmux: ctx.tmuxHook,
         },
-        codexDaemon: codexDaemonSocket(codexHome(deps.env, deps.home)),
+        codexDaemon: codexDaemonSocket(codexHome(deps.home, deps.env)),
         ...(existsSync(ctx.paths.config) ? { vault: vaults.vault.status } : {}),
       });
       // A profile that was never initialised has no inbox: doctor must not create its folder.
