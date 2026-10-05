@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { CLAUDE_MOUNT, CODEX_MOUNT, NATIVE_LAUNCH, tempDir } from '../testing/index.js';
 import { AGENTS, startCommand } from './agents.js';
-import { dangerousFlags, type LaunchDefaults } from './launch-flags.js';
+import { dangerousFlags, type LaunchDefaults, launchFlags } from './launch-flags.js';
 import { vaultServer } from './vault-mount.js';
 
 // The profile's launch defaults on the commands every start, resume, and fork runs, in each
@@ -71,6 +71,34 @@ test('Codex takes its approval policy and sandbox; bypass replaces both', () => 
   expect(AGENTS.codex.resume('019a', FOLDER, SERVER, bypass)).toBe(
     `codex -c mesa.embedded=true --dangerously-bypass-approvals-and-sandbox ${CODEX_MOUNT} resume '019a' -C '${FOLDER}'`,
   );
+});
+
+test('Codex with extra folders gets the workspace-write sandbox, over read-only too', () => {
+  const dirs = ['/src/tide-pool'];
+  const extra = " '--add-dir' '/src/tide-pool'";
+  expect(startCommand('codex', SERVER, NATIVE_LAUNCH, { goal: 'go' }, dirs)).toBe(
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT}${extra} -- 'go'`,
+  );
+  expect(AGENTS.codex.resume('019a', FOLDER, SERVER, NATIVE_LAUNCH, undefined, dirs)).toBe(
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} resume '019a' -C '${FOLDER}'${extra}`,
+  );
+  expect(AGENTS.codex.fork('019a', FOLDER, SERVER, NATIVE_LAUNCH, undefined, dirs)).toBe(
+    `codex -c mesa.embedded=true --sandbox=workspace-write ${CODEX_MOUNT} fork '019a' -C '${FOLDER}'${extra}`,
+  );
+  const flagsFor = (codex: LaunchDefaults['codex']) =>
+    launchFlags('codex', set({ codex }), undefined, dirs);
+  expect(flagsFor({})).toEqual(['--sandbox=workspace-write']);
+  expect(flagsFor({ sandbox: 'workspace-write' })).toEqual(['--sandbox=workspace-write']);
+  expect(flagsFor({ sandbox: 'read-only' })).toEqual(['--sandbox=workspace-write']);
+  expect(flagsFor({ sandbox: 'danger-full-access' })).toEqual(['--sandbox=danger-full-access']);
+  expect(flagsFor({ sandbox: 'read-only', bypass: true })).toEqual([
+    '--dangerously-bypass-approvals-and-sandbox',
+  ]);
+  expect(flagsFor({ approvalPolicy: 'on-request' })).toEqual([
+    '--ask-for-approval=on-request',
+    '--sandbox=workspace-write',
+  ]);
+  expect(dangerousFlags('codex', NATIVE_LAUNCH)).toEqual([]);
 });
 
 test('Antigravity takes skip permissions, its mode, and sandbox; plan from the session wins', () => {
