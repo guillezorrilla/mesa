@@ -2,10 +2,18 @@ import type { Config, ProjectRow } from '@mesa/core';
 import { useEffect, useRef } from 'react';
 
 /**
- * Offers Find from sessions once per launch (CONTEXT.md, First-run discovery), once config and
- * projects load and Set up is behind: when discovery was started and not finished, or is pending
- * with no project registered.
+ * Whether Find from sessions is offered (CONTEXT.md, First-run discovery): discovery was started
+ * and not finished, or is pending with no project registered. False until config and projects load.
  */
+export function discoveryOffered(
+  config: Config | undefined,
+  projects: readonly ProjectRow[] | undefined,
+) {
+  const state = config?.onboarding?.discovery;
+  return state === 'started' || (state === 'pending' && projects?.length === 0);
+}
+
+/** Offers Find from sessions once per launch, once config and projects load and Set up is behind. */
 export function useDiscoveryOffer(props: {
   config: Config | undefined;
   projects: readonly ProjectRow[] | undefined;
@@ -18,7 +26,6 @@ export function useDiscoveryOffer(props: {
   useEffect(() => {
     if (decided.current || settingUp || !config || !projects) return;
     decided.current = true;
-    const state = config.onboarding?.discovery;
-    if (state === 'started' || (state === 'pending' && projects.length === 0)) offer();
+    if (discoveryOffered(config, projects)) offer();
   }, [config, projects, settingUp, offer]);
 }
