@@ -1,11 +1,12 @@
 import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { bulkExit } from '../output/bulk.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const stop = defineCommand({
   name: 'stop',
   summary:
-    'End a session: its agent is asked to quit (up to 5 s), then its window is closed; a queued one is cancelled',
+    'End a session: its agent is asked to quit (up to 5 s), then its window is closed; a queued one is cancelled; with --descendants, exits 2 when any item failed',
   args: ['session'],
   flags: {
     force: { type: 'boolean', description: 'Close the window at once, without asking the agent' },
@@ -35,7 +36,7 @@ export const stop = defineCommand({
         text: data.items
           .map((item) => `${item.id}: ${item.ok ? item.result.outcome : item.error.message}`)
           .join('\n'),
-        code: data.items.some((item) => !item.ok) ? 2 : 0,
+        code: bulkExit(data.items.some((item) => !item.ok)),
       };
     }
     const recorded = await mesa.sessions.stop(args.session, flags.force ?? false);

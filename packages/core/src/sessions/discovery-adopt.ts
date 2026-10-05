@@ -1,6 +1,6 @@
 import { realpathSync, statSync } from 'node:fs';
 import { MesaError } from '../lib/result.js';
-import { registerProject } from '../projects/projects.js';
+import { projectOf, registerProject } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import { type AdoptDeps, adoptSession } from './adopt.js';
@@ -15,6 +15,11 @@ export type DiscoveredAdoption = {
   agentSessionId: string;
   agent: 'claude' | 'codex';
   name?: string;
+  /**
+   * The registered project its cwd is in, when not the folder's (a linked worktree registered as
+   * its own project): it is adopted there, as `mesa adopt` would place it.
+   */
+  project?: string;
 };
 export type DiscoveryAdoption = {
   /** The project's name. */
@@ -33,7 +38,8 @@ export type DiscoveryAdoption = {
 /**
  * Registers folder `path` unless registered (a minimal mesa.yaml when it has none), then adopts,
  * record-only, every conversation of the last `days` that discoverNative places in it, each under
- * its native name; with `live`, also its running sessions, reopened in Mesa windows. One failing
+ * its native name and in the registered project its cwd is in (`mesa adopt`'s), else this one;
+ * with `live`, also its running sessions, reopened in Mesa windows. One failing
  * adoption is reported in `failed` and the rest go on; held conversations are not found again, so
  * a second run adopts nothing new.
  */
@@ -53,20 +59,21 @@ export async function adoptDiscovered(
   const known = readRegistry(deps.profile.paths.registry).find((e) => e.path === path);
   const project =
     known?.name ?? registerProject(deps.profile, { dir: path, create: true }).project.name;
+  const registry = readRegistry(deps.profile.paths.registry);
 
   const failed: DiscoveryAdoption['failed'] = [];
   const warnings: string[] = [];
   const adopt = async (
-    rows: readonly { agent: 'claude' | 'codex'; id: string; name?: string }[],
+    rows: readonly { agent: 'claude' | 'codex'; id: string; cwd: string; name?: string }[],
     resume: boolean,
   ) => {
     const done: DiscoveredAdoption[] = [];
-    for (const { agent, id, name } of rows) {
+    for (const { agent, id, cwd, name } of rows) {
       try {
         // The native name discovery read already, not read again.
         const { record, warning } = await adoptSession(batch, {
           agentSessionId: id,
-          project,
+          project: projectOf(cwd, registry) ?? project,
           noResume: !resume,
           ...(name !== undefined && { name }),
         });
@@ -75,6 +82,7 @@ export async function adoptDiscovered(
           agentSessionId: id,
           agent,
           ...(record.name && { name: record.name }),
+          ...(record.project !== project && { project: record.project }),
         });
         if (resume) warnings.push(warning);
       } catch (error) {
