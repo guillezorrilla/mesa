@@ -21,7 +21,12 @@ use state::{Ready, State, Status};
 const FIRST_CHECK: Duration = Duration::from_secs(15);
 const EVERY: Duration = Duration::from_secs(4 * 60 * 60);
 /// What `mesa update install` opens (core's UPDATE_LINK).
-pub const UPDATE_LINK: &str = "mesa://update/install";
+const UPDATE_LINK: &str = "mesa://update/install";
+
+/// Whether opened `urls` hold the link `mesa update install` opens.
+pub fn asks_to_install(urls: &[Url]) -> bool {
+    urls.iter().any(|url| url.as_str() == UPDATE_LINK)
+}
 
 /// The plugin's update and its verified bytes.
 type Download = (Update, Vec<u8>);
@@ -238,7 +243,21 @@ pub fn update_open_page(updates: tauri::State<'_, Updates>) -> Result<(), String
 
 #[cfg(test)]
 mod tests {
-    use super::adhoc;
+    use super::{adhoc, asks_to_install, UPDATE_LINK};
+    use tauri::Url;
+
+    #[test]
+    fn the_install_link_is_cores_and_is_recognised_among_others() {
+        let core = include_str!("../../../../packages/core/src/update/feeds.ts");
+        assert!(core.contains(&format!("UPDATE_LINK = '{UPDATE_LINK}'")));
+        let url = |s: &str| Url::parse(s).unwrap();
+        assert!(asks_to_install(&[
+            url("mesa://session/abc"),
+            url(UPDATE_LINK)
+        ]));
+        assert!(!asks_to_install(&[url("mesa://session/abc")]));
+        assert!(!asks_to_install(&[]));
+    }
 
     #[test]
     fn only_an_adhoc_signature_counts_as_adhoc() {
