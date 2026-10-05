@@ -33,5 +33,7 @@ export function useSortedProjects(
     if (next === sort) void sorted.refresh();
     void run('config.set', { path: 'projects.sort', value: next });
   };
-  return { sort, setSort, sorted: sorted.data };
+  // Before the profile's sort is known, the plain list (already in that order) shows instead,
+  // so a saved sort never flashes the default first.
+  return { sort, setSort, sorted: (picked ?? saved) ? sorted.data : undefined };
 }
