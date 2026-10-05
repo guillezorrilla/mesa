@@ -108,6 +108,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       update: {},
       keys: {},
     } satisfies Config),
+  'obsidian vaults': () => envelope({ vaults: [], suggested: '/h/Documents/Mesa' }),
   'vault status': () => envelope({ path: '/h/vault', ok: true, missing: [] } satisfies VaultStatus),
   'vault context': (args) =>
     envelope({

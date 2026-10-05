@@ -35,16 +35,33 @@ export function obsidianUri(vault: string, note?: string): string {
   return `obsidian://open?${name}${note === undefined ? '' : `&file=${encodeURIComponent(note)}`}`;
 }
 
-/** Obsidian's known vault folders, from its own list. Read only; a missing or odd list means none. */
+/**
+ * Obsidian's known vault folders, from its own list, most recently opened first. Read only; a
+ * missing or odd list means none.
+ */
 function knownVaults(vaultList: string): string[] {
   try {
     const list = JSON.parse(readFileSync(vaultList, 'utf8')) as {
-      vaults?: Record<string, { path?: string }>;
+      vaults?: Record<string, { path?: string; ts?: number }>;
     };
-    return Object.values(list.vaults ?? {}).flatMap((v) => (v.path ? [resolve(v.path)] : []));
+    return Object.values(list.vaults ?? {})
+      .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+      .flatMap((v) => (v.path ? [resolve(v.path)] : []));
   } catch {
     return [];
   }
+}
+
+export type VaultChoices = { vaults: { path: string; name: string }[]; suggested: string };
+
+/** Where a first vault can go: Obsidian's vaults that still exist, and a new folder to suggest. */
+export function vaultChoices(obsidian: ObsidianPaths, home: string): VaultChoices {
+  return {
+    vaults: knownVaults(obsidian.vaultList)
+      .filter((path) => existsSync(path))
+      .map((path) => ({ path, name: basename(path) })),
+    suggested: join(home, 'Documents/Mesa'),
+  };
 }
 
 export type Opened = { opened: true; method: 'uri' | 'cli'; target: string };

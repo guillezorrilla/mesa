@@ -1,4 +1,3 @@
-import { AGENT_LABELS } from '@mesa/core/browser';
 import { Plug } from 'lucide-react';
 import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -6,23 +5,15 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { SettingRow } from '../SettingRow';
+import { hookAgents, hooksReady } from './hookAgents';
 
 /** Mesa's hooks in each agent: what lets it tell when a session needs you. */
 export function SessionHooks() {
   const hooks = useCommand('hooks.status');
   const run = useRun();
   const { acting, act } = useAct();
-  const agents = hooks.data
-    ? ([
-        [AGENT_LABELS.claude, hooks.data.installed && !hooks.data.stale],
-        [AGENT_LABELS.codex, hooks.data.codex.installed && !hooks.data.codex.stale],
-        [
-          AGENT_LABELS.antigravity,
-          hooks.data.antigravity.installed && !hooks.data.antigravity.stale,
-        ],
-      ] as const)
-    : [];
-  const ready = agents.length > 0 && agents.every(([, installed]) => installed);
+  const agents = hooks.data ? hookAgents(hooks.data) : [];
+  const ready = hooksReady(hooks.data);
   return (
     <SettingRow
       icon={Plug}

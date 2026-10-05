@@ -33,6 +33,7 @@ import { updateService } from './update/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
 import { statusLineService } from './usage/statusline.js';
+import { vaultChoices } from './vault/obsidian.js';
 import { vaultService } from './vault/service.js';
 import { worktreesService } from './worktrees/service.js';
 
@@ -94,6 +95,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
     decide: faro.decide,
     guardrail: { check: faro.guardrail.check },
+    /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */
+    vaultChoices: () => vaultChoices(deps.obsidian, deps.home),
     /** Installs a missing tmux or agent with Homebrew (`mesa doctor install`). */
     installRequirement: (name: string) => installRequirement(deps.run, name),
     doctor: async () => {

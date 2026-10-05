@@ -2851,7 +2851,7 @@ test('quitting can be cancelled, and a failed close-time backup keeps the app op
   expect(calls.filter((args) => args.includes('backup'))).toHaveLength(2);
 });
 
-test('welcome tour resumes, skips, and replays without starting an agent', async () => {
+test('onboarding resumes at its step and runs again from Settings without starting an agent', async () => {
   const baseline = (await fakeBridge().bridge(['--json', 'config'])) as { data: Config };
   let config = { ...baseline.data, onboarding: { status: 'active' as const, step: 1 } };
   const { bridge, calls } = fakeBridge({
@@ -2870,15 +2870,13 @@ test('welcome tour resumes, skips, and replays without starting an agent', async
     },
   });
   const byTestId = await renderWithMesa(<App />, bridge);
-  expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 2 of 3');
-  const buttons = (testId: string) => [...(byTestId(testId)[0]?.querySelectorAll('button') ?? [])];
-  await click(buttons('welcome-tour').find((button) => button.textContent === 'Next'));
-  expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 3 of 3');
-  await click(buttons('welcome-tour').find((button) => button.textContent === 'Skip tour'));
-  expect(byTestId('welcome-tour')).toHaveLength(0);
+  expect(byTestId('onboarding-step')[0]?.textContent).toBe('Projects');
+  await click(byTestId('nav-doctor')[0]);
+  expect(byTestId('onboarding')).toHaveLength(0);
   await click(byTestId('open-settings')[0]);
-  await click(buttons('settings').find((button) => button.textContent === 'Replay tour'));
-  expect(byTestId('welcome-tour')[0]?.textContent).toContain('Step 1 of 3');
+  const buttons = (testId: string) => [...(byTestId(testId)[0]?.querySelectorAll('button') ?? [])];
+  await click(buttons('settings').find((button) => button.textContent === 'Run again'));
+  expect(byTestId('onboarding-step')[0]?.textContent).toBe('Requirements');
   expect(calls.some((args) => args.includes('open'))).toBe(false);
 });
 

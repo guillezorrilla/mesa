@@ -90,6 +90,7 @@ import {
   notificationsDelivery,
   notificationsRead,
 } from './notifications.js';
+import { obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
 import { prEvents } from './pr-events.js';
 import { profile } from './profile.js';
@@ -199,6 +200,7 @@ export const COMMANDS: Command[] = [
   discoverAdopt,
   doctor,
   doctorInstall,
+  obsidianVaults,
   filesCreate,
   filesDelete,
   filesLink,

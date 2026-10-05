@@ -12,7 +12,7 @@ import { useAppearance } from './hooks/useAppearance';
 import { useAppMenu } from './hooks/useAppMenu';
 import { useCloseGuard } from './hooks/useCloseGuard';
 import { useCostAlerts } from './hooks/useCostAlerts';
-import { discoveryOffered, useDiscoveryOffer } from './hooks/useDiscoveryOffer';
+import { useDiscoveryOffer } from './hooks/useDiscoveryOffer';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useInitialView } from './hooks/useInitialView';
 import { useMesaLinks } from './hooks/useMesaLinks';
@@ -68,38 +68,27 @@ export function App() {
     sessions,
     setView,
   });
+  const onboarding = needsProfileSetup || config.data?.onboarding?.status === 'active';
   useDiscoveryOffer({
     config: config.data,
     projects: projects.data,
-    settingUp: needsProfileSetup || view.kind === 'setup',
+    settingUp: onboarding,
     offer: () => setProjectAdd({ kind: 'discover', returnFocus: null }),
   });
   const profileInitialised = async () => {
     await Promise.all([config.refresh(), doctor.refresh(), prompts.refresh(), projects.refresh()]);
   };
-  const startTour = () =>
+  const startOnboarding = () =>
     void act(async () => {
-      // The tour's fields only, by path: discovery keeps its state.
+      // Onboarding's fields only, by path: discovery keeps its state.
       if (!(await run('config.set', { path: 'onboarding.step', value: 0 }))) return undefined;
       if (!(await run('config.set', { path: 'onboarding.status', value: 'active' })))
         return undefined;
       await config.refresh();
-      navigate({ kind: 'tour' });
+      navigate({ kind: 'onboarding' });
       return undefined;
     });
-  // Set up's Continue leaves the tour until Find from sessions closes, when discovery is offered.
-  const tourAfterDiscovery = useRef(false);
-  const continueSetup = () => {
-    if (!discoveryOffered(config.data, projects.data)) return startTour();
-    tourAfterDiscovery.current = true;
-    navigate({ kind: 'sessions' });
-  };
-  const closeProjectAdd = () => {
-    setProjectAdd(undefined);
-    if (!tourAfterDiscovery.current) return;
-    tourAfterDiscovery.current = false;
-    startTour();
-  };
+  const closeProjectAdd = () => setProjectAdd(undefined);
   const projectRegistered = async () => {
     await projects.refresh();
   };
@@ -210,7 +199,6 @@ export function App() {
           projects={projects}
           needsProfileSetup={needsProfileSetup}
           onProfileInitialised={profileInitialised}
-          onSetupContinue={continueSetup}
           prompts={prompts}
           doctor={doctor}
           sessions={sessions}
@@ -219,7 +207,6 @@ export function App() {
           onFilesDirtyChange={workspace.setFilesDirty}
           onNewSession={requestNewSession}
           onAddProject={setProjectAdd}
-          onSearch={search.openSearch}
           onVaultSettings={() => workspace.openSettings('general')}
           archiveSessionRequest={archiveSessionRequest}
           dependencySessionRequest={dependencySessionRequest}
@@ -256,7 +243,7 @@ export function App() {
         doctor={doctor}
         onProjectsChanged={() => void projects.refresh()}
         navigate={navigate}
-        onReplayTour={startTour}
+        onReplayTour={startOnboarding}
       />
       {cloneLink && (
         <CloneProjectDialog

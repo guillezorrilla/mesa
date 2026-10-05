@@ -8,12 +8,11 @@ import { DailyScreen } from '@/features/daily/DailyScreen';
 import { DoctorScreen } from '@/features/doctor/DoctorScreen';
 import { HelpScreen } from '@/features/help/HelpScreen';
 import { MapScreen } from '@/features/map/MapScreen';
+import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
-import { SetupScreen } from '@/features/tour/SetupScreen';
-import { TourScreen } from '@/features/tour/TourScreen';
 import { VaultScreen } from '@/features/vault/VaultScreen';
 import { type CommandState, useRun } from '@/lib/useCommand';
 import type { SessionPreset } from './hooks/useStartSession';
@@ -32,8 +31,6 @@ export function WorkspaceMain(props: {
   projects: CommandState<ProjectRow[]>;
   needsProfileSetup: boolean;
   onProfileInitialised: () => Promise<void>;
-  /** Set up's Continue: Find from sessions first when it is offered, then the welcome tour. */
-  onSetupContinue: () => void;
   prompts: CommandState<SavedPrompt[]>;
   doctor: CommandState<DoctorReport>;
   sessions: readonly TreeRow[];
@@ -42,7 +39,6 @@ export function WorkspaceMain(props: {
   onFilesDirtyChange: (dirty: boolean) => void;
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
-  onSearch: () => void;
   onVaultSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
@@ -149,22 +145,17 @@ export function WorkspaceMain(props: {
       )}
       {view.kind === 'automations' && <AutomationsScreen />}
       {view.kind === 'backup' && <BackupScreen />}
-      {view.kind === 'setup' && (
-        <SetupScreen
+      {view.kind === 'onboarding' && (
+        <OnboardingScreen
           doctor={props.doctor}
-          profileExists={config.data !== undefined}
+          config={config.data}
+          projects={projects.data ?? []}
           onInitialised={props.onProfileInitialised}
-          onContinue={props.onSetupContinue}
-        />
-      )}
-      {view.kind === 'tour' && config.data && (
-        <TourScreen
-          state={config.data.onboarding}
-          onChanged={() => void config.refresh()}
-          onFinish={() => navigate({ kind: 'sessions' })}
-          onNavigate={(kind) => navigate({ kind })}
-          onAddProject={props.onAddProject}
-          onSearch={props.onSearch}
+          onConfigChanged={config.refresh}
+          onProjectsChanged={projects.refresh}
+          onDone={(session) =>
+            navigate(session ? { kind: 'session', id: session } : { kind: 'sessions' })
+          }
         />
       )}
     </main>
