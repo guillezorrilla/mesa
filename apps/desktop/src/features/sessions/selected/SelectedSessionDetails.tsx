@@ -6,14 +6,7 @@ import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
-import { contextTone } from '../ContextBar';
-
-/** The ring's colour for each context tone: the Board's context bar's. */
-const RING = {
-  normal: 'var(--state-idle)',
-  amber: 'var(--state-waiting)',
-  red: 'var(--state-failed)',
-};
+import { ContextRing } from './ContextRing';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -31,9 +24,10 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   const [tools, setTools] = useState<{ tools?: McpTool[]; error?: string }>({});
   const { row } = props;
   const agent = row.agent !== 'terminal';
-  const context = record ? record.context : row.context;
+  // The newer reading: a board look reads one after every turn, the details only when opened.
+  const read = [row.context, record?.context].filter((c) => c !== undefined);
+  const context = read.sort((a, b) => b.at.localeCompare(a.at))[0];
   const shown = context ? contextPercent(context.used) : 0;
-  const tone = context ? contextTone(context.used) : 'normal';
   const cwd =
     record?.cwd ?? row.cwd ?? record?.worktree?.path ?? row.worktree?.path ?? props.projectPath;
   // The other projects it works in (CONTEXT.md, Additional project), each in its worktree.
@@ -150,30 +144,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
           {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
         </div>
       </details>
-      {context ? (
-        <span
-          role="progressbar"
-          aria-label={`Context window: ${shown}%`}
-          aria-valuenow={shown}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          data-tone={tone}
-          title={`Transcript reading at ${date(context.at)}`}
-          className="flex size-4 shrink-0 items-center justify-center rounded-full p-0.5"
-          style={{
-            background: `conic-gradient(${RING[tone]} ${shown}%, var(--border) 0)`,
-          }}
-        >
-          <span className="size-full rounded-full bg-card" />
-        </span>
-      ) : (
-        <span
-          role="img"
-          aria-label="Context window: unknown"
-          title="No native context reading yet"
-          className="size-4 shrink-0 rounded-full border border-muted-foreground/50"
-        />
-      )}
+      <ContextRing context={context} />
     </>
   );
 }

@@ -4,6 +4,7 @@ import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import type { AgentProcess } from '../agent-listing.js';
+import { refreshContext } from '../context-use.js';
 import type { HookEvent } from '../hook-events.js';
 import type { SessionRecord } from '../record.js';
 import type { SessionStore } from '../store.js';
@@ -29,8 +30,9 @@ const RECENT_MS = 24 * 60 * 60 * 1000;
  * newest session not stopped that holds its agent session id. Faro classifies every row from its
  * latest hook event, its listing, its window, and (only when neither of the first two speaks) its
  * tail; a new state is saved to the record, and so is an id read now or the id the listing names
- * for its pane after a /clear. A queued session, and one cancelled before it ran, keeps Mesa's
- * state, at no attention. Highest attention first.
+ * for its pane after a /clear. A live session's context use is read (refreshContext) when its
+ * state changed. A queued session, and one cancelled before it ran, keeps
+ * Mesa's state, at no attention. Highest attention first.
  */
 export async function listSessions(
   deps: {
@@ -87,15 +89,21 @@ export async function listSessions(
   const byLabel = new Map(windowList.map((w) => [targetLabel(w), w]));
   const faro = { profile: deps.faro, clock: deps.clock, recorder: deps.recorder };
   const managed = await Promise.all(
-    records.map((found) =>
-      managedRow({ ...deps, faro }, found, {
+    records.map(async (found) => {
+      const row = await managedRow({ ...deps, faro }, found, {
         now,
         listedAs: listedFor(found.id),
         agentSessionId: read.get(found.id),
         window: byLabel.get(targetLabel(windowOf(found))),
         children: children.get(found.id) ?? [],
-      }),
-    ),
+      });
+      // A live session's context is read when its state just changed (a reply ends a turn), not
+      // on every look; a locked record is not waited for.
+      if (row.endedAt || !row.agentSessionId || row.lastState.state === found.lastState.state)
+        return row;
+      const { context } = refreshContext(deps, row, { wait: false });
+      return context ? { ...row, context } : row;
+    }),
   );
   const foreign = listed
     .filter((p) => p.nativeState !== 'stopped' && !runs(p) && !elsewhere.has(p.agentSessionId))
