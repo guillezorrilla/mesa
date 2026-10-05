@@ -72,3 +72,26 @@ test('instruction inventory reads native scopes and saves only current writable 
   expect(readFileSync(id, 'utf8')).toBe('Updated instructions\n');
   expect(existsSync(join(dir, 'CLAUDE.md'))).toBe(false);
 });
+
+test('instruction inventory reads the Codex and Claude homes the injected env names', () => {
+  const home = tempDir();
+  const codexHome = join(home, 'config/codex');
+  const claudeHome = join(home, 'config/claude');
+  mkdirSync(codexHome, { recursive: true });
+  mkdirSync(join(claudeHome, 'rules'), { recursive: true });
+  writeFileSync(join(codexHome, 'AGENTS.md'), 'Codex home instructions\n');
+  writeFileSync(join(claudeHome, 'CLAUDE.md'), 'Claude home instructions\n');
+  writeFileSync(join(claudeHome, 'rules/tone.md'), 'Claude home rule\n');
+  // The default homes hold files the agents do not read while the env points elsewhere.
+  mkdirSync(join(home, '.codex'), { recursive: true });
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  writeFileSync(join(home, '.codex/AGENTS.md'), 'Unread\n');
+  writeFileSync(join(home, '.claude/CLAUDE.md'), 'Unread\n');
+  const env = { CODEX_HOME: codexHome, CLAUDE_CONFIG_DIR: claudeHome };
+  const mesa = createMesa('default', testDeps(home, { env }));
+  expect(mesa.instructions.list().map((row) => [row.path, row.providers])).toEqual([
+    [join(codexHome, 'AGENTS.md'), ['codex']],
+    [join(claudeHome, 'CLAUDE.md'), ['claude']],
+    [join(claudeHome, 'rules/tone.md'), ['claude']],
+  ]);
+});

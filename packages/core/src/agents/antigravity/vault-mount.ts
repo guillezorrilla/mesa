@@ -1,9 +1,9 @@
 import { unlinkSync } from 'node:fs';
-import { join } from 'node:path';
 import { MesaError } from '../../lib/result.js';
 import { VAULT_SERVER } from '../../vault/server.js';
 import { read, write } from '../hooks.js';
 import { VAULT_COMMAND, vaultServer } from '../vault-mount.js';
+import { antigravityCliSettings, antigravityMcpConfig } from './paths.js';
 
 // Antigravity's mesa-vault mount (docs/spikes/vault-mcp.md, ADR-0012). agy takes no MCP server
 // and no pre-approval per launch, so Mesa owns one named entry in its global MCP config and one
@@ -12,9 +12,6 @@ import { VAULT_COMMAND, vaultServer } from '../vault-mount.js';
 // agy on the machine starts the entry; the server lists no tools outside a live Mesa session
 // (#300), so the rule grants nothing there. A foreign entry, or a file Mesa cannot read, is a
 // conflict it reports and leaves alone, never an error, so the other agents' hooks carry on.
-
-const mcpPath = (home: string) => join(home, '.gemini', 'config', 'mcp_config.json');
-const rulesPath = (home: string) => join(home, '.gemini', 'antigravity-cli', 'settings.json');
 
 /** Every mesa-vault tool with no prompt; headless agy denies an MCP call it cannot ask about. */
 export const ALLOW_RULE = `mcp(${VAULT_SERVER}/*)`;
@@ -55,7 +52,7 @@ function owned(entry: unknown): entry is Entry {
 
 /** Both files, read and checked: invalid_config for a foreign entry or a shape Mesa cannot read. */
 function readConfig(home: string) {
-  const mcpFile = mcpPath(home);
+  const mcpFile = antigravityMcpConfig(home);
   const mcp = read(mcpFile);
   const servers = mcp.settings.mcpServers ?? {};
   if (!isObject(servers))
@@ -69,7 +66,7 @@ function readConfig(home: string) {
       'invalid_config',
       `${mcpFile}: ${VAULT_SERVER} belongs to another server; Mesa left it unchanged`,
     );
-  const rulesFile = rulesPath(home);
+  const rulesFile = antigravityCliSettings(home);
   const rules = read(rulesFile);
   const permissions = rules.settings.permissions ?? {};
   const allow = isObject(permissions) ? (permissions.allow ?? []) : undefined;
@@ -95,7 +92,7 @@ function load(home: string): Config {
 }
 
 function statusOf(home: string, config: Config, self: readonly string[]): VaultMountStatus {
-  const paths = { path: mcpPath(home), rulePath: rulesPath(home) };
+  const paths = { path: antigravityMcpConfig(home), rulePath: antigravityCliSettings(home) };
   if ('conflict' in config) {
     const none = { installed: false, stale: false, server: false, rule: false, disabled: false };
     return { ...paths, ...none, conflict: config.conflict };

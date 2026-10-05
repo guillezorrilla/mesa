@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { type Env, shellWord } from '../../lib/process.js';
 import { read } from '../hooks.js';
-import { claudeSettings } from './paths.js';
+import { CLAUDE_PROJECT_DIR, claudeSettings } from './paths.js';
 
 // Claude Code's statusLine setting: the one Mesa hands a session's claude per launch, and the
 // user's own, which Mesa's runs first. Claude runs the command in a shell with its session's JSON
@@ -45,8 +45,8 @@ export function userStatusLineCommand(
   self: readonly string[],
 ) {
   const files = [
-    join(project, '.claude', 'settings.local.json'),
-    join(project, '.claude', 'settings.json'),
+    join(project, CLAUDE_PROJECT_DIR, 'settings.local.json'),
+    join(project, CLAUDE_PROJECT_DIR, 'settings.json'),
     claudeSettings(home, env),
   ];
   for (const file of files) {

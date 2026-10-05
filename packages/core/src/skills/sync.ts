@@ -10,11 +10,13 @@ import {
   unlinkSync,
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
+import { CLAUDE_PROJECT_SKILLS } from '../agents/claude/paths.js';
+import { CODEX_SKILLS } from '../agents/codex/paths.js';
 import { excludeFromGit } from '../git/exclude.js';
 import { type LibrarySkill, readSkill } from './library.js';
 
 /** Where each agent looks for a project's skills: Claude Code's, then Codex's. */
-const SKILL_DIRS = ['.claude/skills', '.agents/skills'] as const;
+const SKILL_DIRS = [CLAUDE_PROJECT_SKILLS, CODEX_SKILLS];
 
 /** One skill as a project sees it: Mesa's (from the library) or the project's own. */
 export type SkillRow = {

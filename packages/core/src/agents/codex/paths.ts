@@ -19,3 +19,14 @@ export const codexDaemonSocket = (codexHome: string) =>
 /** User hook definitions and the config where Codex records their trust. */
 export const codexHooks = (home: string) => join(home, 'hooks.json');
 export const codexConfig = (home: string) => join(home, 'config.toml');
+
+/** Its user instruction files under its home: `AGENTS.override.md` wins over `AGENTS.md`. */
+export const codexInstructions = (codexHome: string) => join(codexHome, 'AGENTS.md');
+export const codexInstructionsOverride = (codexHome: string) =>
+  join(codexHome, 'AGENTS.override.md');
+
+/**
+ * Where Codex reads skills, relative to a project and to the user's home alike (not under
+ * CODEX_HOME). Antigravity reads a project's too.
+ */
+export const CODEX_SKILLS = join('.agents', 'skills');

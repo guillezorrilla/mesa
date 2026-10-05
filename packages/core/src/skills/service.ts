@@ -30,6 +30,7 @@ export function skillsService(ctx: MesaContext) {
     const selected = scope(project);
     return skillInventory({
       home: ctx.deps.home,
+      env: ctx.deps.env,
       library,
       listed: listSkills({ library, libraryDir, ...selected }),
       projectDir: selected.projectDir,
