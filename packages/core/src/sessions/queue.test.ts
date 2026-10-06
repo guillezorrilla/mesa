@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { vaultServer } from '../agents/vault-mount.js';
-import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
 import { openProfile } from '../profile/profile.js';
 import {
@@ -23,7 +22,6 @@ import {
   worktreeAt,
 } from '../testing/index.js';
 import { startQueued } from './queue.js';
-import { tmuxBackend } from './tmux/backend.js';
 
 const now = '2026-09-24T12:00:00.000Z';
 
@@ -40,7 +38,7 @@ async function setUp({ claude = true } = {}) {
     profile: openProfile(profilePaths(home, 'default')),
     profileName: 'default',
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: world,
     run,
     env: {},
     home,

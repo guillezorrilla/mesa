@@ -1,10 +1,4 @@
-import {
-  CLAUDE_VERSION,
-  newSession,
-  scriptedRunner,
-  shortIds,
-  testStore,
-} from '@mesa/core/testing';
+import { newSession, shortIds, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -15,6 +9,8 @@ const { mesa } = cli;
 test('attach: here it hands back the attach argv, --app opens terminal.app, gone is exit 3', async () => {
   await mesa('init', '--vault', 'vault');
   testStore(cli.home, 'default', shortIds('aaaaaaaa')).create(() => newSession());
+  const tmux = cli.withTmux();
+  tmux.addWindow({ project: 'lantern-cove', window: 'claude-aaaaaa' });
   const here = await mesa('attach', 'aaaaaaaa', '--json');
   expect(here.json.data).toEqual({ opened: true, target: 'lantern-cove:claude-aaaaaa', app: null });
   const exec = here.exec ?? [];
@@ -33,30 +29,13 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   expect(here.exec?.join(' ')).not.toContain('@mesa-wheel-lines');
   cli.tty = true;
   // resize: the window takes the view's size, then the size goes back to tmux's own policy.
-  const { run: sized, calls } = scriptedRunner({ tmux: '' });
-  cli.run = sized;
   expect((await mesa('resize', 'aaaaaaaa', '120', '40', '--json')).json.data).toEqual({
     session: 'aaaaaaaa',
     target: 'lantern-cove:claude-aaaaaa',
     cols: 120,
     rows: 40,
   });
-  expect(calls.at(-1)?.args.slice(5)).toEqual([
-    'resize-window',
-    '-t',
-    '=lantern-cove:=claude-aaaaaa',
-    '-x',
-    '120',
-    '-y',
-    '40',
-    ';',
-    'set-option',
-    '-w',
-    '-t',
-    '=lantern-cove:=claude-aaaaaa',
-    '-u',
-    'window-size',
-  ]);
+  expect(tmux.windows[0]?.size).toEqual({ cols: 120, rows: 40, pinned: false });
   // Core checks the range; the CLI checks it is a whole number.
   expect(await mesa('resize', 'aaaaaaaa', '0', '40')).toMatchObject({
     code: 2,
@@ -71,7 +50,6 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
     stderr: 'cols must be a whole number, not 12.5\n',
   });
   expect(await mesa('resize', 'ext-4242', '120', '40')).toMatchObject({ code: 3 });
-  cli.run = scriptedRunner({ tmux: 'tmux 3.7c', claude: CLAUDE_VERSION }).run;
 
   await mesa('config', 'set', 'terminal.app', 'WezTerm');
   const app = await mesa('attach', 'aaaaaaaa', '--app');
@@ -89,8 +67,8 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   });
 
   cli.tty = true;
-  // Its window is gone: a tmux server with none.
-  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
+  // Its window is gone.
+  tmux.windows.length = 0;
   expect(await mesa('attach', 'aaaaaaaa')).toMatchObject({
     code: 3,
     stderr: 'session ended; use mesa resume\n',

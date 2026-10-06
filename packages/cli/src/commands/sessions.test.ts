@@ -1,13 +1,13 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  fakeTmux,
   multiProjectSession,
   newSession,
   plantTranscript,
   scriptedRunner,
   shortIds,
   testStore,
-  tmuxLine,
 } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
@@ -35,12 +35,9 @@ test('sessions lists the records with live tmux; a fresh profile is empty', asyn
   record('harbor', '2026-09-24T11:59:18.000Z', { worktree });
   // tmux still has lantern-cove's window, showing a finished reply; harbor's is gone.
   const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
-  cli.run = scriptedRunner({
-    tmux: (args) =>
-      args.includes('capture-pane')
-        ? screen
-        : `${tmuxLine({ project: 'lantern-cove', window: 'claude-aaaaaa' })}\n`,
-  }).run;
+  const tmux = fakeTmux();
+  tmux.addWindow({ project: 'lantern-cove', window: 'claude-aaaaaa', typed: [screen] });
+  cli.run = scriptedRunner({ tmux: tmux.answer }).run;
 
   const { json } = await mesa('sessions', '--json');
   expect(json.data.map((s: { id: string; alive: boolean }) => [s.id, s.alive])).toEqual([
@@ -64,7 +61,7 @@ test('a session across several projects shows them after its own, before its bra
   await mesa('init', '--vault', 'vault');
   const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
   store.create(() => multiProjectSession());
-  cli.run = scriptedRunner({ tmux: '' }).run;
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
   expect((await mesa('sessions')).stdout).toMatch(
     /^aaaaaaaa {2}lantern-cove \+tide-pool \(feature\) /,
   );
@@ -151,10 +148,9 @@ test('sessions shows agent sessions Mesa did not start; stop, send, resume refus
 });
 
 test('windows lists the profile tmux server; none is an empty list, no tmux exit 6', async () => {
-  const scripted = scriptedRunner({
-    tmux: `${tmuxLine({ project: 'lantern', window: 'claude-aaaaaa', dead: true })}\n`,
-  });
-  cli.run = scripted.run;
+  const tmux = fakeTmux();
+  tmux.addWindow({ project: 'lantern', window: 'claude-aaaaaa', dead: true });
+  cli.run = scriptedRunner({ tmux: tmux.answer }).run;
   const { json } = await mesa('windows', '--json');
   expect(json.data).toEqual([
     expect.objectContaining({ project: 'lantern', window: 'claude-aaaaaa', dead: true }),
@@ -162,16 +158,7 @@ test('windows lists the profile tmux server; none is an empty list, no tmux exit
   expect((await mesa('windows', 'lantern')).stdout).toBe(
     'lantern:claude-aaaaaa  (exited)  /src/lantern\n',
   );
-  expect(scripted.calls[1]?.args.slice(0, 7)).toEqual([
-    '-u',
-    '-L',
-    'mesa-default',
-    '-f',
-    '/dev/null',
-    'list-windows',
-    '-t',
-  ]);
-  cli.run = scriptedRunner({ tmux: '' }).run;
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
   expect((await mesa('windows')).stdout).toBe('no Mesa tmux windows\n');
   cli.run = scriptedRunner({}, { missing: ['tmux'] }).run;
   expect(await mesa('windows')).toMatchObject({ code: 6 });
@@ -237,13 +224,9 @@ test('sessions asks only the rules, under a config and a record an older Mesa wr
   });
   // No hook or listing speaks, so only the screen does (0.6), once the adapter's case.
   const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
-  const scripted = scriptedRunner({
-    tmux: (args) =>
-      args.includes('capture-pane')
-        ? screen
-        : `${tmuxLine({ project: 'lantern-cove', window: 'claude-aaaaaa' })}\n`,
-    claude: () => '[]',
-  });
+  const tmux = fakeTmux();
+  tmux.addWindow({ project: 'lantern-cove', window: 'claude-aaaaaa', typed: [screen] });
+  const scripted = scriptedRunner({ tmux: tmux.answer, claude: () => '[]' });
   cli.run = scripted.run;
 
   const { json } = await mesa('sessions', '--json');

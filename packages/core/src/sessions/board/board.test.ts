@@ -2,6 +2,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
+  type FakeWindow,
+  fakeTmux,
   fixedClock,
   listingDeps,
   lockDeps,
@@ -12,11 +14,9 @@ import {
   scriptedRunner,
   sequentialIds,
   tempDir,
-  tmuxLine,
 } from '../../testing/index.js';
 import { listAgentProcesses } from '../agent-listing.js';
 import { sessionStore } from '../store.js';
-import { tmuxBackend } from '../tmux/backend.js';
 import { listSessions } from './board.js';
 import { sessionTree } from './tree.js';
 
@@ -27,10 +27,13 @@ const storeIn = () =>
 /** Board order is attention's; tests about other things read rows oldest first. */
 const byStart = <T extends { startedAt: string }>(rows: T[]) =>
   [...rows].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
-const LIVE_LINE = `${tmuxLine({ project: 'lantern-cove', window: 'claude-aaaaaa' })}\n`;
-/** tmux listing `windows`, with an empty screen for capture-pane. */
-const screenless = (windows: string) => (args: string[]) =>
-  args.includes('capture-pane') ? '' : windows;
+const LIVE = { project: 'lantern-cove', window: 'claude-aaaaaa' };
+/** The in-memory tmux with `windows` live: claude running, an empty screen. */
+const tmuxWith = (...windows: (Pick<FakeWindow, 'project' | 'window'> & Partial<FakeWindow>)[]) => {
+  const world = fakeTmux();
+  for (const w of windows) world.addWindow(w);
+  return world;
+};
 const noSignals = {
   events: () => [],
   priorityOf: () => 0.5,
@@ -50,11 +53,10 @@ test('a subagent permission hook does not turn its parent into a permission wait
   const parent = store.create(() =>
     inWindow('lantern-cove', '2026-09-24T11:59:00.000Z', 'claude-aaaaaa'),
   );
-  const { run } = scriptedRunner({ tmux: screenless(LIVE_LINE) });
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxWith(LIVE),
     events: () => [
       {
         at: '2026-09-24T11:59:50.000Z',
@@ -92,11 +94,13 @@ test('listSessions marks a session whose window is gone done from tmux, and save
     endedAt: '2026-09-24T10:30:00.000Z',
     lastState: { state: 'done', confidence: 1, at: '2026-09-24T10:30:00.000Z', source: 'mesa' },
   });
-  const { run, calls } = scriptedRunner({ tmux: screenless(LIVE_LINE) });
+  const commands: string[] = [];
+  const tmux = fakeTmux({ before: ([command = '']) => commands.push(command) });
+  tmux.addWindow(LIVE);
   const deps = {
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux,
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   };
 
@@ -117,7 +121,7 @@ test('listSessions marks a session whose window is gone done from tmux, and save
   expect(store.get(stopped.id).lastState.source).toBe('mesa');
   // One list-windows, and one capture for the live window no hook or listing speaks for (no
   // pane-died hook here: this backend has no mesa to run).
-  expect(calls.map((c) => c.args[5])).toEqual(['list-windows', 'capture-pane']);
+  expect(commands).toEqual(['list-windows', 'capture-pane']);
 
   // Marked once: the next list writes nothing new, and the clock stays stopped for it.
   const later = { ...deps, clock: fixedClock('2026-09-24T13:00:00.000Z') };
@@ -138,12 +142,7 @@ test('a stopped session stays on the board for a day; all shows older ones too',
   const deps = {
     ...noListing,
     store,
-    tmux: tmuxBackend({
-      sleep: async () => {},
-      run: scriptedRunner().run,
-      socket: 'mesa-default',
-      env: {},
-    }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   };
   expect((await listSessions(deps)).map((r) => r.id)).toEqual([recent.id]);
@@ -154,12 +153,12 @@ test('a stopped session stays on the board for a day; all shows older ones too',
 });
 
 test('an empty board never calls tmux', async () => {
-  const { run, calls } = scriptedRunner({}, { missing: ['tmux'] });
-  const tmux = tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} });
+  const commands: string[] = [];
+  const tmux = fakeTmux({ before: ([command = '']) => commands.push(command) });
   expect(await listSessions({ ...noListing, store: storeIn(), tmux, clock: fixedClock() })).toEqual(
     [],
   );
-  expect(calls).toEqual([]);
+  expect(commands).toEqual([]);
 });
 
 const SPIKE_ID = SPIKE_LISTING.idle.sessionId;
@@ -167,9 +166,6 @@ const listingOf = (...rows: object[]) => {
   const { run } = scriptedRunner({ claude: JSON.stringify(rows) });
   return () => listAgentProcesses(listingDeps(run));
 };
-/** tmux's line for one window whose pane runs `pid`. */
-const windowLine = (project: string, window: string, pid: number) =>
-  `${tmuxLine({ project, window, pid })}\n`;
 
 test('a listed process marks the session it runs in: by pane pid, else by agent session id', async () => {
   const store = storeIn();
@@ -184,13 +180,12 @@ test('a listed process marks the session it runs in: by pane pid, else by agent 
   store.update(first.id, { endedAt: '2026-09-24T11:30:00.000Z', resumedBy: 'zzzzzzzz' });
   const resumed = store.create(() => inWindow('tide', '2026-09-24T11:50:00.000Z', 'claude-bbbbbb'));
   store.update(resumed.id, { agentSessionId: SPIKE_ID });
-  const tmux = scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run;
 
   const rows = await listSessions({
     ...noListing,
     store,
     // tide's window is not listed: the listing alone keeps the resumed session alive.
-    tmux: tmuxBackend({ sleep: async () => {}, run: tmux, socket: 'mesa-default', env: {} }),
+    tmux: tmuxWith({ ...LIVE, pid: 67213 }),
     listing: listingOf(SPIKE_LISTING.permission, SPIKE_LISTING.resumed),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
@@ -212,12 +207,7 @@ test('a /clear moved the agent session id: a look saves the one the listing name
   const deps = {
     ...noListing,
     store,
-    tmux: tmuxBackend({
-      sleep: async () => {},
-      run: scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run,
-      socket: 'mesa-default',
-      env: {},
-    }),
+    tmux: tmuxWith({ ...LIVE, pid: 67213 }),
     listing: listingOf(SPIKE_LISTING.idle),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   };
@@ -246,12 +236,7 @@ test('a /rename in Claude Code is saved as the agent name once, and a later one 
     return listSessions({
       ...noListing,
       store,
-      tmux: tmuxBackend({
-        sleep: async () => {},
-        run: scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run,
-        socket: 'mesa-default',
-        env: {},
-      }),
+      tmux: tmuxWith({ ...LIVE, pid: 67213 }),
       listing: () => listAgentProcesses(listingDeps(run, { home })),
       clock: fixedClock('2026-09-24T12:00:00.000Z'),
     });
@@ -290,12 +275,7 @@ test("a look reads a live session's context when its state changes, not on every
     ...noListing,
     store,
     home,
-    tmux: tmuxBackend({
-      sleep: async () => {},
-      run: scriptedRunner({ tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213) }).run,
-      socket: 'mesa-default',
-      env: {},
-    }),
+    tmux: tmuxWith({ ...LIVE, pid: 67213 }),
     listing: listingOf(SPIKE_LISTING.idle),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   };
@@ -335,16 +315,15 @@ test('a Codex listing row gives no state: a foreign one is a guess at working, a
     startedAt: '2026-09-24T11:30:00.000Z',
   });
   const idle = '› Ask Codex to do anything\n\n  gpt-6-astra low · /src/lantern-cove';
-  const { run } = scriptedRunner({
-    tmux: (args) =>
-      args.includes('capture-pane')
-        ? idle
-        : tmuxLine({ project: 'lantern-cove', window: 'codex-bbbbbb', command: 'codex' }),
-  });
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxWith({
+      project: 'lantern-cove',
+      window: 'codex-bbbbbb',
+      running: 'codex',
+      typed: [idle],
+    }),
     listing: async () => [listed(1), listed(2), listed(3, '/src/tide')],
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
@@ -378,12 +357,7 @@ test('an unmatched process is a foreign row with its project and state; other pr
   const rows = await listSessions({
     ...noSignals,
     store,
-    tmux: tmuxBackend({
-      sleep: async () => {},
-      run: scriptedRunner().run,
-      socket: 'mesa-default',
-      env: {},
-    }),
+    tmux: fakeTmux(),
     listing: listingOf(
       SPIKE_LISTING.idle,
       invented(5151, '/elsewhere/tide', '00000000-0000-4000-8000-00000000000b', {
@@ -441,16 +415,13 @@ test('a listing that times out adds nothing: records keep their tmux liveness', 
   );
   store.update(live.id, { agentSessionId: SPIKE_ID });
   const { run } = scriptedRunner(
-    {
-      tmux: windowLine('lantern-cove', 'claude-aaaaaa', 67213),
-      claude: JSON.stringify([SPIKE_LISTING.idle]),
-    },
+    { claude: JSON.stringify([SPIKE_LISTING.idle]) },
     { slow: ['claude'] },
   );
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxWith({ ...LIVE, pid: 67213 }),
     listing: () => listAgentProcesses(listingDeps(run)),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
@@ -464,11 +435,6 @@ test('the board sorts by attention: a session waiting on a permission tops a wor
     inWindow('lantern-cove', '2026-09-24T11:00:00.000Z', 'claude-aaaaaa'),
   );
   const asking = store.create(() => inWindow('tide', '2026-09-24T11:30:00.000Z', 'claude-bbbbbb'));
-  const windows = [
-    windowLine('lantern-cove', 'claude-aaaaaa', 4242),
-    windowLine('tide', 'claude-bbbbbb', 5151),
-  ].join('');
-  const { run } = scriptedRunner({ tmux: screenless(windows) });
   const events = (id: string) =>
     id === asking.id
       ? [
@@ -483,7 +449,7 @@ test('the board sorts by attention: a session waiting on a permission tops a wor
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxWith({ ...LIVE, pid: 4242 }, { project: 'tide', window: 'claude-bbbbbb', pid: 5151 }),
     events,
     // A high-priority project still ranks its working session below a wait.
     priorityOf: (project) => (project === 'lantern-cove' ? 1 : 0),
@@ -514,11 +480,10 @@ test('each row names its parent and children; the tree puts children under their
   const other = store.create(() => newSession({ startedAt: at(30) }));
   // Its parent's record was removed: it lists at the top, its parent kept.
   const parentGone = store.create(() => newSession({ startedAt: at(40), parent: 'gonegone' }));
-  const { run } = scriptedRunner({ tmux: '' });
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   const links = (id: string) => {
@@ -554,11 +519,10 @@ test('children name every record, even one stopped too long ago to be on the boa
     endedAt: '2026-09-20T12:00:00.000Z',
     lastState: { state: 'done', confidence: 1, at: '2026-09-20T12:00:00.000Z', source: 'mesa' },
   });
-  const { run } = scriptedRunner({ tmux: '' });
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   expect(rows.map((r) => r.id)).toEqual([root.id]);
@@ -570,7 +534,7 @@ test('children name every record, even one stopped too long ago to be on the boa
   const again = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   const top = again.find((r) => r.id === root.id);
@@ -580,11 +544,10 @@ test('children name every record, even one stopped too long ago to be on the boa
 test('the tree ranks siblings and branches by their highest attention; loops and resumes still place', async () => {
   const store = storeIn();
   store.create(() => newSession());
-  const { run } = scriptedRunner({ tmux: '' });
   const [base] = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   if (!base?.managed) throw new Error('expected a managed row');
@@ -640,11 +603,10 @@ test('a record another process holds locked still shows its new state, and the b
   const gone = store.create(() => inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
   // A lock left by a killed mesa.
   writeFileSync(join(dir, `${gone.id}.json.lock`), 'a killed mesa');
-  const { run } = scriptedRunner({ tmux: '' });
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   expect(rows.map((r) => [r.id, r.lastState.state])).toEqual([[gone.id, 'done']]);
@@ -654,7 +616,7 @@ test('a record another process holds locked still shows its new state, and the b
   await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   expect(Date.now() - started).toBeLessThan(500);
@@ -675,11 +637,10 @@ test('a look that read a session before a stop never writes its state over the s
   } as const;
   store.update(live.id, { endedAt: '2026-09-24T12:00:00.000Z', lastState: stopped });
   // Its window is gone, so the look has a new state to save: done, from tmux.
-  const { run } = scriptedRunner({ tmux: '' });
   await listSessions({
     ...noListing,
     store: { ...store, list: () => before },
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   expect(store.get(live.id).lastState).toEqual(stopped);
@@ -699,11 +660,10 @@ test('a look that read a session before another look saved its state never write
     source: 'hook',
   } as const;
   store.update(live.id, { lastState: saved });
-  const { run } = scriptedRunner({ tmux: '' });
   await listSessions({
     ...noListing,
     store: { ...store, list: () => before },
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: fakeTmux(),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   expect(store.get(live.id).lastState).toEqual(saved);
@@ -725,13 +685,10 @@ test("a record an older Mesa saved with the adapter's state loads, and a look re
   });
   // No hook or listing speaks: the screen, a finished reply, is the rules' only signal.
   const screen = ['⏺ Wrote tide-tables.md', '', '─────', '❯', '─────'].join('\n');
-  const { run } = scriptedRunner({
-    tmux: (args) => (args.includes('capture-pane') ? screen : LIVE_LINE),
-  });
   const rows = await listSessions({
     ...noListing,
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: tmuxWith({ ...LIVE, typed: [screen] }),
     clock: fixedClock('2026-09-24T12:00:00.000Z'),
   });
   const read = { state: 'idle', confidence: 0.6, at: '2026-09-24T12:00:00.000Z', source: 'tmux' };

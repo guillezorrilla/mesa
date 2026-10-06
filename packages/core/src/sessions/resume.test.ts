@@ -1,7 +1,6 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import type { Runner } from '../lib/process.js';
 import {
   agentWorld,
   CODEX_MOUNT,

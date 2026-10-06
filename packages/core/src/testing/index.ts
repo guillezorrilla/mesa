@@ -19,7 +19,7 @@ import type { ListingDeps } from '../sessions/agent-listing.js';
 import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
-import { tmuxBackend } from '../sessions/tmux/backend.js';
+import { type TmuxBackend, tmuxBackend } from '../sessions/tmux/backend.js';
 import { testEnv, testRunner } from './env.js';
 import { fakeHttp, memorySecretStore } from './sources.js';
 import { tempDir } from './tmp.js';
@@ -142,6 +142,8 @@ export type FakeWindow = {
   typed: string[];
   /** Every key and text sent to it, in order: `Escape`, `/exit`, `Enter`. */
   keys: string[];
+  /** Its size once resized; `pinned` until its window-size option is unset, back to tmux's policy. */
+  size?: { cols: number; rows: number; pinned: boolean };
   /** The shell command pipe-pane gave its output to, when it is logged. */
   pipe?: string;
 };
@@ -290,7 +292,17 @@ export function fakeTmux(
       case 'start-server':
         server = true;
         return ok();
-      case 'set-option':
+      case 'resize-window': {
+        const w = find(target);
+        if (!w) return failed("can't find window");
+        w.size = { cols: Number(flag(rest, '-x')), rows: Number(flag(rest, '-y')), pinned: true };
+        return ok();
+      }
+      case 'set-option': {
+        const w = rest.includes('-w') ? find(target) : undefined;
+        if (w?.size && rest.includes('-u') && rest.at(-1) === 'window-size') w.size.pinned = false;
+        return ok();
+      }
       case 'bind-key':
       case 'set-environment':
         return ok();
@@ -357,7 +369,13 @@ export function fakeTmux(
     /** A window already on the server, as Mesa would have opened it: claude running in it. */
     addWindow: (w: Pick<FakeWindow, 'project' | 'window'> & Partial<FakeWindow>) => {
       server = true;
-      const added = { path: '/src', launch: 'claude', running: '2.1.282', dead: false, ...w };
+      const added = {
+        path: `/src/${w.project}`,
+        launch: 'claude',
+        running: '2.1.282',
+        dead: false,
+        ...w,
+      };
       windows.push({ ...added, typed: w.typed ?? [], keys: w.keys ?? [] });
     },
     answer,
@@ -370,7 +388,7 @@ export function fakeTmux(
     /** The commands that time out from now on, as a hung server's would. */
     slow: [] as string[],
   };
-  return world;
+  return world satisfies TmuxBackend;
 }
 
 /**
@@ -535,16 +553,18 @@ export function agentWorld({
 
 /** A fake agent world's key submissions and sleeps in order, for send and stop timing checks. */
 export function timedAgentWorld(opts: Parameters<typeof agentWorld>[0] = {}) {
-  const world = agentWorld(opts);
   const log: string[] = [];
-  const run: Runner = (file, args, ms) => {
-    if (file === 'tmux' && args[5] === 'send-keys') log.push(`keys ${args.at(-1)}`);
-    return world.run(file, args, ms);
-  };
+  const world = agentWorld({
+    ...opts,
+    before: (command) => {
+      if (command[0] === 'send-keys') log.push(`keys ${command.at(-1)}`);
+      opts.before?.(command);
+    },
+  });
   const sleep = async (ms: number) => {
     log.push(`sleep ${ms}`);
   };
-  return { ...world, run, sleep, log };
+  return { ...world, sleep, log };
 }
 
 /**

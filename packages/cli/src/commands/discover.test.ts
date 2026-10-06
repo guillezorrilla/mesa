@@ -5,6 +5,7 @@ import {
   codexWorld,
   countReads,
   datedTranscript,
+  fakeTmux,
   plantTranscript,
   scriptedRunner,
 } from '@mesa/core/testing';
@@ -159,7 +160,7 @@ test('discover adopt exits 2 and prints every item when one adoption failed', as
   // Written in the last 10 minutes: Codex's listing has it running; codex itself is missing.
   codex.rollout({ id: LIVE_ID, cwd: tide, startedAt: '2026-09-24T11:55:00.000Z' });
   cli.run = scriptedRunner(
-    { tmux: 'tmux 3.7c', claude: CLAUDE_VERSION },
+    { tmux: fakeTmux().answer, claude: CLAUDE_VERSION },
     { missing: ['codex'] },
   ).run;
   const { json, code } = await cli.mesa('discover', 'adopt', tide, '--live', '--json');
