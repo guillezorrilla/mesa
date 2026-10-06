@@ -1293,13 +1293,24 @@ test("Claude's background start carries the additional folders before its goal",
 test('--with is refused where a session cannot span projects', async () => {
   const world = agentWorld();
   const { home, mesa } = await acrossProjects(world);
-  const refused = (opts: Parameters<typeof mesa.sessions.open>[1], project?: string) =>
+  const across =
+    '--with cannot use --general or --terminal: a session across projects runs an agent';
+  const refused = (
+    opts: Parameters<typeof mesa.sessions.open>[1],
+    project: string | undefined,
+    message: string,
+  ) =>
     expect(mesa.sessions.open(project, { with: ['tide-pool'], ...opts })).rejects.toMatchObject({
       code: 'usage',
+      message,
     });
-  await refused({ general: true });
-  await refused({ terminal: true }, 'lantern-cove');
-  await refused({ checkout: home }, 'lantern-cove');
+  await refused({ general: true }, undefined, across);
+  await refused({ terminal: true }, 'lantern-cove', across);
+  await refused(
+    { checkout: home },
+    'lantern-cove',
+    '--checkout cannot use --worktree, --branch, --with, --general, or --after',
+  );
   expect(await mesa.sessions.list()).toEqual([]);
 });
 
@@ -1310,16 +1321,21 @@ test('the other flags that do not go together are refused, each by name, and not
   const terminal = '--terminal cannot use --agent, --goal, --after, --mode, or --background';
   const cases: [string | undefined, Parameters<typeof mesa.sessions.open>[1], string][] = [
     ['lantern-cove', { worktree: true, branch: 'b' }, 'pass --worktree or --branch, not both'],
+    ['lantern-cove', { general: true }, 'pass a project or --general, not both'],
+    [undefined, {}, 'pass a project or --general, not both'],
+    ['lantern-cove', { mode: 'build' }, 'unknown session mode build; use plan'],
     ['lantern-cove', { checkout: home, worktree: true }, checkout],
     ['lantern-cove', { checkout: home, branch: 'b' }, checkout],
     ['lantern-cove', { checkout: home, general: true }, checkout],
     ['lantern-cove', { checkout: home, after: 'aaaaaaaa' }, checkout],
+    [undefined, { general: true, branch: 'b' }, general],
     [undefined, { general: true, worktree: true }, general],
     [undefined, { general: true, base: 'main' }, general],
     [undefined, { general: true, after: 'aaaaaaaa' }, general],
     ['lantern-cove', { terminal: true, agent: 'codex' }, terminal],
     ['lantern-cove', { terminal: true, goal: 'Tidy up' }, terminal],
     ['lantern-cove', { terminal: true, after: 'aaaaaaaa' }, terminal],
+    ['lantern-cove', { terminal: true, mode: 'plan' }, terminal],
     ['lantern-cove', { terminal: true, background: true }, terminal],
   ];
   for (const [project, opts, message] of cases) {
