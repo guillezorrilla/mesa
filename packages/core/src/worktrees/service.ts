@@ -2,11 +2,12 @@ import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { resolveCheckout } from '../projects/checkout.js';
 import { findProject } from '../projects/projects.js';
+import { applyWorktreeAction } from './apply.js';
 import { defaultBranchRef } from './base.js';
 import { createWorktree, worktreeCommand } from './create.js';
 import { withDetails } from './details.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
-import { applyWorktreeAction, previewWorktreeAction, type WorktreeAction } from './lifecycle.js';
+import { previewWorktreeAction, type WorktreeAction } from './preview.js';
 import { worktreeScript } from './settings.js';
 
 export function worktreesService(ctx: MesaContext) {
