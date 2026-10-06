@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Clock } from '../lib/clock.js';
-import { type IdSource, keyedId } from '../lib/ids.js';
+import type { IdSource } from '../lib/ids.js';
+import { keyedId } from '../lib/keyed-id.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { obsidianDateTime } from '../lib/time.js';

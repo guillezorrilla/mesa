@@ -6,20 +6,21 @@
 // the domains rather than form them.
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
+import { importSpecifiers } from './import-specifiers.mjs';
 
 const src = new URL('../packages/core/src', import.meta.url).pathname;
 const domainOf = (file) => {
   const [first, ...rest] = relative(src, file).split(sep);
   return rest.length > 0 ? first : first.replace(/\.[^.]+$/, '');
 };
-const specifier = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)['"](\.[^'"]*)['"]/g;
 
 const edges = new Map();
 for (const entry of readdirSync(src, { recursive: true, withFileTypes: true })) {
   if (!entry.isFile() || !/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
   const file = join(entry.parentPath, entry.name);
   const from = domainOf(file);
-  for (const [, spec] of readFileSync(file, 'utf8').matchAll(specifier)) {
+  for (const { specifier: spec } of importSpecifiers(readFileSync(file, 'utf8'))) {
+    if (!spec.startsWith('.')) continue;
     const target = join(dirname(file), spec);
     if (relative(src, target).startsWith('..')) continue;
     const to = domainOf(target);
