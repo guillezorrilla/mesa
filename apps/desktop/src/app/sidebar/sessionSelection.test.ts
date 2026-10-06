@@ -168,3 +168,15 @@ test('every chosen card gone, so the shown one is selected', () => {
     ),
   ).toEqual(['cove0001']);
 });
+
+test('the sidebar lists active sessions in the order they were opened, whatever their attention', () => {
+  const opened = (id: string, startedAt: string, attention: number) =>
+    managedRow(id, { startedAt, attention });
+  // The board's order: highest attention first.
+  const { active } = sidebarGroups(PROJECTS, [
+    opened('third001', '2026-09-25T12:02:00.000Z', 0.83),
+    opened('first001', '2026-09-25T12:00:00.000Z', 0.08),
+    opened('second01', '2026-09-25T12:01:00.000Z', 0.5),
+  ]);
+  expect(active.map((row) => row.id)).toEqual(['first001', 'second01', 'third001']);
+});

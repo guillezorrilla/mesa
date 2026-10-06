@@ -3,17 +3,20 @@ import { GENERAL_PROJECT, sessionProjects } from '@mesa/core/browser';
 import { activeSession, recoverable } from '@/features/sessions/rows';
 
 /**
- * The sidebar's lists: the visible projects (pinned first), the active sessions, the recoverable
- * ones, and the active ones in no listed project, split into General and Other; a project's
- * active sessions by primary (inProject, the Sessions tab's groups); and those it is primary or
- * additional in (touching, the Projects tab's count; CONTEXT.md, Additional project).
+ * The sidebar's lists: the visible projects (pinned first), the active sessions (oldest first),
+ * the recoverable ones, and the active ones in no listed project, split into General and Other;
+ * a project's active sessions by primary (inProject, the Sessions tab's groups); and those it is
+ * primary or additional in (touching, the Projects tab's count; CONTEXT.md, Additional project).
  */
 export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonly TreeRow[]) {
   const visible = projects
     .filter((project) => !project.hidden)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
   const registered = new Set(visible.map((project) => project.name));
-  const active = sessions.filter(activeSession);
+  // In the order they were opened, so a card keeps its place as attention changes.
+  const active = sessions
+    .filter(activeSession)
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   const stranded = sessions.filter(recoverable);
   const unassigned = active.filter(
     (session) => !session.project || !registered.has(session.project),
