@@ -102,10 +102,12 @@ export function initVault(opts: { path: string; force?: boolean; clock: Clock })
   }
   mkdirSync(path, { recursive: true });
   const now = clock();
-  for (const item of missing) {
+  // A file another init made first is theirs, and not listed as made here.
+  const created = missing.filter((item) => {
     const target = join(path, item.name);
-    if (item.kind === 'folder') mkdirSync(target, { recursive: true });
-    else createFileAtomic(target, item.content(now));
-  }
-  return { path, created: missing.map((i) => i.name) };
+    if (item.kind === 'file') return createFileAtomic(target, item.content(now));
+    mkdirSync(target, { recursive: true });
+    return true;
+  });
+  return { path, created: created.map((i) => i.name) };
 }
