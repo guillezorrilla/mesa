@@ -135,9 +135,12 @@ function setup(
 ) {
   let time = new Date('2026-10-02T12:00:05Z');
   let loaded = false;
-  const world = agentWorld(
-    options.finish ? { onOpen: finishesRun({ output: claudeResult('success') }) } : {},
-  );
+  /** Every tmux command, in order. */
+  const commands: string[] = [];
+  const world = agentWorld({
+    ...(options.finish ? { onOpen: finishesRun({ output: claudeResult('success') }) } : {}),
+    before: ([command = '']) => void commands.push(command),
+  });
   const run: Runner = async (file, args, timeout) => {
     if (file === '/usr/bin/id') return { ok: true, stdout: '501\n' };
     if (file === '/bin/launchctl') {
@@ -169,6 +172,7 @@ function setup(
     home,
     dir,
     world,
+    commands,
     deps,
     advance: (minutes = 2) => {
       time = new Date(time.getTime() + minutes * 60_000);
@@ -435,7 +439,7 @@ test('uninstall cancels queued work while awaiting the owned dispatcher', async 
 });
 
 test('an interrupted worker is not replayed and its remaining owned session stops before new work', async () => {
-  const { mesa, home, deps, advance, world } = setup();
+  const { mesa, home, deps, advance, commands } = setup();
   mesa.automations.add(cron);
   await mesa.automations.install();
   const first = (await mesa.automations.tick()).runs[0];
@@ -453,7 +457,7 @@ test('an interrupted worker is not replayed and its remaining owned session stop
     'default',
     testDeps(home, { ...deps, processAlive: (pid) => pid !== 101 }),
   );
-  const before = world.calls.length;
+  const before = commands.length;
   const next = await restarted.automations.tick();
   expect(next.runs).toHaveLength(1);
   expect((await restarted.automations.status()).runs[0]).toMatchObject({
@@ -461,10 +465,11 @@ test('an interrupted worker is not replayed and its remaining owned session stop
     reason: expect.stringContaining('not replayed'),
   });
   expect(testStore(home).get(session).endedAt).toBeDefined();
-  const calls = world.calls.slice(before);
-  expect(calls.findIndex((c) => c.args.includes('kill-window'))).toBeLessThan(
-    calls.findIndex((c) => c.args.includes('new-window') || c.args.includes('new-session')),
-  );
+  // The old window goes before the new run's opens.
+  const ran = commands.slice(before);
+  const killed = ran.indexOf('kill-window');
+  expect(killed).toBeGreaterThanOrEqual(0);
+  expect(killed).toBeLessThan(ran.findIndex((c) => c === 'new-window' || c === 'new-session'));
   await restarted.automations.uninstall();
 });
 
@@ -503,7 +508,7 @@ test('install and uninstall cannot complete out of order across async launchctl 
 });
 
 test('failed interrupted-session cleanup stays durable and retries before another action', async () => {
-  const { mesa, home, deps, advance, world } = setup();
+  const { mesa, home, deps, advance, world, commands } = setup();
   mesa.automations.add(cron);
   await mesa.automations.install();
   const first = (await mesa.automations.tick()).runs[0];
@@ -516,31 +521,23 @@ test('failed interrupted-session cleanup stays durable and retries before anothe
   delete saved.runs[0].endedAt;
   writeFileSync(file, stringify(saved));
   advance();
-  let fail = true;
   const restarted = createMesa(
     'default',
-    testDeps(home, {
-      ...deps,
-      processAlive: (pid) => pid !== 101,
-      run: async (binary, args, timeout) => {
-        if (fail && binary === 'tmux' && args.includes('kill-window')) {
-          fail = false;
-          return { ok: false, reason: 'timeout', detail: 'controlled stop timeout' };
-        }
-        return deps.run(binary, args, timeout);
-      },
-    }),
+    testDeps(home, { ...deps, processAlive: (pid) => pid !== 101 }),
   );
+  world.tmux.slow = ['kill-window'];
   await expect(restarted.automations.tick()).rejects.toMatchObject({ code: 'tmux_unavailable' });
+  world.tmux.slow = [];
   expect(testStore(home).get(old).endedAt).toBeUndefined();
   expect((await restarted.automations.status()).runs[0]?.status).toBe('running');
-  const before = world.calls.length;
+  const before = commands.length;
   expect((await restarted.automations.tick()).runs).toHaveLength(1);
   expect(testStore(home).get(old).endedAt).toBeDefined();
-  const calls = world.calls.slice(before);
-  expect(calls.findIndex((c) => c.args.includes('kill-window'))).toBeLessThan(
-    calls.findIndex((c) => c.args.includes('new-window') || c.args.includes('new-session')),
-  );
+  // The old window goes before the new run's opens.
+  const ran = commands.slice(before);
+  const killed = ran.indexOf('kill-window');
+  expect(killed).toBeGreaterThanOrEqual(0);
+  expect(killed).toBeLessThan(ran.findIndex((c) => c === 'new-window' || c === 'new-session'));
   await restarted.automations.uninstall();
 });
 

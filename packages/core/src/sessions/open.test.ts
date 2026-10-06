@@ -72,68 +72,26 @@ test('open starts claude with its session id in a new tmux session, then in a ne
     tmux: { socket: 'mesa-default', session: 'lantern-cove', window: `claude-${first.id}` },
     lastState: { state: 'idle', source: 'mesa' },
   });
-  const opened = world.calls.find((c) => c.args.includes('new-session'));
-  expect(opened?.args).toEqual([
-    '-u',
-    '-L',
-    'mesa-default',
-    '-f',
-    '/dev/null',
-    'new-session',
-    '-d',
-    '-s',
-    'lantern-cove',
-    '-n',
-    `claude-${first.id}`,
-    '-c',
-    dir,
-    '-e',
-    `MESA_SESSION_ID=${first.id}`,
-    '-e',
-    'MESA_PROFILE=default',
-    '/usr/bin/env',
-    '-C',
-    dir,
-    // Through /bin/sh, never the user's shell, which may quote otherwise (fish, tcsh).
-    '/bin/sh',
-    '-c',
-    `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT}`,
-    // Its output log, from the first byte: the pipe starts in the same call.
-    ';',
-    'pipe-pane',
-    '-o',
-    '-t',
-    `=lantern-cove:=claude-${first.id}`,
-    `cat >> '${join(profilePaths(home, 'default').logs, `${first.id}.log`)}'`,
-    // The tmux session does not keep the first window's ids for windows added by hand.
-    ';',
-    'set-environment',
-    '-t',
-    '=lantern-cove',
-    '-u',
-    'MESA_SESSION_ID',
-    ';',
-    'set-environment',
-    '-t',
-    '=lantern-cove',
-    '-u',
-    'MESA_PROFILE',
-  ]);
+  expect(world.tmux.opened[0]).toMatchObject({
+    project: 'lantern-cove',
+    window: `claude-${first.id}`,
+    path: dir,
+    env: { MESA_SESSION_ID: first.id, MESA_PROFILE: 'default' },
+    launch: `unset NO_COLOR; exec claude --session-id 00000000-0000-4000-8000-000000000001 ${CLAUDE_MOUNT}`,
+    // Its output log, from the first byte.
+    pipe: `cat >> '${join(profilePaths(home, 'default').logs, `${first.id}.log`)}'`,
+  });
   // The local record is saved without adding routine history to the vault.
   expect((await mesa.sessions.list()).map((s) => s.id)).toEqual([first.id]);
   expect(receipt).toBeNull();
   expect(listReceipts(join(home, 'vault'))).toEqual([]);
 
   const { result: second } = await mesa.sessions.open('lantern-cove');
-  const added = world.calls.find((c) => c.args.includes('new-window'))?.args;
-  expect(added?.slice(5, 11)).toEqual([
-    'new-window',
-    '-d',
-    '-t',
-    '=lantern-cove:',
-    '-n',
-    `claude-${second.id}`,
-  ]);
+  // A second window in the project's tmux session.
+  expect(world.tmux.opened[1]).toMatchObject({
+    project: 'lantern-cove',
+    window: `claude-${second.id}`,
+  });
   expect(second.id).not.toBe(first.id);
 });
 
@@ -144,8 +102,7 @@ test('General opens in the profile home without project skills, and can resume o
   expect(first).toMatchObject({ project: GENERAL_PROJECT, cwd: home, agent: 'claude' });
   expect(first.tmux.session).toBe(GENERAL_PROJECT);
   expect(world.tmux.windows[0]).toMatchObject({ project: GENERAL_PROJECT });
-  const started = world.calls.find((call) => call.args.includes('new-session'))?.args ?? [];
-  expect(started.slice(started.indexOf('-c'), started.indexOf('-c') + 2)).toEqual(['-c', home]);
+  expect(world.tmux.opened[0]?.path).toBe(home);
   expect(existsSync(join(home, '.claude/skills/mesa/SKILL.md'))).toBe(false);
   expect((await mesa.sessions.list()).find((row) => row.id === first.id)?.project).toBe(
     GENERAL_PROJECT,
@@ -312,11 +269,7 @@ test('a child terminal starts in its parent worktree', async () => {
     cwd: parent.worktree?.path,
     project: 'lantern-cove',
   });
-  const opened = world.calls.find((call) => call.args.includes('new-window'))?.args ?? [];
-  expect(opened.slice(opened.indexOf('-c'), opened.indexOf('-c') + 2)).toEqual([
-    '-c',
-    parent.worktree?.path,
-  ]);
+  expect(world.tmux.opened.at(-1)?.path).toBe(parent.worktree?.path);
   const branched = (
     await mesa.sessions.open('lantern-cove', {
       terminal: true,
@@ -334,7 +287,6 @@ test("with config sessions.log off, a window's output is not piped to a log", as
   mesa.config.set('sessions.log', 'false');
   const { result } = await mesa.sessions.open('lantern-cove');
   expect(world.tmux.windows[0]?.pipe).toBeUndefined();
-  expect(world.calls.some((c) => c.args.includes('pipe-pane'))).toBe(false);
   expect(existsSync(profilePaths(home, 'default').logs)).toBe(false);
   expect(mesa.sessions.logs(result.id)).toEqual({ session: result.id, path: null, lines: [] });
 });
@@ -496,11 +448,8 @@ test('an open session attaches to its exact window on the profile socket', async
   ]);
 });
 
-/** The command the last window runs: the word after `/bin/sh -c`. */
-const launched = (world: ReturnType<typeof agentWorld>) => {
-  const args = world.calls.filter((c) => c.args.includes('-n')).at(-1)?.args ?? [];
-  return args[args.indexOf('/bin/sh') + 2];
-};
+/** The command the last window runs. */
+const launched = (world: ReturnType<typeof agentWorld>) => world.tmux.opened.at(-1)?.launch;
 
 test('a goal is the first prompt: one shell word after the session id, kept on the record', async () => {
   const world = agentWorld();
@@ -669,10 +618,7 @@ test('a session opened inside another is its child: from MESA_SESSION_ID, --pare
 });
 
 /** The folder the last window started in. */
-const cwdOf = (world: ReturnType<typeof agentWorld>) => {
-  const args = world.calls.filter((c) => c.args.includes('-n')).at(-1)?.args ?? [];
-  return args[args.indexOf('-c') + 1];
-};
+const cwdOf = (world: ReturnType<typeof agentWorld>) => world.tmux.opened.at(-1)?.path;
 
 /** The branch's upstream, or undefined when it tracks nothing. */
 const upstreamOf = (dir: string, branch: string) => {
@@ -1081,17 +1027,13 @@ test('through a symlinked home, a worktree git lists is still seen', async () =>
 });
 
 test('open links the enabled skills where the agent runs before its window opens; a failure warns', async () => {
-  const world = agentWorld();
   let dir = '';
-  // Whether the mesa skill was linked when tmux was asked for the window.
+  // Whether the mesa skill was linked when its window opened.
   const linkedAtStart: boolean[] = [];
-  const run: Runner = (file, args, ms) => {
-    if (file === 'tmux' && args.some((a) => a === 'new-session' || a === 'new-window')) {
-      linkedAtStart.push(existsSync(join(dir, '.claude/skills/mesa/SKILL.md')));
-    }
-    return withGit(world)(file, args, ms);
-  };
-  const made = await setUp(world, { run });
+  const world = agentWorld({
+    onOpen: () => linkedAtStart.push(existsSync(join(dir, '.claude/skills/mesa/SKILL.md'))),
+  });
+  const made = await setUp(world);
   dir = made.dir;
   const { mesa, home } = made;
   const { warning } = await mesa.sessions.open('lantern-cove');

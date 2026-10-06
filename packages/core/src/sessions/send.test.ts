@@ -124,15 +124,11 @@ test('a strict project asks: --yes, a person yes, or --force sends; without one,
 });
 
 test('a multi-line prompt goes as one literal chunk, then one Enter', async () => {
-  const { mesa, window, opened, calls } = await setUp();
+  const { mesa, window, opened } = await setUp();
   const prompt = 'first line\nsecond line\nthird';
   await mesa.sessions.send(opened.id, prompt);
   expect(window.typed).toEqual([prompt]);
-  const keys = calls
-    .filter((c) => c.args[5] === 'send-keys')
-    // After `send-keys -t <target>`.
-    .map((c) => c.args.slice(c.args.indexOf('send-keys') + 3));
-  expect(keys).toEqual([['-l', '--', prompt], ['Enter']]);
+  expect(window.keys).toEqual([prompt, 'Enter']);
 });
 
 test('an exited or vanished session is not_found; a shell is refused unless --force', async () => {

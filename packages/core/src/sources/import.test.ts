@@ -170,7 +170,7 @@ test('a public web page imports cleaned by Defuddle with notes off: one snapshot
   expect(body).toContain('The tide at [the cove](https://example.test/cove) turns twice a day');
   expect(body).not.toContain('Shop');
   expect(body).not.toContain('Copyright');
-  expect(agents.calls.some((c) => c.args.includes('new-session'))).toBe(false);
+  expect(agents.tmux.opened).toEqual([]);
   expect(files(join(vault, 'wiki/notes'))).toEqual([]);
 });
 

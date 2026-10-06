@@ -1,24 +1,19 @@
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
+  fakeTmux,
   fixedClock,
   lockDeps,
   newSession,
-  scriptedRunner,
   sequentialIds,
   tempDir,
-  tmuxLine,
 } from '../testing/index.js';
 import { recordPaneDied } from './pane-died.js';
 import { sessionStore } from './store.js';
-import { tmuxBackend } from './tmux/backend.js';
 
 const at = '2026-09-24T12:05:00.000Z';
 const inWindow = (window: string) =>
   newSession({ tmux: { socket: 'mesa-default', session: 'lantern-cove', window } });
-/** A list-windows line, as tmux prints Mesa's format, for a pane that died. */
-const deadLine = (window: string, status: number, signal = '') =>
-  tmuxLine({ project: 'lantern-cove', window, command: 'claude', dead: true, status, signal });
 
 function setUp() {
   const store = sessionStore({
@@ -29,20 +24,14 @@ function setUp() {
   const clean = store.create(() => inWindow('claude-00000001'));
   const crashed = store.create(() => inWindow('claude-00000002'));
   const killed = store.create(() => inWindow('claude-00000003'));
-  const lines = [
-    deadLine(clean.tmux.window, 0),
-    deadLine(crashed.tmux.window, 1),
-    deadLine(killed.tmux.window, 0, 'kill'),
-  ];
-  // Only the project's own session lists its windows, as tmux answers: a view's name lists none.
-  const { run } = scriptedRunner({
-    tmux: (args) => (args.includes('=lantern-cove') || args.includes('-a') ? lines.join('\n') : ''),
-  });
-  const deps = {
-    store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
-    clock: fixedClock(at),
-  };
+  // Three panes that died in lantern-cove's tmux session: cleanly, with an error, and killed.
+  const tmux = fakeTmux();
+  const died = (window: string, status: number, signal?: string) =>
+    tmux.addWindow({ project: 'lantern-cove', window, dead: true, status, signal });
+  died(clean.tmux.window, 0);
+  died(crashed.tmux.window, 1);
+  died(killed.tmux.window, 0, 'kill');
+  const deps = { store, tmux, clock: fixedClock(at) };
   return { store, deps, clean, crashed, killed };
 }
 

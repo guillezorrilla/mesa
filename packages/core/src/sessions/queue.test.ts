@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { vaultServer } from '../agents/vault-mount.js';
-import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
 import { openProfile } from '../profile/profile.js';
 import {
@@ -23,7 +22,6 @@ import {
   worktreeAt,
 } from '../testing/index.js';
 import { startQueued } from './queue.js';
-import { tmuxBackend } from './tmux/backend.js';
 
 const now = '2026-09-24T12:00:00.000Z';
 
@@ -40,7 +38,7 @@ async function setUp({ claude = true } = {}) {
     profile: openProfile(profilePaths(home, 'default')),
     profileName: 'default',
     store,
-    tmux: tmuxBackend({ sleep: async () => {}, run, socket: 'mesa-default', env: {} }),
+    tmux: world,
     run,
     env: {},
     home,
@@ -167,13 +165,7 @@ test('a queued --with start failing on the second repo leaves it failed and both
 
 test('a queued --with start whose window fails keeps the worktree its setup ran in on the record, and the other repo as it was', async () => {
   const world = agentWorld();
-  const git = withRealGit(world.run);
-  // The queued session's window is the one tmux refuses.
-  let refused = '';
-  const run: Runner = (file, args, ms, options) =>
-    file === 'tmux' && refused && args.includes(refused)
-      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'no space for a new window' })
-      : git(file, args, ms, options);
+  const run = withRealGit(world.run);
   const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, keep.txt]\n';
   const { home, dir, mesa } = projectProfile(run, { mesaYaml });
   gitRepo(dir);
@@ -187,7 +179,8 @@ test('a queued --with start whose window fails keeps the worktree its setup ran 
   const b = (
     await mesa.sessions.open('lantern-cove', { after: a.id, with: ['tide-pool'], branch: 'shared' })
   ).result;
-  refused = `claude-${b.id}`;
+  // The queued session's window, the next one to open, is the one tmux refuses.
+  world.tmux.failing = ['new-session', 'new-window'];
   const before = repoState(tide);
   await mesa.sessions.stop(a.id, true);
   const failed = await mesa.sessions.show(b.id);

@@ -19,6 +19,7 @@ import type { ListingDeps } from '../sessions/agent-listing.js';
 import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
+import { type TmuxBackend, tmuxBackend } from '../sessions/tmux/backend.js';
 import { testEnv, testRunner } from './env.js';
 import { fakeHttp, memorySecretStore } from './sources.js';
 import { tempDir } from './tmp.js';
@@ -71,7 +72,7 @@ export function steppingClock(iso = '2026-09-24T12:00:00.000Z', stepMs = 1000): 
 }
 
 /** Stdout, or a function of the call's arguments returning stdout or a whole result. */
-type Answer = string | ((args: string[]) => string | RunResult);
+type Answer = string | ((args: string[]) => string | RunResult | Promise<string | RunResult>);
 
 /**
  * Answers from `outputs` by binary name; names in `missing` are ENOENT, names in `slow` time out,
@@ -88,7 +89,7 @@ export function scriptedRunner(
     if (opts.slow?.includes(file)) return { ok: false, reason: 'timeout', detail: 'killed' };
     if (opts.failing?.includes(file)) return { ok: false, reason: 'failed', detail: 'exit 1' };
     const answer = outputs[file] ?? '';
-    const said = typeof answer === 'function' ? answer(args) : answer;
+    const said = typeof answer === 'function' ? await answer(args) : answer;
     return typeof said === 'string' ? { ok: true, stdout: said } : said;
   };
   return { run, calls };
@@ -130,6 +131,8 @@ export type FakeWindow = {
   path: string;
   /** The command tmux started the window with. */
   launch: string;
+  /** Its pane's process, when a test needs one the listing will match. */
+  pid?: number;
   /** What `pane_current_command` shows: claude's version, or a shell once the agent is gone. */
   running: string;
   dead: boolean;
@@ -137,9 +140,28 @@ export type FakeWindow = {
   status?: number;
   signal?: string;
   typed: string[];
+  /** Every key and text sent to it, in order (`Escape`, `/exit`, `Enter`); `typed` is the text alone, its screen. */
+  keys: string[];
+  /** The variables it was opened with (`-e`), such as MESA_SESSION_ID. */
+  env: Record<string, string>;
+  /** Its size once resized; `pinned` until its window-size option is unset, back to tmux's policy. */
+  size?: { cols: number; rows: number; pinned: boolean };
   /** The shell command pipe-pane gave its output to, when it is logged. */
   pipe?: string;
 };
+
+/** A window for fakeTmux: its project and name, the rest as Mesa's claude window has them. */
+export type NewWindow = Pick<FakeWindow, 'project' | 'window'> & Partial<FakeWindow>;
+const newWindow = (w: NewWindow): FakeWindow => ({
+  path: `/src/${w.project}`,
+  launch: 'claude',
+  running: '2.1.282',
+  dead: false,
+  typed: [],
+  keys: [],
+  env: {},
+  ...w,
+});
 
 /** tmux's named layouts, the ones fakeTmux accepts. */
 const TMUX_LAYOUTS = [
@@ -154,6 +176,8 @@ const TMUX_LAYOUTS = [
  * A tmux server in memory, as a scripted runner answer: `scriptedRunner({ tmux: world.answer })`.
  * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
  * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
+ * The world is a TmuxBackend too, the real one over this server on mesa-default, for a test of a
+ * module that takes the backend itself. The server answers whatever socket a call names.
  */
 export function fakeTmux(
   opts: {
@@ -163,8 +187,18 @@ export function fakeTmux(
      * make its agent act, say finish a run (finishesRun).
      */
     onOpen?: (window: FakeWindow) => void;
-    /** A tmux command that fails, as a broken server would (`new-session`). */
-    failing?: string;
+    /** tmux commands that fail, as a broken server would (`new-session`); `failing` on the world. */
+    failing?: string | string[];
+    /** tmux commands that time out, as a hung server's would; `slow` on the world. */
+    slow?: string[];
+    /**
+     * Sees each command that succeeded, after onOpen and awaited before the call returns: a test
+     * can act between tmux's answer and Mesa's use of it, say end a run while its waiter looks.
+     * What it throws, the call throws.
+     */
+    after?: (command: string[]) => void | Promise<void>;
+    /** Sees each command before it is answered: a test can change the server first. */
+    before?: (command: string[]) => void;
   } = {},
 ) {
   const windows: FakeWindow[] = [];
@@ -179,15 +213,20 @@ export function fakeTmux(
   const noServer = () => failed('no server running on /private/tmp/tmux-501/fake');
   const failed = (detail: string): RunResult => ({ ok: false, reason: 'failed', detail });
   const flag = (args: string[], name: string) => args[args.indexOf(name) + 1] ?? '';
+  /** The window `=project:=window` names: split at its last `:=`, as tmux's exact target reads. */
   const find = (target: string) => {
-    const [, project, window] = /^=(.*):=(.*)$/.exec(target) ?? [];
+    const at = target.lastIndexOf(':=');
+    if (!target.startsWith('=') || at < 1) return undefined;
+    const [project, window] = [target.slice(1, at), target.slice(at + 2)];
     return windows.find((w) => w.project === project && w.window === window);
   };
   const line = (w: FakeWindow, i: number) =>
     tmuxLine({ ...w, index: i, command: w.dead ? '' : w.running });
   const one = (args: string[]): RunResult => {
     const [command = '', ...rest] = args;
-    if (command === opts.failing) return failed(`${command} failed`);
+    if (world.failing.includes(command)) return failed(`${command} failed`);
+    if (world.slow.includes(command))
+      return { ok: false, reason: 'timeout', detail: `${command} timed out` };
     const ok = (stdout = ''): RunResult => ({ ok: true, stdout });
     const target = flag(rest, '-t');
     switch (command) {
@@ -200,16 +239,16 @@ export function fakeTmux(
         server = true;
         const project = command === 'new-session' ? flag(rest, '-s') : target.slice(1, -1);
         const [path, window] = [flag(rest, '-c'), flag(rest, '-n')];
-        const opened: FakeWindow = {
+        const env = rest.flatMap((word, i) => (rest[i - 1] === '-e' ? [word.split(/=(.*)/s)] : []));
+        const opened = newWindow({
           project,
           window,
           path,
           launch: rest.at(-1) ?? '',
-          running: '2.1.282',
-          dead: false,
-          typed: [],
-        };
+          env: Object.fromEntries(env.map(([name = '', value = '']) => [name, value])),
+        });
         windows.push(opened);
+        world.opened.push(opened);
         openedNow.push(opened);
         return ok();
       }
@@ -251,6 +290,7 @@ export function fakeTmux(
       case 'send-keys': {
         const w = find(target);
         if (!w) return failed("can't find window");
+        w.keys.push(rest.at(-1) ?? '');
         if (rest.includes('-l')) {
           const text = rest.at(-1) ?? '';
           w.typed.push(text);
@@ -271,7 +311,17 @@ export function fakeTmux(
       case 'start-server':
         server = true;
         return ok();
-      case 'set-option':
+      case 'resize-window': {
+        const w = find(target);
+        if (!w) return failed("can't find window");
+        w.size = { cols: Number(flag(rest, '-x')), rows: Number(flag(rest, '-y')), pinned: true };
+        return ok();
+      }
+      case 'set-option': {
+        const w = rest.includes('-w') ? find(target) : undefined;
+        if (w?.size && rest.includes('-u') && rest.at(-1) === 'window-size') w.size.pinned = false;
+        return ok();
+      }
       case 'bind-key':
       case 'set-environment':
         return ok();
@@ -305,7 +355,7 @@ export function fakeTmux(
    * Every call: `-u -L <socket> -f /dev/null` first, then commands. As tmux reads its arguments,
    * a word ending in `;` ends a command (the `;` dropped), and a closing `\;` is a literal `;`.
    */
-  const answer = (args: string[]): RunResult => {
+  const answer = async (args: string[]): Promise<RunResult> => {
     const commands: string[][] = [[]];
     for (const word of args.slice(5)) {
       if (word.endsWith('\\;')) commands.at(-1)?.push(`${word.slice(0, -2)};`);
@@ -315,15 +365,42 @@ export function fakeTmux(
       } else commands.at(-1)?.push(word);
     }
     let result: RunResult = { ok: true, stdout: '' };
+    const answered: string[][] = [];
     // tmux skips an empty command (a leading, trailing, or doubled `;`).
     for (const command of commands.filter((c) => c.length)) {
+      opts.before?.(command);
       result = one(command);
       if (!result.ok) break;
+      answered.push(command);
     }
     for (const w of openedNow.splice(0)) opts.onOpen?.(w);
+    for (const command of answered) await opts.after?.(command);
     return result;
   };
-  return { windows, answer, hooks, ranLater };
+  const world = {
+    ...tmuxBackend({
+      run: (_file, args) => answer(args),
+      socket: 'mesa-default',
+      env: {},
+      sleep: async () => {},
+    }),
+    windows,
+    /** A window already on the server, as Mesa would have opened it: claude running in it. */
+    addWindow: (w: NewWindow) => {
+      server = true;
+      windows.push(newWindow(w));
+    },
+    answer,
+    hooks,
+    ranLater,
+    /** Every window the server opened, in order, closed ones too. */
+    opened: [] as FakeWindow[],
+    /** The commands that fail from now on; a test may change it. */
+    failing: [opts.failing ?? []].flat(),
+    /** The commands that time out from now on, as a hung server's would. */
+    slow: opts.slow ?? [],
+  };
+  return world satisfies TmuxBackend;
 }
 
 /**
@@ -488,16 +565,18 @@ export function agentWorld({
 
 /** A fake agent world's key submissions and sleeps in order, for send and stop timing checks. */
 export function timedAgentWorld(opts: Parameters<typeof agentWorld>[0] = {}) {
-  const world = agentWorld(opts);
   const log: string[] = [];
-  const run: Runner = (file, args, ms) => {
-    if (file === 'tmux' && args[5] === 'send-keys') log.push(`keys ${args.at(-1)}`);
-    return world.run(file, args, ms);
-  };
+  const world = agentWorld({
+    ...opts,
+    before: (command) => {
+      if (command[0] === 'send-keys') log.push(`keys ${command.at(-1)}`);
+      opts.before?.(command);
+    },
+  });
   const sleep = async (ms: number) => {
     log.push(`sleep ${ms}`);
   };
-  return { ...world, run, sleep, log };
+  return { ...world, sleep, log };
 }
 
 /**
