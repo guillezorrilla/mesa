@@ -9,10 +9,8 @@ import { antigravityLastOutputLine, antigravityScreenState } from './antigravity
 import { claudeContext } from './claude/context-use.js';
 import { claudeHookState } from './claude/hook-state.js';
 import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
-import { claudeTranscripts } from './claude/paths.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
-import { transcriptCwd } from './claude/transcripts.js';
 import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
@@ -166,11 +164,6 @@ export const AGENTS = {
     listing: { list: listClaudeProcesses, state: claudeListedState },
     /** A session's context use, from its transcript. */
     context: claudeContext,
-    /** Where its transcripts are, and the folder a conversation ran in (adoption). */
-    transcripts: {
-      dir: claudeTranscripts,
-      cwdOf: (home: string, id: string) => transcriptCwd(claudeTranscripts(home), id),
-    },
   },
   codex: {
     versionArgs: ['--version'],

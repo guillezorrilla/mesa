@@ -115,7 +115,7 @@ export function sessionCost(ctx: MesaContext, id: string): number | null {
     const transcript =
       known && existsSync(known)
         ? known
-        : transcriptFile(claudeTranscripts(ctx.deps.home), nativeId);
+        : transcriptFile(claudeTranscripts(ctx.deps.home, ctx.deps.env), nativeId);
     if (!transcript) {
       missing = true;
       continue;

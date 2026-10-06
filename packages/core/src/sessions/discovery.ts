@@ -169,7 +169,7 @@ async function scanNative(
   const once = readOnce(deps);
   const running = await runningIds(once);
   const history = [
-    ...claudeHistory(claudeTranscripts(deps.home), start),
+    ...claudeHistory(claudeTranscripts(deps.home, deps.env), start),
     ...codexHistory(deps, start),
   ];
   const scan = scanOf(

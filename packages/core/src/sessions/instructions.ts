@@ -36,7 +36,7 @@ export function instructionStatus(
         : { state: 'missing', reason: 'Run mesa hooks install' };
     }
     const codex = agent === 'codex' ? codexHooks(codexHome(home, env), self) : undefined;
-    const hooks = codex ?? claudeHooks(home, self);
+    const hooks = codex ?? claudeHooks(home, env, self);
     if (hooks.stale) return { state: 'conflicting', reason: 'Mesa SessionStart hook is stale' };
     if (!hooks.events.SessionStart) return { state: 'missing', reason: 'Run mesa hooks install' };
     if (codex && !codex.trusted.SessionStart)

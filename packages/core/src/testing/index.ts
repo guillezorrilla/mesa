@@ -9,7 +9,7 @@ import type { LaunchDefaults } from '../agents/launch-flags.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
-import { execRunner, type Runner, type RunResult } from '../lib/process.js';
+import { type Env, execRunner, type Runner, type RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { localDay } from '../lib/time.js';
 import { createMesa, type MesaDeps } from '../mesa.js';
@@ -741,18 +741,29 @@ export function plantOutputLog(home: string, id: string, text: string | Buffer) 
   return file;
 }
 
-/** A live Claude Code process `pid`'s state file, with `fields` such as `name` and `nameSource`. */
-export function plantLiveSession(home: string, pid: number, fields: object) {
-  mkdirSync(claudeLiveSessions(home), { recursive: true });
-  writeFileSync(join(claudeLiveSessions(home), `${pid}.json`), JSON.stringify({ pid, ...fields }));
+/**
+ * A live Claude Code process `pid`'s state file, with `fields` such as `name` and `nameSource`;
+ * under `env`'s CLAUDE_CONFIG_DIR when it sets one.
+ */
+export function plantLiveSession(home: string, pid: number, fields: object, env: Env = {}) {
+  const dir = claudeLiveSessions(home, env);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${pid}.json`), JSON.stringify({ pid, ...fields }));
 }
 
 /**
  * A Claude Code transcript on disk, as it writes one: conversation `id`, run in `cwd`, which it
- * names on a line after the first; `content` in place of those lines when given. Its path.
+ * names on a line after the first; `content` in place of those lines when given; under `env`'s
+ * CLAUDE_CONFIG_DIR when it sets one. Its path.
  */
-export function plantTranscript(home: string, id: string, cwd: string, content?: string) {
-  const folder = join(claudeTranscripts(home), cwd.replaceAll(/[^A-Za-z0-9]/g, '-'));
+export function plantTranscript(
+  home: string,
+  id: string,
+  cwd: string,
+  content?: string,
+  env: Env = {},
+) {
+  const folder = join(claudeTranscripts(home, env), cwd.replaceAll(/[^A-Za-z0-9]/g, '-'));
   mkdirSync(folder, { recursive: true });
   const lines = [
     { type: 'last-prompt', sessionId: id },

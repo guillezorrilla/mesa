@@ -106,7 +106,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
         profileDir: ctx.paths.root,
         decisions: faro.inUse(),
         hooks: {
-          claude: () => hooksStatus(deps.home, deps.self),
+          claude: () => hooksStatus(deps.home, deps.env, deps.self),
           codex: () => codexHooksStatus(codexHome(deps.home, deps.env), deps.self),
           antigravity: () => antigravityHooksStatus(deps.home, deps.self),
           antigravityVault: () => vaultMountStatus(deps.home, deps.self),

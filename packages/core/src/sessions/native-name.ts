@@ -71,7 +71,7 @@ export function nativeName(
 ): string | undefined {
   try {
     if (c.agent === 'claude') {
-      const file = c.file ?? transcriptFile(claudeTranscripts(deps.home), c.id);
+      const file = c.file ?? transcriptFile(claudeTranscripts(deps.home, deps.env), c.id);
       return file ? claudeName(file) : undefined;
     }
     if (c.agent === 'codex') {

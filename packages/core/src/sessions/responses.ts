@@ -75,7 +75,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
     };
   const file =
     record.agent === 'claude'
-      ? transcriptFile(claudeTranscripts(deps.home), record.agentSessionId)
+      ? transcriptFile(claudeTranscripts(deps.home, deps.env), record.agentSessionId)
       : rolloutForThread(deps, record.agentSessionId);
   if (!file)
     return {

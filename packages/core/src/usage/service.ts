@@ -47,7 +47,7 @@ export function usageService(ctx: MesaContext) {
             prior?.file && existsSync(prior.file)
               ? prior.file
               : record.agent === 'claude'
-                ? transcriptFile(claudeTranscripts(ctx.deps.home), nativeId)
+                ? transcriptFile(claudeTranscripts(ctx.deps.home, ctx.deps.env), nativeId)
                 : record.agent === 'codex'
                   ? rolloutForThread({ home: ctx.deps.home, env: ctx.deps.env }, nativeId)
                   : undefined;

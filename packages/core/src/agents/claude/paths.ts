@@ -11,7 +11,7 @@ export const claudeHome = (home: string, env: Env) =>
  * Its user settings, where Mesa's hooks go (ADR-0003); under CLAUDE_CONFIG_DIR when `env` sets it,
  * as Claude reads them there.
  */
-export const claudeSettings = (home: string, env: Env = {}) =>
+export const claudeSettings = (home: string, env: Env) =>
   join(claudeHome(home, env), 'settings.json');
 
 /** In a Claude folder (its config folder or a project's `.claude`) or a project: `CLAUDE.md`, and the folder of `.md` rules. */
@@ -27,11 +27,16 @@ export const claudeInstalledPlugins = (claudeDir: string) =>
 export const CLAUDE_PROJECT_DIR = '.claude';
 export const CLAUDE_PROJECT_SKILLS = join(CLAUDE_PROJECT_DIR, 'skills');
 
-/** Every session's transcript, `<folder>/<agent session id>.jsonl`, one folder per working folder. */
-export const claudeTranscripts = (home: string) => join(home, '.claude', 'projects');
+/**
+ * Every session's transcript, under its config folder: `<folder>/<agent session id>.jsonl`, one
+ * folder per working folder.
+ */
+export const claudeTranscripts = (home: string, env: Env) =>
+  join(claudeHome(home, env), 'projects');
 
 /**
  * Each live Claude Code process's state, `<pid>.json`: among it the session's `name`, and
  * `nameSource`, `user` for a /rename and `derived` for the one Claude Code makes from its folder.
  */
-export const claudeLiveSessions = (home: string) => join(home, '.claude', 'sessions');
+export const claudeLiveSessions = (home: string, env: Env) =>
+  join(claudeHome(home, env), 'sessions');

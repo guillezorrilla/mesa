@@ -50,7 +50,7 @@ export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeH
   );
   const elsewhere = deps.elsewhere();
   const rows = [
-    ...claudeHistory(claudeTranscripts(deps.home)),
+    ...claudeHistory(claudeTranscripts(deps.home, deps.env)),
     ...codexHistory({ home: deps.home, env: deps.env }),
   ]
     .filter((row) => row.cwd === root || row.cwd.startsWith(`${root}/`))

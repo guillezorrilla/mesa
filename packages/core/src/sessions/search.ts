@@ -42,7 +42,7 @@ export function searchConversations(
   for (const row of history.rows.slice(0, FILES)) {
     const file =
       row.agent === 'claude'
-        ? transcriptFile(claudeTranscripts(deps.home), row.id)
+        ? transcriptFile(claudeTranscripts(deps.home, deps.env), row.id)
         : rolloutForThread({ home: deps.home, env: deps.env }, row.id);
     if (!file) continue;
     let lines: string[];

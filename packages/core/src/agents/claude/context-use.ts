@@ -38,10 +38,14 @@ const on = (value: unknown) =>
   typeof value === 'string' && !['', '0', 'false'].includes(value.toLowerCase());
 
 /** The `env` block of Claude Code's user settings, or none when they do not read. */
-function settingsEnv(home: string): Record<string, unknown> {
+function settingsEnv(home: string, env: Env): Record<string, unknown> {
   try {
-    const env = (JSON.parse(readFileSync(claudeSettings(home), 'utf8')) as { env?: unknown }).env;
-    return env && typeof env === 'object' ? (env as Record<string, unknown>) : {};
+    const settings = JSON.parse(readFileSync(claudeSettings(home, env), 'utf8')) as {
+      env?: unknown;
+    };
+    return settings.env && typeof settings.env === 'object'
+      ? (settings.env as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
@@ -57,11 +61,11 @@ export function claudeContext(
   deps: { home: string; env: Env },
   agentSessionId: string,
 ): ContextUse | undefined {
-  const file = transcriptFile(claudeTranscripts(deps.home), agentSessionId);
+  const file = transcriptFile(claudeTranscripts(deps.home, deps.env), agentSessionId);
   const usage = file && lastUsage(file);
   const native = usage ? nativeWindow(usage.model) : undefined;
   if (!usage || native === undefined) return undefined;
-  const settings = settingsEnv(deps.home);
+  const settings = settingsEnv(deps.home, deps.env);
   const held = HOLDS_TO_200K.some((name) => on(deps.env[name]) || on(settings[name]));
   const window = held ? Math.min(native, DEFAULT_WINDOW) : native;
   const used = Math.round((10_000 * usage.tokens) / window) / 100;

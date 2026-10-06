@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import type { Runner } from '../../lib/process.js';
+import type { Env, Runner } from '../../lib/process.js';
 import type { AgentProcess } from '../../sessions/agent-listing.js';
 import type { SessionState } from '../../sessions/states.js';
 import { claudeLiveSessions } from './paths.js';
@@ -25,13 +25,13 @@ const ListingSchema = z.array(
 
 /**
  * The name a person gave session `sessionId`'s live process `pid` with /rename, from its state
- * file; none for the name Claude Code derives from the folder, a file another session left, or one
- * it cannot read.
+ * file in `liveDir`; none for the name Claude Code derives from the folder, a file another session
+ * left, or one it cannot read.
  */
-function renamed(home: string, pid: number | undefined, sessionId: string): string | undefined {
+function renamed(liveDir: string, pid: number | undefined, sessionId: string): string | undefined {
   if (!pid) return undefined;
   try {
-    const state = JSON.parse(readFileSync(join(claudeLiveSessions(home), `${pid}.json`), 'utf8'));
+    const state = JSON.parse(readFileSync(join(liveDir, `${pid}.json`), 'utf8'));
     const name = typeof state?.name === 'string' ? state.name.trim() : '';
     return state?.nameSource === 'user' && state.sessionId === sessionId && name ? name : undefined;
   } catch {
@@ -46,9 +46,11 @@ const LISTING_TIMEOUT_MS = 2000;
 export async function listClaudeProcesses({
   run,
   home,
+  env,
 }: {
   run: Runner;
   home: string;
+  env: Env;
 }): Promise<AgentProcess[]> {
   const res = await run('claude', ['agents', '--json', '--all'], LISTING_TIMEOUT_MS);
   if (!res.ok) return [];
@@ -61,7 +63,7 @@ export async function listClaudeProcesses({
   const parsed = ListingSchema.safeParse(raw);
   if (!parsed.success) return [];
   return parsed.data.map((p) => {
-    const name = renamed(home, p.pid, p.sessionId);
+    const name = renamed(claudeLiveSessions(home, env), p.pid, p.sessionId);
     return {
       agent: 'claude' as const,
       ...(p.pid ? { pid: p.pid } : {}),

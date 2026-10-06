@@ -41,7 +41,7 @@ function homeWith(settings?: string) {
 
 test('install adds one Mesa entry per event, beside the user hooks, and twice changes nothing', () => {
   const { home, path } = homeWith(USER_SETTINGS);
-  expect(installHooks(home, SELF)).toMatchObject({ installed: true, changed: true });
+  expect(installHooks(home, {}, SELF)).toMatchObject({ installed: true, changed: true });
   const settings = JSON.parse(readFileSync(path, 'utf8'));
   for (const { event, matcher } of HOOK_EVENTS) {
     const mesa = settings.hooks[event].filter((g: { hooks: { command: string }[] }) =>
@@ -59,29 +59,29 @@ test('install adds one Mesa entry per event, beside the user hooks, and twice ch
   expect(settings.hooks.PreToolUse[0].matcher).toBe('Bash');
 
   const once = readFileSync(path, 'utf8');
-  expect(installHooks(home, SELF).changed).toBe(false);
+  expect(installHooks(home, {}, SELF).changed).toBe(false);
   expect(readFileSync(path, 'utf8')).toBe(once);
 });
 
 test('uninstall removes only Mesa entries: the user settings come back byte for byte', () => {
   const { home, path } = homeWith(USER_SETTINGS);
-  installHooks(home, SELF);
-  expect(uninstallHooks(home, SELF)).toMatchObject({ installed: false, changed: true });
+  installHooks(home, {}, SELF);
+  expect(uninstallHooks(home, {}, SELF)).toMatchObject({ installed: false, changed: true });
   expect(readFileSync(path, 'utf8')).toBe(USER_SETTINGS);
-  expect(uninstallHooks(home, SELF).changed).toBe(false);
+  expect(uninstallHooks(home, {}, SELF).changed).toBe(false);
 });
 
 test('status names each event; no settings file is created until install', () => {
   const { home, path } = homeWith();
-  expect(hooksStatus(home, SELF)).toEqual({
+  expect(hooksStatus(home, {}, SELF)).toEqual({
     path,
     installed: false,
     stale: false,
     events: Object.fromEntries(HOOK_EVENTS.map(({ event }) => [event, false])),
   });
-  expect(uninstallHooks(home, SELF).changed).toBe(false);
-  installHooks(home, SELF);
-  expect(hooksStatus(home, SELF).installed).toBe(true);
+  expect(uninstallHooks(home, {}, SELF).changed).toBe(false);
+  installHooks(home, {}, SELF);
+  expect(hooksStatus(home, {}, SELF).installed).toBe(true);
 });
 
 test('the hook is a no-op outside a Mesa session, silent, and never fails its caller', () => {
@@ -93,7 +93,7 @@ test('the hook is a no-op outside a Mesa session, silent, and never fails its ca
 
 test('settings that are not JSON are an error and are left untouched', () => {
   const { home, path } = homeWith('{ broken');
-  expect(thrown(() => installHooks(home, SELF))).toEqual({
+  expect(thrown(() => installHooks(home, {}, SELF))).toEqual({
     code: 'invalid_config',
     message: `${path}: not valid JSON; fix it before Mesa edits it`,
   });
@@ -104,9 +104,9 @@ test('a user hook that merely mentions "hook claude" is kept, with the rest of i
   const mine = { type: 'command', command: '~/bin/notify hook claude-done' };
   const settings = `${JSON.stringify({ hooks: { Stop: [{ hooks: [mine] }] } }, null, 2)}\n`;
   const { home, path } = homeWith(settings);
-  installHooks(home, SELF);
+  installHooks(home, {}, SELF);
   expect(JSON.parse(readFileSync(path, 'utf8')).hooks.Stop[0]).toEqual({ hooks: [mine] });
-  uninstallHooks(home, SELF);
+  uninstallHooks(home, {}, SELF);
   expect(readFileSync(path, 'utf8')).toBe(settings);
 });
 
@@ -118,17 +118,33 @@ test('a symlinked settings file stays a symlink; its mode and four-space indent 
   chmodSync(real, 0o600);
   mkdirSync(join(home, '.claude'));
   symlinkSync(real, path);
-  installHooks(home, SELF);
+  installHooks(home, {}, SELF);
   expect(lstatSync(path).isSymbolicLink()).toBe(true);
   expect(statSync(real).mode & 0o777).toBe(0o600);
   expect(readFileSync(real, 'utf8')).toContain('\n    "hooks": {');
-  uninstallHooks(home, SELF);
+  uninstallHooks(home, {}, SELF);
   expect(readFileSync(real, 'utf8')).toBe(settings);
 });
 
 test('entries that run another mesa are stale: status says so, and install replaces them', () => {
   const { home } = homeWith();
-  installHooks(home, ['/old/node', '/gone/mesa.js']);
-  expect(hooksStatus(home, SELF)).toMatchObject({ installed: false, stale: true });
-  expect(installHooks(home, SELF)).toMatchObject({ installed: true, stale: false, changed: true });
+  installHooks(home, {}, ['/old/node', '/gone/mesa.js']);
+  expect(hooksStatus(home, {}, SELF)).toMatchObject({ installed: false, stale: true });
+  expect(installHooks(home, {}, SELF)).toMatchObject({
+    installed: true,
+    stale: false,
+    changed: true,
+  });
+});
+
+test('with CLAUDE_CONFIG_DIR set, hooks go into its settings and ~/.claude is left alone', () => {
+  const { home, path: decoy } = homeWith(USER_SETTINGS);
+  const env = { CLAUDE_CONFIG_DIR: join(home, 'config/claude') };
+  mkdirSync(env.CLAUDE_CONFIG_DIR, { recursive: true });
+  expect(installHooks(home, env, SELF)).toMatchObject({ installed: true, changed: true });
+  expect(hooksStatus(home, env, SELF).installed).toBe(true);
+  const settings = JSON.parse(readFileSync(join(env.CLAUDE_CONFIG_DIR, 'settings.json'), 'utf8'));
+  expect(settings.hooks.Stop[0].hooks[0].command).toBe(hookCommand(SELF, 'Stop'));
+  expect(readFileSync(decoy, 'utf8')).toBe(USER_SETTINGS);
+  expect(hooksStatus(home, {}, SELF).installed).toBe(false);
 });
