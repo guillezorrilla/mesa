@@ -19,6 +19,8 @@ export function TerminalPanel(props: {
   onWebLink?: (session: string, url: string) => void;
   grid?: boolean;
   selected?: boolean;
+  /** The session in view: its terminal takes the keyboard. */
+  focus?: boolean;
   zoomed?: boolean;
   onZoom?: () => void;
   onReviewResponse?: (response: NativeResponse) => void;
@@ -29,7 +31,7 @@ export function TerminalPanel(props: {
       sessionId={props.sessionId}
       preferences={props.preferences}
       fill={fill}
-      focus={props.selected}
+      focus={props.focus}
       onFileLink={props.onFileLink}
       onWebLink={props.onWebLink}
     />
