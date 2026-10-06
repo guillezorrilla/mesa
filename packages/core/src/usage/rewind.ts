@@ -9,7 +9,7 @@ import { usageTotals } from './summary.js';
 export function rewindService(ctx: MesaContext, usage: ReturnType<typeof usageService>) {
   return {
     week: async () => {
-      const now = ctx.deps.clock();
+      const now = ctx.clock();
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
       const within = (at: string) => {
         const time = Date.parse(at);

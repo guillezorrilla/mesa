@@ -14,8 +14,8 @@ export type VaultBinding = { session: SessionRecord } | { refused: string };
  * The session in this process's environment, when this profile has it and it has not ended; read
  * again on every request, so a session stopped while its server runs is refused from then on.
  */
-export function vaultBinding(ctx: Pick<MesaContext, 'store' | 'deps' | 'profile'>): VaultBinding {
-  const { env } = ctx.deps;
+export function vaultBinding(ctx: Pick<MesaContext, 'store' | 'env' | 'profile'>): VaultBinding {
+  const { env } = ctx;
   const id = windowId(env);
   if (!id) return { refused: `${SESSION_ID_VAR} is not set: this is not a Mesa session` };
   const { session } = callerOf({ store: ctx.store, env, profileName: ctx.profile });

@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { writeReceipt } from '../receipts/store.js';
 import {
@@ -52,8 +52,7 @@ test('weekly rewind keeps meaningful notes and outcomes within local days and na
 });
 
 test('weekly rewind uses local midnight across a daylight-saving change', async () => {
-  const previous = process.env.TZ;
-  process.env.TZ = 'America/Vancouver';
+  vi.stubEnv('TZ', 'America/Vancouver');
   try {
     const { run } = scriptedRunner();
     const clock = fixedClock('2026-03-09T07:30:00.000Z');
@@ -83,7 +82,6 @@ test('weekly rewind uses local midnight across a daylight-saving change', async 
     });
     expect(report.notes.map((item) => item.path)).toEqual([inside.path]);
   } finally {
-    if (previous === undefined) delete process.env.TZ;
-    else process.env.TZ = previous;
+    vi.unstubAllEnvs();
   }
 });

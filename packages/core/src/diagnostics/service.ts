@@ -32,7 +32,7 @@ export function diagnosticsService(ctx: MesaContext) {
               typeof entry.event !== 'string'
             )
               return [];
-            const event = redactPayload(entry.event, ctx.deps.home, secrets, 80) as string;
+            const event = redactPayload(entry.event, ctx.home, secrets, 80) as string;
             return [
               {
                 id: `${record.id}:${index}`,

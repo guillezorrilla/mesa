@@ -22,7 +22,7 @@ export function projectsService(ctx: MesaContext) {
   const { record, open, absolute } = ctx;
   // Only a person approves a repository's worktree scripts: not mesa run inside a Mesa window.
   const outsideSession = () =>
-    !callerOf({ store: ctx.store, env: ctx.deps.env, profileName: ctx.profile }).inMesaWindow;
+    !callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).inMesaWindow;
   return {
     register: (dir: string, create = false, label?: string) =>
       record(
@@ -33,7 +33,7 @@ export function projectsService(ctx: MesaContext) {
           inputs: { dir: absolute(dir), create, ...(label !== undefined ? { label } : {}) },
           outputs: (r) => ({ path: r.path, wroteMesaYaml: r.created }),
         },
-        () => registerProject(open(), { dir: absolute(dir), create, label }, ctx.deps),
+        () => registerProject(open(), { dir: absolute(dir), create, label }, ctx),
       ),
     list: (sort?: string) => {
       const profile = open();
@@ -47,7 +47,7 @@ export function projectsService(ctx: MesaContext) {
           )
         : rows;
     },
-    visit: (name: string) => visitProject(open(), name, ctx.deps.clock().toISOString(), ctx.deps),
+    visit: (name: string) => visitProject(open(), name, ctx.clock().toISOString(), ctx),
     discover: (root: string) => discoverProjects(open(), absolute(root)),
     clone: (input: string) => {
       const source = repositoryUrl(input);
@@ -56,11 +56,11 @@ export function projectsService(ctx: MesaContext) {
           summary: (r) => `Cloned project ${r.project.name}`,
           failure: 'Could not clone project',
           project: (r) => r.project.name,
-          argv: ctx.deps.argv.map((word) => (word === input ? '[repository URL]' : word)),
+          argv: ctx.argv.map((word) => (word === input ? '[repository URL]' : word)),
           inputs: { slug: source.slug },
           outputs: (r) => ({ path: r.path, wroteMesaYaml: r.created }),
         },
-        () => cloneProject(open(), ctx.deps.run, source, ctx.deps),
+        () => cloneProject(open(), ctx.run, source, ctx),
       );
     },
     update: (name: string, patch: ProjectUpdate) =>
@@ -72,7 +72,7 @@ export function projectsService(ctx: MesaContext) {
           inputs: { name, ...patch },
           outputs: (r) => ({ label: r.label, pinned: r.pinned, hidden: r.hidden }),
         },
-        () => updateProject(open(), name, patch, ctx.deps),
+        () => updateProject(open(), name, patch, ctx),
       ),
     /** One of the project's mesa.yaml overrides set, or removed when `value` is undefined. */
     override: (name: string, path: string, value: string | undefined) =>
@@ -85,7 +85,7 @@ export function projectsService(ctx: MesaContext) {
           inputs: { name, path, ...(value === undefined ? { unset: true } : {}) },
           outputs: (r) => ({ value: r.value }),
         },
-        () => overrideProject(open(), name, path, value, outsideSession(), ctx.deps),
+        () => overrideProject(open(), name, path, value, outsideSession(), ctx),
       ),
     /** Approves the setup and teardown the project's mesa.yaml names now: a person's override. */
     pending: (name: string) => pendingScripts(open(), name),
@@ -103,7 +103,7 @@ export function projectsService(ctx: MesaContext) {
             ...(r.teardown ? { teardown: r.teardown } : {}),
           }),
         },
-        () => trustProject(open(), name, outsideSession(), expected, ctx.deps),
+        () => trustProject(open(), name, outsideSession(), expected, ctx),
       ),
     unregister: (name: string) =>
       record(
@@ -114,7 +114,7 @@ export function projectsService(ctx: MesaContext) {
           inputs: { name },
           outputs: (r) => ({ path: r.path }),
         },
-        () => unregisterProject(open(), name, ctx.deps),
+        () => unregisterProject(open(), name, ctx),
       ),
   };
 }

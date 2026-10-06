@@ -1,21 +1,18 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import { createMesa, type Mesa } from '../mesa.js';
 import {
   agentWorld,
   gitRepo,
-  isolateGit,
   projectProfile,
   tempDir,
   testDeps,
   testGit,
   withRealGit,
 } from '../testing/index.js';
-
-isolateGit({ beforeAll, afterAll });
 
 /**
  * Real git, where a clone copies `cloneFrom`; `/usr/bin/true` records the argv it was given

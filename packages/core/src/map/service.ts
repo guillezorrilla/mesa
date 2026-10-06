@@ -26,9 +26,9 @@ export function mapService(ctx: MesaContext) {
       if (!vaultStatus(vault).ok)
         throw new MesaError('not_found', `vault ${vault} is not laid out; run mesa vault init`);
       vaultFile(vault, VAULT.map);
-      return withVaultLock({ ...ctx.deps, vault }, async () => {
+      return withVaultLock({ ...ctx, vault }, async () => {
         const file = vaultFile(vault, VAULT.map);
-        const now = ctx.deps.clock().getTime();
+        const now = ctx.clock().getTime();
         const canvas = buildMap(
           ctx.store.list(),
           readRegistry(ctx.paths.registry),

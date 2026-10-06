@@ -61,7 +61,7 @@ export function updateService(
   ctx: MesaContext,
   config: Pick<ReturnType<typeof profileService>['config'], 'set'>,
 ) {
-  const { http, version: current } = ctx.deps;
+  const { http, version: current } = ctx;
   const channel = (): UpdateChannel => ctx.configIfAny()?.update.channel ?? defaultChannel(current);
 
   /** A feed's manifest; none when the channel has no release yet (404). */
@@ -147,8 +147,8 @@ export function updateService(
     install: async (): Promise<UpdateInstall> => {
       const found = await check();
       if (!found.available) return { ...found, outcome: 'up-to-date' };
-      const app = appBundle(ctx.deps.self, RELEASES_PAGE);
-      const opened = await ctx.deps.run('/usr/bin/open', ['-a', app, UPDATE_LINK], 10_000);
+      const app = appBundle(ctx.self, RELEASES_PAGE);
+      const opened = await ctx.run('/usr/bin/open', ['-a', app, UPDATE_LINK], 10_000);
       if (!opened.ok) throw new MesaError('internal', `Cannot open ${app}: ${opened.detail}`);
       return { ...found, outcome: 'handed-to-app', app };
     },

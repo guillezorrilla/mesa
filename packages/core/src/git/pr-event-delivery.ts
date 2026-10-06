@@ -163,7 +163,7 @@ export function prEventsService(
     send: Send;
   },
 ) {
-  const ledger = prEventLedger(ctx.paths.prEvents, ctx.deps);
+  const ledger = prEventLedger(ctx.paths.prEvents, ctx);
   const scan = async () => {
     const rows = (await deps.board()).filter(watched);
     // One watch per worktree it holds, each in its own repository (CONTEXT.md, Additional project).
@@ -176,7 +176,7 @@ export function prEventsService(
         since: row.startedAt,
       })),
     );
-    return { rows, found: await scanPrEvents(ctx.deps.run, watches, ledger.read()) };
+    return { rows, found: await scanPrEvents(ctx.run, watches, ledger.read()) };
   };
   const enabled = () => ctx.open().config.sessions.prEvents;
 

@@ -122,7 +122,7 @@ export function cliHarness() {
     },
     /**
      * lantern-cove and tide-pool registered, each a git repository on main through the real git
-     * (the test file calls isolateGit), over a tmux server in memory: for a session across
+     * (in testEnv), over a tmux server in memory: for a session across
      * projects (--with). The server, and both folders.
      */
     withTwoProjects: async () => {

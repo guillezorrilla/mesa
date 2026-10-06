@@ -11,7 +11,7 @@ import type { HeadlessResult } from './run.js';
 // What a session's receipt says: the one its start wrote, and its end, marked on it later.
 
 /** What updating a historical session receipt reads. */
-type ReceiptContext = Pick<MesaContext, 'notes' | 'paths' | 'secrets' | 'deps'>;
+type ReceiptContext = Pick<MesaContext, 'notes' | 'paths' | 'secrets' | 'home' | 'clock'>;
 
 /**
  * What a session's start keeps its guardrail receipt for (receipts/policy.ts): the launch flags
@@ -48,7 +48,7 @@ export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
 
 /** Text from the profile's logs as a receipt keeps it (redactWhole). */
 const redactor = (ctx: ReceiptContext) => (text: string) =>
-  redactWhole(text, ctx.deps.home, ctx.secrets());
+  redactWhole(text, ctx.home, ctx.secrets());
 
 /** How many of each event a session's record keeps: `{ send: 2, exited: 1 }` (CONTEXT.md, Session). */
 function eventCounts(r: SessionRecord) {
@@ -126,7 +126,7 @@ export async function markRunEnded(
     const redact = redactor(ctx);
     const end = endOf(run);
     await updateSessionReceipt(ctx.notes(), run.id, {
-      ended: new Date(run.endedAt ?? ctx.deps.clock()),
+      ended: new Date(run.endedAt ?? ctx.clock()),
       status: result.ok ? 'ok' : 'failed',
       cost: result.costUsd,
       outputs: {

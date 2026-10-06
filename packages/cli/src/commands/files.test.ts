@@ -1,38 +1,43 @@
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isolateGit, newSession, shortIds, testStore, withRealGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { newSession, shortIds, testEnv, testStore, withRealGit } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 
 test('files tree, search, exact line read, and revision-aware edits use one selected checkout', async () => {
   const repo = join(cli.home, 'lantern-cove');
   const linked = join(cli.home, 'linked');
   mkdirSync(repo);
-  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  execFileSync('git', ['init', '-q', '-b', 'main', repo], { env: testEnv });
   await cli.mesa('init', '--vault', 'vault');
   await cli.mesa('vault', 'init');
   await cli.mesa('register', '--create', repo);
   cli.run = withRealGit(cli.run);
   mkdirSync(join(repo, 'docs'));
   writeFileSync(join(repo, 'docs', 'guide.md'), '# Guide\nsecond line\n');
-  execFileSync('git', ['-C', repo, 'add', '.']);
-  execFileSync('git', [
-    '-C',
-    repo,
-    '-c',
-    'user.name=Test',
-    '-c',
-    'user.email=test@example.com',
-    'commit',
-    '-qm',
-    'first',
-  ]);
-  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'linked', linked]);
+  execFileSync('git', ['-C', repo, 'add', '.'], { env: testEnv });
+  execFileSync(
+    'git',
+    [
+      '-C',
+      repo,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-qm',
+      'first',
+    ],
+    { env: testEnv },
+  );
+  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'linked', linked], {
+    env: testEnv,
+  });
 
   const tree = await cli.mesa('files', 'tree', 'lantern-cove', '--json');
   expect(tree.code, tree.stdout).toBe(0);
@@ -201,7 +206,7 @@ test('files tree, search, exact line read, and revision-aware edits use one sele
 test('terminal links stay in the managed session checkout and external argv never runs a repository script', async () => {
   const repo = join(cli.home, 'lantern-cove');
   mkdirSync(repo);
-  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  execFileSync('git', ['init', '-q', '-b', 'main', repo], { env: testEnv });
   await cli.mesa('init', '--vault', 'vault');
   await cli.mesa('vault', 'init');
   await cli.mesa('register', '--create', repo);
@@ -264,7 +269,7 @@ test('terminal links stay in the managed session checkout and external argv neve
 test('files tree and search list an ignored folder without walking it', async () => {
   const repo = join(cli.home, 'lantern-cove');
   mkdirSync(join(repo, 'src'), { recursive: true });
-  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  execFileSync('git', ['init', '-q', '-b', 'main', repo], { env: testEnv });
   await cli.mesa('init', '--vault', 'vault');
   await cli.mesa('register', '--create', repo);
   cli.run = withRealGit(cli.run);

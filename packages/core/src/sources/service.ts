@@ -22,11 +22,11 @@ export type SourceRow = {
 /** The profile's Connections: connect, list, disconnect, and browse a Source, and call its API. */
 export function sourcesService(ctx: MesaContext) {
   const deps: SourceDeps = {
-    http: ctx.deps.http,
-    clock: ctx.deps.clock,
-    sleep: ctx.deps.sleep,
-    broker: brokerUrl(ctx.deps.env),
-    connections: connectionStore(ctx.deps.secretStore, ctx.profile),
+    http: ctx.http,
+    clock: ctx.clock,
+    sleep: ctx.sleep,
+    broker: brokerUrl(ctx.env),
+    connections: connectionStore(ctx.secretStore, ctx.profile),
   };
   const row = async (id: SourceId): Promise<SourceRow> => {
     const label = SOURCES[id].label;
@@ -59,7 +59,7 @@ export function sourcesService(ctx: MesaContext) {
         },
         async () => {
           await connectSource(
-            { ...deps, listen: ctx.deps.listen, run: ctx.deps.run, newId: ctx.deps.newId },
+            { ...deps, listen: ctx.listen, run: ctx.run, newId: ctx.newId },
             source,
           );
           return row(source);

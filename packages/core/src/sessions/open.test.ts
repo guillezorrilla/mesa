@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type { Env, Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
@@ -19,12 +19,12 @@ import {
   CODEX_MOUNT,
   gitProject,
   gitRepo,
-  isolateGit,
   profilePaths,
   projectProfile,
   sequentialIds,
   tempDir,
   testDeps,
+  testEnv,
   testGit,
   withRealGit,
   worktreeAt,
@@ -38,8 +38,6 @@ const exitAll = (world: ReturnType<typeof agentWorld>) => {
 
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();
-
-isolateGit({ beforeAll, afterAll });
 
 /** The real git, over the temp repositories; the rest stays scripted. */
 const withGit = (world: ReturnType<typeof agentWorld>): Runner => withRealGit(world.run);
@@ -790,7 +788,7 @@ test("with an origin, a new branch starts from origin's HEAD, tracking nothing, 
   const { home, dir, mesa } = await setUp(world);
   gitRepo(dir);
   const bare = join(home, 'origin.git');
-  execFileSync('git', ['init', '-q', '--bare', bare]);
+  execFileSync('git', ['init', '-q', '--bare', bare], { env: testEnv });
   testGit(dir, 'remote', 'add', 'origin', bare);
   testGit(dir, 'commit', '-q', '--allow-empty', '-m', 'shared work');
   testGit(dir, 'push', '-q', 'origin', 'main', 'main:shared');

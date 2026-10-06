@@ -2,12 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isolateGit, withRealGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { testEnv, withRealGit } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 const { mesa } = cli;
 const sha256 = (argv: string[]) => createHash('sha256').update(JSON.stringify(argv)).digest('hex');
@@ -220,15 +219,11 @@ test('projects trust approves the setup a repository names, records a receipt, a
     'name: reef\nworktrees:\n  setup: [/usr/bin/true, invented]\n',
   );
   const git = (...args: string[]) =>
-    execFileSync('git', [
-      '-C',
-      dir,
-      '-c',
-      'user.name=t',
-      '-c',
-      'user.email=t@example.com',
-      ...args,
-    ]);
+    execFileSync(
+      'git',
+      ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args],
+      { env: testEnv },
+    );
   git('init', '-q', '-b', 'main');
   git('add', '.');
   git('commit', '-qm', 'first');

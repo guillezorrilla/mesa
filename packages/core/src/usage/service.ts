@@ -13,7 +13,7 @@ import { summarizeUsage } from './summary.js';
 
 /** Syncs only this profile's sessions into its ledger; removed sessions keep their past usage. */
 export function usageService(ctx: MesaContext) {
-  const ledger = usageStore(ctx.paths.usage, ctx.deps);
+  const ledger = usageStore(ctx.paths.usage, ctx);
   return {
     list: async (session?: string) => {
       const fresh: UsageRecord[] = [];
@@ -47,9 +47,9 @@ export function usageService(ctx: MesaContext) {
             prior?.file && existsSync(prior.file)
               ? prior.file
               : record.agent === 'claude'
-                ? transcriptFile(claudeTranscripts(ctx.deps.home, ctx.deps.env), nativeId)
+                ? transcriptFile(claudeTranscripts(ctx.home, ctx.env), nativeId)
                 : record.agent === 'codex'
-                  ? rolloutForThread({ home: ctx.deps.home, env: ctx.deps.env }, nativeId)
+                  ? rolloutForThread({ home: ctx.home, env: ctx.env }, nativeId)
                   : undefined;
           if (!file) {
             unknown.push({ session: record.id, reason: `${record.agent} usage is unavailable` });
@@ -90,7 +90,7 @@ export function usageService(ctx: MesaContext) {
       const rows = ledger
         .merge(fresh, scanned, scannedHooks)
         .filter((row) => !session || row.session === session);
-      const now = ctx.deps.clock();
+      const now = ctx.clock();
       const unknownIds = new Set(unknown.map((item) => item.session));
       const summary = summarizeUsage(
         rows,

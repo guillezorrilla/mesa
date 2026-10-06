@@ -34,7 +34,7 @@ export function endSignals(
   },
 ) {
   const { store, tmux, record, paths } = ctx;
-  const { clock, env, home } = ctx.deps;
+  const { clock, env, home } = ctx;
   /**
    * Starts, each with its session receipt, the queued sessions waiting on one `over` says is
    * over. A start that fails leaves its failure receipt and a warning, never a failed caller:

@@ -20,6 +20,7 @@ import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
+import { backupService } from './profile/backup.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { promptsService } from './prompts/prompts.js';
@@ -53,7 +54,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
   const usage = usageService(ctx);
   const vaults = vaultService(ctx);
-  const sessions = sessionsService(ctx, faro, skills);
+  const prompts = promptsService(ctx);
+  const sessions = sessionsService(ctx, faro, skills, profileApi.config.set);
   const sources = sourcesService(ctx);
   const imports = importService(ctx, {
     fetch: sources.fetch,
@@ -63,13 +65,14 @@ export function createMesa(profile: string, deps: MesaDeps) {
   return {
     about: () => about(deps.version, deps.release),
     ...profileApi,
+    backup: backupService(ctx, prompts.list),
     projects: projectsService(ctx),
     automations: automationsService(ctx, faro, {
       sessions: sessions.sessions,
       refresh: imports.refresh,
       notify: notifications.deliver,
     }),
-    prompts: promptsService(ctx),
+    prompts,
     files: filesService(ctx),
     worktrees: worktreesService(ctx),
     git: gitService(ctx, faro),

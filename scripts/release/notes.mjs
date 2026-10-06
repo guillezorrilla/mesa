@@ -40,12 +40,16 @@ export function section(version, date, subjects) {
   return [`## ${version} - ${date}\n`, ...body].join('\n');
 }
 
-/** The squash subjects in `dir` since the tag before `version`'s, or all of them when none is. */
-export function subjects(version, dir) {
+/**
+ * The squash subjects in `dir` since the tag before `version`'s, or all of them when none is; git
+ * runs in `env`.
+ */
+export function subjects(version, dir, env = process.env) {
   const git = (...args) =>
     execFileSync('git', ['-C', dir, ...args], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      env,
     }).trim();
   const stable = version.includes('-') ? [] : ['--exclude', '*-*'];
   let previous;

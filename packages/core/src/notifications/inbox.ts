@@ -193,7 +193,7 @@ export function inbox(ctx: MesaContext) {
   const file = ctx.paths.notifications;
   // The run ledger is the event owner: a crash between failure and notification loses no notice.
   const failures = (): Candidate[] =>
-    automationState(ctx.paths.automationState, ctx.deps)
+    automationState(ctx.paths.automationState, ctx)
       .read()
       .runs.filter((run) => run.status === 'failed')
       .slice(-500)
@@ -247,7 +247,7 @@ export function inbox(ctx: MesaContext) {
         next.delivered = next.delivered.filter((id) => retained.has(id));
         return next;
       },
-      ctx.deps,
+      ctx,
     );
   const list = (): InboxItem[] => {
     const current = read();
@@ -285,7 +285,7 @@ export function inbox(ctx: MesaContext) {
   };
   const delivery = (): DeliveryPlan => {
     const state = read();
-    const startedAt = state.startedAt ?? ctx.deps.clock().toISOString();
+    const startedAt = state.startedAt ?? ctx.clock().toISOString();
     if (!state.startedAt) write({ startedAt });
     const settings = ctx.open().config.notifications;
     const fresh = list().filter(
@@ -351,7 +351,7 @@ export function inbox(ctx: MesaContext) {
       mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
       const lock = `${file}.delivery.lock`;
       return withLockSync(
-        ctx.deps,
+        ctx,
         lock,
         () => {
           const plan = delivery();
@@ -364,7 +364,7 @@ export function inbox(ctx: MesaContext) {
     markDelivered,
     recordDoctor: (report: DoctorReport) => {
       const state = read();
-      const now = ctx.deps.clock().toISOString();
+      const now = ctx.clock().toISOString();
       // A finding seen before keeps its time, so its read or cleared mark still applies.
       write({
         startedAt: state.startedAt ?? now,

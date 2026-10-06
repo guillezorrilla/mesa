@@ -23,7 +23,7 @@ export function automationRules(ctx: MesaContext) {
         result = change(rules);
         return rules;
       },
-      ctx.deps,
+      ctx,
       'Mesa automations: install the scheduler explicitly to run these rules.',
     );
     return result as T;

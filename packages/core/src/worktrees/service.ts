@@ -14,10 +14,10 @@ export function worktreesService(ctx: MesaContext) {
     /** The inventory, each row with what its card shows (withDetails). */
     list: async (project: string, filter?: WorktreeFilter) => {
       const profile = ctx.open();
-      const rows = await listWorktrees(profile, ctx.deps.run, ctx.store, project, filter);
+      const rows = await listWorktrees(profile, ctx.run, ctx.store, project, filter);
       const root = rows.find((row) => row.main)?.path;
-      const base = root ? await defaultBranchRef(profile, ctx.deps.run, root, project) : undefined;
-      return withDetails(ctx.deps.run, rows, base);
+      const base = root ? await defaultBranchRef(profile, ctx.run, root, project) : undefined;
+      return withDetails(ctx.run, rows, base);
     },
     create: (project: string, branch: string, base?: string) =>
       ctx.record(
@@ -30,8 +30,8 @@ export function worktreesService(ctx: MesaContext) {
         () =>
           createWorktree(
             ctx.open(),
-            ctx.deps.run,
-            ctx.deps,
+            ctx.run,
+            ctx,
             ctx.store,
             findProject(ctx.open(), project),
             branch,
@@ -48,11 +48,11 @@ export function worktreesService(ctx: MesaContext) {
         },
         async () => {
           const profile = ctx.open();
-          const checkout = await resolveCheckout(profile, ctx.deps.run, project, selected);
+          const checkout = await resolveCheckout(profile, ctx.run, project, selected);
           if (checkout.registered)
             throw new MesaError('usage', 'worktree setup can only rerun in a linked worktree');
           return worktreeCommand(
-            ctx.deps.run,
+            ctx.run,
             checkout.path,
             worktreeScript(profile, findProject(profile, project), 'setup'),
             'setup',
@@ -60,7 +60,7 @@ export function worktreesService(ctx: MesaContext) {
         },
       ),
     preview: (project: string, action: WorktreeAction, selected?: string) =>
-      previewWorktreeAction(ctx.open(), ctx.deps.run, ctx.store, project, action, selected),
+      previewWorktreeAction(ctx.open(), ctx.run, ctx.store, project, action, selected),
     apply: (
       project: string,
       action: WorktreeAction,
@@ -83,7 +83,7 @@ export function worktreesService(ctx: MesaContext) {
         () =>
           applyWorktreeAction(
             ctx.open(),
-            ctx.deps.run,
+            ctx.run,
             ctx.store,
             project,
             action,

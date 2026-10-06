@@ -1,13 +1,12 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { listReceipts } from '../receipts/store.js';
 import {
   CLAUDE_VERSION,
   fakeTmux,
   gitRepo,
-  isolateGit,
   plantOutputLog,
   projectProfile,
   scriptedRunner,
@@ -17,8 +16,6 @@ import {
 } from '../testing/index.js';
 import { costTally } from '../usage/session-cost.js';
 import { runInput } from './run.js';
-
-isolateGit({ beforeAll, afterAll });
 
 /** lantern-cove as a git repository, in a profile over a fake tmux with the real git. */
 function setUp() {

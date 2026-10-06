@@ -8,8 +8,8 @@ import { instructionInventory } from './inventory.js';
 export function instructionsService(ctx: MesaContext) {
   const list = (project?: string) =>
     instructionInventory(
-      ctx.deps.home,
-      ctx.deps.env,
+      ctx.home,
+      ctx.env,
       project === undefined ? undefined : findProject(ctx.open(), project).path,
     );
   const selected = (id: string, project?: string) => {

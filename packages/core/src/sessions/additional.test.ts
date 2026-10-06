@@ -1,10 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import { listReceipts } from '../receipts/store.js';
 import {
-  isolateGit,
   newSession,
   repoState,
   sequentialIds,
@@ -14,8 +13,6 @@ import {
 } from '../testing/index.js';
 import { GENERAL_PROJECT } from './general.js';
 import { SessionRecordSchema } from './record.js';
-
-isolateGit({ beforeAll, afterAll });
 
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();

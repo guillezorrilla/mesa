@@ -17,7 +17,7 @@ import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { writeYaml } from '../lib/yaml-file.js';
 import { parseRegistryEntries, readRegistry } from '../projects/registry.js';
-import { parseSavedPrompts, promptsService } from '../prompts/prompts.js';
+import { parseSavedPrompts, type SavedPrompt } from '../prompts/prompts.js';
 import { buildBackupSettings, buildConfig, CONFIG_HEADER } from './config.js';
 import { profilesDir } from './paths.js';
 
@@ -32,18 +32,22 @@ const ArchiveSchema = z.strictObject({
 });
 
 /** Local backup of portable profile data. Credentials, vault, sessions, logs and tmux stay out. */
-export function backupService(ctx: MesaContext) {
+export function backupService(
+  ctx: Pick<MesaContext, 'absolute' | 'clock' | 'home' | 'newId' | 'open' | 'paths' | 'profile'>,
+  /** The saved prompts a backup carries: the prompts service's list. */
+  prompts: () => SavedPrompt[],
+) {
   const create = () => {
     const { vault: _vault, keys: _keys, ...settings } = ctx.open().config;
     const archive = {
       version: 1,
-      createdAt: ctx.deps.clock().toISOString(),
+      createdAt: ctx.clock().toISOString(),
       settings,
       projects: readRegistry(ctx.paths.registry),
-      prompts: promptsService(ctx).list(),
+      prompts: prompts(),
     };
     mkdirSync(ctx.paths.backups, { recursive: true, mode: 0o700 });
-    const name = `backup-${archive.createdAt.replaceAll(':', '-')}-${ctx.deps.newId()}.json`;
+    const name = `backup-${archive.createdAt.replaceAll(':', '-')}-${ctx.newId()}.json`;
     const path = join(ctx.paths.backups, name);
     writeFileAtomic(path, JSON.stringify(archive), 0o600);
     const archives = readdirSync(ctx.paths.backups)
@@ -76,7 +80,7 @@ export function backupService(ctx: MesaContext) {
     const projects = parseRegistryEntries(archive.projects, archiveFile);
     const prompts = parseSavedPrompts(archive.prompts, archiveFile);
     const config = buildConfig({ ...settings, vault, keys: {} }, archiveFile);
-    const parent = profilesDir(ctx.deps.home);
+    const parent = profilesDir(ctx.home);
     mkdirSync(parent, { recursive: true, mode: 0o700 });
     const stage = mkdtempSync(join(parent, '.restore-'));
     chmodSync(stage, 0o700);

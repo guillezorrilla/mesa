@@ -9,7 +9,7 @@ import type { HookStamp } from './store.js';
  * native identity changed to one Mesa does not know, which makes its usage unknown.
  */
 export function sessionNativeIds(
-  ctx: MesaContext,
+  ctx: Pick<MesaContext, 'paths'>,
   record: SessionRecord,
   hook: HookStamp,
   previous: readonly string[],
@@ -37,7 +37,7 @@ export function sessionNativeIds(
  * Whether a reading at `at` is the session's: from its start until it ended or was resumed (a
  * resume reads the same native transcript as a new session).
  */
-export function sessionWindow(ctx: MesaContext, record: SessionRecord) {
+export function sessionWindow(ctx: Pick<MesaContext, 'store'>, record: SessionRecord) {
   const resumedAt = record.resumedBy ? ctx.store.find(record.resumedBy)?.startedAt : undefined;
   const until = [record.endedAt, resumedAt]
     .filter((date): date is string => Boolean(date))

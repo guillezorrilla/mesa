@@ -1,13 +1,12 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { shellWord } from '../lib/process.js';
 import {
   agentWorld,
   CLAUDE_MOUNT,
   CODEX_MOUNT,
   gitRepo,
-  isolateGit,
   newSession,
   projectProfile,
   shortIds,
@@ -15,8 +14,6 @@ import {
   withRealGit,
 } from '../testing/index.js';
 import type { SessionRecord } from './record.js';
-
-isolateGit({ beforeAll, afterAll });
 
 // Every start through the launch owner mounts mesa-vault (agents/vault-mount.ts). Fresh, resume,
 // fork, background, adopted, and headless starts are checked beside their own tests; these are

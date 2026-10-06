@@ -1,16 +1,13 @@
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
 import {
   fakeGh,
   gitProject,
-  isolateGit,
   multiProjectSession,
   projectProfile,
   testStore,
   withRealGit,
 } from '../testing/index.js';
-
-isolateGit({ beforeAll, afterAll });
 
 test("insight links a PR on the session's branch in a repository where it is an additional project", async () => {
   const gh = fakeGh([

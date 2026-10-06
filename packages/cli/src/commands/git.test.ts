@@ -1,27 +1,28 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { execRunner } from '@mesa/core';
 import {
   gitRepo,
-  isolateGit,
   newSession,
   shortIds,
+  testEnv,
+  testRunner,
   testStore,
   withRealGit,
 } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 
 test('insight keeps local Git facts when gh is missing and links PRs from this repository, never a fork, by session branch', async () => {
   const repo = await cli.withProject();
   gitRepo(repo);
   const linked = join(cli.home, 'feature');
-  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', linked]);
+  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', linked], {
+    env: testEnv,
+  });
   const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
   store.create(() => newSession({ worktree: { path: linked, branch: 'feature' } }));
   const native = withRealGit(cli.run);
@@ -117,33 +118,39 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   const repo = join(cli.home, 'lantern-cove');
   const linked = join(cli.home, 'feature checkout');
   mkdirSync(repo);
-  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  execFileSync('git', ['init', '-q', '-b', 'main', repo], { env: testEnv });
   await cli.mesa('init', '--vault', 'vault');
   await cli.mesa('vault', 'init');
   await cli.mesa('register', '--create', repo);
   writeFileSync(join(repo, 'before.txt'), 'before\n');
   writeFileSync(join(repo, 'README.md'), 'old\n');
-  execFileSync('git', ['-C', repo, 'add', '.']);
-  execFileSync('git', [
-    '-C',
-    repo,
-    '-c',
-    'user.name=Test',
-    '-c',
-    'user.email=test@example.com',
-    'commit',
-    '-qm',
-    'first',
-  ]);
-  execFileSync('git', ['-C', repo, 'mv', 'before.txt', 'after\nname.txt']);
+  execFileSync('git', ['-C', repo, 'add', '.'], { env: testEnv });
+  execFileSync(
+    'git',
+    [
+      '-C',
+      repo,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-qm',
+      'first',
+    ],
+    { env: testEnv },
+  );
+  execFileSync('git', ['-C', repo, 'mv', 'before.txt', 'after\nname.txt'], { env: testEnv });
   writeFileSync(join(repo, 'README.md'), 'new\n');
   writeFileSync(join(repo, 'untracked space.txt'), 'new\n');
-  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', linked]);
+  execFileSync('git', ['-C', repo, 'worktree', 'add', '-q', '-b', 'feature', linked], {
+    env: testEnv,
+  });
 
   const native = cli.run;
   cli.run = async (file, args, timeout) => {
     if (file !== 'git') return native(file, args, timeout);
-    const result = await execRunner(file, args, timeout);
+    const result = await testRunner(file, args, timeout);
     if (result.ok && args.slice(-4).join(' ') === 'worktree list --porcelain -z') {
       return {
         ok: true,
@@ -206,7 +213,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
     expect.objectContaining({ path: 'untracked space.txt', index: '?', workingTree: '?' }),
   ]);
   // A tag of the same name must not turn the branch into heads/feature.
-  execFileSync('git', ['-C', repo, 'tag', 'feature']);
+  execFileSync('git', ['-C', repo, 'tag', 'feature'], { env: testEnv });
   const branches = await cli.mesa('git', 'branches', 'lantern-cove', '--json');
   expect(branches.json.data.branches).toContainEqual(
     expect.objectContaining({ name: 'feature', checkedOutAt: linked, current: false }),
@@ -237,7 +244,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
 
 test('unstage in an unborn repository keeps the working file', async () => {
   const repo = await cli.withProject();
-  execFileSync('git', ['init', '-q', repo]);
+  execFileSync('git', ['init', '-q', repo], { env: testEnv });
   writeFileSync(join(repo, 'first.txt'), 'preserved\n');
   cli.run = withRealGit(cli.run);
   expect((await cli.mesa('git', 'stage', 'lantern-cove', 'first.txt')).code).toBe(0);
@@ -288,8 +295,8 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
   const repo = await cli.withProject();
   writeFileSync(join(repo, 'note.txt'), 'base\n');
   gitRepo(repo);
-  execFileSync('git', ['-C', repo, 'config', 'user.name', 'Test']);
-  execFileSync('git', ['-C', repo, 'config', 'user.email', 'test@example.com']);
+  execFileSync('git', ['-C', repo, 'config', 'user.name', 'Test'], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'config', 'user.email', 'test@example.com'], { env: testEnv });
   cli.run = withRealGit(cli.run);
 
   const empty = await cli.mesa('git', 'stash', 'create', 'lantern-cove', '--json');
@@ -329,8 +336,8 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
     (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
   ).toHaveLength(1);
 
-  execFileSync('git', ['-C', repo, 'reset', '--hard', '-q']);
-  execFileSync('git', ['-C', repo, 'clean', '-fq']);
+  execFileSync('git', ['-C', repo, 'reset', '--hard', '-q'], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'clean', '-fq'], { env: testEnv });
   writeFileSync(join(repo, 'note.txt'), 'conflicting local edit\n');
   const refused = await cli.mesa('git', 'stash', 'pop', 'lantern-cove', 'stash@{0}', '--json');
   expect(refused.code).toBe(2);
@@ -339,8 +346,8 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
     (await cli.mesa('git', 'stashes', 'lantern-cove', '--json')).json.data.stashes,
   ).toHaveLength(1);
 
-  execFileSync('git', ['-C', repo, 'reset', '--hard', '-q']);
-  execFileSync('git', ['-C', repo, 'clean', '-fq']);
+  execFileSync('git', ['-C', repo, 'reset', '--hard', '-q'], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'clean', '-fq'], { env: testEnv });
   const popped = await cli.mesa('git', 'stash', 'pop', 'lantern-cove', 'stash@{0}', '--json');
   expect(popped.code, popped.stdout).toBe(0);
   expect(readFileSync(join(repo, 'note.txt'), 'utf8')).toBe('saved\n');
@@ -352,7 +359,7 @@ test('stash actions save, apply, pop and drop without losing a conflicting stash
   expect(again.json.data.created).toBe(true);
   // An agent stashes after the list was read: stash@{0} now names its stash, not the listed one.
   writeFileSync(join(repo, 'note.txt'), 'agent work\n');
-  execFileSync('git', ['-C', repo, 'stash', 'push', '-q', '-m', 'agent']);
+  execFileSync('git', ['-C', repo, 'stash', 'push', '-q', '-m', 'agent'], { env: testEnv });
   const shifted = await cli.mesa(
     'git',
     'stash',
@@ -392,15 +399,17 @@ test('explicit push and fast-forward pull use the selected upstream and preserve
   const repo = await cli.withProject();
   writeFileSync(join(repo, 'note.txt'), 'base\n');
   gitRepo(repo);
-  execFileSync('git', ['-C', repo, 'config', 'user.name', 'Test']);
-  execFileSync('git', ['-C', repo, 'config', 'user.email', 'test@example.com']);
+  execFileSync('git', ['-C', repo, 'config', 'user.name', 'Test'], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'config', 'user.email', 'test@example.com'], { env: testEnv });
   cli.run = withRealGit(cli.run);
   expect((await cli.mesa('git', 'tracking', 'lantern-cove')).code).toBe(2);
   const remote = join(cli.home, 'origin.git');
-  execFileSync('git', ['init', '--bare', '-q', remote]);
-  execFileSync('git', ['--git-dir', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main']);
-  execFileSync('git', ['-C', repo, 'remote', 'add', 'origin', remote]);
-  execFileSync('git', ['-C', repo, 'push', '-q', '-u', 'origin', 'main']);
+  execFileSync('git', ['init', '--bare', '-q', remote], { env: testEnv });
+  execFileSync('git', ['--git-dir', remote, 'symbolic-ref', 'HEAD', 'refs/heads/main'], {
+    env: testEnv,
+  });
+  execFileSync('git', ['-C', repo, 'remote', 'add', 'origin', remote], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'push', '-q', '-u', 'origin', 'main'], { env: testEnv });
   expect((await cli.mesa('git', 'tracking', 'lantern-cove', '--json')).json.data).toMatchObject({
     branch: 'main',
     remote: 'origin',
@@ -408,8 +417,8 @@ test('explicit push and fast-forward pull use the selected upstream and preserve
   });
 
   writeFileSync(join(repo, 'note.txt'), 'local\n');
-  execFileSync('git', ['-C', repo, 'add', 'note.txt']);
-  execFileSync('git', ['-C', repo, 'commit', '-qm', 'local']);
+  execFileSync('git', ['-C', repo, 'add', 'note.txt'], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'commit', '-qm', 'local'], { env: testEnv });
   writeFileSync(join(repo, 'mesa.yaml'), 'name: lantern-cove\nguardrail: strict\n');
   const blocked = await cli.mesa('git', 'push', 'lantern-cove', '--json');
   expect(blocked.code).toBe(5);
@@ -417,8 +426,14 @@ test('explicit push and fast-forward pull use the selected upstream and preserve
   expect(
     execFileSync('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/main'], {
       encoding: 'utf8',
+      env: testEnv,
     }).trim(),
-  ).not.toBe(execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim());
+  ).not.toBe(
+    execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      env: testEnv,
+    }).trim(),
+  );
   const pushed = await cli.mesa('git', 'push', 'lantern-cove', '--yes', '--json');
   expect(pushed.code, pushed.stdout).toBe(0);
   expect(pushed.json.data).toMatchObject({
@@ -428,59 +443,70 @@ test('explicit push and fast-forward pull use the selected upstream and preserve
     override: 'yes',
     receipt: { id: expect.any(String) },
   });
-  execFileSync('git', ['-C', repo, 'restore', '--', 'mesa.yaml']);
+  execFileSync('git', ['-C', repo, 'restore', '--', 'mesa.yaml'], { env: testEnv });
 
   const peer = join(cli.home, 'peer');
-  execFileSync('git', ['clone', '-q', remote, peer]);
+  execFileSync('git', ['clone', '-q', remote, peer], { env: testEnv });
   writeFileSync(join(peer, 'peer.txt'), 'peer change\n');
-  execFileSync('git', ['-C', peer, 'add', '.']);
-  execFileSync('git', [
-    '-C',
-    peer,
-    '-c',
-    'user.name=Test',
-    '-c',
-    'user.email=test@example.com',
-    'commit',
-    '-qm',
-    'peer',
-  ]);
-  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main']);
+  execFileSync('git', ['-C', peer, 'add', '.'], { env: testEnv });
+  execFileSync(
+    'git',
+    [
+      '-C',
+      peer,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-qm',
+      'peer',
+    ],
+    { env: testEnv },
+  );
+  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main'], { env: testEnv });
   writeFileSync(join(repo, 'dirty.txt'), 'keep me\n');
   expect((await cli.mesa('git', 'pull', 'lantern-cove', '--yes')).code).toBe(2);
   expect(readFileSync(join(repo, 'dirty.txt'), 'utf8')).toBe('keep me\n');
-  execFileSync('git', ['-C', repo, 'clean', '-fq']);
+  execFileSync('git', ['-C', repo, 'clean', '-fq'], { env: testEnv });
   const pulled = await cli.mesa('git', 'pull', 'lantern-cove', '--yes', '--json');
   expect(pulled.code, pulled.stdout).toBe(0);
   expect(pulled.json.data.before).not.toBe(pulled.json.data.after);
   expect(readFileSync(join(repo, 'peer.txt'), 'utf8')).toBe('peer change\n');
 
   writeFileSync(join(repo, 'local.txt'), 'local again\n');
-  execFileSync('git', ['-C', repo, 'add', '.']);
-  execFileSync('git', ['-C', repo, 'commit', '-qm', 'local again']);
+  execFileSync('git', ['-C', repo, 'add', '.'], { env: testEnv });
+  execFileSync('git', ['-C', repo, 'commit', '-qm', 'local again'], { env: testEnv });
   writeFileSync(join(peer, 'peer2.txt'), 'remote again\n');
-  execFileSync('git', ['-C', peer, 'add', '.']);
-  execFileSync('git', [
-    '-C',
-    peer,
-    '-c',
-    'user.name=Test',
-    '-c',
-    'user.email=test@example.com',
-    'commit',
-    '-qm',
-    'peer again',
-  ]);
-  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main']);
-  const localHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
+  execFileSync('git', ['-C', peer, 'add', '.'], { env: testEnv });
+  execFileSync(
+    'git',
+    [
+      '-C',
+      peer,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-qm',
+      'peer again',
+    ],
+    { env: testEnv },
+  );
+  execFileSync('git', ['-C', peer, 'push', '-q', 'origin', 'main'], { env: testEnv });
+  const localHead = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8',
+    env: testEnv,
+  });
   expect((await cli.mesa('git', 'push', 'lantern-cove', '--yes')).code).toBe(2);
-  expect(execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' })).toBe(
-    localHead,
-  );
+  expect(
+    execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8', env: testEnv }),
+  ).toBe(localHead);
   expect((await cli.mesa('git', 'pull', 'lantern-cove', '--yes')).code).toBe(2);
-  expect(execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' })).toBe(
-    localHead,
-  );
+  expect(
+    execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8', env: testEnv }),
+  ).toBe(localHead);
 });
 
 test('commit graph filters local branches and compares divergent refs', async () => {
@@ -488,34 +514,42 @@ test('commit graph filters local branches and compares divergent refs', async ()
   writeFileSync(join(repo, 'base.txt'), 'base\n');
   gitRepo(repo);
   cli.run = withRealGit(cli.run);
-  execFileSync('git', ['-C', repo, 'switch', '-q', '-c', 'feature']);
+  execFileSync('git', ['-C', repo, 'switch', '-q', '-c', 'feature'], { env: testEnv });
   writeFileSync(join(repo, 'feature.txt'), 'feature\n');
-  execFileSync('git', ['-C', repo, 'add', '.']);
-  execFileSync('git', [
-    '-C',
-    repo,
-    '-c',
-    'user.name=Test',
-    '-c',
-    'user.email=test@example.com',
-    'commit',
-    '-qm',
-    'feature work',
-  ]);
-  execFileSync('git', ['-C', repo, 'switch', '-q', 'main']);
+  execFileSync('git', ['-C', repo, 'add', '.'], { env: testEnv });
+  execFileSync(
+    'git',
+    [
+      '-C',
+      repo,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-qm',
+      'feature work',
+    ],
+    { env: testEnv },
+  );
+  execFileSync('git', ['-C', repo, 'switch', '-q', 'main'], { env: testEnv });
   writeFileSync(join(repo, 'main.txt'), 'main\n');
-  execFileSync('git', ['-C', repo, 'add', '.']);
-  execFileSync('git', [
-    '-C',
-    repo,
-    '-c',
-    'user.name=Test',
-    '-c',
-    'user.email=test@example.com',
-    'commit',
-    '-qm',
-    'main work',
-  ]);
+  execFileSync('git', ['-C', repo, 'add', '.'], { env: testEnv });
+  execFileSync(
+    'git',
+    [
+      '-C',
+      repo,
+      '-c',
+      'user.name=Test',
+      '-c',
+      'user.email=test@example.com',
+      'commit',
+      '-qm',
+      'main work',
+    ],
+    { env: testEnv },
+  );
 
   const all = await cli.mesa('git', 'graph', 'lantern-cove', '--json');
   expect(all.code, all.stdout).toBe(0);

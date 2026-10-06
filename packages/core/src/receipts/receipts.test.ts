@@ -38,12 +38,12 @@ const deps = () => ({
   newId: ids,
 });
 
-test.each(Object.keys(EXAMPLES))('the %s receipt matches its golden file', (type) => {
+test.each(Object.keys(EXAMPLES))('the %s receipt matches its golden file', async (type) => {
   const example = EXAMPLES[type as keyof typeof EXAMPLES];
   const { path } = writeReceipt(deps(), example);
   const written = readFileSync(join(vault, path), 'utf8');
-  if (process.env.UPDATE_GOLDEN) writeFileSync(golden(type), written);
-  expect(written).toBe(readFileSync(golden(type), 'utf8'));
+  // `vitest -u` rewrites the golden file.
+  await expect(written).toMatchFileSnapshot(`golden/receipt-${type}.md`);
   expect(path).toMatch(
     new RegExp(`^receipts/2026/09/2026092\\dT\\d{6}Z-${type}-01TEST0{19}1\\.md$`),
   );

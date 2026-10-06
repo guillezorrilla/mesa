@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { vaultServer } from '../agents/vault-mount.js';
 import type { Runner } from '../lib/process.js';
 import { profilePaths } from '../profile/paths.js';
@@ -11,7 +11,6 @@ import {
   fixedClock,
   gitProject,
   gitRepo,
-  isolateGit,
   lockDeps,
   projectProfile,
   repoState,
@@ -25,8 +24,6 @@ import {
 } from '../testing/index.js';
 import { startQueued } from './queue.js';
 import { tmuxBackend } from './tmux/backend.js';
-
-isolateGit({ beforeAll, afterAll });
 
 const now = '2026-09-24T12:00:00.000Z';
 

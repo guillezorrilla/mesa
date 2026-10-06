@@ -254,7 +254,17 @@ function requireSkill(rows: SkillRow[], skill: string, project: string) {
  */
 type EndContext = Pick<
   MesaContext,
-  'store' | 'paths' | 'notes' | 'secrets' | 'deps' | 'open' | 'record'
+  | 'store'
+  | 'paths'
+  | 'notes'
+  | 'secrets'
+  | 'open'
+  | 'record'
+  | 'clock'
+  | 'home'
+  | 'sleep'
+  | 'processId'
+  | 'processAlive'
 > & {
   tmux: Pick<TmuxBackend, 'killWindow'>;
 };
@@ -282,7 +292,7 @@ export async function awaitRun(
     // Read again: tmux's pane-died hook may have ended it already, keeping how it exited.
     if (!pane || pane.dead) return endRun(ctx, ctx.store.get(run.id), pane);
     if (waited >= timeoutSeconds * 1000) break;
-    await ctx.deps.sleep(POLL_MS);
+    await ctx.sleep(POLL_MS);
   }
   const ended = await endRun(
     ctx,
@@ -317,8 +327,8 @@ export async function endRun(
   const exit = pane?.dead
     ? paneExit(pane)
     : exited && { status: exited.status, signal: exited.signal };
-  const at = run.endedAt ?? ctx.deps.clock().toISOString();
-  const read = runResult({ ...ctx.paths, lock: ctx.deps }, run, exit, at);
+  const at = run.endedAt ?? ctx.clock().toISOString();
+  const read = runResult({ ...ctx.paths, lock: ctx }, run, exit, at);
   const result = killed ? { ...read, ok: false, reason: killed } : read;
   // Commit the outcome before killing the pane: its hook may finish the same run immediately.
   const ended = endRecord(ctx, run.id, result, at, exit);
@@ -328,7 +338,7 @@ export async function endRun(
   // winning record's exit, including when it succeeded after our timeout read found no output.
   const winner = ended.events.find((event) => event.type === 'exited');
   const finalRead = runResult(
-    { ...ctx.paths, lock: ctx.deps },
+    { ...ctx.paths, lock: ctx },
     ended,
     winner ?? exit,
     ended.endedAt ?? at,
@@ -359,7 +369,7 @@ async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResu
   if (read.ok && skill && landingOf(skill, landed)) {
     try {
       const notes = ctx.notes();
-      const output = redactWhole(read.output, ctx.deps.home, ctx.secrets());
+      const output = redactWhole(read.output, ctx.home, ctx.secrets());
       const landedNote = await landOutput(
         { ...notes, record: ctx.record },
         skill,
