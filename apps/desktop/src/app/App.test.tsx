@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 import type { Config, TreeRow } from '@mesa/core';
-import { DEFAULT_SHORTCUTS, GENERAL_PROJECT } from '@mesa/core/browser';
+import {
+  DEFAULT_SHORTCUTS,
+  DEFAULT_TERMINAL_PREFERENCES,
+  GENERAL_PROJECT,
+} from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import { CONFIRMATION_MS } from '@/components/Toast';
@@ -2669,19 +2673,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       density: 'comfortable',
       colorVision: 'normal',
     },
-    terminal: {
-      app: 'Terminal',
-      theme: 'follow',
-      fontSize: 13,
-      fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
-      optionAsMeta: false,
-      naturalSelection: false,
-      scrollSpeed: 3,
-      extraSubmitKey: 'none',
-      newlineKey: 'native',
-      wezTermNewTab: false,
-      messageActions: true,
-    },
+    terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
     worktrees: {
       location: 'profile',
