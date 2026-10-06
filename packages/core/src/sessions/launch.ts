@@ -15,6 +15,7 @@ import type { Clock } from '../lib/clock.js';
 import type { AsyncLockDeps } from '../lib/lock-file.js';
 import type { Env, Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
+import { WINDOW_VARS } from '../lib/window-vars.js';
 import type { Profile } from '../profile/profile.js';
 import { type Project, readProjectFile } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
@@ -27,7 +28,7 @@ import {
   createAdditional,
   launchWorktrees,
 } from './additional.js';
-import { WINDOW_VARS, windowEnv } from './caller.js';
+import { windowEnv } from './caller.js';
 import type { NewLaunch } from './new-record.js';
 import { createRecord } from './new-record.js';
 import { prepareOutputLog } from './output-log.js';

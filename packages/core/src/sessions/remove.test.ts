@@ -15,7 +15,7 @@ import {
   withRealGit,
 } from '../testing/index.js';
 import { costTally } from '../usage/session-cost.js';
-import { runInput } from './run.js';
+import { runInput } from './run/files.js';
 
 /** lantern-cove as a git repository, in a profile over a fake tmux with the real git. */
 function setUp() {

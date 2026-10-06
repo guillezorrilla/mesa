@@ -9,7 +9,7 @@ import { decisionEntries, type ReceiptInput } from './schema.js';
 import { writeReceipt } from './store.js';
 
 /** What one action's receipt says, given the action's result. */
-type ActionSpec<T> = {
+export type ActionSpec<T> = {
   /** Only a deliberate decision, material guardrail intervention, or actual vault change is knowledge. */
   kind?: RecordKind;
   /** Also record a vault switch in the vault the profile leaves. */

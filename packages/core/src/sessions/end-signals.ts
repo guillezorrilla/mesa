@@ -12,7 +12,7 @@ import { mesaPointer } from './instructions.js';
 import { recordPaneDied } from './pane-died.js';
 import { dueToStart, startQueued } from './queue.js';
 import { isOver, recordAgent, type SessionRecord } from './record.js';
-import { endRun } from './run.js';
+import { endRun } from './run/end.js';
 import { markEnded, markExited, startedOutputs } from './session-receipt.js';
 import type { StopOutcome } from './stop.js';
 

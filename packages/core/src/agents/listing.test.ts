@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { AGENTS } from '../agents/agents.js';
 import {
   codexWorld,
   listingDeps,
@@ -9,7 +8,8 @@ import {
   scriptedRunner,
   tempDir,
 } from '../testing/index.js';
-import { listAgentProcesses } from './agent-listing.js';
+import { AGENTS } from './agents.js';
+import { listAgentProcesses } from './listing.js';
 
 const listing = (...rows: object[]) => JSON.stringify(rows);
 

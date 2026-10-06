@@ -1,6 +1,6 @@
 import { lastMatchingLine } from '../../lib/file-tail.js';
 import type { Env } from '../../lib/process.js';
-import type { ContextUse } from '../../sessions/record.js';
+import type { ContextUse } from '../context-use.js';
 import { rolloutForThread } from './rollouts.js';
 
 /** Codex 0.157.1's last usage snapshot, not cumulative thread billing. */

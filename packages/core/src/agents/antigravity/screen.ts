@@ -1,7 +1,7 @@
-import type { SessionState } from '../../sessions/states.js';
+import type { AgentState } from '../states.js';
 
 /** Only the observed Antigravity 1.2.12 TUI markers. Unknown screens keep the prior state. */
-export function antigravityScreenState(tail: string): SessionState | undefined {
+export function antigravityScreenState(tail: string): AgentState | undefined {
   const lower = tail.toLowerCase();
   if (lower.includes('do you trust the contents of this project?')) return 'waiting-question';
   if (lower.includes('generating..')) return 'working';

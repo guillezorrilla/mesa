@@ -25,7 +25,7 @@ import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { promptsService } from './prompts/prompts.js';
 import { receiptsService } from './receipts/service.js';
-import { sessionsService } from './sessions/service.js';
+import { sessionsService } from './sessions/service/index.js';
 import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';

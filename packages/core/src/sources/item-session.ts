@@ -1,6 +1,6 @@
 import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
-import type { sessionsService } from '../sessions/service.js';
+import type { sessionsService } from '../sessions/service/index.js';
 import type { importService } from './import-service.js';
 import { itemGoal } from './item-goal.js';
 

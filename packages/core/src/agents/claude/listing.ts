@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { Env, Runner } from '../../lib/process.js';
-import type { AgentProcess } from '../../sessions/agent-listing.js';
-import type { SessionState } from '../../sessions/states.js';
+import type { AgentProcess } from '../listing.js';
+import type { AgentState } from '../states.js';
 import { claudeLiveSessions } from './paths.js';
 
 // Claude Code's agent listing, ADR-0003's second signal: `claude agents --json --all` names
@@ -80,7 +80,7 @@ export async function listClaudeProcesses({
 }
 
 /** What each listed status means as a session state (docs/spikes/state-signals.md). */
-const LISTED: Record<string, SessionState> = {
+const LISTED: Record<string, AgentState> = {
   idle: 'idle',
   busy: 'working',
   'waiting:permission prompt': 'waiting-permission',
@@ -92,7 +92,7 @@ const LISTED: Record<string, SessionState> = {
  * person (0.6); a status it has never shown is a guess at `working` (0.5).
  */
 export function claudeListedState(p: Pick<AgentProcess, 'status' | 'waitingFor' | 'nativeState'>): {
-  state: SessionState;
+  state: AgentState;
   confidence: number;
 } {
   if (p.nativeState === 'stopped') return { state: 'done', confidence: 0.85 };

@@ -1,6 +1,6 @@
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
-import type { AgentProcess } from '../../sessions/agent-listing.js';
+import type { AgentProcess } from '../listing.js';
 import { recentThreads } from './rollouts.js';
 
 // Codex's side of the agent listing, ADR-0003's second signal. `codex agents` is a TUI with no

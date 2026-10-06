@@ -1,15 +1,8 @@
-// A session's states and the sets the rules read (CONTEXT.md, Session state). No imports, so the
-// app can bundle them (@mesa/core/browser).
+import { AGENT_STATES } from '../agents/states.js';
 
-/** Where a session's agent is: what Faro reads from its signals (CONTEXT.md, Session state). */
-export const AGENT_STATES = [
-  'working',
-  'waiting-permission',
-  'waiting-question',
-  'idle',
-  'done',
-  'failed',
-] as const;
+// A session's states and the sets the rules read (CONTEXT.md, Session state). Its one import is
+// as pure as it is, so the app can bundle them (@mesa/core/browser).
+
 /**
  * An agent's states, and Mesa's own for a session whose agent never ran: `queued` until the
  * session it waits on ends (mesa open --after), `stopped` once cancelled. Mesa sets those; Faro

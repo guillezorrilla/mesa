@@ -16,8 +16,8 @@ import {
   sessionWindowCommand,
 } from './launch.js';
 import { createRecord } from './new-record.js';
+import { type OpenInput, validateOpenInput } from './open-input.js';
 import { isOver, type SessionRecord } from './record.js';
-import type { Worktree } from './worktree.js';
 
 type OpenDeps = LaunchDeps & {
   home: string;
@@ -36,9 +36,6 @@ function parentOf(
   deps: Pick<OpenDeps, 'store' | 'caller'>,
   input: { parent?: string; noParent?: boolean; after?: string },
 ): string | undefined {
-  if (input.noParent && input.parent !== undefined) {
-    throw new MesaError('usage', 'pass --parent or --no-parent, not both');
-  }
   if (input.parent !== undefined) {
     if (!deps.store.find(input.parent)) {
       throw new MesaError(
@@ -50,36 +47,6 @@ function parentOf(
   }
   return input.noParent ? undefined : (input.after ?? deps.caller().session?.id);
 }
-
-/** What `mesa open` asks for, the goal already read (readGoal). */
-export type OpenInput = {
-  project?: string;
-  general?: boolean;
-  agent?: string;
-  mode?: string;
-  /** Keep a Claude session running when its terminal view closes. */
-  background?: boolean;
-  goal?: string;
-  automation?: SessionRecord['automation'];
-  parent?: string;
-  noParent?: boolean;
-  /** Queued until this session is over (CONTEXT.md, Queued session). */
-  after?: string;
-  /** Its own git worktree on this branch (CONTEXT.md, Worktree), started from `base` if new. */
-  branch?: string;
-  base?: string;
-  /** A shell in the project checkout, with no coding agent or provider conversation. */
-  terminal?: boolean;
-  /** An existing linked worktree it runs in (checkoutWorktree), in place of `branch`. */
-  worktree?: Worktree;
-  /** The imported item it starts from (mesa open --from), kept on the record. */
-  from?: SessionRecord['from'];
-  /**
-   * Its additional projects (CONTEXT.md, Additional project), each in its own worktree on
-   * `branch`, which the caller names when none is asked for.
-   */
-  with?: readonly string[];
-};
 
 /**
  * Starts an agent for a registered project in a new window of the project's tmux session, with
@@ -97,34 +64,12 @@ export async function openSession(
   deps: OpenDeps,
   input: OpenInput,
 ): Promise<{ record: SessionRecord; warning?: string }> {
-  if (Boolean(input.project) === Boolean(input.general)) {
-    throw new MesaError('usage', 'pass a project or --general, not both');
-  }
+  // Checked again as resolved: a goal read from its file is --goal, a checked-out worktree is
+  // --checkout.
+  const { worktree, ...flags } = input;
+  validateOpenInput({ ...flags, checkout: worktree?.path });
   const extra = input.with?.length ? input.with : undefined;
-  if (extra && (input.general || input.terminal)) {
-    throw new MesaError(
-      'usage',
-      '--with cannot use --general or --terminal: a session across projects runs an agent',
-    );
-  }
-  if (extra && input.branch === undefined) {
-    throw new MesaError('usage', '--with needs --branch or --worktree');
-  }
-  if (input.general && (input.branch || input.base || input.after)) {
-    throw new MesaError('usage', 'General sessions cannot use --branch, --base, or --after');
-  }
-  if (input.base !== undefined && input.branch === undefined) {
-    throw new MesaError('usage', '--base needs --branch');
-  }
-  if (input.mode !== undefined && input.mode !== 'plan') {
-    throw new MesaError('usage', `unknown session mode ${input.mode}; use plan`);
-  }
   if (input.terminal) {
-    if (input.agent || input.goal || input.after || input.mode || input.background)
-      throw new MesaError(
-        'usage',
-        '--terminal cannot use --agent, --goal, --after, --mode, or --background',
-      );
     const entry = input.project ? launchProject(deps.profile, input.project).entry : null;
     const parent = parentOf(deps, input);
     const from = parent ? deps.store.get(parent) : undefined;

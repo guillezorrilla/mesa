@@ -1,9 +1,9 @@
+import type { AgentProcess } from '../../agents/listing.js';
 import type { FaroProfile } from '../../decisions/decide.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
 import type { Clock } from '../../lib/clock.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import type { AgentProcess } from '../agent-listing.js';
 import { refreshContext } from '../context-use.js';
 import type { HookEvent } from '../hook-events.js';
 import type { SessionRecord } from '../record.js';

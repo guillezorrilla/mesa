@@ -10,7 +10,7 @@
 // and there is no idle debounce, since the board reads one snapshot (at 0.6, only when no hook
 // or listing speaks).
 
-import type { SessionState } from '../../sessions/states.js';
+import type { AgentState } from '../states.js';
 
 const SPINNER_CHARS = '✱✲✳✴✵✶✷✸✹✺✻✼✽✾✿❀❁❂❃❇❈❉❊❋✢✣✤✥✦✧✨⊛⊕⊙◉◎◍⁂⁕※⍟☼★☆·•⏺▸▹∙⋅○●';
 const SPINNER_ACTIVITY = new RegExp(`^[${SPINNER_CHARS}] \\S+ing.*\u2026`, 'm');
@@ -47,7 +47,7 @@ export function claudeLastOutputLine(tail: string): string | undefined {
 }
 
 /** Claude Code's screen read as a state, or none when it shows nothing that says one. */
-export function claudeScreenState(tail: string): SessionState | undefined {
+export function claudeScreenState(tail: string): AgentState | undefined {
   if (!tail.trim()) return undefined;
   const lower = tail.toLowerCase();
   if (lower.includes('⌕ search…')) return 'idle';
