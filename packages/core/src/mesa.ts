@@ -71,8 +71,10 @@ export function createMesa(profile: string, deps: MesaDeps) {
     prompts,
     files: filesService(ctx),
     worktrees: worktreesService(ctx),
-    git: gitService(ctx, faro, (opened, project) =>
-      listWorktrees(opened, ctx.run, ctx.store, project),
+    git: gitService(
+      ctx,
+      faro,
+      async (opened, project) => (await listWorktrees(opened, ctx.run, ctx.store, project)).length,
     ),
     ...vaults,
     ...mapService(ctx),
