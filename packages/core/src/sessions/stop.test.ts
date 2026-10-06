@@ -246,13 +246,16 @@ test('stop ends the record as it is when the stop lands, not as it was read', as
   expect(result.record.lastState).toEqual(failed);
 });
 
-test('resume with its old record locked still runs, warns, and is not resumed twice', async () => {
+test('resume with its old record locked is refused before it starts, and is not resumed twice', async () => {
   const { home, mesa, opened } = await setUp();
   await mesa.sessions.stop(opened.id);
+  const before = (await mesa.sessions.list(true)).length;
   const lock = staleLock(home, opened.id);
-  const first = await mesa.sessions.resume(opened.id);
-  expect(first.warning).toMatch(new RegExp(`^session ${opened.id} not marked resumed: session`));
+  await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({ code: 'locked' });
+  // The claim comes before the window: nothing started, no new record stays.
+  expect(await mesa.sessions.list(true)).toHaveLength(before);
   rmSync(lock);
+  const first = await mesa.sessions.resume(opened.id);
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({
     code: 'usage',
     message: `session ${opened.id} was already resumed as ${first.result.record.id}; mesa resume ${first.result.record.id}`,
