@@ -1,6 +1,6 @@
 import type { Config, ProjectRow, TreeRow } from '@mesa/core';
+import { activeSession, recoverable } from '@mesa/core/browser';
 import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
-import { activeSession, recoverable } from '@/features/sessions/rows';
 import type { WorkspaceView } from '../navigation';
 
 /**

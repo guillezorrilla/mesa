@@ -1,6 +1,5 @@
 import type { ProjectRow, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT, sessionProjects } from '@mesa/core/browser';
-import { activeSession, recoverable } from '@/features/sessions/rows';
+import { activeSession, GENERAL_PROJECT, recoverable, sessionProjects } from '@mesa/core/browser';
 
 /**
  * The sidebar's lists: the visible projects (pinned first), the active sessions (oldest first),

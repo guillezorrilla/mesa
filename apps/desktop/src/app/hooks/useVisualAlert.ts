@@ -1,6 +1,6 @@
 import type { Config, TreeRow } from '@mesa/core';
+import { waitingForInput } from '@mesa/core/browser';
 import { useEffect } from 'react';
-import { waitingForInput } from '@/features/sessions/rows';
 import { usePlatform } from '@/lib/MesaRoot';
 
 /**

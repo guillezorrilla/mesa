@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { profilePaths } from '../profile/paths.js';
+import type { SessionRow } from '../sessions/board/rows.js';
 import type { NewSession } from '../sessions/record/record.js';
 import { sessionStore } from '../sessions/record/store.js';
 import { prepareOutputLog } from '../sessions/window/output-log.js';
@@ -52,3 +53,6 @@ export function plantOutputLog(home: string, id: string, text: string | Buffer) 
   writeFileSync(file, text);
   return file;
 }
+
+/** A board row holding only the fields a test reads. */
+export const sessionRow = (fields: object) => fields as SessionRow;

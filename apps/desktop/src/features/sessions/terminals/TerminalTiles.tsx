@@ -1,6 +1,5 @@
 import type { Config, NativeResponse, ProjectRow, TreeRow } from '@mesa/core';
-import { DEFAULT_TERMINAL_PREFERENCES } from '@mesa/core/browser';
-import { reviewable } from '../rows';
+import { DEFAULT_TERMINAL_PREFERENCES, reviewable } from '@mesa/core/browser';
 import { TerminalPanel } from './TerminalPanel';
 import type { TerminalPanels } from './useTerminalPanels';
 

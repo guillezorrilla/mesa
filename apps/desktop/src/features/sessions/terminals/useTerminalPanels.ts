@@ -1,6 +1,6 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
+import { exited } from '@mesa/core/browser';
 import { useEffect, useState } from 'react';
-import { exited } from '../rows';
 
 /**
  * Embedded terminals, one panel per session, in the order opened; several at once. The selected

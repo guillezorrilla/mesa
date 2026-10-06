@@ -239,10 +239,6 @@ export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undef
   record.agent === 'terminal' ? undefined : record.agent;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 
-/** Its agent is through: stopped, or seen done or failed. A queue waits for this (CONTEXT.md, Queued session). */
-export const isOver = (r: Pick<SessionRecord, 'endedAt' | 'lastState'>) =>
-  Boolean(r.endedAt) || FINAL_STATES.has(r.lastState.state);
-
 /**
  * What ending a record at `at` sets: `endedAt` (when it was seen done or failed, if it was), and
  * `done` unless it had already finished; a `failed` stays failed.

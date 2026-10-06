@@ -1,5 +1,14 @@
-import type { ManagedRow, SessionRow } from '@mesa/core';
-import { FINAL_STATES, WAITING_STATES } from '@mesa/core/browser';
+import type { ManagedRow, SessionRow } from '../board/rows.js';
+import type { SessionRecord } from './record.js';
+import { FINAL_STATES, WAITING_STATES } from './states.js';
+
+// Where a session is in its life (CONTEXT.md, Session): over, exited, queued, active, waiting,
+// resumable, recoverable, and whether Review reads it (reviewable). Pure, importing only pure
+// modules, so the app bundles it (`@mesa/core/browser`).
+
+/** Its agent is through: stopped, or seen done or failed. A queue waits for this (CONTEXT.md, Queued session). */
+export const isOver = (r: Pick<SessionRecord, 'endedAt' | 'lastState'>) =>
+  Boolean(r.endedAt) || FINAL_STATES.has(r.lastState.state);
 
 /** Its agent has exited: stopped, its window gone, or its pane dead (done or failed). */
 export const exited = (s: SessionRow) => !s.alive || FINAL_STATES.has(s.lastState.state);

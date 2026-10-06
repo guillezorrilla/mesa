@@ -3,7 +3,7 @@ import { counted } from '../../lib/format.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { projectLabel } from '../record/general.js';
-import { isOver } from '../record/record.js';
+import { isOver } from '../record/lifecycle.js';
 import {
   launchGuardrail,
   markEnded,

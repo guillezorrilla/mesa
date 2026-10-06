@@ -3,7 +3,7 @@ import type { Faro } from '../decisions/faro.js';
 import { redactWhole } from '../lib/redact.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { NotificationDelivery } from '../notifications/background.js';
-import { isOver } from '../sessions/record/record.js';
+import { isOver } from '../sessions/record/lifecycle.js';
 import { type AutomationActions, automationAction } from './actions.js';
 import { automationLaunchd } from './launchd.js';
 import { automationRules } from './rules.js';

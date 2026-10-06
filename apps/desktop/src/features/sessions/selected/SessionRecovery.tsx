@@ -1,9 +1,9 @@
 import type { TreeRow } from '@mesa/core';
+import { recoverable, resumable } from '@mesa/core/browser';
 import { RotateCcw } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
-import { recoverable, resumable } from '../rows';
 
 /**
  * What the selected session shows in place of its terminal when it has none: Restore or Dismiss

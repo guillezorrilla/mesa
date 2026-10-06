@@ -1,10 +1,9 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/browser';
+import { queued, sessionLabel } from '@mesa/core/browser';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { queued } from '../rows';
 
 /** Visual parent and queued start condition are independent links. */
 export function DependencyDialog(props: {

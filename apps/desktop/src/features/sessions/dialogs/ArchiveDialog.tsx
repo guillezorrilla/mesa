@@ -1,5 +1,5 @@
 import type { ManagedRow } from '@mesa/core';
-import { sessionTitle } from '@mesa/core/browser';
+import { exited, recoverable, sessionTitle } from '@mesa/core/browser';
 import { LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { exited, recoverable } from '../rows';
 
 /** How many titles a several-session confirmation lists before `and N more`. */
 const LISTED = 5;

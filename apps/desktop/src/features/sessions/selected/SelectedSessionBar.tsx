@@ -1,11 +1,16 @@
 import type { Agent, ProjectRow, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT, projectLabel, sessionTitle } from '@mesa/core/browser';
+import {
+  GENERAL_PROJECT,
+  projectLabel,
+  recoverable,
+  reviewable,
+  sessionTitle,
+} from '@mesa/core/browser';
 import { Archive, Globe, MessageSquareQuote } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
-import { recoverable, reviewable } from '../rows';
 import { AgentSwitcher } from './AgentSwitcher';
 import { SelectedSessionDetails } from './SelectedSessionDetails';
 

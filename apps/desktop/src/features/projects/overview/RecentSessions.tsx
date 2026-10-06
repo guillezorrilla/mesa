@@ -1,10 +1,9 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
-import { sessionLabel } from '@mesa/core/browser';
+import { exited, queued, sessionLabel } from '@mesa/core/browser';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { exited, queued } from '@/features/sessions/rows';
 import { NativeHistory } from '../NativeHistory';
 import { FromProjectBadge } from './FromProjectBadge';
 import type { OverviewState } from './useOverviewState';

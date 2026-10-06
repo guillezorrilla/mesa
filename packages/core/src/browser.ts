@@ -39,6 +39,7 @@ export { type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export * from './sessions/record/labels.js';
+export * from './sessions/record/lifecycle.js';
 export { sessionProjects } from './sessions/record/session-projects.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/record/states.js';
 export { parseSessionUri, sessionUri } from './sessions/record/uri.js';
