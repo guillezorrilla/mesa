@@ -1,8 +1,11 @@
 import { createReadStream, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
-import { claudeListPrice } from './pricing.js';
-import { count, type UsageRecord } from './records.js';
+import { claudeListPrice } from '../../usage/pricing.js';
+import { count, type UsageRecord } from '../../usage/records.js';
+import { usageLine } from './transcripts.js';
+
+// What Claude Code's transcripts say it charged: the usage ledger's readings (usage/service.ts).
 
 /** A session's transcript, then its subagents' own beside it: `<id>/subagents/*.jsonl`. */
 export function claudeUsageFiles(transcript: string): string[] {
@@ -31,21 +34,14 @@ export function claudeReading(
   session: string,
   nativeSessionId: string,
 ): UsageRecord | undefined {
-  if (!line.includes('"usage"') || !line.includes('"assistant"')) return undefined;
   try {
-    const entry = JSON.parse(line) as {
-      type?: unknown;
-      timestamp?: unknown;
-      message?: { id?: unknown; model?: unknown; usage?: Record<string, unknown> };
-    };
-    const usage = entry.message?.usage;
-    const id = entry.message?.id;
+    const entry = usageLine(line);
+    if (!entry || entry === 'compacted') return undefined;
+    const { id, timestamp, usage } = entry;
     if (
-      entry.type !== 'assistant' ||
       typeof id !== 'string' ||
-      typeof entry.timestamp !== 'string' ||
-      !Number.isFinite(Date.parse(entry.timestamp)) ||
-      !usage
+      typeof timestamp !== 'string' ||
+      !Number.isFinite(Date.parse(timestamp))
     )
       return undefined;
     const cache = usage.cache_creation;
@@ -68,7 +64,7 @@ export function claudeReading(
           ? 0
           : null,
     };
-    const model = typeof entry.message?.model === 'string' ? entry.message.model : undefined;
+    const model = typeof entry.model === 'string' ? entry.model : undefined;
     const standard =
       (usage.speed === undefined || usage.speed === 'standard') &&
       (usage.service_tier === undefined || usage.service_tier === 'standard') &&
@@ -79,7 +75,7 @@ export function claudeReading(
       agent: 'claude',
       nativeSessionId,
       ...(model ? { model } : {}),
-      at: entry.timestamp,
+      at: timestamp,
       source: 'claude-transcript',
       tokens,
       ...(standard
@@ -92,10 +88,13 @@ export function claudeReading(
   }
 }
 
-/** Claude's repeated assistant message IDs are updates to one charge, not additional charges. */
-export async function claudeUsage(files: string[], session: string, nativeSessionId: string) {
+/**
+ * The charges in `transcript` and its subagents' (claudeUsageFiles). Claude's repeated assistant
+ * message IDs are updates to one charge, not additional charges.
+ */
+export async function claudeUsage(transcript: string, session: string, nativeSessionId: string) {
   const messages = new Map<string, UsageRecord>();
-  for await (const line of lines(files)) {
+  for await (const line of lines(claudeUsageFiles(transcript))) {
     const reading = claudeReading(line, session, nativeSessionId);
     if (reading) messages.set(reading.id, reading);
   }

@@ -6,9 +6,9 @@ import type { Env } from '../../lib/process.js';
 import { codexHome, codexSessions } from './paths.js';
 
 // Codex's rollouts, one JSONL file per thread under `$CODEX_HOME/sessions/<local YYYY/MM/DD>/`:
-// what Mesa reads from them (docs/spikes/codex.md). Only the first line, `session_meta`, which
-// names the thread, the folder it runs in, when it started, and what started it. A thread gets
-// its rollout at its first prompt, not at launch.
+// which thread each is (docs/spikes/codex.md). Only the first line, `session_meta`, which names
+// the thread, the folder it runs in, when it started, and what started it; its messages are
+// transcripts.ts. A thread gets its rollout at its first prompt, not at launch.
 
 // ponytail: the first line holds Codex's base instructions (about 20 KiB in 0.154.0), read up to
 // its newline; one longer than this is skipped, so read more if Codex's grow.

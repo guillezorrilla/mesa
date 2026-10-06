@@ -1,6 +1,6 @@
-import { claudeTranscripts } from '../agents/claude/paths.js';
-import { claudeHistory } from '../agents/claude/transcripts.js';
-import { codexHistory } from '../agents/codex/rollouts.js';
+import { AGENTS, type TranscriptAgent } from '../agents/agents.js';
+import { AGENT_NAMES } from '../agents/names.js';
+import type { TranscriptRow } from '../agents/transcripts.js';
 import type { Env } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
@@ -39,6 +39,20 @@ export type NativeHistoryDeps = {
   elsewhere: () => ReadonlySet<string>;
 };
 
+/**
+ * Every agent's native conversations on disk (its entry's `transcripts`), each with its
+ * transcript `file`; with `since` (epoch ms), only those last written then or later.
+ */
+export function nativeConversations(
+  where: Pick<NativeHistoryDeps, 'home' | 'env'>,
+  since?: number,
+): TranscriptRow<TranscriptAgent>[] {
+  return AGENT_NAMES.flatMap(
+    (agent): TranscriptRow<TranscriptAgent>[] =>
+      AGENTS[agent].transcripts?.history(where, since) ?? [],
+  );
+}
+
 export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeHistory {
   const root = findProject(deps.profile, project).path;
   const imported = new Map(
@@ -49,10 +63,7 @@ export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeH
       ),
   );
   const elsewhere = deps.elsewhere();
-  const rows = [
-    ...claudeHistory(claudeTranscripts(deps.home, deps.env)),
-    ...codexHistory({ home: deps.home, env: deps.env }),
-  ]
+  const rows = nativeConversations(deps)
     .filter((row) => row.cwd === root || row.cwd.startsWith(`${root}/`))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return {

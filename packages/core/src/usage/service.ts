@@ -1,11 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
-import { claudeTranscripts } from '../agents/claude/paths.js';
-import { transcriptFile } from '../agents/claude/transcripts.js';
-import { rolloutForThread } from '../agents/codex/rollouts.js';
+import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import { loadConfig } from '../profile/config.js';
-import { claudeUsage, claudeUsageFiles } from './claude.js';
-import { codexUsage } from './codex.js';
 import type { UsageRecord } from './records.js';
 import { sessionNativeIds, sessionWindow } from './sources.js';
 import { type HookStamp, type SourceStamp, usageStore } from './store.js';
@@ -43,20 +39,15 @@ export function usageService(ctx: MesaContext) {
         for (const nativeId of nativeIds) {
           const key = `${record.id}:${nativeId}`;
           const prior = cached.sources[key];
+          const { transcripts, usage } = AGENTS[record.agent];
           const file =
-            prior?.file && existsSync(prior.file)
-              ? prior.file
-              : record.agent === 'claude'
-                ? transcriptFile(claudeTranscripts(ctx.home, ctx.env), nativeId)
-                : record.agent === 'codex'
-                  ? rolloutForThread({ home: ctx.home, env: ctx.env }, nativeId)
-                  : undefined;
-          if (!file) {
+            prior?.file && existsSync(prior.file) ? prior.file : transcripts?.file(ctx, nativeId);
+          if (!file || !usage) {
             unknown.push({ session: record.id, reason: `${record.agent} usage is unavailable` });
             continue;
           }
           try {
-            const files = record.agent === 'claude' ? claudeUsageFiles(file) : [file];
+            const files = usage.files(file);
             const stats = files.map((source) => statSync(source));
             const stamp: SourceStamp = {
               session: record.id,
@@ -75,10 +66,7 @@ export function usageService(ctx: MesaContext) {
               prior.reader === stamp.reader
             )
               continue;
-            const readings =
-              record.agent === 'claude'
-                ? await claudeUsage(files, record.id, nativeId)
-                : await codexUsage(file, record.id, nativeId);
+            const readings = await usage.read(file, record.id, nativeId);
             const within = sessionWindow(ctx, record);
             fresh.push(...readings.filter((row) => within(row.at)));
             scanned[key] = stamp;

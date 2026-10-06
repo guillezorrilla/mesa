@@ -39,3 +39,20 @@ export function lastMatchingLine<T>(
     closeSync(fd);
   }
 }
+
+/** The lines in the last `bytes` of `file`; a partial first line is never returned. */
+export function tailLines(file: string, bytes: number): { lines: string[]; truncated: boolean } {
+  const fd = openSync(file, 'r');
+  try {
+    const size = fstatSync(fd).size;
+    const start = Math.max(0, size - bytes);
+    const buffer = Buffer.alloc(size - start);
+    const read = readSync(fd, buffer, 0, buffer.length, start);
+    const text = buffer.subarray(0, read).toString('utf8');
+    const lines = text.split('\n');
+    if (start) lines.shift();
+    return { lines, truncated: start > 0 };
+  } finally {
+    closeSync(fd);
+  }
+}

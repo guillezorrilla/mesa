@@ -1,6 +1,8 @@
 import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { count, type UsageRecord } from './records.js';
+import { count, type UsageRecord } from '../../usage/records.js';
+
+// What Codex's rollouts say it charged: the usage ledger's readings (usage/service.ts).
 
 type Counts = { input: number; output: number; cacheRead: number; cacheWrite: number };
 

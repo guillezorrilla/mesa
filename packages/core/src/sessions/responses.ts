@@ -1,11 +1,8 @@
 import { createHash } from 'node:crypto';
-import { claudeTranscripts } from '../agents/claude/paths.js';
-import { transcriptFile } from '../agents/claude/transcripts.js';
-import { rolloutForThread } from '../agents/codex/rollouts.js';
+import { AGENTS } from '../agents/agents.js';
 import type { Env } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { SavedReview } from './reviews.js';
-import { messageIn, tailLines } from './search.js';
 import type { SessionStore } from './store.js';
 
 const MAX_RESPONSES = 30;
@@ -73,10 +70,8 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       truncated: false,
       unavailable: 'Native conversation ID is not available yet',
     };
-  const file =
-    record.agent === 'claude'
-      ? transcriptFile(claudeTranscripts(deps.home, deps.env), record.agentSessionId)
-      : rolloutForThread(deps, record.agentSessionId);
+  const transcripts = AGENTS[record.agent].transcripts;
+  const file = transcripts.file(deps, record.agentSessionId);
   if (!file)
     return {
       rows: [],
@@ -84,12 +79,10 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       truncated: false,
       unavailable: 'Native transcript is not available',
     };
-  const { lines, truncated } = tailLines(file);
+  const { messages, truncated } = transcripts.messages(file);
   const rows: NativeResponse[] = [];
-  for (let i = lines.length - 1; i >= 0 && rows.length < MAX_RESPONSES; i--) {
-    const line = lines[i];
-    if (!line) continue;
-    const message = messageIn(record.agent, line);
+  for (let i = messages.length - 1; i >= 0 && rows.length < MAX_RESPONSES; i--) {
+    const message = messages[i];
     if (message?.role !== 'assistant') continue;
     const text = message.text.slice(0, MAX_TEXT);
     rows.push({
@@ -97,7 +90,7 @@ export function sessionResponses(deps: ResponseDeps, id: string): SessionRespons
       session: id,
       agent: record.agent,
       nativeSessionId: record.agentSessionId,
-      source: sha(line),
+      source: sha(message.line),
       revision: sha(message.text),
       text,
       ...(message.at ? { at: message.at } : {}),

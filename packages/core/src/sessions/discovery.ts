@@ -1,6 +1,4 @@
-import { claudeTranscripts } from '../agents/claude/paths.js';
-import { claudeHistory } from '../agents/claude/transcripts.js';
-import { codexHistory } from '../agents/codex/rollouts.js';
+import { readsTranscripts, type TranscriptAgent } from '../agents/agents.js';
 import type { Clock } from '../lib/clock.js';
 import type { Env } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
@@ -9,7 +7,7 @@ import { type ProjectCandidate, projectCandidate } from '../projects/discover.js
 import { projectFolder } from '../projects/project-folder.js';
 import { readRegistry } from '../projects/registry.js';
 import type { AgentProcess } from './agent-listing.js';
-import { UNSUPPORTED_HISTORY } from './history.js';
+import { nativeConversations, UNSUPPORTED_HISTORY } from './history.js';
 import { withName } from './native-name.js';
 import { nativePrompt } from './native-prompt.js';
 import type { SessionStore } from './store.js';
@@ -75,8 +73,8 @@ const LIMIT = 300;
 export const DISCOVERY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const listed = (p: AgentProcess): p is AgentProcess & { agent: 'claude' | 'codex' } =>
-  (p.agent === 'claude' || p.agent === 'codex') && p.nativeState !== 'stopped';
+const listed = (p: AgentProcess): p is AgentProcess & { agent: TranscriptAgent } =>
+  readsTranscripts(p.agent) && p.nativeState !== 'stopped';
 
 /** `deps` with its listing and the other profiles read once, however often a batch asks. */
 export function readOnce<D extends Pick<DiscoveryDeps, 'listing' | 'elsewhere'>>(deps: D): D {
@@ -168,14 +166,8 @@ async function scanNative(
   const start = deps.clock().getTime() - days * DAY_MS;
   const once = readOnce(deps);
   const running = await runningIds(once);
-  const history = [
-    ...claudeHistory(claudeTranscripts(deps.home, deps.env), start),
-    ...codexHistory(deps, start),
-  ];
-  const scan = scanOf(
-    once,
-    new Map(history.flatMap((row) => ('file' in row ? [[row.id, row.file]] : []))),
-  );
+  const history = nativeConversations(deps, start);
+  const scan = scanOf(once, new Map(history.map((row) => [row.id, row.file])));
   const wanted = (cwd: string) =>
     folders === undefined || folders.includes(scan.folderOf(cwd) ?? '');
   const recent = history

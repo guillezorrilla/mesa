@@ -11,12 +11,16 @@ import { claudeHookState } from './claude/hook-state.js';
 import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
+import { claudeTranscriptReader } from './claude/transcripts.js';
+import { claudeUsage, claudeUsageFiles } from './claude/usage.js';
 import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
 import { readCodexResult } from './codex/result.js';
 import { codexSessionId } from './codex/rollouts.js';
 import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
+import { codexTranscriptReader } from './codex/transcripts.js';
+import { codexUsage } from './codex/usage.js';
 import { addDirArgs, type LaunchDefaults, launchFlags } from './launch-flags.js';
 import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
 import {
@@ -75,8 +79,8 @@ const CODEX_EMBEDDED = '-c mesa.embedded=true';
 /**
  * The agents Mesa runs (their names and labels are names.ts), how to probe and install each, how
  * to start, resume, and quit one, type into it, and run one headless, and the readers of what a
- * running one writes and shows (its hooks, screen, listing, context use, transcripts, and
- * headless result), under agents/<agent>/. What an agent has none of yet is undefined. Sessions
+ * running one writes and shows (its hooks, screen, listing, context use, transcripts, usage,
+ * and headless result), under agents/<agent>/. What an agent has none of yet is undefined. Sessions
  * reach an agent only through its entry here.
  */
 export const AGENTS = {
@@ -164,6 +168,10 @@ export const AGENTS = {
     listing: { list: listClaudeProcesses, state: claudeListedState },
     /** A session's context use, from its transcript. */
     context: claudeContext,
+    /** Its native conversations: each one's transcript, name, first prompt, and messages. */
+    transcripts: claudeTranscriptReader,
+    /** What a transcript says it charged: the files it reads, a transcript and its subagents'. */
+    usage: { files: claudeUsageFiles, read: claudeUsage },
   },
   codex: {
     versionArgs: ['--version'],
@@ -226,7 +234,9 @@ export const AGENTS = {
     listing: { list: listCodexSessions, state: () => undefined },
     /** Last native per-turn token usage and context window from the exact rollout. */
     context: codexContext,
-    transcripts: undefined,
+    transcripts: codexTranscriptReader,
+    /** The rollout alone, whose token counts are cumulative. */
+    usage: { files: (rollout: string) => [rollout], read: codexUsage },
   },
   antigravity: {
     versionArgs: ['--version'],
@@ -270,6 +280,7 @@ export const AGENTS = {
     listing: { list: async () => [], state: () => undefined },
     context: undefined,
     transcripts: undefined,
+    usage: undefined,
   },
 } as const satisfies Record<Agent, object>;
 
@@ -277,6 +288,15 @@ export const AgentSchema = z.enum(AGENT_NAMES);
 
 /** An agent's entry. */
 export type AgentSpec = (typeof AGENTS)[Agent];
+
+/** The agents Mesa reads native conversations of: those whose entry has `transcripts`. */
+export type TranscriptAgent = {
+  [A in Agent]: (typeof AGENTS)[A]['transcripts'] extends undefined ? never : A;
+}[Agent];
+
+/** Whether Mesa reads `agent`'s native conversations (its entry's `transcripts`). */
+export const readsTranscripts = (agent: Agent): agent is TranscriptAgent =>
+  AGENTS[agent].transcripts !== undefined;
 
 /** An agent's binary, as doctor and a session's start probe it. */
 export function agentBinary(name: Agent): Binary {
