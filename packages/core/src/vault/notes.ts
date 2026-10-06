@@ -61,9 +61,7 @@ export function refuseForeign(file: string, note: Note | undefined): void {
  * replaced.
  */
 export function writeNote(deps: NotesDeps, note: { path: string } & Note, source = 'mesa'): Note {
-  const project =
-    typeof note.frontmatter.project === 'string' ? note.frontmatter.project : undefined;
-  const file = vaultWriteFile(deps.vault, note.path, project);
+  const file = noteFile(deps, note);
   const previous = readIfExists(file);
   refuseLocked(file, previous);
   const frontmatter = stamped(deps, note.frontmatter, source, previous?.frontmatter.created);
@@ -74,12 +72,17 @@ export function writeNote(deps: NotesDeps, note: { path: string } & Note, source
 
 /** writeNote for a new note: created whole (createFileAtomic), or false when `path` exists. */
 export function createNote(deps: NotesDeps, note: { path: string } & Note): boolean {
-  const project =
-    typeof note.frontmatter.project === 'string' ? note.frontmatter.project : undefined;
-  const file = vaultWriteFile(deps.vault, note.path, project);
+  const file = noteFile(deps, note);
   mkdirSync(dirname(file), { recursive: true });
   const frontmatter = stamped(deps, note.frontmatter, 'mesa');
   return createFileAtomic(file, serializeNote({ frontmatter, body: note.body }));
+}
+
+/** Where a note Mesa writes goes: inside the vault, and inside its project's folder if it names one. */
+function noteFile(deps: NotesDeps, note: { path: string } & Note) {
+  const project =
+    typeof note.frontmatter.project === 'string' ? note.frontmatter.project : undefined;
+  return vaultWriteFile(deps.vault, note.path, project);
 }
 
 /** A note's frontmatter as Mesa writes it: `created` (or `now`), `updated`, `source`, then its own. */

@@ -47,8 +47,7 @@ export function writeReceipt(
     restoreLogLine(notes, entry);
     return { receipt: entry.receipt, path: entry.path };
   };
-  if (key !== undefined && receiptFiles(deps.vault).some((f) => f.path.endsWith(`-${id}.md`)))
-    return existing();
+  if (key !== undefined && receiptFileOf(deps.vault, id)) return existing();
   const at = deps.clock();
   const started = fields.started ?? obsidianDateTime(at);
   const receipt = parseWith(ReceiptSchema, { ...fields, id, started }, 'receipt');
@@ -197,8 +196,12 @@ export function listReceipts(
   return found;
 }
 
+/** The receipt file whose name holds `id`, if any. */
+const receiptFileOf = (vault: string, id: string) =>
+  receiptFiles(vault).find((f) => f.path.endsWith(`-${id}.md`));
+
 export function showReceipt(vault: string, id: string): ReceiptEntry {
-  const file = receiptFiles(vault).find((f) => f.path.endsWith(`-${id}.md`));
+  const file = receiptFileOf(vault, id);
   if (!file) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
   return readReceipt(vault, file.path);
 }
