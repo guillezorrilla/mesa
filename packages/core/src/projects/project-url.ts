@@ -1,5 +1,5 @@
 import { MesaError } from '../lib/result.js';
-import { slugify } from './slug.js';
+import { slugify } from '../lib/slug.js';
 
 export type RepositoryUrl = { url: string; slug: string };
 

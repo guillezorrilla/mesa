@@ -17,8 +17,8 @@ export {
   supportsPlanStart,
 } from './agents/names.js';
 export { describeAutomation } from './automations/describe.js';
-export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';
+export * from './lib/format.js';
 export { localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
 export {
@@ -37,6 +37,7 @@ export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
+export * from './sessions/labels.js';
 export { sessionProjects } from './sessions/session-projects.js';
 export { AGENT_STATES, FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { parseSessionUri, sessionUri } from './sessions/uri.js';

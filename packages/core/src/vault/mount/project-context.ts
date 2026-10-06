@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { clip } from '../../lib/clip.js';
+import { counted } from '../../lib/format.js';
 import { GENERAL_PROJECT } from '../../sessions/general.js';
 import type { SessionStore } from '../../sessions/store.js';
 import type { Note } from '../frontmatter.js';
@@ -96,9 +97,6 @@ function linkedLines(body: string, links: readonly VaultLink[], leads: (l: Vault
   return lines;
 }
 
-const counted = (n: number, one: string, many: string) =>
-  n ? [`${n} ${n === 1 ? one : many}`] : [];
-
 /** `more`: what the overview left out, then the commands that read the rest. */
 function hintOf(project: string, left: Left, empty: boolean, vault: boolean): string {
   if (!vault) return 'The vault does not exist yet: mesa vault init lays it out.';
@@ -110,10 +108,10 @@ function hintOf(project: string, left: Left, empty: boolean, vault: boolean): st
   }
   const parts = [
     ...(left.hub ? ['the rest of the hub'] : []),
-    ...counted(left.index, 'index line', 'index lines'),
-    ...counted(left.notes, 'note', 'notes'),
-    ...counted(left.decisions, 'decision', 'decisions'),
-    ...counted(left.goals, 'goal', 'goals'),
+    ...(left.index ? [counted(left.index, 'index line')] : []),
+    ...(left.notes ? [counted(left.notes, 'note')] : []),
+    ...(left.decisions ? [counted(left.decisions, 'decision')] : []),
+    ...(left.goals ? [counted(left.goals, 'goal')] : []),
   ];
   const said = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
   const list = general ? 'mesa vault list' : `mesa vault list --project ${project}`;

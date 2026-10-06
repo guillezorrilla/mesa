@@ -1,4 +1,4 @@
-import type { Runner } from './process.js';
+import type { Runner } from '../lib/process.js';
 
 // A binary probe: `<name> <version args>` with a timeout, as doctor shows each row.
 

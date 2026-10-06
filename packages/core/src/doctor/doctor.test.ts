@@ -1,10 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
+import { scriptedRunner, tempDir, testDeps } from '../testing/index.js';
+import type { ObsidianPaths } from '../vault/obsidian.js';
 import { type Check, runDoctor } from './doctor.js';
-import { CHECK_TIMEOUT_MS } from './lib/probe.js';
-import { scriptedRunner, tempDir, testDeps } from './testing/index.js';
-import type { ObsidianPaths } from './vault/obsidian.js';
+import { CHECK_TIMEOUT_MS } from './probe.js';
 
 const VERSIONS = {
   tmux: 'tmux 3.7c\n',

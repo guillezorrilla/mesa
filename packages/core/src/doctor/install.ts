@@ -1,6 +1,6 @@
+import type { Runner } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
 import { INSTALLABLE } from './doctor.js';
-import type { Runner } from './lib/process.js';
-import { MesaError } from './lib/result.js';
 
 // ponytail: 15 minutes for a cask download on a slow line; stream progress if users wait longer.
 const INSTALL_TIMEOUT_MS = 15 * 60 * 1000;

@@ -6,7 +6,7 @@ import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import type { Guarded, Overrides } from '../decisions/guardrail.js';
 import type { DecisionRecorder } from '../decisions/types.js';
-import { counted } from '../display.js';
+import { counted } from '../lib/format.js';
 import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';

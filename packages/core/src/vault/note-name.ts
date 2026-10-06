@@ -1,5 +1,5 @@
 import { MesaError } from '../lib/result.js';
-import { truncatedSlug } from '../projects/slug.js';
+import { truncatedSlug } from '../lib/slug.js';
 
 /** The note name a title gives: its slug, cut to 80 characters (truncatedSlug). */
 export function nameOf(title: string): string {

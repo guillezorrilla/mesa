@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import { type Binary, probe } from '../doctor/probe.js';
 import type { IdSource } from '../lib/ids.js';
-import { type Binary, probe } from '../lib/probe.js';
 import { type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.js';

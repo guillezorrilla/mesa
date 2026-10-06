@@ -1,24 +1,18 @@
 import { existsSync } from 'node:fs';
-import { agentBinary } from './agents/agents.js';
-import type { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
-import type { vaultMountStatus } from './agents/antigravity/vault-mount.js';
-import type { ClaudeHooksStatus } from './agents/claude/hooks.js';
-import type { CodexHooksStatus } from './agents/codex/hooks.js';
-import type { TmuxHookStatus } from './agents/hooks-service.js';
-import { AGENT_NAMES } from './agents/names.js';
-import type { BackendName } from './decisions/types.js';
-import {
-  type Binary,
-  CHECK_TIMEOUT_MS,
-  firstVersion,
-  homebrewInstall,
-  probe,
-} from './lib/probe.js';
-import type { Runner } from './lib/process.js';
-import { toFail } from './lib/result.js';
-import { TMUX_INSTALL } from './sessions/tmux/backend.js';
-import type { ObsidianPaths } from './vault/obsidian.js';
-import type { VaultStatus } from './vault/vault.js';
+import { agentBinary } from '../agents/agents.js';
+import type { hooksStatus as antigravityHooksStatus } from '../agents/antigravity/hooks.js';
+import type { vaultMountStatus } from '../agents/antigravity/vault-mount.js';
+import type { ClaudeHooksStatus } from '../agents/claude/hooks.js';
+import type { CodexHooksStatus } from '../agents/codex/hooks.js';
+import type { TmuxHookStatus } from '../agents/hooks-service.js';
+import { AGENT_NAMES } from '../agents/names.js';
+import type { BackendName } from '../decisions/types.js';
+import type { Runner } from '../lib/process.js';
+import { toFail } from '../lib/result.js';
+import { TMUX_INSTALL } from '../sessions/tmux/backend.js';
+import type { ObsidianPaths } from '../vault/obsidian.js';
+import type { VaultStatus } from '../vault/vault.js';
+import { type Binary, CHECK_TIMEOUT_MS, firstVersion, homebrewInstall, probe } from './probe.js';
 
 export type Check = {
   name: string;

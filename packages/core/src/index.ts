@@ -26,22 +26,7 @@ export type { DailyResult } from './daily/service.js';
 export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { Decision } from './decisions/types.js';
 export type { DiagnosticEvent, DiagnosticReport } from './diagnostics/service.js';
-export {
-  additionalLabel,
-  attentionScore,
-  contextPercent,
-  counted,
-  duration,
-  isRun,
-  listPrice,
-  NO_OUTPUT_LOG,
-  percent,
-  sessionBranch,
-  sessionCount,
-  sessionLabel,
-  waitingOn,
-} from './display.js';
-export type { Check, DoctorReport } from './doctor.js';
+export type { Check, DoctorReport } from './doctor/doctor.js';
 export type { FileEntry, FileHit, FileSearch, FileTree } from './files/browse.js';
 export type { FileChange, WorkspaceFile } from './files/editor.js';
 export type { FileLink } from './files/link.js';
@@ -56,6 +41,14 @@ export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export { type Clock, systemClock } from './lib/clock.js';
+export {
+  attentionScore,
+  contextPercent,
+  counted,
+  duration,
+  listPrice,
+  percent,
+} from './lib/format.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';
@@ -125,6 +118,15 @@ export type { GridGroup } from './sessions/grid-groups.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
 export type { SessionImage } from './sessions/images.js';
 export type { InstructionStatus } from './sessions/instructions.js';
+export {
+  additionalLabel,
+  isRun,
+  NO_OUTPUT_LOG,
+  sessionBranch,
+  sessionCount,
+  sessionLabel,
+  waitingOn,
+} from './sessions/labels.js';
 export type { SessionLog } from './sessions/output-log.js';
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';

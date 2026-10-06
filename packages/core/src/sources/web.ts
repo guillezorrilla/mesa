@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { Defuddle } from 'defuddle/node';
 import { parseHTML } from 'linkedom';
-import { htmlToMarkdown } from '../lib/html-markdown.js';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
+import { htmlToMarkdown } from './html-markdown.js';
 import type { Item, ItemRef } from './items.js';
 
 /**

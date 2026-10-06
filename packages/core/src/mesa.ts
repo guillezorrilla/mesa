@@ -1,10 +1,4 @@
-import { existsSync } from 'node:fs';
 import { about } from './about/about.js';
-import { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
-import { vaultMountStatus } from './agents/antigravity/vault-mount.js';
-import { hooksStatus } from './agents/claude/hooks.js';
-import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
-import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { hooksService } from './agents/hooks-service.js';
 import { automationsService } from './automations/service.js';
 import { automationState } from './automations/state.js';
@@ -12,10 +6,9 @@ import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
 import { diagnosticsService } from './diagnostics/service.js';
-import { inboxCheck, runDoctor } from './doctor.js';
+import { doctorService } from './doctor/service.js';
 import { filesService } from './files/service.js';
 import { gitService } from './git/service.js';
-import { installRequirement } from './install.js';
 import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
@@ -105,33 +98,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     guardrail: { check: faro.guardrail.check },
     /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */
     vaultChoices: () => vaultChoices(deps.obsidian, deps.home),
-    /** Installs a missing tmux or agent with Homebrew (`mesa doctor install`). */
-    installRequirement: (name: string) => installRequirement(deps.run, name),
-    doctor: async () => {
-      const report = await runDoctor({
-        run: deps.run,
-        obsidian: deps.obsidian,
-        profileDir: ctx.paths.root,
-        decisions: faro.inUse(),
-        hooks: {
-          claude: () => hooksStatus(deps.home, deps.env, deps.self),
-          codex: () => codexHooksStatus(codexHome(deps.home, deps.env), deps.self),
-          antigravity: () => antigravityHooksStatus(deps.home, deps.self),
-          antigravityVault: () => vaultMountStatus(deps.home, deps.self),
-          tmux: ctx.tmuxHook,
-        },
-        codexDaemon: codexDaemonSocket(codexHome(deps.home, deps.env)),
-        ...(existsSync(ctx.paths.config) ? { vault: vaults.vault.status } : {}),
-      });
-      // A profile that was never initialised has no inbox: doctor must not create its folder.
-      if (!existsSync(ctx.paths.config)) return report;
-      try {
-        notifications.recordDoctor(report);
-        return report;
-      } catch (error) {
-        return { ...report, checks: [...report.checks, inboxCheck(error)] };
-      }
-    },
+    ...doctorService(ctx, {
+      faro,
+      vaultStatus: vaults.vault.status,
+      recordDoctor: notifications.recordDoctor,
+    }),
   };
 }
 

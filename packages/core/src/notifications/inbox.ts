@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { MesaContext } from '../context.js';
-import type { DoctorReport } from '../doctor.js';
+import type { DoctorReport } from '../doctor/doctor.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { scanHookEvents } from '../sessions/hook-events.js';

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
+import { scriptedRunner } from '../testing/index.js';
 import { INSTALLABLE } from './doctor.js';
 import { installRequirement } from './install.js';
-import { scriptedRunner } from './testing/index.js';
 
 test('installs tmux and the agents with their Homebrew command', async () => {
   const { run, calls } = scriptedRunner();

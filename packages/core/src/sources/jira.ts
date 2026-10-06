@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { htmlToMarkdown } from '../lib/html-markdown.js';
 import type { Http } from '../lib/http.js';
 import { jiraApi, readItem, siteOf } from './atlassian.js';
+import { htmlToMarkdown } from './html-markdown.js';
 import type { Item, ItemRef } from './items.js';
 
 const named = z.object({ name: z.string() }).nullish();
