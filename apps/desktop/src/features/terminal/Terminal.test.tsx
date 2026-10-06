@@ -1,10 +1,8 @@
 // @vitest-environment happy-dom
-import { act } from 'react';
 import { expect, test } from 'vitest';
-import { fakeBridge, fakePlatform, fakeTerminals, renderWithMesa } from '@/lib/testing';
+import { attached, fakeBridge, fakePlatform, fakeTerminals, renderWithMesa } from '@/lib/testing';
 import { Terminal } from './Terminal';
 
-const attached = () => act(async () => new Promise((done) => setTimeout(done, 20)));
 /** Whether the keyboard is in the terminal: xterm's input field has focus. */
 const focused = () => Boolean(document.activeElement?.closest('.terminal-host'));
 

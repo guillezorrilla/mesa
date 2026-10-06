@@ -1,11 +1,9 @@
 // @vitest-environment happy-dom
 import { act, useState } from 'react';
 import { expect, test } from 'vitest';
-import { fakeBridge, fakePlatform, fakeTerminals, renderWithMesa } from '@/lib/testing';
+import { attached, fakeBridge, fakePlatform, fakeTerminals, renderWithMesa } from '@/lib/testing';
 import { TerminalTiles } from './TerminalTiles';
 import type { TerminalPanels } from './useTerminalPanels';
-
-const attached = () => act(async () => new Promise((done) => setTimeout(done, 20)));
 
 /** Two open panels; the button selects the other one, as a click on its session card does. */
 function Switcher() {

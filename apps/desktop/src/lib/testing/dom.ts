@@ -32,3 +32,6 @@ export const choose = (select: HTMLElement | undefined, value: string) =>
 
 export const cells = (row: HTMLElement | undefined) =>
   [...(row?.querySelectorAll('td') ?? [])].map((td) => td.textContent);
+
+/** Lets a terminal attach: the fake pty's open and ready settle. */
+export const attached = () => act(async () => new Promise((done) => setTimeout(done, 20)));
