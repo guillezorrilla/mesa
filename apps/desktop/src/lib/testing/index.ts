@@ -1,4 +1,4 @@
-export { attached, cells, choose, click, fill, toasts, toastTexts } from './dom';
+export { attached, cells, choose, click, fill, press, searchFor, toasts, toastTexts } from './dom';
 export { fakeBridge } from './fakeBridge';
 export { fakePlatform, fakeTerminals, fakeUpdates } from './fakePlatform';
 export {

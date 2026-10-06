@@ -22,8 +22,10 @@ import {
   foreignRow,
   managedRow,
   PROJECTS,
+  press,
   renderWithMesa,
   report,
+  searchFor,
   toasts,
   toastTexts,
 } from '@/lib/testing';
@@ -1609,13 +1611,8 @@ test('sidebar selects an exact session and keeps its terminal alive across navig
   expect(byTestId('selected-session')).toHaveLength(1);
   await click(byTestId('search-trigger')[0]);
   const grid = byTestId('palette-query')[0] as HTMLInputElement;
-  await act(async () => {
-    grid.value = 'Open Grid View';
-    grid.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await act(async () => {
-    grid.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  });
+  await searchFor('Open Grid View');
+  await press(grid, 'Enter');
   expect(byTestId('grid-toolbar')).toHaveLength(1);
 });
 
@@ -2528,31 +2525,19 @@ test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Ent
   });
   expect(byTestId('command-palette')).toHaveLength(1);
   const input = byTestId('palette-query')[0] as HTMLInputElement;
-  await act(async () => {
-    input.value = 'lantern';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  expect(byTestId('palette-hit').map((hit) => hit.textContent)).toEqual([
-    'lantern-covelantern-cove · /src/lantern-cove',
-    'aaaaaaaalantern-cove · claude · working',
-    `Search vault"lantern" in this profile's vault`,
+  await searchFor('lantern');
+  expect(byTestId('palette-hit').map((hit) => hit.dataset.value)).toEqual([
+    'project:lantern-cove',
+    'session:aaaaaaaa',
+    'vault:lantern',
   ]);
-  await act(async () => {
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  });
+  await press(input, 'Enter');
   expect(byTestId('project-workspace')).toHaveLength(1);
   await click(byTestId('search-trigger')[0]);
   const again = byTestId('palette-query')[0] as HTMLInputElement;
-  await act(async () => {
-    again.value = 'lantern';
-    again.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await act(async () => {
-    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-  });
-  await act(async () => {
-    again.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  });
+  await searchFor('lantern');
+  await press(again, 'ArrowDown');
+  await press(again, 'Enter');
   expect(byTestId('selected-session')).toHaveLength(1);
 });
 
@@ -2571,18 +2556,11 @@ test('Search Mesa offers Search vault for typed text, which opens the Vault scre
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('search-trigger')[0]);
   const input = byTestId('palette-query')[0] as HTMLInputElement;
-  await act(async () => {
-    input.value = 'harbour lights';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  await searchFor('harbour lights');
   // Nothing else matches, so Enter chooses it.
   expect(byTestId('palette-empty')).toHaveLength(1);
-  expect(byTestId('palette-hit').map((hit) => hit.textContent)).toEqual([
-    `Search vault"harbour lights" in this profile's vault`,
-  ]);
-  await act(async () => {
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  });
+  expect(byTestId('palette-hit').map((hit) => hit.dataset.value)).toEqual(['vault:harbour lights']);
+  await press(input, 'Enter');
   expect(byTestId('vault-panel')).toHaveLength(1);
   expect(document.querySelector<HTMLInputElement>('#vault-search')?.value).toBe('harbour lights');
   expect(calls).toContainEqual(['--json', 'vault', 'search', '--', 'harbour lights']);
@@ -2595,14 +2573,9 @@ test('Search Mesa shows no matches and Escape returns keyboard focus', async () 
   trigger?.focus();
   await click(trigger);
   const input = byTestId('palette-query')[0] as HTMLInputElement;
-  await act(async () => {
-    input.value = 'nothing-matches';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  await searchFor('nothing-matches');
   expect(byTestId('palette-empty')).toHaveLength(1);
-  await act(async () => {
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  });
+  await press(input, 'Escape');
   expect(byTestId('command-palette')).toHaveLength(0);
   expect(document.activeElement).toBe(trigger);
 });
@@ -2631,8 +2604,8 @@ test('Search Mesa disables New session when no project can start, and starts one
   expect(
     empty('palette-hit')
       .find((hit) => hit.textContent?.includes('New session'))
-      ?.hasAttribute('disabled'),
-  ).toBe(true);
+      ?.getAttribute('aria-disabled'),
+  ).toBe('true');
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS),
     open: () => envelope(managedRow('dddddddd')),
@@ -2706,31 +2679,26 @@ test('shortcut settings validate conflicts and update the active profile key', a
     document.querySelector<HTMLButtonElement>('[aria-label="Customize Command palette"]') ??
       undefined,
   );
-  const press = async (key: string) =>
-    act(async () =>
-      byTestId('shortcut-search')[0]?.dispatchEvent(
-        // Cancelable, as a real key press is: the dialog prevents Escape while recording.
-        new KeyboardEvent('keydown', { key, metaKey: true, bubbles: true, cancelable: true }),
-      ),
-    );
+  // Cancelable, as a real key press is: the dialog prevents Escape while recording.
+  const record = (key: string) => press(byTestId('shortcut-search')[0], key, { metaKey: true });
   const said = () => byTestId('shortcut-settings')[0]?.querySelector('[role="alert"]')?.textContent;
   // Escape while recording cancels the recording and keeps the dialog open.
   expect(byTestId('shortcut-search')).toHaveLength(1);
-  await press('Escape');
+  await record('Escape');
   expect(byTestId('shortcut-settings')).toHaveLength(1);
   expect(byTestId('shortcut-search')).toHaveLength(0);
   await click(
     document.querySelector<HTMLButtonElement>('[aria-label="Customize Command palette"]') ??
       undefined,
   );
-  await press('q');
+  await record('q');
   expect(said()).toContain('common window keys are reserved');
-  await press('1');
+  await record('1');
   expect(said()).toBe('Already used by Go to Sessions.');
-  await press('p');
+  await record('p');
   expect(said()).toBe('Already used by Go to file.');
   expect(calls.some((args) => args[2] === 'set')).toBe(false);
-  await press('j');
+  await record('j');
   expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'shortcuts.search', '"Mod+J"']);
   await act(async () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));

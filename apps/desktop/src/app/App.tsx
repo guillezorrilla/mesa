@@ -118,7 +118,8 @@ export function App() {
   useAppMenu(navigateLatest);
   useGlobalShortcuts({
     shortcuts,
-    onSearch: () => (search.searchOpen ? search.closeSearch() : search.openSearch()),
+    onSearch: () => search.toggleSearch('all'),
+    onSwitchSession: () => search.toggleSearch('sessions'),
     onKeyboardShortcuts: () => {
       search.closeSearch();
       setOverlay('shortcuts');
@@ -137,7 +138,7 @@ export function App() {
         onOverlay={setOverlay}
         onSettings={workspace.openSettings}
         searchShortcut={shortcuts.search}
-        onSearch={search.openSearch}
+        onSearch={() => search.openSearch()}
         projects={projects.data}
         currentProject={project?.name}
         canStart={canStart}
@@ -214,7 +215,8 @@ export function App() {
         />
       </div>
       <CommandPalette
-        open={search.searchOpen}
+        mode={search.mode}
+        onMode={search.openSearch}
         onClose={search.closeSearch}
         projects={projects.data ?? []}
         sessions={sessions}

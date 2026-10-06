@@ -13,11 +13,11 @@ import {
   failure,
   fakeBridge,
   fakePlatform,
-  fill,
   guardrailStopped,
   managedRow,
   PROJECTS,
   renderWithMesa,
+  searchFor,
   toasts,
   toastTexts,
 } from '@/lib/testing';
@@ -500,7 +500,7 @@ test("Remove, only once a session's agent exited, lists what goes and passes the
   await click(liveMenu);
   await click(byTestId('search-trigger')[0]);
   // An ended session shows once typed.
-  await fill('palette-query', 'cccccccc');
+  await searchFor('cccccccc');
   await click(byTestId('palette-hit').find((hit) => hit.textContent?.includes('cccccccc')));
   await click(document.querySelector<HTMLElement>('[aria-label="Session actions"]') ?? undefined);
   await click(byTestId('row-menu')[0]);
@@ -549,7 +549,7 @@ test("the row menu's Log shows a session's last output lines, and reads them aga
   // One with no output log says why it may have none.
   await click(byTestId('search-trigger')[0]);
   // An ended session shows once typed.
-  await fill('palette-query', 'cccccccc');
+  await searchFor('cccccccc');
   await click(byTestId('palette-hit').find((hit) => hit.textContent?.includes('cccccccc')));
   await click(document.querySelector<HTMLElement>('[aria-label="Session actions"]') ?? undefined);
   await click(byTestId('row-menu')[0]);
