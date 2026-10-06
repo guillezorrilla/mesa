@@ -1,5 +1,6 @@
 import type { MesaContext } from '../context.js';
 import { findProject } from '../projects/projects.js';
+import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { callerOf } from '../sessions/caller.js';
 import { GENERAL_PROJECT } from '../sessions/general.js';
 import { writeBases } from './bases.js';
@@ -59,7 +60,7 @@ export function vaultService(ctx: MesaContext) {
         ),
       status: () => vaultStatus(vaultOf()),
       health: () => vaultHealth(vaultOf()),
-      bases: () => writeBases({ ...ctx, vault: vaultOf() }),
+      bases: () => writeBases({ ...ctx, vault: vaultOf() }, BASES_MEANINGFUL_FILTER),
       /** Every item in the vault (listVault), with the vault and how many are listed. */
       list: (filter?: VaultFilter): VaultInventory => {
         const vault = vaultOf();
