@@ -23,16 +23,19 @@ import { actionRecorder } from './recorder.js';
 import { listReceipts, showReceipt, writeReceipt } from './store.js';
 
 let vault: string;
+// One id source per test: two receipts drawing the same id in one second would be one file.
+let ids: ReturnType<typeof sequentialIds>;
 beforeEach(() => {
   vault = join(tempDir(), 'vault');
   mkdirSync(vault);
+  ids = sequentialIds();
 });
 
 const golden = (type: string) => new URL(`golden/receipt-${type}.md`, import.meta.url);
 const deps = () => ({
   vault,
   clock: fixedClock('2026-09-24T12:00:00.000Z'),
-  newId: sequentialIds(),
+  newId: ids,
 });
 
 test.each(Object.keys(EXAMPLES))('the %s receipt matches its golden file', (type) => {

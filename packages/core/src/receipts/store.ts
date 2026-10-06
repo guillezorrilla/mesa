@@ -1,19 +1,19 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Clock } from '../lib/clock.js';
-import type { IdSource } from '../lib/ids.js';
+import { type IdSource, keyedId } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { obsidianDateTime } from '../lib/time.js';
 import { VAULT } from '../vault/layout.js';
 import {
   appendLog,
+  createNote,
   type LockedNotesDeps,
   oneLine,
   ownFields,
   readNote,
   updateNote,
-  writeNote,
 } from '../vault/notes.js';
 import { vaultFile } from '../vault/scope.js';
 import { type ReceiptType, receiptLink, receiptName, receiptPath } from './receipt-file.js';
@@ -26,22 +26,36 @@ type ReceiptsDeps = { vault: string; clock: Clock; newId: IdSource };
 export const DEFAULT_RECEIPT_LIMIT = 20;
 
 /**
- * Validates and writes one receipt through writeNote, so it is atomic like every Mesa note, then
- * appends a log.md line linking to it. With no log.md yet (a receipt from mesa init before mesa
- * vault init), the receipt still stands and `warning` says the line is missing.
+ * Validates and creates one receipt whole (createNote), then appends a log.md line linking to it.
+ * With an idempotency `key` its id comes from the key, so a retry returns the receipt the first
+ * write made, its log line restored if that write stopped before it. With no log.md yet (a receipt
+ * from mesa init before mesa vault init), the receipt still stands and `warning` says the line is
+ * missing.
+ * ponytail: no vault lock, so two retries racing across a second boundary write two files (the
+ * path keeps the second) and may both restore the log line; take the vault lock if retries race.
  */
 export function writeReceipt(
   deps: ReceiptsDeps,
   input: ReceiptInput,
+  key?: string,
 ): { receipt: Receipt; path: string; warning?: string } {
   const { summary, details, ...fields } = input;
+  const notes = { vault: deps.vault, clock: deps.clock };
+  const id = key === undefined ? deps.newId() : keyedId(key);
+  const existing = () => {
+    const entry = showReceipt(deps.vault, id);
+    restoreLogLine(notes, entry);
+    return { receipt: entry.receipt, path: entry.path };
+  };
+  if (key !== undefined && receiptFileOf(deps.vault, id)) return existing();
   const at = deps.clock();
   const started = fields.started ?? obsidianDateTime(at);
-  const receipt = parseWith(ReceiptSchema, { ...fields, id: deps.newId(), started }, 'receipt');
+  const receipt = parseWith(ReceiptSchema, { ...fields, id, started }, 'receipt');
   // The file name keeps the clock's seconds, which the minute-precision `started` drops.
   const path = receiptPath({ ...receipt, started: fields.started ?? at.toISOString() });
-  const notes = { vault: deps.vault, clock: deps.clock };
-  writeNote(notes, { path, frontmatter: receipt, body: receiptBody(summary, details) });
+  // A race on the same path leaves the first file; the second returns it.
+  if (!createNote(notes, { path, frontmatter: receipt, body: receiptBody(summary, details) }))
+    return existing();
   try {
     appendLog(notes, receiptLogLine(summary, path));
     return { receipt, path };
@@ -182,8 +196,12 @@ export function listReceipts(
   return found;
 }
 
+/** The receipt file whose name holds `id`, if any. */
+const receiptFileOf = (vault: string, id: string) =>
+  receiptFiles(vault).find((f) => f.path.endsWith(`-${id}.md`));
+
 export function showReceipt(vault: string, id: string): ReceiptEntry {
-  const file = receiptFiles(vault).find((f) => f.path.endsWith(`-${id}.md`));
+  const file = receiptFileOf(vault, id);
   if (!file) throw new MesaError('not_found', `no receipt with id ${id}; see mesa receipts`);
   return readReceipt(vault, file.path);
 }
