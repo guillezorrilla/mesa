@@ -133,6 +133,8 @@ export function automationsService(
   return {
     ...rules,
     status,
+    /** The run ledger's runs, which the notifications inbox reads failures from. */
+    runs: () => state.read().runs,
     tick,
     install: () =>
       lifecycle(async () => {

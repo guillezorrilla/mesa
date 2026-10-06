@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import { AGENTS, readyAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import { supportsAgentCapability } from '../agents/names.js';
+import { readyAgent } from '../doctor/probe.js';
 import { gitCommand } from '../git/command.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';

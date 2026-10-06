@@ -1,5 +1,5 @@
 import type { MesaContext } from '../../context.js';
-import { counted } from '../../display.js';
+import { counted } from '../../lib/format.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { adoptSession } from '../adopt.js';

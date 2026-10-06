@@ -4,7 +4,6 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { heldWorktrees } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
-import { listWorktrees } from '../worktrees/inventory.js';
 import { gitCommand } from './command.js';
 import { ghVersion } from './gh.js';
 import { readGitGraph } from './history.js';
@@ -47,19 +46,23 @@ export type RepositoryInsight = {
   };
 };
 
+/** How many worktrees the project has; the worktrees domain owns the inventory it counts. */
+export type WorktreeCount = (project: string) => Promise<number>;
+
 /** Explicit read-only refresh: Git facts and branch-name PR matches, never attribution of authorship. */
 export async function readRepositoryInsight(
   profile: Profile,
   run: Runner,
   store: SessionStore,
   clock: Clock,
+  worktreeCount: WorktreeCount,
   project: string,
   selected?: string,
 ): Promise<RepositoryInsight> {
   const status = await readGitStatus(profile, run, project, selected);
-  const [head, rows, graph] = await Promise.all([
+  const [head, worktrees, graph] = await Promise.all([
     gitCommand(run, status.checkout.path, ['rev-parse', 'HEAD']),
-    listWorktrees(profile, run, store, project),
+    worktreeCount(project),
     status.branch
       ? readGitGraph(profile, run, project, status.checkout.path, status.branch)
       : Promise.resolve(undefined),
@@ -85,7 +88,7 @@ export async function readRepositoryInsight(
       branch: status.branch,
       head: head.stdout.trim(),
       changedFiles: status.changes.length,
-      worktrees: rows.length,
+      worktrees,
       recent:
         graph?.rows
           .flatMap((row) =>

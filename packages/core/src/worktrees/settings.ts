@@ -2,7 +2,7 @@ import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
 import { readProjectFile } from '../projects/project-file.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { needsApproval, unapprovedScripts, type WorktreeScript } from './approval.js';
+import { needsApproval, unapprovedScripts, type WorktreeScript } from '../projects/trust.js';
 
 /**
  * The worktree settings for a project: its mesa.yaml overrides over the profile's. Setup and

@@ -1,8 +1,9 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
-import { gitWorktrees, resolveCheckout } from '../git/checkout.js';
+import { gitWorktrees } from '../git/checkout.js';
 import type { Runner } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
+import { resolveCheckout } from '../projects/checkout.js';
 import { checkoutHolders } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 

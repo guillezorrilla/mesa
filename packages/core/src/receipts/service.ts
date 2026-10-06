@@ -1,7 +1,7 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
+import { RECEIPT_TYPES, type ReceiptType } from '../vault/receipt-file.js';
 import { RECORD_KINDS, type RecordKind } from './policy.js';
-import { RECEIPT_TYPES, type ReceiptType } from './receipt-file.js';
 import { listReceipts, showReceipt } from './store.js';
 
 /** The vault's receipts, newest first, and one by id. */

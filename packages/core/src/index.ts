@@ -26,53 +26,38 @@ export type { DailyResult } from './daily/service.js';
 export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js';
 export type { Decision } from './decisions/types.js';
 export type { DiagnosticEvent, DiagnosticReport } from './diagnostics/service.js';
-export {
-  additionalLabel,
-  attentionScore,
-  contextPercent,
-  counted,
-  duration,
-  isRun,
-  listPrice,
-  NO_OUTPUT_LOG,
-  percent,
-  sessionBranch,
-  sessionCount,
-  sessionLabel,
-  waitingOn,
-} from './display.js';
-export type { Check, DoctorReport } from './doctor.js';
+export type { Check, DoctorReport } from './doctor/doctor.js';
 export type { FileEntry, FileHit, FileSearch, FileTree } from './files/browse.js';
 export type { FileChange, WorkspaceFile } from './files/editor.js';
 export type { FileLink } from './files/link.js';
 export type { GitBranch, GitBranchAction } from './git/branches.js';
 export type { GitCommit, GitPathAction } from './git/changes.js';
-export type { Checkout } from './git/checkout.js';
 export type { DiffRow, GitDiff } from './git/diff.js';
 export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
 export type { RepositoryInsight } from './git/insight.js';
-export type {
-  PrEventDelivery,
-  PrEventList,
-  PrEventsDelivered,
-} from './git/pr-event-delivery.js';
-export type { PrEvent, PrProblem } from './git/pr-events.js';
 export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export { type Clock, systemClock } from './lib/clock.js';
+export { counted, duration, listPrice, percent } from './lib/format.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
-export type { McpTool, Stdio } from './lib/mcp-server.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
-export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
+export type { DeliveryPlan } from './notifications/delivery-plan.js';
+export type { InboxFix, InboxItem } from './notifications/inbox-items.js';
+export type {
+  PrEventDelivery,
+  PrEventList,
+  PrEventsDelivered,
+} from './pr-events/pr-event-delivery.js';
+export type { PrEvent, PrProblem } from './pr-events/pr-events.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { profilesDir } from './profile/paths.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
@@ -82,14 +67,19 @@ export {
   shortcutFromKeys,
   validShortcut,
 } from './profile/shortcuts.js';
+export type { Checkout } from './projects/checkout.js';
 export type { DiscoveredProject } from './projects/discover.js';
 export type { Project } from './projects/project-file.js';
 export { repositoryUrl } from './projects/project-url.js';
 export type { ProjectRow } from './projects/projects.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
+export {
+  describePending,
+  type PendingScripts,
+  trustCommand,
+} from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
-export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
@@ -121,6 +111,17 @@ export type { GridGroup } from './sessions/grid-groups.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
 export type { SessionImage } from './sessions/images.js';
 export type { InstructionStatus } from './sessions/instructions.js';
+export {
+  additionalLabel,
+  attentionScore,
+  contextPercent,
+  isRun,
+  NO_OUTPUT_LOG,
+  sessionBranch,
+  sessionCount,
+  sessionLabel,
+  waitingOn,
+} from './sessions/labels.js';
 export type { SessionLog } from './sessions/output-log.js';
 export type { SessionRecord } from './sessions/record.js';
 export type { Removed } from './sessions/remove.js';
@@ -172,14 +173,23 @@ export {
   type VaultKind,
 } from './vault/item.js';
 export type { LinkResolution, NoteLink, VaultLink } from './vault/links.js';
+export type { McpTool, Stdio } from './vault/mount/mcp-server.js';
+export type { ProjectContext } from './vault/mount/project-context.js';
+export { DEFAULT_GOALS, type SessionGoal } from './vault/mount/session-goals.js';
+export type {
+  DecisionInput,
+  NoteInput,
+  Saved,
+  SummaryInput,
+} from './vault/mount/session-writes.js';
 export {
   macObsidianPaths,
   type ObsidianPaths,
   type Opened,
   type VaultChoices,
 } from './vault/obsidian.js';
-export type { ProjectContext } from './vault/project-context.js';
 export type { VaultPreview, VaultRead } from './vault/reader.js';
+export { RECEIPT_TYPES } from './vault/receipt-file.js';
 export {
   DEFAULT_VAULT_SEARCH_LIMIT,
   type VaultHit,
@@ -187,14 +197,8 @@ export {
   type VaultSearch,
   type VaultSearchFilter,
 } from './vault/search.js';
-export { DEFAULT_GOALS, type SessionGoal } from './vault/session-goals.js';
-export type { DecisionInput, NoteInput, Saved, SummaryInput } from './vault/session-writes.js';
 export type { VaultStatus } from './vault/vault.js';
-export {
-  describePending,
-  type PendingScripts,
-  trustCommand,
-} from './worktrees/approval.js';
 export type { WorktreeDetails } from './worktrees/details.js';
+export type { WorktreeAction } from './worktrees/facts.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
-export type { WorktreeAction, WorktreePreview } from './worktrees/lifecycle.js';
+export type { WorktreePreview } from './worktrees/preview.js';

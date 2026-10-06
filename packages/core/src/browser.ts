@@ -18,8 +18,8 @@ export {
 } from './agents/names.js';
 export { AGENT_STATES } from './agents/states.js';
 export { describeAutomation } from './automations/describe.js';
-export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';
+export * from './lib/format.js';
 export { localDay, validLocalDay } from './lib/time.js';
 export { mapSession } from './map/map.js';
 export {
@@ -35,10 +35,10 @@ export {
 export { DEFAULT_SHORTCUTS, shortcutFromKeys, validShortcut } from './profile/shortcuts.js';
 export { repositoryUrl } from './projects/project-url.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
-export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
+export * from './sessions/labels.js';
 export { sessionProjects } from './sessions/session-projects.js';
 export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { parseSessionUri, sessionUri } from './sessions/uri.js';
@@ -48,3 +48,4 @@ export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
 export { UPDATE_CHANNELS, UPDATE_LINK } from './update/feeds.js';
 export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';
 export { MAP_PATH } from './vault/layout.js';
+export { RECEIPT_TYPES } from './vault/receipt-file.js';

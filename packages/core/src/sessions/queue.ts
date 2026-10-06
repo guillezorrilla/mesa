@@ -1,4 +1,5 @@
-import { newSessionId, readyAgent, startCommand } from '../agents/agents.js';
+import { newSessionId, startCommand } from '../agents/agents.js';
+import { readyAgent } from '../doctor/probe.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError } from '../lib/result.js';
 import { additionalDirs, additionalProjects } from './additional.js';

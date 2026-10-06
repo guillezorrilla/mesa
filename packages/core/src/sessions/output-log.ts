@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
-import { plainText } from '../lib/terminal-text.js';
+import { plainText } from './terminal-text.js';
 
 // A session's output log: everything its window printed, which tmux's pipe-pane appends to
 // `sessions/logs/<id>.log` while the config's `sessions.log` is on (ADR-0001). It is the raw

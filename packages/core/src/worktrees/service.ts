@@ -1,15 +1,23 @@
 import type { MesaContext } from '../context.js';
-import { resolveCheckout } from '../git/checkout.js';
 import { MesaError } from '../lib/result.js';
+import { resolveCheckout } from '../projects/checkout.js';
 import { findProject } from '../projects/projects.js';
+import { applyWorktreeAction } from './apply.js';
 import { defaultBranchRef } from './base.js';
 import { createWorktree, worktreeCommand } from './create.js';
 import { withDetails } from './details.js';
+import type { WorktreeAction, WorktreeScope } from './facts.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
-import { applyWorktreeAction, previewWorktreeAction, type WorktreeAction } from './lifecycle.js';
+import { previewWorktreeAction } from './preview.js';
 import { worktreeScript } from './settings.js';
 
 export function worktreesService(ctx: MesaContext) {
+  const scope = (project: string): WorktreeScope => ({
+    profile: ctx.open(),
+    run: ctx.run,
+    store: ctx.store,
+    project,
+  });
   return {
     /** The inventory, each row with what its card shows (withDetails). */
     list: async (project: string, filter?: WorktreeFilter) => {
@@ -19,6 +27,9 @@ export function worktreesService(ctx: MesaContext) {
       const base = root ? await defaultBranchRef(profile, ctx.run, root, project) : undefined;
       return withDetails(ctx.run, rows, base);
     },
+    /** How many worktrees the project has, without the details `list` reads. */
+    count: async (project: string) =>
+      (await listWorktrees(ctx.open(), ctx.run, ctx.store, project)).length,
     create: (project: string, branch: string, base?: string) =>
       ctx.record(
         {
@@ -60,7 +71,7 @@ export function worktreesService(ctx: MesaContext) {
         },
       ),
     preview: (project: string, action: WorktreeAction, selected?: string) =>
-      previewWorktreeAction(ctx.open(), ctx.run, ctx.store, project, action, selected),
+      previewWorktreeAction(scope(project), action, selected),
     apply: (
       project: string,
       action: WorktreeAction,
@@ -80,17 +91,7 @@ export function worktreesService(ctx: MesaContext) {
               ? `${result.remaining.length} stale worktree registrations remain; inspect them again`
               : undefined,
         },
-        () =>
-          applyWorktreeAction(
-            ctx.open(),
-            ctx.run,
-            ctx.store,
-            project,
-            action,
-            token,
-            selected,
-            opts,
-          ),
+        () => applyWorktreeAction(scope(project), action, token, selected, opts),
       ),
   };
 }

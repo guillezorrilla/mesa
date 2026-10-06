@@ -1,5 +1,5 @@
 import { MesaError } from '../lib/result.js';
-import { truncatedSlug } from '../projects/slug.js';
+import { truncatedSlug } from '../lib/slug.js';
 import { issueUrl, pageUrl } from './atlassian.js';
 import { notConnectedError } from './authorized-fetch.js';
 import type { Site } from './connection.js';

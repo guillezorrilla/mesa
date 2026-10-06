@@ -5,7 +5,7 @@ import { changeGitBranch, type GitBranchAction, listGitBranches } from './branch
 import { changeGitIndex, commitGit } from './changes.js';
 import { readGitDiff } from './diff.js';
 import { compareGitRefs, readGitGraph } from './history.js';
-import { readRepositoryInsight } from './insight.js';
+import { readRepositoryInsight, type WorktreeCount } from './insight.js';
 import { changeGitStash, createGitStash, listGitStashes, type StashAction } from './stash.js';
 import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
@@ -14,6 +14,7 @@ import { type GitSync, gitTracking, syncGit } from './sync.js';
 export function gitService(
   ctx: Pick<MesaContext, 'absolute' | 'clock' | 'open' | 'record' | 'run' | 'store'>,
   faro: Faro,
+  worktreeCount: WorktreeCount,
 ) {
   const sync = (
     project: string,
@@ -141,6 +142,7 @@ export function gitService(
         ctx.run,
         ctx.store,
         ctx.clock,
+        worktreeCount,
         project,
         checkout && ctx.absolute(checkout),
       ),

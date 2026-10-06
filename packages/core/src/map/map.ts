@@ -1,8 +1,8 @@
-import { sessionLabel } from '../display.js';
 import { clip } from '../lib/clip.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { projectLabel } from '../sessions/general.js';
 import { isSessionId } from '../sessions/id.js';
+import { sessionLabel } from '../sessions/labels.js';
 import type { SessionRecord } from '../sessions/record.js';
 import { sessionUri } from '../sessions/uri.js';
 import type { CanvasData, CanvasNode } from '../vault/canvas.js';

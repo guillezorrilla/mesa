@@ -1,25 +1,18 @@
-import { existsSync } from 'node:fs';
 import { about } from './about/about.js';
-import { hooksStatus as antigravityHooksStatus } from './agents/antigravity/hooks.js';
-import { vaultMountStatus } from './agents/antigravity/vault-mount.js';
-import { hooksStatus } from './agents/claude/hooks.js';
-import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
-import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { hooksService } from './agents/hooks-service.js';
 import { automationsService } from './automations/service.js';
 import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
 import { diagnosticsService } from './diagnostics/service.js';
-import { inboxCheck, runDoctor } from './doctor.js';
+import { doctorService } from './doctor/service.js';
 import { filesService } from './files/service.js';
-import { prEventsService } from './git/pr-event-delivery.js';
 import { gitService } from './git/service.js';
-import { installRequirement } from './install.js';
 import { instructionsService } from './instructions/service.js';
 import { mapService } from './map/service.js';
 import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
+import { prEventsService } from './pr-events/pr-event-delivery.js';
 import { backupService } from './profile/backup.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
@@ -50,8 +43,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const faro = createFaro(ctx);
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
-  const notices = inbox(ctx);
-  const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
   const usage = usageService(ctx);
   const vaults = vaultService(ctx);
   const prompts = promptsService(ctx);
@@ -62,20 +53,25 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sites: sources.sites,
     run: sessions.sessions.run,
   });
+  const automations = automationsService(ctx, faro, {
+    sessions: sessions.sessions,
+    refresh: imports.refresh,
+    notify: () => notifications.deliver(),
+  });
+  // Failed automation runs are notices; the inbox reads them from the run ledger.
+  const notices = inbox(ctx, automations.runs);
+  const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
+  const worktrees = worktreesService(ctx);
   return {
     about: () => about(deps.version, deps.release),
     ...profileApi,
     backup: backupService(ctx, prompts.list),
     projects: projectsService(ctx),
-    automations: automationsService(ctx, faro, {
-      sessions: sessions.sessions,
-      refresh: imports.refresh,
-      notify: notifications.deliver,
-    }),
+    automations,
     prompts,
     files: filesService(ctx),
-    worktrees: worktreesService(ctx),
-    git: gitService(ctx, faro),
+    worktrees,
+    git: gitService(ctx, faro, worktrees.count),
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),
@@ -100,33 +96,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     guardrail: { check: faro.guardrail.check },
     /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */
     vaultChoices: () => vaultChoices(deps.obsidian, deps.home),
-    /** Installs a missing tmux or agent with Homebrew (`mesa doctor install`). */
-    installRequirement: (name: string) => installRequirement(deps.run, name),
-    doctor: async () => {
-      const report = await runDoctor({
-        run: deps.run,
-        obsidian: deps.obsidian,
-        profileDir: ctx.paths.root,
-        decisions: faro.inUse(),
-        hooks: {
-          claude: () => hooksStatus(deps.home, deps.env, deps.self),
-          codex: () => codexHooksStatus(codexHome(deps.home, deps.env), deps.self),
-          antigravity: () => antigravityHooksStatus(deps.home, deps.self),
-          antigravityVault: () => vaultMountStatus(deps.home, deps.self),
-          tmux: ctx.tmuxHook,
-        },
-        codexDaemon: codexDaemonSocket(codexHome(deps.home, deps.env)),
-        ...(existsSync(ctx.paths.config) ? { vault: vaults.vault.status } : {}),
-      });
-      // A profile that was never initialised has no inbox: doctor must not create its folder.
-      if (!existsSync(ctx.paths.config)) return report;
-      try {
-        notifications.recordDoctor(report);
-        return report;
-      } catch (error) {
-        return { ...report, checks: [...report.checks, inboxCheck(error)] };
-      }
-    },
+    ...doctorService(ctx, {
+      faro,
+      vaultStatus: vaults.vault.status,
+      recordDoctor: notifications.recordDoctor,
+    }),
   };
 }
 

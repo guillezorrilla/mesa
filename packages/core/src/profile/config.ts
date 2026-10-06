@@ -14,8 +14,8 @@ import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, valueAt } from '../lib/yaml-file.js';
+import { WORKTREE_OVERRIDE_FIELDS } from '../projects/overrides.js';
 import { UPDATE_CHANNELS } from '../update/feeds.js';
-import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
 import {
   COLOR_VISION_MODES,
   DEFAULT_APPEARANCE,

@@ -5,9 +5,13 @@
 // Each request may take 60 s: this measures quality, not the per-turn deadline (ADR-0019).
 //   --json                    the full report; otherwise a table per site
 import { parseArgs } from 'node:util';
-import { readCorpus } from '../../packages/core/dist/decisions/corpus.js';
-import { meetsGate, report, runCases } from '../../packages/core/dist/decisions/evaluation.js';
-import { strandsBackend } from '../../packages/core/dist/decisions/strands.js';
+import { readCorpus } from '../../packages/core/dist/decisions/evaluation/corpus.js';
+import {
+  meetsGate,
+  report,
+  runCases,
+} from '../../packages/core/dist/decisions/evaluation/evaluation.js';
+import { strandsBackend } from '../../packages/core/dist/decisions/evaluation/strands.js';
 
 const { values } = parseArgs({
   options: {
@@ -22,8 +26,10 @@ if (!['calibration', 'heldout'].includes(values.dataset))
   throw new Error('--dataset: calibration or heldout');
 
 const cases = readCorpus(
-  new URL(`../../packages/core/src/decisions/corpus/${values.dataset}.jsonl`, import.meta.url)
-    .pathname,
+  new URL(
+    `../../packages/core/src/decisions/evaluation/corpus/${values.dataset}.jsonl`,
+    import.meta.url,
+  ).pathname,
 );
 const clock = () => new Date(performance.timeOrigin + performance.now());
 const backend =

@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { parse, stringify } from 'yaml';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { LockDeps } from '../lib/lock-file.js';
-import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { INTERNALS, VAULT } from './layout.js';
 import { requireVaultFolder, vaultFile } from './scope.js';
 import { withVaultLock } from './vault-lock.js';
@@ -28,9 +27,11 @@ const forbiddenTarget = ['\\.\\.', ...INTERNALS.map((name) => name.replaceAll('.
   '|',
 );
 const targetFormula = `if(outputs && outputs.target.isType("string") && outputs.target != "" && !outputs.target.startsWith("/") && !/(^|\\/)(${forbiddenTarget})(\\/|$)/i.matches(outputs.target), link(outputs.target), file.asLink())`;
-
-// Global scope leaves historical receipts reachable; only default views apply meaningfulness.
-const BASES = [
+/**
+ * The fixed Bases, the receipts one filtered by `meaningful`, the receipt policy in Bases'
+ * expression syntax. Global scope leaves historical receipts reachable; only default views apply it.
+ */
+const basesFor = (meaningful: string) => [
   {
     path: VAULT.receiptsBase,
     definition: {
@@ -42,14 +43,14 @@ const BASES = [
         {
           type: 'table',
           name: 'Meaningful',
-          filters: BASES_MEANINGFUL_FILTER,
+          filters: meaningful,
           order: receiptColumns,
           sort: receiptSort,
         },
         {
           type: 'cards',
           name: 'By kind',
-          filters: BASES_MEANINGFUL_FILTER,
+          filters: meaningful,
           order: receiptColumns,
           sort: receiptSort,
           groupBy: { property: 'note.kind', direction: 'ASC' },
@@ -85,11 +86,12 @@ const BASES = [
 /** Write only owned fixed Bases, atomically under one vault lock; no history for derived views. */
 export async function writeBases(
   deps: LockDeps & { vault: string; sleep: (ms: number) => Promise<void> },
+  meaningful: string,
 ): Promise<BasesWritten> {
   requireVaultFolder(deps.vault);
   return withVaultLock(deps, async () => {
     // Validate both destinations and read ownership before writing either one.
-    const files = BASES.map(({ path, definition }) => {
+    const files = basesFor(meaningful).map(({ path, definition }) => {
       const file = vaultFile(deps.vault, path);
       const current = existsSync(file) ? readFileSync(file, 'utf8') : undefined;
       return {

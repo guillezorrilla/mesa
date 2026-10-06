@@ -1,3 +1,4 @@
+import { TMUX_INSTALL } from '../../doctor/probe.js';
 import { type Env, type Runner, shellWord } from '../../lib/process.js';
 import { type ErrorCode, MesaError } from '../../lib/result.js';
 import {
@@ -23,7 +24,6 @@ import {
 // tmux server. Command lines and options follow docs/spikes/session-ids.md.
 
 const TIMEOUT_MS = 5000;
-export const TMUX_INSTALL = 'brew install tmux';
 
 type WindowSpec = WindowTarget & {
   cwd: string;

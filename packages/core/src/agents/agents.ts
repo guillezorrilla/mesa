@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { IdSource } from '../lib/ids.js';
-import { type Binary, probe } from '../lib/probe.js';
-import { type Runner, shellWord } from '../lib/process.js';
+import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.js';
 import { readAntigravityResult } from './antigravity/result.js';
@@ -22,7 +21,7 @@ import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
 import { codexTranscriptReader } from './codex/transcripts.js';
 import { codexUsage } from './codex/usage.js';
 import { addDirArgs, type LaunchDefaults, launchFlags } from './launch-flags.js';
-import { AGENT_EXECUTABLES, AGENT_NAMES, type Agent } from './names.js';
+import { AGENT_NAMES, type Agent } from './names.js';
 import {
   CLAUDE_VAULT_TOOLS,
   CLAUDE_VAULT_WRITES,
@@ -289,16 +288,6 @@ export const AgentSchema = z.enum(AGENT_NAMES);
 /** An agent's entry. */
 export type AgentSpec = (typeof AGENTS)[Agent];
 
-/** An agent's binary, as doctor and a session's start probe it. */
-export function agentBinary(name: Agent): Binary {
-  return {
-    name: AGENT_EXECUTABLES[name],
-    args: AGENTS[name].versionArgs,
-    role: 'agent',
-    install: AGENTS[name].install,
-  };
-}
-
 /**
  * The agent session id a new session starts under: one Mesa picks, for an agent that takes it
  * (claude), or none yet, for one that picks its own (codex), read once it runs.
@@ -336,11 +325,4 @@ export function startCommand(
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
   return AGENTS.claude.start(s.agentSessionId, server, defaults, s.goal, s.mode, dirs);
-}
-
-/** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */
-export async function readyAgent(run: Runner, agent: Agent): Promise<AgentSpec> {
-  const check = await probe(run, agentBinary(agent));
-  if (!check.ok) throw new MesaError('agent_unavailable', `${agent} ${check.hint}`);
-  return AGENTS[agent];
 }

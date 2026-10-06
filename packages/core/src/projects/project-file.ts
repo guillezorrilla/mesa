@@ -5,12 +5,12 @@ import { AgentSchema } from '../agents/agents.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
+import { slugify } from '../lib/slug.js';
 import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
 import { TERMINAL_THEMES } from '../profile/preferences.js';
-import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
-import { slugify } from './slug.js';
+import { WORKTREE_OVERRIDE_FIELDS } from './overrides.js';
 
-export { slugify } from './slug.js';
+export { slugify } from '../lib/slug.js';
 
 /** A project's priority when its mesa.yaml gives none, or it cannot be read: the middle. */
 export const DEFAULT_PRIORITY = 0.5;

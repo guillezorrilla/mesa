@@ -7,16 +7,6 @@ import { valueAt } from '../lib/yaml-file.js';
 import type { Config } from '../profile/config.js';
 import type { Profile } from '../profile/profile.js';
 import {
-  APPROVAL_FROM_SESSION,
-  approveScripts,
-  describePending,
-  type PendingScripts,
-  scriptFingerprint,
-  unapprovedScripts,
-  WORKTREE_SCRIPTS,
-  type WorktreeScripts,
-} from '../worktrees/approval.js';
-import {
   DEFAULT_PRIORITY,
   minimalProject,
   type Project,
@@ -26,6 +16,16 @@ import {
   writeProjectFile,
 } from './project-file.js';
 import { findClash, type RegistryEntry, readRegistry, updateRegistry } from './registry.js';
+import {
+  APPROVAL_FROM_SESSION,
+  approveScripts,
+  describePending,
+  type PendingScripts,
+  scriptFingerprint,
+  unapprovedScripts,
+  WORKTREE_SCRIPTS,
+  type WorktreeScripts,
+} from './trust.js';
 
 export type ProjectRow = {
   name: string;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { AGENT_STATES } from '../agents/states.js';
-import { relativeFilePath } from '../files/path.js';
+import { relativeFilePath } from '../git/path.js';
 import { SESSION_ID_PATTERN } from '../sessions/id.js';
 import { cronFields } from './cron.js';
 

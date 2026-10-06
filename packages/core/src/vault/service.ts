@@ -1,21 +1,22 @@
 import type { MesaContext } from '../context.js';
-import type { Stdio } from '../lib/mcp-server.js';
 import { findProject } from '../projects/projects.js';
+import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { callerOf } from '../sessions/caller.js';
 import { GENERAL_PROJECT } from '../sessions/general.js';
 import { writeBases } from './bases.js';
-import { vaultBinding } from './binding.js';
 import { vaultHealth } from './health.js';
 import { listVault, type VaultInventory } from './inventory.js';
 import type { VaultFilter } from './item.js';
+import { vaultBinding } from './mount/binding.js';
+import type { Stdio } from './mount/mcp-server.js';
+import { projectContext } from './mount/project-context.js';
+import { serveVault } from './mount/server.js';
+import { sessionGoals } from './mount/session-goals.js';
+import { sessionWrites } from './mount/session-writes.js';
+import { VAULT_TOOLS } from './mount/tools.js';
 import { openInObsidian } from './obsidian.js';
-import { projectContext } from './project-context.js';
 import { readVaultItem } from './reader.js';
 import { searchVault, type VaultSearchFilter } from './search.js';
-import { serveVault } from './server.js';
-import { sessionGoals } from './session-goals.js';
-import { sessionWrites } from './session-writes.js';
-import { VAULT_TOOLS } from './tools.js';
 import { initVault, vaultStatus } from './vault.js';
 
 /**
@@ -59,7 +60,7 @@ export function vaultService(ctx: MesaContext) {
         ),
       status: () => vaultStatus(vaultOf()),
       health: () => vaultHealth(vaultOf()),
-      bases: () => writeBases({ ...ctx, vault: vaultOf() }),
+      bases: () => writeBases({ ...ctx, vault: vaultOf() }, BASES_MEANINGFUL_FILTER),
       /** Every item in the vault (listVault), with the vault and how many are listed. */
       list: (filter?: VaultFilter): VaultInventory => {
         const vault = vaultOf();

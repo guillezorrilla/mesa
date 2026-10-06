@@ -5,7 +5,6 @@ import { writeFileAtomic } from '../lib/atomic-file.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { localDay, obsidianDateTime, validLocalDay } from '../lib/time.js';
 import { meaningfulReceipt } from '../receipts/policy.js';
-import { receiptLink } from '../receipts/receipt-file.js';
 import { listReceipts, receiptLogLine } from '../receipts/store.js';
 import { parseNote, serializeNote } from '../vault/frontmatter.js';
 import { dailyNotePath, VAULT } from '../vault/layout.js';
@@ -16,6 +15,7 @@ import {
   refuseLocked,
   requireLog,
 } from '../vault/notes.js';
+import { receiptLink } from '../vault/receipt-file.js';
 import { outOfScope, vaultFile } from '../vault/scope.js';
 import { VAULT_INIT_MARK } from '../vault/vault.js';
 import { withVaultLock } from '../vault/vault-lock.js';
