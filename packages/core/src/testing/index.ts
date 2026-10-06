@@ -213,8 +213,11 @@ export function fakeTmux(
   const noServer = () => failed('no server running on /private/tmp/tmux-501/fake');
   const failed = (detail: string): RunResult => ({ ok: false, reason: 'failed', detail });
   const flag = (args: string[], name: string) => args[args.indexOf(name) + 1] ?? '';
+  /** The window `=project:=window` names: split at its last `:=`, as tmux's exact target reads. */
   const find = (target: string) => {
-    const [, project, window] = /^=(.*):=(.*)$/.exec(target) ?? [];
+    const at = target.lastIndexOf(':=');
+    if (!target.startsWith('=') || at < 1) return undefined;
+    const [project, window] = [target.slice(1, at), target.slice(at + 2)];
     return windows.find((w) => w.project === project && w.window === window);
   };
   const line = (w: FakeWindow, i: number) =>
