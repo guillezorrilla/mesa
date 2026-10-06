@@ -7,7 +7,7 @@ import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
 import { TERMINAL_THEMES } from '../profile/preferences.js';
-import { WORKTREE_OVERRIDE_FIELDS } from '../worktrees/fields.js';
+import { WORKTREE_OVERRIDE_FIELDS } from './overrides.js';
 import { slugify } from './slug.js';
 
 export { slugify } from './slug.js';

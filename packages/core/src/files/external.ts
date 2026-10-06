@@ -1,8 +1,8 @@
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
-import type { Checkout } from '../git/checkout.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import type { Checkout } from '../projects/checkout.js';
 import { readWorkspaceFile } from './editor.js';
 
 /** A configured executable and literal argv template, never a shell command. */

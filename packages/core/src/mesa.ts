@@ -36,6 +36,7 @@ import { usageService } from './usage/service.js';
 import { statusLineService } from './usage/statusline.js';
 import { vaultChoices } from './vault/obsidian.js';
 import { vaultService } from './vault/service.js';
+import { listWorktrees } from './worktrees/inventory.js';
 import { worktreesService } from './worktrees/service.js';
 
 export type { MesaDeps } from './context.js';
@@ -75,7 +76,9 @@ export function createMesa(profile: string, deps: MesaDeps) {
     prompts,
     files: filesService(ctx),
     worktrees: worktreesService(ctx),
-    git: gitService(ctx, faro),
+    git: gitService(ctx, faro, (opened, project) =>
+      listWorktrees(opened, ctx.run, ctx.store, project),
+    ),
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),

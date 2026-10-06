@@ -2,7 +2,7 @@ import type { Override } from '../decisions/guardrail.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
-import { type Checkout, resolveCheckout } from './checkout.js';
+import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { gitCommand } from './command.js';
 import { branchName } from './ref.js';
 

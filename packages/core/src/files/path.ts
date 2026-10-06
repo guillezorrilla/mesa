@@ -1,21 +1,7 @@
 import { lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
+import { relativeFilePath } from '../git/path.js';
 import { MesaError } from '../lib/result.js';
-
-/** One file below a checkout, with no traversal, Git internals (any case: APFS folds it), or symlink traversal. */
-export function relativeFilePath(path: string): string {
-  if (
-    !path ||
-    path.startsWith('/') ||
-    path.includes('\0') ||
-    path
-      .split('/')
-      .some((part) => !part || part === '.' || part === '..' || part.toLowerCase() === '.git')
-  ) {
-    throw new MesaError('usage', 'path must be a repository-relative file');
-  }
-  return path;
-}
 
 export function checkedFilePath(root: string, path: string, create = false): string {
   const parts = relativeFilePath(path).split('/');

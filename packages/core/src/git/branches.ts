@@ -1,10 +1,11 @@
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
+import { type Checkout, resolveCheckout } from '../projects/checkout.js';
 import { findProject } from '../projects/projects.js';
 import { checkoutHolder } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
-import { type Checkout, gitWorktrees, resolveCheckout } from './checkout.js';
+import { gitWorktrees } from './checkout.js';
 import { gitCommand } from './command.js';
 import { branchName, commitOid } from './ref.js';
 

@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
-import type { Project } from '../projects/project-file.js';
-import { type RegistryEntry, updateRegistry } from '../projects/registry.js';
+import type { Project } from './project-file.js';
+import { type RegistryEntry, updateRegistry } from './registry.js';
 
 /** The worktree commands a project's mesa.yaml may name, which run on this machine. */
 export const WORKTREE_SCRIPTS = ['setup', 'teardown'] as const;

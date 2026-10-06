@@ -9,9 +9,9 @@ import {
   readSync,
   unlinkSync,
 } from 'node:fs';
-import type { Checkout } from '../git/checkout.js';
 import { createFileAtomic, writeFileAtomic } from '../lib/atomic-file.js';
 import { MesaError } from '../lib/result.js';
+import type { Checkout } from '../projects/checkout.js';
 import { checkedFilePath } from './path.js';
 
 const MAX_TEXT = 64 * 1024;

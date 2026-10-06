@@ -2,9 +2,9 @@ import { isDeepStrictEqual } from 'node:util';
 import type { MesaContext } from '../context.js';
 import { REDACTED, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
+import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../projects/trust.js';
 import { callerOf } from '../sessions/caller.js';
 import { acceptsMesaWrites, initVault } from '../vault/vault.js';
-import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../worktrees/approval.js';
 import { type Config, loadConfig, redactConfig, setConfigValue } from './config.js';
 import { initProfile, type ProfileInfo } from './profile.js';
 

@@ -1,7 +1,7 @@
 import { isAbsolute, relative } from 'node:path';
 import type { MesaContext } from '../context.js';
-import { resolveCheckout } from '../git/checkout.js';
 import { MesaError } from '../lib/result.js';
+import { resolveCheckout } from '../projects/checkout.js';
 import { readWorkspaceFile } from './editor.js';
 import { parseFileTarget } from './file-target.js';
 

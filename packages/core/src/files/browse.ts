@@ -1,9 +1,9 @@
 import { type Dirent, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Checkout } from '../git/checkout.js';
 import { gitCommand } from '../git/command.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
+import type { Checkout } from '../projects/checkout.js';
 import { readWorkspaceFile } from './editor.js';
 
 const MAX_ENTRIES = 1500;

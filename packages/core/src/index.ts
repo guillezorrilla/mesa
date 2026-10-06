@@ -47,7 +47,6 @@ export type { FileChange, WorkspaceFile } from './files/editor.js';
 export type { FileLink } from './files/link.js';
 export type { GitBranch, GitBranchAction } from './git/branches.js';
 export type { GitCommit, GitPathAction } from './git/changes.js';
-export type { Checkout } from './git/checkout.js';
 export type { DiffRow, GitDiff } from './git/diff.js';
 export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
@@ -82,11 +81,17 @@ export {
   shortcutFromKeys,
   validShortcut,
 } from './profile/shortcuts.js';
+export type { Checkout } from './projects/checkout.js';
 export type { DiscoveredProject } from './projects/discover.js';
 export type { Project } from './projects/project-file.js';
 export { repositoryUrl } from './projects/project-url.js';
 export type { ProjectRow } from './projects/projects.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
+export {
+  describePending,
+  type PendingScripts,
+  trustCommand,
+} from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export { RECEIPT_TYPES } from './receipts/receipt-file.js';
@@ -190,11 +195,6 @@ export {
 export { DEFAULT_GOALS, type SessionGoal } from './vault/session-goals.js';
 export type { DecisionInput, NoteInput, Saved, SummaryInput } from './vault/session-writes.js';
 export type { VaultStatus } from './vault/vault.js';
-export {
-  describePending,
-  type PendingScripts,
-  trustCommand,
-} from './worktrees/approval.js';
 export type { WorktreeDetails } from './worktrees/details.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
 export type { WorktreeAction, WorktreePreview } from './worktrees/lifecycle.js';

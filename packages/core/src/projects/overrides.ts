@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { relativeFilePath } from '../files/path.js';
+import { relativeFilePath } from '../git/path.js';
 
 const relativeDirectory = z.string().refine((value) => {
   try {

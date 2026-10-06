@@ -1,13 +1,14 @@
 import { cpSync, lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
 import { createCheckedFilePath } from '../files/path.js';
-import { gitWorktrees, resolveCheckout } from '../git/checkout.js';
+import { gitWorktrees } from '../git/checkout.js';
 import { gitCommand } from '../git/command.js';
 import type { IdSource } from '../lib/ids.js';
 import type { AsyncLockDeps } from '../lib/lock-file.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
+import { resolveCheckout } from '../projects/checkout.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { checkoutHolders, heldWorktrees, worktreeHolder } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';

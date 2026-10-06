@@ -1,5 +1,5 @@
 import type { MesaContext } from '../context.js';
-import { resolveCheckout } from '../git/checkout.js';
+import { resolveCheckout } from '../projects/checkout.js';
 import { fileTree, ignoredFolders, searchFiles } from './browse.js';
 import {
   createWorkspaceFile,

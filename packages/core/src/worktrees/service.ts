@@ -1,6 +1,6 @@
 import type { MesaContext } from '../context.js';
-import { resolveCheckout } from '../git/checkout.js';
 import { MesaError } from '../lib/result.js';
+import { resolveCheckout } from '../projects/checkout.js';
 import { findProject } from '../projects/projects.js';
 import { defaultBranchRef } from './base.js';
 import { createWorktree, worktreeCommand } from './create.js';
