@@ -4,13 +4,20 @@ import { createCheckedFilePath } from '../files/path.js';
 import { gitWorktrees, resolveCheckout } from '../git/checkout.js';
 import { gitCommand } from '../git/command.js';
 import type { IdSource } from '../lib/ids.js';
+import type { AsyncLockDeps } from '../lib/lock-file.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import type { RegistryEntry } from '../projects/registry.js';
 import { checkoutHolders, heldWorktrees, worktreeHolder } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
-import { addWorktree, removeWorktree, type Worktree, worktreePath } from '../sessions/worktree.js';
+import {
+  addWorktree,
+  isLeftover,
+  removeWorktree,
+  type Worktree,
+  worktreePath,
+} from '../sessions/worktree.js';
 import { sessionBranchName } from './branch-name.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
 import { worktreeScript, worktreeSettings } from './settings.js';
@@ -30,6 +37,7 @@ function refuseHeld(store: SessionStore, path: string) {
 export async function sessionWorktree(
   profile: Profile,
   run: Runner,
+  lock: AsyncLockDeps,
   store: SessionStore,
   project: RegistryEntry,
   branch: string,
@@ -37,9 +45,10 @@ export async function sessionWorktree(
 ) {
   const path = worktreePath(worktreeRoot(profile, project), branch);
   const present = lstatSync(path, { throwIfNoEntry: false });
-  if (!present)
+  // An empty folder a killed create left is no worktree: creating again reclaims it.
+  if (!present || isLeftover(path))
     return {
-      worktree: await createWorktree(profile, run, store, project, branch, base),
+      worktree: await createWorktree(profile, run, lock, store, project, branch, base),
       created: true,
     };
   const taken = () =>
@@ -107,6 +116,7 @@ export async function checkoutWorktree(
 export async function createWorktree(
   profile: Profile,
   run: Runner,
+  lock: AsyncLockDeps,
   store: SessionStore,
   project: RegistryEntry,
   branch: string,
@@ -118,7 +128,7 @@ export async function createWorktree(
   const settings = worktreeSettings(profile, project);
   // Before Git adds anything: an unapproved project setup leaves no worktree behind.
   const setup = worktreeScript(profile, project, 'setup');
-  const worktree = await addWorktree(run, {
+  const worktree = await addWorktree(run, lock, {
     repo: project.path,
     root,
     branch,

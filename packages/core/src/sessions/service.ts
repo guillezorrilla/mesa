@@ -112,13 +112,13 @@ export function sessionsService(
     shell: deps.env.SHELL || '/bin/zsh',
     home: deps.home,
     self: deps.self,
+    lock: deps,
   });
   /** What an adoption takes: a launch's, the agent listing, and the other profiles' sessions. */
   const adoptDeps = () => ({
     ...openDeps(),
     listing: () => listAgentProcesses(deps),
     elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
-    lock: deps,
   });
   /** What a discovery adoption's receipt keeps of one folder. */
   const adoptionOutputs = (r: DiscoveryAdoption) => ({

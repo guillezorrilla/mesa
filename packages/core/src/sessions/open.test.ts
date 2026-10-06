@@ -811,6 +811,20 @@ test("with an origin, a new branch starts from origin's HEAD, tracking nothing, 
   expect(upstreamOf(dir, 'shared')).toBe('refs/heads/shared');
 });
 
+test('a retry after a create killed midway reclaims its empty folder and its branch on the base', async () => {
+  const world = agentWorld();
+  const { home, dir, mesa } = await setUp(world);
+  gitRepo(dir);
+  // What a kill after `git branch` and the claim, before `git worktree add`, leaves behind.
+  testGit(dir, 'branch', 'retry', 'main');
+  mkdirSync(worktreeAt(home, 'lantern-cove', 'retry'), { recursive: true });
+  const { result } = await mesa.sessions.open('lantern-cove', { branch: 'retry', base: 'main' });
+  expect(result.worktree).toMatchObject({ branch: 'retry', base: 'main' });
+  expect(testGit(worktreeAt(home, 'lantern-cove', 'retry'), 'rev-parse', 'HEAD')).toBe(
+    testGit(dir, 'rev-parse', 'main'),
+  );
+});
+
 test('--base starts the new branch there; an existing branch is reused as it is', async () => {
   const world = agentWorld();
   const { home, dir, mesa } = await setUp(world);

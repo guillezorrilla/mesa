@@ -12,6 +12,7 @@ import { sandboxOverride } from '../agents/launch-flags.js';
 import { AGENT_NAMES } from '../agents/names.js';
 import { mountsPerLaunch, type VaultServer } from '../agents/vault-mount.js';
 import type { Clock } from '../lib/clock.js';
+import type { AsyncLockDeps } from '../lib/lock-file.js';
 import type { Env, Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -54,6 +55,8 @@ export type LaunchDeps = {
   syncSkills: (project: string, folder: string) => void;
   /** The mesa-vault server every agent command mounts (agents/vault-mount.ts). */
   vaultServer: VaultServer;
+  /** For the locks a launch takes: a new worktree's, and the registry's. */
+  lock: AsyncLockDeps;
 };
 
 /**
@@ -270,5 +273,5 @@ function syncSkillsInto(deps: Pick<LaunchDeps, 'syncSkills'>, project: string, f
 
 /** A new worktree on `branch`, unless a session has the worktree there. */
 function worktreeFor(deps: LaunchDeps, entry: RegistryEntry, branch: string, base?: string) {
-  return sessionWorktree(deps.profile, deps.run, deps.store, entry, branch, base);
+  return sessionWorktree(deps.profile, deps.run, deps.lock, deps.store, entry, branch, base);
 }

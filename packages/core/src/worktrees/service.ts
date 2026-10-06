@@ -31,6 +31,7 @@ export function worktreesService(ctx: MesaContext) {
           createWorktree(
             ctx.open(),
             ctx.deps.run,
+            ctx.deps,
             ctx.store,
             findProject(ctx.open(), project),
             branch,
