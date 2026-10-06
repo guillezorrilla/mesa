@@ -1,6 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { writeFileAtomic } from '../lib/atomic-file.js';
+import { createFileAtomic, writeFileAtomic } from '../lib/atomic-file.js';
 import type { Clock } from '../lib/clock.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
@@ -66,17 +66,26 @@ export function writeNote(deps: NotesDeps, note: { path: string } & Note, source
   const file = vaultWriteFile(deps.vault, note.path, project);
   const previous = readIfExists(file);
   refuseLocked(file, previous);
-  const now = obsidianDateTime(deps.clock());
-  const fields = ownFields(note.frontmatter);
-  const frontmatter: Frontmatter = {
-    created: previous?.frontmatter.created ?? now,
-    updated: now,
-    source,
-    ...fields,
-  };
+  const frontmatter = stamped(deps, note.frontmatter, source, previous?.frontmatter.created);
   mkdirSync(dirname(file), { recursive: true });
   writeFileAtomic(file, serializeNote({ frontmatter, body: note.body }));
   return { frontmatter, body: note.body };
+}
+
+/** writeNote for a new note: created whole (createFileAtomic), or false when `path` exists. */
+export function createNote(deps: NotesDeps, note: { path: string } & Note): boolean {
+  const project =
+    typeof note.frontmatter.project === 'string' ? note.frontmatter.project : undefined;
+  const file = vaultWriteFile(deps.vault, note.path, project);
+  mkdirSync(dirname(file), { recursive: true });
+  const frontmatter = stamped(deps, note.frontmatter, 'mesa');
+  return createFileAtomic(file, serializeNote({ frontmatter, body: note.body }));
+}
+
+/** A note's frontmatter as Mesa writes it: `created` (or `now`), `updated`, `source`, then its own. */
+function stamped(deps: NotesDeps, fields: Frontmatter, source: string, created?: unknown) {
+  const now = obsidianDateTime(deps.clock());
+  return { created: created ?? now, updated: now, source, ...ownFields(fields) } as Frontmatter;
 }
 
 type Change = (current: Note | undefined) => Note | Promise<Note>;
