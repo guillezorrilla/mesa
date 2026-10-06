@@ -4,7 +4,7 @@ import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { ProjectSelect } from '@/features/sessions/fields/ProjectSelect';
+import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { options } from './controls/options';
@@ -31,7 +31,7 @@ const branch = (text: string) => ({ value: text.trim() || undefined });
  * mesa.yaml through `mesa projects set`; each row names the profile value it otherwise inherits.
  * Scripts its mesa.yaml names that this profile has not approved are shown, exactly, for approval.
  */
-export function ProjectSettings(props: { onChanged: () => void }) {
+export function ProjectSettingsPanel(props: { onChanged: () => void }) {
   const { config } = useSettings();
   const projects = useCommand('projects.list');
   const run = useRun();
@@ -68,7 +68,7 @@ export function ProjectSettings(props: { onChanged: () => void }) {
           description={project ? project.path : 'Register a project to override settings for it.'}
           htmlFor="project-settings-project"
           control={
-            <ProjectSelect
+            <ProjectField
               id="project-settings-project"
               className="min-w-40"
               projects={projects.data}

@@ -1,16 +1,11 @@
 import type { TreeRow } from '@mesa/core';
-import {
-  GENERAL_PROJECT,
-  projectLabel,
-  sessionLabel,
-  sessionTitle,
-  WAITING_STATES,
-} from '@mesa/core/browser';
+import { GENERAL_PROJECT, projectLabel, sessionLabel, sessionTitle } from '@mesa/core/browser';
 import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
 import type { SessionLocation } from '../start/useStartSession';
+import { stateTone } from '../stateTone';
 import { HoverAction } from './HoverAction';
 import { SessionCardMenu } from './SessionCardMenu';
 
@@ -74,10 +69,8 @@ export function SessionCard(props: {
             <span
               aria-hidden
               className={cn(
-                'size-2 shrink-0 rounded-full border border-state-idle',
-                WAITING_STATES.has(session.lastState.state) && 'border-state-waiting',
-                session.lastState.state === 'working' && 'border-state-working',
-                session.lastState.state === 'failed' && 'border-state-failed',
+                'size-2 shrink-0 rounded-full border',
+                stateTone(session.lastState.state).dot,
               )}
             />
           )}
@@ -107,11 +100,7 @@ export function SessionCard(props: {
               </span>
             )}
             <span
-              className={cn(
-                'pl-4 font-mono text-[11px] text-muted-foreground',
-                WAITING_STATES.has(session.lastState.state) && 'text-state-waiting',
-                session.lastState.state === 'failed' && 'text-state-failed',
-              )}
+              className={cn('pl-4 font-mono text-[11px]', stateTone(session.lastState.state).line)}
             >
               {session.lastState.state}
             </span>

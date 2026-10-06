@@ -25,7 +25,7 @@ const LOCATIONS = [
 ] as const;
 
 /** Where worktrees go and what each new one gets; saved whole, so a cleared field is removed. */
-export function WorktreeSettings() {
+export function WorktreeSettingsPanel() {
   const { config, acting, save } = useSettings();
   const worktrees = config.worktrees;
   const [choosingRoot, setChoosingRoot] = useState(false);

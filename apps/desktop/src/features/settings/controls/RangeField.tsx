@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSettings } from '../useSettings';
 
 /** A slider that follows the drag and saves once, where it is released. */
-export function Range(props: {
+export function RangeField(props: {
   id: string;
   path: string;
   value: number;

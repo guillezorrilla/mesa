@@ -1,7 +1,7 @@
-import type { Config, WorkspaceFile } from '@mesa/core';
+import type { Config } from '@mesa/core';
 import { DEFAULT_APPEARANCE } from '@mesa/core/browser';
 import { useEffect, useRef, useState } from 'react';
-import { said, warningOf } from '@/components/Toast';
+import { warningOf } from '@/components/Toast';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { CreateFileDialog } from './dialogs/CreateFileDialog';
@@ -9,13 +9,14 @@ import { DeleteFileDialog } from './dialogs/DeleteFileDialog';
 import { DiscardFileDialog } from './dialogs/DiscardFileDialog';
 import { RenameFileDialog } from './dialogs/RenameFileDialog';
 import { FileEditor } from './FileEditor';
-import { FileEditorSettings } from './FileEditorSettings';
+import { FileEditorSettingsPanel } from './FileEditorSettingsPanel';
 import { FileSearch } from './FileSearch';
 import { FilesEmptyState } from './FilesEmptyState';
 import { FilesSidePanel } from './FilesSidePanel';
 import { FileTabBar } from './FileTabBar';
 import { FileTree } from './FileTree';
 import { useFilePanes } from './useFilePanes';
+import { useOpenFile } from './useOpenFile';
 import { useUnloadGuard } from './useUnloadGuard';
 
 type Pending =
@@ -34,8 +35,8 @@ const DEFAULT_EDITOR: Config['editor'] = {
 };
 
 /**
- * A two-pane repository browser over the same checked file commands as the CLI. It owns
- * the open file and its unsaved draft: every navigation that would drop the draft asks first.
+ * A two-pane repository browser over the same checked file commands as the CLI. It guards the
+ * open file's unsaved draft (useOpenFile): every navigation that would drop the draft asks first.
  */
 export function FilesTab(props: {
   project: string;
@@ -43,14 +44,10 @@ export function FilesTab(props: {
   target?: { checkout: string; path: string; line: number };
 }) {
   const [checkout, setCheckout] = useState('');
-  const [opened, setOpened] = useState<(WorkspaceFile & { targetLine?: number }) | null>(null);
-  const [openCount, setOpenCount] = useState(0);
-  const [draft, setDraft] = useState('');
   const { pane, setPane, focusPane, goToInput, searchInput } = useFilePanes();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dialog, setDialog] = useState<'create' | 'rename' | 'delete' | 'discard'>();
   const [pending, setPending] = useState<Pending>();
-  const loadRequest = useRef(0);
   const run = useRun();
   const config = useCommand('config.get');
   const preferences = config.data?.editor ?? DEFAULT_EDITOR;
@@ -61,22 +58,15 @@ export function FilesTab(props: {
     project: props.project,
     checkout: checkout || undefined,
   });
-  const dirty = Boolean(opened && draft !== opened.text);
+  const file = useOpenFile({
+    project: props.project,
+    checkout,
+    refresh: tree.refresh,
+    onWritten: () => setDialog(undefined),
+  });
+  const { opened, dirty } = file;
   useEffect(() => props.onDirtyChange(dirty), [dirty, props.onDirtyChange]);
   useUnloadGuard(dirty);
-  const load = async (path: string, line?: number, selected = checkout) => {
-    const request = ++loadRequest.current;
-    const file = await run('files.read', {
-      project: props.project,
-      checkout: selected || undefined,
-      path,
-      line,
-    });
-    if (!file || request !== loadRequest.current) return;
-    setOpenCount((count) => count + 1);
-    setOpened(file);
-    setDraft(file.text);
-  };
   const request = (next: Pending) => {
     if (dirty) {
       setPending(next);
@@ -88,22 +78,17 @@ export function FilesTab(props: {
   const perform = async (next: Pending) => {
     setDialog(undefined);
     setPending(undefined);
-    if (next.kind === 'open') await load(next.path, next.line);
+    if (next.kind === 'open') await file.load(next.path, next.line);
     if (next.kind === 'link') {
-      loadRequest.current++;
       setCheckout(next.checkout);
-      await load(next.path, next.line, next.checkout);
+      await file.load(next.path, next.line, next.checkout);
     }
     if (next.kind === 'checkout') {
-      loadRequest.current++;
+      file.close();
       setCheckout(next.path);
-      setOpened(null);
     }
-    if (next.kind === 'close') {
-      loadRequest.current++;
-      setOpened(null);
-    }
-    if (next.kind === 'reload' && opened) await load(opened.path, opened.targetLine);
+    if (next.kind === 'close') file.close();
+    if (next.kind === 'reload' && opened) await file.load(opened.path, opened.targetLine);
   };
   const linkRequest = useRef(request);
   useEffect(() => {
@@ -112,89 +97,11 @@ export function FilesTab(props: {
   useEffect(() => {
     if (props.target) linkRequest.current({ kind: 'link', ...props.target });
   }, [props.target]);
-  const save = () =>
-    act(async () => {
-      if (!opened) return undefined;
-      const request = loadRequest.current;
-      const result = await run('files.write', {
-        project: props.project,
-        checkout: checkout || undefined,
-        path: opened.path,
-        text: draft,
-        revision: opened.revision,
-      });
-      if (!result) return undefined;
-      // Another file opened meanwhile: this one's header must not return over its text.
-      if (request === loadRequest.current)
-        setOpened({
-          ...opened,
-          text: draft,
-          lines: draft.split('\n').length,
-          revision: result.revision ?? opened.revision,
-        });
-      await tree.refresh();
-      return warningOf(result);
-    });
   const savePreference = (path: keyof Config['editor'], value: unknown) =>
     act(async () => {
       const result = await run('config.set', { path: `editor.${path}`, value });
       if (!result) return undefined;
       await config.refresh();
-      return warningOf(result);
-    });
-  const openExternally = () =>
-    act(async () => {
-      if (!opened) return undefined;
-      const result = await run('files.open', {
-        project: props.project,
-        checkout: checkout || undefined,
-        path: opened.path,
-        line: opened.targetLine,
-      });
-      return result && said(`Opened ${opened.path} externally`, result);
-    });
-  const create = (path: string) =>
-    act(async () => {
-      const result = await run('files.create', {
-        project: props.project,
-        checkout: checkout || undefined,
-        path,
-      });
-      if (!result) return undefined;
-      setDialog(undefined);
-      await tree.refresh();
-      await load(path);
-      return warningOf(result);
-    });
-  const rename = (path: string) =>
-    act(async () => {
-      if (!opened) return undefined;
-      const result = await run('files.rename', {
-        project: props.project,
-        checkout: checkout || undefined,
-        from: opened.path,
-        path,
-        revision: opened.revision,
-      });
-      if (!result) return undefined;
-      setDialog(undefined);
-      await tree.refresh();
-      await load(path);
-      return warningOf(result);
-    });
-  const remove = () =>
-    act(async () => {
-      if (!opened) return undefined;
-      const result = await run('files.delete', {
-        project: props.project,
-        checkout: checkout || undefined,
-        path: opened.path,
-        revision: opened.revision,
-      });
-      if (!result) return undefined;
-      setDialog(undefined);
-      setOpened(null);
-      await tree.refresh();
       return warningOf(result);
     });
   return (
@@ -241,15 +148,15 @@ export function FilesTab(props: {
               canOpenExternally={preferences.external.length > 0}
               settingsOpen={settingsOpen}
               onClose={() => request({ kind: 'close' })}
-              onOpenExternally={() => void openExternally()}
+              onOpenExternally={() => void act(file.openExternally)}
               onReload={() => request({ kind: 'reload' })}
               onRename={() => setDialog('rename')}
               onDelete={() => setDialog('delete')}
               onToggleSettings={() => setSettingsOpen((last) => !last)}
-              onSave={() => void save()}
+              onSave={() => void act(file.save)}
             />
             {settingsOpen && (
-              <FileEditorSettings
+              <FileEditorSettingsPanel
                 preferences={preferences}
                 disabled={acting}
                 onSave={(key, value) => void savePreference(key, value)}
@@ -257,11 +164,11 @@ export function FilesTab(props: {
             )}
             <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3">
               <FileEditor
-                key={`${opened.path}:${openCount}:${preferences.fontSize}:${preferences.tabSize}:${preferences.wordWrap}:${preferences.vim}`}
+                key={`${opened.path}:${file.openCount}:${preferences.fontSize}:${preferences.tabSize}:${preferences.wordWrap}:${preferences.vim}`}
                 path={opened.path}
-                value={draft}
+                value={file.draft}
                 initialText={opened.text}
-                onChange={setDraft}
+                onChange={file.setDraft}
                 targetLine={opened.targetLine}
                 preferences={preferences}
               />
@@ -274,7 +181,7 @@ export function FilesTab(props: {
       {dialog === 'create' && (
         <CreateFileDialog
           busy={acting}
-          onCreate={(path) => void create(path)}
+          onCreate={(path) => void act(() => file.create(path))}
           onCancel={() => setDialog(undefined)}
         />
       )}
@@ -282,7 +189,7 @@ export function FilesTab(props: {
         <RenameFileDialog
           path={opened.path}
           busy={acting}
-          onRename={(path) => void rename(path)}
+          onRename={(path) => void act(() => file.rename(path))}
           onCancel={() => setDialog(undefined)}
         />
       )}
@@ -290,7 +197,7 @@ export function FilesTab(props: {
         <DeleteFileDialog
           path={opened.path}
           busy={acting}
-          onDelete={() => void remove()}
+          onDelete={() => void act(file.remove)}
           onCancel={() => setDialog(undefined)}
         />
       )}

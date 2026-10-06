@@ -2,7 +2,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { useSettings } from '../useSettings';
 
 /** A select saved to `path` on change; `toValue` turns the option into the stored value. */
-export function Choice<T extends string>(props: {
+export function ChoiceField<T extends string>(props: {
   id: string;
   path: string;
   value: T;

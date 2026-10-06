@@ -2,8 +2,8 @@ import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
 import { BookMarked, CircleDollarSign, ScrollText, SquareTerminal } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
-import { Choice } from './controls/Choice';
-import { Toggle } from './controls/Toggle';
+import { ChoiceField } from './controls/ChoiceField';
+import { ToggleField } from './controls/ToggleField';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
@@ -12,7 +12,7 @@ import { useSettings } from './useSettings';
  * What a new session starts with, whether its output is kept, whether Claude's status line shows
  * its cost, and the saved prompts.
  */
-export function SessionSettings(props: { onSavedPrompts: () => void }) {
+export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
   return (
     <>
@@ -29,7 +29,7 @@ export function SessionSettings(props: { onSavedPrompts: () => void }) {
           htmlFor="default-agent"
           keywords="model claude codex antigravity"
           control={
-            <Choice
+            <ChoiceField
               id="default-agent"
               path="defaultAgent"
               value={config.defaultAgent}
@@ -53,7 +53,9 @@ export function SessionSettings(props: { onSavedPrompts: () => void }) {
           title="Keep output logs"
           description="Record each new session's terminal output in the profile, so its log can be read back later."
           htmlFor="sessions-log"
-          control={<Toggle id="sessions-log" path="sessions.log" checked={config.sessions.log} />}
+          control={
+            <ToggleField id="sessions-log" path="sessions.log" checked={config.sessions.log} />
+          }
         />
       </SettingSection>
       <SettingSection
@@ -68,7 +70,7 @@ export function SessionSettings(props: { onSavedPrompts: () => void }) {
           htmlFor="sessions-status-line-cost"
           keywords="statusline cost usage price claude"
           control={
-            <Toggle
+            <ToggleField
               id="sessions-status-line-cost"
               path="sessions.statusLineCost"
               checked={config.sessions.statusLineCost}

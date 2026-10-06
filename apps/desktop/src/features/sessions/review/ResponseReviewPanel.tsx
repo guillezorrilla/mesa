@@ -1,5 +1,10 @@
-import type { GuardrailCheck, NativeResponse, ResponseReviewPreview } from '@mesa/core';
-import { Copy, RefreshCw, Send } from 'lucide-react';
+import type {
+  GuardrailCheck,
+  NativeResponse,
+  ResponseReviewPreview,
+  SessionResponses,
+} from '@mesa/core';
+import { Copy, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { type Message, said } from '@/components/Toast';
@@ -8,9 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
-import { useCall, useCommand } from '@/lib/useCommand';
+import { type CommandState, useCall } from '@/lib/useCommand';
 import { GuardrailDialog, guardrailOf } from '../dialogs/GuardrailDialog';
-import { ChangeReview } from './ChangeReview';
 import { reviewOutcome } from './reviewOutcome';
 
 type Selection = {
@@ -25,20 +29,20 @@ type Selection = {
 
 /**
  * Native responses beside the selected terminal, with copy and exact passage feedback;
- * `initialResponse` opens on that response.
+ * `initialResponse` opens on that response. While `shown` is false only its guardrail question
+ * stays, so its selection and comment outlast a look at the changes.
  */
-export function ResponseReview({
+export function ResponseReviewPanel({
   sessionId,
-  project,
-  checkout,
+  responses,
   initialResponse,
+  shown,
 }: {
   sessionId: string;
-  project?: string;
-  checkout?: string;
+  responses: CommandState<SessionResponses>;
   initialResponse?: NativeResponse;
+  shown: boolean;
 }) {
-  const responses = useCommand('review.responses', { id: sessionId });
   const platform = usePlatform();
   const call = useCall();
   const { act, acting } = useAct();
@@ -49,7 +53,6 @@ export function ResponseReview({
   const [ask, setAsk] = useState<GuardrailCheck>();
   const [deliveredId, setDeliveredId] = useState<string>();
   const [failure, setFailure] = useState<string>();
-  const [mode, setMode] = useState<'responses' | 'changes'>('responses');
 
   useEffect(() => {
     if (
@@ -114,48 +117,8 @@ export function ResponseReview({
     });
 
   return (
-    <aside
-      aria-label="Response review"
-      className="flex h-full min-h-0 w-[24rem] shrink-0 flex-col border-l bg-card"
-    >
-      <div className="flex items-center justify-between border-b px-3 py-2">
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={mode === 'responses' ? 'secondary' : 'ghost'}
-            onClick={() => setMode('responses')}
-          >
-            Responses
-          </Button>
-          {project && (
-            <Button
-              size="sm"
-              variant={mode === 'changes' ? 'secondary' : 'ghost'}
-              onClick={() => setMode('changes')}
-            >
-              Changes
-            </Button>
-          )}
-        </div>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Refresh responses"
-          onClick={() => void responses.refresh()}
-        >
-          <RefreshCw aria-hidden />
-        </Button>
-      </div>
-      {mode === 'changes' && project && (
-        <ChangeReview
-          sessionId={sessionId}
-          project={project}
-          checkout={checkout}
-          reviews={responses.data?.reviews ?? []}
-          onSaved={() => void responses.refresh()}
-        />
-      )}
-      {mode === 'responses' && (
+    <>
+      {shown && (
         <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3 text-sm">
           {responses.data?.unavailable && (
             <p className="text-muted-foreground">{responses.data.unavailable}</p>
@@ -297,6 +260,6 @@ export function ResponseReview({
           onCancel={() => setAsk(undefined)}
         />
       )}
-    </aside>
+    </>
   );
 }

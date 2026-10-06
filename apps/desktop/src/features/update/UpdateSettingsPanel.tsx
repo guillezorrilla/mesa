@@ -13,7 +13,7 @@ const CHANNELS = [
 ] as const;
 
 /** Settings > General's Updates: the channel the profile follows, and a check on demand. */
-export function UpdateSettings() {
+export function UpdateSettingsPanel() {
   const { status, busy, check } = useUpdate();
   const channel = useCommand('update.channel');
   const call = useCall();

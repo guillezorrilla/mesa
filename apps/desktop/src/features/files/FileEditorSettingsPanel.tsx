@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 
 /** The profile's editor preferences, each saved as soon as it changes. */
-export function FileEditorSettings(props: {
+export function FileEditorSettingsPanel(props: {
   preferences: Config['editor'];
   disabled: boolean;
   onSave: (key: keyof Config['editor'], value: unknown) => void;

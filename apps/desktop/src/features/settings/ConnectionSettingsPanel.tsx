@@ -10,7 +10,7 @@ import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 
 /** The profile's Connections: one row per source, to connect, reconnect, or disconnect it. */
-export function ConnectionSettings() {
+export function ConnectionSettingsPanel() {
   const list = useCommand('sources.list');
   const run = useRun();
   const { acting, act } = useAct();

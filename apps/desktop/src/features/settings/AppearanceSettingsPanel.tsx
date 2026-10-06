@@ -1,4 +1,3 @@
-import type { DoctorReport } from '@mesa/core';
 import {
   COLOR_VISION_MODES,
   INTERFACE_DENSITIES,
@@ -6,125 +5,22 @@ import {
   INTERFACE_THEMES,
   TERMINAL_THEMES,
 } from '@mesa/core/browser';
-import {
-  Database,
-  Eye,
-  FolderOpen,
-  Library,
-  Palette,
-  Power,
-  RefreshCw,
-  Stethoscope,
-  Type,
-} from 'lucide-react';
+import { Eye, Palette, Type } from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { Button } from '@/components/ui/button';
-import { UpdateSettings } from '@/features/update/UpdateSettings';
-import { usePlatform } from '@/lib/MesaRoot';
-import { useAct } from '@/lib/useAct';
-import { CliLinkRow } from './CliLinkRow';
-import { Choice } from './controls/Choice';
+import { ChoiceField } from './controls/ChoiceField';
 import { options } from './controls/options';
-import { Range } from './controls/Range';
+import { RangeField } from './controls/RangeField';
 import { TextField } from './controls/TextField';
-import { Toggle } from './controls/Toggle';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
-/** Application behaviour, updates, appearance, accessibility, and Doctor's health checks. */
-export function GeneralSettings(props: {
-  doctor?: DoctorReport;
-  doctorBusy: boolean;
-  onRecheck: () => void;
-  onDoctor: () => void;
-  onReplayTour: () => void;
-}) {
-  const { config, acting, save } = useSettings();
-  const { pickFolder } = usePlatform();
-  const { acting: picking, act } = useAct();
-  const { application, appearance, terminal } = config;
+/** Settings > General's Appearance and Accessibility: themes, typography, density and colour vision. */
+export function AppearanceSettingsPanel() {
+  const { config, save } = useSettings();
+  const { appearance, terminal } = config;
   return (
     <>
-      <SettingSection
-        id="application"
-        title="Application"
-        description="Application behavior and onboarding"
-        group="Quitting"
-        groupIcon={Power}
-      >
-        <SettingRow
-          icon={Power}
-          title="Warn before quitting"
-          description="Ask for confirmation before quitting the app"
-          htmlFor="warn-before-quit"
-          control={
-            <Toggle
-              id="warn-before-quit"
-              path="application.warnBeforeQuit"
-              checked={application.warnBeforeQuit}
-            />
-          }
-        />
-        <SettingRow
-          icon={Database}
-          title="Backup on close"
-          description="Create a local backup of the profile every time the app is closed"
-          htmlFor="backup-on-close"
-          control={
-            <Toggle
-              id="backup-on-close"
-              path="application.backupOnClose"
-              checked={application.backupOnClose}
-            />
-          }
-        />
-        <SettingRow
-          title="Setup guide"
-          description="Walk through setup again: requirements, projects, and a first session."
-          keywords="onboarding tour welcome"
-          control={
-            <Button size="sm" variant="ghost" disabled={acting} onClick={props.onReplayTour}>
-              Run again
-            </Button>
-          }
-        />
-        <CliLinkRow />
-      </SettingSection>
-      <UpdateSettings />
-      <SettingSection
-        id="vault"
-        title="Vault"
-        description="Local knowledge shared by all projects in this profile"
-      >
-        <SettingRow
-          icon={Library}
-          title="Vault folder"
-          description={<span className="break-all font-mono">{config.vault}</span>}
-          keywords="obsidian vault folder path change"
-          control={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={acting || picking}
-              onClick={() =>
-                void act(async () => {
-                  const folder = await pickFolder();
-                  if (folder && folder !== config.vault) save('vault', folder);
-                  return undefined;
-                })
-              }
-            >
-              <FolderOpen aria-hidden /> Change folder
-            </Button>
-          }
-        >
-          <p className="text-xs text-muted-foreground">
-            Choose another Obsidian vault or local folder. Existing files stay in their current
-            folder. New sessions use the selected vault.
-          </p>
-        </SettingRow>
-      </SettingSection>
       <SettingSection
         id="appearance"
         title="Appearance"
@@ -149,7 +45,7 @@ export function GeneralSettings(props: {
           description="Terminal color palette, or follow the interface theme"
           htmlFor="terminal-theme"
           control={
-            <Choice
+            <ChoiceField
               id="terminal-theme"
               path="terminal.theme"
               value={terminal.theme}
@@ -163,7 +59,7 @@ export function GeneralSettings(props: {
           description={`Terminal text size (${terminal.fontSize}px)`}
           htmlFor="terminal-font-size"
           control={
-            <Range
+            <RangeField
               id="terminal-font-size"
               path="terminal.fontSize"
               value={terminal.fontSize}
@@ -192,7 +88,7 @@ export function GeneralSettings(props: {
           description="The typeface of Mesa's own text"
           htmlFor="appearance-font"
           control={
-            <Choice
+            <ChoiceField
               id="appearance-font"
               path="appearance.font"
               value={appearance.font}
@@ -205,7 +101,7 @@ export function GeneralSettings(props: {
           description={`Mesa's own text size (${appearance.fontSize}px)`}
           htmlFor="appearance-size"
           control={
-            <Range
+            <RangeField
               id="appearance-size"
               path="appearance.fontSize"
               value={appearance.fontSize}
@@ -219,7 +115,7 @@ export function GeneralSettings(props: {
           description={`Code review and diff view text size (${appearance.diffFontSize}px)`}
           htmlFor="appearance-diff-size"
           control={
-            <Range
+            <RangeField
               id="appearance-diff-size"
               path="appearance.diffFontSize"
               value={appearance.diffFontSize}
@@ -233,7 +129,7 @@ export function GeneralSettings(props: {
           description={`File explorer and diff sidebar text size (${appearance.fileTreeFontSize}px)`}
           htmlFor="appearance-tree-size"
           control={
-            <Range
+            <RangeField
               id="appearance-tree-size"
               path="appearance.fileTreeFontSize"
               value={appearance.fileTreeFontSize}
@@ -247,7 +143,7 @@ export function GeneralSettings(props: {
           description="Spacing between UI elements"
           htmlFor="appearance-density"
           control={
-            <Choice
+            <ChoiceField
               id="appearance-density"
               path="appearance.density"
               value={appearance.density}
@@ -267,39 +163,12 @@ export function GeneralSettings(props: {
           description="Optimize state colors for color vision deficiency"
           htmlFor="appearance-colorVision"
           control={
-            <Choice
+            <ChoiceField
               id="appearance-colorVision"
               path="appearance.colorVision"
               value={appearance.colorVision}
               options={options(COLOR_VISION_MODES)}
             />
-          }
-        />
-      </SettingSection>
-      <SettingSection id="doctor" title="Doctor" description="Verify your setup is healthy">
-        <SettingRow
-          icon={Stethoscope}
-          title="Health checks"
-          description={
-            props.doctor
-              ? `${props.doctor.summary} · ${props.doctor.checks.filter((check) => check.status !== 'ok').length} findings`
-              : 'Run diagnostic checks on your setup.'
-          }
-          control={
-            <span className="flex gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={props.doctorBusy}
-                onClick={props.onRecheck}
-              >
-                <RefreshCw aria-hidden className={props.doctorBusy ? 'animate-spin' : undefined} />
-                Run checks
-              </Button>
-              <Button size="sm" variant="secondary" onClick={props.onDoctor}>
-                Open Doctor
-              </Button>
-            </span>
           }
         />
       </SettingSection>

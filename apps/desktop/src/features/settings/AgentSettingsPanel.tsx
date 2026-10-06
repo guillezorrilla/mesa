@@ -8,8 +8,8 @@ import {
 import { ListChecks, ShieldAlert } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { cn } from '@/lib/utils';
-import { LaunchSettings } from './agents/LaunchSettings';
-import { Choice } from './controls/Choice';
+import { LaunchSettingsPanel } from './agents/LaunchSettingsPanel';
+import { ChoiceField } from './controls/ChoiceField';
 import { TextField } from './controls/TextField';
 import { commaList } from './controls/textLists';
 import { SettingRow } from './SettingRow';
@@ -21,7 +21,7 @@ import { useSettings } from './useSettings';
  * Installed agents as Doctor found them, each agent's launch defaults, and how a headless
  * `mesa run` may act.
  */
-export function AgentSettings(props: { doctor?: DoctorReport }) {
+export function AgentSettingsPanel(props: { doctor?: DoctorReport }) {
   const { config, save } = useSettings();
   const overview = useMatches(
     `coding agents installed ${AGENT_NAMES.map((agent) => AGENT_LABELS[agent]).join(' ')}`,
@@ -66,7 +66,7 @@ export function AgentSettings(props: { doctor?: DoctorReport }) {
           agent's permissions into another's; a handoff uses the target agent's own defaults.
         </Muted>
       </SettingSection>
-      <LaunchSettings />
+      <LaunchSettingsPanel />
       <SettingSection
         id="headless"
         title="Headless runs"
@@ -78,7 +78,7 @@ export function AgentSettings(props: { doctor?: DoctorReport }) {
           description="Claude's --permission-mode for headless runs."
           htmlFor="run-permission-mode"
           control={
-            <Choice
+            <ChoiceField
               id="run-permission-mode"
               path="run.permissionMode"
               value={config.run.permissionMode}

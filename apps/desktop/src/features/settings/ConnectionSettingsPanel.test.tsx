@@ -2,7 +2,7 @@
 import type { SourceRow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa, toastTexts } from '@/lib/testing';
-import { ConnectionSettings } from './ConnectionSettings';
+import { ConnectionSettingsPanel } from './ConnectionSettingsPanel';
 
 const SITES = [{ id: 'cloud-1', name: 'lantern-cove', url: 'https://lantern-cove.atlassian.net' }];
 const DISCONNECTED: SourceRow = {
@@ -25,7 +25,7 @@ async function render(rows: () => SourceRow, answers: Parameters<typeof fakeBrid
     'sources list': () => envelope({ sources: [rows()] }),
     ...answers,
   });
-  const byTestId = await renderWithMesa(<ConnectionSettings />, bridge);
+  const byTestId = await renderWithMesa(<ConnectionSettingsPanel />, bridge);
   return { calls, byTestId };
 }
 const row = () => document.querySelector<HTMLElement>('[data-setting-row]');

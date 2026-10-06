@@ -1,7 +1,7 @@
 import type { Config } from '@mesa/core';
 import { AGENT_LABELS } from '@mesa/core/browser';
 import type { LucideIcon } from 'lucide-react';
-import { Choice } from '../controls/Choice';
+import { ChoiceField } from '../controls/ChoiceField';
 import { SettingRow } from '../SettingRow';
 import { useSettings } from '../useSettings';
 
@@ -37,7 +37,7 @@ export function LaunchRow<A extends keyof Launch>(props: {
         props.danger || (set !== undefined && set === props.dangerousValue) ? 'danger' : undefined
       }
       control={
-        <Choice
+        <ChoiceField
           id={id}
           path={`agents.${props.agent}`}
           value={set === true ? 'on' : typeof set === 'string' ? set : ''}

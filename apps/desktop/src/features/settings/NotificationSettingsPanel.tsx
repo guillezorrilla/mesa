@@ -1,7 +1,7 @@
 import type { Config } from '@mesa/core';
 import { BadgeAlert, Bell, BellOff } from 'lucide-react';
-import { Choice } from './controls/Choice';
-import { Toggle } from './controls/Toggle';
+import { ChoiceField } from './controls/ChoiceField';
+import { ToggleField } from './controls/ToggleField';
 import { ClearCenter } from './notifications/ClearCenter';
 import { PrEvents } from './notifications/PrEvents';
 import { SessionHooks } from './notifications/SessionHooks';
@@ -28,7 +28,7 @@ const DELIVERY = [
 ] as const;
 
 /** macOS banner permission, quiet mode, the visual alert, each kind's delivery, the hooks, and PR events. */
-export function NotificationSettings() {
+export function NotificationSettingsPanel() {
   const { config } = useSettings();
   return (
     <>
@@ -46,7 +46,7 @@ export function NotificationSettings() {
           description="Hold new banners; when quiet mode ends, pending notices arrive as one digest."
           htmlFor="notifications-quiet"
           control={
-            <Toggle
+            <ToggleField
               id="notifications-quiet"
               path="notifications.quiet"
               checked={config.notifications.quiet}
@@ -60,7 +60,7 @@ export function NotificationSettings() {
           keywords="dock badge sidebar waiting"
           htmlFor="notifications-visual-alert"
           control={
-            <Toggle
+            <ToggleField
               id="notifications-visual-alert"
               path="notifications.visualAlert"
               checked={config.notifications.visualAlert}
@@ -74,7 +74,7 @@ export function NotificationSettings() {
             description={`${description} macOS decides whether a requested sound plays.`}
             htmlFor={`notification-${key}`}
             control={
-              <Choice
+              <ChoiceField
                 id={`notification-${key}`}
                 path={`notifications.${key}`}
                 value={config.notifications[key as keyof Config['notifications']] as string}

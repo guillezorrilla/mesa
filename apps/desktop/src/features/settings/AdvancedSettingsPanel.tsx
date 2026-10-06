@@ -10,7 +10,7 @@ import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /** Faro's decisions, and where the profile's data lives and is backed up. */
-export function AdvancedSettings(props: { onBackup: () => void; onUsage: () => void }) {
+export function AdvancedSettingsPanel(props: { onBackup: () => void; onUsage: () => void }) {
   const { config, save } = useSettings();
   const run = useRun();
   const { acting, act } = useAct();

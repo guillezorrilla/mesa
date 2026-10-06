@@ -14,7 +14,7 @@ const ON = [['on', 'On']] as const;
 const values = (list: readonly string[]) => list.map((value) => [value, value] as const);
 
 /** Each agent's native launch defaults on new and resumed sessions, never translated. */
-export function LaunchSettings() {
+export function LaunchSettingsPanel() {
   return (
     <>
       <SettingSection

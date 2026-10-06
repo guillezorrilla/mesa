@@ -6,7 +6,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
  * A registered project, as the form's `project`, for a new session or a skill run; a project
  * whose folder is gone is a disabled option, since nothing can start there.
  */
-export function ProjectSelect({
+export function ProjectField({
   projects,
   ...props
 }: ComponentProps<typeof NativeSelect> & { projects: ProjectRow[] | undefined }) {

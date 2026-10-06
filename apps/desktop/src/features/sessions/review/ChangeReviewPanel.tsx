@@ -1,9 +1,4 @@
-import type {
-  ChangeReview as ChangeReviewData,
-  ChangeReviewPreview,
-  GuardrailCheck,
-  SavedReview,
-} from '@mesa/core';
+import type { ChangeReview, ChangeReviewPreview, GuardrailCheck, SavedReview } from '@mesa/core';
 import { Send } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -17,7 +12,7 @@ import { GuardrailDialog, guardrailOf } from '../dialogs/GuardrailDialog';
 import { reviewOutcome } from './reviewOutcome';
 
 /** A selected session's Git file and hunk, rechecked before feedback reaches its agent. */
-export function ChangeReview({
+export function ChangeReviewPanel({
   sessionId,
   project,
   checkout,
@@ -33,7 +28,7 @@ export function ChangeReview({
   const status = useCommand('git.status', { project, checkout });
   const call = useCall();
   const { act, acting } = useAct();
-  const [change, setChange] = useState<ChangeReviewData>();
+  const [change, setChange] = useState<ChangeReview>();
   const [staged, setStaged] = useState(false);
   const [hunk, setHunk] = useState<number>();
   const [comment, setComment] = useState('');

@@ -10,10 +10,10 @@ import {
   TextCursorInput,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Choice } from './controls/Choice';
-import { Range } from './controls/Range';
+import { ChoiceField } from './controls/ChoiceField';
+import { RangeField } from './controls/RangeField';
 import { TextField } from './controls/TextField';
-import { Toggle } from './controls/Toggle';
+import { ToggleField } from './controls/ToggleField';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
@@ -29,7 +29,7 @@ const argv = (text: string) => {
 };
 
 /** The embedded terminal, prompt keys and shortcuts, and the built-in editor. */
-export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
+export function TerminalEditorSettingsPanel(props: { onShortcuts: () => void }) {
   const { config, save } = useSettings();
   const { terminal, editor } = config;
   return (
@@ -47,7 +47,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="Use the Option key as the terminal Meta modifier. Disable for keyboards that use Option for characters like @."
           htmlFor="option-as-meta"
           control={
-            <Toggle
+            <ToggleField
               id="option-as-meta"
               path="terminal.optionAsMeta"
               checked={terminal.optionAsMeta}
@@ -60,7 +60,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="Click and drag to select text without holding Option."
           htmlFor="natural-selection"
           control={
-            <Toggle
+            <ToggleField
               id="natural-selection"
               path="terminal.naturalSelection"
               checked={terminal.naturalSelection}
@@ -73,7 +73,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="Show Copy and Review for the agent's latest response when hovering a session terminal."
           htmlFor="message-actions"
           control={
-            <Toggle
+            <ToggleField
               id="message-actions"
               path="terminal.messageActions"
               checked={terminal.messageActions}
@@ -86,7 +86,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description={`How far the wheel scrolls: 3 follows the finger, 6 goes twice as far (${terminal.scrollSpeed})`}
           htmlFor="scroll-speed"
           control={
-            <Range
+            <RangeField
               id="scroll-speed"
               path="terminal.scrollSpeed"
               value={terminal.scrollSpeed}
@@ -101,7 +101,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description='Which terminal app to use for "Open in terminal"'
           htmlFor="terminal-app"
           control={
-            <Choice
+            <ChoiceField
               id="terminal-app"
               path="terminal.app"
               value={terminal.app}
@@ -115,7 +115,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="In WezTerm, open sessions as a new tab in an existing window instead of a new window"
           htmlFor="wezterm-new-tab"
           control={
-            <Toggle
+            <ToggleField
               id="wezterm-new-tab"
               path="terminal.wezTermNewTab"
               checked={terminal.wezTermNewTab}
@@ -134,7 +134,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="An extra key that submits a prompt in the session terminal"
           htmlFor="submit-shortcut"
           control={
-            <Choice
+            <ChoiceField
               id="submit-shortcut"
               path="terminal.extraSubmitKey"
               value={terminal.extraSubmitKey}
@@ -151,7 +151,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="The key that inserts a newline instead of submitting"
           htmlFor="newline-shortcut"
           control={
-            <Choice
+            <ChoiceField
               id="newline-shortcut"
               path="terminal.newlineKey"
               value={terminal.newlineKey}
@@ -182,14 +182,14 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           title="Vim Mode"
           description="Use Vim keybindings in the built-in file editor."
           htmlFor="editor-vim"
-          control={<Toggle id="editor-vim" path="editor.vim" checked={editor.vim} />}
+          control={<ToggleField id="editor-vim" path="editor.vim" checked={editor.vim} />}
         />
         <SettingRow
           title="Wrap lines"
           description="Wrap long lines in the built-in editor instead of scrolling sideways."
           htmlFor="editor-word-wrap"
           control={
-            <Toggle id="editor-word-wrap" path="editor.wordWrap" checked={editor.wordWrap} />
+            <ToggleField id="editor-word-wrap" path="editor.wordWrap" checked={editor.wordWrap} />
           }
         />
         <SettingRow
@@ -197,7 +197,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description={`Built-in editor text size (${editor.fontSize}px)`}
           htmlFor="editor-font-size"
           control={
-            <Range
+            <RangeField
               id="editor-font-size"
               path="editor.fontSize"
               value={editor.fontSize}
@@ -211,7 +211,7 @@ export function TerminalEditorSettings(props: { onShortcuts: () => void }) {
           description="Spaces a Tab inserts in the built-in editor"
           htmlFor="editor-tab-size"
           control={
-            <Choice
+            <ChoiceField
               id="editor-tab-size"
               path="editor.tabSize"
               value={String(editor.tabSize)}
