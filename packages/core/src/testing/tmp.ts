@@ -10,7 +10,7 @@ export const tempDir = (prefix = 'mesa-') => realpathSync(mkdtempSync(join(tmpdi
  * the `tempDir` fixtures and whatever spawned CLIs and git write there never pile up in the shared
  * one. It takes effect at once, before the file's top-level `tempDir` calls: call it from a vitest
  * setup file with the environment the tests run in and vitest's `afterAll`, which this module
- * leaves to its caller so that nothing here needs vitest or process globals.
+ * leaves to its caller so that nothing here needs vitest or writes process globals.
  */
 export function isolateTmp({
   afterAll,
