@@ -10,7 +10,7 @@ import { ChevronsDown, ChevronsUp, Clock3, GitBranch, Plus, TerminalSquare, X } 
 import { Badge } from '@/components/ui/badge';
 import { AutomationBanner } from '@/features/automations/AutomationBanner';
 import { cn } from '@/lib/utils';
-import type { SessionLocation } from '../hooks/useStartSession';
+import type { SessionLocation } from '../start/useStartSession';
 import { HoverAction } from './HoverAction';
 import { SessionCardMenu } from './SessionCardMenu';
 

@@ -3,7 +3,7 @@ import { GENERAL_PROJECT } from '@mesa/core/browser';
 import { useCallback, useRef, useState } from 'react';
 import { useToast, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
-import type { WorkspaceView } from '../navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** Where a new session runs: the project's main checkout, a new worktree, or a plain terminal. */
 export type SessionLocation = 'main' | 'worktree' | 'terminal';

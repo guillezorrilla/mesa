@@ -1,8 +1,8 @@
 import { GENERAL_PROJECT } from '@mesa/core/browser';
 import { expect, test } from 'vitest';
 import { managedRow, PROJECTS } from '@/lib/testing';
+import { sidebarGroups, sidebarOrder } from '../sidebar/sidebarGroups';
 import { nextSelection, type SessionSelection, selectedIds } from './sessionSelection';
-import { sidebarGroups, sidebarOrder } from './sidebarGroups';
 
 const ended = (id: string) =>
   managedRow(id, {

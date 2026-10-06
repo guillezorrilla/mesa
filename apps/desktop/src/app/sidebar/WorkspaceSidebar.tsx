@@ -16,15 +16,15 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
+import { ProjectsSection } from '@/features/projects/ProjectsSection';
+import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
+import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
+import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
+import type { SessionLocation } from '@/features/sessions/start/useStartSession';
 import { cn } from '@/lib/utils';
-import type { SessionLocation } from '../hooks/useStartSession';
-import type { WorkspaceView } from '../navigation';
-import { ProjectsSection } from './ProjectsSection';
-import { SessionsSection } from './SessionsSection';
+import type { WorkspaceView } from '@/lib/workspaceView';
 import { SidebarNavButton } from './SidebarNavButton';
 import { SidebarTabs } from './SidebarTabs';
-import { sidebarGroups, sidebarOrder } from './sidebarGroups';
-import { useSessionSelection } from './useSessionSelection';
 
 /** `list` with `value` added, or removed when it is there. */
 const toggled = (list: string[], value: string) =>

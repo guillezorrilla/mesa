@@ -2,9 +2,9 @@ import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
 import { ChevronRight, Folder, FolderPlus } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
-import { AddProjectMenu, type ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { cn } from '@/lib/utils';
-import type { WorkspaceView } from '../navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
+import { AddProjectMenu, type ProjectAddRequest } from './AddProjectMenu';
 import { ProjectSortMenu } from './ProjectSortMenu';
 
 /** The Projects tab: Add project, the sort, and each visible project with its active session count. */

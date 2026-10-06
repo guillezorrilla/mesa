@@ -4,7 +4,8 @@ import type { SettingsCategory } from '@/features/settings/categories';
 import { SettingsDialog } from '@/features/settings/SettingsDialog';
 import { UsageDialog } from '@/features/usage/UsageDialog';
 import type { CommandState } from '@/lib/useCommand';
-import type { Overlay, WorkspaceView } from './navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
+import type { Overlay } from './navigation';
 
 /** The dialogs that open over the current view: Keyboard shortcuts, Settings, and Usage. */
 export function WorkspaceOverlays(props: {

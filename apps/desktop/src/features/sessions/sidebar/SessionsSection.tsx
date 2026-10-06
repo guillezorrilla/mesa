@@ -2,13 +2,13 @@ import type { TreeRow } from '@mesa/core';
 import { GENERAL_PROJECT } from '@mesa/core/browser';
 import { useRef } from 'react';
 import { Muted } from '@/components/Muted';
-import type { SessionLocation } from '../hooks/useStartSession';
-import type { WorkspaceView } from '../navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
+import type { SelectionInput } from '../selection/sessionSelection';
+import { StartingSessions } from '../start/StartingSessions';
+import type { SessionLocation } from '../start/useStartSession';
 import { ProjectSessionsGroup } from './ProjectSessionsGroup';
 import { SessionCard } from './SessionCard';
 import { SessionsMenu } from './SessionsMenu';
-import { StartingSessions } from './StartingSessions';
-import type { SelectionInput } from './sessionSelection';
 import type { SidebarGroups } from './sidebarGroups';
 
 /**

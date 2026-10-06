@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createRef } from 'react';
 import { expect, test } from 'vitest';
-import { ProfileMenu } from '@/app/ProfileMenu';
+import { ProfileMenu } from '@/features/profile/ProfileMenu';
 import {
   click,
   envelope,

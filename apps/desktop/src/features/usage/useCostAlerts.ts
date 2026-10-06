@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useToast } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
-import type { WorkspaceView } from '../navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** How often the app checks the usage alerts. */
 const COST_ALERTS_INTERVAL_MS = 300_000;

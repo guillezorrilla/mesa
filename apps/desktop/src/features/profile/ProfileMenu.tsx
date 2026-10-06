@@ -1,8 +1,8 @@
 import type { DoctorReport } from '@mesa/core';
 import { CircleArrowUp, RefreshCw, Settings2, UserRound } from 'lucide-react';
 import type { RefObject } from 'react';
-import { ProfileSummary } from '@/features/profile/ProfileSummary';
 import { describeUpdate, useUpdate } from '@/features/update/useUpdate';
+import { ProfileSummary } from './ProfileSummary';
 
 /**
  * The profile button and its popover: the profile summary, updates, and Settings. `ref` is the

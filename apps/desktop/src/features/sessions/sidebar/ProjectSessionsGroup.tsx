@@ -1,9 +1,9 @@
 import type { ProjectRow } from '@mesa/core';
 import { ChevronDown, ChevronRight, Folder } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { SessionLocation } from '../hooks/useStartSession';
-import { ProjectNewSessionMenu } from './ProjectNewSessionMenu';
-import { StartingSessions } from './StartingSessions';
+import { ProjectNewSessionMenu } from '../start/ProjectNewSessionMenu';
+import { StartingSessions } from '../start/StartingSessions';
+import type { SessionLocation } from '../start/useStartSession';
 
 /** One project in the Sessions tab: a header that folds its session cards, and its + menu. */
 export function ProjectSessionsGroup(props: {

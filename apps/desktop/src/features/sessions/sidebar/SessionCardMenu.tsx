@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { SessionLocation } from '../hooks/useStartSession';
+import type { SessionLocation } from '../start/useStartSession';
 import { HoverAction } from './HoverAction';
 
 /**
