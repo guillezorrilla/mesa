@@ -1,6 +1,6 @@
-import { createReadStream, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { createInterface } from 'node:readline';
+import { streamLines } from '../../lib/file-lines.js';
 import { claudeListPrice } from '../../usage/pricing.js';
 import { count, type UsageRecord } from '../../usage/records.js';
 import { usageLine } from './transcripts.js';
@@ -18,11 +18,6 @@ export function claudeUsageFiles(transcript: string): string[] {
   }
   const subagents = names.filter((name) => name.endsWith('.jsonl')).sort();
   return [transcript, ...subagents.map((name) => join(folder, name))];
-}
-
-async function* lines(files: string[]) {
-  for (const file of files)
-    yield* createInterface({ input: createReadStream(file), crlfDelay: Infinity });
 }
 
 /**
@@ -89,12 +84,16 @@ export function claudeReading(
 }
 
 /**
- * The charges in `transcript` and its subagents' (claudeUsageFiles). Claude's repeated assistant
- * message IDs are updates to one charge, not additional charges.
+ * The charges in `files`, a transcript and its subagents' (claudeUsageFiles). Claude's repeated
+ * assistant message IDs are updates to one charge, not additional charges.
  */
-export async function claudeUsage(transcript: string, session: string, nativeSessionId: string) {
+export async function claudeUsage(
+  files: readonly string[],
+  session: string,
+  nativeSessionId: string,
+) {
   const messages = new Map<string, UsageRecord>();
-  for await (const line of lines(claudeUsageFiles(transcript))) {
+  for await (const line of streamLines(files)) {
     const reading = claudeReading(line, session, nativeSessionId);
     if (reading) messages.set(reading.id, reading);
   }

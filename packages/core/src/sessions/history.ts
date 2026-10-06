@@ -1,7 +1,7 @@
-import { AGENTS, type TranscriptAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import { AGENT_NAMES } from '../agents/names.js';
-import type { TranscriptRow } from '../agents/transcripts.js';
-import type { Env } from '../lib/process.js';
+import type { TranscriptAgent } from '../agents/transcript-agent.js';
+import type { TranscriptRow, Where } from '../agents/transcripts.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
 import { withName } from './native-name.js';
@@ -31,11 +31,9 @@ export const UNSUPPORTED_HISTORY = [
 ];
 
 /** Latest native conversations for a registered project, including those Mesa has not imported. */
-export type NativeHistoryDeps = {
+export type NativeHistoryDeps = Where & {
   profile: Profile;
   store: SessionStore;
-  home: string;
-  env: Env;
   elsewhere: () => ReadonlySet<string>;
 };
 
@@ -44,7 +42,7 @@ export type NativeHistoryDeps = {
  * transcript `file`; with `since` (epoch ms), only those last written then or later.
  */
 export function nativeConversations(
-  where: Pick<NativeHistoryDeps, 'home' | 'env'>,
+  where: Where,
   since?: number,
 ): TranscriptRow<TranscriptAgent>[] {
   return AGENT_NAMES.flatMap(

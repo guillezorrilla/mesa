@@ -1,5 +1,5 @@
-import { readsTranscripts, type TranscriptAgent } from '../agents/agents.js';
 import type { AgentProcess } from '../agents/listing.js';
+import { readsTranscripts, type TranscriptAgent } from '../agents/transcript-agent.js';
 import type { Clock } from '../lib/clock.js';
 import type { Env } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';

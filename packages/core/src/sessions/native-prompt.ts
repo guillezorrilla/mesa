@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { AGENTS } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
-import type { Env } from '../lib/process.js';
+import type { Where } from '../agents/transcripts.js';
 
 // A native conversation's first prompt and when its file was last written: what a person
 // recognises a conversation by when it has no native name (native-name.ts).
@@ -12,7 +12,7 @@ import type { Env } from '../lib/process.js';
  * Antigravity keeps neither.
  */
 export function nativePrompt(
-  deps: { home: string; env: Env },
+  deps: Where,
   c: { agent: Agent; id: string; file?: string },
 ): { prompt?: string; updatedAt?: string } {
   const transcripts = AGENTS[c.agent].transcripts;

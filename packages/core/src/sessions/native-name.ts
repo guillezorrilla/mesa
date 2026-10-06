@@ -1,6 +1,6 @@
 import { AGENTS } from '../agents/agents.js';
 import type { Agent } from '../agents/names.js';
-import type { Env } from '../lib/process.js';
+import type { Where } from '../agents/transcripts.js';
 
 // A native conversation's name, as its agent shows it (CONTEXT.md, Adopted session): the one
 // owner, through the agent's transcripts (agents/<agent>/transcripts.ts).
@@ -10,7 +10,7 @@ import type { Env } from '../lib/process.js';
  * Claude Code transcript when the caller has it already, else it is looked up.
  */
 export function nativeName(
-  deps: { home: string; env: Env },
+  deps: Where,
   c: { agent: Agent; id: string; file?: string },
 ): string | undefined {
   try {
@@ -22,7 +22,7 @@ export function nativeName(
 }
 
 /** `{ name }` when conversation `c` has a native name, else nothing: spread into a row. */
-export function withName(deps: { home: string; env: Env }, c: Parameters<typeof nativeName>[1]) {
+export function withName(deps: Where, c: Parameters<typeof nativeName>[1]) {
   const name = nativeName(deps, c);
   return name ? { name } : {};
 }

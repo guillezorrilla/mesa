@@ -66,7 +66,7 @@ export function usageService(ctx: MesaContext) {
               prior.reader === stamp.reader
             )
               continue;
-            const readings = await usage.read(file, record.id, nativeId);
+            const readings = await usage.read(files, record.id, nativeId);
             const within = sessionWindow(ctx, record);
             fresh.push(...readings.filter((row) => within(row.at)));
             scanned[key] = stamp;

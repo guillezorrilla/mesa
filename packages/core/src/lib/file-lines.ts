@@ -1,4 +1,5 @@
-import { closeSync, openSync, readSync, statSync } from 'node:fs';
+import { closeSync, createReadStream, openSync, readSync, statSync } from 'node:fs';
+import { createInterface } from 'node:readline';
 
 /**
  * Each complete line appended to an append-only file since byte `offset` (from the start again
@@ -42,4 +43,10 @@ export function scanLines(file: string, offset: number, onLine: (line: string) =
     closeSync(fd);
   }
   return complete;
+}
+
+/** Every line of `files`, one file after another, streamed rather than loaded whole. */
+export async function* streamLines(files: readonly string[]) {
+  for (const file of files)
+    yield* createInterface({ input: createReadStream(file), crlfDelay: Infinity });
 }

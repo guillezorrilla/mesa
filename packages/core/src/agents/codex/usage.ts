@@ -1,20 +1,23 @@
-import { createReadStream } from 'node:fs';
-import { createInterface } from 'node:readline';
+import { streamLines } from '../../lib/file-lines.js';
 import { count, type UsageRecord } from '../../usage/records.js';
 
 // What Codex's rollouts say it charged: the usage ledger's readings (usage/service.ts).
 
 type Counts = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
-/** Codex token_count totals are cumulative; compaction repeats them without another charge. */
-export async function codexUsage(file: string, session: string, nativeSessionId: string) {
+/**
+ * The charges in `files`, a rollout alone (its entry's usage.files). Codex token_count totals are
+ * cumulative; compaction repeats them without another charge.
+ */
+export async function codexUsage(
+  files: readonly string[],
+  session: string,
+  nativeSessionId: string,
+) {
   const rows: UsageRecord[] = [];
   let previous: Counts = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   let model: string | undefined;
-  for await (const line of createInterface({
-    input: createReadStream(file),
-    crlfDelay: Infinity,
-  })) {
+  for await (const line of streamLines(files)) {
     if (!line.includes('"turn_context"') && !line.includes('"token_count"')) continue;
     try {
       const entry = JSON.parse(line) as {

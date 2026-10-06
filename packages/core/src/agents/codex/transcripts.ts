@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
 import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
 import {
+  type Block,
   firstPromptIn,
   MESSAGE_TAIL,
-  messageIn,
+  messageOf,
   named,
-  type TranscriptEntry,
+  parsedLine,
   type Transcripts,
 } from '../transcripts.js';
 import { codexHome, codexSessionIndex } from './paths.js';
@@ -30,10 +31,15 @@ function codexName(index: string, id: string): string | undefined {
   );
 }
 
-type Block = { type?: unknown; text?: unknown };
+/** One rollout line, parsed: the fields its prompt and messages are read from. */
+type Line = {
+  type?: unknown;
+  timestamp?: unknown;
+  payload?: { type?: unknown; role?: unknown; content?: unknown };
+};
 
 /** The person's text in one rollout line, if it is theirs. */
-function userText(line: TranscriptEntry): unknown[] {
+function userText(line: Line): unknown[] {
   const payload = line.payload;
   if (line.type !== 'response_item' || payload?.type !== 'message' || payload.role !== 'user')
     return [];
@@ -42,15 +48,12 @@ function userText(line: TranscriptEntry): unknown[] {
     : [];
 }
 
-/** A response item's message. */
-const pickMessage = (entry: TranscriptEntry) =>
-  entry.type === 'response_item' &&
-  entry.payload &&
-  typeof entry.payload === 'object' &&
-  'type' in entry.payload &&
-  entry.payload.type === 'message'
-    ? entry.payload
-    : undefined;
+/** The message a response item holds. */
+function messageIn(line: string) {
+  const entry = parsedLine<Line>(line);
+  if (entry?.type !== 'response_item' || entry.payload?.type !== 'message') return undefined;
+  return messageOf(entry.payload, entry.timestamp, line);
+}
 
 function isTurnContext(line: string) {
   if (!line.includes('turn_context')) return false;
@@ -72,7 +75,7 @@ export const codexTranscriptReader: Transcripts<'codex'> = {
     // Codex's startup AGENTS and environment messages use role=user before turn_context.
     const firstTurn = lines.findIndex(isTurnContext);
     const messages = lines.flatMap((line, index) => {
-      const message = messageIn(line, pickMessage);
+      const message = messageIn(line);
       if (!message || (message.role === 'user' && (firstTurn < 0 || index < firstTurn))) return [];
       return [message];
     });

@@ -3,12 +3,14 @@ import { join } from 'node:path';
 import { fileHead } from '../../lib/file-head.js';
 import { lastMatchingLine, tailLines } from '../../lib/file-tail.js';
 import {
+  type Block,
   firstPromptIn,
   MESSAGE_TAIL,
-  messageIn,
+  messageOf,
   named,
-  type TranscriptEntry,
+  parsedLine,
   type Transcripts,
+  type Where,
 } from '../transcripts.js';
 import { claudeTranscripts } from './paths.js';
 
@@ -213,8 +215,17 @@ function claudeName(file: string): string | undefined {
   return custom ?? ai;
 }
 
+/** One transcript line, parsed: the fields its prompt and messages are read from. */
+type Line = {
+  type?: unknown;
+  isSidechain?: unknown;
+  isMeta?: unknown;
+  timestamp?: unknown;
+  message?: { role?: unknown; content?: unknown };
+};
+
 /** The person's text in one transcript line, if it is theirs. */
-function userText(line: TranscriptEntry): unknown[] {
+function userText(line: Line): unknown[] {
   if (line.type !== 'user' || line.isMeta || line.message?.role !== 'user') return [];
   const content = line.message.content;
   return typeof content === 'string'
@@ -224,21 +235,34 @@ function userText(line: TranscriptEntry): unknown[] {
       : [];
 }
 
-type Block = { type?: unknown; text?: unknown };
+/**
+ * The message a user or assistant line holds, excluding sidechains and meta lines: Claude Code
+ * writes loaded skill bodies and reminders as meta user lines, not the person's.
+ */
+function messageIn(line: string) {
+  const entry = parsedLine<Line>(line);
+  if (
+    !entry ||
+    (entry.type !== 'user' && entry.type !== 'assistant') ||
+    entry.isSidechain === true ||
+    entry.isMeta === true
+  )
+    return undefined;
+  return messageOf(entry.message, entry.timestamp, line);
+}
 
-/** A user or assistant line's message. */
-const pickMessage = (entry: TranscriptEntry) =>
-  entry.type === 'user' || entry.type === 'assistant' ? entry.message : undefined;
+/** Conversation `id`'s transcript. */
+const claudeFile = (where: Where, id: string) =>
+  transcriptFile(claudeTranscripts(where.home, where.env), id);
 
 /** Claude Code's transcripts as its entry reads them (AGENTS, agents.ts). */
 export const claudeTranscriptReader: Transcripts<'claude'> = {
   history: (where, since) => claudeHistory(claudeTranscripts(where.home, where.env), since),
-  file: (where, id) => transcriptFile(claudeTranscripts(where.home, where.env), id),
-  name: (where, id, file = transcriptFile(claudeTranscripts(where.home, where.env), id)) =>
-    file ? claudeName(file) : undefined,
+  file: claudeFile,
+  name: (where, id, file = claudeFile(where, id)) => (file ? claudeName(file) : undefined),
   firstPrompt: (file) => firstPromptIn(file, userText),
   messages: (file) => {
     const { lines, truncated } = tailLines(file, MESSAGE_TAIL);
-    return { messages: lines.flatMap((line) => messageIn(line, pickMessage) ?? []), truncated };
+    return { messages: lines.flatMap((line) => messageIn(line) ?? []), truncated };
   },
 };

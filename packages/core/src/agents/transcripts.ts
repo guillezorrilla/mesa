@@ -8,7 +8,7 @@ import type { Agent } from './names.js';
 // agents/<agent>/.
 
 /** Where an agent's files are: the home and environment it runs with. */
-type Where = { home: string; env: Env };
+export type Where = { home: string; env: Env };
 
 /** A native conversation on disk, with its transcript `file`. */
 export type TranscriptRow<A extends Agent> = {
@@ -41,15 +41,8 @@ export type Transcripts<A extends Agent> = {
   messages: (file: string) => { messages: TranscriptMessage[]; truncated: boolean };
 };
 
-/** One transcript line, parsed: the fields the readers here look at. */
-export type TranscriptEntry = {
-  type?: unknown;
-  isSidechain?: unknown;
-  isMeta?: unknown;
-  timestamp?: unknown;
-  message?: { role?: unknown; content?: unknown };
-  payload?: { type?: unknown; role?: unknown; content?: unknown };
-};
+/** A content block of a message: its kind and, for text, its text. */
+export type Block = { type?: unknown; text?: unknown };
 
 /** A trimmed name, or none for a blank or missing one. */
 export const named = (value: unknown) =>
@@ -76,13 +69,13 @@ function promptOf(text: unknown): string | undefined {
  * The first prompt in transcript `file`, read from its head only until one is found: the first
  * of the person's texts (`userText` finds them in one line) that is not blank or injected.
  */
-export function firstPromptIn(
+export function firstPromptIn<Line>(
   file: string,
-  userText: (line: TranscriptEntry) => unknown[],
+  userText: (line: Line) => unknown[],
 ): string | undefined {
   const first = (head: string) => {
     for (const raw of head.split('\n')) {
-      let line: TranscriptEntry;
+      let line: Line;
       try {
         line = JSON.parse(raw);
       } catch {
@@ -101,32 +94,26 @@ export function firstPromptIn(
 /** How much of a transcript's end its messages are read from. */
 export const MESSAGE_TAIL = 2 << 20;
 
-/**
- * The message one transcript line holds, `pick` finding it in the parsed line, excluding
- * sidechains, injected meta lines, and non-messages.
- */
-export function messageIn(
-  line: string,
-  pick: (entry: TranscriptEntry) => unknown,
-): TranscriptMessage | undefined {
-  let entry: TranscriptEntry;
+/** One transcript line parsed, or none when it is not a JSON object. */
+export function parsedLine<Line extends object>(line: string): Line | undefined {
+  let entry: unknown;
   try {
     entry = JSON.parse(line);
   } catch {
     return undefined;
   }
-  if (!entry || typeof entry !== 'object') return undefined;
-  const raw = pick(entry);
+  return entry && typeof entry === 'object' ? (entry as Line) : undefined;
+}
+
+/**
+ * The message `raw` that transcript `line` holds, written `at`: a user or assistant message
+ * (`{ role, content }`) and its text, the content's string or its blocks' texts and tool
+ * results' joined. None when it is not such a message or has no text.
+ */
+export function messageOf(raw: unknown, at: unknown, line: string): TranscriptMessage | undefined {
   const message =
     raw && typeof raw === 'object' ? (raw as { role?: unknown; content?: unknown }) : undefined;
-  if (
-    !message ||
-    entry.isSidechain === true ||
-    // Claude Code writes loaded skill bodies and reminders as meta user lines, not the person's.
-    entry.isMeta === true ||
-    (message.role !== 'user' && message.role !== 'assistant')
-  )
-    return undefined;
+  if (!message || (message.role !== 'user' && message.role !== 'assistant')) return undefined;
   const parts =
     typeof message.content === 'string'
       ? [message.content]
@@ -143,10 +130,5 @@ export function messageIn(
         : [];
   const text = parts.filter((part: unknown): part is string => typeof part === 'string').join('\n');
   if (!text) return undefined;
-  return {
-    role: message.role,
-    text,
-    ...(typeof entry.timestamp === 'string' ? { at: entry.timestamp } : {}),
-    line,
-  };
+  return { role: message.role, text, ...(typeof at === 'string' ? { at } : {}), line };
 }

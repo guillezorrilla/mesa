@@ -10,9 +10,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { claudeTranscripts } from '../agents/claude/paths.js';
-import { transcriptFile } from '../agents/claude/transcripts.js';
-import { claudeReading, claudeUsageFiles } from '../agents/claude/usage.js';
+import { AGENTS } from '../agents/agents.js';
 import type { MesaContext } from '../context.js';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { scanLines } from '../lib/file-lines.js';
@@ -116,15 +114,13 @@ export function sessionCost(
   for (const nativeId of nativeIds) {
     const known = tally.transcripts[nativeId];
     const transcript =
-      known && existsSync(known)
-        ? known
-        : transcriptFile(claudeTranscripts(ctx.home, ctx.env), nativeId);
+      known && existsSync(known) ? known : AGENTS.claude.transcripts.file(ctx, nativeId);
     if (!transcript) {
       missing = true;
       continue;
     }
     tally.transcripts[nativeId] = transcript;
-    const sources = claudeUsageFiles(transcript);
+    const sources = AGENTS.claude.usage.files(transcript);
     // A file rewritten rather than appended to: its native session is counted again.
     if (
       sources.some((source) => tally.files[source] && !appendedOnly(source, tally.files[source]))
@@ -138,7 +134,7 @@ export function sessionCost(
       const read = tally.files[source];
       if (read && read.size === size && read.mtimeMs === mtimeMs) continue;
       const offset = scanLines(source, read?.offset ?? 0, (line) => {
-        const reading = claudeReading(line, id, nativeId);
+        const reading = AGENTS.claude.usage.reading(line, id, nativeId);
         if (reading)
           tally.readings[reading.id] = { at: reading.at, cost: reading.estimatedCostUsd };
       });

@@ -12,7 +12,7 @@ import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
 import { claudeTranscriptReader } from './claude/transcripts.js';
-import { claudeUsage, claudeUsageFiles } from './claude/usage.js';
+import { claudeReading, claudeUsage, claudeUsageFiles } from './claude/usage.js';
 import { codexContext } from './codex/context-use.js';
 import { codexHookState } from './codex/hook-state.js';
 import { listCodexSessions } from './codex/listing.js';
@@ -170,8 +170,8 @@ export const AGENTS = {
     context: claudeContext,
     /** Its native conversations: each one's transcript, name, first prompt, and messages. */
     transcripts: claudeTranscriptReader,
-    /** What a transcript says it charged: the files it reads, a transcript and its subagents'. */
-    usage: { files: claudeUsageFiles, read: claudeUsage },
+    /** What a transcript charged: its files (its subagents' too), their charges, a line's charge. */
+    usage: { files: claudeUsageFiles, read: claudeUsage, reading: claudeReading },
   },
   codex: {
     versionArgs: ['--version'],
@@ -288,15 +288,6 @@ export const AgentSchema = z.enum(AGENT_NAMES);
 
 /** An agent's entry. */
 export type AgentSpec = (typeof AGENTS)[Agent];
-
-/** The agents Mesa reads native conversations of: those whose entry has `transcripts`. */
-export type TranscriptAgent = {
-  [A in Agent]: (typeof AGENTS)[A]['transcripts'] extends undefined ? never : A;
-}[Agent];
-
-/** Whether Mesa reads `agent`'s native conversations (its entry's `transcripts`). */
-export const readsTranscripts = (agent: Agent): agent is TranscriptAgent =>
-  AGENTS[agent].transcripts !== undefined;
 
 /** An agent's binary, as doctor and a session's start probe it. */
 export function agentBinary(name: Agent): Binary {
