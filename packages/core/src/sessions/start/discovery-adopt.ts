@@ -11,7 +11,7 @@ import {
   nativeLive,
   readOnce,
   runningIds,
-} from '../signals/discovery.js';
+} from '../native/discovery.js';
 import { type AdoptDeps, adoptSession, nativeConversation } from './adopt.js';
 
 // First-run discovery's bulk (CONTEXT.md, First-run discovery): project folders registered, and

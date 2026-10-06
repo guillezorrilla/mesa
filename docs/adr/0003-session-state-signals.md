@@ -63,7 +63,7 @@ Issue #23 wires the second signal into `mesa sessions`:
 
 ## Amendment 2026-09-25: the rules, as built (#25)
 
-`classifySession` in packages/core/src/sessions/state.ts asks one Choice over the six states, one Score for attention, and one Noul ("a human is needed now") through `decide`. Its fixtures are in `sessions/fixtures/state/`.
+`classifySession` in packages/core/src/sessions/signals/state.ts asks one Choice over the six states, one Score for attention, and one Noul ("a human is needed now") through `decide`. Its fixtures are in `sessions/signals/fixtures/state/`.
 
 - A hook event more than a minute old gets 0.8, unless the listing agrees with it, in which case it gets 0.95.
 - A hook event that means nothing for state is skipped in favour of the one before it: a `Notification` of type `permission_prompt`, or a `PreToolUse` for another tool.

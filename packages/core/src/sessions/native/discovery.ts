@@ -7,10 +7,10 @@ import type { Profile } from '../../profile/profile.js';
 import { type ProjectCandidate, projectCandidate } from '../../projects/discover.js';
 import { projectFolder } from '../../projects/project-folder.js';
 import { readRegistry } from '../../projects/registry.js';
-import { nativeConversations, UNSUPPORTED_HISTORY } from '../native/history.js';
-import { withName } from '../native/native-name.js';
-import { nativePrompt } from '../native/native-prompt.js';
 import type { SessionStore } from '../record/store.js';
+import { nativeConversations, UNSUPPORTED_HISTORY } from './history.js';
+import { withName } from './native-name.js';
+import { nativePrompt } from './native-prompt.js';
 
 // What runs and ran on this machine outside Mesa, machine-wide: the project folders native
 // conversations ran in, the running sessions no profile holds, and the recent conversations.

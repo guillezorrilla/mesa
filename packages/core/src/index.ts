@@ -101,6 +101,13 @@ export type {
 export type { SessionImage } from './sessions/input/images.js';
 export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
 export type { Sent } from './sessions/input/send.js';
+export {
+  DISCOVERY_DAYS,
+  type NativeConversation,
+  type NativeDiscovery,
+  type NativeLive,
+  type NativeProject,
+} from './sessions/native/discovery.js';
 export type { NativeHistory, NativeHistoryRow } from './sessions/native/history.js';
 export type { InstructionStatus } from './sessions/native/instructions.js';
 export type {
@@ -126,13 +133,6 @@ export type { SessionRecord } from './sessions/record/record.js';
 export type { SessionState } from './sessions/record/states.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workflow-status.js';
 export type { HeadlessResult } from './sessions/run/files.js';
-export {
-  DISCOVERY_DAYS,
-  type NativeConversation,
-  type NativeDiscovery,
-  type NativeLive,
-  type NativeProject,
-} from './sessions/signals/discovery.js';
 export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/start/discovery-adopt.js';
 export type { Worktree } from './sessions/start/worktree.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';

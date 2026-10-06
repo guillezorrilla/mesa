@@ -1,4 +1,4 @@
-import { isSessionId } from '../record/id.js';
+import { isSessionId } from './id.js';
 
 /** Profile-qualified navigation to a saved session; RFC 3986 encodes each component. */
 export function sessionUri(id: string, profile: string): string {

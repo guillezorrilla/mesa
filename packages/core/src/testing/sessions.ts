@@ -4,7 +4,7 @@ import { profilePaths } from '../profile/paths.js';
 import type { NewSession } from '../sessions/record/record.js';
 import { sessionStore } from '../sessions/record/store.js';
 import { prepareOutputLog } from '../sessions/window/output-log.js';
-import { sequentialIds } from './clock.js';
+import { sequentialIds } from './ids.js';
 import { lockDeps } from './lock.js';
 
 /** A session record before its id: claude working on lantern-cove unless `overrides` say otherwise. */

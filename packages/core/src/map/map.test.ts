@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import type { NewSession, SessionRecord } from '../sessions/record/record.js';
-import { sessionUri } from '../sessions/window/uri.js';
+import { sessionUri } from '../sessions/record/uri.js';
 import { newSession } from '../testing/index.js';
 import { type CanvasData, parseCanvas } from '../vault/canvas.js';
 import type { VaultItem } from '../vault/item.js';

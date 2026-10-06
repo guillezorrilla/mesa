@@ -35,5 +35,5 @@ The idempotency audit behind epic #630 found that a lock file held only a random
 The same read, change, write under `<file>.lock` was written by hand in each store, and `setYamlPath` (`mesa config set`, onboarding, `mesa.yaml` overrides) took no lock, so concurrent app and CLI edits lost one.
 
 - State files change through `changeJson` (`lib/json-file.ts`) and `changeYaml` or `setYamlPath` (`lib/yaml-file.ts`), which hold `<file>.lock` through `withFileLock`. A session record's lock is therefore `<id>.json.lock`.
-- `withLockSync` outside `lib/` guards only critical sections that are not one file's read-change-write: the session dependency lock (`sessions/dependencies.ts`), the output-log cut, and the inbox delivery claim.
+- `withLockSync` outside `lib/` guards only critical sections that are not one file's read-change-write: the session dependency lock (`sessions/start/dependencies.ts`), the output-log cut, and the inbox delivery claim.
 - Evidence: `packages/core/src/profile/config.test.ts` runs a second `config set` in its own process while the first holds the lock; both keys survive, and without the lock in `setYamlPath` the second key is lost.
