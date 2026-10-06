@@ -1,5 +1,6 @@
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { writeFileAtomic } from '../lib/atomic-file.js';
 import { type Env, type Runner, shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { TerminalApp } from '../profile/config.js';
@@ -64,8 +65,7 @@ export async function openInApp(
   // with the session if the folder ever grows enough to matter.
   const file = join(deps.scripts, `${name}.command`);
   const path = deps.env.PATH ? `export PATH=${shellWord(deps.env.PATH)}\n` : '';
-  writeFileSync(file, `#!/bin/sh\n${path}exec ${argv.map(shellWord).join(' ')}\n`);
-  chmodSync(file, 0o700);
+  writeFileAtomic(file, `#!/bin/sh\n${path}exec ${argv.map(shellWord).join(' ')}\n`, 0o700);
   if (app === 'WezTerm' && deps.wezTermNewTab && (await openWezTermTab(deps, file))) return;
   const res = await deps.run('open', ['-a', app, file], LAUNCH_TIMEOUT_MS);
   if (!res.ok) throw new MesaError('internal', `could not open ${app}: ${res.detail}`);

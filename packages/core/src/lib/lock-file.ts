@@ -16,6 +16,9 @@ export type LockDeps = {
   clock: Clock;
 };
 
+/** LockDeps for an async lock (withLock), which waits with `sleep`. */
+export type AsyncLockDeps = LockDeps & { sleep: (ms: number) => Promise<void> };
+
 const HolderSchema = z.strictObject({
   pid: z.number().int().positive(),
   startedAt: z.iso.datetime(),
@@ -120,7 +123,7 @@ export function withFileLock<T>(
 
 /** withLockSync for async work: waits with `deps.sleep`, `tries` pauses of `pauseMs`. */
 export async function withLock<T>(
-  deps: LockDeps & { sleep: (ms: number) => Promise<void> },
+  deps: AsyncLockDeps,
   lock: string,
   fn: () => Promise<T>,
   busy: () => MesaError,

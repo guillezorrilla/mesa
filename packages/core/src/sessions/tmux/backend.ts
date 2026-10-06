@@ -204,23 +204,17 @@ export function tmuxBackend({
      */
     openWindow: async (spec: WindowSpec): Promise<WindowTarget> => {
       await ensureServer();
-      const hasSession = (await tmux(['has-session', '-t', `=${spec.project}`])).ok;
-      const where = hasSession
-        ? ['new-window', '-d', '-t', sessionTarget(spec.project)]
-        : ['new-session', '-d', '-s', spec.project];
       const vars = Object.entries(spec.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
       // new-session -e also sets the tmux session's environment, which a window the user adds by
       // hand would inherit; the first window keeps its own copy.
-      const unset = hasSession
-        ? []
-        : Object.keys(spec.env).flatMap((k) => [
-            ';',
-            'set-environment',
-            '-t',
-            `=${spec.project}`,
-            '-u',
-            k,
-          ]);
+      const unset = Object.keys(spec.env).flatMap((k) => [
+        ';',
+        'set-environment',
+        '-t',
+        `=${spec.project}`,
+        '-u',
+        k,
+      ]);
       // In the same call, so the pipe is there before tmux reads anything the agent prints. tmux
       // runs it with /bin/sh after expanding its formats: the file is one shell word, `#` doubled.
       const pipe = spec.log
@@ -233,11 +227,13 @@ export function tmuxBackend({
             `cat >> ${shellWord(spec.log)}`.replaceAll('#', '##'),
           ]
         : [];
-      await must(
-        // env changes directory before sh starts: tmux 3.7 can ignore -c when its server's cwd
-        // was deleted. Both env and sh exec, so the pane's pid remains the agent's.
-        [
-          ...where,
+      // env changes directory before sh starts: tmux 3.7 can ignore -c when its server's cwd was
+      // deleted. Both env and sh exec, so the pane's pid remains the agent's.
+      const open = (inSession: boolean) =>
+        tmux([
+          ...(inSession
+            ? ['new-window', '-d', '-t', sessionTarget(spec.project)]
+            : ['new-session', '-d', '-s', spec.project]),
           '-n',
           spec.window,
           '-c',
@@ -250,11 +246,15 @@ export function tmuxBackend({
           '-c',
           spec.command,
           ...pipe,
-          ...unset,
-        ],
-        'internal',
-        `could not open ${targetLabel(spec)}`,
-      );
+          ...(inSession ? [] : unset),
+        ]);
+      const hasSession = (await tmux(['has-session', '-t', `=${spec.project}`])).ok;
+      let opened = await open(hasSession);
+      // Another mesa made the project's session since has-session asked: open in it instead.
+      if (!opened.ok && !hasSession && opened.detail.includes('duplicate session'))
+        opened = await open(true);
+      if (!opened.ok)
+        throw new MesaError('internal', `could not open ${targetLabel(spec)}: ${opened.detail}`);
       return { project: spec.project, window: spec.window };
     },
     /**

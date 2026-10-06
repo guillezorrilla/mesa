@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { gitCommand } from '../git/command.js';
+import { type AsyncLockDeps, lockedBy, withLock } from '../lib/lock-file.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 
@@ -84,6 +85,7 @@ export const worktreePath = (root: string, branch: string) =>
  */
 export async function addWorktree(
   run: Runner,
+  lock: AsyncLockDeps,
   input: {
     repo: string;
     root: string;
@@ -108,7 +110,13 @@ export async function addWorktree(
       ADD_MS,
     );
   const local = await ask(run, repo, ['show-ref', '--verify', `refs/heads/${branch}`]);
-  if (local !== undefined && input.base !== undefined) {
+  // A create killed after it made the branch left it on its base: a retry reuses it.
+  const reused =
+    local !== undefined &&
+    input.base !== undefined &&
+    local.split(' ')[0] ===
+      (await ask(run, repo, ['rev-parse', '--verify', '--quiet', `${input.base}^{commit}`]));
+  if (local !== undefined && input.base !== undefined && !reused) {
     throw new MesaError(
       'usage',
       `branch ${branch} exists and is reused as it is: drop --base, or pick a new branch`,
@@ -120,51 +128,73 @@ export async function addWorktree(
       : undefined;
   const path = worktreePath(input.root, branch);
   mkdirSync(input.root, { recursive: true });
-  // Before the claim, so a registration at the path after it can only be this call's. git lists
-  // real paths.
-  const real = join(realpathSync.native(input.root), basename(path));
-  const listed = await must(
-    run,
-    repo,
-    ['worktree', 'list', '--porcelain'],
-    'cannot list worktrees',
-  );
-  if (listed.split('\n').includes(`worktree ${real}`)) {
-    throw new MesaError(
-      'usage',
-      `git lists a worktree at ${path} already: pick another branch, or see git worktree list`,
-    );
-  }
-  claim(path);
-  let made = false;
-  let added = false;
-  try {
-    if (base !== undefined) {
-      const start = ['branch', '--quiet', '--no-track', '--end-of-options', branch, base];
-      await must(run, repo, start, `cannot start ${branch} from ${base}`);
-      made = true;
-      // Continued from origin, it pulls from there; best effort, as a single-branch clone's
-      // fetched ref is not a branch git tracks.
-      if (base === `origin/${branch}`) {
-        await ask(run, repo, ['branch', '--quiet', `--set-upstream-to=${base}`, branch]);
+  // One create at a path at a time, so a folder found empty there is one a killed create left.
+  const lockPath = `${path}.lock`;
+  return withLock(
+    lock,
+    lockPath,
+    async () => {
+      // Before the claim, so a registration at the path after it can only be this call's. git lists
+      // real paths.
+      const real = join(realpathSync.native(input.root), basename(path));
+      const listed = await must(
+        run,
+        repo,
+        ['worktree', 'list', '--porcelain'],
+        'cannot list worktrees',
+      );
+      if (listed.split('\n').includes(`worktree ${real}`)) {
+        throw new MesaError(
+          'usage',
+          `git lists a worktree at ${path} already: pick another branch, or see git worktree list`,
+        );
       }
-    }
-    const add = ['worktree', 'add', '--quiet', '--end-of-options', path, branch];
-    await must(run, repo, add, `cannot check out ${branch}`, ADD_MS);
-    added = true;
-  } finally {
-    // A killed add leaves a half-made folder, and perhaps its registration.
-    if (!added) await discard(run, repo, path, made ? branch : undefined);
-  }
-  return { path, branch, ...(base === undefined ? {} : { base }) };
+      claim(path);
+      let made = false;
+      let added = false;
+      try {
+        if (base !== undefined) {
+          const start = ['branch', '--quiet', '--no-track', '--end-of-options', branch, base];
+          await must(run, repo, start, `cannot start ${branch} from ${base}`);
+          made = true;
+          // Continued from origin, it pulls from there; best effort, as a single-branch clone's
+          // fetched ref is not a branch git tracks.
+          if (base === `origin/${branch}`) {
+            await ask(run, repo, ['branch', '--quiet', `--set-upstream-to=${base}`, branch]);
+          }
+        }
+        const add = ['worktree', 'add', '--quiet', '--end-of-options', path, branch];
+        await must(run, repo, add, `cannot check out ${branch}`, ADD_MS);
+        added = true;
+      } finally {
+        // A killed add leaves a half-made folder, and perhaps its registration.
+        if (!added) await discard(run, repo, path, made ? branch : undefined);
+      }
+      const started = base ?? (reused ? input.base : undefined);
+      return { path, branch, ...(started === undefined ? {} : { base: started }) };
+    },
+    () => lockedBy(`the worktree ${path}`, lockPath, 'worktree'),
+  );
 }
 
-/** Makes `path`, empty, for this call alone: one that exists, even a dangling link, refuses. */
+/** An empty folder, as a create killed before git's add leaves at its path. */
+export const isLeftover = (path: string) => {
+  const found = lstatSync(path, { throwIfNoEntry: false });
+  return found?.isDirectory() === true && readdirSync(path).length === 0;
+};
+
+/**
+ * Makes `path`, empty, for this call: one that exists refuses, even a dangling link, unless it is
+ * an empty folder git does not list (the caller checked), which a create killed before its add
+ * left behind.
+ * addWorktree holds the path's lock, so no other create is making that folder.
+ */
 function claim(path: string) {
   try {
     mkdirSync(path);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    if (isLeftover(path)) return;
     throw new MesaError('usage', `${path} already exists: pick another branch, or remove it`);
   }
 }
