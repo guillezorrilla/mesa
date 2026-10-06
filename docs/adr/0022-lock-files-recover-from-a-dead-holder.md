@@ -29,3 +29,11 @@ The idempotency audit behind epic #630 found that a lock file held only a random
 - A crashed holder no longer needs a person; a pid reused by an unrelated live process keeps the lock blocked, the safe side.
 - A contender killed while it holds a claim (one read and one rename) leaves that dead lock to be deleted by hand, as every lock was before.
 - The lock stamps `startedAt` with the injected clock, one more read of it per lock taken.
+
+## Amendment, 2026-10-05: one read-change-write helper
+
+The same read, change, write under `<file>.lock` was written by hand in each store, and `setYamlPath` (`mesa config set`, onboarding, `mesa.yaml` overrides) took no lock, so concurrent app and CLI edits lost one.
+
+- State files change through `changeJson` (`lib/json-file.ts`) and `changeYaml` or `setYamlPath` (`lib/yaml-file.ts`), which hold `<file>.lock` through `withFileLock`. A session record's lock is therefore `<id>.json.lock`.
+- `withLockSync` outside `lib/` guards only critical sections that are not one file's read-change-write: the session dependency lock (`sessions/dependencies.ts`), the output-log cut, and the inbox delivery claim.
+- Evidence: `packages/core/src/profile/config.test.ts` runs a second `config set` in its own process while the first holds the lock; both keys survive, and without the lock in `setYamlPath` the second key is lost.

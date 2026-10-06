@@ -197,7 +197,12 @@ export function overrideProject(
   const dir = findProject(profile, name).path;
   // A mesa.yaml that is gone is not_found with its fix, before anything is written.
   readProjectFile(dir);
-  const next = setProjectOverride(dir, dotted, value === undefined ? undefined : parse(value));
+  const next = setProjectOverride(
+    dir,
+    dotted,
+    value === undefined ? undefined : parse(value),
+    lock,
+  );
   // A person wrote this setup or teardown, so this profile approves exactly it; one a session
   // wrote loses any approval, so the next worktree asks.
   const script = WORKTREE_SCRIPTS.find((kind) => dotted === `worktrees.${kind}`);

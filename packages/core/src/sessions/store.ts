@@ -1,10 +1,12 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { type IdSource, shortId } from '../lib/ids.js';
-import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
+import { changeJson, readJson } from '../lib/json-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
+import { dependencyLock } from './dependencies.js';
 import {
   isForeignId,
   isSessionId,
@@ -34,45 +36,37 @@ export function sessionStore({
     if (!isSessionId(id)) throw new MesaError('not_found', `no session ${id}`);
     return join(dir, `${id}.json`);
   };
-  const read = (id: string): SessionRecord => {
-    const file = fileOf(id);
-    const text = readFileSync(file, 'utf8');
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      throw new MesaError('invalid_config', `${file}: not valid JSON`);
-    }
-    const record = parseWith(SessionRecordSchema, raw, file);
-    // update() writes to the record's own id, so a copied file must not hold another's.
-    if (record.id !== id) throw new MesaError('invalid_config', `${file}: id is ${record.id}`);
+  /** The record in `id`'s file, which must hold `id`: update() writes to the record's own id. */
+  const own = (id: string, record: SessionRecord | undefined) => {
+    if (!record) throw new MesaError('not_found', `no session ${id}`);
+    if (record.id !== id)
+      throw new MesaError('invalid_config', `${fileOf(id)}: id is ${record.id}`);
     return record;
   };
+  const read = (id: string): SessionRecord => own(id, readJson(fileOf(id), SessionRecordSchema));
   const write = (record: SessionRecord) => {
     const valid = parseWith(SessionRecordSchema, record, fileOf(record.id));
     writeFileAtomic(fileOf(record.id), `${JSON.stringify(valid, null, 2)}\n`);
     return valid;
   };
-  const get = (id: string) => {
-    if (!existsSync(fileOf(id))) throw new MesaError('not_found', `no session ${id}`);
-    return read(id);
-  };
+  const get = read;
   /**
-   * Runs `fn` holding the record's lock (`<id>.lock` beside it), so read-modify-write updates of
-   * one record serialise across processes: a send from two sessions at once keeps both events.
+   * Changes the record under its lock (`<id>.json.lock` beside it), so read-modify-write updates
+   * of one record serialise across processes: a send from two sessions at once keeps both events.
    */
-  const locked = <T>(id: string, fn: () => T, tries?: number): T => {
-    const path = fileOf(id).replace(/\.json$/, '.lock');
-    const busy = () => lockedBy(`session ${id}`, path, 'session');
-    return withLockSync(lock, path, fn, busy, tries);
-  };
+  const change = <R extends SessionRecord | undefined>(
+    id: string,
+    fn: (current: SessionRecord) => R,
+    tries?: number,
+  ): R =>
+    changeJson(fileOf(id), SessionRecordSchema, (current) => fn(own(id, current)), lock, {
+      tries,
+      what: `session ${id}`,
+    });
 
   return {
     /** Serializes dependency edits and queue cancellation across Mesa processes. */
-    withDependencyLock: <T>(fn: () => T): T => {
-      const path = join(dir, '.dependencies.lock');
-      return withLockSync(lock, path, fn, () => lockedBy('session dependencies', path, 'session'));
-    },
+    withDependencyLock: dependencyLock(dir, lock),
     /** A new record with a fresh id, which `build` may use (the window is named after it). */
     create: (build: (id: string) => NewSession): SessionRecord => {
       const id = shortId(newId);
@@ -100,12 +94,11 @@ export function sessionStore({
       patch: Patch | ((current: SessionRecord) => Patch),
       { wait = true } = {},
     ) =>
-      locked(
+      change(
         id,
-        () => {
-          const current = get(id);
-          const change = typeof patch === 'function' ? patch(current) : patch;
-          return write({ ...current, ...change, id });
+        (current) => {
+          const patched = typeof patch === 'function' ? patch(current) : patch;
+          return { ...current, ...patched, id };
         },
         wait ? undefined : 0,
       ),
@@ -120,11 +113,7 @@ export function sessionStore({
         .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
     },
     /** Under the lock, so an update that waited for it cannot write the record back. */
-    remove: (id: string) =>
-      locked(id, () => {
-        get(id);
-        rmSync(fileOf(id));
-      }),
+    remove: (id: string) => void change(id, () => undefined),
   };
 }
 

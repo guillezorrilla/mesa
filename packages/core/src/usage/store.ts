@@ -1,11 +1,7 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
-import { writeFileAtomic } from '../lib/atomic-file.js';
-import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
-import { MesaError } from '../lib/result.js';
-import { parseWith } from '../lib/schema.js';
+import { changeJson, readJson } from '../lib/json-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import type { UsageRecord } from './records.js';
 
 const Tokens = z.strictObject({
@@ -51,22 +47,15 @@ const Ledger = z.strictObject({
   hooks: z.record(z.string(), HookStampSchema).default({}),
 });
 type Ledger = z.infer<typeof Ledger>;
+// Earlier P4 ledgers were arrays; preserve their rows and scan sources once to add stamps.
+const LedgerFile = z
+  .union([Ledger, Rows.transform((rows): Ledger => ({ rows, sources: {}, hooks: {} }))])
+  .describe('usage ledger');
+const EMPTY: Ledger = { rows: [], sources: {}, hooks: {} };
 
 /** One profile-local ledger; unchanged native files keep their normalized rows. */
 export function usageStore(file: string, deps: LockDeps) {
-  const read = (): Ledger => {
-    if (!existsSync(file)) return { rows: [], sources: {}, hooks: {} };
-    let raw: unknown;
-    try {
-      raw = JSON.parse(readFileSync(file, 'utf8'));
-    } catch {
-      throw new MesaError('invalid_config', `${file}: usage ledger is not valid JSON`);
-    }
-    // Earlier P4 ledgers were arrays; preserve their rows and scan sources once to add stamps.
-    return Array.isArray(raw)
-      ? { rows: parseWith(Rows, raw, file), sources: {}, hooks: {} }
-      : parseWith(Ledger, raw, file);
-  };
+  const read = (): Ledger => readJson(file, LedgerFile) ?? EMPTY;
   return {
     read,
     /** ponytail: rewrites the local ledger; use an indexed store if profiles reach huge histories. */
@@ -75,16 +64,14 @@ export function usageStore(file: string, deps: LockDeps) {
       sources: Record<string, SourceStamp>,
       hooks: Record<string, HookStamp>,
     ) => {
-      mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-      const lock = `${file}.lock`;
-      return withLockSync(
-        deps,
-        lock,
-        () => {
-          const old = read();
+      let merged: UsageRecord[] = [];
+      changeJson(
+        file,
+        LedgerFile,
+        (old = EMPTY) => {
           const rows = new Map(old.rows.map((row) => [row.id, row]));
           for (const row of fresh) rows.set(row.id, row);
-          const merged = [...rows.values()].sort(
+          merged = [...rows.values()].sort(
             (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
           );
           const nextHooks = { ...old.hooks };
@@ -96,13 +83,11 @@ export function usageStore(file: string, deps: LockDeps) {
               changedIds: [...new Set([...(prior?.changedIds ?? []), ...hook.changedIds])],
             };
           }
-          const next = { rows: merged, sources: { ...old.sources, ...sources }, hooks: nextHooks };
-          if (JSON.stringify(old) !== JSON.stringify(next))
-            writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
-          return merged;
+          return { rows: merged, sources: { ...old.sources, ...sources }, hooks: nextHooks };
         },
-        () => lockedBy('usage ledger', lock, 'usage'),
+        deps,
       );
+      return merged;
     },
   };
 }

@@ -1,14 +1,13 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
 import { automationState } from '../automations/state.js';
 import type { MesaContext } from '../context.js';
 import type { DoctorReport } from '../doctor.js';
-import { writeFileAtomic } from '../lib/atomic-file.js';
+import { changeJson, readJson } from '../lib/json-file.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
-import { parseWith } from '../lib/schema.js';
 import { type HookEvent, parentHook, scanHookEvents } from '../sessions/hook-events.js';
 
 /** The one Mesa command that fixes a Doctor notice, when there is one. */
@@ -55,26 +54,28 @@ const CandidateSchema = z.strictObject({
 });
 type Candidate = z.infer<typeof CandidateSchema>;
 
-const State = z.strictObject({
-  read: z.array(z.string()),
-  cleared: z.array(z.string()),
-  delivered: z.array(z.string()).default([]),
-  items: z.array(CandidateSchema).default([]),
-  offsets: z.record(z.string(), z.number().int().nonnegative()).default({}),
-  doctor: z
-    .array(
-      z.object({
-        at: z.iso.datetime(),
-        name: z.string(),
-        status: z.enum(['warn', 'fail']),
-        fingerprint: z.string().optional(),
-        detail: z.string().optional(),
-        fix: z.enum(['hooks install', 'vault init']).optional(),
-      }),
-    )
-    .default([]),
-  startedAt: z.iso.datetime().optional(),
-});
+const State = z
+  .strictObject({
+    read: z.array(z.string()),
+    cleared: z.array(z.string()),
+    delivered: z.array(z.string()).default([]),
+    items: z.array(CandidateSchema).default([]),
+    offsets: z.record(z.string(), z.number().int().nonnegative()).default({}),
+    doctor: z
+      .array(
+        z.object({
+          at: z.iso.datetime(),
+          name: z.string(),
+          status: z.enum(['warn', 'fail']),
+          fingerprint: z.string().optional(),
+          detail: z.string().optional(),
+          fix: z.enum(['hooks install', 'vault init']).optional(),
+        }),
+      )
+      .default([]),
+    startedAt: z.iso.datetime().optional(),
+  })
+  .describe('inbox state');
 type State = z.infer<typeof State>;
 const EMPTY: State = { read: [], cleared: [], delivered: [], doctor: [], items: [], offsets: {} };
 
@@ -205,23 +206,12 @@ export function inbox(ctx: MesaContext) {
         fingerprint: `automation:${run.id}`,
         target: { kind: 'automations' },
       }));
-  const read = (): State => {
-    if (!existsSync(file)) return EMPTY;
-    try {
-      return parseWith(State, JSON.parse(readFileSync(file, 'utf8')), file);
-    } catch (error) {
-      if (error instanceof MesaError) throw error;
-      throw new MesaError('invalid_config', `${file}: inbox state is not valid JSON`);
-    }
-  };
-  const write = (state: Partial<State>) => {
-    mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-    const lock = `${file}.lock`;
-    return withLockSync(
-      ctx.deps,
-      lock,
-      () => {
-        const current = read();
+  const read = (): State => readJson(file, State) ?? EMPTY;
+  const write = (state: Partial<State>) =>
+    changeJson(
+      file,
+      State,
+      (current = EMPTY) => {
         const entries = [...current.items, ...(state.items ?? [])].sort((a, b) =>
           a.at.localeCompare(b.at),
         );
@@ -255,12 +245,10 @@ export function inbox(ctx: MesaContext) {
         next.cleared = next.cleared.filter((id) => retained.has(id));
         // Keep each acknowledgement as long as its notice, including failed automation runs.
         next.delivered = next.delivered.filter((id) => retained.has(id));
-        writeFileAtomic(file, `${JSON.stringify(next, null, 2)}\n`, 0o600);
         return next;
       },
-      () => lockedBy('inbox', lock, 'notifications'),
+      ctx.deps,
     );
-  };
   const list = (): InboxItem[] => {
     const current = read();
     const fresh: Candidate[] = [];

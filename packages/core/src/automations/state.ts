@@ -2,8 +2,8 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { DecisionSchema } from '../decisions/types.js';
 import { ULID } from '../lib/ids.js';
-import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
-import { readYaml, writeYaml } from '../lib/yaml-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
+import { changeYaml, readYaml } from '../lib/yaml-file.js';
 import { AutomationRuleSchema } from './schema.js';
 
 const TriggerSchema = z.strictObject({
@@ -50,18 +50,18 @@ export function automationState(file: string, deps: LockDeps) {
   return {
     read,
     update: <T>(change: (state: AutomationState) => T): T => {
-      const lock = `${file}.lock`;
-      return withLockSync(
-        deps,
-        lock,
-        () => {
-          const state = read();
-          const result = change(state);
-          writeYaml(file, StateSchema.parse(state), { mode: 0o600 });
-          return result;
+      let result: T | undefined;
+      changeYaml(
+        file,
+        StateSchema,
+        (current) => {
+          const state = current ?? read();
+          result = change(state);
+          return state;
         },
-        () => lockedBy('automation state', lock, 'another tick'),
+        deps,
       );
+      return result as T;
     },
   };
 }

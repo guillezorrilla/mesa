@@ -8,6 +8,7 @@ import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
 import { DecisionsBackendSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import type { Env } from '../lib/process.js';
 import { REDACTED } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
@@ -298,13 +299,14 @@ export function setConfigValue(
   file: string,
   dotted: string,
   value: string,
+  lock: LockDeps,
   /** Throws to refuse the new config, before anything is written. */
   check?: (next: Config) => void,
 ): { value: unknown; changed: boolean } {
   const removed = REMOVED_KEYS[dotted.split('.')[0] as string];
   if (removed) throw new MesaError('invalid_config', `${file}: ${removed}`);
   const before = currentValue(file, dotted);
-  const next = setYamlPath(file, ConfigSchema, dotted, parse(value), check);
+  const next = setYamlPath(file, ConfigSchema, dotted, parse(value), lock, check);
   return {
     value: valueAt(redactConfig(next), dotted),
     changed: !isDeepStrictEqual(before, valueAt(next, dotted)),

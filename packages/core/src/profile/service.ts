@@ -67,7 +67,7 @@ export function profileService(ctx: MesaContext) {
             outputs: (r) => ({ value: dotted === 'vault' ? redact(String(r.value)) : r.value }),
             changed: (r) => r.changed,
           },
-          () => setConfigValue(paths.config, dotted, value, scriptGuard()),
+          () => setConfigValue(paths.config, dotted, value, ctx.deps, scriptGuard()),
         );
       },
     },
