@@ -11,7 +11,7 @@ export const claudeHome = (home: string, env: Env) =>
  * Its user settings, where Mesa's hooks go (ADR-0003); under CLAUDE_CONFIG_DIR when `env` sets it,
  * as Claude reads them there.
  */
-export const claudeSettings = (home: string, env: Env = {}) =>
+export const claudeSettings = (home: string, env: Env) =>
   join(claudeHome(home, env), 'settings.json');
 
 /** In a Claude folder (its config folder or a project's `.claude`) or a project: `CLAUDE.md`, and the folder of `.md` rules. */

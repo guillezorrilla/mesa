@@ -96,10 +96,40 @@ test('a native-1M model is held to 200k by the environment or by Claude Code set
     1_000_000,
   );
   mkdirSync(join(home, '.claude'), { recursive: true });
-  writeFileSync(claudeSettings(home), JSON.stringify({ env: { CLAUDE_CODE_USE_BEDROCK: '1' } }));
+  writeFileSync(
+    claudeSettings(home, {}),
+    JSON.stringify({ env: { CLAUDE_CODE_USE_BEDROCK: '1' } }),
+  );
   expect(claudeContext({ home, env: {} }, ID)?.window).toBe(200_000);
   writeFileSync(file, reply('claude-3-5-sonnet-20241022'));
   expect(claudeContext({ home, env: {} }, ID)).toBeUndefined();
+});
+
+test('with CLAUDE_CONFIG_DIR set, the settings env is read there and never from ~/.claude', () => {
+  const home = tempDir();
+  const env = { CLAUDE_CONFIG_DIR: join(home, 'config/claude') };
+  const folder = join(claudeTranscripts(home, env), '-src-lantern-cove');
+  mkdirSync(folder, { recursive: true });
+  writeFileSync(
+    join(folder, `${ID}.jsonl`),
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-09-25T10:00:09.000Z',
+      message: { model: 'claude-opus-5-5', usage: { input_tokens: 45_656 } },
+    }),
+  );
+  // A decoy in ~/.claude that would hold the window to 200k.
+  mkdirSync(join(home, '.claude'), { recursive: true });
+  writeFileSync(
+    claudeSettings(home, {}),
+    JSON.stringify({ env: { CLAUDE_CODE_USE_BEDROCK: '1' } }),
+  );
+  expect(claudeContext({ home, env }, ID)?.window).toBe(1_000_000);
+  writeFileSync(
+    claudeSettings(home, env),
+    JSON.stringify({ env: { CLAUDE_CODE_USE_BEDROCK: '1' } }),
+  );
+  expect(claudeContext({ home, env }, ID)?.window).toBe(200_000);
 });
 
 test('the last reply is found from the end of a large transcript, across multibyte text', () => {

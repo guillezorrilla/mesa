@@ -1,3 +1,4 @@
+import type { Env } from '../../lib/process.js';
 import * as hooks from '../hooks.js';
 import { claudeSettings } from './paths.js';
 
@@ -17,16 +18,16 @@ export const HOOK_EVENTS: readonly { event: string; matcher?: string }[] = [
 ];
 
 export type ClaudeHooksStatus = hooks.HookFileStatus;
-const file = (home: string): hooks.HookFile => ({
-  path: claudeSettings(home),
+const file = (home: string, env: Env): hooks.HookFile => ({
+  path: claudeSettings(home, env),
   agent: 'claude',
   events: HOOK_EVENTS,
 });
 export const hookCommand = (self: readonly string[], event?: string) =>
   hooks.hookCommand(self, 'claude', event);
-export const hooksStatus = (home: string, self: readonly string[]) =>
-  hooks.hooksStatus(file(home), self);
-export const installHooks = (home: string, self: readonly string[]) =>
-  hooks.installHooks(file(home), self);
-export const uninstallHooks = (home: string, self: readonly string[]) =>
-  hooks.uninstallHooks(file(home), self);
+export const hooksStatus = (home: string, env: Env, self: readonly string[]) =>
+  hooks.hooksStatus(file(home, env), self);
+export const installHooks = (home: string, env: Env, self: readonly string[]) =>
+  hooks.installHooks(file(home, env), self);
+export const uninstallHooks = (home: string, env: Env, self: readonly string[]) =>
+  hooks.uninstallHooks(file(home, env), self);

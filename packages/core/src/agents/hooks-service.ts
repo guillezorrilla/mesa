@@ -23,11 +23,11 @@ export function hooksService(ctx: MesaContext) {
   const home = codexHome(deps.home, deps.env);
   const change = (install: boolean) => {
     // Validate every file before changing any, including Codex's read-only trust config.
-    hooksStatus(deps.home, deps.self);
+    hooksStatus(deps.home, deps.env, deps.self);
     codex.hooksStatus(home, deps.self);
     antigravity.hooksStatus(deps.home, deps.self);
     // Antigravity's vault files are not checked here: a conflict there is reported, not thrown.
-    const claude = (install ? installHooks : uninstallHooks)(deps.home, deps.self);
+    const claude = (install ? installHooks : uninstallHooks)(deps.home, deps.env, deps.self);
     const result = (install ? codex.installHooks : codex.uninstallHooks)(home, deps.self);
     const agy = (install ? antigravity.installHooks : antigravity.uninstallHooks)(
       deps.home,
@@ -46,7 +46,7 @@ export function hooksService(ctx: MesaContext) {
   };
   return {
     status: async () => ({
-      ...hooksStatus(deps.home, deps.self),
+      ...hooksStatus(deps.home, deps.env, deps.self),
       codex: codex.hooksStatus(home, deps.self),
       antigravity: antigravity.hooksStatus(deps.home, deps.self),
       antigravityVault: antigravityVault.vaultMountStatus(deps.home, deps.self),
