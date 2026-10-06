@@ -6,9 +6,9 @@ import type { Guarded, Override } from '../../decisions/guardrail.js';
 import { shortId } from '../../lib/ids.js';
 import { redactWhole } from '../../lib/redact.js';
 import type { skillsService } from '../../skills/service.js';
-import { callerOf } from '../caller.js';
-import { otherProfilesSessions } from '../elsewhere.js';
-import { endSignals } from '../end-signals.js';
+import { otherProfilesSessions } from '../board/elsewhere.js';
+import { endSignals } from '../end/end-signals.js';
+import { callerOf } from '../window/caller.js';
 import { backgroundView } from './background-view.js';
 import { boardLook } from './board.js';
 

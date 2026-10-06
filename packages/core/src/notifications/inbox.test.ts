@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 import { automationState } from '../automations/state.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
-import { eventsLog, recordHookEvent } from '../sessions/hook-events.js';
+import { eventsLog, recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
   lockDeps,
   newSession,

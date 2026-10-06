@@ -1,6 +1,6 @@
 import { NESTED_STATUS_LINE_VAR, userStatusLineCommand } from '../agents/claude/statusline.js';
 import type { MesaContext } from '../context.js';
-import { callerOf } from '../sessions/caller.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { sessionCost } from './session-cost.js';
 
 /** How long the user's own status line may run before Mesa shows its cost alone. */

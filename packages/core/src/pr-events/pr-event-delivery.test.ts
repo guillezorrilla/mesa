@@ -5,7 +5,7 @@ import type { Decision } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { listReceipts } from '../receipts/store.js';
 import type { ManagedRow } from '../sessions/board/rows.js';
-import type { Sent } from '../sessions/send.js';
+import type { Sent } from '../sessions/input/send.js';
 import {
   type FakePullRequest,
   fakeGh,

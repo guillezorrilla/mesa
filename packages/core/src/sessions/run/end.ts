@@ -1,10 +1,10 @@
 import { rmSync } from 'node:fs';
 import type { MesaContext } from '../../context.js';
 import { MesaError } from '../../lib/result.js';
-import type { SessionRecord } from '../record.js';
+import type { SessionRecord } from '../record/record.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
 import { paneExit, type TmuxWindow } from '../tmux/format.js';
-import { windowOf } from '../window-name.js';
+import { windowOf } from '../window/window-name.js';
 import { type Exit, type HeadlessResult, runInput, runResult } from './files.js';
 import { finishRun } from './land.js';
 import { RUN_TIMEOUT_SECONDS } from './start.js';

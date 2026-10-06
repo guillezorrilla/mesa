@@ -2,15 +2,15 @@ import { isDeepStrictEqual } from 'node:util';
 import { AGENTS } from '../../agents/agents.js';
 import type { AgentProcess } from '../../agents/listing.js';
 import { MesaError } from '../../lib/result.js';
-import { hasConversation } from '../conversation.js';
-import { type HookEvent, parentHook } from '../hook-events.js';
-import type { SessionRecord } from '../record.js';
-import { classifySession, type Placement, type SessionSignals } from '../state.js';
-import { FINAL_STATES, isAgentState } from '../states.js';
-import type { SessionStore } from '../store.js';
+import { hasConversation } from '../native/conversation.js';
+import type { SessionRecord } from '../record/record.js';
+import { FINAL_STATES, isAgentState } from '../record/states.js';
+import type { SessionStore } from '../record/store.js';
+import { type HookEvent, parentHook } from '../signals/hook-events.js';
+import { classifySession, type Placement, type SessionSignals } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
-import { windowOf } from '../window-name.js';
+import { windowOf } from '../window/window-name.js';
 import { type ManagedRow, secondsBetween } from './rows.js';
 
 /**

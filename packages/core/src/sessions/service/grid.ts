@@ -1,6 +1,6 @@
 import type { MesaContext } from '../../context.js';
 import type { profileService } from '../../profile/service.js';
-import { type GridGroup, removeGridGroup, saveGridGroup } from '../grid-groups.js';
+import { type GridGroup, removeGridGroup, saveGridGroup } from '../window/grid-groups.js';
 
 /** The profile service's config.set: the grid's groups are a config value. */
 export type SetConfig = ReturnType<typeof profileService>['config']['set'];

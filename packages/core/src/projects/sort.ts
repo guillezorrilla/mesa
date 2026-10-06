@@ -1,8 +1,8 @@
 import { MesaError } from '../lib/result.js';
 import { PROJECT_SORTS } from '../profile/preferences.js';
-import type { SessionRecord } from '../sessions/record.js';
-import { sessionProjects } from '../sessions/session-projects.js';
-import { FINAL_STATES } from '../sessions/states.js';
+import type { SessionRecord } from '../sessions/record/record.js';
+import { sessionProjects } from '../sessions/record/session-projects.js';
+import { FINAL_STATES } from '../sessions/record/states.js';
 import type { ProjectRow } from './projects.js';
 import type { RegistryEntry } from './registry.js';
 

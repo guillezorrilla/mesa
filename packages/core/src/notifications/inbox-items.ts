@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { DoctorReport } from '../doctor/doctor.js';
-import { type HookEvent, parentHook } from '../sessions/hook-events.js';
+import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
 
 /** The one Mesa command that fixes a Doctor notice, when there is one. */
 export type InboxFix = 'hooks install' | 'vault init';

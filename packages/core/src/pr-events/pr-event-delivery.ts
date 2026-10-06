@@ -5,9 +5,9 @@ import type { GhState } from '../git/gh.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Recorded } from '../receipts/recorder.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
-import { heldWorktrees } from '../sessions/holders.js';
-import type { Sent } from '../sessions/send.js';
-import type { SessionState } from '../sessions/states.js';
+import type { Sent } from '../sessions/input/send.js';
+import { heldWorktrees } from '../sessions/record/holders.js';
+import type { SessionState } from '../sessions/record/states.js';
 import { prEventLedger } from './pr-event-ledger.js';
 import { type PrEvent, type PrProblem, type PrWatch, scanPrEvents } from './pr-events.js';
 

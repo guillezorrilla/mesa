@@ -2,17 +2,22 @@ import type { MesaContext } from '../../context.js';
 import { counted } from '../../lib/format.js';
 import { MesaError } from '../../lib/result.js';
 import { joinWarnings } from '../../receipts/recorder.js';
-import { adoptSession } from '../adopt.js';
-import { changeDependencies } from '../dependencies.js';
-import { adoptDiscovered, type DiscoveryAdoption } from '../discovery-adopt.js';
-import { forkSession } from '../fork.js';
-import { projectLabel } from '../general.js';
-import { handoffSession, stopHandedOff } from '../handoff.js';
-import { startQueued } from '../queue.js';
-import { isOver } from '../record.js';
-import { resumeSession } from '../resume.js';
-import { launchGuardrail, markEnded, recordStart, startedOutputs } from '../session-receipt.js';
-import { swapAgent } from '../swap.js';
+import { projectLabel } from '../record/general.js';
+import { isOver } from '../record/record.js';
+import {
+  launchGuardrail,
+  markEnded,
+  recordStart,
+  startedOutputs,
+} from '../record/session-receipt.js';
+import { adoptSession } from '../start/adopt.js';
+import { changeDependencies } from '../start/dependencies.js';
+import { adoptDiscovered, type DiscoveryAdoption } from '../start/discovery-adopt.js';
+import { forkSession } from '../start/fork.js';
+import { handoffSession, stopHandedOff } from '../start/handoff.js';
+import { startQueued } from '../start/queue.js';
+import { resumeSession } from '../start/resume.js';
+import { swapAgent } from '../start/swap.js';
 import type { SessionDeps } from './deps.js';
 import type { lifecycleActions } from './lifecycle.js';
 

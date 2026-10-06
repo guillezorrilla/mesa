@@ -3,9 +3,9 @@ import { join } from 'node:path';
 import { AGENTS } from '../../agents/agents.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { MesaError } from '../../lib/result.js';
-import { outputTail } from '../output-log.js';
-import type { SessionRecord } from '../record.js';
-import { exitState } from '../state.js';
+import type { SessionRecord } from '../record/record.js';
+import { exitState } from '../signals/state.js';
+import { outputTail } from '../window/output-log.js';
 
 // A run's files, local to the profile: the result its agent prints into runs/, the input a run
 // about a session reads, and what its result says once read.

@@ -3,9 +3,9 @@ import type { Guarded, Override, Overrides } from '../../decisions/guardrail.js'
 import type { DecisionRecorder } from '../../decisions/types.js';
 import { redactText } from '../../lib/redact.js';
 import { joinWarnings } from '../../receipts/recorder.js';
-import type { Caller } from '../caller.js';
-import { recordStart, startedOutputs } from '../session-receipt.js';
-import type { StopOutcome } from '../stop.js';
+import type { StopOutcome } from '../end/stop.js';
+import { recordStart, startedOutputs } from '../record/session-receipt.js';
+import type { Caller } from '../window/caller.js';
 import { awaitRun, endRun, type RunEnd } from './end.js';
 import { type RunInput, startRun } from './start.js';
 

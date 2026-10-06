@@ -16,7 +16,7 @@ import {
   sequentialIds,
   tempDir,
 } from '../../testing/index.js';
-import { sessionStore } from '../store.js';
+import { sessionStore } from '../record/store.js';
 import { listSessions } from './board.js';
 import { sessionTree } from './tree.js';
 

@@ -2,9 +2,9 @@ import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { clip } from '../../lib/clip.js';
 import { MesaError } from '../../lib/result.js';
-import type { SessionRecord } from '../../sessions/record.js';
-import { sessionProjects } from '../../sessions/session-projects.js';
-import type { SessionStore } from '../../sessions/store.js';
+import type { SessionRecord } from '../../sessions/record/record.js';
+import { sessionProjects } from '../../sessions/record/session-projects.js';
+import type { SessionStore } from '../../sessions/record/store.js';
 import { sessionSummaryPath } from '../layout.js';
 import { outOfScope } from '../scope.js';
 

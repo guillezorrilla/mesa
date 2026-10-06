@@ -3,7 +3,7 @@ import type { MesaContext } from '../context.js';
 import { REDACTED, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../projects/trust.js';
-import { callerOf } from '../sessions/caller.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { acceptsMesaWrites, initVault } from '../vault/vault.js';
 import { type Config, loadConfig, redactConfig, setConfigValue } from './config.js';
 import { initProfile, type ProfileInfo } from './profile.js';

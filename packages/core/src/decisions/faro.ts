@@ -4,7 +4,7 @@ import { MesaError } from '../lib/result.js';
 import { readProjectFile } from '../projects/project-file.js';
 import { readRegistry } from '../projects/registry.js';
 import { recordScope } from '../receipts/record-scope.js';
-import { recordAgent } from '../sessions/record.js';
+import { recordAgent } from '../sessions/record/record.js';
 import { decide, type FaroProfile } from './decide.js';
 import {
   checkGuardrail,

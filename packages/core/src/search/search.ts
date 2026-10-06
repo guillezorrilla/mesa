@@ -1,7 +1,7 @@
 import type { ProjectRow } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
 import type { TreeRow } from '../sessions/board/tree.js';
-import { additionalLabel, sessionLabel } from '../sessions/labels.js';
+import { additionalLabel, sessionLabel } from '../sessions/record/labels.js';
 
 export type SearchHit = {
   kind: 'action' | 'setting' | 'project' | 'session' | 'prompt' | 'vault';

@@ -1,9 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { profilePaths } from '../profile/paths.js';
-import { prepareOutputLog } from '../sessions/output-log.js';
-import type { NewSession } from '../sessions/record.js';
-import { sessionStore } from '../sessions/store.js';
+import type { NewSession } from '../sessions/record/record.js';
+import { sessionStore } from '../sessions/record/store.js';
+import { prepareOutputLog } from '../sessions/window/output-log.js';
 import { sequentialIds } from './clock.js';
 import { lockDeps } from './lock.js';
 

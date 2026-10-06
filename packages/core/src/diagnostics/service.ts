@@ -1,7 +1,7 @@
 import type { MesaContext } from '../context.js';
 import { redactPayload } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
-import { readHookEvents } from '../sessions/hook-events.js';
+import { readHookEvents } from '../sessions/signals/hook-events.js';
 
 export type DiagnosticEvent = {
   id: string;
