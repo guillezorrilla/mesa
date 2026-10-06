@@ -6,8 +6,13 @@ import type { SourceDeps } from './authorized-fetch.js';
 /** Mesa's hosted broker (ADR-0014). Self-hosting is MESA_BROKER_URL. */
 export const DEFAULT_BROKER_URL = 'https://mesa-broker.guillecoto94.workers.dev';
 
-export const brokerUrl = (env: Env) =>
-  (env.MESA_BROKER_URL || DEFAULT_BROKER_URL).replace(/\/+$/, '');
+/** The broker's URL without trailing slashes, cut by index: a `/\/+$/` is polynomial on many slashes. */
+export function brokerUrl(env: Env) {
+  const url = env.MESA_BROKER_URL || DEFAULT_BROKER_URL;
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end--;
+  return url.slice(0, end);
+}
 
 export type Grant =
   | { grant_type: 'authorization_code'; code: string }
