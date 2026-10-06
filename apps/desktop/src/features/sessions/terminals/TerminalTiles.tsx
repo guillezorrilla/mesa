@@ -83,6 +83,7 @@ export function TerminalTiles({
         onClose={() => panels.close(id)}
         grid={gridMode}
         selected={Boolean(selectedSession)}
+        focus={id === selectedSession}
         zoomed={zoomed === id}
         onZoom={() => panels.toggleZoom(id)}
         onReviewResponse={
