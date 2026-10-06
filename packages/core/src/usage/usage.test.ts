@@ -10,6 +10,7 @@ import { recordHookEvent } from '../sessions/hook-events.js';
 import {
   codexWorld,
   fixedClock,
+  lockDeps,
   newSession,
   plantTranscript,
   projectProfile,
@@ -88,9 +89,9 @@ test('Claude repeated message updates count once, survive removal, and stay in t
     { agent: 'claude', totals: { events: 1, estimatedCostUsd: 0.000167 } },
   ]);
   const config = profilePaths(home, 'default').config;
-  setConfigValue(config, 'usage.dailyAlertUsd', '0.0001');
-  setConfigValue(config, 'usage.weeklyAlertUsd', '0.0002');
-  setConfigValue(config, 'usage.monthlyAlertUsd', '0.0001');
+  setConfigValue(config, 'usage.dailyAlertUsd', '0.0001', lockDeps());
+  setConfigValue(config, 'usage.weeklyAlertUsd', '0.0002', lockDeps());
+  setConfigValue(config, 'usage.monthlyAlertUsd', '0.0001', lockDeps());
   expect((await mesa.usage.list()).alerts).toEqual([
     { period: 'today', thresholdUsd: 0.0001, knownCostUsd: 0.000167 },
     { period: 'month', thresholdUsd: 0.0001, knownCostUsd: 0.000167 },

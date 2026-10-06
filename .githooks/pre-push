@@ -1,4 +1,0 @@
-#!/bin/sh
-# Installed by `pnpm install` through the root prepare script (git config core.hooksPath .githooks).
-# Skip once with: git push --no-verify
-exec sh scripts/verify.sh

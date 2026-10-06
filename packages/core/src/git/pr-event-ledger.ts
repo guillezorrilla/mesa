@@ -1,16 +1,14 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { z } from 'zod';
-import { writeFileAtomic } from '../lib/atomic-file.js';
-import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
-import { MesaError } from '../lib/result.js';
-import { parseWith } from '../lib/schema.js';
+import { changeJson, readJson } from '../lib/json-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { failingKey, type PrDelivered, type PrEvent, type PrScan } from './pr-events.js';
 
-const State = z.strictObject({
-  delivered: z.array(z.string()).default([]),
-  failing: z.array(z.string()).default([]),
-});
+const State = z
+  .strictObject({
+    delivered: z.array(z.string()).default([]),
+    failing: z.array(z.string()).default([]),
+  })
+  .describe('PR event state');
 type State = z.infer<typeof State>;
 
 /** Ids kept: far more than the events of the sessions live at once. */
@@ -22,32 +20,20 @@ const KEPT = 2_000;
  * left failing, so their fix is news.
  */
 export function prEventLedger(file: string, deps: LockDeps) {
-  const read = (): State => {
-    if (!existsSync(file)) return { delivered: [], failing: [] };
-    try {
-      return parseWith(State, JSON.parse(readFileSync(file, 'utf8')), file);
-    } catch (error) {
-      if (error instanceof MesaError) throw error;
-      throw new MesaError('invalid_config', `${file}: PR event state is not valid JSON`);
-    }
-  };
+  const read = (): State => readJson(file, State) ?? { delivered: [], failing: [] };
   const change = <T>(fn: (state: State) => { next: State; result: T }): T => {
-    mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
-    const lock = `${file}.lock`;
-    return withLockSync(
-      deps,
-      lock,
-      () => {
-        const { next, result } = fn(read());
-        writeFileAtomic(
-          file,
-          `${JSON.stringify({ delivered: next.delivered.slice(-KEPT), failing: next.failing }, null, 2)}\n`,
-          0o600,
-        );
-        return result;
+    let result: T | undefined;
+    changeJson(
+      file,
+      State,
+      (current) => {
+        const changed = fn(current ?? { delivered: [], failing: [] });
+        result = changed.result;
+        return { ...changed.next, delivered: changed.next.delivered.slice(-KEPT) };
       },
-      () => lockedBy('PR events', lock, 'pr-events'),
+      deps,
     );
+    return result as T;
   };
   /** The failing checks once `events` are told: a failure adds its check, a fix removes it. */
   const moveFailing = (failing: readonly string[], events: readonly PrEvent[], told: boolean) => {

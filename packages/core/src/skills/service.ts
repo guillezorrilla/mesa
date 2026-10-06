@@ -85,7 +85,7 @@ export function skillsService(ctx: MesaContext) {
           const skills = enabled
             ? [...new Set([...current, name])]
             : current.filter((skill) => skill !== name);
-          setProjectSkills(projectDir as string, skills);
+          setProjectSkills(projectDir as string, skills, ctx.deps);
           return { project, name, enabled, skills, changed: true };
         },
       ),

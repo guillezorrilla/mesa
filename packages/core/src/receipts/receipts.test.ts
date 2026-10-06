@@ -8,6 +8,7 @@ import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import {
   fixedClock,
+  lockDeps,
   profilePaths,
   sequentialIds,
   steppingClock,
@@ -419,7 +420,7 @@ test('an env: key value is redacted in a retained decision command', async () =>
   const argv = ['init', '--vault', 'vault'];
   const mesa = createMesa('default', testDeps(home, { argv, env: { JEV: 'sk-from-env' } }));
   mesa.init({ vault: 'vault' });
-  setConfigValue(profilePaths(home, 'default').config, 'keys.jev', 'env:JEV');
+  setConfigValue(profilePaths(home, 'default').config, 'keys.jev', 'env:JEV', lockDeps());
   const again = createMesa(
     'default',
     testDeps(home, { argv: ['log', 'token sk-from-env'], env: { JEV: 'sk-from-env' } }),

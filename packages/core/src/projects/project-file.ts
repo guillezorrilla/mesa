@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
@@ -62,16 +63,21 @@ export const writeProjectFile = (dir: string, project: Project): boolean =>
   writeYaml(projectFile(dir), project, { exclusive: true });
 
 /** Change only the skill policy, preserving the rest of the project's YAML and comments. */
-export const setProjectSkills = (dir: string, skills: string[]): Project =>
-  setYamlPath(projectFile(dir), ProjectSchema, 'skills', skills);
+export const setProjectSkills = (dir: string, skills: string[], lock: LockDeps): Project =>
+  setYamlPath(projectFile(dir), ProjectSchema, 'skills', skills, lock);
 
 /** Sets one override, or removes it when `value` is undefined, keeping the rest of the YAML. */
-export function setProjectOverride(dir: string, dotted: string, value: unknown): Project {
+export function setProjectOverride(
+  dir: string,
+  dotted: string,
+  value: unknown,
+  lock: LockDeps,
+): Project {
   if (!PROJECT_OVERRIDES.includes(dotted)) {
     throw new MesaError(
       'usage',
       `${dotted} is not a project override: ${PROJECT_OVERRIDES.join(', ')}`,
     );
   }
-  return setYamlPath(projectFile(dir), ProjectSchema, dotted, value);
+  return setYamlPath(projectFile(dir), ProjectSchema, dotted, value, lock);
 }

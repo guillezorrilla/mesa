@@ -318,7 +318,7 @@ test('a record update waits for its lock and, while another holds it, is refused
   const seen = store.update(record.id, (current) => ({ lastOutput: `${current.lastOutput} then` }));
   expect(seen.lastOutput).toBe('first then');
   // Another process holds the lock (its token is not ours).
-  writeFileSync(join(dir, `${record.id}.lock`), 'another holder');
+  writeFileSync(join(dir, `${record.id}.json.lock`), 'another holder');
   expect(() => store.update(record.id, { lastOutput: 'blocked' })).toThrow(
     expect.objectContaining({ code: 'locked' }),
   );
@@ -380,7 +380,7 @@ test('a function patch runs under the lock; an update waits while another proces
     startedAt: '2026-09-24T12:00:00.000Z',
     lastState: { state: 'idle', confidence: 0.6, at: '2026-09-24T12:00:00.000Z', source: 'mesa' },
   }));
-  const lock = join(dir, `${record.id}.lock`);
+  const lock = join(dir, `${record.id}.json.lock`);
   let held = false;
   store.update(record.id, () => {
     held = existsSync(lock);

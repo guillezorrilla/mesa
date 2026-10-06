@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
-import { readYaml, writeYaml } from '../lib/yaml-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
+import { changeYaml, readYaml } from '../lib/yaml-file.js';
 
 const schema = z.array(z.strictObject({ project: z.string(), url: z.string().url() }));
 
@@ -10,24 +10,18 @@ export function pendingImportNotes(file: string, deps: LockDeps) {
   const read = () => (existsSync(file) ? readYaml(file, schema) : []);
   const change = (project: string, urls: readonly string[], add: boolean) => {
     if (!urls.length) return;
-    const lock = `${file}.lock`;
-    withLockSync(
-      deps,
-      lock,
-      () => {
-        const all = read();
+    changeYaml(
+      file,
+      schema,
+      (all = []) => {
         const pending = new Set(all.filter((r) => r.project === project).map((r) => r.url));
         for (const url of urls) add ? pending.add(url) : pending.delete(url);
-        writeYaml(
-          file,
-          [
-            ...all.filter((r) => r.project !== project),
-            ...[...pending].map((url) => ({ project, url })),
-          ],
-          { mode: 0o600 },
-        );
+        return [
+          ...all.filter((r) => r.project !== project),
+          ...[...pending].map((url) => ({ project, url })),
+        ];
       },
-      () => lockedBy('pending import notes', lock, 'another refresh'),
+      deps,
     );
   };
   return {

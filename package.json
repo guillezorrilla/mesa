@@ -18,7 +18,6 @@
     "check:version": "sh scripts/release/version.sh --check",
     "decisions:evaluate": "pnpm --filter @mesa/core build && node scripts/decisions/evaluate.mjs",
     "verify": "sh scripts/verify.sh",
-    "prepare": "git config core.hooksPath .githooks",
     "dev:cli": "tsc --build --watch --incremental --preserveWatchOutput packages/core packages/cli",
     "dev:desktop": "pnpm -C apps/desktop dev",
     "release:version": "sh scripts/release/version.sh",

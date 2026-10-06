@@ -1,8 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { z } from 'zod';
 import type { MesaContext } from '../context.js';
-import { writeFileAtomic } from '../lib/atomic-file.js';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { changeJson, readJson } from '../lib/json-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 
@@ -26,25 +24,23 @@ export function promptsService(ctx: MesaContext) {
   const file = ctx.paths.prompts;
   const list = (): SavedPrompt[] => {
     ctx.open();
-    if (!existsSync(file)) return [];
-    let input: unknown;
-    try {
-      input = JSON.parse(readFileSync(file, 'utf8'));
-    } catch {
-      throw new MesaError('invalid_config', `${file}: not valid JSON`);
-    }
-    return parseSavedPrompts(input, file);
+    return readJson(file, ListSchema) ?? [];
   };
-  const write = (prompts: SavedPrompt[]) => writeFileAtomic(file, JSON.stringify(prompts), 0o600);
+  /** Changes the saved list in place under its lock; `change` returns what the caller gets. */
   const update = <T>(change: (prompts: SavedPrompt[]) => T): T => {
     ctx.open();
-    const lock = `${file}.lock`;
-    return withLockSync(
+    let result: T | undefined;
+    changeJson(
+      file,
+      ListSchema,
+      (current = []) => {
+        result = change(current);
+        return current;
+      },
       ctx.deps,
-      lock,
-      () => change(list()),
-      () => lockedBy('saved prompts', lock, 'another save'),
+      { what: 'saved prompts' },
     );
+    return result as T;
   };
   return {
     list,
@@ -58,7 +54,6 @@ export function promptsService(ctx: MesaContext) {
           throw new MesaError('usage', `saved prompt ${prompt.name} already exists`);
         if (index !== -1) prompts[index] = prompt;
         else prompts.push(prompt);
-        write(prompts);
         return prompt;
       });
     },
@@ -69,7 +64,6 @@ export function promptsService(ctx: MesaContext) {
         );
         if (index === -1) throw new MesaError('not_found', `saved prompt ${name} not found`);
         const [removed] = prompts.splice(index, 1);
-        write(prompts);
         return removed as SavedPrompt;
       }),
   };

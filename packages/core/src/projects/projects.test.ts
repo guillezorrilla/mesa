@@ -146,7 +146,12 @@ test('a moved project shows exists: false; an invalid mesa.yaml is invalid_confi
 });
 
 test("mesa.yaml overrides a profile's worktree settings and terminal theme; one left out is inherited", () => {
-  setConfigValue(profilePaths(join(root, 'home'), 'default').config, 'terminal.theme', 'light');
+  setConfigValue(
+    profilePaths(join(root, 'home'), 'default').config,
+    'terminal.theme',
+    'light',
+    lockDeps(),
+  );
   profile = openProfile(profilePaths(join(root, 'home'), 'default'));
   const yaml = [
     'name: tide',

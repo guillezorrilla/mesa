@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync, rmSync } from 'node:fs';
+import { basename } from 'node:path';
 import { z } from 'zod';
 import { createFileAtomic, writeFileAtomic } from './atomic-file.js';
 import type { Clock } from './clock.js';
@@ -100,6 +101,21 @@ export function withLockSync<T>(
   } finally {
     unlock(lock, token);
   }
+}
+
+/**
+ * Runs `fn` holding `<file>.lock`, the lock a read-change-write of `file` takes, named `what` in
+ * the error a held one gives.
+ */
+export function withFileLock<T>(
+  deps: LockDeps,
+  file: string,
+  fn: () => T,
+  what = basename(file),
+  tries?: number,
+): T {
+  const lock = `${file}.lock`;
+  return withLockSync(deps, lock, fn, () => lockedBy(what, lock, what), tries);
 }
 
 /** withLockSync for async work: waits with `deps.sleep`, `tries` pauses of `pauseMs`. */
