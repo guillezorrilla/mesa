@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { writeReceipt } from '../receipts/store.js';
 import { fixedClock, sequentialIds, steppingClock, tempDir, testDeps } from '../testing/index.js';
@@ -195,8 +195,7 @@ test('a later filesystem failure reports persisted log and rebuild recovers with
 });
 
 test('local dates and started values cross non-UTC midnight and month boundaries without filename/mtime selection', async () => {
-  const previous = process.env.TZ;
-  process.env.TZ = 'America/Vancouver';
+  vi.stubEnv('TZ', 'America/Vancouver');
   try {
     const deps = { vault, clock, newId: sequentialIds() };
     for (const started of ['2026-10-01T06:59:00Z', '2026-10-01T00:01', '2026-10-01T07:01:00Z']) {
@@ -228,8 +227,7 @@ test('local dates and started values cross non-UTC midnight and month boundaries
     }
     expect(await mesa.daily.build('2024-02-29')).toMatchObject({ decisions: 0 });
   } finally {
-    if (previous === undefined) delete process.env.TZ;
-    else process.env.TZ = previous;
+    vi.unstubAllEnvs();
   }
 });
 
@@ -263,8 +261,7 @@ test('concurrent logs and rebuilds share the same lock without duplicates or los
 });
 
 test('one locked log instant keeps its entry and Daily together across local midnight', async () => {
-  const previous = process.env.TZ;
-  process.env.TZ = 'America/Vancouver';
+  vi.stubEnv('TZ', 'America/Vancouver');
   try {
     let calls = 0;
     // The vault lock stamps its holder with the first tick; the log reads the second.
@@ -293,8 +290,7 @@ test('one locked log instant keeps its entry and Daily together across local mid
     expect(await subject.daily.build('2026-09-30')).toMatchObject({ changed: false, log: 1 });
     expect(existsSync(join(vault, 'daily/2026-10-01.md'))).toBe(false);
   } finally {
-    if (previous === undefined) delete process.env.TZ;
-    else process.env.TZ = previous;
+    vi.unstubAllEnvs();
   }
 });
 

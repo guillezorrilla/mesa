@@ -23,14 +23,14 @@ import { initVault, vaultStatus } from './vault.js';
  * a project's context and earlier goals, opening it, session writes, and the vault server.
  */
 export function vaultService(ctx: MesaContext) {
-  const { record, vaultOf, deps, store } = ctx;
+  const { record, vaultOf, store } = ctx;
   /** A registered project, or General; not_found otherwise. */
   const known = (project: string) => {
     if (project !== GENERAL_PROJECT) findProject(ctx.open(), project);
     return project;
   };
   /** The session this mesa runs in, if any: its own goal is not an earlier one. */
-  const caller = () => callerOf({ store, env: deps.env, profileName: ctx.profile }).session?.id;
+  const caller = () => callerOf({ store, env: ctx.env, profileName: ctx.profile }).session?.id;
   /** One item as the reader shows it (readVaultItem). */
   const read = (path: string) => readVaultItem(vaultOf(), path);
   /** The items with every word of `text` in them (searchVault). */
@@ -55,11 +55,11 @@ export function vaultService(ctx: MesaContext) {
             outputs: (r) => ({ created: r.created }),
             changed: (r) => r.created.length > 0,
           },
-          () => initVault({ path: vaultOf(), force, clock: deps.clock }),
+          () => initVault({ path: vaultOf(), force, clock: ctx.clock }),
         ),
       status: () => vaultStatus(vaultOf()),
       health: () => vaultHealth(vaultOf()),
-      bases: () => writeBases({ ...deps, vault: vaultOf() }),
+      bases: () => writeBases({ ...ctx, vault: vaultOf() }),
       /** Every item in the vault (listVault), with the vault and how many are listed. */
       list: (filter?: VaultFilter): VaultInventory => {
         const vault = vaultOf();
@@ -72,7 +72,7 @@ export function vaultService(ctx: MesaContext) {
       goals,
       /** Opens the vault, or one item in it, in Obsidian: the URI by default, the CLI with `cli`. */
       open: (note?: string, cli = false) =>
-        openInObsidian({ run: deps.run, obsidian: deps.obsidian }, { vault: vaultOf(), note, cli }),
+        openInObsidian({ run: ctx.run, obsidian: ctx.obsidian }, { vault: vaultOf(), note, cli }),
       ...writes,
       /** The mesa-vault tools a bound server lists (ADR-0011). */
       tools: () => VAULT_TOOLS,

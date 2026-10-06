@@ -37,7 +37,7 @@ export function promptsService(ctx: MesaContext) {
         result = change(current);
         return current;
       },
-      ctx.deps,
+      ctx,
       { what: 'saved prompts' },
     );
     return result as T;

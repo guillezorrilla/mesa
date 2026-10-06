@@ -1,11 +1,9 @@
 import { existsSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
-import { isolateGit, tempDir, testGit, twoProjects } from '../testing/index.js';
+import { expect, test } from 'vitest';
+import { tempDir, testGit, twoProjects } from '../testing/index.js';
 
 // mesa rm's refusals that read where git has a session's worktree and branch checked out.
-
-isolateGit({ beforeAll, afterAll });
 
 const live = (world: ReturnType<typeof twoProjects>['world']) =>
   world.tmux.windows.filter((w) => !w.dead).length;

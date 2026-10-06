@@ -9,14 +9,14 @@ export type FileLink = { project: string; checkout: string; path: string; line: 
 
 /** Resolve terminal text only against the managed session's selected checkout. */
 export async function resolveSessionFileLink(
-  ctx: MesaContext,
+  ctx: Pick<MesaContext, 'store' | 'open' | 'run'>,
   sessionId: string,
   target: string,
 ): Promise<FileLink> {
   const session = ctx.store.get(sessionId);
   const checkout = await resolveCheckout(
     ctx.open(),
-    ctx.deps.run,
+    ctx.run,
     session.project,
     session.worktree?.path,
   );

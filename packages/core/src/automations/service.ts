@@ -17,9 +17,9 @@ export function automationsService(
   actions: AutomationActions & { notify: () => Promise<NotificationDelivery> },
 ) {
   const rules = automationRules(ctx);
-  const state = automationState(ctx.paths.automationState, ctx.deps);
+  const state = automationState(ctx.paths.automationState, ctx);
   const launchd = automationLaunchd(ctx);
-  const now = () => ctx.deps.clock().toISOString();
+  const now = () => ctx.clock().toISOString();
   const status = async () => ({ ...state.read(), ...(await launchd.status()) });
   const updateRun = (id: string, change: Partial<AutomationRun>) =>
     state.update((s) => {
@@ -33,22 +33,22 @@ export function automationsService(
     const enabled = rules.list().filter((r) => r.enabled);
     if (!state.read().installed || !enabled.length) return { inert: true, runs: [] };
     const rows = enabled.some((r) => r.when === 'state') ? await actions.sessions.list() : [];
-    const token = ctx.deps.newId();
+    const token = ctx.newId();
     const interrupted = new Set<string>();
     // ponytail: one worker for the profile, stricter than per-project serialization; split if throughput matters.
     const claimed = state.update((s) => {
       if (!s.installed) return false;
       for (const observed of observeRules(ctx, s, enabled, rows)) {
         s.runs.push({
-          id: ctx.deps.newId(),
+          id: ctx.newId(),
           ...observed,
           status: observed.rule.guardrail === 'ask' ? 'pending' : 'queued',
           approved: false,
         });
       }
-      if (s.worker && ctx.deps.processAlive(s.worker.pid)) return false;
+      if (s.worker && ctx.processAlive(s.worker.pid)) return false;
       for (const run of s.runs.filter((r) => r.status === 'running')) interrupted.add(run.id);
-      s.worker = { token, pid: ctx.deps.processId };
+      s.worker = { token, pid: ctx.processId };
       return true;
     });
     if (!claimed) return { busy: true, runs: [] };
@@ -102,7 +102,7 @@ export function automationsService(
           completed.push(
             updateRun(run.id, {
               status: ask ? 'pending' : 'failed',
-              reason: redactWhole(fail.message, ctx.deps.home, ctx.secrets()),
+              reason: redactWhole(fail.message, ctx.home, ctx.secrets()),
               ...(ask ? {} : { endedAt: now() }),
             }),
           );
@@ -116,11 +116,11 @@ export function automationsService(
     return { inert: false, runs: completed, notification: await actions.notify() };
   };
   const lifecycle = async <T>(action: () => Promise<T>): Promise<T> => {
-    const token = ctx.deps.newId();
+    const token = ctx.newId();
     state.update((s) => {
-      if (s.operation && ctx.deps.processAlive(s.operation.pid))
+      if (s.operation && ctx.processAlive(s.operation.pid))
         throw new MesaError('locked', 'another scheduler install or uninstall is still running');
-      s.operation = { token, pid: ctx.deps.processId };
+      s.operation = { token, pid: ctx.processId };
     });
     try {
       return await action();
@@ -194,7 +194,7 @@ export function automationsService(
             .filter((r) => r.automation && ids.has(r.automation.run) && !isOver(r))) {
             await actions.sessions.stop(session.id, true);
           }
-          if (!s.worker || !ctx.deps.processAlive(s.worker.pid)) {
+          if (!s.worker || !ctx.processAlive(s.worker.pid)) {
             state.update((next) => {
               delete next.worker;
               delete next.stopping;
@@ -208,7 +208,7 @@ export function automationsService(
             });
             return status();
           }
-          await ctx.deps.sleep(100);
+          await ctx.sleep(100);
         }
         throw new MesaError(
           'locked',

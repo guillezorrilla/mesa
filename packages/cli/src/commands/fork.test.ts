@@ -1,8 +1,5 @@
-import { isolateGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
-
-isolateGit({ beforeAll, afterAll });
 
 const cli = cliHarness();
 beforeEach(cli.reset);

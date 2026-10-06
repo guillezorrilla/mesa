@@ -1,9 +1,7 @@
 import { expect, test } from 'vitest';
-import { createContext } from '../context.js';
-import { profileService } from '../profile/service.js';
+import { createMesa } from '../mesa.js';
 import { fakeHttp, scriptedRunner, tempDir, testDeps } from '../testing/index.js';
 import { FEEDS, REVOKED_LIST, UPDATE_LINK } from './feeds.js';
-import { updateService } from './service.js';
 
 const [BETA, STABLE] = FEEDS.beta as [string, string];
 const ARCHIVE = 'https://downloads.example.test/Mesa.app.tar.gz';
@@ -22,8 +20,10 @@ const manifest = (version: string, signature = 'sig') => ({
 /** The update service over a fake web; the running version is testDeps' 0.1.0-beta.4. */
 function world(routes: Parameters<typeof fakeHttp>[0], deps: Parameters<typeof testDeps>[1] = {}) {
   const web = fakeHttp(routes);
-  const ctx = createContext('default', testDeps(tempDir(), { http: web.http, ...deps }));
-  return { web, update: updateService(ctx, profileService(ctx).config) };
+  return {
+    web,
+    update: createMesa('default', testDeps(tempDir(), { http: web.http, ...deps })).update,
+  };
 }
 
 test('a beta follows the beta feed and is offered a newer beta, from that feed', async () => {

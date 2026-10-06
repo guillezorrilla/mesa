@@ -58,7 +58,7 @@ export type MesaDeps = {
 };
 
 /**
- * What every domain's services share for one profile: its paths and config, the secrets
+ * What every domain's services share for one profile: the deps, its paths and config, the secrets
  * receipts redact, the receipt recorder, the session store, and the tmux backend. Built once by
  * createMesa, the composition root (ADR-0008).
  */
@@ -93,8 +93,9 @@ export function createContext(profile: string, deps: MesaDeps) {
     mesa: { self: deps.self, profile },
   });
   return {
+    // Each dependency is a named capability, so a module can pick just the ones it uses.
+    ...deps,
     profile,
-    deps,
     paths,
     open,
     configIfAny,

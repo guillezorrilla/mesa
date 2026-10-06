@@ -96,7 +96,10 @@ function readTally(file: string): Tally {
  * and session window. Null when unknown: no Claude session, no transcript yet, a native identity
  * Mesa lost, or a reading without a price.
  */
-export function sessionCost(ctx: MesaContext, id: string): number | null {
+export function sessionCost(
+  ctx: Pick<MesaContext, 'store' | 'paths' | 'home' | 'env'>,
+  id: string,
+): number | null {
   const record = ctx.store.find(id);
   if (record?.agent !== 'claude') return null;
   const file = costTally(ctx.paths.costs, id);
@@ -115,7 +118,7 @@ export function sessionCost(ctx: MesaContext, id: string): number | null {
     const transcript =
       known && existsSync(known)
         ? known
-        : transcriptFile(claudeTranscripts(ctx.deps.home, ctx.deps.env), nativeId);
+        : transcriptFile(claudeTranscripts(ctx.home, ctx.env), nativeId);
     if (!transcript) {
       missing = true;
       continue;

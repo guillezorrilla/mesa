@@ -8,21 +8,11 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
-import {
-  gitRepo,
-  isolateGit,
-  scriptedRunner,
-  tempDir,
-  testDeps,
-  testGit,
-  thrown,
-} from '../testing/index.js';
+import { gitRepo, scriptedRunner, tempDir, testDeps, testGit, thrown } from '../testing/index.js';
 import { readLibrary } from './library.js';
-
-isolateGit({ beforeAll, afterAll });
 
 /** A skill folder with the frontmatter both agents read. */
 function skill(dir: string, name: string, description = `The ${name} skill`, as = name) {

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { localDay, NoteTimeSchema, obsidianDateTime } from './time.js';
 
 // Tests run with TZ=UTC (vitest.config.ts), so local time here is UTC.
@@ -18,12 +18,11 @@ test('frontmatter times are read in the new form and the older ISO UTC form', ()
 });
 
 test('the time is local, not UTC', () => {
-  const pinned = process.env.TZ;
-  process.env.TZ = 'America/Los_Angeles';
+  vi.stubEnv('TZ', 'America/Los_Angeles');
   try {
     expect(obsidianDateTime(new Date('2026-09-24T12:00:00.000Z'))).toBe('2026-09-24T05:00');
     expect(localDay(new Date('2026-09-24T03:00:00.000Z'))).toBe('2026-09-23');
   } finally {
-    process.env.TZ = pinned;
+    vi.unstubAllEnvs();
   }
 });

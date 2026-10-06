@@ -10,12 +10,11 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { isolateGit, newSession, shortIds, testStore, withRealGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { newSession, shortIds, testStore, withRealGit } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 
 async function creationRepo() {

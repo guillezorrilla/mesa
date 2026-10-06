@@ -11,7 +11,10 @@ import { readGitStatus } from './status.js';
 import { type GitSync, gitTracking, syncGit } from './sync.js';
 
 /** The registered project's selected checkout is the owner of Git reads and actions. */
-export function gitService(ctx: MesaContext, faro: Faro) {
+export function gitService(
+  ctx: Pick<MesaContext, 'absolute' | 'clock' | 'open' | 'record' | 'run' | 'store'>,
+  faro: Faro,
+) {
   const sync = (
     project: string,
     checkout: string | undefined,
@@ -37,7 +40,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
       async (decisions) => {
         const target = await gitTracking(
           ctx.open(),
-          ctx.deps.run,
+          ctx.run,
           project,
           checkout && ctx.absolute(checkout),
         );
@@ -52,7 +55,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
           decisions,
         );
         return {
-          ...(await syncGit(ctx.deps.run, target, action)),
+          ...(await syncGit(ctx.run, target, action)),
           ...(override ? { override } : {}),
         };
       },
@@ -74,7 +77,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
       () =>
         changeGitStash(
           ctx.open(),
-          ctx.deps.run,
+          ctx.run,
           project,
           checkout && ctx.absolute(checkout),
           ref,
@@ -99,7 +102,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
       () =>
         changeGitBranch(
           ctx.open(),
-          ctx.deps.run,
+          ctx.run,
           ctx.store,
           project,
           checkout && ctx.absolute(checkout),
@@ -124,7 +127,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
       () =>
         changeGitIndex(
           ctx.open(),
-          ctx.deps.run,
+          ctx.run,
           project,
           checkout && ctx.absolute(checkout),
           path,
@@ -135,31 +138,24 @@ export function gitService(ctx: MesaContext, faro: Faro) {
     insight: (project: string, checkout?: string) =>
       readRepositoryInsight(
         ctx.open(),
-        ctx.deps.run,
+        ctx.run,
         ctx.store,
-        ctx.deps.clock,
+        ctx.clock,
         project,
         checkout && ctx.absolute(checkout),
       ),
     graph: (project: string, checkout?: string, branch?: string) =>
-      readGitGraph(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout), branch),
+      readGitGraph(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout), branch),
     compare: (project: string, base: string, head: string, checkout?: string) =>
-      compareGitRefs(
-        ctx.open(),
-        ctx.deps.run,
-        project,
-        base,
-        head,
-        checkout && ctx.absolute(checkout),
-      ),
+      compareGitRefs(ctx.open(), ctx.run, project, base, head, checkout && ctx.absolute(checkout)),
     tracking: (project: string, checkout?: string) =>
-      gitTracking(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
+      gitTracking(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout)),
     push: (project: string, checkout?: string, overrides?: Overrides) =>
       sync(project, checkout, 'push', overrides),
     pull: (project: string, checkout?: string, overrides?: Overrides) =>
       sync(project, checkout, 'pull', overrides),
     stashes: (project: string, checkout?: string) =>
-      listGitStashes(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
+      listGitStashes(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout)),
     stashCreate: (project: string, checkout?: string, message?: string) =>
       ctx.record(
         {
@@ -171,13 +167,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
           changed: (result) => result.created,
         },
         () =>
-          createGitStash(
-            ctx.open(),
-            ctx.deps.run,
-            project,
-            checkout && ctx.absolute(checkout),
-            message,
-          ),
+          createGitStash(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout), message),
       ),
     stashApply: (project: string, ref: string, checkout?: string, oid?: string) =>
       stash(project, checkout, ref, 'apply', oid),
@@ -186,7 +176,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
     stashDrop: (project: string, ref: string, checkout?: string, oid?: string) =>
       stash(project, checkout, ref, 'drop', oid),
     branches: (project: string, checkout?: string) =>
-      listGitBranches(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
+      listGitBranches(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout)),
     branchCreate: (project: string, name: string, checkout?: string, base?: string) =>
       branch(project, checkout, name, 'create', base),
     branchCheckout: (project: string, name: string, checkout?: string) =>
@@ -194,14 +184,14 @@ export function gitService(ctx: MesaContext, faro: Faro) {
     branchDelete: (project: string, name: string, checkout?: string) =>
       branch(project, checkout, name, 'delete'),
     status: (project: string, checkout?: string) =>
-      readGitStatus(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout)),
+      readGitStatus(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout)),
     diff: (
       project: string,
       input: { checkout?: string; path?: string; staged?: boolean; full?: boolean } = {},
     ) =>
       readGitDiff(
         ctx.open(),
-        ctx.deps.run,
+        ctx.run,
         project,
         input.checkout && ctx.absolute(input.checkout),
         input.path,
@@ -221,8 +211,7 @@ export function gitService(ctx: MesaContext, faro: Faro) {
           inputs: { project, checkout, summary: message.split('\n', 1)[0] },
           outputs: (result) => ({ oid: result.oid }),
         },
-        () =>
-          commitGit(ctx.open(), ctx.deps.run, project, checkout && ctx.absolute(checkout), message),
+        () => commitGit(ctx.open(), ctx.run, project, checkout && ctx.absolute(checkout), message),
       ),
   };
 }

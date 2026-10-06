@@ -10,7 +10,7 @@ import { listSkills, syncSkills } from './sync.js';
 
 /** Mesa's skills: the library, what a profile and a project enable, and linking them in. */
 export function skillsService(ctx: MesaContext) {
-  const libraryDir = ctx.deps.skillsDir;
+  const libraryDir = ctx.skillsDir;
   /**
    * A project's folder and the skills enabled for it: the profile's, then its mesa.yaml extras,
    * and for a Skill run of a pipeline skill (PIPELINE_SKILLS), that skill.
@@ -29,12 +29,12 @@ export function skillsService(ctx: MesaContext) {
     const library = readLibrary(libraryDir);
     const selected = scope(project);
     return skillInventory({
-      home: ctx.deps.home,
-      env: ctx.deps.env,
+      home: ctx.home,
+      env: ctx.env,
       library,
       listed: listSkills({ library, libraryDir, ...selected }),
       projectDir: selected.projectDir,
-      codexConfig: codexConfig(codexHome(ctx.deps.home, ctx.deps.env)),
+      codexConfig: codexConfig(codexHome(ctx.home, ctx.env)),
     });
   };
   const document = (id: string, project?: string, file = 'SKILL.md') => {
@@ -85,7 +85,7 @@ export function skillsService(ctx: MesaContext) {
           const skills = enabled
             ? [...new Set([...current, name])]
             : current.filter((skill) => skill !== name);
-          setProjectSkills(projectDir as string, skills, ctx.deps);
+          setProjectSkills(projectDir as string, skills, ctx);
           return { project, name, enabled, skills, changed: true };
         },
       ),

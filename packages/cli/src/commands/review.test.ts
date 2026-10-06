@@ -1,12 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gitRepo, isolateGit, plantTranscript, withRealGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { gitRepo, plantTranscript, withRealGit } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 
 test('review responses, preview and send use the public CLI and guarded send path', async () => {

@@ -17,18 +17,18 @@ export async function backgroundDelivery(
 ): Promise<NotificationDelivery> {
   try {
     if (notices.delivery().kind === 'none') return { status: 'none' };
-    const helper = ctx.deps.env.MESA_NOTIFICATION_HELPER;
+    const helper = ctx.env.MESA_NOTIFICATION_HELPER;
     if (!helper || !isAbsolute(helper))
       return {
         status: 'unavailable',
         detail:
           'Install from bundled Mesa, or set MESA_NOTIFICATION_HELPER to its absolute Contents/MacOS executable. The notice is in the Inbox.',
       };
-    const status = await ctx.deps.run(helper, ['--mesa-notification', 'status'], 10_000);
+    const status = await ctx.run(helper, ['--mesa-notification', 'status'], 10_000);
     if (!status.ok)
       return {
         status: 'unavailable',
-        detail: redactWhole(status.detail, ctx.deps.home, ctx.secrets()),
+        detail: redactWhole(status.detail, ctx.home, ctx.secrets()),
       };
     const permission = z.object({ authorization: z.string() }).parse(JSON.parse(status.stdout));
     if (!['authorized', 'provisional', 'ephemeral'].includes(permission.authorization))
@@ -39,14 +39,14 @@ export async function backgroundDelivery(
     const plan = notices.claimDelivery();
     if (plan.kind === 'none') return { status: 'none' };
     // At most one attempt, as in the desktop: an OS failure loses only the banner, never the inbox.
-    const sent = await ctx.deps.run(helper, ['--mesa-notification', 'send'], 10_000, {
+    const sent = await ctx.run(helper, ['--mesa-notification', 'send'], 10_000, {
       input: JSON.stringify({ profile: ctx.profile, ...plan }),
     });
     return sent.ok
       ? { status: 'delivered', ids: plan.ids }
       : {
           status: 'failed',
-          detail: redactWhole(sent.detail, ctx.deps.home, ctx.secrets()),
+          detail: redactWhole(sent.detail, ctx.home, ctx.secrets()),
           ids: plan.ids,
         };
   } catch (error) {
@@ -54,7 +54,7 @@ export async function backgroundDelivery(
       status: 'failed',
       detail: redactWhole(
         error instanceof Error ? error.message : String(error),
-        ctx.deps.home,
+        ctx.home,
         ctx.secrets(),
       ),
     };

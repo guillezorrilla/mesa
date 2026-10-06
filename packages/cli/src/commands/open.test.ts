@@ -4,17 +4,15 @@ import {
   CLAUDE_MOUNT,
   finishesRun,
   gitRepo,
-  isolateGit,
   repoState,
   scriptedRunner,
   testGit,
   testStore,
 } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 const { mesa } = cli;
 

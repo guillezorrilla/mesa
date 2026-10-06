@@ -29,9 +29,8 @@ export const statusLineText = (user: string | null, costUsd: number | null) => {
  * Under the user's command (NESTED_STATUS_LINE_VAR), it prints nothing.
  */
 export function statusLineService(ctx: MesaContext) {
-  const { deps } = ctx;
   const userLine = async (payload: string) => {
-    let project = deps.cwd;
+    let project = ctx.cwd;
     try {
       const input = JSON.parse(payload) as { cwd?: unknown; workspace?: { project_dir?: unknown } };
       const dir = input.workspace?.project_dir ?? input.cwd;
@@ -39,17 +38,17 @@ export function statusLineService(ctx: MesaContext) {
     } catch {
       // The user's command still gets the payload as it came.
     }
-    const command = userStatusLineCommand(deps.home, deps.env, project, deps.self);
+    const command = userStatusLineCommand(ctx.home, ctx.env, project, ctx.self);
     if (!command) return null;
-    const result = await deps.run('/bin/sh', ['-c', command], USER_LINE_TIMEOUT_MS, {
-      cwd: deps.cwd,
-      env: { ...deps.env, [NESTED_STATUS_LINE_VAR]: '1' },
+    const result = await ctx.run('/bin/sh', ['-c', command], USER_LINE_TIMEOUT_MS, {
+      cwd: ctx.cwd,
+      env: { ...ctx.env, [NESTED_STATUS_LINE_VAR]: '1' },
       input: payload,
     });
     return result.ok ? result.stdout.replace(/\n+$/, '') : null;
   };
   const callerCost = async () => {
-    const session = callerOf({ store: ctx.store, env: deps.env, profileName: ctx.profile }).session;
+    const session = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
     if (!session) return { session: null, estimatedCostUsd: null };
     try {
       return { session: session.id, estimatedCostUsd: sessionCost(ctx, session.id) };
@@ -59,7 +58,7 @@ export function statusLineService(ctx: MesaContext) {
   };
   return {
     line: async (payload: string): Promise<StatusLine> => {
-      if (deps.env[NESTED_STATUS_LINE_VAR])
+      if (ctx.env[NESTED_STATUS_LINE_VAR])
         return { line: '', user: null, session: null, estimatedCostUsd: null };
       const [user, cost] = await Promise.all([
         userLine(payload).catch(() => null),

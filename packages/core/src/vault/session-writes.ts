@@ -144,9 +144,8 @@ function notePath(vault: string, path: string): string {
 
 /** The session writes of one profile: saveDecision, saveSummary, and saveNote. */
 export function sessionWrites(ctx: MesaContext) {
-  const { deps } = ctx;
   const writes = (): WriteDeps => ({ ...ctx.notes(), record: ctx.record });
-  const redact = (text: string) => redactWhole(text, deps.home, ctx.secrets());
+  const redact = (text: string) => redactWhole(text, ctx.home, ctx.secrets());
   /** A save's text: given, or read from a file; its receipt's argv then keeps it short. */
   const textOf = (text: string | undefined, file: string | undefined, what: string) => {
     if (text !== undefined && file !== undefined) {
@@ -154,7 +153,7 @@ export function sessionWrites(ctx: MesaContext) {
     }
     const raw = file === undefined ? text : readTextFile(ctx.absolute(file), `${what} file`);
     const value = required(raw, what);
-    const argv = text === undefined ? undefined : receiptText(text, deps.argv, ctx.secrets()).argv;
+    const argv = text === undefined ? undefined : receiptText(text, ctx.argv, ctx.secrets()).argv;
     return { value: redact(value), ...(argv ? { argv } : {}) };
   };
 
@@ -182,7 +181,7 @@ export function sessionWrites(ctx: MesaContext) {
         ...(probabilities.length ? { probabilities: Object.fromEntries(probabilities) } : {}),
         ...(confidence === undefined ? {} : { confidence }),
       };
-      const name = `${VAULT.wiki}/decisions/${localDay(deps.clock())}-${nameOf(title)}`;
+      const name = `${VAULT.wiki}/decisions/${localDay(ctx.clock())}-${nameOf(title)}`;
       const frontmatter: Frontmatter = {
         type: 'decision',
         project,

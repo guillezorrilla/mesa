@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import type { Env, Runner } from '../lib/process.js';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
@@ -19,7 +19,6 @@ import {
   CODEX_MOUNT,
   gitProject,
   gitRepo,
-  isolateGit,
   profilePaths,
   projectProfile,
   sequentialIds,
@@ -38,8 +37,6 @@ const exitAll = (world: ReturnType<typeof agentWorld>) => {
 
 // One id source for the file, so a second mesa over the same home never reuses an id.
 const newId = sequentialIds();
-
-isolateGit({ beforeAll, afterAll });
 
 /** The real git, over the temp repositories; the rest stays scripted. */
 const withGit = (world: ReturnType<typeof agentWorld>): Runner => withRealGit(world.run);

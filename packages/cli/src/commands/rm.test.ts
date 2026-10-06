@@ -1,10 +1,8 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isolateGit, testGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { testGit } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
-
-isolateGit({ beforeAll, afterAll });
 
 const cli = cliHarness();
 beforeEach(cli.reset);

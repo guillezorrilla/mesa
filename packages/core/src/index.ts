@@ -66,7 +66,7 @@ export { type Clock, systemClock } from './lib/clock.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export type { McpTool, Stdio } from './lib/mcp-server.js';
-export { type Env, execRunner, type Runner } from './lib/process.js';
+export { type Env, envRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export type { MapSaved } from './map/service.js';

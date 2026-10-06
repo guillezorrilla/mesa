@@ -24,7 +24,7 @@ const [
   import('node:url'),
 ]);
 const {
-  execRunner,
+  envRunner,
   keychainStore,
   loopbackListener,
   macObsidianPaths,
@@ -46,6 +46,7 @@ const readStdin = async () => {
 };
 
 const home = homedir();
+const run = envRunner(process.env);
 // Inside the app, mesa is one executable (ADR-0017) that carries its skill library as assets.
 const bundled = sea.isSea();
 const { code, stdout, stderr, exec, serve } = await runCli(argv, {
@@ -68,11 +69,11 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
     // hook's PATH holds.
     self: bundled ? [process.execPath] : [process.execPath, fileURLToPath(import.meta.url)],
     env: process.env,
-    run: execRunner,
+    run,
     http: (url, init) => fetch(url, init),
     // A person gets five minutes to sign in to a source.
     listen: loopbackListener(5 * 60_000),
-    secretStore: keychainStore(execRunner),
+    secretStore: keychainStore(run),
     processAlive: (pid) => {
       try {
         process.kill(pid, 0);

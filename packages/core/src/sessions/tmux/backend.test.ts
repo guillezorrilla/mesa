@@ -4,13 +4,14 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, describe, expect, test } from 'vitest';
 import { AGENTS } from '../../agents/agents.js';
 import { vaultServer } from '../../agents/vault-mount.js';
-import { execRunner, type Runner, shellWord } from '../../lib/process.js';
+import { type Runner, shellWord } from '../../lib/process.js';
 import {
   CLAUDE_MOUNT,
   lockDeps,
   NATIVE_LAUNCH,
   scriptedRunner,
   tempDir,
+  testRunner,
   tmuxLine,
 } from '../../testing/index.js';
 import { outputLog, outputTail } from '../output-log.js';
@@ -18,11 +19,11 @@ import { tmuxBackend } from './backend.js';
 import { exact, type WindowTarget } from './format.js';
 
 const socket = `mesa-test-${process.pid}`;
-const hasTmux = (await execRunner('tmux', ['-V'], 2000)).ok;
+const hasTmux = (await testRunner('tmux', ['-V'], 2000)).ok;
 
 /** Raw tmux on the test socket, for what the backend does not expose. */
 const raw = async (...args: string[]) => {
-  const res = await execRunner('tmux', ['-L', socket, ...args], 2000);
+  const res = await testRunner('tmux', ['-L', socket, ...args], 2000);
   return res.ok ? res.stdout.trim() : `failed: ${res.detail}`;
 };
 
@@ -31,12 +32,12 @@ const raw = async (...args: string[]) => {
  * behind; the file's path, none when no server answered.
  */
 async function killServer(on: string) {
-  const path = await execRunner(
+  const path = await testRunner(
     'tmux',
     ['-L', on, 'display-message', '-p', '#{socket_path}'],
     2000,
   );
-  await execRunner('tmux', ['-L', on, 'kill-server'], 2000);
+  await testRunner('tmux', ['-L', on, 'kill-server'], 2000);
   if (!path.ok) return undefined;
   rmSync(path.stdout.trim(), { force: true });
   return path.stdout.trim();
@@ -51,7 +52,7 @@ const PARENT = {
   NO_COLOR: '1',
 };
 const underParent: Runner = (file, args, timeoutMs) =>
-  execRunner(
+  testRunner(
     'env',
     [...Object.entries(PARENT).map(([k, v]) => `${k}=${v}`), file, ...args],
     timeoutMs,
@@ -504,11 +505,11 @@ test.skipIf(!hasTmux)(
     const origin = tempDir();
     const cwd = join(tempDir(), "it's lantern");
     mkdirSync(cwd);
-    const tmux = tmuxBackend({ sleep: async () => {}, run: execRunner, socket, env: {} });
+    const tmux = tmuxBackend({ sleep: async () => {}, run: testRunner, socket, env: {} });
     try {
       expect(
         (
-          await execRunner(
+          await testRunner(
             'tmux',
             ['-L', socket, '-f', '/dev/null', 'new-session', '-d', '-s', 'seed', 'cat'],
             2000,
@@ -543,7 +544,7 @@ test.skipIf(!hasTmux)(
     // No LANG: tmux then prints the list format's tabs as `_`, unless told the client is UTF-8.
     const socket = `mesa-nolocale-${process.pid}`;
     const run: Runner = (file, args, timeoutMs) =>
-      execRunner('env', ['-u', 'LANG', '-u', 'LC_ALL', '-u', 'LC_CTYPE', file, ...args], timeoutMs);
+      testRunner('env', ['-u', 'LANG', '-u', 'LC_ALL', '-u', 'LC_CTYPE', file, ...args], timeoutMs);
     const tmux = tmuxBackend({ sleep: async () => {}, run, socket, env: {} });
     const target = { project: 'lantern', window: 'claude-nolocale' };
     try {

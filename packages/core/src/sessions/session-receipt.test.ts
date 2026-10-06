@@ -1,10 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import { listReceipts } from '../receipts/store.js';
-import { isolateGit, testStore, twoProjects } from '../testing/index.js';
-
-isolateGit({ beforeAll, afterAll });
+import { testStore, twoProjects } from '../testing/index.js';
 
 const WIDENED = 'read-only to workspace-write';
 

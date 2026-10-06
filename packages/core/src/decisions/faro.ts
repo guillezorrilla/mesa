@@ -18,7 +18,6 @@ import type { Decision, DecisionRecorder, Question } from './types.js';
 
 /** Faro for one profile: the profile's view of it, `mesa decide`, and the guardrail. */
 export function createFaro(ctx: MesaContext) {
-  const { deps } = ctx;
   /** For questions no rules know (mesa decide), the rules answer evenly. */
   const outside = [rulesBackend<unknown>([])];
   /** Faro's view of the profile; before init, rules only (nothing else is configured). */
@@ -32,7 +31,7 @@ export function createFaro(ctx: MesaContext) {
    */
   const guard = (recorder?: DecisionRecorder): GuardrailDeps => ({
     profile: profile(),
-    clock: deps.clock,
+    clock: ctx.clock,
     ...(recorder ? { recorder } : {}),
     secrets: ctx.secrets(),
     level: (project) => {
@@ -61,7 +60,7 @@ export function createFaro(ctx: MesaContext) {
       const rationale = context.rationale?.trim();
       if (project && !rationale)
         throw new MesaError('usage', 'a project decision needs a rationale');
-      const redact = (value: unknown) => redactPayload(value, deps.home, ctx.secrets());
+      const redact = (value: unknown) => redactPayload(value, ctx.home, ctx.secrets());
       return ctx.record(
         {
           kind: 'decision',
@@ -87,7 +86,7 @@ export function createFaro(ctx: MesaContext) {
         (recorder) =>
           // decide validates what it is given: this is the boundary it checks.
           decide(
-            { backends: outside, profile: profile(), clock: deps.clock, recorder },
+            { backends: outside, profile: profile(), clock: ctx.clock, recorder },
             state,
             questions as Question[],
           ),

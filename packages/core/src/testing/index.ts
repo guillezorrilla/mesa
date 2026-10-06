@@ -10,7 +10,7 @@ import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
 import type { LockDeps } from '../lib/lock-file.js';
-import { type Env, execRunner, type Runner, type RunResult } from '../lib/process.js';
+import type { Env, Runner, RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { localDay } from '../lib/time.js';
 import { createMesa, type MesaDeps } from '../mesa.js';
@@ -19,6 +19,7 @@ import type { ListingDeps } from '../sessions/agent-listing.js';
 import { prepareOutputLog } from '../sessions/output-log.js';
 import type { NewSession } from '../sessions/record.js';
 import { sessionStore } from '../sessions/store.js';
+import { testEnv, testRunner } from './env.js';
 import { fakeHttp, memorySecretStore } from './sources.js';
 import { tempDir } from './tmp.js';
 
@@ -602,6 +603,7 @@ export function multiProjectSession(overrides: Partial<NewSession> = {}): NewSes
 }
 
 export { fakeRelease } from './about.js';
+export { gitConfigOff, testEnv, testRunner } from './env.js';
 export { isolateTmp, tempDir } from './tmp.js';
 
 /** The MesaError a call throws, as `{ code, message }`; throws if it returns or throws anything else. */
@@ -640,44 +642,18 @@ export function projectProfile(
   return { home, dir, mesa };
 }
 
-/**
- * Keeps the real git in a test file to its temp repositories: a git hook that runs these tests
- * exports GIT_DIR and friends, which would point git at Mesa's own repository, and the
- * user's git config (signing, hooks) stays out. The real git inherits process.env, so it is set
- * for the calling file only: call it once at its top with vitest's hooks, which this module leaves
- * to its caller so that nothing here needs vitest.
- */
-export function isolateGit({
-  beforeAll,
-  afterAll,
-}: {
-  beforeAll: (fn: () => void) => void;
-  afterAll: (fn: () => void) => void;
-}) {
-  const saved = Object.entries(process.env).filter(([name]) => name.startsWith('GIT_'));
-  beforeAll(() => {
-    for (const [name] of saved) delete process.env[name];
-    process.env.GIT_CONFIG_GLOBAL = '/dev/null';
-    process.env.GIT_CONFIG_NOSYSTEM = '1';
-  });
-  afterAll(() => {
-    delete process.env.GIT_CONFIG_GLOBAL;
-    delete process.env.GIT_CONFIG_NOSYSTEM;
-    for (const [name, value] of saved) process.env[name] = value;
-  });
-}
-
 /** `run` with the real git in it, for the temp repositories; the rest stays as `run` answers. */
 export const withRealGit =
   (run: Runner): Runner =>
   (file, args, ms, options) =>
-    file === 'git' ? execRunner(file, args, ms, options) : run(file, args, ms, options);
+    file === 'git' ? testRunner(file, args, ms, options) : run(file, args, ms, options);
 
 /** git in `dir`, as a person would type it, its output trimmed. */
 export const testGit = (dir: string, ...args: string[]) =>
   execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@example.com', ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    env: testEnv,
   }).trim();
 
 /** `dir` as a git repository on main, its files in one commit. */

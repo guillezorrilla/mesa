@@ -2,12 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isolateGit, withRealGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { withRealGit } from '@mesa/core/testing';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 const { mesa } = cli;
 const sha256 = (argv: string[]) => createHash('sha256').update(JSON.stringify(argv)).digest('hex');

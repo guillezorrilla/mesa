@@ -1,20 +1,18 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { execRunner } from '@mesa/core';
 import {
   gitRepo,
-  isolateGit,
   newSession,
   shortIds,
+  testRunner,
   testStore,
   withRealGit,
 } from '@mesa/core/testing';
-import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
+import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
 const cli = cliHarness();
-isolateGit({ beforeAll, afterAll });
 beforeEach(cli.reset);
 
 test('insight keeps local Git facts when gh is missing and links PRs from this repository, never a fork, by session branch', async () => {
@@ -143,7 +141,7 @@ test('git status uses the registered checkout, linked worktrees, and literal NUL
   const native = cli.run;
   cli.run = async (file, args, timeout) => {
     if (file !== 'git') return native(file, args, timeout);
-    const result = await execRunner(file, args, timeout);
+    const result = await testRunner(file, args, timeout);
     if (result.ok && args.slice(-4).join(' ') === 'worktree list --porcelain -z') {
       return {
         ok: true,

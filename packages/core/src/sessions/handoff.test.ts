@@ -1,16 +1,13 @@
 import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import {
   agentWorld,
   gitRepo,
-  isolateGit,
   profilePaths,
   projectProfile,
   withRealGit,
 } from '../testing/index.js';
-
-isolateGit({ beforeAll, afterAll });
 
 /**
  * A profile with lantern-cove as a git repository, claude, a fake tmux, and a note file; the tmux

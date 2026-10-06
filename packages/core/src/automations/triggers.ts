@@ -41,7 +41,7 @@ export function observeRules(
   rules: AutomationRule[],
   rows: SessionRow[],
 ) {
-  const now = ctx.deps.clock();
+  const now = ctx.clock();
   const at = now.toISOString();
   const observed: { rule: AutomationRule; trigger: AutomationTrigger }[] = [];
   for (const rule of rules.filter((r) => r.enabled)) {

@@ -16,7 +16,7 @@ export function recordScope(
   ctx: MesaContext,
   given: { project?: string; session?: string },
 ): { project?: string; session?: SessionRecord; actor?: SessionRecord } {
-  const actor = callerOf({ store: ctx.store, env: ctx.deps.env, profileName: ctx.profile }).session;
+  const actor = callerOf({ store: ctx.store, env: ctx.env, profileName: ctx.profile }).session;
   const on = (r: SessionRecord | undefined, project: string | undefined) =>
     r !== undefined && project !== undefined && sessionProjects(r).includes(project);
   const session = given.session

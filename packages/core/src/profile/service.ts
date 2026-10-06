@@ -5,7 +5,6 @@ import { MesaError } from '../lib/result.js';
 import { callerOf } from '../sessions/caller.js';
 import { acceptsMesaWrites, initVault } from '../vault/vault.js';
 import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../worktrees/approval.js';
-import { backupService } from './backup.js';
 import { type Config, loadConfig, redactConfig, setConfigValue } from './config.js';
 import { initProfile, type ProfileInfo } from './profile.js';
 
@@ -15,7 +14,7 @@ export function profileService(ctx: MesaContext) {
   // Worktree setup and teardown run on this machine, so a Mesa session (an agent's shell) cannot
   // change the profile's, by their own path or through a parent such as `worktrees`.
   const scriptGuard = () => {
-    if (!callerOf({ store: ctx.store, env: ctx.deps.env, profileName: profile }).inMesaWindow)
+    if (!callerOf({ store: ctx.store, env: ctx.env, profileName: profile }).inMesaWindow)
       return undefined;
     const before = currentScripts(paths.config);
     return (next: Config) => {
@@ -26,7 +25,6 @@ export function profileService(ctx: MesaContext) {
   };
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
-    backup: backupService(ctx),
     init: (input: { vault: string; agent?: string }) => {
       const vault = ctx.absolute(input.vault);
       return record(
@@ -42,7 +40,7 @@ export function profileService(ctx: MesaContext) {
           // A new profile starts with its vault laid out, as `mesa vault init` would; a folder Mesa
           // may not write into is left for `mesa vault init --force`.
           const vaultCreated = acceptsMesaWrites(vault)
-            ? initVault({ path: vault, clock: ctx.deps.clock }).created
+            ? initVault({ path: vault, clock: ctx.clock }).created
             : [];
           return { ...made, vaultCreated };
         },
@@ -53,7 +51,7 @@ export function profileService(ctx: MesaContext) {
       get: () => redactConfig(ctx.open().config),
       set: (dotted: string, value: string) => {
         const previousVault = dotted === 'vault' ? ctx.configIfAny()?.vault : undefined;
-        const redact = (text: string) => redactWhole(text, ctx.deps.home, ctx.secrets());
+        const redact = (text: string) => redactWhole(text, ctx.home, ctx.secrets());
         return record(
           {
             kind: dotted === 'vault' ? 'vault-change' : undefined,
@@ -62,12 +60,12 @@ export function profileService(ctx: MesaContext) {
             failure: `Could not set config ${dotted}`,
             // The value word is always `***`: a key under a mistyped path (`key.api`) fails, and
             // redactCommand's `keys` rule would miss it. outputs.value keeps a value that is set.
-            argv: ctx.deps.argv.map((word) => (word === value ? REDACTED : word)),
+            argv: ctx.argv.map((word) => (word === value ? REDACTED : word)),
             inputs: { path: dotted, ...(previousVault ? { vault: redact(previousVault) } : {}) },
             outputs: (r) => ({ value: dotted === 'vault' ? redact(String(r.value)) : r.value }),
             changed: (r) => r.changed,
           },
-          () => setConfigValue(paths.config, dotted, value, ctx.deps, scriptGuard()),
+          () => setConfigValue(paths.config, dotted, value, ctx, scriptGuard()),
         );
       },
     },

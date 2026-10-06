@@ -1,10 +1,9 @@
 import { realpathSync } from 'node:fs';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { expect, test } from 'vitest';
 import {
   agentWorld,
   gitProject,
   gitRepo,
-  isolateGit,
   newSession,
   projectProfile,
   shortIds,
@@ -12,8 +11,6 @@ import {
   withRealGit,
 } from '../testing/index.js';
 import { checkoutHolders, requireOwnWorktree, worktreeHolder } from './holders.js';
-
-isolateGit({ beforeAll, afterAll });
 
 test("an additional project's worktree is held by its session, as its own worktree is", async () => {
   const world = agentWorld();

@@ -1,4 +1,3 @@
-import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { defineCommand } from '../command.js';
 import { commandReference, referenceMarkdown } from './reference.js';
@@ -31,11 +30,10 @@ const warn = defineCommand({
   run,
 });
 
-test('the agent reference pins its Markdown for fixture commands in two groups', () => {
-  const golden = new URL('golden/agent-reference.md', import.meta.url);
+test('the agent reference pins its Markdown for fixture commands in two groups', async () => {
   // One made-up global, so the golden file pins the layout and not the real globals' wording.
   const globals = { json: { type: 'boolean' as const, description: 'Print JSON' } };
   const written = referenceMarkdown(commandReference([greet, greetAt, warn]), globals);
-  if (process.env.UPDATE_GOLDEN) writeFileSync(golden, written);
-  expect(written).toBe(readFileSync(golden, 'utf8'));
+  // `vitest -u` rewrites the golden file.
+  await expect(written).toMatchFileSnapshot('golden/agent-reference.md');
 });

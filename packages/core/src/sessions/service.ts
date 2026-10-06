@@ -10,7 +10,7 @@ import { counted } from '../display.js';
 import { shortId } from '../lib/ids.js';
 import { redactText, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
-import { profileService } from '../profile/service.js';
+import type { profileService } from '../profile/service.js';
 import { findProject, projectPriorities } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
 import { receiptText } from '../receipts/command.js';
@@ -82,43 +82,44 @@ export function sessionsService(
   faro: Faro,
   /** The skills service's: links a project's enabled skills into a folder, and lists what it sees. */
   skills: Pick<ReturnType<typeof skillsService>, 'linkInto' | 'list'>,
+  /** The profile service's config.set: the grid's groups are a config value. */
+  setConfig: ReturnType<typeof profileService>['config']['set'],
 ) {
-  const { profile, deps, paths, open, store, tmux, record, secrets, absolute } = ctx;
-  const setConfig = profileService(ctx).config.set;
+  const { profile, paths, open, store, tmux, record, secrets, absolute } = ctx;
   /** Where a session's context use is read: its agent's files under home, with this env. */
-  const contextDeps = { store, home: deps.home, env: deps.env };
+  const contextDeps = { store, home: ctx.home, env: ctx.env };
   /** What a terminal on a window takes: the user's terminal app, and a fresh view id each. */
   const terminal = {
-    run: deps.run,
+    run: ctx.run,
     scripts: paths.attachScripts,
-    env: deps.env,
-    viewId: () => shortId(deps.newId),
+    env: ctx.env,
+    viewId: () => shortId(ctx.newId),
   };
   const terminalApp = () => open().config.terminal.app;
   /** Who runs this mesa: the session whose Mesa window it is in, if any. */
-  const caller = () => callerOf({ store, env: deps.env, profileName: profile });
+  const caller = () => callerOf({ store, env: ctx.env, profileName: profile });
   const openDeps = () => ({
     profile: open(),
     profileName: profile,
     store,
     tmux,
-    run: deps.run,
-    env: deps.env,
-    clock: deps.clock,
-    newUuid: deps.newUuid,
+    run: ctx.run,
+    env: ctx.env,
+    clock: ctx.clock,
+    newUuid: ctx.newUuid,
     caller,
     syncSkills: skills.linkInto,
-    vaultServer: vaultServer(deps.self),
-    shell: deps.env.SHELL || '/bin/zsh',
-    home: deps.home,
-    self: deps.self,
-    lock: deps,
+    vaultServer: vaultServer(ctx.self),
+    shell: ctx.env.SHELL || '/bin/zsh',
+    home: ctx.home,
+    self: ctx.self,
+    lock: ctx,
   });
   /** What an adoption takes: a launch's, the agent listing, and the other profiles' sessions. */
   const adoptDeps = () => ({
     ...openDeps(),
-    listing: () => listAgentProcesses(deps),
-    elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
+    listing: () => listAgentProcesses(ctx),
+    elsewhere: () => otherProfilesSessions(ctx.home, profile, ctx),
   });
   /** What a discovery adoption's receipt keeps of one folder. */
   const adoptionOutputs = (r: DiscoveryAdoption) => ({
@@ -135,9 +136,9 @@ export function sessionsService(
   const nativeDeps = () => ({
     profile: open(),
     store,
-    home: deps.home,
-    env: deps.env,
-    elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
+    home: ctx.home,
+    env: ctx.env,
+    elsewhere: () => otherProfilesSessions(ctx.home, profile, ctx),
   });
   /** A closed tmux view does not end its Claude background process; recreate it on demand. */
   const ensureBackgroundView = async (id: string) => {
@@ -160,15 +161,15 @@ export function sessionsService(
       {
         store,
         tmux,
-        listing: () => listAgentProcesses(deps),
+        listing: () => listAgentProcesses(ctx),
         projects: readRegistry(paths.registry),
-        elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
+        elsewhere: () => otherProfilesSessions(ctx.home, profile, ctx),
         events: (id) => readHookEvents(paths.events, id),
         priorityOf: projectPriorities(open),
         faro: faro.profile(),
-        clock: deps.clock,
-        env: deps.env,
-        home: deps.home,
+        clock: ctx.clock,
+        env: ctx.env,
+        home: ctx.home,
         logs: paths.logs,
       },
       { all },
@@ -202,7 +203,7 @@ export function sessionsService(
         if (found.kind !== 'run' || found.endedAt) {
           return {
             ...(await stopSession(
-              { store, tmux, run: deps.run, clock: deps.clock, sleep: deps.sleep },
+              { store, tmux, run: ctx.run, clock: ctx.clock, sleep: ctx.sleep },
               id,
               {
                 force,
@@ -255,7 +256,7 @@ export function sessionsService(
           {
             store,
             tmux,
-            run: deps.run,
+            run: ctx.run,
             profile: open,
             eventsDir: paths.events,
             logsDir: paths.logs,
@@ -284,7 +285,7 @@ export function sessionsService(
       },
       () =>
         store.update(id, (current) => ({
-          archivedAt: current.archivedAt ?? deps.clock().toISOString(),
+          archivedAt: current.archivedAt ?? ctx.clock().toISOString(),
         })),
     );
   };
@@ -295,7 +296,7 @@ export function sessionsService(
     opts: { from?: string; noFrom?: boolean } & Overrides = {},
   ) => {
     const { force = false, yes, confirm, from, noFrom } = opts;
-    const kept = receiptText(prompt, deps.argv, secrets());
+    const kept = receiptText(prompt, ctx.argv, secrets());
     const target = store.find(id);
     return record(
       {
@@ -332,7 +333,7 @@ export function sessionsService(
         const guard = (action: Guarded) =>
           faro.guardrail.gate(action, { force, yes, confirm }, decisions);
         await ensureBackgroundView(id);
-        return sendPrompt({ store, tmux, clock: deps.clock, caller, guard }, id, prompt, {
+        return sendPrompt({ store, tmux, clock: ctx.clock, caller, guard }, id, prompt, {
           force,
           from,
           noFrom,
@@ -377,43 +378,43 @@ export function sessionsService(
       },
       responses: {
         list: (id: string) =>
-          sessionResponses({ profile, store, home: deps.home, env: deps.env }, id),
+          sessionResponses({ profile, store, home: ctx.home, env: ctx.env }, id),
         preview: (id: string, input: Parameters<typeof previewResponseReview>[2]) =>
-          previewResponseReview({ profile, store, home: deps.home, env: deps.env }, id, input),
+          previewResponseReview({ profile, store, home: ctx.home, env: ctx.env }, id, input),
         send: (
           id: string,
           input: Parameters<typeof previewResponseReview>[2],
           opts: { noFrom?: boolean } & Overrides = {},
         ) =>
           sendReview(
-            { store, clock: deps.clock, send },
+            { store, clock: ctx.clock, send },
             id,
             'response',
             () =>
-              previewResponseReview({ profile, store, home: deps.home, env: deps.env }, id, input),
+              previewResponseReview({ profile, store, home: ctx.home, env: ctx.env }, id, input),
             opts,
           ),
       },
       changes: {
         read: (id: string, path: string, staged = false) =>
-          changeReview({ profile, store, open, run: deps.run }, id, path, staged),
+          changeReview({ profile, store, open, run: ctx.run }, id, path, staged),
         preview: (id: string, input: Parameters<typeof previewChangeReview>[2]) =>
-          previewChangeReview({ profile, store, open, run: deps.run }, id, input),
+          previewChangeReview({ profile, store, open, run: ctx.run }, id, input),
         send: (
           id: string,
           input: Parameters<typeof previewChangeReview>[2],
           opts: { noFrom?: boolean } & Overrides = {},
         ) =>
           sendReview(
-            { store, clock: deps.clock, send },
+            { store, clock: ctx.clock, send },
             id,
             'change',
-            () => previewChangeReview({ profile, store, open, run: deps.run }, id, input),
+            () => previewChangeReview({ profile, store, open, run: ctx.run }, id, input),
             opts,
           ),
       },
       browser: {
-        external: (url: string) => openBrowserExternal(url, deps.run),
+        external: (url: string) => openBrowserExternal(url, ctx.run),
         select: (id: string, input: Parameters<typeof selectBrowserElement>[2]) =>
           selectBrowserElement({ profile, store }, id, input),
         clear: (id: string) => clearBrowserElement({ store }, id),
@@ -422,8 +423,8 @@ export function sessionsService(
             {
               profile,
               store,
-              processAlive: deps.processAlive,
-              liveSelection: deps.browserSelection,
+              processAlive: ctx.processAlive,
+              liveSelection: ctx.browserSelection,
             },
             id,
             input,
@@ -437,7 +438,7 @@ export function sessionsService(
           opts: { noFrom?: boolean } & Overrides = {},
         ) =>
           sendReview(
-            { store, clock: deps.clock, send },
+            { store, clock: ctx.clock, send },
             id,
             'browser',
             () =>
@@ -445,8 +446,8 @@ export function sessionsService(
                 {
                   profile,
                   store,
-                  processAlive: deps.processAlive,
-                  liveSelection: deps.browserSelection,
+                  processAlive: ctx.processAlive,
+                  liveSelection: ctx.browserSelection,
                 },
                 id,
                 input,
@@ -489,7 +490,7 @@ export function sessionsService(
               : undefined;
         // A worktree of its own on a branch Mesa names (sessionBranchName); --with implies it.
         const named = opts.worktree || (opts.with?.length && opts.branch === undefined);
-        const branch = named && !refused ? sessionBranchName(deps.newId) : opts.branch;
+        const branch = named && !refused ? sessionBranchName(ctx.newId) : opts.branch;
         let goal: string | undefined;
         try {
           goal = readGoal({
@@ -500,7 +501,7 @@ export function sessionsService(
           refused ??= error;
         }
         const text = goal ?? opts.goal;
-        const kept = text === undefined ? undefined : receiptText(text, deps.argv, secrets());
+        const kept = text === undefined ? undefined : receiptText(text, ctx.argv, secrets());
         return record(
           {
             // A start with dangerous launch flags or a sandbox override is kept (launchGuardrail).
@@ -541,11 +542,11 @@ export function sessionsService(
                 ? undefined
                 : await checkoutWorktree(
                     open(),
-                    deps.run,
+                    ctx.run,
                     store,
                     findProject(open(), project),
                     absolute(opts.checkout),
-                    deps.newId,
+                    ctx.newId,
                   );
             const input = {
               worktree,
@@ -622,8 +623,8 @@ export function sessionsService(
               syncSkills: (on: string, folder: string) => skills.linkInto(on, folder, skill),
               runs: paths.runs,
               logs: paths.logs,
-              lock: deps,
-              redact: (text: string) => redactWhole(text, deps.home, secrets()),
+              lock: ctx,
+              redact: (text: string) => redactWhole(text, ctx.home, secrets()),
               skills: (on: string) => skills.list(on, skill),
               guard,
             };
@@ -660,7 +661,7 @@ export function sessionsService(
        */
       logs: (id: string, tail?: number) => {
         store.get(id);
-        return sessionLog(deps, paths.logs, id, tail);
+        return sessionLog(ctx, paths.logs, id, tail);
       },
       /**
        * One session's record, its context use read now, with `alive` as the board reads it, and
@@ -684,9 +685,9 @@ export function sessionsService(
           alive: row?.alive ?? false,
           instructions: instructionStatus(
             current.agent,
-            deps.home,
-            deps.env,
-            deps.self,
+            ctx.home,
+            ctx.env,
+            ctx.self,
             identityEvents.some((event) => event.event === 'SessionIdentityChanged') ||
               Boolean(
                 current.agentSessionId &&
@@ -697,7 +698,7 @@ export function sessionsService(
                 ? 'ambiguous'
                 : false),
           ),
-          vault: vaultStatus(current, deps.home, deps.self),
+          vault: vaultStatus(current, ctx.home, ctx.self),
         };
       },
       /** Gives a session the name a person calls it by; the board shows it in place of the id. */
@@ -1108,7 +1109,7 @@ export function sessionsService(
       /** Native projects, running sessions and conversations of the last `days`, machine-wide. */
       discover: (days: number) =>
         discoverNative(
-          { ...nativeDeps(), clock: deps.clock, listing: () => listAgentProcesses(deps) },
+          { ...nativeDeps(), clock: ctx.clock, listing: () => listAgentProcesses(ctx) },
           { days },
         ),
       /** Bounded local text search over native provider conversations. */

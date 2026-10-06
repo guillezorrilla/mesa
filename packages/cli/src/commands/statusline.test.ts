@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { execRunner, type Runner } from '@mesa/core';
-import { plantTranscript } from '@mesa/core/testing';
+import type { Runner } from '@mesa/core';
+import { plantTranscript, testRunner } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -72,7 +72,7 @@ async function costedSession(transcript = `${turn(0, 13_500)}\n`) {
   const run: Runner = (file, args, timeout, options) => {
     if (file !== '/bin/sh') return scripted(file, args, timeout, options);
     shells.push(args[1] ?? '');
-    return execRunner(file, args, timeout, options);
+    return testRunner(file, args, timeout, options);
   };
   cli.run = run;
   cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default', PATH: '/usr/bin:/bin' };

@@ -19,23 +19,23 @@ export type HooksStatus = ClaudeHooksStatus & {
  * hook on the profile's tmux server.
  */
 export function hooksService(ctx: MesaContext) {
-  const { record, deps } = ctx;
-  const home = codexHome(deps.home, deps.env);
+  const { record } = ctx;
+  const home = codexHome(ctx.home, ctx.env);
   const change = (install: boolean) => {
     // Validate every file before changing any, including Codex's read-only trust config.
-    hooksStatus(deps.home, deps.env, deps.self);
-    codex.hooksStatus(home, deps.self);
-    antigravity.hooksStatus(deps.home, deps.self);
+    hooksStatus(ctx.home, ctx.env, ctx.self);
+    codex.hooksStatus(home, ctx.self);
+    antigravity.hooksStatus(ctx.home, ctx.self);
     // Antigravity's vault files are not checked here: a conflict there is reported, not thrown.
-    const claude = (install ? installHooks : uninstallHooks)(deps.home, deps.env, deps.self);
-    const result = (install ? codex.installHooks : codex.uninstallHooks)(home, deps.self);
+    const claude = (install ? installHooks : uninstallHooks)(ctx.home, ctx.env, ctx.self);
+    const result = (install ? codex.installHooks : codex.uninstallHooks)(home, ctx.self);
     const agy = (install ? antigravity.installHooks : antigravity.uninstallHooks)(
-      deps.home,
-      deps.self,
+      ctx.home,
+      ctx.self,
     );
     const vault = (
       install ? antigravityVault.installVaultMount : antigravityVault.uninstallVaultMount
-    )(deps.home, deps.self);
+    )(ctx.home, ctx.self);
     return {
       ...claude,
       codex: result,
@@ -46,10 +46,10 @@ export function hooksService(ctx: MesaContext) {
   };
   return {
     status: async () => ({
-      ...hooksStatus(deps.home, deps.env, deps.self),
-      codex: codex.hooksStatus(home, deps.self),
-      antigravity: antigravity.hooksStatus(deps.home, deps.self),
-      antigravityVault: antigravityVault.vaultMountStatus(deps.home, deps.self),
+      ...hooksStatus(ctx.home, ctx.env, ctx.self),
+      codex: codex.hooksStatus(home, ctx.self),
+      antigravity: antigravity.hooksStatus(ctx.home, ctx.self),
+      antigravityVault: antigravityVault.vaultMountStatus(ctx.home, ctx.self),
       tmux: await ctx.tmuxHook(),
     }),
     /** Adds every agent's entries; running it twice leaves one per event, entry, and rule. */
