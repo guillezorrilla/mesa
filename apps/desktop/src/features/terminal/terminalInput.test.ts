@@ -48,4 +48,8 @@ test('Cmd and Option arrows and Backspace edit the line as macOS terminals do', 
   expect(press('ArrowLeft', {})).toBeNull();
   expect(press('ArrowLeft', { metaKey: true, shiftKey: true })).toBeNull();
   expect(press('Backspace', { altKey: true })).toBeNull();
+  expect(press('ArrowRight', { metaKey: true, altKey: true })).toBeNull();
+  expect(press('Backspace', { metaKey: true, ctrlKey: true })).toBeNull();
+  expect(press('ArrowLeft', { metaKey: true, isComposing: true })).toBeNull();
+  expect(press('constructor', { metaKey: true })).toBeNull();
 });

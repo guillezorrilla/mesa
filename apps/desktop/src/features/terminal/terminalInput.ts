@@ -34,10 +34,9 @@ export function terminalInputForKey(
   // A drag copies through tmux (OSC 52), so xterm has nothing selected: Cmd+C would reach the
   // disabled Edit > Copy and macOS would beep. With nothing to copy, the key does nothing.
   if (key.key.toLowerCase() === 'c' && only(key, 'metaKey') && !hasSelection) return '';
-  for (const modifier of ['metaKey', 'altKey'] as const) {
-    const bytes = LINE_KEYS[key.key]?.[modifier];
-    if (bytes && only(key, modifier)) return bytes;
-  }
+  const line = (Object.hasOwn(LINE_KEYS, key.key) && LINE_KEYS[key.key]) || {};
+  for (const [modifier, bytes] of Object.entries(line) as [Modifier, string][])
+    if (only(key, modifier)) return bytes;
   if (key.key !== 'Enter') return null;
   if (settings.extraSubmitKey === 'cmd-enter' && only(key, 'metaKey')) return '\r';
   if (settings.newlineKey === 'shift-enter' && only(key, 'shiftKey')) return '\n';
