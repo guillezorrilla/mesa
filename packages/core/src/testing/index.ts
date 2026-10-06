@@ -140,13 +140,28 @@ export type FakeWindow = {
   status?: number;
   signal?: string;
   typed: string[];
-  /** Every key and text sent to it, in order: `Escape`, `/exit`, `Enter`. */
+  /** Every key and text sent to it, in order (`Escape`, `/exit`, `Enter`); `typed` is the text alone, its screen. */
   keys: string[];
+  /** The variables it was opened with (`-e`), such as MESA_SESSION_ID. */
+  env: Record<string, string>;
   /** Its size once resized; `pinned` until its window-size option is unset, back to tmux's policy. */
   size?: { cols: number; rows: number; pinned: boolean };
   /** The shell command pipe-pane gave its output to, when it is logged. */
   pipe?: string;
 };
+
+/** A window for fakeTmux: its project and name, the rest as Mesa's claude window has them. */
+export type NewWindow = Pick<FakeWindow, 'project' | 'window'> & Partial<FakeWindow>;
+const newWindow = (w: NewWindow): FakeWindow => ({
+  path: `/src/${w.project}`,
+  launch: 'claude',
+  running: '2.1.282',
+  dead: false,
+  typed: [],
+  keys: [],
+  env: {},
+  ...w,
+});
 
 /** tmux's named layouts, the ones fakeTmux accepts. */
 const TMUX_LAYOUTS = [
@@ -162,7 +177,7 @@ const TMUX_LAYOUTS = [
  * It speaks the commands the tmux backend sends (chained with `;`), over `windows`. `onKeys`
  * sees each text typed with `send-keys -l`, so a test can make an agent react, say quit on /exit.
  * The world is a TmuxBackend too, the real one over this server on mesa-default, for a test of a
- * module that takes the backend itself.
+ * module that takes the backend itself. The server answers whatever socket a call names.
  */
 export function fakeTmux(
   opts: {
@@ -174,9 +189,12 @@ export function fakeTmux(
     onOpen?: (window: FakeWindow) => void;
     /** tmux commands that fail, as a broken server would (`new-session`); `failing` on the world. */
     failing?: string | string[];
+    /** tmux commands that time out, as a hung server's would; `slow` on the world. */
+    slow?: string[];
     /**
-     * Sees each command once it is answered, awaited before the call returns: a test can act
-     * between tmux's answer and Mesa's use of it, say end a run while its waiter looks.
+     * Sees each command that succeeded, after onOpen and awaited before the call returns: a test
+     * can act between tmux's answer and Mesa's use of it, say end a run while its waiter looks.
+     * What it throws, the call throws.
      */
     after?: (command: string[]) => void | Promise<void>;
     /** Sees each command before it is answered: a test can change the server first. */
@@ -218,16 +236,14 @@ export function fakeTmux(
         server = true;
         const project = command === 'new-session' ? flag(rest, '-s') : target.slice(1, -1);
         const [path, window] = [flag(rest, '-c'), flag(rest, '-n')];
-        const opened: FakeWindow = {
+        const env = rest.flatMap((word, i) => (rest[i - 1] === '-e' ? [word.split(/=(.*)/s)] : []));
+        const opened = newWindow({
           project,
           window,
           path,
           launch: rest.at(-1) ?? '',
-          running: '2.1.282',
-          dead: false,
-          typed: [],
-          keys: [],
-        };
+          env: Object.fromEntries(env.map(([name = '', value = '']) => [name, value])),
+        });
         windows.push(opened);
         world.opened.push(opened);
         openedNow.push(opened);
@@ -367,16 +383,9 @@ export function fakeTmux(
     }),
     windows,
     /** A window already on the server, as Mesa would have opened it: claude running in it. */
-    addWindow: (w: Pick<FakeWindow, 'project' | 'window'> & Partial<FakeWindow>) => {
+    addWindow: (w: NewWindow) => {
       server = true;
-      const added = {
-        path: `/src/${w.project}`,
-        launch: 'claude',
-        running: '2.1.282',
-        dead: false,
-        ...w,
-      };
-      windows.push({ ...added, typed: w.typed ?? [], keys: w.keys ?? [] });
+      windows.push(newWindow(w));
     },
     answer,
     hooks,
@@ -386,7 +395,7 @@ export function fakeTmux(
     /** The commands that fail from now on; a test may change it. */
     failing: [opts.failing ?? []].flat(),
     /** The commands that time out from now on, as a hung server's would. */
-    slow: [] as string[],
+    slow: opts.slow ?? [],
   };
   return world satisfies TmuxBackend;
 }

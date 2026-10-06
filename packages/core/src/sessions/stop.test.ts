@@ -53,7 +53,7 @@ async function setUp({
 }
 
 test('stop presses Escape, types /exit, waits for the pane to die, and removes the window', async () => {
-  const { mesa, world, opened, heard, calls, receipts } = await setUp();
+  const { mesa, world, opened, heard, receipts } = await setUp();
   const { result, receipt } = await mesa.sessions.stop(opened.id);
   expect(result.outcome).toBe('exited');
   expect(heard).toEqual(['/exit']);

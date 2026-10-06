@@ -2,11 +2,11 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
-  type FakeWindow,
   fakeTmux,
   fixedClock,
   listingDeps,
   lockDeps,
+  type NewWindow,
   newSession,
   plantLiveSession,
   plantTranscript,
@@ -29,7 +29,7 @@ const byStart = <T extends { startedAt: string }>(rows: T[]) =>
   [...rows].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 const LIVE = { project: 'lantern-cove', window: 'claude-aaaaaa' };
 /** The in-memory tmux with `windows` live: claude running, an empty screen. */
-const tmuxWith = (...windows: (Pick<FakeWindow, 'project' | 'window'> & Partial<FakeWindow>)[]) => {
+const tmuxWith = (...windows: NewWindow[]) => {
   const world = fakeTmux();
   for (const w of windows) world.addWindow(w);
   return world;

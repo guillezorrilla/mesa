@@ -124,7 +124,7 @@ test('a strict project asks: --yes, a person yes, or --force sends; without one,
 });
 
 test('a multi-line prompt goes as one literal chunk, then one Enter', async () => {
-  const { mesa, window, opened, calls } = await setUp();
+  const { mesa, window, opened } = await setUp();
   const prompt = 'first line\nsecond line\nthird';
   await mesa.sessions.send(opened.id, prompt);
   expect(window.typed).toEqual([prompt]);
