@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { shellWord } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import { SESSION_ID_VAR } from '../sessions/caller.js';
+import { SESSION_ID_VAR } from '../lib/window-vars.js';
 import type { Agent } from './names.js';
 
 // The shared JSON hook format Claude Code and Codex read.

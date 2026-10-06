@@ -1,4 +1,5 @@
 import { readsTranscripts, type TranscriptAgent } from '../agents/agents.js';
+import type { AgentProcess } from '../agents/listing.js';
 import type { Clock } from '../lib/clock.js';
 import type { Env } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
@@ -6,7 +7,6 @@ import type { Profile } from '../profile/profile.js';
 import { type ProjectCandidate, projectCandidate } from '../projects/discover.js';
 import { projectFolder } from '../projects/project-folder.js';
 import { readRegistry } from '../projects/registry.js';
-import type { AgentProcess } from './agent-listing.js';
 import { nativeConversations, UNSUPPORTED_HISTORY } from './history.js';
 import { withName } from './native-name.js';
 import { nativePrompt } from './native-prompt.js';

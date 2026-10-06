@@ -16,6 +16,7 @@ export {
   supportsAgentCapability,
   supportsPlanStart,
 } from './agents/names.js';
+export { AGENT_STATES } from './agents/states.js';
 export { describeAutomation } from './automations/describe.js';
 export * from './display.js';
 export { parseFileTarget } from './files/file-target.js';
@@ -39,7 +40,7 @@ export { type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
 export { sessionProjects } from './sessions/session-projects.js';
-export { AGENT_STATES, FINAL_STATES, WAITING_STATES } from './sessions/states.js';
+export { FINAL_STATES, WAITING_STATES } from './sessions/states.js';
 export { parseSessionUri, sessionUri } from './sessions/uri.js';
 export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';

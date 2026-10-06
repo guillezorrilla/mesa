@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { listAgentProcesses } from '../../agents/listing.js';
 import {
   fakeTmux,
   fixedClock,
@@ -15,7 +16,6 @@ import {
   sequentialIds,
   tempDir,
 } from '../../testing/index.js';
-import { listAgentProcesses } from '../agent-listing.js';
 import { sessionStore } from '../store.js';
 import { listSessions } from './board.js';
 import { sessionTree } from './tree.js';

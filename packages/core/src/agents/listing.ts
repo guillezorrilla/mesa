@@ -1,11 +1,11 @@
-import { AGENTS } from '../agents/agents.js';
-import { AGENT_NAMES, type Agent } from '../agents/names.js';
 import type { Clock } from '../lib/clock.js';
 import type { Env, Runner } from '../lib/process.js';
+import { AGENTS } from './agents.js';
+import { AGENT_NAMES, type Agent } from './names.js';
 
 // Agent listings, ADR-0003's second signal: each agent Mesa runs lists its sessions on the
-// machine, Mesa's and the owner's alike (Claude Code's process list: agents/claude/listing.ts;
-// Codex's recently written rollouts: agents/codex/listing.ts).
+// machine, Mesa's and the owner's alike (Claude Code's process list: claude/listing.ts;
+// Codex's recently written rollouts: codex/listing.ts).
 
 /** One listed agent session, keyed by its agent session id (the listing's `name` changes). */
 export type AgentProcess = {

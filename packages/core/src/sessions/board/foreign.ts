@@ -1,7 +1,7 @@
 import { AGENTS } from '../../agents/agents.js';
+import type { AgentProcess } from '../../agents/listing.js';
 import { projectOf } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import type { AgentProcess } from '../agent-listing.js';
 import { foreignId } from '../record.js';
 import { classifySession } from '../state.js';
 import { type ForeignRow, secondsBetween } from './rows.js';

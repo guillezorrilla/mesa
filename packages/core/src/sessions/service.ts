@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { antigravitySessionId } from '../agents/antigravity/log.js';
 import { claudeBackgroundAttach } from '../agents/claude/background.js';
+import { listAgentProcesses } from '../agents/listing.js';
 import { vaultServer } from '../agents/vault-mount.js';
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
@@ -19,7 +20,6 @@ import type { skillsService } from '../skills/service.js';
 import { sessionBranchName } from '../worktrees/branch-name.js';
 import { checkoutWorktree } from '../worktrees/create.js';
 import { adoptSession } from './adopt.js';
-import { listAgentProcesses } from './agent-listing.js';
 import { attachSession } from './attach.js';
 import { listSessions } from './board/board.js';
 import { sessionTree } from './board/tree.js';

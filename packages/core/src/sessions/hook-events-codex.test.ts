@@ -1,13 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { eventsLog, readHookEvents, recordHookEvent } from '../../sessions/hook-events.js';
-import { sessionStore } from '../../sessions/store.js';
-import { fixedClock, lockDeps, newSession, sequentialIds, tempDir } from '../../testing/index.js';
-import { codexHookState } from './hook-state.js';
+import { codexHookState } from '../agents/codex/hook-state.js';
+import { fixedClock, lockDeps, newSession, sequentialIds, tempDir } from '../testing/index.js';
+import { eventsLog, readHookEvents, recordHookEvent } from './hook-events.js';
+import { sessionStore } from './store.js';
 
 const payloads = JSON.parse(
-  readFileSync(new URL('./fixtures/hooks.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('../agents/codex/fixtures/hooks.json', import.meta.url), 'utf8'),
 ) as Record<string, unknown>[];
 const thread = payloads[0]?.session_id;
 function setup() {

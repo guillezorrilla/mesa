@@ -1,4 +1,4 @@
-import { WINDOW_VARS } from '../sessions/caller.js';
+import { WINDOW_VARS } from '../lib/window-vars.js';
 import { VAULT_SERVER } from '../vault/server.js';
 import { VAULT_WRITE_TOOLS } from '../vault/tools.js';
 import type { Agent } from './names.js';

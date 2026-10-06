@@ -1,4 +1,4 @@
-import type { SessionState } from '../../sessions/states.js';
+import type { AgentState } from '../states.js';
 
 // Codex's TUI screen, read from the tail patterns of docs/spikes/codex.md (codex-cli 0.154.0 in a
 // Mesa-style tmux window), at the tail's 0.6 (ADR-0003): read only when no hook or listing speaks.
@@ -31,7 +31,7 @@ const IDLE = '› ask codex to do anything';
  * needs a person, the nearest Mesa state being `waiting-question`; the working marker is checked
  * before the idle placeholder, which stays on screen while a turn runs.
  */
-export function codexScreenState(tail: string): SessionState | undefined {
+export function codexScreenState(tail: string): AgentState | undefined {
   const lower = tail.toLowerCase();
   const shows = (texts: readonly string[]) => texts.some((t) => lower.includes(t));
   if (shows(GATES)) return 'waiting-question';
