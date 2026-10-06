@@ -7,6 +7,7 @@ import { hooksStatus as codexHooksStatus } from './agents/codex/hooks.js';
 import { codexDaemonSocket, codexHome } from './agents/codex/paths.js';
 import { hooksService } from './agents/hooks-service.js';
 import { automationsService } from './automations/service.js';
+import { automationState } from './automations/state.js';
 import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
@@ -51,7 +52,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const faro = createFaro(ctx);
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
-  const notices = inbox(ctx);
+  // Failed automation runs are notices; the inbox reads them from the run ledger.
+  const notices = inbox(ctx, () => automationState(ctx.paths.automationState, ctx).read().runs);
   const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
   const usage = usageService(ctx);
   const vaults = vaultService(ctx);

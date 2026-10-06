@@ -64,7 +64,8 @@ export { keychainStore, type SecretStore } from './lib/secret-store.js';
 export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
-export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
+export type { DeliveryPlan } from './notifications/delivery-plan.js';
+export type { InboxFix, InboxItem } from './notifications/inbox-items.js';
 export type {
   PrEventDelivery,
   PrEventList,

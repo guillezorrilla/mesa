@@ -2,7 +2,7 @@ import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import type { MesaContext } from '../context.js';
 import { redactWhole } from '../lib/redact.js';
-import type { DeliveryPlan } from './inbox.js';
+import type { DeliveryPlan } from './delivery-plan.js';
 
 export type NotificationDelivery = {
   status: 'none' | 'unavailable' | 'denied' | 'delivered' | 'failed';
