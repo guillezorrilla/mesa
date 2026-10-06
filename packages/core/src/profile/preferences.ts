@@ -32,7 +32,7 @@ export const DEFAULT_TERMINAL_PREFERENCES = {
   naturalSelection: false,
   scrollSpeed: 3,
   extraSubmitKey: 'none',
-  newlineKey: 'native',
+  newlineKey: 'shift-enter',
   wezTermNewTab: false,
   messageActions: true,
 } as const;
