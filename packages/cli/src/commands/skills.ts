@@ -1,5 +1,5 @@
-import { MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { trueOrFalse } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -59,15 +59,13 @@ export const skillsSet = defineCommand({
   flags: { enabled: { type: 'string', required: true, description: 'true or false' } },
   example: 'mesa skills set lantern-cove session-summary --enabled true',
   run: ({ mesa, args, flags }) => {
-    if (flags.enabled !== 'true' && flags.enabled !== 'false') {
-      throw new MesaError('usage', '--enabled must be true or false');
-    }
-    const recorded = mesa.skills.setProject(args.project, args.name, flags.enabled === 'true');
+    const enabled = trueOrFalse(flags.enabled, '--enabled');
+    const recorded = mesa.skills.setProject(args.project, args.name, enabled);
     return recordedOutput(recorded, {
       data: recorded.result,
       text: recorded.result.changed
         ? `updated ${args.name} in ${args.project} mesa.yaml; run mesa skills sync ${args.project}`
-        : `${args.name} already ${flags.enabled === 'true' ? 'enabled' : 'disabled'} in ${args.project} mesa.yaml`,
+        : `${args.name} already ${enabled ? 'enabled' : 'disabled'} in ${args.project} mesa.yaml`,
     });
   },
 });

@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { requireTty } from '../guards.js';
+import { requireTty } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const open = defineCommand({

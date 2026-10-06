@@ -1,6 +1,6 @@
 import { duration, EXIT_CODES, listPrice } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../guards.js';
+import { wholeNumber } from '../input/flags.js';
 import { recordedOutput } from '../output/recorded.js';
 
 export const run = defineCommand({

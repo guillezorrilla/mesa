@@ -1,6 +1,6 @@
 import { describeAutomation, MesaError } from '@mesa/core';
-import { parseDocument, stringify } from 'yaml';
-import { defineCommand } from '../command.js';
+import { parseDocument } from 'yaml';
+import { defineCommand } from '../../command.js';
 
 export const automationsList = defineCommand({
   name: 'automations list',
@@ -61,58 +61,4 @@ export const automationsDisable = defineCommand({
     const data = mesa.automations.setEnabled(args.name, false);
     return { data, text: `Disabled ${data.name}` };
   },
-});
-
-export const automationsInstall = defineCommand({
-  name: 'automations install',
-  summary: "Explicitly install this profile's GUI LaunchAgent",
-  example: 'mesa automations install',
-  run: async ({ mesa }) => ({
-    data: await mesa.automations.install(),
-    text: 'Scheduler installed.',
-  }),
-});
-export const automationsUninstall = defineCommand({
-  name: 'automations uninstall',
-  summary: "Unload this profile's scheduler and stop its owned work",
-  example: 'mesa automations uninstall',
-  run: async ({ mesa }) => ({
-    data: await mesa.automations.uninstall(),
-    text: 'Scheduler uninstalled.',
-  }),
-});
-export const automationsStatus = defineCommand({
-  name: 'automations status',
-  summary: 'Show installation, waiting approvals and run history',
-  example: 'mesa automations status',
-  run: async ({ mesa }) => {
-    const data = await mesa.automations.status();
-    return { data, text: stringify(data).trimEnd() };
-  },
-});
-export const automationsTick = defineCommand({
-  name: 'automations tick',
-  summary: 'Observe rules and dispatch queued work serially',
-  example: 'mesa automations tick',
-  run: async ({ mesa }) => {
-    const data = await mesa.automations.tick();
-    return { data, text: stringify(data).trimEnd() };
-  },
-});
-export const automationsApprove = defineCommand({
-  name: 'automations approve',
-  summary: 'Approve one saved pending run; never overrides a block',
-  args: ['id'],
-  example: 'mesa automations approve 01ARZ3NDEKTSV4RRFFQ69G5FAV',
-  run: ({ mesa, args }) => ({
-    data: mesa.automations.approve(args.id),
-    text: 'Run approved for the next tick.',
-  }),
-});
-export const automationsCancel = defineCommand({
-  name: 'automations cancel',
-  summary: 'Cancel one pending or queued run',
-  args: ['id'],
-  example: 'mesa automations cancel 01ARZ3NDEKTSV4RRFFQ69G5FAV',
-  run: ({ mesa, args }) => ({ data: mesa.automations.cancel(args.id), text: 'Run cancelled.' }),
 });

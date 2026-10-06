@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from '
 import { join } from 'node:path';
 import { newSession, shortIds, testEnv, testStore, withRealGit } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
-import { cliHarness } from '../testing.js';
+import { cliHarness } from '../../testing.js';
 
 const cli = cliHarness();
 beforeEach(cli.reset);

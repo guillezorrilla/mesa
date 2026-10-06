@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../guards.js';
+import { wholeNumber } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 
 export const diagnostics = defineCommand({

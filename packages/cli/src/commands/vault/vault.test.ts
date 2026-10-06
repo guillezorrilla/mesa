@@ -13,8 +13,8 @@ import {
 import { join } from 'node:path';
 import { multiProjectSession, newSession, shortIds, testStore } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
-import { VERSION } from '../cli.js';
-import { cliHarness } from '../testing.js';
+import { VERSION } from '../../cli.js';
+import { cliHarness } from '../../testing.js';
 
 const cli = cliHarness();
 beforeEach(cli.reset);

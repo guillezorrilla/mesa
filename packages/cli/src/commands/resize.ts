@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../guards.js';
+import { wholeNumber } from '../input/flags.js';
 
 /** The app's terminal calls this after each fit, so the tmux window takes the view's size. */
 export const resize = defineCommand({

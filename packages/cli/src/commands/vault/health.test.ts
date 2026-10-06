@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { cliHarness } from '../testing.js';
+import { cliHarness } from '../../testing.js';
 
 const cli = cliHarness();
 beforeEach(cli.reset);
