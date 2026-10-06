@@ -308,6 +308,32 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await raw('set-hook', '-gu', 'pane-died');
   });
 
+  test("attachArgv's view shows its window, not the project's current one, with its options", async () => {
+    const [a, b] = [lantern('claude-attach1'), lantern('claude-attach2')];
+    await open(a, 'cat');
+    await open(b, 'cat');
+    const current = (session: string) =>
+      raw('display-message', '-p', '-t', `=${session}:`, '#{window_name}');
+    expect(await current('lantern')).not.toBe(b.window);
+    // The app's own terminal, with natural selection: every option the argv can set. It runs in
+    // a pane, as a terminal would, TMUX unset so tmux lets it nest.
+    const argv = tmux.attachArgv(b, 'a1', true, true);
+    const terminal = `unset TMUX; exec ${argv.map(shellWord).join(' ')}`;
+    await raw('new-session', '-d', '-s', 'terminal-a1', '/bin/sh', '-c', terminal);
+    const clients = () => raw('list-clients', '-F', '#{session_name}');
+    expect(await eventually(clients, /_view-a1/)).toContain('_view-a1');
+    expect(await eventually(() => current('_view-a1'), /claude-attach2/)).toBe(b.window);
+    expect(await raw('show-options', '-v', '-t', '=_view-a1:', 'mouse')).toBe('off');
+    expect(await raw('show-options', '-v', '-t', '=_view-a1:', '@mesa-wheel-lines')).toBe('1');
+    // The terminal closing takes its view with it.
+    await raw('kill-session', '-t', '=terminal-a1');
+    expect(await eventually(() => raw('has-session', '-t', '=_view-a1'), /^failed/)).toMatch(
+      /^failed/,
+    );
+    await tmux.killWindow(a);
+    await tmux.killWindow(b);
+  });
+
   test('openView lays windows out side by side, a terminal on each; a layout tmux lacks is usage', async () => {
     const [a, b] = [lantern('claude-view01'), lantern('claude-view02')];
     await open(a, 'cat');
@@ -579,7 +605,7 @@ test("only the app's own terminal scrolls one line per wheel report", () => {
     env: {},
   });
   const target = { project: 'lantern-cove', window: 'claude-aaaaaa' };
-  const wheel = ['set-option', '-t', '=_view-v1', '@mesa-wheel-lines', '1'].join(' ');
+  const wheel = ['set-option', '-t', '=_view-v1:', '@mesa-wheel-lines', '1'].join(' ');
   expect(tmux.attachArgv(target, 'v1', false, true).join(' ')).toContain(wheel);
   expect(tmux.attachArgv(target, 'v1').join(' ')).not.toContain('@mesa-wheel-lines');
 });

@@ -56,13 +56,13 @@ test('open prints the session id, --json the record, and --attach hands back the
     '-s',
     expect.stringMatching(/^_view-[0-9a-z]{8}$/),
     ';',
-    'set-option',
-    'destroy-unattached',
-    'on',
-    ';',
     'select-window',
     '-t',
     expect.stringMatching(new RegExp(`^=_view-[0-9a-z]{8}:=claude-${id}$`)),
+    ';',
+    'set-option',
+    'destroy-unattached',
+    'on',
   ]);
   expect(await mesa('open', 'tide')).toMatchObject({ code: 3 });
   // Codex picks its own thread id, which a look at the board reads later.

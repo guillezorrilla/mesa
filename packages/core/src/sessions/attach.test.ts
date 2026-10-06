@@ -25,13 +25,13 @@ const ATTACH = [
   '-s',
   expect.stringMatching(/^_view-[0-9a-z]{8}$/),
   ';',
-  'set-option',
-  'destroy-unattached',
-  'on',
-  ';',
   'select-window',
   '-t',
   expect.stringMatching(/^=_view-[0-9a-z]{8}:=claude-aaaaaa$/),
+  ';',
+  'set-option',
+  'destroy-unattached',
+  'on',
 ];
 
 /** A profile holding one session record; binaries in `failing` (tmux: no window) exit 1. */
@@ -76,7 +76,7 @@ test('natural selection disables tmux mouse only in the newly attached view', as
   const argv = (await mesa.sessions.attach(id)).exec ?? [];
   const view = argv[argv.indexOf('-s') + 1];
   expect(argv.join(' ')).toContain(
-    `; set-option -t =${view} mouse off ; set-option destroy-unattached on`,
+    `; set-option -t =${view}: mouse off ; set-option destroy-unattached on`,
   );
 });
 
@@ -102,7 +102,7 @@ test('--app with any terminal.app (Terminal by default) opens a one-line script 
     expect(calls.at(-1)).toMatchObject({ file: 'open', args: ['-a', app, script] });
     // The app may start without Homebrew on PATH, so the script carries the caller's.
     expect(readFileSync(script, 'utf8')).toMatch(
-      /^#!\/bin\/sh\nexport PATH='\/opt\/homebrew\/bin:\/usr\/bin'\nexec 'tmux' '-u' '-L' 'mesa-default' '-f' '\/dev\/null' 'new-session' '-t' '=lantern-cove' '-s' '_view-[0-9a-z]{8}' ';' 'set-option' 'destroy-unattached' 'on' ';' 'select-window' '-t' '=_view-[0-9a-z]{8}:=claude-aaaaaa'\n$/,
+      /^#!\/bin\/sh\nexport PATH='\/opt\/homebrew\/bin:\/usr\/bin'\nexec 'tmux' '-u' '-L' 'mesa-default' '-f' '\/dev\/null' 'new-session' '-t' '=lantern-cove' '-s' '_view-[0-9a-z]{8}' ';' 'select-window' '-t' '=_view-[0-9a-z]{8}:=claude-aaaaaa' ';' 'set-option' 'destroy-unattached' 'on'\n$/,
     );
     expect(statSync(script).mode & 0o777).toBe(0o700);
   }
