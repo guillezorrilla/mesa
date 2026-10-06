@@ -1,3 +1,4 @@
+import type { AsyncLockDeps } from '../lib/lock-file.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -116,7 +117,7 @@ export type AdditionalStart = { entry: RegistryEntry; base?: string | undefined 
  * noted in `made` as it is made. One already on the record (a start retried after a kill) stays.
  */
 export async function createAdditional(
-  deps: { profile: Profile; run: Runner; store: SessionStore },
+  deps: { profile: Profile; run: Runner; lock: AsyncLockDeps; store: SessionStore },
   record: SessionRecord,
   entries: readonly AdditionalStart[],
   made: ReturnType<typeof launchWorktrees>,
@@ -127,7 +128,15 @@ export async function createAdditional(
   let current = record;
   for (const { entry, base } of entries) {
     if (current.additional?.some((a) => a.project === entry.name)) continue;
-    const selected = await sessionWorktree(deps.profile, deps.run, deps.store, entry, branch, base);
+    const selected = await sessionWorktree(
+      deps.profile,
+      deps.run,
+      deps.lock,
+      deps.store,
+      entry,
+      branch,
+      base,
+    );
     made.add(deps.profile, entry, selected);
     const added = { project: entry.name, worktree: selected.worktree };
     current = deps.store.update(current.id, (r) => ({

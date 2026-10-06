@@ -12,6 +12,7 @@ import {
   gitProject,
   gitRepo,
   isolateGit,
+  lockDeps,
   projectProfile,
   repoState,
   scriptedRunner,
@@ -52,6 +53,7 @@ async function setUp({ claude = true } = {}) {
     caller: () => ({ inMesaWindow: false }),
     syncSkills: () => {},
     vaultServer: vaultServer(['/usr/local/bin/mesa']),
+    lock: { ...lockDeps(), sleep: async () => {} },
   };
   const windows = () => world.windows.filter((w) => w.window === `claude-${b.id}`);
   return { deps, store, b, windows };

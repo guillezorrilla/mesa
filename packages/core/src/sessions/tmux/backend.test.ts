@@ -405,6 +405,22 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     }
   });
 
+  test("an open that loses the race to make the project's session opens its window in it", async () => {
+    // has-session answered before another mesa made the session: new-session finds it there.
+    const late: Runner = (file, args, ms) =>
+      args.includes('has-session')
+        ? Promise.resolve({ ok: false, reason: 'failed', detail: "can't find session" })
+        : underParent(file, args, ms);
+    const racer = tmuxBackend({ sleep: async () => {}, run: late, socket, env: PARENT });
+    await open({ project: 'harbour', window: 'claude-dddddd' }, 'cat');
+    const second = { project: 'harbour', window: 'claude-eeeeee' };
+    expect(await racer.openWindow({ ...second, cwd, command: 'cat', env: {} })).toEqual(second);
+    expect((await tmux.listWindows('harbour')).map((w) => w.window)).toEqual([
+      'claude-dddddd',
+      'claude-eeeeee',
+    ]);
+  });
+
   test('killWindow removes a window; a missing window or project is not_found or empty', async () => {
     const target = lantern('claude-kill01');
     await open(target, 'cat');
