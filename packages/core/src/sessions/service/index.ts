@@ -15,7 +15,6 @@ import { windowActions } from './windows.js';
 export function sessionsService(
   ctx: MesaContext,
   faro: Faro,
-  /** The skills service's: links a project's enabled skills into a folder, and lists what it sees. */
   skills: SessionSkills,
   setConfig: SetConfig,
 ) {
