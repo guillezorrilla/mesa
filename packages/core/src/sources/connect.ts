@@ -1,7 +1,7 @@
 import type { IdSource } from '../lib/ids.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import { openBrowserExternal } from '../sessions/browser-address.js';
+import { openBrowserExternal } from '../sessions/input/browser-address.js';
 import { type SourceDeps, withBearer } from './authorized-fetch.js';
 import { brokerToken } from './broker.js';
 import type { CallbackListen } from './callback-listener.js';

@@ -1,8 +1,8 @@
 import type { MesaContext } from '../context.js';
 import { findProject } from '../projects/projects.js';
 import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
-import { callerOf } from '../sessions/caller.js';
-import { GENERAL_PROJECT } from '../sessions/general.js';
+import { GENERAL_PROJECT } from '../sessions/record/general.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { writeBases } from './bases.js';
 import { vaultHealth } from './health.js';
 import { listVault, type VaultInventory } from './inventory.js';

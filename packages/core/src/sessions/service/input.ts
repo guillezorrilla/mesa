@@ -3,20 +3,20 @@ import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Overrides } from '../../decisions/guardrail.js';
 import type { DecisionRecorder } from '../../decisions/types.js';
 import { receiptText } from '../../receipts/command.js';
-import { openBrowserExternal } from '../browser-address.js';
+import { openBrowserExternal } from '../input/browser-address.js';
 import {
   type BrowserAnnotationInput,
   clearBrowserElement,
   liveBrowserAnnotation,
   selectBrowserElement,
-} from '../browser-annotation.js';
-import { changeReview, previewChangeReview } from '../change-review.js';
-import { projectScope } from '../general.js';
-import { previewSessionImage, sessionImagePrompt } from '../images.js';
-import { recordAgent } from '../record.js';
-import { previewResponseReview, sessionResponses } from '../responses.js';
-import { sendReview } from '../reviews.js';
-import { sendPrompt } from '../send.js';
+} from '../input/browser-annotation.js';
+import { changeReview, previewChangeReview } from '../input/change-review.js';
+import { previewSessionImage, sessionImagePrompt } from '../input/images.js';
+import { sendReview } from '../input/reviews.js';
+import { sendPrompt } from '../input/send.js';
+import { previewResponseReview, sessionResponses } from '../native/responses.js';
+import { projectScope } from '../record/general.js';
+import { recordAgent } from '../record/record.js';
 import type { SessionDeps } from './deps.js';
 
 /**

@@ -1,10 +1,10 @@
 import { claudeBackgroundAttach } from '../../agents/claude/background.js';
 import type { MesaContext } from '../../context.js';
-import { GENERAL_PROJECT } from '../general.js';
-import { type LaunchDeps, launchProject, startSession } from '../launch.js';
-import { isOver } from '../record.js';
+import { GENERAL_PROJECT } from '../record/general.js';
+import { isOver } from '../record/record.js';
+import { type LaunchDeps, launchProject, startSession } from '../start/launch.js';
 import { killIfThere } from '../tmux/backend.js';
-import { windowOf } from '../window-name.js';
+import { windowOf } from '../window/window-name.js';
 
 /**
  * Makes sure a session kept running in the background (a Claude background process) has a tmux

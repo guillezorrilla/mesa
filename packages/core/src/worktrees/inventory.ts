@@ -4,8 +4,8 @@ import { gitWorktrees } from '../git/checkout.js';
 import type { Runner } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
 import { resolveCheckout } from '../projects/checkout.js';
-import { checkoutHolders } from '../sessions/holders.js';
-import type { SessionStore } from '../sessions/store.js';
+import { checkoutHolders } from '../sessions/record/holders.js';
+import type { SessionStore } from '../sessions/record/store.js';
 
 export type WorktreeRow = {
   path: string;

@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { createMesa } from '../../mesa.js';
-import { GENERAL_PROJECT } from '../../sessions/general.js';
+import { GENERAL_PROJECT } from '../../sessions/record/general.js';
 import {
   newSession,
   projectProfile,

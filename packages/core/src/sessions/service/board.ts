@@ -5,8 +5,8 @@ import type { Faro } from '../../decisions/faro.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';
 import { listSessions } from '../board/board.js';
-import { readHookEvents } from '../hook-events.js';
-import { outputLog } from '../output-log.js';
+import { readHookEvents } from '../signals/hook-events.js';
+import { outputLog } from '../window/output-log.js';
 
 /**
  * A look at the board for one profile: its sessions merged with live tmux and the agent listing,

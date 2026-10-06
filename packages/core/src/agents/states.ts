@@ -1,5 +1,5 @@
 // The states an agent reports, read from its hooks, screen, and listing. No imports, so the app
-// can bundle them (@mesa/core/browser); sessions/states.ts adds Mesa's own.
+// can bundle them (@mesa/core/browser); sessions/record/states.ts adds Mesa's own.
 
 /** Where a session's agent is: what Faro reads from its signals (CONTEXT.md, Session state). */
 export const AGENT_STATES = [

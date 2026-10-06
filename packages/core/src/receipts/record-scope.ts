@@ -1,10 +1,10 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
-import { callerOf } from '../sessions/caller.js';
-import { projectScope } from '../sessions/general.js';
-import type { SessionRecord } from '../sessions/record.js';
-import { sessionProjects } from '../sessions/session-projects.js';
+import { projectScope } from '../sessions/record/general.js';
+import type { SessionRecord } from '../sessions/record/record.js';
+import { sessionProjects } from '../sessions/record/session-projects.js';
+import { callerOf } from '../sessions/window/caller.js';
 
 /**
  * Whom a kept record belongs to (CONTEXT.md, Decision and Session write): the project and session

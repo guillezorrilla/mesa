@@ -6,7 +6,7 @@ import { transcriptFile } from '../agents/claude/transcripts.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import { profilePaths } from '../profile/paths.js';
-import { recordHookEvent } from '../sessions/hook-events.js';
+import { recordHookEvent } from '../sessions/signals/hook-events.js';
 import {
   codexWorld,
   fixedClock,

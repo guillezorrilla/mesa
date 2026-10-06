@@ -10,15 +10,15 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import { resolveCheckout } from '../projects/checkout.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { checkoutHolders, heldWorktrees, worktreeHolder } from '../sessions/holders.js';
-import type { SessionStore } from '../sessions/store.js';
+import { checkoutHolders, heldWorktrees, worktreeHolder } from '../sessions/record/holders.js';
+import type { SessionStore } from '../sessions/record/store.js';
 import {
   addWorktree,
   isLeftover,
   removeWorktree,
   type Worktree,
   worktreePath,
-} from '../sessions/worktree.js';
+} from '../sessions/start/worktree.js';
 import { sessionBranchName } from './branch-name.js';
 import { ignoreNestedWorktrees, worktreeRoot } from './location.js';
 import { worktreeScript, worktreeSettings } from './settings.js';

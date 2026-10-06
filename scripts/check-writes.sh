@@ -7,9 +7,9 @@ set -eu
 cd "$(dirname "$0")/.."
 src=packages/core/src
 writes=$(git grep -nE '(^|[^A-Za-z_])writeFileSync\(' -- "$src" ':!*.test.ts' ":!$src/testing" \
-  ":!$src/lib/atomic-file.ts" ":!$src/lib/lock-file.ts" ":!$src/sessions/output-log.ts" || true)
+  ":!$src/lib/atomic-file.ts" ":!$src/lib/lock-file.ts" ":!$src/sessions/window/output-log.ts" || true)
 appends=$(git grep -nE '(^|[^A-Za-z_])appendFileSync\(' -- "$src" ':!*.test.ts' ":!$src/testing" \
-  ":!$src/sessions/hook-events.ts" ":!$src/vault/notes.ts" ":!$src/vault/index-note.ts" \
+  ":!$src/sessions/signals/hook-events.ts" ":!$src/vault/notes.ts" ":!$src/vault/index-note.ts" \
   ":!$src/git/exclude.ts" || true)
 if [ -n "$writes$appends" ]; then
   echo "direct file writes in core (write through lib/atomic-file.ts instead):"

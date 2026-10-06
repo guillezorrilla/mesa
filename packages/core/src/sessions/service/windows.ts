@@ -1,7 +1,7 @@
 import type { MesaContext } from '../../context.js';
-import { attachSession } from '../attach.js';
-import { resizeSession } from '../resize.js';
-import { viewProject } from '../view.js';
+import { attachSession } from '../window/attach.js';
+import { resizeSession } from '../window/resize.js';
+import { viewProject } from '../window/view.js';
 import type { SessionDeps } from './deps.js';
 
 /** Where a session is seen: its tmux window sized, attached, or laid out with its project's. */

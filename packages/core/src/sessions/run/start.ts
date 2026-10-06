@@ -9,12 +9,12 @@ import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { isPipelineSkill } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
-import type { Caller } from '../caller.js';
-import { GENERAL_PROJECT } from '../general.js';
-import { requireCommandFits } from '../goal.js';
-import { type LaunchDeps, launchAgent, launchProject, launchSession } from '../launch.js';
-import { outputTail } from '../output-log.js';
-import type { SessionRecord } from '../record.js';
+import { GENERAL_PROJECT } from '../record/general.js';
+import type { SessionRecord } from '../record/record.js';
+import { requireCommandFits } from '../start/goal.js';
+import { type LaunchDeps, launchAgent, launchProject, launchSession } from '../start/launch.js';
+import type { Caller } from '../window/caller.js';
+import { outputTail } from '../window/output-log.js';
 import { runInput, runOutput } from './files.js';
 
 // How a skill run starts (startRun): every refusal first, then its window, whose agent prints

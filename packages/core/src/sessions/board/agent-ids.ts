@@ -1,10 +1,10 @@
 import { AGENTS } from '../../agents/agents.js';
 import type { Env } from '../../lib/process.js';
 import type { RegistryEntry } from '../../projects/registry.js';
-import { GENERAL_PROJECT } from '../general.js';
-import { folderOf } from '../launch.js';
-import type { SessionRecord } from '../record.js';
-import { isAgentState } from '../states.js';
+import { GENERAL_PROJECT } from '../record/general.js';
+import type { SessionRecord } from '../record/record.js';
+import { isAgentState } from '../record/states.js';
+import { folderOf } from '../start/launch.js';
 
 /**
  * The agent session ids a look reads for the sessions whose agent picks its own (Codex), by

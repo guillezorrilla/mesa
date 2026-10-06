@@ -1,6 +1,6 @@
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
-import type { SessionRecord } from '../sessions/record.js';
+import type { SessionRecord } from '../sessions/record/record.js';
 import type { LockedNotesDeps } from '../vault/notes.js';
 import type { Site } from './connection.js';
 import { CONNECTORS } from './connectors.js';

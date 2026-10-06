@@ -83,34 +83,41 @@ export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
-export type { Attached } from './sessions/attach.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';
+export type { DescendantResult } from './sessions/end/descendants.js';
+export type { Removed } from './sessions/end/remove.js';
+export type { StopOutcome } from './sessions/end/stop.js';
 export type {
   BrowserAnnotationInput,
   BrowserAnnotationPreview,
   BrowserPageSelection,
-} from './sessions/browser-annotation.js';
+} from './sessions/input/browser-annotation.js';
 export type {
   ChangeReview,
   ChangeReviewInput,
   ChangeReviewPreview,
-} from './sessions/change-review.js';
-export type { DescendantResult } from './sessions/descendants.js';
+} from './sessions/input/change-review.js';
+export type { SessionImage } from './sessions/input/images.js';
+export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
+export type { Sent } from './sessions/input/send.js';
 export {
   DISCOVERY_DAYS,
   type NativeConversation,
   type NativeDiscovery,
   type NativeLive,
   type NativeProject,
-} from './sessions/discovery.js';
-export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/discovery-adopt.js';
-export type { EachResult, ItemResult } from './sessions/each.js';
-export { GENERAL_PROJECT, projectLabel } from './sessions/general.js';
-export type { GridGroup } from './sessions/grid-groups.js';
-export type { NativeHistory, NativeHistoryRow } from './sessions/history.js';
-export type { SessionImage } from './sessions/images.js';
-export type { InstructionStatus } from './sessions/instructions.js';
+} from './sessions/native/discovery.js';
+export type { NativeHistory, NativeHistoryRow } from './sessions/native/history.js';
+export type { InstructionStatus } from './sessions/native/instructions.js';
+export type {
+  NativeResponse,
+  ResponseReviewPreview,
+  SessionResponses,
+} from './sessions/native/responses.js';
+export type { ConversationHit, ConversationSearch } from './sessions/native/search.js';
+export type { EachResult, ItemResult } from './sessions/record/each.js';
+export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export {
   additionalLabel,
   attentionScore,
@@ -121,25 +128,18 @@ export {
   sessionCount,
   sessionLabel,
   waitingOn,
-} from './sessions/labels.js';
-export type { SessionLog } from './sessions/output-log.js';
-export type { SessionRecord } from './sessions/record.js';
-export type { Removed } from './sessions/remove.js';
-export type {
-  NativeResponse,
-  ResponseReviewPreview,
-  SessionResponses,
-} from './sessions/responses.js';
-export type { ReviewDelivery, SavedReview } from './sessions/reviews.js';
+} from './sessions/record/labels.js';
+export type { SessionRecord } from './sessions/record/record.js';
+export type { SessionState } from './sessions/record/states.js';
+export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workflow-status.js';
 export type { HeadlessResult } from './sessions/run/files.js';
-export type { ConversationHit, ConversationSearch } from './sessions/search.js';
-export type { Sent } from './sessions/send.js';
-export type { SessionState } from './sessions/states.js';
-export type { StopOutcome } from './sessions/stop.js';
+export type { DiscoveredAdoption, DiscoveryAdoption } from './sessions/start/discovery-adopt.js';
+export type { Worktree } from './sessions/start/worktree.js';
 export type { TmuxWindow } from './sessions/tmux/format.js';
-export type { Viewed } from './sessions/view.js';
-export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/workflow-status.js';
-export type { Worktree } from './sessions/worktree.js';
+export type { Attached } from './sessions/window/attach.js';
+export type { GridGroup } from './sessions/window/grid-groups.js';
+export type { SessionLog } from './sessions/window/output-log.js';
+export type { Viewed } from './sessions/window/view.js';
 export type { SkillInventoryRow } from './skills/inventory.js';
 export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';

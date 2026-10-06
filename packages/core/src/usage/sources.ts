@@ -1,6 +1,6 @@
 import type { MesaContext } from '../context.js';
-import { scanHookEvents } from '../sessions/hook-events.js';
-import type { SessionRecord } from '../sessions/record.js';
+import type { SessionRecord } from '../sessions/record/record.js';
+import { scanHookEvents } from '../sessions/signals/hook-events.js';
 import type { HookStamp } from './store.js';
 
 /**

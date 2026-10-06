@@ -14,7 +14,7 @@ import {
   testRunner,
   tmuxLine,
 } from '../../testing/index.js';
-import { outputLog, outputTail } from '../output-log.js';
+import { outputLog, outputTail } from '../window/output-log.js';
 import { tmuxBackend } from './backend.js';
 import { exact, type WindowTarget } from './format.js';
 

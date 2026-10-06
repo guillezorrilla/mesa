@@ -300,7 +300,7 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
  * picked for it (newSessionId), which an agent that picks its own does not take, with the
  * profile's launch `defaults`, `server` mounted for an agent that takes it per launch
  * (Antigravity's is global), and `dirs`, an additional project's worktree each, as extra folders
- * (sessions/additional.ts, additionalDirs).
+ * (sessions/start/additional.ts, additionalDirs).
  */
 export function startCommand(
   agent: Agent,

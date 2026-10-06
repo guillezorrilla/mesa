@@ -65,7 +65,7 @@ The owner decided on 2026-10-03, after the pilot below: the default path is the 
 
 These numbers are fixed before the held-out evaluation (#465) and are not lowered afterwards. A site that misses any of them ships off (or experimental, opt-in per session), with its measured result shown.
 
-**Quality (held-out split, per site, `QUALITY_GATES` in `decisions/evaluation.ts`).** A site may be automatic only if its accepted answers are at least this accurate, it accepts at least this share of cases, and it gets strictly more cases right and accepted than the rules baseline. The baseline's answers stand whenever they are not even, as the board acts on its rules today (held-out: supervision 16 accepted, 10 right; the other sites have no rules and accept nothing).
+**Quality (held-out split, per site, `QUALITY_GATES` in `decisions/evaluation/evaluation.ts`).** A site may be automatic only if its accepted answers are at least this accurate, it accepts at least this share of cases, and it gets strictly more cases right and accepted than the rules baseline. The baseline's answers stand whenever they are not even, as the board acts on its rules today (held-out: supervision 16 accepted, 10 right; the other sites have no rules and accept nothing).
 
 | Site | Selective accuracy | Coverage |
 | --- | --- | --- |

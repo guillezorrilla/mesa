@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { MesaError } from '../../lib/result.js';
 import type { Recorded } from '../../receipts/recorder.js';
-import { projectScope } from '../../sessions/general.js';
-import type { SessionRecord } from '../../sessions/record.js';
-import { sessionProjects } from '../../sessions/session-projects.js';
+import { projectScope } from '../../sessions/record/general.js';
+import type { SessionRecord } from '../../sessions/record/record.js';
+import { sessionProjects } from '../../sessions/record/session-projects.js';
 import { itemProject } from '../item.js';
 import type { VaultRead } from '../reader.js';
 import { DEFAULT_VAULT_SEARCH_LIMIT, type VaultSearch, type VaultSearchFilter } from '../search.js';

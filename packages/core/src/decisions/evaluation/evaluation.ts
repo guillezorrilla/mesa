@@ -1,6 +1,6 @@
 import { AGENT_STATES } from '../../agents/states.js';
 import type { Clock } from '../../lib/clock.js';
-import { classify } from '../../sessions/state.js';
+import { classify } from '../../sessions/signals/state.js';
 import { checked } from '../decide.js';
 import { rulesBackend, type Weights } from '../rules.js';
 import {

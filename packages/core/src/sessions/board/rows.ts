@@ -1,6 +1,6 @@
 import type { AgentProcess } from '../../agents/listing.js';
-import type { foreignId, SessionRecord } from '../record.js';
-import type { Placement } from '../state.js';
+import type { foreignId, SessionRecord } from '../record/record.js';
+import type { Placement } from '../signals/state.js';
 
 // The Board's rows (CONTEXT.md, Board): a Mesa session's, or a foreign one's.
 

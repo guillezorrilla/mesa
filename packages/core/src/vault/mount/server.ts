@@ -1,4 +1,4 @@
-import { projectLabel } from '../../sessions/general.js';
+import { projectLabel } from '../../sessions/record/general.js';
 import type { VaultBinding } from './binding.js';
 import { type Stdio, serveMcp, toolText } from './mcp-server.js';
 import { callVaultTool, VAULT_TOOLS, type VaultOwners } from './tools.js';

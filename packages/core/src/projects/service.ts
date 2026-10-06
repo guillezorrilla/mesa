@@ -1,5 +1,5 @@
 import type { MesaContext } from '../context.js';
-import { callerOf } from '../sessions/caller.js';
+import { callerOf } from '../sessions/window/caller.js';
 import { cloneProject } from './clone.js';
 import { discoverProjects } from './discover.js';
 import { repositoryUrl } from './project-url.js';

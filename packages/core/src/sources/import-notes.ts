@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { MesaError, toFail } from '../lib/result.js';
-import type { SessionRecord } from '../sessions/record.js';
+import type { SessionRecord } from '../sessions/record/record.js';
 import type { HeadlessResult } from '../sessions/run/files.js';
 import { KEEP_MARKER, keptBlocks, restoreKept } from '../skills/keep-sections.js';
 import { IMPORT_NOTES } from '../skills/library.js';

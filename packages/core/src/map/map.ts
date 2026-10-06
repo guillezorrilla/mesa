@@ -1,10 +1,10 @@
 import { clip } from '../lib/clip.js';
 import type { RegistryEntry } from '../projects/registry.js';
-import { projectLabel } from '../sessions/general.js';
-import { isSessionId } from '../sessions/id.js';
-import { sessionLabel } from '../sessions/labels.js';
-import type { SessionRecord } from '../sessions/record.js';
-import { sessionUri } from '../sessions/uri.js';
+import { projectLabel } from '../sessions/record/general.js';
+import { isSessionId } from '../sessions/record/id.js';
+import { sessionLabel } from '../sessions/record/labels.js';
+import type { SessionRecord } from '../sessions/record/record.js';
+import { sessionUri } from '../sessions/record/uri.js';
 import type { CanvasData, CanvasNode } from '../vault/canvas.js';
 import type { VaultItem } from '../vault/item.js';
 import { sessionSummaryPath } from '../vault/layout.js';

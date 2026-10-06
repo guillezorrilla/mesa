@@ -9,7 +9,7 @@ import { receiptText } from '../../receipts/command.js';
 import { type NoteChange, recordNoteChange, settleUnchanged } from '../../receipts/note-change.js';
 import { recordScope } from '../../receipts/record-scope.js';
 import type { Recorded } from '../../receipts/recorder.js';
-import { recordAgent } from '../../sessions/record.js';
+import { recordAgent } from '../../sessions/record/record.js';
 import { keepSections } from '../../skills/keep-sections.js';
 import { landOutput } from '../../skills/landing.js';
 import type { Frontmatter, Note } from '../frontmatter.js';

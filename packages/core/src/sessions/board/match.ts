@@ -1,7 +1,7 @@
 import type { AgentProcess } from '../../agents/listing.js';
-import type { SessionRecord } from '../record.js';
+import type { SessionRecord } from '../record/record.js';
 import { type TmuxWindow, targetLabel } from '../tmux/format.js';
-import { windowOf } from '../window-name.js';
+import { windowOf } from '../window/window-name.js';
 
 /**
  * Which record each listed process runs as. A stopped session runs nowhere, so only open ones can
