@@ -641,8 +641,8 @@ export function projectProfile(
 }
 
 /**
- * Keeps the real git in a test file to its temp repositories: a git hook (pre-push runs these
- * tests) exports GIT_DIR and friends, which would point git at Mesa's own repository, and the
+ * Keeps the real git in a test file to its temp repositories: a git hook that runs these tests
+ * exports GIT_DIR and friends, which would point git at Mesa's own repository, and the
  * user's git config (signing, hooks) stays out. The real git inherits process.env, so it is set
  * for the calling file only: call it once at its top with vitest's hooks, which this module leaves
  * to its caller so that nothing here needs vitest.

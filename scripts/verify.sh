@@ -1,5 +1,5 @@
 #!/bin/sh
-# The merge gate: the `verify` job in .github/workflows/ci.yml, and locally on pre-push.
+# The merge gate: the `verify` job in .github/workflows/ci.yml; run it locally before a push.
 set -eu
 cd "$(dirname "$0")/.."
 pnpm lint
