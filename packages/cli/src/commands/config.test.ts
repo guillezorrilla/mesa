@@ -33,6 +33,14 @@ test('terminal.messageActions is on by default and config set turns it off', asy
   expect((await cli.mesa('config', 'set', 'terminal.messageActions', 'maybe')).code).toBe(4);
 });
 
+test('terminal.newlineKey is shift-enter by default, and a profile that sets native keeps it', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  const newlineKey = async () => (await cli.mesa('config', '--json')).json.data.terminal.newlineKey;
+  expect(await newlineKey()).toBe('shift-enter');
+  await cli.mesa('config', 'set', 'terminal.newlineKey', 'native');
+  expect(await newlineKey()).toBe('native');
+});
+
 test('changing the vault switches reads and writes without moving or changing existing notes', async () => {
   await cli.mesa('init', '--vault', 'first-vault');
   await cli.mesa('vault', 'init');

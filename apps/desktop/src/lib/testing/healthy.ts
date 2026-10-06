@@ -11,7 +11,7 @@ import type {
   UsageReport,
   VaultStatus,
 } from '@mesa/core';
-import { DEFAULT_SHORTCUTS } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS, DEFAULT_TERMINAL_PREFERENCES } from '@mesa/core/browser';
 import { envelope } from './replies';
 
 /** A healthy, initialised profile with no projects: each test overrides what it varies. */
@@ -76,19 +76,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         density: 'comfortable',
         colorVision: 'normal',
       },
-      terminal: {
-        app: 'Terminal',
-        theme: 'follow',
-        fontSize: 13,
-        fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
-        optionAsMeta: false,
-        naturalSelection: false,
-        scrollSpeed: 3,
-        extraSubmitKey: 'none',
-        newlineKey: 'native',
-        wezTermNewTab: false,
-        messageActions: true,
-      },
+      terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
       editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
       worktrees: {
         location: 'profile',
