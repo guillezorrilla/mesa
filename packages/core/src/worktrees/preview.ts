@@ -1,14 +1,12 @@
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
-import type { Runner } from '../lib/process.js';
-import type { Profile } from '../profile/profile.js';
-import type { SessionStore } from '../sessions/store.js';
 import {
   checkoutFacts,
   cleanupFacts,
   present,
   projectWorktrees,
   type WorktreeAction,
+  type WorktreeScope,
 } from './facts.js';
 import type { WorktreeRow } from './inventory.js';
 import { worktreeReasons } from './reasons.js';
@@ -42,14 +40,12 @@ const fingerprint = (facts: unknown) =>
 
 /** Preview the exact Git registration and local work that an action would affect. */
 export async function previewWorktreeAction(
-  profile: Profile,
-  run: Runner,
-  store: SessionStore,
-  project: string,
+  scope: WorktreeScope,
   action: WorktreeAction,
   selected?: string,
 ): Promise<WorktreePreview> {
-  const worktrees = await projectWorktrees(profile, run, store, project);
+  const { profile, store, project } = scope;
+  const worktrees = await projectWorktrees(scope);
   if (action === 'cleanup') {
     const facts = cleanupFacts(store, project, worktrees.root, worktrees.rows);
     const { blocked } = worktreeReasons(facts, action);
@@ -74,7 +70,7 @@ export async function previewWorktreeAction(
       forceable: false,
     };
   }
-  const facts = await checkoutFacts(profile, run, store, project, worktrees, action, selected);
+  const facts = await checkoutFacts(scope, worktrees, action, selected);
   const { path, branch, head, holders, upstream, ahead, base } = facts;
   // The token covers every fact the decision and the apply rely on.
   const token = fingerprint({

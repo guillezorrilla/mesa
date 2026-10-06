@@ -1,12 +1,15 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { gitCommand } from '../git/command.js';
-import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
-import type { Profile } from '../profile/profile.js';
-import type { SessionStore } from '../sessions/store.js';
 import { worktreeCommand } from './create.js';
-import { present, projectWorktrees, requireGit, type WorktreeAction } from './facts.js';
+import {
+  present,
+  projectWorktrees,
+  requireGit,
+  type WorktreeAction,
+  type WorktreeScope,
+} from './facts.js';
 import { listWorktrees } from './inventory.js';
 import { previewWorktreeAction, type WorktreePreview } from './preview.js';
 
@@ -29,11 +32,7 @@ export type WorktreeApplied = {
 };
 
 /** One allowed action, after its preview's token matched. */
-type Step = {
-  profile: Profile;
-  run: Runner;
-  store: SessionStore;
-  project: string;
+type Step = WorktreeScope & {
   root: string;
   preview: WorktreePreview;
   forced: boolean;
@@ -52,14 +51,15 @@ const APPLY: Record<WorktreeAction, (step: Step) => Promise<WorktreeApplied>> = 
       remaining,
     };
   },
-  remove: async ({ profile, run, store, project, root, preview, forced }) => {
+  remove: async ({ root, preview, forced, ...scope }) => {
+    const { run } = scope;
     const path = preview.paths[0] as string;
     let teardownRan = false;
     // The teardown the preview showed, which its token covers.
     if (preview.teardown?.length) {
       await worktreeCommand(run, path, preview.teardown, 'teardown');
       teardownRan = true;
-      const after = await previewWorktreeAction(profile, run, store, project, 'remove', path);
+      const after = await previewWorktreeAction(scope, 'remove', path);
       const still = forced ? after.allowed || after.forceable : after.allowed;
       if (!still || (!forced && (after.changes.length || after.ignored.length)))
         throw new MesaError('usage', `teardown ran, but ${path} changed; worktree preserved`);
@@ -75,7 +75,7 @@ const APPLY: Record<WorktreeAction, (step: Step) => Promise<WorktreeApplied>> = 
     } catch (error) {
       throw new MesaError(
         'usage',
-        `${teardownRan ? 'teardown ran, but ' : ''}${String(error)}; ${await partialState(profile, run, store, project, path)}`,
+        `${teardownRan ? 'teardown ran, but ' : ''}${String(error)}; ${await partialState(scope, path)}`,
       );
     }
     return {
@@ -111,7 +111,8 @@ const APPLY: Record<WorktreeAction, (step: Step) => Promise<WorktreeApplied>> = 
       ...(branchKept ? { branchKept } : {}),
     };
   },
-  trash: async ({ profile, run, store, project, root, preview }) => {
+  trash: async ({ root, preview, ...scope }) => {
+    const { profile, run, project } = scope;
     const path = preview.paths[0] as string;
     const destination = preview.destination as string;
     mkdirSync(join(profile.paths.root, 'recycle', project), { recursive: true });
@@ -122,7 +123,7 @@ const APPLY: Record<WorktreeAction, (step: Step) => Promise<WorktreeApplied>> = 
     } catch (error) {
       throw new MesaError(
         'usage',
-        `${String(error)}; ${await partialState(profile, run, store, project, path, destination)}`,
+        `${String(error)}; ${await partialState(scope, path, destination)}`,
       );
     }
     return { action: 'trash', paths: [path], destination, branch: preview.branch };
@@ -131,29 +132,23 @@ const APPLY: Record<WorktreeAction, (step: Step) => Promise<WorktreeApplied>> = 
 
 /** A stale preview is re-read immediately before Git can prune its registrations. */
 export async function applyWorktreeAction(
-  profile: Profile,
-  run: Runner,
-  store: SessionStore,
-  project: string,
+  scope: WorktreeScope,
   action: WorktreeAction,
   token: string,
   selected?: string,
   opts: ApplyOptions = {},
 ): Promise<WorktreeApplied> {
-  const preview = await previewWorktreeAction(profile, run, store, project, action, selected);
+  const preview = await previewWorktreeAction(scope, action, selected);
   if (preview.token !== token)
     throw new MesaError('usage', 'worktree changed since preview; inspect it again');
   const forced = Boolean(opts.force && preview.forceable);
   if (!preview.allowed && !forced) throw new MesaError('usage', preview.reasons.join('; '));
-  const { root } = await projectWorktrees(profile, run, store, project);
-  return APPLY[action]({ profile, run, store, project, root, preview, forced, opts });
+  const { root } = await projectWorktrees(scope);
+  return APPLY[action]({ ...scope, root, preview, forced, opts });
 }
 
 async function partialState(
-  profile: Profile,
-  run: Runner,
-  store: SessionStore,
-  project: string,
+  { profile, run, store, project }: WorktreeScope,
   source: string,
   destination?: string,
 ) {

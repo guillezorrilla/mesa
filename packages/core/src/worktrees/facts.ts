@@ -55,6 +55,14 @@ export type CheckoutFacts = {
   base?: string;
 };
 
+/** The project a worktree action reads and changes, and what it reads it with. */
+export type WorktreeScope = {
+  profile: Profile;
+  run: Runner;
+  store: SessionStore;
+  project: string;
+};
+
 /** Git's answer, or the command's failure as a usage error. */
 export async function requireGit(run: Runner, repo: string, args: string[]) {
   const result = await gitCommand(run, repo, args, 60_000);
@@ -65,12 +73,7 @@ export async function requireGit(run: Runner, repo: string, args: string[]) {
 export const present = (path: string) => Boolean(lstatSync(path, { throwIfNoEntry: false }));
 
 /** The project's registered worktrees and its main checkout. */
-export async function projectWorktrees(
-  profile: Profile,
-  run: Runner,
-  store: SessionStore,
-  project: string,
-) {
+export async function projectWorktrees({ profile, run, store, project }: WorktreeScope) {
   const rows = await listWorktrees(profile, run, store, project);
   const root = rows.find((row) => row.main)?.path;
   if (!root) throw new MesaError('usage', `${project} has no main checkout`);
@@ -95,10 +98,7 @@ export function cleanupFacts(
 
 /** Reads the selected linked worktree; `action` adds what only it needs (base, teardown). */
 export async function checkoutFacts(
-  profile: Profile,
-  run: Runner,
-  store: SessionStore,
-  project: string,
+  { profile, run, store, project }: WorktreeScope,
   { rows, root }: { rows: WorktreeRow[]; root: string },
   action: WorktreeAction,
   selected?: string,
