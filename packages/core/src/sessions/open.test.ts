@@ -488,13 +488,13 @@ test('an open session attaches to its exact window on the profile socket', async
     '-s',
     expect.stringMatching(/^_view-[0-9a-z]{8}$/),
     ';',
-    'set-option',
-    'destroy-unattached',
-    'on',
-    ';',
     'select-window',
     '-t',
     expect.stringMatching(new RegExp(`^=_view-[0-9a-z]{8}:=claude-${result.id}$`)),
+    ';',
+    'set-option',
+    'destroy-unattached',
+    'on',
   ]);
 });
 

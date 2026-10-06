@@ -52,6 +52,12 @@ export const isShell = (command: string) => SHELL_NAMES.test(command);
 
 // `=` asks for an exact name: tmux otherwise takes a prefix, so `tide` would reach `tide-pool`.
 export const exact = ({ project, window }: WindowTarget) => `=${project}:=${window}`;
+/**
+ * A tmux session by exact name where a command takes a window or pane target (new-window,
+ * set-option): those need the trailing `:`, as tmux 3.7 answers a bare `=<session>` with
+ * "no such session".
+ */
+export const sessionTarget = (project: string) => `=${project}:`;
 /** `project:window`, as tmux itself names the window. */
 export const targetLabel = ({ project, window }: WindowTarget) => `${project}:${window}`;
 
