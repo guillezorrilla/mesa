@@ -100,15 +100,19 @@ test('unknown flags and commands are usage errors through the envelope', async (
 test('a renamed command names its successor and stays out of help', async () => {
   const old = await cli('rules', 'list');
   expect(old).toMatchObject({ code: 2, stdout: '', stderr: 'renamed to mesa instructions list\n' });
-  const json = await cli('--profile', 'x', 'rules', 'list', '--scope', 'y', '--json');
+  const json = await cli('--profile', 'x', 'rules', 'list', '--project', 'y', '--json');
   expect(json.code).toBe(2);
   expect(JSON.parse(json.stdout)).toMatchObject({
     ok: false,
     error: {
       code: 'usage',
-      message: 'renamed to mesa --profile x instructions list --scope y --json',
+      message: 'renamed to mesa --profile x instructions list --project y --json',
     },
   });
+  expect((await cli('--profile', 'rules', 'rules', 'list')).stderr).toBe(
+    'renamed to mesa --profile rules instructions list\n',
+  );
+  expect(await cli('--version', 'rules')).toMatchObject({ code: 0, stdout: `${VERSION}\n` });
   const real = cliDeps(tempDir());
   for (const argv of [['help'], ['help', '--agent']]) {
     const { stdout } = await runCli(argv, real);
