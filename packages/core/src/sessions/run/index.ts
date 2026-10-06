@@ -4,9 +4,7 @@ import type { DecisionRecorder } from '../../decisions/types.js';
 import { redactText } from '../../lib/redact.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import type { Caller } from '../caller.js';
-import { projectScope } from '../general.js';
-import { recordAgent } from '../record.js';
-import { startedOutputs } from '../session-receipt.js';
+import { recordStart, startedOutputs } from '../session-receipt.js';
 import type { StopOutcome } from '../stop.js';
 import { awaitRun, endRun, type RunEnd } from './end.js';
 import { type RunInput, startRun } from './start.js';
@@ -42,14 +40,15 @@ export async function runSkill(
   skill: string,
   opts: Omit<RunInput, 'skill'> & Overrides,
 ) {
-  const { store, record, secrets, open } = ctx;
+  const { store, secrets, open } = ctx;
   const { force, yes, confirm, ...input } = opts;
   const { project, session, agent, args = [] } = input;
   const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
   const about = session ? store.find(session) : undefined;
-  const started = await record(
+  const started = await recordStart(
+    ctx,
+    (r) => r.record,
     {
-      kind: 'guardrail',
       type: 'skill',
       scope: {
         project: project ?? about?.project,
@@ -59,10 +58,6 @@ export async function runSkill(
       summary: ({ record: r }) =>
         `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
       failure: `Could not run skill ${skill}${on}`,
-      warning: (r) => r.warning,
-      project: (r) => projectScope(r.record.project),
-      session: (r) => r.record.id,
-      agent: (r) => recordAgent(r.record),
       inputs: {
         skill,
         ...(project === undefined ? {} : { project }),
