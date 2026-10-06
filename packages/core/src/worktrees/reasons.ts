@@ -1,5 +1,4 @@
-import type { CheckoutFacts, CleanupFacts } from './facts.js';
-import type { WorktreeAction } from './preview.js';
+import type { CheckoutFacts, CleanupFacts, WorktreeAction } from './facts.js';
 
 /** What decides an action on one linked worktree, plus whether a trash's destination is taken. */
 export type CheckoutDecision = Pick<

@@ -204,5 +204,6 @@ export {
 } from './vault/search.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeDetails } from './worktrees/details.js';
+export type { WorktreeAction } from './worktrees/facts.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
-export type { WorktreeAction, WorktreePreview } from './worktrees/preview.js';
+export type { WorktreePreview } from './worktrees/preview.js';

@@ -6,8 +6,9 @@ import { applyWorktreeAction } from './apply.js';
 import { defaultBranchRef } from './base.js';
 import { createWorktree, worktreeCommand } from './create.js';
 import { withDetails } from './details.js';
+import type { WorktreeAction } from './facts.js';
 import { listWorktrees, type WorktreeFilter } from './inventory.js';
-import { previewWorktreeAction, type WorktreeAction } from './preview.js';
+import { previewWorktreeAction } from './preview.js';
 import { worktreeScript } from './settings.js';
 
 export function worktreesService(ctx: MesaContext) {

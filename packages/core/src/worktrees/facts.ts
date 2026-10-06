@@ -9,8 +9,14 @@ import { checkoutHolders, heldWorktrees, real } from '../sessions/holders.js';
 import type { SessionStore } from '../sessions/store.js';
 import { defaultBranchRef } from './base.js';
 import { listWorktrees, type WorktreeRow } from './inventory.js';
-import type { WorktreeAction } from './preview.js';
 import { worktreeScript } from './settings.js';
+
+/**
+ * remove deletes a linked checkout; recycle resets it for reuse, detached at the default branch;
+ * trash moves it, with its files and branch, into the profile's recycle/; cleanup prunes
+ * missing registrations.
+ */
+export type WorktreeAction = 'remove' | 'recycle' | 'trash' | 'cleanup';
 
 /** What a cleanup reads: the registrations Git would prune and who references them. */
 export type CleanupFacts = {

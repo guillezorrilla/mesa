@@ -6,9 +6,9 @@ import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import type { SessionStore } from '../sessions/store.js';
 import { worktreeCommand } from './create.js';
-import { present, projectWorktrees, requireGit } from './facts.js';
+import { present, projectWorktrees, requireGit, type WorktreeAction } from './facts.js';
 import { listWorktrees } from './inventory.js';
-import { previewWorktreeAction, type WorktreeAction, type WorktreePreview } from './preview.js';
+import { previewWorktreeAction, type WorktreePreview } from './preview.js';
 
 /** `force`: a remove past its local work (forceable); `deleteBranch`: a recycle's old branch, if merged. */
 type ApplyOptions = { force?: boolean; deleteBranch?: boolean };

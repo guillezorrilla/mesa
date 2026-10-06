@@ -3,16 +3,16 @@ import { basename, join } from 'node:path';
 import type { Runner } from '../lib/process.js';
 import type { Profile } from '../profile/profile.js';
 import type { SessionStore } from '../sessions/store.js';
-import { checkoutFacts, cleanupFacts, present, projectWorktrees } from './facts.js';
+import {
+  checkoutFacts,
+  cleanupFacts,
+  present,
+  projectWorktrees,
+  type WorktreeAction,
+} from './facts.js';
 import type { WorktreeRow } from './inventory.js';
 import { worktreeReasons } from './reasons.js';
 
-/**
- * remove deletes a linked checkout; recycle resets it for reuse, detached at the default branch;
- * trash moves it, with its files and branch, into the profile's recycle/; cleanup prunes
- * missing registrations.
- */
-export type WorktreeAction = 'remove' | 'recycle' | 'trash' | 'cleanup';
 export type WorktreePreview = {
   action: WorktreeAction;
   project: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { WorktreeAction } from './preview.js';
+import type { WorktreeAction } from './facts.js';
 import { type CheckoutDecision, worktreeReasons } from './reasons.js';
 
 /** A clean, published branch in a ready worktree that nothing holds. */
