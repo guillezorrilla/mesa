@@ -21,7 +21,14 @@ import {
   type Output,
   parseArgSpec,
 } from './command.js';
-import { commandHelp, groupUsage, mainHelp, usage, usageWithSubcommands } from './help/usage.js';
+import {
+  commandHelp,
+  groupUsage,
+  mainHelp,
+  renamedUsage,
+  usage,
+  usageWithSubcommands,
+} from './help/usage.js';
 
 // Inside the app's single executable (ADR-0017) the version is an asset; elsewhere package.json's.
 export const VERSION: string = isSea()
@@ -103,6 +110,9 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
     allowPositionals: true,
     strict: false,
   }).positionals;
+  // Before the strict parse, so a renamed command's flags still reach the message.
+  const renamed = renamedUsage(argv, words[0] ?? '');
+  if (renamed) throw new MesaError('usage', renamed);
   const command = match(deps.commands, words);
   // Global flags win over a command flag of the same name.
   const { values, positionals } = parse(argv, { ...command?.flags, ...GLOBAL_FLAGS });

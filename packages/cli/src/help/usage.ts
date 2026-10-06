@@ -80,6 +80,20 @@ export function commandHelp(
   ].join('\n');
 }
 
+/**
+ * First words that once named a command, mapped to the word that does now. They are not
+ * commands, so help never lists them; invoking one is a usage error naming its successor.
+ */
+export const RENAMED: Readonly<Record<string, string>> = { rules: 'instructions' };
+
+/** `mesa rules list` gives "renamed to mesa instructions list"; none when not renamed. */
+export function renamedUsage(argv: string[], word: string): string | undefined {
+  const now = Object.hasOwn(RENAMED, word) ? RENAMED[word] : undefined;
+  if (!now) return undefined;
+  const at = argv.indexOf(word);
+  return `renamed to mesa ${argv.map((a, i) => (i === at ? now : a)).join(' ')}`;
+}
+
 /** `mesa vault` alone names a group: its subcommands, or an unknown command's message. */
 export function groupUsage(word: string, commands: Command[]): string {
   const group = commands.filter((c) => c.name.startsWith(`${word} `));
