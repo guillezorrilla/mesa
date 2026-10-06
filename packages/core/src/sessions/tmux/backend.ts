@@ -5,6 +5,7 @@ import {
   FORMAT,
   isShell,
   parseWindow,
+  sessionTarget,
   type TmuxWindow,
   targetLabel,
   VIEW_PREFIX,
@@ -130,9 +131,8 @@ export function tmuxBackend({
    * current window) that tmux destroys when the terminal detaches. Attaching to the project's
    * session itself would switch every attached terminal to this window (ADR-0001 amendment).
    * The app's own terminal (`embedded`) scrolls one line per wheel report; others keep tmux's 5.
-   * A failed command ends the `;` chain, so the window is selected first, and each target names
-   * the view as `=<view>:`: set-option takes a pane target, which tmux 3.7 cannot resolve from a
-   * bare `=<view>` ("no such session"), and the view would stay on the project's current window.
+   * A failed command ends the `;` chain and would leave the view on the project's current
+   * window, so the window is selected first, and set-option names the view by sessionTarget.
    */
   const attachArgv = (
     target: WindowTarget,
@@ -153,8 +153,12 @@ export function tmuxBackend({
       'select-window',
       '-t',
       exact({ project: session, window: target.window }),
-      ...(naturalSelection ? [';', 'set-option', '-t', `=${session}:`, 'mouse', 'off'] : []),
-      ...(embedded ? [';', 'set-option', '-t', `=${session}:`, WHEEL_LINES_OPTION, '1'] : []),
+      ...(naturalSelection
+        ? [';', 'set-option', '-t', sessionTarget(session), 'mouse', 'off']
+        : []),
+      ...(embedded
+        ? [';', 'set-option', '-t', sessionTarget(session), WHEEL_LINES_OPTION, '1']
+        : []),
       ';',
       'set-option',
       'destroy-unattached',
@@ -202,7 +206,7 @@ export function tmuxBackend({
       await ensureServer();
       const hasSession = (await tmux(['has-session', '-t', `=${spec.project}`])).ok;
       const where = hasSession
-        ? ['new-window', '-d', '-t', `=${spec.project}:`]
+        ? ['new-window', '-d', '-t', sessionTarget(spec.project)]
         : ['new-session', '-d', '-s', spec.project];
       const vars = Object.entries(spec.env).flatMap(([k, v]) => ['-e', `${k}=${v}`]);
       // new-session -e also sets the tmux session's environment, which a window the user adds by

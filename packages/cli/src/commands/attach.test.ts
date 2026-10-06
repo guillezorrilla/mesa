@@ -17,11 +17,8 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   testStore(cli.home, 'default', shortIds('aaaaaaaa')).create(() => newSession());
   const here = await mesa('attach', 'aaaaaaaa', '--json');
   expect(here.json.data).toEqual({ opened: true, target: 'lantern-cove:claude-aaaaaa', app: null });
-  expect(here.exec?.slice(12, 15)).toEqual([
-    'select-window',
-    '-t',
-    expect.stringMatching(/^=_view-[0-9a-z]{8}:=claude-aaaaaa$/),
-  ]);
+  const exec = here.exec ?? [];
+  expect(exec[exec.indexOf('select-window') + 2]).toMatch(/^=_view-[0-9a-z]{8}:=claude-aaaaaa$/);
 
   // --print: the argv the app's terminal runs, no terminal needed, nothing attached.
   cli.tty = false;

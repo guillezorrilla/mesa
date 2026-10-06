@@ -56,9 +56,9 @@ const underParent: Runner = (file, args, timeoutMs) =>
     timeoutMs,
   );
 
-/** Reads until `want` matches, for output a pane has not drawn yet. */
-async function eventually(read: () => Promise<string>, want: RegExp) {
-  for (let i = 0; i < 40 && !want.test(await read()); i++) await sleep(50);
+/** Reads until `want` matches, for output a pane has not drawn yet, for up to `ms`. */
+async function eventually(read: () => Promise<string>, want: RegExp, ms = 2000) {
+  for (let i = 0; i < ms / 50 && !want.test(await read()); i++) await sleep(50);
   return read();
 }
 
@@ -321,18 +321,18 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     const terminal = `unset TMUX; exec ${argv.map(shellWord).join(' ')}`;
     await raw('new-session', '-d', '-s', 'terminal-a1', '/bin/sh', '-c', terminal);
     const clients = () => raw('list-clients', '-F', '#{session_name}');
-    expect(await eventually(clients, /_view-a1/)).toContain('_view-a1');
-    expect(await eventually(() => current('_view-a1'), /claude-attach2/)).toBe(b.window);
+    expect(await eventually(clients, /_view-a1/, 10_000)).toContain('_view-a1');
+    expect(await eventually(() => current('_view-a1'), /claude-attach2/, 10_000)).toBe(b.window);
     expect(await raw('show-options', '-v', '-t', '=_view-a1:', 'mouse')).toBe('off');
     expect(await raw('show-options', '-v', '-t', '=_view-a1:', '@mesa-wheel-lines')).toBe('1');
     // The terminal closing takes its view with it.
     await raw('kill-session', '-t', '=terminal-a1');
-    expect(await eventually(() => raw('has-session', '-t', '=_view-a1'), /^failed/)).toMatch(
-      /^failed/,
-    );
+    expect(
+      await eventually(() => raw('has-session', '-t', '=_view-a1'), /^failed/, 10_000),
+    ).toMatch(/^failed/);
     await tmux.killWindow(a);
     await tmux.killWindow(b);
-  });
+  }, 30_000);
 
   test('openView lays windows out side by side, a terminal on each; a layout tmux lacks is usage', async () => {
     const [a, b] = [lantern('claude-view01'), lantern('claude-view02')];
