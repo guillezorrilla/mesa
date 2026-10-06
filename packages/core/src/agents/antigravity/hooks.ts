@@ -1,7 +1,7 @@
 import { existsSync, unlinkSync } from 'node:fs';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { SESSION_ID_VAR } from '../../sessions/caller.js';
+import { SESSION_ID_VAR } from '../../lib/window-vars.js';
 import { read, write } from '../hooks.js';
 import { antigravityHooks } from './paths.js';
 

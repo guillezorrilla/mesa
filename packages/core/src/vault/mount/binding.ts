@@ -1,5 +1,6 @@
 import type { MesaContext } from '../../context.js';
-import { callerOf, SESSION_ID_VAR, windowId } from '../../sessions/caller.js';
+import { SESSION_ID_VAR } from '../../lib/window-vars.js';
+import { callerOf, windowId } from '../../sessions/caller.js';
 import { resumerOf } from '../../sessions/holders.js';
 import type { SessionRecord } from '../../sessions/record.js';
 import type { SessionStore } from '../../sessions/store.js';

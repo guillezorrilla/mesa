@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { AGENT_STATES } from '../agents/states.js';
 import type { FaroProfile } from '../decisions/decide.js';
 import { fixedClock } from '../testing/index.js';
 import { attentionWeights, classify, classifySession, type SessionSignals } from './state.js';
-import { AGENT_STATES } from './states.js';
 
 const dir = join(import.meta.dirname, 'fixtures/state');
 const fixtures = readdirSync(dir)

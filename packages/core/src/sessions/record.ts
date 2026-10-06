@@ -1,6 +1,7 @@
 import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
+import { ContextUseSchema } from '../agents/context-use.js';
 import type { Agent } from '../agents/names.js';
 import { supportsAgentCapability, supportsPlanStart } from '../agents/names.js';
 import { ULID } from '../lib/ids.js';
@@ -136,22 +137,8 @@ const SessionRecordFields = z.strictObject({
       ownerSocket: z.string().optional(),
     })
     .optional(),
-  /**
-   * How much of its context window it has used (CONTEXT.md, Context use): `used` in percent of
-   * `window` tokens, as of its agent's reply at `at`. Absent while there is no reading.
-   */
-  context: z
-    .strictObject({
-      used: z.number().min(0),
-      window: z.number().int().positive(),
-      at: z.iso.datetime({ offset: true }),
-      source: z.literal('transcript'),
-      /** The model that produced this reading, when the native transcript names it. */
-      model: z.string().optional(),
-      /** The native per-turn reasoning effort, when recorded with this reading. */
-      effort: z.string().optional(),
-    })
-    .optional(),
+  /** Its last context use reading (CONTEXT.md, Context use); absent while there is none. */
+  context: ContextUseSchema.optional(),
   /**
    * What happened to the session that Mesa keeps: prompts sent to it and by it, its agent's
    * exit, and a handoff. Claude Code's hook events go to sessions/events/ instead.
@@ -250,7 +237,6 @@ export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 /** A plain terminal has no coding agent or provider conversation. */
 export const recordAgent = (record: Pick<SessionRecord, 'agent'>): Agent | undefined =>
   record.agent === 'terminal' ? undefined : record.agent;
-export type ContextUse = NonNullable<SessionRecord['context']>;
 export type NewSession = Omit<SessionRecord, 'id' | 'events'>;
 
 /** Its agent is through: stopped, or seen done or failed. A queue waits for this (CONTEXT.md, Queued session). */

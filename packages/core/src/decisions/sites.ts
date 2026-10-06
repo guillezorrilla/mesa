@@ -1,4 +1,4 @@
-import type { AGENT_STATES } from '../sessions/states.js';
+import type { AGENT_STATES } from '../agents/states.js';
 import type { Answer, Question } from './types.js';
 
 // The four first-release decision sites (ADR-0019): what each asks a model, and when Mesa accepts

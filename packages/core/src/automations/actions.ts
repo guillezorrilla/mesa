@@ -1,7 +1,7 @@
 import type { MesaContext } from '../context.js';
 import type { Faro } from '../decisions/faro.js';
 import { MesaError } from '../lib/result.js';
-import type { sessionsService } from '../sessions/service.js';
+import type { sessionsService } from '../sessions/service/index.js';
 import type { importService } from '../sources/import-service.js';
 import type { AutomationRun } from './state.js';
 

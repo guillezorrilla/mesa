@@ -1,4 +1,4 @@
-import type { SessionState } from '../../sessions/states.js';
+import type { AgentState } from '../states.js';
 
 // What Claude Code's hook events mean as a session state (docs/spikes/state-signals.md).
 
@@ -8,7 +8,7 @@ const field = (payload: unknown, key: string) =>
     : undefined;
 
 /** The state a Claude Code hook event means, or none for one that says nothing. */
-export function claudeHookState(event: string, payload?: unknown): SessionState | undefined {
+export function claudeHookState(event: string, payload?: unknown): AgentState | undefined {
   const question = field(payload, 'tool_name') === 'AskUserQuestion';
   switch (event) {
     case 'SessionStart':

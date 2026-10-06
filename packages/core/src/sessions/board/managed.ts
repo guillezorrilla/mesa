@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { AGENTS } from '../../agents/agents.js';
+import type { AgentProcess } from '../../agents/listing.js';
 import { MesaError } from '../../lib/result.js';
-import type { AgentProcess } from '../agent-listing.js';
 import { hasConversation } from '../conversation.js';
 import { type HookEvent, parentHook } from '../hook-events.js';
 import type { SessionRecord } from '../record.js';

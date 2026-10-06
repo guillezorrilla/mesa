@@ -1,11 +1,12 @@
 import { AGENTS } from '../agents/agents.js';
+import type { AgentProcess } from '../agents/listing.js';
 import type { Agent } from '../agents/names.js';
+import { AGENT_STATES } from '../agents/states.js';
 import { decide, type FaroDeps } from '../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../decisions/rules.js';
 import type { Decision, Question } from '../decisions/types.js';
-import type { AgentProcess } from './agent-listing.js';
 import type { SessionRecord } from './record.js';
-import { AGENT_STATES, FINAL_STATES, type SessionState, WAITING_STATES } from './states.js';
+import { FINAL_STATES, type SessionState, WAITING_STATES } from './states.js';
 
 type LastState = SessionRecord['lastState'];
 

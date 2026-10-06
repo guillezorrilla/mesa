@@ -1,7 +1,7 @@
-import { claudeTranscripts } from '../agents/claude/paths.js';
-import { claudeHistory } from '../agents/claude/transcripts.js';
-import { codexHistory } from '../agents/codex/rollouts.js';
-import type { Env } from '../lib/process.js';
+import { AGENTS } from '../agents/agents.js';
+import { AGENT_NAMES } from '../agents/names.js';
+import type { TranscriptAgent } from '../agents/transcript-agent.js';
+import type { TranscriptRow, Where } from '../agents/transcripts.js';
 import type { Profile } from '../profile/profile.js';
 import { findProject } from '../projects/projects.js';
 import { withName } from './native-name.js';
@@ -31,13 +31,25 @@ export const UNSUPPORTED_HISTORY = [
 ];
 
 /** Latest native conversations for a registered project, including those Mesa has not imported. */
-export type NativeHistoryDeps = {
+export type NativeHistoryDeps = Where & {
   profile: Profile;
   store: SessionStore;
-  home: string;
-  env: Env;
   elsewhere: () => ReadonlySet<string>;
 };
+
+/**
+ * Every agent's native conversations on disk (its entry's `transcripts`), each with its
+ * transcript `file`; with `since` (epoch ms), only those last written then or later.
+ */
+export function nativeConversations(
+  where: Where,
+  since?: number,
+): TranscriptRow<TranscriptAgent>[] {
+  return AGENT_NAMES.flatMap(
+    (agent): TranscriptRow<TranscriptAgent>[] =>
+      AGENTS[agent].transcripts?.history(where, since) ?? [],
+  );
+}
 
 export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeHistory {
   const root = findProject(deps.profile, project).path;
@@ -49,10 +61,7 @@ export function nativeHistory(deps: NativeHistoryDeps, project: string): NativeH
       ),
   );
   const elsewhere = deps.elsewhere();
-  const rows = [
-    ...claudeHistory(claudeTranscripts(deps.home, deps.env)),
-    ...codexHistory({ home: deps.home, env: deps.env }),
-  ]
+  const rows = nativeConversations(deps)
     .filter((row) => row.cwd === root || row.cwd.startsWith(`${root}/`))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   return {

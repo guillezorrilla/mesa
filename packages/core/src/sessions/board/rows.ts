@@ -1,4 +1,4 @@
-import type { AgentProcess } from '../agent-listing.js';
+import type { AgentProcess } from '../../agents/listing.js';
 import type { foreignId, SessionRecord } from '../record.js';
 import type { Placement } from '../state.js';
 

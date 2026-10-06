@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Env } from '../../lib/process.js';
-import type { ContextUse } from '../../sessions/record.js';
+import type { ContextUse } from '../context-use.js';
 import { claudeSettings, claudeTranscripts } from './paths.js';
 import { lastUsage, transcriptFile } from './transcripts.js';
 

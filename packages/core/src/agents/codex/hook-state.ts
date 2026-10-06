@@ -1,7 +1,7 @@
-import type { SessionState } from '../../sessions/states.js';
+import type { AgentState } from '../states.js';
 
 /** Embedded Codex hook states, measured in docs/spikes/codex.md. */
-export function codexHookState(event: string): SessionState | undefined {
+export function codexHookState(event: string): AgentState | undefined {
   switch (event) {
     case 'SessionStart':
     case 'Interrupt':
