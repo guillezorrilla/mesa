@@ -6,6 +6,7 @@ import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import { eventsLog, recordHookEvent } from '../sessions/hook-events.js';
 import {
+  lockDeps,
   newSession,
   profilePaths,
   projectProfile,
@@ -308,7 +309,7 @@ test('an automation acknowledgement survives more than 1000 unrelated deliveries
   });
   await mesa.automations.install();
   expect((await mesa.automations.tick()).runs[0]?.status).toBe('failed');
-  automationState(profilePaths(home, 'default').automationState).update((state) => {
+  automationState(profilePaths(home, 'default').automationState, lockDeps()).update((state) => {
     const failed = state.runs[0];
     if (!failed) throw new Error('missing failed run');
     failed.reason = `${'x'.repeat(299)}😀more detail`;

@@ -164,7 +164,8 @@ test('the public writer derives its inclusive elapsed window once from the injec
   store.create(() => newSession({ startedAt: '2026-02-01T12:00:00.001Z' }));
   calls = 0;
   expect(await mesa.map()).toMatchObject({ nodes: 3, groups: 1 });
-  expect(calls).toBe(1);
+  // Once for the window, once for the vault lock's holder stamp.
+  expect(calls).toBe(2);
   expect(readFileSync(join(home, 'vault/map.canvas'), 'utf8')).toContain(
     'session:lantern-cove:aaaaaaaa',
   );

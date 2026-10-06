@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import { writeFileAtomic } from '../lib/atomic-file.js';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import type { UsageRecord } from './records.js';
@@ -53,7 +53,7 @@ const Ledger = z.strictObject({
 type Ledger = z.infer<typeof Ledger>;
 
 /** One profile-local ledger; unchanged native files keep their normalized rows. */
-export function usageStore(file: string) {
+export function usageStore(file: string, deps: LockDeps) {
   const read = (): Ledger => {
     if (!existsSync(file)) return { rows: [], sources: {}, hooks: {} };
     let raw: unknown;
@@ -78,6 +78,7 @@ export function usageStore(file: string) {
       mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
       const lock = `${file}.lock`;
       return withLockSync(
+        deps,
         lock,
         () => {
           const old = read();

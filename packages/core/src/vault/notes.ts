@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { Clock } from '../lib/clock.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { obsidianDateTime } from '../lib/time.js';
 import { type Frontmatter, type Note, parseNote, serializeNote } from './frontmatter.js';
@@ -12,7 +13,7 @@ import { withVaultLock } from './vault-lock.js';
 /** Where notes go: the vault root and the clock that stamps them. */
 export type NotesDeps = { vault: string; clock: Clock };
 /** For a change under the vault lock: `sleep` waits between tries for it. */
-export type LockedNotesDeps = NotesDeps & { sleep: (ms: number) => Promise<void> };
+export type LockedNotesDeps = NotesDeps & LockDeps & { sleep: (ms: number) => Promise<void> };
 
 /** The frontmatter fields writeNote owns; a caller's value for one is dropped. */
 const NOTE_FIELDS = ['created', 'updated', 'source'];

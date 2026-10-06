@@ -126,7 +126,8 @@ async function adoptInto(
   const before = readRegistry(deps.profile.paths.registry);
   const known = before.find((e) => e.path === path);
   const project =
-    known?.name ?? registerProject(deps.profile, { dir: path, create: true }).project.name;
+    known?.name ??
+    registerProject(deps.profile, { dir: path, create: true }, deps.lock).project.name;
   // Read again only when this run registered the folder.
   const registry = known ? before : readRegistry(deps.profile.paths.registry);
   const { failed } = found;

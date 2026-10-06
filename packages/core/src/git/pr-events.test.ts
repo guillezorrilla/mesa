@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { Runner } from '../lib/process.js';
-import { type FakePullRequest, fakeGh, scriptedRunner, tempDir } from '../testing/index.js';
+import {
+  type FakePullRequest,
+  fakeGh,
+  lockDeps,
+  scriptedRunner,
+  tempDir,
+} from '../testing/index.js';
 import { prEventLedger } from './pr-event-ledger.js';
 import { type PrWatch, scanPrEvents } from './pr-events.js';
 
@@ -168,14 +174,14 @@ test('the ledger remembers what was delivered in the profile, and a fix is news 
   const file = join(tempDir(), 'pr-events.json');
   const gh = fakeGh([pr({ checks: [checkRun('FAILURE', '2026-09-24T12:05:00Z')] })]);
   const { run } = scriptedRunner({ gh: gh.answer });
-  const ledger = prEventLedger(file);
+  const ledger = prEventLedger(file, lockDeps());
   const first = await scanPrEvents(run, [watch], ledger.read());
   expect(first.events.map((e) => e.kind)).toEqual(['check-failed']);
   expect(ledger.claim(first.events)).toHaveLength(1);
   // A second claim of the same events, as another process would make, takes none.
   expect(ledger.claim(first.events)).toEqual([]);
   // A restart reads the same file.
-  const reopened = prEventLedger(file);
+  const reopened = prEventLedger(file, lockDeps());
   expect((await scanPrEvents(run, [watch], reopened.read())).events).toEqual([]);
   expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({
     delivered: ['aaaaaaaa:check-failed:42:CI / build:2026-09-24T12:05:00Z'],
@@ -200,7 +206,7 @@ test('the ledger remembers what was delivered in the profile, and a fix is news 
 });
 
 test('a check passing in one repository of a session is not the fix of the same check failing in another', async () => {
-  const ledger = prEventLedger(join(tempDir(), 'pr-events.json'));
+  const ledger = prEventLedger(join(tempDir(), 'pr-events.json'), lockDeps());
   // The session's own repository and an additional project's, each with a PR #42 on its branch.
   const tide: PrWatch = { ...watch, project: 'tide-pool', cwd: '/src/tide-pool-feature' };
   const lantern = fakeGh([pr({ checks: [checkRun('FAILURE', '2026-09-24T12:05:00Z')] })]);
@@ -292,7 +298,7 @@ test('control and format characters never reach an excerpt, nor a backtick that 
 });
 
 test('the ledger drops failing checks of a session gone, a PR closed, or a check removed, and keeps what it could not read', () => {
-  const ledger = prEventLedger(join(tempDir(), 'pr-events.json'));
+  const ledger = prEventLedger(join(tempDir(), 'pr-events.json'), lockDeps());
   const failed = (session: string, number: number, check: string) => ({
     id: `${session}:check-failed:${number}:${check}:t`,
     session,

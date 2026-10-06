@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { eventsLog, readHookEvents, recordHookEvent } from '../../sessions/hook-events.js';
 import { sessionStore } from '../../sessions/store.js';
-import { fixedClock, newSession, sequentialIds, tempDir } from '../../testing/index.js';
+import { fixedClock, lockDeps, newSession, sequentialIds, tempDir } from '../../testing/index.js';
 import { codexHookState } from './hook-state.js';
 
 const payloads = JSON.parse(
@@ -12,7 +12,7 @@ const payloads = JSON.parse(
 const thread = payloads[0]?.session_id;
 function setup() {
   const dir = tempDir();
-  const store = sessionStore({ dir, newId: sequentialIds() });
+  const store = sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() });
   const session = store.create(() => newSession({ agent: 'codex' }));
   const deps = {
     store,

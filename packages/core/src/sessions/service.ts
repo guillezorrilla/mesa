@@ -117,7 +117,8 @@ export function sessionsService(
   const adoptDeps = () => ({
     ...openDeps(),
     listing: () => listAgentProcesses(deps),
-    elsewhere: () => otherProfilesSessions(deps.home, profile),
+    elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
+    lock: deps,
   });
   /** What a discovery adoption's receipt keeps of one folder. */
   const adoptionOutputs = (r: DiscoveryAdoption) => ({
@@ -136,7 +137,7 @@ export function sessionsService(
     store,
     home: deps.home,
     env: deps.env,
-    elsewhere: () => otherProfilesSessions(deps.home, profile),
+    elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
   });
   /** A closed tmux view does not end its Claude background process; recreate it on demand. */
   const ensureBackgroundView = async (id: string) => {
@@ -161,7 +162,7 @@ export function sessionsService(
         tmux,
         listing: () => listAgentProcesses(deps),
         projects: readRegistry(paths.registry),
-        elsewhere: () => otherProfilesSessions(deps.home, profile),
+        elsewhere: () => otherProfilesSessions(deps.home, profile, deps),
         events: (id) => readHookEvents(paths.events, id),
         priorityOf: projectPriorities(open),
         faro: faro.profile(),
@@ -621,6 +622,7 @@ export function sessionsService(
               syncSkills: (on: string, folder: string) => skills.linkInto(on, folder, skill),
               runs: paths.runs,
               logs: paths.logs,
+              lock: deps,
               redact: (text: string) => redactWhole(text, deps.home, secrets()),
               skills: (on: string) => skills.list(on, skill),
               guard,
@@ -658,7 +660,7 @@ export function sessionsService(
        */
       logs: (id: string, tail?: number) => {
         store.get(id);
-        return sessionLog(paths.logs, id, tail);
+        return sessionLog(deps, paths.logs, id, tail);
       },
       /**
        * One session's record, its context use read now, with `alive` as the board reads it, and

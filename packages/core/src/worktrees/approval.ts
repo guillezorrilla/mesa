@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
 import type { Project } from '../projects/project-file.js';
@@ -61,8 +62,13 @@ export const APPROVAL_FROM_SESSION =
  * Records, in the profile's registry, approval of exactly these argvs for the project; a script
  * given as undefined or empty loses its approval.
  */
-export function approveScripts(profile: Profile, name: string, scripts: WorktreeScripts): void {
-  updateRegistry(profile.paths.registry, (entries) =>
+export function approveScripts(
+  profile: Profile,
+  name: string,
+  scripts: WorktreeScripts,
+  lock: LockDeps,
+): void {
+  updateRegistry(lock, profile.paths.registry, (entries) =>
     entries.map((entry) => {
       if (entry.name !== name) return entry;
       const approved = { ...entry.approved };

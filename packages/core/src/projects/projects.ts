@@ -1,6 +1,7 @@
 import { existsSync, realpathSync } from 'node:fs';
 import { basename } from 'node:path';
 import { parse } from 'yaml';
+import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { valueAt } from '../lib/yaml-file.js';
 import type { Config } from '../profile/config.js';
@@ -63,13 +64,14 @@ export type ProjectUpdate = {
 export function registerProject(
   profile: Profile,
   opts: { dir: string; create?: boolean; label?: string },
+  lock: LockDeps,
 ): { project: Project; path: string; created: boolean; label?: string } {
   const label = validatedLabel(opts.label);
   if (!existsSync(opts.dir)) throw new MesaError('not_found', `${opts.dir} does not exist`);
   const path = realpathSync(opts.dir);
   const created = Boolean(opts.create) && !existsSync(projectFile(path));
   const project = created ? minimalProject(path) : readProjectFile(path);
-  updateRegistry(profile.paths.registry, (entries) => {
+  updateRegistry(lock, profile.paths.registry, (entries) => {
     const clash = findClash(entries, { name: project.name, path });
     if (clash) {
       throw new MesaError(
@@ -124,11 +126,16 @@ export function listProjects(profile: Profile): ProjectRow[] {
 }
 
 /** Change only profile-local presentation; never rename mesa.yaml or historical session links. */
-export function updateProject(profile: Profile, name: string, patch: ProjectUpdate): RegistryEntry {
+export function updateProject(
+  profile: Profile,
+  name: string,
+  patch: ProjectUpdate,
+  lock: LockDeps,
+): RegistryEntry {
   if (!Object.keys(patch).length) throw new MesaError('usage', 'set a label, pin, hide, or move');
   const label = validatedLabel(patch.label);
   let updated: RegistryEntry | undefined;
-  updateRegistry(profile.paths.registry, (entries) => {
+  updateRegistry(lock, profile.paths.registry, (entries) => {
     const index = entries.findIndex((entry) => entry.name === name);
     if (index < 0) throw new MesaError('not_found', `no project named ${name}; see mesa projects`);
     const next = [...entries];
@@ -185,6 +192,7 @@ export function overrideProject(
   value: string | undefined,
   /** False inside a Mesa window: a setup or teardown written there stays unapproved. */
   approve: boolean,
+  lock: LockDeps,
 ): { project: string; path: string; value: unknown } {
   const dir = findProject(profile, name).path;
   // A mesa.yaml that is gone is not_found with its fix, before anything is written.
@@ -194,7 +202,12 @@ export function overrideProject(
   // wrote loses any approval, so the next worktree asks.
   const script = WORKTREE_SCRIPTS.find((kind) => dotted === `worktrees.${kind}`);
   if (script)
-    approveScripts(profile, name, { [script]: approve ? next.worktrees?.[script] : undefined });
+    approveScripts(
+      profile,
+      name,
+      { [script]: approve ? next.worktrees?.[script] : undefined },
+      lock,
+    );
   return { project: name, path: dotted, value: valueAt(next, dotted) ?? null };
 }
 
@@ -215,6 +228,7 @@ export function trustProject(
   /** False inside a Mesa window, where an agent could approve its own commands. */
   approve: boolean,
   expected: readonly string[],
+  lock: LockDeps,
 ): { project: string } & WorktreeScripts {
   if (!approve) throw new MesaError('usage', APPROVAL_FROM_SESSION);
   if (!expected.length)
@@ -235,7 +249,7 @@ export function trustProject(
       { project: name, scripts: pending },
     );
   }
-  approveScripts(profile, name, scripts);
+  approveScripts(profile, name, scripts, lock);
   return { project: name, ...scripts };
 }
 
@@ -246,9 +260,9 @@ export function findProject(profile: Profile, name: string): RegistryEntry {
   return entry;
 }
 
-export function unregisterProject(profile: Profile, name: string): RegistryEntry {
+export function unregisterProject(profile: Profile, name: string, lock: LockDeps): RegistryEntry {
   const entry = findProject(profile, name);
-  updateRegistry(profile.paths.registry, (entries) => entries.filter((e) => e.name !== name));
+  updateRegistry(lock, profile.paths.registry, (entries) => entries.filter((e) => e.name !== name));
   return entry;
 }
 
@@ -275,9 +289,14 @@ export function projectPriorities(open: () => Profile): (project: string | null)
 }
 
 /** Routine workspace visits stay in profile metadata, without vault receipts. */
-export function visitProject(profile: Profile, name: string, at: string): RegistryEntry {
+export function visitProject(
+  profile: Profile,
+  name: string,
+  at: string,
+  lock: LockDeps,
+): RegistryEntry {
   let visited: RegistryEntry | undefined;
-  updateRegistry(profile.paths.registry, (entries) => {
+  updateRegistry(lock, profile.paths.registry, (entries) => {
     const index = entries.findIndex((entry) => entry.name === name);
     const entry = entries[index];
     if (!entry) throw new MesaError('not_found', `no project named ${name}; see mesa projects`);

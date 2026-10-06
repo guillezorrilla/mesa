@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { z } from 'zod';
 import { writeFileAtomic } from '../lib/atomic-file.js';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { failingKey, type PrDelivered, type PrEvent, type PrScan } from './pr-events.js';
@@ -21,7 +21,7 @@ const KEPT = 2_000;
  * claimed, so it is sent once across restarts and processes, and the checks a forwarded failure
  * left failing, so their fix is news.
  */
-export function prEventLedger(file: string) {
+export function prEventLedger(file: string, deps: LockDeps) {
   const read = (): State => {
     if (!existsSync(file)) return { delivered: [], failing: [] };
     try {
@@ -35,6 +35,7 @@ export function prEventLedger(file: string) {
     mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
     const lock = `${file}.lock`;
     return withLockSync(
+      deps,
       lock,
       () => {
         const { next, result } = fn(read());

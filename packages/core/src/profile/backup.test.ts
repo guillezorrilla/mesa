@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { readRegistry, updateRegistry } from '../projects/registry.js';
-import { profilePaths, tempDir, testDeps } from '../testing/index.js';
+import { lockDeps, profilePaths, tempDir, testDeps } from '../testing/index.js';
 
 test('backup restores only portable profile data into a separate, new profile', () => {
   const home = tempDir();
@@ -11,7 +11,7 @@ test('backup restores only portable profile data into a separate, new profile', 
   source.init({ vault: join(home, 'source-vault') });
   source.config.set('keys.api', 'sk-invented-secret');
   source.config.set('appearance.theme', 'dark');
-  updateRegistry(profilePaths(home, 'source').registry, () => [
+  updateRegistry(lockDeps(), profilePaths(home, 'source').registry, () => [
     { name: 'lantern', path: '/invented/lantern' },
   ]);
   source.prompts.save('Review', 'Line one\n\n  line three\n');

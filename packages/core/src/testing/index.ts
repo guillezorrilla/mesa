@@ -9,6 +9,7 @@ import type { LaunchDefaults } from '../agents/launch-flags.js';
 import type { Decision, DecisionRecorder } from '../decisions/types.js';
 import type { Clock } from '../lib/clock.js';
 import type { IdSource } from '../lib/ids.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { type Env, execRunner, type Runner, type RunResult } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import { localDay } from '../lib/time.js';
@@ -28,6 +29,13 @@ export const fixedClock =
   (iso = '2026-09-24T12:00:00.000Z'): Clock =>
   () =>
     new Date(iso);
+
+/** Lock deps for this test process, which every holder but the ones `alive` rejects shares. */
+export const lockDeps = (alive: (pid: number) => boolean = () => true): LockDeps => ({
+  processId: 4242,
+  processAlive: alive,
+  clock: fixedClock(),
+});
 
 /** ULID-shaped ids 01TEST...0001, 01TEST...0002, and so on: known ahead, so golden files hold. */
 export function sequentialIds(): IdSource {
@@ -612,7 +620,7 @@ export { profilePaths };
 
 /** A profile's session store under a temp home, as mesa keeps it: for reading or planting records. */
 export const testStore = (home: string, profile = 'default', newId = sequentialIds()) =>
-  sessionStore({ dir: profilePaths(home, profile).sessions, newId });
+  sessionStore({ dir: profilePaths(home, profile).sessions, newId, lock: lockDeps() });
 
 /**
  * A profile over `home` (a fresh temp dir by default) with its vault laid out and lantern-cove

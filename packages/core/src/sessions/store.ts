@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:f
 import { join } from 'node:path';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import { type IdSource, shortId } from '../lib/ids.js';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import {
@@ -19,7 +19,15 @@ const RECORD_FILE = /^([0-9a-z]{8})\.json$/;
 
 type Patch = Partial<Omit<SessionRecord, 'id'>>;
 
-export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
+export function sessionStore({
+  dir,
+  newId,
+  lock,
+}: {
+  dir: string;
+  newId: IdSource;
+  lock: LockDeps;
+}) {
   /** The record's file; an id that is not a short id names no session, and never a path. */
   const fileOf = (id: string) => {
     if (isForeignId(id)) throw new MesaError('not_found', `${id}: session not managed by mesa`);
@@ -54,16 +62,16 @@ export function sessionStore({ dir, newId }: { dir: string; newId: IdSource }) {
    * one record serialise across processes: a send from two sessions at once keeps both events.
    */
   const locked = <T>(id: string, fn: () => T, tries?: number): T => {
-    const lock = fileOf(id).replace(/\.json$/, '.lock');
-    const busy = () => lockedBy(`session ${id}`, lock, 'session');
-    return withLockSync(lock, fn, busy, tries);
+    const path = fileOf(id).replace(/\.json$/, '.lock');
+    const busy = () => lockedBy(`session ${id}`, path, 'session');
+    return withLockSync(lock, path, fn, busy, tries);
   };
 
   return {
     /** Serializes dependency edits and queue cancellation across Mesa processes. */
     withDependencyLock: <T>(fn: () => T): T => {
-      const lock = join(dir, '.dependencies.lock');
-      return withLockSync(lock, fn, () => lockedBy('session dependencies', lock, 'session'));
+      const path = join(dir, '.dependencies.lock');
+      return withLockSync(lock, path, fn, () => lockedBy('session dependencies', path, 'session'));
     },
     /** A new record with a fresh id, which `build` may use (the window is named after it). */
     create: (build: (id: string) => NewSession): SessionRecord => {

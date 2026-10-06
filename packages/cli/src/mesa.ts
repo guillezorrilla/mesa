@@ -77,8 +77,9 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
       try {
         process.kill(pid, 0);
         return true;
-      } catch {
-        return false;
+      } catch (error) {
+        // EPERM: the process exists under another user; only a missing one is dead.
+        return (error as NodeJS.ErrnoException).code === 'EPERM';
       }
     },
     processId: process.pid,

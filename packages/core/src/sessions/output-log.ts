@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { plainText } from '../lib/terminal-text.js';
 
 // A session's output log: everything its window printed, which tmux's pipe-pane appends to
@@ -38,12 +38,13 @@ export function prepareOutputLog(dir: string, id: string) {
  * ponytail: cut only when Mesa reads the log (mesa logs, a stop, an agent's exit); a live session
  * nobody reads grows past 20 MB until then.
  */
-function cut(file: string) {
+function cut(lock: LockDeps, file: string) {
   if (statSync(file).size <= MAX_BYTES) return;
-  const lock = `${file}.lock`;
-  const busy = () => lockedBy(`the output log ${file}`, lock, 'output-log');
+  const path = `${file}.lock`;
+  const busy = () => lockedBy(`the output log ${file}`, path, 'output-log');
   withLockSync(
     lock,
+    path,
     () => {
       const { size } = statSync(file);
       if (size <= MAX_BYTES) return;
@@ -68,10 +69,15 @@ function cut(file: string) {
  * screen with them. Undefined when the session has no log: logging was off when it started, or
  * it has not started. The one reader of a session's output, for people and receipts alike.
  */
-export function outputTail(dir: string, id: string, lines?: number): string[] | undefined {
+export function outputTail(
+  lock: LockDeps,
+  dir: string,
+  id: string,
+  lines?: number,
+): string[] | undefined {
   const file = outputLog(dir, id);
   if (!existsSync(file)) return undefined;
-  cut(file);
+  cut(lock, file);
   const text = plainText(readFileSync(file, 'utf8'))
     .split('\n')
     .map((line) => line.trimEnd())
@@ -83,7 +89,7 @@ export function outputTail(dir: string, id: string, lines?: number): string[] | 
 export type SessionLog = { session: string; path: string | null; lines: string[] };
 
 /** Session `id`'s output (outputTail) as `mesa logs` prints it. */
-export function sessionLog(dir: string, id: string, lines?: number): SessionLog {
-  const text = outputTail(dir, id, lines);
+export function sessionLog(lock: LockDeps, dir: string, id: string, lines?: number): SessionLog {
+  const text = outputTail(lock, dir, id, lines);
   return { session: id, path: text ? outputLog(dir, id) : null, lines: text ?? [] };
 }

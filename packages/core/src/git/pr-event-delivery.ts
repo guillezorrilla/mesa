@@ -163,7 +163,7 @@ export function prEventsService(
     send: Send;
   },
 ) {
-  const ledger = prEventLedger(ctx.paths.prEvents);
+  const ledger = prEventLedger(ctx.paths.prEvents, ctx.deps);
   const scan = async () => {
     const rows = (await deps.board()).filter(watched);
     // One watch per worktree it holds, each in its own repository (CONTEXT.md, Additional project).

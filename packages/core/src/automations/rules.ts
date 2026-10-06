@@ -18,6 +18,7 @@ export function automationRules(ctx: MesaContext) {
     ctx.open();
     const lock = `${file}.lock`;
     return withLockSync(
+      ctx.deps,
       lock,
       () => {
         const rules = list();

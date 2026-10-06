@@ -100,7 +100,13 @@ export function createContext(profile: string, deps: MesaDeps) {
     configIfAny,
     vaultOf,
     /** What the vault's notes need: the vault, and the clock for their times. */
-    notes: () => ({ vault: vaultOf(), clock: deps.clock, sleep: deps.sleep }),
+    notes: () => ({
+      vault: vaultOf(),
+      clock: deps.clock,
+      sleep: deps.sleep,
+      processId: deps.processId,
+      processAlive: deps.processAlive,
+    }),
     /** A path the user typed, resolved against the working directory. */
     absolute: (path: string) => resolve(deps.cwd, path),
     secrets,
@@ -120,7 +126,7 @@ export function createContext(profile: string, deps: MesaDeps) {
       command: (argv = deps.argv) => redactCommand(argv, secrets()),
       redact: (text) => redactWhole(text, deps.home, secrets()),
     }),
-    store: sessionStore({ dir: paths.sessions, newId: deps.newId }),
+    store: sessionStore({ dir: paths.sessions, newId: deps.newId, lock: deps }),
     tmux,
     /** The pane-died hook on the profile's tmux server, and whether a server runs there. */
     tmuxHook: async () => ({ socket: paths.tmuxSocket, ...(await tmux.paneDiedHookState()) }),

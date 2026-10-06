@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { parseWith } from '../lib/schema.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
@@ -55,13 +55,15 @@ export const readRegistry = (file: string): RegistryEntry[] =>
  * once keep both entries. `change` may throw to change nothing.
  */
 export function updateRegistry(
+  lock: LockDeps,
   file: string,
   change: (entries: RegistryEntry[]) => RegistryEntry[],
 ): void {
-  const lock = `${file}.lock`;
-  const busy = () => lockedBy('the registry', lock, 'registry');
+  const path = `${file}.lock`;
+  const busy = () => lockedBy('the registry', path, 'registry');
   withLockSync(
     lock,
+    path,
     () =>
       writeYaml(file, { projects: change(readRegistry(file)) }, { header: HEADER, mode: 0o600 }),
     busy,

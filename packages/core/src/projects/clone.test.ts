@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { profilePaths } from '../profile/paths.js';
 import { initProfile, openProfile } from '../profile/profile.js';
-import { tempDir, thrown } from '../testing/index.js';
+import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import { cloneProject } from './clone.js';
 import { repositoryUrl } from './project-url.js';
 import { listProjects } from './projects.js';
@@ -44,18 +44,24 @@ test('checkout uses the injected git runner and preserves a failed or pre-existi
       return { ok: true, stdout: '' };
     },
     source,
+    lockDeps(),
   );
   expect(calls).toEqual([['git', 'clone', '--', source.url, join(paths.checkouts, 'one')]]);
   expect(result.project.name).toBe('one');
   expect(listProjects(profile)[0]?.path).toBe(join(paths.checkouts, 'one'));
   await expect(
-    cloneProject(profile, async () => ({ ok: true, stdout: '' }), source),
+    cloneProject(profile, async () => ({ ok: true, stdout: '' }), source, lockDeps()),
   ).rejects.toMatchObject({ code: 'usage' });
   expect(existsSync(join(paths.checkouts, 'one', 'README.md'))).toBe(true);
 
   const other = repositoryUrl('https://example.com/team/two.git');
   await expect(
-    cloneProject(profile, async () => ({ ok: false, reason: 'failed', detail: 'offline' }), other),
+    cloneProject(
+      profile,
+      async () => ({ ok: false, reason: 'failed', detail: 'offline' }),
+      other,
+      lockDeps(),
+    ),
   ).rejects.toMatchObject({ code: 'usage' });
   expect(existsSync(join(paths.checkouts, 'two'))).toBe(false);
   expect(listProjects(profile)).toHaveLength(1);
@@ -69,6 +75,7 @@ test('checkout uses the injected git runner and preserves a failed or pre-existi
         return { ok: true, stdout: '' };
       },
       clash,
+      lockDeps(),
     ),
   ).rejects.toMatchObject({ code: 'invalid_config' });
   expect(existsSync(join(paths.checkouts, 'three'))).toBe(false);

@@ -10,7 +10,7 @@ import {
   writeSync,
 } from 'node:fs';
 import { expect, test } from 'vitest';
-import { plantOutputLog, profilePaths, tempDir } from '../testing/index.js';
+import { lockDeps, plantOutputLog, profilePaths, tempDir } from '../testing/index.js';
 import { outputTail } from './output-log.js';
 
 const MB = 1024 * 1024;
@@ -18,7 +18,7 @@ const MB = 1024 * 1024;
 test('outputTail reads the raw stream as plain text: escapes, controls, and blank lines dropped', () => {
   const home = tempDir();
   const logs = profilePaths(home, 'default').logs;
-  expect(outputTail(logs, 'a1b2c3d4')).toBeUndefined();
+  expect(outputTail(lockDeps(), logs, 'a1b2c3d4')).toBeUndefined();
   plantOutputLog(
     home,
     'a1b2c3d4',
@@ -32,7 +32,7 @@ test('outputTail reads the raw stream as plain text: escapes, controls, and blan
       'last line, no newline yet',
     ].join(''),
   );
-  expect(outputTail(logs, 'a1b2c3d4')).toEqual([
+  expect(outputTail(lockDeps(), logs, 'a1b2c3d4')).toEqual([
     'Tide tables',
     'a link and a bell',
     'Working',
@@ -41,9 +41,12 @@ test('outputTail reads the raw stream as plain text: escapes, controls, and blan
     'still here',
     'last line, no newline yet',
   ]);
-  expect(outputTail(logs, 'a1b2c3d4', 2)).toEqual(['still here', 'last line, no newline yet']);
-  expect(outputTail(logs, 'a1b2c3d4', 0)).toEqual([]);
-  expect(outputTail(logs, 'a1b2c3d4', 50)).toHaveLength(7);
+  expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 2)).toEqual([
+    'still here',
+    'last line, no newline yet',
+  ]);
+  expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 0)).toEqual([]);
+  expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 50)).toHaveLength(7);
 });
 
 test('a log over 20 MB is cut in place to its last 5 MB, from a whole line, and its writer goes on', () => {
@@ -61,7 +64,7 @@ test('a log over 20 MB is cut in place to its last 5 MB, from a whole line, and 
   const writer = openSync(file, 'a');
   try {
     const logs = profilePaths(home, 'default').logs;
-    expect(outputTail(logs, 'a1b2c3d4', 1)).toEqual([line(count - 1).trim()]);
+    expect(outputTail(lockDeps(), logs, 'a1b2c3d4', 1)).toEqual([line(count - 1).trim()]);
     const cut = statSync(file);
     expect(cut.ino).toBe(ino);
     expect(cut.size).toBeLessThanOrEqual(5 * MB);
@@ -88,7 +91,7 @@ test('a cut waits for another mesa cutting the same log, then finds it cut and l
     file,
     lock,
   ]);
-  const lines = outputTail(profilePaths(home, 'default').logs, 'a1b2c3d4');
+  const lines = outputTail(lockDeps(), profilePaths(home, 'default').logs, 'a1b2c3d4');
   await once(other, 'exit');
   expect(lines).toEqual(['cut by the other mesa']);
   expect(readFileSync(file, 'utf8')).toBe('cut by the other mesa\n');
@@ -98,6 +101,8 @@ test('a cut waits for another mesa cutting the same log, then finds it cut and l
 test('a log of 20 MB or less is left whole', () => {
   const home = tempDir();
   const file = plantOutputLog(home, 'a1b2c3d4', Buffer.alloc(20 * MB, 'x'));
-  expect(outputTail(profilePaths(home, 'default').logs, 'a1b2c3d4', 1)?.[0]).toHaveLength(20 * MB);
+  expect(
+    outputTail(lockDeps(), profilePaths(home, 'default').logs, 'a1b2c3d4', 1)?.[0],
+  ).toHaveLength(20 * MB);
   expect(statSync(file).size).toBe(20 * MB);
 });

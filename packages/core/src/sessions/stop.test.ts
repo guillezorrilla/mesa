@@ -8,6 +8,7 @@ import {
   CLAUDE_VERSION,
   type FakeWindow,
   fakeTmux,
+  lockDeps,
   newSession,
   plantOutputLog,
   projectProfile,
@@ -220,6 +221,7 @@ test('resume refuses a live session, clears a dead window, and needs an agent se
   const store = sessionStore({
     dir: profilePaths(exited.home, 'default').sessions,
     newId: () => '01TESTZZZZZZZZZZZZZZNOUUID',
+    lock: lockDeps(),
   });
   const { id } = store.create(() => newSession());
   await expect(exited.mesa.sessions.resume(id)).rejects.toMatchObject({

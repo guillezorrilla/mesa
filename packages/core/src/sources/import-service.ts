@@ -84,7 +84,7 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
             ...deps,
             notes: ctx.notes(),
             http: ctx.deps.http,
-            pending: pendingImportNotes(ctx.paths.pendingImportNotes),
+            pending: pendingImportNotes(ctx.paths.pendingImportNotes, ctx.deps),
           },
           project,
           links,

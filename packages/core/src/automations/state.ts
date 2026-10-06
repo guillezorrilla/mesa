@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { DecisionSchema } from '../decisions/types.js';
 import { ULID } from '../lib/ids.js';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 import { AutomationRuleSchema } from './schema.js';
 
@@ -42,7 +42,7 @@ const StateSchema = z.strictObject({
 export type AutomationState = z.infer<typeof StateSchema>;
 
 /** Durable observations, approvals and run ledger. Short writes are separate from dispatch. */
-export function automationState(file: string) {
+export function automationState(file: string, deps: LockDeps) {
   const read = (): AutomationState =>
     existsSync(file)
       ? readYaml(file, StateSchema)
@@ -52,6 +52,7 @@ export function automationState(file: string) {
     update: <T>(change: (state: AutomationState) => T): T => {
       const lock = `${file}.lock`;
       return withLockSync(
+        deps,
         lock,
         () => {
           const state = read();

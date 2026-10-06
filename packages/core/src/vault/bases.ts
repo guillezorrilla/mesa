@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { parse, stringify } from 'yaml';
 import { writeFileAtomic } from '../lib/atomic-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { INTERNALS, VAULT } from './layout.js';
 import { requireVaultFolder, vaultFile } from './scope.js';
@@ -82,10 +83,9 @@ const BASES = [
 ];
 
 /** Write only owned fixed Bases, atomically under one vault lock; no history for derived views. */
-export async function writeBases(deps: {
-  vault: string;
-  sleep: (ms: number) => Promise<void>;
-}): Promise<BasesWritten> {
+export async function writeBases(
+  deps: LockDeps & { vault: string; sleep: (ms: number) => Promise<void> },
+): Promise<BasesWritten> {
   requireVaultFolder(deps.vault);
   return withVaultLock(deps, async () => {
     // Validate both destinations and read ownership before writing either one.
