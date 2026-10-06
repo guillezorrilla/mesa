@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gitRepo, plantTranscript, withRealGit } from '@mesa/core/testing';
+import { gitRepo, plantTranscript, testEnv, withRealGit } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -58,9 +58,10 @@ test('selected Git hunk review pins HEAD and patch, and sends once to the agent'
   cli.run = withRealGit(cli.run);
   const opened = (await cli.mesa('open', 'lantern-cove', '--json')).json.data;
   writeFileSync(file, 'staged\n');
-  execFileSync('git', ['-C', repo, 'add', 'review.txt']);
+  execFileSync('git', ['-C', repo, 'add', 'review.txt'], { env: testEnv });
   const indexBase = execFileSync('git', ['-C', repo, 'rev-parse', ':review.txt'], {
     encoding: 'utf8',
+    env: testEnv,
   }).trim();
   writeFileSync(file, 'after\n');
 

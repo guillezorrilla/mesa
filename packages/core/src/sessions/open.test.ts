@@ -24,6 +24,7 @@ import {
   sequentialIds,
   tempDir,
   testDeps,
+  testEnv,
   testGit,
   withRealGit,
   worktreeAt,
@@ -787,7 +788,7 @@ test("with an origin, a new branch starts from origin's HEAD, tracking nothing, 
   const { home, dir, mesa } = await setUp(world);
   gitRepo(dir);
   const bare = join(home, 'origin.git');
-  execFileSync('git', ['init', '-q', '--bare', bare]);
+  execFileSync('git', ['init', '-q', '--bare', bare], { env: testEnv });
   testGit(dir, 'remote', 'add', 'origin', bare);
   testGit(dir, 'commit', '-q', '--allow-empty', '-m', 'shared work');
   testGit(dir, 'push', '-q', 'origin', 'main', 'main:shared');

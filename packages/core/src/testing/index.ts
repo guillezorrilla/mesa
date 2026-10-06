@@ -603,7 +603,7 @@ export function multiProjectSession(overrides: Partial<NewSession> = {}): NewSes
 }
 
 export { fakeRelease } from './about.js';
-export { gitConfigOff, testEnv, testRunner } from './env.js';
+export { testEnv, testRunner } from './env.js';
 export { isolateTmp, tempDir } from './tmp.js';
 
 /** The MesaError a call throws, as `{ code, message }`; throws if it returns or throws anything else. */

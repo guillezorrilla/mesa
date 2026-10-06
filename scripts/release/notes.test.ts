@@ -1,9 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tempDir, testGit } from '@mesa/core/testing';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { published, section, subjects, withSection } from './notes.mjs';
-
 
 describe('section', () => {
   it('groups typed subjects, keeps legacy ones as Other and leaves version bumps out', () => {
