@@ -1,7 +1,15 @@
 import { expect, test } from 'vitest';
 import { counted } from '../lib/format.js';
 import type { SessionRow } from './board/rows.js';
-import { sessionBranch, sessionCount, sessionLabel, sessionTitle, waitingOn } from './labels.js';
+import {
+  attentionScore,
+  contextPercent,
+  sessionBranch,
+  sessionCount,
+  sessionLabel,
+  sessionTitle,
+  waitingOn,
+} from './labels.js';
 
 // Only the fields the view reads.
 const row = (fields: object) => fields as SessionRow;
@@ -30,4 +38,9 @@ test('a row reads as its name, else its agent name, else its id; its branch is i
   expect(waitingOn('a1b2c3d4')).toBe('waiting on a1b2c3d4');
   expect([1, 2].map(sessionCount)).toEqual(['1 session', '2 sessions']);
   expect([1, 30].map((n) => counted(n, 'day'))).toEqual(['1 day', '30 days']);
+});
+
+test('an attention score and a context reading read the same everywhere', () => {
+  expect(attentionScore(0.8333)).toBe('0.83');
+  expect([21.16, 54.5, 120, -3].map(contextPercent)).toEqual([21, 55, 100, 0]);
 });

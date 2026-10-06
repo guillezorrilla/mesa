@@ -47,3 +47,9 @@ export const waitingOn = (after: string | undefined) => `waiting on ${after}`;
 /** Why a session may have no output log, as `mesa logs` and the Board's Log say it. */
 export const NO_OUTPUT_LOG =
   'it has not started, or config sessions.log was off when it did, or it started before Mesa kept output logs';
+
+/** A session's attention score (0 to 1) as it reads: `0.83`. */
+export const attentionScore = (attention: number) => attention.toFixed(2);
+
+/** How full a session's context is, as the whole percent shown: 0 to 100 whatever the reading. */
+export const contextPercent = (used: number) => Math.round(Math.min(100, Math.max(0, used)));

@@ -41,14 +41,7 @@ export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export { type Clock, systemClock } from './lib/clock.js';
-export {
-  attentionScore,
-  contextPercent,
-  counted,
-  duration,
-  listPrice,
-  percent,
-} from './lib/format.js';
+export { counted, duration, listPrice, percent } from './lib/format.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';
@@ -120,6 +113,8 @@ export type { SessionImage } from './sessions/images.js';
 export type { InstructionStatus } from './sessions/instructions.js';
 export {
   additionalLabel,
+  attentionScore,
+  contextPercent,
   isRun,
   NO_OUTPUT_LOG,
   sessionBranch,
