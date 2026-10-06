@@ -1,8 +1,14 @@
+import { AGENTS, type AgentSpec } from '../agents/agents.js';
+import { AGENT_EXECUTABLES, type Agent } from '../agents/names.js';
 import type { Runner } from '../lib/process.js';
+import { MesaError } from '../lib/result.js';
 
-// A binary probe: `<name> <version args>` with a timeout, as doctor shows each row.
+// A binary probe: `<name> <version args>` with a timeout, as doctor shows each row and a
+// session's start checks its agent.
 
 export const CHECK_TIMEOUT_MS = 2000;
+/** How to install tmux, which doctor's row and the tmux backend's missing-binary error name. */
+export const TMUX_INSTALL = 'brew install tmux';
 
 /** A binary Mesa needs, how to ask its version, and how to install it. */
 export type Binary = {
@@ -34,4 +40,21 @@ export async function probe(run: Runner, b: Binary): Promise<Probe> {
     ? `see ${b.install} to install`
     : `install with \`${b.install}\``;
   return { name: b.name, ok: false, hint: `${why}; ${install}` };
+}
+
+/** An agent's binary, as doctor and a session's start probe it. */
+export function agentBinary(name: Agent): Binary {
+  return {
+    name: AGENT_EXECUTABLES[name],
+    args: AGENTS[name].versionArgs,
+    role: 'agent',
+    install: AGENTS[name].install,
+  };
+}
+
+/** The agent's entry once its binary answers; agent_unavailable otherwise, saying why and how to install it. */
+export async function readyAgent(run: Runner, agent: Agent): Promise<AgentSpec> {
+  const check = await probe(run, agentBinary(agent));
+  if (!check.ok) throw new MesaError('agent_unavailable', `${agent} ${check.hint}`);
+  return AGENTS[agent];
 }

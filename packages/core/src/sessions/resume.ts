@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { AGENTS, readyAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import { prepareAntigravityLog } from '../agents/antigravity/log.js';
 import { claudeBackgroundAttach } from '../agents/claude/background.js';
+import { readyAgent } from '../doctor/probe.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import { joinWarnings } from '../receipts/recorder.js';

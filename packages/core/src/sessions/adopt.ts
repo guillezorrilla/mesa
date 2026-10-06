@@ -1,9 +1,10 @@
-import { AGENTS, readyAgent } from '../agents/agents.js';
+import { AGENTS } from '../agents/agents.js';
 import { claudeTranscripts } from '../agents/claude/paths.js';
 import { transcriptCwd } from '../agents/claude/transcripts.js';
 import { codexHome, codexSessions } from '../agents/codex/paths.js';
 import { threadForId } from '../agents/codex/rollouts.js';
 import { AGENT_LABELS } from '../agents/names.js';
+import { readyAgent } from '../doctor/probe.js';
 import { MesaError } from '../lib/result.js';
 import { findProject, projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';

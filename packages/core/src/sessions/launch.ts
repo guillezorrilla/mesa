@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { AgentSchema, readyAgent } from '../agents/agents.js';
+import { AgentSchema } from '../agents/agents.js';
 import {
   claudeBackgroundAttach,
   startClaudeBackground,
@@ -11,6 +11,7 @@ import { codexHome } from '../agents/codex/paths.js';
 import { sandboxOverride } from '../agents/launch-flags.js';
 import { AGENT_NAMES } from '../agents/names.js';
 import { mountsPerLaunch, type VaultServer } from '../agents/vault-mount.js';
+import { readyAgent } from '../doctor/probe.js';
 import type { Clock } from '../lib/clock.js';
 import type { AsyncLockDeps } from '../lib/lock-file.js';
 import type { Env, Runner } from '../lib/process.js';

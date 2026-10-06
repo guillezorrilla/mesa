@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { AgentSchema, newSessionId, readyAgent, startCommand } from '../agents/agents.js';
+import { AgentSchema, newSessionId, startCommand } from '../agents/agents.js';
+import { readyAgent } from '../doctor/probe.js';
 import type { IdSource } from '../lib/ids.js';
 import { MesaError, toFail } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
