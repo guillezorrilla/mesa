@@ -92,6 +92,7 @@ export function cleanupFacts(
     rows,
     missing: stale.map((row) => row.path).sort(),
     holders: stale.flatMap((row) => references(store, project, root, row.path)),
+    // `git worktree prune` takes every prunable registration, not only the missing ones shown.
     onDisk: rows.filter((row) => row.state === 'stale' && present(row.path)).map((row) => row.path),
   };
 }
