@@ -12,7 +12,7 @@ const ID = '36c173f2-803e-4845-bd97-a032b37c6d6d';
 /** A home whose Claude Code keeps `name` as the transcript of session ID. */
 function homeWith(name?: string) {
   const home = tempDir();
-  const folder = join(claudeTranscripts(home), '-src-lantern-cove');
+  const folder = join(claudeTranscripts(home, {}), '-src-lantern-cove');
   mkdirSync(folder, { recursive: true });
   if (name) copyFileSync(fixture(name), join(folder, `${ID}.jsonl`));
   return home;
@@ -32,7 +32,7 @@ test('a normal turn: the main chain last reply input tokens, in percent of its w
 test('the reply carries its native per-turn effort with the model and usage', () => {
   const home = homeWith();
   writeFileSync(
-    join(claudeTranscripts(home), '-src-lantern-cove', `${ID}.jsonl`),
+    join(claudeTranscripts(home, {}), '-src-lantern-cove', `${ID}.jsonl`),
     `${JSON.stringify({
       type: 'assistant',
       timestamp: '2026-09-25T10:00:09.000Z',
@@ -60,7 +60,7 @@ test('a missing transcript, or one with no reply yet, gives no reading and no er
   expect(claudeContext({ home: tempDir(), env: {} }, ID)).toBeUndefined();
   const home = homeWith();
   writeFileSync(
-    join(claudeTranscripts(home), '-src-lantern-cove', `${ID}.jsonl`),
+    join(claudeTranscripts(home, {}), '-src-lantern-cove', `${ID}.jsonl`),
     '{"type":"user","message":{"content":"hello"}}\n',
   );
   expect(claudeContext({ home, env: {} }, ID)).toBeUndefined();
@@ -81,7 +81,7 @@ test('the window comes from the model; unknown models give no reading', () => {
 
 test('a native-1M model is held to 200k by the environment or by Claude Code settings', () => {
   const home = homeWith();
-  const file = join(claudeTranscripts(home), '-src-lantern-cove', `${ID}.jsonl`);
+  const file = join(claudeTranscripts(home, {}), '-src-lantern-cove', `${ID}.jsonl`);
   const reply = (model: string) =>
     `${JSON.stringify({
       type: 'assistant',

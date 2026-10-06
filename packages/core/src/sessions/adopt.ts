@@ -73,9 +73,10 @@ export async function adoptSession(
   const ran = live ?? input.ran ?? nativeConversation(deps, id);
   if (ran === undefined) {
     const agents = ADOPTS.map((a) => AGENT_LABELS[a]).join(' or ');
-    const dirs = [claudeTranscripts(deps.home), codexSessions(codexHome(deps.home, deps.env))].join(
-      ', ',
-    );
+    const dirs = [
+      claudeTranscripts(deps.home, deps.env),
+      codexSessions(codexHome(deps.home, deps.env)),
+    ].join(', ');
     throw new MesaError('not_found', `no ${agents} session ${id}, live or in ${dirs}`);
   }
   const { agent, cwd } = ran;
@@ -129,7 +130,7 @@ export function nativeConversation(
   id: string,
 ): NativeOrigin | undefined {
   if (!UUID.test(id)) return undefined;
-  const cwd = transcriptCwd(claudeTranscripts(deps.home), id);
+  const cwd = transcriptCwd(claudeTranscripts(deps.home, deps.env), id);
   if (cwd !== undefined) return { agent: 'claude', cwd };
   const thread = threadForId(deps, id);
   return thread && { agent: 'codex', cwd: thread.cwd };

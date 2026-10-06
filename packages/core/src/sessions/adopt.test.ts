@@ -14,6 +14,7 @@ import {
   scriptedRunner,
   sequentialIds,
   shortIds,
+  tempDir,
   testDeps,
   testStore,
 } from '../testing/index.js';
@@ -87,6 +88,26 @@ test('a session on disk is found by its transcript, and reopened in the folder i
   expect(world.windows.at(-1)).toMatchObject({
     path: sub,
     launch: `unset NO_COLOR; exec claude --resume ${ON_DISK} ${CLAUDE_MOUNT}`,
+  });
+});
+
+test('with CLAUDE_CONFIG_DIR set, transcripts are read there and never from ~/.claude', async () => {
+  const home = tempDir();
+  const env = { CLAUDE_CONFIG_DIR: join(home, 'config/claude') };
+  const { run } = scriptedRunner({ claude: '[]' });
+  const { mesa, dir } = projectProfile(run, { home, env });
+  const sub = join(dir, 'docs');
+  mkdirSync(sub);
+  plantTranscript(home, ON_DISK, sub, undefined, env);
+  // Decoys in ~/.claude: the same conversation run elsewhere, and one only there.
+  plantTranscript(home, ON_DISK, join(home, 'scratch'));
+  const decoy = '7c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f';
+  plantTranscript(home, decoy, dir);
+  const { result } = await mesa.sessions.adopt(ON_DISK, { noResume: true });
+  expect(result.record).toMatchObject({ project: 'lantern-cove', cwd: sub });
+  await expect(mesa.sessions.adopt(decoy, { noResume: true })).rejects.toMatchObject({
+    code: 'not_found',
+    message: expect.stringContaining(join(env.CLAUDE_CONFIG_DIR, 'projects')),
   });
 });
 

@@ -57,7 +57,7 @@ export function claudeContext(
   deps: { home: string; env: Env },
   agentSessionId: string,
 ): ContextUse | undefined {
-  const file = transcriptFile(claudeTranscripts(deps.home), agentSessionId);
+  const file = transcriptFile(claudeTranscripts(deps.home, deps.env), agentSessionId);
   const usage = file && lastUsage(file);
   const native = usage ? nativeWindow(usage.model) : undefined;
   if (!usage || native === undefined) return undefined;

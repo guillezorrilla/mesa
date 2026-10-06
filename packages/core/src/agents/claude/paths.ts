@@ -27,11 +27,13 @@ export const claudeInstalledPlugins = (claudeDir: string) =>
 export const CLAUDE_PROJECT_DIR = '.claude';
 export const CLAUDE_PROJECT_SKILLS = join(CLAUDE_PROJECT_DIR, 'skills');
 
-/** Every session's transcript, `<folder>/<agent session id>.jsonl`, one folder per working folder. */
-export const claudeTranscripts = (home: string) => join(home, '.claude', 'projects');
+/** Every session's transcript, under its config folder: `<folder>/<agent session id>.jsonl`, one folder per working folder. */
+export const claudeTranscripts = (home: string, env: Env) =>
+  join(claudeHome(home, env), 'projects');
 
 /**
  * Each live Claude Code process's state, `<pid>.json`: among it the session's `name`, and
  * `nameSource`, `user` for a /rename and `derived` for the one Claude Code makes from its folder.
  */
-export const claudeLiveSessions = (home: string) => join(home, '.claude', 'sessions');
+export const claudeLiveSessions = (home: string, env: Env) =>
+  join(claudeHome(home, env), 'sessions');

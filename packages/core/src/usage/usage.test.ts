@@ -139,7 +139,7 @@ test('usage preserves older ledgers and refreshes only when a native file change
   writeFileSync(ledger, JSON.stringify(first.rows));
   expect((await createMesa('default', testDeps(home)).usage.list()).rows).toEqual(first.rows);
   expect(Object.keys(JSON.parse(readFileSync(ledger, 'utf8')).sources)).toHaveLength(1);
-  const transcript = transcriptFile(claudeTranscripts(home), nativeId);
+  const transcript = transcriptFile(claudeTranscripts(home, {}), nativeId);
   if (!transcript) throw new Error('missing invented transcript');
   appendFileSync(transcript, `\n${message('second', 4)}`);
   expect((await mesa.usage.list()).periods.today.output).toBe(6);
@@ -153,7 +153,7 @@ test('an unreadable native usage source stays unknown', async () => {
   const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
   const record = testStore(home).create(() => newSession({ agentSessionId: nativeId }));
   plantTranscript(home, nativeId, dir);
-  const file = transcriptFile(claudeTranscripts(home), nativeId);
+  const file = transcriptFile(claudeTranscripts(home, {}), nativeId);
   if (!file) throw new Error('missing invented transcript');
   unlinkSync(file);
   mkdirSync(file);
@@ -314,7 +314,7 @@ test('Claude subagent spend counts: sidechain lines and subagents/ transcripts, 
   );
   expect((await mesa.usage.list()).periods.today).toMatchObject({ events: 2, output: 5 });
 
-  const transcript = transcriptFile(claudeTranscripts(home), nativeId);
+  const transcript = transcriptFile(claudeTranscripts(home, {}), nativeId);
   if (!transcript) throw new Error('missing invented transcript');
   const subagents = join(transcript.slice(0, -'.jsonl'.length), 'subagents');
   mkdirSync(subagents, { recursive: true });
@@ -392,7 +392,7 @@ test('current Claude models have list prices; an unknown model stays unknown, no
   expect(priced.periods.today.estimatedCostUsd).toBeCloseTo(0.0059 + 0.00295 + 0.022, 12);
   expect(priced.daily.at(-1)?.totals.estimatedCostUsd).not.toBeNull();
 
-  const transcript = transcriptFile(claudeTranscripts(home), nativeId);
+  const transcript = transcriptFile(claudeTranscripts(home, {}), nativeId);
   if (!transcript) throw new Error('missing invented transcript');
   appendFileSync(transcript, `\n${message('msg_unknown', 'claude-lantern-9')}`);
   const unknown = await mesa.usage.list();

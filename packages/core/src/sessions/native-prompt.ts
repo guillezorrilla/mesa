@@ -81,7 +81,7 @@ export function nativePrompt(
     const file =
       c.file ??
       (c.agent === 'claude'
-        ? transcriptFile(claudeTranscripts(deps.home), c.id)
+        ? transcriptFile(claudeTranscripts(deps.home, deps.env), c.id)
         : c.agent === 'codex'
           ? rolloutForThread(deps, c.id)
           : undefined);
