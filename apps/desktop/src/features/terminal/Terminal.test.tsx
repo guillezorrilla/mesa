@@ -17,3 +17,19 @@ test('the session in view takes the keyboard once attached; another stays put', 
   await attached();
   expect(focused()).toBe(true);
 });
+
+test('Cmd+C with nothing selected in xterm is taken and sends nothing to the pty', async () => {
+  const terminals = fakeTerminals();
+  const platform = fakePlatform({ terminal: terminals.host });
+  await renderWithMesa(<Terminal sessionId="aaaaaaaa" focus />, fakeBridge().bridge, platform);
+  await attached();
+  const key = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+    document.activeElement?.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  expect(key({ key: 'c', metaKey: true })).toBe(true);
+  expect(terminals.calls.some((call) => call[0] === 'write')).toBe(false);
+  // Paste stays the webview's own.
+  expect(key({ key: 'v', metaKey: true })).toBe(false);
+});

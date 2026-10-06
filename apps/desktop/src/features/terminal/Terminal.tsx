@@ -70,10 +70,10 @@ export function Terminal(props: {
     // displays the same native tmux output through view switches.
     const { terminal, clipboard } = platform;
     term.attachCustomKeyEventHandler((event) => {
-      const input = terminalInputForKey(event, preferencesRef.current);
+      const input = terminalInputForKey(event, preferencesRef.current, term.hasSelection());
       if (input === null) return true;
       event.preventDefault();
-      term.input(input, true);
+      if (input) term.input(input, true);
       return false;
     });
     let termId: string | undefined;
