@@ -267,7 +267,8 @@ test('one locked log instant keeps its entry and Daily together across local mid
   process.env.TZ = 'America/Vancouver';
   try {
     let calls = 0;
-    const tick = steppingClock('2026-10-01T06:59:59.900Z', 100);
+    // The vault lock stamps its holder with the first tick; the log reads the second.
+    const tick = steppingClock('2026-10-01T06:59:59.800Z', 100);
     const subject = createMesa(
       'default',
       testDeps(vault.slice(0, -'/vault'.length), {
@@ -282,7 +283,7 @@ test('one locked log instant keeps its entry and Daily together across local mid
       entry: '- 2026-10-01T06:59:59.900Z invented midnight gull <!-- mesa:log -->',
       daily: 'daily/2026-09-30.md',
     });
-    expect(calls).toBe(1);
+    expect(calls).toBe(2);
     expect(
       readFileSync(join(vault, result.daily), 'utf8').match(/invented midnight gull/g),
     ).toHaveLength(1);

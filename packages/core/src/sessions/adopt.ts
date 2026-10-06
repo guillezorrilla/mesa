@@ -5,6 +5,7 @@ import { codexHome, codexSessions } from '../agents/codex/paths.js';
 import { threadForId } from '../agents/codex/rollouts.js';
 import { AGENT_LABELS } from '../agents/names.js';
 import { ADOPTION_WARNING } from '../display.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { findProject, projectOf } from '../projects/projects.js';
 import { readRegistry } from '../projects/registry.js';
@@ -25,6 +26,8 @@ export type AdoptDeps = LaunchDeps & {
   /** Agent session ids other profiles' records hold. */
   elsewhere: () => ReadonlySet<string>;
   home: string;
+  /** For the registry, when the adopted folder is registered. */
+  lock: LockDeps;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

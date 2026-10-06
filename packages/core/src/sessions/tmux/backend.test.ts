@@ -7,6 +7,7 @@ import { vaultServer } from '../../agents/vault-mount.js';
 import { execRunner, type Runner, shellWord } from '../../lib/process.js';
 import {
   CLAUDE_MOUNT,
+  lockDeps,
   NATIVE_LAUNCH,
   scriptedRunner,
   tempDir,
@@ -190,8 +191,8 @@ describe.skipIf(!hasTmux)(`tmux backend on socket ${socket}`, () => {
     await tmux.sendText(target, 'typed');
     // The terminal echoes the typed line, then cat prints it back.
     await eventually(logged, /typed\r\ntyped/);
-    expect(outputTail(logs, 'log00001')).toEqual(['red one', 'two', 'typed', 'typed']);
-    expect(outputTail(logs, 'log00001', 2)).toEqual(['typed', 'typed']);
+    expect(outputTail(lockDeps(), logs, 'log00001')).toEqual(['red one', 'two', 'typed', 'typed']);
+    expect(outputTail(lockDeps(), logs, 'log00001', 2)).toEqual(['typed', 'typed']);
     expect(await raw('display-message', '-p', '-t', exact(target), '#{pane_pipe}')).toBe('1');
   });
 

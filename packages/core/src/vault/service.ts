@@ -59,7 +59,7 @@ export function vaultService(ctx: MesaContext) {
         ),
       status: () => vaultStatus(vaultOf()),
       health: () => vaultHealth(vaultOf()),
-      bases: () => writeBases({ vault: vaultOf(), sleep: deps.sleep }),
+      bases: () => writeBases({ ...deps, vault: vaultOf() }),
       /** Every item in the vault (listVault), with the vault and how many are listed. */
       list: (filter?: VaultFilter): VaultInventory => {
         const vault = vaultOf();

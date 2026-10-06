@@ -5,6 +5,7 @@ import { antigravityLog, prepareAntigravityLog } from '../agents/antigravity/log
 import type { MesaContext } from '../context.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
 import type { IdSource } from '../lib/ids.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { shellWord } from '../lib/process.js';
 import { redactWhole } from '../lib/redact.js';
 import { MesaError, toFail } from '../lib/result.js';
@@ -87,6 +88,7 @@ type RunDeps = LaunchDeps & {
   /** The profile's runs/ folder, and its logs/, a session's output logs. */
   runs: string;
   logs: string;
+  lock: LockDeps;
   /** Text as it leaves the profile's logs for an agent (redactWhole). */
   redact: (text: string) => string;
   /** The skills a project sees, enabled or not (the skills service's list). */
@@ -200,8 +202,8 @@ export async function startRun(deps: RunDeps, input: RunInput) {
  * last INPUT_LINES lines of its output log as plain text (outputTail), redacted as they leave the
  * logs. usage when the session has no output log, or nothing in it.
  */
-function aboutInput(deps: Pick<RunDeps, 'logs' | 'redact'>, about: SessionRecord) {
-  const lines = outputTail(deps.logs, about.id, INPUT_LINES);
+function aboutInput(deps: Pick<RunDeps, 'logs' | 'redact' | 'lock'>, about: SessionRecord) {
+  const lines = outputTail(deps.lock, deps.logs, about.id, INPUT_LINES);
   if (!lines?.length) {
     throw new MesaError(
       'usage',
@@ -315,7 +317,7 @@ export async function endRun(
     ? paneExit(pane)
     : exited && { status: exited.status, signal: exited.signal };
   const at = run.endedAt ?? ctx.deps.clock().toISOString();
-  const read = runResult(ctx.paths, run, exit, at);
+  const read = runResult({ ...ctx.paths, lock: ctx.deps }, run, exit, at);
   const result = killed ? { ...read, ok: false, reason: killed } : read;
   // Commit the outcome before killing the pane: its hook may finish the same run immediately.
   const ended = endRecord(ctx, run.id, result, at, exit);
@@ -324,7 +326,12 @@ export async function endRun(
   // Another process can finish between our file read and the locked update. Re-read using the
   // winning record's exit, including when it succeeded after our timeout read found no output.
   const winner = ended.events.find((event) => event.type === 'exited');
-  const finalRead = runResult(ctx.paths, ended, winner ?? exit, ended.endedAt ?? at);
+  const finalRead = runResult(
+    { ...ctx.paths, lock: ctx.deps },
+    ended,
+    winner ?? exit,
+    ended.endedAt ?? at,
+  );
   const final = ended.runFailure
     ? { ...finalRead, ok: false, reason: ended.runFailure }
     : finalRead;
@@ -381,7 +388,7 @@ type Exit = { status?: number; signal?: string };
  * its window went first), and the last line its pane showed (its stderr), from its output log.
  */
 function runResult(
-  deps: { runs: string; logs: string },
+  deps: { runs: string; logs: string; lock: LockDeps },
   run: SessionRecord,
   exit: Exit | undefined,
   at: string,
@@ -412,7 +419,11 @@ function runResult(
     output: '',
     agentSessionId: run.agentSessionId ?? '',
     durationMs: Math.max(0, Date.parse(at) - Date.parse(run.startedAt)),
-    reason: [said.reason, failed || !exit ? how : undefined, outputTail(deps.logs, run.id, 1)?.[0]]
+    reason: [
+      said.reason,
+      failed || !exit ? how : undefined,
+      outputTail(deps.lock, deps.logs, run.id, 1)?.[0],
+    ]
       .filter(Boolean)
       .join('; '),
   };

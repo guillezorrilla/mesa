@@ -40,6 +40,7 @@ export function promptsService(ctx: MesaContext) {
     ctx.open();
     const lock = `${file}.lock`;
     return withLockSync(
+      ctx.deps,
       lock,
       () => change(list()),
       () => lockedBy('saved prompts', lock, 'another save'),

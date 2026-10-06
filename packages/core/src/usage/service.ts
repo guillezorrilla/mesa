@@ -13,7 +13,7 @@ import { summarizeUsage } from './summary.js';
 
 /** Syncs only this profile's sessions into its ledger; removed sessions keep their past usage. */
 export function usageService(ctx: MesaContext) {
-  const ledger = usageStore(ctx.paths.usage);
+  const ledger = usageStore(ctx.paths.usage, ctx.deps);
   return {
     list: async (session?: string) => {
       const fresh: UsageRecord[] = [];

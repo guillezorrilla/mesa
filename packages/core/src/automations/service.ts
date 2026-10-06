@@ -17,7 +17,7 @@ export function automationsService(
   actions: AutomationActions & { notify: () => Promise<NotificationDelivery> },
 ) {
   const rules = automationRules(ctx);
-  const state = automationState(ctx.paths.automationState);
+  const state = automationState(ctx.paths.automationState, ctx.deps);
   const launchd = automationLaunchd(ctx);
   const now = () => ctx.deps.clock().toISOString();
   const status = async () => ({ ...state.read(), ...(await launchd.status()) });

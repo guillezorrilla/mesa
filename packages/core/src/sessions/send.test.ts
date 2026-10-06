@@ -8,6 +8,7 @@ import { listReceipts } from '../receipts/store.js';
 import {
   CLAUDE_VERSION,
   fakeTmux,
+  lockDeps,
   projectProfile,
   scriptedRunner,
   sequentialIds,
@@ -303,7 +304,7 @@ test('a closing ; is typed as it is; a sender removed while typing still sends',
 
 test('a record update waits for its lock and, while another holds it, is refused', () => {
   const dir = join(tempDir(), 'sessions');
-  const store = sessionStore({ dir, newId: sequentialIds() });
+  const store = sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() });
   const record = store.create(() => ({
     kind: 'interactive',
     project: 'lantern-cove',
@@ -354,7 +355,7 @@ test('events are best effort once the prompt is typed: a locked receiver warns a
   );
   expect(receipt).toBeNull();
   rmSync(lock);
-  const store = sessionStore({ dir, newId: () => 'x' });
+  const store = sessionStore({ dir, newId: () => 'x', lock: lockDeps() });
   // No `sent` on the sender without its `send` on the receiver.
   expect(store.get(b.id).events).toEqual([]);
   expect(store.get(a.id).events).toEqual([]);
@@ -370,7 +371,7 @@ test('--no-from sends without a sender or vault receipt', async () => {
 
 test('a function patch runs under the lock; an update waits while another process holds it', async () => {
   const dir = join(tempDir(), 'sessions');
-  const store = sessionStore({ dir, newId: sequentialIds() });
+  const store = sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() });
   const record = store.create(() => ({
     kind: 'interactive',
     project: 'lantern-cove',
@@ -415,7 +416,7 @@ test('any error writing events after typing is a warning, and any Mesa window co
     chmodSync(dir, 0o700);
   }
   // Another profile's window: no sender, but still an agent that may not force a wait.
-  const store = sessionStore({ dir, newId: () => 'x' });
+  const store = sessionStore({ dir, newId: () => 'x', lock: lockDeps() });
   const at = '2026-09-24T12:00:00.000Z';
   store.update(b.id, {
     lastState: { state: 'waiting-permission', confidence: 0.95, at, source: 'hook' },

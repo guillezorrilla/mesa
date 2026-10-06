@@ -1,12 +1,12 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { newSession, sequentialIds, tempDir, thrown } from '../testing/index.js';
+import { lockDeps, newSession, sequentialIds, tempDir, thrown } from '../testing/index.js';
 import { sessionStore } from './store.js';
 
 const storeIn = (dir = join(tempDir(), 'sessions')) => ({
   dir,
-  store: sessionStore({ dir, newId: sequentialIds() }),
+  store: sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() }),
 });
 
 test('create, get, update, list, and remove one record per file', () => {

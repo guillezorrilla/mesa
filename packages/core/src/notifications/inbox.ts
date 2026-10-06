@@ -192,7 +192,7 @@ export function inbox(ctx: MesaContext) {
   const file = ctx.paths.notifications;
   // The run ledger is the event owner: a crash between failure and notification loses no notice.
   const failures = (): Candidate[] =>
-    automationState(ctx.paths.automationState)
+    automationState(ctx.paths.automationState, ctx.deps)
       .read()
       .runs.filter((run) => run.status === 'failed')
       .slice(-500)
@@ -218,6 +218,7 @@ export function inbox(ctx: MesaContext) {
     mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
     const lock = `${file}.lock`;
     return withLockSync(
+      ctx.deps,
       lock,
       () => {
         const current = read();
@@ -362,6 +363,7 @@ export function inbox(ctx: MesaContext) {
       mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
       const lock = `${file}.delivery.lock`;
       return withLockSync(
+        ctx.deps,
         lock,
         () => {
           const plan = delivery();

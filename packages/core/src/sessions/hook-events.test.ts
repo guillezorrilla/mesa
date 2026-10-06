@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { fixedClock, newSession, sequentialIds, tempDir } from '../testing/index.js';
+import { fixedClock, lockDeps, newSession, sequentialIds, tempDir } from '../testing/index.js';
 import { readHookEvents, recordHookEvent, scanHookEvents } from './hook-events.js';
 import { sessionStore } from './store.js';
 
@@ -23,7 +23,7 @@ const PERMISSION = {
 function setUp() {
   const home = '/Users/ana';
   const dir = join(tempDir(), 'sessions');
-  const store = sessionStore({ dir, newId: sequentialIds() });
+  const store = sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() });
   const { id } = store.create(() => newSession());
   const deps = {
     store,

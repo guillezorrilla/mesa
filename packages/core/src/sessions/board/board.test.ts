@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import {
   fixedClock,
   listingDeps,
+  lockDeps,
   newSession,
   plantLiveSession,
   plantTranscript,
@@ -21,7 +22,8 @@ import { sessionTree } from './tree.js';
 
 const inWindow = (project: string, startedAt: string, window: string) =>
   newSession({ project, startedAt, tmux: { socket: 'mesa-default', session: project, window } });
-const storeIn = () => sessionStore({ dir: join(tempDir(), 'sessions'), newId: sequentialIds() });
+const storeIn = () =>
+  sessionStore({ dir: join(tempDir(), 'sessions'), newId: sequentialIds(), lock: lockDeps() });
 /** Board order is attention's; tests about other things read rows oldest first. */
 const byStart = <T extends { startedAt: string }>(rows: T[]) =>
   [...rows].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
@@ -634,7 +636,7 @@ test('the tree ranks siblings and branches by their highest attention; loops and
 
 test('a record another process holds locked still shows its new state, and the board still lists', async () => {
   const dir = join(tempDir(), 'sessions');
-  const store = sessionStore({ dir, newId: sequentialIds() });
+  const store = sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() });
   const gone = store.create(() => inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
   // A lock left by a killed mesa.
   writeFileSync(join(dir, `${gone.id}.lock`), 'a killed mesa');

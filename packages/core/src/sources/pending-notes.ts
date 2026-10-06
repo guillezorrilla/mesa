@@ -1,17 +1,18 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { readYaml, writeYaml } from '../lib/yaml-file.js';
 
 const schema = z.array(z.strictObject({ project: z.string(), url: z.string().url() }));
 
 /** Notes still owed by change-aware refresh, independent of a source's snapshot revision. */
-export function pendingImportNotes(file: string) {
+export function pendingImportNotes(file: string, deps: LockDeps) {
   const read = () => (existsSync(file) ? readYaml(file, schema) : []);
   const change = (project: string, urls: readonly string[], add: boolean) => {
     if (!urls.length) return;
     const lock = `${file}.lock`;
     withLockSync(
+      deps,
       lock,
       () => {
         const all = read();

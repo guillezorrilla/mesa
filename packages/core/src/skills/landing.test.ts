@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { actionRecorder } from '../receipts/recorder.js';
 import { listReceipts } from '../receipts/store.js';
-import { fixedClock, sequentialIds, tempDir } from '../testing/index.js';
+import { fixedClock, lockDeps, sequentialIds, tempDir } from '../testing/index.js';
 import { readNote } from '../vault/notes.js';
 import { initVault } from '../vault/vault.js';
 import { landOutput } from './landing.js';
@@ -13,6 +13,7 @@ const landingDeps = () => {
   const clock = fixedClock('2026-09-24T12:00:00Z');
   initVault({ path: vault, clock });
   return {
+    ...lockDeps(),
     vault,
     clock,
     sleep: async () => {},

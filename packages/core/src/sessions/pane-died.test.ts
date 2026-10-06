@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import {
   fixedClock,
+  lockDeps,
   newSession,
   scriptedRunner,
   sequentialIds,
@@ -20,7 +21,11 @@ const deadLine = (window: string, status: number, signal = '') =>
   tmuxLine({ project: 'lantern-cove', window, command: 'claude', dead: true, status, signal });
 
 function setUp() {
-  const store = sessionStore({ dir: join(tempDir(), 'sessions'), newId: sequentialIds() });
+  const store = sessionStore({
+    dir: join(tempDir(), 'sessions'),
+    newId: sequentialIds(),
+    lock: lockDeps(),
+  });
   const clean = store.create(() => inWindow('claude-00000001'));
   const crashed = store.create(() => inWindow('claude-00000002'));
   const killed = store.create(() => inWindow('claude-00000003'));

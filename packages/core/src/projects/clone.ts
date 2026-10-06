@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import type { LockDeps } from '../lib/lock-file.js';
 import type { Runner } from '../lib/process.js';
 import { MesaError } from '../lib/result.js';
 import type { Profile } from '../profile/profile.js';
@@ -7,7 +8,12 @@ import type { RepositoryUrl } from './project-url.js';
 import { registerProject } from './projects.js';
 
 /** Clone into this profile's private checkouts, then register the new project atomically. */
-export async function cloneProject(profile: Profile, run: Runner, source: RepositoryUrl) {
+export async function cloneProject(
+  profile: Profile,
+  run: Runner,
+  source: RepositoryUrl,
+  lock: LockDeps,
+) {
   const { url, slug } = source;
   const path = join(profile.paths.checkouts, slug);
   mkdirSync(profile.paths.checkouts, { recursive: true, mode: 0o700 });
@@ -33,7 +39,7 @@ export async function cloneProject(profile: Profile, run: Runner, source: Reposi
             : `git clone failed: ${cloned.detail}`,
       );
     }
-    const result = registerProject(profile, { dir: path, create: true });
+    const result = registerProject(profile, { dir: path, create: true }, lock);
     registered = true;
     return { ...result, url };
   } finally {
