@@ -18,7 +18,10 @@ import { windowOf } from './window-name.js';
  * its additional projects' worktrees (launchSession refuses one that is gone), in a new window,
  * as a new record
  * linked both ways: `resumedFrom` on the new one, `resumedBy` and `endedAt` on the old one. A
- * dead window the old session left is removed first; a live one refuses.
+ * dead window the old session left is removed first; a live one refuses. The old record is
+ * claimed (`resumedBy`) under its lock as soon as the new one exists, before its window starts,
+ * so of two resumes at once one starts and the other is refused; a start that fails gives the
+ * claim back.
  */
 export async function resumeSession(
   deps: LaunchDeps & {
@@ -37,12 +40,7 @@ export async function resumeSession(
     );
   }
   const resumedBy = resumerOf(deps.store, old);
-  if (resumedBy) {
-    throw new MesaError(
-      'usage',
-      `session ${id} was already resumed as ${resumedBy}; mesa resume ${resumedBy}`,
-    );
-  }
+  if (resumedBy) throw alreadyResumed(id, resumedBy);
   const { agent } = old;
   await readyAgent(deps.run, agent);
   const project = old.project === GENERAL_PROJECT ? null : findProject(deps.profile, old.project);
@@ -64,7 +62,16 @@ export async function resumeSession(
     );
   }
   if (left) await killIfThere(deps.tmux, target);
-  const { record, warning } = await launchSession(
+  let claimed: string | undefined;
+  const claim = (created: SessionRecord) => {
+    deps.store.update(old.id, (current) => {
+      if (current.resumedBy) throw alreadyResumed(id, current.resumedBy);
+      return { resumedBy: created.id };
+    });
+    claimed = created.id;
+    return created;
+  };
+  const launched = launchSession(
     deps,
     {
       project,
@@ -87,6 +94,7 @@ export async function resumeSession(
       resumedFrom: old.id,
     },
     {
+      prepare: claim,
       command: (record) => {
         if (old.backgroundId) return claudeBackgroundAttach(old.backgroundId);
         if (agent === 'antigravity')
@@ -107,18 +115,29 @@ export async function resumeSession(
         );
       },
     },
-  );
-  // The new session runs now, so marking the old one is best effort: a failure is a warning,
-  // never a failed resume that a retry would open twice.
+  ).catch((error) => {
+    try {
+      if (claimed)
+        deps.store.update(old.id, (current) =>
+          current.resumedBy === claimed ? { resumedBy: undefined } : {},
+        );
+    } catch {
+      // The start's own error says more; a claim left names a session that is gone.
+    }
+    throw error;
+  });
+  const { record, warning } = await launched;
+  // The new session runs now and holds the claim, so ending the old one is best effort: a failure
+  // is a warning, never a failed resume.
   const at = deps.clock().toISOString();
   try {
-    const from = deps.store.update(old.id, (current) => ({
-      resumedBy: record.id,
-      ...ending(current, at),
-    }));
+    const from = deps.store.update(old.id, (current) => ending(current, at));
     return { record, from, ...(warning ? { warning } : {}) };
   } catch (error) {
-    const why = `session ${id} not marked resumed: ${toFail(error).error.message}`;
+    const why = `session ${id} not marked ended: ${toFail(error).error.message}`;
     return { record, from: old, warning: joinWarnings(warning, why) };
   }
 }
+
+const alreadyResumed = (id: string, by: string) =>
+  new MesaError('usage', `session ${id} was already resumed as ${by}; mesa resume ${by}`);

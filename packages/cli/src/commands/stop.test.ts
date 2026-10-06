@@ -34,23 +34,17 @@ test('stop and resume print the updated and the new record', async () => {
   expect((await mesa('sessions', '--all')).stdout.split('\n').filter(Boolean)).toHaveLength(2);
   expect((await mesa('stop', 'zzzzzzzz')).code).toBe(3);
 
-  // The old record cannot be marked resumed (a killed mesa left its lock): the resume runs, and
-  // says so in its text and its --json.
+  // The old record cannot be claimed (a killed mesa left its lock): the resume is refused before
+  // anything starts, and runs once the lock is gone.
   const again = resumed.json.data.id;
   await mesa('stop', again);
   const lock = staleLock(cli.home, again);
-  const warned = await mesa('resume', again);
-  expect(warned.stdout).toMatch(
-    new RegExp(`\nwarning: session ${again} not marked resumed: session`),
-  );
+  const refused = await mesa('resume', again, '--json');
+  expect(refused.json.error).toMatchObject({ code: 'locked' });
+  expect((await mesa('sessions', '--all')).stdout.split('\n').filter(Boolean)).toHaveLength(2);
   rmSync(lock);
-  const third = warned.stdout.split('\n')[0] ?? '';
-  await mesa('stop', third);
-  staleLock(cli.home, third);
-  expect((await mesa('resume', third, '--json')).json.data.warning).toMatch(
-    new RegExp(`^session ${third} not marked resumed: session`),
-  );
-  // Each locked record is waited for, 400 pauses of 5 ms, before the warning: about 2 s here and
+  expect((await mesa('resume', again, '--json')).json.data.resumedFrom).toBe(again);
+  // The locked record is waited for, 400 pauses of 5 ms, before the refusal: about 2 s here and
   // two or three times that on a CI runner, whose timers are coarser.
 }, 30_000);
 
