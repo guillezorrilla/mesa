@@ -1,22 +1,6 @@
 import type { SessionState } from '@mesa/core';
-import { WAITING_STATES } from '@mesa/core/browser';
 import { cn } from '@/lib/utils';
-
-/**
- * One colour per Session state (the theme's `--state-*` tokens); waits are the warm one, and the
- * states Mesa holds (queued, stopped) are uncoloured.
- */
-const TONE: Record<SessionState, string> = {
-  working: 'bg-state-working/15 text-state-working ring-state-working/30',
-  'waiting-permission': 'bg-state-waiting/25 text-foreground ring-state-waiting font-semibold',
-  'waiting-question': 'bg-state-waiting/25 text-foreground ring-state-waiting font-semibold',
-  idle: 'bg-state-idle/15 text-state-idle ring-state-idle/30',
-  done: 'bg-state-done/15 text-muted-foreground ring-state-done/30',
-  failed: 'bg-state-failed/15 text-state-failed ring-state-failed/40',
-  // Mesa's own: no agent has run yet, or ever will.
-  queued: 'text-muted-foreground ring-0 border border-dashed border-muted-foreground/60',
-  stopped: 'text-muted-foreground ring-border line-through',
-};
+import { stateTone } from './stateTone';
 
 /** A session's state, coloured by state; `title` says who decided. */
 export function StateBadge(props: {
@@ -25,6 +9,7 @@ export function StateBadge(props: {
   className?: string;
   compact?: boolean;
 }) {
+  const tone = stateTone(props.state);
   return (
     <span
       data-testid="session-state"
@@ -32,9 +17,9 @@ export function StateBadge(props: {
       title={props.title}
       className={cn(
         'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-xs ring-1 ring-inset',
-        TONE[props.state],
+        tone.badge,
         props.compact && 'bg-transparent px-0 py-0 ring-0',
-        props.compact && WAITING_STATES.has(props.state) && 'text-state-waiting',
+        props.compact && tone.compact,
         props.className,
       )}
     >

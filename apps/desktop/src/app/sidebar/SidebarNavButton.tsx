@@ -1,7 +1,7 @@
 import type { TerminalSquare } from 'lucide-react';
 import { CountPill } from '@/components/CountPill';
 import { Button } from '@/components/ui/button';
-import type { WorkspaceView } from '../navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
 
 /**
  * An icon button that opens `target`, marked current while a view of its kind shows, with `count`

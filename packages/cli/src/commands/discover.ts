@@ -1,6 +1,6 @@
 import { counted, DISCOVERY_DAYS, type DiscoveryAdoption, MesaError } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../guards.js';
+import { wholeNumber } from '../input/flags.js';
 import { bulkExit } from '../output/bulk.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';

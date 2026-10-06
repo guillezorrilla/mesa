@@ -1,6 +1,6 @@
 import { sessionCount } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { APP_FLAG, requireTty } from '../guards.js';
+import { APP_FLAG, requireTty } from '../input/flags.js';
 
 export const view = defineCommand({
   name: 'view',

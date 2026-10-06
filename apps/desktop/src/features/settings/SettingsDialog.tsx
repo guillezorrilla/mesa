@@ -7,18 +7,18 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { AdvancedSettings } from './AdvancedSettings';
-import { AgentSettings } from './AgentSettings';
-import { ConnectionSettings } from './ConnectionSettings';
+import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
+import { AgentSettingsPanel } from './AgentSettingsPanel';
+import { ConnectionSettingsPanel } from './ConnectionSettingsPanel';
 import { CATEGORIES, type SettingsCategory } from './categories';
-import { GeneralSettings } from './GeneralSettings';
-import { NotificationSettings } from './NotificationSettings';
-import { ProjectSettings } from './ProjectSettings';
-import { SessionSettings } from './SessionSettings';
-import { TerminalEditorSettings } from './TerminalEditorSettings';
+import { GeneralSettingsPanel } from './GeneralSettingsPanel';
+import { NotificationSettingsPanel } from './NotificationSettingsPanel';
+import { ProjectSettingsPanel } from './ProjectSettingsPanel';
+import { SessionSettingsPanel } from './SessionSettingsPanel';
+import { TerminalEditorSettingsPanel } from './TerminalEditorSettingsPanel';
 import { SettingsQuery } from './useMatches';
 import { SettingsContext } from './useSettings';
-import { WorktreeSettings } from './WorktreeSettings';
+import { WorktreeSettingsPanel } from './WorktreeSettingsPanel';
 
 /** Screens the settings window hands off to; it closes first. */
 export type SettingsDestination = 'doctor' | 'prompts' | 'shortcuts' | 'backup' | 'usage';
@@ -79,7 +79,7 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
   const page = (id: SettingsCategory) =>
     ({
       general: (
-        <GeneralSettings
+        <GeneralSettingsPanel
           doctor={props.doctor}
           doctorBusy={props.doctorBusy}
           onRecheck={props.onRecheck}
@@ -90,14 +90,14 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
           }}
         />
       ),
-      sessions: <SessionSettings onSavedPrompts={() => go('prompts')} />,
-      terminal: <TerminalEditorSettings onShortcuts={() => go('shortcuts')} />,
-      git: <WorktreeSettings />,
-      projects: <ProjectSettings onChanged={props.onChanged} />,
-      notifications: <NotificationSettings />,
-      agents: <AgentSettings doctor={props.doctor} />,
-      connections: <ConnectionSettings />,
-      advanced: <AdvancedSettings onBackup={() => go('backup')} onUsage={() => go('usage')} />,
+      sessions: <SessionSettingsPanel onSavedPrompts={() => go('prompts')} />,
+      terminal: <TerminalEditorSettingsPanel onShortcuts={() => go('shortcuts')} />,
+      git: <WorktreeSettingsPanel />,
+      projects: <ProjectSettingsPanel onChanged={props.onChanged} />,
+      notifications: <NotificationSettingsPanel />,
+      agents: <AgentSettingsPanel doctor={props.doctor} />,
+      connections: <ConnectionSettingsPanel />,
+      advanced: <AdvancedSettingsPanel onBackup={() => go('backup')} onUsage={() => go('usage')} />,
     })[id];
   const current = CATEGORIES.find((entry) => entry.id === category) ?? CATEGORIES[0];
   return (

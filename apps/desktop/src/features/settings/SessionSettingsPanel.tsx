@@ -1,0 +1,99 @@
+import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
+import { BookMarked, CircleDollarSign, ScrollText, SquareTerminal } from 'lucide-react';
+import { Muted } from '@/components/Muted';
+import { Button } from '@/components/ui/button';
+import { ChoiceField } from './controls/ChoiceField';
+import { ToggleField } from './controls/ToggleField';
+import { SettingRow } from './SettingRow';
+import { SettingSection } from './SettingSection';
+import { useSettings } from './useSettings';
+
+/**
+ * What a new session starts with, whether its output is kept, whether Claude's status line shows
+ * its cost, and the saved prompts.
+ */
+export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
+  const { config } = useSettings();
+  return (
+    <>
+      <SettingSection
+        id="defaults"
+        title="Defaults"
+        description="Default Coding Agent for new sessions"
+        group="Session defaults"
+        groupIcon={SquareTerminal}
+      >
+        <SettingRow
+          title="Default Coding Agent"
+          description="Pre-selected for new sessions and automated session starters"
+          htmlFor="default-agent"
+          keywords="model claude codex antigravity"
+          control={
+            <ChoiceField
+              id="default-agent"
+              path="defaultAgent"
+              value={config.defaultAgent}
+              options={AGENT_NAMES.map((agent) => [agent, AGENT_LABELS[agent]] as const)}
+            />
+          }
+        />
+        <Muted size="xs" className="rounded-lg border bg-card/40 px-4 py-3">
+          Agent-owned behavior such as models and reasoning stays in each agent's native
+          configuration. Mesa starts the agent you pick and never translates permissions between
+          agents.
+        </Muted>
+      </SettingSection>
+      <SettingSection
+        id="logs"
+        title="Session logs"
+        description="What Mesa keeps of each session's terminal"
+      >
+        <SettingRow
+          icon={ScrollText}
+          title="Keep output logs"
+          description="Record each new session's terminal output in the profile, so its log can be read back later."
+          htmlFor="sessions-log"
+          control={
+            <ToggleField id="sessions-log" path="sessions.log" checked={config.sessions.log} />
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        id="status-line"
+        title="Status line"
+        description="What Claude Code shows under its prompt in Mesa sessions"
+      >
+        <SettingRow
+          icon={CircleDollarSign}
+          title="Show session cost"
+          description="End Claude's status line with the session's estimated cost, after your own status line. Applies to Claude sessions started or resumed from now on."
+          htmlFor="sessions-status-line-cost"
+          keywords="statusline cost usage price claude"
+          control={
+            <ToggleField
+              id="sessions-status-line-cost"
+              path="sessions.statusLineCost"
+              checked={config.sessions.statusLineCost}
+            />
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        id="saved-prompts"
+        title="Saved Prompts"
+        description="Manage reusable prompts"
+      >
+        <SettingRow
+          icon={BookMarked}
+          title="Saved prompts library"
+          description="Manage reusable prompts that can be inserted into any session."
+          control={
+            <Button size="sm" variant="secondary" onClick={props.onSavedPrompts}>
+              Manage
+            </Button>
+          }
+        />
+      </SettingSection>
+    </>
+  );
+}

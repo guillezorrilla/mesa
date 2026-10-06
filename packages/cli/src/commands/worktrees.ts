@@ -1,4 +1,4 @@
-import { MesaError, type WorktreeAction, type WorktreeRow } from '@mesa/core';
+import { branchLabel, MesaError, type WorktreeAction, type WorktreeRow } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -111,7 +111,7 @@ export const worktreesList = defineCommand({
         data
           .map(
             (row) =>
-              `${row.main ? 'main' : (row.branch ?? 'detached')}  ${row.path}  ${row.state}  ${row.holders.map((holder) => holder.id).join(',')}`,
+              `${row.main ? 'main' : branchLabel(row)}  ${row.path}  ${row.state}  ${row.holders.map((holder) => holder.id).join(',')}`,
           )
           .join('\n') || 'no worktrees',
     };

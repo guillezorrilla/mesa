@@ -57,3 +57,7 @@ P9 (#39) requires a receipt for each source check, including unchanged checks. T
 - The real runner is `envRunner(env)`: a call without `options.env` runs in the injected environment, never in `process.env`. The CLI builds it with `process.env`; tests run the real git and tmux over `testRunner`, and their own git calls with `env: testEnv`: a fixed PATH and no git config, so no test rewrites `process.env` around git.
 - A service gets the collaborators `createMesa` already holds instead of building a second one: sessions take the profile's `config.set`, backup takes the prompts' `list`.
 - Session tests run tmux on `fakeTmux()`, an in-memory tmux server at the runner seam that is also a `TmuxBackend` (the real backend over it), and shape it through its options (`failing`, `slow`, `before`, `after`, `addWindow`) rather than a runner that answers tmux arguments. Only `sessions/tmux/backend.test.ts` scripts tmux command lines, against a real tmux.
+
+## Amendment 2026-10-06: a first word may be a folder (#633)
+
+A first word may instead be a `commands/<word>/` folder whose `index.ts` exports its commands as one array (`vault/`, `git/`, `automations/`, `files/`), once it passes the size rule in AGENTS.md, Code shape, and `commands/index.test.ts` accepts either a file or a folder.

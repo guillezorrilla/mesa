@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { act, createRef } from 'react';
 import { expect, test } from 'vitest';
-import { ProfileMenu } from '@/app/ProfileMenu';
+import { ProfileMenu } from '@/features/profile/ProfileMenu';
 import {
   click,
   envelope,
@@ -11,7 +11,7 @@ import {
   renderWithMesa,
 } from '@/lib/testing';
 import { UpdateDialog } from './UpdateDialog';
-import { UpdateSettings } from './UpdateSettings';
+import { UpdateSettingsPanel } from './UpdateSettingsPanel';
 
 async function render(ui: React.ReactNode, initial: Parameters<typeof fakeUpdates>[0] = {}) {
   const updates = fakeUpdates(initial);
@@ -118,7 +118,7 @@ test('the profile menu checks for updates and keeps an Update ready entry after 
 });
 
 test('Settings switches the channel through core and checks the new feed', async () => {
-  const { calls, bridgeCalls } = await render(<UpdateSettings />, { phase: 'up-to-date' });
+  const { calls, bridgeCalls } = await render(<UpdateSettingsPanel />, { phase: 'up-to-date' });
   expect(document.body.textContent).toContain('Mesa is up to date.');
   const stable = document.querySelector<HTMLButtonElement>('button[aria-pressed="false"]');
   expect(stable?.textContent).toBe('Stable');

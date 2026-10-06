@@ -1,6 +1,6 @@
 import { NO_OUTPUT_LOG } from '@mesa/core';
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../guards.js';
+import { wholeNumber } from '../input/flags.js';
 
 export const logs = defineCommand({
   name: 'logs',

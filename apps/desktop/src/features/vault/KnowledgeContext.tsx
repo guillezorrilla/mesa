@@ -1,3 +1,4 @@
+import { odds } from '@mesa/core/browser';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,8 @@ function oddsOf({ probabilities, confidence }: Record<string, unknown>) {
   const parts = [
     ...Object.entries(probabilities && typeof probabilities === 'object' ? probabilities : {})
       .filter((entry): entry is [string, number] => typeof entry[1] === 'number')
-      .map(([option, p]) => `${option} ${p.toFixed(2)}`),
-    ...(typeof confidence === 'number' ? [`confidence ${confidence.toFixed(2)}`] : []),
+      .map(([option, p]) => `${option} ${odds(p)}`),
+    ...(typeof confidence === 'number' ? [`confidence ${odds(confidence)}`] : []),
   ];
   return parts.length ? parts.join(', ') : undefined;
 }
@@ -55,7 +56,7 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
             : entry.path;
         const rationale = entry.receipt.inputs.rationale;
         const answer = entry.receipt.decisions[0];
-        const odds = oddsOf(entry.receipt.inputs);
+        const chances = oddsOf(entry.receipt.inputs);
         const detail =
           typeof rationale === 'string'
             ? rationale
@@ -71,9 +72,9 @@ export function KnowledgeContext(props: { project?: string; session?: string }) 
             <div className="min-w-0 flex-1">
               <p className="font-medium">{entry.summary}</p>
               {detail && <p className="text-muted-foreground">{detail}</p>}
-              {odds && (
+              {chances && (
                 <Muted data-testid="knowledge-odds" size="xs">
-                  {odds}
+                  {chances}
                 </Muted>
               )}
               <Muted size="xs">

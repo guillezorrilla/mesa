@@ -2,7 +2,7 @@ import type { GhState } from '@mesa/core';
 import { GitPullRequest } from 'lucide-react';
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { Toggle } from '../controls/Toggle';
+import { ToggleField } from '../controls/ToggleField';
 import { SettingRow } from '../SettingRow';
 
 /** What gh's state means for PR events, in a few words. */
@@ -24,7 +24,9 @@ export function PrEvents(props: { enabled: boolean }) {
       description="Forward new CI failures, reviews, and comments on a session's pull request into it once it is idle."
       htmlFor="sessions-pr-events"
       keywords="github pull request checks reviews comments gh"
-      control={<Toggle id="sessions-pr-events" path="sessions.prEvents" checked={props.enabled} />}
+      control={
+        <ToggleField id="sessions-pr-events" path="sessions.prEvents" checked={props.enabled} />
+      }
     >
       <span
         role="status"

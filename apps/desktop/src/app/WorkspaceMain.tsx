@@ -13,10 +13,10 @@ import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScreen';
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
+import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import { VaultScreen } from '@/features/vault/VaultScreen';
 import { type CommandState, useRun } from '@/lib/useCommand';
-import type { SessionPreset } from './hooks/useStartSession';
-import type { WorkspaceView } from './navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** A sidebar request the Sessions screen acts on once per new `count`. */
 export type SessionRequest = { count: number; ids: string[] };

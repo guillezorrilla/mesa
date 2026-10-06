@@ -1,9 +1,8 @@
 import type { Agent, ManagedRow, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT } from '@mesa/core/browser';
+import { exited, GENERAL_PROJECT } from '@mesa/core/browser';
 import type { RefObject } from 'react';
 import { said, warningOf } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
-import { exited } from './rows';
 import type { NewSessionInput } from './SessionStart';
 import type { SessionAct } from './useSessionAct';
 

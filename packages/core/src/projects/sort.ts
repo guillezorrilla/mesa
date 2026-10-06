@@ -1,8 +1,8 @@
 import { MesaError } from '../lib/result.js';
 import { PROJECT_SORTS } from '../profile/preferences.js';
+import { isOver } from '../sessions/record/lifecycle.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import { sessionProjects } from '../sessions/record/session-projects.js';
-import { FINAL_STATES } from '../sessions/record/states.js';
 import type { ProjectRow } from './projects.js';
 import type { RegistryEntry } from './registry.js';
 
@@ -21,11 +21,7 @@ export function sortProjects(
   const visits = new Map(entries.map((entry) => [entry.name, entry]));
   const activity = new Map<string, { last: number; active: number }>();
   for (const session of sessions) {
-    const active =
-      !session.endedAt &&
-      !session.archivedAt &&
-      !session.resumedBy &&
-      !FINAL_STATES.has(session.lastState.state);
+    const active = !isOver(session) && !session.archivedAt && !session.resumedBy;
     for (const project of sessionProjects(session)) {
       const value = activity.get(project) ?? { last: 0, active: 0 };
       value.last = Math.max(value.last, Date.parse(session.startedAt));

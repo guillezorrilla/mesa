@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { AdditionalProjectsField } from './fields/AdditionalProjectsField';
-import { ProjectSelect } from './fields/ProjectSelect';
+import { ProjectField } from './fields/ProjectField';
 
 /** A session the Sessions screen opens itself: the empty state's first message, or a child. */
 export type NewSessionInput = {
@@ -102,7 +102,7 @@ export function SessionStart(props: {
             <Label htmlFor="session-start-project" className="sr-only">
               Project
             </Label>
-            <ProjectSelect
+            <ProjectField
               id="session-start-project"
               projects={projects}
               value={project?.name ?? ''}

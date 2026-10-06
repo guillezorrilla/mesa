@@ -1,5 +1,12 @@
 import type { SavedPrompt, TreeRow } from '@mesa/core';
-import { GENERAL_PROJECT, isRun, supportsAgentCapability } from '@mesa/core/browser';
+import {
+  exited,
+  GENERAL_PROJECT,
+  isRun,
+  queued,
+  resumable,
+  supportsAgentCapability,
+} from '@mesa/core/browser';
 import {
   Download,
   ExternalLink,
@@ -13,7 +20,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { KnowledgeContext } from '@/features/vault/KnowledgeContext';
 import type { OpenDialog } from '../dialogs/SessionDialogs';
-import { exited, queued, resumable } from '../rows';
 import type { SessionCommands } from '../useSessionCommands';
 import { PromptComposer } from './PromptComposer';
 import { RowMenu } from './RowMenu';

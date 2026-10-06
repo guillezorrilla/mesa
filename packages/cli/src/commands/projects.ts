@@ -1,5 +1,6 @@
 import { describePending, MesaError, trustCommand } from '@mesa/core';
 import { defineCommand } from '../command.js';
+import { trueOrFalse, upOrDown } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -38,21 +39,11 @@ export const projectsUpdate = defineCommand({
   },
   example: 'mesa projects update lantern-cove --pinned true',
   run: ({ mesa, args, flags }) => {
-    const bool = (name: 'pinned' | 'hidden') => {
-      const value = flags[name];
-      if (value !== undefined && value !== 'true' && value !== 'false') {
-        throw new MesaError('usage', `--${name} must be true or false`);
-      }
-      return value === undefined ? undefined : value === 'true';
-    };
-    const move = flags.move;
-    if (move !== undefined && move !== 'up' && move !== 'down') {
-      throw new MesaError('usage', '--move must be up or down');
-    }
+    const move = flags.move === undefined ? undefined : upOrDown(flags.move, '--move');
     const recorded = mesa.projects.update(args.name, {
       ...(flags.label !== undefined ? { label: flags.label } : {}),
-      ...(flags.pinned !== undefined ? { pinned: bool('pinned') } : {}),
-      ...(flags.hidden !== undefined ? { hidden: bool('hidden') } : {}),
+      ...(flags.pinned !== undefined ? { pinned: trueOrFalse(flags.pinned, '--pinned') } : {}),
+      ...(flags.hidden !== undefined ? { hidden: trueOrFalse(flags.hidden, '--hidden') } : {}),
       ...(move !== undefined ? { move } : {}),
     });
     return recordedOutput(recorded, {

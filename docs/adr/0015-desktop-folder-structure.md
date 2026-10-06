@@ -36,3 +36,7 @@ The move (commit `desktop: group src into app, features, components and lib`) ch
 - ADR-0009's "a screen with several parts gets a folder" becomes "every domain gets a folder"; its `components/` list is now the domain-free set (ActionDialog, CountPill, IconButton, MarkdownView, Muted, PageHeader, SectionLabel, SegmentedControl, Toast).
 - A new app command still lands as one entry in the client's command table (ADR-0008), now in the file for its domain under `lib/client/`.
 - Moving a file is cheap across folders (the `@/` import does not change when the importer moves), so a file that outgrows its folder moves with the PR that makes it shared.
+
+## Amendment 2026-10-06: a Field may be labelled by its row (#633)
+
+A `Field` is one form control, labelled by itself or by the row or form that holds it, so the settings controls (`ChoiceField`, `ToggleField`, `RangeField`) and `ProjectField` carry the suffix too.

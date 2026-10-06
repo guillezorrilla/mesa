@@ -1,7 +1,7 @@
 import { DEFAULT_RECEIPT_LIMIT, RECEIPT_TYPES, RECORD_KINDS } from '@mesa/core';
 import { stringify } from 'yaml';
 import { defineCommand } from '../command.js';
-import { wholeNumber } from '../guards.js';
+import { wholeNumber } from '../input/flags.js';
 import { columns } from '../output/columns.js';
 
 export const receipts = defineCommand({

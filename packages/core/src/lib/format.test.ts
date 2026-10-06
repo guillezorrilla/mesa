@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { duration, listPrice, percent } from './format.js';
+import { duration, listPrice, odds, percent, usd } from './format.js';
 
 test('durations and list prices read the same everywhere', () => {
   expect([0, 42, 60, 303, 3600, 7620].map(duration)).toEqual([
@@ -16,4 +16,14 @@ test('durations and list prices read the same everywhere', () => {
 
 test('a confidence reads the same everywhere', () => {
   expect(percent(0.954)).toBe('95%');
+});
+
+test('dollars read to the places a site shows, or in full', () => {
+  expect(usd(0.012345, 4)).toBe('$0.0123');
+  expect(usd(5, 2)).toBe('$5.00');
+  expect(usd(0.000167)).toBe('$0.000167');
+});
+
+test("Faro's odds read to two places", () => {
+  expect([0.8, 0.125, 1].map(odds)).toEqual(['0.80', '0.13', '1.00']);
 });

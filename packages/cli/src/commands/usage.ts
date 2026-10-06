@@ -1,3 +1,4 @@
+import { costAlertText, usd } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 
@@ -22,14 +23,11 @@ export const usage = defineCommand({
               row.tokens.output ?? '?',
               row.tokens.cacheRead ?? '?',
               row.tokens.cacheWrite ?? '?',
-              row.estimatedCostUsd === null ? 'cost unknown' : `$${row.estimatedCostUsd}`,
+              row.estimatedCostUsd === null ? 'cost unknown' : usd(row.estimatedCostUsd),
             ]),
           ),
           ...report.unknown.map((item) => `${item.session}: ${item.reason}`),
-          ...report.alerts.map(
-            (alert) =>
-              `${alert.period} known estimated cost $${alert.knownCostUsd.toFixed(4)} reached the $${alert.thresholdUsd.toFixed(2)} alert`,
-          ),
+          ...report.alerts.map(costAlertText),
         ].join('\n') || 'no qualified native usage yet',
     };
   },

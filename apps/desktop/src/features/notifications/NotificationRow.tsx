@@ -1,8 +1,8 @@
 import type { InboxFix, InboxItem } from '@mesa/core';
+import { timeAgo } from '@mesa/core/browser';
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import { IconButton } from '@/components/IconButton';
 import { Muted } from '@/components/Muted';
-import { timeAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
 
 /** What each Doctor fix's button says. */
@@ -74,7 +74,7 @@ export function NotificationRow(props: {
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
         <time dateTime={item.at} className="text-xs text-muted-foreground">
-          {timeAgo(item.at)}
+          {timeAgo(item.at, Date.now())}
         </time>
         <IconButton
           label={`Clear ${item.title}`}

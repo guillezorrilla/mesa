@@ -1,11 +1,10 @@
 import type { ManagedRow, TreeRow } from '@mesa/core';
-import { descendantOrder, sessionLabel } from '@mesa/core/browser';
+import { descendantOrder, exited, queued, sessionLabel } from '@mesa/core/browser';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useCommand } from '@/lib/useCommand';
-import { exited, queued } from '../rows';
 import { useDeleteBranch } from './useDeleteBranch';
 
 /** Confirm the exact parent-linked subtree before a child-first stop or removal. */

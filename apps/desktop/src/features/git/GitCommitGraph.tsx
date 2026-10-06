@@ -1,6 +1,6 @@
 import type { GitGraphCommit } from '@mesa/core';
+import { shortAgo } from '@mesa/core/browser';
 import { useMemo } from 'react';
-import { shortAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
 import { graphLanes, type LaneEdge } from './graphLanes';
 
@@ -125,7 +125,7 @@ export function GitCommitGraph(props: {
                   </span>
                 )}
                 <span className="w-10 shrink-0 text-right text-xs text-muted-foreground/70">
-                  {shortAgo(commit.authoredAt)}
+                  {shortAgo(commit.authoredAt, Date.now())}
                 </span>
               </button>
             </li>

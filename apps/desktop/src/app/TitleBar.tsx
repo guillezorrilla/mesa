@@ -4,13 +4,14 @@ import type { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { HelpMenu } from '@/features/help/HelpMenu';
 import { NotificationsMenu } from '@/features/notifications/NotificationsMenu';
+import { ProfileMenu } from '@/features/profile/ProfileMenu';
+import { NewSessionMenu } from '@/features/sessions/start/NewSessionMenu';
+import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import type { SettingsCategory } from '@/features/settings/categories';
 import { keyCaps } from '@/lib/fixedShortcuts';
+import type { WorkspaceView } from '@/lib/workspaceView';
 import mesaLogo from '../../src-tauri/icons/128x128.png';
-import type { SessionPreset } from './hooks/useStartSession';
-import { NewSessionMenu } from './NewSessionMenu';
-import type { Overlay, WorkspaceView } from './navigation';
-import { ProfileMenu } from './ProfileMenu';
+import type { Overlay } from './navigation';
 
 /** The window's title bar, a drag region: the name, search, new session, the menus, and the profile. */
 export function TitleBar(props: {

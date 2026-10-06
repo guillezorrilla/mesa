@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { usePlatform } from '@/lib/MesaRoot';
-import type { WorkspaceView } from '../navigation';
+import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** Opens the screens the macOS app menu names (About Mesa) through `navigate`, which must be stable. */
 export function useAppMenu(navigate: (view: WorkspaceView) => void) {

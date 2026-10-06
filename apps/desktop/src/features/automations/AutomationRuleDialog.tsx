@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
-import { ProjectSelect } from '@/features/sessions/fields/ProjectSelect';
+import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 
@@ -85,7 +85,7 @@ export function AutomationRuleDialog(props: {
         <Label htmlFor="automation-project">Project</Label>
         {/* Mounted with its options, so the uncontrolled select starts on `project`. */}
         {projects.data && (
-          <ProjectSelect
+          <ProjectField
             id="automation-project"
             projects={projects.data}
             defaultValue={props.project}

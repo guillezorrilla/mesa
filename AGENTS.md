@@ -22,7 +22,7 @@ A macOS app plus a `mesa` CLI that runs many Claude Code and Codex sessions acro
 The code stays reusable and easy to maintain; every PR is reviewed against these rules.
 
 - Every concept has one owner: a module, helper, path, lookup, or guard. Before writing one, `git grep` for its owner and extend it, so no second copy appears.
-- One job per module and one concept per file, in the folder of its domain (`packages/core/src/<domain>/`, `packages/cli/src/commands/<first word>.ts`, `apps/desktop/src/features/<domain>/`). When a module's summary needs "and", split it.
+- One job per module and one concept per file, in the folder of its domain (`packages/core/src/<domain>/`, `packages/cli/src/commands/<first word>.ts`, or a `<first word>/` folder with an `index.ts` once it passes about 250 lines or 8 subcommands, `apps/desktop/src/features/<domain>/`). When a module's summary needs "and", split it.
 - Modules are deep: a small interface over real behaviour. A seam exists where two implementations do (ADR-0008); a pass-through layer or an option nobody asked for does not.
 - Tests cross the interface callers use, over the seams and fixtures in `@mesa/core/testing`; a helper two test files need moves there.
 - The app builds screens from shared components in `apps/desktop/src/components/`: shadcn/ui on Tailwind, with lucide-react icons.

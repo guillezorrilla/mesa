@@ -1,5 +1,5 @@
 import { defineCommand } from '../command.js';
-import { APP_FLAG, requireTty } from '../guards.js';
+import { APP_FLAG, requireTty } from '../input/flags.js';
 
 /** tmux attach needs a terminal; say so before anything prints `opened`. */
 export const attach = defineCommand({

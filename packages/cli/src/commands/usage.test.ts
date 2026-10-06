@@ -44,3 +44,35 @@ test('usage JSON scopes period totals to the selected session', async () => {
     periods: { today: { input: 0, output: 0 } },
   });
 });
+
+test('usage text names a reached cost alert in the sentence the app shows', async () => {
+  cli.withTmux();
+  const dir = await cli.withProject();
+  const first = (await cli.mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+  const nativeId = (await cli.mesa('show', first, '--json')).json.data.agentSessionId;
+  plantTranscript(
+    cli.home,
+    nativeId,
+    dir,
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-09-24T12:00:00.000Z',
+      message: {
+        id: 'msg_lantern',
+        model: 'claude-opus-5-5',
+        usage: {
+          input_tokens: 3,
+          output_tokens: 2,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    }),
+  );
+  expect((await cli.mesa('config', 'set', 'usage.dailyAlertUsd', '0.000001')).code).toBe(0);
+  const { code, stdout } = await cli.mesa('usage');
+  expect(code).toBe(0);
+  expect(stdout).toContain(
+    'Known estimated today cost reached your $0.00 alert. Agents keep running.',
+  );
+});

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import type { DoctorReport, InboxItem } from '@mesa/core';
+import { timeAgo } from '@mesa/core/browser';
 import { useState } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
-import { timeAgo } from '@/lib/timeAgo';
 import { NotificationsMenu } from './NotificationsMenu';
 
 const hooks: InboxItem = {

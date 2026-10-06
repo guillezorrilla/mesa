@@ -1,4 +1,5 @@
 import type { WorktreeAction, WorktreePreview, WorktreeRow } from '@mesa/core';
+import { worktreeName } from '@mesa/core/browser';
 import { FolderGit2, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { SectionLabel } from '@/components/SectionLabel';
@@ -8,7 +9,6 @@ import type { CommandState } from '@/lib/useCommand';
 import { useRun } from '@/lib/useCommand';
 import { type Card, WorktreeCard } from './WorktreeCard';
 import { WorktreeDialog } from './WorktreeDialog';
-import { nameOf } from './worktreeName';
 
 /**
  * A project's Worktrees: a card per checkout whose hover actions start a session in it,
@@ -69,8 +69,8 @@ export function WorktreesSection(props: {
         preview.action === 'cleanup'
           ? `Cleaned up ${done.paths.length} missing worktree(s)`
           : preview.action === 'recycle'
-            ? `Recycled ${tree ? nameOf(tree) : 'worktree'} to ${done.base}${done.fetchFailed ? ' (could not fetch origin first; it may be behind)' : ''}${done.branchKept ? `; kept branch ${done.branch}: ${done.branchKept}` : ''}`
-            : `Removed worktree ${tree ? nameOf(tree) : ''}`;
+            ? `Recycled ${tree ? worktreeName(tree) : 'worktree'} to ${done.base}${done.fetchFailed ? ' (could not fetch origin first; it may be behind)' : ''}${done.branchKept ? `; kept branch ${done.branch}: ${done.branchKept}` : ''}`
+            : `Removed worktree ${tree ? worktreeName(tree) : ''}`;
       return said(what, done);
     });
   return (
@@ -114,7 +114,7 @@ export function WorktreesSection(props: {
       </div>
       {asked && (
         <WorktreeDialog
-          name={asked.tree ? nameOf(asked.tree) : props.project}
+          name={asked.tree ? worktreeName(asked.tree) : props.project}
           preview={asked.preview}
           busy={acting}
           deleteBranch={deleteBranch}

@@ -11,7 +11,7 @@ import { useDialogRequest } from './dialogs/useDialogRequest';
 import { GridToolbar } from './grid/GridToolbar';
 import { useGrid } from './grid/useGrid';
 import { BrowserPanel } from './review/BrowserPanel';
-import { ResponseReview } from './review/ResponseReview';
+import { ReviewPanel } from './review/ReviewPanel';
 import { SessionStart } from './SessionStart';
 import { SelectedSessionBar } from './selected/SelectedSessionBar';
 import { SessionActionsMenu } from './selected/SessionActionsMenu';
@@ -206,7 +206,7 @@ export function SessionsScreen(
           }}
         />
         {selected?.managed && side.reviewOpen && (
-          <ResponseReview
+          <ReviewPanel
             key={`${selected.id}:${side.reviewResponse?.source ?? ''}`}
             sessionId={selected.id}
             initialResponse={side.reviewResponse}

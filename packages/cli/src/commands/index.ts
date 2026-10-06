@@ -4,19 +4,7 @@ import { adopt } from './adopt.js';
 import { agents } from './agents.js';
 import { archive } from './archive.js';
 import { attach } from './attach.js';
-import {
-  automationsAdd,
-  automationsApprove,
-  automationsCancel,
-  automationsDisable,
-  automationsEnable,
-  automationsInstall,
-  automationsList,
-  automationsRemove,
-  automationsStatus,
-  automationsTick,
-  automationsUninstall,
-} from './automations.js';
+import { AUTOMATIONS_COMMANDS } from './automations/index.js';
 import { backupCreate, backupRestore } from './backup.js';
 import {
   browserAnnotationPreview,
@@ -32,41 +20,10 @@ import { dependency } from './dependency.js';
 import { diagnostics } from './diagnostics.js';
 import { discover, discoverAdopt } from './discover.js';
 import { doctor, doctorInstall } from './doctor.js';
-import {
-  filesCreate,
-  filesDelete,
-  filesLink,
-  filesOpen,
-  filesRead,
-  filesRename,
-  filesSearch,
-  filesTree,
-  filesWrite,
-} from './files.js';
+import { FILES_COMMANDS } from './files/index.js';
 import { forceStart } from './force-start.js';
 import { fork } from './fork.js';
-import {
-  gitBranchCheckout,
-  gitBranchCreate,
-  gitBranchDelete,
-  gitBranches,
-  gitCommit,
-  gitCompare,
-  gitDiff,
-  gitGraph,
-  gitInsight,
-  gitPull,
-  gitPush,
-  gitStage,
-  gitStashApply,
-  gitStashCreate,
-  gitStashDrop,
-  gitStashes,
-  gitStashPop,
-  gitStatus,
-  gitTracking,
-  gitUnstage,
-} from './git.js';
+import { GIT_COMMANDS } from './git/index.js';
 import { goal } from './goal.js';
 import { grid, gridRemove, gridSave } from './grid.js';
 import { guardrailCheck } from './guardrail.js';
@@ -133,22 +90,7 @@ import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { updateChannel, updateCheck, updateInstall, updateRevoked } from './update.js';
 import { usage } from './usage.js';
-import {
-  vaultBases,
-  vaultContext,
-  vaultGoals,
-  vaultHealth,
-  vaultInit,
-  vaultList,
-  vaultMcp,
-  vaultOpen,
-  vaultRead,
-  vaultSaveDecision,
-  vaultSaveNote,
-  vaultSaveSummary,
-  vaultSearch,
-  vaultStatus,
-} from './vault.js';
+import { VAULT_COMMANDS } from './vault/index.js';
 import { view } from './view.js';
 import { windows } from './windows.js';
 import { workflow } from './workflow.js';
@@ -161,7 +103,8 @@ import {
 } from './worktrees.js';
 
 // Every mesa subcommand, in help order. A command lives in the file named for its first word
-// (`hooks install` in hooks.ts), and has one entry here.
+// (`hooks install` in hooks.ts); a first word past the size rule in AGENTS.md, Code shape, is a
+// folder whose index.ts lists it (`vault save note` in vault/). Each has one entry here.
 export const COMMANDS: Command[] = [
   about,
   aboutLicenses,
@@ -169,17 +112,7 @@ export const COMMANDS: Command[] = [
   agents,
   archive,
   attach,
-  automationsList,
-  automationsInstall,
-  automationsUninstall,
-  automationsStatus,
-  automationsTick,
-  automationsApprove,
-  automationsCancel,
-  automationsAdd,
-  automationsRemove,
-  automationsEnable,
-  automationsDisable,
+  ...AUTOMATIONS_COMMANDS,
   backupCreate,
   backupRestore,
   browserAnnotationPreview,
@@ -198,38 +131,11 @@ export const COMMANDS: Command[] = [
   doctor,
   doctorInstall,
   obsidianVaults,
-  filesCreate,
-  filesDelete,
-  filesLink,
-  filesOpen,
-  filesRead,
-  filesRename,
-  filesSearch,
-  filesTree,
-  filesWrite,
+  ...FILES_COMMANDS,
   fork,
   forceStart,
   goal,
-  gitBranchCheckout,
-  gitBranchCreate,
-  gitBranchDelete,
-  gitBranches,
-  gitCommit,
-  gitCompare,
-  gitDiff,
-  gitGraph,
-  gitInsight,
-  gitPull,
-  gitPush,
-  gitStage,
-  gitStashApply,
-  gitStashCreate,
-  gitStashDrop,
-  gitStashPop,
-  gitStashes,
-  gitStatus,
-  gitTracking,
-  gitUnstage,
+  ...GIT_COMMANDS,
   grid,
   gridSave,
   gridRemove,
@@ -313,20 +219,7 @@ export const COMMANDS: Command[] = [
   updateInstall,
   updateRevoked,
   usage,
-  vaultHealth,
-  vaultBases,
-  vaultInit,
-  vaultList,
-  vaultMcp,
-  vaultOpen,
-  vaultRead,
-  vaultSaveDecision,
-  vaultSaveNote,
-  vaultSaveSummary,
-  vaultSearch,
-  vaultStatus,
-  vaultContext,
-  vaultGoals,
+  ...VAULT_COMMANDS,
   view,
   windows,
   workflow,

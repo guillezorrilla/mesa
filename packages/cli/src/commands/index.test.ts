@@ -83,15 +83,26 @@ test('mesa help without --agent prints the command list', async () => {
   expect(stdout).toBe((await mesa('--help')).stdout);
 });
 
-test('each command lives in the file named for its first word, and every file is registered', async () => {
+test('each command lives in the file or folder named for its first word, and every file is registered', async () => {
   const dir = new URL('.', import.meta.url);
-  const files = readdirSync(dir).filter((f) => /^[a-z-]+\.ts$/.test(f) && f !== 'index.ts');
+  const isModule = (f: string) => /^[a-z-]+\.ts$/.test(f) && f !== 'index.ts';
   const found: string[] = [];
-  for (const file of files) {
-    const commands = Object.values(await import(new URL(file, dir).href)) as Command[];
+  const check = async (file: URL, word: string) => {
+    const exported = Object.values(await import(file.href)) as unknown[];
+    const commands = exported.filter((v): v is Command => typeof v === 'object' && v !== null);
     for (const c of commands) {
-      expect(`${c.name.split(' ')[0]}.ts`, c.name).toBe(file);
+      expect(c.name.split(' ')[0], c.name).toBe(word);
       found.push(c.name);
+    }
+  };
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      const folder = new URL(`${entry.name}/`, dir);
+      for (const file of readdirSync(folder).filter(isModule)) {
+        await check(new URL(file, folder), entry.name);
+      }
+    } else if (isModule(entry.name)) {
+      await check(new URL(entry.name, dir), entry.name.slice(0, -'.ts'.length));
     }
   }
   expect(found.sort()).toEqual(COMMANDS.map((c) => c.name).sort());
