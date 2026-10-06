@@ -741,9 +741,12 @@ export function plantOutputLog(home: string, id: string, text: string | Buffer) 
   return file;
 }
 
-/** A live Claude Code process `pid`'s state file, with `fields` such as `name` and `nameSource`. */
-export function plantLiveSession(home: string, pid: number, fields: object) {
-  const dir = claudeLiveSessions(home, {});
+/**
+ * A live Claude Code process `pid`'s state file, with `fields` such as `name` and `nameSource`;
+ * under `env`'s CLAUDE_CONFIG_DIR when it sets one.
+ */
+export function plantLiveSession(home: string, pid: number, fields: object, env: Env = {}) {
+  const dir = claudeLiveSessions(home, env);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${pid}.json`), JSON.stringify({ pid, ...fields }));
 }

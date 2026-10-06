@@ -27,7 +27,10 @@ export const claudeInstalledPlugins = (claudeDir: string) =>
 export const CLAUDE_PROJECT_DIR = '.claude';
 export const CLAUDE_PROJECT_SKILLS = join(CLAUDE_PROJECT_DIR, 'skills');
 
-/** Every session's transcript, under its config folder: `<folder>/<agent session id>.jsonl`, one folder per working folder. */
+/**
+ * Every session's transcript, under its config folder: `<folder>/<agent session id>.jsonl`, one
+ * folder per working folder.
+ */
 export const claudeTranscripts = (home: string, env: Env) =>
   join(claudeHome(home, env), 'projects');
 

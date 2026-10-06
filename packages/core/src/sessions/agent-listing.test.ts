@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { AGENTS } from '../agents/agents.js';
 import {
@@ -49,6 +50,19 @@ test("a Claude Code process's name is the one a person gave it with /rename, nev
   expect(await list()).toBeUndefined();
   plantLiveSession(home, 67213, { sessionId, name: ' guest-3-sentry-issues ', nameSource: 'user' });
   expect(await list()).toBe('guest-3-sentry-issues');
+});
+
+test('with CLAUDE_CONFIG_DIR set, a /rename name is read from its live sessions, not ~/.claude', async () => {
+  const home = tempDir();
+  const env = { CLAUDE_CONFIG_DIR: join(home, 'config/claude') };
+  const sessionId = SPIKE_LISTING.idle.sessionId;
+  const run = scriptedRunner({ claude: listing(SPIKE_LISTING.idle) }).run;
+  const list = async () => (await listAgentProcesses(listingDeps(run, { home, env })))[0]?.name;
+  // A decoy in ~/.claude, which Claude Code does not use while CLAUDE_CONFIG_DIR is set.
+  plantLiveSession(home, 67213, { sessionId, name: 'decoy', nameSource: 'user' });
+  expect(await list()).toBeUndefined();
+  plantLiveSession(home, 67213, { sessionId, name: 'tide-notes', nameSource: 'user' }, env);
+  expect(await list()).toBe('tide-notes');
 });
 
 test('Claude background listing keeps the handle and distinguishes a stopped process', async () => {
