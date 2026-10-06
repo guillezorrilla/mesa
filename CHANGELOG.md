@@ -2,6 +2,29 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.1.6 - 2026-10-06
+
+### Features
+
+- **sessions**: a session's state files recover from a crash: a lock left by a dead process is taken over, and a retried write keeps one receipt (#640, #642, #644)
+
+### Fixes
+
+- **sessions**: tmux windows, worktrees and file writes recover from a crash midway (#646)
+- **sessions**: one resume per conversation, even when started twice (#645)
+- **sessions**: a new session's terminal shows its own window (#635)
+- **agents**: read Claude transcripts and settings from CLAUDE_CONFIG_DIR (#636)
+- **usage**: agent labels and usage types come from core, the same in the CLI and the app (#600)
+
+### Breaking changes
+
+- **instructions**: agent instruction files moved from rules to instructions: `mesa rules` is now `mesa instructions list|read|write`, and the app's Rules tab is Instructions. `mesa rules` exits with a pointer to the new name (#601, #637)
+
+### Other
+
+- **release**: one update installer, through the app (#602)
+- **core**: dependency injection cleanup: the command runner carries an injected environment, and modules take only what they use (#649, #650)
+
 ## 0.1.5 - 2026-10-05
 
 ### Features
