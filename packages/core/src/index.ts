@@ -41,7 +41,7 @@ export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
 export type { InstructionRow } from './instructions/inventory.js';
 export { type Clock, systemClock } from './lib/clock.js';
-export { counted, duration, listPrice, percent } from './lib/format.js';
+export { counted, duration, listPrice, odds, percent, usd } from './lib/format.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';
@@ -145,6 +145,7 @@ export type { SkillRow, SkillSync } from './skills/sync.js';
 export { type BrowseChild, type BrowseResult, DESCENDANTS_CAP } from './sources/browse.js';
 export { type CallbackListen, loopbackListener } from './sources/callback-listener.js';
 export type { Account, Site } from './sources/connection.js';
+export { siteNames } from './sources/describe.js';
 export type { ImportedItem, ImportResult, RefreshOptions } from './sources/import.js';
 export type { ImportListRow } from './sources/import-service.js';
 export type { ItemSource } from './sources/items.js';
@@ -152,6 +153,7 @@ export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
 export { UPDATE_CHANNELS, type UpdateChannel } from './update/feeds.js';
 export type { Revoked, UpdateCheck, UpdateInstall } from './update/service.js';
+export { costAlertText } from './usage/alert.js';
 export type {
   UsageBreakdown,
   UsageRecord,
@@ -201,4 +203,5 @@ export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeDetails } from './worktrees/details.js';
 export type { WorktreeAction } from './worktrees/facts.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';
+export { branchLabel } from './worktrees/name.js';
 export type { WorktreePreview } from './worktrees/preview.js';

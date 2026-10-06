@@ -1,7 +1,7 @@
 import type { NativeLive } from '@mesa/core';
+import { timeAgo } from '@mesa/core/browser';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { timeAgo } from '@/lib/timeAgo';
 
 /**
  * A session running now outside Mesa, in Find from sessions: its name, else its first prompt, with
@@ -39,7 +39,7 @@ export function RunningSessionRow(props: {
       </span>
       <span data-testid="discovery-live-meta" className="shrink-0 text-muted-foreground text-xs">
         {session.agent}
-        {session.updatedAt ? ` · ${timeAgo(session.updatedAt)}` : ''}
+        {session.updatedAt ? ` · ${timeAgo(session.updatedAt, Date.now())}` : ''}
       </span>
       <span
         className="max-w-48 truncate font-mono text-muted-foreground text-xs"

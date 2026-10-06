@@ -1,8 +1,8 @@
 import type { SourceRow } from '@mesa/core';
+import { describeSource } from '@mesa/core/browser';
 import { Cable } from 'lucide-react';
 import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
-import { describeSource } from '@/lib/describeSource';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { useConnect } from '@/lib/useConnect';

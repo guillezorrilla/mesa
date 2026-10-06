@@ -1,8 +1,9 @@
 import type { UsageBreakdown, UsageTotals } from '@mesa/core';
+import { usd } from '@mesa/core/browser';
 
 /** List-price dollars to the cent; a cost too small for a cent still reads as spent. */
 export const money = (value: number | null) =>
-  value === null ? 'Unknown' : value > 0 && value < 0.005 ? '<$0.01' : `$${value.toFixed(2)}`;
+  value === null ? 'Unknown' : value > 0 && value < 0.005 ? '<$0.01' : usd(value, 2);
 
 /** 207.4k, 1.2M: token counts, short. */
 export const compact = (value: number | null) =>

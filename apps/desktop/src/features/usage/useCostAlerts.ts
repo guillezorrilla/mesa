@@ -1,3 +1,4 @@
+import { costAlertText } from '@mesa/core/browser';
 import { useEffect } from 'react';
 import { useToast } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
@@ -24,11 +25,10 @@ export function useCostAlerts(navigate: (view: WorkspaceView) => void) {
         const key = `${alert.period}:${alert.period === 'month' ? day.slice(0, 7) : day}:${alert.thresholdUsd}`;
         if (announced.has(key)) continue;
         announced.add(key);
-        toast(
-          `Known estimated ${alert.period === 'month' ? 'calendar month' : alert.period} cost reached your $${alert.thresholdUsd.toFixed(2)} alert. Agents keep running.`,
-          'alert',
-          { label: 'Open Usage', onFollow: () => navigate({ kind: 'usage' }) },
-        );
+        toast(costAlertText(alert), 'alert', {
+          label: 'Open Usage',
+          onFollow: () => navigate({ kind: 'usage' }),
+        });
       }
     };
     void check();

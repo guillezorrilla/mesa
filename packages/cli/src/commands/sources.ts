@@ -1,15 +1,10 @@
-import { DESCENDANTS_CAP, type SourceRow } from '@mesa/core';
+import { DESCENDANTS_CAP, type SourceRow, siteNames } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
 
 /** One source's line: its id, status, account, and sites. */
-const line = (row: SourceRow) => [
-  row.id,
-  row.status,
-  row.account?.name,
-  row.sites?.map((site) => site.name).join(', '),
-];
+const line = (row: SourceRow) => [row.id, row.status, row.account?.name, siteNames(row)];
 
 export const sourcesConnect = defineCommand({
   name: 'sources connect',

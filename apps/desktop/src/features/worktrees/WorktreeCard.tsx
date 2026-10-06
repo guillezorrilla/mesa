@@ -1,9 +1,8 @@
 import type { WorktreeAction, WorktreeDetails, WorktreeRow } from '@mesa/core';
+import { branchLabel, timeAgo, worktreeName } from '@mesa/core/browser';
 import { Folder, FolderGit2, GitBranch, LoaderCircle, Play, RefreshCw, Trash2 } from 'lucide-react';
-import { timeAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
 import { CardAction } from './CardAction';
-import { nameOf } from './worktreeName';
 import { statusOf } from './worktreeStatus';
 
 /** A checkout as its card shows it: the worktree and what is in it. */
@@ -26,7 +25,7 @@ export function WorktreeCard(props: {
 }) {
   const { tree } = props;
   const held = tree.holders[0];
-  const name = nameOf(tree);
+  const name = worktreeName(tree);
   const open = props.applying
     ? undefined
     : held
@@ -60,7 +59,7 @@ export function WorktreeCard(props: {
       </span>
       <span className="flex items-center gap-1 font-mono text-state-working">
         <GitBranch aria-hidden className="size-3" />
-        {tree.branch ?? 'detached'}
+        {branchLabel(tree)}
         {!tree.main && (tree.ahead ?? 0) > 0 && (
           <span className="text-[10px] text-muted-foreground">+{tree.ahead}</span>
         )}
@@ -79,7 +78,7 @@ export function WorktreeCard(props: {
         </span>
         {tree.createdAt && (
           <span className="ml-auto pr-1 group-hover:invisible">
-            created {timeAgo(tree.createdAt)}
+            created {timeAgo(tree.createdAt, Date.now())}
           </span>
         )}
       </span>

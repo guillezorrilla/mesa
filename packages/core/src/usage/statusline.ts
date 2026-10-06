@@ -1,5 +1,6 @@
 import { NESTED_STATUS_LINE_VAR, userStatusLineCommand } from '../agents/claude/statusline.js';
 import type { MesaContext } from '../context.js';
+import { usd } from '../lib/format.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { sessionCost } from './session-cost.js';
 
@@ -18,7 +19,7 @@ export type StatusLine = {
 
 /** The user's line with the cost at its end (on its last line), else the cost alone. */
 export const statusLineText = (user: string | null, costUsd: number | null) => {
-  const cost = costUsd === null ? '' : `$${costUsd.toFixed(2)} est.`;
+  const cost = costUsd === null ? '' : `${usd(costUsd, 2)} est.`;
   return [user, cost].filter(Boolean).join(' · ');
 };
 

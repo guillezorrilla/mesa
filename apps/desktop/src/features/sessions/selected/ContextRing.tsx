@@ -1,8 +1,7 @@
 import type { SessionRecord } from '@mesa/core';
-import { contextPercent } from '@mesa/core/browser';
+import { contextPercent, timeAgo } from '@mesa/core/browser';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
-import { timeAgo } from '@/lib/timeAgo';
 import { cn } from '@/lib/utils';
 import { contextTone, toneIndicator } from '../ContextBar';
 
@@ -60,7 +59,7 @@ export function ContextRing(props: { context?: SessionRecord['context'] }) {
               <dt className="text-muted-foreground">Effort</dt>
               <dd>{context.effort ?? 'Unknown'}</dd>
               <dt className="text-muted-foreground">Read</dt>
-              <dd>{timeAgo(context.at)}</dd>
+              <dd>{timeAgo(context.at, Date.now())}</dd>
             </dl>
           </div>
         ) : (

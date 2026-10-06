@@ -1,9 +1,7 @@
-import { listPrice, MesaError } from '@mesa/core';
+import { listPrice, MesaError, odds } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
-
-const two = (n: number) => n.toFixed(2);
 
 /** Asks Faro directly, to see what a backend answers; the answers go in a decision receipt. */
 export const decide = defineCommand({
@@ -29,8 +27,8 @@ export const decide = defineCommand({
       decision.answers.map((a) => [
         a.id,
         a.kind,
-        typeof a.answer === 'number' ? two(a.answer) : String(a.answer),
-        a.kind === 'Noul' ? `p ${two(a.probabilities)}` : `confidence ${two(a.confidence)}`,
+        typeof a.answer === 'number' ? odds(a.answer) : String(a.answer),
+        a.kind === 'Noul' ? `p ${odds(a.probabilities)}` : `confidence ${odds(a.confidence)}`,
       ]),
     );
     const cost = listPrice(decision.costUsd);

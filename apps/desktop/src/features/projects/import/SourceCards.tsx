@@ -1,10 +1,10 @@
 import type { SourceRow } from '@mesa/core';
+import { describeSource } from '@mesa/core/browser';
 import { Cable, FolderTree } from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import type { DataOf } from '@/lib/client';
-import { describeSource } from '@/lib/describeSource';
 import type { useAct } from '@/lib/useAct';
 import type { CommandState } from '@/lib/useCommand';
 import { useConnect } from '@/lib/useConnect';
