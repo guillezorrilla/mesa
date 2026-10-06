@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tempDir, testGit } from '@mesa/core/testing';
+import { tempDir, testEnv, testGit } from '@mesa/core/testing';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { published, section, subjects, withSection } from './notes.mjs';
 
@@ -68,16 +68,16 @@ describe('subjects', () => {
   });
 
   it('takes a stable version from the last stable tag', () => {
-    expect(subjects('0.1.1', dir)).toEqual(['feat(a): three (#3)', 'fix(a): two (#2)']);
+    expect(subjects('0.1.1', dir, testEnv)).toEqual(['feat(a): three (#3)', 'fix(a): two (#2)']);
   });
 
   it('takes a beta from the last tag of any kind', () => {
-    expect(subjects('0.1.1-beta.2', dir)).toEqual(['feat(a): three (#3)']);
+    expect(subjects('0.1.1-beta.2', dir, testEnv)).toEqual(['feat(a): three (#3)']);
   });
 
   it('skips the tag of the version itself, so a tagged version reads the same', () => {
     testGit(dir, 'tag', 'v0.1.1');
-    expect(subjects('0.1.1', dir)).toEqual(['feat(a): three (#3)', 'fix(a): two (#2)']);
+    expect(subjects('0.1.1', dir, testEnv)).toEqual(['feat(a): three (#3)', 'fix(a): two (#2)']);
   });
 });
 
