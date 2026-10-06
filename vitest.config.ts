@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
@@ -22,6 +23,9 @@ export default defineConfig({
     globalSetup: ['vitest.global-setup.ts'],
     // CLI and worktree tests spawn many git processes; five seconds flakes under desktop load.
     testTimeout: 15000,
+    // One worker per core starves the git and tmux processes those tests spawn on a many-core Mac
+    // (#598); CI's runners have fewer cores, so they keep vitest's default (cores - 1).
+    maxWorkers: Math.max(1, Math.min(availableParallelism() - 1, 4)),
     include: [
       'packages/*/src/**/*.test.ts',
       'apps/broker/src/**/*.test.ts',
