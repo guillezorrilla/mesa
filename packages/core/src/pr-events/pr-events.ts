@@ -1,7 +1,12 @@
 import { z } from 'zod';
+import { type GhState, ghState } from '../git/gh.js';
+import {
+  HttpsUrl,
+  listPullRequests,
+  matchBranches,
+  type PullRequest,
+} from '../git/pull-requests.js';
 import type { Runner } from '../lib/process.js';
-import { type GhState, ghState } from './gh.js';
-import { HttpsUrl, listPullRequests, matchBranches, type PullRequest } from './pull-requests.js';
 
 // PR events (CONTEXT.md, PR event): what happened on the open pull request of a session's
 // branch since the session started, that Mesa has not forwarded into it yet. Read with `gh`

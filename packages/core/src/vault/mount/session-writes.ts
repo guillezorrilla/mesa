@@ -1,23 +1,23 @@
 import { existsSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
-import type { MesaContext } from '../context.js';
-import { redactWhole } from '../lib/redact.js';
-import { MesaError } from '../lib/result.js';
-import { readTextFile } from '../lib/text-file.js';
-import { localDay } from '../lib/time.js';
-import { receiptText } from '../receipts/command.js';
-import { type NoteChange, recordNoteChange, settleUnchanged } from '../receipts/note-change.js';
-import { recordScope } from '../receipts/record-scope.js';
-import type { Recorded } from '../receipts/recorder.js';
-import { recordAgent } from '../sessions/record.js';
-import { keepSections } from '../skills/keep-sections.js';
-import { landOutput } from '../skills/landing.js';
-import type { Frontmatter, Note } from './frontmatter.js';
-import { addToIndex } from './index-note.js';
-import { itemProject } from './item.js';
-import { projectHubPath, VAULT } from './layout.js';
-import { wikilink } from './links.js';
-import { nameOf } from './note-name.js';
+import type { MesaContext } from '../../context.js';
+import { redactWhole } from '../../lib/redact.js';
+import { MesaError } from '../../lib/result.js';
+import { readTextFile } from '../../lib/text-file.js';
+import { localDay } from '../../lib/time.js';
+import { receiptText } from '../../receipts/command.js';
+import { type NoteChange, recordNoteChange, settleUnchanged } from '../../receipts/note-change.js';
+import { recordScope } from '../../receipts/record-scope.js';
+import type { Recorded } from '../../receipts/recorder.js';
+import { recordAgent } from '../../sessions/record.js';
+import { keepSections } from '../../skills/keep-sections.js';
+import { landOutput } from '../../skills/landing.js';
+import type { Frontmatter, Note } from '../frontmatter.js';
+import { addToIndex } from '../index-note.js';
+import { itemProject } from '../item.js';
+import { projectHubPath, VAULT } from '../layout.js';
+import { wikilink } from '../links.js';
+import { nameOf } from '../note-name.js';
 import {
   type LockedNotesDeps,
   oneLine,
@@ -26,9 +26,9 @@ import {
   refuseForeign,
   requireLog,
   writeNote,
-} from './notes.js';
-import { canonicalVaultPath, vaultFile, vaultWriteFile } from './scope.js';
-import { withVaultLock } from './vault-lock.js';
+} from '../notes.js';
+import { canonicalVaultPath, vaultFile, vaultWriteFile } from '../scope.js';
+import { withVaultLock } from '../vault-lock.js';
 
 // Session writes (CONTEXT.md, Session write): the decisions, summaries, and notes a session saves
 // in the vault (ADR-0006: core writes it). Each is a note Mesa keeps, with one history entry when

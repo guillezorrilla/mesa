@@ -1,6 +1,6 @@
 import { unlinkSync } from 'node:fs';
 import { MesaError } from '../../lib/result.js';
-import { VAULT_SERVER } from '../../vault/server.js';
+import { VAULT_SERVER } from '../../vault/mount/server.js';
 import { read, write } from '../hooks.js';
 import { VAULT_COMMAND, vaultServer } from '../vault-mount.js';
 import { antigravityCliSettings, antigravityMcpConfig } from './paths.js';

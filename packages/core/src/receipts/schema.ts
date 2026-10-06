@@ -3,8 +3,8 @@ import { AgentSchema } from '../agents/agents.js';
 import { AnswerSchema, DecidedBySchema, type Decision } from '../decisions/types.js';
 import { ULID } from '../lib/ids.js';
 import { NoteTimeSchema } from '../lib/time.js';
+import { RECEIPT_TYPES } from '../vault/receipt-file.js';
 import { RECORD_KINDS } from './policy.js';
-import { RECEIPT_TYPES } from './receipt-file.js';
 
 /**
  * One Faro answer as a receipt keeps it: Faro's own answer (ADR-0004), its question's id as

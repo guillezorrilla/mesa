@@ -51,12 +51,6 @@ export type { DiffRow, GitDiff } from './git/diff.js';
 export type { GhState } from './git/gh.js';
 export type { GitComparison, GitGraph, GitGraphCommit, GitGraphRow } from './git/history.js';
 export type { RepositoryInsight } from './git/insight.js';
-export type {
-  PrEventDelivery,
-  PrEventList,
-  PrEventsDelivered,
-} from './git/pr-event-delivery.js';
-export type { PrEvent, PrProblem } from './git/pr-events.js';
 export type { StashAction, StashCreated, StashEntry } from './git/stash.js';
 export type { GitChange, GitStatus } from './git/status.js';
 export type { GitSync, GitTracking } from './git/sync.js';
@@ -64,7 +58,6 @@ export type { InstructionRow } from './instructions/inventory.js';
 export { type Clock, systemClock } from './lib/clock.js';
 export type { Http } from './lib/http.js';
 export { type IdSource, ulidSource } from './lib/ids.js';
-export type { McpTool, Stdio } from './lib/mcp-server.js';
 export { type Env, envRunner, type Runner } from './lib/process.js';
 export * from './lib/result.js';
 export { keychainStore, type SecretStore } from './lib/secret-store.js';
@@ -72,6 +65,12 @@ export type { MapSaved } from './map/service.js';
 export { createMesa, type Mesa, type MesaDeps } from './mesa.js';
 export type { NotificationDelivery } from './notifications/background.js';
 export type { DeliveryPlan, InboxFix, InboxItem } from './notifications/inbox.js';
+export type {
+  PrEventDelivery,
+  PrEventList,
+  PrEventsDelivered,
+} from './pr-events/pr-event-delivery.js';
+export type { PrEvent, PrProblem } from './pr-events/pr-events.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { profilesDir } from './profile/paths.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
@@ -94,7 +93,6 @@ export {
 } from './projects/trust.js';
 export type { SavedPrompt } from './prompts/prompts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
-export { RECEIPT_TYPES } from './receipts/receipt-file.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
@@ -177,14 +175,23 @@ export {
   type VaultKind,
 } from './vault/item.js';
 export type { LinkResolution, NoteLink, VaultLink } from './vault/links.js';
+export type { McpTool, Stdio } from './vault/mount/mcp-server.js';
+export type { ProjectContext } from './vault/mount/project-context.js';
+export { DEFAULT_GOALS, type SessionGoal } from './vault/mount/session-goals.js';
+export type {
+  DecisionInput,
+  NoteInput,
+  Saved,
+  SummaryInput,
+} from './vault/mount/session-writes.js';
 export {
   macObsidianPaths,
   type ObsidianPaths,
   type Opened,
   type VaultChoices,
 } from './vault/obsidian.js';
-export type { ProjectContext } from './vault/project-context.js';
 export type { VaultPreview, VaultRead } from './vault/reader.js';
+export { RECEIPT_TYPES } from './vault/receipt-file.js';
 export {
   DEFAULT_VAULT_SEARCH_LIMIT,
   type VaultHit,
@@ -192,8 +199,6 @@ export {
   type VaultSearch,
   type VaultSearchFilter,
 } from './vault/search.js';
-export { DEFAULT_GOALS, type SessionGoal } from './vault/session-goals.js';
-export type { DecisionInput, NoteInput, Saved, SummaryInput } from './vault/session-writes.js';
 export type { VaultStatus } from './vault/vault.js';
 export type { WorktreeDetails } from './worktrees/details.js';
 export type { WorktreeFilter, WorktreeRow } from './worktrees/inventory.js';

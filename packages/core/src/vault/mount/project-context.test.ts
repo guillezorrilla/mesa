@@ -1,8 +1,8 @@
 import { mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { createMesa } from '../mesa.js';
-import { GENERAL_PROJECT } from '../sessions/general.js';
+import { createMesa } from '../../mesa.js';
+import { GENERAL_PROJECT } from '../../sessions/general.js';
 import {
   newSession,
   projectProfile,
@@ -10,7 +10,7 @@ import {
   testDeps,
   testStore,
   thrown,
-} from '../testing/index.js';
+} from '../../testing/index.js';
 import { CONTEXT_BYTES } from './project-context.js';
 
 let home: string;

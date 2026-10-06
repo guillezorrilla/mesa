@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { type Http, readJson } from '../lib/http.js';
-import { MesaError } from '../lib/result.js';
-import { namesOf } from './rules.js';
-import type { Answer, Question } from './types.js';
+import { type Http, readJson } from '../../lib/http.js';
+import { MesaError } from '../../lib/result.js';
+import { namesOf } from '../rules.js';
+import type { Answer, Question } from '../types.js';
 
 // The Strands Decider backend (ADR-0019): Faro's questions over `POST /v1/systemone`, as the
 // official `strands-decider serve` answers them (pinned upstream 6d5dec6).

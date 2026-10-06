@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
-import { AGENT_NAMES } from '../agents/names.js';
-import { MesaError } from '../lib/result.js';
-import { DECISION_SITES } from './sites.js';
-import { QuestionsSchema } from './types.js';
+import { AGENT_NAMES } from '../../agents/names.js';
+import { MesaError } from '../../lib/result.js';
+import { DECISION_SITES } from '../sites.js';
+import { QuestionsSchema } from '../types.js';
 
 // The decision evaluation corpus (ADR-0019): invented cases, one JSON object per line, in
 // `corpus/calibration.jsonl` (thresholds are fitted here) and `corpus/heldout.jsonl` (gates).

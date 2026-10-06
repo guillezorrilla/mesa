@@ -1,6 +1,6 @@
 import { ULID_PATTERN } from '../lib/ids.js';
-import { VAULT } from '../vault/layout.js';
-import { wikilink } from '../vault/links.js';
+import { VAULT } from './layout.js';
+import { wikilink } from './links.js';
 
 export const RECEIPT_TYPES = ['session', 'skill', 'decision', 'action'] as const;
 export type ReceiptType = (typeof RECEIPT_TYPES)[number];

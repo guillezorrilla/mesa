@@ -1,8 +1,8 @@
-import type { MesaContext } from '../context.js';
-import { callerOf, SESSION_ID_VAR, windowId } from '../sessions/caller.js';
-import { resumerOf } from '../sessions/holders.js';
-import type { SessionRecord } from '../sessions/record.js';
-import type { SessionStore } from '../sessions/store.js';
+import type { MesaContext } from '../../context.js';
+import { callerOf, SESSION_ID_VAR, windowId } from '../../sessions/caller.js';
+import { resumerOf } from '../../sessions/holders.js';
+import type { SessionRecord } from '../../sessions/record.js';
+import type { SessionStore } from '../../sessions/store.js';
 
 // The vault server's binding (ADR-0011, CONTEXT.md Vault server): the one Mesa session a
 // `mesa vault mcp` process serves, from the MESA_SESSION_ID and MESA_PROFILE its agent passed on.

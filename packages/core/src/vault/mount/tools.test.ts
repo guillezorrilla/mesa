@@ -7,7 +7,7 @@ import {
   projectProfile,
   scriptedRunner,
   testStore,
-} from '../testing/index.js';
+} from '../../testing/index.js';
 import { callVaultTool, VAULT_TOOLS, VAULT_WRITE_TOOLS } from './tools.js';
 
 // A read-only Skill run blocks VAULT_WRITE_TOOLS: a new tool must be named here as a read, or be

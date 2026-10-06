@@ -1,13 +1,13 @@
 import type { MesaContext } from '../context.js';
 import type { Overrides } from '../decisions/guardrail.js';
 import type { Decision } from '../decisions/types.js';
+import type { GhState } from '../git/gh.js';
 import { MesaError, toFail } from '../lib/result.js';
 import type { Recorded } from '../receipts/recorder.js';
 import type { ManagedRow, SessionRow } from '../sessions/board/rows.js';
 import { heldWorktrees } from '../sessions/holders.js';
 import type { Sent } from '../sessions/send.js';
 import type { SessionState } from '../sessions/states.js';
-import type { GhState } from './gh.js';
 import { prEventLedger } from './pr-event-ledger.js';
 import { type PrEvent, type PrProblem, type PrWatch, scanPrEvents } from './pr-events.js';
 

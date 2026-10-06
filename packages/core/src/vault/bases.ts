@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import { parse, stringify } from 'yaml';
 import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { LockDeps } from '../lib/lock-file.js';
-import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { INTERNALS, VAULT } from './layout.js';
 import { requireVaultFolder, vaultFile } from './scope.js';
 import { withVaultLock } from './vault-lock.js';
@@ -28,6 +27,18 @@ const forbiddenTarget = ['\\.\\.', ...INTERNALS.map((name) => name.replaceAll('.
   '|',
 );
 const targetFormula = `if(outputs && outputs.target.isType("string") && outputs.target != "" && !outputs.target.startsWith("/") && !/(^|\\/)(${forbiddenTarget})(\\/|$)/i.matches(outputs.target), link(outputs.target), file.asLink())`;
+/** `meaningfulReceipt` (`receipts/policy.ts`) in Obsidian Bases' expression syntax. */
+const BASES_MEANINGFUL_FILTER = [
+  '!(outputs && outputs.target.isType("string") && (outputs.target == "daily" || outputs.target.startsWith("daily/")))',
+  '&& ((status == "ok" && (kind == "decision" || kind == "vault-change" || kind == "connection"',
+  '|| (kind == "refresh" && outputs && ((outputs.refreshed.isType("list") && outputs.refreshed.length > 0)',
+  '|| (outputs.notesWritten.isType("number") && outputs.notesWritten > 0)))',
+  '|| (kind == "guardrail" && outputs',
+  '&& (outputs.override.isType("string") || outputs.dangerousFlags.isType("string")',
+  '|| outputs.sandboxOverride.isType("string")))))',
+  '|| ((status == "failed" || status == "blocked") && kind == "guardrail"',
+  '&& outputs && outputs.error && outputs.error.code == "guardrail_blocked"))',
+].join(' ');
 
 // Global scope leaves historical receipts reachable; only default views apply meaningfulness.
 const BASES = [

@@ -1,6 +1,6 @@
-import { type Stdio, serveMcp, toolText } from '../lib/mcp-server.js';
-import { projectLabel } from '../sessions/general.js';
+import { projectLabel } from '../../sessions/general.js';
 import type { VaultBinding } from './binding.js';
+import { type Stdio, serveMcp, toolText } from './mcp-server.js';
 import { callVaultTool, VAULT_TOOLS, type VaultOwners } from './tools.js';
 
 // The vault server (ADR-0011, CONTEXT.md Vault server): `mesa vault mcp`, the mesa-vault tools

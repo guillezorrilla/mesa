@@ -9,8 +9,8 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { createMesa } from '../mesa.js';
-import { listReceipts } from '../receipts/store.js';
+import { createMesa } from '../../mesa.js';
+import { listReceipts } from '../../receipts/store.js';
 import {
   newSession,
   projectProfile,
@@ -19,8 +19,8 @@ import {
   tempDir,
   testDeps,
   testStore,
-} from '../testing/index.js';
-import { readNote } from './notes.js';
+} from '../../testing/index.js';
+import { readNote } from '../notes.js';
 import type { DecisionInput } from './session-writes.js';
 
 /**

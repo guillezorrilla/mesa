@@ -1,10 +1,10 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { steppingClock, tempDir } from '../testing/index.js';
+import { steppingClock, tempDir } from '../../testing/index.js';
+import { DECISION_SITES, siteQuestion } from '../sites.js';
 import { type EvalCase, readCorpus } from './corpus.js';
 import { type EvalBackend, meetsGate, report, runCases } from './evaluation.js';
-import { DECISION_SITES, siteQuestion } from './sites.js';
 
 const STATES = ['working', 'waiting-permission', 'waiting-question', 'idle', 'done', 'failed'];
 const permission = [

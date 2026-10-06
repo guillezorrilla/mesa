@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { fakeHttp } from '../testing/index.js';
-import { checked } from './decide.js';
+import { fakeHttp } from '../../testing/index.js';
+import { checked } from '../decide.js';
+import type { Question } from '../types.js';
 import { strandsBackend, strandsHealth } from './strands.js';
-import type { Question } from './types.js';
 
 // Replies recorded from the pinned `strands-decider serve --device mlx --strict-window` (#459).
 const recorded = (name: string) =>

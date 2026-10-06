@@ -1,14 +1,14 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { clip } from '../lib/clip.js';
-import { GENERAL_PROJECT } from '../sessions/general.js';
-import type { SessionStore } from '../sessions/store.js';
-import type { Note } from './frontmatter.js';
-import { listVault } from './inventory.js';
-import { VAULT_CATEGORIES, type VaultCategory, type VaultItem } from './item.js';
-import { projectHubPath, VAULT } from './layout.js';
-import { linkIndex, outsideCode, resolveLinks, type VaultLink } from './links.js';
-import { noteOf } from './reader.js';
+import { clip } from '../../lib/clip.js';
+import { GENERAL_PROJECT } from '../../sessions/general.js';
+import type { SessionStore } from '../../sessions/store.js';
+import type { Note } from '../frontmatter.js';
+import { listVault } from '../inventory.js';
+import { VAULT_CATEGORIES, type VaultCategory, type VaultItem } from '../item.js';
+import { projectHubPath, VAULT } from '../layout.js';
+import { linkIndex, outsideCode, resolveLinks, type VaultLink } from '../links.js';
+import { noteOf } from '../reader.js';
 import { type SessionGoal, sessionGoals } from './session-goals.js';
 
 // A project's overview (CONTEXT.md, Project context): what a session reads first, with fixed

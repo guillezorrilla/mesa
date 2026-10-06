@@ -1,12 +1,12 @@
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
-import { clip } from '../lib/clip.js';
-import { MesaError } from '../lib/result.js';
-import type { SessionRecord } from '../sessions/record.js';
-import { sessionProjects } from '../sessions/session-projects.js';
-import type { SessionStore } from '../sessions/store.js';
-import { sessionSummaryPath } from './layout.js';
-import { outOfScope } from './scope.js';
+import { clip } from '../../lib/clip.js';
+import { MesaError } from '../../lib/result.js';
+import type { SessionRecord } from '../../sessions/record.js';
+import { sessionProjects } from '../../sessions/session-projects.js';
+import type { SessionStore } from '../../sessions/store.js';
+import { sessionSummaryPath } from '../layout.js';
+import { outOfScope } from '../scope.js';
 
 // A project's earlier session goals (CONTEXT.md, Project context): from the session store, not the
 // vault, each linked to its summary note when the vault has one. `mesa vault goals`.

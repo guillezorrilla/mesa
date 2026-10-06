@@ -1,14 +1,14 @@
 import { z } from 'zod';
-import { type McpTool, type McpToolResult, toolText } from '../lib/mcp-server.js';
-import { MesaError } from '../lib/result.js';
-import type { Recorded } from '../receipts/recorder.js';
-import { projectScope } from '../sessions/general.js';
-import type { SessionRecord } from '../sessions/record.js';
-import { sessionProjects } from '../sessions/session-projects.js';
-import { itemProject } from './item.js';
+import { MesaError } from '../../lib/result.js';
+import type { Recorded } from '../../receipts/recorder.js';
+import { projectScope } from '../../sessions/general.js';
+import type { SessionRecord } from '../../sessions/record.js';
+import { sessionProjects } from '../../sessions/session-projects.js';
+import { itemProject } from '../item.js';
+import type { VaultRead } from '../reader.js';
+import { DEFAULT_VAULT_SEARCH_LIMIT, type VaultSearch, type VaultSearchFilter } from '../search.js';
+import { type McpTool, type McpToolResult, toolText } from './mcp-server.js';
 import type { ProjectContext } from './project-context.js';
-import type { VaultRead } from './reader.js';
-import { DEFAULT_VAULT_SEARCH_LIMIT, type VaultSearch, type VaultSearchFilter } from './search.js';
 import { DEFAULT_GOALS, type SessionGoal } from './session-goals.js';
 import type { DecisionInput, NoteInput, Saved, SummaryInput } from './session-writes.js';
 

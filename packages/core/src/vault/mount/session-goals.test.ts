@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { createMesa } from '../mesa.js';
+import { createMesa } from '../../mesa.js';
 import {
   multiProjectSession,
   newSession,
@@ -10,7 +10,7 @@ import {
   testDeps,
   testStore,
   thrown,
-} from '../testing/index.js';
+} from '../../testing/index.js';
 
 let home: string;
 let mesa: ReturnType<typeof projectProfile>['mesa'];

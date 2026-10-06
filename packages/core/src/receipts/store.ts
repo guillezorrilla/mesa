@@ -15,8 +15,8 @@ import {
   readNote,
   updateNote,
 } from '../vault/notes.js';
+import { type ReceiptType, receiptLink, receiptName, receiptPath } from '../vault/receipt-file.js';
 import { vaultFile } from '../vault/scope.js';
-import { type ReceiptType, receiptLink, receiptName, receiptPath } from './receipt-file.js';
 import { type Receipt, type ReceiptInput, ReceiptSchema } from './schema.js';
 
 // Receipts in the vault's receipts/: written, closed, listed, and read back (docs/receipts.md).

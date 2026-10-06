@@ -1,9 +1,8 @@
-import type { Clock } from '../lib/clock.js';
-import { classify } from '../sessions/state.js';
-import { AGENT_STATES } from '../sessions/states.js';
-import type { EvalCase } from './corpus.js';
-import { checked } from './decide.js';
-import { rulesBackend, type Weights } from './rules.js';
+import type { Clock } from '../../lib/clock.js';
+import { classify } from '../../sessions/state.js';
+import { AGENT_STATES } from '../../sessions/states.js';
+import { checked } from '../decide.js';
+import { rulesBackend, type Weights } from '../rules.js';
 import {
   ACCEPT_AT,
   accepted,
@@ -11,8 +10,9 @@ import {
   type DecisionSite,
   margin,
   siteQuestion,
-} from './sites.js';
-import type { Answer, Question } from './types.js';
+} from '../sites.js';
+import type { Answer, Question } from '../types.js';
+import type { EvalCase } from './corpus.js';
 
 // Scores a decisions backend on the corpus (ADR-0019), per site: accuracy where Mesa accepts the
 // answer, how often it accepts, calibration and latency, against gates frozen before testing.

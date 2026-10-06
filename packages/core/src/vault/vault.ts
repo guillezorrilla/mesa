@@ -4,8 +4,8 @@ import { getAsset, isSea } from 'node:sea';
 import { createFileAtomic } from '../lib/atomic-file.js';
 import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
-import { RECEIPT_FILE } from '../receipts/receipt-file.js';
 import { VAULT, VAULT_FOLDERS } from './layout.js';
+import { RECEIPT_FILE } from './receipt-file.js';
 
 export const VAULT_INIT_MARK = 'vault initialised by mesa';
 // Relative to this module, so it resolves from src (vitest) and from dist (the built CLI); inside
