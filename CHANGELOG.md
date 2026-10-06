@@ -2,6 +2,19 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.1.7 - 2026-10-06
+
+### Features
+
+- **app**: the terminal edits the line like macOS terminals: Cmd+Left/Right jump to its start or end, Cmd+Backspace deletes it, Option+Left/Right move by word (#661)
+- **app**: Shift+Enter inserts a newline by default (#657)
+
+### Fixes
+
+- **app**: switching sessions puts the keyboard in the new session's terminal (#653)
+- **app**: sidebar sessions stay in the order they were opened (#655)
+- **app**: no beep on Cmd+C after a drag copies from the terminal (#659)
+
 ## 0.1.6 - 2026-10-06
 
 ### Features
