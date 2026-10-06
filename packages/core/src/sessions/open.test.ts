@@ -26,10 +26,12 @@ import {
   testDeps,
   testEnv,
   testGit,
+  thrown,
   withRealGit,
   worktreeAt,
 } from '../testing/index.js';
 import { GENERAL_PROJECT } from './general.js';
+import { validateOpenInput } from './open-input.js';
 
 /** Every agent in the fake tmux exits, its pane dead, as a session's must before it resumes. */
 const exitAll = (world: ReturnType<typeof agentWorld>) => {
@@ -1299,4 +1301,37 @@ test('--with is refused where a session cannot span projects', async () => {
   await refused({ terminal: true }, 'lantern-cove');
   await refused({ checkout: home }, 'lantern-cove');
   expect(await mesa.sessions.list()).toEqual([]);
+});
+
+test('the other flags that do not go together are refused, each by name, and nothing is made', async () => {
+  const { home, mesa } = await setUp(agentWorld());
+  const checkout = '--checkout cannot use --worktree, --branch, --with, --general, or --after';
+  const general = 'General sessions cannot use --branch, --base, or --after';
+  const terminal = '--terminal cannot use --agent, --goal, --after, --mode, or --background';
+  const cases: [string | undefined, Parameters<typeof mesa.sessions.open>[1], string][] = [
+    ['lantern-cove', { worktree: true, branch: 'b' }, 'pass --worktree or --branch, not both'],
+    ['lantern-cove', { checkout: home, worktree: true }, checkout],
+    ['lantern-cove', { checkout: home, branch: 'b' }, checkout],
+    ['lantern-cove', { checkout: home, general: true }, checkout],
+    ['lantern-cove', { checkout: home, after: 'aaaaaaaa' }, checkout],
+    [undefined, { general: true, worktree: true }, general],
+    [undefined, { general: true, base: 'main' }, general],
+    [undefined, { general: true, after: 'aaaaaaaa' }, general],
+    ['lantern-cove', { terminal: true, agent: 'codex' }, terminal],
+    ['lantern-cove', { terminal: true, goal: 'Tidy up' }, terminal],
+    ['lantern-cove', { terminal: true, after: 'aaaaaaaa' }, terminal],
+    ['lantern-cove', { terminal: true, background: true }, terminal],
+  ];
+  for (const [project, opts, message] of cases) {
+    await expect(mesa.sessions.open(project, opts), message).rejects.toMatchObject({
+      code: 'usage',
+      message,
+    });
+  }
+  // Mesa names a branch for --with before a session opens, so only a direct call can omit one.
+  expect(thrown(() => validateOpenInput({ project: 'lantern-cove', with: ['tide-pool'] }))).toEqual(
+    { code: 'usage', message: '--with needs --branch or --worktree' },
+  );
+  expect(await mesa.sessions.list()).toEqual([]);
+  expect(listReceipts(join(home, 'vault'))).toEqual([]);
 });

@@ -51,7 +51,8 @@ import { readHookEvents } from './hook-events.js';
 import { previewSessionImage, sessionImagePrompt } from './images.js';
 import { instructionStatus } from './instructions.js';
 import { launchProject, startSession } from './launch.js';
-import { type OpenInput, openSession } from './open.js';
+import { openSession } from './open.js';
+import { type OpenFlags, validateOpenInput } from './open-input.js';
 import { outputLog, sessionLog } from './output-log.js';
 import { startQueued } from './queue.js';
 import { isOver, recordAgent } from './record.js';
@@ -465,31 +466,18 @@ export function sessionsService(
        */
       open: (
         project: string | undefined,
-        opts: Omit<OpenInput, 'project' | 'worktree'> & {
-          goalFile?: string;
-          worktree?: boolean;
-          /** An existing linked worktree to run in (checkoutWorktree). */
-          checkout?: string;
-        } = {},
+        opts: Omit<OpenFlags, 'project'> & { goalFile?: string } = {},
       ) => {
         const { agent, mode, background, parent, noParent, after, base, terminal, general, from } =
           opts;
-        let refused: unknown =
-          opts.worktree && opts.branch !== undefined
-            ? new MesaError('usage', 'pass --worktree or --branch, not both')
-            : opts.checkout !== undefined &&
-                (opts.worktree ||
-                  opts.branch !== undefined ||
-                  opts.with?.length ||
-                  opts.general ||
-                  opts.after)
-              ? new MesaError(
-                  'usage',
-                  '--checkout cannot use --worktree, --branch, --with, --general, or --after',
-                )
-              : undefined;
         // A worktree of its own on a branch Mesa names (sessionBranchName); --with implies it.
-        const named = opts.worktree || (opts.with?.length && opts.branch === undefined);
+        const named = Boolean(opts.worktree || (opts.with?.length && opts.branch === undefined));
+        let refused: unknown;
+        try {
+          validateOpenInput({ ...opts, project, worktree: named });
+        } catch (error) {
+          refused = error;
+        }
         const branch = named && !refused ? sessionBranchName(ctx.newId) : opts.branch;
         let goal: string | undefined;
         try {
