@@ -2,10 +2,11 @@ import { dangerousFlags, type LaunchDefaults, sandboxOverride } from '../agents/
 import type { MesaContext } from '../context.js';
 import { redactWhole } from '../lib/redact.js';
 import { toFail } from '../lib/result.js';
-import { joinWarnings, type Recorded } from '../receipts/recorder.js';
+import { type ActionSpec, joinWarnings, type Recorded } from '../receipts/recorder.js';
 import { sessionReceipt, updateSessionReceipt } from '../receipts/store.js';
 import { additionalDirs } from './additional.js';
-import type { SessionRecord } from './record.js';
+import { projectScope } from './general.js';
+import { recordAgent, type SessionRecord } from './record.js';
 import type { HeadlessResult } from './run.js';
 
 // What a session's receipt says: the one its start wrote, and its end, marked on it later.
@@ -45,6 +46,33 @@ export const startedOutputs = (r: SessionRecord, defaults: LaunchDefaults) => ({
   ...(r.additional ? { additional: r.additional } : {}),
   ...launchGuardrail(r, defaults),
 });
+
+/**
+ * The receipt of an action that starts a session, the one `started` picks from its result: a
+ * guardrail session receipt, kept when the start has dangerous launch flags or a sandbox override
+ * (launchGuardrail, in its outputs), with the action's warning, and the started session's project,
+ * id, and agent unless `spec` names others.
+ */
+export const startedReceipt = <T extends { warning?: string }>(
+  started: (result: T) => SessionRecord,
+  spec: Omit<ActionSpec<T>, 'kind' | 'type' | 'warning'>,
+): ActionSpec<T> => ({
+  kind: 'guardrail',
+  type: 'session',
+  warning: (r) => r.warning,
+  project: (r) => projectScope(started(r).project),
+  session: (r) => started(r).id,
+  agent: (r) => recordAgent(started(r)),
+  ...spec,
+});
+
+/** Records `action`, which starts a session, with its startedReceipt (the action's result names T). */
+export const recordStart = <T extends { warning?: string }>(
+  ctx: Pick<MesaContext, 'record'>,
+  started: (result: T) => SessionRecord,
+  spec: Omit<ActionSpec<T>, 'kind' | 'type' | 'warning'>,
+  action: () => Promise<T>,
+) => ctx.record(startedReceipt(started, spec), action);
 
 /** Text from the profile's logs as a receipt keeps it (redactWhole). */
 const redactor = (ctx: ReceiptContext) => (text: string) =>
