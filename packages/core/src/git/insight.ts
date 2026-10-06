@@ -47,7 +47,7 @@ export type RepositoryInsight = {
 };
 
 /** How many worktrees the project has; the worktrees domain owns the inventory it counts. */
-export type WorktreeCount = (profile: Profile, project: string) => Promise<number>;
+export type WorktreeCount = (project: string) => Promise<number>;
 
 /** Explicit read-only refresh: Git facts and branch-name PR matches, never attribution of authorship. */
 export async function readRepositoryInsight(
@@ -62,7 +62,7 @@ export async function readRepositoryInsight(
   const status = await readGitStatus(profile, run, project, selected);
   const [head, worktrees, graph] = await Promise.all([
     gitCommand(run, status.checkout.path, ['rev-parse', 'HEAD']),
-    worktreeCount(profile, project),
+    worktreeCount(project),
     status.branch
       ? readGitGraph(profile, run, project, status.checkout.path, status.branch)
       : Promise.resolve(undefined),

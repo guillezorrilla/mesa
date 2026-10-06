@@ -20,6 +20,9 @@ export function worktreesService(ctx: MesaContext) {
       const base = root ? await defaultBranchRef(profile, ctx.run, root, project) : undefined;
       return withDetails(ctx.run, rows, base);
     },
+    /** How many worktrees the project has, without the details `list` reads. */
+    count: async (project: string) =>
+      (await listWorktrees(ctx.open(), ctx.run, ctx.store, project)).length,
     create: (project: string, branch: string, base?: string) =>
       ctx.record(
         {

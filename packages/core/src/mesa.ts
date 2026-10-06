@@ -1,7 +1,6 @@
 import { about } from './about/about.js';
 import { hooksService } from './agents/hooks-service.js';
 import { automationsService } from './automations/service.js';
-import { automationState } from './automations/state.js';
 import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
@@ -30,7 +29,6 @@ import { usageService } from './usage/service.js';
 import { statusLineService } from './usage/statusline.js';
 import { vaultChoices } from './vault/obsidian.js';
 import { vaultService } from './vault/service.js';
-import { listWorktrees } from './worktrees/inventory.js';
 import { worktreesService } from './worktrees/service.js';
 
 export type { MesaDeps } from './context.js';
@@ -45,9 +43,6 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const faro = createFaro(ctx);
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
-  // Failed automation runs are notices; the inbox reads them from the run ledger.
-  const notices = inbox(ctx, () => automationState(ctx.paths.automationState, ctx).read().runs);
-  const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
   const usage = usageService(ctx);
   const vaults = vaultService(ctx);
   const prompts = promptsService(ctx);
@@ -58,24 +53,25 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sites: sources.sites,
     run: sessions.sessions.run,
   });
+  const automations = automationsService(ctx, faro, {
+    sessions: sessions.sessions,
+    refresh: imports.refresh,
+    notify: () => notifications.deliver(),
+  });
+  // Failed automation runs are notices; the inbox reads them from the run ledger.
+  const notices = inbox(ctx, automations.runs);
+  const notifications = { ...notices, deliver: () => backgroundDelivery(ctx, notices) };
+  const worktrees = worktreesService(ctx);
   return {
     about: () => about(deps.version, deps.release),
     ...profileApi,
     backup: backupService(ctx, prompts.list),
     projects: projectsService(ctx),
-    automations: automationsService(ctx, faro, {
-      sessions: sessions.sessions,
-      refresh: imports.refresh,
-      notify: notifications.deliver,
-    }),
+    automations,
     prompts,
     files: filesService(ctx),
-    worktrees: worktreesService(ctx),
-    git: gitService(
-      ctx,
-      faro,
-      async (opened, project) => (await listWorktrees(opened, ctx.run, ctx.store, project)).length,
-    ),
+    worktrees,
+    git: gitService(ctx, faro, worktrees.count),
     ...vaults,
     ...mapService(ctx),
     ...dailyService(ctx),
