@@ -1,4 +1,4 @@
-import type { ProjectRow, SavedPrompt, TreeRow } from '@mesa/core';
+import type { ProjectRow, SavedPrompt, Shortcuts, TreeRow } from '@mesa/core';
 import { type SearchHit, searchWorkspace } from '@mesa/core/browser';
 import { Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const GROUPS: { kind: SearchHit['kind']; label: string }[] = [
+  { kind: 'navigation', label: 'Navigation' },
   { kind: 'action', label: 'Actions' },
   { kind: 'setting', label: 'Settings' },
   { kind: 'project', label: 'Projects' },
@@ -25,6 +26,7 @@ export function CommandPalette(props: {
   projects: readonly ProjectRow[];
   sessions: readonly TreeRow[];
   prompts?: readonly SavedPrompt[];
+  shortcuts?: Shortcuts;
   returnFocus: HTMLElement | null;
 }) {
   const [query, setQuery] = useState('');
@@ -41,7 +43,10 @@ export function CommandPalette(props: {
   useEffect(() => {
     if (!props.open && !chosen.current) props.returnFocus?.focus();
   }, [props.open, props.returnFocus]);
-  const hits = searchWorkspace(props.projects, props.sessions, query, props.prompts);
+  const hits = searchWorkspace(props.projects, props.sessions, query, {
+    prompts: props.prompts,
+    shortcuts: props.shortcuts,
+  });
   const enabled = hits.filter((hit) => !hit.disabled);
   const selected = enabled[Math.min(active, enabled.length - 1)];
   const choose = (hit: SearchHit) => {
@@ -83,6 +88,7 @@ export function CommandPalette(props: {
         <div className="flex items-center gap-2 border-b px-4">
           <Search aria-hidden className="size-4 text-muted-foreground" />
           <Input
+            id="palette-query"
             data-testid="palette-query"
             aria-label="Search Mesa"
             autoFocus

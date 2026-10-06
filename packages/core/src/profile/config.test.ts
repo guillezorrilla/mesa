@@ -259,6 +259,7 @@ test('shortcut values are canonical, unique, and never take reserved window keys
     search: 'Mod+K',
     board: 'Mod+1',
     newSession: 'Mod+N',
+    switchSession: 'Mod+Shift+K',
   });
   expect(setConfigValue(file, 'shortcuts.search', 'Mod+Shift+P', lockDeps()).value).toBe(
     'Mod+Shift+P',
@@ -269,6 +270,11 @@ test('shortcut values are canonical, unique, and never take reserved window keys
     );
   }
   expect(loadConfig(file).shortcuts.search).toBe('Mod+Shift+P');
+  // A profile saved before switchSession existed gets its default.
+  expect(loadConfig(file).shortcuts.switchSession).toBe('Mod+Shift+K');
+  expect(
+    thrown(() => setConfigValue(file, 'shortcuts.switchSession', 'Mod+N', lockDeps())).code,
+  ).toBe('invalid_config');
 });
 
 test('agent launch defaults are unset by default, validate in each agent terms, and unset again', () => {

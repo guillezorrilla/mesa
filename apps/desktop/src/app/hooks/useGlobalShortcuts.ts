@@ -1,7 +1,7 @@
 import type { Shortcuts } from '@mesa/core';
-import { shortcutFromKeys } from '@mesa/core/browser';
+import { FIXED_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { useEffect, useRef } from 'react';
-import { FIXED_SHORTCUTS, pressed } from '@/lib/fixedShortcuts';
+import { pressed } from '@/lib/shortcutKeys';
 
 /**
  * The window-wide keys: the profile's search, Board, and new session shortcuts, and the fixed

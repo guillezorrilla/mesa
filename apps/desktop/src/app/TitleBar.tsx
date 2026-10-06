@@ -8,7 +8,7 @@ import { ProfileMenu } from '@/features/profile/ProfileMenu';
 import { NewSessionMenu } from '@/features/sessions/start/NewSessionMenu';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import type { SettingsCategory } from '@/features/settings/categories';
-import { keyCaps } from '@/lib/fixedShortcuts';
+import { keyCaps } from '@/lib/shortcutKeys';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import mesaLogo from '../../src-tauri/icons/128x128.png';
 import type { Overlay } from './navigation';

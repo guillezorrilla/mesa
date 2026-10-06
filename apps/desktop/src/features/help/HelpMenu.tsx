@@ -1,3 +1,4 @@
+import { FIXED_SHORTCUTS } from '@mesa/core/browser';
 import { BookOpen, CircleHelp, Info, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -6,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
+import { keyCaps } from '@/lib/shortcutKeys';
 
 /** The header's help menu: keyboard shortcuts, Mesa's command reference, and About Mesa. */
 export function HelpMenu(props: {

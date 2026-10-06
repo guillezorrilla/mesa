@@ -1,5 +1,5 @@
 import type { Shortcuts } from '@mesa/core';
-import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS, FIXED_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { Keyboard, Pencil, X } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
@@ -7,7 +7,7 @@ import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { warningOf } from '@/components/Toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
+import { keyCaps } from '@/lib/shortcutKeys';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 

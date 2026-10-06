@@ -219,6 +219,7 @@ export function App() {
         projects={projects.data ?? []}
         sessions={sessions}
         prompts={view.kind === 'session' ? prompts.data : undefined}
+        shortcuts={shortcuts}
         returnFocus={search.returnFocus.current}
         onSelect={(hit) => {
           const target = paletteView(hit);
