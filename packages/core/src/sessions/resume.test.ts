@@ -1,6 +1,7 @@
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import type { Runner } from '../lib/process.js';
 import {
   agentWorld,
   CODEX_MOUNT,
@@ -54,4 +55,53 @@ test('resumed Antigravity logs its own native ID and reports a later clear as co
   expect(existsSync(logs)).toBe(true);
   writeFileSync(log, `Created conversation ${original}\nCreated conversation ${cleared}\n`);
   expect((await mesa.sessions.show(resumed.id)).instructions.state).toBe('conflicting');
+});
+
+test('two resumes at once start one successor and refuse the other', async () => {
+  const world = agentWorld();
+  const { mesa } = projectProfile(world.run);
+  const { result: opened } = await mesa.sessions.open('lantern-cove');
+  await mesa.sessions.stop(opened.id, true);
+  const windows = world.tmux.windows.length;
+  const [a, b] = await Promise.allSettled([
+    mesa.sessions.resume(opened.id),
+    mesa.sessions.resume(opened.id),
+  ]);
+  const won = [a, b].filter((r) => r.status === 'fulfilled');
+  const lost = [a, b].filter((r) => r.status === 'rejected');
+  expect(won).toHaveLength(1);
+  expect(lost).toHaveLength(1);
+  const successor = (
+    won[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof mesa.sessions.resume>>>
+  ).value.result.record;
+  expect((lost[0] as PromiseRejectedResult).reason).toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining(`already resumed as ${successor.id}`),
+  });
+  expect(world.tmux.windows).toHaveLength(windows + 1);
+  expect((await mesa.sessions.show(opened.id)).resumedBy).toBe(successor.id);
+  // The refused resume's record is gone again: the old session and its one successor stay.
+  expect((await mesa.sessions.list(true)).map((r) => r.id).sort()).toEqual(
+    [opened.id, successor.id].sort(),
+  );
+});
+
+test('a resume whose start fails gives its claim back', async () => {
+  const world = agentWorld();
+  // tmux cannot start a window once the session is stopped, as a broken server would.
+  let broken = false;
+  const run: Runner = (file, args, ms) =>
+    broken && file === 'tmux' && (args.includes('new-session') || args.includes('new-window'))
+      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'server exited unexpectedly' })
+      : world.run(file, args, ms);
+  const { mesa } = projectProfile(run);
+  const { result: opened } = await mesa.sessions.open('lantern-cove');
+  await mesa.sessions.stop(opened.id, true);
+  broken = true;
+  await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({ code: 'internal' });
+  expect((await mesa.sessions.show(opened.id)).resumedBy).toBeUndefined();
+  expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([opened.id]);
+  broken = false;
+  const { record } = (await mesa.sessions.resume(opened.id)).result;
+  expect((await mesa.sessions.show(opened.id)).resumedBy).toBe(record.id);
 });
