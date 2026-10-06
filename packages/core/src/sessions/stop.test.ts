@@ -26,7 +26,7 @@ import { sessionStore } from './store.js';
 async function setUp({
   quits = true,
   duringSleep = () => {},
-  beforeTmux = (_args: string[], _world: ReturnType<typeof fakeTmux>) => {},
+  beforeTmux = (_command: string[], _world: ReturnType<typeof fakeTmux>) => {},
 } = {}) {
   const heard: string[] = [];
   const world = fakeTmux({
@@ -34,12 +34,10 @@ async function setUp({
       heard.push(text);
       if (quits && text === '/exit') w.dead = true;
     },
+    before: (command) => beforeTmux(command, world),
   });
   const scripted = scriptedRunner({
-    tmux: (args) => {
-      beforeTmux(args, world);
-      return world.answer(args);
-    },
+    tmux: world.answer,
     claude: CLAUDE_VERSION,
   });
   const sleeps: number[] = [];
@@ -60,8 +58,7 @@ test('stop presses Escape, types /exit, waits for the pane to die, and removes t
   expect(result.outcome).toBe('exited');
   expect(heard).toEqual(['/exit']);
   // Escape first, so a pending permission prompt is dismissed, never answered by the Enter.
-  const keys = calls.filter((c) => c.args[5] === 'send-keys').map((c) => c.args.at(-1));
-  expect(keys).toEqual(['Escape', '/exit', 'Enter']);
+  expect(world.opened[0]?.keys).toEqual(['Escape', '/exit', 'Enter']);
   expect(world.windows).toEqual([]);
   expect(result.record).toMatchObject({
     endedAt: '2026-09-24T12:00:00.000Z',
@@ -265,8 +262,8 @@ test('resume with its old record locked is refused before it starts, and is not 
 test('resume goes on when the dead window it removes has gone already', async () => {
   // Something else removes the window between resume's look and its kill-window.
   const { mesa, world, opened } = await setUp({
-    beforeTmux: (args, w) => {
-      if (args.includes('kill-window')) w.windows.splice(0);
+    beforeTmux: ([command], w) => {
+      if (command === 'kill-window') w.windows.splice(0);
     },
   });
   const [window] = world.windows;

@@ -167,13 +167,7 @@ test('a queued --with start failing on the second repo leaves it failed and both
 
 test('a queued --with start whose window fails keeps the worktree its setup ran in on the record, and the other repo as it was', async () => {
   const world = agentWorld();
-  const git = withRealGit(world.run);
-  // The queued session's window is the one tmux refuses.
-  let refused = '';
-  const run: Runner = (file, args, ms, options) =>
-    file === 'tmux' && refused && args.includes(refused)
-      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'no space for a new window' })
-      : git(file, args, ms, options);
+  const run = withRealGit(world.run);
   const mesaYaml = 'name: lantern-cove\nworktrees:\n  setup: [/usr/bin/touch, keep.txt]\n';
   const { home, dir, mesa } = projectProfile(run, { mesaYaml });
   gitRepo(dir);
@@ -187,7 +181,8 @@ test('a queued --with start whose window fails keeps the worktree its setup ran 
   const b = (
     await mesa.sessions.open('lantern-cove', { after: a.id, with: ['tide-pool'], branch: 'shared' })
   ).result;
-  refused = `claude-${b.id}`;
+  // The queued session's window, the next one to open, is the one tmux refuses.
+  world.tmux.failing = ['new-session', 'new-window'];
   const before = repoState(tide);
   await mesa.sessions.stop(a.id, true);
   const failed = await mesa.sessions.show(b.id);

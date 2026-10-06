@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import {
+  fakeTmux,
   newSession,
   profilePaths,
   scriptedRunner,
@@ -34,40 +35,29 @@ const ATTACH = [
   'on',
 ];
 
-/** A profile holding one session record; binaries in `failing` (tmux: no window) exit 1. */
+/** A profile holding one session record, its window open in a fake tmux; binaries in `failing` exit 1. */
 function setUp(
   failing: string[] = [],
   env = {},
   outputs: Parameters<typeof scriptedRunner>[0] = {},
 ) {
   const home = tempDir();
-  const scripted = scriptedRunner(outputs, { failing });
+  const tmux = fakeTmux();
+  const scripted = scriptedRunner({ tmux: tmux.answer, ...outputs }, { failing });
   const mesa = createMesa('default', testDeps(home, { run: scripted.run, env }));
   mesa.init({ vault: 'vault' });
   const store = testStore(home);
   const { id } = store.create(() => newSession());
-  return { home, mesa, id, calls: scripted.calls };
+  tmux.addWindow({ project: 'lantern-cove', window: 'claude-aaaaaa' });
+  return { home, mesa, id, calls: scripted.calls, tmux };
 }
 
 test('without --app, attach hands back the attach argv for this terminal', async () => {
-  const { mesa, id, calls } = setUp();
+  const { mesa, id } = setUp();
   expect(await mesa.sessions.attach(id)).toEqual({
     attached: { opened: true, target: 'lantern-cove:claude-aaaaaa', app: null },
     exec: ATTACH,
   });
-  // Liveness is the exact window on the profile socket.
-  expect(calls[0]?.args).toEqual([
-    '-u',
-    '-L',
-    'mesa-default',
-    '-f',
-    '/dev/null',
-    'list-panes',
-    '-t',
-    '=lantern-cove:=claude-aaaaaa',
-    '-F',
-    '#{pane_id}',
-  ]);
 });
 
 test('natural selection disables tmux mouse only in the newly attached view', async () => {
@@ -81,7 +71,8 @@ test('natural selection disables tmux mouse only in the newly attached view', as
 });
 
 test('a session whose window is gone is not_found with the resume hint', async () => {
-  const { mesa, id } = setUp(['tmux']);
+  const { mesa, id, tmux } = setUp();
+  tmux.windows.length = 0;
   await expect(mesa.sessions.attach(id)).rejects.toMatchObject({
     code: 'not_found',
     message: 'session ended; use mesa resume',

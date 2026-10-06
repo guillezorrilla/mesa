@@ -1081,17 +1081,13 @@ test('through a symlinked home, a worktree git lists is still seen', async () =>
 });
 
 test('open links the enabled skills where the agent runs before its window opens; a failure warns', async () => {
-  const world = agentWorld();
   let dir = '';
-  // Whether the mesa skill was linked when tmux was asked for the window.
+  // Whether the mesa skill was linked when its window opened.
   const linkedAtStart: boolean[] = [];
-  const run: Runner = (file, args, ms) => {
-    if (file === 'tmux' && args.some((a) => a === 'new-session' || a === 'new-window')) {
-      linkedAtStart.push(existsSync(join(dir, '.claude/skills/mesa/SKILL.md')));
-    }
-    return withGit(world)(file, args, ms);
-  };
-  const made = await setUp(world, { run });
+  const world = agentWorld({
+    onOpen: () => linkedAtStart.push(existsSync(join(dir, '.claude/skills/mesa/SKILL.md'))),
+  });
+  const made = await setUp(world);
   dir = made.dir;
   const { mesa, home } = made;
   const { warning } = await mesa.sessions.open('lantern-cove');

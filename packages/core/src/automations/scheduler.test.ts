@@ -516,22 +516,13 @@ test('failed interrupted-session cleanup stays durable and retries before anothe
   delete saved.runs[0].endedAt;
   writeFileSync(file, stringify(saved));
   advance();
-  let fail = true;
   const restarted = createMesa(
     'default',
-    testDeps(home, {
-      ...deps,
-      processAlive: (pid) => pid !== 101,
-      run: async (binary, args, timeout) => {
-        if (fail && binary === 'tmux' && args.includes('kill-window')) {
-          fail = false;
-          return { ok: false, reason: 'timeout', detail: 'controlled stop timeout' };
-        }
-        return deps.run(binary, args, timeout);
-      },
-    }),
+    testDeps(home, { ...deps, processAlive: (pid) => pid !== 101 }),
   );
+  world.tmux.slow = ['kill-window'];
   await expect(restarted.automations.tick()).rejects.toMatchObject({ code: 'tmux_unavailable' });
+  world.tmux.slow = [];
   expect(testStore(home).get(old).endedAt).toBeUndefined();
   expect((await restarted.automations.status()).runs[0]?.status).toBe('running');
   const before = world.calls.length;

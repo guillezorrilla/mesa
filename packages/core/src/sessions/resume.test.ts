@@ -88,20 +88,15 @@ test('two resumes at once start one successor and refuse the other', async () =>
 
 test('a resume whose start fails gives its claim back', async () => {
   const world = agentWorld();
-  // tmux cannot start a window once the session is stopped, as a broken server would.
-  let broken = false;
-  const run: Runner = (file, args, ms) =>
-    broken && file === 'tmux' && (args.includes('new-session') || args.includes('new-window'))
-      ? Promise.resolve({ ok: false, reason: 'failed', detail: 'server exited unexpectedly' })
-      : world.run(file, args, ms);
-  const { mesa } = projectProfile(run);
+  const { mesa } = projectProfile(world.run);
   const { result: opened } = await mesa.sessions.open('lantern-cove');
   await mesa.sessions.stop(opened.id, true);
-  broken = true;
+  // tmux cannot start a window once the session is stopped, as a broken server would.
+  world.tmux.failing = ['new-session', 'new-window'];
   await expect(mesa.sessions.resume(opened.id)).rejects.toMatchObject({ code: 'internal' });
   expect((await mesa.sessions.show(opened.id)).resumedBy).toBeUndefined();
   expect((await mesa.sessions.list(true)).map((r) => r.id)).toEqual([opened.id]);
-  broken = false;
+  world.tmux.failing = [];
   const { record } = (await mesa.sessions.resume(opened.id)).result;
   expect((await mesa.sessions.show(opened.id)).resumedBy).toBe(record.id);
 });

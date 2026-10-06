@@ -89,7 +89,8 @@ test('attach: here it hands back the attach argv, --app opens terminal.app, gone
   });
 
   cli.tty = true;
-  cli.run = scriptedRunner({}, { failing: ['tmux'] }).run;
+  // Its window is gone: a tmux server with none.
+  cli.run = scriptedRunner({ tmux: fakeTmux().answer }).run;
   expect(await mesa('attach', 'aaaaaaaa')).toMatchObject({
     code: 3,
     stderr: 'session ended; use mesa resume\n',

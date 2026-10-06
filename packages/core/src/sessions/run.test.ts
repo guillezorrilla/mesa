@@ -53,16 +53,13 @@ test('a run execs claude -p on the skill, reads its result, and ends done, its w
   });
   // stdin closed, stdout into the profile's runs/, and exec, so the pane's exit is claude's.
   expect(world.tmux.windows).toEqual([]);
-  const launch = world.calls
-    .find((c) => c.file === 'tmux' && c.args.includes('new-session'))
-    ?.args.find((a) => a.startsWith('exec '));
-  expect(launch).toBe(
+  expect(world.tmux.opened[0]?.launch).toBe(
     `exec claude -p '/session-summary focus on tests' --session-id ${UUID} --output-format json --permission-mode 'acceptEdits' ${CLAUDE_HEADLESS_MOUNT} 'Read' 'Bash(git log:*)' </dev/null >'${output}'`,
   );
   expect(existsSync(output)).toBe(true);
   // Logged as every window is: its pane, claude's errors, goes to its output log.
   const log = join(profilePaths(home, 'default').logs, `${id}.log`);
-  expect(world.calls.some((c) => c.args.includes(`cat >> '${log}'`))).toBe(true);
+  expect(world.tmux.opened[0]?.pipe).toBe(`cat >> '${log}'`);
   // The skill was linked into the folder claude ran in, as every start does.
   expect(existsSync(join(dir, '.claude/skills/session-summary/SKILL.md'))).toBe(true);
   expect(testStore(home).get(id)).toMatchObject({
@@ -133,13 +130,7 @@ test('Antigravity prepares its private log with session output logging off', asy
   });
   const log = join(profilePaths(home, 'default').logs, `${result.session}.agy.log`);
   expect(existsSync(profilePaths(home, 'default').logs)).toBe(true);
-  expect(
-    world.calls.some(
-      (call) =>
-        call.args.includes('new-session') &&
-        call.args.some((arg) => arg.includes(`--log-file '${log}'`)),
-    ),
-  ).toBe(true);
+  expect(world.tmux.opened[0]?.launch).toContain(`--log-file '${log}'`);
 });
 
 test('an error claude reports, and a nonzero exit with no result, are not ok, with the reason', async () => {
@@ -351,7 +342,7 @@ test('the guardrail gates a run before anything is written: a block or an ask op
       'the guardrail asks first: project lantern-cove has guardrail: strict; pass --yes to run it',
     details: { verdict: 'ask' },
   });
-  expect(world.calls.some((c) => c.args.includes('new-session'))).toBe(false);
+  expect(world.tmux.opened).toEqual([]);
   expect(testStore(strict.home).list()).toEqual([]);
   expect(latest()).toMatchObject({
     type: 'skill',
@@ -572,20 +563,18 @@ test('stopping a run with successful output keeps it failed when its waiter fini
 });
 
 test('a fast hook lands a note once without polling again or a start receipt', async () => {
-  const world = agentWorld({ onOpen: finishesRun({ output: claudeResult('success') }) });
-  let early = async (_args: string[]) => {};
+  let early = async () => {};
   let endedEarly = false;
-  const { home, mesa } = projectProfile(
-    async (file, args, options) => {
-      if (endedEarly && file === 'tmux' && args.includes('list-windows'))
-        throw new Error('waiter unavailable');
-      const result = await world.run(file, args, options);
-      if (file === 'tmux' && (args.includes('new-window') || args.includes('new-session')))
-        await early([...args]);
-      return result;
+  const world = agentWorld({
+    onOpen: finishesRun({ output: claudeResult('success') }),
+    after: async ([command]) => {
+      if (endedEarly && command === 'list-windows') throw new Error('waiter unavailable');
+      if (command === 'new-window' || command === 'new-session') await early();
     },
-    { mesaYaml: 'name: lantern-cove\nskills: [session-summary]\n' },
-  );
+  });
+  const { home, mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [session-summary]\n',
+  });
   const about = testStore(home, 'default', shortIds('abcdefgh')).create(() => newSession());
   plantOutputLog(home, about.id, 'Three checks pass');
   early = async () => {
@@ -664,27 +653,23 @@ test('a timeout keeps a successful output file failed, and non-writing skills ne
 });
 
 test('a hook that finishes after the deadline look wins over the waiter timeout', async () => {
-  const world = agentWorld();
   let atDeadline = false;
-  const { mesa } = projectProfile(
-    async (file, args, options) => {
-      const result = await world.run(file, args, options);
-      if (atDeadline && file === 'tmux' && args.includes('list-windows')) {
-        atDeadline = false;
-        const w = world.tmux.windows[0] as FakeWindow;
-        finishesRun({ output: claudeResult('success') })(w);
-        await mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
-        // The waiter receives the live snapshot taken before the hook completed.
-      }
-      return result;
+  const world = agentWorld({
+    after: async ([command]) => {
+      if (!atDeadline || command !== 'list-windows') return;
+      atDeadline = false;
+      const w = world.tmux.windows[0] as FakeWindow;
+      finishesRun({ output: claudeResult('success') })(w);
+      await mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
+      // The waiter receives the live snapshot taken before the hook completed.
     },
-    {
-      mesaYaml: 'name: lantern-cove\nskills: [session-summary]\n',
-      sleep: async () => {
-        atDeadline = true;
-      },
+  });
+  const { mesa } = projectProfile(world.run, {
+    mesaYaml: 'name: lantern-cove\nskills: [session-summary]\n',
+    sleep: async () => {
+      atDeadline = true;
     },
-  );
+  });
   const ran = await mesa.sessions.run('session-summary', {
     project: 'lantern-cove',
     timeoutSeconds: 1,
