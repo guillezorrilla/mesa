@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { AGENTS, newSessionId } from '../agents/agents.js';
 import { antigravityLog, prepareAntigravityLog } from '../agents/antigravity/log.js';
 import type { MesaContext } from '../context.js';
 import type { Guarded, Override } from '../decisions/guardrail.js';
+import { writeFileAtomic } from '../lib/atomic-file.js';
 import type { IdSource } from '../lib/ids.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import { shellWord } from '../lib/process.js';
@@ -183,7 +184,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
           if (agent === 'antigravity') prepareAntigravityLog(deps.logs, r.id);
           if (given) {
             written = runInput(deps.runs, r.id);
-            writeFileSync(written, given, { mode: 0o600 });
+            writeFileAtomic(written, given, 0o600);
           }
           return r;
         },
