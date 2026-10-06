@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { createContext } from '../context.js';
-import { listReceipts } from '../receipts/store.js';
+import { createContext } from '../../context.js';
+import { listReceipts } from '../../receipts/store.js';
 import {
   agentWorld,
   CLAUDE_HEADLESS_MOUNT,
@@ -19,9 +19,10 @@ import {
   shortIds,
   testDeps,
   testStore,
-} from '../testing/index.js';
-import { readNote, writeNote } from '../vault/notes.js';
-import { endRun, type RunEnd, runOutput } from './run.js';
+} from '../../testing/index.js';
+import { readNote, writeNote } from '../../vault/notes.js';
+import { endRun, type RunEnd } from './end.js';
+import { runOutput } from './files.js';
 
 const UUID = '00000000-0000-4000-8000-000000000001';
 /** lantern-cove with session-summary enabled in its mesa.yaml, and claude in the fake tmux. */

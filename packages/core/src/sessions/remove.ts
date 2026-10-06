@@ -11,7 +11,7 @@ import { costTally } from '../usage/session-cost.js';
 import { checkoutHolders, heldWorktrees, real, worktreeHolder } from './holders.js';
 import { eventsLog } from './hook-events.js';
 import { outputLog } from './output-log.js';
-import { runInput, runOutput } from './run.js';
+import { runInput, runOutput } from './run/files.js';
 import type { SessionStore } from './store.js';
 import { killIfThere, type TmuxBackend } from './tmux/backend.js';
 import { windowOf } from './window-name.js';

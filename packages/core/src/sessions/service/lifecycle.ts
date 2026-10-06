@@ -1,8 +1,6 @@
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
-import type { Guarded, Overrides } from '../../decisions/guardrail.js';
-import type { DecisionRecorder } from '../../decisions/types.js';
-import { redactText } from '../../lib/redact.js';
+import type { Overrides } from '../../decisions/guardrail.js';
 import { findProject } from '../../projects/projects.js';
 import { receiptText } from '../../receipts/command.js';
 import { joinWarnings } from '../../receipts/recorder.js';
@@ -16,7 +14,9 @@ import { openSession } from '../open.js';
 import { type OpenFlags, validateOpenInput } from '../open-input.js';
 import { recordAgent } from '../record.js';
 import { removeSession } from '../remove.js';
-import { awaitRun, endRun, type RunEnd, type RunInput, startRun } from '../run.js';
+import { endRun } from '../run/end.js';
+import { runSkill } from '../run/index.js';
+import type { RunInput } from '../run/start.js';
 import { markEnded, recordStart, startedOutputs } from '../session-receipt.js';
 import { stopSession } from '../stop.js';
 import { windowOf } from '../window-name.js';
@@ -208,78 +208,9 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
         },
       ).then((recorded) => ({ ...recorded, result: recorded.result.record }));
     },
-    /**
-     * Runs a skill headlessly on a project (CONTEXT.md, Skill run), or about a session, whose
-     * output log its agent reads, once the guardrail lets its prompt through (`yes`, `force`,
-     * and a person's `confirm` past an ask or a block), and waits up to `timeoutSeconds` for
-     * its result, which is returned, ok or not, with the vault note its output became, if any.
-     * A blocked or overridden guardrail keeps its decision; a changed vault note keeps a
-     * separate receipt. Its end, as a stop does, starts what was queued after it.
-     */
-    run: async (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) => {
-      const { force, yes, confirm, ...input } = opts;
-      const { project, session, agent, args = [] } = input;
-      const on = project ? ` on ${project}` : session ? ` about session ${session}` : '';
-      const about = session ? store.find(session) : undefined;
-      const started = await record(
-        {
-          kind: 'guardrail',
-          type: 'skill',
-          scope: {
-            project: project ?? about?.project,
-            session: about?.id,
-            actor: caller().session?.id,
-          },
-          summary: ({ record: r }) =>
-            `Started skill ${skill} on ${r.project}${r.about ? ` about session ${r.about}` : ''} as session ${r.id}`,
-          failure: `Could not run skill ${skill}${on}`,
-          warning: (r) => r.warning,
-          project: (r) => projectScope(r.record.project),
-          session: (r) => r.record.id,
-          agent: (r) => recordAgent(r.record),
-          inputs: {
-            skill,
-            ...(project === undefined ? {} : { project }),
-            ...(session === undefined ? {} : { session }),
-            agent: agent ?? null,
-            args: args.map((a) => redactText(a, secrets())),
-            ...(force ? { force } : {}),
-            ...(yes ? { yes } : {}),
-          },
-          outputs: ({ record: r, override }) => ({
-            ...startedOutputs(r, open().config.agents),
-            ...(override ? { override } : {}),
-          }),
-        },
-        // Typed, so the result type comes from the action, as for one that takes nothing.
-        (decisions: DecisionRecorder) => {
-          const guard = (action: Guarded) =>
-            faro.guardrail.gate(action, { force, yes, confirm }, decisions);
-          return startRun(deps.runDeps(skill, guard), { ...input, skill });
-        },
-      );
-      const run = store.get(started.result.record.id);
-      // A fast hook may finish before record() writes a guardrail override receipt. Complete
-      // the run from its persisted record without depending on another tmux look.
-      let finished: RunEnd;
-      let queue: Awaited<ReturnType<typeof ends.stopped>>;
-      try {
-        finished = run.endedAt
-          ? await endRun(ctx, run)
-          : await awaitRun(ctx, run, input.timeoutSeconds);
-      } finally {
-        // A timeout commits the failed end before throwing; its queue must still start.
-        if (store.find(run.id)?.endedAt) queue = await ends.stopped(run.id, 'exited');
-      }
-      const { result, receipt: landedReceipt, warning: ended } = finished;
-      const warning = joinWarnings(started.warning, ended, queue?.warning);
-      const { override } = started.result;
-      return {
-        result: { session: run.id, ...result, ...(override ? { override } : {}) },
-        receipt: landedReceipt ?? started.receipt,
-        ...(warning ? { warning } : {}),
-      };
-    },
+    /** Runs a skill headlessly and waits for its result (CONTEXT.md, Skill run; runSkill). */
+    run: (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) =>
+      runSkill(ctx, { faro, caller, start: deps.runDeps, stopped: ends.stopped }, skill, opts),
     /**
      * Removes a session's record, hook log, output log, and a run's output, and with the flags
      * its worktree and branch; a live one only with `force`. The session receipt says what went.

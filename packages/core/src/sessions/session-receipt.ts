@@ -7,7 +7,7 @@ import { sessionReceipt, updateSessionReceipt } from '../receipts/store.js';
 import { additionalDirs } from './additional.js';
 import { projectScope } from './general.js';
 import { recordAgent, type SessionRecord } from './record.js';
-import type { HeadlessResult } from './run.js';
+import type { HeadlessResult } from './run/files.js';
 
 // What a session's receipt says: the one its start wrote, and its end, marked on it later.
 
