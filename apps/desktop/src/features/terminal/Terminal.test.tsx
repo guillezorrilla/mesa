@@ -17,3 +17,17 @@ test('the session in view takes the keyboard once attached; another stays put', 
   await attached();
   expect(focused()).toBe(true);
 });
+
+test('Cmd+C with nothing selected in xterm is taken, so macOS does not beep at a disabled Copy', async () => {
+  const platform = fakePlatform({ terminal: fakeTerminals().host });
+  await renderWithMesa(<Terminal sessionId="aaaaaaaa" focus />, fakeBridge().bridge, platform);
+  await attached();
+  const key = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+    document.activeElement?.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  expect(key({ key: 'c', metaKey: true })).toBe(true);
+  // Paste stays the webview's own.
+  expect(key({ key: 'v', metaKey: true })).toBe(false);
+});

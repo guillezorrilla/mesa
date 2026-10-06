@@ -70,6 +70,12 @@ export function Terminal(props: {
     // displays the same native tmux output through view switches.
     const { terminal, clipboard } = platform;
     term.attachCustomKeyEventHandler((event) => {
+      // A drag copies through tmux (OSC 52), so xterm has nothing selected: Cmd+C then reached the
+      // disabled Edit > Copy and macOS beeped. With nothing to copy, the key does nothing.
+      if (event.type === 'keydown' && event.metaKey && event.key === 'c' && !term.hasSelection()) {
+        event.preventDefault();
+        return false;
+      }
       const input = terminalInputForKey(event, preferencesRef.current);
       if (input === null) return true;
       event.preventDefault();
