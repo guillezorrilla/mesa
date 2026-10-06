@@ -20,6 +20,7 @@ import {
   type Invocation,
   type Output,
   parseArgSpec,
+  renamedUsage,
 } from './command.js';
 import { commandHelp, groupUsage, mainHelp, usage, usageWithSubcommands } from './help/usage.js';
 
@@ -97,12 +98,17 @@ const say = (text: string): Output => ({ data: text, text });
 
 async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   // A first, non-strict pass finds the command wherever the global flags sit.
-  const words = parseArgs({
+  const loose = parseArgs({
     args: argv,
     options: GLOBAL_FLAGS,
     allowPositionals: true,
     strict: false,
-  }).positionals;
+  });
+  const words = loose.positionals;
+  // Before the strict parse, so a renamed command's flags still reach the message; --version wins.
+  const renamed = renamedUsage(argv);
+  if (renamed && loose.values.version) return say(VERSION);
+  if (renamed) throw new MesaError('usage', renamed);
   const command = match(deps.commands, words);
   // Global flags win over a command flag of the same name.
   const { values, positionals } = parse(argv, { ...command?.flags, ...GLOBAL_FLAGS });

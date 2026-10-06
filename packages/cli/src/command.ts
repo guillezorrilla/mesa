@@ -1,3 +1,4 @@
+import { parseArgs } from 'node:util';
 import type { Mesa, Stdio } from '@mesa/core';
 
 export type Flag = {
@@ -19,6 +20,30 @@ export const GLOBAL_FLAGS: Record<string, Flag> = {
   help: { type: 'boolean', description: 'Show help' },
   version: { type: 'boolean', description: 'Print the version' },
 };
+
+/**
+ * First words that once named a command, mapped to the word that does now. They are not
+ * commands, so help never lists them; invoking one is a usage error naming its successor.
+ */
+export const RENAMED: Readonly<Record<string, string>> = { rules: 'instructions' };
+
+/**
+ * `mesa rules list` gives "renamed to mesa instructions list": the first positional is
+ * rewritten, global flags and their values skipped. None when that word was not renamed.
+ */
+export function renamedUsage(argv: string[]): string | undefined {
+  const { tokens } = parseArgs({
+    args: argv,
+    options: GLOBAL_FLAGS,
+    allowPositionals: true,
+    strict: false,
+    tokens: true,
+  });
+  const first = tokens.find((t) => t.kind === 'positional');
+  if (first?.kind !== 'positional' || !Object.hasOwn(RENAMED, first.value)) return;
+  const now = RENAMED[first.value];
+  return `renamed to mesa ${argv.map((a, i) => (i === first.index ? now : a)).join(' ')}`;
+}
 
 type ArgName<S extends string> = S extends `${infer N}?` ? N : S extends `${infer N}...` ? N : S;
 
