@@ -1,12 +1,12 @@
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
-import type { profileService } from '../../profile/service.js';
 import { continueActions } from './continue.js';
 import { type SessionSkills, sessionDeps } from './deps.js';
+import { gridActions, type SetConfig } from './grid.js';
 import { inputActions } from './input.js';
 import { inspectActions } from './inspect.js';
 import { lifecycleActions } from './lifecycle.js';
-import { gridActions, windowActions } from './windows.js';
+import { windowActions } from './windows.js';
 
 /**
  * Every session action, each with its receipt, plus the hooks' entry points and the tmux
@@ -17,8 +17,7 @@ export function sessionsService(
   faro: Faro,
   /** The skills service's: links a project's enabled skills into a folder, and lists what it sees. */
   skills: SessionSkills,
-  /** The profile service's config.set: the grid's groups are a config value. */
-  setConfig: ReturnType<typeof profileService>['config']['set'],
+  setConfig: SetConfig,
 ) {
   const deps = sessionDeps(ctx, faro, skills);
   const lifecycle = lifecycleActions(ctx, faro, deps);

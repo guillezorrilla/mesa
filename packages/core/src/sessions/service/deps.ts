@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-import { claudeBackgroundAttach } from '../../agents/claude/background.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import { vaultServer } from '../../agents/vault-mount.js';
 import type { MesaContext } from '../../context.js';
@@ -7,20 +5,12 @@ import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
 import { shortId } from '../../lib/ids.js';
 import { redactWhole } from '../../lib/redact.js';
-import { projectPriorities } from '../../projects/projects.js';
-import { readRegistry } from '../../projects/registry.js';
 import type { skillsService } from '../../skills/service.js';
-import { listSessions } from '../board/board.js';
 import { callerOf } from '../caller.js';
 import { otherProfilesSessions } from '../elsewhere.js';
 import { endSignals } from '../end-signals.js';
-import { GENERAL_PROJECT } from '../general.js';
-import { readHookEvents } from '../hook-events.js';
-import { launchProject, startSession } from '../launch.js';
-import { outputLog } from '../output-log.js';
-import { isOver } from '../record.js';
-import { killIfThere } from '../tmux/backend.js';
-import { windowOf } from '../window-name.js';
+import { backgroundView } from './background-view.js';
+import { boardLook } from './board.js';
 
 /** The skills service's: links a project's enabled skills into a folder, and lists what it sees. */
 export type SessionSkills = Pick<ReturnType<typeof skillsService>, 'linkInto' | 'list'>;
@@ -90,44 +80,10 @@ export function sessionDeps(ctx: MesaContext, faro: Faro, skills: SessionSkills)
     skills: (on: string) => skills.list(on, skill),
     guard,
   });
-  /** A closed tmux view does not end its Claude background process; recreate it on demand. */
-  const ensureBackgroundView = async (id: string) => {
-    const found = store.get(id);
-    const nativeId = found.backgroundId;
-    if (!nativeId || found.endedAt || isOver(found)) return;
-    const target = windowOf(found);
-    const pane = await tmux.findWindow(target);
-    if (pane && !pane.dead) return;
-    if (pane) await killIfThere(tmux, target);
-    const project =
-      found.project === GENERAL_PROJECT ? null : launchProject(open(), found.project).entry;
-    await startSession(openDeps(), found, project, {
-      command: () => claudeBackgroundAttach(nativeId),
-    });
-  };
-  /** The board: sessions merged with live tmux and the agent listing; ended ones only with `all`. */
-  const look = (all = false) =>
-    listSessions(
-      {
-        store,
-        tmux,
-        listing: () => listAgentProcesses(ctx),
-        projects: readRegistry(paths.registry),
-        elsewhere,
-        events: (id) => readHookEvents(paths.events, id),
-        priorityOf: projectPriorities(open),
-        faro: faro.profile(),
-        clock: ctx.clock,
-        env: ctx.env,
-        home: ctx.home,
-        logs: paths.logs,
-      },
-      { all },
-    ).then((rows) =>
-      rows.map((row) =>
-        row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,
-      ),
-    );
+  /** A background session's tmux view, recreated on demand (background-view.ts). */
+  const ensureBackgroundView = backgroundView(ctx, openDeps);
+  /** A look at the board (board.ts). */
+  const look = boardLook(ctx, faro, elsewhere);
   const ends = endSignals(ctx, { look, launch: openDeps, context: contextDeps });
   return {
     contextDeps,
