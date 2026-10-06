@@ -35,3 +35,17 @@ test('Cmd+C with nothing selected in xterm is swallowed; a selection, or other m
   expect(terminalInputForKey({ ...copy, type: 'keyup' }, settings)).toBeNull();
   expect(terminalInputForKey({ ...copy, key: 'v' }, settings)).toBeNull();
 });
+
+test('Cmd and Option arrows and Backspace edit the line as macOS terminals do', () => {
+  const press = (key: string, modifiers: Partial<typeof enter>) =>
+    terminalInputForKey({ ...enter, key, keyCode: 0, ...modifiers }, settings);
+  expect(press('ArrowLeft', { metaKey: true })).toBe('\x01');
+  expect(press('ArrowRight', { metaKey: true })).toBe('\x05');
+  expect(press('Backspace', { metaKey: true })).toBe('\x15');
+  expect(press('ArrowLeft', { altKey: true })).toBe('\x1bb');
+  expect(press('ArrowRight', { altKey: true })).toBe('\x1bf');
+  // Plain, shifted, or with another modifier too, the key stays xterm's.
+  expect(press('ArrowLeft', {})).toBeNull();
+  expect(press('ArrowLeft', { metaKey: true, shiftKey: true })).toBeNull();
+  expect(press('Backspace', { altKey: true })).toBeNull();
+});
