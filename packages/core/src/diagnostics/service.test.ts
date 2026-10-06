@@ -6,6 +6,7 @@ import { setConfigValue } from '../profile/config.js';
 import { profilePaths } from '../profile/paths.js';
 import { eventsLog } from '../sessions/hook-events.js';
 import {
+  lockDeps,
   newSession,
   projectProfile,
   scriptedRunner,
@@ -18,7 +19,7 @@ test('Doctor diagnostics filter and bound profile-local metadata without provide
   const { home, mesa } = projectProfile(run);
   const record = testStore(home).create(() => newSession());
   const paths = profilePaths(home, 'default');
-  setConfigValue(paths.config, 'keys.alpha', 'secretpass');
+  setConfigValue(paths.config, 'keys.alpha', 'secretpass', lockDeps());
   const file = eventsLog(paths.events, record.id);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(

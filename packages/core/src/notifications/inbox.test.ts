@@ -164,9 +164,9 @@ test('quiet delivery digests new notices once and respects each kind across rest
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
   hook('Stop');
   hook('PermissionRequest', { tool_name: 'Bash' });
-  setConfigValue(paths.config, 'notifications.quiet', 'true');
+  setConfigValue(paths.config, 'notifications.quiet', 'true', lockDeps());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
-  setConfigValue(paths.config, 'notifications.quiet', 'false');
+  setConfigValue(paths.config, 'notifications.quiet', 'false', lockDeps());
   const plan = mesa.notifications.delivery();
   expect(plan).toMatchObject({ kind: 'digest', title: '2 Mesa notices', sound: true });
   if (plan.kind === 'none') throw new Error('expected digest');
@@ -174,10 +174,10 @@ test('quiet delivery digests new notices once and respects each kind across rest
   mesa.notifications.markDelivered(plan.ids);
   expect(createMesa('default', testDeps(home)).notifications.delivery()).toEqual({ kind: 'none' });
 
-  setConfigValue(paths.config, 'notifications.finished', 'off');
+  setConfigValue(paths.config, 'notifications.finished', 'off', lockDeps());
   hook('Stop');
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
-  setConfigValue(paths.config, 'notifications.finished', 'sound');
+  setConfigValue(paths.config, 'notifications.finished', 'sound', lockDeps());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
 });
 

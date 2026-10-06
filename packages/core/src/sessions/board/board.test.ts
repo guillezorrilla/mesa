@@ -639,7 +639,7 @@ test('a record another process holds locked still shows its new state, and the b
   const store = sessionStore({ dir, newId: sequentialIds(), lock: lockDeps() });
   const gone = store.create(() => inWindow('tide', '2026-09-24T11:00:00.000Z', 'claude-bbbbbb'));
   // A lock left by a killed mesa.
-  writeFileSync(join(dir, `${gone.id}.lock`), 'a killed mesa');
+  writeFileSync(join(dir, `${gone.id}.json.lock`), 'a killed mesa');
   const { run } = scriptedRunner({ tmux: '' });
   const rows = await listSessions({
     ...noListing,

@@ -1,6 +1,8 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { tempDir, thrown } from '../testing/index.js';
+import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import {
   buildBackupSettings,
   loadConfig,
@@ -18,14 +20,45 @@ beforeEach(() => {
   file = paths.config;
 });
 
+const PAUSE = new Int32Array(new SharedArrayBuffer(4));
+const pause = (ms: number) => Atomics.wait(PAUSE, 0, 0, ms);
+
+test('two interleaved config sets both survive: the second waits for the first lock', async () => {
+  // The second set runs in its own process on core's build (pnpm verify builds before testing).
+  const built = new URL('../../dist/profile/config.js', import.meta.url).href;
+  const ready = join(tempDir(), 'second-is-setting');
+  const script = [
+    `import { writeFileSync } from 'node:fs';`,
+    `import { setConfigValue } from ${JSON.stringify(built)};`,
+    `const [file, ready] = process.argv.slice(1);`,
+    `writeFileSync(ready, '');`,
+    `setConfigValue(file, 'keys.beta', 'two', { processId: process.pid, processAlive: () => true, clock: () => new Date() });`,
+  ].join('\n');
+  let second: Promise<number | null> | undefined;
+  setConfigValue(file, 'keys.alpha', 'one', lockDeps(), () => {
+    // The first has read the file and holds its lock; the second starts and reads it now.
+    const child = spawn(process.execPath, ['--input-type=module', '-e', script, file, ready], {
+      stdio: 'inherit',
+    });
+    second = new Promise((done) => child.on('exit', done));
+    for (let waited = 0; !existsSync(ready) && waited < 10_000; waited += 10) pause(10);
+    pause(300);
+  });
+  expect(await second).toBe(0);
+  expect(loadConfig(file).keys).toEqual({ alpha: 'one', beta: 'two' });
+});
+
 test('set rewrites one field, keeps the others and every comment, and redacts keys', () => {
   writeFileSync(file, `${readFileSync(file, 'utf8')}# my note\n`);
-  expect(setConfigValue(file, 'defaultAgent', 'codex')).toEqual({ value: 'codex', changed: true });
-  expect(setConfigValue(file, 'decisions.threshold', '0.5').value).toBe(0.5);
-  expect(setConfigValue(file, 'keys.jev', 'sk-secret').value).toBe('***');
+  expect(setConfigValue(file, 'defaultAgent', 'codex', lockDeps())).toEqual({
+    value: 'codex',
+    changed: true,
+  });
+  expect(setConfigValue(file, 'decisions.threshold', '0.5', lockDeps()).value).toBe(0.5);
+  expect(setConfigValue(file, 'keys.jev', 'sk-secret', lockDeps()).value).toBe('***');
   // The same value again, or a default written out, changes nothing.
-  expect(setConfigValue(file, 'keys.jev', 'sk-secret').changed).toBe(false);
-  expect(setConfigValue(file, 'terminal.app', 'Terminal').changed).toBe(false);
+  expect(setConfigValue(file, 'keys.jev', 'sk-secret', lockDeps()).changed).toBe(false);
+  expect(setConfigValue(file, 'terminal.app', 'Terminal', lockDeps()).changed).toBe(false);
 
   const text = readFileSync(file, 'utf8');
   expect(text).toContain('# my note');
@@ -41,10 +74,12 @@ test('set rewrites one field, keeps the others and every comment, and redacts ke
 
 test('an invalid value or file is invalid_config with the failing field, and the file is kept', () => {
   const before = readFileSync(file, 'utf8');
-  expect(thrown(() => setConfigValue(file, 'decisions.threshold', '2')).code).toBe(
+  expect(thrown(() => setConfigValue(file, 'decisions.threshold', '2', lockDeps())).code).toBe(
     'invalid_config',
   );
-  expect(thrown(() => setConfigValue(file, 'defaultAgnet', 'codex')).code).toBe('invalid_config');
+  expect(thrown(() => setConfigValue(file, 'defaultAgnet', 'codex', lockDeps())).code).toBe(
+    'invalid_config',
+  );
   expect(readFileSync(file, 'utf8')).toBe(before);
 
   writeFileSync(file, 'vault: relative/path\ndecisions:\n  threshold: 3\n');
@@ -79,9 +114,11 @@ test('a config that still holds the removed board settings loads, and ignores th
   const config = loadConfig(file);
   expect(config.vault).toBe('/tmp/v');
   expect(config).not.toHaveProperty('board');
-  expect(setConfigValue(file, 'projects.sort', 'recent').value).toBe('recent');
+  expect(setConfigValue(file, 'projects.sort', 'recent', lockDeps()).value).toBe('recent');
   const before = readFileSync(file, 'utf8');
-  expect(thrown(() => setConfigValue(file, 'board.view', 'list')).code).toBe('invalid_config');
+  expect(thrown(() => setConfigValue(file, 'board.view', 'list', lockDeps())).code).toBe(
+    'invalid_config',
+  );
   expect(readFileSync(file, 'utf8')).toBe(before);
   // A backup taken before the removal restores too.
   expect(buildBackupSettings({ board: { view: 'cards' } }, file)).not.toHaveProperty('board');
@@ -93,19 +130,24 @@ test('usage alert thresholds default off and reject negative budgets', () => {
     weeklyAlertUsd: 0,
     monthlyAlertUsd: 0,
   });
-  expect(setConfigValue(file, 'usage.dailyAlertUsd', '2.5').value).toBe(2.5);
+  expect(setConfigValue(file, 'usage.dailyAlertUsd', '2.5', lockDeps()).value).toBe(2.5);
   const before = readFileSync(file, 'utf8');
-  expect(thrown(() => setConfigValue(file, 'usage.weeklyAlertUsd', '-1')).code).toBe(
+  expect(thrown(() => setConfigValue(file, 'usage.weeklyAlertUsd', '-1', lockDeps())).code).toBe(
     'invalid_config',
   );
   expect(readFileSync(file, 'utf8')).toBe(before);
 });
 
 test('editor preferences and external argv validate before saving', () => {
-  expect(setConfigValue(file, 'editor.vim', 'true').value).toBe(true);
-  expect(setConfigValue(file, 'editor.tabSize', '4').value).toBe(4);
+  expect(setConfigValue(file, 'editor.vim', 'true', lockDeps()).value).toBe(true);
+  expect(setConfigValue(file, 'editor.tabSize', '4', lockDeps()).value).toBe(4);
   expect(
-    setConfigValue(file, 'editor.external', '["/usr/bin/open", "-a", "TextEdit", "{file}"]').value,
+    setConfigValue(
+      file,
+      'editor.external',
+      '["/usr/bin/open", "-a", "TextEdit", "{file}"]',
+      lockDeps(),
+    ).value,
   ).toEqual(['/usr/bin/open', '-a', 'TextEdit', '{file}']);
   const before = readFileSync(file, 'utf8');
   for (const value of [
@@ -113,7 +155,7 @@ test('editor preferences and external argv validate before saving', () => {
     '["/bin/sh", "-c", "{file}{file}"]',
     '["/bin/sh", "-c"]',
   ] as const) {
-    expect(thrown(() => setConfigValue(file, 'editor.external', value)).code).toBe(
+    expect(thrown(() => setConfigValue(file, 'editor.external', value, lockDeps())).code).toBe(
       'invalid_config',
     );
     expect(readFileSync(file, 'utf8')).toBe(before);
@@ -131,11 +173,14 @@ test('appearance and terminal preferences validate in the profile config', () =>
     },
     terminal: { app: 'Terminal', theme: 'follow', fontSize: 13, scrollSpeed: 3 },
   });
-  expect(setConfigValue(file, 'appearance.theme', 'dark').value).toBe('dark');
-  expect(setConfigValue(file, 'appearance.colorVision', 'red-green').value).toBe('red-green');
-  expect(setConfigValue(file, 'terminal.optionAsMeta', 'true').value).toBe(true);
+  expect(setConfigValue(file, 'appearance.theme', 'dark', lockDeps()).value).toBe('dark');
+  expect(setConfigValue(file, 'appearance.colorVision', 'red-green', lockDeps()).value).toBe(
+    'red-green',
+  );
+  expect(setConfigValue(file, 'terminal.optionAsMeta', 'true', lockDeps()).value).toBe(true);
   for (const path of ['appearance.diffFontSize', 'appearance.fileTreeFontSize'])
-    for (const size of [10, 20]) expect(setConfigValue(file, path, String(size)).value).toBe(size);
+    for (const size of [10, 20])
+      expect(setConfigValue(file, path, String(size), lockDeps()).value).toBe(size);
   const before = readFileSync(file, 'utf8');
   for (const [path, value] of [
     ['appearance.fontSize', '7'],
@@ -148,7 +193,7 @@ test('appearance and terminal preferences validate in the profile config', () =>
     ['terminal.scrollSpeed', '21'],
     ['terminal.fontFamily', '""'],
   ] as const) {
-    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
+    expect(thrown(() => setConfigValue(file, path, value, lockDeps())).code).toBe('invalid_config');
     expect(readFileSync(file, 'utf8')).toBe(before);
   }
 });
@@ -163,13 +208,12 @@ test('worktree settings retain the profile default and reject unsafe directories
     teardown: [],
     deleteBranch: false,
   });
-  expect(setConfigValue(file, 'worktrees.location', 'nested').value).toBe('nested');
-  expect(setConfigValue(file, 'worktrees.deleteBranch', 'true').value).toBe(true);
+  expect(setConfigValue(file, 'worktrees.location', 'nested', lockDeps()).value).toBe('nested');
+  expect(setConfigValue(file, 'worktrees.deleteBranch', 'true', lockDeps()).value).toBe(true);
   expect(loadConfig(file).worktrees.deleteBranch).toBe(true);
-  expect(setConfigValue(file, 'worktrees.sparseDirectories', '[src, docs]').value).toEqual([
-    'src',
-    'docs',
-  ]);
+  expect(
+    setConfigValue(file, 'worktrees.sparseDirectories', '[src, docs]', lockDeps()).value,
+  ).toEqual(['src', 'docs']);
   const before = readFileSync(file, 'utf8');
   for (const [path, value] of [
     ['worktrees.location', 'custom'],
@@ -177,7 +221,7 @@ test('worktree settings retain the profile default and reject unsafe directories
     ['worktrees.carryIgnoredDirectories', '[".git/objects"]'],
     ['worktrees.deleteBranch', 'sometimes'],
   ] as const) {
-    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
+    expect(thrown(() => setConfigValue(file, path, value, lockDeps())).code).toBe('invalid_config');
     expect(readFileSync(file, 'utf8')).toBe(before);
   }
 });
@@ -191,8 +235,8 @@ test('a YAML syntax error reports the position, never the source text', () => {
 });
 
 test('env key references resolve from the injected environment', () => {
-  setConfigValue(file, 'keys.maps', 'env:MAPS_KEY');
-  setConfigValue(file, 'keys.plain', 'literal');
+  setConfigValue(file, 'keys.maps', 'env:MAPS_KEY', lockDeps());
+  setConfigValue(file, 'keys.plain', 'literal', lockDeps());
   const config = loadConfig(file);
   expect(resolveKey(config, 'maps', { MAPS_KEY: 'from-env' })).toBe('from-env');
   expect(resolveKey(config, 'maps', {})).toBeUndefined();
@@ -203,7 +247,10 @@ test('env key references resolve from the injected environment', () => {
 test('a set repairs a value the file holds by hand that does not validate', () => {
   writeFileSync(file, readFileSync(file, 'utf8').replace('threshold: 0.7', 'threshold: 3'));
   expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
-  expect(setConfigValue(file, 'decisions.threshold', '0.5')).toEqual({ value: 0.5, changed: true });
+  expect(setConfigValue(file, 'decisions.threshold', '0.5', lockDeps())).toEqual({
+    value: 0.5,
+    changed: true,
+  });
   expect(loadConfig(file).decisions.threshold).toBe(0.5);
 });
 
@@ -213,9 +260,11 @@ test('shortcut values are canonical, unique, and never take reserved window keys
     board: 'Mod+1',
     newSession: 'Mod+N',
   });
-  expect(setConfigValue(file, 'shortcuts.search', 'Mod+Shift+P').value).toBe('Mod+Shift+P');
+  expect(setConfigValue(file, 'shortcuts.search', 'Mod+Shift+P', lockDeps()).value).toBe(
+    'Mod+Shift+P',
+  );
   for (const value of ['Mod+Q', 'Mod+1', 'K', 'Mod+shift+P']) {
-    expect(thrown(() => setConfigValue(file, 'shortcuts.search', value)).code).toBe(
+    expect(thrown(() => setConfigValue(file, 'shortcuts.search', value, lockDeps())).code).toBe(
       'invalid_config',
     );
   }
@@ -224,17 +273,23 @@ test('shortcut values are canonical, unique, and never take reserved window keys
 
 test('agent launch defaults are unset by default, validate in each agent terms, and unset again', () => {
   expect(loadConfig(file).agents).toEqual({ claude: {}, codex: {}, antigravity: {} });
-  expect(setConfigValue(file, 'agents.claude.skipPermissions', 'true').value).toBe(true);
-  expect(setConfigValue(file, 'agents.codex.approvalPolicy', 'never').value).toBe('never');
-  expect(setConfigValue(file, 'agents.codex.sandbox', 'workspace-write').value).toBe(
+  expect(setConfigValue(file, 'agents.claude.skipPermissions', 'true', lockDeps()).value).toBe(
+    true,
+  );
+  expect(setConfigValue(file, 'agents.codex.approvalPolicy', 'never', lockDeps()).value).toBe(
+    'never',
+  );
+  expect(setConfigValue(file, 'agents.codex.sandbox', 'workspace-write', lockDeps()).value).toBe(
     'workspace-write',
   );
-  expect(setConfigValue(file, 'agents.codex.bypass', 'false').value).toBe(false);
-  expect(setConfigValue(file, 'agents.antigravity.skipPermissions', 'true').value).toBe(true);
-  expect(setConfigValue(file, 'agents.antigravity.mode', 'accept-edits').value).toBe(
+  expect(setConfigValue(file, 'agents.codex.bypass', 'false', lockDeps()).value).toBe(false);
+  expect(setConfigValue(file, 'agents.antigravity.skipPermissions', 'true', lockDeps()).value).toBe(
+    true,
+  );
+  expect(setConfigValue(file, 'agents.antigravity.mode', 'accept-edits', lockDeps()).value).toBe(
     'accept-edits',
   );
-  expect(setConfigValue(file, 'agents.antigravity.sandbox', 'true').value).toBe(true);
+  expect(setConfigValue(file, 'agents.antigravity.sandbox', 'true', lockDeps()).value).toBe(true);
   const before = readFileSync(file, 'utf8');
   for (const [path, value] of [
     ['agents.claude.skipPermissions', 'yes please'],
@@ -244,11 +299,13 @@ test('agent launch defaults are unset by default, validate in each agent terms, 
     ['agents.antigravity.mode', 'acceptEdits'],
     ['agents.gemini', '{}'],
   ] as const) {
-    expect(thrown(() => setConfigValue(file, path, value)).code).toBe('invalid_config');
+    expect(thrown(() => setConfigValue(file, path, value, lockDeps())).code).toBe('invalid_config');
     expect(readFileSync(file, 'utf8')).toBe(before);
   }
   // The app saves an agent's map whole, so a field it leaves out is back on native config.
-  expect(setConfigValue(file, 'agents.codex', '{"sandbox": "read-only"}').value).toEqual({
+  expect(
+    setConfigValue(file, 'agents.codex', '{"sandbox": "read-only"}', lockDeps()).value,
+  ).toEqual({
     sandbox: 'read-only',
   });
   expect(loadConfig(file).agents.codex).toEqual({ sandbox: 'read-only' });

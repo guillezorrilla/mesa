@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { tempDir, thrown } from '../testing/index.js';
+import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import { loadConfig, setConfigValue } from './config.js';
 import { profilePaths } from './paths.js';
 import { DEFAULT_APPEARANCE, DEFAULT_TERMINAL_PREFERENCES } from './preferences.js';
@@ -117,10 +117,12 @@ test('onboarding.discovery defaults to pending, takes its four states, and refus
   initProfile(paths, { vault: '/tmp/v' });
   expect(loadConfig(paths.config).onboarding.discovery).toBe('pending');
   for (const state of ['started', 'complete', 'dismissed', 'pending']) {
-    expect(setConfigValue(paths.config, 'onboarding.discovery', state).value).toBe(state);
+    expect(setConfigValue(paths.config, 'onboarding.discovery', state, lockDeps()).value).toBe(
+      state,
+    );
   }
-  expect(thrown(() => setConfigValue(paths.config, 'onboarding.discovery', 'done')).code).toBe(
-    'invalid_config',
-  );
+  expect(
+    thrown(() => setConfigValue(paths.config, 'onboarding.discovery', 'done', lockDeps())).code,
+  ).toBe('invalid_config');
   expect(loadConfig(paths.config).onboarding.discovery).toBe('pending');
 });

@@ -1,6 +1,19 @@
+import { join } from 'node:path';
+import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import type { SessionRecord } from './record.js';
 import type { SessionStore } from './store.js';
+
+/**
+ * The lock over the sessions in `dir` that dependency edits and queue claims take
+ * (`.dependencies.lock`), as the edits read and change several records at once.
+ */
+export const dependencyLock =
+  (dir: string, lock: LockDeps) =>
+  <T>(fn: () => T): T => {
+    const path = join(dir, '.dependencies.lock');
+    return withLockSync(lock, path, fn, () => lockedBy('session dependencies', path, 'session'));
+  };
 
 /** A parent is visual lineage; `after` is a start condition for a queued session. */
 export function changeDependencies(

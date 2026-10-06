@@ -737,7 +737,7 @@ export const repoState = (dir: string) => ({
 
 /** A session's lock as a mesa killed while holding it leaves it; its path, for the test to remove. */
 export function staleLock(home: string, id: string, holder = 'a killed mesa', profile = 'default') {
-  const lock = join(profilePaths(home, profile).sessions, `${id}.lock`);
+  const lock = join(profilePaths(home, profile).sessions, `${id}.json.lock`);
   writeFileSync(lock, holder);
   return lock;
 }

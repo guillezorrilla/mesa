@@ -1,9 +1,8 @@
 import { existsSync } from 'node:fs';
 import type { MesaContext } from '../context.js';
-import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
-import { readYaml, writeYaml } from '../lib/yaml-file.js';
+import { changeYaml, readYaml } from '../lib/yaml-file.js';
 import { findProject } from '../projects/projects.js';
 import { type AutomationRule, AutomationRuleSchema, AutomationRulesSchema } from './schema.js';
 
@@ -16,21 +15,18 @@ export function automationRules(ctx: MesaContext) {
   };
   const update = <T>(change: (rules: AutomationRule[]) => T): T => {
     ctx.open();
-    const lock = `${file}.lock`;
-    return withLockSync(
-      ctx.deps,
-      lock,
-      () => {
-        const rules = list();
-        const result = change(rules);
-        writeYaml(file, rules, {
-          mode: 0o600,
-          header: 'Mesa automations: install the scheduler explicitly to run these rules.',
-        });
-        return result;
+    let result: T | undefined;
+    changeYaml(
+      file,
+      AutomationRulesSchema,
+      (rules = []) => {
+        result = change(rules);
+        return rules;
       },
-      () => lockedBy('automations', lock, 'another rule edit'),
+      ctx.deps,
+      'Mesa automations: install the scheduler explicitly to run these rules.',
     );
+    return result as T;
   };
   const indexOf = (rules: AutomationRule[], name: string) => {
     const at = rules.findIndex((r) => r.name.toLowerCase() === name.trim().toLowerCase());

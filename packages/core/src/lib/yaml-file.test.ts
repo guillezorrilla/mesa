@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { tempDir, thrown } from '../testing/index.js';
+import { lockDeps, tempDir, thrown } from '../testing/index.js';
 import { readYaml, setYamlPath, writeYaml } from './yaml-file.js';
 
 const Schema = z.strictObject({ n: z.number().max(5), tags: z.record(z.string(), z.string()) });
@@ -18,10 +18,10 @@ test('writeYaml adds a header, and exclusive never replaces a file', () => {
 test('setYamlPath keeps comments, blocks a grown flow map, and never writes an invalid result', () => {
   const file = join(tempDir(), 'b.yaml');
   writeFileSync(file, 'n: 1 # count\ntags: {}\n');
-  expect(setYamlPath(file, Schema, 'tags.a', 'x')).toEqual({ n: 1, tags: { a: 'x' } });
+  expect(setYamlPath(file, Schema, 'tags.a', 'x', lockDeps())).toEqual({ n: 1, tags: { a: 'x' } });
   expect(readFileSync(file, 'utf8')).toBe('n: 1 # count\ntags:\n  a: x\n');
 
-  expect(thrown(() => setYamlPath(file, Schema, 'n', 9)).code).toBe('invalid_config');
+  expect(thrown(() => setYamlPath(file, Schema, 'n', 9, lockDeps())).code).toBe('invalid_config');
   expect(readYaml(file, Schema).n).toBe(1);
 });
 
@@ -29,7 +29,7 @@ test('writes are whole files that keep their mode, and leave no temp file behind
   const dir = tempDir();
   const file = join(dir, 'config.yaml');
   expect(writeYaml(file, { n: 1, tags: {} }, { mode: 0o600, exclusive: true })).toBe(true);
-  setYamlPath(file, Schema, 'tags.a', 'x');
+  setYamlPath(file, Schema, 'tags.a', 'x', lockDeps());
   expect(statSync(file).mode & 0o777).toBe(0o600);
   writeYaml(file, { n: 2, tags: {} }, { mode: 0o600 });
   expect(readdirSync(dir)).toEqual(['config.yaml']);

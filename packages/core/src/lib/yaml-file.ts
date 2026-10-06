@@ -1,7 +1,8 @@
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isMap, parseDocument, stringify } from 'yaml';
 import type { z } from 'zod';
 import { createFileAtomic, writeFileAtomic } from './atomic-file.js';
+import { type LockDeps, withFileLock } from './lock-file.js';
 import { MesaError } from './result.js';
 import { parseWith } from './schema.js';
 
@@ -43,14 +44,25 @@ export const valueAt = (data: unknown, dotted: string): unknown =>
 
 /**
  * Sets one dotted path, or removes it when `value` is undefined, keeping comments and the order of
- * the other keys. The file is rewritten only when the result validates.
+ * the other keys, under `<file>.lock`. The file is rewritten only when the result validates.
  */
 export function setYamlPath<T>(
   file: string,
   schema: z.ZodType<T>,
   dotted: string,
   value: unknown,
+  lock: LockDeps,
   /** Throws to refuse the validated result, before anything is written. */
+  check?: (next: T) => void,
+): T {
+  return withFileLock(lock, file, () => setPath(file, schema, dotted, value, check));
+}
+
+function setPath<T>(
+  file: string,
+  schema: z.ZodType<T>,
+  dotted: string,
+  value: unknown,
   check?: (next: T) => void,
 ): T {
   const doc = readDocument(file);
@@ -74,4 +86,27 @@ export function setYamlPath<T>(
   // The new file keeps the old one's mode: config.yaml holds keys, so it stays 0600.
   writeFileAtomic(file, doc.toString(), statSync(file).mode & 0o777);
   return next;
+}
+
+/**
+ * Read-change-write of a YAML state file under `<file>.lock` (changeJson for YAML): `change` gets
+ * the current value (undefined when there is no file) and returns the next, written whole and
+ * 0600 under the optional header. `change` may throw to change nothing.
+ */
+export function changeYaml<T>(
+  file: string,
+  schema: z.ZodType<T>,
+  change: (current: T | undefined) => T,
+  lock: LockDeps,
+  header?: string,
+): T {
+  return withFileLock(lock, file, () => {
+    const next = parseWith(
+      schema,
+      change(existsSync(file) ? readYaml(file, schema) : undefined),
+      file,
+    );
+    writeYaml(file, next, { header, mode: 0o600 });
+    return next;
+  });
 }

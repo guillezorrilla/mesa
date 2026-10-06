@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { type LockDeps, lockedBy, withLockSync } from '../lib/lock-file.js';
+import type { LockDeps } from '../lib/lock-file.js';
 import { parseWith } from '../lib/schema.js';
-import { readYaml, writeYaml } from '../lib/yaml-file.js';
+import { changeYaml, readYaml } from '../lib/yaml-file.js';
 
 /** Profile-local presentation metadata never changes the project's stable mesa.yaml slug. */
 export type RegistryEntry = {
@@ -59,14 +59,12 @@ export function updateRegistry(
   file: string,
   change: (entries: RegistryEntry[]) => RegistryEntry[],
 ): void {
-  const path = `${file}.lock`;
-  const busy = () => lockedBy('the registry', path, 'registry');
-  withLockSync(
+  changeYaml(
+    file,
+    RegistrySchema,
+    (current) => ({ projects: change(current?.projects ?? []) }),
     lock,
-    path,
-    () =>
-      writeYaml(file, { projects: change(readRegistry(file)) }, { header: HEADER, mode: 0o600 }),
-    busy,
+    HEADER,
   );
 }
 
