@@ -101,8 +101,12 @@ export function changeYaml<T>(
   header?: string,
 ): T {
   return withFileLock(lock, file, () => {
-    const next = change(existsSync(file) ? readYaml(file, schema) : undefined);
-    writeYaml(file, parseWith(schema, next, file), { header, mode: 0o600 });
+    const next = parseWith(
+      schema,
+      change(existsSync(file) ? readYaml(file, schema) : undefined),
+      file,
+    );
+    writeYaml(file, next, { header, mode: 0o600 });
     return next;
   });
 }

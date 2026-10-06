@@ -54,8 +54,7 @@ export function automationState(file: string, deps: LockDeps) {
       changeYaml(
         file,
         StateSchema,
-        (current) => {
-          const state = current ?? read();
+        (state = { installed: false, observations: {}, runs: [] }) => {
           result = change(state);
           return state;
         },

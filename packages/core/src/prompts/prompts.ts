@@ -14,8 +14,7 @@ const ListSchema = z
     (prompts) =>
       new Set(prompts.map((prompt) => prompt.name.toLocaleLowerCase())).size === prompts.length,
     'saved prompt names must be unique',
-  )
-  .describe('saved prompts');
+  );
 export type SavedPrompt = z.infer<typeof SavedPromptSchema>;
 export const parseSavedPrompts = (input: unknown, file: string): SavedPrompt[] =>
   parseWith(ListSchema, input, file);
@@ -39,6 +38,7 @@ export function promptsService(ctx: MesaContext) {
         return current;
       },
       ctx.deps,
+      { what: 'saved prompts' },
     );
     return result as T;
   };
