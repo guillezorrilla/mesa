@@ -1,0 +1,5 @@
+{
+  "file": "src/log.js",
+  "note": "kelp-logging",
+  "prompt": "Implement logLine(event, fields) in src/log.js: the log line for an event and its fields, such as logLine('shipment.booked', { id, customerEmail })."
+}

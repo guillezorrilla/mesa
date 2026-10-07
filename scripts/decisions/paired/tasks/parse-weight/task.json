@@ -1,0 +1,5 @@
+{
+  "file": "src/weights.js",
+  "note": "kelp-weights",
+  "prompt": "Implement parseWeight(text) in src/weights.js: the weight a label's text names, such as \"1.25kg\", as the ledger stores it."
+}
