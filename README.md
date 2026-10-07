@@ -50,6 +50,7 @@ Mesa is the layer above the agents: an agentic OS for your Mac, sometimes called
 - **Guardrails you can check.** Prompts sent into a session and other outside actions pass a guardrail that can allow, ask or block, and each block or override is saved as a Receipt in your vault with the evidence behind it.
 - **Light on your context.** Mesa adds a few hundred tokens to a session: a short note, three skills and the vault tools. The rest of the window stays for your work.
 - **Your project knowledge, imported.** Connect Atlassian and Notion once, then pick the Jira issues, Confluence pages and Notion pages to import, or paste any public link. Each import lands in the vault, and can start a session.
+- **Smarter decisions, if you want them.** With your own TypeSafe or Cloudflare key, Jev or CLEF can sharpen Mesa's small judgments: which state a session is in, which note matters for a prompt, whether a next step or a claim of done holds up. A site runs on its own only after paired coding runs prove it helps; see [Smarter decisions](docs/decisions.md).
 - **Automations.** Per project, run a skill, start a session, message one, or refresh imported knowledge on a schedule, when a file changes, or when a session reaches a state, asking you first when you want it to.
 - **A CLI for everything.** Every screen is backed by a `mesa` command with `--json`, so scripts and agents can drive Mesa too. Bulk commands (archive, `stop` and `rm --descendants`, `discover adopt`) report every item and exit 2 when any failed.
 
@@ -111,6 +112,7 @@ The terms Mesa uses are defined in [CONTEXT.md](CONTEXT.md). The decisions behin
 ## Privacy
 
 - **Everything stays on your Mac:** your profile, session records and logs, Receipts, and the vault. Mesa has no server for any of them, no account, and no analytics.
+- **Decision models are opt-in.** With no key, nothing goes to one. With a Jev or CLEF key, only bounded session text (a screen tail, a prompt with short note excerpts, or the candidates and evidence an agent supplies) goes to the provider you chose; [what leaves your Mac](docs/decisions.md#what-text-leaves-your-mac).
 - **The agents run as you,** with your own Claude Code, Codex or Antigravity sign-in. Mesa never handles those credentials.
 - **Connecting Atlassian or Notion** goes through a small OAuth broker, a Cloudflare Worker ([ADR-0014](docs/adr/0014-oauth-broker-and-keychain-tokens.md)), because those vendors need a client secret that a desktop app cannot keep. The broker sees the sign-in code and the tokens as it passes them back to your Mac; it stores nothing and logs nothing. It never sees your pages or issues: Mesa calls the vendor's API directly from your Mac. Tokens are kept in the macOS Keychain, never in files. You can run your own broker and point Mesa at it with `MESA_BROKER_URL` (see ADR-0014).
 
