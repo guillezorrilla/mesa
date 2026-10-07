@@ -7,7 +7,7 @@ const cli = cliHarness();
 beforeEach(cli.reset);
 
 test('decisions mcp serves the same answers over stdio, and prints its tool with --tools', async () => {
-  const { world } = await cli.withAssistedSession();
+  const { world, id } = await cli.withAssistedSession();
   const tools = (await cli.mesa('decisions', 'mcp', '--tools', '--json')).json.data.tools;
   expect(tools.map((t: { name: string }) => t.name)).toEqual(['decision_evaluate']);
   const started = await cli.mesa('decisions', 'mcp');
@@ -23,4 +23,10 @@ test('decisions mcp serves the same answers over stdio, and prints its tool with
   const cliAnswer = (await cli.mesa('decisions', 'evaluate', '--json')).json.data;
   expect(normalAnswer(JSON.parse(out.text(3)))).toEqual(normalAnswer(cliAnswer));
   expect(world.requests).toHaveLength(1);
+  // The call through the tool is what show observes, apart from the CLI's.
+  cli.env = {};
+  expect((await cli.mesa('show', id, '--json')).json.data.decisions.tool).toMatchObject({
+    state: 'configured',
+    observedAt: '2026-09-24T12:00:00.000Z',
+  });
 });

@@ -1,7 +1,7 @@
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import { continueActions } from './continue.js';
-import { type SessionSkills, sessionDeps } from './deps.js';
+import { type SessionAssistance, type SessionSkills, sessionDeps } from './deps.js';
 import { gridActions, type SetConfig } from './grid.js';
 import { inputActions } from './input.js';
 import { inspectActions } from './inspect.js';
@@ -17,8 +17,9 @@ export function sessionsService(
   faro: Faro,
   skills: SessionSkills,
   setConfig: SetConfig,
+  assistance: SessionAssistance,
 ) {
-  const deps = sessionDeps(ctx, faro, skills);
+  const deps = sessionDeps(ctx, faro, skills, assistance);
   const lifecycle = lifecycleActions(ctx, faro, deps);
   return {
     grid: gridActions(ctx, setConfig),

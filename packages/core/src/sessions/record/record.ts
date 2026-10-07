@@ -97,6 +97,11 @@ const SessionRecordFields = z.strictObject({
    */
   vaultMounted: z.literal(true).optional(),
   /**
+   * Its agent was launched with mesa-decisions mounted too (agents/vault-mount.ts), as the profile
+   * had a Decision model then (#463). A session without it cannot gain the tool until it restarts.
+   */
+  decisionsMounted: z.literal(true).optional(),
+  /**
    * The folder its agent runs in, when that is neither the project's nor its worktree: an adopted
    * session's own, where claude keeps its conversation.
    */

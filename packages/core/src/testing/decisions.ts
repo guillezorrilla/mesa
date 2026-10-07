@@ -33,17 +33,19 @@ export function memoryRecorder(): DecisionRecorder & { decisions: Decision[] } {
 }
 
 /**
- * A live claude session on lantern-cove saved with `goal`, in a profile over systemOneWorld whose
- * Decision model is `model` (its invented key saved, so the world's requests start empty), with
- * `mesa` running inside the session's window and `person` outside any. `put` writes an invented
- * vault item, and `plant` another session record.
+ * A live claude session on lantern-cove saved with `goal` (and `session`'s fields), in a profile
+ * over systemOneWorld whose Decision model is `model` (its invented key saved, so the world's
+ * requests start empty), with `mesa` running inside the session's window and `person` outside
+ * any. `put` writes an invented vault item, and `plant` another session record.
  */
 export async function assistedSession({
   model = 'jev',
   goal = 'Make the tide table import retry when the feed answers 503',
+  session: fields = {},
 }: {
   model?: DecisionsModel;
   goal?: string;
+  session?: Partial<NewSession>;
 } = {}) {
   const world = systemOneWorld();
   const { home, mesa: person } = projectProfile(scriptedRunner().run, world.deps);
@@ -56,7 +58,7 @@ export async function assistedSession({
   const store = testStore(home);
   /** Another session record in the profile, as `newSession` makes it. */
   const plant = (overrides: Partial<NewSession> = {}) => store.create(() => newSession(overrides));
-  const session = plant({ goal });
+  const session = plant({ goal, ...fields });
   const env = windowEnv(session.id, 'default');
   const mesa = createMesa('default', testDeps(home, { ...world.deps, env }));
   const vault = join(home, 'vault');
@@ -65,4 +67,35 @@ export async function assistedSession({
     writeFileSync(join(vault, path), text);
   };
   return { world, home, vault, person, mesa, session, plant, put };
+}
+
+/** The invented marker a delivery test finds in its agent's advice, and only there. */
+export const ADVICE_MARKER = 'AMBER TIDE 7';
+/** The note that holds it, the one source of lantern-cove's vault. */
+export const MARKED_NOTE = 'wiki/decisions/retry-policy.md';
+
+/**
+ * An assistedSession of `agent` holding native conversation `agentSessionId`, launched with
+ * mesa-decisions mounted, whose project's vault holds one invented decision with ADVICE_MARKER.
+ */
+export async function assistedAgent(
+  agent: NewSession['agent'],
+  agentSessionId: string,
+  options: Parameters<typeof assistedSession>[0] = {},
+) {
+  const world = await assistedSession({
+    ...options,
+    session: {
+      agent,
+      agentSessionId,
+      vaultMounted: true,
+      decisionsMounted: true,
+      ...options.session,
+    },
+  });
+  world.put(
+    MARKED_NOTE,
+    `---\nproject: lantern-cove\ntype: decision\n---\n# Retry policy\n\nFeed calls retry 5 times on 503 (${ADVICE_MARKER}).\n`,
+  );
+  return world;
 }

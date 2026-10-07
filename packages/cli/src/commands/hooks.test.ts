@@ -1,6 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CLAUDE_VERSION, CODEX_VERSION, scriptedRunner } from '@mesa/core/testing';
+import {
+  CLAUDE_VERSION,
+  CODEX_VERSION,
+  scriptedRunner,
+  TEST_TYPESAFE_KEY,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -139,7 +144,7 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
 });
 
-test('show reports each mount; hooks manage Antigravity mesa-vault beside a user server and rule', async () => {
+test('show reports each mount; hooks manage Antigravity mesa-vault and mesa-decisions beside a user server and rule', async () => {
   const world = cli.withTmux();
   await cli.withProject();
   cli.run = scriptedRunner({
@@ -181,17 +186,19 @@ test('show reports each mount; hooks manage Antigravity mesa-vault beside a user
   expect(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers).toEqual({
     tide: { command: 'node', args: ['/opt/tide.js'] },
     'mesa-vault': { command: '/usr/local/bin/mesa', args: ['vault', 'mcp'] },
+    'mesa-decisions': { command: '/usr/local/bin/mesa', args: ['decisions', 'mcp'] },
   });
   expect(JSON.parse(readFileSync(rulesFile, 'utf8')).permissions.allow).toEqual([
     'command(git)',
     'mcp(mesa-vault/*)',
+    'mcp(mesa-decisions/*)',
   ]);
   expect(await vault(agy.id)).toEqual({
     state: 'configured',
     reason: 'Global mesa-vault entry and allow rule are configured',
   });
   expect((await mesa('hooks', 'status')).stdout).toContain(
-    `${mcpFile}\nok   mesa-vault entry\n${rulesFile}\nok   mesa-vault allow rule\n`,
+    `${mcpFile}\nok   mesa-vault entry\n${rulesFile}\nok   mesa-vault allow rule\n${mcpFile}\nok   mesa-decisions entry\n${rulesFile}\nok   mesa-decisions allow rule\n`,
   );
   expect((await doctor()).status).toBe('ok');
 
@@ -212,6 +219,17 @@ test('show reports each mount; hooks manage Antigravity mesa-vault beside a user
   });
   expect((await mesa('hooks', 'install')).code).toBe(0);
   expect(readFileSync(mcpFile, 'utf8')).toBe(foreign);
+  expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
+  // So is one under mesa-decisions: both files stay as they were, and uninstall takes nothing.
+  const theirs = `${JSON.stringify({ mcpServers: { 'mesa-decisions': { command: 'node', args: ['/opt/advisor.js'] } } })}\n`;
+  writeFileSync(mcpFile, theirs);
+  const installed = (await mesa('hooks', 'install', '--json')).json.data;
+  expect(installed.antigravityDecisions.conflict).toBe(
+    `${mcpFile}: mesa-decisions belongs to another server; Mesa left it unchanged`,
+  );
+  expect(installed.warning).toBe(installed.antigravityDecisions.conflict);
+  expect((await mesa('hooks', 'uninstall')).code).toBe(0);
+  expect(readFileSync(mcpFile, 'utf8')).toBe(theirs);
   expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
 });
 
@@ -520,3 +538,76 @@ test.each(['startup', undefined])(
     });
   },
 );
+
+test('with a Decision model a session mounts mesa-decisions, a prompt gets advice, and show tells configured from observed', async () => {
+  await cli.withDecisionModels();
+  const tmux = cli.withTmux();
+  const note = join(cli.home, 'vault/wiki/decisions/retry-policy.md');
+  mkdirSync(dirname(note), { recursive: true });
+  writeFileSync(
+    note,
+    '---\nproject: lantern-cove\ntype: decision\n---\n# Retry policy\n\nFeed calls retry 5 times on 503 (AMBER TIDE 7).\n',
+  );
+  const open = async () =>
+    (await mesa('open', 'lantern-cove', '--goal', 'Make the feed import retry', '--json')).json
+      .data;
+  const show = async (id: string) => (await mesa('show', id, '--json')).json.data;
+  const launch = (id: string) => tmux.windows.find((w) => w.window.endsWith(id))?.launch ?? '';
+  // No key: nothing of mesa-decisions is mounted, and show says why.
+  const before = await open();
+  expect(launch(before.id)).not.toContain('mesa-decisions');
+  expect(launch(before.id)).not.toContain('decisions prepare');
+  expect((await show(before.id)).decisions.tool).toEqual({
+    state: 'disabled',
+    reason: 'no decision model: add a key with mesa decisions key set',
+  });
+  cli.stdin = TEST_TYPESAFE_KEY;
+  await mesa('decisions', 'key', 'set', 'typesafe');
+  // A session started before the key cannot gain the tool: show says how, never enabled.
+  expect((await show(before.id)).decisions.tool).toEqual({
+    state: 'missing',
+    reason: 'Started without mesa-decisions; stop it and resume through Mesa to mount it',
+    action: 'restart',
+  });
+  const opened = await open();
+  expect(launch(opened.id)).toContain('"mesa-decisions":{"type":"stdio"');
+  expect(launch(opened.id)).toContain('--allowedTools=mcp__mesa-vault,mcp__mesa-decisions');
+  expect(launch(opened.id)).toMatch(/^\('\/usr\/local\/bin\/mesa' decisions prepare .*&\); /);
+  expect(launch(opened.id)).toContain("'Make the feed import retry'");
+  await mesa('hooks', 'install');
+  expect((await show(opened.id)).decisions).toEqual({
+    tool: { state: 'configured', reason: 'mesa-decisions is mounted in its launch command' },
+    advice: { state: 'configured', reason: 'UserPromptSubmit adds advice to the turn' },
+  });
+
+  // Inside the window: the prompt's hook prints additionalContext JSON, for its own conversation.
+  cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };
+  cli.stdin = JSON.stringify({
+    session_id: opened.agentSessionId,
+    hook_event_name: 'UserPromptSubmit',
+    prompt: 'Make the feed import retry',
+  });
+  const hook = await mesa('hook', 'claude');
+  const context = JSON.parse(hook.stdout).hookSpecificOutput;
+  expect(context.hookEventName).toBe('UserPromptSubmit');
+  expect(context.additionalContext).toContain('AMBER TIDE 7');
+  expect((await mesa('hook', 'claude', '--json')).json.data).toEqual({
+    recorded: true,
+    event: 'UserPromptSubmit',
+    advised: true,
+  });
+  cli.stdin = JSON.stringify({
+    session_id: 'a-nested-claude',
+    hook_event_name: 'UserPromptSubmit',
+    prompt: 'Make the feed import retry',
+  });
+  expect((await mesa('hook', 'claude')).stdout.trim()).toBe('');
+  cli.env = {};
+  const observed = (await show(opened.id)).decisions;
+  expect(observed.advice.observedAt).toBe('2026-09-24T12:00:00.000Z');
+  expect(observed.tool.observedAt).toBeUndefined();
+
+  // Turned off for the session: disabled, whatever is configured.
+  await mesa('decisions', 'off', '--session', opened.id);
+  expect((await show(opened.id)).decisions.advice.state).toBe('disabled');
+});

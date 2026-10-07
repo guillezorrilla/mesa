@@ -1,9 +1,11 @@
 import type { MesaContext } from '../context.js';
+import { clip } from '../lib/clip.js';
 import { MesaError } from '../lib/result.js';
 import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { Stdio } from '../vault/mount/mcp-server.js';
+import { TURN_HOOK_MS, turnAdvice } from './delivery.js';
 import {
   ASSIST_MODES,
   type AssistMode,
@@ -35,6 +37,8 @@ export type EvaluateOptions = {
   session?: string;
   mode?: AssistMode;
   signal?: AbortSignal;
+  /** Only an answer made before (evaluate's readyOnly). */
+  readyOnly?: boolean;
   /** Keep this one as a decision receipt, with why it matters. */
   rationale?: string;
 };
@@ -62,7 +66,7 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
   const answer = async (
     session: SessionRecord,
     raw: unknown,
-    { mode = 'on-demand', signal, rationale }: Omit<EvaluateOptions, 'session'> = {},
+    { mode = 'on-demand', signal, rationale, readyOnly }: Omit<EvaluateOptions, 'session'> = {},
   ): Promise<DecisionAnswer & { receipt?: Recorded<Decision>['receipt'] }> => {
     const request = decisionRequest(raw);
     if (rationale !== undefined && mode !== 'on-demand')
@@ -96,7 +100,12 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
               memory: rationale === undefined ? memory : { ...memory, ready: () => undefined },
             },
             packet,
-            { mode, ...(signal ? { signal } : {}), ...(revision ? { revision } : {}) },
+            {
+              mode,
+              ...(signal ? { signal } : {}),
+              ...(revision ? { revision } : {}),
+              ...(readyOnly ? { readyOnly } : {}),
+            },
           );
     const answered = await answerRequest(
       { vault: ctx.vaultOf(), store: ctx.store },
@@ -108,10 +117,55 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     return receipt === undefined ? answered : { ...answered, receipt };
   };
 
+  /**
+   * Automatic advice for `session`, a live record its own hook already checked (ADR-0019): the
+   * scoped context of `query` (else its saved goal) at the relevance site, within TURN_HOOK_MS,
+   * or only a ready answer; the words to send, or nothing (off, no model, a miss, an abstention, a
+   * late or failed call). What is sent is noted as observed.
+   */
+  const advise = async (
+    session: SessionRecord,
+    query: string | undefined,
+    { readyOnly }: { readyOnly?: boolean } = {},
+  ): Promise<string | undefined> => {
+    const asked = query?.trim() || session.goal?.trim();
+    if (!asked || off(session)) return undefined;
+    const context = await answer(
+      session,
+      { site: 'relevance', query: clip(asked, 500) },
+      { mode: 'automatic', signal: AbortSignal.timeout(TURN_HOOK_MS), readyOnly },
+    );
+    const text = 'sources' in context ? turnAdvice(context) : undefined;
+    if (text) stateOf(session.id).saw('advice');
+    return text;
+  };
+
   return {
     /** A decision request answered for the session (DecisionRequestSchema). */
     evaluate: async (raw: unknown, { session, ...options }: EvaluateOptions = {}) =>
       answer(bound(session), raw, options),
+    advise,
+    /**
+     * The saved goal's answer, asked as its agent starts (`mesa decisions prepare`, which the
+     * window runs before it): the evaluation, kept as a ready answer for the first turn.
+     */
+    prepare: async (given?: string) => {
+      const session = bound(given);
+      const why = off(session);
+      if (why || !session.goal?.trim())
+        return { session: session.id, prepared: false, reason: why ?? 'no saved goal' };
+      const context = await answer(session, { site: 'relevance' }, { mode: 'automatic' });
+      return {
+        session: session.id,
+        prepared: context.evaluation.status !== 'unavailable',
+        evaluation: context.evaluation,
+      };
+    },
+    /** What the session's delivery status reads: the model, whether it is off, and what was seen. */
+    assistState: (session: SessionRecord) => {
+      const state = stateOf(session.id).read();
+      return { model: model(), off: state.off === true, seen: state.seen ?? {} };
+    },
     /** What the session's details show: each site's mode, the deadlines, and recent use. */
     status: (given?: string) => {
       const session = bound(given);
@@ -152,7 +206,11 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
       serveDecisions(io, version, {
         bind: () => decisionBinding(ctx),
         off,
-        answer: (session, args, signal) => answer(session, args, { signal }),
+        answer: async (session, args, signal) => {
+          const answered = await answer(session, args, { signal });
+          stateOf(session.id).saw('tool');
+          return answered;
+        },
       }),
   };
 }

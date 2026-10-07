@@ -1,22 +1,26 @@
 import type { MesaContext } from '../context.js';
+import { joinWarnings } from '../receipts/recorder.js';
 import * as antigravity from './antigravity/hooks.js';
 import * as antigravityVault from './antigravity/vault-mount.js';
 import type { ClaudeHooksStatus } from './claude/hooks.js';
 import { hooksStatus, installHooks, uninstallHooks } from './claude/hooks.js';
 import * as codex from './codex/hooks.js';
 import { codexHome } from './codex/paths.js';
+import { DECISIONS_MOUNT } from './vault-mount.js';
 
 export type TmuxHookStatus = { socket: string; server: boolean; paneDied: boolean };
 export type HooksStatus = ClaudeHooksStatus & {
   codex: codex.CodexHooksStatus;
   antigravity: ReturnType<typeof antigravity.hooksStatus>;
   antigravityVault: ReturnType<typeof antigravityVault.vaultMountStatus>;
+  /** Antigravity's mesa-decisions entry and rule (#463), owned as mesa-vault's are. */
+  antigravityDecisions: ReturnType<typeof antigravityVault.vaultMountStatus>;
   tmux: TmuxHookStatus;
 };
 
 /**
- * Mesa's agent hooks, Antigravity's global mesa-vault entry and allow rule, and the pane-died
- * hook on the profile's tmux server.
+ * Mesa's agent hooks, Antigravity's global mesa-vault and mesa-decisions entries and allow rules,
+ * and the pane-died hook on the profile's tmux server.
  */
 export function hooksService(ctx: MesaContext) {
   const { record } = ctx;
@@ -33,15 +37,19 @@ export function hooksService(ctx: MesaContext) {
       ctx.home,
       ctx.self,
     );
-    const vault = (
-      install ? antigravityVault.installVaultMount : antigravityVault.uninstallVaultMount
-    )(ctx.home, ctx.self);
+    const mount = install
+      ? antigravityVault.installVaultMount
+      : antigravityVault.uninstallVaultMount;
+    const vault = mount(ctx.home, ctx.self);
+    const decisions = mount(ctx.home, ctx.self, DECISIONS_MOUNT);
     return {
       ...claude,
       codex: result,
       antigravity: agy,
       antigravityVault: vault,
-      changed: claude.changed || result.changed || agy.changed || vault.changed,
+      antigravityDecisions: decisions,
+      changed:
+        claude.changed || result.changed || agy.changed || vault.changed || decisions.changed,
     };
   };
   return {
@@ -50,6 +58,7 @@ export function hooksService(ctx: MesaContext) {
       codex: codex.hooksStatus(home, ctx.self),
       antigravity: antigravity.hooksStatus(ctx.home, ctx.self),
       antigravityVault: antigravityVault.vaultMountStatus(ctx.home, ctx.self),
+      antigravityDecisions: antigravityVault.vaultMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
       tmux: await ctx.tmuxHook(),
     }),
     /** Adds every agent's entries; running it twice leaves one per event, entry, and rule. */
@@ -67,7 +76,10 @@ export function hooksService(ctx: MesaContext) {
             antigravityRulePath: r.antigravityVault.rulePath,
           }),
           changed: (r) => r.changed,
-          warning: (r) => r.antigravityVault.conflict,
+          warning: (r) =>
+            joinWarnings(
+              ...new Set([r.antigravityVault.conflict, r.antigravityDecisions.conflict]),
+            ),
         },
         () => change(true),
       ),
@@ -85,7 +97,10 @@ export function hooksService(ctx: MesaContext) {
             antigravityRulePath: r.antigravityVault.rulePath,
           }),
           changed: (r) => r.changed,
-          warning: (r) => r.antigravityVault.conflict,
+          warning: (r) =>
+            joinWarnings(
+              ...new Set([r.antigravityVault.conflict, r.antigravityDecisions.conflict]),
+            ),
         },
         () => change(false),
       ),

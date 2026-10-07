@@ -30,14 +30,19 @@ export function instructionStatus(
   try {
     if (agent === 'antigravity') {
       const hooks = antigravityHooks(home, self);
-      if (hooks.stale) return { state: 'conflicting', reason: 'Mesa PreInvocation hook is stale' };
+      if (hooks.stale)
+        return {
+          state: 'conflicting',
+          reason: 'Mesa PreInvocation hook is stale; run mesa hooks install',
+        };
       return hooks.installed
         ? { state: 'configured', reason: 'PreInvocation hook is configured' }
         : { state: 'missing', reason: 'Run mesa hooks install' };
     }
     const codex = agent === 'codex' ? codexHooks(codexHome(home, env), self) : undefined;
     const hooks = codex ?? claudeHooks(home, env, self);
-    if (hooks.stale) return { state: 'conflicting', reason: 'Mesa SessionStart hook is stale' };
+    if (hooks.stale)
+      return { state: 'conflicting', reason: 'Mesa hooks are stale; run mesa hooks install' };
     if (!hooks.events.SessionStart) return { state: 'missing', reason: 'Run mesa hooks install' };
     if (codex && !codex.trusted.SessionStart)
       return { state: 'conflicting', reason: 'Review and trust the Mesa hook in Codex' };
@@ -48,11 +53,24 @@ export function instructionStatus(
 }
 
 /**
+ * The capability line a pointer ends with while the session's agent has the decision tool (#463):
+ * under 200 bytes, beside the pointer's own 1,000.
+ */
+export const DECISIONS_LINE =
+  "Decisions: mesa-decisions' decision_evaluate (or mesa decisions evaluate --json) gives advice only, on relevance, next-step or evidence; prompts may carry Mesa advice. Weigh it; it never acts.";
+
+/**
  * A bounded native hook supplement, under 1,000 bytes and with no vault content: the session, how
- * to reach Mesa and the vault tools (ADR-0012), and the CLI when they are not there. Provider and
+ * to reach Mesa and the vault tools (ADR-0012), and the CLI when they are not there; with
+ * `decisions` (the session's agent has the decision tool), DECISIONS_LINE after it. Provider and
  * repository instructions stay intact.
  */
-export function mesaPointer(record: SessionRecord, profile: string, cwd: string): string {
+export function mesaPointer(
+  record: SessionRecord,
+  profile: string,
+  cwd: string,
+  decisions = false,
+): string {
   const prefix = record.agent === 'codex' ? '$' : '/';
   const skills =
     record.project === GENERAL_PROJECT
@@ -72,7 +90,7 @@ export function mesaPointer(record: SessionRecord, profile: string, cwd: string)
     `Without the tools: ${vault} and the mesa-vault skill.`,
   ];
   if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));
-  return lines.join('\n');
+  return [...lines, ...(decisions ? [DECISIONS_LINE] : [])].join('\n');
 }
 
 /** The cap a pointer stays under, in UTF-8 bytes. */

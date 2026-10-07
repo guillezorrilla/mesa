@@ -3,14 +3,24 @@ import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
 const mark = (on: boolean) => (on ? 'ok  ' : 'MISS');
-/** Antigravity's mesa-vault entry and rule, or why Mesa leaves its files alone. */
-const vaultLines = (vault: HooksStatus['antigravityVault']) =>
+/** Antigravity's entry and rule for one of Mesa's servers, or why Mesa leaves its files alone. */
+const vaultLines = (vault: HooksStatus['antigravityVault'], name = 'mesa-vault') =>
   vault.conflict
     ? `${vault.path}\nCONFLICT ${vault.conflict}`
-    : `${vault.path}\n${mark(vault.server)} mesa-vault entry${vault.disabled ? ' (disabled in Antigravity)' : ''}\n${vault.rulePath}\n${mark(vault.rule)} mesa-vault allow rule`;
-/** Where install or uninstall changed Antigravity's mesa-vault files; none when they conflict. */
-const vaultFiles = (vault: HooksStatus['antigravityVault'], at: 'in' | 'from') =>
-  vault.conflict ? '' : `, and its mesa-vault entry ${at} ${vault.path} and ${vault.rulePath}`;
+    : `${vault.path}\n${mark(vault.server)} ${name} entry${vault.disabled ? ' (disabled in Antigravity)' : ''}\n${vault.rulePath}\n${mark(vault.rule)} ${name} allow rule`;
+/** Where install or uninstall changed Antigravity's MCP files; none when they conflict. */
+const vaultFiles = (
+  s: Pick<HooksStatus, 'antigravityVault' | 'antigravityDecisions'>,
+  at: 'in' | 'from',
+) => {
+  const names = [
+    ...(s.antigravityVault.conflict ? [] : ['mesa-vault']),
+    ...(s.antigravityDecisions.conflict ? [] : ['mesa-decisions']),
+  ];
+  return names.length
+    ? `, and its ${names.join(' and ')} entries ${at} ${s.antigravityVault.path} and ${s.antigravityVault.rulePath}`
+    : '';
+};
 const listed = (s: HooksStatus) =>
   Object.entries(s.events)
     .map(([event, on]) => `${mark(on)} ${event}`)
@@ -19,7 +29,7 @@ const listed = (s: HooksStatus) =>
 export const hooksStatus = defineCommand({
   name: 'hooks status',
   summary:
-    "Show Mesa's agent hooks, Codex trust, Antigravity's mesa-vault entry, and tmux pane-died hook",
+    "Show Mesa's agent hooks, Codex trust, Antigravity's mesa-vault and mesa-decisions entries, and tmux pane-died hook",
   example: 'mesa hooks status',
   run: async ({ mesa }) => {
     const status = await mesa.hooks.status();
@@ -35,7 +45,7 @@ export const hooksStatus = defineCommand({
       .join('\n');
     return {
       data: status,
-      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${tmux}`,
+      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${vaultLines(status.antigravityDecisions, 'mesa-decisions')}\n${tmux}`,
     };
   },
 });
@@ -43,13 +53,13 @@ export const hooksStatus = defineCommand({
 export const hooksInstall = defineCommand({
   name: 'hooks install',
   summary:
-    "Add Mesa's agent hooks and Antigravity's mesa-vault entry; the user's own stay as they are",
+    "Add Mesa's agent hooks and Antigravity's mesa-vault and mesa-decisions entries; the user's own stay as they are",
   example: 'mesa hooks install',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.install();
     const { changed, ...status } = recorded.result;
     const text = changed
-      ? `installed Mesa's hooks in ${status.path}, ${status.codex.path}, and ${status.antigravity.path}${vaultFiles(status.antigravityVault, 'in')}`
+      ? `installed Mesa's hooks in ${status.path}, ${status.codex.path}, and ${status.antigravity.path}${vaultFiles(status, 'in')}`
       : 'hooks already installed';
     return recordedOutput(recorded, {
       data: { ...status, changed },
@@ -60,13 +70,13 @@ export const hooksInstall = defineCommand({
 
 export const hooksUninstall = defineCommand({
   name: 'hooks uninstall',
-  summary: "Remove Mesa's agent hooks and mesa-vault entry, and nothing else",
+  summary: "Remove Mesa's agent hooks and MCP entries, and nothing else",
   example: 'mesa hooks uninstall',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.uninstall();
     const { changed, ...status } = recorded.result;
     const text = changed
-      ? `removed Mesa's hooks from ${status.path}, ${status.codex.path}, and ${status.antigravity.path}${vaultFiles(status.antigravityVault, 'from')}`
+      ? `removed Mesa's hooks from ${status.path}, ${status.codex.path}, and ${status.antigravity.path}${vaultFiles(status, 'from')}`
       : 'no Mesa hooks to remove';
     return recordedOutput(recorded, { data: { ...status, changed }, text });
   },

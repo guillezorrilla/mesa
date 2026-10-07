@@ -1,35 +1,73 @@
+import { DECISIONS_SERVER } from '../decisions/server.js';
 import { WINDOW_VARS } from '../lib/window-vars.js';
 import { VAULT_SERVER } from '../vault/mount/server.js';
 import { VAULT_WRITE_TOOLS } from '../vault/mount/tools.js';
 import type { Agent } from './names.js';
 
 // How a session's agent mounts mesa-vault, the stdio MCP server `mesa vault mcp` (ADR-0011), with
-// every tool pre-approved (docs/spikes/vault-mcp.md, ADR-0012). Claude Code and Codex take it per
-// launch, in argv, so every start, resume, fork, and headless run carries it; Antigravity takes
-// one global entry instead (antigravity/vault-mount.ts).
+// every tool pre-approved (docs/spikes/vault-mcp.md, ADR-0012), and beside it, while the profile
+// has a Decision model, mesa-decisions, `mesa decisions mcp` (ADR-0019, #463), the same way. Claude
+// Code and Codex take them per launch, in argv, so every start, resume, fork, and headless run
+// carries them; Antigravity takes one global entry each instead (antigravity/vault-mount.ts).
 
 /** Whether an agent's launch command carries the mount; Antigravity's is its global entry. */
 export const mountsPerLaunch = (agent: Agent | 'terminal') =>
   agent === 'claude' || agent === 'codex';
 
-/** The command an agent starts the server with. */
+/** The command an agent starts a server with. */
 export type VaultServer = { command: string; args: readonly string[] };
 
 /** The mesa subcommand that is the server. */
 export const VAULT_COMMAND = ['vault', 'mcp'] as const;
+/** The mesa subcommand that is the decisions server. */
+export const DECISIONS_COMMAND = ['decisions', 'mcp'] as const;
+
+/** One of Mesa's servers as an agent's config names it: its name and its mesa subcommand. */
+export type MesaServer = { name: string; command: readonly string[] };
+export const VAULT_MOUNT: MesaServer = { name: VAULT_SERVER, command: VAULT_COMMAND };
+export const DECISIONS_MOUNT: MesaServer = { name: DECISIONS_SERVER, command: DECISIONS_COMMAND };
 
 /**
- * This mesa's `vault mcp`, from the argv that runs it (MesaDeps.self). No --profile: the server
- * reads MESA_PROFILE and MESA_SESSION_ID from the window's environment, which every agent passes
- * on, so Antigravity's one global entry serves every profile.
+ * This mesa running `command` (`vault mcp` by default), from the argv that runs it (MesaDeps.self).
+ * No --profile: the server reads MESA_PROFILE and MESA_SESSION_ID from the window's environment,
+ * which every agent passes on, so Antigravity's one global entry serves every profile.
  */
-export function vaultServer(self: readonly string[]): VaultServer {
-  const [command = 'mesa', ...args] = self;
-  return { command, args: [...args, ...VAULT_COMMAND] };
+export function vaultServer(
+  self: readonly string[],
+  command: readonly string[] = VAULT_COMMAND,
+): VaultServer {
+  const [program = 'mesa', ...args] = self;
+  return { command: program, args: [...args, ...command] };
 }
+
+/** What a launch mounts: mesa-vault always, and mesa-decisions while there is a Decision model. */
+export type Mounts = { vault: VaultServer; decisions?: VaultServer };
+
+/**
+ * This mesa's mounts for a launch. With no Decision model (`decisions` false) nothing of
+ * mesa-decisions is mounted, so no tool is listed and the agent works as before.
+ */
+export const launchMounts = (self: readonly string[], decisions: boolean): Mounts => ({
+  vault: vaultServer(self),
+  ...(decisions ? { decisions: vaultServer(self, DECISIONS_COMMAND) } : {}),
+});
+
+/** The servers of `mounts` by their config names, mesa-vault first. */
+const servers = (mounts: Mounts) =>
+  Object.entries({ [VAULT_SERVER]: mounts.vault, [DECISIONS_SERVER]: mounts.decisions }).filter(
+    (entry): entry is [string, VaultServer] => entry[1] !== undefined,
+  );
 
 /** Claude Code's permission rule for every tool of the server. */
 export const CLAUDE_VAULT_TOOLS = `mcp__${VAULT_SERVER}`;
+/** Claude Code's permission rule for the decisions server's tool. */
+export const CLAUDE_DECISIONS_TOOLS = `mcp__${DECISIONS_SERVER}`;
+
+/** Claude Code's rules for every tool `mounts` mounts. */
+export const claudeMountTools = (mounts: Mounts) => [
+  CLAUDE_VAULT_TOOLS,
+  ...(mounts.decisions ? [CLAUDE_DECISIONS_TOOLS] : []),
+];
 
 /** Claude Code's rules for the server's write tools, which a read-only run disallows. */
 export const CLAUDE_VAULT_WRITES = VAULT_WRITE_TOOLS.map(
@@ -41,16 +79,20 @@ export const CLAUDE_VAULT_WRITES = VAULT_WRITE_TOOLS.map(
  * own environment, the window's, or a background job's launch settings (claude/background.ts).
  * In the `=` form, as the flag is variadic and would take a goal after it as another config.
  */
-export const claudeMcpConfig = (server: VaultServer) =>
-  `--mcp-config=${JSON.stringify({ mcpServers: { [VAULT_SERVER]: { type: 'stdio', ...server } } })}`;
+export const claudeMcpConfig = (mounts: Mounts) =>
+  `--mcp-config=${JSON.stringify({
+    mcpServers: Object.fromEntries(
+      servers(mounts).map(([name, server]) => [name, { type: 'stdio', ...server }]),
+    ),
+  })}`;
 
 /**
  * Claude Code's mount for an interactive start, resume, or fork, one argv word each. Never
  * --strict-mcp-config, which would drop the user's own servers.
  */
-export const claudeVaultArgs = (server: VaultServer) => [
-  claudeMcpConfig(server),
-  `--allowedTools=${CLAUDE_VAULT_TOOLS}`,
+export const claudeMountArgs = (mounts: Mounts) => [
+  claudeMcpConfig(mounts),
+  `--allowedTools=${claudeMountTools(mounts).join(',')}`,
 ];
 
 /**
@@ -58,13 +100,15 @@ export const claudeVaultArgs = (server: VaultServer) => [
  * valid TOML). `env_vars`, as Codex passes a server only a default list of variables otherwise;
  * `approve`, as `codex exec` fails an MCP call under approval_policy=never without it.
  */
-export const codexVaultOverrides = (server: VaultServer) =>
-  Object.entries({
-    command: server.command,
-    args: server.args,
-    env_vars: WINDOW_VARS,
-    default_tools_approval_mode: 'approve',
-  }).map(([key, value]) => `mcp_servers.${VAULT_SERVER}.${key}=${JSON.stringify(value)}`);
+export const codexMountOverrides = (mounts: Mounts) =>
+  servers(mounts).flatMap(([name, server]) =>
+    Object.entries({
+      command: server.command,
+      args: server.args,
+      env_vars: WINDOW_VARS,
+      default_tools_approval_mode: 'approve',
+    }).map(([key, value]) => `mcp_servers.${name}.${key}=${JSON.stringify(value)}`),
+  );
 
 /** Codex's override that turns off the server's write tools for a read-only run. */
 export const CODEX_VAULT_READ_ONLY = `mcp_servers.${VAULT_SERVER}.disabled_tools=${JSON.stringify(VAULT_WRITE_TOOLS)}`;

@@ -1,8 +1,9 @@
 import { listAgentProcesses } from '../../agents/listing.js';
-import { vaultServer } from '../../agents/vault-mount.js';
+import { launchMounts } from '../../agents/vault-mount.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
+import type { DecisionAssistance } from '../../decisions/service.js';
 import { shortId } from '../../lib/ids.js';
 import { redactWhole } from '../../lib/redact.js';
 import type { skillsService } from '../../skills/service.js';
@@ -15,6 +16,9 @@ import { boardLook } from './board.js';
 /** The skills service's: links a project's enabled skills into a folder, and lists what it sees. */
 export type SessionSkills = Pick<ReturnType<typeof skillsService>, 'linkInto' | 'list'>;
 
+/** Decision assistance as sessions use it: a turn's advice, and what a session's status reads. */
+export type SessionAssistance = Pick<DecisionAssistance, 'advise' | 'assistState'>;
+
 /** What the sessions service's areas share for one profile (sessionDeps). */
 export type SessionDeps = ReturnType<typeof sessionDeps>;
 
@@ -22,7 +26,12 @@ export type SessionDeps = ReturnType<typeof sessionDeps>;
  * What each session action takes, built once for one profile: a launch's, an adoption's, a
  * native read's, a terminal's, the board, and the signals that a session ended.
  */
-export function sessionDeps(ctx: MesaContext, faro: Faro, skills: SessionSkills) {
+export function sessionDeps(
+  ctx: MesaContext,
+  faro: Faro,
+  skills: SessionSkills,
+  assistance: SessionAssistance,
+) {
   const { profile, paths, open, store, tmux, secrets } = ctx;
   /** Where a session's context use is read: its agent's files under home, with this env. */
   const contextDeps = { store, home: ctx.home, env: ctx.env };
@@ -49,7 +58,8 @@ export function sessionDeps(ctx: MesaContext, faro: Faro, skills: SessionSkills)
     newUuid: ctx.newUuid,
     caller,
     syncSkills: skills.linkInto,
-    vaultServer: vaultServer(ctx.self),
+    // mesa-decisions only while the profile has a Decision model (ADR-0019, #463).
+    mounts: launchMounts(ctx.self, (ctx.configIfAny()?.decisions.model ?? 'none') !== 'none'),
     shell: ctx.env.SHELL || '/bin/zsh',
     home: ctx.home,
     self: ctx.self,
@@ -84,8 +94,9 @@ export function sessionDeps(ctx: MesaContext, faro: Faro, skills: SessionSkills)
   const ensureBackgroundView = backgroundView(ctx, openDeps);
   /** A look at the board (board.ts). */
   const look = boardLook(ctx, faro, elsewhere);
-  const ends = endSignals(ctx, { look, launch: openDeps, context: contextDeps });
+  const ends = endSignals(ctx, { look, launch: openDeps, context: contextDeps, assistance });
   return {
+    assistance,
     contextDeps,
     terminal,
     terminalApp,

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { newSession } from '../../testing/index.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
-import { mesaPointer } from './instructions.js';
+import { DECISIONS_LINE, mesaPointer } from './instructions.js';
 
 // The longest ids and paths a pointer realistically names: a long profile and project, and a
 // worktree of a long branch under a long home.
@@ -65,3 +65,22 @@ test('a session across projects names them in one line, eliding past the 1,000-b
   }
   expect(mesaPointer(record({}), PROFILE, CWD)).not.toContain('Also in');
 });
+
+test.each(['claude', 'codex', 'antigravity'] as const)(
+  'with the decision tool, the %s pointer ends with one capability line of under 200 bytes',
+  (agent) => {
+    const plain = mesaPointer(record({ agent }), PROFILE, CWD);
+    const pointer = mesaPointer(record({ agent }), PROFILE, CWD, true);
+    expect(pointer).toBe(`${plain}\n${DECISIONS_LINE}`);
+    expect(Buffer.byteLength(DECISIONS_LINE)).toBeLessThan(200);
+    expect(DECISIONS_LINE).toContain('decision_evaluate');
+    expect(DECISIONS_LINE).toContain('advice only');
+    expect(plain).not.toContain('Decisions:');
+    // Across projects, the projects line keeps the pointer itself under its cap.
+    const name = (c: string) => `${c.repeat(52)}-project`;
+    const worktree = { path: CWD, branch: 'issue-1234-long-branch-name-for-feature' };
+    const additional = ['a', 'b'].map((c) => ({ project: name(c), worktree }));
+    const across = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD, true);
+    expect(Buffer.byteLength(across)).toBeLessThan(1000 + 1 + Buffer.byteLength(DECISIONS_LINE));
+  },
+);

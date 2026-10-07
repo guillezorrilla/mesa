@@ -1,4 +1,5 @@
 import type {
+  DecisionDeliveryStatus,
   InstructionStatus,
   ManagedRow,
   McpTool,
@@ -14,6 +15,7 @@ import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
+import { DecisionDeliveryField } from './DecisionDeliveryField';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -47,8 +49,13 @@ const placedText = ({
 export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
   const call = useCall();
   const [record, setRecord] = useState<
-    SessionRecord & { instructions: InstructionStatus; vault: InstructionStatus }
+    SessionRecord & {
+      instructions: InstructionStatus;
+      vault: InstructionStatus;
+      decisions: DecisionDeliveryStatus;
+    }
   >();
+  const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   // The mesa-vault tools its agent's server lists (ADR-0011); a plain terminal has no agent.
@@ -156,7 +163,28 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               {!agent ? (
                 'None: a plain terminal runs no agent'
               ) : opened ? (
-                <DecisionAssistancePanel session={row.id} />
+                <div className="grid gap-2">
+                  {record?.decisions && (
+                    <DecisionDeliveryField
+                      status={record.decisions}
+                      acting={restarting || row.lastState.state === 'working'}
+                      onRestart={() => {
+                        // Argv cannot change in a running agent: stop it, then resume it through
+                        // Mesa, which launches it with mesa-decisions mounted.
+                        setRestarting(true);
+                        void call('sessions.stop', { id: row.id })
+                          .then((stopped) =>
+                            stopped.ok ? call('sessions.resume', { id: row.id }) : stopped,
+                          )
+                          .then((result) => {
+                            if (!result.ok) setError(result.error.message);
+                          })
+                          .finally(() => setRestarting(false));
+                      }}
+                    />
+                  )}
+                  <DecisionAssistancePanel session={row.id} />
+                </div>
               ) : (
                 'Open details to check'
               )}

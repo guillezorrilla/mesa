@@ -10,7 +10,8 @@ import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
 import { sandboxOverride } from '../../agents/launch-flags.js';
 import { AGENT_NAMES } from '../../agents/names.js';
-import { mountsPerLaunch, type VaultServer } from '../../agents/vault-mount.js';
+import { type Mounts, mountsPerLaunch } from '../../agents/vault-mount.js';
+import { prepareCommand } from '../../decisions/delivery.js';
 import { readyAgent } from '../../doctor/probe.js';
 import type { Clock } from '../../lib/clock.js';
 import type { AsyncLockDeps } from '../../lib/lock-file.js';
@@ -55,8 +56,8 @@ export type LaunchDeps = {
   clock: Clock;
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
-  /** The mesa-vault server every agent command mounts (agents/vault-mount.ts). */
-  vaultServer: VaultServer;
+  /** Mesa's servers every agent command mounts (agents/vault-mount.ts), read at each launch. */
+  mounts: Mounts;
   /** For the locks a launch takes: a new worktree's, and the registry's. */
   lock: AsyncLockDeps;
 };
@@ -109,15 +110,29 @@ type Start = {
   additional?: readonly AdditionalStart[];
 };
 
-/** The command tmux receives, including Claude's color and process-identity setup. */
+/**
+ * The background ask for a session's goal while its agent starts (decisions/delivery.ts): for an
+ * interactive session with a goal whose launch mounts mesa-decisions; none otherwise.
+ */
+export const goalPreparing = (
+  deps: Pick<LaunchDeps, 'mounts' | 'self'>,
+  kind: SessionRecord['kind'],
+  goal?: string,
+) => (deps.mounts.decisions && goal && kind === 'interactive' ? prepareCommand(deps.self) : '');
+
+/**
+ * The command tmux receives, including Claude's color and process-identity setup, after
+ * `preparing` (goalPreparing).
+ */
 export function sessionWindowCommand(
   agent: SessionRecord['agent'],
   kind: SessionRecord['kind'],
   command: string,
+  preparing = '',
 ) {
   return agent === 'claude' && kind === 'interactive'
-    ? `unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
-    : command;
+    ? `${preparing}unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
+    : `${preparing}${command}`;
 }
 
 /**
@@ -172,7 +187,7 @@ export async function startSession(
       backgroundId = await startClaudeBackground(
         deps.run,
         cwd,
-        deps.vaultServer,
+        deps.mounts,
         windowEnv(record.id, deps.profileName),
         deps.profile.config.agents,
         additionalDirs(record),
@@ -188,14 +203,25 @@ export async function startSession(
       : record.agent === 'claude' && record.kind === 'interactive' && config.sessions.statusLineCost
         ? withMesaStatusLine(start.command(record), deps.self)
         : start.command(record);
-    if (!attaching && mountsPerLaunch(record.agent) && !record.vaultMounted)
-      record = deps.store.update(record.id, { vaultMounted: true });
+    // What this launch mounts; a process it attaches to keeps what it was started with.
+    const decisionsMounted = deps.mounts.decisions ? (true as const) : undefined;
+    if (
+      !attaching &&
+      mountsPerLaunch(record.agent) &&
+      (!record.vaultMounted || record.decisionsMounted !== decisionsMounted)
+    )
+      record = deps.store.update(record.id, { vaultMounted: true, decisionsMounted });
     await deps.tmux.openWindow({
       project: record.tmux.session,
       window: record.tmux.window,
       // claude keys its transcripts by cwd.
       cwd,
-      command: sessionWindowCommand(record.agent, record.kind, command),
+      command: sessionWindowCommand(
+        record.agent,
+        record.kind,
+        command,
+        goalPreparing(deps, record.kind, record.goal),
+      ),
       env: windowEnv(record.id, deps.profileName),
       ...(config.sessions.log ? { log: prepareOutputLog(paths.logs, record.id) } : {}),
     });

@@ -100,17 +100,19 @@ const aborted = (signal: AbortSignal) =>
 /**
  * Evaluates `packet` once. With no model, nothing is asked. An automatic call at a site the model
  * did not qualify for is unavailable; on demand it runs, marked experimental. An answer made
- * before for the same key is reused. The model answers within the mode's deadline (ADR-0019);
+ * before for the same key is reused; with `readyOnly`, only that, and a miss is unavailable and
+ * noted nowhere (a hook on every model call asks this way). The model answers within the mode's
+ * deadline (ADR-0019);
  * Faro's rules stand when it fails, which is unavailable, as is a call cancelled by `signal`,
  * which ends the request too. Its margin against ACCEPT_AT decides accepted or abstained.
  */
 export async function evaluate(
   deps: EvaluateDeps,
   packet: Packet,
-  options: { mode: AssistMode; signal?: AbortSignal; revision?: string },
+  options: { mode: AssistMode; signal?: AbortSignal; revision?: string; readyOnly?: boolean },
 ): Promise<Evaluation> {
   const { site } = packet;
-  const { mode, signal, revision = '' } = options;
+  const { mode, signal, revision = '', readyOnly } = options;
   const { model } = deps;
   if (model === 'none') return unavailable(site, mode, NO_MODEL);
   const qualified = deps.passed.includes(site);
@@ -125,6 +127,7 @@ export async function evaluate(
   };
   const ready = deps.memory?.ready(key);
   if (ready) return noted({ ...ready, mode, latencyMs: 0, cached: true });
+  if (readyOnly) return unavailable(site, mode, 'no ready answer');
   const started = deps.clock().getTime();
   const asked = deps.ask(
     packet.state,

@@ -1,17 +1,20 @@
 import { AGENTS } from '../../agents/agents.js';
 import { antigravitySessionId } from '../../agents/antigravity/log.js';
+import { promptContext } from '../../agents/hooks.js';
 import type { MesaContext } from '../../context.js';
 import { toFail } from '../../lib/result.js';
 import { readRegistry } from '../../projects/registry.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import type { SessionRow } from '../board/rows.js';
+import { decisionStatus } from '../native/decision-status.js';
 import { mesaPointer } from '../native/instructions.js';
 import { isOver } from '../record/lifecycle.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { markEnded, markExited, startedOutputs } from '../record/session-receipt.js';
 import { endRun } from '../run/end.js';
+import type { SessionAssistance } from '../service/deps.js';
 import { refreshContext } from '../signals/context-use.js';
-import { parentHook, recordHookEvent } from '../signals/hook-events.js';
+import { type HookEvent, parentHook, recordHookEvent } from '../signals/hook-events.js';
 import { dueToStart, startQueued } from '../start/queue.js';
 import { callerOf, windowId } from '../window/caller.js';
 import { recordPaneDied } from './pane-died.js';
@@ -20,7 +23,8 @@ import type { StopOutcome } from './stop.js';
 // The signals that a session ended, and what follows from each: an agent hook's payload, a tmux
 // hook's event, a stop, or a look at the board. Each starts what was queued after the session
 // (CONTEXT.md, Queued session), with its receipt; a look starts what a missed signal left
-// waiting. No daemon.
+// waiting. No daemon. An agent hook may also answer its agent: the pointer at its start, and
+// decision advice with a prompt (ADR-0019, #463), only for the native conversation Mesa holds.
 
 /** One profile's signals that a session ended, and the queue trigger they share, for the sessions service. */
 export function endSignals(
@@ -32,6 +36,8 @@ export function endSignals(
     launch: () => Parameters<typeof startQueued>[0];
     /** Where a session's context use is read (refreshContext). */
     context: Parameters<typeof refreshContext>[0];
+    /** A turn's decision advice, and what a session's decision status reads. */
+    assistance: SessionAssistance;
   },
 ) {
   const { store, tmux, record, paths } = ctx;
@@ -82,6 +88,39 @@ export function endSignals(
   };
   /** Starts what was queued after session `id`, which is over now. */
   const startAfter = (id: string) => startQueue((after) => after === id);
+  /**
+   * The live record whose own native conversation sent `event`: never a subagent's, another
+   * agent's, a nested or moved conversation's, or an ended record's (ADR-0010's native-ID check).
+   */
+  const owner = (event: HookEvent | undefined) => {
+    const id = event?.mesaSessionId;
+    if (!event || !id || !parentHook(event)) return undefined;
+    const started = store.find(id);
+    return started &&
+      started.agent === event.agent &&
+      !started.endedAt &&
+      event.agentSessionId &&
+      started.agentSessionId === event.agentSessionId
+      ? started
+      : undefined;
+  };
+  /** Where a session's agent runs, from its record and the registry. */
+  const cwdOf = (started: SessionRecord) =>
+    started.cwd ??
+    started.worktree?.path ??
+    readRegistry(paths.registry).find((entry) => entry.name === started.project)?.path;
+  /** Whether the session's agent has the decision tool now, for its pointer to name. */
+  const assisted = (started: SessionRecord) => {
+    try {
+      const status = decisionStatus(started, deps.assistance.assistState(started), ctx);
+      return status.tool.state === 'configured';
+    } catch {
+      return false;
+    }
+  };
+  /** The advice for a turn, or none; a failure of any kind is none, never the hook's. */
+  const advise = (...args: Parameters<SessionAssistance['advise']>) =>
+    deps.assistance.advise(...args).catch(() => undefined);
   /** The shared receipt completion for a process exit, however it was detected. */
   const finishExit = (exited: SessionRecord) =>
     exited.kind === 'run' ? endRun(ctx, exited) : markExited(ctx, exited);
@@ -134,7 +173,9 @@ export function endSignals(
     /**
      * One agent hook's payload, from `mesa hook claude` inside a Mesa session. A Stop reads the
      * session's context use; a SessionEnd (not a /clear or a /resume, which keep the agent
-     * running) starts what was queued after it.
+     * running) starts what was queued after it. A SessionStart answers with the pointer, and a
+     * UserPromptSubmit with the prompt's decision advice as `additionalContext`, when there is
+     * any within Mesa's deadline (DecisionAssistance.advise).
      */
     hookEvent: async (agent: string, payload: string) => {
       const event = recordHookEvent(
@@ -150,22 +191,24 @@ export function endSignals(
       if (event?.event === 'SessionEnd' && id && state) {
         await startAfter(id);
       }
-      if (event?.event !== 'SessionStart' || !id || !parentHook(event)) return event;
-      const started = store.find(id);
-      if (
-        !started ||
-        started.agent !== event.agent ||
-        started.endedAt ||
-        !event.agentSessionId ||
-        started.agentSessionId !== event.agentSessionId
-      )
-        return event;
-      const project = readRegistry(paths.registry).find((entry) => entry.name === started.project);
-      const cwd = started.cwd ?? started.worktree?.path ?? project?.path;
-      return cwd ? { ...event, instruction: mesaPointer(started, ctx.profile, cwd) } : event;
+      if (event?.event === 'UserPromptSubmit') {
+        const asking = owner(event);
+        const advice = asking && (await advise(asking, promptOf(payload)));
+        return advice ? { ...event, advice: promptContext(advice) } : event;
+      }
+      const started = event?.event === 'SessionStart' ? owner(event) : undefined;
+      const cwd = started && cwdOf(started);
+      return started && cwd
+        ? { ...event, instruction: mesaPointer(started, ctx.profile, cwd, assisted(started)) }
+        : event;
     },
-    /** Transient Antigravity instruction, only for the native conversation owned by this window. */
-    antigravityInstruction: (payload: string) => {
+    /**
+     * Transient Antigravity instruction, only for the native conversation owned by this window:
+     * the pointer, then the saved goal's ready advice, if any. Its hook runs before every model
+     * call and carries no prompt, so it never asks a model, and re-sends the same words on every
+     * invocation of a turn (docs/spikes/decision-assistance-feasibility.md).
+     */
+    antigravityInstruction: async (payload: string) => {
       const started = callerOf({ store, env, profileName: ctx.profile }).session;
       if (started?.agent !== 'antigravity' || started.endedAt) return undefined;
       let conversationId: unknown;
@@ -177,17 +220,17 @@ export function endSignals(
       const ownedId =
         started.agentSessionId ?? antigravitySessionId({ logs: paths.logs }, started, new Set());
       if (!ownedId || conversationId !== ownedId) return undefined;
-      const project = readRegistry(paths.registry).find((entry) => entry.name === started.project);
-      const cwd = started.cwd ?? started.worktree?.path ?? project?.path;
+      const cwd = cwdOf(started);
       if (!cwd) return undefined;
-      const owner = started.agentSessionId
+      const held = started.agentSessionId
         ? started
         : store.update(started.id, (current) =>
             current.agentSessionId || current.endedAt ? {} : { agentSessionId: ownedId },
           );
-      return !owner.endedAt && owner.agentSessionId === ownedId
-        ? mesaPointer(owner, ctx.profile, cwd)
-        : undefined;
+      if (held.endedAt || held.agentSessionId !== ownedId) return undefined;
+      const pointer = mesaPointer(held, ctx.profile, cwd, assisted(held));
+      const advice = await advise(held, undefined, { readyOnly: true });
+      return advice ? `${pointer}\n${advice}` : pointer;
     },
     /**
      * A tmux hook's event (`mesa hook tmux <event> <project> <window>`): `pane-died` records the
@@ -205,4 +248,14 @@ export function endSignals(
       return exited;
     },
   };
+}
+
+/** The prompt a UserPromptSubmit payload carries (Claude Code and Codex name it `prompt`). */
+function promptOf(payload: string): string | undefined {
+  try {
+    const prompt: unknown = JSON.parse(payload)?.prompt;
+    return typeof prompt === 'string' ? prompt : undefined;
+  } catch {
+    return undefined;
+  }
 }

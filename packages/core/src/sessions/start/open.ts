@@ -11,6 +11,7 @@ import { additionalDirs, additionalProjects, plannedAdditional } from './additio
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
 import {
   folderOf,
+  goalPreparing,
   type LaunchDeps,
   launchAgent,
   launchProject,
@@ -123,7 +124,7 @@ export async function openSession(
   const command = (id: string, more: Pick<SessionRecord, 'additional'>) =>
     startCommand(
       agent,
-      deps.vaultServer,
+      deps.mounts,
       deps.profile.config.agents,
       {
         id,
@@ -136,7 +137,12 @@ export async function openSession(
     );
   if (!input.background)
     requireCommandFits(
-      sessionWindowCommand(agent, 'interactive', command('xxxxxxxx', { additional: planned })),
+      sessionWindowCommand(
+        agent,
+        'interactive',
+        command('xxxxxxxx', { additional: planned }),
+        goalPreparing(deps, 'interactive', input.goal),
+      ),
     );
   const session = {
     project: selected?.entry ?? null,

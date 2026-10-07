@@ -13,8 +13,13 @@ type Group = { matcher?: string; hooks?: Hook[] };
 type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 
 const GUARD = `[ -z "$${SESSION_ID_VAR}" ] || `;
+/**
+ * The events whose stdout reaches the agent's context: SessionStart's pointer (ADR-0010), and
+ * UserPromptSubmit's decision advice as `additionalContext` (ADR-0019, #463).
+ */
+export const SPEAKING_EVENTS: readonly string[] = ['SessionStart', 'UserPromptSubmit'];
 const tail = (agent: Agent, event?: string) =>
-  ` hook ${agent} ${event === 'SessionStart' ? '2>/dev/null' : '>/dev/null 2>&1'} || true`;
+  ` hook ${agent} ${event && SPEAKING_EVENTS.includes(event) ? '2>/dev/null' : '>/dev/null 2>&1'} || true`;
 /** A hook entry Mesa wrote: exactly its guard and its tail, whatever mesa path sits between. */
 const isMesaHook = (h: Hook, agent: Agent) =>
   typeof h.command === 'string' &&
@@ -23,8 +28,8 @@ const isMesaHook = (h: Hook, agent: Agent) =>
 
 /**
  * The hook's command line. Outside a Mesa session it is a no-op in the shell itself, so the user's
- * other sessions never start node. Only SessionStart passes stdout into provider context; other
- * hook output is dropped. Its status is always 0 (exit 2 would block a tool call).
+ * other sessions never start node. Only the speaking events pass stdout into provider context;
+ * other hook output is dropped. Its status is always 0 (exit 2 would block a tool call).
  */
 // ponytail: synchronous, about 0.1 s of node per event inside Mesa sessions only; add "async": true
 // if that shows, and order events by their `at` then.
@@ -150,6 +155,15 @@ export function uninstallHooks(
   if (changed) write(path, loaded, next);
   return { ...hooksStatus(file, self), changed };
 }
+
+/**
+ * A UserPromptSubmit hook's JSON output that adds `text` to the turn's context, which Claude Code
+ * and Codex both read (docs/spikes/decision-assistance-feasibility.md, Native delivery probe).
+ */
+export const promptContext = (text: string) =>
+  JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: text },
+  });
 
 /** Locations of this mesa's handlers, including user groups and handlers before them. */
 export function hookPositions(file: HookFile, self: readonly string[]) {
