@@ -1,6 +1,6 @@
 # Decision assistance evaluation: paired workflows, concurrency and the packaged app (#465)
 
-Status: live run on 2026-10-07. Mac: Apple M1 Pro, macOS 26.6.2. Claude Code: 2.1.292. Mesa: branch `decisions/workflow-gains`. The packaged-app rows still marked pending wait for the owner's clicks in the Finder-launched app. Decision models: `jev-1.13.0` and `clef` (27B), the ids #638 qualified (`SYSTEM_ONE_MODELS`); a changed id means a new calibration and held-out run first.
+Status: live run on 2026-10-07. Mac: Apple M1 Pro, macOS 26.6.2. Claude Code: 2.1.292. Mesa: branch `decisions/workflow-gains`. The packaged app was launched the way Finder launches it (`open -n -a Mesa.app --env MESA_PROFILE=p11-live`); its steps ran through the app's own bundled `Contents/MacOS/mesa`, the binary its UI calls for every action. The agent could not click in the window (no accessibility or screen-recording permission for it on this Mac), so the clicks themselves were not driven; the same Settings UI was driven live in the app harness in #488. Decision models: `jev-1.13.0` and `clef` (27B), the ids #638 qualified (`SYSTEM_ONE_MODELS`); a changed id means a new calibration and held-out run first.
 
 ## What is being proven
 
@@ -165,12 +165,12 @@ Once the model answers again, each session asks for itself and reads only its ow
 | `du -sh` of Mesa.app | 312 MB (Mesa 0.1.7, build 320, ad-hoc signed `APPLE_SIGNING_IDENTITY=- pnpm release:build`, 2026-10-07); the only file over 20 MB is `Contents/MacOS/mesa`, the Node single executable (297 MB) |
 | Model weights in the bundle | none (the `find` for `*.safetensors`, `*.gguf`, `*.bin`, `*.pt`, `*.pth`, `*.onnx`, `*.mlmodel*`, `*.npz` prints nothing) |
 | Python runtime in the bundle | none (the `find` for `python*`, `*.py`, `*.pyc`, `site-packages`, `libpython*`, `Python.framework` prints nothing) |
-| Add and test a key (Jev, CLEF) | pending live run |
-| Switch Jev and CLEF | pending live run |
+| Add and test a key (Jev, CLEF) | pass: both keys were saved through Test and save earlier (#488, `p11-live`); here an invalid token piped to the app's `mesa decisions key set cloudflare` was rejected (`CLEF rejected the key (HTTP 401); the key was not saved`) and the saved key (ending `df35`) stayed |
+| Switch Jev and CLEF | pass: `decisions use jev` then `mesa decide` answered `backend: jev, model: jev-1.13.0`; `decisions use clef` answered `backend: clef, model: clef` |
 | One real decision per qualified site | pass, through the app's own `Contents/MacOS/mesa` on profile `p11-live`, an invented project with two invented notes and a live session with a saved goal: relevance picked the tide-cache note over the icon note (CLEF answered from the answer prepared at launch, 0 ms; Jev 146 ms), next-step picked `invalidate-on-harbour` over deleting the cache, evidence accepted a claim backed by a passing test, each accepted by both models; `mesa decisions status` shows relevance automatic, next-step and evidence on demand |
-| Remove a key, back to rules | pending live run |
+| Remove a key, back to rules | pass: removing the TypeSafe key (Jev not in use) left `clef`; removing the Cloudflare token (in use) fell to `none`; both Keychain items gone; `mesa decide` answered `backend: rules` with even probabilities; the session's sites all `off`; Doctor `rules only` |
 | Keys only in the Keychain | pass: 0 files under `~/.mesa/p11-live`, `~/Library/Logs`, `~/Library/Application Support/Mesa` and `~/Library/Caches/Mesa` contain either key (searched for the whole key, never printed) |
-| Cleanup | pending live run |
+| Cleanup | done: the invented session (`stop`, `rm`), project (`unregister`) and notes removed, `tmux -L mesa-p11-live kill-server`, the test app quit; the built app is deleted with its worktree |
 
 ## Which sites become automatic
 
@@ -183,5 +183,5 @@ Both models passed the paired gate at `relevance`, the only site Mesa delivers a
 | One System One client answers through Jev and CLEF; per-site quality on the held-out split against the frozen gates | #638 | `docs/spikes/jev-clef-qualification.md` |
 | Keys set, tested, masked and removed from the CLI and Settings; the person picks the model; no key means no network call | #488 | `decisions/keys.ts`, `decisions/models.ts` tests; Settings > Smarter decisions |
 | Qualified sites run: supervision beside the Board, scoped context, next-step and evidence through CLI and MCP, delivered to Claude Code, Codex and Antigravity | #461, #462, #463 | `docs/spikes/decision-assistance-providers.md` |
-| Paired workflows show a gain under the frozen gate; hosted failure modes keep agents working; a Finder-launched packaged app passes setup, use and removal | #465 | this report (pending live run) |
+| Paired workflows show a gain under the frozen gate; hosted failure modes keep agents working; a Finder-launched packaged app passes setup, use and removal | #465 | this report: paired gate passed for both models at relevance; concurrency and hosted failures pass; the packaged app has no weights or Python and its own `mesa` passed setup, use and removal |
 | Sites that miss a gate stay off or on demand, with their measured result shown; gates never lowered | #465 | `decisions/site-mode.ts` (`siteMode`), `decisions/sites.ts` (`PASSED_GATE`), `decisions/measured.ts` (`PAIRED_PASSED`), Settings and session details. Board supervision (#461) stays off unless the profile opts into experimental automatic decisions: the paired workflows measure in-session relevance only, and whether that result also counts for supervision is the owner's call (ADR-0019, 2026-10-07 amendment) |
