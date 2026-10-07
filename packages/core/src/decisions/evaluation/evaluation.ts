@@ -1,10 +1,11 @@
+import { z } from 'zod';
 import { AGENT_STATES } from '../../agents/states.js';
 import type { Clock } from '../../lib/clock.js';
 import { classify } from '../../sessions/signals/state.js';
 import { checked } from '../decide.js';
 import { rulesBackend, type Weights } from '../rules.js';
 import {
-  ACCEPT_AT,
+  type AcceptAt,
   accepted,
   DECISION_SITES,
   type DecisionSite,
@@ -17,11 +18,27 @@ import type { EvalCase } from './corpus.js';
 // Scores a decisions backend on the corpus (ADR-0019), per site: accuracy where Mesa accepts the
 // answer, how often it accepts, calibration and latency, against gates frozen before testing.
 
-/** Anything that answers Faro's questions about a case's `state` text. */
+/**
+ * Anything that answers Faro's questions about a case's `state` text: its answers, or (as the
+ * System One backend does) the answers with the model id, input tokens and list price.
+ */
 export type EvalBackend = {
   name: string;
   answer: (state: string, questions: Question[]) => Promise<unknown>;
 };
+
+/** A model under test: its backend and the thresholds its answers are accepted at. */
+export type EvalModel = { backend: EvalBackend; acceptAt: AcceptAt };
+
+const Reply = z.union([
+  z.array(z.unknown()),
+  z.object({
+    answers: z.array(z.unknown()),
+    model: z.string().optional(),
+    inputTokens: z.number().optional(),
+    costUsd: z.number().optional(),
+  }),
+]);
 
 /**
  * The rules baseline (ADR-0019): what Mesa decides with no model. Supervision reads the screen as
@@ -62,7 +79,16 @@ export type CaseResult = {
   expected: string | boolean;
   latencyMs: number;
 } & (
-  | { answer: string | boolean; p: number; margin: number; accepted: boolean; correct: boolean }
+  | {
+      answer: string | boolean;
+      p: number;
+      margin: number;
+      accepted: boolean;
+      correct: boolean;
+      model?: string;
+      inputTokens?: number;
+      costUsd?: number;
+    }
   | { unavailable: string }
 );
 
@@ -75,24 +101,26 @@ const top = (a: Answer) =>
       };
 
 /**
- * Runs every case through `backend` one at a time, in order; a model's answer is accepted at its
- * site's threshold. Without a backend, the rules baseline: its answer stands whenever it is not
- * even, as the board acts on the rules today.
+ * Runs every case through `model` one at a time, in order; its answer is accepted at its site's
+ * threshold. Without a model, the rules baseline: its answer stands whenever it is not even, as
+ * the board acts on the rules today.
  */
 export async function runCases(
-  deps: { backend?: EvalBackend; clock: Clock },
+  deps: { model?: EvalModel; clock: Clock },
   cases: readonly EvalCase[],
 ): Promise<CaseResult[]> {
   const results: CaseResult[] = [];
   for (const c of cases) {
     const question = siteQuestion(c.site, c.question);
-    const backend = deps.backend ?? rulesBaseline(c);
+    const backend = deps.model?.backend ?? rulesBaseline(c);
     const options = question.kind === 'Choice' ? question.options.length : 2;
     const base = { id: c.id, site: c.site, tags: c.tags, options, expected: c.expected };
     const started = deps.clock().getTime();
     try {
-      const [answer] = checked([question], await backend.answer(c.state, [question]));
+      const reply = Reply.parse(await backend.answer(c.state, [question]));
       const latencyMs = deps.clock().getTime() - started;
+      const { answers, ...usage } = Array.isArray(reply) ? { answers: reply } : reply;
+      const [answer] = checked([question], answers);
       if (!answer) throw new Error('no answer');
       const { answer: said, p } = top(answer);
       results.push({
@@ -101,9 +129,10 @@ export async function runCases(
         answer: said,
         p,
         margin: margin(answer),
-        accepted: deps.backend ? accepted(c.site, answer) : margin(answer) > 0,
+        accepted: deps.model ? accepted(deps.model.acceptAt, c.site, answer) : margin(answer) > 0,
         // An even answer picks nothing: it is never right, whatever its first option is.
         correct: margin(answer) > 0 && said === c.expected,
+        ...usage,
       });
     } catch (error) {
       const latencyMs = deps.clock().getTime() - started;
@@ -139,12 +168,25 @@ function ece(rows: readonly { p: number; correct: boolean }[]) {
   return total;
 }
 
-/** One site's numbers. Selective accuracy is the share right among accepted answers. */
+/** The ADR-0019 per-turn packet: latency is gated for packets of at most this many input tokens. */
+const PACKET_TOKENS = 1024;
+
+const mean = (xs: readonly number[]) =>
+  xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
+/**
+ * One site's numbers. Selective accuracy is the share right among accepted answers; tokens and
+ * dollars are per call, as the backend reported them.
+ */
 function summarise(results: readonly CaseResult[]) {
   const answered = results.flatMap((r) => ('unavailable' in r ? [] : [r]));
   const taken = answered.filter((r) => r.accepted);
-  // A refusal (the strict window's 422) returns at once: latency counts answered cases only.
+  // A refusal (a 422) returns at once: latency counts answered cases only.
   const latencies = answered.map((r) => r.latencyMs);
+  const packets = answered.filter((r) => (r.inputTokens ?? 0) <= PACKET_TOKENS);
+  const tokens = answered.flatMap((r) => (r.inputTokens === undefined ? [] : [r.inputTokens]));
+  const costs = answered.flatMap((r) => (r.costUsd === undefined ? [] : [r.costUsd]));
+  const perCall = mean(costs);
   return {
     n: results.length,
     answered: answered.length,
@@ -160,6 +202,19 @@ function summarise(results: readonly CaseResult[]) {
       p95: quantile(latencies, 0.95),
       total: latencies.reduce((a, b) => a + b, 0),
     },
+    packetLatencyMs: {
+      n: packets.length,
+      p50: quantile(
+        packets.map((r) => r.latencyMs),
+        0.5,
+      ),
+      p95: quantile(
+        packets.map((r) => r.latencyMs),
+        0.95,
+      ),
+    },
+    inputTokens: { mean: mean(tokens), max: tokens.length ? Math.max(...tokens) : null },
+    usdPer1000Calls: perCall === null ? null : perCall * 1000,
   };
 }
 export type SiteSummary = ReturnType<typeof summarise>;
@@ -187,13 +242,45 @@ export function meetsGate(site: DecisionSite, s: SiteSummary, baseline?: SiteSum
   );
 }
 
+/**
+ * Each site's threshold by ADR-0019's rule, from calibration results only: rank the answers by
+ * margin, take the largest top set (cut between distinct margins) whose accuracy meets the site's
+ * gate, and use its lowest margin, never below 0.5, truncated to 3 places. A site where no top set
+ * meets the gate gets 1: only certain answers are accepted.
+ */
+export function fitAcceptAt(results: readonly CaseResult[]): AcceptAt {
+  const fit = (site: DecisionSite) => {
+    const answered = results.flatMap((r) => (r.site !== site || 'unavailable' in r ? [] : [r]));
+    const cuts = [...new Set(answered.map((r) => r.margin))].sort((a, b) => a - b);
+    for (const cut of cuts) {
+      const top = answered.filter((r) => r.margin >= cut);
+      const right = top.filter((r) => r.correct).length;
+      if (right / top.length >= QUALITY_GATES[site].selectiveAccuracy) {
+        return Math.max(0.5, Math.floor(cut * 1000) / 1000);
+      }
+    }
+    return 1;
+  };
+  return Object.fromEntries(DECISION_SITES.map((site) => [site, fit(site)])) as Record<
+    DecisionSite,
+    number
+  >;
+}
+
 /** The report `pnpm decisions:evaluate --json` prints: per site, per tag, and every miss. */
-export function report(backend: string, dataset: string, results: readonly CaseResult[]) {
+export function report(
+  backend: string,
+  dataset: string,
+  results: readonly CaseResult[],
+  acceptAt?: AcceptAt,
+) {
   const sites = DECISION_SITES.filter((site) => results.some((r) => r.site === site));
+  const models = [...new Set(results.flatMap((r) => ('model' in r && r.model ? [r.model] : [])))];
   return {
     backend,
     dataset,
-    acceptAt: ACCEPT_AT,
+    ...(acceptAt ? { acceptAt } : {}),
+    models,
     sites: Object.fromEntries(
       sites.map((site) => {
         const mine = results.filter((r) => r.site === site);

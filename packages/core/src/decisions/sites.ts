@@ -1,4 +1,5 @@
 import type { AGENT_STATES } from '../agents/states.js';
+import type { SystemOneProvider } from './systemone.js';
 import type { Answer, Question } from './types.js';
 
 // The four first-release decision sites (ADR-0019): what each asks a model, and when Mesa accepts
@@ -72,17 +73,30 @@ export function margin(answer: Answer): number {
   return n < 2 ? 1 : Math.max(0, Math.min(1, (n * Math.max(...ps) - 1) / (n - 1)));
 }
 
+/** One model's acceptance threshold on `margin`, per site. */
+export type AcceptAt = Record<DecisionSite, number>;
+
 /**
- * Each site's acceptance threshold on `margin`, fitted on the calibration split only (ADR-0019:
- * the lowest margin whose accepted calibration answers meet the site's gate accuracy, never below
- * 0.5, truncated to 3 places): below it, Mesa abstains.
+ * Each model's acceptance threshold on `margin` per site, fitted on the calibration split only
+ * (ADR-0019: the lowest margin whose accepted calibration answers meet the site's gate accuracy,
+ * never below 0.5, truncated to 3 places; `fitAcceptAt` in `evaluation/`): below it, Mesa abstains.
  */
-export const ACCEPT_AT: Record<DecisionSite, number> = {
-  supervision: 0.663,
-  relevance: 0.5,
-  'next-step': 0.721,
-  evidence: 0.766,
+export const ACCEPT_AT: Record<SystemOneProvider, AcceptAt> = {
+  // jev-1.13.0 and clef (27B), on 2026-10-05 (docs/spikes/jev-clef-qualification.md).
+  jev: { supervision: 0.568, relevance: 0.5, 'next-step': 0.5, evidence: 0.5 },
+  clef: { supervision: 0.762, relevance: 0.5, 'next-step': 0.684, evidence: 0.509 },
 };
 
-/** Whether `answer` at `site` is accepted (true) or Mesa abstains (false). */
-export const accepted = (site: DecisionSite, answer: Answer) => margin(answer) >= ACCEPT_AT[site];
+/**
+ * The sites where each model passed ADR-0019's frozen quality gate on the held-out split
+ * (`docs/spikes/jev-clef-qualification.md`). Only these may run automatically; the rest stay off
+ * or on demand.
+ */
+export const PASSED_GATE: Record<SystemOneProvider, readonly DecisionSite[]> = {
+  jev: DECISION_SITES,
+  clef: DECISION_SITES,
+};
+
+/** Whether `answer` at `site` is accepted (true) or Mesa abstains (false), at a model's thresholds. */
+export const accepted = (acceptAt: AcceptAt, site: DecisionSite, answer: Answer) =>
+  margin(answer) >= acceptAt[site];

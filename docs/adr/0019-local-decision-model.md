@@ -106,3 +106,15 @@ The owner decided after #487: "no local model downloaded locally, that will make
 - It is slower: the Board waits 13 to 19 s whenever it is asked.
 - It is less accurate: rules alone were right 61 of 65 times, rules plus adapter 52 of 65.
 - So it is dropped as the default. Any hosted model must pass this ADR's held-out supervision gate, and must run beside the Board read rather than inside it, before it may place a session.
+
+## Amendment, 2026-10-05: Jev and CLEF through one System One client
+
+The owner dropped Strands Decider on 2026-10-05: no Hugging Face Space, no Hugging Face key, no local runtime (#464 and #460 closed). Mesa asks only Jev (TypeSafe) and CLEF (Cloudflare Workers AI), whichever the person has a key for (#488).
+
+- **One client.** Jev and CLEF answer the same System One request and answer shapes, which are Faro's primitives. `decisions/systemone.ts` (`systemOneBackend`) serves both over `lib/http.ts`, with no SDK. A small per-provider table holds what differs: the URL, the bearer key (a TypeSafe key, or a Cloudflare API token plus account ID), the pinned `model` id (`SYSTEM_ONE_MODELS`) and Cloudflare's `{ success, result, errors }` envelope. The wire mapping above (Score indices to 0-1, renormalised probabilities, Noul P(true), and a throw on a missing or off-question answer) is unchanged. HTTP errors, `success: false`, the deadline and an unreachable host each throw a MesaError naming the provider and never the key, and Faro's rules answer. There is no fallback from one provider to the other.
+- **Thresholds per model.** `ACCEPT_AT` is keyed by model (`jev`, `clef`), each fitted on the calibration split by the rule above (`fitAcceptAt` in `decisions/evaluation/`) and committed before that model's held-out run. A new model id means a new calibration and a new held-out run.
+- **Latency gate, hosted.** The hosted latency gate is the 1,500 ms per-turn deadline, measured from the Mac at p95 for a packet of at most 1,024 input tokens. The MLX warm-worker p50 bound is withdrawn with the worker.
+- **Withdrawn.** The local worker and supervisor, the resource gates (footprint, disk, cold start), MLX and the pinned Strands artifacts no longer apply. The Hugging Face Space path of the 2026-10-03 decision is withdrawn too.
+- **Unchanged.** The quality gates and the paired-workflow gate (with the owner's time-per-successful-task revision) stand as frozen above. The concurrency and safety gate stands for hosted calls.
+
+Evidence: `docs/spikes/jev-clef-qualification.md` (#638).
