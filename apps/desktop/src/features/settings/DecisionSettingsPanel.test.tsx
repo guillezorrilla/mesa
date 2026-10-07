@@ -79,19 +79,21 @@ test('the Jev, CLEF and None cards say what each model improves, costs and sends
     'https://console.typesafe.ai/keys',
   );
   const clef = section('CLEF')?.textContent ?? '';
-  expect(clef).toContain('Free up to 10,000 Neurons a day, about 1.2M tokens on clef-flash.');
+  expect(clef).toContain(
+    'Free up to 10,000 Neurons a day, about 450k input tokens on clef; then $0.24 per M on Workers Paid.',
+  );
   expect(clef).toContain('The session text and the questions go to Cloudflare.');
   expect(clef).toContain('Workers AI access');
   expect(
     section('CLEF')?.querySelector('input[aria-label="Cloudflare account ID"]'),
   ).not.toBeNull();
-  // No site passed the quality check yet (PASSED_GATE is empty), so none is active.
+  // Every site passed the held-out check for Jev (PASSED_GATE, #638), so each is active.
   expect(document.querySelector('[data-testid="jev-sites"]')?.textContent).toBe(
     [
-      'Session state: not active: did not pass the quality check',
-      'Source relevance: not active: did not pass the quality check',
-      'Next step: not active: did not pass the quality check',
-      'Completion evidence: not active: did not pass the quality check',
+      'Session state: active',
+      'Source relevance: active',
+      'Next step: active',
+      'Completion evidence: active',
     ].join(''),
   );
   expect(section('None')?.textContent).toContain('In use');

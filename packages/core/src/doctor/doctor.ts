@@ -89,7 +89,7 @@ function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   const { model, threshold } = decisions;
   if (model === 'none')
     return [{ name: 'decisions', ok: true, version: 'rules', hint: 'rules only' }];
-  const hint = `rules first; ${model} (${SYSTEM_ONE_MODELS[model]}) below confidence ${threshold}`;
+  const hint = `rules first; ${SYSTEM_ONE_MODELS[model]} below confidence ${threshold}`;
   return [{ name: 'decisions', ok: true, version: model, hint }];
 }
 

@@ -63,7 +63,8 @@ export const MODELS: Record<
       </>,
       'Paste both below and choose Test and save.',
     ],
-    price: 'Free up to 10,000 Neurons a day, about 1.2M tokens on clef-flash.',
+    price:
+      'Free up to 10,000 Neurons a day, about 450k input tokens on clef; then $0.24 per M on Workers Paid.',
     privacy: 'The session text and the questions go to Cloudflare.',
   },
 };

@@ -1,5 +1,5 @@
 import type { MesaDeps } from '../context.js';
-import type { SystemOneProvider } from '../decisions/systemone.js';
+import { SYSTEM_ONE_MODELS, type SystemOneProvider } from '../decisions/systemone.js';
 import { type FakeRequest, fakeHttp } from './http.js';
 import { memorySecretStore } from './secrets.js';
 
@@ -8,7 +8,7 @@ export const TEST_CLOUDFLARE_ACCOUNT = 'acct-0001';
 
 const URLS: Record<SystemOneProvider, string> = {
   jev: 'https://api.typesafe.ai/v1/systemone',
-  clef: `https://api.cloudflare.com/client/v4/accounts/${TEST_CLOUDFLARE_ACCOUNT}/ai/run/@cf/cloudflare/clef-flash`,
+  clef: `https://api.cloudflare.com/client/v4/accounts/${TEST_CLOUDFLARE_ACCOUNT}/ai/run/@cf/cloudflare/${SYSTEM_ONE_MODELS.clef}`,
 };
 
 /** 0.8 on the first of `n` names, the rest shared evenly, keyed as the wire keys them. */

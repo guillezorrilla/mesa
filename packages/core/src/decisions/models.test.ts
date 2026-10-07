@@ -159,7 +159,7 @@ test('mesa decide asks the chosen model about questions no rules know, and only 
   await mesa.decisions.use('clef');
   expect((await mesa.decide(null, UNKNOWN)).result).toMatchObject({
     backend: 'clef',
-    model: 'clef-flash',
+    model: 'clef',
   });
 
   // No fallback to the other provider: a failed call is the rules' answer, with the reason.

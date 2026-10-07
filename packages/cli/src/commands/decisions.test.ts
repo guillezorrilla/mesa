@@ -128,14 +128,14 @@ test('decide asks the chosen model and records its model id; with none it asks n
   const decided = await cli.mesa('decide', '--json');
   expect(decided.json.data).toMatchObject({
     backend: 'clef',
-    model: 'clef-flash',
+    model: 'clef',
     answers: [{ id: 'route', answer: 'ingest', probabilities: { ingest: 0.8, ask: 0.2 } }],
   });
-  expect((await cli.mesa('decide')).stdout).toContain('backend clef, model clef-flash');
+  expect((await cli.mesa('decide')).stdout).toContain('backend clef, model clef');
   const receipt = (await cli.mesa('receipts', 'show', decided.json.data.receipt.id, '--json')).json
     .data.receipt;
   expect(receipt).toMatchObject({
-    outputs: { model: 'clef-flash' },
+    outputs: { model: 'clef' },
     decisions: [{ question: 'route', backend: 'clef' }],
   });
   expect(JSON.stringify(receipt)).not.toContain(CLOUDFLARE_TOKEN);
@@ -143,7 +143,7 @@ test('decide asks the chosen model and records its model id; with none it asks n
     expect.objectContaining({
       name: 'decisions',
       version: 'clef',
-      hint: 'rules first; clef (clef-flash) below confidence 0.7',
+      hint: 'rules first; clef below confidence 0.7',
     }),
   );
 });
