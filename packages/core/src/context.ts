@@ -44,6 +44,11 @@ export type MesaDeps = {
   processAlive: (pid: number) => boolean;
   /** This CLI process, for scheduler ownership and stale-worker recovery. */
   processId: number;
+  /**
+   * When this process started, so a hook's per-turn budget counts its own start-up (ADR-0019:
+   * 1,500 ms in all); without it, the budget starts when the advice is asked for.
+   */
+  processStartedAt?: Date;
   /** Read the current element from the owning native webview before browser feedback is sent. */
   browserSelection: (socket: string, session: string) => Promise<BrowserPageSelection | undefined>;
   obsidian: ObsidianPaths;

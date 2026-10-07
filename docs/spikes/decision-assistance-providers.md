@@ -231,10 +231,10 @@ While installed: every key of `~/.claude/settings.json` outside `hooks` was equa
 1. `3f2d6542` fix(sessions): exec codex after the goal's background ask, so send reaches it. `sessionWindowCommand` now execs an agent command that does not exec itself whenever the background ask precedes it; test in `agents/codex/decision-assistance.test.ts`. Live: the Codex pane runs `codex`, and `send` works.
 2. `064b2a25` fix(sessions): an Antigravity skill run shows its advice as unsupported, not configured; test in `agents/antigravity/decision-assistance.test.ts`.
 
-## Findings not fixed
+## Findings after the run
 
-- `PER_TURN_MS` bounds Mesa's own work, not node's start (about 0.34 s here), so a deadline miss costs about 1.8 s of turn wall time. The p95 gate holds; counting the budget from the process start would bound the worst case too.
-- `mesa rm` leaves `~/.mesa/<profile>/sessions/decisions/<id>.json` behind (the per-session decision state from #672); removed by hand here.
+- Fixed after the run: `PER_TURN_MS` bounded Mesa's own work, not node's start (about 0.34 s here), so a deadline miss cost about 1.8 s of turn wall time. The hook's budget now counts from the process start (`processStartedAt`, set by the CLI entrypoint), so the whole hook stays within 1,500 ms.
+- Fixed after the run: `mesa rm` left `~/.mesa/<profile>/sessions/decisions/<id>.json` behind; it now deletes it with the record.
 - Codex `/clear` and Antigravity `/clear` end decision assistance for that window until it is reopened through Mesa, by the existing identity rule (Codex even says `source: clear`). Following an explicit clear, as Mesa does for Claude Code, would make those cells pass; it is an identity decision, left to the owner.
 
 ## Cleanup

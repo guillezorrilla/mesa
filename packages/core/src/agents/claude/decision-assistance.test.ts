@@ -160,6 +160,22 @@ test('the live ask gets only what the per-turn budget leaves after the vault rea
   expect(world.aborted).toHaveLength(1);
 });
 
+test("the hook process's own start-up counts against the per-turn budget", async () => {
+  const now = Date.parse('2026-09-24T12:00:00.000Z');
+  const clock = () => new Date(now);
+  // The process started 1,450 ms before the advice is asked for: 50 ms are left.
+  const processStartedAt = new Date(now - 1_450);
+  const { mesa, world } = await assistedAgent('claude', NATIVE_ID, {
+    deps: { clock, processStartedAt },
+  });
+  world.stall('jev');
+  const started = Date.now();
+  const event = await mesa.hookEvent('claude', prompt(NATIVE_ID));
+  expect(event && 'advice' in event).toBe(false);
+  expect(Date.now() - started).toBeLessThan(PER_TURN_MS / 2);
+  expect(world.aborted).toHaveLength(1);
+});
+
 test("the goal's answer prepared at launch is its first turn's ready answer", async () => {
   const { mesa, session, world } = await assistedAgent('claude', NATIVE_ID);
   expect(await mesa.decisions.prepare()).toMatchObject({ session: session.id, prepared: true });

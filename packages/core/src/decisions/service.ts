@@ -141,8 +141,9 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     query: string | undefined,
     { readyOnly }: { readyOnly?: boolean } = {},
   ): Promise<string | undefined> => {
-    const until = ctx.clock().getTime() + PER_TURN_MS;
-    const signal = AbortSignal.timeout(PER_TURN_MS);
+    // The budget counts from the hook process's own start when the entrypoint gives it.
+    const until = (ctx.processStartedAt ?? ctx.clock()).getTime() + PER_TURN_MS;
+    const signal = AbortSignal.timeout(Math.max(0, until - ctx.clock().getTime()));
     const asked = query?.trim() || session.goal?.trim();
     if (!asked || off(session)) return undefined;
     const context = await answer(
