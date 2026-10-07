@@ -20,6 +20,7 @@ export * from './runner.js';
 export * from './secrets.js';
 export * from './sessions.js';
 export * from './sources.js';
+export * from './systemone.js';
 export * from './tmp.js';
 export * from './tmux.js';
 export * from './tmux-line.js';

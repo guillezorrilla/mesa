@@ -131,7 +131,7 @@ impl Terms {
 /// The attach argv for a session, from core: `mesa attach --print --json -- <id>`.
 fn attach_argv(session_id: &str) -> Result<Vec<String>, String> {
     let args = ["--json", "attach", "--print", "--", session_id].map(String::from);
-    argv_of(&bridge::run(&args)?)
+    argv_of(&bridge::run(&args, None)?)
 }
 
 /// The `argv` of a `mesa attach --print --json` envelope, or its error message.

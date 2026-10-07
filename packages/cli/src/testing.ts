@@ -50,8 +50,10 @@ export function cliHarness() {
     stdin: '',
     /** What the person at the terminal answers a y/N question with; undefined: no one to ask. */
     answer: undefined as boolean | undefined,
-    /** Every y/N question the invocations asked, in order. */
+    /** Every y/N question and hidden prompt the invocations asked, in order. */
     asked: [] as string[],
+    /** What the person types at a hidden prompt; undefined: no prompt, the secret comes on stdin. */
+    typed: undefined as string | undefined,
     /** The environment of the next invocations (MESA_SESSION_ID for a hook). */
     env: {} as Record<string, string>,
     browserSelection: async (
@@ -73,6 +75,7 @@ export function cliHarness() {
       h.stdin = '';
       h.answer = undefined;
       h.asked = [];
+      h.typed = undefined;
       h.env = {};
       h.browserSelection = async () => undefined;
       h.deps = {};
@@ -81,10 +84,14 @@ export function cliHarness() {
     mesa: async (...argv: string[]) => {
       // An empty home is the repo's folder: a file that forgot beforeEach(cli.reset) would write there.
       if (!h.home) throw new Error('cliHarness: run beforeEach(cli.reset) first');
-      const { answer } = h;
+      const { answer, typed } = h;
       const confirm = async (question: string) => {
         h.asked.push(question);
         return answer === true;
+      };
+      const askSecret = async (question: string) => {
+        h.asked.push(question);
+        return typed ?? '';
       };
       const out = await runCli(
         argv,
@@ -92,6 +99,7 @@ export function cliHarness() {
           tty: h.tty,
           stdin: async () => h.stdin,
           ...(answer === undefined ? {} : { confirm }),
+          ...(typed === undefined ? {} : { askSecret }),
           mesa: {
             run: h.run,
             argv,

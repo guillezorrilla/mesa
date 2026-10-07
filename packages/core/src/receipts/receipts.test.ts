@@ -393,7 +393,6 @@ test('standalone decision receipts redact labels without losing colliding probab
   const mesa = createMesa('default', testDeps(home));
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
-  mesa.config.set('decisions.backend', 'rules');
   mesa.config.set('keys.first', 'tide-key-0042');
   mesa.config.set('keys.second', 'tide-key-0043');
   const options = ['tide-key-0042', 'tide-key-0043', '***', 'token-choice'];

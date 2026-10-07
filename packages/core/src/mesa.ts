@@ -4,6 +4,7 @@ import { automationsService } from './automations/service.js';
 import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
+import { decisionModels } from './decisions/models.js';
 import { diagnosticsService } from './diagnostics/service.js';
 import { doctorService } from './doctor/service.js';
 import { filesService } from './files/service.js';
@@ -40,7 +41,8 @@ export type { MesaDeps } from './context.js';
  */
 export function createMesa(profile: string, deps: MesaDeps) {
   const ctx = createContext(profile, deps);
-  const faro = createFaro(ctx);
+  const models = decisionModels(ctx);
+  const faro = createFaro(ctx, models);
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
   const usage = usageService(ctx);
@@ -93,6 +95,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sources,
     imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
     decide: faro.decide,
+    /** The hosted decision models: their keys, and which one Faro asks (#488). */
+    decisions: { keys: models.keys, use: models.use },
     guardrail: { check: faro.guardrail.check },
     /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */
     vaultChoices: () => vaultChoices(deps.obsidian, deps.home),

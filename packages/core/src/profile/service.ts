@@ -23,6 +23,14 @@ export function profileService(ctx: MesaContext) {
           throw new MesaError('usage', APPROVAL_FROM_SESSION);
     };
   };
+  // The decision model is chosen with `mesa decisions use`, which checks it has a key.
+  const modelGuard = () => {
+    const before = ctx.configIfAny()?.decisions.model ?? 'none';
+    return (next: Config) => {
+      if (next.decisions.model !== before)
+        throw new MesaError('usage', 'choose the decision model with mesa decisions use <model>');
+    };
+  };
   return {
     info: (): ProfileInfo => ({ profile, dir: paths.root }),
     init: (input: { vault: string; agent?: string }) => {
@@ -65,7 +73,12 @@ export function profileService(ctx: MesaContext) {
             outputs: (r) => ({ value: dotted === 'vault' ? redact(String(r.value)) : r.value }),
             changed: (r) => r.changed,
           },
-          () => setConfigValue(paths.config, dotted, value, ctx, scriptGuard()),
+          () => {
+            const guards = [scriptGuard(), modelGuard()];
+            return setConfigValue(paths.config, dotted, value, ctx, (next) => {
+              for (const guard of guards) guard?.(next);
+            });
+          },
         );
       },
     },

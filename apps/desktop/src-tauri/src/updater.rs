@@ -69,7 +69,7 @@ async fn mesa(args: &[&str]) -> Result<Value, String> {
         .chain(args)
         .map(|s| s.to_string())
         .collect();
-    let envelope = tauri::async_runtime::spawn_blocking(move || crate::bridge::run(&args))
+    let envelope = tauri::async_runtime::spawn_blocking(move || crate::bridge::run(&args, None))
         .await
         .map_err(|e| e.to_string())??;
     if envelope["ok"] == true {

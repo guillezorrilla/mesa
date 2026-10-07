@@ -13,16 +13,18 @@ import {
   type Overrides,
   passGuardrail,
 } from './guardrail.js';
+import { type DecisionModels, ON_DEMAND_MS } from './models.js';
 import { rulesBackend } from './rules.js';
 import type { Decision, DecisionRecorder, Question } from './types.js';
 
-/** Faro for one profile: the profile's view of it, `mesa decide`, and the guardrail. */
-export function createFaro(ctx: MesaContext) {
-  /** For questions no rules know (mesa decide), the rules answer evenly. */
-  const outside = [rulesBackend<unknown>([])];
+/**
+ * Faro for one profile: the profile's view of it, `mesa decide`, and the guardrail. `models`
+ * gives the hosted model the profile chose, if any.
+ */
+export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'active'>) {
   /** Faro's view of the profile; before init, rules only (nothing else is configured). */
   const profile = (): FaroProfile => ({
-    decisions: ctx.configIfAny()?.decisions ?? { backend: 'rules', threshold: 1 },
+    decisions: ctx.configIfAny()?.decisions ?? { model: 'none', threshold: 1 },
   });
   /**
    * The guardrail's deps, its decision going to `recorder`. A project's level is read from the
@@ -47,9 +49,10 @@ export function createFaro(ctx: MesaContext) {
     profile,
     /**
      * Faro, for questions from outside (mesa decide): no rules know them, so the rules backend
-     * answers evenly. Decision sites bring their own rules backend. It writes a decision receipt:
-     * the answers in its `decisions`, what it was asked (redacted) in its `inputs`, and the
-     * backend's list price, if it reports one, as its `cost`.
+     * answers evenly, and the chosen model, if any, is always asked, within the on-demand
+     * deadline. Decision sites bring their own rules backend. It writes a decision receipt: the
+     * answers in its `decisions`, what it was asked (redacted) in its `inputs`, the model id that
+     * answered in its `outputs`, and the backend's list price, if it reports one, as its `cost`.
      */
     decide: (
       state: unknown,
@@ -79,17 +82,27 @@ export function createFaro(ctx: MesaContext) {
           },
           outputs: (d) => ({
             latencyMs: d.latencyMs,
+            ...(d.model ? { model: d.model } : {}),
             ...(d.fallbackReason ? { fallbackReason: redact(d.fallbackReason) } : {}),
           }),
           cost: (d) => d.costUsd,
         },
-        (recorder) =>
-          // decide validates what it is given: this is the boundary it checks.
-          decide(
-            { backends: outside, profile: profile(), clock: ctx.clock, recorder },
+        (recorder) => {
+          const model = models.active(ON_DEMAND_MS);
+          const { decisions } = profile();
+          return decide(
+            {
+              backends: [rulesBackend<unknown>([]), ...(model ? [model] : [])],
+              // Even answers are no rules' opinion: below any threshold, a Score's too.
+              profile: { decisions: { ...decisions, threshold: Number.POSITIVE_INFINITY } },
+              clock: ctx.clock,
+              recorder,
+            },
             state,
+            // decide validates what it is given: this is the boundary it checks.
             questions as Question[],
-          ),
+          );
+        },
       );
     },
     guardrail: {
@@ -108,10 +121,10 @@ export function createFaro(ctx: MesaContext) {
       gate: (input: Guarded, overrides: Overrides, recorder: DecisionRecorder) =>
         passGuardrail(guard(recorder), input, overrides),
     },
-    /** The backend the profile names and its threshold, for doctor; none before init. */
+    /** The model the profile chose and its threshold, for doctor; none before init. */
     inUse: () => {
       const decisions = ctx.configIfAny()?.decisions;
-      return decisions && { named: decisions.backend, threshold: decisions.threshold };
+      return decisions && { model: decisions.model, threshold: decisions.threshold };
     },
   };
 }

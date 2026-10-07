@@ -8,7 +8,7 @@ import type { Bridge } from './client';
 import type { BrowserSelection, Platform, UpdateStatus } from './platform';
 
 /** The real bridge: the Rust `run_mesa` command, which spawns the mesa CLI. */
-export const tauriBridge: Bridge = (args) => invoke('run_mesa', { args });
+export const tauriBridge: Bridge = (args, stdin) => invoke('run_mesa', { args, stdin });
 
 const browserLifecycle = new Map<string, Promise<unknown>>();
 function withBrowserLifecycle<T>(sessionId: string, task: () => Promise<T>): Promise<T> {

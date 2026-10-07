@@ -38,6 +38,8 @@ export type CliDeps = {
   stdin: () => Promise<string>;
   /** Asks the person at the terminal yes or no; none when stdin is not one. */
   confirm?: (question: string) => Promise<boolean>;
+  /** Asks the person at the terminal for a secret, not echoed; none when stdin is not one. */
+  askSecret?: (question: string) => Promise<string>;
   /** What Mesa's services are built from, once the profile is known. */
   mesa: MesaDeps;
 };
@@ -121,10 +123,19 @@ async function dispatch(argv: string[], deps: CliDeps): Promise<Output> {
   checkRequiredFlags(command, values);
   const profile = resolveProfileName(values.profile as string | undefined, deps.env);
   const mesa = createMesa(profile, deps.mesa);
-  const { tty, stdin, commands } = deps;
+  const { tty, stdin, askSecret, commands } = deps;
   // A caller reading --json output is a program, which cannot answer a question.
   const confirm = values.json ? undefined : deps.confirm;
-  return command.run({ mesa, args, flags: values, tty, stdin, confirm, commands } as Invocation);
+  return command.run({
+    mesa,
+    args,
+    flags: values,
+    tty,
+    stdin,
+    confirm,
+    askSecret,
+    commands,
+  } as Invocation);
 }
 
 /** Runs one CLI invocation and returns what to print; the entrypoint writes the streams. */

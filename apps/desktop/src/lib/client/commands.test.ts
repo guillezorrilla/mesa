@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { aboutCommands } from './about';
 import { automationsCommands } from './automations';
+import { decisionsCommands } from './decisions';
 import { doctorCommands } from './doctor';
 import { filesCommands } from './files';
 import { gitCommands } from './git';
@@ -22,6 +23,7 @@ test('no command name is defined by two domain tables', () => {
   const names = [
     aboutCommands,
     automationsCommands,
+    decisionsCommands,
     doctorCommands,
     filesCommands,
     gitCommands,
@@ -39,6 +41,21 @@ test('no command name is defined by two domain tables', () => {
     worktreesCommands,
   ].flatMap(Object.keys);
   expect(names.filter((name, at) => names.indexOf(name) !== at)).toEqual([]);
+});
+
+test('decisions.keys.set puts the key on stdin and never in argv', () => {
+  const set = decisionsCommands['decisions.keys.set'];
+  const args = { provider: 'cloudflare' as const, key: 'cf-test-key', account: 'acct-0001' };
+  expect(set.argv(args)).toEqual([
+    'decisions',
+    'key',
+    'set',
+    '--account',
+    'acct-0001',
+    '--',
+    'cloudflare',
+  ]);
+  expect(set.stdin?.(args)).toBe('cf-test-key');
 });
 
 test("sessions.open names each additional project with --with=, before the session's branch", () => {

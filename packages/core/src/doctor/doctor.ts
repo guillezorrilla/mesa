@@ -5,7 +5,8 @@ import type { ClaudeHooksStatus } from '../agents/claude/hooks.js';
 import type { CodexHooksStatus } from '../agents/codex/hooks.js';
 import type { TmuxHookStatus } from '../agents/hooks-service.js';
 import { AGENT_NAMES } from '../agents/names.js';
-import type { BackendName } from '../decisions/types.js';
+import { SYSTEM_ONE_MODELS } from '../decisions/systemone.js';
+import type { DecisionsModel } from '../decisions/types.js';
 import type { Runner } from '../lib/process.js';
 import { toFail } from '../lib/result.js';
 import type { ObsidianPaths } from '../vault/obsidian.js';
@@ -80,15 +81,16 @@ async function obsidianCheck(run: Runner, paths: ObsidianPaths): Promise<Finding
   return { ...base, ok: true, version, path, registered, hint };
 }
 
-/** The decisions backend the profile names, and the confidence below which rules defer to it. */
-type DecisionsInUse = { named: BackendName; threshold: number };
+/** The model the profile chose, and the confidence below which the rules defer to it. */
+type DecisionsInUse = { model: DecisionsModel; threshold: number };
 
 function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   if (!decisions) return [];
-  const { named, threshold } = decisions;
-  const hint =
-    named === 'rules' ? 'rules only' : `rules first; ${named} below confidence ${threshold}`;
-  return [{ name: 'decisions', ok: true, version: named, hint }];
+  const { model, threshold } = decisions;
+  if (model === 'none')
+    return [{ name: 'decisions', ok: true, version: 'rules', hint: 'rules only' }];
+  const hint = `rules first; ${SYSTEM_ONE_MODELS[model]} below confidence ${threshold}`;
+  return [{ name: 'decisions', ok: true, version: model, hint }];
 }
 
 /** Mesa's Claude Code hooks: a warning with its fix when missing, or when settings do not read. */

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { AgentSchema } from '../agents/agents.js';
 import { LaunchDefaultsSchema } from '../agents/launch-flags.js';
 import { CLAUDE_PERMISSION_MODES, DEFAULT_AGENT } from '../agents/names.js';
-import { DecisionsBackendSchema } from '../decisions/types.js';
+import { DecisionsModelSchema } from '../decisions/types.js';
 import { validExternalArgv } from '../files/external.js';
 import type { LockDeps } from '../lib/lock-file.js';
 import type { Env } from '../lib/process.js';
@@ -34,13 +34,14 @@ export { TERMINAL_APPS } from './preferences.js';
 export type TerminalApp = (typeof TERMINAL_APPS)[number];
 
 /**
- * A file written before ADR-0020 may still name Faro's removed adapter, as
- * `decisions.backend: adapter` or `decisions.adapter`: it loads, and acts as rules.
+ * A file written before #488 may still have `decisions.backend` (only ever `rules`, or the adapter
+ * ADR-0020 removed) or `decisions.adapter`: it loads, and the rules answer alone, as with the
+ * default `model: none`. `decisions.model` took the backend's place.
  */
-const withoutAdapter = (decisions: unknown) => {
+const withoutBackend = (decisions: unknown) => {
   if (!decisions || typeof decisions !== 'object') return decisions;
-  const { adapter: _, ...rest } = decisions as Record<string, unknown>;
-  return rest.backend === 'adapter' ? { ...rest, backend: 'rules' } : rest;
+  const { adapter: _, backend: __, ...rest } = decisions as Record<string, unknown>;
+  return rest;
 };
 
 /**
@@ -68,10 +69,14 @@ const ConfigShape = z.strictObject({
   skills: z.array(z.string()).default(['mesa', 'mesa-handoff', 'mesa-vault']),
   decisions: z
     .preprocess(
-      withoutAdapter,
+      withoutBackend,
       z.strictObject({
-        backend: DecisionsBackendSchema.default('rules'),
+        // The hosted model asked when the rules are unsure; only one with a key in the Keychain
+        // (`mesa decisions use`).
+        model: DecisionsModelSchema.default('none'),
         threshold: z.number().min(0).max(1).default(0.7),
+        // CLEF's Cloudflare account ID: not a secret, unlike its API token.
+        cloudflareAccount: z.string().trim().min(1).optional(),
       }),
     )
     .prefault({}),
@@ -112,7 +117,7 @@ const ConfigShape = z.strictObject({
   onboarding: z
     .strictObject({
       status: z.enum(['active', 'complete']).default('complete'),
-      step: z.number().int().min(0).max(2).default(0),
+      step: z.number().int().min(0).max(3).default(0),
       // First-run discovery (CONTEXT.md): offered at launch while pending with no projects, or started.
       discovery: z.enum(['pending', 'started', 'complete', 'dismissed']).default('pending'),
     })

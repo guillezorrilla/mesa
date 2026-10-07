@@ -16,7 +16,7 @@ test('receipts lists meaningful decisions and filters out routine actions', asyn
   const a = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
   await mesa('rename', a, 'tidy');
   expect(await listed()).toEqual([]);
-  await mesa('config', 'set', 'decisions.backend', 'rules');
+  await mesa('decisions', 'use', 'none');
   cli.stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'ship', statement: 'Ready' }] });
   const decision = await mesa('decide', '--json');
   expect((await mesa('decide', '--project', 'lantern-cove', '--json')).code).toBe(2);
@@ -74,7 +74,7 @@ test('a project decision from a Mesa session keeps its known caller', async () =
   cli.withTmux();
   await cli.withProject();
   const session = (await mesa('open', 'lantern-cove', '--json')).json.data.id;
-  await mesa('config', 'set', 'decisions.backend', 'rules');
+  await mesa('decisions', 'use', 'none');
   cli.env = { MESA_SESSION_ID: session, MESA_PROFILE: 'default' };
   cli.stdin = JSON.stringify({ questions: [{ kind: 'Noul', id: 'ship', statement: 'Ready' }] });
   const decided = await mesa(

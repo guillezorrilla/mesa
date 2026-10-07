@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 import { TextField } from './controls/TextField';
+import { MODELS } from './decisions/models';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
@@ -24,9 +25,15 @@ export function AdvancedSettingsPanel(props: { onBackup: () => void; onUsage: ()
         groupIcon={BrainCircuit}
       >
         <SettingRow
-          title="Backend"
-          description="Faro answers with its rules alone, so nothing waits on a model."
-          control={<Muted size="xs">Rules only</Muted>}
+          title="Model"
+          description="Asked when the rules are unsure; choose it in Smarter decisions."
+          control={
+            <Muted size="xs">
+              {config.decisions.model === 'none'
+                ? 'Rules only'
+                : MODELS[config.decisions.model].label}
+            </Muted>
+          }
         />
         <SettingRow
           title="Confidence threshold"

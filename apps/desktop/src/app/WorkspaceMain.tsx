@@ -40,6 +40,7 @@ export function WorkspaceMain(props: {
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
   onVaultSettings: () => void;
+  onDecisionSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
   promptInsertRequest?: { session: string; text: string };
@@ -153,6 +154,7 @@ export function WorkspaceMain(props: {
           onInitialised={props.onProfileInitialised}
           onConfigChanged={config.refresh}
           onProjectsChanged={projects.refresh}
+          onDecisionSettings={props.onDecisionSettings}
           onDone={(session) =>
             navigate(session ? { kind: 'session', id: session } : { kind: 'sessions' })
           }

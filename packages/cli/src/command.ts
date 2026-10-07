@@ -95,6 +95,11 @@ export type Invocation<A extends readonly string[] = readonly string[], F extend
    * --json, else undefined.
    */
   confirm: ((question: string) => Promise<boolean>) | undefined;
+  /**
+   * Asks the person for a secret without echoing it (a model's key): only in a terminal, else
+   * undefined, and the secret comes on stdin. A secret never comes in argv.
+   */
+  askSecret: ((question: string) => Promise<string>) | undefined;
   /** The command table, which `mesa help` describes. */
   commands: Command[];
 };
