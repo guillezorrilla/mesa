@@ -122,7 +122,9 @@ export const goalPreparing = (
 
 /**
  * The command tmux receives, including Claude's color and process-identity setup, after
- * `preparing` (goalPreparing).
+ * `preparing` (goalPreparing). Behind `preparing` the line is a list, which sh no longer replaces
+ * with its last command, so an agent that does not exec itself is exec'd: it stays the pane's own
+ * process, which `send` and the Board read.
  */
 export function sessionWindowCommand(
   agent: SessionRecord['agent'],
@@ -130,8 +132,10 @@ export function sessionWindowCommand(
   command: string,
   preparing = '',
 ) {
-  return agent === 'claude' && kind === 'interactive'
-    ? `${preparing}unset NO_COLOR; exec ${command.replace(/^exec /, '')}`
+  if (agent === 'claude' && kind === 'interactive')
+    return `${preparing}unset NO_COLOR; exec ${command.replace(/^exec /, '')}`;
+  return preparing && !/(^|; )exec /.test(command)
+    ? `${preparing}exec ${command}`
     : `${preparing}${command}`;
 }
 

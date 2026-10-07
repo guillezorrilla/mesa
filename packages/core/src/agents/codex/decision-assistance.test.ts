@@ -1,6 +1,7 @@
 import { realpathSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
+import { goalPreparing, sessionWindowCommand } from '../../sessions/start/launch.js';
 import { ADVICE_MARKER, assistedAgent, NATIVE_LAUNCH as NATIVE } from '../../testing/index.js';
 import { AGENTS } from '../agents.js';
 import { launchMounts } from '../vault-mount.js';
@@ -47,6 +48,22 @@ test('mesa-decisions is mounted on start, resume, fork and exec only with a Deci
     expect(command).toContain(DECISIONS);
   expect(AGENTS.codex.start(launchMounts(SELF, false), NATIVE, 'review')).not.toContain(
     'mesa-decisions',
+  );
+});
+
+test("after the goal's background ask the window execs codex, so codex stays the pane's process", () => {
+  const deps = { mounts: launchMounts(SELF, true), self: SELF };
+  const command = AGENTS.codex.start(deps.mounts, NATIVE, 'review');
+  const preparing = goalPreparing(deps, 'interactive', 'review');
+  expect(sessionWindowCommand('codex', 'interactive', command, preparing)).toBe(
+    `('/opt/node' '/src/mesa.js' decisions prepare >/dev/null 2>&1 &); exec ${command}`,
+  );
+  // Alone it is one command, which sh runs in its own place anyway.
+  expect(sessionWindowCommand('codex', 'interactive', command)).toBe(command);
+  // agy's start already execs it after its umask.
+  const agy = AGENTS.antigravity.start('review', '/logs/agy.log', NATIVE);
+  expect(sessionWindowCommand('antigravity', 'interactive', agy, preparing)).toBe(
+    `${preparing}${agy}`,
   );
 });
 
