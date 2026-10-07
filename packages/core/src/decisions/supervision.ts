@@ -12,11 +12,11 @@ import {
 import { decide } from './decide.js';
 import { type DecisionModels, PER_TURN_MS } from './models.js';
 import { rulesBackend } from './rules.js';
+import { automaticGate } from './site-mode.js';
 import {
   ACCEPT_AT,
   type AcceptAt,
   accepted,
-  automaticGate,
   type DecisionSite,
   margin,
   siteQuestion,
@@ -57,7 +57,7 @@ const tables = (experimental: boolean): SupervisionTables => ({
 
 /**
  * The model that may place sessions: the chosen one, only if it runs supervision automatically
- * (both gates passed, or opted in as experimental; sites.ts).
+ * (both gates passed, or opted in as experimental; siteMode).
  */
 export function supervisingModel(
   model: DecisionsModel | undefined,

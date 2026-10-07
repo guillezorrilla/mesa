@@ -232,8 +232,11 @@ export const QUALITY_GATES: Record<DecisionSite, { selectiveAccuracy: number; co
     evidence: { selectiveAccuracy: 0.9, coverage: 0.4 },
   };
 
+/** What a gate reads of a site's summary. */
+type GateSummary = Pick<SiteSummary, 'selectiveAccuracy' | 'coverage' | 'acceptedCorrect'>;
+
 /** Whether `site`'s summary meets its gate, beating `baseline` (the rules' summary) when given. */
-export function meetsGate(site: DecisionSite, s: SiteSummary, baseline?: SiteSummary) {
+export function meetsGate(site: DecisionSite, s: GateSummary, baseline?: GateSummary) {
   const gate = QUALITY_GATES[site];
   return (
     (s.selectiveAccuracy ?? 0) >= gate.selectiveAccuracy &&

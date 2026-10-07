@@ -4,6 +4,7 @@ import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { ON_DEMAND_MS, PER_TURN_MS } from './models.js';
 import type { Packet } from './packet.js';
+import { siteMode } from './site-mode.js';
 import { ACCEPT_AT, accepted, DECISION_SITES, type DecisionSite, margin } from './sites.js';
 import type { Decision, DecisionsModel, Question } from './types.js';
 
@@ -31,8 +32,8 @@ export const EvaluationSchema = z.strictObject({
   mode: z.enum(ASSIST_MODES),
   status: z.enum(EVALUATION_STATUSES),
   /**
-   * A site the model did not pass the quality gate at (PASSED_GATE), asked on demand, or an
-   * automatic call at a site it is not proven at (provenSites), which the person opted into.
+   * A site the model did not pass the quality gate at, asked on demand, or an automatic call at a
+   * site it is not proven at, which the person opted into (siteMode).
    */
   experimental: z.literal(true).optional(),
   /** The model's pick: an option of the Choice, or the Noul's lean. */
@@ -68,12 +69,8 @@ export type EvaluationMemory = {
 export type EvaluateDeps = {
   /** The Decision model in use; `none` asks nothing. */
   model: DecisionsModel;
-  /** The sites it passed the held-out quality gate at (PASSED_GATE). */
-  passed: readonly DecisionSite[];
-  /** The sites it runs automatically (automaticSites). */
-  automatic: readonly DecisionSite[];
-  /** The sites it is proven at, both gates (provenSites). */
-  proven: readonly DecisionSite[];
+  /** The person's opt-in to experimental automatic decisions (`decisions.experimental`). */
+  experimental: boolean;
   /** Faro, asked the packet within `deadlineMs`, its rules even (faro.ts); `signal` cancels it. */
   ask: (
     state: string,
@@ -108,8 +105,8 @@ const aborted = (signal: AbortSignal) =>
 
 /**
  * Evaluates `packet` once. With no model, nothing is asked. An automatic call at a site the model
- * does not run automatically is unavailable, and one at a site it is not proven at is marked
- * experimental, as is any call at a site it did not pass the quality gate at. An answer made
+ * does not run automatically (siteMode) is unavailable, and one at a site it is not proven at is
+ * marked experimental, as is any call at a site it did not pass the quality gate at. An answer made
  * before for the same key is reused; with `readyOnly`, only that, and a miss is unavailable and
  * noted nowhere (a hook on every model call asks this way). The model answers within the mode's
  * deadline (ADR-0019);
@@ -125,10 +122,12 @@ export async function evaluate(
   const { mode, signal, revision = '', readyOnly } = options;
   const { model } = deps;
   if (model === 'none') return unavailable(site, mode, NO_MODEL);
-  if (mode === 'automatic' && !deps.automatic.includes(site))
+  const runs = siteMode(model, site, deps.experimental);
+  if (mode === 'automatic' && runs.mode !== 'automatic')
     return unavailable(site, mode, `${model} is not proven for automatic ${site} advice`);
-  const experimental =
-    !deps.passed.includes(site) || (mode === 'automatic' && !deps.proven.includes(site));
+  // On demand, a call is experimental only where the site missed the quality gate: as it runs
+  // without the opt-in.
+  const { experimental } = mode === 'automatic' ? runs : siteMode(model, site, false);
   const acceptAt = ACCEPT_AT[model][site];
   const key = keyOf(packet, model, acceptAt, revision);
   const noted = (evaluation: Evaluation) => {

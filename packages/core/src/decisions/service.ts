@@ -23,19 +23,14 @@ import { answerRequest, type DecisionAnswer, decisionRequest, REQUEST_SITES } fr
 import { decisionBinding } from './scope.js';
 import { DECISION_TOOLS, serveDecisions } from './server.js';
 import { sessionDecisions } from './session-decisions.js';
-import { ACCEPT_AT, automaticSites, PASSED_GATE, provenSites } from './sites.js';
+import { siteMode } from './site-mode.js';
+import { ACCEPT_AT } from './sites.js';
 import type { Decision } from './types.js';
 
 // Decision assistance for sessions (ADR-0019, CONTEXT.md Decision assistance): scoped context and
 // advice for one live session, through `mesa decisions evaluate|context|advise`, the
 // decision_evaluate tool, and the app's session details. Routine calls keep nothing but the
 // session's bounded use; only an explicit decision with a rationale writes a receipt.
-
-/**
- * How a site runs for a session: off, on demand only, or automatic (proven, or opted in as
- * experimental).
- */
-export type SiteMode = 'off' | 'on-demand' | 'automatic';
 
 export type EvaluateOptions = {
   /** The session, for a person outside a Mesa window; inside one, only its own. */
@@ -111,9 +106,7 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
         : evaluate(
             {
               model: active,
-              passed: active === 'none' ? [] : PASSED_GATE[active],
-              automatic: active === 'none' ? [] : automaticSites(active, experimental()),
-              proven: active === 'none' ? [] : provenSites(active),
+              experimental: experimental(),
               ask,
               clock: ctx.clock,
               // A kept decision is asked anew, so its receipt holds a real answer.
@@ -200,29 +193,22 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
       const session = bound(given);
       const active = model();
       const state = stateOf(session.id).read();
-      const automatic = active === 'none' ? [] : automaticSites(active, experimental());
-      const proven = active === 'none' ? [] : provenSites(active);
-      const passed = active === 'none' ? [] : PASSED_GATE[active];
+      const opted = experimental();
       return {
         session: session.id,
         project: projectLabel(session.project),
         model: active,
         off: state.off === true,
         sites: REQUEST_SITES.map((site) => {
-          const mode: SiteMode =
-            active === 'none' || state.off
-              ? 'off'
-              : automatic.includes(site)
-                ? 'automatic'
-                : 'on-demand';
-          // Automatic but not proven (opted in), or on demand but short of the quality gate.
-          const experimental =
-            mode === 'automatic' ? !proven.includes(site) : !passed.includes(site);
+          // Turned off for this session, every site is off.
+          const { mode, experimental } = state.off
+            ? { mode: 'off' as const, experimental: false }
+            : siteMode(active, site, opted);
           return {
             site,
             mode,
             ...(active === 'none' ? {} : { acceptAt: ACCEPT_AT[active][site] }),
-            ...(active !== 'none' && experimental ? { experimental: true as const } : {}),
+            ...(experimental ? { experimental: true as const } : {}),
             ...(active === 'none' ? {} : { measured: siteMeasure(active, site) }),
           };
         }),

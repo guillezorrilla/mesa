@@ -14,7 +14,8 @@ import {
   tempDir,
 } from '../testing/index.js';
 import { PER_TURN_MS } from './models.js';
-import { ACCEPT_AT, automaticGate, DECISION_SITES, PASSED_GATE } from './sites.js';
+import { automaticGate } from './site-mode.js';
+import { ACCEPT_AT, DECISION_SITES, PASSED_GATE } from './sites.js';
 import {
   type Placed,
   placeUnsure,

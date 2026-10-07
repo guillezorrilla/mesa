@@ -1,10 +1,11 @@
-import type { PairedArm } from './evaluation/paired.js';
-import type { DecisionSite } from './sites.js';
+import { armsVerdict, armTotals, type PairedArm } from './evaluation/paired.js';
+import { DECISION_SITES, type DecisionSite } from './sites.js';
 import type { SystemOneProvider } from './systemone.js';
 
 // What ADR-0019's evaluations measured per model and site, shown beside each site's mode in
 // Settings, the session details and `mesa decisions status`: held-out quality (#638) and the paired
-// workflows (#465). The verdicts they back are sites.ts's PASSED_GATE and PAIRED_PASSED.
+// workflows (#465). The quality verdicts are sites.ts's PASSED_GATE; the paired verdicts are read
+// from the arms here (PAIRED_PASSED).
 
 /** Held-out cases, how many Mesa accepted, and how many of those were right. */
 export type QualityMeasure = { n: number; accepted: number; right: number };
@@ -25,32 +26,49 @@ const QUALITY: Record<SystemOneProvider, Record<DecisionSite, QualityMeasure>> =
   },
 };
 
+/** An arm as measured: its runs, successes and total wall time. */
+type MeasuredArm = Omit<PairedArm, 'msPerSuccess'>;
+
 /**
- * Each model's paired-workflow result at the sites its automatic advice ran at (only relevance is
- * delivered automatically inside a session); a site with none is not measured. The lead fills it
- * from `pnpm decisions:paired` (docs/spikes/decision-assistance-evaluation.md).
+ * Each model's paired-workflow arms at the sites its automatic advice ran at (only relevance is
+ * delivered automatically inside a session); a site with none is not measured. Filled from the
+ * measured run of `pnpm decisions:paired` (docs/spikes/decision-assistance-evaluation.md).
  */
 // Seed 1476997429, 2026-10-07: 6 tasks x 2 repetitions per arm, sonnet, Claude Code 2.1.292.
-const OFF = { runs: 12, successes: 0, wallMs: 291953, msPerSuccess: null };
-const PAIRED: Record<SystemOneProvider, Partial<Record<DecisionSite, PairedMeasure>>> = {
-  jev: {
-    relevance: {
-      on: { runs: 12, successes: 12, wallMs: 221389, msPerSuccess: 18449.083333333332 },
-      off: OFF,
-      pass: true,
-    },
-  },
-  clef: {
-    relevance: {
-      on: { runs: 12, successes: 12, wallMs: 221507, msPerSuccess: 18458.916666666668 },
-      off: OFF,
-      pass: true,
-    },
-  },
+const OFF: MeasuredArm = { runs: 12, successes: 0, wallMs: 291953 };
+const PAIRED_ARMS: Record<
+  SystemOneProvider,
+  Partial<Record<DecisionSite, { on: MeasuredArm; off: MeasuredArm }>>
+> = {
+  jev: { relevance: { on: { runs: 12, successes: 12, wallMs: 221389 }, off: OFF } },
+  clef: { relevance: { on: { runs: 12, successes: 12, wallMs: 221507 }, off: OFF } },
+};
+
+/** A model's paired result at `site`, its verdict read by the frozen gate (armsVerdict). */
+function pairedMeasure(model: SystemOneProvider, site: DecisionSite): PairedMeasure | undefined {
+  const arms = PAIRED_ARMS[model][site];
+  if (!arms) return undefined;
+  const on = armTotals(arms.on);
+  const off = armTotals(arms.off);
+  return { on, off, pass: armsVerdict(on, off).pass };
+}
+
+const pairedPassed = (model: SystemOneProvider) =>
+  DECISION_SITES.filter((site) => pairedMeasure(model, site)?.pass);
+
+/**
+ * The sites where each model passed ADR-0019's frozen paired-workflow gate (#465): paired coding
+ * runs with its automatic advice on solved at least as many tasks, no more than 10% slower per
+ * solved task, and better on one of the two (`evaluation/paired.ts`). The gates are never lowered
+ * to fill it.
+ */
+export const PAIRED_PASSED: Record<SystemOneProvider, readonly DecisionSite[]> = {
+  jev: pairedPassed('jev'),
+  clef: pairedPassed('clef'),
 };
 
 export const siteMeasure = (model: SystemOneProvider, site: DecisionSite): SiteMeasure => {
-  const paired = PAIRED[model][site];
+  const paired = pairedMeasure(model, site);
   return { quality: QUALITY[model][site], ...(paired ? { paired } : {}) };
 };
 

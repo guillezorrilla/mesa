@@ -6,7 +6,7 @@
 // differs: none (off), jev or clef. Advice reaches the run through the product path, Claude
 // Code's UserPromptSubmit hook, so Mesa's global hooks must be installed first.
 //
-//   --profile <name>     a throwaway profile with the keys (the lead uses p11-live); required
+//   --profile <name>     a throwaway profile with the keys, never an everyday one; required
 //   --hooks-installed    say Mesa's hooks are installed (mesa hooks install, after a backup)
 //   --arms off,jev,clef  the arms (default all three; off is the baseline and always runs)
 //   --reps 2             runs per task per arm
@@ -21,8 +21,8 @@
 // The profile's run permissions and decisions.experimental are set for the runs (automatic advice
 // needs the opt-in until a site passes this gate) and put back afterwards.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
@@ -30,7 +30,7 @@ import {
   pairedArm,
   pairedVerdict,
 } from '../../../packages/core/dist/decisions/evaluation/paired.js';
-import { profilePaths } from '../../../packages/core/dist/profile/paths.js';
+import { fail, must, needCli, profileCli, Refused, usage } from '../lib.mjs';
 import { freshProject, hiddenTest, notes, PROJECT, solve, TASKS } from './harness.mjs';
 
 const { values } = parseArgs({
@@ -47,16 +47,6 @@ const { values } = parseArgs({
     'dry-run': { type: 'boolean', default: false },
   },
 });
-/** Stops the run with `message`: thrown, so whatever was set up is put back first. */
-class Refused extends Error {}
-const fail = (message) => {
-  throw new Refused(message);
-};
-/** A wrong argument, before anything is set up. */
-const usage = (message) => {
-  console.error(message);
-  process.exit(2);
-};
 const dry = values['dry-run'];
 const arms = ['off', ...values.arms.split(',').filter((a) => a !== 'off')];
 if (arms.some((a) => !['off', 'jev', 'clef'].includes(a))) usage('--arms: off, jev and clef');
@@ -87,24 +77,7 @@ for (let i = order.length - 1; i > 0; i--) {
   [order[i], order[j]] = [order[j], order[i]];
 }
 
-const CLI = new URL('../../../packages/cli/dist/mesa.js', import.meta.url).pathname;
-/** `mesa --profile <p> ...args --json`: its envelope, or why there is none. */
-function mesa(...args) {
-  const run = spawnSync(process.execPath, [CLI, '--profile', values.profile, ...args], {
-    encoding: 'utf8',
-    timeout: (timeout + 120) * 1000,
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  try {
-    return JSON.parse(run.stdout);
-  } catch {
-    return { ok: false, error: { message: (run.stderr || run.stdout || 'no output').trim() } };
-  }
-}
-const must = (envelope, what) => {
-  if (!envelope.ok) fail(`${what}: ${envelope.error?.message}`);
-  return envelope.data;
-};
+const { paths, mesa, set } = profileCli(values.profile, (timeout + 120) * 1000);
 const readJson = (file) => {
   try {
     return JSON.parse(readFileSync(file, 'utf8'));
@@ -115,7 +88,6 @@ const readJson = (file) => {
 
 const work = mkdtempSync(join(tmpdir(), 'paired-'));
 const projectDir = join(work, PROJECT);
-const paths = values.profile && profilePaths(homedir(), values.profile);
 const restore = [];
 let vaultDir;
 
@@ -126,7 +98,7 @@ function setUp() {
     fail(
       "Mesa's hooks must be installed: advice reaches a headless run only through Claude Code's UserPromptSubmit hook. Back up ~/.claude/settings.json, run mesa --profile <name> hooks install, then pass --hooks-installed (restore the backup afterwards).",
     );
-  if (!existsSync(CLI)) fail(`${CLI} is missing: pnpm --filter @mesa/cli build`);
+  needCli(fail);
   const hooks = must(mesa('hooks', 'status', '--json'), 'hooks status');
   if (!hooks.events?.UserPromptSubmit)
     fail("Claude Code's UserPromptSubmit hook is not installed: mesa hooks install");
@@ -136,13 +108,10 @@ function setUp() {
   if (arms.includes('clef') && !has('cloudflare')) fail('clef arm: no Cloudflare key');
   const config = must(mesa('config', '--json'), 'config');
   vaultDir = config.vault;
-  const set = (path, value, before) => {
-    must(mesa('config', 'set', path, JSON.stringify(value), '--json'), `config set ${path}`);
-    restore.push(() => mesa('config', 'set', path, JSON.stringify(before), '--json'));
-  };
-  set('run.permissionMode', 'acceptEdits', config.run.permissionMode);
-  set('run.allowedTools', ALLOWED, config.run.allowedTools);
-  set('decisions.experimental', true, config.decisions.experimental ?? false);
+  // One at a time: a refused set leaves the ones before it to put back.
+  restore.push(set('run.permissionMode', 'acceptEdits', config.run.permissionMode));
+  restore.push(set('run.allowedTools', ALLOWED, config.run.allowedTools));
+  restore.push(set('decisions.experimental', true, config.decisions.experimental ?? false));
   restore.push(() => mesa('decisions', 'use', config.decisions.model, '--json'));
   freshProject(projectDir);
   // A kelp-ledger left registered at an older run's folder is moved to this one.
@@ -279,13 +248,16 @@ for (const [arm, s] of Object.entries(summary))
   console.log(
     `${arm.padEnd(4)} ${s.successes}/${s.runs} solved, ${secs(s.msPerSuccess)} per solved task`,
   );
+// What measured.ts takes once the run is accepted: the arms only, as relevance is the site the
+// automatic advice exercised; it reads the verdict, and PAIRED_PASSED, from them.
+const measured = ({ runs, successes, wallMs }) =>
+  `{ runs: ${runs}, successes: ${successes}, wallMs: ${wallMs} }`;
+console.log(`measured.ts OFF: ${measured(summary.off)}`);
 for (const [arm, v] of Object.entries(verdicts)) {
   const stub = dry ? ' [dry run: a stub agent, not a measurement]' : '';
   console.log(`paired gate ${arm}: ${v.pass ? 'PASS' : 'FAIL'} (${v.reason})${stub}`);
-  // What measured.ts and sites.ts take once the lead accepts the run (relevance is the site the
-  // automatic advice exercised).
   console.log(
-    `  measured.ts PAIRED.${arm}: { relevance: ${JSON.stringify({ on: v.on, off: v.off, pass: v.pass })} }${v.pass ? `; sites.ts PAIRED_PASSED.${arm}: ['relevance']` : ''}`,
+    `  measured.ts PAIRED_ARMS: ${arm}: { relevance: { on: ${measured(v.on)}, off: OFF } },`,
   );
 }
 console.log(`results: ${out}`);

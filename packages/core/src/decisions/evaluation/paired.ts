@@ -35,15 +35,18 @@ export type PairedArm = {
   msPerSuccess: number | null;
 };
 
+/** An arm's counts with its time per successful task. */
+export const armTotals = (arm: Omit<PairedArm, 'msPerSuccess'>): PairedArm => ({
+  ...arm,
+  msPerSuccess: arm.successes ? arm.wallMs / arm.successes : null,
+});
+
 export function pairedArm(runs: readonly PairedRun[]): PairedArm {
-  const successes = runs.filter((r) => r.success).length;
-  const wallMs = runs.reduce((sum, r) => sum + r.wallMs, 0);
-  return {
+  return armTotals({
     runs: runs.length,
-    successes,
-    wallMs,
-    msPerSuccess: successes ? wallMs / successes : null,
-  };
+    successes: runs.filter((r) => r.success).length,
+    wallMs: runs.reduce((sum, r) => sum + r.wallMs, 0),
+  });
 }
 
 /** Each task's run count in `runs`. */
@@ -70,38 +73,49 @@ function complete(on: readonly PairedRun[], off: readonly PairedRun[]) {
 }
 
 /**
- * `arm` against `baseline` (assistance off) over `runs`, by the gate: complete, success not lower,
- * time per success at most 10% worse (an unbounded time is worse than any bounded one, and equal
- * to another unbounded one), and at least one improvement. `reason` is the first that fails.
+ * Arm `on` (assistance) against `off` by the gate's comparisons, the runs already complete: success
+ * not lower, time per success at most 10% worse (an unbounded time is worse than any bounded one,
+ * and equal to another unbounded one), and at least one improvement. `reason` is the first that
+ * fails. A measured result kept without its runs (`measured.ts`) is read this way.
+ */
+export function armsVerdict(on: PairedArm, off: PairedArm) {
+  const time = (a: PairedArm) => a.msPerSuccess ?? Number.POSITIVE_INFINITY;
+  const checks = {
+    successNotLower: on.successes >= off.successes,
+    timeNotWorse: time(on) <= time(off) * (1 + PAIRED_GATE.slower),
+    moreSuccesses: on.successes >= off.successes + PAIRED_GATE.moreSuccesses,
+    faster: on.msPerSuccess !== null && time(on) <= time(off) * (1 - PAIRED_GATE.faster),
+  };
+  const reason = !checks.successNotLower
+    ? `fewer successes (${on.successes} against ${off.successes})`
+    : !checks.timeNotWorse
+      ? 'time per successful task more than 10% worse'
+      : !(checks.moreSuccesses || checks.faster)
+        ? 'no improvement: neither +1 success nor 10% less time per successful task'
+        : undefined;
+  return { pass: reason === undefined, reason: reason ?? 'passed', checks };
+}
+
+/**
+ * `arm` against `baseline` (assistance off) over `runs`, by the gate: complete, then armsVerdict.
+ * `reason` is the first that fails.
  */
 export function pairedVerdict(runs: readonly PairedRun[], arm: string, baseline = 'off') {
   const mine = runs.filter((r) => r.arm === arm);
   const theirs = runs.filter((r) => r.arm === baseline);
   const on = pairedArm(mine);
   const off = pairedArm(theirs);
-  const time = (a: PairedArm) => a.msPerSuccess ?? Number.POSITIVE_INFINITY;
-  const checks = {
-    complete: complete(mine, theirs),
-    successNotLower: on.successes >= off.successes,
-    timeNotWorse: time(on) <= time(off) * (1 + PAIRED_GATE.slower),
-    moreSuccesses: on.successes >= off.successes + PAIRED_GATE.moreSuccesses,
-    faster: on.msPerSuccess !== null && time(on) <= time(off) * (1 - PAIRED_GATE.faster),
-  };
-  const reason = !checks.complete
-    ? `incomplete: at least ${PAIRED_GATE.tasks} tasks, ${PAIRED_GATE.repetitions} runs each, in both arms`
-    : !checks.successNotLower
-      ? `fewer successes (${on.successes} against ${off.successes})`
-      : !checks.timeNotWorse
-        ? 'time per successful task more than 10% worse'
-        : !(checks.moreSuccesses || checks.faster)
-          ? 'no improvement: neither +1 success nor 10% less time per successful task'
-          : undefined;
+  const compared = armsVerdict(on, off);
+  const done = complete(mine, theirs);
+  const reason = done
+    ? compared.reason
+    : `incomplete: at least ${PAIRED_GATE.tasks} tasks, ${PAIRED_GATE.repetitions} runs each, in both arms`;
   return {
     arm,
     baseline,
-    pass: reason === undefined,
-    reason: reason ?? 'passed',
-    checks,
+    pass: done && compared.pass,
+    reason,
+    checks: { complete: done, ...compared.checks },
     on,
     off,
     /** Time per success with assistance over without, minus 1; null when either is unbounded. */

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
-import { automaticGate } from '../../decisions/sites.js';
+import { automaticGate } from '../../decisions/site-mode.js';
 import { supervisingModel } from '../../decisions/supervision.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';

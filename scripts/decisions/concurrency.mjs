@@ -4,7 +4,7 @@
 // runs it, timed from spawn to exit. First every session turned off (the hook's fixed cost: node
 // and Mesa starting), then assisted, each turn a new prompt, so every assisted turn is a live ask.
 //
-//   --profile <name>   a throwaway profile whose Decision model has its key (the lead: p11-live)
+//   --profile <name>   a throwaway profile whose Decision model has its key, never an everyday one
 //   --sessions 1|4|8   concurrent sessions (default 4)
 //   --turns 5          turns per session in each phase
 //   --out <file>       also write the results as JSON
@@ -19,12 +19,11 @@
 import { spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { PER_TURN_MS } from '../../packages/core/dist/decisions/models.js';
-import { profilePaths } from '../../packages/core/dist/profile/paths.js';
 import { sessionStore } from '../../packages/core/dist/sessions/record/store.js';
+import { CLI, must, needCli, profileCli, usage } from './lib.mjs';
 import { notes, PROJECT, TASKS } from './paired/harness.mjs';
 
 const { values } = parseArgs({
@@ -35,21 +34,16 @@ const { values } = parseArgs({
     out: { type: 'string' },
   },
 });
-const usage = (message) => {
-  console.error(message);
-  process.exit(2);
-};
 if (!values.profile) usage('--profile <name>: a throwaway profile with a Decision model');
 const n = Number(values.sessions);
 const turns = Number(values.turns);
 if (![1, 4, 8].includes(n)) usage('--sessions: 1, 4 or 8');
 if (!(turns >= 1)) usage('--turns: 1 or more');
 
-const CLI = new URL('../../packages/cli/dist/mesa.js', import.meta.url).pathname;
-if (!existsSync(CLI)) usage(`${CLI} is missing: pnpm --filter @mesa/cli build`);
-const paths = profilePaths(homedir(), values.profile);
+needCli(usage);
+const { paths, mesa, set } = profileCli(values.profile);
 
-/** Runs the CLI with `env` added and `stdin`: its exit, output and wall time in ms. */
+/** Runs the CLI with `env` added and `stdin`, at once with others: exit, output, wall time in ms. */
 function cli(args, { env = {}, stdin = '', timeoutMs = 30_000 } = {}) {
   return new Promise((resolve) => {
     const started = performance.now();
@@ -73,12 +67,8 @@ function cli(args, { env = {}, stdin = '', timeoutMs = 30_000 } = {}) {
     child.stdin.end(stdin);
   });
 }
-const json = async (...args) => {
-  const run = await cli([...args, '--json']);
-  const envelope = JSON.parse(run.stdout || '{}');
-  if (!envelope.ok) throw new Error(`mesa ${args.join(' ')}: ${envelope.error?.message}`);
-  return envelope.data;
-};
+/** `mesa ...args --json`'s data, or a refusal. */
+const json = (...args) => must(mesa(...args, '--json'), `mesa ${args.join(' ')}`);
 
 const ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz';
 const store = sessionStore({
@@ -113,11 +103,9 @@ const planted = [];
 const written = [];
 const undo = [];
 try {
-  const config = await json('config');
+  const config = json('config');
   if (config.decisions.model === 'none') usage('the profile has no Decision model: add a key');
-  await json('config', 'set', 'decisions.experimental', 'true');
-  const before = config.decisions.experimental ?? false;
-  undo.push(() => cli(['config', 'set', 'decisions.experimental', String(before)]));
+  undo.push(set('decisions.experimental', true, config.decisions.experimental ?? false));
   const decisionsDir = join(config.vault, 'wiki', 'decisions');
   mkdirSync(decisionsDir, { recursive: true });
   for (const note of notes()) {
@@ -163,9 +151,9 @@ try {
     for (let t = 0; t < turns; t++) runs.push(...(await turn(offset + t)));
     return runs;
   };
-  for (const s of planted) await json('decisions', 'off', '--session', s.id);
+  for (const s of planted) json('decisions', 'off', '--session', s.id);
   const off = await phase(0);
-  for (const s of planted) await json('decisions', 'on', '--session', s.id);
+  for (const s of planted) json('decisions', 'on', '--session', s.id);
   const assisted = await phase(turns);
 
   const uses = planted.flatMap((s) => {
@@ -228,5 +216,5 @@ try {
     rmSync(join(paths.events, `${s.id}.jsonl`), { force: true });
   }
   for (const file of written) rmSync(file, { force: true });
-  for (const step of undo) await step();
+  for (const step of undo) step();
 }

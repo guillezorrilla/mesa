@@ -1,38 +1,31 @@
 import { expect, test } from 'vitest';
-import { QUALITY_GATES } from './evaluation/evaluation.js';
-import { measuredText, siteMeasure } from './measured.js';
-import {
-  automaticGate,
-  automaticSites,
-  DECISION_SITES,
-  PAIRED_PASSED,
-  PASSED_GATE,
-  provenSites,
-} from './sites.js';
+import { meetsGate } from './evaluation/evaluation.js';
+import { measuredText, PAIRED_PASSED, siteMeasure } from './measured.js';
+import { DECISION_SITES, PASSED_GATE } from './sites.js';
 import { SYSTEM_ONE_PROVIDERS } from './systemone.js';
 
-test('the measured numbers back the gate lists: a site passes a gate only on its numbers', () => {
+test('the held-out numbers back the quality gate list: a site passes only on its numbers', () => {
   for (const model of SYSTEM_ONE_PROVIDERS) {
     for (const site of DECISION_SITES) {
-      const { quality: q, paired } = siteMeasure(model, site);
-      const gate = QUALITY_GATES[site];
-      const meets =
-        q.right / q.accepted >= gate.selectiveAccuracy && q.accepted / q.n >= gate.coverage;
-      if (PASSED_GATE[model].includes(site)) expect(meets, `${model} ${site}`).toBe(true);
-      expect(PAIRED_PASSED[model].includes(site), `${model} ${site}`).toBe(paired?.pass === true);
+      const { quality: q } = siteMeasure(model, site);
+      const summary = {
+        selectiveAccuracy: q.right / q.accepted,
+        coverage: q.accepted / q.n,
+        acceptedCorrect: q.right,
+      };
+      expect(PASSED_GATE[model].includes(site), `${model} ${site}`).toBe(meetsGate(site, summary));
     }
   }
 });
 
-test('a site is automatic only where both gates passed, unless the person opted into experimental', () => {
-  for (const model of SYSTEM_ONE_PROVIDERS) {
-    const proven = provenSites(model);
-    expect(proven.every((s) => PASSED_GATE[model].includes(s))).toBe(true);
-    expect(proven.every((s) => PAIRED_PASSED[model].includes(s))).toBe(true);
-    expect(automaticSites(model, false)).toEqual(proven);
-    expect(automaticSites(model, true)).toEqual(PASSED_GATE[model]);
-    expect(automaticGate(false)[model]).toEqual(proven);
-  }
+test('the paired verdicts are read from the measured arms: relevance passes for both models', () => {
+  expect(PAIRED_PASSED).toEqual({ jev: ['relevance'], clef: ['relevance'] });
+  expect(siteMeasure('jev', 'relevance').paired).toEqual({
+    on: { runs: 12, successes: 12, wallMs: 221389, msPerSuccess: 221389 / 12 },
+    off: { runs: 12, successes: 0, wallMs: 291953, msPerSuccess: null },
+    pass: true,
+  });
+  expect(siteMeasure('clef', 'next-step').paired).toBeUndefined();
 });
 
 test('each measure reads as one line, "not measured" before a paired run', () => {

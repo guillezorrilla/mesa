@@ -29,8 +29,9 @@ export type { GuardrailCheck, Override, Verdict } from './decisions/guardrail.js
 export type { KeyProvider, KeyRow } from './decisions/keys.js';
 export { measuredText, type SiteMeasure } from './decisions/measured.js';
 export type { Advice, DecisionAnswer } from './decisions/request.js';
-export type { DecisionAssistance, DecisionStatus, SiteMode } from './decisions/service.js';
+export type { DecisionAssistance, DecisionStatus } from './decisions/service.js';
 export type { DecisionUse } from './decisions/session-decisions.js';
+export type { SiteMode } from './decisions/site-mode.js';
 export type { Placed } from './decisions/supervision.js';
 export type { Decision, DecisionsModel } from './decisions/types.js';
 export type { DiagnosticEvent, DiagnosticReport } from './diagnostics/service.js';
