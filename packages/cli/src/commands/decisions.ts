@@ -1,4 +1,4 @@
-import type { KeyRow } from '@mesa/core';
+import { type KeyRow, localDay } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 
@@ -13,7 +13,7 @@ const line = (row: KeyRow) =>
     ? [
         row.provider,
         `set, ending in ${row.last4}`,
-        row.addedAt && `added ${row.addedAt.slice(0, 10)}`,
+        row.addedAt && `added ${localDay(new Date(row.addedAt))}`,
       ]
     : [row.provider, 'not set'];
 
