@@ -83,6 +83,16 @@ export const ACCEPT_AT: Record<SystemOneProvider, Record<DecisionSite, number>> 
   clef: { supervision: 1, relevance: 1, 'next-step': 1, evidence: 1 },
 };
 
+/**
+ * The sites where each model passed ADR-0019's frozen quality gate on the held-out split
+ * (`docs/spikes/jev-clef-qualification.md`). Only these may run automatically; the rest stay off
+ * or on demand.
+ */
+export const PASSED_GATE: Record<SystemOneProvider, readonly DecisionSite[]> = {
+  jev: [],
+  clef: [],
+};
+
 /** Whether `answer` at `site` is accepted (true) or Mesa abstains (false), at a model's thresholds. */
 export const accepted = (
   acceptAt: Record<DecisionSite, number>,
