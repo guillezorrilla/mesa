@@ -1823,6 +1823,9 @@ test("selected session details list the vault server's tools for an agent sessio
     'save_note',
   ]);
   expect(tools?.querySelector('[title="Save one invented note."]')?.textContent).toBe('save_note');
+  // Its decision assistance is read beside them (DecisionAssistancePanel).
+  expect(calls).toContainEqual(['--json', 'decisions', 'status', '--session', 'aaaaaaaa']);
+  expect(byTestId('session-decisions')[0]?.textContent).toContain('Off: no Decision model');
 });
 
 test('selected session details say a plain terminal has no vault tools, and ask for none', async () => {
@@ -1847,6 +1850,11 @@ test('selected session details say a plain terminal has no vault tools, and ask 
     'Vaultunsupported: A plain terminal runs no agent',
   );
   expect(calls.filter((argv) => argv[1] === 'vault' && argv[2] === 'mcp')).toEqual([]);
+  // Nor any decision assistance: there is no agent to advise.
+  expect(byTestId('selected-session-details')[0]?.textContent).toContain(
+    'DecisionsNone: a plain terminal runs no agent',
+  );
+  expect(calls.filter((argv) => argv[1] === 'decisions')).toEqual([]);
 });
 
 test("a selected session's context ring stops at 100% and turns red, as the Board's bar does", async () => {

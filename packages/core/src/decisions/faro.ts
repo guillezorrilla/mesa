@@ -45,6 +45,27 @@ export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'activ
       }
     },
   });
+  /** Questions no rules know: the rules answer evenly, and the chosen model, if any, is asked. */
+  const unknown = (
+    state: unknown,
+    questions: Question[],
+    deadlineMs: number,
+    recorder?: DecisionRecorder,
+  ) => {
+    const model = models.active(deadlineMs);
+    const { decisions } = profile();
+    return decide(
+      {
+        backends: [rulesBackend<unknown>([]), ...(model ? [model] : [])],
+        // Even answers are no rules' opinion: below any threshold, a Score's too.
+        profile: { decisions: { ...decisions, threshold: Number.POSITIVE_INFINITY } },
+        clock: ctx.clock,
+        ...(recorder ? { recorder } : {}),
+      },
+      state,
+      questions,
+    );
+  };
   return {
     profile,
     /**
@@ -87,24 +108,16 @@ export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'activ
           }),
           cost: (d) => d.costUsd,
         },
-        (recorder) => {
-          const model = models.active(ON_DEMAND_MS);
-          const { decisions } = profile();
-          return decide(
-            {
-              backends: [rulesBackend<unknown>([]), ...(model ? [model] : [])],
-              // Even answers are no rules' opinion: below any threshold, a Score's too.
-              profile: { decisions: { ...decisions, threshold: Number.POSITIVE_INFINITY } },
-              clock: ctx.clock,
-              recorder,
-            },
-            state,
-            // decide validates what it is given: this is the boundary it checks.
-            questions as Question[],
-          );
-        },
+        // decide validates what it is given: this is the boundary it checks.
+        (recorder) => unknown(state, questions as Question[], ON_DEMAND_MS, recorder),
       );
     },
+    /**
+     * Faro for questions no rules know, within `deadlineMs`, recorded nowhere: what a decision
+     * site asks for an ephemeral evaluation (evaluate.ts).
+     */
+    ask: (state: unknown, questions: Question[], deadlineMs: number) =>
+      unknown(state, questions, deadlineMs),
     guardrail: {
       /** The verdict on `text`, in `project` when given; recorded nowhere (mesa guardrail check). */
       check: (text: string, project?: string) =>

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
+import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -22,6 +23,8 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   const [loading, setLoading] = useState(false);
   // The mesa-vault tools its agent's server lists (ADR-0011); a plain terminal has no agent.
   const [tools, setTools] = useState<{ tools?: McpTool[]; error?: string }>({});
+  // Decision assistance is read once the details open, as the rest is.
+  const [opened, setOpened] = useState(false);
   const { row } = props;
   const agent = row.agent !== 'terminal';
   // The newer reading: a board look reads one after every turn, the details only when opened.
@@ -39,6 +42,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
         className="relative z-20 shrink-0"
         onToggle={(event) => {
           if (!event.currentTarget.open) return;
+          setOpened(true);
           setLoading(true);
           if (agent) {
             void call('vault.tools').then((result) =>
@@ -113,6 +117,16 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 </ul>
               ) : (
                 (tools.error ?? 'Open details to check')
+              )}
+            </dd>
+            <dt className="text-muted-foreground">Decisions</dt>
+            <dd>
+              {!agent ? (
+                'None: a plain terminal runs no agent'
+              ) : opened ? (
+                <DecisionAssistancePanel session={row.id} />
+              ) : (
+                'Open details to check'
               )}
             </dd>
             <dt className="text-muted-foreground">Created</dt>

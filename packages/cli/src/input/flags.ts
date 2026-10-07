@@ -19,6 +19,12 @@ export const CHECKOUT_FLAG = {
   description: 'Select a linked worktree path',
 } as const;
 
+/** What a command about one Mesa session's decision assistance takes to name it. */
+export const SESSION_FLAG = {
+  type: 'string',
+  description: 'The Mesa session, from outside its window; inside one, only its own',
+} as const;
+
 /** A typed argument as a whole number; core checks its range. */
 export function wholeNumber(value: string, name: string): number {
   const n = Number(value);

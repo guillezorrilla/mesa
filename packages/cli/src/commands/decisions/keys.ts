@@ -1,6 +1,6 @@
 import { type KeyRow, localDay } from '@mesa/core';
-import { defineCommand } from '../command.js';
-import { columns } from '../output/columns.js';
+import { defineCommand } from '../../command.js';
+import { columns } from '../../output/columns.js';
 
 const LABELS: Record<KeyRow['provider'], string> = {
   typesafe: 'TypeSafe key',
