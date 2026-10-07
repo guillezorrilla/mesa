@@ -8,6 +8,7 @@ import {
   ASSIST_MODES,
   type AssistMode,
   DEADLINE_MS,
+  type EvaluateDeps,
   type Evaluation,
   evaluate,
   NO_MODEL,
@@ -19,7 +20,7 @@ import { decisionBinding } from './scope.js';
 import { DECISION_TOOLS, serveDecisions } from './server.js';
 import { sessionDecisions } from './session-decisions.js';
 import { ACCEPT_AT, PASSED_GATE } from './sites.js';
-import type { Decision, Question } from './types.js';
+import type { Decision } from './types.js';
 
 // Decision assistance for sessions (ADR-0019, CONTEXT.md Decision assistance): scoped context and
 // advice for one live session, through `mesa decisions evaluate|context|advise`, the
@@ -70,8 +71,8 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     const disabled = active !== 'none' && turnedOff(session);
     const memory = stateOf(session.id).memory;
     let receipt: Recorded<Decision>['receipt'] | undefined;
-    const ask = async (state: string, questions: Question[], deadlineMs: number) => {
-      if (rationale === undefined) return faro.ask(state, questions, deadlineMs);
+    const ask: EvaluateDeps['ask'] = async (state, questions, deadlineMs, options) => {
+      if (rationale === undefined) return faro.ask(state, questions, deadlineMs, options);
       const recorded = await faro.decide(state, questions, { session: session.id, rationale });
       receipt = recorded.receipt;
       return recorded.result;

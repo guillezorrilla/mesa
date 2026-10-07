@@ -65,8 +65,13 @@ export type EvaluateDeps = {
   model: DecisionsModel;
   /** The sites it passed the held-out gate at (PASSED_GATE): the only automatic ones. */
   passed: readonly DecisionSite[];
-  /** Faro, asked the packet within `deadlineMs`, its rules even (faro.ts). */
-  ask: (state: string, questions: Question[], deadlineMs: number) => Promise<Decision>;
+  /** Faro, asked the packet within `deadlineMs`, its rules even (faro.ts); `signal` cancels it. */
+  ask: (
+    state: string,
+    questions: Question[],
+    deadlineMs: number,
+    options: { signal?: AbortSignal },
+  ) => Promise<Decision>;
   clock: Clock;
   memory?: EvaluationMemory;
 };
@@ -96,9 +101,8 @@ const aborted = (signal: AbortSignal) =>
  * Evaluates `packet` once. With no model, nothing is asked. An automatic call at a site the model
  * did not qualify for is unavailable; on demand it runs, marked experimental. An answer made
  * before for the same key is reused. The model answers within the mode's deadline (ADR-0019);
- * Faro's rules stand when it fails, which is unavailable, as is a call cancelled by `signal`
- * (the request still ends at its deadline). Its margin against ACCEPT_AT decides accepted or
- * abstained.
+ * Faro's rules stand when it fails, which is unavailable, as is a call cancelled by `signal`,
+ * which ends the request too. Its margin against ACCEPT_AT decides accepted or abstained.
  */
 export async function evaluate(
   deps: EvaluateDeps,
@@ -122,7 +126,12 @@ export async function evaluate(
   const ready = deps.memory?.ready(key);
   if (ready) return noted({ ...ready, mode, latencyMs: 0, cached: true });
   const started = deps.clock().getTime();
-  const asked = deps.ask(packet.state, [packet.question], DEADLINE_MS[mode]);
+  const asked = deps.ask(
+    packet.state,
+    [packet.question],
+    DEADLINE_MS[mode],
+    signal ? { signal } : {},
+  );
   let decision: Decision;
   try {
     decision = await (signal ? Promise.race([asked, aborted(signal)]) : asked);

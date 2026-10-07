@@ -174,6 +174,22 @@ describe.each(['jev', 'clef'] as const)('%s', (provider) => {
     );
   });
 
+  test("the caller's abort ends the request and throws its own words, never the deadline's", async () => {
+    const seen: AbortSignal[] = [];
+    const waits: Http = (_url, init) =>
+      new Promise((_resolve, reject) => {
+        const signal = init?.signal as AbortSignal;
+        seen.push(signal);
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    const cancel = new AbortController();
+    const asked = backend(provider, waits).answer('s', THREE_KINDS, cancel.signal);
+    cancel.abort();
+    const words = await failure(provider, asked);
+    expect(words).toBe(`${provider === 'jev' ? 'Jev' : 'CLEF'} request cancelled`);
+    expect(seen.map((s) => s.aborted)).toEqual([true]);
+  });
+
   test('a missing answer, an answer off the options and a contradicting pick throw', async () => {
     const wire = bodyOf(provider, recorded(provider));
     const { human: _, ...twoOnly } = wire.answers;

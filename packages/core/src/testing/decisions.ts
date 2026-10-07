@@ -7,7 +7,24 @@ import { windowEnv } from '../sessions/window/caller.js';
 import { projectProfile, testDeps } from './profile.js';
 import { scriptedRunner } from './runner.js';
 import { newSession, testStore } from './sessions.js';
-import { systemOneWorld, TEST_CLOUDFLARE_ACCOUNT } from './systemone.js';
+import { systemOneWorld, TEST_CLOUDFLARE_ACCOUNT, TEST_TYPESAFE_KEY } from './systemone.js';
+
+/** A next-step decision request with two invented candidates. */
+export const NEXT_STEP_REQUEST = {
+  site: 'next-step',
+  candidates: [
+    { id: 'add-retry', step: 'Wrap the feed call in the retry helper' },
+    { id: 'rerun', step: 'Rerun the suite' },
+  ],
+};
+
+/** A decision answer without what differs between two calls of the same request. */
+export const normalAnswer = ({
+  evaluation: { cached: _, latencyMs: __, ...evaluation },
+  ...rest
+}: {
+  evaluation: Record<string, unknown>;
+}) => ({ ...rest, evaluation });
 
 /** A DecisionRecorder that keeps every decision in `decisions`, for tests. */
 export function memoryRecorder(): DecisionRecorder & { decisions: Decision[] } {
@@ -30,7 +47,7 @@ export async function assistedSession({
 } = {}) {
   const world = systemOneWorld();
   const { home, mesa: person } = projectProfile(scriptedRunner().run, world.deps);
-  if (model === 'jev') await person.decisions.keys.set('typesafe', 'ts-test-0000-1111-abcd');
+  if (model === 'jev') await person.decisions.keys.set('typesafe', TEST_TYPESAFE_KEY);
   if (model === 'clef')
     await person.decisions.keys.set('cloudflare', 'cf-test-2222-3333-wxyz', {
       account: TEST_CLOUDFLARE_ACCOUNT,

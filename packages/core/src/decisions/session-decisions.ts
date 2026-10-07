@@ -15,14 +15,16 @@ const READY = 16;
 /** One evaluation as the session's use shows it: no packet, no answer text. */
 const UseSchema = z.strictObject({
   at: z.iso.datetime(),
-  site: EvaluationSchema.shape.site,
-  mode: EvaluationSchema.shape.mode,
-  status: EvaluationSchema.shape.status,
-  model: z.string().optional(),
-  margin: z.number().optional(),
-  latencyMs: z.number(),
-  cached: z.literal(true).optional(),
-  reason: z.string().optional(),
+  ...EvaluationSchema.pick({
+    site: true,
+    mode: true,
+    status: true,
+    model: true,
+    margin: true,
+    latencyMs: true,
+    cached: true,
+    reason: true,
+  }).shape,
 });
 export type DecisionUse = z.infer<typeof UseSchema>;
 

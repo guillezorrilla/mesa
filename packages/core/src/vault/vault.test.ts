@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
-import { fixedClock, tempDir, testDeps, thrown } from '../testing/index.js';
+import { fixedClock, folderSnapshot, tempDir, testDeps, thrown } from '../testing/index.js';
 import { initVault as init, vaultStatus } from './vault.js';
 
 /** ADR-0006's layout, in creation order: what vault init lays out. */
@@ -23,16 +23,6 @@ beforeEach(() => {
 
 const clock = fixedClock('2026-09-24T12:00:00.000Z');
 const initVault = (opts: { path: string; force?: boolean }) => init({ ...opts, clock });
-
-/** Every path under `dir`, the root included, with its mtime and, for files, its contents. */
-function snapshot(dir: string) {
-  const paths = ['', ...readdirSync(dir, { recursive: true, encoding: 'utf8' })].sort();
-  return paths.map((p) => {
-    const stat = statSync(join(dir, p));
-    const text = stat.isFile() ? readFileSync(join(dir, p), 'utf8') : null;
-    return { p, mtime: stat.mtimeMs, text };
-  });
-}
 
 const errorCode = (fn: () => unknown) => thrown(fn).code;
 
@@ -77,10 +67,10 @@ test('the AGENTS.md template holds the conventions mesa-vault teaches and the re
 
 test('idempotent: a second run on a complete vault changes no file, contents or mtimes', () => {
   initVault({ path: vault });
-  const before = snapshot(vault);
+  const before = folderSnapshot(vault);
   expect(initVault({ path: vault })).toEqual({ path: vault, created: [] });
   expect(initVault({ path: vault, force: true }).created).toEqual([]);
-  expect(snapshot(vault)).toEqual(before);
+  expect(folderSnapshot(vault)).toEqual(before);
 });
 
 test('missing folder: status lists it and init creates only it, keeping edited files', () => {
@@ -89,7 +79,7 @@ test('missing folder: status lists it and init creates only it, keeping edited f
   writeFileSync(join(vault, 'index.md'), '# My index\n');
   // A vault laid out from an earlier template keeps its AGENTS.md.
   writeFileSync(join(vault, 'AGENTS.md'), '# Vault schema\n\nReceipts after every action.\n');
-  const kept = snapshot(join(vault, 'wiki'));
+  const kept = folderSnapshot(join(vault, 'wiki'));
 
   expect(vaultStatus(vault)).toEqual({ path: vault, ok: false, missing: ['receipts'] });
   expect(initVault({ path: vault }).created).toEqual(['receipts']);
@@ -97,7 +87,7 @@ test('missing folder: status lists it and init creates only it, keeping edited f
   expect(readFileSync(join(vault, 'AGENTS.md'), 'utf8')).toBe(
     '# Vault schema\n\nReceipts after every action.\n',
   );
-  expect(snapshot(join(vault, 'wiki'))).toEqual(kept);
+  expect(folderSnapshot(join(vault, 'wiki'))).toEqual(kept);
   expect(vaultStatus(vault).ok).toBe(true);
   expect(vaultStatus(join(vault, 'nope')).missing).toEqual(VAULT_LAYOUT);
 });
@@ -106,9 +96,9 @@ test('refuse: a non-empty folder that is not a vault is invalid_config and left 
   mkdirSync(vault);
   writeFileSync(join(vault, 'AGENTS.md'), 'a repo, not a vault\n');
   writeFileSync(join(vault, 'log.md'), 'my own log\n');
-  const before = snapshot(vault);
+  const before = folderSnapshot(vault);
   expect(errorCode(() => initVault({ path: vault }))).toBe('invalid_config');
-  expect(snapshot(vault)).toEqual(before);
+  expect(folderSnapshot(vault)).toEqual(before);
 
   const file = join(vault, 'AGENTS.md');
   expect(errorCode(() => initVault({ path: file, force: true }))).toBe('invalid_config');
@@ -140,9 +130,9 @@ test('an Obsidian vault is laid out without --force and .obsidian/ is untouched'
   mkdirSync(join(vault, '.obsidian'), { recursive: true });
   writeFileSync(join(vault, '.obsidian', 'app.json'), '{}\n');
   writeFileSync(join(vault, 'Welcome.md'), 'hello\n');
-  const obsidian = snapshot(join(vault, '.obsidian'));
+  const obsidian = folderSnapshot(join(vault, '.obsidian'));
   expect(initVault({ path: vault }).created).toHaveLength(VAULT_LAYOUT.length);
-  expect(snapshot(join(vault, '.obsidian'))).toEqual(obsidian);
+  expect(folderSnapshot(join(vault, '.obsidian'))).toEqual(obsidian);
   expect(readFileSync(join(vault, 'Welcome.md'), 'utf8')).toBe('hello\n');
 });
 

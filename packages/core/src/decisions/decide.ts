@@ -22,6 +22,8 @@ export type FaroDeps<S> = {
   profile: FaroProfile;
   clock: Clock;
   recorder?: DecisionRecorder;
+  /** Cancels the call: the backend asked ends its request. */
+  signal?: AbortSignal;
 };
 
 const rulesOf = <S>(backends: readonly Backend<S>[]) =>
@@ -90,9 +92,10 @@ async function attempt<S>(
   backend: Backend<S>,
   state: S,
   questions: Question[],
+  signal: AbortSignal | undefined,
 ): Promise<Attempt<S>> {
   try {
-    const reply = Reply.parse(await backend.answer(state, questions));
+    const reply = Reply.parse(await backend.answer(state, questions, signal));
     if (Array.isArray(reply)) return { backend, answers: checked(questions, reply) };
     const { answers, costUsd, model } = reply;
     return { backend, answers: checked(questions, answers), costUsd, model };
@@ -123,7 +126,7 @@ export async function decide<S>(
   const asked = parsed.data;
   const started = deps.clock();
   const rules = rulesOf(deps.backends);
-  const first = await attempt(rules, state, asked);
+  const first = await attempt(rules, state, asked, deps.signal);
   const ruled =
     'failed' in first
       ? { backend: rules, answers: asked.map((q) => toAnswer(q, undefined)) }
@@ -131,7 +134,7 @@ export async function decide<S>(
   let made: Exclude<Attempt<S>, { failed: string }> & { fellBack?: string } = ruled;
   const named = selectBackend(deps.backends, deps.profile);
   if (named !== rules && unsure(ruled.answers, deps.profile)) {
-    const second = await attempt(named, state, asked);
+    const second = await attempt(named, state, asked, deps.signal);
     made = 'failed' in second ? { ...ruled, fellBack: second.failed } : second;
   }
   const decision: Decision = {

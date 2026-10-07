@@ -30,7 +30,7 @@ function jevDeps(world: ReturnType<typeof systemOneWorld>, passed: EvaluateDeps[
     model: 'jev',
     passed,
     clock,
-    ask: (state, questions, deadlineMs) =>
+    ask: (state, questions, deadlineMs, { signal }) =>
       decide(
         {
           backends: [
@@ -45,6 +45,7 @@ function jevDeps(world: ReturnType<typeof systemOneWorld>, passed: EvaluateDeps[
           ],
           profile: { decisions: { model: 'jev', threshold: Number.POSITIVE_INFINITY } },
           clock,
+          ...(signal ? { signal } : {}),
         },
         state,
         questions,
@@ -119,10 +120,15 @@ test('an automatic call runs only at a site the model qualified for; on demand t
   expect(qualified.experimental).toBeUndefined();
 });
 
-test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled call at once', async () => {
+test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled call at once, its request too', async () => {
   const world = systemOneWorld();
   world.stall('jev');
-  const deps = jevDeps(world, ['next-step', 'evidence']);
+  const signals: (AbortSignal | undefined)[] = [];
+  const http: typeof world.http = (url, init) => {
+    signals.push(init?.signal ?? undefined);
+    return world.http(url, init);
+  };
+  const deps = jevDeps({ ...world, http }, ['next-step', 'evidence']);
   const started = Date.now();
   const late = await evaluate(deps, packet, { mode: 'automatic' });
   expect(late).toMatchObject({
@@ -140,6 +146,9 @@ test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled 
   cancel.abort();
   expect(await asked).toMatchObject({ status: 'unavailable', reason: 'cancelled' });
   expect(Date.now() - before).toBeLessThan(500);
+  // The cancel reached the request itself, not only the wait for it, before its 10 s deadline.
+  expect(signals).toHaveLength(2);
+  expect(signals[1]?.reason).toMatchObject({ name: 'AbortError' });
 });
 
 test('the same packet is answered once per session, and another session never reuses it', async () => {

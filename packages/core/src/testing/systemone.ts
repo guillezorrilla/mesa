@@ -7,6 +7,9 @@ import { memorySecretStore } from './secrets.js';
 /** The invented Cloudflare account ID CLEF answers at in systemOneWorld. */
 export const TEST_CLOUDFLARE_ACCOUNT = 'acct-0001';
 
+/** An invented TypeSafe key, for Jev in systemOneWorld. */
+export const TEST_TYPESAFE_KEY = 'ts-test-0000-1111-abcd';
+
 const URLS: Record<SystemOneProvider, string> = {
   jev: 'https://api.typesafe.ai/v1/systemone',
   clef: `https://api.cloudflare.com/client/v4/accounts/${TEST_CLOUDFLARE_ACCOUNT}/ai/run/@cf/cloudflare/${SYSTEM_ONE_MODELS.clef}`,
@@ -48,11 +51,14 @@ function wireAnswer(q: { type: string; criteria?: unknown }, lean: Lean) {
  * Jev and CLEF in memory (CLEF at TEST_CLOUDFLARE_ACCOUNT), and an empty Keychain: each answers
  * whatever System One body it is sent, leaning to the first option or level (0.8; a Noul 0.9), with
  * the model id it was asked for and 100 input tokens. `lean` steers the answers, `refuse` makes
- * one answer an HTTP status instead, and `stall` holds its requests until their deadline.
+ * one answer an HTTP status instead, and `stall` holds its requests until their deadline or a
+ * cancel, each noted in `aborted` when it ends.
  */
 export function systemOneWorld() {
   const refused: Partial<Record<SystemOneProvider, number>> = {};
   const stalled = new Set<string>();
+  /** The URLs of stalled requests whose signal aborted, in order. */
+  const aborted: string[] = [];
   let lean = DEFAULT_LEAN;
   const answer = (provider: SystemOneProvider) => (request: FakeRequest) => {
     const status = refused[provider];
@@ -80,7 +86,13 @@ export function systemOneWorld() {
     web.requests.push({ method: init?.method ?? 'GET', url, headers: {} });
     return new Promise((_, reject) => {
       const signal = init?.signal;
-      signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+      const end = () => {
+        aborted.push(url);
+        reject(signal?.reason);
+      };
+      // As fetch does, a signal aborted already ends the request at once.
+      if (signal?.aborted) end();
+      else signal?.addEventListener('abort', end, { once: true });
     });
   };
   const deps = { http, secretStore: secrets.store } satisfies Partial<MesaDeps>;
@@ -90,6 +102,7 @@ export function systemOneWorld() {
     secrets,
     deps,
     urls: URLS,
+    aborted,
     /** Every answer from now on leans as told; none puts the default lean back. */
     lean: (next?: Lean) => {
       lean = next ?? DEFAULT_LEAN;

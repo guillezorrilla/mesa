@@ -146,7 +146,7 @@ export function decisionModels(ctx: MesaContext) {
       if (model === 'none') return undefined;
       return {
         name: model,
-        answer: async (state, questions) => {
+        answer: async (state, questions, signal) => {
           const stored = await keys.read(KEY_OF[model]);
           if (!stored)
             throw new MesaError(
@@ -161,6 +161,7 @@ export function decisionModels(ctx: MesaContext) {
           return backendOf(model, stored.key, deadlineMs, decisions?.cloudflareAccount).answer(
             state,
             questions,
+            signal,
           );
         },
       };

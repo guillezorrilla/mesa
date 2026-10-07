@@ -23,12 +23,13 @@ export const rpc = (id: number | undefined, method: string, params?: object) =>
     ...(params ? { params } : {}),
   });
 
-/** An `initialize` request, id 1. */
-export const mcpInitialize = rpc(1, 'initialize', {
-  protocolVersion: '2025-11-25',
-  capabilities: {},
-  clientInfo: { name: 'a', version: '1' },
-});
+/** An `initialize` request, id 1, asking for `protocolVersion`. */
+export const mcpInitialize = (protocolVersion = '2025-11-25') =>
+  rpc(1, 'initialize', {
+    protocolVersion,
+    capabilities: {},
+    clientInfo: { name: 'a', version: '1' },
+  });
 
 /**
  * Runs `serve` on `input`, line by line; a function runs between the lines around it, once the
