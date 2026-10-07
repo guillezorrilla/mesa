@@ -2,10 +2,12 @@ import { existsSync } from 'node:fs';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
+import { supervisingModel } from '../../decisions/supervision.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';
 import { listSessions } from '../board/board.js';
 import { readHookEvents } from '../signals/hook-events.js';
+import { placementStore } from '../signals/placements.js';
 import { outputLog } from '../window/output-log.js';
 
 /**
@@ -15,8 +17,11 @@ import { outputLog } from '../window/output-log.js';
  */
 export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => ReadonlySet<string>) {
   const { paths, open, store, tmux } = ctx;
-  return (all = false) =>
-    listSessions(
+  const placements = placementStore(paths.placements, ctx);
+  return (all = false) => {
+    // The chosen model, if it passed the supervision gate, places unsure rows beside the look.
+    const provider = supervisingModel(ctx.configIfAny()?.decisions.model);
+    return listSessions(
       {
         store,
         tmux,
@@ -26,6 +31,7 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
         events: (id) => readHookEvents(paths.events, id),
         priorityOf: projectPriorities(open),
         faro: faro.profile(),
+        ...(provider ? { supervision: { provider, look: placements.look } } : {}),
         clock: ctx.clock,
         env: ctx.env,
         home: ctx.home,
@@ -37,4 +43,5 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
         row.managed ? { ...row, hasOutputLog: existsSync(outputLog(paths.logs, row.id)) } : row,
       ),
     );
+  };
 }

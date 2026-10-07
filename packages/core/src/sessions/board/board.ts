@@ -44,6 +44,8 @@ export async function listSessions(
     /** A project's priority from its mesa.yaml (0.5 when unknown). */
     priorityOf: (project: string | null) => number;
     faro: FaroProfile;
+    /** The model that may place unsure sessions beside this look, and its placements; none without one. */
+    supervision?: Parameters<typeof managedRow>[0]['supervision'];
     /** Where each row's Decision goes; receipts implement it in P3. */
     recorder?: DecisionRecorder;
     projects: readonly RegistryEntry[];

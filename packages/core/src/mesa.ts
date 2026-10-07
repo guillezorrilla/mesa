@@ -5,6 +5,7 @@ import { createContext, type MesaDeps } from './context.js';
 import { dailyService } from './daily/service.js';
 import { createFaro } from './decisions/faro.js';
 import { decisionModels } from './decisions/models.js';
+import { boardPlacing } from './decisions/supervision.js';
 import { diagnosticsService } from './diagnostics/service.js';
 import { doctorService } from './doctor/service.js';
 import { filesService } from './files/service.js';
@@ -95,8 +96,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     sources,
     imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
     decide: faro.decide,
-    /** The hosted decision models: their keys, and which one Faro asks (#488). */
-    decisions: { keys: models.keys, use: models.use },
+    /**
+     * The hosted decision models: their keys, which one Faro asks (#488), and placing the
+     * sessions the Board is unsure of, beside its read (#461).
+     */
+    decisions: { keys: models.keys, use: models.use, place: boardPlacing(ctx, models) },
     guardrail: { check: faro.guardrail.check },
     /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */
     vaultChoices: () => vaultChoices(deps.obsidian, deps.home),

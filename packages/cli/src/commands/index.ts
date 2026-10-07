@@ -20,6 +20,7 @@ import {
   decisionsKeyList,
   decisionsKeyRemove,
   decisionsKeySet,
+  decisionsPlace,
   decisionsUse,
 } from './decisions.js';
 import { dependency } from './dependency.js';
@@ -134,6 +135,7 @@ export const COMMANDS: Command[] = [
   decisionsKeyList,
   decisionsKeyRemove,
   decisionsUse,
+  decisionsPlace,
   daily,
   diagnostics,
   discover,

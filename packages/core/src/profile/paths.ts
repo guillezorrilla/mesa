@@ -31,6 +31,8 @@ export type ProfilePaths = {
   notifications: string;
   /** The PR events forwarded into sessions, so each is sent once (CONTEXT.md, PR event). */
   prEvents: string;
+  /** What the Board wants a decision model to place, and its replies (decisions/supervision). */
+  placements: string;
   /** Named, literal prompts saved only in this profile. */
   prompts: string;
   /** Optional profile-local automation rules, never installed implicitly. */
@@ -65,6 +67,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     usage: join(root, 'usage.json'),
     notifications: join(root, 'notifications.json'),
     prEvents: join(root, 'pr-events.json'),
+    placements: join(root, 'placements.json'),
     prompts: join(root, 'prompts.json'),
     automations: join(root, 'automations.yaml'),
     automationState: join(root, 'automation-state.yaml'),

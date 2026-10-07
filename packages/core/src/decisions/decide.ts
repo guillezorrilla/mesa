@@ -74,6 +74,7 @@ const Reply = z.union([
     answers: z.array(z.unknown()),
     costUsd: z.number().optional(),
     model: z.string().optional(),
+    inputTokens: z.number().optional(),
   }),
 ]);
 
@@ -83,6 +84,7 @@ type Attempt<S> =
       answers: Answer[];
       costUsd?: number | undefined;
       model?: string | undefined;
+      inputTokens?: number | undefined;
     }
   | { failed: string };
 
@@ -94,8 +96,8 @@ async function attempt<S>(
   try {
     const reply = Reply.parse(await backend.answer(state, questions));
     if (Array.isArray(reply)) return { backend, answers: checked(questions, reply) };
-    const { answers, costUsd, model } = reply;
-    return { backend, answers: checked(questions, answers), costUsd, model };
+    const { answers, costUsd, model, inputTokens } = reply;
+    return { backend, answers: checked(questions, answers), costUsd, model, inputTokens };
   } catch (error) {
     return { failed: error instanceof Error ? error.message : String(error) };
   }
@@ -141,6 +143,7 @@ export async function decide<S>(
     ...(made.fellBack === undefined ? {} : { fallbackReason: made.fellBack }),
     ...(made.costUsd === undefined ? {} : { costUsd: made.costUsd }),
     ...(made.model === undefined ? {} : { model: made.model }),
+    ...(made.inputTokens === undefined ? {} : { inputTokens: made.inputTokens }),
     at: started.toISOString(),
     latencyMs: deps.clock().getTime() - started.getTime(),
   };

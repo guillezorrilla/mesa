@@ -140,3 +140,23 @@ test('an explicit Codex idle prompt clears a false wait the adapter saved', asyn
   expect(placed.lastState).toMatchObject({ state: 'idle', source: 'tmux' });
   expect(placed.decision.backend).toBe('rules');
 });
+
+test("a model's placement outranks the screen's reading, and yields to hooks, the listing and process facts", () => {
+  const unsure = fixtures.find((f) => f.name === 'tail-busy-screen.json')?.input as SessionSignals;
+  const placed = { state: 'waiting-question' as const, confidence: 0.9, source: 'clef' as const };
+  expect(classify({ ...unsure, placed })).toMatchObject({
+    state: 'waiting-question',
+    confidence: 0.9,
+    source: 'clef',
+  });
+  const now = unsure.now;
+  const hook = { at: now, event: 'Stop', payload: { hook_event_name: 'Stop' } };
+  expect(classify({ ...unsure, placed, event: hook })).toMatchObject({ source: 'hook' });
+  const listed = { status: 'busy' };
+  expect(classify({ ...unsure, placed, listed })).toMatchObject({ source: 'listing' });
+  const dead = { exists: true, dead: true, deadStatus: 1 };
+  expect(classify({ ...unsure, placed, window: dead })).toMatchObject({
+    state: 'failed',
+    source: 'tmux',
+  });
+});

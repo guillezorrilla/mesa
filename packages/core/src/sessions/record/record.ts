@@ -121,10 +121,11 @@ const SessionRecordFields = z.strictObject({
     at: z.iso.datetime(),
     /**
      * ADR-0003's signals (hook, listing, tmux, and tmux's pane-died hook), or Mesa's own action
-     * (open, stop). `adapter`, with the `basis` hash it saw, is what Faro's adapter saved before
-     * ADR-0020 removed it: such a record still loads, and its next reading replaces both.
+     * (open, stop), or the hosted model that placed it from its screen (`jev`, `clef`; #461).
+     * `adapter`, with the `basis` hash it saw, is what Faro's adapter saved before ADR-0020
+     * removed it: such a record still loads, and its next reading replaces both.
      */
-    source: z.enum(['hook', 'listing', 'tmux', 'tmux-hook', 'adapter', 'mesa']),
+    source: z.enum(['hook', 'listing', 'tmux', 'tmux-hook', 'adapter', 'mesa', 'jev', 'clef']),
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
