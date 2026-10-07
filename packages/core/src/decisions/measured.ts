@@ -30,9 +30,23 @@ const QUALITY: Record<SystemOneProvider, Record<DecisionSite, QualityMeasure>> =
  * delivered automatically inside a session); a site with none is not measured. The lead fills it
  * from `pnpm decisions:paired` (docs/spikes/decision-assistance-evaluation.md).
  */
+// Seed 1476997429, 2026-10-07: 6 tasks x 2 repetitions per arm, sonnet, Claude Code 2.1.292.
+const OFF = { runs: 12, successes: 0, wallMs: 291953, msPerSuccess: null };
 const PAIRED: Record<SystemOneProvider, Partial<Record<DecisionSite, PairedMeasure>>> = {
-  jev: {},
-  clef: {},
+  jev: {
+    relevance: {
+      on: { runs: 12, successes: 12, wallMs: 221389, msPerSuccess: 18449.083333333332 },
+      off: OFF,
+      pass: true,
+    },
+  },
+  clef: {
+    relevance: {
+      on: { runs: 12, successes: 12, wallMs: 221507, msPerSuccess: 18458.916666666668 },
+      off: OFF,
+      pass: true,
+    },
+  },
 };
 
 export const siteMeasure = (model: SystemOneProvider, site: DecisionSite): SiteMeasure => {

@@ -100,13 +100,13 @@ export const PASSED_GATE: Record<SystemOneProvider, readonly DecisionSite[]> = {
 /**
  * The sites where each model passed ADR-0019's frozen paired-workflow gate (#465): paired coding
  * runs with its automatic advice on solved at least as many tasks, no more than 10% slower per
- * solved task, and better on one of the two (`evaluation/paired.ts`). Empty until the lead fills
- * it from the measured verdicts in `docs/spikes/decision-assistance-evaluation.md`; the gates are
- * never lowered to fill it.
+ * solved task, and better on one of the two (`evaluation/paired.ts`), as measured in
+ * `docs/spikes/decision-assistance-evaluation.md`. The gates are never lowered to fill it.
  */
 export const PAIRED_PASSED: Record<SystemOneProvider, readonly DecisionSite[]> = {
-  jev: [],
-  clef: [],
+  // Seed 1476997429, 2026-10-07 (docs/spikes/decision-assistance-evaluation.md).
+  jev: ['relevance'],
+  clef: ['relevance'],
 };
 
 /** The sites a model is proven at: in both PASSED_GATE and PAIRED_PASSED. */

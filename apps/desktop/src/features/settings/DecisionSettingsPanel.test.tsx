@@ -93,7 +93,7 @@ test('the Jev, CLEF and None cards say what each model improves, costs and sends
   expect(document.querySelector('[data-testid="jev-sites"]')?.textContent).toBe(
     [
       `Session state: offQuality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
-      `Source relevance: on demandQuality: 100% right where it answered, on 93% of 30 held-out cases. ${notPaired}`,
+      'Source relevance: automaticQuality: 100% right where it answered, on 93% of 30 held-out cases. Paired workflows: 12 of 12 tasks solved against 0 of 12 without, 18 s against unbounded per solved task (passed).',
       `Next step: on demandQuality: 100% right where it answered, on 97% of 30 held-out cases. ${notPaired}`,
       `Completion evidence: on demandQuality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
     ].join(''),

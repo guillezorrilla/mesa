@@ -128,13 +128,17 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
     project: 'lantern-cove',
     model: 'jev',
     off: false,
-    // Each site passed the quality gate, none the paired workflows yet: on demand, with both results.
+    // Each site passed the quality gate; relevance also passed the paired workflows (#465), so it
+    // is automatic, and the others stay on demand, each with its measured results.
     sites: [
       {
         site: 'relevance',
-        mode: 'on-demand',
+        mode: 'automatic',
         acceptAt: 0.5,
-        measured: { quality: { n: 30, accepted: 28, right: 28 } },
+        measured: {
+          quality: { n: 30, accepted: 28, right: 28 },
+          paired: expect.objectContaining({ pass: true }),
+        },
       },
       {
         site: 'next-step',
@@ -166,12 +170,12 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
       },
     ],
   });
-  // Opted into experimental automatic decisions: automatic, and marked so.
+  // Opted into experimental automatic decisions: every site automatic, the unproven ones marked so.
   person.config.set('decisions.experimental', 'true');
   expect(
     mesa.decisions.status().sites.map(({ mode, experimental }) => [mode, experimental]),
   ).toEqual([
-    ['automatic', true],
+    ['automatic', undefined],
     ['automatic', true],
     ['automatic', true],
   ]);
