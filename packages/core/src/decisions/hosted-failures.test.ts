@@ -93,29 +93,30 @@ for (const n of [1, 4, 8]) {
   );
 }
 
-test.each([
-  1, 4, 8,
-])('with %i sessions asking the same, no answer reaches another session: zero cross-session cache hits', async (n) => {
-  const { world, all, turn } = await sessions(n, 'jev');
-  // A failure is never kept as an answer: once the model is back, each session asks anew.
-  world.refuse('jev', 429);
-  await turn();
-  world.refuse('jev');
-  const events = await turn();
-  expect(world.requests).toHaveLength(2 * n);
-  for (const [i, event] of events.entries()) {
-    const advice = event && 'advice' in event ? event.advice : undefined;
-    expect(advice, `session ${i}`).toContain(ADVICE_MARKER);
-  }
-  for (const { mesa, session } of all) {
-    const status = mesa.decisions.status();
-    expect(status.session).toBe(session.id);
-    // Its own call, never another session's ready answer, though the packet was the same.
-    expect(status.use.filter((u) => u.cached)).toEqual([]);
-    expect(status.ready).toBe(1);
-  }
-  // The same prompt again: each reads only its own ready answer, with no new call.
-  await turn();
-  expect(world.requests).toHaveLength(2 * n);
-  for (const { mesa } of all) expect(mesa.decisions.status().use[0]?.cached).toBe(true);
-});
+test.each([1, 4, 8])(
+  'with %i sessions asking the same, no answer reaches another session: zero cross-session cache hits',
+  async (n) => {
+    const { world, all, turn } = await sessions(n, 'jev');
+    // A failure is never kept as an answer: once the model is back, each session asks anew.
+    world.refuse('jev', 429);
+    await turn();
+    world.refuse('jev');
+    const events = await turn();
+    expect(world.requests).toHaveLength(2 * n);
+    for (const [i, event] of events.entries()) {
+      const advice = event && 'advice' in event ? event.advice : undefined;
+      expect(advice, `session ${i}`).toContain(ADVICE_MARKER);
+    }
+    for (const { mesa, session } of all) {
+      const status = mesa.decisions.status();
+      expect(status.session).toBe(session.id);
+      // Its own call, never another session's ready answer, though the packet was the same.
+      expect(status.use.filter((u) => u.cached)).toEqual([]);
+      expect(status.ready).toBe(1);
+    }
+    // The same prompt again: each reads only its own ready answer, with no new call.
+    await turn();
+    expect(world.requests).toHaveLength(2 * n);
+    for (const { mesa } of all) expect(mesa.decisions.status().use[0]?.cached).toBe(true);
+  },
+);

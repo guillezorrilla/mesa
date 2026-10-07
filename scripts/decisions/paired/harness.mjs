@@ -3,7 +3,15 @@
 // with a hidden node:test that checks behaviour and the convention, a reference solution that
 // passes it and a naive, convention-blind one that fails it. Everything here is invented.
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 const HERE = new URL('.', import.meta.url).pathname;
@@ -31,10 +39,14 @@ const git = (dir, ...args) =>
     stdio: 'ignore',
   });
 
-/** `dir` as a fresh copy of the project, committed once: every run starts from the same tree. */
+/**
+ * `dir` as a fresh copy of the project, committed once: every run starts from the same tree. Its
+ * package.json is kept as package.json.template, so Mesa's release version check passes it by.
+ */
 export function freshProject(dir) {
   rmSync(dir, { recursive: true, force: true });
   cpSync(TEMPLATE, dir, { recursive: true });
+  renameSync(join(dir, 'package.json.template'), join(dir, 'package.json'));
   git(dir, 'init', '-q');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-qm', 'kelp-ledger');
