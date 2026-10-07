@@ -94,6 +94,18 @@ test('its status: configured from the global entries, and advice unsupported wit
     state: 'unsupported',
     reason: 'Antigravity hooks carry no prompt; it needs a saved goal',
   });
+  // A skill run's window asks nothing in the background, agy's only source of advice.
+  const run = plant({
+    agent: 'antigravity',
+    agentSessionId: CONVERSATION,
+    kind: 'run',
+    goal: '/feed-check feed retry policy',
+  });
+  expect(status(run).advice).toEqual({
+    state: 'unsupported',
+    reason:
+      "Antigravity's advice is the goal's answer asked as its window starts; a skill run asks none",
+  });
   // agy's argv takes no mount: its start command names none.
   expect(AGENTS.antigravity.start('g', '/tmp/x.log', NATIVE_LAUNCH)).not.toContain(
     'mesa-decisions',

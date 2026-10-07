@@ -140,6 +140,13 @@ function adviceStatus(
           state: 'unsupported',
           reason: 'Antigravity hooks carry no prompt; it needs a saved goal',
         };
+      // Its advice is only the answer goalPreparing asks for, which a skill run's window skips.
+      if (record.kind !== 'interactive')
+        return {
+          state: 'unsupported',
+          reason:
+            "Antigravity's advice is the goal's answer asked as its window starts; a skill run asks none",
+        };
       if (hooks.stale)
         return {
           state: 'conflicting',
