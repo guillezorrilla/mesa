@@ -1,7 +1,8 @@
 import type { KeyRow } from '@mesa/core';
-import { DECISION_SITES, localDay, PASSED_GATE } from '@mesa/core/browser';
+import { DECISION_SITES, localDay, PASSED_GATE, type SystemOneProvider } from '@mesa/core/browser';
 import { KeyRound, ListChecks, ReceiptText, Shield } from 'lucide-react';
 import { useId, useState } from 'react';
+import { ExternalLink } from '@/components/ExternalLink';
 import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { useAct } from '@/lib/useAct';
 import { useCall } from '@/lib/useCommand';
 import { SettingRow } from '../SettingRow';
 import { SettingSection } from '../SettingSection';
-import { type HostedModel, Link, MODELS, SITE_LABELS, TYPESAFE_CONSOLE } from './models';
+import { MODELS, SITE_LABELS, TYPESAFE_CONSOLE } from './models';
 
 type Failure = { code: string; message: string };
 
@@ -20,7 +21,7 @@ type Failure = { code: string; message: string };
  * Use this one; then each decision site, active only where the model passed the quality check.
  */
 export function ModelKeyPanel(props: {
-  model: HostedModel;
+  model: SystemOneProvider;
   row: KeyRow | undefined;
   inUse: boolean;
   /** The Cloudflare account ID config.yaml keeps, for CLEF. */
@@ -194,7 +195,7 @@ function KeyFailure(props: { failure: Failure; jev: boolean }) {
         <>
           {' '}
           Check the key and your TypeSafe sign-up at{' '}
-          <Link href={TYPESAFE_CONSOLE}>console.typesafe.ai/keys</Link>.
+          <ExternalLink href={TYPESAFE_CONSOLE}>console.typesafe.ai/keys</ExternalLink>.
         </>
       )}
     </Muted>

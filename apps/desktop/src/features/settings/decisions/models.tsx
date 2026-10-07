@@ -1,22 +1,13 @@
 import type { KeyProvider } from '@mesa/core';
-import type { DecisionSite } from '@mesa/core/browser';
+import type { DecisionSite, SystemOneProvider } from '@mesa/core/browser';
 import type { ReactNode } from 'react';
-
-/** The hosted decision models a person can add a key for. */
-export type HostedModel = 'jev' | 'clef';
-
-/** A link that opens in the browser. */
-export const Link = (props: { href: string; children: ReactNode }) => (
-  <a className="text-primary underline" href={props.href} target="_blank" rel="noopener noreferrer">
-    {props.children}
-  </a>
-);
+import { ExternalLink as Link } from '@/components/ExternalLink';
 
 export const TYPESAFE_CONSOLE = 'https://console.typesafe.ai/keys';
 
 /** What each model card says: what it improves, how to get its key, its price, where text goes. */
 export const MODELS: Record<
-  HostedModel,
+  SystemOneProvider,
   {
     label: string;
     provider: KeyProvider;

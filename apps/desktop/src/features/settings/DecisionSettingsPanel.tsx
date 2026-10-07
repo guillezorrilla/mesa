@@ -1,3 +1,4 @@
+import { SYSTEM_ONE_PROVIDERS } from '@mesa/core/browser';
 import { Cpu } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ export function DecisionSettingsPanel() {
   };
   return (
     <>
-      {(['jev', 'clef'] as const).map((hosted) => (
+      {SYSTEM_ONE_PROVIDERS.map((hosted) => (
         <ModelKeyPanel
           key={hosted}
           model={hosted}
