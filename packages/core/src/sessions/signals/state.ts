@@ -4,6 +4,7 @@ import type { Agent } from '../../agents/names.js';
 import { AGENT_STATES } from '../../agents/states.js';
 import { decide, type FaroDeps } from '../../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../../decisions/rules.js';
+import type { SystemOneProvider } from '../../decisions/systemone.js';
 import type { Decision, Question } from '../../decisions/types.js';
 import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, type SessionState, WAITING_STATES } from '../record/states.js';
@@ -29,7 +30,7 @@ export type SessionSignals = {
   /** The pane's last lines, read only when no hook or listing speaks. */
   tail?: string;
   /** What the chosen model placed from that very screen, when its answer was accepted (#461). */
-  placed?: { state: SessionState; confidence: number; source: 'jev' | 'clef' };
+  placed?: { state: SessionState; confidence: number; source: SystemOneProvider };
   /** The project's priority from its mesa.yaml, 0 to 1. */
   priority: number;
 };
@@ -56,8 +57,9 @@ const TAIL = 0.6;
  * Where a session is, by ADR-0003's order: a stopped session keeps its state; a dead or gone
  * window is a process fact (a session already done or failed stays so); then the latest hook
  * event, which yields a wait to a later listing that says the agent moved on (a denial fires no
- * hook); then the listing; then what the chosen model placed from the screen; then the tail. With no signal at all the last state stands. `at` is
- * when the state began: the hook event's time, else when it was first seen.
+ * hook); then the listing; then what the chosen model placed from the screen; then the tail.
+ * With no signal at all the last state stands. `at` is when the state began: the hook event's
+ * time, else when it was first seen.
  */
 export function classify(s: SessionSignals): LastState {
   const seen = (state: SessionState, confidence: number, source: LastState['source']) => ({

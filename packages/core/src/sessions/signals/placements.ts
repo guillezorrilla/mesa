@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AGENT_STATES } from '../../agents/states.js';
+import { SYSTEM_ONE_PROVIDERS, type SystemOneProvider } from '../../decisions/systemone.js';
 import { changeJson, readJson } from '../../lib/json-file.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import type { SessionRecord } from '../record/record.js';
@@ -32,7 +33,7 @@ const ReplySchema = z.strictObject({
       state: z.enum(AGENT_STATES),
       /** The model's probability for that state. */
       confidence: z.number().min(0).max(1),
-      source: z.enum(['jev', 'clef']),
+      source: z.enum(SYSTEM_ONE_PROVIDERS),
     })
     .optional(),
   /** The model's probability per state, kept with the reply whether it was accepted or not. */
@@ -69,7 +70,7 @@ export type Claim = { id: string; key: string; state: string; refused?: Placemen
  * stands, with the model's reply for this screen; `pending` while an ask is wanted.
  */
 export type Supervision = Partial<z.infer<typeof AskSchema>> & {
-  source: 'rules' | 'jev' | 'clef';
+  source: 'rules' | SystemOneProvider;
   pending?: true;
 };
 

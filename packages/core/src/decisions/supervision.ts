@@ -10,7 +10,6 @@ import {
   placementStore,
 } from '../sessions/signals/placements.js';
 import { decide } from './decide.js';
-import { KEY_OF } from './keys.js';
 import { type DecisionModels, PER_TURN_MS } from './models.js';
 import { rulesBackend } from './rules.js';
 import {
@@ -173,14 +172,13 @@ export async function placeUnsure(deps: {
  * The profile's placing call (`mesa decisions place`), run beside the Board read: the chosen
  * model at the per-turn deadline, with its key from the Keychain at call time.
  */
-export function boardPlacing(ctx: MesaContext, models: Pick<DecisionModels, 'active' | 'keys'>) {
+export function boardPlacing(ctx: MesaContext, models: Pick<DecisionModels, 'active' | 'hasKey'>) {
   return () =>
     placeUnsure({
       store: placementStore(ctx.paths.placements, ctx),
       model: () => ctx.configIfAny()?.decisions.model,
       backend: () => models.active(PER_TURN_MS),
-      hasKey: async (provider) =>
-        (await models.keys.list()).some((k) => k.provider === KEY_OF[provider] && k.set),
+      hasKey: models.hasKey,
       clock: ctx.clock,
     });
 }

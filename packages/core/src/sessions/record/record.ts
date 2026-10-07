@@ -4,6 +4,7 @@ import { AgentSchema } from '../../agents/agents.js';
 import { ContextUseSchema } from '../../agents/context-use.js';
 import type { Agent } from '../../agents/names.js';
 import { supportsAgentCapability, supportsPlanStart } from '../../agents/names.js';
+import { SYSTEM_ONE_PROVIDERS } from '../../decisions/systemone.js';
 import { ULID } from '../../lib/ids.js';
 import { MesaError } from '../../lib/result.js';
 import { ITEM_SOURCES } from '../../sources/items.js';
@@ -125,7 +126,15 @@ const SessionRecordFields = z.strictObject({
      * `adapter`, with the `basis` hash it saw, is what Faro's adapter saved before ADR-0020
      * removed it: such a record still loads, and its next reading replaces both.
      */
-    source: z.enum(['hook', 'listing', 'tmux', 'tmux-hook', 'adapter', 'mesa', 'jev', 'clef']),
+    source: z.enum([
+      'hook',
+      'listing',
+      'tmux',
+      'tmux-hook',
+      'adapter',
+      'mesa',
+      ...SYSTEM_ONE_PROVIDERS,
+    ]),
     basis: z.string().optional(),
   }),
   lastOutput: z.string().optional(),
