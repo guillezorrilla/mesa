@@ -25,8 +25,18 @@ export const SYSTEM_ONE_MODELS: Record<SystemOneProvider, string> = {
 const CloudflareEnvelope = z.object({
   success: z.boolean(),
   result: z.unknown().optional(),
-  errors: z.array(z.object({ message: z.string() })).optional(),
+  errors: z.array(z.object({ code: z.number().optional(), message: z.string() })).optional(),
 });
+
+/**
+ * Workers AI's two HTTP 429s, by their internal code (developers.cloudflare.com/workers-ai/
+ * platform/errors): the account's free 10,000 Neurons a day are used up (3036; they reset at
+ * 00:00 UTC, Workers Paid bills past them), or Cloudflare is out of capacity (3040).
+ */
+const CLOUDFLARE_REFUSALS: Record<number, string> = {
+  3036: 'daily free allocation is used up (HTTP 429): it resets at 00:00 UTC, or move to Workers Paid',
+  3040: 'is out of capacity (HTTP 429)',
+};
 
 const PROVIDERS: Record<
   SystemOneProvider,
@@ -37,6 +47,8 @@ const PROVIDERS: Record<
     usdPerMInput: (model: string) => number | undefined;
     /** The System One body inside the provider's response, or a MesaError. */
     unwrap: (json: unknown) => unknown;
+    /** Why a refused request was refused, from its body, when the provider says more than its status. */
+    refusal?: (json: unknown) => string | undefined;
   }
 > = {
   jev: {
@@ -58,6 +70,10 @@ const PROVIDERS: Record<
         throw new MesaError('internal', `CLEF reported an error: ${why}`);
       }
       return envelope.data.result;
+    },
+    refusal: (json) => {
+      const code = CloudflareEnvelope.safeParse(json).data?.errors?.[0]?.code;
+      return code === undefined ? undefined : CLOUDFLARE_REFUSALS[code];
     },
   },
 };
@@ -187,7 +203,7 @@ export type SystemOneReply = {
  * request) throws a MesaError naming the provider, and Faro's rules stand.
  */
 export function systemOneBackend(deps: SystemOneDeps) {
-  const { label, url, usdPerMInput, unwrap } = PROVIDERS[deps.provider];
+  const { label, url, usdPerMInput, unwrap, refusal } = PROVIDERS[deps.provider];
   return {
     name: deps.provider,
     answer: async (
@@ -209,7 +225,12 @@ export function systemOneBackend(deps: SystemOneDeps) {
           body: JSON.stringify(body),
           signal: signal ? AbortSignal.any([deadline, signal]) : deadline,
         });
-        if (!response.ok) throw statusError(label, response.status);
+        if (!response.ok) {
+          const why = refusal?.(await response.json().catch(() => undefined));
+          throw why
+            ? new MesaError('internal', `${label} ${why}`)
+            : statusError(label, response.status);
+        }
         json = await response.json().catch(() => undefined);
       } catch (error) {
         if (error instanceof MesaError) throw error;

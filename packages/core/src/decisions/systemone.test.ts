@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
-import { fakeHttp } from '../testing/index.js';
+import { CLEF_QUOTA_BODY, fakeHttp } from '../testing/index.js';
 import { checked } from './decide.js';
 import { type SystemOneProvider, systemOneBackend } from './systemone.js';
 import type { Question } from './types.js';
@@ -223,4 +223,24 @@ test('CLEF unwraps the envelope and reports success: false with its reason', asy
   expect(
     await failure('clef', replying('clef', { body: bare }).model.answer('s', THREE_KINDS)),
   ).toContain('unexpected body');
+});
+
+test("CLEF's used-up daily free allocation and lack of capacity say so, not a rate limit", async () => {
+  const quota = replying('clef', { status: 429, body: CLEF_QUOTA_BODY });
+  expect(await failure('clef', quota.model.answer('s', THREE_KINDS))).toBe(
+    'CLEF daily free allocation is used up (HTTP 429): it resets at 00:00 UTC, or move to Workers Paid',
+  );
+  const full = {
+    success: false,
+    errors: [{ code: 3040, message: 'Capacity temporarily exceeded, please try again' }],
+    result: null,
+  };
+  const capacity = replying('clef', { status: 429, body: full });
+  expect(await failure('clef', capacity.model.answer('s', THREE_KINDS))).toBe(
+    'CLEF is out of capacity (HTTP 429)',
+  );
+  const other = replying('clef', { status: 429, body: { success: false, errors: [] } });
+  expect(await failure('clef', other.model.answer('s', THREE_KINDS))).toBe(
+    'CLEF rate limit reached (HTTP 429)',
+  );
 });
