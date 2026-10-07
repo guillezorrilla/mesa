@@ -7,6 +7,11 @@ import { type Backend, type DecisionsModel, DecisionsModelSchema, type Question 
 
 /** The deadline of a call a person asked for and waits on, as `mesa decide` (ADR-0019: 10 s). */
 export const ON_DEMAND_MS = 10_000;
+/**
+ * The deadline of a call made beside a turn or a Board read, which no one waits on (ADR-0019:
+ * 1,500 ms per turn, measured at p95).
+ */
+export const PER_TURN_MS = 1_500;
 
 // The one invented question a key's test asks, so a saved key is known to answer.
 const TEST_STATE =
