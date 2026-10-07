@@ -1,12 +1,16 @@
 import { isDeepStrictEqual } from 'node:util';
 import { AGENTS } from '../../agents/agents.js';
 import type { AgentProcess } from '../../agents/listing.js';
+import type { Agent } from '../../agents/names.js';
+import { supervisionKey, supervisionState } from '../../decisions/supervision.js';
+import type { SystemOneProvider } from '../../decisions/systemone.js';
 import { MesaError } from '../../lib/result.js';
 import { hasConversation } from '../native/conversation.js';
 import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, isAgentState } from '../record/states.js';
 import type { SessionStore } from '../record/store.js';
 import { type HookEvent, parentHook } from '../signals/hook-events.js';
+import { type PlacementStore, supervisionOf } from '../signals/placements.js';
 import { classifySession, type Placement, type SessionSignals } from '../signals/state.js';
 import type { TmuxBackend } from '../tmux/backend.js';
 import type { TmuxWindow } from '../tmux/format.js';
@@ -71,6 +75,8 @@ export async function managedRow(
     /** A project's priority from its mesa.yaml (0.5 when unknown). */
     priorityOf: (project: string | null) => number;
     faro: Parameters<typeof classifySession>[0];
+    /** The model that may place unsure sessions, and the placements file; none with no model. */
+    supervision?: { provider: SystemOneProvider; look: PlacementStore['look'] };
   },
   found: SessionRecord,
   seen: {
@@ -115,6 +121,7 @@ export async function managedRow(
         record.endedAt ? Date.parse(record.endedAt) : now.getTime(),
       ),
       ...(tail ? { lastOutput: tail.trimEnd().split('\n').at(-1) } : {}),
+      supervision: { source: 'rules' },
     };
   }
   const reader = AGENTS[found.agent];
@@ -155,6 +162,16 @@ export async function managedRow(
   const lastOutput = tail === undefined ? undefined : reader.screen.lastLine(tail);
   // Queued, or cancelled before it ran: Mesa's own state, with no agent for Faro to read.
   const ran = isAgentState(found.lastState.state);
+  // That screen is what the chosen model may place, beside this look: the look only says it
+  // wants it placed, and takes a reply already saved for this very screen (decisions/supervision).
+  // Antigravity has no qualified screen feed (#461's spec refresh).
+  const { supervision } = deps;
+  const want =
+    supervision && ran && signals.tail !== undefined && found.agent !== 'antigravity'
+      ? wantOf(found.id, found.agent, signals.tail, supervision.provider)
+      : undefined;
+  const reply = supervision?.look(found.id, want);
+  if (reply?.placed) signals.placed = reply.placed;
   const classified: Placement = ran
     ? await classifySession(deps.faro, signals)
     : { lastState: found.lastState, attention: 0 };
@@ -193,5 +210,12 @@ export async function managedRow(
     ...(listed?.nativeState === undefined ? {} : { nativeState: listed.nativeState }),
     ...(lastOutput ? { lastOutput } : {}),
     ...(hasConversation(record, events) ? { conversation: true as const } : {}),
+    supervision: supervisionOf(classified.lastState, reply, want !== undefined && !reply),
   };
+}
+
+/** What a look wants the model to place: the bounded screen, under its cache key. */
+function wantOf(id: string, agent: Agent, tail: string, provider: SystemOneProvider) {
+  const state = supervisionState(agent, tail);
+  return { key: supervisionKey(id, state, provider), state };
 }

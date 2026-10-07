@@ -66,6 +66,7 @@ export const managedRow = (id: string, extra: Partial<BoardRow> = {}): BoardRow 
   alive: true,
   runningSeconds: 42,
   children: [],
+  supervision: { source: 'rules' },
   depth: 0,
   ...extra,
 });

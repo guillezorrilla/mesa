@@ -3,13 +3,14 @@ import type {
   DecisionsModel,
   KeyProvider,
   KeyRow,
+  Placed,
   ScopedContext,
 } from '@mesa/core';
 import { command, commandWith, commandWithStdin } from './spec';
 
 /**
- * Decision model commands: the models' keys (in the Keychain), which model Faro asks, and one
- * session's decision assistance.
+ * Decision model commands: the models' keys (in the Keychain), which model Faro asks, one
+ * session's decision assistance, and placing the sessions the Board is unsure of.
  */
 export const decisionsCommands = {
   'decisions.keys': command<{ keys: KeyRow[] }>('decisions', 'key', 'list'),
@@ -53,4 +54,6 @@ export const decisionsCommands = {
     { session: string; off: boolean },
     { session: string; off: boolean; changed: boolean }
   >(({ session, off }) => ['decisions', off ? 'off' : 'on', '--session', session]),
+  // Beside the Board's look, never inside it: the next look shows what it saved.
+  'decisions.place': command<{ placed: Placed[] }>('decisions', 'place'),
 };

@@ -71,6 +71,8 @@ export function decisionModels(ctx: MesaContext) {
     (await keys.list()).find((r) => r.provider === provider) as KeyRow;
 
   return {
+    /** Whether `model`'s key is in the Keychain. */
+    hasKey,
     keys: {
       /** Each provider's key as `{ provider, set, addedAt, last4 }`: never the key. */
       list: () => {

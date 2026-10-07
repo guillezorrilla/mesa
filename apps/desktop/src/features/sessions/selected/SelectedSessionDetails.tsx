@@ -1,4 +1,10 @@
-import type { InstructionStatus, ManagedRow, McpTool, SessionRecord } from '@mesa/core';
+import type {
+  InstructionStatus,
+  ManagedRow,
+  McpTool,
+  SessionRecord,
+  Supervision,
+} from '@mesa/core';
 import { attentionScore, contextPercent, percent } from '@mesa/core/browser';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
@@ -12,6 +18,30 @@ import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
   status ? `${status.state}: ${status.reason}` : 'Open details to check';
+
+/**
+ * Who placed the state: the rules, or the model whose answer stands, with its margin, latency and
+ * input tokens; why the rules' state stands when the model was asked and not used.
+ */
+const placedText = ({
+  source,
+  model,
+  margin,
+  latencyMs,
+  inputTokens,
+  fallbackReason,
+  pending,
+}: Supervision) =>
+  [
+    source === 'rules' ? 'rules' : `${source} (${model ?? 'model'})`,
+    margin === undefined ? undefined : `margin ${percent(margin)}`,
+    latencyMs === undefined ? undefined : `${latencyMs} ms`,
+    inputTokens === undefined ? undefined : `${inputTokens} tokens`,
+    fallbackReason && (model ? `${model}: ${fallbackReason}` : fallbackReason),
+    pending && 'asking the model',
+  ]
+    .filter(Boolean)
+    .join(', ');
 
 /** Native facts for the selected session, read by id only when its details are opened. */
 export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
@@ -95,6 +125,8 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
             <dd>{row.lastState.state}</dd>
             <dt className="text-muted-foreground">Confidence</dt>
             <dd>{percent(row.lastState.confidence)}</dd>
+            <dt className="text-muted-foreground">Placed by</dt>
+            <dd data-testid="session-placed-by">{placedText(row.supervision)}</dd>
             <dt className="text-muted-foreground">Attention</dt>
             <dd>{attentionScore(row.attention)}</dd>
             <dt className="text-muted-foreground">Instructions</dt>

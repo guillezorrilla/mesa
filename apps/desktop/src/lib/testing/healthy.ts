@@ -59,6 +59,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       ready: 0,
       use: [],
     } satisfies DecisionStatus),
+  // The Board's placing call beside its look, made only while a row is unsure.
+  'decisions place': () => envelope({ placed: [] }),
   // Settings > Smarter decisions, which a settings search renders too.
   'decisions key list': () =>
     envelope({

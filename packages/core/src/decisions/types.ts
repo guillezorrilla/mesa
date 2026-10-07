@@ -107,6 +107,8 @@ export type Decision = {
   costUsd?: number;
   /** The model id that answered, as a hosted model's response names it (`jev-1.13.0`). */
   model?: string;
+  /** The input tokens the hosted model counted for the call, when it reports them. */
+  inputTokens?: number;
   /** With `rules-fallback`: why the named backend's answer was not used. */
   fallbackReason?: string;
   /** ISO. */
@@ -121,6 +123,7 @@ export const DecisionSchema: z.ZodType<Decision> = z.strictObject({
   backend: DecidedBySchema,
   costUsd: z.number().nonnegative().optional(),
   model: z.string().optional(),
+  inputTokens: z.number().nonnegative().optional(),
   fallbackReason: z.string().optional(),
   at: z.iso.datetime(),
   latencyMs: z.number().nonnegative(),

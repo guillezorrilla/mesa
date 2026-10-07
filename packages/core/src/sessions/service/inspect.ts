@@ -68,9 +68,9 @@ export function inspectActions(
       return sessionLog(ctx, paths.logs, id, tail);
     },
     /**
-     * One session's record, its context use read now, with `alive` as the board reads it, and
-     * whether its instruction hook and its mesa-vault mount are configured; not_found for an
-     * unknown id.
+     * One session's record, its context use read now, with `alive` and who placed its state
+     * (`supervision`) as the board reads them, and whether its instruction hook and its
+     * mesa-vault mount are configured; not_found for an unknown id.
      */
     show: async (id: string) => {
       store.get(id);
@@ -87,6 +87,7 @@ export function inspectActions(
       return {
         ...current,
         alive: row?.alive ?? false,
+        supervision: row?.managed ? row.supervision : { source: 'rules' as const },
         instructions: instructionStatus(
           current.agent,
           ctx.home,

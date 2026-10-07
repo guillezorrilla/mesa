@@ -1,5 +1,6 @@
 import type { AgentProcess } from '../../agents/listing.js';
 import type { foreignId, SessionRecord } from '../record/record.js';
+import type { Supervision } from '../signals/placements.js';
 import type { Placement } from '../signals/state.js';
 
 // The Board's rows (CONTEXT.md, Board): a Mesa session's, or a foreign one's.
@@ -22,6 +23,8 @@ export type ManagedRow = { hasOutputLog?: boolean } & SessionRecord &
     children: string[];
     /** It has a conversation an agent swap would lose (hasConversation): it hands off instead. */
     conversation?: true;
+    /** Who placed its state, the rules or the chosen model, and that model's reply (#461). */
+    supervision: Supervision;
   };
 
 /**
