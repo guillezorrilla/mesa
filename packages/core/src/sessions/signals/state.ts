@@ -4,6 +4,7 @@ import type { Agent } from '../../agents/names.js';
 import { AGENT_STATES } from '../../agents/states.js';
 import { decide, type FaroDeps } from '../../decisions/decide.js';
 import { rulesBackend, toAnswer, type Weights } from '../../decisions/rules.js';
+import type { SystemOneProvider } from '../../decisions/systemone.js';
 import type { Decision, Question } from '../../decisions/types.js';
 import type { SessionRecord } from '../record/record.js';
 import { FINAL_STATES, type SessionState, WAITING_STATES } from '../record/states.js';
@@ -28,6 +29,8 @@ export type SessionSignals = {
   window?: { exists: boolean; dead: boolean; deadStatus?: number; deadSignal?: string };
   /** The pane's last lines, read only when no hook or listing speaks. */
   tail?: string;
+  /** What the chosen model placed from that very screen, when its answer was accepted (#461). */
+  placed?: { state: SessionState; confidence: number; source: SystemOneProvider };
   /** The project's priority from its mesa.yaml, 0 to 1. */
   priority: number;
 };
@@ -54,8 +57,9 @@ const TAIL = 0.6;
  * Where a session is, by ADR-0003's order: a stopped session keeps its state; a dead or gone
  * window is a process fact (a session already done or failed stays so); then the latest hook
  * event, which yields a wait to a later listing that says the agent moved on (a denial fires no
- * hook); then the listing; then the tail. With no signal at all the last state stands. `at` is
- * when the state began: the hook event's time, else when it was first seen.
+ * hook); then the listing; then what the chosen model placed from the screen; then the tail.
+ * With no signal at all the last state stands. `at` is when the state began: the hook event's
+ * time, else when it was first seen.
  */
 export function classify(s: SessionSignals): LastState {
   const seen = (state: SessionState, confidence: number, source: LastState['source']) => ({
@@ -88,6 +92,7 @@ export function classify(s: SessionSignals): LastState {
     return { state: fromHook, confidence, source: 'hook', at: s.event.at };
   }
   if (listing) return seen(listing.state, listing.confidence, 'listing');
+  if (s.placed) return seen(s.placed.state, s.placed.confidence, s.placed.source);
   const fromTail = s.tail === undefined ? undefined : reader.screen.state(s.tail);
   if (fromTail) return seen(fromTail, TAIL, 'tmux');
   return s.last;
@@ -156,7 +161,8 @@ export type Placement = { lastState: LastState; attention: number; decision?: De
  * Faro places one session: a Choice over the six agent states, a Score for attention, and a Noul for
  * "a human is needed now", asked through `decide` of the state rules alone (ADR-0020). Their
  * reading is the state, so a state an older Mesa saved from the adapter yields to the first look
- * that reads anything. Attention comes from the rules' bands, applied to that state.
+ * that reads anything; a model's placement counts only as one of their signals (`placed`).
+ * Attention comes from the rules' bands, applied to that state.
  */
 export async function classifySession(
   deps: Omit<FaroDeps<SessionSignals>, 'backends'>,

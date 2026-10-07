@@ -2,7 +2,7 @@
 
 import type { TreeRow } from '@mesa/core';
 import { act } from 'react';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import {
   choose,
   click,
@@ -361,4 +361,50 @@ test('the Projects tab counts a session for its additional project; the Sessions
   expect(byTestId('sidebar-session')).toHaveLength(2);
   await click(tab('Projects'));
   expect(byTestId('sidebar-project-count').map((count) => count.textContent)).toEqual(['1', '2']);
+});
+
+test('an unsure row is placed beside the look, and the next look shows by whom', async () => {
+  const pending = managedRow('aaaaaaaa', {
+    lastState: { state: 'idle', confidence: 0.6, at: '2026-09-25T12:00:00.000Z', source: 'mesa' },
+    supervision: { source: 'rules', pending: true },
+  });
+  const placed = managedRow('aaaaaaaa', {
+    lastState: {
+      state: 'waiting-question',
+      confidence: 0.9,
+      at: '2026-09-25T12:00:00.000Z',
+      source: 'clef',
+    },
+    supervision: { source: 'clef', model: 'clef', margin: 0.88, latencyMs: 318, inputTokens: 466 },
+  });
+  let rows = [pending];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(rows),
+    'decisions place': () => {
+      rows = [placed];
+      return envelope({ placed: [{ id: 'aaaaaaaa', key: 'k', saved: { key: 'k' } }] });
+    },
+    show: () =>
+      envelope({
+        ...rows[0],
+        instructions: { state: 'ok', reason: 'installed' },
+        vault: { state: 'ok', reason: 'installed' },
+      }),
+  });
+  vi.useFakeTimers();
+  try {
+    const byTestId = await renderWithMesa(<App />, bridge);
+    await act(async () => {});
+    expect(calls.filter((c) => c[1] === 'decisions' && c[2] === 'place')).toHaveLength(1);
+    await act(async () => vi.advanceTimersByTime(2000));
+    await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+    expect(byTestId('session-placed-by')[0]?.textContent).toBe(
+      'clef (clef), margin 88%, 318 ms, 466 tokens',
+    );
+    // A row the model no longer needs placing asks nothing more.
+    expect(calls.filter((c) => c[1] === 'decisions' && c[2] === 'place')).toHaveLength(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });

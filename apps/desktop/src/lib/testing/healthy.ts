@@ -42,6 +42,8 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
     envelope({
       sources: [{ id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' }],
     }),
+  // The Board's placing call beside its look, made only while a row is unsure.
+  'decisions place': () => envelope({ placed: [] }),
   // Settings > Smarter decisions, which a settings search renders too.
   'decisions key list': () =>
     envelope({

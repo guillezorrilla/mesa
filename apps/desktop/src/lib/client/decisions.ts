@@ -1,7 +1,10 @@
-import type { DecisionsModel, KeyProvider, KeyRow } from '@mesa/core';
+import type { DecisionsModel, KeyProvider, KeyRow, Placed } from '@mesa/core';
 import { command, commandWith, commandWithStdin } from './spec';
 
-/** Decision model commands: the models' keys (in the Keychain) and which model Faro asks. */
+/**
+ * Decision model commands: the models' keys (in the Keychain), which model Faro asks, and placing
+ * the sessions the Board is unsure of.
+ */
 export const decisionsCommands = {
   'decisions.keys': command<{ keys: KeyRow[] }>('decisions', 'key', 'list'),
   // Tests the key with one call, then saves it; the key goes on stdin, never in argv.
@@ -27,4 +30,6 @@ export const decisionsCommands = {
     { model: DecisionsModel },
     { model: DecisionsModel; changed: boolean }
   >(({ model }) => ['decisions', 'use', '--', model]),
+  // Beside the Board's look, never inside it: the next look shows what it saved.
+  'decisions.place': command<{ placed: Placed[] }>('decisions', 'place'),
 };
