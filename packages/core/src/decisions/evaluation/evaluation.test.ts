@@ -4,8 +4,9 @@ import { expect, test } from 'vitest';
 import { steppingClock, tempDir } from '../../testing/index.js';
 import { DECISION_SITES, siteQuestion } from '../sites.js';
 import { type EvalCase, readCorpus } from './corpus.js';
-import { type EvalBackend, meetsGate, report, runCases } from './evaluation.js';
+import { type EvalBackend, fitAcceptAt, meetsGate, report, runCases } from './evaluation.js';
 
+const THRESHOLDS = { supervision: 1, relevance: 1, 'next-step': 1, evidence: 1 };
 const STATES = ['working', 'waiting-permission', 'waiting-question', 'idle', 'done', 'failed'];
 const permission = [
   'Agent: claude',
@@ -59,9 +60,12 @@ test('a backend that fails or answers off-question is unavailable, and the repor
     name: 'scripted',
     answer: async (_state, [q]) => {
       call++;
-      if (call === 1) throw new Error('the Strands server answered HTTP 422');
+      if (call === 1) throw new Error('CLEF refused the request (HTTP 422)');
       if (call === 2) return [{ id: 'other', kind: 'Noul', answer: true, probabilities: 0.9 }];
-      return [{ id: q?.id, kind: 'Noul', answer: true, probabilities: call === 3 ? 0.95 : 0.6 }];
+      const answers = [
+        { id: q?.id, kind: 'Noul', answer: true, probabilities: call === 3 ? 0.95 : 0.6 },
+      ];
+      return { answers, model: 'clef-flash', inputTokens: 500, costUsd: 0.000045 };
     },
   };
   const cases = [
@@ -71,7 +75,10 @@ test('a backend that fails or answers off-question is unavailable, and the repor
     evidence('e4', true),
   ];
   const results = await runCases(
-    { backend, clock: steppingClock('2026-10-03T12:00:00.000Z', 10) },
+    {
+      model: { backend, acceptAt: { ...THRESHOLDS, evidence: 0.766 } },
+      clock: steppingClock('2026-10-03T12:00:00.000Z', 10),
+    },
     cases,
   );
   const out = report('scripted', 'heldout', results);
@@ -86,9 +93,40 @@ test('a backend that fails or answers off-question is unavailable, and the repor
     selectiveAccuracy: 0,
     accuracy: 0.25,
     latencyMs: { p50: 10, p95: 10, total: 20 },
+    packetLatencyMs: { n: 2, p50: 10 },
+    inputTokens: { mean: 500, max: 500 },
   });
+  expect(out.sites.evidence?.usdPer1000Calls).toBeCloseTo(0.045, 9);
+  expect(out.models).toEqual(['clef-flash']);
   expect(out.misses.map((m) => m.id)).toEqual(['e1', 'e2', 'e3']);
   expect(out.sites.evidence?.byTag.injection?.n).toBe(4);
+});
+
+test('a threshold is the lowest margin whose top set meets the gate, never below 0.5', () => {
+  const row = (site: 'evidence' | 'relevance', margin: number, correct: boolean) =>
+    ({
+      id: 'x',
+      site,
+      tags: [],
+      options: 2,
+      expected: true,
+      latencyMs: 1,
+      answer: true,
+      p: 1,
+      margin,
+      accepted: true,
+      correct,
+    }) as const;
+  const fitted = fitAcceptAt([
+    // Evidence needs 0.9: the top four (margins 0.95 to 0.71) are right, the 0.70 one is wrong.
+    ...[0.95, 0.9, 0.8, 0.7123].map((m) => row('evidence', m, true)),
+    row('evidence', 0.7, false),
+    row('evidence', 0.6, true),
+    // Relevance needs 0.8 and every answer is right: the cut floors at 0.5.
+    row('relevance', 0.3, true),
+    row('relevance', 0.9, true),
+  ]);
+  expect(fitted).toEqual({ supervision: 1, relevance: 0.5, 'next-step': 1, evidence: 0.712 });
 });
 
 test('a site adds its wording under the descriptions a caller gave', () => {

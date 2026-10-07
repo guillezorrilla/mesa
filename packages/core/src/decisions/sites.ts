@@ -1,4 +1,5 @@
 import type { AGENT_STATES } from '../agents/states.js';
+import type { SystemOneProvider } from './systemone.js';
 import type { Answer, Question } from './types.js';
 
 // The four first-release decision sites (ADR-0019): what each asks a model, and when Mesa accepts
@@ -73,16 +74,18 @@ export function margin(answer: Answer): number {
 }
 
 /**
- * Each site's acceptance threshold on `margin`, fitted on the calibration split only (ADR-0019:
- * the lowest margin whose accepted calibration answers meet the site's gate accuracy, never below
- * 0.5, truncated to 3 places): below it, Mesa abstains.
+ * Each model's acceptance threshold on `margin` per site, fitted on the calibration split only
+ * (ADR-0019: the lowest margin whose accepted calibration answers meet the site's gate accuracy,
+ * never below 0.5, truncated to 3 places; `fitAcceptAt` in `evaluation/`): below it, Mesa abstains.
  */
-export const ACCEPT_AT: Record<DecisionSite, number> = {
-  supervision: 0.663,
-  relevance: 0.5,
-  'next-step': 0.721,
-  evidence: 0.766,
+export const ACCEPT_AT: Record<SystemOneProvider, Record<DecisionSite, number>> = {
+  jev: { supervision: 1, relevance: 1, 'next-step': 1, evidence: 1 },
+  clef: { supervision: 1, relevance: 1, 'next-step': 1, evidence: 1 },
 };
 
-/** Whether `answer` at `site` is accepted (true) or Mesa abstains (false). */
-export const accepted = (site: DecisionSite, answer: Answer) => margin(answer) >= ACCEPT_AT[site];
+/** Whether `answer` at `site` is accepted (true) or Mesa abstains (false), at a model's thresholds. */
+export const accepted = (
+  acceptAt: Record<DecisionSite, number>,
+  site: DecisionSite,
+  answer: Answer,
+) => margin(answer) >= acceptAt[site];

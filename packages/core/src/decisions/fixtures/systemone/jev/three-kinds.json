@@ -1,0 +1,20 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "state": {
+      "type": "choice",
+      "choice": "waiting-permission",
+      "probabilities": { "working": 0.1606, "waiting-permission": 0.8008, "idle": 0.0386 },
+      "confidence": 0.7013
+    },
+    "urgency": {
+      "type": "score",
+      "score": 0.809,
+      "legend": { "0": "none", "1": "low", "2": "high" },
+      "probabilities": { "0": 0.41, "1": 0.371, "2": 0.219 },
+      "confidence": 0.3368
+    },
+    "human": { "type": "noul", "noul": 0.2817 }
+  },
+  "usage": { "input_tokens": 282, "output_tokens": 3 }
+}

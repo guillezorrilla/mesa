@@ -373,7 +373,7 @@ Not: the AI, the brain, the classifier.
 
 ## Backend
 
-A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules`, the only one a profile can name since ADR-0020 removed the `claude -p` adapter, or `strands`, the Strands Decider client of ADR-0019, which only the evaluation runner uses) and the **session backend** (`tmux`). Say which one.
+A swappable implementation behind an interface. Two kinds, always qualified: the **decisions backend** (`rules`, the only one a profile can name since ADR-0020 removed the `claude -p` adapter, or `jev` and `clef`, the hosted System One models of ADR-0019, which only the evaluation runner uses until #488) and the **session backend** (`tmux`). Say which one.
 Not: provider, driver, engine.
 
 ## Decision site
