@@ -5,6 +5,7 @@ import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { useOpenSettings } from '@/features/settings/useOpenSettings';
 import { useCall } from '@/lib/useCommand';
 
 const MODE: Record<SiteMode, string> = {
@@ -18,8 +19,9 @@ const seconds = (ms: number) => `${ms / 1000} s`;
 /**
  * One session's decision assistance (ADR-0019): each site's mode and what it measured against
  * Mesa's gates, a switch that turns it off for this session, its deadlines and ready answers, its
- * recent use with why a call gave no answer, and a preview of its scoped context. Read when the
- * details open; advice here never acts on the session.
+ * recent use with why a call gave no answer, and a preview of its scoped context; with no model,
+ * Set up opens Settings on Smarter decisions. Read when the details open; advice here never acts
+ * on the session.
  */
 export function DecisionAssistancePanel(props: { session: string }) {
   const call = useCall();
@@ -28,6 +30,7 @@ export function DecisionAssistancePanel(props: { session: string }) {
   const [preview, setPreview] = useState<{ context?: ScopedContext; error?: string }>();
   const [acting, setActing] = useState(false);
   const { session } = props;
+  const openSettings = useOpenSettings();
 
   const read = useCallback(
     () =>
@@ -50,10 +53,18 @@ export function DecisionAssistancePanel(props: { session: string }) {
   return (
     <div data-testid="session-decisions" className="grid gap-2 text-xs">
       <div className="flex items-center justify-between gap-2">
-        <span>
-          {noModel
-            ? 'Off: no Decision model (Settings > Smarter decisions)'
-            : `Model ${status.model}`}
+        <span className="flex items-center gap-2">
+          {noModel ? 'Off: no Decision model' : `Model ${status.model}`}
+          {noModel && openSettings && (
+            <Button
+              size="xs"
+              variant="link"
+              className="h-auto p-0 text-xs"
+              onClick={() => openSettings('decisions')}
+            >
+              Set up
+            </Button>
+          )}
         </span>
         <Switch
           aria-label="Decision assistance for this session"

@@ -21,14 +21,15 @@ function modeOf(model: SystemOneProvider, site: DecisionSite, experimental: bool
   return `${MODE[runs.mode]}${runs.experimental ? ' (experimental)' : ''}`;
 }
 
-/** Each decision site of a model card: how it runs, and what it measured against the gates. */
+/** Each decision site of a model: how it runs, and what it measured against the gates. */
 export function SiteResultsList(props: { model: SystemOneProvider; experimental: boolean }) {
   return (
-    <ul data-testid={`${props.model}-sites`} className="grid gap-1">
+    <ul data-testid={`${props.model}-sites`} className="grid gap-1.5">
       {DECISION_SITES.map((site) => (
         <li key={site}>
-          {SITE_LABELS[site]}: {modeOf(props.model, site, props.experimental)}
-          {/* A span: the row's description is already a paragraph. */}
+          <span className="text-foreground">
+            {SITE_LABELS[site]}: {modeOf(props.model, site, props.experimental)}
+          </span>
           <span className="block">{measuredText(siteMeasure(props.model, site))}</span>
         </li>
       ))}

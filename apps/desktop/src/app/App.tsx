@@ -14,6 +14,7 @@ import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
+import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
 import { useCostAlerts } from '@/features/usage/useCostAlerts';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -192,28 +193,29 @@ export function App() {
             }));
           }}
         />
-        <WorkspaceMain
-          view={view}
-          project={project}
-          navigate={navigate}
-          config={config}
-          projects={projects}
-          needsProfileSetup={needsProfileSetup}
-          onProfileInitialised={profileInitialised}
-          prompts={prompts}
-          doctor={doctor}
-          sessions={sessions}
-          onRowsChange={setSessions}
-          filesDirty={workspace.filesDirty}
-          onFilesDirtyChange={workspace.setFilesDirty}
-          onNewSession={requestNewSession}
-          onAddProject={setProjectAdd}
-          onVaultSettings={() => workspace.openSettings('general')}
-          onDecisionSettings={() => workspace.openSettings('decisions')}
-          archiveSessionRequest={archiveSessionRequest}
-          dependencySessionRequest={dependencySessionRequest}
-          promptInsertRequest={promptInsertRequest}
-        />
+        <OpenSettingsContext.Provider value={workspace.openSettings}>
+          <WorkspaceMain
+            view={view}
+            project={project}
+            navigate={navigate}
+            config={config}
+            projects={projects}
+            needsProfileSetup={needsProfileSetup}
+            onProfileInitialised={profileInitialised}
+            prompts={prompts}
+            doctor={doctor}
+            sessions={sessions}
+            onRowsChange={setSessions}
+            filesDirty={workspace.filesDirty}
+            onFilesDirtyChange={workspace.setFilesDirty}
+            onNewSession={requestNewSession}
+            onAddProject={setProjectAdd}
+            onVaultSettings={() => workspace.openSettings('general')}
+            archiveSessionRequest={archiveSessionRequest}
+            dependencySessionRequest={dependencySessionRequest}
+            promptInsertRequest={promptInsertRequest}
+          />
+        </OpenSettingsContext.Provider>
       </div>
       <CommandPalette
         mode={search.mode}
@@ -231,6 +233,7 @@ export function App() {
             if (saved) setPromptInsertRequest({ session: view.id, text: saved.text });
           } else if (target) navigate(target);
           else if (hit.id === 'new-session') requestNewSession();
+          else if (hit.id === 'smarter-decisions') workspace.openSettings('decisions');
           else if (hit.id === 'open-vault') {
             void act(async () => warningOf(await run('vault.open')));
           } else if (hit.id === 'profile') {

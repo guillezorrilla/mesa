@@ -17,11 +17,11 @@ Jev and CLEF answer the same four kinds of question, called decision sites:
 
 Mesa acts on an answer only when the model is sure enough; otherwise it gives no advice and the rules stand. Advice never runs a command, approves a permission or marks work complete.
 
-A site runs **automatically** only after it has passed both of Mesa's tests: a quality check on invented cases, and paired coding workflows that show agents solve more tasks, or the same tasks faster, with it than without it ([ADR-0019](adr/0019-local-decision-model.md), [evaluation](spikes/decision-assistance-evaluation.md)). Until then a site works **on demand** only, when an agent or you ask. Settings > Smarter decisions lists each site with its mode and what it measured. To try automatic decisions before they are proven, turn on **Experimental** there (or `mesa config set decisions.experimental true`); that advice is marked experimental.
+A site runs **automatically** only after it has passed both of Mesa's tests: a quality check on invented cases, and paired coding workflows that show agents solve more tasks, or the same tasks faster, with it than without it ([ADR-0019](adr/0019-local-decision-model.md), [evaluation](spikes/decision-assistance-evaluation.md)). Until then a site works **on demand** only, when an agent or you ask. Settings > Smarter decisions lists each site with its mode and what it measured, under **How it performed** on each model. To try automatic decisions before they are proven, turn on **Try unproven automatic decisions** in Settings > Advanced (or `mesa config set decisions.experimental true`); that advice is marked experimental.
 
 ## Setup
 
-In the app: **Settings > Smarter decisions**, then on the Jev or CLEF card follow the steps, paste the key and choose **Test and save**. Mesa saves a key only after one test call answers, keeps it only in the macOS Keychain, and shows only its last 4 characters. The first key you add is used; with both, choose **Use this one** on the card you want.
+In the app: **Settings > Smarter decisions** (or the tip on the Sessions view, or Set up smarter decisions in the command palette), then **Connect** on CLEF or Jev. The dialog says where to find each field: for CLEF the Cloudflare account ID and a Workers AI API token, for Jev a TypeSafe API key. **Connect** saves a key only after one test call answers, keeps it only in the macOS Keychain, and the row then shows only its last 4 characters. The first key you add is used; with both, choose **Use** on the row you want. Replace, Stop using and Disconnect are in the row's menu.
 
 From the command line (the key comes from a hidden prompt or stdin, never an argument):
 
@@ -71,13 +71,13 @@ The session details (Decision assistance) and `mesa decisions status --session <
 | CLEF daily free allocation is used up | The free 10,000 Neurons of the day are spent | Wait for 00:00 UTC, or move to Workers Paid |
 | Could not be reached | No network, or the provider is down | Check the connection; nothing else is needed |
 | Did not answer within ... ms | A turn's advice was too late (1,500 ms in all), so it was dropped | Nothing: turns never wait longer |
-| Not proven for automatic advice yet | The site has not passed the paired workflows | Use it on demand, or turn on Experimental |
+| Not proven for automatic advice yet | The site has not passed the paired workflows | Use it on demand, or turn on Try unproven automatic decisions (Settings > Advanced) |
 | Codex sends no advice | Codex runs a new or changed hook only once you review it | In Codex, open the hook review and trust Mesa's hooks (`mesa hooks status` shows UNTRUSTED until then) |
 | "Started without mesa-decisions" | The session started before the key | Stop it and resume it through Mesa |
 | Antigravity: no global mesa-decisions entry | Its tool is a global entry written only while a model is chosen | `mesa hooks install` |
 
 ## Turning it off
 
-- **Everywhere**: Settings > Smarter decisions > None, or `mesa decisions use none`. Keys stay saved; no model is asked.
+- **Everywhere**: Stop using in the model's menu in Settings > Smarter decisions, or `mesa decisions use none`. Keys stay saved; no model is asked.
 - **One session**: the switch in its details, or `mesa decisions off --session <id>` (`mesa decisions on` brings it back).
-- **Remove a key**: Remove on its card, or `mesa decisions key remove typesafe|cloudflare`. Mesa moves to the other model if its key is set, else to None.
+- **Remove a key**: Disconnect in its row's menu, or `mesa decisions key remove typesafe|cloudflare`. Mesa moves to the other model if its key is set, else to None.

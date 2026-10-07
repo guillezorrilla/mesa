@@ -1,6 +1,7 @@
 import type { Config, DoctorReport, ProjectRow } from '@mesa/core';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useOpenSettings } from '@/features/settings/useOpenSettings';
 import { useAct } from '@/lib/useAct';
 import { type CommandState, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
@@ -22,13 +23,12 @@ export function OnboardingScreen(props: {
   onInitialised: () => Promise<void>;
   onConfigChanged: () => Promise<void>;
   onProjectsChanged: () => Promise<void>;
-  /** Opens Settings > Smarter decisions. */
-  onDecisionSettings: () => void;
   /** Onboarding is complete: the session it started, or none for the board. */
   onDone: (session?: string) => void;
 }) {
   const run = useRun();
   const { act } = useAct();
+  const openSettings = useOpenSettings();
   const obsidian = props.doctor.data?.checks.find((c) => c.name === 'obsidian')?.ok ?? true;
   // Each step's title and body, in order; after Vault, the saved `onboarding.step` indexes the rest.
   const steps = [
@@ -52,7 +52,7 @@ export function OnboardingScreen(props: {
       body: () => (
         <SmarterStep
           modelSet={(props.config?.decisions.model ?? 'none') !== 'none'}
-          onOpen={props.onDecisionSettings}
+          onOpen={() => openSettings?.('decisions')}
           onNext={next}
         />
       ),

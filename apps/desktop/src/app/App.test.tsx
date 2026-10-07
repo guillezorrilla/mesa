@@ -1826,6 +1826,15 @@ test("selected session details list the vault server's tools for an agent sessio
   // Its decision assistance is read beside them (DecisionAssistancePanel).
   expect(calls).toContainEqual(['--json', 'decisions', 'status', '--session', 'aaaaaaaa']);
   expect(byTestId('session-decisions')[0]?.textContent).toContain('Off: no Decision model');
+  // With no model, Set up opens Settings on Smarter decisions.
+  await click(
+    [...(byTestId('session-decisions')[0]?.querySelectorAll('button') ?? [])].find(
+      (b) => b.textContent === 'Set up',
+    ),
+  );
+  expect(
+    document.querySelector('[aria-label="Settings categories"] [aria-current="page"]')?.textContent,
+  ).toBe('Smarter decisions');
 });
 
 test('selected session details say a plain terminal has no vault tools, and ask for none', async () => {
@@ -2644,7 +2653,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
       automation: 'silent',
     },
     application: { warnBeforeQuit: true, backupOnClose: false },
-    onboarding: { status: 'complete', step: 0, discovery: 'complete' },
+    onboarding: { status: 'complete', step: 0, discovery: 'complete', decisionTip: 'dismissed' },
     appearance: {
       theme: 'system',
       font: 'plex',

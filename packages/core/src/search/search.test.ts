@@ -54,6 +54,11 @@ test('typed text orders groups by their best hit, so the first row is the best m
   expect(searchWorkspace(projects, [], 'lantrn')[0]?.id).toBe('lantern-cove');
   const kinds = searchWorkspace(projects, [], 'settings').map((hit) => hit.kind);
   expect(kinds[0]).toBe('setting');
+  expect(searchWorkspace(projects, [], 'smarter')[0]).toMatchObject({
+    kind: 'setting',
+    id: 'smarter-decisions',
+    label: 'Set up smarter decisions',
+  });
 });
 
 test('a label match outranks a hit that only mentions the text in its detail', () => {

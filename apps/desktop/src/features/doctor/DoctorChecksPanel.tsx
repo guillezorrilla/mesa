@@ -1,5 +1,7 @@
 import type { Check, DoctorReport } from '@mesa/core';
+import { Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   Table,
@@ -9,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useOpenSettings } from '@/features/settings/useOpenSettings';
 import { cn } from '@/lib/utils';
 import { InstallButton } from './InstallButton';
 
@@ -21,7 +24,8 @@ const TONE: Record<Check['status'], string> = {
 
 /**
  * A doctor report's checks, one row each, under its summary when it is not healthy. A missing
- * binary Mesa can install offers Install; `onInstalled` reruns the doctor.
+ * binary Mesa can install offers Install; `onInstalled` reruns the doctor. Decisions on rules
+ * only offers Set up, which opens Settings on Smarter decisions.
  */
 export function DoctorChecksPanel({
   report,
@@ -30,6 +34,7 @@ export function DoctorChecksPanel({
   report: DoctorReport | undefined;
   onInstalled: () => Promise<void>;
 }) {
+  const openSettings = useOpenSettings();
   return (
     <>
       {report && !report.healthy && (
@@ -58,6 +63,11 @@ export function DoctorChecksPanel({
                 <TableCell className="space-y-2 whitespace-normal text-muted-foreground text-xs">
                   <p>{c.hint}</p>
                   {c.install && <InstallButton name={c.name} onInstalled={onInstalled} />}
+                  {c.name === 'decisions' && c.version === 'rules' && openSettings && (
+                    <Button size="sm" variant="secondary" onClick={() => openSettings('decisions')}>
+                      <Sparkles aria-hidden /> Set up
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

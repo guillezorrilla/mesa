@@ -3,16 +3,16 @@ import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 
 /**
- * Make Mesa smarter, optional: what a decision model adds, Settings > Smarter decisions to add a
- * key, and Skip for now, which leaves Mesa on its rules alone.
+ * Make Mesa smarter, optional: what a decision model adds, Settings > Smarter decisions to
+ * connect one, and Skip for now, which leaves Mesa on its rules alone.
  */
 export function SmarterStep(props: { modelSet: boolean; onOpen: () => void; onNext: () => void }) {
   return (
     <div className="space-y-4">
       <Muted>
-        Mesa can ask a hosted decision model, Jev or CLEF, when its own rules are unsure. Add a key
-        for one in Settings. It is optional: with no key, Mesa makes no model decisions and the
-        agents work as they normally do.
+        When its own rules are unsure, Mesa can ask a hosted decision model, so each session gets
+        the right project notes at the right time. CLEF, on Cloudflare, has a free daily allowance.
+        Optional: with none, nothing leaves this Mac.
       </Muted>
       <div className="flex items-center justify-end gap-2">
         <Button

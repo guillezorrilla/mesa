@@ -116,8 +116,10 @@ test('with no Decision model the switch is off and disabled; a refused session s
     <DecisionAssistancePanel session="aaaaaaaa" />,
     none.bridge,
   );
-  expect(text(byTestId, 'session-decisions')).toContain(
-    'Off: no Decision model (Settings > Smarter decisions)',
+  expect(text(byTestId, 'session-decisions')).toContain('Off: no Decision model');
+  // Outside the app nothing opens Settings, so it offers no Set up (App.test.tsx clicks it).
+  expect([...document.querySelectorAll('button')].some((b) => b.textContent === 'Set up')).toBe(
+    false,
   );
   const toggle = document.querySelector('[aria-label="Decision assistance for this session"]');
   expect(toggle?.getAttribute('data-state')).toBe('unchecked');

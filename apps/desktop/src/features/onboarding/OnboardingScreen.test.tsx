@@ -228,7 +228,7 @@ test('Make Mesa smarter: optional; it opens Settings on Smarter decisions, and S
   await click(byTestId('onboarding-smarter-settings')[0]);
   expect(byTestId('settings')).toHaveLength(1);
   expect(document.querySelector('[aria-current="page"]')?.textContent).toBe('Smarter decisions');
-  expect(byTestId('settings')[0]?.textContent).toContain('Test and save');
+  expect(byTestId('settings')[0]?.textContent).toContain('CLEF (Cloudflare)');
   await click(document.querySelector<HTMLElement>('[aria-label="Close settings"]') ?? undefined);
   const skip = byTestId('onboarding-continue')[0];
   expect(skip?.textContent).toBe('Skip for now');

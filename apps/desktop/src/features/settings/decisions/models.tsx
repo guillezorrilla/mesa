@@ -1,66 +1,77 @@
 import type { KeyProvider } from '@mesa/core';
 import type { DecisionSite, SystemOneProvider } from '@mesa/core/browser';
+import { BrainCircuit, Cloud, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ExternalLink as Link } from '@/components/ExternalLink';
 
 export const TYPESAFE_CONSOLE = 'https://console.typesafe.ai/keys';
 
-/** What each model card says: what it improves, how to get its key, its price, where text goes. */
+/** The models as Settings lists them: CLEF first, for its free daily allowance. */
+export const MODEL_ORDER = ['clef', 'jev'] as const satisfies readonly SystemOneProvider[];
+
+/**
+ * What each model's row and Connect dialog say: its name and maker, what its secret is called,
+ * its cost in a few words and in full, where the text goes, and the help for each field.
+ */
 export const MODELS: Record<
   SystemOneProvider,
   {
     label: string;
+    maker: string;
+    icon: LucideIcon;
     provider: KeyProvider;
-    /** What the password field holds. */
-    keyLabel: string;
+    /** What the secret is called: the field is "API <secret>". */
+    secret: 'key' | 'token';
     sentence: string;
-    steps: ReactNode[];
+    /** The row's status line while not connected. */
+    cost: string;
     price: string;
     privacy: string;
+    keyHelp: ReactNode;
+    /** CLEF's Cloudflare account ID field, which Jev has none of. */
+    accountHelp?: ReactNode;
   }
 > = {
-  jev: {
-    label: 'Jev',
-    provider: 'typesafe',
-    keyLabel: 'TypeSafe API key',
-    sentence:
-      "Sharper answers when Faro's rules are unsure: Jev, TypeSafe's decision model, gives calibrated probabilities.",
-    steps: [
-      <>
-        Create an API key at <Link href={TYPESAFE_CONSOLE}>console.typesafe.ai/keys</Link>.
-      </>,
-      'Paste it below and choose Test and save.',
-    ],
-    price: 'Paid per input token: $0.042 per million.',
-    privacy: 'The session text and the questions go to TypeSafe.',
-  },
   clef: {
     label: 'CLEF',
+    maker: 'Cloudflare',
+    icon: Cloud,
     provider: 'cloudflare',
-    keyLabel: 'Cloudflare API token',
-    sentence:
-      "Sharper answers when Faro's rules are unsure: CLEF, Cloudflare's decision model on Workers AI, gives calibrated probabilities.",
-    steps: [
-      <>
-        Create an API token with Workers AI access at{' '}
-        <Link href="https://dash.cloudflare.com/profile/api-tokens">
-          dash.cloudflare.com/profile/api-tokens
-        </Link>
-        .
-      </>,
-      <>
-        Copy your account ID from the overview at{' '}
-        <Link href="https://dash.cloudflare.com/">dash.cloudflare.com</Link>.
-      </>,
-      'Paste both below and choose Test and save.',
-    ],
+    secret: 'token',
+    sentence: "Cloudflare's decision model on Workers AI answers when Mesa's own rules are unsure.",
+    cost: 'free daily allowance',
     price:
-      'Free up to 10,000 Neurons a day, about 450k input tokens on clef; then $0.24 per M on Workers Paid.',
+      'Free up to 10,000 Neurons a day, about 450k input tokens; then $0.24 per million on Workers Paid.',
     privacy: 'The session text and the questions go to Cloudflare.',
+    accountHelp: (
+      <>
+        On the <Link href="https://dash.cloudflare.com/">Cloudflare dashboard</Link>: Workers AI
+        &gt; Use REST API &gt; Account ID.
+      </>
+    ),
+    keyHelp:
+      'Create a Workers AI API token there and paste it; it is kept only in the macOS Keychain.',
+  },
+  jev: {
+    label: 'Jev',
+    maker: 'TypeSafe',
+    icon: BrainCircuit,
+    provider: 'typesafe',
+    secret: 'key',
+    sentence: "TypeSafe's decision model answers when Mesa's own rules are unsure.",
+    cost: 'about $0.04 per million tokens',
+    price: '$0.042 per million input tokens, billed by TypeSafe.',
+    privacy: 'The session text and the questions go to TypeSafe.',
+    keyHelp: (
+      <>
+        Create one at <Link href={TYPESAFE_CONSOLE}>console.typesafe.ai/keys</Link> and paste it; it
+        is kept only in the macOS Keychain.
+      </>
+    ),
   },
 };
 
-/** Each decision site as a card lists it. */
+/** Each decision site as a model's results list it. */
 export const SITE_LABELS: Record<DecisionSite, string> = {
   supervision: 'Session state',
   relevance: 'Source relevance',

@@ -93,7 +93,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         doctor: 'silent',
       },
       application: { warnBeforeQuit: true, backupOnClose: false },
-      onboarding: { status: 'complete', step: 0, discovery: 'complete' },
+      onboarding: { status: 'complete', step: 0, discovery: 'complete', decisionTip: 'dismissed' },
       appearance: {
         theme: 'system',
         font: 'plex',

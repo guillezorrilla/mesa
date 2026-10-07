@@ -65,7 +65,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
       automation: 'silent',
     },
     application: { warnBeforeQuit: true, backupOnClose: false },
-    onboarding: { status: 'active', step: 0, discovery: 'pending' },
+    onboarding: { status: 'active', step: 0, discovery: 'pending', decisionTip: 'pending' },
     appearance: DEFAULT_APPEARANCE,
     terminal: { app: 'Terminal', ...DEFAULT_TERMINAL_PREFERENCES },
     editor: { fontSize: 13, tabSize: 2, wordWrap: false, vim: false, external: [] },
@@ -127,4 +127,17 @@ test('onboarding.discovery defaults to pending, takes its four states, and refus
     thrown(() => setConfigValue(paths.config, 'onboarding.discovery', 'done', lockDeps())).code,
   ).toBe('invalid_config');
   expect(loadConfig(paths.config).onboarding.discovery).toBe('pending');
+});
+
+test('onboarding.decisionTip defaults to pending and takes dismissed, once the tip is closed', () => {
+  const paths = profilePaths(tempDir(), 'default');
+  initProfile(paths, { vault: '/tmp/v' });
+  expect(loadConfig(paths.config).onboarding.decisionTip).toBe('pending');
+  expect(
+    setConfigValue(paths.config, 'onboarding.decisionTip', 'dismissed', lockDeps()).value,
+  ).toBe('dismissed');
+  expect(
+    thrown(() => setConfigValue(paths.config, 'onboarding.decisionTip', 'hidden', lockDeps())).code,
+  ).toBe('invalid_config');
+  expect(loadConfig(paths.config).onboarding.decisionTip).toBe('dismissed');
 });
