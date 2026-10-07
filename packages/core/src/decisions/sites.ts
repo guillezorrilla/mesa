@@ -90,8 +90,8 @@ export const ACCEPT_AT: Record<SystemOneProvider, Record<DecisionSite, number>> 
  * or on demand.
  */
 export const PASSED_GATE: Record<SystemOneProvider, readonly DecisionSite[]> = {
-  jev: [],
-  clef: [],
+  jev: DECISION_SITES,
+  clef: DECISION_SITES,
 };
 
 /** Whether `answer` at `site` is accepted (true) or Mesa abstains (false), at a model's thresholds. */
