@@ -14,7 +14,7 @@ import {
   tempDir,
 } from '../testing/index.js';
 import { PER_TURN_MS } from './models.js';
-import { ACCEPT_AT, DECISION_SITES } from './sites.js';
+import { ACCEPT_AT, automaticGate, DECISION_SITES, PASSED_GATE } from './sites.js';
 import {
   type Placed,
   placeUnsure,
@@ -54,7 +54,8 @@ function answering(world: ReturnType<typeof systemOneWorld>, state: string, p: n
 
 /**
  * The placing call over a placements file, Jev in memory as the chosen model with its key, and a
- * hand clock; `model` and `hasKey` may change mid-test, as a person would.
+ * hand clock; `model` and `hasKey` may change mid-test, as a person would. Unless a test gives its
+ * own tables, every site that passed the quality gate runs automatically, as if proven.
  */
 function placing() {
   const world = systemOneWorld();
@@ -78,7 +79,7 @@ function placing() {
       backend: () => backend,
       hasKey: async () => chosen.key,
       clock: time.clock,
-      ...(tables ? { tables } : {}),
+      tables: tables ?? { gate: PASSED_GATE, acceptAt: ACCEPT_AT },
     });
   const want = (id: string, screen: string): Want => {
     const state = supervisionState('claude', screen);
@@ -140,7 +141,10 @@ test('a model that did not pass the supervision gate is never asked', async () =
   expect(supervisingModel('none', gate)).toBeUndefined();
   store.look('a1b2c3d4', want('a1b2c3d4', PERMISSION));
   expect(await place({ gate, acceptAt: ACCEPT_AT })).toEqual([]);
+  // Passed the quality gate but not yet the paired workflows, and no opt-in: not asked either.
+  expect(await place({ gate: automaticGate(false), acceptAt: ACCEPT_AT })).toEqual([]);
   expect(world.requests).toHaveLength(0);
+  expect(await place({ gate: automaticGate(true), acceptAt: ACCEPT_AT })).toHaveLength(1);
 });
 
 test('a stale reply is dropped: the screen changed, the model was switched, or its key removed', async () => {
@@ -241,6 +245,8 @@ async function boardWithModel() {
   const agents = agentWorld();
   const { home, mesa } = projectProfile(agents.run, world.deps);
   await mesa.decisions.keys.set('typesafe', 'ts-test-0000-1111-abcd');
+  // No site is proven before the paired workflows: the profile opts into experimental ones.
+  mesa.config.set('decisions.experimental', 'true');
   const { result: opened } = await mesa.sessions.open('lantern-cove');
   const pane = agents.tmux.opened[0];
   if (!pane) throw new Error('no window opened');

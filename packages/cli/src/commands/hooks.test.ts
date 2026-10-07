@@ -574,6 +574,12 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
   expect(launch(opened.id)).toMatch(/^\('\/usr\/local\/bin\/mesa' decisions prepare .*&\); /);
   expect(launch(opened.id)).toContain("'Make the feed import retry'");
   await mesa('hooks', 'install');
+  // No site is proven before the paired workflows: advice waits for the gate or the opt-in.
+  expect((await show(opened.id)).decisions.advice).toEqual({
+    state: 'disabled',
+    reason: 'jev is not proven for automatic advice yet; on demand only',
+  });
+  await mesa('config', 'set', 'decisions.experimental', 'true');
   expect((await show(opened.id)).decisions).toEqual({
     tool: { state: 'configured', reason: 'mesa-decisions is mounted in its launch command' },
     advice: { state: 'configured', reason: 'UserPromptSubmit adds advice to the turn' },

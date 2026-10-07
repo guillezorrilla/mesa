@@ -1,5 +1,5 @@
 import type { AGENT_STATES } from '../agents/states.js';
-import type { SystemOneProvider } from './systemone.js';
+import { SYSTEM_ONE_PROVIDERS, type SystemOneProvider } from './systemone.js';
 import type { Answer, Question } from './types.js';
 
 // The four first-release decision sites (ADR-0019): what each asks a model, and when Mesa accepts
@@ -89,13 +89,45 @@ export const ACCEPT_AT: Record<SystemOneProvider, AcceptAt> = {
 
 /**
  * The sites where each model passed ADR-0019's frozen quality gate on the held-out split
- * (`docs/spikes/jev-clef-qualification.md`). Only these may run automatically; the rest stay off
- * or on demand.
+ * (`docs/spikes/jev-clef-qualification.md`). A site runs automatically only when it also passed
+ * the paired-workflow gate (PAIRED_PASSED); the rest stay on demand.
  */
 export const PASSED_GATE: Record<SystemOneProvider, readonly DecisionSite[]> = {
   jev: DECISION_SITES,
   clef: DECISION_SITES,
 };
+
+/**
+ * The sites where each model passed ADR-0019's frozen paired-workflow gate (#465): paired coding
+ * runs with its automatic advice on solved at least as many tasks, no more than 10% slower per
+ * solved task, and better on one of the two (`evaluation/paired.ts`). Empty until the lead fills
+ * it from the measured verdicts in `docs/spikes/decision-assistance-evaluation.md`; the gates are
+ * never lowered to fill it.
+ */
+export const PAIRED_PASSED: Record<SystemOneProvider, readonly DecisionSite[]> = {
+  jev: [],
+  clef: [],
+};
+
+/** The sites a model is proven at: in both PASSED_GATE and PAIRED_PASSED. */
+export const provenSites = (model: SystemOneProvider): readonly DecisionSite[] =>
+  PASSED_GATE[model].filter((site) => PAIRED_PASSED[model].includes(site));
+
+/**
+ * The sites a model runs automatically: the proven ones; with `experimental` (the person's opt-in,
+ * `decisions.experimental`, ADR-0019's "experimental, opt-in"), every site that passed the quality
+ * gate, those not proven marked experimental. A site that missed the quality gate never does.
+ */
+export const automaticSites = (
+  model: SystemOneProvider,
+  experimental: boolean,
+): readonly DecisionSite[] => (experimental ? PASSED_GATE[model] : provenSites(model));
+
+/** automaticSites for every model, as the supervision gate reads it. */
+export const automaticGate = (experimental: boolean) =>
+  Object.fromEntries(
+    SYSTEM_ONE_PROVIDERS.map((model) => [model, automaticSites(model, experimental)]),
+  ) as Record<SystemOneProvider, readonly DecisionSite[]>;
 
 /** Whether `answer` at `site` is accepted (true) or Mesa abstains (false), at a model's thresholds. */
 export const accepted = (acceptAt: AcceptAt, site: DecisionSite, answer: Answer) =>

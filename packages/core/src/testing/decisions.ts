@@ -37,22 +37,26 @@ export function memoryRecorder(): DecisionRecorder & { decisions: Decision[] } {
  * A live claude session on lantern-cove saved with `goal` (and `session`'s fields), in a profile
  * over systemOneWorld whose Decision model is `model` (its invented key saved, so the world's
  * requests start empty), with `mesa` running inside the session's window (over `deps`, such as
- * its own clock) and `person` outside any. `put` writes an invented vault item, and `plant`
- * another session record.
+ * its own clock) and `person` outside any. With `experimental`, the profile opted into automatic
+ * decisions where the model is not proven yet (`decisions.experimental`), as no site is before
+ * the paired workflows. `put` writes an invented vault item, and `plant` another session record.
  */
 export async function assistedSession({
   model = 'jev',
   goal = 'Make the tide table import retry when the feed answers 503',
   session: fields = {},
   deps = {},
+  experimental = false,
 }: {
   model?: DecisionsModel;
   goal?: string;
   session?: Partial<NewSession>;
   deps?: Partial<MesaDeps>;
+  experimental?: boolean;
 } = {}) {
   const world = systemOneWorld();
   const { home, mesa: person } = projectProfile(scriptedRunner().run, world.deps);
+  if (experimental) person.config.set('decisions.experimental', 'true');
   if (model === 'jev') await person.decisions.keys.set('typesafe', TEST_TYPESAFE_KEY);
   if (model === 'clef')
     await person.decisions.keys.set('cloudflare', 'cf-test-2222-3333-wxyz', {
@@ -81,6 +85,7 @@ export const MARKED_NOTE = 'wiki/decisions/retry-policy.md';
 /**
  * An assistedSession of `agent` holding native conversation `agentSessionId`, launched with
  * mesa-decisions mounted, whose project's vault holds one invented decision with ADVICE_MARKER.
+ * Its profile opts into experimental automatic advice unless told otherwise, so delivery runs.
  */
 export async function assistedAgent(
   agent: NewSession['agent'],
@@ -88,6 +93,7 @@ export async function assistedAgent(
   options: Parameters<typeof assistedSession>[0] = {},
 ) {
   const world = await assistedSession({
+    experimental: true,
     ...options,
     session: {
       agent,

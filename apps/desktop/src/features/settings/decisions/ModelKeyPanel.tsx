@@ -1,5 +1,5 @@
 import type { KeyRow } from '@mesa/core';
-import { DECISION_SITES, localDay, PASSED_GATE, type SystemOneProvider } from '@mesa/core/browser';
+import { localDay, type SystemOneProvider } from '@mesa/core/browser';
 import { KeyRound, ListChecks, ReceiptText, Shield } from 'lucide-react';
 import { useId, useState } from 'react';
 import { ExternalLink } from '@/components/ExternalLink';
@@ -11,14 +11,15 @@ import { useAct } from '@/lib/useAct';
 import { useCall } from '@/lib/useCommand';
 import { SettingRow } from '../SettingRow';
 import { SettingSection } from '../SettingSection';
-import { MODELS, SITE_LABELS, TYPESAFE_CONSOLE } from './models';
+import { MODELS, TYPESAFE_CONSOLE } from './models';
+import { SiteResultsList } from './SiteResultsList';
 
 type Failure = { code: string; message: string };
 
 /**
  * One hosted model's card: what it improves, how to get its key, its price and privacy, and the
  * key: a password field with Test and save, or once set only its last 4 with Replace, Remove and
- * Use this one; then each decision site, active only where the model passed the quality check.
+ * Use this one; then each decision site: how it runs and what it measured against Mesa's gates.
  */
 export function ModelKeyPanel(props: {
   model: SystemOneProvider;
@@ -26,6 +27,8 @@ export function ModelKeyPanel(props: {
   inUse: boolean;
   /** The Cloudflare account ID config.yaml keeps, for CLEF. */
   account: string | undefined;
+  /** The person's opt-in to experimental automatic decisions (`decisions.experimental`). */
+  experimental: boolean;
   onChanged: () => Promise<void>;
 }) {
   const { label, provider, keyLabel, sentence, steps, price, privacy } = MODELS[props.model];
@@ -165,19 +168,8 @@ export function ModelKeyPanel(props: {
       <SettingRow
         icon={ListChecks}
         title="Decision sites"
-        keywords="quality check"
-        description={
-          <ul data-testid={`${props.model}-sites`}>
-            {DECISION_SITES.map((site) => (
-              <li key={site}>
-                {SITE_LABELS[site]}:{' '}
-                {PASSED_GATE[props.model].includes(site)
-                  ? 'active'
-                  : 'not active: did not pass the quality check'}
-              </li>
-            ))}
-          </ul>
-        }
+        keywords="quality check paired workflows measured"
+        description={<SiteResultsList model={props.model} experimental={props.experimental} />}
       />
     </SettingSection>
   );

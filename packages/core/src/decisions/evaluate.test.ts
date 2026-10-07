@@ -23,12 +23,21 @@ const STEPS = {
   ],
 };
 
-/** Faro over Jev in the world, as the profile's Faro asks it, for the evaluate function alone. */
-function jevDeps(world: ReturnType<typeof systemOneWorld>, passed: EvaluateDeps['passed']) {
+/**
+ * Faro over Jev in the world, as the profile's Faro asks it, for the evaluate function alone, with
+ * the sites it runs automatically and those it is proven at (both by default).
+ */
+function jevDeps(
+  world: ReturnType<typeof systemOneWorld>,
+  automatic: EvaluateDeps['automatic'],
+  proven: EvaluateDeps['proven'] = automatic,
+) {
   const clock = fixedClock();
   return {
     model: 'jev',
-    passed,
+    passed: automatic,
+    automatic,
+    proven,
     clock,
     ask: (state, questions, deadlineMs, { signal }) =>
       decide(
@@ -104,13 +113,13 @@ test('with no Decision model nothing is asked and nothing is written', async () 
   expect(existsSync(profilePaths(home, 'default').decisions)).toBe(false);
 });
 
-test('an automatic call runs only at a site the model qualified for; on demand the rest are experimental', async () => {
+test('an automatic call runs only at a site the model runs automatically; on demand the rest are experimental', async () => {
   const world = systemOneWorld();
   const deps = jevDeps(world, ['relevance']);
   const automatic = await evaluate(deps, packet, { mode: 'automatic' });
   expect(automatic).toMatchObject({
     status: 'unavailable',
-    reason: 'jev did not qualify for automatic next-step advice',
+    reason: 'jev is not proven for automatic next-step advice',
   });
   expect(world.requests).toEqual([]);
   const asked = await evaluate(deps, packet, { mode: 'on-demand' });
@@ -118,6 +127,9 @@ test('an automatic call runs only at a site the model qualified for; on demand t
   const qualified = await evaluate(jevDeps(world, ['next-step']), packet, { mode: 'automatic' });
   expect(qualified.status).toBe('accepted');
   expect(qualified.experimental).toBeUndefined();
+  // Opted in (decisions.experimental): automatic at a site that passed only the quality gate.
+  const opted = await evaluate(jevDeps(world, ['next-step'], []), packet, { mode: 'automatic' });
+  expect(opted).toMatchObject({ status: 'accepted', experimental: true });
 });
 
 test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled call at once, its request too', async () => {

@@ -1,4 +1,4 @@
-import type { DecisionStatus } from '@mesa/core';
+import { type DecisionStatus, measuredText } from '@mesa/core';
 import { defineCommand } from '../../command.js';
 import { SESSION_FLAG } from '../../input/flags.js';
 import { columns } from '../../output/columns.js';
@@ -11,9 +11,12 @@ const seconds = (ms: number) => `${ms / 1000} s`;
 function statusText(status: DecisionStatus) {
   const sites = status.sites.map((s) => [
     s.site,
-    s.mode === 'on-demand' ? 'on demand (experimental)' : s.mode,
+    `${s.mode === 'on-demand' ? 'on demand' : s.mode}${s.experimental ? ' (experimental)' : ''}`,
     s.acceptAt === undefined ? '' : `accepts at margin ${s.acceptAt}`,
   ]);
+  const measured = status.sites.flatMap((s) =>
+    s.measured ? [`${s.site}: ${measuredText(s.measured)}`] : [],
+  );
   const use = status.use.map((u) => [
     u.at,
     u.site,
@@ -24,6 +27,7 @@ function statusText(status: DecisionStatus) {
   return [
     `session ${status.session} (${status.project}), model ${status.model}${status.off ? ', off for this session' : ''}`,
     ...columns(sites),
+    ...measured,
     `deadlines ${seconds(status.deadlines.automatic)} per turn, ${seconds(status.deadlines['on-demand'])} on demand; ${status.ready} ready answers`,
     ...(use.length ? columns(use) : ['no decision use yet']),
   ].join('\n');
@@ -32,7 +36,7 @@ function statusText(status: DecisionStatus) {
 export const decisionsStatus = defineCommand({
   name: 'decisions status',
   summary:
-    "A Mesa session's decision assistance: each site off, on demand or automatic, the deadlines, and its recent use",
+    "A Mesa session's decision assistance: each site off, on demand or automatic, what each measured against Mesa's gates, the deadlines, and its recent use",
   flags: { session: SESSION_FLAG },
   example: 'mesa decisions status --session 4e1b9c02',
   run: ({ mesa, flags }) => {

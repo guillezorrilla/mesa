@@ -38,6 +38,6 @@ export function adviceText(e: Evaluation): string {
   const how = ` (margin ${(e.margin ?? 0).toFixed(2)}${e.model ? `, ${e.model}` : ''})`;
   const text = e.status === 'abstained' ? `${ABSTAINED[e.site]}${how}.` : acceptedText(e, how);
   return e.experimental
-    ? `${text} Experimental: the model did not qualify for ${e.site} advice.`
+    ? `${text} Experimental: ${e.site} advice has not passed both of Mesa's gates for this model.`
     : text;
 }

@@ -128,10 +128,26 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
     project: 'lantern-cove',
     model: 'jev',
     off: false,
+    // Each site passed the quality gate, none the paired workflows yet: on demand, with both results.
     sites: [
-      { site: 'relevance', mode: 'automatic', acceptAt: 0.5 },
-      { site: 'next-step', mode: 'automatic', acceptAt: 0.5 },
-      { site: 'evidence', mode: 'automatic', acceptAt: 0.5 },
+      {
+        site: 'relevance',
+        mode: 'on-demand',
+        acceptAt: 0.5,
+        measured: { quality: { n: 30, accepted: 28, right: 28 } },
+      },
+      {
+        site: 'next-step',
+        mode: 'on-demand',
+        acceptAt: 0.5,
+        measured: { quality: { n: 30, accepted: 29, right: 29 } },
+      },
+      {
+        site: 'evidence',
+        mode: 'on-demand',
+        acceptAt: 0.5,
+        measured: { quality: { n: 30, accepted: 26, right: 26 } },
+      },
     ],
     deadlines: { automatic: 1500, 'on-demand': 10000 },
     packetChars: 4096,
@@ -145,9 +161,21 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
         model: 'jev-1.13.0',
         margin: expect.closeTo(0.7, 6),
         latencyMs: 0,
+        inputTokens: 100,
+        costUsd: expect.closeTo(0.0000042, 12),
       },
     ],
   });
+  // Opted into experimental automatic decisions: automatic, and marked so.
+  person.config.set('decisions.experimental', 'true');
+  expect(
+    mesa.decisions.status().sites.map(({ mode, experimental }) => [mode, experimental]),
+  ).toEqual([
+    ['automatic', true],
+    ['automatic', true],
+    ['automatic', true],
+  ]);
+  person.config.set('decisions.experimental', 'false');
   expect(person.decisions.setOff(true, session.id)).toEqual({
     session: session.id,
     off: true,

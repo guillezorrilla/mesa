@@ -87,16 +87,27 @@ test('the Jev, CLEF and None cards say what each model improves, costs and sends
   expect(
     section('CLEF')?.querySelector('input[aria-label="Cloudflare account ID"]'),
   ).not.toBeNull();
-  // Every site passed the held-out check for Jev (PASSED_GATE, #638), so each is active.
+  // Every site passed the held-out check for Jev (#638), none the paired workflows yet (#465): no
+  // site is automatic, and each shows what it measured.
+  const notPaired = 'Paired workflows: not measured.';
   expect(document.querySelector('[data-testid="jev-sites"]')?.textContent).toBe(
     [
-      'Session state: active',
-      'Source relevance: active',
-      'Next step: active',
-      'Completion evidence: active',
+      `Session state: offQuality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
+      `Source relevance: on demandQuality: 100% right where it answered, on 93% of 30 held-out cases. ${notPaired}`,
+      `Next step: on demandQuality: 100% right where it answered, on 97% of 30 held-out cases. ${notPaired}`,
+      `Completion evidence: on demandQuality: 100% right where it answered, on 87% of 30 held-out cases. ${notPaired}`,
     ].join(''),
   );
   expect(section('None')?.textContent).toContain('In use');
+});
+
+test('the experimental switch opts into automatic decisions before the paired workflows prove them', async () => {
+  const { calls } = await render();
+  const toggle = document.querySelector<HTMLButtonElement>('#decisions-experimental');
+  expect(toggle?.getAttribute('aria-checked')).toBe('false');
+  expect(section('Experimental')?.textContent).toContain('marked experimental');
+  await click(toggle ?? undefined);
+  expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'decisions.experimental', 'true']);
 });
 
 test('Test and save sends the key on stdin, clears the field, and then shows only its last 4', async () => {

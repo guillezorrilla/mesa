@@ -30,7 +30,10 @@ export const EvaluationSchema = z.strictObject({
   site: z.enum(DECISION_SITES),
   mode: z.enum(ASSIST_MODES),
   status: z.enum(EVALUATION_STATUSES),
-  /** A site the model did not qualify for (PASSED_GATE): on demand only. */
+  /**
+   * A site the model did not pass the quality gate at (PASSED_GATE), asked on demand, or an
+   * automatic call at a site it is not proven at (provenSites), which the person opted into.
+   */
   experimental: z.literal(true).optional(),
   /** The model's pick: an option of the Choice, or the Noul's lean. */
   answer: z.union([z.string(), z.boolean()]).optional(),
@@ -40,6 +43,8 @@ export const EvaluationSchema = z.strictObject({
   acceptAt: z.number().optional(),
   /** The model id that answered. */
   model: z.string().optional(),
+  /** The input tokens the model counted for the call. */
+  inputTokens: z.number().optional(),
   /** Why no answer came. */
   reason: z.string().optional(),
   latencyMs: z.number(),
@@ -63,8 +68,12 @@ export type EvaluationMemory = {
 export type EvaluateDeps = {
   /** The Decision model in use; `none` asks nothing. */
   model: DecisionsModel;
-  /** The sites it passed the held-out gate at (PASSED_GATE): the only automatic ones. */
+  /** The sites it passed the held-out quality gate at (PASSED_GATE). */
   passed: readonly DecisionSite[];
+  /** The sites it runs automatically (automaticSites). */
+  automatic: readonly DecisionSite[];
+  /** The sites it is proven at, both gates (provenSites). */
+  proven: readonly DecisionSite[];
   /** Faro, asked the packet within `deadlineMs`, its rules even (faro.ts); `signal` cancels it. */
   ask: (
     state: string,
@@ -99,7 +108,8 @@ const aborted = (signal: AbortSignal) =>
 
 /**
  * Evaluates `packet` once. With no model, nothing is asked. An automatic call at a site the model
- * did not qualify for is unavailable; on demand it runs, marked experimental. An answer made
+ * does not run automatically is unavailable, and one at a site it is not proven at is marked
+ * experimental, as is any call at a site it did not pass the quality gate at. An answer made
  * before for the same key is reused; with `readyOnly`, only that, and a miss is unavailable and
  * noted nowhere (a hook on every model call asks this way). The model answers within the mode's
  * deadline (ADR-0019);
@@ -115,13 +125,14 @@ export async function evaluate(
   const { mode, signal, revision = '', readyOnly } = options;
   const { model } = deps;
   if (model === 'none') return unavailable(site, mode, NO_MODEL);
-  const qualified = deps.passed.includes(site);
-  if (mode === 'automatic' && !qualified)
-    return unavailable(site, mode, `${model} did not qualify for automatic ${site} advice`);
+  if (mode === 'automatic' && !deps.automatic.includes(site))
+    return unavailable(site, mode, `${model} is not proven for automatic ${site} advice`);
+  const experimental =
+    !deps.passed.includes(site) || (mode === 'automatic' && !deps.proven.includes(site));
   const acceptAt = ACCEPT_AT[model][site];
   const key = keyOf(packet, model, acceptAt, revision);
   const noted = (evaluation: Evaluation) => {
-    const made = { ...evaluation, ...(qualified ? {} : { experimental: true as const }) };
+    const made = { ...evaluation, ...(experimental ? { experimental: true as const } : {}) };
     deps.memory?.note(made, key);
     return made;
   };
@@ -158,6 +169,7 @@ export async function evaluate(
     margin: margin(answer),
     acceptAt,
     ...(decision.model ? { model: decision.model } : {}),
+    ...(decision.inputTokens === undefined ? {} : { inputTokens: decision.inputTokens }),
     latencyMs,
     ...(decision.costUsd === undefined ? {} : { costUsd: decision.costUsd }),
   });

@@ -16,13 +16,14 @@ import {
   NO_MODEL,
 } from './evaluate.js';
 import type { Faro } from './faro.js';
+import { siteMeasure } from './measured.js';
 import { PER_TURN_MS } from './models.js';
 import { PACKET_CHARS, type Packet } from './packet.js';
 import { answerRequest, type DecisionAnswer, decisionRequest, REQUEST_SITES } from './request.js';
 import { decisionBinding } from './scope.js';
 import { DECISION_TOOLS, serveDecisions } from './server.js';
 import { sessionDecisions } from './session-decisions.js';
-import { ACCEPT_AT, PASSED_GATE } from './sites.js';
+import { ACCEPT_AT, automaticSites, PASSED_GATE, provenSites } from './sites.js';
 import type { Decision } from './types.js';
 
 // Decision assistance for sessions (ADR-0019, CONTEXT.md Decision assistance): scoped context and
@@ -30,7 +31,10 @@ import type { Decision } from './types.js';
 // decision_evaluate tool, and the app's session details. Routine calls keep nothing but the
 // session's bounded use; only an explicit decision with a rationale writes a receipt.
 
-/** How a site runs for a session: off, on demand only (experimental), or automatic. */
+/**
+ * How a site runs for a session: off, on demand only, or automatic (proven, or opted in as
+ * experimental).
+ */
 export type SiteMode = 'off' | 'on-demand' | 'automatic';
 
 export type EvaluateOptions = {
@@ -48,6 +52,8 @@ export type EvaluateOptions = {
 
 export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'decide'>) {
   const model = () => ctx.configIfAny()?.decisions.model ?? 'none';
+  /** The person's opt-in to automatic decisions where the model is not proven yet. */
+  const experimental = () => ctx.configIfAny()?.decisions.experimental ?? false;
   const stateOf = (id: string) => sessionDecisions({ ...ctx, dir: ctx.paths.decisions }, id);
   /** The live session a call serves, or a usage error saying why none. */
   const bound = (given?: string): SessionRecord => {
@@ -106,6 +112,8 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
             {
               model: active,
               passed: active === 'none' ? [] : PASSED_GATE[active],
+              automatic: active === 'none' ? [] : automaticSites(active, experimental()),
+              proven: active === 'none' ? [] : provenSites(active),
               ask,
               clock: ctx.clock,
               // A kept decision is asked anew, so its receipt holds a real answer.
@@ -180,28 +188,44 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     /** What the session's delivery status reads: the model, whether it is off, and what was seen. */
     assistState: (session: SessionRecord) => {
       const state = stateOf(session.id).read();
-      return { model: model(), off: state.off === true, seen: state.seen ?? {} };
+      return {
+        model: model(),
+        experimental: experimental(),
+        off: state.off === true,
+        seen: state.seen ?? {},
+      };
     },
     /** What the session's details show: each site's mode, the deadlines, and recent use. */
     status: (given?: string) => {
       const session = bound(given);
       const active = model();
       const state = stateOf(session.id).read();
+      const automatic = active === 'none' ? [] : automaticSites(active, experimental());
+      const proven = active === 'none' ? [] : provenSites(active);
       const passed = active === 'none' ? [] : PASSED_GATE[active];
       return {
         session: session.id,
         project: projectLabel(session.project),
         model: active,
         off: state.off === true,
-        sites: REQUEST_SITES.map((site) => ({
-          site,
-          mode: (active === 'none' || state.off
-            ? 'off'
-            : passed.includes(site)
-              ? 'automatic'
-              : 'on-demand') satisfies SiteMode as SiteMode,
-          ...(active === 'none' ? {} : { acceptAt: ACCEPT_AT[active][site] }),
-        })),
+        sites: REQUEST_SITES.map((site) => {
+          const mode: SiteMode =
+            active === 'none' || state.off
+              ? 'off'
+              : automatic.includes(site)
+                ? 'automatic'
+                : 'on-demand';
+          // Automatic but not proven (opted in), or on demand but short of the quality gate.
+          const experimental =
+            mode === 'automatic' ? !proven.includes(site) : !passed.includes(site);
+          return {
+            site,
+            mode,
+            ...(active === 'none' ? {} : { acceptAt: ACCEPT_AT[active][site] }),
+            ...(active !== 'none' && experimental ? { experimental: true as const } : {}),
+            ...(active === 'none' ? {} : { measured: siteMeasure(active, site) }),
+          };
+        }),
         deadlines: Object.fromEntries(
           ASSIST_MODES.map((m) => [m, DEADLINE_MS[m]]),
         ) as typeof DEADLINE_MS,
