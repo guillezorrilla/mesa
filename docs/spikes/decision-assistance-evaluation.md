@@ -105,36 +105,42 @@ Then, from Finder, on a disposable profile (a Finder launch has no `MESA_PROFILE
 
 | Model | supervision | relevance | next-step | evidence | Same verdicts as #638 |
 | --- | --- | --- | --- | --- | --- |
-| jev-1.13.0 | pending live run | pending live run | pending live run | pending live run | pending live run |
-| clef | pending live run | pending live run | pending live run | pending live run | pending live run |
+| jev-1.13.0 | 26 accepted, 26 right (86.7%): pass | 27, 27 (90%): pass | 30, 29 (100%): pass | 26, 25 (86.7%): pass | yes |
+| clef | 30, 30 (100%): pass | 27, 27 (90%): pass | 29, 29 (96.7%): pass | 26, 25 (86.7%): pass | yes |
+
+Run on 2026-10-07 with `pnpm decisions:evaluate --backend jev|clef --profile p11-live --dataset heldout --json` (the keys read from the profile's Keychain item, as Mesa reads them). The model ids are unchanged (`jev-1.13.0`, `clef`), so no new calibration was needed. CLEF's numbers equal #638's; Jev's differ by one case at three sites (relevance 27 accepted against 28, next-step 30 accepted with 29 right against 29 and 29, evidence 25 right against 26), as a sampled model does, and every verdict is the same.
 
 ### Paired workflows
 
-Seed: pending live run. Claude Code version: pending live run.
+Seed: 1476997429. Claude Code 2.1.292, main model `sonnet` in every arm, 2026-10-07, profile `p11-live`, Mesa at the branch head. Results file: kept by the lead, not committed (it names local paths).
 
 | Arm | Solved | Total wall | Time per solved task | Advice delivered | Decision calls | Decision input tokens | Decision $ | Main-model tokens (in / out) | Main-model $ |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| off | pending live run | pending live run | pending live run | n/a | 0 | 0 | 0 | pending live run | pending live run |
-| jev | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
-| clef | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
+| off | 0/12 | 292.0 s | unbounded | n/a | 0 | 0 | 0 | 2,420,742 / 15,897 | $1.676 |
+| jev | 12/12 | 221.4 s | 18.4 s | 12/12 | 12 | 13,698 | $0.00058 | 1,809,914 / 13,899 | $1.526 |
+| clef | 12/12 | 221.5 s | 18.5 s | 12/12 | 12 | 11,632 | $0.00279 | 1,705,024 / 13,617 | $1.494 |
+
+Main-model input tokens include cache reads and writes.
 
 | Model | Successes vs off | Time per solved task vs off | Paired gate |
 | --- | --- | --- | --- |
-| jev | pending live run | pending live run | pending live run |
-| clef | pending live run | pending live run | pending live run |
+| jev | +12 (12 against 0) | 18.4 s against unbounded | pass |
+| clef | +12 (12 against 0) | 18.5 s against unbounded | pass |
 
-Per task (solved runs out of 2 per arm): pending live run.
+Per task (solved runs out of 2 per arm): format-amount, log-line, parse-weight, retry-manifest, shipment-id and sort-shipments each off 0/2, jev 2/2, clef 2/2. Without advice the agent never read the project's notes and every hidden test failed on its convention, as in the #459 pilot; with advice it was told the right note at the first prompt. The advice also made each run cheaper on the main model (about 9 to 11% fewer dollars), since the agent explored less.
 
 ### Concurrency (hook wall time, spawn to exit)
 
 | Model | Sessions | Off p50 / p95 | Assisted p50 / p95 / max | Added p50 / p95 | Answered | Unavailable (reasons) | Cross-session cache hits | Gate |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| jev | 1 | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
-| jev | 4 | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
-| jev | 8 | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
-| clef | 1 | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
-| clef | 4 | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
-| clef | 8 | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run | pending live run |
+| jev | 1 | 294 / 308 ms | 486 / 512 / 512 ms | 192 / 204 ms | 5/5 | 0 | 0 | pass |
+| jev | 4 | 334 / 342 ms | 575 / 604 / 609 ms | 241 / 262 ms | 20/20 | 0 | 0 | pass |
+| jev | 8 | 420 / 456 ms | 715 / 752 / 768 ms | 295 / 296 ms | 40/40 | 0 | 0 | pass |
+| clef | 1 | 294 / 317 ms | 707 / 966 / 966 ms | 413 / 649 ms | 5/5 | 0 | 0 | pass |
+| clef | 4 | 339 / 404 ms | 852 / 1,068 / 1,410 ms | 513 / 664 ms | 20/20 | 0 | 0 | pass |
+| clef | 8 | 437 / 498 ms | 972 / 1,182 / 1,271 ms | 535 / 684 ms | 40/40 | 0 | 0 | pass |
+
+5 turns per session, `pnpm decisions:concurrency --profile p11-live --sessions 1|4|8 --turns 5`, once with `decisions use jev` and once with `clef`, 2026-10-07. Every assisted hook, the whole process from spawn to exit, stayed within the 1,500 ms per-turn deadline (the slowest: 1,410 ms, CLEF with 4 sessions); no hook was killed and no call was unavailable.
 
 ### Hosted failure modes (simulated)
 
@@ -154,19 +160,19 @@ Once the model answers again, each session asks for itself and reads only its ow
 
 | Check | Result |
 | --- | --- |
-| `du -sh` of Mesa.app | pending live run |
-| Model weights in the bundle | pending live run |
-| Python runtime in the bundle | pending live run |
+| `du -sh` of Mesa.app | 312 MB (Mesa 0.1.7, build 320, ad-hoc signed `APPLE_SIGNING_IDENTITY=- pnpm release:build`, 2026-10-07); the only file over 20 MB is `Contents/MacOS/mesa`, the Node single executable (297 MB) |
+| Model weights in the bundle | none (the `find` for `*.safetensors`, `*.gguf`, `*.bin`, `*.pt`, `*.pth`, `*.onnx`, `*.mlmodel*`, `*.npz` prints nothing) |
+| Python runtime in the bundle | none (the `find` for `python*`, `*.py`, `*.pyc`, `site-packages`, `libpython*`, `Python.framework` prints nothing) |
 | Add and test a key (Jev, CLEF) | pending live run |
 | Switch Jev and CLEF | pending live run |
-| One real decision per qualified site | pending live run |
+| One real decision per qualified site | pass, through the app's own `Contents/MacOS/mesa` on profile `p11-live`, an invented project with two invented notes and a live session with a saved goal: relevance picked the tide-cache note over the icon note (CLEF answered from the answer prepared at launch, 0 ms; Jev 146 ms), next-step picked `invalidate-on-harbour` over deleting the cache, evidence accepted a claim backed by a passing test, each accepted by both models; `mesa decisions status` shows relevance automatic, next-step and evidence on demand |
 | Remove a key, back to rules | pending live run |
-| Keys only in the Keychain | pending live run |
+| Keys only in the Keychain | pass: 0 files under `~/.mesa/p11-live`, `~/Library/Logs`, `~/Library/Application Support/Mesa` and `~/Library/Caches/Mesa` contain either key (searched for the whole key, never printed) |
 | Cleanup | pending live run |
 
 ## Which sites become automatic
 
-Pending live run. Once accepted, the lead copies each passing model's paired result into `PAIRED` in `decisions/measured.ts` and its site into `PAIRED_PASSED` in `decisions/sites.ts` (the runner prints both lines); a test checks the two agree. A model that misses the gate leaves both empty: its sites stay on demand, with the measured result shown in Settings.
+Both models passed the paired gate at `relevance`, the only site Mesa delivers automatically inside a session, so `PAIRED_PASSED` is `['relevance']` for `jev` and `clef` and `PAIRED` in `decisions/measured.ts` holds the numbers above (a test checks the two agree). `relevance` is therefore automatic for both models; `next-step` and `evidence` passed the quality gate but are tool calls the agent makes, not measured by these workflows, so they stay on demand; `supervision` on the Board was not measured by them either and stays off unless the profile opts into experimental automatic decisions. Settings and the session details show each site's mode with both measured results.
 
 ## Epic #458: criteria and evidence
 
