@@ -470,3 +470,48 @@ test('details tell a configured decision tool from one observed, and restart a s
   );
   expect(delivery()).toContain('Advice Conflicting: Review and trust the Mesa hook in Codex.');
 });
+
+test("an Antigravity session without the global entry offers Mesa's hooks install, then reads again", async () => {
+  const row = managedRow('aaaaaaaa', { agent: 'antigravity' });
+  let installed = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'configured', reason: 'PreInvocation hook is configured' },
+        vault: {
+          state: 'configured',
+          reason: 'Global mesa-vault entry and allow rule are configured',
+        },
+        decisions: {
+          tool: installed
+            ? { state: 'configured', reason: 'Global mesa-decisions entry and allow rule' }
+            : {
+                state: 'missing',
+                reason: 'No global mesa-decisions entry; run mesa hooks install',
+                action: 'hooks install',
+              },
+          advice: { state: 'configured', reason: "PreInvocation re-sends the goal's ready advice" },
+        },
+      }),
+    'hooks install': () => {
+      installed = true;
+      return envelope({ result: { installed: true, changed: true }, receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  const delivery = () => byTestId('session-decision-delivery')[0]?.textContent ?? '';
+  expect(delivery()).toContain(
+    'Tool Missing: No global mesa-decisions entry; run mesa hooks install.',
+  );
+  await click(
+    [...document.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Install hooks to add the tool'),
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'hooks', 'install']);
+  expect(delivery()).toContain('Tool Configured: Global mesa-decisions entry and allow rule.');
+});

@@ -10,12 +10,12 @@ ADR-0019 "Delivery into sessions" and the #459 native delivery probe (`docs/spik
 
 | Path | Claude Code | Codex | Antigravity |
 | --- | --- | --- | --- |
-| Decision tool (`decision_evaluate`) | `mesa-decisions` in the per-launch `--mcp-config`, pre-approved with `--allowedTools=mcp__mesa-vault,mcp__mesa-decisions` | `mesa-decisions` as four `-c mcp_servers.mesa-decisions.*` overrides, `default_tools_approval_mode="approve"` | One global entry `mesa-decisions` in `~/.gemini/config/mcp_config.json` and the rule `mcp(mesa-decisions/*)` in `~/.gemini/antigravity-cli/settings.json`, written by `mesa hooks install` |
+| Decision tool (`decision_evaluate`) | `mesa-decisions` in the per-launch `--mcp-config`, pre-approved with `--allowedTools=mcp__mesa-vault,mcp__mesa-decisions` | `mesa-decisions` as four `-c mcp_servers.mesa-decisions.*` overrides, `default_tools_approval_mode="approve"` | One global entry `mesa-decisions` in `~/.gemini/config/mcp_config.json` and the rule `mcp(mesa-decisions/*)` in `~/.gemini/antigravity-cli/settings.json`, written by `mesa hooks install` only while the profile has a Decision model (an install without one removes Mesa's entry) |
 | Capability pointer | The SessionStart pointer ends with one `Decisions:` line (under 200 bytes) while the tool is configured | Same, at the first prompt (Codex runs SessionStart then) | Same, in the PreInvocation ephemeral message |
-| Automatic advice | `UserPromptSubmit` `additionalContext` for the prompt (ready answer, else one live ask within 1,500 ms) | `UserPromptSubmit` `additionalContext` (a developer message) | `PreInvocation` `injectSteps`: the saved goal's ready answer only, re-sent unchanged on every model call; its hook carries no prompt and never asks a model |
+| Automatic advice | `UserPromptSubmit` `additionalContext` for the prompt (ready answer, else one live ask with what is left of the 1,500 ms) | `UserPromptSubmit` `additionalContext` (a developer message) | `PreInvocation` `injectSteps`: the saved goal's ready answer only, re-sent unchanged on every model call; its hook carries no prompt and never asks a model |
 | Background ask at launch | The window runs `mesa decisions prepare` in a subshell before the agent, so the goal's first turn reads a ready answer | Same | Same (the only source of its advice) |
 
-Mesa's own hook deadline is 2,500 ms (`TURN_HOOK_MS`), half the native 5 s timeout; the model call itself has the 1,500 ms per-turn deadline. A miss, abstention, failure or late answer sends nothing. With no key nothing of `mesa-decisions` is mounted for Claude Code and Codex; Antigravity's global entry stays installed but its server lists no tools (the same rule as `mesa-vault` outside a session).
+A turn's hook spends at most the per-turn deadline, 1,500 ms in all (`PER_TURN_MS`, ADR-0019's frozen gate): the vault read, the ready answer and any live ask together, the ask getting only what is left, well under the native 5 s timeout. A miss, abstention, failure or late answer sends nothing. With no key nothing of `mesa-decisions` is mounted for any provider: Claude Code and Codex launch without it, and `mesa hooks install` writes no Antigravity entry (and removes Mesa's own).
 
 Fixture coverage already in the branch (not a substitute for this run): `packages/core/src/agents/{claude,codex,antigravity}/decision-assistance.test.ts`, `packages/core/src/sessions/native/instructions.test.ts`, `packages/cli/src/commands/hooks.test.ts`, `packages/cli/src/commands/decisions/mcp.test.ts`, `apps/desktop/src/app/App.sessions.test.tsx`.
 
@@ -68,7 +68,7 @@ FILES="$HOME/.claude/settings.json $CODEX_HOME/hooks.json $CODEX_HOME/config.tom
 mkdir -p "$SCRATCH/backup"
 for f in $FILES; do [ -f "$f" ] && cp -p "$f" "$SCRATCH/backup/$(echo "$f" | tr / _)"; done
 for f in $FILES; do [ -f "$f" ] && shasum -a 256 "$f" || echo "absent $f"; done | tee "$SCRATCH/sha-before.txt"
-$MESA $P hooks install --json | jq '.data | {changed, warning, antigravityVault: .antigravityVault.installed, antigravityDecisions: .antigravityDecisions.installed}'
+$MESA $P hooks install --json | jq '.data | {changed, warning, antigravityVault: .antigravityVault.installed, antigravityDecisions: .antigravityDecisions.installed, decisionsWanted: .antigravityDecisions.wanted}'
 $MESA $P hooks status
 # ... the matrix ...
 $MESA $P hooks uninstall --json | jq '.data.changed'
@@ -94,7 +94,7 @@ Expected: install adds only Mesa's entries (`jq` the files: every pre-existing k
 | Background | `$MESA $P open basalt-harbor --background --goal "<goal>" --json` | unsupported (Claude only) | unsupported (Claude only) |
 | Clear | `$MESA $P send $ID "/clear"`, then the later-turn prompt | `$MESA $P send $ID "/clear"` if the installed version has it, else untested | unsupported (no clear command observed) |
 | Compact | `$MESA $P send $ID "/compact"`, then the later-turn prompt | `$MESA $P send $ID "/compact"` | unsupported (no `/compact`, ADR-0012) |
-| No key | `$MESA $P decisions use none`, open fresh: no `mesa-decisions` in the launch, no `Decisions:` line, no advice; `decisions use clef` after | same | same: the entry stays, its server lists no tools |
+| No key | `$MESA $P decisions use none`, open fresh: no `mesa-decisions` in the launch, no `Decisions:` line, no advice; `decisions use clef` after | same | `$MESA $P decisions use none && $MESA $P hooks install`: no `mesa-decisions` entry or rule in the two Antigravity files, `show` says disabled; then `decisions use clef`: `show` says missing with action `hooks install` until `$MESA $P hooks install` |
 | Off | `$MESA $P decisions off --session $ID`, send the later-turn prompt: no advice, the tool lists nothing; `decisions on` after | same | same |
 | Outside Mesa | run `claude`, `codex`, `agy` in `$SCRATCH/basalt-harbor` from a plain terminal: no hook output, `mesa-decisions` lists no tools | same | same |
 
@@ -124,11 +124,11 @@ Configured = Mesa's config and `show` say so; Called = a real `decision_evaluate
 | Background | pending live run | unsupported | unsupported |
 | Clear | pending live run | pending live run (untested if the version has no `/clear`) | unsupported |
 | Compact | pending live run | pending live run | unsupported |
-| No key: nothing mounted or sent | pending live run | pending live run | pending live run (entry inert) |
+| No key: nothing mounted or sent | pending live run | pending live run | pending live run |
 | Off: no advice, no tool | pending live run | pending live run | pending live run |
 | Outside Mesa: inert | pending live run | pending live run | pending live run |
 | Global files byte for byte after uninstall | pending live run | pending live run | pending live run |
-| Added turn latency (hook, p50 / p95) | pending live run | pending live run | pending live run |
+| Added turn latency (hook, p50 / p95; the hook's own budget is 1,500 ms) | pending live run | pending live run | pending live run |
 
 Known limits going in: Antigravity's advice is the saved goal's only (its hook carries no prompt), so a session with no goal gets none (`show` says unsupported); a session started before the key cannot gain the tool until it is restarted (`show` says missing, with a restart action); Codex delivers nothing until the person reviews Mesa's changed hooks.
 

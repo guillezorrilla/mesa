@@ -144,7 +144,7 @@ test('Antigravity PreInvocation gives only the owning native conversation a tran
   expect(JSON.parse((await mesa('hook', 'antigravity')).stdout)).toEqual({});
 });
 
-test('show reports each mount; hooks manage Antigravity mesa-vault and mesa-decisions beside a user server and rule', async () => {
+test('show reports each mount; hooks manage Antigravity mesa-vault beside a user server and rule, and no mesa-decisions without a model', async () => {
   const world = cli.withTmux();
   await cli.withProject();
   cli.run = scriptedRunner({
@@ -183,22 +183,21 @@ test('show reports each mount; hooks manage Antigravity mesa-vault and mesa-deci
     installed: true,
     changed: true,
   });
+  // No Decision model: nothing of mesa-decisions is mounted (#463).
   expect(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers).toEqual({
     tide: { command: 'node', args: ['/opt/tide.js'] },
     'mesa-vault': { command: '/usr/local/bin/mesa', args: ['vault', 'mcp'] },
-    'mesa-decisions': { command: '/usr/local/bin/mesa', args: ['decisions', 'mcp'] },
   });
   expect(JSON.parse(readFileSync(rulesFile, 'utf8')).permissions.allow).toEqual([
     'command(git)',
     'mcp(mesa-vault/*)',
-    'mcp(mesa-decisions/*)',
   ]);
   expect(await vault(agy.id)).toEqual({
     state: 'configured',
     reason: 'Global mesa-vault entry and allow rule are configured',
   });
   expect((await mesa('hooks', 'status')).stdout).toContain(
-    `${mcpFile}\nok   mesa-vault entry\n${rulesFile}\nok   mesa-vault allow rule\n${mcpFile}\nok   mesa-decisions entry\n${rulesFile}\nok   mesa-decisions allow rule\n`,
+    `${mcpFile}\nok   mesa-vault entry\n${rulesFile}\nok   mesa-vault allow rule\n--   mesa-decisions entry: none without a Decision model\n`,
   );
   expect((await doctor()).status).toBe('ok');
 
@@ -579,6 +578,19 @@ test('with a Decision model a session mounts mesa-decisions, a prompt gets advic
     tool: { state: 'configured', reason: 'mesa-decisions is mounted in its launch command' },
     advice: { state: 'configured', reason: 'UserPromptSubmit adds advice to the turn' },
   });
+  // With the model, install writes Antigravity's entry too; once there is none, it takes it away.
+  const agyServers = () =>
+    Object.keys(
+      JSON.parse(readFileSync(join(cli.home, '.gemini/config/mcp_config.json'), 'utf8')).mcpServers,
+    );
+  expect(agyServers()).toEqual(['mesa-vault', 'mesa-decisions']);
+  await mesa('decisions', 'use', 'none');
+  expect((await mesa('hooks', 'install')).stdout).not.toContain('mesa-decisions entries');
+  expect(agyServers()).toEqual(['mesa-vault']);
+  await mesa('decisions', 'use', 'jev');
+  expect((await mesa('hooks', 'status')).stdout).toContain('MISS mesa-decisions entry');
+  await mesa('hooks', 'install');
+  expect(agyServers()).toEqual(['mesa-vault', 'mesa-decisions']);
 
   // Inside the window: the prompt's hook prints additionalContext JSON, for its own conversation.
   cli.env = { MESA_SESSION_ID: opened.id, MESA_PROFILE: 'default' };

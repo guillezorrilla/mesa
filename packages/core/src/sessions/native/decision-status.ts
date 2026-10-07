@@ -20,8 +20,11 @@ import type { InstructionStatus } from './instructions.js';
 export type DeliveryStatus = {
   state: InstructionStatus['state'] | 'disabled';
   reason: string;
-  /** What gives a session the mount it lacks: a restart of a live one, or a resume. */
-  action?: 'restart' | 'resume';
+  /**
+   * What gives a session the mount it lacks: a restart of a live one, a resume, or (Antigravity's
+   * global entry, written only while there is a Decision model) `mesa hooks install`.
+   */
+  action?: 'restart' | 'resume' | 'hooks install';
   /** When Mesa last saw it happen: the tool called, advice sent. */
   observedAt?: string;
 };
@@ -82,10 +85,17 @@ function toolStatus(
       return {
         state: 'conflicting',
         reason: 'Mesa mesa-decisions entry is stale; run mesa hooks install',
+        action: 'hooks install',
         ...seen,
       };
+    // Written by mesa hooks install only while there is a Decision model: one chosen since needs it.
     if (!mount.server || !mount.rule)
-      return { state: 'missing', reason: 'Run mesa hooks install', ...seen };
+      return {
+        state: 'missing',
+        reason: 'No global mesa-decisions entry; run mesa hooks install',
+        action: 'hooks install',
+        ...seen,
+      };
     if (mount.disabled)
       return { state: 'missing', reason: 'mesa-decisions is disabled in Antigravity', ...seen };
     return { state: 'configured', reason: 'Global mesa-decisions entry and allow rule', ...seen };

@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import type { MesaDeps } from '../context.js';
 import type { Decision, DecisionRecorder, DecisionsModel } from '../decisions/types.js';
 import { createMesa } from '../mesa.js';
 import type { NewSession } from '../sessions/record/record.js';
@@ -35,17 +36,20 @@ export function memoryRecorder(): DecisionRecorder & { decisions: Decision[] } {
 /**
  * A live claude session on lantern-cove saved with `goal` (and `session`'s fields), in a profile
  * over systemOneWorld whose Decision model is `model` (its invented key saved, so the world's
- * requests start empty), with `mesa` running inside the session's window and `person` outside
- * any. `put` writes an invented vault item, and `plant` another session record.
+ * requests start empty), with `mesa` running inside the session's window (over `deps`, such as
+ * its own clock) and `person` outside any. `put` writes an invented vault item, and `plant`
+ * another session record.
  */
 export async function assistedSession({
   model = 'jev',
   goal = 'Make the tide table import retry when the feed answers 503',
   session: fields = {},
+  deps = {},
 }: {
   model?: DecisionsModel;
   goal?: string;
   session?: Partial<NewSession>;
+  deps?: Partial<MesaDeps>;
 } = {}) {
   const world = systemOneWorld();
   const { home, mesa: person } = projectProfile(scriptedRunner().run, world.deps);
@@ -60,7 +64,7 @@ export async function assistedSession({
   const plant = (overrides: Partial<NewSession> = {}) => store.create(() => newSession(overrides));
   const session = plant({ goal, ...fields });
   const env = windowEnv(session.id, 'default');
-  const mesa = createMesa('default', testDeps(home, { ...world.deps, env }));
+  const mesa = createMesa('default', testDeps(home, { ...world.deps, env, ...deps }));
   const vault = join(home, 'vault');
   const put = (path: string, text: string) => {
     mkdirSync(dirname(join(vault, path)), { recursive: true });

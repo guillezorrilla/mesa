@@ -75,8 +75,13 @@ test('its status: configured from the global entries, and advice unsupported wit
   const host = { home, env: {}, self: MESA };
   const status = (record = session) =>
     decisionStatus(record, mesa.decisions.assistState(record), host);
+  // A model and no entry (chosen after the last install): show names the install that adds it.
   expect(status()).toEqual({
-    tool: { state: 'missing', reason: 'Run mesa hooks install' },
+    tool: {
+      state: 'missing',
+      reason: 'No global mesa-decisions entry; run mesa hooks install',
+      action: 'hooks install',
+    },
     advice: { state: 'missing', reason: 'Run mesa hooks install' },
   });
   mesa.hooks.install();
@@ -93,4 +98,31 @@ test('its status: configured from the global entries, and advice unsupported wit
   expect(AGENTS.antigravity.start('g', '/tmp/x.log', NATIVE_LAUNCH)).not.toContain(
     'mesa-decisions',
   );
+});
+
+test("with no Decision model install writes no mesa-decisions entry, and takes Mesa's own away", async () => {
+  const { mesa, person, home } = await assistedAgent('antigravity', CONVERSATION);
+  const mcpFile = antigravityMcpConfig(home);
+  const rulesFile = antigravityCliSettings(home);
+  const servers = () => Object.keys(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers);
+  const rules = () => JSON.parse(readFileSync(rulesFile, 'utf8')).permissions.allow;
+  mesa.hooks.install();
+  expect(servers()).toEqual(['mesa-vault', 'mesa-decisions']);
+  await person.decisions.use('none');
+  const installed = mesa.hooks.install().result;
+  expect(installed.antigravityDecisions).toMatchObject({ installed: false, wanted: false });
+  expect(servers()).toEqual(['mesa-vault']);
+  expect(rules()).toEqual(['mcp(mesa-vault/*)']);
+  expect((await mesa.hooks.status()).antigravityDecisions).toMatchObject({
+    server: false,
+    rule: false,
+    wanted: false,
+  });
+  // A server of the user's under that name is never taken, with a model or without one.
+  const theirs = `${JSON.stringify({ mcpServers: { 'mesa-decisions': { command: 'node', args: ['/opt/advisor.js'] } } })}\n`;
+  writeFileSync(mcpFile, theirs);
+  expect(mesa.hooks.install().result.antigravityDecisions.conflict).toContain(
+    'mesa-decisions belongs to another server',
+  );
+  expect(readFileSync(mcpFile, 'utf8')).toBe(theirs);
 });

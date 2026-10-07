@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { TURN_HOOK_MS } from '../../decisions/delivery.js';
+import { PER_TURN_MS } from '../../decisions/models.js';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
 import { goalPreparing, sessionWindowCommand } from '../../sessions/start/launch.js';
 import {
@@ -128,10 +128,28 @@ test('an abstaining, failing or slow model skips advice, well inside the native 
   const started = Date.now();
   const slow = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'third' }));
   expect(slow && 'advice' in slow).toBe(false);
-  // The 1,500 ms per-turn deadline ends the call; Mesa's own deadline is half the native timeout.
-  expect(Date.now() - started).toBeLessThan(TURN_HOOK_MS);
+  // The per-turn deadline (1,500 ms in all, ADR-0019) ends the call, far inside the native 5 s;
+  // the slack is this test's own process, not the hook's budget.
+  expect(Date.now() - started).toBeLessThan(PER_TURN_MS + 250);
   expect(world.aborted).toHaveLength(1);
 }, 10_000);
+
+test('the live ask gets only what the per-turn budget leaves after the vault read', async () => {
+  // A clock that runs 400 ms on every reading: by the ask, the 1,500 ms are spent.
+  let now = Date.parse('2026-09-24T12:00:00.000Z');
+  const clock = () => {
+    now += 400;
+    return new Date(now);
+  };
+  const { mesa, world } = await assistedAgent('claude', NATIVE_ID, { deps: { clock } });
+  world.stall('jev');
+  const started = Date.now();
+  const event = await mesa.hookEvent('claude', prompt(NATIVE_ID));
+  expect(event && 'advice' in event).toBe(false);
+  // Asked with nothing left, the stalled call ends at once instead of waiting 1,500 ms more.
+  expect(Date.now() - started).toBeLessThan(PER_TURN_MS / 2);
+  expect(world.aborted).toHaveLength(1);
+});
 
 test("the goal's answer prepared at launch is its first turn's ready answer", async () => {
   const { mesa, session, world } = await assistedAgent('claude', NATIVE_ID);

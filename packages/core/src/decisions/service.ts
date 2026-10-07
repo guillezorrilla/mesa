@@ -5,7 +5,7 @@ import type { Recorded } from '../receipts/recorder.js';
 import { projectLabel } from '../sessions/record/general.js';
 import type { SessionRecord } from '../sessions/record/record.js';
 import type { Stdio } from '../vault/mount/mcp-server.js';
-import { TURN_HOOK_MS, turnAdvice } from './delivery.js';
+import { turnAdvice } from './delivery.js';
 import {
   ASSIST_MODES,
   type AssistMode,
@@ -16,6 +16,7 @@ import {
   NO_MODEL,
 } from './evaluate.js';
 import type { Faro } from './faro.js';
+import { PER_TURN_MS } from './models.js';
 import { PACKET_CHARS, type Packet } from './packet.js';
 import { answerRequest, type DecisionAnswer, decisionRequest, REQUEST_SITES } from './request.js';
 import { decisionBinding } from './scope.js';
@@ -39,6 +40,8 @@ export type EvaluateOptions = {
   signal?: AbortSignal;
   /** Only an answer made before (evaluate's readyOnly). */
   readyOnly?: boolean;
+  /** The clock time (ms) the whole call ends by: a model is asked only for what is left of it. */
+  until?: number;
   /** Keep this one as a decision receipt, with why it matters. */
   rationale?: string;
 };
@@ -66,7 +69,13 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
   const answer = async (
     session: SessionRecord,
     raw: unknown,
-    { mode = 'on-demand', signal, rationale, readyOnly }: Omit<EvaluateOptions, 'session'> = {},
+    {
+      mode = 'on-demand',
+      signal,
+      rationale,
+      readyOnly,
+      until,
+    }: Omit<EvaluateOptions, 'session'> = {},
   ): Promise<DecisionAnswer & { receipt?: Recorded<Decision>['receipt'] }> => {
     const request = decisionRequest(raw);
     if (rationale !== undefined && mode !== 'on-demand')
@@ -75,7 +84,10 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     const disabled = active !== 'none' && turnedOff(session);
     const memory = stateOf(session.id).memory;
     let receipt: Recorded<Decision>['receipt'] | undefined;
-    const ask: EvaluateDeps['ask'] = async (state, questions, deadlineMs, options) => {
+    const ask: EvaluateDeps['ask'] = async (state, questions, full, options) => {
+      // What the call's budget leaves after reading the vault and the ready answers.
+      const deadlineMs =
+        until === undefined ? full : Math.max(0, Math.min(full, until - ctx.clock().getTime()));
       if (rationale === undefined) return faro.ask(state, questions, deadlineMs, options);
       const recorded = await faro.decide(state, questions, { session: session.id, rationale });
       receipt = recorded.receipt;
@@ -119,21 +131,24 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
 
   /**
    * Automatic advice for `session`, a live record its own hook already checked (ADR-0019): the
-   * scoped context of `query` (else its saved goal) at the relevance site, within TURN_HOOK_MS,
-   * or only a ready answer; the words to send, or nothing (off, no model, a miss, an abstention, a
-   * late or failed call). What is sent is noted as observed.
+   * scoped context of `query` (else its saved goal) at the relevance site, all within the per-turn
+   * deadline (PER_TURN_MS, ADR-0019: the ready read and any live ask together, the ask getting
+   * only what is left), or only a ready answer; the words to send, or nothing (off, no model, a
+   * miss, an abstention, a late or failed call). What is sent is noted as observed.
    */
   const advise = async (
     session: SessionRecord,
     query: string | undefined,
     { readyOnly }: { readyOnly?: boolean } = {},
   ): Promise<string | undefined> => {
+    const until = ctx.clock().getTime() + PER_TURN_MS;
+    const signal = AbortSignal.timeout(PER_TURN_MS);
     const asked = query?.trim() || session.goal?.trim();
     if (!asked || off(session)) return undefined;
     const context = await answer(
       session,
       { site: 'relevance', query: clip(asked, 500) },
-      { mode: 'automatic', signal: AbortSignal.timeout(TURN_HOOK_MS), readyOnly },
+      { mode: 'automatic', signal, until, readyOnly },
     );
     const text = 'sources' in context ? turnAdvice(context) : undefined;
     if (text) stateOf(session.id).saw('advice');

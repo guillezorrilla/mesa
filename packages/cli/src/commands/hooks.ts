@@ -8,6 +8,11 @@ const vaultLines = (vault: HooksStatus['antigravityVault'], name = 'mesa-vault')
   vault.conflict
     ? `${vault.path}\nCONFLICT ${vault.conflict}`
     : `${vault.path}\n${mark(vault.server)} ${name} entry${vault.disabled ? ' (disabled in Antigravity)' : ''}\n${vault.rulePath}\n${mark(vault.rule)} ${name} allow rule`;
+/** Antigravity's mesa-decisions entry and rule, which only a profile with a Decision model wants. */
+const decisionsLines = (decisions: HooksStatus['antigravityDecisions']) =>
+  decisions.wanted || decisions.server || decisions.conflict
+    ? vaultLines(decisions, 'mesa-decisions')
+    : '--   mesa-decisions entry: none without a Decision model';
 /** Where install or uninstall changed Antigravity's MCP files; none when they conflict. */
 const vaultFiles = (
   s: Pick<HooksStatus, 'antigravityVault' | 'antigravityDecisions'>,
@@ -15,7 +20,9 @@ const vaultFiles = (
 ) => {
   const names = [
     ...(s.antigravityVault.conflict ? [] : ['mesa-vault']),
-    ...(s.antigravityDecisions.conflict ? [] : ['mesa-decisions']),
+    ...(s.antigravityDecisions.conflict || (at === 'in' && !s.antigravityDecisions.wanted)
+      ? []
+      : ['mesa-decisions']),
   ];
   return names.length
     ? `, and its ${names.join(' and ')} entries ${at} ${s.antigravityVault.path} and ${s.antigravityVault.rulePath}`
@@ -45,7 +52,7 @@ export const hooksStatus = defineCommand({
       .join('\n');
     return {
       data: status,
-      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${vaultLines(status.antigravityDecisions, 'mesa-decisions')}\n${tmux}`,
+      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${decisionsLines(status.antigravityDecisions)}\n${tmux}`,
     };
   },
 });
@@ -53,7 +60,7 @@ export const hooksStatus = defineCommand({
 export const hooksInstall = defineCommand({
   name: 'hooks install',
   summary:
-    "Add Mesa's agent hooks and Antigravity's mesa-vault and mesa-decisions entries; the user's own stay as they are",
+    "Add Mesa's agent hooks and Antigravity's mesa-vault entry, and its mesa-decisions entry with a Decision model; the user's own stay as they are",
   example: 'mesa hooks install',
   run: ({ mesa }) => {
     const recorded = mesa.hooks.install();

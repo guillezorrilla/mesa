@@ -38,7 +38,8 @@ export function DoctorScreen({ doctor }: { doctor: CommandState<DoctorReport> })
     hooks.data.codex?.installed !== false &&
     hooks.data.antigravity?.installed !== false &&
     hooks.data.antigravityVault?.installed !== false &&
-    hooks.data.antigravityDecisions?.installed !== false;
+    // mesa-decisions only while the profile has a Decision model (#463).
+    (hooks.data.antigravityDecisions?.wanted !== true || hooks.data.antigravityDecisions.installed);
   const run = useRun();
   const { acting, act } = useAct();
   const change = (name: 'hooks.install' | 'hooks.uninstall') =>

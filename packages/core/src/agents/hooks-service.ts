@@ -13,18 +13,24 @@ export type HooksStatus = ClaudeHooksStatus & {
   codex: codex.CodexHooksStatus;
   antigravity: ReturnType<typeof antigravity.hooksStatus>;
   antigravityVault: ReturnType<typeof antigravityVault.vaultMountStatus>;
-  /** Antigravity's mesa-decisions entry and rule (#463), owned as mesa-vault's are. */
-  antigravityDecisions: ReturnType<typeof antigravityVault.vaultMountStatus>;
+  /**
+   * Antigravity's mesa-decisions entry and rule (#463), owned as mesa-vault's are, and whether the
+   * profile wants them: only while it has a Decision model.
+   */
+  antigravityDecisions: ReturnType<typeof antigravityVault.vaultMountStatus> & { wanted: boolean };
   tmux: TmuxHookStatus;
 };
 
 /**
  * Mesa's agent hooks, Antigravity's global mesa-vault and mesa-decisions entries and allow rules,
- * and the pane-died hook on the profile's tmux server.
+ * and the pane-died hook on the profile's tmux server. With no Decision model nothing of
+ * mesa-decisions is mounted (#463): install writes no entry for it and removes Mesa's own.
  */
 export function hooksService(ctx: MesaContext) {
   const { record } = ctx;
   const home = codexHome(ctx.home, ctx.env);
+  /** Whether the profile has a Decision model (only one whose key is set can be chosen). */
+  const wanted = () => (ctx.configIfAny()?.decisions.model ?? 'none') !== 'none';
   const change = (install: boolean) => {
     // Validate every file before changing any, including Codex's read-only trust config.
     hooksStatus(ctx.home, ctx.env, ctx.self);
@@ -41,7 +47,15 @@ export function hooksService(ctx: MesaContext) {
       ? antigravityVault.installVaultMount
       : antigravityVault.uninstallVaultMount;
     const vault = mount(ctx.home, ctx.self);
-    const decisions = mount(ctx.home, ctx.self, DECISIONS_MOUNT);
+    const want = wanted();
+    const decisions = {
+      ...(install && want ? mount : antigravityVault.uninstallVaultMount)(
+        ctx.home,
+        ctx.self,
+        DECISIONS_MOUNT,
+      ),
+      wanted: want,
+    };
     return {
       ...claude,
       codex: result,
@@ -58,7 +72,10 @@ export function hooksService(ctx: MesaContext) {
       codex: codex.hooksStatus(home, ctx.self),
       antigravity: antigravity.hooksStatus(ctx.home, ctx.self),
       antigravityVault: antigravityVault.vaultMountStatus(ctx.home, ctx.self),
-      antigravityDecisions: antigravityVault.vaultMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
+      antigravityDecisions: {
+        ...antigravityVault.vaultMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
+        wanted: wanted(),
+      },
       tmux: await ctx.tmuxHook(),
     }),
     /** Adds every agent's entries; running it twice leaves one per event, entry, and rule. */

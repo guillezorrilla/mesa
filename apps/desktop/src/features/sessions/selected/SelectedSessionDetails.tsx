@@ -167,7 +167,21 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                   {record?.decisions && (
                     <DecisionDeliveryField
                       status={record.decisions}
-                      acting={restarting || row.lastState.state === 'working'}
+                      acting={restarting}
+                      working={row.lastState.state === 'working'}
+                      onInstallHooks={() => {
+                        // Antigravity's global entry, which install writes with a Decision model.
+                        setRestarting(true);
+                        void call('hooks.install')
+                          .then((installed) =>
+                            installed.ok ? call('sessions.show', { id: row.id }) : installed,
+                          )
+                          .then((result) => {
+                            if (!result.ok) setError(result.error.message);
+                            else if ('decisions' in result.data) setRecord(result.data);
+                          })
+                          .finally(() => setRestarting(false));
+                      }}
                       onRestart={() => {
                         // Argv cannot change in a running agent: stop it, then resume it through
                         // Mesa, which launches it with mesa-decisions mounted.
