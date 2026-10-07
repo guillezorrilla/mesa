@@ -18,7 +18,7 @@ export type SystemOneProvider = (typeof SYSTEM_ONE_PROVIDERS)[number];
  */
 export const SYSTEM_ONE_MODELS: Record<SystemOneProvider, string> = {
   jev: 'jev-1.13.0',
-  clef: 'clef-flash',
+  clef: 'clef',
 };
 
 const PROVIDERS: Record<

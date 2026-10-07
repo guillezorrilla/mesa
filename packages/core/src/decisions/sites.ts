@@ -79,8 +79,9 @@ export function margin(answer: Answer): number {
  * never below 0.5, truncated to 3 places; `fitAcceptAt` in `evaluation/`): below it, Mesa abstains.
  */
 export const ACCEPT_AT: Record<SystemOneProvider, Record<DecisionSite, number>> = {
-  jev: { supervision: 1, relevance: 1, 'next-step': 1, evidence: 1 },
-  clef: { supervision: 1, relevance: 1, 'next-step': 1, evidence: 1 },
+  // jev-1.13.0 and clef (27B), on 2026-10-05 (docs/spikes/jev-clef-qualification.md).
+  jev: { supervision: 0.568, relevance: 0.5, 'next-step': 0.5, evidence: 0.5 },
+  clef: { supervision: 0.762, relevance: 0.5, 'next-step': 0.684, evidence: 0.509 },
 };
 
 /**
