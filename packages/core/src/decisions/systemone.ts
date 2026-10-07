@@ -18,8 +18,15 @@ export type SystemOneProvider = (typeof SYSTEM_ONE_PROVIDERS)[number];
  */
 export const SYSTEM_ONE_MODELS: Record<SystemOneProvider, string> = {
   jev: 'jev-1.13.0',
-  clef: 'clef-flash',
+  clef: 'clef',
 };
+
+/** Cloudflare's REST envelope around the System One body. */
+const CloudflareEnvelope = z.object({
+  success: z.boolean(),
+  result: z.unknown().optional(),
+  errors: z.array(z.object({ message: z.string() })).optional(),
+});
 
 const PROVIDERS: Record<
   SystemOneProvider,
@@ -28,18 +35,30 @@ const PROVIDERS: Record<
     url: (accountId: string | undefined, model: string) => string;
     /** List price per million input tokens, by the requested model; output is not billed. */
     usdPerMInput: (model: string) => number | undefined;
+    /** The System One body inside the provider's response, or a MesaError. */
+    unwrap: (json: unknown) => unknown;
   }
 > = {
   jev: {
     label: 'Jev',
     url: () => 'https://api.typesafe.ai/v1/systemone',
     usdPerMInput: () => 0.042,
+    unwrap: (json) => json,
   },
   clef: {
     label: 'CLEF',
     url: (accountId, model) =>
       `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId ?? '')}/ai/run/@cf/cloudflare/${model}`,
     usdPerMInput: (model) => ({ 'clef-flash': 0.09, clef: 0.24 })[model],
+    unwrap: (json) => {
+      const envelope = CloudflareEnvelope.safeParse(json);
+      if (!envelope.success) throw new MesaError('internal', 'CLEF answered an unexpected body');
+      if (!envelope.data.success) {
+        const why = envelope.data.errors?.[0]?.message ?? 'no reason given';
+        throw new MesaError('internal', `CLEF reported an error: ${why}`);
+      }
+      return envelope.data.result;
+    },
   },
 };
 
@@ -63,12 +82,6 @@ const WireResponse = z.object({
   model: z.string(),
   answers: z.record(z.string(), WireAnswer),
   usage: z.object({ input_tokens: z.number() }).optional(),
-});
-/** Cloudflare's REST envelope around the System One body. */
-const CloudflareEnvelope = z.object({
-  success: z.boolean(),
-  result: z.unknown().optional(),
-  errors: z.array(z.object({ message: z.string() })).optional(),
 });
 
 /** The wire question: Faro's wording when given, else the bare names (`null` descriptions). */
@@ -174,7 +187,7 @@ export type SystemOneReply = {
  * and Faro's rules stand.
  */
 export function systemOneBackend(deps: SystemOneDeps) {
-  const { label, url, usdPerMInput } = PROVIDERS[deps.provider];
+  const { label, url, usdPerMInput, unwrap } = PROVIDERS[deps.provider];
   return {
     name: deps.provider,
     answer: async (state: unknown, questions: Question[]): Promise<SystemOneReply> => {
@@ -199,17 +212,7 @@ export function systemOneBackend(deps: SystemOneDeps) {
           throw new MesaError('timeout', `${label} did not answer within ${deps.deadlineMs} ms`);
         throw new MesaError('internal', `${label} could not be reached`);
       }
-      if (deps.provider === 'clef') {
-        const envelope = CloudflareEnvelope.safeParse(json);
-        if (!envelope.success)
-          throw new MesaError('internal', `${label} answered an unexpected body`);
-        if (!envelope.data.success) {
-          const why = envelope.data.errors?.[0]?.message ?? 'no reason given';
-          throw new MesaError('internal', `${label} reported an error: ${why}`);
-        }
-        json = envelope.data.result;
-      }
-      const reply = WireResponse.safeParse(json);
+      const reply = WireResponse.safeParse(unwrap(json));
       if (!reply.success) throw new MesaError('internal', `${label} answered an unexpected body`);
       const answers = questions.map((q) => {
         const wire = reply.data.answers[q.id];

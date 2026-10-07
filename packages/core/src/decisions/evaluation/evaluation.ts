@@ -4,7 +4,14 @@ import type { Clock } from '../../lib/clock.js';
 import { classify } from '../../sessions/signals/state.js';
 import { checked } from '../decide.js';
 import { rulesBackend, type Weights } from '../rules.js';
-import { accepted, DECISION_SITES, type DecisionSite, margin, siteQuestion } from '../sites.js';
+import {
+  type AcceptAt,
+  accepted,
+  DECISION_SITES,
+  type DecisionSite,
+  margin,
+  siteQuestion,
+} from '../sites.js';
 import type { Answer, Question } from '../types.js';
 import type { EvalCase } from './corpus.js';
 
@@ -21,7 +28,7 @@ export type EvalBackend = {
 };
 
 /** A model under test: its backend and the thresholds its answers are accepted at. */
-export type EvalModel = { backend: EvalBackend; acceptAt: Record<DecisionSite, number> };
+export type EvalModel = { backend: EvalBackend; acceptAt: AcceptAt };
 
 const Reply = z.union([
   z.array(z.unknown()),
@@ -162,7 +169,7 @@ function ece(rows: readonly { p: number; correct: boolean }[]) {
 }
 
 /** The ADR-0019 per-turn packet: latency is gated for packets of at most this many input tokens. */
-export const PACKET_TOKENS = 1024;
+const PACKET_TOKENS = 1024;
 
 const mean = (xs: readonly number[]) =>
   xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -241,7 +248,7 @@ export function meetsGate(site: DecisionSite, s: SiteSummary, baseline?: SiteSum
  * gate, and use its lowest margin, never below 0.5, truncated to 3 places. A site where no top set
  * meets the gate gets 1: only certain answers are accepted.
  */
-export function fitAcceptAt(results: readonly CaseResult[]): Record<DecisionSite, number> {
+export function fitAcceptAt(results: readonly CaseResult[]): AcceptAt {
   const fit = (site: DecisionSite) => {
     const answered = results.flatMap((r) => (r.site !== site || 'unavailable' in r ? [] : [r]));
     const cuts = [...new Set(answered.map((r) => r.margin))].sort((a, b) => a - b);
@@ -265,7 +272,7 @@ export function report(
   backend: string,
   dataset: string,
   results: readonly CaseResult[],
-  acceptAt?: Record<DecisionSite, number>,
+  acceptAt?: AcceptAt,
 ) {
   const sites = DECISION_SITES.filter((site) => results.some((r) => r.site === site));
   const models = [...new Set(results.flatMap((r) => ('model' in r && r.model ? [r.model] : [])))];

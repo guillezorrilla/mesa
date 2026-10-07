@@ -1,7 +1,4 @@
 {
-  "success": true,
-  "errors": [],
-  "messages": [],
   "result": {
     "model": "clef-flash",
     "answers": {
@@ -9,35 +6,38 @@
         "type": "choice",
         "choice": "waiting-permission",
         "probabilities": {
-          "working": 0.1606,
-          "waiting-permission": 0.8008,
-          "idle": 0.0386
+          "working": 0.0355,
+          "waiting-permission": 0.9462,
+          "idle": 0.0183
         },
-        "confidence": 0.7013
+        "confidence": 0.8454
       },
       "urgency": {
         "type": "score",
-        "score": 0.809,
+        "score": 0.9078,
         "legend": {
           "0": "none",
           "1": "low",
           "2": "high"
         },
         "probabilities": {
-          "0": 0.41,
-          "1": 0.371,
-          "2": 0.219
+          "0": 0.2303,
+          "1": 0.6316,
+          "2": 0.1381
         },
-        "confidence": 0.3368
+        "confidence": 0.2066
       },
       "human": {
         "type": "noul",
-        "noul": 0.2817
+        "noul": 0.6972
       }
     },
     "usage": {
-      "input_tokens": 282,
-      "output_tokens": 3
+      "input_tokens": 383,
+      "output_tokens": 0
     }
-  }
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
 }
