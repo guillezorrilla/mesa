@@ -131,6 +131,47 @@ With 0 of 12 solved off, time per solved task off is unbounded, so under the fro
 
 Per task (solved runs out of 2 per arm): format-amount, log-line, parse-weight, retry-manifest, shipment-id and sort-shipments each off 0/2, jev 2/2, clef 2/2. Without advice the agent never read the project's notes and every hidden test failed on its convention, as in the #459 pilot; with advice it was told the right note at the first prompt. The advice also made each run cheaper on the main model (about 9 to 11% fewer dollars), since the agent explored less.
 
+Every run, in the order it ran (dollars at list price):
+
+| # | Arm | Task | Rep | Result | Wall | Decision calls | Decision input tokens | Decision $ | Main-model tokens (in / out) | Main-model $ | Advice delivered |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | jev | sort-shipments | 2 | solved | 14.6 s | 1 | 1,135 | 0.000048 | 101,806 / 859 | 0.119 | yes |
+| 2 | jev | parse-weight | 1 | solved | 25.8 s | 1 | 1,143 | 0.000048 | 245,056 / 2,051 | 0.160 | yes |
+| 3 | clef | shipment-id | 2 | solved | 13.6 s | 1 | 965 | 0.000232 | 100,493 / 581 | 0.107 | yes |
+| 4 | jev | shipment-id | 2 | solved | 15.6 s | 1 | 1,136 | 0.000048 | 136,031 / 753 | 0.119 | yes |
+| 5 | jev | parse-weight | 2 | solved | 26.9 s | 1 | 1,143 | 0.000048 | 241,640 / 2,217 | 0.160 | yes |
+| 6 | jev | shipment-id | 1 | solved | 12.6 s | 1 | 1,136 | 0.000048 | 100,465 / 509 | 0.106 | yes |
+| 7 | jev | retry-manifest | 1 | solved | 15.7 s | 1 | 1,148 | 0.000048 | 102,207 / 1,007 | 0.115 | yes |
+| 8 | jev | log-line | 1 | solved | 18.7 s | 1 | 1,149 | 0.000048 | 171,225 / 1,248 | 0.133 | yes |
+| 9 | clef | sort-shipments | 2 | solved | 20.7 s | 1 | 963 | 0.000231 | 171,330 / 1,705 | 0.139 | yes |
+| 10 | clef | format-amount | 2 | solved | 16.7 s | 1 | 966 | 0.000232 | 134,548 / 798 | 0.117 | yes |
+| 11 | off | parse-weight | 2 | failed | 20.8 s | 0 | 0 | 0.000000 | 205,548 / 1,349 | 0.142 | no |
+| 12 | off | sort-shipments | 1 | failed | 18.8 s | 0 | 0 | 0.000000 | 168,583 / 871 | 0.125 | no |
+| 13 | clef | log-line | 2 | solved | 18.7 s | 1 | 975 | 0.000234 | 101,766 / 1,110 | 0.116 | yes |
+| 14 | off | log-line | 2 | failed | 25.8 s | 0 | 0 | 0.000000 | 275,792 / 1,799 | 0.162 | no |
+| 15 | clef | parse-weight | 2 | solved | 26.8 s | 1 | 972 | 0.000233 | 312,158 / 2,178 | 0.175 | yes |
+| 16 | off | shipment-id | 2 | failed | 20.8 s | 0 | 0 | 0.000000 | 204,414 / 1,195 | 0.139 | no |
+| 17 | jev | format-amount | 1 | solved | 14.6 s | 1 | 1,138 | 0.000048 | 133,915 / 596 | 0.114 | yes |
+| 18 | clef | shipment-id | 1 | solved | 14.6 s | 1 | 965 | 0.000232 | 135,213 / 931 | 0.120 | yes |
+| 19 | clef | log-line | 1 | solved | 17.6 s | 1 | 975 | 0.000234 | 137,428 / 1,131 | 0.125 | yes |
+| 20 | clef | sort-shipments | 1 | solved | 15.7 s | 1 | 963 | 0.000231 | 101,015 / 800 | 0.111 | yes |
+| 21 | jev | sort-shipments | 1 | solved | 18.7 s | 1 | 1,135 | 0.000048 | 135,862 / 1,515 | 0.127 | yes |
+| 22 | clef | retry-manifest | 1 | solved | 15.7 s | 1 | 975 | 0.000234 | 101,906 / 936 | 0.114 | yes |
+| 23 | off | retry-manifest | 2 | failed | 22.8 s | 0 | 0 | 0.000000 | 171,283 / 1,842 | 0.140 | no |
+| 24 | off | format-amount | 1 | failed | 20.8 s | 0 | 0 | 0.000000 | 203,766 / 1,186 | 0.138 | no |
+| 25 | jev | format-amount | 2 | solved | 17.6 s | 1 | 1,138 | 0.000048 | 168,243 / 788 | 0.124 | yes |
+| 26 | off | shipment-id | 1 | failed | 20.7 s | 0 | 0 | 0.000000 | 240,381 / 1,595 | 0.153 | no |
+| 27 | off | parse-weight | 1 | failed | 54.4 s | 0 | 0 | 0.000000 | 204,692 / 1,353 | 0.141 | no |
+| 28 | clef | parse-weight | 1 | solved | 25.9 s | 1 | 972 | 0.000233 | 171,796 / 1,686 | 0.138 | yes |
+| 29 | clef | format-amount | 1 | solved | 17.7 s | 1 | 966 | 0.000232 | 135,232 / 816 | 0.118 | yes |
+| 30 | jev | retry-manifest | 2 | solved | 16.7 s | 1 | 1,148 | 0.000048 | 102,136 / 972 | 0.115 | yes |
+| 31 | jev | log-line | 2 | solved | 23.8 s | 1 | 1,149 | 0.000048 | 171,328 / 1,384 | 0.134 | yes |
+| 32 | off | retry-manifest | 1 | failed | 22.8 s | 0 | 0 | 0.000000 | 136,318 / 1,588 | 0.129 | no |
+| 33 | off | sort-shipments | 2 | failed | 22.8 s | 0 | 0 | 0.000000 | 168,717 / 964 | 0.127 | no |
+| 34 | off | format-amount | 2 | failed | 24.8 s | 0 | 0 | 0.000000 | 271,720 / 1,300 | 0.153 | no |
+| 35 | clef | retry-manifest | 2 | solved | 17.7 s | 1 | 975 | 0.000234 | 102,139 / 945 | 0.115 | yes |
+| 36 | off | log-line | 1 | failed | 16.7 s | 0 | 0 | 0.000000 | 169,528 / 855 | 0.127 | no |
+
 ### Concurrency (hook wall time, spawn to exit)
 
 | Model | Sessions | Off p50 / p95 | Assisted p50 / p95 / max | Added p50 / p95 | Answered | Unavailable (reasons) | Cross-session cache hits | Gate |
