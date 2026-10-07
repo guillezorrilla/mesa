@@ -1,4 +1,5 @@
 import type {
+  DecisionDeliveryStatus,
   InstructionStatus,
   ManagedRow,
   McpTool,
@@ -14,6 +15,8 @@ import { Progress } from '@/components/ui/progress';
 import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
+import { DecisionDeliveryField } from './DecisionDeliveryField';
+import { useDecisionDelivery } from './useDecisionDelivery';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -47,7 +50,11 @@ const placedText = ({
 export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: string }) {
   const call = useCall();
   const [record, setRecord] = useState<
-    SessionRecord & { instructions: InstructionStatus; vault: InstructionStatus }
+    SessionRecord & {
+      instructions: InstructionStatus;
+      vault: InstructionStatus;
+      decisions: DecisionDeliveryStatus;
+    }
   >();
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -56,6 +63,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   // Decision assistance is read once the details open, as the rest is.
   const [opened, setOpened] = useState(false);
   const { row } = props;
+  const delivery = useDecisionDelivery(row.id, setRecord, setError);
   const agent = row.agent !== 'terminal';
   // The newer reading: a board look reads one after every turn, the details only when opened.
   const read = [row.context, record?.context].filter((c) => c !== undefined);
@@ -156,7 +164,18 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
               {!agent ? (
                 'None: a plain terminal runs no agent'
               ) : opened ? (
-                <DecisionAssistancePanel session={row.id} />
+                <div className="grid gap-2">
+                  {record?.decisions && (
+                    <DecisionDeliveryField
+                      status={record.decisions}
+                      acting={delivery.acting}
+                      working={row.lastState.state === 'working'}
+                      onInstallHooks={delivery.installHooks}
+                      onRestart={delivery.restart}
+                    />
+                  )}
+                  <DecisionAssistancePanel session={row.id} />
+                </div>
               ) : (
                 'Open details to check'
               )}

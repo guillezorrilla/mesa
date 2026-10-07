@@ -9,16 +9,10 @@ import type { SessionRecord } from '../record/record.js';
 import type { Caller } from '../window/caller.js';
 import { additionalDirs, additionalProjects, plannedAdditional } from './additional.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
-import {
-  folderOf,
-  type LaunchDeps,
-  launchAgent,
-  launchProject,
-  launchSession,
-  sessionWindowCommand,
-} from './launch.js';
+import { folderOf, type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
 import { createRecord } from './new-record.js';
 import { type OpenInput, validateOpenInput } from './open-input.js';
+import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 type OpenDeps = LaunchDeps & {
   home: string;
@@ -123,7 +117,7 @@ export async function openSession(
   const command = (id: string, more: Pick<SessionRecord, 'additional'>) =>
     startCommand(
       agent,
-      deps.vaultServer,
+      deps.mounts,
       deps.profile.config.agents,
       {
         id,
@@ -136,7 +130,12 @@ export async function openSession(
     );
   if (!input.background)
     requireCommandFits(
-      sessionWindowCommand(agent, 'interactive', command('xxxxxxxx', { additional: planned })),
+      sessionWindowCommand(
+        agent,
+        'interactive',
+        command('xxxxxxxx', { additional: planned }),
+        goalPreparing(deps, 'interactive', input.goal),
+      ),
     );
   const session = {
     project: selected?.entry ?? null,

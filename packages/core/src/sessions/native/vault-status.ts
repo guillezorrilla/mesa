@@ -1,5 +1,5 @@
-import { vaultMountStatus } from '../../agents/antigravity/vault-mount.js';
-import { mountsPerLaunch } from '../../agents/vault-mount.js';
+import { mesaMountStatus } from '../../agents/antigravity/mesa-mount.js';
+import { mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { toFail } from '../../lib/result.js';
 import type { SessionRecord } from '../record/record.js';
 import type { InstructionStatus } from './instructions.js';
@@ -7,7 +7,7 @@ import type { InstructionStatus } from './instructions.js';
 /**
  * Whether a session's agent has mesa-vault mounted, in the instruction hook's states: Claude
  * Code and Codex when their record says Mesa launched them with the mount (`vaultMounted`,
- * agents/vault-mount.ts); Antigravity from Mesa's one global entry and allow rule.
+ * agents/mesa-mount.ts); Antigravity from Mesa's one global entry and allow rule.
  * Configuration, not proof that the server answered.
  */
 export function vaultStatus(
@@ -26,7 +26,7 @@ export function vaultStatus(
       : { state: 'missing', reason: 'Resume through Mesa to mount the vault' };
   }
   try {
-    const mount = vaultMountStatus(home, self);
+    const mount = mesaMountStatus(home, self);
     if (mount.conflict) return { state: 'conflicting', reason: mount.conflict };
     if (mount.stale)
       return {

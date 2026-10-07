@@ -12,7 +12,8 @@ import { refuseRun, type SessionRecord } from '../record/record.js';
 import { isAgentState } from '../record/states.js';
 import { additionalDirs } from './additional.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
-import { type LaunchDeps, launchProject, launchSession, sessionWindowCommand } from './launch.js';
+import { type LaunchDeps, launchProject, launchSession } from './launch.js';
+import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 // A handoff (CONTEXT.md, Handoff): a session's work continues in a successor that starts from the
 // same goal and a note of where the work stands.
@@ -96,7 +97,7 @@ export async function handoffSession(
         'interactive',
         startCommand(
           agent,
-          deps.vaultServer,
+          deps.mounts,
           deps.profile.config.agents,
           {
             id: 'xxxxxxxx',
@@ -107,6 +108,7 @@ export async function handoffSession(
           },
           additionalDirs(from),
         ),
+        goalPreparing(deps, 'interactive', placeholder),
       ),
     );
   const at = deps.clock().toISOString();
@@ -139,7 +141,7 @@ export async function handoffSession(
       command: (successor) =>
         startCommand(
           agent,
-          deps.vaultServer,
+          deps.mounts,
           deps.profile.config.agents,
           { ...successor, logs: deps.profile.paths.logs },
           additionalDirs(successor),

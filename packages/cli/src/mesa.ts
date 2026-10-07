@@ -90,6 +90,7 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
       }
     },
     processId: process.pid,
+    processStartedAt: new Date(performance.timeOrigin),
     browserSelection,
     obsidian: macObsidianPaths(home),
     argv,

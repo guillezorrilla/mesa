@@ -19,7 +19,8 @@ export const hookTmux = defineCommand({
 
 /**
  * Run by the agent's hooks, never by hand. Claude and Codex events are logged and SessionEnd
- * starts the queue. Antigravity PreInvocation returns a transient instruction as hook JSON.
+ * starts the queue; SessionStart prints the pointer, and UserPromptSubmit decision advice as hook
+ * JSON when there is any. Antigravity PreInvocation returns a transient instruction as hook JSON.
  */
 export const hook = defineCommand({
   name: 'hook',
@@ -30,7 +31,7 @@ export const hook = defineCommand({
     if (args.agent === 'antigravity') {
       let instruction: string | undefined;
       try {
-        instruction = mesa.antigravityInstruction(await stdin());
+        instruction = await mesa.antigravityInstruction(await stdin());
       } catch {
         // Hook failures must not block the provider's model call.
       }
@@ -42,9 +43,14 @@ export const hook = defineCommand({
       };
     }
     const event = await mesa.hookEvent(args.agent, await stdin());
+    const advice = event && 'advice' in event ? event.advice : undefined;
     return {
-      data: { recorded: Boolean(event), event: event?.event ?? null },
-      text: event && 'instruction' in event ? event.instruction : '',
+      data: {
+        recorded: Boolean(event),
+        event: event?.event ?? null,
+        ...(advice ? { advised: true } : {}),
+      },
+      text: event && 'instruction' in event ? event.instruction : (advice ?? ''),
     };
   },
 });

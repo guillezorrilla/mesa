@@ -5,7 +5,8 @@ import type { LockDeps } from '../lib/lock-file.js';
 import { type Evaluation, type EvaluationMemory, EvaluationSchema } from './evaluate.js';
 
 // A session's decision assistance (CONTEXT.md, Decision assistance): whether the person turned it
-// off for this session, its recent use, and its ready answers, in `sessions/decisions/<id>.json`
+// off for this session, its recent use, its ready answers, and when its agent last called the tool
+// or was sent advice (what Mesa observed, beside what is configured), in `sessions/decisions/<id>.json`
 // beside the session records, never in the vault. Bounded, and it never holds a packet or prompt.
 
 /** How many uses and ready answers the file keeps, the newest. */
@@ -31,6 +32,10 @@ export type DecisionUse = z.infer<typeof UseSchema>;
 const SessionDecisionsSchema = z
   .strictObject({
     off: z.literal(true).optional(),
+    /** When the agent last called decision_evaluate, and when a hook last sent it advice. */
+    seen: z
+      .strictObject({ tool: z.iso.datetime().optional(), advice: z.iso.datetime().optional() })
+      .optional(),
     use: z.array(UseSchema).max(USES),
     /** Answers by packet key (a hash): reused for the same packet, model and policy. */
     ready: z
@@ -57,9 +62,12 @@ const useOf = (e: Evaluation, at: string): DecisionUse => ({
   ...(e.reason ? { reason: e.reason } : {}),
 });
 
+/** Session `id`'s file in `dir`, which `mesa rm` removes with its record. */
+export const sessionDecisionsFile = (dir: string, id: string) => join(dir, `${id}.json`);
+
 /** Session `id`'s decision assistance, in `dir`. `id` is a live session's, so never a path. */
 export function sessionDecisions(deps: LockDeps & { dir: string }, id: string) {
-  const file = join(deps.dir, `${id}.json`);
+  const file = sessionDecisionsFile(deps.dir, id);
   const read = (): SessionDecisions => readJson(file, SessionDecisionsSchema) ?? EMPTY;
   const change = (fn: (now: SessionDecisions) => SessionDecisions) =>
     changeJson(file, SessionDecisionsSchema, (now) => fn(now ?? EMPTY), deps);
@@ -80,6 +88,11 @@ export function sessionDecisions(deps: LockDeps & { dir: string }, id: string) {
   return {
     read,
     memory,
+    /** Notes that the agent called the tool, or that a hook sent it advice, now. */
+    saw: (what: 'tool' | 'advice') => {
+      const at = deps.clock().toISOString();
+      change((now) => ({ ...now, seen: { ...now.seen, [what]: at } }));
+    },
     /** Turns assistance off for this session, or back on; true when it changed. */
     setOff: (off: boolean) => {
       const before = read().off === true;

@@ -109,6 +109,10 @@ export type {
 export type { SessionImage } from './sessions/input/images.js';
 export type { ReviewDelivery, SavedReview } from './sessions/input/reviews.js';
 export type { Sent } from './sessions/input/send.js';
+export type {
+  DecisionDeliveryStatus,
+  DeliveryStatus,
+} from './sessions/native/decision-status.js';
 export {
   DISCOVERY_DAYS,
   type NativeConversation,

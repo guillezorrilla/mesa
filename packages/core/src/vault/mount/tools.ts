@@ -146,7 +146,7 @@ const TOOLS: Tool[] = [
   }),
 ];
 
-/** The tools that write the vault, the saves: a read-only mount turns them off (vault-mount.ts). */
+/** The tools that write the vault, the saves: a read-only mount turns them off (mesa-mount.ts). */
 export const VAULT_WRITE_TOOLS: readonly string[] = TOOLS.filter((t) =>
   t.name.startsWith('save_'),
 ).map((t) => t.name);

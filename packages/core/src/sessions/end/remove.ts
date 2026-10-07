@@ -1,6 +1,7 @@
 import { existsSync, rmSync } from 'node:fs';
 import { antigravityLog } from '../../agents/antigravity/log.js';
 import { stopClaudeBackground } from '../../agents/claude/background.js';
+import { sessionDecisionsFile } from '../../decisions/session-decisions.js';
 import { gitWorktrees } from '../../git/checkout.js';
 import { readGitStatus } from '../../git/status.js';
 import type { Runner } from '../../lib/process.js';
@@ -37,14 +38,14 @@ export type Removed = {
 };
 
 /**
- * Removes a session's record, its hook log, its output log, a run's output, and its cost tally,
- * with `deleteWorktree` its git worktree and each additional project's, and with `deleteBranch`
- * their branch. A queued session is refused, to be cancelled first; a live one is refused unless
- * `force`, which closes its window first; a worktree another session holds or runs in, or git has
- * locked, is refused, and one with changes or submodules unless `force`; a branch checked out where
- * the session does not hold it is refused, as is one its own worktree has without
- * `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a refused
- * rm leaves the session as it was, to retry.
+ * Removes a session's record, its hook log, its output log, a run's output, its cost tally, and
+ * its decision assistance, with `deleteWorktree` its git worktree and each additional project's,
+ * and with `deleteBranch` their branch. A queued session is refused, to be cancelled first; a live
+ * one is refused unless `force`, which closes its window first; a worktree another session holds
+ * or runs in, or git has locked, is refused, and one with changes or submodules unless `force`; a
+ * branch checked out where the session does not hold it is refused, as is one its own worktree has
+ * without `deleteWorktree`. Every refusal, for every repository, comes before anything goes, so a
+ * refused rm leaves the session as it was, to retry.
  */
 export async function removeSession(
   deps: {
@@ -58,6 +59,8 @@ export async function removeSession(
     runs: string;
     /** The profile's sessions/costs/, where a session's status line cost tally is. */
     costs: string;
+    /** The profile's sessions/decisions/, where a session's decision assistance is. */
+    decisions: string;
   },
   id: string,
   { force = false, deleteWorktree: dropWorktree = false, deleteBranch: dropBranch = false } = {},
@@ -139,6 +142,7 @@ export async function removeSession(
   rmSync(result, { force: true });
   rmSync(runInput(deps.runs, id), { force: true });
   rmSync(costTally(deps.costs, id), { force: true });
+  rmSync(sessionDecisionsFile(deps.decisions, id), { force: true });
   deps.store.remove(id);
   return removed;
 }

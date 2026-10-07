@@ -21,16 +21,16 @@ import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
 import { codexTranscriptReader } from './codex/transcripts.js';
 import { codexUsage } from './codex/usage.js';
 import { addDirArgs, type LaunchDefaults, launchFlags } from './launch-flags.js';
-import { AGENT_NAMES, type Agent } from './names.js';
 import {
-  CLAUDE_VAULT_TOOLS,
   CLAUDE_VAULT_WRITES,
   CODEX_VAULT_READ_ONLY,
   claudeMcpConfig,
-  claudeVaultArgs,
-  codexVaultOverrides,
-  type VaultServer,
-} from './vault-mount.js';
+  claudeMountArgs,
+  claudeMountTools,
+  codexMountOverrides,
+  type Mounts,
+} from './mesa-mount.js';
+import { AGENT_NAMES, type Agent } from './names.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
@@ -50,11 +50,11 @@ const addDirs = (agent: Agent, dirs: readonly string[]) =>
     .map((arg) => ` ${shellWord(arg)}`)
     .join('');
 
-/** Claude Code's mesa-vault mount as shell words (vault-mount.ts). */
-const claudeMount = (server: VaultServer) => claudeVaultArgs(server).map(shellWord).join(' ');
-/** Codex's mesa-vault mount as its four -c overrides (vault-mount.ts). */
-const codexMount = (server: VaultServer) =>
-  codexVaultOverrides(server)
+/** Claude Code's mounts as shell words (mesa-mount.ts). */
+const claudeMount = (mounts: Mounts) => claudeMountArgs(mounts).map(shellWord).join(' ');
+/** Codex's mounts as four -c overrides each (mesa-mount.ts). */
+const codexMount = (mounts: Mounts) =>
+  codexMountOverrides(mounts)
     .map((override) => `-c ${shellWord(override)}`)
     .join(' ');
 
@@ -94,13 +94,13 @@ export const AGENTS = {
      */
     start: (
       sessionId: string,
-      server: VaultServer,
+      mounts: Mounts,
       defaults: LaunchDefaults,
       goal?: string,
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs('claude', dirs)}${goalWord(goal)}`,
+      `claude --session-id ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}${goalWord(goal)}`,
     /**
      * Reopens that conversation; run in the recorded project folder, which keys transcripts. The
      * mount and the launch defaults are not part of the conversation, so they come again.
@@ -108,21 +108,21 @@ export const AGENTS = {
     resume: (
       sessionId: string,
       _folder: string,
-      server: VaultServer,
+      mounts: Mounts,
       defaults: LaunchDefaults,
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs('claude', dirs)}`,
+      `claude --resume ${sessionId}${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
     fork: (
       sessionId: string,
       _folder: string,
-      server: VaultServer,
+      mounts: Mounts,
       defaults: LaunchDefaults,
       mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(server)}${addDirs('claude', dirs)}`,
+      `claude --resume ${shellWord(sessionId)} --fork-session${mode ? ' --permission-mode plan' : ''}${flags('claude', defaults, mode)} ${claudeMount(mounts)}${addDirs('claude', dirs)}`,
     /** Typed into the window to end the agent politely. */
     quit: '/exit',
     /** The pause between typed text and its Enter: none. */
@@ -142,19 +142,19 @@ export const AGENTS = {
         prompt: string,
         may: HeadlessPermissions,
         _folder: string,
-        server: VaultServer,
+        mounts: Mounts,
       ) =>
         [
           'claude -p',
           shellWord(prompt),
           `--session-id ${sessionId} --output-format json`,
           `--permission-mode ${shellWord(may.permissionMode)}`,
-          shellWord(claudeMcpConfig(server)),
+          shellWord(claudeMcpConfig(mounts)),
           ...(may.readOnlyVault
             ? ['--disallowedTools', ...CLAUDE_VAULT_WRITES.map(shellWord)]
             : []),
           '--allowedTools',
-          ...[CLAUDE_VAULT_TOOLS, ...may.allowedTools].map(shellWord),
+          ...[...claudeMountTools(mounts), ...may.allowedTools].map(shellWord),
         ].join(' '),
       /** What its stdout says: the result, or why there is none. */
       result: readClaudeResult,
@@ -182,12 +182,12 @@ export const AGENTS = {
      * a prompt, not a subcommand.
      */
     start: (
-      server: VaultServer,
+      mounts: Mounts,
       defaults: LaunchDefaults,
       goal?: string,
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(server)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)}${addDirs('codex', dirs)}${goal === undefined ? '' : ` --${goalWord(goal)}`}`,
     /**
      * Reopens that thread in `folder`, the recorded one, which -C picks with no prompt. The mount
      * is not part of the thread, so it comes again.
@@ -195,21 +195,21 @@ export const AGENTS = {
     resume: (
       sessionId: string,
       folder: string,
-      server: VaultServer,
+      mounts: Mounts,
       defaults: LaunchDefaults,
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(server)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)} resume ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     fork: (
       sessionId: string,
       folder: string,
-      server: VaultServer,
+      mounts: Mounts,
       defaults: LaunchDefaults,
       _mode?: 'plan',
       dirs: readonly string[] = [],
     ) =>
-      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(server)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
+      `codex ${CODEX_EMBEDDED}${flags('codex', defaults, undefined, dirs)} ${codexMount(mounts)} fork ${shellWord(sessionId)} -C ${shellWord(folder)}${addDirs('codex', dirs)}`,
     quit: '/exit',
     /** An Enter right after the text can land as a newline in the composer (docs/spikes/codex.md). */
     submitDelayMs: 300,
@@ -221,9 +221,9 @@ export const AGENTS = {
         prompt: string,
         may: HeadlessPermissions,
         folder: string,
-        server: VaultServer,
+        mounts: Mounts,
       ) =>
-        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${codexMount(server)}${may.readOnlyVault ? ` -c ${shellWord(CODEX_VAULT_READ_ONLY)}` : ''} ${shellWord(prompt)}`,
+        `codex exec --json -C ${shellWord(folder)} -c approval_policy=never -c sandbox_mode=workspace-write ${codexMount(mounts)}${may.readOnlyVault ? ` -c ${shellWord(CODEX_VAULT_READ_ONLY)}` : ''} ${shellWord(prompt)}`,
       result: readCodexResult,
     },
     /** Trusted hooks from the embedded Codex process. */
@@ -298,13 +298,13 @@ export const newSessionId = (agent: Agent, newUuid: IdSource) =>
 /**
  * A session's start command, its goal as the first prompt, under the agent session id Mesa
  * picked for it (newSessionId), which an agent that picks its own does not take, with the
- * profile's launch `defaults`, `server` mounted for an agent that takes it per launch
+ * profile's launch `defaults`, `mounts` mounted for an agent that takes them per launch
  * (Antigravity's is global), and `dirs`, an additional project's worktree each, as extra folders
  * (sessions/start/additional.ts, additionalDirs).
  */
 export function startCommand(
   agent: Agent,
-  server: VaultServer,
+  mounts: Mounts,
   defaults: LaunchDefaults,
   s: {
     id?: string;
@@ -320,9 +320,9 @@ export function startCommand(
     const log = prepareAntigravityLog(s.logs, s.id);
     return AGENTS.antigravity.start(s.goal, log, defaults, s.mode, dirs);
   }
-  if (agent === 'codex') return AGENTS.codex.start(server, defaults, s.goal, dirs);
+  if (agent === 'codex') return AGENTS.codex.start(mounts, defaults, s.goal, dirs);
   if (s.agentSessionId === undefined) {
     throw new MesaError('internal', `${agent} starts under an agent session id Mesa picks`);
   }
-  return AGENTS.claude.start(s.agentSessionId, server, defaults, s.goal, s.mode, dirs);
+  return AGENTS.claude.start(s.agentSessionId, mounts, defaults, s.goal, s.mode, dirs);
 }

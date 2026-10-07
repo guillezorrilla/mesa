@@ -3,7 +3,8 @@ import { defineCommand } from '../../command.js';
 import { SESSION_FLAG } from '../../input/flags.js';
 import { columns } from '../../output/columns.js';
 
-// A session's decision assistance: how each site runs for it, and turning it off or back on.
+// A session's decision assistance: how each site runs for it, turning it off or back on, and its
+// goal's ready answer.
 
 const seconds = (ms: number) => `${ms / 1000} s`;
 
@@ -59,5 +60,22 @@ export const decisionsOn = defineCommand({
   run: ({ mesa, flags }) => {
     const data = mesa.decisions.setOff(false, flags.session);
     return { data, text: `decision assistance on for session ${data.session}` };
+  },
+});
+
+export const decisionsPrepare = defineCommand({
+  name: 'decisions prepare',
+  summary:
+    "Ask for a Mesa session's goal advice ahead of its first turn, kept as a ready answer (run by its window as the agent starts)",
+  flags: { session: SESSION_FLAG },
+  example: 'mesa decisions prepare --session 4e1b9c02',
+  run: async ({ mesa, flags }) => {
+    const data = await mesa.decisions.prepare(flags.session);
+    return {
+      data,
+      text: data.prepared
+        ? `ready answer for session ${data.session}: ${data.evaluation?.status}`
+        : `no ready answer for session ${data.session}: ${data.reason ?? data.evaluation?.reason ?? 'unavailable'}`,
+    };
   },
 });

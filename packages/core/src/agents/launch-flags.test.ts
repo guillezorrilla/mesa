@@ -2,12 +2,12 @@ import { expect, test } from 'vitest';
 import { CLAUDE_MOUNT, CODEX_MOUNT, NATIVE_LAUNCH, tempDir } from '../testing/index.js';
 import { AGENTS, startCommand } from './agents.js';
 import { dangerousFlags, type LaunchDefaults, launchFlags } from './launch-flags.js';
-import { vaultServer } from './vault-mount.js';
+import { launchMounts } from './mesa-mount.js';
 
 // The profile's launch defaults on the commands every start, resume, and fork runs, in each
 // agent's own syntax, under the mount testDeps launches carry.
 
-const SERVER = vaultServer(['/usr/local/bin/mesa']);
+const SERVER = launchMounts(['/usr/local/bin/mesa'], { decisions: false });
 const ID = '360ed2a1-f255-4c2a-8f30-ba7b6ea349f5';
 const FOLDER = '/src/lantern-cove';
 const set = (patch: Partial<LaunchDefaults>): LaunchDefaults => ({ ...NATIVE_LAUNCH, ...patch });

@@ -408,3 +408,110 @@ test('an unsure row is placed beside the look, and the next look shows by whom',
     vi.useRealTimers();
   }
 });
+
+test('details tell a configured decision tool from one observed, and restart a session started without it', async () => {
+  const row = managedRow('aaaaaaaa', {
+    lastState: { state: 'idle', confidence: 0.9, at: '2026-09-27T12:00:00.000Z', source: 'hook' },
+  });
+  let mounted = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'configured', reason: 'SessionStart hook is configured' },
+        vault: { state: 'configured', reason: 'mesa-vault is mounted in its launch command' },
+        decisions: mounted
+          ? {
+              tool: {
+                state: 'configured',
+                reason: 'mesa-decisions is mounted in its launch command',
+                observedAt: new Date().toISOString(),
+              },
+              advice: { state: 'conflicting', reason: 'Review and trust the Mesa hook in Codex' },
+            }
+          : {
+              tool: {
+                state: 'missing',
+                reason:
+                  'Started without mesa-decisions; stop it and resume through Mesa to mount it',
+                action: 'restart',
+              },
+              advice: { state: 'disabled', reason: 'Turned off for this session' },
+            },
+      }),
+    stop: () => envelope({ result: { ...row, outcome: 'stopped' }, receipt: null }),
+    resume: () => {
+      mounted = true;
+      return envelope({ result: row, receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  const delivery = () => byTestId('session-decision-delivery')[0]?.textContent ?? '';
+  expect(delivery()).toContain(
+    'Tool Missing: Started without mesa-decisions; stop it and resume through Mesa to mount it. Last call: never yet',
+  );
+  expect(delivery()).toContain(
+    'Advice Disabled: Turned off for this session. Last sent: never yet',
+  );
+  await click(
+    [...document.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Restart to add the tool'),
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'stop', '--', 'aaaaaaaa']);
+  expect(calls).toContainEqual(['--json', 'resume', '--', 'aaaaaaaa']);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  expect(delivery()).toContain(
+    'Tool Configured: mesa-decisions is mounted in its launch command. Last call now',
+  );
+  expect(delivery()).toContain('Advice Conflicting: Review and trust the Mesa hook in Codex.');
+});
+
+test("an Antigravity session without the global entry offers Mesa's hooks install, then reads again", async () => {
+  const row = managedRow('aaaaaaaa', { agent: 'antigravity' });
+  let installed = false;
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        instructions: { state: 'configured', reason: 'PreInvocation hook is configured' },
+        vault: {
+          state: 'configured',
+          reason: 'Global mesa-vault entry and allow rule are configured',
+        },
+        decisions: {
+          tool: installed
+            ? { state: 'configured', reason: 'Global mesa-decisions entry and allow rule' }
+            : {
+                state: 'missing',
+                reason: 'No global mesa-decisions entry; run mesa hooks install',
+                action: 'hooks install',
+              },
+          advice: { state: 'configured', reason: "PreInvocation re-sends the goal's ready advice" },
+        },
+      }),
+    'hooks install': () => {
+      installed = true;
+      return envelope({ result: { installed: true, changed: true }, receipt: null });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Session details"]') as HTMLElement);
+  const delivery = () => byTestId('session-decision-delivery')[0]?.textContent ?? '';
+  expect(delivery()).toContain(
+    'Tool Missing: No global mesa-decisions entry; run mesa hooks install.',
+  );
+  await click(
+    [...document.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Install hooks to add the tool'),
+    ),
+  );
+  expect(calls).toContainEqual(['--json', 'hooks', 'install']);
+  expect(delivery()).toContain('Tool Configured: Global mesa-decisions entry and allow rule.');
+});

@@ -2,6 +2,7 @@ import { antigravitySessionId } from '../../agents/antigravity/log.js';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import { sessionTree } from '../board/tree.js';
+import { decisionStatus } from '../native/decision-status.js';
 import { discoverNative } from '../native/discovery.js';
 import { nativeHistory } from '../native/history.js';
 import { instructionStatus } from '../native/instructions.js';
@@ -69,8 +70,9 @@ export function inspectActions(
     },
     /**
      * One session's record, its context use read now, with `alive` and who placed its state
-     * (`supervision`) as the board reads them, and whether its instruction hook and its
-     * mesa-vault mount are configured; not_found for an unknown id.
+     * (`supervision`) as the board reads them, whether its instruction hook and its mesa-vault
+     * mount are configured, and its decision tool and automatic advice, configured or why not,
+     * with when each was last seen; not_found for an unknown id.
      */
     show: async (id: string) => {
       store.get(id);
@@ -84,6 +86,16 @@ export function inspectActions(
           ? antigravitySessionId({ logs: paths.logs }, current, new Set(), true)
           : undefined;
       const identityEvents = readHookEvents(paths.events, id);
+      const identityChanged =
+        identityEvents.some((event) => event.event === 'SessionIdentityChanged') ||
+        Boolean(
+          current.agentSessionId &&
+            latestAntigravityId &&
+            latestAntigravityId !== current.agentSessionId,
+        ) ||
+        (identityEvents.some((event) => event.event === 'SessionIdentityAmbiguous')
+          ? ('ambiguous' as const)
+          : false);
       return {
         ...current,
         alive: row?.alive ?? false,
@@ -93,17 +105,15 @@ export function inspectActions(
           ctx.home,
           ctx.env,
           ctx.self,
-          identityEvents.some((event) => event.event === 'SessionIdentityChanged') ||
-            Boolean(
-              current.agentSessionId &&
-                latestAntigravityId &&
-                latestAntigravityId !== current.agentSessionId,
-            ) ||
-            (identityEvents.some((event) => event.event === 'SessionIdentityAmbiguous')
-              ? 'ambiguous'
-              : false),
+          identityChanged,
         ),
         vault: vaultStatus(current, ctx.home, ctx.self),
+        decisions: decisionStatus(
+          current,
+          deps.assistance.assistState(current),
+          ctx,
+          identityChanged,
+        ),
       };
     },
     /** Gives a session the name a person calls it by; the board shows it in place of the id. */

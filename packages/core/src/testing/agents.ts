@@ -92,7 +92,7 @@ export const claudeResult = (name: 'success' | 'not-logged-in') =>
 /** What `claude --version` answers in tests. */
 export const CLAUDE_VERSION = '2.1.282 (Claude Code)';
 
-// The mesa-vault mount a launch under testDeps carries (agents/vault-mount.ts), as its shell
+// The mesa-vault mount a launch under testDeps carries (agents/mesa-mount.ts), as its shell
 // words: `/usr/local/bin/mesa vault mcp`, spelled out here so a test checks the real argv.
 const CLAUDE_MCP_CONFIG = `'--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/usr/local/bin/mesa","args":["vault","mcp"]}}}'`;
 /** Claude Code's, on an interactive start, resume, or fork. */

@@ -50,7 +50,8 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const usage = usageService(ctx);
   const vaults = vaultService(ctx);
   const prompts = promptsService(ctx);
-  const sessions = sessionsService(ctx, faro, skills, profileApi.config.set);
+  const assistance = decisionAssistance(ctx, faro);
+  const sessions = sessionsService(ctx, faro, skills, profileApi.config.set, assistance);
   const sources = sourcesService(ctx);
   const imports = importService(ctx, {
     fetch: sources.fetch,
@@ -105,7 +106,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
       keys: models.keys,
       use: models.use,
       place: boardPlacing(ctx, models),
-      ...decisionAssistance(ctx, faro),
+      ...assistance,
     },
     guardrail: { check: faro.guardrail.check },
     /** Where a first vault can go (`mesa obsidian vaults`): needs no profile. */

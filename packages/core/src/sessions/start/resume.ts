@@ -91,6 +91,7 @@ export async function resumeSession(
       name: old.name,
       adopted: old.adopted,
       vaultMounted: old.vaultMounted,
+      decisionsMounted: old.decisionsMounted,
       from: old.from,
       resumedFrom: old.id,
     },
@@ -109,7 +110,7 @@ export async function resumeSession(
         return AGENTS[agent].resume(
           agentId,
           folder,
-          deps.vaultServer,
+          deps.mounts,
           deps.profile.config.agents,
           old.mode,
           additionalDirs(old),

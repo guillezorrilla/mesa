@@ -66,3 +66,13 @@ test('rm --delete-worktree across projects: --json lists additional; a dirty one
     `removed ${dirty.id}, with its window, worktree ${dirty.worktree.path}, tide-pool's worktree ${path}\n`,
   );
 });
+
+test("rm removes the session's decision assistance state with its record", async () => {
+  const { id } = await cli.withAssistedSession();
+  await mesa('decisions', 'off');
+  const state = join(cli.paths.decisions, `${id}.json`);
+  expect(existsSync(state)).toBe(true);
+  cli.env = {};
+  expect((await mesa('rm', id, '--force')).code).toBe(0);
+  expect(existsSync(state)).toBe(false);
+});

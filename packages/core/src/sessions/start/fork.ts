@@ -83,7 +83,7 @@ export async function forkSession(
         native.fork(
           nativeId,
           folderOf(record, project),
-          deps.vaultServer,
+          deps.mounts,
           deps.profile.config.agents,
           source.mode,
           additionalDirs(record),

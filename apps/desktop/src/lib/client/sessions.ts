@@ -2,6 +2,7 @@ import type {
   Agent,
   Attached,
   ConversationSearch,
+  DecisionDeliveryStatus,
   DescendantResult,
   DiscoveryAdoption,
   EachResult,
@@ -176,7 +177,12 @@ export const sessionsCommands = {
   // A project's sessions side by side, in the user's terminal app.
   'sessions.show': commandWith<
     { id: string },
-    SessionRecord & { alive: boolean; instructions: InstructionStatus; vault: InstructionStatus }
+    SessionRecord & {
+      alive: boolean;
+      instructions: InstructionStatus;
+      vault: InstructionStatus;
+      decisions: DecisionDeliveryStatus;
+    }
   >(({ id }) => ['show', '--', id]),
   // `--goal=` and `--branch=` hand a value starting with `-` to mesa, which refuses it with its
   // own message; a blank one passes none. `--no-parent`: a person opening one here is not a

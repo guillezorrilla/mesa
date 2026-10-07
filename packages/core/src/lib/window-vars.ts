@@ -1,6 +1,6 @@
 // The variables a Mesa window's environment holds, MESA_SESSION_ID and MESA_PROFILE: the one place
 // that names them. Sessions set and read them (sessions/window/caller.ts); an agent's hooks and its
-// mesa-vault server read them too (agents/hooks.ts, agents/vault-mount.ts).
+// mesa-vault server read them too (agents/hooks.ts, agents/mesa-mount.ts).
 
 /** The variable naming a window's Mesa session; a Claude Code hook reads it too. */
 export const SESSION_ID_VAR = 'MESA_SESSION_ID';

@@ -15,7 +15,7 @@ import {
 } from '../../testing/index.js';
 import type { SessionRecord } from '../record/record.js';
 
-// Every start through the launch owner mounts mesa-vault (agents/vault-mount.ts). Fresh, resume,
+// Every start through the launch owner mounts mesa-vault (agents/mesa-mount.ts). Fresh, resume,
 // fork, background, adopted, and headless starts are checked beside their own tests; these are
 // the rest: a worktree start, a handoff's successor, and a queued start.
 

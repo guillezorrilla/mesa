@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { hooksStatus as antigravityHooksStatus } from '../agents/antigravity/hooks.js';
-import { vaultMountStatus } from '../agents/antigravity/vault-mount.js';
+import { mesaMountStatus } from '../agents/antigravity/mesa-mount.js';
 import { hooksStatus } from '../agents/claude/hooks.js';
 import { hooksStatus as codexHooksStatus } from '../agents/codex/hooks.js';
 import { codexDaemonSocket, codexHome } from '../agents/codex/paths.js';
@@ -35,7 +35,7 @@ export function doctorService(
           claude: () => hooksStatus(ctx.home, ctx.env, ctx.self),
           codex: () => codexHooksStatus(codexHome(ctx.home, ctx.env), ctx.self),
           antigravity: () => antigravityHooksStatus(ctx.home, ctx.self),
-          antigravityVault: () => vaultMountStatus(ctx.home, ctx.self),
+          antigravityVault: () => mesaMountStatus(ctx.home, ctx.self),
           tmux: ctx.tmuxHook,
         },
         codexDaemon: codexDaemonSocket(codexHome(ctx.home, ctx.env)),
