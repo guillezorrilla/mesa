@@ -16,8 +16,11 @@ export const toolText = (text: string, isError = false): McpToolResult => ({
 /** What a server serves. Every request asks again, so the answers may change while it runs. */
 export type McpHandlers = {
   tools: () => McpTool[];
-  /** The call's result, or undefined when there is no tool of that name. */
-  call: (name: string, args: unknown) => Promise<McpToolResult | undefined>;
+  /**
+   * The call's result, or undefined when there is no tool of that name. `signal` aborts when the
+   * client cancels the call (`notifications/cancelled`).
+   */
+  call: (name: string, args: unknown, signal: AbortSignal) => Promise<McpToolResult | undefined>;
 };
 
 /** The streams a server runs on: stdin's lines, stdout, and stderr. */
@@ -51,6 +54,7 @@ async function answer(
   params: Record<string, unknown>,
   info: { name: string; version: string },
   handlers: McpHandlers,
+  signal: AbortSignal,
 ): Promise<unknown> {
   switch (method) {
     case 'initialize': {
@@ -65,7 +69,7 @@ async function answer(
     case 'tools/call': {
       const { name } = params;
       if (typeof name !== 'string') throw new RpcError(CODES.params, 'tools/call needs a name');
-      const result = await handlers.call(name, params.arguments ?? {});
+      const result = await handlers.call(name, params.arguments ?? {}, signal);
       if (!result) throw new RpcError(CODES.params, `Unknown tool: ${name}`);
       return result;
     }
@@ -77,7 +81,9 @@ async function answer(
 
 /**
  * Answers each request line on `io` until its input ends, one at a time and in order. A
- * notification (no `id`) is never answered; unknown params (Claude's `_meta`) are ignored.
+ * notification (no `id`) is never answered; unknown params (Claude's `_meta`) are ignored. Lines
+ * are read on while a request runs, so `notifications/cancelled` reaches it: its call's signal
+ * aborts, and it gets no reply (MCP cancellation).
  */
 export async function serveMcp(
   io: Stdio,
@@ -88,13 +94,20 @@ export async function serveMcp(
     id: Id,
     body: { result: unknown } | { error: { code: number; message: string } },
   ) => io.write(`${JSON.stringify({ jsonrpc: '2.0', id, ...body })}\n`);
+  /** The requests read and not yet answered, by id, to cancel. */
+  const pending = new Map<string | number, AbortController>();
+  // Every reply goes through this chain, so they stay in the order their lines came.
+  let queue = Promise.resolve();
+  const then = (step: () => Promise<void> | void) => {
+    queue = queue.then(step);
+  };
   for await (const line of io.lines) {
     if (!line.trim()) continue;
     let message: unknown;
     try {
       message = JSON.parse(line);
     } catch {
-      reply(null, { error: { code: CODES.parse, message: 'Parse error' } });
+      then(() => reply(null, { error: { code: CODES.parse, message: 'Parse error' } }));
       continue;
     }
     const invalid = { error: { code: CODES.request, message: 'Invalid request' } };
@@ -106,22 +119,38 @@ export async function serveMcp(
         typeof message.id !== 'string' &&
         (typeof message.id !== 'number' || !Number.isFinite(message.id)))
     ) {
-      reply(null, invalid);
+      then(() => reply(null, invalid));
       continue;
     }
-    if (!('id' in message)) continue;
-    const id = message.id as string | number;
-    try {
-      const params = isObject(message.params) ? message.params : {};
-      reply(id, { result: await answer(message.method, params, info, handlers) });
-    } catch (error) {
-      if (error instanceof RpcError) {
-        reply(id, { error: { code: error.code, message: error.message } });
-        continue;
-      }
-      const said = error instanceof Error ? error.message : String(error);
-      io.log(`${info.name}: ${message.method} failed: ${said}\n`);
-      reply(id, { error: { code: CODES.internal, message: said } });
+    const { method } = message;
+    const params = isObject(message.params) ? message.params : {};
+    if (!('id' in message)) {
+      const cancelled = params.requestId;
+      if (method === 'notifications/cancelled' && typeof cancelled !== 'object')
+        pending.get(cancelled as string | number)?.abort();
+      continue;
     }
+    const id = message.id as string | number;
+    const controller = new AbortController();
+    pending.set(id, controller);
+    then(async () => {
+      try {
+        if (controller.signal.aborted) return;
+        const result = await answer(method, params, info, handlers, controller.signal);
+        if (!controller.signal.aborted) reply(id, { result });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (error instanceof RpcError) {
+          reply(id, { error: { code: error.code, message: error.message } });
+          return;
+        }
+        const said = error instanceof Error ? error.message : String(error);
+        io.log(`${info.name}: ${method} failed: ${said}\n`);
+        reply(id, { error: { code: CODES.internal, message: said } });
+      } finally {
+        pending.delete(id);
+      }
+    });
   }
+  await queue;
 }

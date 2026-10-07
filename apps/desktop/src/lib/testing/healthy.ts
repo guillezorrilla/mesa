@@ -1,5 +1,6 @@
 import type {
   Config,
+  DecisionStatus,
   DoctorReport,
   HooksStatus,
   PrEventList,
@@ -42,6 +43,22 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
     envelope({
       sources: [{ id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' }],
     }),
+  // A session's details: no Decision model, so every site is off.
+  'decisions status': (args) =>
+    envelope({
+      session: args.at(-1) ?? '',
+      project: 'lantern-cove',
+      model: 'none',
+      off: false,
+      sites: (['relevance', 'next-step', 'evidence'] as const).map((site) => ({
+        site,
+        mode: 'off' as const,
+      })),
+      deadlines: { automatic: 1500, 'on-demand': 10000 },
+      packetChars: 4096,
+      ready: 0,
+      use: [],
+    } satisfies DecisionStatus),
   // The Board's placing call beside its look, made only while a row is unsure.
   'decisions place': () => envelope({ placed: [] }),
   // Settings > Smarter decisions, which a settings search renders too.

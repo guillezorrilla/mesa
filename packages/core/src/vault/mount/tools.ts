@@ -158,7 +158,7 @@ export const VAULT_TOOLS: McpTool[] = TOOLS.map(({ name, description, input }) =
 });
 
 /** Why arguments do not fit a tool's schema, one issue after another. */
-const misfit = (error: z.ZodError) =>
+export const misfit = (error: z.ZodError) =>
   error.issues.map((i) => `${i.path.join('.') || 'arguments'}: ${i.message}`).join('; ');
 
 /**

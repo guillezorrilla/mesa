@@ -183,31 +183,37 @@ export type SystemOneReply = {
  * The `jev` or `clef` backend: posts `state` (a string, or rendered JSON) and the questions, and
  * maps each wire answer to Faro's shape: Score indices to 0-1, probabilities renormalised by name,
  * Noul P(true) kept as is. A missing or mismatched answer, an HTTP error, Cloudflare's
- * `success: false`, an unreachable host or the deadline throws a MesaError naming the provider,
- * and Faro's rules stand.
+ * `success: false`, an unreachable host, the deadline or an abort of `signal` (which ends the
+ * request) throws a MesaError naming the provider, and Faro's rules stand.
  */
 export function systemOneBackend(deps: SystemOneDeps) {
   const { label, url, usdPerMInput, unwrap } = PROVIDERS[deps.provider];
   return {
     name: deps.provider,
-    answer: async (state: unknown, questions: Question[]): Promise<SystemOneReply> => {
+    answer: async (
+      state: unknown,
+      questions: Question[],
+      signal?: AbortSignal,
+    ): Promise<SystemOneReply> => {
       const body = {
         state: typeof state === 'string' ? state : JSON.stringify(state),
         model: deps.model,
         questions: Object.fromEntries(questions.map((q) => [q.id, wireQuestion(q)])),
       };
+      const deadline = AbortSignal.timeout(deps.deadlineMs);
       let json: unknown;
       try {
         const response = await deps.http(url(deps.accountId, deps.model), {
           method: 'POST',
           headers: { 'content-type': 'application/json', authorization: `Bearer ${deps.key}` },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(deps.deadlineMs),
+          signal: signal ? AbortSignal.any([deadline, signal]) : deadline,
         });
         if (!response.ok) throw statusError(label, response.status);
         json = await response.json().catch(() => undefined);
       } catch (error) {
         if (error instanceof MesaError) throw error;
+        if (signal?.aborted) throw new MesaError('internal', `${label} request cancelled`);
         if (error instanceof Error && error.name === 'TimeoutError')
           throw new MesaError('timeout', `${label} did not answer within ${deps.deadlineMs} ms`);
         throw new MesaError('internal', `${label} could not be reached`);

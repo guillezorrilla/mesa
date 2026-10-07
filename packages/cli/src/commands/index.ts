@@ -16,13 +16,7 @@ import {
 import { config, configSet } from './config.js';
 import { daily } from './daily.js';
 import { decide } from './decide.js';
-import {
-  decisionsKeyList,
-  decisionsKeyRemove,
-  decisionsKeySet,
-  decisionsPlace,
-  decisionsUse,
-} from './decisions.js';
+import { DECISIONS_COMMANDS } from './decisions/index.js';
 import { dependency } from './dependency.js';
 import { diagnostics } from './diagnostics.js';
 import { discover, discoverAdopt } from './discover.js';
@@ -131,11 +125,7 @@ export const COMMANDS: Command[] = [
   configSet,
   dependency,
   decide,
-  decisionsKeySet,
-  decisionsKeyList,
-  decisionsKeyRemove,
-  decisionsUse,
-  decisionsPlace,
+  ...DECISIONS_COMMANDS,
   daily,
   diagnostics,
   discover,

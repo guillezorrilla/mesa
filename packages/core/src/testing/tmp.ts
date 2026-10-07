@@ -1,9 +1,25 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 /** A fresh temp dir, symlinks resolved (macOS `/var` is `/private/var`). */
 export const tempDir = (prefix = 'mesa-') => realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+
+/**
+ * Every path under `dir`, the root included, with its mtime and, for files, its bytes: two equal
+ * snapshots mean nothing in it was written.
+ */
+export function folderSnapshot(dir: string) {
+  const paths = ['', ...readdirSync(dir, { recursive: true, encoding: 'utf8' })].sort();
+  return paths.map((p) => {
+    const stat = statSync(join(dir, p));
+    return {
+      p,
+      mtime: stat.mtimeMs,
+      text: stat.isFile() ? readFileSync(join(dir, p), 'utf8') : null,
+    };
+  });
+}
 
 /**
  * Gives a test file its own TMPDIR in `env`, removed with everything in it when the file ends, so

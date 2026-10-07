@@ -134,9 +134,9 @@ export type Backend<S = unknown> = {
   name: BackendName;
   /**
    * Answers, or `{answers, costUsd, model}`; whatever it returns is parsed and checked against the
-   * questions (decide.ts).
+   * questions (decide.ts). A hosted model's request ends when `signal` aborts.
    */
-  answer: (state: S, questions: Question[]) => Promise<unknown>;
+  answer: (state: S, questions: Question[], signal?: AbortSignal) => Promise<unknown>;
 };
 
 /**

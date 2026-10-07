@@ -17,6 +17,11 @@ export type ProfilePaths = {
   runs: string;
   /** Each Claude session's running estimated cost for its status line, `<session id>.json` each. */
   costs: string;
+  /**
+   * Each session's decision assistance, `<session id>.json` each: whether it is off, its recent
+   * use without prompts, and its ready answers (decisions/session-decisions.ts).
+   */
+  decisions: string;
   /** The one-line scripts `mesa attach --app` hands to a terminal app. */
   attachScripts: string;
   /** Sessions' git worktrees, `<project>/<branch>` each (CONTEXT.md, Worktree). */
@@ -60,6 +65,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     logs: join(root, 'sessions', 'logs'),
     runs: join(root, 'sessions', 'runs'),
     costs: join(root, 'sessions', 'costs'),
+    decisions: join(root, 'sessions', 'decisions'),
     attachScripts: join(root, 'attach'),
     worktrees: join(root, 'worktrees'),
     checkouts: join(root, 'checkouts'),

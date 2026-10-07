@@ -10,6 +10,8 @@ import {
   scriptedRunner,
   sequentialIds,
   sequentialUuids,
+  systemOneWorld,
+  TEST_TYPESAFE_KEY,
   tempDir,
   testDeps,
   withRealGit,
@@ -143,6 +145,34 @@ export function cliHarness() {
       await h.mesa('register', '--create', tide);
       gitRepo(tide);
       return { tmux, dir, tide };
+    },
+    /** lantern-cove registered, over Jev and CLEF in memory with no key yet; the world. */
+    withDecisionModels: async () => {
+      const world = systemOneWorld();
+      h.deps = world.deps;
+      await h.withProject();
+      return world;
+    },
+    /**
+     * Jev with its key over withDecisionModels, a live session on lantern-cove with a goal, and
+     * the next invocations run in its window: the world, its requests so far cleared, and the id.
+     */
+    withAssistedSession: async () => {
+      const world = await h.withDecisionModels();
+      h.withTmux();
+      h.stdin = TEST_TYPESAFE_KEY;
+      await h.mesa('decisions', 'key', 'set', 'typesafe');
+      const opened = await h.mesa(
+        'open',
+        'lantern-cove',
+        '--goal',
+        'Make the feed import retry',
+        '--json',
+      );
+      const id = opened.json.data.id as string;
+      h.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
+      world.requests.length = 0;
+      return { world, id };
     },
     /**
      * lantern-cove with Atlassian connected, over importWorld; the world, to serve items, the

@@ -11,7 +11,16 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { multiProjectSession, newSession, shortIds, testStore } from '@mesa/core/testing';
+import {
+  driveMcp,
+  type McpReply,
+  mcpInitialize,
+  multiProjectSession,
+  newSession,
+  rpc,
+  shortIds,
+  testStore,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { VERSION } from '../../cli.js';
 import { cliHarness } from '../../testing.js';
@@ -725,69 +734,28 @@ test('vault context and vault goals: a project overview and its earlier goals, a
 
 // The vault server (ADR-0011): `mesa vault mcp` over in-memory stdio, driven as an agent drives it.
 
-/** A JSON-RPC request line; with no `id`, a notification's. */
-const rpc = (id: number | undefined, method: string, params?: object) =>
-  JSON.stringify({
-    jsonrpc: '2.0',
-    ...(id === undefined ? {} : { id }),
-    method,
-    ...(params ? { params } : {}),
-  });
 const call = (id: number, name: string, args: object = {}) =>
   rpc(id, 'tools/call', { name, arguments: args });
-const initialize = (protocolVersion = '2025-11-25') =>
-  rpc(1, 'initialize', {
-    protocolVersion,
-    capabilities: {},
-    clientInfo: { name: 'a', version: '1' },
-  });
-
-type Reply = {
-  jsonrpc: string;
-  id: number | null;
-  result?: { content: { text: string }[]; isError: boolean } & Record<string, unknown>;
-  error?: { code: number; message: string };
-};
 
 /**
- * Runs `mesa [argv] vault mcp` on `input`, line by line; a function runs between the lines around
- * it. It prints nothing itself, and every line it writes is JSON-RPC 2.0: its replies, and stderr.
+ * Runs `mesa [argv] vault mcp` on `input` through driveMcp. It prints nothing itself before
+ * serving: its replies, and stderr.
  */
-async function serve(argv: string[], ...input: (string | (() => Promise<unknown>))[]) {
+async function serve(argv: string[], ...input: (string | (() => unknown))[]) {
   const started = await mesa(...argv, 'vault', 'mcp');
   expect([started.code, started.stdout, started.stderr]).toEqual([0, '', '']);
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  async function* lines() {
-    for (const line of input) {
-      if (typeof line === 'string') yield line;
-      else await line();
-    }
-  }
   expect(started.serve).toBeTypeOf('function');
-  await started.serve?.({
-    lines: lines(),
-    write: (text) => stdout.push(text),
-    log: (text) => stderr.push(text),
-  });
-  const written = stdout.join('');
-  expect(written.endsWith('\n') || written === '').toBe(true);
-  const replies = written
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Reply);
-  for (const reply of replies) expect(reply.jsonrpc).toBe('2.0');
-  return { replies, stderr: stderr.join('') };
+  return driveMcp(started.serve as NonNullable<typeof started.serve>, ...input);
 }
 
 /** A tool's answer: its text as JSON, which must not be an error. */
-const answer = (reply: Reply | undefined) => {
+const answer = (reply: McpReply | undefined) => {
   expect(reply?.result?.isError).toBe(false);
   return JSON.parse(reply?.result?.content[0]?.text ?? '');
 };
 
 /** A tool error's text. */
-const refusal = (reply: Reply | undefined) => {
+const refusal = (reply: McpReply | undefined) => {
   expect(reply?.result?.isError).toBe(true);
   return reply?.result?.content[0]?.text;
 };
@@ -838,7 +806,7 @@ test('vault mcp serves a live session over stdio: initialize, tools/list, each t
   const { replies, stderr } = await serve(
     [],
     rpc(0, 'server/discover', { protocolVersion: '2026-07-28' }),
-    initialize(),
+    mcpInitialize(),
     rpc(undefined, 'notifications/initialized'),
     rpc(2, 'tools/list'),
     call(3, 'project_context'),
@@ -952,7 +920,7 @@ test('vault mcp answers the protocol version a client asks for when it speaks it
     ['2025-11-25', '2025-11-25'],
     ['2099-01-01', '2025-11-25'],
   ]) {
-    const { replies } = await serve([], initialize(asked));
+    const { replies } = await serve([], mcpInitialize(asked));
     expect(replies[0]?.result?.protocolVersion).toBe(given);
   }
 });
@@ -984,7 +952,7 @@ test('vault mcp stays inert with a corrupt session record and still initializes'
   writeFileSync(record, 'not json');
   const { replies, stderr } = await serve(
     [],
-    initialize(),
+    mcpInitialize(),
     rpc(2, 'tools/list'),
     call(3, 'save_note', { title: 'Stray', body: 'Invented' }),
   );
@@ -1032,7 +1000,7 @@ test('outside a live session of its profile, vault mcp lists no tools and refuse
     cli.env = env;
     const { replies, stderr } = await serve(
       argv,
-      initialize(),
+      mcpInitialize(),
       rpc(undefined, 'notifications/initialized'),
       rpc(2, 'tools/list'),
       call(3, 'read_note', { path: 'wiki/tide.md' }),
@@ -1056,7 +1024,7 @@ test('a session stopped while its server runs is refused from its next request o
   cli.env = { MESA_SESSION_ID: id, MESA_PROFILE: 'default' };
   const { replies } = await serve(
     [],
-    initialize('2025-06-18'),
+    mcpInitialize('2025-06-18'),
     rpc(2, 'tools/list'),
     async () => {
       cli.env = {};
@@ -1087,7 +1055,7 @@ test('a background session resumed under a new record is served through the bind
   cli.env = { MESA_SESSION_ID: first, MESA_PROFILE: 'default' };
   const { replies } = await serve(
     [],
-    initialize(),
+    mcpInitialize(),
     rpc(2, 'tools/list'),
     call(3, 'save_summary', { summary: 'Goal: chart the neaps. Done: the tide table.' }),
     async () => {
@@ -1105,7 +1073,7 @@ test('a background session resumed under a new record is served through the bind
   await mesa('stop', ended);
   expect((await mesa('resume', ended)).code).toBe(0);
   cli.env = { MESA_SESSION_ID: ended, MESA_PROFILE: 'default' };
-  const { stderr } = await serve([], initialize(), rpc(2, 'tools/list'));
+  const { stderr } = await serve([], mcpInitialize(), rpc(2, 'tools/list'));
   expect(stderr).toBe(
     `mesa-vault: listing no tools: session ${ended} ended at 2026-09-24T12:00:00.000Z\n`,
   );
@@ -1117,7 +1085,7 @@ test('a session record that stops reading makes the server inert and logs the bi
   const record = join(cli.paths.sessions, `${id}.json`);
   const { replies, stderr } = await serve(
     [],
-    initialize(),
+    mcpInitialize(),
     async () => writeFileSync(record, 'not json'),
     rpc(2, 'tools/list'),
     call(3, 'read_note', { path: 'index.md' }),
@@ -1145,7 +1113,7 @@ test("the server's calls refuse canonical-path, symlink-escape, and internal pat
   put('.obsidian/app.json', '{}');
   const { replies } = await serve(
     [],
-    initialize(),
+    mcpInitialize(),
     call(2, 'read_note', { path: '../secret.md' }),
     call(3, 'read_note', { path: secret }),
     call(4, 'read_note', { path: 'wiki/../../secret.md' }),
@@ -1185,7 +1153,7 @@ test('a General session searches the whole vault and has no project to save a de
   put('wiki/elsewhere.md', '---\nproject: tide\n---\nHarbour lights on another coast.\n');
   const { replies, stderr } = await serve(
     [],
-    initialize(),
+    mcpInitialize(),
     call(2, 'search_vault', { query: 'harbour lights' }),
     call(3, 'save_decision', { title: 't', decision: 'd', rationale: 'r' }),
     call(4, 'save_note', { title: 'Coast notes', body: 'Two coasts.' }),
