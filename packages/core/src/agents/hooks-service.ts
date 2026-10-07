@@ -1,25 +1,30 @@
 import type { MesaContext } from '../context.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import * as antigravity from './antigravity/hooks.js';
-import * as antigravityVault from './antigravity/vault-mount.js';
+import * as antigravityMount from './antigravity/mesa-mount.js';
 import type { ClaudeHooksStatus } from './claude/hooks.js';
 import { hooksStatus, installHooks, uninstallHooks } from './claude/hooks.js';
 import * as codex from './codex/hooks.js';
 import { codexHome } from './codex/paths.js';
-import { DECISIONS_MOUNT } from './vault-mount.js';
+import { DECISIONS_MOUNT } from './mesa-mount.js';
 
 export type TmuxHookStatus = { socket: string; server: boolean; paneDied: boolean };
+/**
+ * Antigravity's mesa-decisions entry and rule (#463), owned as mesa-vault's are, and whether the
+ * profile wants them: only while it has a Decision model.
+ */
+export type AntigravityDecisionsStatus = antigravityMount.MesaMountStatus & { wanted: boolean };
 export type HooksStatus = ClaudeHooksStatus & {
   codex: codex.CodexHooksStatus;
   antigravity: ReturnType<typeof antigravity.hooksStatus>;
-  antigravityVault: ReturnType<typeof antigravityVault.vaultMountStatus>;
-  /**
-   * Antigravity's mesa-decisions entry and rule (#463), owned as mesa-vault's are, and whether the
-   * profile wants them: only while it has a Decision model.
-   */
-  antigravityDecisions: ReturnType<typeof antigravityVault.vaultMountStatus> & { wanted: boolean };
+  antigravityVault: antigravityMount.MesaMountStatus;
+  antigravityDecisions: AntigravityDecisionsStatus;
   tmux: TmuxHookStatus;
 };
+
+/** A conflict in Antigravity's Mesa entries, named once when both have the same one. */
+const mountConflicts = (r: Pick<HooksStatus, 'antigravityVault' | 'antigravityDecisions'>) =>
+  joinWarnings(...new Set([r.antigravityVault.conflict, r.antigravityDecisions.conflict]));
 
 /**
  * Mesa's agent hooks, Antigravity's global mesa-vault and mesa-decisions entries and allow rules,
@@ -31,6 +36,19 @@ export function hooksService(ctx: MesaContext) {
   const home = codexHome(ctx.home, ctx.env);
   /** Whether the profile has a Decision model (only one whose key is set can be chosen). */
   const wanted = () => (ctx.configIfAny()?.decisions.model ?? 'none') !== 'none';
+  /** Antigravity's mesa-decisions entry and rule while the profile wants them, else none. */
+  const installDecisions = () => {
+    const want = wanted();
+    const mount = want
+      ? antigravityMount.installMesaMount(ctx.home, ctx.self, DECISIONS_MOUNT)
+      : antigravityMount.uninstallMesaMount(ctx.home, ctx.self, DECISIONS_MOUNT);
+    return { ...mount, wanted: want };
+  };
+  /** Removes Antigravity's mesa-decisions entry and rule, whatever the profile wants. */
+  const uninstallDecisions = () => ({
+    ...antigravityMount.uninstallMesaMount(ctx.home, ctx.self, DECISIONS_MOUNT),
+    wanted: wanted(),
+  });
   const change = (install: boolean) => {
     // Validate every file before changing any, including Codex's read-only trust config.
     hooksStatus(ctx.home, ctx.env, ctx.self);
@@ -43,19 +61,9 @@ export function hooksService(ctx: MesaContext) {
       ctx.home,
       ctx.self,
     );
-    const mount = install
-      ? antigravityVault.installVaultMount
-      : antigravityVault.uninstallVaultMount;
+    const mount = install ? antigravityMount.installMesaMount : antigravityMount.uninstallMesaMount;
     const vault = mount(ctx.home, ctx.self);
-    const want = wanted();
-    const decisions = {
-      ...(install && want ? mount : antigravityVault.uninstallVaultMount)(
-        ctx.home,
-        ctx.self,
-        DECISIONS_MOUNT,
-      ),
-      wanted: want,
-    };
+    const decisions = install ? installDecisions() : uninstallDecisions();
     return {
       ...claude,
       codex: result,
@@ -71,9 +79,9 @@ export function hooksService(ctx: MesaContext) {
       ...hooksStatus(ctx.home, ctx.env, ctx.self),
       codex: codex.hooksStatus(home, ctx.self),
       antigravity: antigravity.hooksStatus(ctx.home, ctx.self),
-      antigravityVault: antigravityVault.vaultMountStatus(ctx.home, ctx.self),
+      antigravityVault: antigravityMount.mesaMountStatus(ctx.home, ctx.self),
       antigravityDecisions: {
-        ...antigravityVault.vaultMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
+        ...antigravityMount.mesaMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
         wanted: wanted(),
       },
       tmux: await ctx.tmuxHook(),
@@ -93,10 +101,7 @@ export function hooksService(ctx: MesaContext) {
             antigravityRulePath: r.antigravityVault.rulePath,
           }),
           changed: (r) => r.changed,
-          warning: (r) =>
-            joinWarnings(
-              ...new Set([r.antigravityVault.conflict, r.antigravityDecisions.conflict]),
-            ),
+          warning: mountConflicts,
         },
         () => change(true),
       ),
@@ -114,10 +119,7 @@ export function hooksService(ctx: MesaContext) {
             antigravityRulePath: r.antigravityVault.rulePath,
           }),
           changed: (r) => r.changed,
-          warning: (r) =>
-            joinWarnings(
-              ...new Set([r.antigravityVault.conflict, r.antigravityDecisions.conflict]),
-            ),
+          warning: mountConflicts,
         },
         () => change(false),
       ),

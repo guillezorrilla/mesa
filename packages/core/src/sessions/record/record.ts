@@ -92,12 +92,12 @@ const SessionRecordFields = z.strictObject({
   /** Started outside Mesa, then adopted (CONTEXT.md, Adopted session). */
   adopted: z.literal(true).optional(),
   /**
-   * Its agent was launched with mesa-vault mounted (agents/vault-mount.ts). None on a record only
+   * Its agent was launched with mesa-vault mounted (agents/mesa-mount.ts). None on a record only
    * recorded (mesa adopt --no-resume), queued, or launched before the mount existed.
    */
   vaultMounted: z.literal(true).optional(),
   /**
-   * Its agent was launched with mesa-decisions mounted too (agents/vault-mount.ts), as the profile
+   * Its agent was launched with mesa-decisions mounted too (agents/mesa-mount.ts), as the profile
    * had a Decision model then (#463). A session without it cannot gain the tool until it restarts.
    */
   decisionsMounted: z.literal(true).optional(),

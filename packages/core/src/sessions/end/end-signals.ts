@@ -199,7 +199,10 @@ export function endSignals(
       const started = event?.event === 'SessionStart' ? owner(event) : undefined;
       const cwd = started && cwdOf(started);
       return started && cwd
-        ? { ...event, instruction: mesaPointer(started, ctx.profile, cwd, assisted(started)) }
+        ? {
+            ...event,
+            instruction: mesaPointer(started, ctx.profile, cwd, { decisions: assisted(started) }),
+          }
         : event;
     },
     /**
@@ -228,7 +231,7 @@ export function endSignals(
             current.agentSessionId || current.endedAt ? {} : { agentSessionId: ownedId },
           );
       if (held.endedAt || held.agentSessionId !== ownedId) return undefined;
-      const pointer = mesaPointer(held, ctx.profile, cwd, assisted(held));
+      const pointer = mesaPointer(held, ctx.profile, cwd, { decisions: assisted(held) });
       const advice = await advise(held, undefined, { readyOnly: true });
       return advice ? `${pointer}\n${advice}` : pointer;
     },

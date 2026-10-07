@@ -1,12 +1,12 @@
 import { expect, test } from 'vitest';
 import { NATIVE_LAUNCH as NATIVE, tempDir } from '../testing/index.js';
 import { AGENTS, startCommand } from './agents.js';
-import { claudeMountArgs, launchMounts } from './vault-mount.js';
+import { claudeMountArgs, launchMounts } from './mesa-mount.js';
 
 // The exact argv each agent command carries (docs/spikes/vault-mcp.md, appendix), for a mesa run
 // as `node <script>`, as the CLI runs it.
 
-const MOUNTS = launchMounts(['/opt/node', '/src/mesa.js'], false);
+const MOUNTS = launchMounts(['/opt/node', '/src/mesa.js'], { decisions: false });
 const MCP = `'--mcp-config={"mcpServers":{"mesa-vault":{"type":"stdio","command":"/opt/node","args":["/src/mesa.js","vault","mcp"]}}}'`;
 const CLAUDE = `${MCP} '--allowedTools=mcp__mesa-vault'`;
 const CODEX = [

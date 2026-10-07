@@ -9,17 +9,10 @@ import type { SessionRecord } from '../record/record.js';
 import type { Caller } from '../window/caller.js';
 import { additionalDirs, additionalProjects, plannedAdditional } from './additional.js';
 import { requireCommandFits, requireGoalCommandRuns } from './goal.js';
-import {
-  folderOf,
-  goalPreparing,
-  type LaunchDeps,
-  launchAgent,
-  launchProject,
-  launchSession,
-  sessionWindowCommand,
-} from './launch.js';
+import { folderOf, type LaunchDeps, launchAgent, launchProject, launchSession } from './launch.js';
 import { createRecord } from './new-record.js';
 import { type OpenInput, validateOpenInput } from './open-input.js';
+import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 type OpenDeps = LaunchDeps & {
   home: string;

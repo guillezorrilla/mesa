@@ -2,12 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
 import { tempDir } from '../../testing/index.js';
-import {
-  ALLOW_RULE,
-  installVaultMount,
-  uninstallVaultMount,
-  vaultMountStatus,
-} from './vault-mount.js';
+import { ALLOW_RULE, installMesaMount, mesaMountStatus, uninstallMesaMount } from './mesa-mount.js';
 
 const SELF = ['/opt/node', '/src/mesa.js'];
 
@@ -47,10 +42,10 @@ test('install adds one mesa-vault entry and one allow rule, and uninstall restor
     { mcpServers: { tide: USER_SERVER } },
     USER_SETTINGS,
   );
-  expect(vaultMountStatus(home, SELF)).toMatchObject({ installed: false, stale: false });
+  expect(mesaMountStatus(home, SELF)).toMatchObject({ installed: false, stale: false });
 
-  expect(installVaultMount(home, SELF)).toMatchObject({ installed: true, changed: true });
-  expect(installVaultMount(home, SELF).changed).toBe(false);
+  expect(installMesaMount(home, SELF)).toMatchObject({ installed: true, changed: true });
+  expect(installMesaMount(home, SELF).changed).toBe(false);
   expect(JSON.parse(readFileSync(mcpFile, 'utf8'))).toEqual({
     mcpServers: {
       tide: USER_SERVER,
@@ -66,40 +61,40 @@ test('install adds one mesa-vault entry and one allow rule, and uninstall restor
   });
   expect(ALLOW_RULE).toBe('mcp(mesa-vault/*)');
 
-  expect(uninstallVaultMount(home, SELF)).toMatchObject({ installed: false, changed: true });
-  expect(uninstallVaultMount(home, SELF).changed).toBe(false);
+  expect(uninstallMesaMount(home, SELF)).toMatchObject({ installed: false, changed: true });
+  expect(uninstallMesaMount(home, SELF).changed).toBe(false);
   expect(readFileSync(mcpFile, 'utf8')).toBe(mcpText);
   expect(readFileSync(rulesFile, 'utf8')).toBe(rulesText);
 });
 
 test('a moved mesa is stale, a missing rule is reported alone, and install mends each', () => {
   const { home, rulesFile } = setUp({}, {});
-  installVaultMount(home, ['/old/node', '/old/mesa.js']);
-  expect(vaultMountStatus(home, SELF)).toMatchObject({
+  installMesaMount(home, ['/old/node', '/old/mesa.js']);
+  expect(mesaMountStatus(home, SELF)).toMatchObject({
     installed: false,
     stale: true,
     server: false,
     rule: true,
   });
-  installVaultMount(home, SELF);
+  installMesaMount(home, SELF);
   writeFileSync(rulesFile, '{"permissions":{"allow":[]}}\n');
-  expect(vaultMountStatus(home, SELF)).toMatchObject({ stale: false, server: true, rule: false });
-  expect(installVaultMount(home, SELF)).toMatchObject({ installed: true, changed: true });
+  expect(mesaMountStatus(home, SELF)).toMatchObject({ stale: false, server: true, rule: false });
+  expect(installMesaMount(home, SELF)).toMatchObject({ installed: true, changed: true });
 });
 
 test('a foreign mesa-vault entry or an unreadable file is a conflict, reported and left as it was', () => {
   const foreign = setUp({ mcpServers: { 'mesa-vault': USER_SERVER } }, USER_SETTINGS);
-  for (const change of [installVaultMount, uninstallVaultMount, vaultMountStatus])
+  for (const change of [installMesaMount, uninstallMesaMount, mesaMountStatus])
     expect(change(foreign.home, SELF)).toMatchObject({
       installed: false,
       conflict: `${foreign.mcpFile}: mesa-vault belongs to another server; Mesa left it unchanged`,
     });
-  expect(installVaultMount(foreign.home, SELF).changed).toBe(false);
+  expect(installMesaMount(foreign.home, SELF).changed).toBe(false);
   expect(readFileSync(foreign.mcpFile, 'utf8')).toBe(foreign.mcpText);
   expect(readFileSync(foreign.rulesFile, 'utf8')).toBe(foreign.rulesText);
 
   const listless = setUp({}, { permissions: { allow: 'mcp(*)' } });
-  expect(installVaultMount(listless.home, SELF)).toMatchObject({
+  expect(installMesaMount(listless.home, SELF)).toMatchObject({
     changed: false,
     conflict: expect.stringContaining('permissions.allow is not a list'),
   });
@@ -108,7 +103,7 @@ test('a foreign mesa-vault entry or an unreadable file is a conflict, reported a
   const broken = setUp();
   mkdirSync(dirname(broken.mcpFile), { recursive: true });
   writeFileSync(broken.mcpFile, '{broken');
-  expect(installVaultMount(broken.home, SELF)).toMatchObject({
+  expect(installMesaMount(broken.home, SELF)).toMatchObject({
     changed: false,
     conflict: `${broken.mcpFile}: not valid JSON; fix it before Mesa edits it`,
   });
@@ -118,16 +113,16 @@ test('a foreign mesa-vault entry or an unreadable file is a conflict, reported a
 
 test('uninstall removes a file that install made and that holds nothing else', () => {
   const none = setUp();
-  installVaultMount(none.home, SELF);
+  installMesaMount(none.home, SELF);
   expect(existsSync(none.mcpFile) && existsSync(none.rulesFile)).toBe(true);
-  uninstallVaultMount(none.home, SELF);
+  uninstallMesaMount(none.home, SELF);
   expect(existsSync(none.mcpFile)).toBe(false);
   expect(existsSync(none.rulesFile)).toBe(false);
 
   // Anything else in a file keeps it.
   const kept = setUp({ theme: 'dark' }, { permissions: { allow: [], deny: ['command(rm)'] } });
-  installVaultMount(kept.home, SELF);
-  uninstallVaultMount(kept.home, SELF);
+  installMesaMount(kept.home, SELF);
+  uninstallMesaMount(kept.home, SELF);
   expect(JSON.parse(readFileSync(kept.mcpFile, 'utf8'))).toEqual({ theme: 'dark', mcpServers: {} });
   expect(readFileSync(kept.rulesFile, 'utf8')).toBe(kept.rulesText);
 });
@@ -135,13 +130,13 @@ test('uninstall removes a file that install made and that holds nothing else', (
 test('an entry the user disabled is reported disabled, not stale, and install keeps it off', () => {
   const current = { command: '/opt/node', args: ['/src/mesa.js', 'vault', 'mcp'], disabled: true };
   const { home, mcpFile } = setUp({ mcpServers: { 'mesa-vault': current } }, {});
-  expect(vaultMountStatus(home, SELF)).toMatchObject({
+  expect(mesaMountStatus(home, SELF)).toMatchObject({
     stale: false,
     server: true,
     rule: false,
     disabled: true,
   });
-  expect(installVaultMount(home, SELF)).toMatchObject({ installed: true, disabled: true });
+  expect(installMesaMount(home, SELF)).toMatchObject({ installed: true, disabled: true });
   expect(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers['mesa-vault']).toEqual(current);
 
   // A moved mesa is still stale, and its new entry stays off.
@@ -149,7 +144,7 @@ test('an entry the user disabled is reported disabled, not stale, and install ke
     mcpFile,
     JSON.stringify({ mcpServers: { 'mesa-vault': { ...current, command: '/old/node' } } }),
   );
-  expect(vaultMountStatus(home, SELF)).toMatchObject({ stale: true, disabled: true });
-  installVaultMount(home, SELF);
+  expect(mesaMountStatus(home, SELF)).toMatchObject({ stale: true, disabled: true });
+  installMesaMount(home, SELF);
   expect(JSON.parse(readFileSync(mcpFile, 'utf8')).mcpServers['mesa-vault']).toEqual(current);
 });

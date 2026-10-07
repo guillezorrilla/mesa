@@ -62,9 +62,12 @@ const useOf = (e: Evaluation, at: string): DecisionUse => ({
   ...(e.reason ? { reason: e.reason } : {}),
 });
 
+/** Session `id`'s file in `dir`, which `mesa rm` removes with its record. */
+export const sessionDecisionsFile = (dir: string, id: string) => join(dir, `${id}.json`);
+
 /** Session `id`'s decision assistance, in `dir`. `id` is a live session's, so never a path. */
 export function sessionDecisions(deps: LockDeps & { dir: string }, id: string) {
-  const file = join(deps.dir, `${id}.json`);
+  const file = sessionDecisionsFile(deps.dir, id);
   const read = (): SessionDecisions => readJson(file, SessionDecisionsSchema) ?? EMPTY;
   const change = (fn: (now: SessionDecisions) => SessionDecisions) =>
     changeJson(file, SessionDecisionsSchema, (now) => fn(now ?? EMPTY), deps);

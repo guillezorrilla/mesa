@@ -1,10 +1,10 @@
 import { realpathSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
-import { goalPreparing, sessionWindowCommand } from '../../sessions/start/launch.js';
+import { goalPreparing, sessionWindowCommand } from '../../sessions/start/window-command.js';
 import { ADVICE_MARKER, assistedAgent, NATIVE_LAUNCH as NATIVE } from '../../testing/index.js';
 import { AGENTS } from '../agents.js';
-import { launchMounts } from '../vault-mount.js';
+import { launchMounts } from '../mesa-mount.js';
 import { codexConfig, codexHome } from './paths.js';
 
 // Codex's decision assistance (#463, ADR-0019): mesa-decisions mounted per launch with the same
@@ -29,7 +29,7 @@ const prompt = (session_id: string, text = 'Make the feed import retry on 503') 
   });
 
 test('mesa-decisions is mounted on start, resume, fork and exec only with a Decision model', () => {
-  const on = launchMounts(SELF, true);
+  const on = launchMounts(SELF, { decisions: true });
   // After mesa-vault's four overrides; the goal stays a prompt after --.
   expect(AGENTS.codex.start(on, NATIVE, 'review')).toMatch(
     new RegExp(`approve"' ${DECISIONS.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} -- 'review'$`),
@@ -46,13 +46,13 @@ test('mesa-decisions is mounted on start, resume, fork and exec only with a Deci
     ),
   ])
     expect(command).toContain(DECISIONS);
-  expect(AGENTS.codex.start(launchMounts(SELF, false), NATIVE, 'review')).not.toContain(
-    'mesa-decisions',
-  );
+  expect(
+    AGENTS.codex.start(launchMounts(SELF, { decisions: false }), NATIVE, 'review'),
+  ).not.toContain('mesa-decisions');
 });
 
 test("after the goal's background ask the window execs codex, so codex stays the pane's process", () => {
-  const deps = { mounts: launchMounts(SELF, true), self: SELF };
+  const deps = { mounts: launchMounts(SELF, { decisions: true }), self: SELF };
   const command = AGENTS.codex.start(deps.mounts, NATIVE, 'review');
   const preparing = goalPreparing(deps, 'interactive', 'review');
   expect(sessionWindowCommand('codex', 'interactive', command, preparing)).toBe(

@@ -1,7 +1,7 @@
 import { unlinkSync } from 'node:fs';
 import { MesaError } from '../../lib/result.js';
 import { read, write } from '../hooks.js';
-import { DECISIONS_MOUNT, type MesaServer, VAULT_MOUNT, vaultServer } from '../vault-mount.js';
+import { DECISIONS_MOUNT, type MesaServer, mesaServer, VAULT_MOUNT } from '../mesa-mount.js';
 import { antigravityCliSettings, antigravityMcpConfig } from './paths.js';
 
 // Antigravity's mounts of Mesa's servers (docs/spikes/vault-mcp.md, ADR-0012): mesa-vault, and
@@ -20,7 +20,7 @@ export const allowRule = (server: MesaServer) => `mcp(${server.name}/*)`;
 /** mesa-vault's rule. */
 export const ALLOW_RULE = allowRule(VAULT_MOUNT);
 
-export type VaultMountStatus = {
+export type MesaMountStatus = {
   path: string;
   rulePath: string;
   /** Mesa's entry runs this mesa, and its allow rule is there. */
@@ -52,7 +52,7 @@ function owned(entry: unknown, server: MesaServer): entry is Entry {
     typeof entry.command === 'string' &&
     Array.isArray(args) &&
     args.every((arg) => typeof arg === 'string') &&
-    args.slice(-server.command.length).join(' ') === server.command.join(' ') &&
+    args.slice(-server.subcommand.length).join(' ') === server.subcommand.join(' ') &&
     (entry.disabled === undefined || typeof entry.disabled === 'boolean')
   );
 }
@@ -109,14 +109,14 @@ function statusOf(
   config: Config,
   self: readonly string[],
   server: MesaServer,
-): VaultMountStatus {
+): MesaMountStatus {
   const paths = { path: antigravityMcpConfig(home), rulePath: antigravityCliSettings(home) };
   if ('conflict' in config) {
     const none = { installed: false, stale: false, server: false, rule: false, disabled: false };
     return { ...paths, ...none, conflict: config.conflict };
   }
   const { entry, allow } = config;
-  const want = vaultServer(self, server.command);
+  const want = mesaServer(self, server);
   const ours =
     entry !== undefined &&
     entry.command === want.command &&
@@ -133,7 +133,7 @@ function statusOf(
 }
 
 /** Whether Mesa's entry runs this mesa's server, whether it is on, and whether its rule is there. */
-export const vaultMountStatus = (
+export const mesaMountStatus = (
   home: string,
   self: readonly string[],
   server: MesaServer = VAULT_MOUNT,
@@ -143,7 +143,7 @@ export const vaultMountStatus = (
  * Mesa's entry, running this mesa, and its rule; when both are so already, or the files conflict,
  * nothing is written. An entry the user turned off stays off.
  */
-export function installVaultMount(
+export function installMesaMount(
   home: string,
   self: readonly string[],
   server: MesaServer = VAULT_MOUNT,
@@ -152,7 +152,7 @@ export function installVaultMount(
   const status = statusOf(home, config, self, server);
   if ('conflict' in config || status.installed) return { ...status, changed: false };
   const { mcpFile, mcp, servers, entry, rulesFile, rules, permissions, allow } = config;
-  const { command, args } = vaultServer(self, server.command);
+  const { command, args } = mesaServer(self, server);
   const off = entry?.disabled === undefined ? {} : { disabled: entry.disabled };
   if (!status.server)
     write(mcpFile, mcp, {
@@ -164,7 +164,7 @@ export function installVaultMount(
       ...rules.settings,
       permissions: { ...permissions, allow: [...allow, allowRule(server)] },
     });
-  return { ...vaultMountStatus(home, self, server), changed: true };
+  return { ...mesaMountStatus(home, self, server), changed: true };
 }
 
 /**
@@ -182,7 +182,7 @@ function save(
 }
 
 /** Removes Mesa's entry and its rule only; every other server, rule, and setting stays. */
-export function uninstallVaultMount(
+export function uninstallMesaMount(
   home: string,
   self: readonly string[],
   server: MesaServer = VAULT_MOUNT,
@@ -208,5 +208,5 @@ export function uninstallVaultMount(
       },
       { permissions: { allow: [] } },
     );
-  return { ...vaultMountStatus(home, self, server), changed: true };
+  return { ...mesaMountStatus(home, self, server), changed: true };
 }

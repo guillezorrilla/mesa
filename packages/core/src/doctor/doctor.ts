@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import type { hooksStatus as antigravityHooksStatus } from '../agents/antigravity/hooks.js';
-import type { vaultMountStatus } from '../agents/antigravity/vault-mount.js';
+import type { mesaMountStatus } from '../agents/antigravity/mesa-mount.js';
 import type { ClaudeHooksStatus } from '../agents/claude/hooks.js';
 import type { CodexHooksStatus } from '../agents/codex/hooks.js';
 import type { TmuxHookStatus } from '../agents/hooks-service.js';
@@ -168,7 +168,7 @@ function vaultCheck(read: () => VaultStatus): Finding {
 }
 
 /** Antigravity's global mesa-vault entry and its allow rule, from the same reader as hooks status. */
-function antigravityVaultCheck(read: () => ReturnType<typeof vaultMountStatus>): Finding {
+function antigravityVaultCheck(read: () => ReturnType<typeof mesaMountStatus>): Finding {
   const name = 'antigravity vault';
   try {
     const status = read();
@@ -251,7 +251,7 @@ export async function runDoctor(deps: {
     claude: () => ClaudeHooksStatus;
     codex?: () => CodexHooksStatus;
     antigravity?: () => ReturnType<typeof antigravityHooksStatus>;
-    antigravityVault?: () => ReturnType<typeof vaultMountStatus>;
+    antigravityVault?: () => ReturnType<typeof mesaMountStatus>;
     tmux: () => Promise<TmuxHookStatus>;
   };
   /** Where a Codex app-server daemon's socket is while it runs. */

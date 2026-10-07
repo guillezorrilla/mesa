@@ -9,9 +9,8 @@ import { withMesaStatusLine } from '../../agents/claude/statusline.js';
 import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
 import { sandboxOverride } from '../../agents/launch-flags.js';
+import { type Mounts, mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { AGENT_NAMES } from '../../agents/names.js';
-import { type Mounts, mountsPerLaunch } from '../../agents/vault-mount.js';
-import { prepareCommand } from '../../decisions/delivery.js';
 import { readyAgent } from '../../doctor/probe.js';
 import type { Clock } from '../../lib/clock.js';
 import type { AsyncLockDeps } from '../../lib/lock-file.js';
@@ -37,6 +36,7 @@ import {
 } from './additional.js';
 import type { NewLaunch } from './new-record.js';
 import { createRecord } from './new-record.js';
+import { goalPreparing, sessionWindowCommand } from './window-command.js';
 
 // Launching a session, the one sequence every start goes through (open, resume, adopt, handoff,
 // and a queued start): its record, its worktree, its folder checked, the project's skills linked
@@ -56,7 +56,7 @@ export type LaunchDeps = {
   clock: Clock;
   /** Links the project's enabled skills into the folder its agent runs in; throws on failure. */
   syncSkills: (project: string, folder: string) => void;
-  /** Mesa's servers every agent command mounts (agents/vault-mount.ts), read at each launch. */
+  /** Mesa's servers every agent command mounts (agents/mesa-mount.ts), read at each launch. */
   mounts: Mounts;
   /** For the locks a launch takes: a new worktree's, and the registry's. */
   lock: AsyncLockDeps;
@@ -109,35 +109,6 @@ type Start = {
   /** Then a worktree on that branch in each of these (mesa open --with; additional.ts). */
   additional?: readonly AdditionalStart[];
 };
-
-/**
- * The background ask for a session's goal while its agent starts (decisions/delivery.ts): for an
- * interactive session with a goal whose launch mounts mesa-decisions; none otherwise.
- */
-export const goalPreparing = (
-  deps: Pick<LaunchDeps, 'mounts' | 'self'>,
-  kind: SessionRecord['kind'],
-  goal?: string,
-) => (deps.mounts.decisions && goal && kind === 'interactive' ? prepareCommand(deps.self) : '');
-
-/**
- * The command tmux receives, including Claude's color and process-identity setup, after
- * `preparing` (goalPreparing). Behind `preparing` the line is a list, which sh no longer replaces
- * with its last command, so an agent that does not exec itself is exec'd: it stays the pane's own
- * process, which `send` and the Board read.
- */
-export function sessionWindowCommand(
-  agent: SessionRecord['agent'],
-  kind: SessionRecord['kind'],
-  command: string,
-  preparing = '',
-) {
-  if (agent === 'claude' && kind === 'interactive')
-    return `${preparing}unset NO_COLOR; exec ${command.replace(/^exec /, '')}`;
-  return preparing && !/(^|; )exec /.test(command)
-    ? `${preparing}exec ${command}`
-    : `${preparing}${command}`;
-}
 
 /**
  * Starts the agent of a session already written: its worktree first when `branch` is asked for

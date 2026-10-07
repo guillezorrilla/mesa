@@ -4,58 +4,57 @@ import { VAULT_SERVER } from '../vault/mount/server.js';
 import { VAULT_WRITE_TOOLS } from '../vault/mount/tools.js';
 import type { Agent } from './names.js';
 
-// How a session's agent mounts mesa-vault, the stdio MCP server `mesa vault mcp` (ADR-0011), with
-// every tool pre-approved (docs/spikes/vault-mcp.md, ADR-0012), and beside it, while the profile
-// has a Decision model, mesa-decisions, `mesa decisions mcp` (ADR-0019, #463), the same way. Claude
-// Code and Codex take them per launch, in argv, so every start, resume, fork, and headless run
-// carries them; Antigravity takes one global entry each instead (antigravity/vault-mount.ts).
+// How a session's agent mounts Mesa's stdio MCP servers, each with every tool pre-approved
+// (docs/spikes/vault-mcp.md, ADR-0012): mesa-vault, `mesa vault mcp` (ADR-0011), always, and beside
+// it, while the profile has a Decision model, mesa-decisions, `mesa decisions mcp` (ADR-0019,
+// #463). Claude Code and Codex take them per launch, in argv, so every start, resume, fork, and
+// headless run carries them; Antigravity takes one global entry each instead
+// (antigravity/mesa-mount.ts).
 
-/** Whether an agent's launch command carries the mount; Antigravity's is its global entry. */
+/** Whether an agent's launch command carries the mounts; Antigravity's are its global entries. */
 export const mountsPerLaunch = (agent: Agent | 'terminal') =>
   agent === 'claude' || agent === 'codex';
 
+/** One of Mesa's servers as an agent's config names it: its name and the mesa subcommand it is. */
+export type MesaServer = { name: string; subcommand: readonly string[] };
+export const VAULT_MOUNT: MesaServer = { name: VAULT_SERVER, subcommand: ['vault', 'mcp'] };
+export const DECISIONS_MOUNT: MesaServer = {
+  name: DECISIONS_SERVER,
+  subcommand: ['decisions', 'mcp'],
+};
+
 /** The command an agent starts a server with. */
-export type VaultServer = { command: string; args: readonly string[] };
-
-/** The mesa subcommand that is the server. */
-export const VAULT_COMMAND = ['vault', 'mcp'] as const;
-/** The mesa subcommand that is the decisions server. */
-export const DECISIONS_COMMAND = ['decisions', 'mcp'] as const;
-
-/** One of Mesa's servers as an agent's config names it: its name and its mesa subcommand. */
-export type MesaServer = { name: string; command: readonly string[] };
-export const VAULT_MOUNT: MesaServer = { name: VAULT_SERVER, command: VAULT_COMMAND };
-export const DECISIONS_MOUNT: MesaServer = { name: DECISIONS_SERVER, command: DECISIONS_COMMAND };
+export type ServerCommand = { command: string; args: readonly string[] };
 
 /**
- * This mesa running `command` (`vault mcp` by default), from the argv that runs it (MesaDeps.self).
- * No --profile: the server reads MESA_PROFILE and MESA_SESSION_ID from the window's environment,
- * which every agent passes on, so Antigravity's one global entry serves every profile.
+ * This mesa running `server`, from the argv that runs it (MesaDeps.self). No --profile: the server
+ * reads MESA_PROFILE and MESA_SESSION_ID from the window's environment, which every agent passes
+ * on, so Antigravity's one global entry serves every profile.
  */
-export function vaultServer(
-  self: readonly string[],
-  command: readonly string[] = VAULT_COMMAND,
-): VaultServer {
+export function mesaServer(self: readonly string[], server: MesaServer): ServerCommand {
   const [program = 'mesa', ...args] = self;
-  return { command: program, args: [...args, ...command] };
+  return { command: program, args: [...args, ...server.subcommand] };
 }
 
 /** What a launch mounts: mesa-vault always, and mesa-decisions while there is a Decision model. */
-export type Mounts = { vault: VaultServer; decisions?: VaultServer };
+export type Mounts = { vault: ServerCommand; decisions?: ServerCommand };
 
 /**
- * This mesa's mounts for a launch. With no Decision model (`decisions` false) nothing of
+ * This mesa's mounts for a launch. With no Decision model (`decisions` off) nothing of
  * mesa-decisions is mounted, so no tool is listed and the agent works as before.
  */
-export const launchMounts = (self: readonly string[], decisions: boolean): Mounts => ({
-  vault: vaultServer(self),
-  ...(decisions ? { decisions: vaultServer(self, DECISIONS_COMMAND) } : {}),
+export const launchMounts = (
+  self: readonly string[],
+  { decisions }: { decisions: boolean },
+): Mounts => ({
+  vault: mesaServer(self, VAULT_MOUNT),
+  ...(decisions ? { decisions: mesaServer(self, DECISIONS_MOUNT) } : {}),
 });
 
 /** The servers of `mounts` by their config names, mesa-vault first. */
 const servers = (mounts: Mounts) =>
   Object.entries({ [VAULT_SERVER]: mounts.vault, [DECISIONS_SERVER]: mounts.decisions }).filter(
-    (entry): entry is [string, VaultServer] => entry[1] !== undefined,
+    (entry): entry is [string, ServerCommand] => entry[1] !== undefined,
   );
 
 /** Claude Code's permission rule for every tool of the server. */

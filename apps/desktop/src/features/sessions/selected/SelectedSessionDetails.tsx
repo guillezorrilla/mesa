@@ -16,6 +16,7 @@ import { useCall } from '@/lib/useCommand';
 import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 import { DecisionDeliveryField } from './DecisionDeliveryField';
+import { useDecisionDelivery } from './useDecisionDelivery';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -55,7 +56,6 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
       decisions: DecisionDeliveryStatus;
     }
   >();
-  const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
   // The mesa-vault tools its agent's server lists (ADR-0011); a plain terminal has no agent.
@@ -63,6 +63,7 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
   // Decision assistance is read once the details open, as the rest is.
   const [opened, setOpened] = useState(false);
   const { row } = props;
+  const delivery = useDecisionDelivery(row.id, setRecord, setError);
   const agent = row.agent !== 'terminal';
   // The newer reading: a board look reads one after every turn, the details only when opened.
   const read = [row.context, record?.context].filter((c) => c !== undefined);
@@ -167,34 +168,10 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                   {record?.decisions && (
                     <DecisionDeliveryField
                       status={record.decisions}
-                      acting={restarting}
+                      acting={delivery.acting}
                       working={row.lastState.state === 'working'}
-                      onInstallHooks={() => {
-                        // Antigravity's global entry, which install writes with a Decision model.
-                        setRestarting(true);
-                        void call('hooks.install')
-                          .then((installed) =>
-                            installed.ok ? call('sessions.show', { id: row.id }) : installed,
-                          )
-                          .then((result) => {
-                            if (!result.ok) setError(result.error.message);
-                            else if ('decisions' in result.data) setRecord(result.data);
-                          })
-                          .finally(() => setRestarting(false));
-                      }}
-                      onRestart={() => {
-                        // Argv cannot change in a running agent: stop it, then resume it through
-                        // Mesa, which launches it with mesa-decisions mounted.
-                        setRestarting(true);
-                        void call('sessions.stop', { id: row.id })
-                          .then((stopped) =>
-                            stopped.ok ? call('sessions.resume', { id: row.id }) : stopped,
-                          )
-                          .then((result) => {
-                            if (!result.ok) setError(result.error.message);
-                          })
-                          .finally(() => setRestarting(false));
-                      }}
+                      onInstallHooks={delivery.installHooks}
+                      onRestart={delivery.restart}
                     />
                   )}
                   <DecisionAssistancePanel session={row.id} />

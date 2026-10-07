@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { PER_TURN_MS } from '../../decisions/models.js';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
-import { goalPreparing, sessionWindowCommand } from '../../sessions/start/launch.js';
+import { goalPreparing, sessionWindowCommand } from '../../sessions/start/window-command.js';
 import {
   ADVICE_MARKER,
   assistedAgent,
@@ -10,7 +10,7 @@ import {
   NATIVE_LAUNCH as NATIVE,
 } from '../../testing/index.js';
 import { AGENTS } from '../agents.js';
-import { launchMounts } from '../vault-mount.js';
+import { launchMounts } from '../mesa-mount.js';
 import { claudeSettings } from './paths.js';
 
 // Claude Code's decision assistance (#463, ADR-0019): mesa-decisions mounted per launch beside
@@ -33,7 +33,7 @@ const prompt = (session_id: string, extra: object = {}) =>
 const contextOf = (advice: string) => JSON.parse(advice).hookSpecificOutput;
 
 test('mesa-decisions is mounted and pre-approved beside mesa-vault only with a Decision model', () => {
-  const on = launchMounts(SELF, true);
+  const on = launchMounts(SELF, { decisions: true });
   // The goal stays the prompt, after the `=` forms; no --strict-mcp-config drops the user's servers.
   expect(AGENTS.claude.start(ID, on, NATIVE, 'Map the tides')).toBe(
     `claude --session-id ${ID} ${BOTH} 'Map the tides'`,
@@ -48,13 +48,18 @@ test('mesa-decisions is mounted and pre-approved beside mesa-vault only with a D
       on,
     ),
   ).toMatch(/--allowedTools 'mcp__mesa-vault' 'mcp__mesa-decisions' 'Read'$/);
-  const off = AGENTS.claude.start(ID, launchMounts(SELF, false), NATIVE, 'Map the tides');
+  const off = AGENTS.claude.start(
+    ID,
+    launchMounts(SELF, { decisions: false }),
+    NATIVE,
+    'Map the tides',
+  );
   expect(off).not.toContain('mesa-decisions');
   expect(off).not.toContain('strict-mcp-config');
 });
 
 test("the window asks for the goal's answer in the background while claude starts", () => {
-  const deps = { mounts: launchMounts(SELF, true), self: SELF };
+  const deps = { mounts: launchMounts(SELF, { decisions: true }), self: SELF };
   const command = AGENTS.claude.start(ID, deps.mounts, NATIVE, 'Map the tides');
   expect(
     sessionWindowCommand(
@@ -68,9 +73,13 @@ test("the window asks for the goal's answer in the background while claude start
   );
   // No goal, no model, or a skill run: nothing in the background.
   expect(goalPreparing(deps, 'interactive')).toBe('');
-  expect(goalPreparing({ ...deps, mounts: launchMounts(SELF, false) }, 'interactive', 'g')).toBe(
-    '',
-  );
+  expect(
+    goalPreparing(
+      { ...deps, mounts: launchMounts(SELF, { decisions: false }) },
+      'interactive',
+      'g',
+    ),
+  ).toBe('');
   expect(goalPreparing(deps, 'run', 'g')).toBe('');
 });
 

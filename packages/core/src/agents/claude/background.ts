@@ -1,7 +1,7 @@
 import type { Env, Runner } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
 import { addDirArgs, type LaunchDefaults, launchFlags } from '../launch-flags.js';
-import { claudeMountArgs, type Mounts } from '../vault-mount.js';
+import { claudeMountArgs, type Mounts } from '../mesa-mount.js';
 
 const TIMEOUT_MS = 20_000;
 const ID = /backgrounded\s+[^\w\s]?\s*([0-9a-f]{8})\b/i;

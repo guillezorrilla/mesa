@@ -69,7 +69,7 @@ export function mesaPointer(
   record: SessionRecord,
   profile: string,
   cwd: string,
-  decisions = false,
+  { decisions = false }: { decisions?: boolean } = {},
 ): string {
   const prefix = record.agent === 'codex' ? '$' : '/';
   const skills =

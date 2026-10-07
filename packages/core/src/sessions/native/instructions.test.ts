@@ -70,7 +70,7 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
   'with the decision tool, the %s pointer ends with one capability line of under 200 bytes',
   (agent) => {
     const plain = mesaPointer(record({ agent }), PROFILE, CWD);
-    const pointer = mesaPointer(record({ agent }), PROFILE, CWD, true);
+    const pointer = mesaPointer(record({ agent }), PROFILE, CWD, { decisions: true });
     expect(pointer).toBe(`${plain}\n${DECISIONS_LINE}`);
     expect(Buffer.byteLength(DECISIONS_LINE)).toBeLessThan(200);
     expect(DECISIONS_LINE).toContain('decision_evaluate');
@@ -80,7 +80,9 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
     const name = (c: string) => `${c.repeat(52)}-project`;
     const worktree = { path: CWD, branch: 'issue-1234-long-branch-name-for-feature' };
     const additional = ['a', 'b'].map((c) => ({ project: name(c), worktree }));
-    const across = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD, true);
+    const across = mesaPointer(record({ agent, worktree, additional }), PROFILE, CWD, {
+      decisions: true,
+    });
     expect(Buffer.byteLength(across)).toBeLessThan(1000 + 1 + Buffer.byteLength(DECISIONS_LINE));
   },
 );

@@ -1,9 +1,9 @@
 import { hooksStatus as antigravityHooks } from '../../agents/antigravity/hooks.js';
-import { vaultMountStatus } from '../../agents/antigravity/vault-mount.js';
+import { mesaMountStatus } from '../../agents/antigravity/mesa-mount.js';
 import { hooksStatus as claudeHooks } from '../../agents/claude/hooks.js';
 import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
-import { DECISIONS_MOUNT, mountsPerLaunch } from '../../agents/vault-mount.js';
+import { DECISIONS_MOUNT, mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { NO_MODEL } from '../../decisions/evaluate.js';
 import { PASSED_GATE } from '../../decisions/sites.js';
 import type { DecisionsModel } from '../../decisions/types.js';
@@ -79,7 +79,7 @@ function toolStatus(
     };
   }
   try {
-    const mount = vaultMountStatus(home, self, DECISIONS_MOUNT);
+    const mount = mesaMountStatus(home, self, DECISIONS_MOUNT);
     if (mount.conflict) return { state: 'conflicting', reason: mount.conflict, ...seen };
     if (mount.stale)
       return {

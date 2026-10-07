@@ -107,6 +107,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
             logsDir: paths.logs,
             runs: paths.runs,
             costs: paths.costs,
+            decisions: paths.decisions,
           },
           id,
           opts,

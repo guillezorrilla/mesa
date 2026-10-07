@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { launchMounts } from '../../agents/vault-mount.js';
+import { launchMounts } from '../../agents/mesa-mount.js';
 import { profilePaths } from '../../profile/paths.js';
 import { openProfile } from '../../profile/profile.js';
 import {
@@ -47,7 +47,7 @@ async function setUp({ claude = true } = {}) {
     newUuid: sequentialUuids(),
     caller: () => ({ inMesaWindow: false }),
     syncSkills: () => {},
-    mounts: launchMounts(['/usr/local/bin/mesa'], false),
+    mounts: launchMounts(['/usr/local/bin/mesa'], { decisions: false }),
     lock: { ...lockDeps(), sleep: async () => {} },
   };
   const windows = () => world.windows.filter((w) => w.window === `claude-${b.id}`);

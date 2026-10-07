@@ -21,7 +21,6 @@ import { codexLastOutputLine, codexScreenState } from './codex/screen.js';
 import { codexTranscriptReader } from './codex/transcripts.js';
 import { codexUsage } from './codex/usage.js';
 import { addDirArgs, type LaunchDefaults, launchFlags } from './launch-flags.js';
-import { AGENT_NAMES, type Agent } from './names.js';
 import {
   CLAUDE_VAULT_WRITES,
   CODEX_VAULT_READ_ONLY,
@@ -30,7 +29,8 @@ import {
   claudeMountTools,
   codexMountOverrides,
   type Mounts,
-} from './vault-mount.js';
+} from './mesa-mount.js';
+import { AGENT_NAMES, type Agent } from './names.js';
 
 /** A goal as the agent's first prompt: one shell word, so the shell hands it over byte for byte. */
 const goalWord = (goal?: string) => (goal === undefined ? '' : ` ${shellWord(goal)}`);
@@ -50,9 +50,9 @@ const addDirs = (agent: Agent, dirs: readonly string[]) =>
     .map((arg) => ` ${shellWord(arg)}`)
     .join('');
 
-/** Claude Code's mounts as shell words (vault-mount.ts). */
+/** Claude Code's mounts as shell words (mesa-mount.ts). */
 const claudeMount = (mounts: Mounts) => claudeMountArgs(mounts).map(shellWord).join(' ');
-/** Codex's mounts as four -c overrides each (vault-mount.ts). */
+/** Codex's mounts as four -c overrides each (mesa-mount.ts). */
 const codexMount = (mounts: Mounts) =>
   codexMountOverrides(mounts)
     .map((override) => `-c ${shellWord(override)}`)
