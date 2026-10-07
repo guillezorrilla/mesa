@@ -1,16 +1,18 @@
 import type { Shortcuts } from '@mesa/core';
-import { shortcutFromKeys } from '@mesa/core/browser';
+import { FIXED_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { useEffect, useRef } from 'react';
-import { FIXED_SHORTCUTS, pressed } from '@/lib/fixedShortcuts';
+import { pressed } from '@/lib/shortcutKeys';
 
 /**
- * The window-wide keys: the profile's search, Board, and new session shortcuts, and the fixed
- * keyboard shortcuts key. Each calls its action with the latest props, once per press: a held key's
- * repeats are ignored, so holding New session never starts one session per repeat.
+ * The window-wide keys: the profile's search, switch session, Board, and new session shortcuts,
+ * and the fixed keyboard shortcuts key. Each calls its action with the latest props, once per
+ * press: a held key's repeats are ignored, so holding New session never starts one session per
+ * repeat.
  */
 export function useGlobalShortcuts(props: {
   shortcuts: Shortcuts;
   onSearch: () => void;
+  onSwitchSession: () => void;
   onKeyboardShortcuts: () => void;
   onBoard: () => void;
   onNewSession: () => void;
@@ -20,11 +22,15 @@ export function useGlobalShortcuts(props: {
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if (event.repeat) return;
-      const { shortcuts, onSearch, onKeyboardShortcuts, onBoard, onNewSession } = latest.current;
+      const { shortcuts, onSearch, onSwitchSession, onKeyboardShortcuts, onBoard, onNewSession } =
+        latest.current;
       const key = shortcutFromKeys(event);
       if (key === shortcuts.search) {
         event.preventDefault();
         onSearch();
+      } else if (key === shortcuts.switchSession) {
+        event.preventDefault();
+        onSwitchSession();
       } else if (pressed(event, FIXED_SHORTCUTS.keyboardShortcuts)) {
         event.preventDefault();
         onKeyboardShortcuts();

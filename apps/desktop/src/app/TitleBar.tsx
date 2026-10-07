@@ -1,6 +1,7 @@
 import type { DoctorReport, ProjectRow } from '@mesa/core';
 import { DollarSign, Search } from 'lucide-react';
 import type { RefObject } from 'react';
+import { Kbd } from '@/components/Kbd';
 import { Button } from '@/components/ui/button';
 import { HelpMenu } from '@/features/help/HelpMenu';
 import { NotificationsMenu } from '@/features/notifications/NotificationsMenu';
@@ -8,7 +9,6 @@ import { ProfileMenu } from '@/features/profile/ProfileMenu';
 import { NewSessionMenu } from '@/features/sessions/start/NewSessionMenu';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
 import type { SettingsCategory } from '@/features/settings/categories';
-import { keyCaps } from '@/lib/fixedShortcuts';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import mesaLogo from '../../src-tauri/icons/128x128.png';
 import type { Overlay } from './navigation';
@@ -55,7 +55,7 @@ export function TitleBar(props: {
           <span className="flex items-center gap-2">
             <Search aria-hidden className="size-4" /> Search Mesa
           </span>
-          <kbd className="text-xs">{keyCaps(props.searchShortcut).join('')}</kbd>
+          <Kbd shortcut={props.searchShortcut} />
         </Button>
         <NewSessionMenu
           projects={props.projects}

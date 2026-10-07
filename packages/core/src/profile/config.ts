@@ -198,21 +198,18 @@ const ConfigShape = z.strictObject({
     )
     .prefault({}),
   shortcuts: z
-    .strictObject({
-      search: z
-        .string()
-        .refine(validShortcut, 'must be Mod plus a letter or digit')
-        .default(DEFAULT_SHORTCUTS.search),
-      board: z
-        .string()
-        .refine(validShortcut, 'must be Mod plus a letter or digit')
-        .default(DEFAULT_SHORTCUTS.board),
-      newSession: z
-        .string()
-        .refine(validShortcut, 'must be Mod plus a letter or digit')
-        .default(DEFAULT_SHORTCUTS.newSession),
-    })
-    .refine((keys) => new Set(Object.values(keys)).size === 3, 'shortcuts must be unique')
+    .strictObject(
+      Object.fromEntries(
+        Object.entries(DEFAULT_SHORTCUTS).map(([action, key]) => [
+          action,
+          z.string().refine(validShortcut, 'must be Mod plus a letter or digit').default(key),
+        ]),
+      ) as Record<keyof typeof DEFAULT_SHORTCUTS, z.ZodDefault<z.ZodString>>,
+    )
+    .refine(
+      (keys) => new Set(Object.values(keys)).size === Object.keys(keys).length,
+      'shortcuts must be unique',
+    )
     .prefault({}),
   // The sidebar's project order, and `mesa projects` without --sort.
   projects: z.strictObject({ sort: z.enum(PROJECT_SORTS).default('name') }).prefault({}),

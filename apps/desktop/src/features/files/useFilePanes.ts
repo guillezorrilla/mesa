@@ -1,5 +1,6 @@
+import { FIXED_SHORTCUTS } from '@mesa/core/browser';
 import { useEffect, useRef, useState } from 'react';
-import { FIXED_SHORTCUTS, pressed } from '@/lib/fixedShortcuts';
+import { pressed } from '@/lib/shortcutKeys';
 
 /** The Files tab's side pane, Files or Search, and Cmd+P and Cmd+Shift+F, which show and focus it. */
 export function useFilePanes() {

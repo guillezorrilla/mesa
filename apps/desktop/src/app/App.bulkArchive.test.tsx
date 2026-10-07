@@ -8,6 +8,7 @@ import {
   fakeBridge,
   managedRow,
   PROJECTS,
+  press,
   renderWithMesa,
   toasts,
 } from '@/lib/testing';
@@ -32,16 +33,6 @@ const rightClick = (element: HTMLElement | undefined) =>
   act(async () => {
     element?.dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }),
-    );
-  });
-const press = (
-  element: HTMLElement | undefined,
-  key: string,
-  keys: { shiftKey?: boolean; metaKey?: boolean } = {},
-) =>
-  act(async () => {
-    element?.dispatchEvent(
-      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...keys }),
     );
   });
 const menuItems = () =>

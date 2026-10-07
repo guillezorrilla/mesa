@@ -1,22 +1,27 @@
 import type { Shortcuts } from '@mesa/core';
-import { DEFAULT_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
+import { DEFAULT_SHORTCUTS, FIXED_SHORTCUTS, shortcutFromKeys } from '@mesa/core/browser';
 import { Keyboard, Pencil, X } from 'lucide-react';
 import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
+import { Kbd } from '@/components/Kbd';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
 import { warningOf } from '@/components/Toast';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 
-/** The profile's shortcuts, each customizable, global ones in a fixed order. */
-const CUSTOM: { key: keyof Shortcuts; label: string }[] = [
-  { key: 'search', label: 'Command palette' },
-  { key: 'newSession', label: 'New session' },
-  { key: 'board', label: 'Go to Sessions' },
-];
+/** The profile's shortcuts, each customizable, global ones in this order: one label per key. */
+const LABELS: Record<keyof Shortcuts, string> = {
+  search: 'Command palette',
+  switchSession: 'Switch session',
+  newSession: 'New session',
+  board: 'Go to Sessions',
+};
+const CUSTOM = Object.entries(LABELS).map(([key, label]) => ({
+  key: key as keyof Shortcuts,
+  label,
+}));
 const PROJECT = [
   ['Go to file', FIXED_SHORTCUTS.goToFile],
   ['Find in files', FIXED_SHORTCUTS.findInFiles],
@@ -98,17 +103,7 @@ function ShortcutRow(props: { label: string; shortcut: string; children?: React.
     <div className="group flex items-center gap-3 py-2 text-sm">
       <span className="flex-1 text-muted-foreground">{props.label}</span>
       {props.children}
-      <span role="img" className="flex gap-1" aria-label={props.shortcut}>
-        {keyCaps(props.shortcut).map((cap, index) => (
-          <kbd
-            // biome-ignore lint/suspicious/noArrayIndexKey: A shortcut's caps are fixed text.
-            key={index}
-            className="flex min-w-6 items-center justify-center rounded border bg-background px-1.5 py-0.5 font-mono text-xs"
-          >
-            {cap}
-          </kbd>
-        ))}
-      </span>
+      <Kbd shortcut={props.shortcut} />
     </div>
   );
 }

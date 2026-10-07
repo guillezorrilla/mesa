@@ -1,22 +1,19 @@
 import type { ProjectRow, ProjectSort, TreeRow } from '@mesa/core';
 import {
-  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Clock3,
   Folder,
-  Grid2X2,
-  Keyboard,
   Library,
+  type LucideIcon,
   Map as MapIcon,
-  Stethoscope,
-  TerminalSquare,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { ProjectsSection } from '@/features/projects/ProjectsSection';
+import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
 import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
@@ -81,7 +78,7 @@ export function WorkspaceSidebar(props: {
     if (last && view.kind !== 'project') onView({ kind: 'project', name: last.name });
   };
   const pendingRuns = usePendingRuns();
-  const nav = (label: string, icon: typeof TerminalSquare, target: WorkspaceView, count = 0) => (
+  const nav = (label: string, icon: LucideIcon, target: WorkspaceView, count = 0) => (
     <SidebarNavButton
       label={label}
       icon={icon}
@@ -119,7 +116,7 @@ export function WorkspaceSidebar(props: {
       <nav aria-label="Workspace" className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
         {collapsed ? (
           <div className="space-y-1">
-            {nav('Sessions', TerminalSquare, { kind: 'sessions' })}
+            {nav('Sessions', COMMAND_ICONS.sessions, { kind: 'sessions' })}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -164,13 +161,13 @@ export function WorkspaceSidebar(props: {
         )}
       </nav>
       <div className="flex flex-wrap justify-around border-t px-2 py-2">
-        {nav('Grid', Grid2X2, { kind: 'grid' })}
+        {nav('Grid', COMMAND_ICONS.grid, { kind: 'grid' })}
         {nav('Vault', Library, { kind: 'vault' })}
         {nav('Map', MapIcon, { kind: 'map' })}
         {nav('Daily', Clock3, { kind: 'daily' })}
-        {nav('Automations', CalendarClock, { kind: 'automations' }, pendingRuns)}
-        {nav('Doctor', Stethoscope, { kind: 'doctor' })}
-        {nav('Shortcuts', Keyboard, { kind: 'shortcuts' })}
+        {nav('Automations', COMMAND_ICONS.automations, { kind: 'automations' }, pendingRuns)}
+        {nav('Doctor', COMMAND_ICONS.doctor, { kind: 'doctor' })}
+        {nav('Shortcuts', COMMAND_ICONS.shortcuts, { kind: 'shortcuts' })}
       </div>
     </aside>
   );

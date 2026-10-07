@@ -33,10 +33,15 @@ export {
   TERMINAL_APPS,
   TERMINAL_THEMES,
 } from './profile/preferences.js';
-export { DEFAULT_SHORTCUTS, shortcutFromKeys, validShortcut } from './profile/shortcuts.js';
+export {
+  DEFAULT_SHORTCUTS,
+  FIXED_SHORTCUTS,
+  shortcutFromKeys,
+  validShortcut,
+} from './profile/shortcuts.js';
 export { repositoryUrl } from './projects/project-url.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
-export { type SearchHit, searchWorkspace } from './search/search.js';
+export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';
 export { descendantOrder } from './sessions/end/descendants.js';
 export { GENERAL_PROJECT, projectLabel } from './sessions/record/general.js';
 export * from './sessions/record/labels.js';

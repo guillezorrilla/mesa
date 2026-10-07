@@ -3,10 +3,21 @@ export const DEFAULT_SHORTCUTS = {
   search: 'Mod+K',
   board: 'Mod+1',
   newSession: 'Mod+N',
+  switchSession: 'Mod+Shift+K',
 } as const;
 
 export type ShortcutAction = keyof typeof DEFAULT_SHORTCUTS;
 export type Shortcuts = Record<ShortcutAction, string>;
+
+/**
+ * Shortcuts Mesa fixes rather than the profile: the Keyboard Shortcuts dialog and the command
+ * palette show them, and the screen that acts on each checks it.
+ */
+export const FIXED_SHORTCUTS = {
+  keyboardShortcuts: 'Mod+/',
+  goToFile: 'Mod+P',
+  findInFiles: 'Mod+Shift+F',
+} as const;
 
 const RESERVED = new Set(['Mod+Q', 'Mod+W', 'Mod+R', 'Mod+H', 'Mod+M']);
 

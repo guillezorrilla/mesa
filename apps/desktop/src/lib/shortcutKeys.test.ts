@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { keyCaps, pressed } from './fixedShortcuts';
+import { keyCaps, pressed } from './shortcutKeys';
 
 const keys = (key: string, mods: Partial<Record<'meta' | 'ctrl' | 'shift' | 'alt', boolean>>) => ({
   key,

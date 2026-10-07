@@ -1,5 +1,6 @@
+import { FIXED_SHORTCUTS } from '@mesa/core/browser';
 import { FileX } from 'lucide-react';
-import { FIXED_SHORTCUTS, keyCaps } from '@/lib/fixedShortcuts';
+import { keyCaps } from '@/lib/shortcutKeys';
 
 /** No file open: the prompt and the two shortcuts, each also a button. */
 export function FilesEmptyState(props: { onGoTo: () => void; onSearch: () => void }) {

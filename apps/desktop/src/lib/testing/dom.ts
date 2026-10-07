@@ -7,12 +7,34 @@ export const toasts = (byTestId: (id: string) => HTMLElement[]) =>
 export const toastTexts = (byTestId: (id: string) => HTMLElement[]) =>
   byTestId('toast').map((t) => t.querySelector('pre')?.textContent);
 
-/** Types `value` into the input with `id` as a person does: the input event React's onChange reads. */
-export const fill = (id: string, value: string) =>
+/** Types `value` into `input` as a person does: the input event React's onChange reads. */
+const typeInto = (input: HTMLInputElement, value: string) =>
   act(async () => {
-    const input = document.getElementById(id) as HTMLInputElement;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
+/** Types `value` into the input with `id`. */
+export const fill = (id: string, value: string) =>
+  typeInto(document.getElementById(id) as HTMLInputElement, value);
+
+/** Types `text` into the command palette's query, found by test id: cmdk owns the input's id. */
+export const searchFor = (text: string) => {
+  const input = document.querySelector<HTMLInputElement>('[data-testid="palette-query"]');
+  if (!input) throw new Error('the command palette is not open');
+  return typeInto(input, text);
+};
+
+/** Presses `key` on `element`, with any modifiers: one keydown that bubbles. */
+export const press = (
+  element: Element | null | undefined,
+  key: string,
+  keys: KeyboardEventInit = {},
+) =>
+  act(async () => {
+    element?.dispatchEvent(
+      new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...keys }),
+    );
   });
 
 export const click = (element: HTMLElement | undefined) =>

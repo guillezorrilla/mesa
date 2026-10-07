@@ -1,13 +1,3 @@
-/**
- * Shortcuts Mesa fixes rather than the profile: the Keyboard Shortcuts dialog lists them, and the
- * screen that acts on each checks it with `pressed`.
- */
-export const FIXED_SHORTCUTS = {
-  keyboardShortcuts: 'Mod+/',
-  goToFile: 'Mod+P',
-  findInFiles: 'Mod+Shift+F',
-} as const;
-
 /** Whether a key event is exactly `shortcut`: Mod is Command or Control, with the same modifiers. */
 export function pressed(
   event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
