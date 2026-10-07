@@ -63,7 +63,7 @@ test('Doctor shows installed and qualified versions with unsupported native oper
   );
 });
 
-test('the Doctor screen shows which decisions backend Faro uses', async () => {
+test('the Doctor screen says rules only when no decision model is in use', async () => {
   const decisions: Check = {
     name: 'decisions',
     ok: true,
@@ -75,6 +75,15 @@ test('the Doctor screen shows which decisions backend Faro uses', async () => {
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-doctor')[0]);
   expect(cells(byTestId('doctor-row')[1])).toEqual(['decisions', '✓', 'rules', 'rules only']);
+});
+
+test('the Doctor screen names the decision model in use', async () => {
+  const hint = 'rules first; clef (clef-flash) below confidence 0.7';
+  const decisions: Check = { name: 'decisions', ok: true, status: 'ok', version: 'clef', hint };
+  const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.6'), decisions])) });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await click(byTestId('nav-doctor')[0]);
+  expect(cells(byTestId('doctor-row')[1])).toEqual(['decisions', '✓', 'clef', hint]);
 });
 
 test('the Doctor screen lists the windows on the Mesa tmux server', async () => {

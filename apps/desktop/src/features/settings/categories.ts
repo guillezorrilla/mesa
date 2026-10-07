@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   Settings,
   SlidersHorizontal,
+  Sparkles,
   SquareTerminal,
 } from 'lucide-react';
 
@@ -21,9 +22,10 @@ export type SettingsCategory =
   | 'notifications'
   | 'agents'
   | 'connections'
+  | 'decisions'
   | 'advanced';
 
-/** The setting categories in order, with Connections; each lists the sections Mesa has settings for. */
+/** The setting categories in order, with Connections and Smarter decisions; each lists the sections Mesa has settings for. */
 export const CATEGORIES: {
   id: SettingsCategory;
   label: string;
@@ -108,6 +110,16 @@ export const CATEGORIES: {
     label: 'Connections',
     icon: Cable,
     sections: [['sources', 'Sources']],
+  },
+  {
+    id: 'decisions',
+    label: 'Smarter decisions',
+    icon: Sparkles,
+    sections: [
+      ['jev', 'Jev'],
+      ['clef', 'CLEF'],
+      ['none', 'None'],
+    ],
   },
   {
     id: 'advanced',

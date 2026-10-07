@@ -20,7 +20,7 @@ const FAKE = {
 
 const LEVELS: Record<string, GuardrailLevel> = { harbour: 'normal', lighthouse: 'strict' };
 const profile = (threshold = 0.7): FaroProfile => ({
-  decisions: { backend: 'rules', threshold },
+  decisions: { model: 'none', threshold },
 });
 const deps = (over: Partial<GuardrailDeps> = {}): GuardrailDeps => ({
   profile: profile(),

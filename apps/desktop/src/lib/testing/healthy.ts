@@ -42,6 +42,14 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
     envelope({
       sources: [{ id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' }],
     }),
+  // Settings > Smarter decisions, which a settings search renders too.
+  'decisions key list': () =>
+    envelope({
+      keys: [
+        { provider: 'typesafe', set: false },
+        { provider: 'cloudflare', set: false },
+      ],
+    }),
   // The project screen's Import panel.
   'import list': () => envelope({ items: [] }),
   // The header's bell reads the inbox on every screen.
@@ -53,7 +61,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
       vault: '/h/vault',
       defaultAgent: 'claude',
       skills: [],
-      decisions: { backend: 'rules', threshold: 0.7 },
+      decisions: { model: 'none', threshold: 0.7 },
       sessions: { log: true, statusLineCost: false, prEvents: false },
       usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
       notifications: {

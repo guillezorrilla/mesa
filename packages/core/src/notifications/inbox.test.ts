@@ -297,7 +297,7 @@ test('clearAll clears every current notice at once and keeps hook offsets so non
 test('an automation acknowledgement survives more than 1000 unrelated deliveries and restart', async () => {
   const { run } = scriptedRunner({ '/usr/bin/id': '501\n' });
   const { home, mesa } = projectProfile(run);
-  mesa.config.set('decisions.backend', 'rules');
+  await mesa.decisions.use('none');
   mesa.automations.add({
     name: 'Missing skill',
     project: 'lantern-cove',

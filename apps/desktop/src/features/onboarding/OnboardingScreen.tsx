@@ -7,11 +7,12 @@ import { cn } from '@/lib/utils';
 import { FirstSessionStep } from './FirstSessionStep';
 import { ProjectsStep } from './ProjectsStep';
 import { RequirementsStep } from './RequirementsStep';
+import { SmarterStep } from './SmarterStep';
 import { VaultStep } from './VaultStep';
 
 /**
  * The first run, one step at a time: a vault (which creates the profile), what sessions need,
- * the projects, then a first session. After the vault, the step is `onboarding.step` plus one,
+ * the projects, an optional decision model, then a first session. After the vault, the step is `onboarding.step` plus one,
  * so leaving and coming back resumes where it was.
  */
 export function OnboardingScreen(props: {
@@ -21,6 +22,8 @@ export function OnboardingScreen(props: {
   onInitialised: () => Promise<void>;
   onConfigChanged: () => Promise<void>;
   onProjectsChanged: () => Promise<void>;
+  /** Opens Settings > Smarter decisions. */
+  onDecisionSettings: () => void;
   /** Onboarding is complete: the session it started, or none for the board. */
   onDone: (session?: string) => void;
 }) {
@@ -40,6 +43,16 @@ export function OnboardingScreen(props: {
         <ProjectsStep
           registered={props.projects.length}
           onRegistered={props.onProjectsChanged}
+          onNext={next}
+        />
+      ),
+    },
+    {
+      title: 'Make Mesa smarter',
+      body: () => (
+        <SmarterStep
+          modelSet={(props.config?.decisions.model ?? 'none') !== 'none'}
+          onOpen={props.onDecisionSettings}
           onNext={next}
         />
       ),

@@ -37,7 +37,7 @@ const tmuxWith = (...windows: NewWindow[]) => {
 const noSignals = {
   events: () => [],
   priorityOf: () => 0.5,
-  faro: { decisions: { backend: 'rules' as const, threshold: 0.7 } },
+  faro: { decisions: { model: 'none' as const, threshold: 0.7 } },
   env: { CODEX_HOME: tempDir('codex-') },
   home: tempDir(),
 };

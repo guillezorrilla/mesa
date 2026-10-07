@@ -13,8 +13,8 @@ import {
   QuestionsSchema,
 } from './types.js';
 
-/** What Faro reads from the profile: `decisions.backend` and `.threshold`. */
-export type FaroProfile = { decisions: Pick<Config['decisions'], 'backend' | 'threshold'> };
+/** What Faro reads from the profile: `decisions.model` and `.threshold`. */
+export type FaroProfile = { decisions: Pick<Config['decisions'], 'model' | 'threshold'> };
 
 export type FaroDeps<S> = {
   /** The backends this decision site can use; its rules backend among them, or an even one. */
@@ -27,9 +27,9 @@ export type FaroDeps<S> = {
 const rulesOf = <S>(backends: readonly Backend<S>[]) =>
   backends.find((b) => b.name === 'rules') ?? rulesBackend<S>([]);
 
-/** The backend the profile names, if this site has it, else rules. */
+/** The model the profile names, if this site has it, else rules. */
 export function selectBackend<S>(backends: readonly Backend<S>[], profile: FaroProfile) {
-  return backends.find((b) => b.name === profile.decisions.backend) ?? rulesOf(backends);
+  return backends.find((b) => b.name === profile.decisions.model) ?? rulesOf(backends);
 }
 
 /** A backend's answers, used only when they answer exactly these questions, in order. */
@@ -70,11 +70,20 @@ const unsure = (answers: readonly Answer[], profile: FaroProfile) =>
 
 const Reply = z.union([
   z.array(z.unknown()),
-  z.object({ answers: z.array(z.unknown()), costUsd: z.number().optional() }),
+  z.object({
+    answers: z.array(z.unknown()),
+    costUsd: z.number().optional(),
+    model: z.string().optional(),
+  }),
 ]);
 
 type Attempt<S> =
-  | { backend: Backend<S>; answers: Answer[]; costUsd?: number | undefined }
+  | {
+      backend: Backend<S>;
+      answers: Answer[];
+      costUsd?: number | undefined;
+      model?: string | undefined;
+    }
   | { failed: string };
 
 async function attempt<S>(
@@ -84,8 +93,9 @@ async function attempt<S>(
 ): Promise<Attempt<S>> {
   try {
     const reply = Reply.parse(await backend.answer(state, questions));
-    const [raw, costUsd] = Array.isArray(reply) ? [reply] : [reply.answers, reply.costUsd];
-    return { backend, answers: checked(questions, raw), costUsd };
+    if (Array.isArray(reply)) return { backend, answers: checked(questions, reply) };
+    const { answers, costUsd, model } = reply;
+    return { backend, answers: checked(questions, answers), costUsd, model };
   } catch (error) {
     return { failed: error instanceof Error ? error.message : String(error) };
   }
@@ -93,7 +103,7 @@ async function attempt<S>(
 
 /**
  * Faro: answers `questions` about `state`, one answer per question with its probabilities and
- * confidence. The site's rules answer first; the backend the profile names is asked only when
+ * confidence. The site's rules answer first; the model the profile names is asked only when
  * the least sure answer is below `decisions.threshold` (ADR-0003), and its answers stand only if
  * they are well formed; when it fails, the rules' answers stand as `rules-fallback`. Rules that
  * fail give even answers. Questions are validated here too, as
@@ -116,7 +126,7 @@ export async function decide<S>(
   const first = await attempt(rules, state, asked);
   const ruled =
     'failed' in first
-      ? { backend: rules, answers: asked.map((q) => toAnswer(q, undefined)), costUsd: undefined }
+      ? { backend: rules, answers: asked.map((q) => toAnswer(q, undefined)) }
       : first;
   let made: Exclude<Attempt<S>, { failed: string }> & { fellBack?: string } = ruled;
   const named = selectBackend(deps.backends, deps.profile);
@@ -130,6 +140,7 @@ export async function decide<S>(
     backend: made.fellBack === undefined ? made.backend.name : 'rules-fallback',
     ...(made.fellBack === undefined ? {} : { fallbackReason: made.fellBack }),
     ...(made.costUsd === undefined ? {} : { costUsd: made.costUsd }),
+    ...(made.model === undefined ? {} : { model: made.model }),
     at: started.toISOString(),
     latencyMs: deps.clock().getTime() - started.getTime(),
   };

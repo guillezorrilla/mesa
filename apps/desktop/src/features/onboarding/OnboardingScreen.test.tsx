@@ -218,12 +218,27 @@ test('Projects: folders by conversations, ticked; Continue registers them and co
     ['onboarding.discovery', '"complete"'],
     ['onboarding.step', '2'],
   ]);
-  expect(stepTitle(byTestId)).toBe('First session');
+  expect(stepTitle(byTestId)).toBe('Make Mesa smarter');
   expect(byTestId('discovery-dialog')).toEqual([]);
 });
 
-test('First session: Start session opens it with Claude and completes onboarding', async () => {
+test('Make Mesa smarter: optional; it opens Settings on Smarter decisions, and Skip for now moves on', async () => {
   const { byTestId, calls } = await setup({ profile: true, step: 2, projects: [project('cove')] });
+  expect(stepTitle(byTestId)).toBe('Make Mesa smarter');
+  await click(byTestId('onboarding-smarter-settings')[0]);
+  expect(byTestId('settings')).toHaveLength(1);
+  expect(document.querySelector('[aria-current="page"]')?.textContent).toBe('Smarter decisions');
+  expect(byTestId('settings')[0]?.textContent).toContain('Test and save');
+  await click(document.querySelector<HTMLElement>('[aria-label="Close settings"]') ?? undefined);
+  const skip = byTestId('onboarding-continue')[0];
+  expect(skip?.textContent).toBe('Skip for now');
+  await click(skip);
+  expect(sets(calls)).toEqual([['onboarding.step', '3']]);
+  expect(stepTitle(byTestId)).toBe('First session');
+});
+
+test('First session: Start session opens it with Claude and completes onboarding', async () => {
+  const { byTestId, calls } = await setup({ profile: true, step: 3, projects: [project('cove')] });
   expect(stepTitle(byTestId)).toBe('First session');
   await click(byTestId('onboarding-start')[0]);
   expect(calls).toContainEqual([
@@ -240,7 +255,7 @@ test('First session: Start session opens it with Claude and completes onboarding
 });
 
 test("First session: I'll do it later completes onboarding without a session", async () => {
-  const { byTestId, calls } = await setup({ profile: true, step: 2, projects: [project('cove')] });
+  const { byTestId, calls } = await setup({ profile: true, step: 3, projects: [project('cove')] });
   await click(byTestId('onboarding-later')[0]);
   expect(calls.filter((args) => args[1] === 'open')).toEqual([]);
   expect(sets(calls)).toEqual([['onboarding.status', '"complete"']]);

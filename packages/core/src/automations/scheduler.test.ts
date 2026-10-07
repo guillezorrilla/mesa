@@ -166,7 +166,6 @@ function setup(
     ...deps,
     mesaYaml: `name: lantern-cove\nskills: [session-summary]\n${options.strict ? 'guardrail: strict\n' : ''}`,
   });
-  mesa.config.set('decisions.backend', 'rules');
   return {
     mesa,
     home,

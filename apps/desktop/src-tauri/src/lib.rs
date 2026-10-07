@@ -10,11 +10,12 @@ mod updater;
 use serde_json::Value;
 use tauri_plugin_deep_link::DeepLinkExt;
 
-/// Runs `mesa <args>` with the current environment (MESA_PROFILE included) and returns its envelope.
+/// Runs `mesa <args>` with the current environment (MESA_PROFILE included), `stdin` on its stdin
+/// when given (a secret, never argv), and returns its envelope.
 #[tauri::command]
-async fn run_mesa(args: Vec<String>) -> Result<Value, String> {
+async fn run_mesa(args: Vec<String>, stdin: Option<String>) -> Result<Value, String> {
     // Off the main thread so a slow command never freezes the window.
-    tauri::async_runtime::spawn_blocking(move || bridge::run(&args))
+    tauri::async_runtime::spawn_blocking(move || bridge::run(&args, stdin.as_deref()))
         .await
         .map_err(|e| format!("run_mesa task failed: {e}"))?
 }

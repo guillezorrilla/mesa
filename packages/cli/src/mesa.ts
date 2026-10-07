@@ -36,6 +36,7 @@ const { runCli, VERSION } = await import('./cli.js');
 const { unpackSkills } = await import('./bundled-skills.js');
 const { COMMANDS } = await import('./commands/index.js');
 const { terminalConfirm } = await import('./confirm.js');
+const { terminalSecret } = await import('./ask-secret.js');
 const { browserSelection } = await import('./browser-selection.js');
 
 /** All of stdin, for a hook's payload. */
@@ -55,7 +56,12 @@ const { code, stdout, stderr, exec, serve } = await runCli(argv, {
   tty: Boolean(process.stdin.isTTY),
   stdin: readStdin,
   // Only a terminal has a person to ask.
-  ...(process.stdin.isTTY ? { confirm: terminalConfirm(process.stdin, process.stderr) } : {}),
+  ...(process.stdin.isTTY
+    ? {
+        confirm: terminalConfirm(process.stdin, process.stderr),
+        askSecret: terminalSecret(process.stdin, process.stderr),
+      }
+    : {}),
   mesa: {
     home,
     cwd: process.cwd(),

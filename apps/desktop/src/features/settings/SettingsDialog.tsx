@@ -11,6 +11,7 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel';
 import { AgentSettingsPanel } from './AgentSettingsPanel';
 import { ConnectionSettingsPanel } from './ConnectionSettingsPanel';
 import { CATEGORIES, type SettingsCategory } from './categories';
+import { DecisionSettingsPanel } from './DecisionSettingsPanel';
 import { GeneralSettingsPanel } from './GeneralSettingsPanel';
 import { NotificationSettingsPanel } from './NotificationSettingsPanel';
 import { ProjectSettingsPanel } from './ProjectSettingsPanel';
@@ -63,6 +64,10 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
       props.onChanged();
       return undefined;
     });
+  const reload = async () => {
+    await config.refresh();
+    props.onChanged();
+  };
   const go = (to: SettingsDestination) => {
     props.onOpenChange(false);
     props.onNavigate(to);
@@ -97,6 +102,7 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
       notifications: <NotificationSettingsPanel />,
       agents: <AgentSettingsPanel doctor={props.doctor} />,
       connections: <ConnectionSettingsPanel />,
+      decisions: <DecisionSettingsPanel />,
       advanced: <AdvancedSettingsPanel onBackup={() => go('backup')} onUsage={() => go('usage')} />,
     })[id];
   const current = CATEGORIES.find((entry) => entry.id === category) ?? CATEGORIES[0];
@@ -177,7 +183,7 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
         </aside>
         <div id="settings-content" className="min-h-0 overflow-y-auto">
           {config.data ? (
-            <SettingsContext.Provider value={{ config: config.data, acting, save }}>
+            <SettingsContext.Provider value={{ config: config.data, acting, save, reload }}>
               <SettingsQuery.Provider value={query}>
                 <div className="space-y-8 px-6 py-5 [&:not(:has([data-setting-row]:not([hidden])))_[data-empty]]:block">
                   {query ? (

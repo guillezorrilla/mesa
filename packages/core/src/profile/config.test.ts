@@ -67,7 +67,7 @@ test('set rewrites one field, keeps the others and every comment, and redacts ke
   expect(loadConfig(file)).toMatchObject({
     vault: '/tmp/v',
     defaultAgent: 'codex',
-    decisions: { backend: 'rules', threshold: 0.5 },
+    decisions: { model: 'none', threshold: 0.5 },
   });
   expect(redactConfig(loadConfig(file)).keys).toEqual({ jev: '***' });
 });
@@ -88,21 +88,23 @@ test('an invalid value or file is invalid_config with the failing field, and the
     message: `${file}: vault: must be an absolute path`,
   });
 
-  // Jev was dropped (ADR-0004): naming it is an error with the field and the backends it takes.
-  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: jev\n');
+  // A model Mesa does not ask is an error with the field and the models it takes.
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  model: haiku\n');
   expect(thrown(() => loadConfig(file))).toEqual({
     code: 'invalid_config',
-    message: `${file}: decisions.backend: Invalid input: expected "rules"`,
+    message: `${file}: decisions.model: Invalid option: expected one of "jev"|"clef"|"none"`,
   });
 });
 
-test('a config that still names the removed adapter loads, and acts as rules', () => {
+test('a config that still names a backend or the removed adapter loads, with the rules alone', () => {
   writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: adapter\n  adapter: codex\n');
-  expect(loadConfig(file).decisions).toEqual({ backend: 'rules', threshold: 0.7 });
-  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  adapter: claude\n  threshold: 0.5\n');
-  expect(loadConfig(file).decisions).toEqual({ backend: 'rules', threshold: 0.5 });
+  expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.7 });
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  backend: rules\n  threshold: 0.5\n');
+  expect(loadConfig(file).decisions).toEqual({ model: 'none', threshold: 0.5 });
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  adapter: claude\n  model: clef\n');
+  expect(loadConfig(file).decisions).toEqual({ model: 'clef', threshold: 0.7 });
   // Any other unknown field is still an error.
-  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  model: haiku\n');
+  writeFileSync(file, 'vault: /tmp/v\ndecisions:\n  temperature: 0\n');
   expect(thrown(() => loadConfig(file)).code).toBe('invalid_config');
 });
 

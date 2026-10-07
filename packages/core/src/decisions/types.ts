@@ -1,9 +1,13 @@
 import { z } from 'zod';
-import { DECISIONS_BACKENDS } from './backends.js';
+import { DECISIONS_BACKENDS, DECISIONS_MODELS } from './backends.js';
 
-/** A decisions backend (CONTEXT.md, Backend): what a profile's `decisions.backend` names. */
+/** A decisions backend (CONTEXT.md, Backend): the rules, or a hosted model. */
 export const DecisionsBackendSchema = z.enum(DECISIONS_BACKENDS);
 export type BackendName = z.infer<typeof DecisionsBackendSchema>;
+
+/** The hosted model a profile asks when the rules are unsure (`decisions.model`), or none. */
+export const DecisionsModelSchema = z.enum(DECISIONS_MODELS);
+export type DecisionsModel = z.infer<typeof DecisionsModelSchema>;
 
 /**
  * Who answered a Decision: a backend, or `rules-fallback` when the named one was asked and failed.
@@ -101,6 +105,8 @@ export type Decision = {
    * The call's price as the backend reports it, for information only.
    */
   costUsd?: number;
+  /** The model id that answered, as a hosted model's response names it (`jev-1.13.0`). */
+  model?: string;
   /** With `rules-fallback`: why the named backend's answer was not used. */
   fallbackReason?: string;
   /** ISO. */
@@ -114,6 +120,7 @@ export const DecisionSchema: z.ZodType<Decision> = z.strictObject({
   answers: z.array(AnswerSchema),
   backend: DecidedBySchema,
   costUsd: z.number().nonnegative().optional(),
+  model: z.string().optional(),
   fallbackReason: z.string().optional(),
   at: z.iso.datetime(),
   latencyMs: z.number().nonnegative(),
@@ -123,7 +130,7 @@ export const DecisionSchema: z.ZodType<Decision> = z.strictObject({
 export type Backend<S = unknown> = {
   name: BackendName;
   /**
-   * Answers, or `{answers, costUsd}`; whatever it returns is parsed and checked against the
+   * Answers, or `{answers, costUsd, model}`; whatever it returns is parsed and checked against the
    * questions (decide.ts).
    */
   answer: (state: S, questions: Question[]) => Promise<unknown>;

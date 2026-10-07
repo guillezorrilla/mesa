@@ -13,14 +13,11 @@ const questions: Question[] = [
 const rules = rulesBackend<State>([
   { when: (s) => s.idle, answer: () => ({ state: { idle: 1 }, stuck: 0.8 }) },
 ]);
-const profile = (backend: Backend['name']): FaroProfile => ({
-  decisions: { backend, threshold: 0.7 },
+const profile = (model: FaroProfile['decisions']['model']): FaroProfile => ({
+  decisions: { model, threshold: 0.7 },
 });
-/**
- * No backend but rules ships (ADR-0020), so the seam a hosted model plugs into is checked with a
- * stand-in name the profile cannot yet write.
- */
-const MODEL = 'model' as unknown as Backend['name'];
+/** The model the profile names, here a stand-in that answers whatever the test gives. */
+const MODEL = 'jev';
 /** A stand-in for the backend the profile names: answers whatever `answer` gives. */
 const fake = (name: Backend['name'], answer: () => Promise<unknown>): Backend<State> => ({
   name,
@@ -39,7 +36,7 @@ const working = async () => [
 
 test('decide returns a Decision from the rules backend and records it; a failing record does not fail it', async () => {
   const recorder = memoryRecorder();
-  const deps = { backends: [rules], profile: profile('rules'), clock: steppingClock(), recorder };
+  const deps = { backends: [rules], profile: profile('none'), clock: steppingClock(), recorder };
   const decision = await decide(deps, { idle: true }, questions);
   expect(decision).toEqual({
     questions,
@@ -69,9 +66,9 @@ test('decide returns a Decision from the rules backend and records it; a failing
 test('the profile names the backend: used when this site has it, else rules', () => {
   const all = [rules, fake(MODEL, working)];
   expect(selectBackend(all, profile(MODEL)).name).toBe(MODEL);
-  expect(selectBackend(all, profile('rules')).name).toBe('rules');
+  expect(selectBackend(all, profile('none')).name).toBe('rules');
   expect(selectBackend([rules], profile(MODEL)).name).toBe('rules');
-  expect(selectBackend([], profile('rules')).name).toBe('rules');
+  expect(selectBackend([], profile('none')).name).toBe('rules');
 });
 
 test('rules answer first; the named backend only below the threshold, and only when well formed', async () => {
@@ -136,10 +133,31 @@ test('rules answer first; the named backend only below the threshold, and only w
   expect(even.answers.map((a) => a.probabilities)).toEqual([{ working: 0.5, idle: 0.5 }, 0.5]);
 });
 
+test("a model's reply keeps the model id and cost it reports; a fallback keeps neither", async () => {
+  const ask = (model: () => Promise<unknown>) =>
+    decide(
+      { backends: [rules, fake(MODEL, model)], profile: profile(MODEL), clock: fixedClock() },
+      { idle: false },
+      questions,
+    );
+  const replied = await ask(async () => ({
+    answers: await working(),
+    model: 'jev-1.13.0',
+    costUsd: 0.000004,
+  }));
+  expect(replied).toMatchObject({ backend: 'jev', model: 'jev-1.13.0', costUsd: 0.000004 });
+  const failed = await ask(() => Promise.reject(new Error('Jev is unavailable (HTTP 503)')));
+  expect(failed).toMatchObject({
+    backend: 'rules-fallback',
+    fallbackReason: 'Jev is unavailable (HTTP 503)',
+  });
+  expect(failed).not.toHaveProperty('model');
+});
+
 test('invalid questions are a usage error', async () => {
   const ask = (qs: unknown) =>
     decide(
-      { backends: [rules], profile: profile('rules'), clock: fixedClock() },
+      { backends: [rules], profile: profile('none'), clock: fixedClock() },
       { idle: true },
       qs as Question[],
     );

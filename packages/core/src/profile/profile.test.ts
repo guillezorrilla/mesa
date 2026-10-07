@@ -50,7 +50,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
     vault: '/tmp/v',
     defaultAgent: 'claude',
     skills: ['mesa', 'mesa-handoff', 'mesa-vault'],
-    decisions: { backend: 'rules', threshold: 0.7 },
+    decisions: { model: 'none', threshold: 0.7 },
     sessions: { log: true, statusLineCost: false, prEvents: false },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {

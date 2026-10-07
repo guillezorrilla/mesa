@@ -18,6 +18,7 @@ export {
 } from './agents/names.js';
 export { AGENT_STATES } from './agents/states.js';
 export { describeAutomation } from './automations/describe.js';
+export { DECISION_SITES, type DecisionSite, PASSED_GATE } from './decisions/sites.js';
 export { parseFileTarget } from './files/file-target.js';
 export { shortAgo, timeAgo } from './lib/ago.js';
 export * from './lib/format.js';

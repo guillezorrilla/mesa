@@ -209,6 +209,7 @@ export function App() {
           onNewSession={requestNewSession}
           onAddProject={setProjectAdd}
           onVaultSettings={() => workspace.openSettings('general')}
+          onDecisionSettings={() => workspace.openSettings('decisions')}
           archiveSessionRequest={archiveSessionRequest}
           dependencySessionRequest={dependencySessionRequest}
           promptInsertRequest={promptInsertRequest}

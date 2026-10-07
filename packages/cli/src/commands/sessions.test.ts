@@ -203,10 +203,10 @@ test('sessions asks only the rules, under a config and a record an older Mesa wr
   await mesa('init', '--vault', 'vault');
   // A config from before ADR-0020: it still loads, and acts as rules.
   const config = readFileSync(cli.paths.config, 'utf8');
-  expect(config).toContain('decisions:\n  backend: rules\n');
+  expect(config).toContain('decisions:\n  model: none\n');
   writeFileSync(
     cli.paths.config,
-    config.replace('  backend: rules\n', '  backend: adapter\n  adapter: codex\n'),
+    config.replace('  model: none\n', '  backend: adapter\n  adapter: codex\n'),
   );
   const store = testStore(cli.home, 'default', shortIds('aaaaaaaa'));
   const { id } = store.create((id) => ({
@@ -234,7 +234,7 @@ test('sessions asks only the rules, under a config and a record an older Mesa wr
   expect(store.get(id).lastState).not.toHaveProperty('basis');
   expect(scripted.calls.filter((c) => c.file === 'claude' && c.args[0] === '-p')).toEqual([]);
   expect((await mesa('config', '--json')).json.data.decisions).toEqual({
-    backend: 'rules',
+    model: 'none',
     threshold: 0.7,
   });
 });

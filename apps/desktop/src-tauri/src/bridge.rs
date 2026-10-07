@@ -1,8 +1,9 @@
 //! How the app reaches the mesa CLI: where the CLI is, and what its output means.
 
 use std::ffi::OsString;
+use std::io::Write;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use serde_json::Value;
 
@@ -32,11 +33,33 @@ pub fn mesa_command(cli: Option<OsString>) -> Result<Command, String> {
 
 /// Runs `mesa <args>` (see `mesa_command` for which mesa) and returns its
 /// envelope: the one path from the app to the CLI, for `run_mesa` and the terminal's attach.
-pub fn run(args: &[String]) -> Result<Value, String> {
-    let output = mesa_command(std::env::var_os("MESA_CLI"))?
-        .args(args)
-        .output()
+/// `stdin`, when given, is written to mesa's stdin: how a secret (a model's key) reaches the CLI,
+/// never in argv.
+pub fn run(args: &[String], stdin: Option<&str>) -> Result<Value, String> {
+    let mut cmd = mesa_command(std::env::var_os("MESA_CLI"))?;
+    cmd.args(args);
+    output_of(cmd, stdin)
+}
+
+/// `cmd`'s envelope, with `stdin` written to it and closed; without, its stdin is empty.
+fn output_of(mut cmd: Command, stdin: Option<&str>) -> Result<Value, String> {
+    let mut child = cmd
+        .stdin(if stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .map_err(|e| format!("cannot start mesa: {e}"))?;
+    if let (Some(text), Some(mut pipe)) = (stdin, child.stdin.take()) {
+        pipe.write_all(text.as_bytes())
+            .map_err(|e| format!("cannot write to mesa: {e}"))?;
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("cannot run mesa: {e}"))?;
     interpret(output.status.code(), &output.stdout, &output.stderr)
 }
 
@@ -60,7 +83,8 @@ pub fn interpret(code: Option<i32>, stdout: &[u8], stderr: &[u8]) -> Result<Valu
 
 #[cfg(test)]
 mod tests {
-    use super::{interpret, mesa_command};
+    use super::{interpret, mesa_command, output_of};
+    use std::process::Command;
 
     #[test]
     fn envelopes_pass_through_whatever_the_exit_code() {
@@ -84,6 +108,20 @@ mod tests {
         );
         assert_eq!(
             interpret(Some(0), b"not json", b"").unwrap_err(),
+            "mesa exited with code 0: no result envelope on stdout"
+        );
+    }
+
+    #[test]
+    fn stdin_reaches_the_command_and_is_empty_without_one() {
+        let echoed = output_of(
+            Command::new("/bin/cat"),
+            Some(r#"{"ok":true,"data":"key"}"#),
+        );
+        assert_eq!(echoed.unwrap()["data"], "key");
+        let empty = output_of(Command::new("/bin/cat"), None).unwrap_err();
+        assert_eq!(
+            empty,
             "mesa exited with code 0: no result envelope on stdout"
         );
     }

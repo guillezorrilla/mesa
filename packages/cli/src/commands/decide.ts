@@ -32,7 +32,8 @@ export const decide = defineCommand({
       ]),
     );
     const cost = listPrice(decision.costUsd);
-    const text = [...lines, `backend ${decision.backend}${cost}`].join('\n');
+    const model = decision.model ? `, model ${decision.model}` : '';
+    const text = [...lines, `backend ${decision.backend}${model}${cost}`].join('\n');
     return recordedOutput(recorded, { data: decision, text });
   },
 });

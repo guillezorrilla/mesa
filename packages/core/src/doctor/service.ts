@@ -11,7 +11,7 @@ import { type DoctorReport, inboxCheck, runDoctor } from './doctor.js';
 import { installRequirement } from './install.js';
 
 /**
- * The profile's doctor: every check wired to the profile's hooks, decisions backend, and vault,
+ * The profile's doctor: every check wired to the profile's hooks, decision model, and vault,
  * its findings recorded in the inbox; and installing a missing requirement.
  */
 export function doctorService(

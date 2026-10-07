@@ -11,7 +11,7 @@ const fixtures = readdirSync(dir)
   .filter((f) => f.endsWith('.json'))
   .map((f) => ({ name: f, ...JSON.parse(readFileSync(join(dir, f), 'utf8')) }));
 const profile: FaroProfile = {
-  decisions: { backend: 'rules', threshold: 0.7 },
+  decisions: { model: 'none', threshold: 0.7 },
 };
 const deps = { profile, clock: fixedClock() };
 
