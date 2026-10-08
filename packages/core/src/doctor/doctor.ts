@@ -4,6 +4,7 @@ import type { mesaMountStatus } from '../agents/antigravity/mesa-mount.js';
 import type { ClaudeHooksStatus } from '../agents/claude/hooks.js';
 import type { CodexHooksStatus } from '../agents/codex/hooks.js';
 import type { TmuxHookStatus } from '../agents/hooks-service.js';
+import { HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
 import { AGENT_NAMES } from '../agents/names.js';
 import { SYSTEM_ONE_MODELS } from '../decisions/systemone.js';
 import type { DecisionsModel } from '../decisions/types.js';
@@ -92,12 +93,6 @@ function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   const hint = `rules first; ${SYSTEM_ONE_MODELS[model]} below confidence ${threshold}`;
   return [{ name: 'decisions', ok: true, version: model, hint }];
 }
-
-/**
- * Doctor's hint for hooks Mesa installed once that an install would now change (#678), which the
- * inbox tells from a never-installed one.
- */
-export const HOOKS_UPDATE_HINT = 'needs an update: run `mesa hooks install`';
 
 /** Mesa's Claude Code hooks: a warning with its fix when missing, or when settings do not read. */
 function claudeHooksCheck(read: () => ClaudeHooksStatus): Finding {

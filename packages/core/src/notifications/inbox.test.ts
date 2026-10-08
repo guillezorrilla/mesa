@@ -1,8 +1,8 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
+import { HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
 import { automationState } from '../automations/state.js';
-import { HOOKS_UPDATE_HINT } from '../doctor/doctor.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
 import { eventsLog, recordHookEvent } from '../sessions/signals/hook-events.js';

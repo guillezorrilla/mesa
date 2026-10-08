@@ -2,9 +2,10 @@ import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
 import { Bell, Settings2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { warningOf } from '@/components/Toast';
+import { useToast, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { codexReviewMessage, useUpdateHooks } from '@/features/hooks/useUpdateHooks';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { ClearNotificationsDialog } from './ClearNotificationsDialog';
@@ -25,6 +26,8 @@ export function NotificationsMenu(props: {
 }) {
   const inbox = useCommand('notifications.list');
   const run = useRun();
+  const update = useUpdateHooks();
+  const toast = useToast();
   const { acting, act } = useAct();
   const [clearing, setClearing] = useState(false);
   const items = inbox.data ?? [];
@@ -49,14 +52,34 @@ export function NotificationsMenu(props: {
     else if (item.target.kind === 'automations') props.onAutomations();
     else props.onDoctor();
   };
+  /** A hooks fix, and the Codex note when it changed Codex's hooks, as the card shows it. */
+  const updateHooks = async () => {
+    const updated = await update();
+    return updated && { data: updated.result, note: updated.codexReview };
+  };
+  /** What each fix runs: every kind named, so a new one cannot fall through to another's. */
+  const fixes: Record<
+    InboxFix,
+    () => Promise<{ data: { warning?: string }; note?: string } | undefined>
+  > = {
+    'hooks install': updateHooks,
+    'hooks update': updateHooks,
+    'vault init': async () => {
+      const data = await run('vault.init');
+      return data && { data };
+    },
+  };
   const fix = (command: InboxFix) =>
     act(async () => {
-      const result =
-        command === 'vault init' ? await run('vault.init') : await run('hooks.install');
+      const result = await fixes[command]();
       if (!result) return undefined;
+      if (result.note) {
+        const note = codexReviewMessage(result.note);
+        toast(note.text, note.tone);
+      }
       await props.onRecheck();
       await inbox.refresh();
-      return warningOf(result);
+      return warningOf(result.data);
     });
   return (
     <>

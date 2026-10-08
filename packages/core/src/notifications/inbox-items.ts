@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { type DoctorReport, HOOKS_UPDATE_HINT } from '../doctor/doctor.js';
+import { HOOKS_UPDATE_DETAIL, HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
+import type { DoctorReport } from '../doctor/doctor.js';
 import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
 
 /**
@@ -68,8 +69,7 @@ const FIXES: Record<InboxFix, { title: string; detail: string }> = {
   },
   'hooks update': {
     title: 'Session hooks need an update',
-    detail:
-      "Your coding agents run Mesa's older hooks, so sessions can miss its tracking and advice.",
+    detail: HOOKS_UPDATE_DETAIL,
   },
   'vault init': {
     title: 'Vault is not set up',

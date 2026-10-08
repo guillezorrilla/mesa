@@ -1,11 +1,11 @@
-import type { SystemOneProvider } from '@mesa/core/browser';
+import { CODEX_REVIEW_TITLE, type SystemOneProvider } from '@mesa/core/browser';
 import { type ReactNode, useId, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
 import { warningOf } from '@/components/Toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CODEX_REVIEW_TITLE, useUpdateHooks } from '@/features/hooks/useUpdateHooks';
+import { useUpdateHooks } from '@/features/hooks/useUpdateHooks';
 import { useAct } from '@/lib/useAct';
 import { useCall } from '@/lib/useCommand';
 import { MODELS } from './models';

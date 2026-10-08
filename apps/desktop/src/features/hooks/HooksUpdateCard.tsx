@@ -1,3 +1,4 @@
+import { CODEX_REVIEW_TITLE, HOOKS_UPDATE_DETAIL } from '@mesa/core/browser';
 import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { warningOf } from '@/components/Toast';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { WorkspaceCard } from '@/components/WorkspaceCard';
 import { useAct } from '@/lib/useAct';
 import { useCommand } from '@/lib/useCommand';
-import { CODEX_REVIEW_TITLE, useUpdateHooks } from './useUpdateHooks';
+import { useUpdateHooks } from './useUpdateHooks';
 
 /**
  * The workspace card for hooks Mesa installed once that are now out of date (`needsUpdate`): after
@@ -38,7 +39,7 @@ export function HooksUpdateCard() {
       label="Notice"
       icon={RefreshCw}
       title="Mesa's session hooks need an update"
-      line="Your coding agents run Mesa's older hooks, so sessions can miss its tracking and advice."
+      line={HOOKS_UPDATE_DETAIL}
       action={
         <Button
           size="sm"

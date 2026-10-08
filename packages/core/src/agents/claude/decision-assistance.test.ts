@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { PER_TURN_MS } from '../../decisions/models.js';
 import { decisionStatus } from '../../sessions/native/decision-status.js';
+import { instructionStatus } from '../../sessions/native/instructions.js';
 import { goalPreparing, sessionWindowCommand } from '../../sessions/start/window-command.js';
 import {
   ADVICE_MARKER,
@@ -214,4 +215,21 @@ test('installed hooks pass UserPromptSubmit output to Claude, and advice is then
     decisionStatus(session, mesa.decisions.assistState(session), { home, env: {}, self: MESA })
       .advice,
   ).toEqual({ state: 'configured', reason: 'UserPromptSubmit adds advice to the turn' });
+});
+
+test('hooks Mesa installed with SessionStart but no UserPromptSubmit read as stale, not missing (#678)', async () => {
+  const { mesa, session, home } = await assistedAgent('claude', NATIVE_ID);
+  mesa.hooks.install();
+  // An install from before Mesa hooked UserPromptSubmit: an update adds it.
+  const path = claudeSettings(home, {});
+  const settings = JSON.parse(readFileSync(path, 'utf8'));
+  delete settings.hooks.UserPromptSubmit;
+  writeFileSync(path, JSON.stringify(settings));
+  const stale = { state: 'conflicting', reason: 'Mesa hooks are stale; run mesa hooks install' };
+  expect(
+    decisionStatus(session, mesa.decisions.assistState(session), { home, env: {}, self: MESA })
+      .advice,
+  ).toEqual(stale);
+  expect(instructionStatus('claude', home, {}, MESA)).toEqual(stale);
+  expect((await mesa.hooks.status()).needsUpdate).toBe(true);
 });

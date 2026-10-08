@@ -1,8 +1,13 @@
+import { CODEX_REVIEW_TITLE } from '@mesa/core/browser';
 import { useCallback } from 'react';
+import type { Message } from '@/components/Toast';
 import { useRun } from '@/lib/useCommand';
 
-/** What the app says once after an update that changed Codex's hook commands. */
-export const CODEX_REVIEW_TITLE = "Codex needs you to approve Mesa's updated hooks";
+/** The Codex note as one alert, for a place with no room to show it as a card or a dialog. */
+export const codexReviewMessage = (review: string): Message => ({
+  text: `${CODEX_REVIEW_TITLE}. ${review}`,
+  tone: 'alert',
+});
 
 /**
  * Updates Mesa's hooks (`mesa hooks install`). When that changed Codex's hook commands, Codex
