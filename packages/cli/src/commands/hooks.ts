@@ -1,4 +1,4 @@
-import type { HooksStatus } from '@mesa/core';
+import { HOOKS_UPDATE_HINT, type HooksStatus } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { recordedOutput } from '../output/recorded.js';
 
@@ -50,9 +50,11 @@ export const hooksStatus = defineCommand({
           `${!installed ? 'MISS' : status.codex.trusted[event] ? 'TRUSTED' : 'UNTRUSTED'} ${event}`,
       )
       .join('\n');
+    // Hooks Mesa installed once that an install would now change (#678).
+    const update = status.needsUpdate ? `${HOOKS_UPDATE_HINT}\n` : '';
     return {
       data: status,
-      text: `${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${decisionsLines(status.antigravityDecisions)}\n${tmux}`,
+      text: `${update}${status.path}\n${listed(status)}\n${status.codex.path}\n${codex}\n${status.codex.hint}\n${status.antigravity.path}\n${mark(status.antigravity.installed)} PreInvocation\n${vaultLines(status.antigravityVault)}\n${decisionsLines(status.antigravityDecisions)}\n${tmux}`,
     };
   },
 });

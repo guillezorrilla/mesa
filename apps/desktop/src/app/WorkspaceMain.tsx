@@ -7,6 +7,7 @@ import { BackupScreen } from '@/features/backup/BackupScreen';
 import { DailyScreen } from '@/features/daily/DailyScreen';
 import { DoctorScreen } from '@/features/doctor/DoctorScreen';
 import { HelpScreen } from '@/features/help/HelpScreen';
+import { HooksUpdateCard } from '@/features/hooks/HooksUpdateCard';
 import { MapScreen } from '@/features/map/MapScreen';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -69,7 +70,10 @@ export function WorkspaceMain(props: {
       }
     >
       {startView && (
-        <SmarterDecisionsTip config={config.data} onChanged={() => void config.refresh()} />
+        <>
+          <HooksUpdateCard />
+          <SmarterDecisionsTip config={config.data} onChanged={() => void config.refresh()} />
+        </>
       )}
       {/* Sessions stays mounted so its terminal clients survive navigation. */}
       <div

@@ -20,7 +20,22 @@ export type HooksStatus = ClaudeHooksStatus & {
   antigravityVault: antigravityMount.MesaMountStatus;
   antigravityDecisions: AntigravityDecisionsStatus;
   tmux: TmuxHookStatus;
+  /** Mesa's hooks were installed once and `mesa hooks install` would now update them. */
+  needsUpdate: boolean;
 };
+
+/**
+ * Whether Mesa's hooks were installed once and are out of date (#678): an agent's entries run
+ * another command or miss an event, Antigravity's mesa-vault entry is stale, or a profile with a
+ * Decision model has no mesa-decisions entry yet. Never when Mesa's hooks were never installed.
+ */
+function needsUpdate(s: Omit<HooksStatus, 'tmux' | 'needsUpdate'>) {
+  const agents = [s, s.codex, s.antigravity];
+  const once = agents.some((agent) => agent.installed || agent.stale);
+  const decisions = s.antigravityDecisions;
+  const unmounted = decisions.wanted && !decisions.installed && !decisions.conflict;
+  return agents.some((agent) => agent.stale) || s.antigravityVault.stale || (once && unmounted);
+}
 
 /** A conflict in Antigravity's Mesa entries, named once when both have the same one. */
 const mountConflicts = (r: Pick<HooksStatus, 'antigravityVault' | 'antigravityDecisions'>) =>
@@ -75,17 +90,19 @@ export function hooksService(ctx: MesaContext) {
     };
   };
   return {
-    status: async () => ({
-      ...hooksStatus(ctx.home, ctx.env, ctx.self),
-      codex: codex.hooksStatus(home, ctx.self),
-      antigravity: antigravity.hooksStatus(ctx.home, ctx.self),
-      antigravityVault: antigravityMount.mesaMountStatus(ctx.home, ctx.self),
-      antigravityDecisions: {
-        ...antigravityMount.mesaMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
-        wanted: wanted(),
-      },
-      tmux: await ctx.tmuxHook(),
-    }),
+    status: async (): Promise<HooksStatus> => {
+      const files = {
+        ...hooksStatus(ctx.home, ctx.env, ctx.self),
+        codex: codex.hooksStatus(home, ctx.self),
+        antigravity: antigravity.hooksStatus(ctx.home, ctx.self),
+        antigravityVault: antigravityMount.mesaMountStatus(ctx.home, ctx.self),
+        antigravityDecisions: {
+          ...antigravityMount.mesaMountStatus(ctx.home, ctx.self, DECISIONS_MOUNT),
+          wanted: wanted(),
+        },
+      };
+      return { ...files, tmux: await ctx.tmuxHook(), needsUpdate: needsUpdate(files) };
+    },
     /** Adds every agent's entries; running it twice leaves one per event, entry, and rule. */
     install: () =>
       record(

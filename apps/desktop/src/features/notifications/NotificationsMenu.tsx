@@ -52,7 +52,7 @@ export function NotificationsMenu(props: {
   const fix = (command: InboxFix) =>
     act(async () => {
       const result =
-        command === 'hooks install' ? await run('hooks.install') : await run('vault.init');
+        command === 'vault init' ? await run('vault.init') : await run('hooks.install');
       if (!result) return undefined;
       await props.onRecheck();
       await inbox.refresh();

@@ -123,3 +123,33 @@ test('an unlaid vault warns with what init would create; a laid-out one passes',
   });
   expect(await check([])).toMatchObject({ ok: true, status: 'ok' });
 });
+
+test('hooks Mesa installed once say they need an update; never-installed ones say not installed', async () => {
+  const { home, obsidian } = setup(['registered']);
+  const { run } = scriptedRunner(VERSIONS);
+  const file = (stale: boolean) => ({
+    path: join(home, 'hooks.json'),
+    installed: false,
+    stale,
+    events: { Stop: false },
+  });
+  const doctor = (stale: boolean) =>
+    runDoctor({
+      run,
+      obsidian,
+      profileDir: home,
+      hooks: {
+        claude: () => file(stale),
+        codex: () => ({ ...file(stale), trusted: { Stop: false }, hint: '' }),
+        antigravity: () => ({ ...file(stale), events: { PreInvocation: false } }),
+        tmux: async () => ({ socket: 'mesa-default', server: false, paneDied: false }),
+      },
+    }).then((report) => byName(report.checks));
+  const update = 'needs an update: run `mesa hooks install`';
+  const stale = await doctor(true);
+  for (const name of ['claude hooks', 'codex hooks Stop', 'antigravity hooks'])
+    expect(stale[name]).toMatchObject({ status: 'warn', hint: update });
+  const none = await doctor(false);
+  for (const name of ['claude hooks', 'codex hooks Stop', 'antigravity hooks'])
+    expect(none[name]).toMatchObject({ hint: 'not installed: run `mesa hooks install`' });
+});

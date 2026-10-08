@@ -35,7 +35,7 @@ export type { SiteMode } from './decisions/site-mode.js';
 export type { Placed } from './decisions/supervision.js';
 export type { Decision, DecisionsModel } from './decisions/types.js';
 export type { DiagnosticEvent, DiagnosticReport } from './diagnostics/service.js';
-export type { Check, DoctorReport } from './doctor/doctor.js';
+export { type Check, type DoctorReport, HOOKS_UPDATE_HINT } from './doctor/doctor.js';
 export type { FileEntry, FileHit, FileSearch, FileTree } from './files/browse.js';
 export type { FileChange, WorkspaceFile } from './files/editor.js';
 export type { FileLink } from './files/link.js';

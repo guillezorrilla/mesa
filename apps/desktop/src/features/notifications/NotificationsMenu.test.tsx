@@ -107,6 +107,35 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
   expect(opened).toEqual(['aaaaaaaa']);
 });
 
+test('a notice for hooks that need an update offers Update hooks, which runs the install', async () => {
+  const update: InboxItem = {
+    ...hooks,
+    title: 'Session hooks need an update',
+    detail:
+      "Your coding agents run Mesa's older hooks, so sessions can miss its tracking and advice.",
+    fix: 'hooks update',
+  };
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope([update]),
+    'hooks install': () => envelope({ changed: true, receipt: null }),
+  });
+  await renderWithMesa(
+    <NotificationsMenu
+      open
+      onOpenChange={() => {}}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />,
+    bridge,
+  );
+  expect(button('Enable hooks')).toBeUndefined();
+  await click(button('Update hooks'));
+  expect(calls.some((args) => args[1] === 'hooks' && args[2] === 'install')).toBe(true);
+});
+
 test('Clear all asks first, then clears the whole center in one call', async () => {
   let cleared = false;
   const closed: boolean[] = [];

@@ -1,10 +1,14 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { DoctorReport } from '../doctor/doctor.js';
+import { type DoctorReport, HOOKS_UPDATE_HINT } from '../doctor/doctor.js';
 import { type HookEvent, parentHook } from '../sessions/signals/hook-events.js';
 
-/** The one Mesa command that fixes a Doctor notice, when there is one. */
-export type InboxFix = 'hooks install' | 'vault init';
+/**
+ * What fixes a Doctor notice, when one Mesa command does: `hooks update` runs `mesa hooks install`
+ * over hooks Mesa installed once (#678).
+ */
+const INBOX_FIXES = ['hooks install', 'hooks update', 'vault init'] as const;
+export type InboxFix = (typeof INBOX_FIXES)[number];
 
 export type InboxItem = {
   id: string;
@@ -25,7 +29,7 @@ export const CandidateSchema = z.strictObject({
   kind: z.enum(['input-required', 'finished', 'subagent', 'doctor', 'automation']),
   title: z.string(),
   detail: z.string().optional(),
-  fix: z.enum(['hooks install', 'vault init']).optional(),
+  fix: z.enum(INBOX_FIXES).optional(),
   fingerprint: z.string(),
   target: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('session'), id: z.string() }),
@@ -42,7 +46,7 @@ export const DoctorFindingSchema = z.object({
   status: z.enum(['warn', 'fail']),
   fingerprint: z.string().optional(),
   detail: z.string().optional(),
-  fix: z.enum(['hooks install', 'vault init']).optional(),
+  fix: z.enum(INBOX_FIXES).optional(),
 });
 type DoctorFinding = z.infer<typeof DoctorFindingSchema>;
 
@@ -62,20 +66,28 @@ const FIXES: Record<InboxFix, { title: string; detail: string }> = {
     title: 'Session hooks are not enabled',
     detail: "Mesa can't tell when a coding agent needs you or finishes a turn.",
   },
+  'hooks update': {
+    title: 'Session hooks need an update',
+    detail:
+      "Your coding agents run Mesa's older hooks, so sessions can miss its tracking and advice.",
+  },
   'vault init': {
     title: 'Vault is not set up',
     detail: "Sessions can't save notes, decisions, or receipts until it is laid out.",
   },
 };
 
-/** One notice per fix that Doctor's hints name, and one per finding with no such fix. */
+/**
+ * One notice per fix that Doctor's hints name, and one per finding with no such fix. Hooks Mesa
+ * installed once that need an update make every hooks finding that one notice.
+ */
 export function doctorFindings(report: DoctorReport) {
   const findings = report.checks.filter((check) => check.status !== 'ok');
+  const update = findings.some((check) => check.hint === HOOKS_UPDATE_HINT);
   const groups = new Map<string, { name: string; fix?: InboxFix; checks: typeof findings }>();
   for (const check of findings) {
-    const fix = Object.keys(FIXES).find((command) => check.hint.includes(`\`mesa ${command}\``)) as
-      | InboxFix
-      | undefined;
+    const named = INBOX_FIXES.find((command) => check.hint.includes(`\`mesa ${command}\``));
+    const fix = named === 'hooks install' && update ? 'hooks update' : named;
     const key = fix ?? `check:${check.name}`;
     const group = groups.get(key) ?? { name: fix ? FIXES[fix].title : check.name, fix, checks: [] };
     group.checks.push(check);

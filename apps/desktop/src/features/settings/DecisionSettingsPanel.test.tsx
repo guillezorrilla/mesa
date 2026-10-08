@@ -1,17 +1,20 @@
 // @vitest-environment happy-dom
-import type { Config, KeyProvider, KeyRow } from '@mesa/core';
+import type { Config, HooksStatus, KeyProvider, KeyRow } from '@mesa/core';
 import { expect, test } from 'vitest';
 import { click, envelope, failure, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
 import type { SettingsCategory } from './categories';
 import { SettingsDialog } from './SettingsDialog';
 
 const KEY = 'ts-test-0000-1111-abcd';
+const REVIEW =
+  'The next Codex start asks you to review hooks: choose "Review hooks" in "Hooks need review" and trust Mesa\'s entries.';
 const MODEL_OF = { typesafe: 'jev', cloudflare: 'clef' } as const;
 
 /**
  * Settings on `category` (Smarter decisions) over a bridge holding the keys, the chosen model and
  * the Cloudflare account ID; `reject` makes every key set fail as a refused key does. The key
- * each set read on stdin is kept.
+ * each set read on stdin is kept. With `installedHooks`, Mesa's hooks were installed before any
+ * model, so once one is chosen they need an update, until `hooks install` changes Codex's too.
  */
 async function render(
   options: {
@@ -19,6 +22,7 @@ async function render(
     category?: SettingsCategory;
     keys?: KeyRow[];
     account?: string;
+    installedHooks?: boolean;
   } = {},
 ) {
   const state = {
@@ -31,9 +35,11 @@ async function render(
     stdin: [] as (string | undefined)[],
     /** What the key field held when the key was sent: it must not seem to vanish meanwhile. */
     fieldAtSend: [] as (string | undefined)[],
+    hooksUpdated: false,
   };
   const fake = fakeBridge();
   const base = ((await fake.bridge(['--json', 'config'])) as { data: Config }).data;
+  const hooks = ((await fake.bridge(['--json', 'hooks', 'status'])) as { data: HooksStatus }).data;
   const setKey = (provider: KeyProvider, row: KeyRow) => {
     state.keys = state.keys.map((key) => (key.provider === provider ? row : key));
   };
@@ -66,6 +72,15 @@ async function render(
       setKey(provider, { provider, set: false });
       if (state.model === MODEL_OF[provider]) state.model = 'none';
       return envelope({ provider, removed: true, model: state.model });
+    },
+    'hooks status': () =>
+      envelope({
+        ...hooks,
+        needsUpdate: !!options.installedHooks && state.model !== 'none' && !state.hooksUpdated,
+      }),
+    'hooks install': () => {
+      state.hooksUpdated = true;
+      return envelope({ changed: true, codex: { changed: true, hint: REVIEW }, receipt: null });
     },
     'decisions use': (args) => {
       state.model = args.at(-1) as Config['decisions']['model'];
@@ -189,6 +204,35 @@ test('Connect CLEF labels the account ID and the token, keeps it masked while it
   expect(clef?.textContent).not.toContain(KEY);
   expect(button(clef, 'Connect')).toBeUndefined();
   expect(document.querySelector('[data-testid="decisions-rules-only"]')).toBeNull();
+});
+
+test('after Connect, hooks that need an update are one more step, then how Codex approves them', async () => {
+  const { calls } = await render({ installedHooks: true });
+  await click(button(row('Jev (TypeSafe)'), 'Connect'));
+  await fill(field('jev', 'API key')?.id ?? '', KEY);
+  await click(
+    document.querySelector<HTMLElement>('[data-testid="connect-jev-submit"]') ?? undefined,
+  );
+  expect(dialog('jev')?.textContent).toContain(
+    "One more step: update Mesa's session hooks so your agents get the advice",
+  );
+  await click(button(dialog('jev'), 'Update hooks'));
+  expect(calls.some((args) => args[1] === 'hooks' && args[2] === 'install')).toBe(true);
+  expect(dialog('jev')?.textContent).toContain("Codex needs you to approve Mesa's updated hooks");
+  expect(dialog('jev')?.textContent).toContain(REVIEW);
+  await click(button(dialog('jev'), 'Done'));
+  expect(dialog('jev')).toBeNull();
+});
+
+test('after Connect with hooks that need no update, the dialog just closes', async () => {
+  const { calls } = await render();
+  await click(button(row('Jev (TypeSafe)'), 'Connect'));
+  await fill(field('jev', 'API key')?.id ?? '', KEY);
+  await click(
+    document.querySelector<HTMLElement>('[data-testid="connect-jev-submit"]') ?? undefined,
+  );
+  expect(dialog('jev')).toBeNull();
+  expect(calls.some((args) => args[1] === 'hooks' && args[2] === 'install')).toBe(false);
 });
 
 test('a rejected key says so in place with the provider message, empties the field, and stays open', async () => {

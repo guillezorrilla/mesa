@@ -207,6 +207,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         wanted: true,
       },
       tmux: { socket: 'mesa-default', server: true, paneDied: true },
+      needsUpdate: false,
     } satisfies HooksStatus),
 };
 

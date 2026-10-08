@@ -93,6 +93,12 @@ function decisionsCheck(decisions: DecisionsInUse | undefined): Finding[] {
   return [{ name: 'decisions', ok: true, version: model, hint }];
 }
 
+/**
+ * Doctor's hint for hooks Mesa installed once that an install would now change (#678), which the
+ * inbox tells from a never-installed one.
+ */
+export const HOOKS_UPDATE_HINT = 'needs an update: run `mesa hooks install`';
+
 /** Mesa's Claude Code hooks: a warning with its fix when missing, or when settings do not read. */
 function claudeHooksCheck(read: () => ClaudeHooksStatus): Finding {
   const name = 'claude hooks';
@@ -109,7 +115,7 @@ function claudeHooksCheck(read: () => ClaudeHooksStatus): Finding {
   const hint = status.installed
     ? ''
     : status.stale
-      ? 'stale: they run a mesa that moved; run `mesa hooks install`'
+      ? HOOKS_UPDATE_HINT
       : 'not installed: run `mesa hooks install`';
   return { name, ok: status.installed, path: status.path, hint };
 }
@@ -123,7 +129,9 @@ function codexHooksChecks(read: () => CodexHooksStatus): Finding[] {
       ok: installed && status.trusted[event] === true,
       path: status.path,
       hint: !installed
-        ? 'not installed: run `mesa hooks install`'
+        ? status.stale
+          ? HOOKS_UPDATE_HINT
+          : 'not installed: run `mesa hooks install`'
         : status.trusted[event]
           ? ''
           : status.hint,
@@ -144,7 +152,7 @@ function antigravityHooksCheck(read: () => ReturnType<typeof antigravityHooksSta
       hint: status.installed
         ? ''
         : status.stale
-          ? 'stale: run `mesa hooks install`'
+          ? HOOKS_UPDATE_HINT
           : 'not installed: run `mesa hooks install`',
     };
   } catch (error) {
@@ -179,7 +187,7 @@ function antigravityVaultCheck(read: () => ReturnType<typeof mesaMountStatus>): 
       hint: status.conflict
         ? status.conflict
         : status.stale
-          ? 'stale: run `mesa hooks install`'
+          ? HOOKS_UPDATE_HINT
           : !status.server
             ? 'not installed: run `mesa hooks install`'
             : status.disabled
