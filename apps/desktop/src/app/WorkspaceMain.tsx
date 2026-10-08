@@ -42,6 +42,7 @@ export function WorkspaceMain(props: {
   onFilesDirtyChange: (dirty: boolean) => void;
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
+  onProjectUnregistered: (name: string) => void;
   onVaultSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
@@ -122,10 +123,7 @@ export function WorkspaceMain(props: {
             }
             onAgentSettings={() => navigate({ kind: 'doctor' })}
             onChanged={() => void projects.refresh()}
-            onUnregistered={() => {
-              void projects.refresh();
-              navigate({ kind: 'sessions' });
-            }}
+            onUnregistered={() => props.onProjectUnregistered(project.name)}
           />
         ) : projects.busy || !projects.data ? (
           <Muted>Loading project...</Muted>

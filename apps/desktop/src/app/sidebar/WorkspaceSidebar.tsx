@@ -17,6 +17,7 @@ import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
 import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
+import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -40,6 +41,8 @@ export function WorkspaceSidebar(props: {
   sort: ProjectSort;
   onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
+  onProjectsChanged: () => void;
+  onProjectUnregistered: (name: string) => void;
   /** The session and project last shown: the Sessions and Projects tabs go back to them. */
   lastSession?: string;
   lastProject?: string;
@@ -62,6 +65,7 @@ export function WorkspaceSidebar(props: {
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
   const order = sidebarOrder(groups, closedProjects);
+  useUnfoldOnNewSession(active, setClosedProjects);
   const selection = useSessionSelection(order, view.kind === 'session' ? view.id : undefined);
   /** The Sessions tab, back on the session last shown while it is still listed, else the first. */
   const openSessions = () => {
@@ -139,6 +143,8 @@ export function WorkspaceSidebar(props: {
             sort={props.sort}
             onSort={props.onSort}
             onAddProject={props.onAddProject}
+            onProjectsChanged={props.onProjectsChanged}
+            onProjectUnregistered={props.onProjectUnregistered}
           />
         ) : (
           <SessionsSection

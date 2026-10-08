@@ -258,6 +258,15 @@ export function trustProject(
   return { project: name, ...scripts };
 }
 
+/**
+ * Writes the registered project's mesa.yaml again, minimal under its registered name, when its
+ * folder holds none (often untracked, so a `git clean` takes it), as registering does. A folder
+ * that is gone is left alone, for its read to be not_found.
+ */
+export function restoreProjectFile(entry: RegistryEntry): void {
+  if (existsSync(entry.path)) writeProjectFile(entry.path, minimalProject(entry.path, entry.name));
+}
+
 /** The registry entry named `name`; not_found otherwise. */
 export function findProject(profile: Profile, name: string): RegistryEntry {
   const entry = readRegistry(profile.paths.registry).find((e) => e.name === name);

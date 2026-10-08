@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Config, TreeRow } from '@mesa/core';
+import type { Config, ProjectRow, TreeRow } from '@mesa/core';
 import {
   DEFAULT_SHORTCUTS,
   DEFAULT_TERMINAL_PREFERENCES,
@@ -2021,6 +2021,39 @@ test('selected session reviews an exact native response passage beside its runni
   expect(byTestId('response-review-preview')[0]?.textContent).toContain('Delivered');
 });
 
+test('a response shows its first two lines and opens its review in place, staying open when pressed again', async () => {
+  const response = (text: string, source: string) => ({
+    profile: 'default',
+    session: 'aaaaaaaa',
+    agent: 'claude',
+    nativeSessionId: 'invented-native-id',
+    source: source.repeat(64),
+    revision: 'b'.repeat(64),
+    text,
+    truncated: false,
+  });
+  const rows = [response('First line.\nSecond line.\nThird line.', 'a'), response('Older.', 'c')];
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+    'review responses': () => envelope({ rows, reviews: [], truncated: false }),
+  });
+  await renderWithMesa(<App />, bridge);
+  await click(document.querySelector('[aria-label="Review responses"]') as HTMLElement);
+  const review = document.querySelector('[aria-label="Response review"]') as HTMLElement;
+  const heads = () => [...review.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')];
+  expect(heads().map((head) => head.textContent)).toEqual(['First line.\nSecond line.', 'Older.']);
+  const passageRow = () => review.querySelector('#review-response-text')?.closest('.group');
+  await click(heads()[1]);
+  expect(heads().map((head) => head.getAttribute('aria-expanded'))).toEqual(['false', 'true']);
+  expect(passageRow()?.contains(heads()[1] ?? null)).toBe(true);
+  await click(heads()[1]);
+  expect(heads()[1]?.getAttribute('aria-expanded')).toBe('true');
+  await click(heads()[0]);
+  expect(passageRow()?.contains(heads()[0] ?? null)).toBe(true);
+  expect(review.querySelectorAll('#review-response-text')).toHaveLength(1);
+});
+
 test('selected session reviews a Git hunk beside its running terminal', async () => {
   const change = {
     profile: 'default',
@@ -2528,7 +2561,74 @@ test('project controls update profile presentation and leave the slug available 
   expect(byTestId('project-unregister-dialog')).toHaveLength(1);
   await click(byTestId('confirm-unregister-project')[0]);
   expect(calls).toContainEqual(['--json', 'unregister', '--', 'lantern-cove']);
-  expect(byTestId('projects-screen')).toHaveLength(0);
+  // Hidden, it had no place in the list: the first listed project shows instead.
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
+});
+
+test('a sidebar project right-click offers the project actions, and unregistering the one in view shows the next', async () => {
+  const harbor = {
+    ...(PROJECTS[1] as ProjectRow),
+    name: 'harbor',
+    label: 'harbor',
+    path: '/src/harbor',
+  };
+  let rows: ProjectRow[] = [...PROJECTS, harbor];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(rows),
+    'projects update': () => envelope({ name: 'lantern-cove', path: '/src/lantern-cove' }),
+    unregister: (args) => {
+      const removed = rows.find((row) => row.name === args.at(-1));
+      rows = rows.filter((row) => row !== removed);
+      return envelope({ name: removed?.name, path: removed?.path });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId, 1);
+  const rightClick = (index: number) =>
+    act(async () => {
+      byTestId('sidebar-project')[index]?.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 40,
+          clientY: 80,
+        }),
+      );
+    });
+  const menuItems = () => [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  await rightClick(0);
+  await click(menuItems().find((item) => item.textContent === 'Pin project'));
+  expect(calls).toContainEqual([
+    '--json',
+    'projects',
+    'update',
+    '--pinned',
+    'true',
+    '--',
+    'lantern-cove',
+  ]);
+  await rightClick(1);
+  const items = menuItems();
+  const buttons = byTestId('project-menu')[0]?.parentElement?.querySelectorAll('button') ?? [];
+  expect(items.map((item) => item.textContent)).toEqual(
+    [...buttons].map((button) => button.textContent),
+  );
+  expect(items.map((item) => item.textContent)).toEqual([
+    'Rename display label',
+    'Pin project',
+    'Hide project',
+    'Move up',
+    'Move down',
+    'Unregister project',
+  ]);
+  await click(items.at(-1));
+  await click(byTestId('confirm-unregister-project')[0]);
+  expect(calls).toContainEqual(['--json', 'unregister', '--', 'tide']);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('harbor');
+  expect(byTestId('sidebar-project').map((element) => element.textContent)).toEqual([
+    'lantern-cove',
+    'harbor',
+  ]);
 });
 
 test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Enter', async () => {

@@ -19,7 +19,7 @@ import { MesaError, toFail } from '../../lib/result.js';
 import { WINDOW_VARS } from '../../lib/window-vars.js';
 import type { Profile } from '../../profile/profile.js';
 import { type Project, readProjectFile } from '../../projects/project-file.js';
-import { findProject } from '../../projects/projects.js';
+import { findProject, restoreProjectFile } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { sessionWorktree } from '../../worktrees/create.js';
@@ -64,10 +64,11 @@ export type LaunchDeps = {
 
 /**
  * The registered project a session starts on, with its mesa.yaml read: a folder that is gone is
- * not_found, never an agent started in $HOME.
+ * not_found, never an agent started in $HOME; a mesa.yaml that is gone is restored first.
  */
 export function launchProject(profile: Profile, name: string) {
   const entry = findProject(profile, name);
+  restoreProjectFile(entry);
   return { entry, project: readProjectFile(entry.path) };
 }
 
