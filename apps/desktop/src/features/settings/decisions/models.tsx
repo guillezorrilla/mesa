@@ -41,7 +41,7 @@ export const MODELS: Record<
     sentence: "Cloudflare's decision model on Workers AI answers when Mesa's own rules are unsure.",
     cost: 'free daily allowance',
     price:
-      'Free up to 10,000 Neurons a day, about 450k input tokens; then $0.24 per million on Workers Paid.',
+      'Free for about 1,000 decisions a day on any Cloudflare account; past that, Workers Paid charges about $0.24 per million tokens.',
     privacy: 'The session text and the questions go to Cloudflare.',
     accountHelp: (
       <>

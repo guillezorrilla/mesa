@@ -148,7 +148,7 @@ test('Connect CLEF labels the account ID and the token, sends the token on stdin
   expect(connect?.textContent).toContain(
     'Create a Workers AI API token there and paste it; it is kept only in the macOS Keychain.',
   );
-  expect(connect?.textContent).toContain('Free up to 10,000 Neurons a day');
+  expect(connect?.textContent).toContain('Free for about 1,000 decisions a day');
   expect(connect?.textContent).toContain('The session text and the questions go to Cloudflare.');
   expect(connect?.querySelector('a')?.getAttribute('href')).toBe('https://dash.cloudflare.com/');
   const token = field('clef', 'API token');

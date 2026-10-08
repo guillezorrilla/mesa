@@ -42,7 +42,7 @@ A session started before you added a key cannot gain the decision tool while it 
 | | Jev (TypeSafe) | CLEF (Cloudflare, the 27B `clef` model) |
 | --- | --- | --- |
 | Price | $0.042 per million input tokens; output is free | $0.24 per million input tokens on Workers Paid |
-| Free | none | 10,000 Neurons a day on any Cloudflare account, about 450k input tokens of `clef`; resets at 00:00 UTC |
+| Free | none | about 1,000 decisions a day on any Cloudflare account (10,000 Neurons, about 450k input tokens of `clef`); resets at 00:00 UTC |
 | Past the free tier | | A free account's calls fail until the reset; Workers Paid bills the rest |
 | Typical call | 300 to 1,000 input tokens: about $0.02 to $0.03 per 1,000 calls | About $0.07 to $0.11 per 1,000 calls once paid |
 
