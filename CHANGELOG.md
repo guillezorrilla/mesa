@@ -2,6 +2,26 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.0 - 2026-10-08
+
+### Features
+
+- **decisions**: smarter decisions with your own Jev (TypeSafe) or CLEF (Cloudflare Workers AI) key, kept in the Keychain. With no key, sessions run exactly as before (#669, #670)
+- **sessions**: Claude Code and Codex get the most relevant project notes for each prompt, and can ask for a next step or check evidence through in-session tools (#672, #673)
+- **decisions**: each automatic use is turned on only after paired workflows show it makes sessions finish more often or faster: prompt advice for Jev and CLEF, Board placement for CLEF (#671, #674, #681)
+- **app**: Settings > Smarter decisions connects a model in a few clicks and shows how each use performed (#670, #674)
+- **app**: prompt to update Mesa's hooks when they are out of date or a key needs them (#680)
+- **search**: fuzzy palette ranking and a session switcher (#668)
+
+### Fixes
+
+- **core**: the browser entry reaches no Node built-in, so pnpm dev loads the app (#667)
+
+### Other
+
+- **readme**: the all-in-one workspace and the new decision models (#676)
+- **app**, **sessions**, **core**: app, CLI and core structure reorganised by domain (#663, #664, #665, #666)
+
 ## 0.1.7 - 2026-10-06
 
 ### Features
