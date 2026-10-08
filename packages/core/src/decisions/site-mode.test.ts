@@ -37,9 +37,13 @@ test('a site is automatic where both gates passed, experimental when only opted 
     expect(siteMode('none', site, true)).toEqual({ mode: 'off', experimental: false });
 });
 
-test('with the measured gates, relevance is automatic for both models; the rest need the opt-in', () => {
-  expect(automaticGate(false)).toEqual({ jev: ['relevance'], clef: ['relevance'] });
+test('with the measured gates, relevance is automatic for both models and supervision for CLEF; the rest need the opt-in', () => {
+  expect(automaticGate(false)).toEqual({ jev: ['relevance'], clef: ['supervision', 'relevance'] });
   expect(automaticGate(true)).toEqual({ jev: DECISION_SITES, clef: DECISION_SITES });
   expect(siteMode('jev', 'supervision', false)).toEqual({ mode: 'off', experimental: false });
+  expect(siteMode('clef', 'supervision', false)).toEqual({
+    mode: 'automatic',
+    experimental: false,
+  });
   expect(siteMode('clef', 'evidence', false)).toEqual({ mode: 'on-demand', experimental: false });
 });
