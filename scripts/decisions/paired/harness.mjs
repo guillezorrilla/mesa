@@ -42,11 +42,14 @@ const git = (dir, ...args) =>
 /**
  * `dir` as a fresh copy of the project, committed once: every run starts from the same tree. Its
  * package.json is kept as package.json.template, so Mesa's release version check passes it by.
+ * For Codex the same skill is also where Codex reads a repo's skills, `.agents/skills`.
  */
-export function freshProject(dir) {
+export function freshProject(dir, agent = 'claude') {
   rmSync(dir, { recursive: true, force: true });
   cpSync(TEMPLATE, dir, { recursive: true });
   renameSync(join(dir, 'package.json.template'), join(dir, 'package.json'));
+  if (agent === 'codex')
+    cpSync(join(dir, '.claude', 'skills'), join(dir, '.agents', 'skills'), { recursive: true });
   git(dir, 'init', '-q');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-qm', 'kelp-ledger');

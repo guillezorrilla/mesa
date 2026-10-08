@@ -4,9 +4,13 @@
 // from the project's .claude/settings.json), the same permissions (edits accepted, Bash limited to
 // node, ls and cat) and the same ten notes in the profile's vault; only `mesa decisions use`
 // differs: none (off), jev or clef. Advice reaches the run through the product path, Claude
-// Code's UserPromptSubmit hook, so Mesa's global hooks must be installed first.
+// Code's UserPromptSubmit hook, so Mesa's global hooks must be installed first. With `--agent
+// codex` each run is `codex exec` instead (Codex's default model, its workspace-write sandbox
+// with no approvals, as Mesa runs it), advised by Codex's UserPromptSubmit hook, which Codex must
+// have trusted (start codex once in a Mesa window; use a temporary CODEX_HOME).
 //
 //   --profile <name>     a throwaway profile with the keys, never an everyday one; required
+//   --agent claude       claude or codex: the agent every arm runs
 //   --hooks-installed    say Mesa's hooks are installed (mesa hooks install, after a backup)
 //   --arms off,jev,clef  the arms (default all three; off is the baseline and always runs)
 //   --reps 2             runs per task per arm
@@ -36,6 +40,7 @@ import { freshProject, hiddenTest, notes, PROJECT, solve, TASKS } from './harnes
 const { values } = parseArgs({
   options: {
     profile: { type: 'string' },
+    agent: { type: 'string', default: 'claude' },
     'hooks-installed': { type: 'boolean', default: false },
     arms: { type: 'string', default: 'off,jev,clef' },
     reps: { type: 'string', default: String(PAIRED_GATE.repetitions) },
@@ -48,6 +53,8 @@ const { values } = parseArgs({
   },
 });
 const dry = values['dry-run'];
+const agent = values.agent;
+if (!['claude', 'codex'].includes(agent)) usage('--agent: claude or codex');
 const arms = ['off', ...values.arms.split(',').filter((a) => a !== 'off')];
 if (arms.some((a) => !['off', 'jev', 'clef'].includes(a))) usage('--arms: off, jev and clef');
 const reps = Number(values.reps);
@@ -96,12 +103,15 @@ function setUp() {
   if (!values.profile) fail('--profile <name>: a throwaway profile with the keys');
   if (!values['hooks-installed'])
     fail(
-      "Mesa's hooks must be installed: advice reaches a headless run only through Claude Code's UserPromptSubmit hook. Back up ~/.claude/settings.json, run mesa --profile <name> hooks install, then pass --hooks-installed (restore the backup afterwards).",
+      "Mesa's hooks must be installed: advice reaches a headless run only through the agent's UserPromptSubmit hook. Back up ~/.claude/settings.json, run mesa --profile <name> hooks install, then pass --hooks-installed (restore the backup afterwards).",
     );
   needCli(fail);
   const hooks = must(mesa('hooks', 'status', '--json'), 'hooks status');
-  if (!hooks.events?.UserPromptSubmit)
-    fail("Claude Code's UserPromptSubmit hook is not installed: mesa hooks install");
+  const turnHook = agent === 'codex' ? hooks.codex : hooks;
+  if (!turnHook?.events?.UserPromptSubmit)
+    fail(`${agent}'s UserPromptSubmit hook is not installed: mesa hooks install`);
+  if (agent === 'codex' && !hooks.codex.trusted?.UserPromptSubmit)
+    fail("Codex has not trusted Mesa's UserPromptSubmit hook: start codex once in a Mesa window");
   const keys = must(mesa('decisions', 'key', 'list', '--json'), 'key list').keys;
   const has = (provider) => keys.some((k) => k.provider === provider && k.set);
   if (arms.includes('jev') && !has('typesafe')) fail('jev arm: no TypeSafe key in this profile');
@@ -113,7 +123,7 @@ function setUp() {
   restore.push(set('run.allowedTools', ALLOWED, config.run.allowedTools));
   restore.push(set('decisions.experimental', true, config.decisions.experimental ?? false));
   restore.push(() => mesa('decisions', 'use', config.decisions.model, '--json'));
-  freshProject(projectDir);
+  freshProject(projectDir, agent);
   // A kelp-ledger left registered at an older run's folder is moved to this one.
   if (!mesa('register', projectDir, '--json').ok) {
     mesa('unregister', PROJECT, '--json');
@@ -141,11 +151,39 @@ function decisionsOf(id) {
   };
 }
 
+/**
+ * The main model's turns and tokens: Claude's from the result JSON it saved, Codex's from the
+ * run's usage (its turn.completed counts; Codex reports no turns).
+ */
+function mainUsage(id, data) {
+  if (agent === 'codex') {
+    const u = data?.usage;
+    return {
+      mainTokens: u && {
+        input: u.input_tokens,
+        output: u.output_tokens,
+        cacheRead: u.cached_input_tokens,
+        reasoning: u.reasoning_output_tokens,
+      },
+    };
+  }
+  const claude = readJson(join(paths.runs, `${id}.json`));
+  return {
+    turns: claude?.num_turns,
+    mainTokens: claude?.usage && {
+      input: claude.usage.input_tokens,
+      output: claude.usage.output_tokens,
+      cacheRead: claude.usage.cache_read_input_tokens,
+      cacheWrite: claude.usage.cache_creation_input_tokens,
+    },
+  };
+}
+
 /** One run on a fresh copy of the project, then its hidden test: what it recorded. */
 function record(run) {
   if (dry) {
     // The stub agent: assistance makes a correct solution likelier, by a fixed seeded draw.
-    freshProject(projectDir);
+    freshProject(projectDir, agent);
     const success = draw() < (run.arm === 'off' ? 0.25 : 0.75);
     solve(projectDir, run.task, success ? 'reference' : 'naive');
     const test = hiddenTest(projectDir, run.task);
@@ -157,7 +195,7 @@ function record(run) {
       decisions: { calls: run.arm === 'off' ? 0 : 1, inputTokens: 0, usd: 0, statuses: [] },
     };
   }
-  freshProject(projectDir);
+  freshProject(projectDir, agent);
   must(mesa('decisions', 'use', MODEL[run.arm], '--json'), `decisions use ${MODEL[run.arm]}`);
   const started = performance.now();
   // The task is the skill's arguments, after `--`: the agent owns its words.
@@ -166,6 +204,8 @@ function record(run) {
     'paired-task',
     '--project',
     PROJECT,
+    '--agent',
+    agent,
     '--timeout',
     `${timeout}`,
     '--json',
@@ -176,7 +216,6 @@ function record(run) {
   const test = hiddenTest(projectDir, run.task);
   const data = ran.ok ? ran.data : undefined;
   const id = data?.session;
-  const claude = id ? readJson(join(paths.runs, `${id}.json`)) : undefined;
   const row = {
     wallMs,
     success: test.passed,
@@ -184,14 +223,8 @@ function record(run) {
     ok: data?.ok ?? false,
     ...(data?.ok ? {} : { reason: data?.reason ?? ran.error?.message }),
     agentMs: data?.durationMs,
-    turns: claude?.num_turns,
     mainUsd: data?.costUsd,
-    mainTokens: claude?.usage && {
-      input: claude.usage.input_tokens,
-      output: claude.usage.output_tokens,
-      cacheRead: claude.usage.cache_read_input_tokens,
-      cacheWrite: claude.usage.cache_creation_input_tokens,
-    },
+    ...(id ? mainUsage(id, data) : {}),
     decisions: id ? decisionsOf(id) : undefined,
   };
   if (id && !values.keep) mesa('rm', id, '--force', '--json');
@@ -199,9 +232,9 @@ function record(run) {
 }
 
 const results = [];
-const claudeVersion = dry
+const agentVersion = dry
   ? undefined
-  : spawnSync('claude', ['--version'], { encoding: 'utf8' }).stdout?.trim();
+  : spawnSync(agent, ['--version'], { encoding: 'utf8' }).stdout?.trim();
 const putBack = () => {
   for (const undo of restore.splice(0).reverse()) undo();
   rmSync(work, { recursive: true, force: true });
@@ -214,7 +247,7 @@ process.once('SIGINT', () => {
 try {
   if (!dry) setUp();
   console.log(
-    `seed ${seed}: ${order.length} runs, arms ${arms.join(', ')}, ${tasks.length} tasks, ${reps} each${dry ? ' (dry run)' : ''}`,
+    `seed ${seed}: ${order.length} ${agent} runs, arms ${arms.join(', ')}, ${tasks.length} tasks, ${reps} each${dry ? ' (dry run)' : ''}`,
   );
   for (const [i, run] of order.entries()) {
     const row = { arm: run.arm, task: run.task.id, rep: run.rep, ...record(run) };
@@ -241,7 +274,7 @@ const verdicts = Object.fromEntries(
 const out = values.out ?? `paired-${seed}.json`;
 writeFileSync(
   out,
-  `${JSON.stringify({ seed, dryRun: dry, profile: values.profile, claudeVersion, mainModel: 'sonnet', arms, reps, gate: PAIRED_GATE, summary, verdicts, runs: results }, null, 2)}\n`,
+  `${JSON.stringify({ seed, dryRun: dry, profile: values.profile, agent, agentVersion, mainModel: agent === 'claude' ? 'sonnet' : 'codex default', arms, reps, gate: PAIRED_GATE, summary, verdicts, runs: results }, null, 2)}\n`,
 );
 const secs = (ms) => (ms === null ? 'unbounded' : `${(ms / 1000).toFixed(1)} s`);
 for (const [arm, s] of Object.entries(summary))
