@@ -26,7 +26,10 @@ export const doctorCommands = {
   ]),
   'help.reference': command<CommandReference[]>('help', '--agent'),
   'hooks.status': command<HooksStatus>('hooks', 'status'),
-  'hooks.install': command<Recorded<ClaudeHooksStatus & { changed: boolean }>>('hooks', 'install'),
+  /** Codex's `hint` says how to review its hooks, which Codex asks after their commands change. */
+  'hooks.install': command<
+    Recorded<ClaudeHooksStatus & { changed: boolean; codex: { changed: boolean; hint: string } }>
+  >('hooks', 'install'),
   'hooks.uninstall': command<Recorded<ClaudeHooksStatus & { changed: boolean }>>(
     'hooks',
     'uninstall',

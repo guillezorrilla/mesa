@@ -1,14 +1,18 @@
-import type { SystemOneProvider } from '@mesa/core/browser';
+import { CODEX_REVIEW_TITLE, type SystemOneProvider } from '@mesa/core/browser';
 import { type ReactNode, useId, useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
+import { warningOf } from '@/components/Toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useUpdateHooks } from '@/features/hooks/useUpdateHooks';
 import { useAct } from '@/lib/useAct';
 import { useCall } from '@/lib/useCommand';
 import { MODELS } from './models';
 
 type Failure = { code: string; message: string };
+/** After a Connect: hooks that need an update for the advice, then Codex's review of them. */
+type Next = { step: 'hooks' } | { step: 'codex'; review: string };
 
 /**
  * Connects a hosted model: for CLEF its Cloudflare account ID, then its key, each labelled with
@@ -16,6 +20,7 @@ type Failure = { code: string; message: string };
  * and saves it (`decisions.keys.set`, the key on stdin) and closes; a refused key says so in
  * place. While it is tested the key stays in its field, masked and locked, so it does not seem to
  * vanish; a refused key is cleared for the next try, and a saved one leaves with the dialog.
+ * When Mesa's hooks then need an update (#678), it stays open for that one more step instead.
  */
 export function ConnectModelDialog(props: {
   model: SystemOneProvider;
@@ -33,6 +38,8 @@ export function ConnectModelDialog(props: {
   const [key, setKey] = useState('');
   const [account, setAccount] = useState(props.account ?? '');
   const [failure, setFailure] = useState<Failure>();
+  const [next, setNext] = useState<Next>();
+  const update = useUpdateHooks();
   const id = useId();
   const needsAccount = accountHelp !== undefined;
   const connect = () =>
@@ -49,9 +56,48 @@ export function ConnectModelDialog(props: {
         return undefined;
       }
       await props.onConnected();
-      props.onClose();
+      const hooks = await call('hooks.status');
+      if (hooks.ok && hooks.data.needsUpdate) setNext({ step: 'hooks' });
+      else props.onClose();
       return undefined;
     });
+  if (next?.step === 'hooks')
+    return (
+      <ActionDialog
+        testId={`connect-${props.model}`}
+        title={`${label} connected`}
+        description="One more step: update Mesa's session hooks so your agents get the advice."
+        submit={{
+          label: acting ? 'Updating...' : 'Update hooks',
+          testId: `connect-${props.model}-hooks`,
+          disabled: acting,
+        }}
+        onSubmit={() =>
+          void act(async () => {
+            const updated = await update();
+            if (updated?.codexReview) setNext({ step: 'codex', review: updated.codexReview });
+            else if (updated) props.onClose();
+            return warningOf(updated?.result);
+          })
+        }
+        onCancel={props.onClose}
+      >
+        {null}
+      </ActionDialog>
+    );
+  if (next?.step === 'codex')
+    return (
+      <ActionDialog
+        testId={`connect-${props.model}`}
+        title={CODEX_REVIEW_TITLE}
+        description={next.review}
+        submit={{ label: 'Done', testId: `connect-${props.model}-done`, disabled: false }}
+        onSubmit={props.onClose}
+        onCancel={props.onClose}
+      >
+        {null}
+      </ActionDialog>
+    );
   return (
     <ActionDialog
       testId={`connect-${props.model}`}

@@ -45,6 +45,7 @@ export type HookFile = {
 export type HookFileStatus = {
   path: string;
   installed: boolean;
+  /** Mesa's entries are there, but not as this mesa writes them: `mesa hooks install` updates them. */
   stale: boolean;
   events: Record<string, boolean>;
 };
@@ -112,10 +113,14 @@ export function hooksStatus(file: HookFile, self: readonly string[]): HookFileSt
       mesaHooks(settings, event, agent).some((h) => h.command === hookCommand(self, agent, event)),
     ]),
   );
-  const stale = file.events.some(({ event }) =>
+  const installed = Object.values(events).every(Boolean);
+  const other = file.events.some(({ event }) =>
     mesaHooks(settings, event, agent).some((h) => h.command !== hookCommand(self, agent, event)),
   );
-  return { path, installed: Object.values(events).every(Boolean), stale, events };
+  // An event Mesa hooks now has no entry where Mesa wrote others (an older mesa's set, #678).
+  const missing =
+    !installed && file.events.some(({ event }) => mesaHooks(settings, event, agent).length > 0);
+  return { path, installed, stale: other || missing, events };
 }
 
 /** One Mesa entry per event, running this mesa; when that is already so, nothing is written. */

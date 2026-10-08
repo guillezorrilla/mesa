@@ -3,7 +3,7 @@ import type { DoctorReport, InboxItem } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
 import { useState } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { click, envelope, fakeBridge, renderWithMesa, toastTexts } from '@/lib/testing';
 import { NotificationsMenu } from './NotificationsMenu';
 
 const hooks: InboxItem = {
@@ -26,6 +26,8 @@ const finished: InboxItem = {
   read: false,
   target: { kind: 'session', id: 'aaaaaaaa' },
 };
+const REVIEW =
+  'The next Codex start asks you to review hooks: choose "Review hooks" in "Hooks need review" and trust Mesa\'s entries.';
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(
     (item) => item.textContent?.trim() === label || item.getAttribute('aria-label') === label,
@@ -73,7 +75,7 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
     'notifications read': (args) => envelope({ id: args.at(-1), read: true }),
     'hooks install': () => {
       installed = true;
-      return envelope({ changed: true, receipt: null });
+      return envelope({ changed: true, codex: { changed: false, hint: '' }, receipt: null });
     },
   });
   const opened: string[] = [];
@@ -105,6 +107,40 @@ test('a Doctor notice explains itself and its fix runs, then Doctor rechecks', a
   ]);
   await click(button('Session turn finished'));
   expect(opened).toEqual(['aaaaaaaa']);
+});
+
+test('a notice for hooks that need an update offers Update hooks, which runs the install and says how Codex approves them', async () => {
+  const update: InboxItem = {
+    ...hooks,
+    title: 'Session hooks need an update',
+    detail:
+      "Your coding agents run Mesa's older hooks, so sessions can miss its tracking and advice.",
+    fix: 'hooks update',
+  };
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope([update]),
+    'hooks install': () =>
+      envelope({ changed: true, codex: { changed: true, hint: REVIEW }, receipt: null }),
+  });
+  const byTestId = await renderWithMesa(
+    <NotificationsMenu
+      open
+      onOpenChange={() => {}}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+    />,
+    bridge,
+  );
+  expect(button('Enable hooks')).toBeUndefined();
+  await click(button('Update hooks'));
+  expect(calls.some((args) => args[1] === 'hooks' && args[2] === 'install')).toBe(true);
+  // The update changed Codex's hooks: the same note the card shows, as an alert.
+  expect(toastTexts(byTestId)).toEqual([
+    `Codex needs you to approve Mesa's updated hooks. ${REVIEW}`,
+  ]);
 });
 
 test('Clear all asks first, then clears the whole center in one call', async () => {

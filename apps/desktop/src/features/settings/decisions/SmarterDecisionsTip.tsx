@@ -1,9 +1,8 @@
 import type { Config } from '@mesa/core';
-import { Sparkles, X } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { IconButton } from '@/components/IconButton';
-import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { WorkspaceCard } from '@/components/WorkspaceCard';
 import { useRun } from '@/lib/useCommand';
 import { useOpenSettings } from '../useOpenSettings';
 
@@ -32,25 +31,19 @@ export function SmarterDecisionsTip(props: { config: Config | undefined; onChang
       props.onChanged();
   };
   return (
-    <aside
-      data-testid="smarter-decisions-tip"
-      aria-label="Tip"
-      className="mx-auto flex w-full max-w-3xl items-center gap-3 rounded-xl border bg-card/60 py-2.5 pr-2 pl-3 shadow-xs"
-    >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-state-waiting/15 text-state-waiting">
-        <Sparkles aria-hidden className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">Make Mesa smarter</p>
-        <Muted size="xs">
-          Connect a free decision model so each session gets the right project notes at the right
-          time.
-        </Muted>
-      </div>
-      <Button size="sm" variant="secondary" onClick={() => openSettings('decisions')}>
-        Set up
-      </Button>
-      <IconButton label="Close tip" icon={X} onClick={() => void dismiss()} />
-    </aside>
+    <WorkspaceCard
+      testId="smarter-decisions-tip"
+      label="Tip"
+      icon={Sparkles}
+      title="Make Mesa smarter"
+      line="Connect a free decision model so each session gets the right project notes at the right time."
+      action={
+        <Button size="sm" variant="secondary" onClick={() => openSettings('decisions')}>
+          Set up
+        </Button>
+      }
+      closeLabel="Close tip"
+      onClose={() => void dismiss()}
+    />
   );
 }
