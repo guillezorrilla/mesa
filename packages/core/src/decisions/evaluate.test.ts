@@ -10,6 +10,7 @@ import {
 } from '../testing/index.js';
 import { decide } from './decide.js';
 import { type EvaluateDeps, evaluate } from './evaluate.js';
+import { PER_TURN_MS } from './models.js';
 import { evidencePacket, nextStepPacket, relevancePacket } from './packet.js';
 import { rulesBackend } from './rules.js';
 import { SYSTEM_ONE_MODELS, systemOneBackend } from './systemone.js';
@@ -147,7 +148,7 @@ test('an automatic call ends at the 3,000 ms per-turn deadline, and a cancelled 
     status: 'unavailable',
     reason: 'Jev did not answer within 3000 ms',
   });
-  expect(Date.now() - started).toBeGreaterThanOrEqual(1400);
+  expect(Date.now() - started).toBeGreaterThanOrEqual(PER_TURN_MS - 300);
 
   const cancel = new AbortController();
   const asked = evaluate(deps, evidencePacket('The import retries', 'retry.test.ts passes'), {

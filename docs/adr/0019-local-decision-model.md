@@ -74,7 +74,7 @@ These numbers are fixed before the held-out evaluation (#465) and are not lowere
 | next-step | >= 0.85 | >= 0.40 |
 | evidence | >= 0.90 | >= 0.40 |
 
-**Latency (target Mac, MLX, warm worker).** An automatic per-turn packet is at most 1,024 tokens and has a hard deadline of 1,500 ms including queue time; its measured p95 added turn latency over 20 turns is at most 1,500 ms and p50 at most 700 ms. An on-demand call has a 10 s deadline.
+**Latency (target Mac, MLX, warm worker).** An automatic per-turn packet is at most 1,024 tokens and has a hard deadline of 1,500 ms including queue time (3,000 ms since the 2026-10-08 amendment below); its measured p95 added turn latency over 20 turns is at most 1,500 ms and p50 at most 700 ms. An on-demand call has a 10 s deadline.
 
 **Resources.** Worker physical footprint at most 6.5 GB while loaded and 0 after idle stop; installed disk at most 6 GB; cold start to ready at most 30 s.
 

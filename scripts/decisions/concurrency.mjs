@@ -12,8 +12,8 @@
 // It prints the hook wall time p50/p95 off and assisted, the added latency, every failure with its
 // reason, and cross-session cache hits: an assisted turn answered from a ready answer, though no
 // session ever sent that prompt before, which can only have come from elsewhere. The gate: hook
-// wall time at most PER_TURN_MS (3,000 ms, counted from the hook process's start) and added p95 at most TURN_TARGET_P95_MS (1,500 ms), no hook killed or
-// failed, zero hits, and at least one answer (else the run measured nothing). Exits 1 otherwise.
+// wall time at most PER_TURN_MS (3,000 ms, counted from the hook process's start), added p95
+// at most TURN_TARGET_P95_MS (1,500 ms), no hook killed or failed, zero hits, and at least one answer (else the run measured nothing). Exits 1 otherwise.
 // Automatic advice needs decisions.experimental until relevance passes the paired gate; it is
 // set for the run and put back, with the planted records, their files and the notes.
 import { spawn } from 'node:child_process';
