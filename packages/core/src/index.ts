@@ -5,6 +5,7 @@ export type { About, Attribution } from './about/about.js';
 export type { ClaudeHooksStatus } from './agents/claude/hooks.js';
 export type { CodexHooksStatus } from './agents/codex/hooks.js';
 export type { HooksStatus } from './agents/hooks-service.js';
+export { HOOKS_UPDATE_HINT } from './agents/hooks-update.js';
 export type { AgentCapabilityReport } from './agents/names.js';
 export {
   AGENT_CAPABILITIES,

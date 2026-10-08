@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
+import { HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
 import { automationState } from '../automations/state.js';
 import { createMesa } from '../mesa.js';
 import { setConfigValue } from '../profile/config.js';
@@ -89,6 +90,32 @@ test('each Doctor fix is its own notice, and a finding without one keeps its nam
     ]),
   );
   expect(mesa.notifications.list()).toHaveLength(3);
+});
+
+test('hooks Mesa installed once read as needing an update, with every hooks finding in it', () => {
+  const { run } = scriptedRunner();
+  const { mesa } = projectProfile(run);
+  const check = (name: string, hint: string) => ({
+    name,
+    ok: false,
+    status: 'warn' as const,
+    hint,
+  });
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: [check('claude hooks', HOOKS_UPDATE_HINT), check('antigravity hooks', HOOKS_HINT)],
+  });
+  expect(
+    mesa.notifications.list().map(({ title, detail, fix }) => ({ title, detail, fix })),
+  ).toEqual([
+    {
+      title: 'Session hooks need an update',
+      detail:
+        "Your coding agents run Mesa's older hooks, so sessions can miss its tracking and advice.",
+      fix: 'hooks update',
+    },
+  ]);
 });
 
 test('a fix notice read once stays read while its checks are fixed one at a time', () => {

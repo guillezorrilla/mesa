@@ -4,6 +4,7 @@ import type { mesaMountStatus } from '../agents/antigravity/mesa-mount.js';
 import type { ClaudeHooksStatus } from '../agents/claude/hooks.js';
 import type { CodexHooksStatus } from '../agents/codex/hooks.js';
 import type { TmuxHookStatus } from '../agents/hooks-service.js';
+import { HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
 import { AGENT_NAMES } from '../agents/names.js';
 import { SYSTEM_ONE_MODELS } from '../decisions/systemone.js';
 import type { DecisionsModel } from '../decisions/types.js';
@@ -109,7 +110,7 @@ function claudeHooksCheck(read: () => ClaudeHooksStatus): Finding {
   const hint = status.installed
     ? ''
     : status.stale
-      ? 'stale: they run a mesa that moved; run `mesa hooks install`'
+      ? HOOKS_UPDATE_HINT
       : 'not installed: run `mesa hooks install`';
   return { name, ok: status.installed, path: status.path, hint };
 }
@@ -123,7 +124,9 @@ function codexHooksChecks(read: () => CodexHooksStatus): Finding[] {
       ok: installed && status.trusted[event] === true,
       path: status.path,
       hint: !installed
-        ? 'not installed: run `mesa hooks install`'
+        ? status.stale
+          ? HOOKS_UPDATE_HINT
+          : 'not installed: run `mesa hooks install`'
         : status.trusted[event]
           ? ''
           : status.hint,
@@ -144,7 +147,7 @@ function antigravityHooksCheck(read: () => ReturnType<typeof antigravityHooksSta
       hint: status.installed
         ? ''
         : status.stale
-          ? 'stale: run `mesa hooks install`'
+          ? HOOKS_UPDATE_HINT
           : 'not installed: run `mesa hooks install`',
     };
   } catch (error) {
@@ -179,7 +182,7 @@ function antigravityVaultCheck(read: () => ReturnType<typeof mesaMountStatus>): 
       hint: status.conflict
         ? status.conflict
         : status.stale
-          ? 'stale: run `mesa hooks install`'
+          ? HOOKS_UPDATE_HINT
           : !status.server
             ? 'not installed: run `mesa hooks install`'
             : status.disabled

@@ -49,6 +49,27 @@ test('hooks install, status, uninstall, and a hook appending its payload', async
   expect(readFileSync(join(cli.home, '.claude/settings.json'), 'utf8')).toBe('{}\n');
 });
 
+test('hooks an older mesa wrote need an update, in hooks status and doctor, until install', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('hooks', 'install');
+  // UserPromptSubmit as it was before #463: its stdout dropped, so advice never reached the agent.
+  const path = join(cli.home, '.claude/settings.json');
+  const settings = JSON.parse(readFileSync(path, 'utf8'));
+  const [hook] = settings.hooks.UserPromptSubmit[0].hooks;
+  hook.command = hook.command.replace(' 2>/dev/null || true', ' >/dev/null 2>&1 || true');
+  writeFileSync(path, JSON.stringify(settings));
+  const update = 'needs an update: run `mesa hooks install`';
+  const status = await mesa('hooks', 'status');
+  expect(status.stdout.split('\n')[0]).toBe(update);
+  expect((await mesa('hooks', 'status', '--json')).json.data.needsUpdate).toBe(true);
+  const claude = (await mesa('doctor', '--json')).json.data.checks.find(
+    (c: { name: string }) => c.name === 'claude hooks',
+  );
+  expect(claude).toMatchObject({ status: 'warn', hint: update });
+  await mesa('hooks', 'install');
+  expect((await mesa('hooks', 'status')).stdout).not.toContain(update);
+});
+
 test('SessionStart gives only the owning native session a bounded Mesa pointer', async () => {
   cli.withTmux();
   await cli.withProject();

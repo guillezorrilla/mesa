@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 /** What each Doctor fix's button says. */
 const FIX_LABEL: Record<InboxFix, string> = {
   'hooks install': 'Enable hooks',
+  'hooks update': 'Update hooks',
   'vault init': 'Set up vault',
 };
 
