@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import type { Runner } from '../../lib/process.js';
@@ -38,6 +38,14 @@ test('--worktree with --with gives every project a worktree on one Mesa-named br
   const window = world.tmux.windows.find((w) => w.window === `claude-${result.id}`);
   expect(window?.path).toBe(result.worktree?.path);
   expect(window?.launch).toContain(`'--add-dir=${worktreeAt(home, 'tide-pool', folder)}'`);
+});
+
+test('a --with project whose mesa.yaml is gone gets a minimal one back', async () => {
+  const { tide, mesa } = twoProjects({ newId });
+  rmSync(join(tide, 'mesa.yaml'));
+  const { result } = await mesa.sessions.open('lantern-cove', { with: ['tide-pool'], branch: 'x' });
+  expect(result.additional?.map((a) => a.project)).toEqual(['tide-pool']);
+  expect(readFileSync(join(tide, 'mesa.yaml'), 'utf8')).toContain('name: tide-pool');
 });
 
 test('the open receipt names the additional projects as inputs and outputs', async () => {

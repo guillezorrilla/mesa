@@ -2,7 +2,7 @@ import type { AsyncLockDeps } from '../../lib/lock-file.js';
 import type { Runner } from '../../lib/process.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import type { Profile } from '../../profile/profile.js';
-import { findProject } from '../../projects/projects.js';
+import { findProject, restoreProjectFile } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import { sessionWorktree } from '../../worktrees/create.js';
 import { worktreeRoot } from '../../worktrees/location.js';
@@ -23,7 +23,8 @@ export const additionalDirs = (r: Pick<SessionRecord, 'additional'>) =>
 
 /**
  * The projects `mesa open --with` names, checked before any git write: each another project than
- * `primary`, named once, and registered (not_found), with its worktree setup approved
+ * `primary`, named once, and registered (not_found), its mesa.yaml restored when gone, with its
+ * worktree setup approved
  * (needs_approval) and its folder the top of a git repository.
  */
 export async function additionalProjects(
@@ -40,6 +41,7 @@ export async function additionalProjects(
     entries.push(findProject(deps.profile, name));
   }
   for (const entry of entries) {
+    restoreProjectFile(entry);
     worktreeScript(deps.profile, entry, 'setup');
     await requireGitTop(deps.run, entry.path);
   }

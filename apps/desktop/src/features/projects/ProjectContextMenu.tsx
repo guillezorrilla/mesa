@@ -7,10 +7,11 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { useAct } from '@/lib/useAct';
+import { ProjectActionDialog } from './ProjectActionDialog';
 import { useProjectActions } from './useProjectActions';
 
 /** A sidebar project's right-click menu, with the project screen's actions. */
-export function ProjectMenu(props: {
+export function ProjectContextMenu(props: {
   project: ProjectRow;
   onChanged: () => void;
   onUnregistered: () => void;
@@ -18,13 +19,13 @@ export function ProjectMenu(props: {
   children: ReactNode;
 }) {
   const { acting, act } = useAct();
-  const { actions, dialogs } = useProjectActions({ ...props, acting, act });
+  const menu = useProjectActions({ ...props, acting, act });
   return (
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{props.children}</ContextMenuTrigger>
         <ContextMenuContent>
-          {actions.map((action) => (
+          {menu.actions.map((action) => (
             <ContextMenuItem
               key={action.label}
               variant={action.destructive ? 'destructive' : 'default'}
@@ -37,7 +38,7 @@ export function ProjectMenu(props: {
           ))}
         </ContextMenuContent>
       </ContextMenu>
-      {dialogs}
+      <ProjectActionDialog project={props.project} actions={menu} />
     </>
   );
 }

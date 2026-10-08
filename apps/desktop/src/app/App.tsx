@@ -7,12 +7,13 @@ import { useNativeNotifications } from '@/features/notifications/useNativeNotifi
 import { useVisualAlert } from '@/features/notifications/useVisualAlert';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
 import { CloneProjectDialog } from '@/features/projects/CloneProjectDialog';
+import { nearestProject } from '@/features/projects/nearestProject';
 import { ProjectAddDialog } from '@/features/projects/ProjectAddDialog';
 import { useDiscoveryOffer } from '@/features/projects/useDiscoveryOffer';
 import { useSortedProjects } from '@/features/projects/useSortedProjects';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
-import { nearestProject, sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
+import { sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';

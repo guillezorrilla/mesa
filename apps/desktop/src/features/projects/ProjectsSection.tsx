@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { AddProjectMenu, type ProjectAddRequest } from './AddProjectMenu';
-import { ProjectMenu } from './ProjectMenu';
+import { ProjectContextMenu } from './ProjectContextMenu';
 import { ProjectSortMenu } from './ProjectSortMenu';
 
 /**
@@ -43,7 +43,7 @@ export function ProjectsSection(props: {
         </Muted>
       )}
       {props.projects.map((project) => (
-        <ProjectMenu
+        <ProjectContextMenu
           key={project.name}
           project={project}
           onChanged={props.onProjectsChanged}
@@ -69,7 +69,7 @@ export function ProjectsSection(props: {
               {props.touching(project.name).length || ''}
             </span>
           </Button>
-        </ProjectMenu>
+        </ProjectContextMenu>
       ))}
     </>
   );

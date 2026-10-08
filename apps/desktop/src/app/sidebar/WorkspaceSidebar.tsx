@@ -8,7 +8,7 @@ import {
   type LucideIcon,
   Map as MapIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { usePendingRuns } from '@/features/automations/usePendingRuns';
 import type { ProjectAddRequest } from '@/features/projects/AddProjectMenu';
@@ -17,6 +17,7 @@ import { COMMAND_ICONS } from '@/features/search/hitIcon';
 import { useSessionSelection } from '@/features/sessions/selection/useSessionSelection';
 import { SessionsSection } from '@/features/sessions/sidebar/SessionsSection';
 import { sidebarGroups, sidebarOrder } from '@/features/sessions/sidebar/sidebarGroups';
+import { useUnfoldOnNewSession } from '@/features/sessions/sidebar/useUnfoldOnNewSession';
 import type { SessionLocation } from '@/features/sessions/start/useStartSession';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
@@ -64,17 +65,7 @@ export function WorkspaceSidebar(props: {
   const groups = sidebarGroups(props.projects, props.sessions);
   const { visible, active, stranded } = groups;
   const order = sidebarOrder(groups, closedProjects);
-  // A session new since the last render opens its project's folded group, so it shows.
-  const seen = useRef<ReadonlySet<string>>(undefined);
-  useEffect(() => {
-    const before = seen.current;
-    seen.current = new Set(active.map((session) => session.id));
-    const opened = before ? active.filter((session) => !before.has(session.id)) : [];
-    if (opened.length)
-      setClosedProjects((current) =>
-        current.filter((name) => !opened.some((session) => session.project === name)),
-      );
-  }, [active]);
+  useUnfoldOnNewSession(active, setClosedProjects);
   const selection = useSessionSelection(order, view.kind === 'session' ? view.id : undefined);
   /** The Sessions tab, back on the session last shown while it is still listed, else the first. */
   const openSessions = () => {

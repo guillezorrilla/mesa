@@ -3,6 +3,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { useAct } from '@/lib/useAct';
 import { cn } from '@/lib/utils';
+import { ProjectActionDialog } from './ProjectActionDialog';
 import { useProjectActions } from './useProjectActions';
 
 /** The project screen's actions menu: rename its label, pin, hide, reorder, or unregister it. */
@@ -14,7 +15,7 @@ export function ProjectActionsMenu(props: {
   onChanged: () => void;
   onUnregistered: () => void;
 }) {
-  const { actions, dialogs } = useProjectActions(props);
+  const menu = useProjectActions(props);
   return (
     <>
       <details className="relative">
@@ -26,7 +27,7 @@ export function ProjectActionsMenu(props: {
           <MoreHorizontal aria-hidden className="size-4" />
         </summary>
         <div className="absolute right-0 z-20 mt-1 grid w-48 gap-1 rounded-md border bg-popover p-1 shadow-lg">
-          {actions.map((action) => (
+          {menu.actions.map((action) => (
             <Button
               key={action.label}
               variant="ghost"
@@ -41,7 +42,7 @@ export function ProjectActionsMenu(props: {
           ))}
         </div>
       </details>
-      {dialogs}
+      <ProjectActionDialog project={props.project} actions={menu} />
     </>
   );
 }

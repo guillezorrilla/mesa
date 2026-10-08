@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { warningOf } from '@/components/Toast';
 import type { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
-import { ProjectLabelDialog } from './ProjectLabelDialog';
-import { UnregisterProjectDialog } from './UnregisterProjectDialog';
 
 export type ProjectAction = {
   label: string;
@@ -17,7 +15,7 @@ export type ProjectAction = {
 
 /**
  * A project's own actions, rename its label, pin, hide, reorder, or unregister it, for any menu
- * to list, and the dialog the one it chose opens.
+ * to list, and the dialog the one it chose opens, for ProjectActionDialog to show.
  */
 export function useProjectActions(props: {
   project: ProjectRow;
@@ -77,21 +75,12 @@ export function useProjectActions(props: {
     },
     { label: 'Unregister project', destructive: true, onSelect: () => setDialog('unregister') },
   ];
-  const dialogs =
-    dialog === 'label' ? (
-      <ProjectLabelDialog
-        label={project.label}
-        busy={acting}
-        onSave={(label) => void update({ label })}
-        onCancel={() => setDialog(undefined)}
-      />
-    ) : dialog === 'unregister' ? (
-      <UnregisterProjectDialog
-        label={project.label}
-        busy={acting}
-        onConfirm={() => void unregister()}
-        onCancel={() => setDialog(undefined)}
-      />
-    ) : null;
-  return { actions, dialogs };
+  return {
+    actions,
+    dialog,
+    busy: acting,
+    rename: (label: string) => void update({ label }),
+    unregister: () => void unregister(),
+    close: () => setDialog(undefined),
+  };
 }
