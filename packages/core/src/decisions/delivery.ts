@@ -5,7 +5,7 @@ import type { ScopedContext } from './context.js';
 // Automatic decision advice inside a session (ADR-0019 "Delivery into sessions", #463): the words a
 // native turn event carries, how long Mesa waits for them, and the background ask that readies the
 // saved goal's answer while the agent starts. A turn never waits past the per-turn deadline
-// (PER_TURN_MS, 1,500 ms in all, ADR-0019), well under the native hooks' 5 s timeout, past which a
+// (PER_TURN_MS, 3,000 ms in all, ADR-0019), well under the native hooks' 5 s timeout, past which a
 // hook is killed, its turn blocked for the whole timeout and its context dropped
 // (docs/spikes/decision-assistance-feasibility.md): on a miss, an abstention, a late or missing
 // model, it carries nothing and the agent works as without Mesa.

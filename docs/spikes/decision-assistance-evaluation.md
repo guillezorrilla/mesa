@@ -319,3 +319,15 @@ Cleanup: the eight invented sessions removed (`mesa rm --force`; the paired runn
 - **No key: works as normal, no delay.** Claude Code and Codex launch without `mesa-decisions`, get no advice, answer as they did, and Mesa makes no model call (no decisions file; the same hook output with the network denied). The turn hook costs what the same code cost before decision assistance (Claude 345 against 358 ms p50, Codex 358 against 365 ms, same launcher and `HOME`).
 - **A key: what is sent goes through the Decision model.** Every prompt to a CLEF session is asked of CLEF by the `UserPromptSubmit` hook, and its advice reaches the agent before the reply: Claude Code's `hook_additional_context`, Codex's `developer` message, each listed by `decisions status` as automatic use with model, margin, latency, tokens and cost.
 - **Better and smarter, on both agents, under the frozen paired gate**: Claude Code 0/12 to 12/12, Codex 3/12 to 10/12 with time per solved task 241.8 s to 51.3 s. What it costs: about 500 ms more per turn at p50 while it asks, and fractions of a cent per turn.
+
+## Per-turn deadline raised to 3,000 ms (2026-10-08)
+
+The owner raised the hard per-turn deadline to 3,000 ms (ADR-0019, 2026-10-08 amendment). It now bounds the whole turn hook, from its start to its exit (`TURN_EXIT_MS` keeps 200 ms for printing and exiting). The 1,500 ms figure stays as the target for the added time at p95. Re-measured live with CLEF, 8 turns per session (`pnpm decisions:concurrency --profile p11-live --sessions 1|4|8 --turns 8`), load average about 8:
+
+| Sessions | Hook p50 / p95 / max, assisted | Added p50 / p95 | Cross-session hits | Gate |
+| --- | --- | --- | --- | --- |
+| 1 | 860 / 961 / 961 ms | 522 / 587 ms | 0 | pass |
+| 4 | 976 / 1,380 / 2,175 ms | 599 / 965 ms | 0 | pass |
+| 8 | 1,127 / 1,578 / 1,759 ms | 566 / 941 ms | 0 | pass |
+
+The slowest turn (2,175 ms) is one whose advice the old 1,500 ms deadline would have dropped. Before `TURN_EXIT_MS`, at the old deadline, two of 24 Claude hooks overran by 71 and 107 ms; with it, the slowest of 72 hooks took 1,453 ms at the old deadline.

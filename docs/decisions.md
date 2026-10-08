@@ -70,7 +70,7 @@ The session details (Decision assistance) and `mesa decisions status --session <
 | Is overloaded (HTTP 529) | The provider is busy | Nothing: the next turn asks again |
 | CLEF daily free allocation is used up | The free 10,000 Neurons of the day are spent | Wait for 00:00 UTC, or move to Workers Paid |
 | Could not be reached | No network, or the provider is down | Check the connection; nothing else is needed |
-| Did not answer within ... ms | A turn's advice was too late (1,500 ms in all), so it was dropped | Nothing: turns never wait longer |
+| Did not answer within ... ms | A turn's advice was too late (3,000 ms in all), so it was dropped | Nothing: turns never wait longer |
 | Not proven for automatic advice yet | The site has not passed the paired workflows | Use it on demand, or turn on Try unproven automatic decisions (Settings > Advanced) |
 | Codex sends no advice | Codex runs a new or changed hook only once you review it | In Codex, open the hook review and trust Mesa's hooks (`mesa hooks status` shows UNTRUSTED until then) |
 | "Started without mesa-decisions" | The session started before the key | Stop it and resume it through Mesa |

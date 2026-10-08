@@ -12,7 +12,7 @@
 // It prints the hook wall time p50/p95 off and assisted, the added latency, every failure with its
 // reason, and cross-session cache hits: an assisted turn answered from a ready answer, though no
 // session ever sent that prompt before, which can only have come from elsewhere. The gate: hook
-// wall p95 at most 1,500 ms (PER_TURN_MS counts from the hook process's start), no hook killed or
+// wall time at most PER_TURN_MS (3,000 ms, counted from the hook process's start) and added p95 at most TURN_TARGET_P95_MS (1,500 ms), no hook killed or
 // failed, zero hits, and at least one answer (else the run measured nothing). Exits 1 otherwise.
 // Automatic advice needs decisions.experimental until relevance passes the paired gate; it is
 // set for the run and put back, with the planted records, their files and the notes.
@@ -21,7 +21,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { PER_TURN_MS } from '../../packages/core/dist/decisions/models.js';
+import { PER_TURN_MS, TURN_TARGET_P95_MS } from '../../packages/core/dist/decisions/models.js';
 import { sessionStore } from '../../packages/core/dist/sessions/record/store.js';
 import { CLI, must, needCli, profileCli, usage } from './lib.mjs';
 import { notes, PROJECT, TASKS } from './paired/harness.mjs';
@@ -191,12 +191,13 @@ try {
   const answered = report.statuses.accepted + report.statuses.abstained;
   report.gate =
     answered > 0 &&
-    report.hookMs.assisted.p95 <= PER_TURN_MS &&
+    report.hookMs.assisted.max <= PER_TURN_MS &&
+    report.addedMs.p95 <= TURN_TARGET_P95_MS &&
     report.crossSessionCacheHits === 0 &&
     killed.length === 0;
   const h = report.hookMs;
   console.log(
-    `${n} sessions x ${turns} turns, model ${report.model}: hook off p50 ${h.off.p50} / p95 ${h.off.p95} ms; assisted p50 ${h.assisted.p50} / p95 ${h.assisted.p95} / max ${h.assisted.max} ms; added p50 ${report.addedMs.p50} / p95 ${report.addedMs.p95} ms (deadline ${PER_TURN_MS} ms)`,
+    `${n} sessions x ${turns} turns, model ${report.model}: hook off p50 ${h.off.p50} / p95 ${h.off.p95} ms; assisted p50 ${h.assisted.p50} / p95 ${h.assisted.p95} / max ${h.assisted.max} ms; added p50 ${report.addedMs.p50} / p95 ${report.addedMs.p95} ms (deadline ${PER_TURN_MS} ms, added p95 target ${TURN_TARGET_P95_MS} ms)`,
   );
   console.log(
     `advice sent ${report.advised}/${assisted.length}; ${JSON.stringify(report.statuses)}; hooks killed or failed ${killed.length}`,

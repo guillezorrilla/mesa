@@ -153,7 +153,7 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
         measured: { quality: { n: 30, accepted: 26, right: 26 } },
       },
     ],
-    deadlines: { automatic: 1500, 'on-demand': 10000 },
+    deadlines: { automatic: 3000, 'on-demand': 10000 },
     packetChars: 4096,
     ready: 1,
     use: [

@@ -13,7 +13,7 @@ import type { Decision, DecisionsModel, Question } from './types.js';
 // decides what, if anything, is kept.
 
 /**
- * How a call came: `automatic` beside a turn (the 1,500 ms deadline, and only at a site the model
+ * How a call came: `automatic` beside a turn (the 3,000 ms deadline, and only at a site the model
  * qualified for), or `on-demand` from a tool or a command (10 s, any site).
  */
 export const ASSIST_MODES = ['automatic', 'on-demand'] as const;

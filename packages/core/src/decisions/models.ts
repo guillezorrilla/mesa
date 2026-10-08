@@ -8,10 +8,13 @@ import { type Backend, type DecisionsModel, DecisionsModelSchema, type Question 
 /** The deadline of a call a person asked for and waits on, as `mesa decide` (ADR-0019: 10 s). */
 export const ON_DEMAND_MS = 10_000;
 /**
- * The deadline of a call made beside a turn or a Board read, which no one waits on (ADR-0019:
- * 1,500 ms per turn, measured at p95).
+ * The deadline of a call made beside a turn or a Board read, which no one waits on: the whole
+ * turn hook, from its start to its exit, ends within it (ADR-0019, 2026-10-08 amendment: 3,000 ms,
+ * raised from 1,500 ms so a slow answer still arrives; well under the agents' own hook limits).
  */
-export const PER_TURN_MS = 1_500;
+export const PER_TURN_MS = 3_000;
+/** The added time a turn's hook should stay within at p95: monitored, not a cutoff (ADR-0019). */
+export const TURN_TARGET_P95_MS = 1_500;
 /**
  * What a turn's hook keeps of PER_TURN_MS to print its answer and exit after an ask it gave up
  * on, and for the shell that starts it before node does: measured overruns were 70 to 110 ms.

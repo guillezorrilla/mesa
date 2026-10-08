@@ -132,7 +132,7 @@ test('an automatic call runs only at a site the model runs automatically; opted 
   expect(opted).toMatchObject({ status: 'accepted', experimental: true });
 });
 
-test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled call at once, its request too', async () => {
+test('an automatic call ends at the 3,000 ms per-turn deadline, and a cancelled call at once, its request too', async () => {
   const world = systemOneWorld();
   world.stall('jev');
   const signals: (AbortSignal | undefined)[] = [];
@@ -145,7 +145,7 @@ test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled 
   const late = await evaluate(deps, packet, { mode: 'automatic' });
   expect(late).toMatchObject({
     status: 'unavailable',
-    reason: 'Jev did not answer within 1500 ms',
+    reason: 'Jev did not answer within 3000 ms',
   });
   expect(Date.now() - started).toBeGreaterThanOrEqual(1400);
 
