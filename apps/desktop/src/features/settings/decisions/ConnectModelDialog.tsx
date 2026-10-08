@@ -14,7 +14,8 @@ type Failure = { code: string; message: string };
  * Connects a hosted model: for CLEF its Cloudflare account ID, then its key, each labelled with
  * where to find it, over one line on price and one on privacy. Connect tests the key with one call
  * and saves it (`decisions.keys.set`, the key on stdin) and closes; a refused key says so in
- * place. The key field is empty again once sent, whatever the test said.
+ * place. While it is tested the key stays in its field, masked and locked, so it does not seem to
+ * vanish; a refused key is cleared for the next try, and a saved one leaves with the dialog.
  */
 export function ConnectModelDialog(props: {
   model: SystemOneProvider;
@@ -36,14 +37,14 @@ export function ConnectModelDialog(props: {
   const needsAccount = accountHelp !== undefined;
   const connect = () =>
     void act(async () => {
-      const typed = key;
-      setKey('');
+      setFailure(undefined);
       const saved = await call('decisions.keys.set', {
         provider,
-        key: typed,
+        key,
         ...(needsAccount ? { account: account.trim() } : {}),
       });
       if (!saved.ok) {
+        setKey('');
         setFailure(saved.error);
         return undefined;
       }
@@ -71,6 +72,7 @@ export function ConnectModelDialog(props: {
             aria-describedby={`${id}-account-help`}
             autoComplete="off"
             spellCheck={false}
+            disabled={acting}
             value={account}
             onChange={(event) => setAccount(event.target.value)}
           />
@@ -82,6 +84,7 @@ export function ConnectModelDialog(props: {
           type="password"
           aria-describedby={`${id}-key-help`}
           autoComplete="off"
+          disabled={acting}
           value={key}
           onChange={(event) => setKey(event.target.value)}
         />

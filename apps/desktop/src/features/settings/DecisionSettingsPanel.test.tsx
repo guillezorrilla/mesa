@@ -29,6 +29,8 @@ async function render(
       { provider: 'cloudflare', set: false },
     ],
     stdin: [] as (string | undefined)[],
+    /** What the key field held when the key was sent: it must not seem to vanish meanwhile. */
+    fieldAtSend: [] as (string | undefined)[],
   };
   const fake = fakeBridge();
   const base = ((await fake.bridge(['--json', 'config'])) as { data: Config }).data;
@@ -42,8 +44,13 @@ async function render(
         decisions: { ...base.decisions, model: state.model, cloudflareAccount: state.account },
       }),
     'decisions key list': () => envelope({ keys: state.keys }),
-    'decisions key set': (args, stdin) => {
+    'decisions key set': async (args, stdin) => {
       state.stdin.push(stdin);
+      // A tick later, as a real call returns: the dialog has re-rendered while it waits.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      state.fieldAtSend.push(
+        document.querySelector<HTMLInputElement>('[role="dialog"] input[type="password"]')?.value,
+      );
       if (options.reject)
         return failure('Jev rejected the key (HTTP 401); the key was not saved', 'invalid_config');
       const provider = args.at(-1) as KeyProvider;
@@ -137,7 +144,7 @@ test('one row per model, CLEF first: its status and cost, Connect, and how it pe
   );
 });
 
-test('Connect CLEF labels the account ID and the token, sends the token on stdin, clears it and closes', async () => {
+test('Connect CLEF labels the account ID and the token, keeps it masked while it is tested, sends it on stdin and closes', async () => {
   const { state, calls } = await render();
   await click(button(row('CLEF (Cloudflare)'), 'Connect'));
   const connect = dialog('clef');
@@ -163,6 +170,8 @@ test('Connect CLEF labels the account ID and the token, sends the token on stdin
   await fill(field('clef', 'Account ID')?.id ?? '', 'acc-123');
   await click(submit() ?? undefined);
   expect(state.stdin).toEqual([KEY]);
+  // While it is tested, the key stays in its field (masked), so it does not seem to vanish.
+  expect(state.fieldAtSend).toEqual([KEY]);
   expect(calls).toContainEqual([
     '--json',
     'decisions',
