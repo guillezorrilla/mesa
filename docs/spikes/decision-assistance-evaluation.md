@@ -226,3 +226,96 @@ Both models passed the paired gate at `relevance`, the only site Mesa delivers a
 | Qualified sites run: supervision beside the Board, scoped context, next-step and evidence through CLI and MCP, delivered to Claude Code, Codex and Antigravity | #461, #462, #463 | `docs/spikes/decision-assistance-providers.md` |
 | Paired workflows show a gain under the frozen gate; hosted failure modes keep agents working; a Finder-launched packaged app passes setup, use and removal | #465 | this report: paired gate passed for both models at relevance; concurrency and hosted failures pass; the packaged app has no weights or Python and its own `mesa` passed setup, use and removal |
 | Sites that miss a gate stay off or on demand, with their measured result shown; gates never lowered | #465 | `decisions/site-mode.ts` (`siteMode`), `decisions/sites.ts` (`PASSED_GATE`), `decisions/measured.ts` (`PAIRED_PASSED`), Settings and session details. Board supervision (#461) stays off unless the profile opts into experimental automatic decisions: the paired workflows measure in-session relevance only, and whether that result also counts for supervision is the owner's call (ADR-0019, 2026-10-07 amendment) |
+
+## Normal without a key, smarter with one (2026-10-08)
+
+The owner's question: with no key, does a Mesa session work as before, with no delay; with a Decision model, does what is sent to Claude Code or Codex go through it; and does it make the agents better and smarter? Run on 2026-10-08 on profile `p11-live` (CLEF key only, no TypeSafe key), Mesa at this branch (`node packages/cli/dist/mesa.js`), Claude Code 2.1.292 then 2.1.294 (it updated itself between the first two sessions), Codex CLI 0.160.0 (default model GPT-6.1-Sol) with a temporary `CODEX_HOME` holding a copy of its login. Everything was invented: the project `tern-quarry` and one note, `wiki/decisions/tern-batch-size.md` (`project: tern-quarry`): "Quarry imports flush in batches of exactly 37 rows, never more (COBALT WREN 58)". The marker `COBALT WREN 58` exists only in that note.
+
+### A. The same prompt, with no model and with CLEF
+
+Each cell is a real interactive Mesa session: `mesa open tern-quarry --agent claude|codex --goal "Reply only: ready."`, then `mesa send <id> "<prompt>"`. `decisions use none` before the no-key cells, `decisions use clef` before the CLEF cells; nothing else changed. Prompt 1: `Without calling any tool or reading any file, reply in two lines: first, 17 times 3; second, the batch size this project uses for quarry imports and any marker in parentheses you were given, or "unknown".` Prompt 2 (a later turn): `Without calling any tool, how many rows do quarry imports flush per batch here, and what marker came with that?`
+
+| Cell | Launch | Mesa advice in the transcript | Reply | `decisions status --session` use | Model calls |
+| --- | --- | --- | --- | --- | --- |
+| Claude, no model (`64ww3gkv`), prompt 1 | `--mcp-config` with `mesa-vault` only, `--allowedTools=mcp__mesa-vault` | none: 0 matches for `mesa-decisions`, `decision_evaluate`, `Decisions:`, `Mesa decision advice`, `COBALT WREN`; no `UserPromptSubmit` attachment (Mesa's event log shows the hook ran at 15:39:38.560Z) | "51 / unknown", 2.0 s after the prompt | `[]`; sites all `off`; `show`: tool and advice disabled, "no decision model" | 0: no decisions file was created for the session |
+| Claude, CLEF (`qb9nrf9b`), prompt 1 | `mesa-vault` and `mesa-decisions`, `--allowedTools=mcp__mesa-vault,mcp__mesa-decisions` | `hook_additional_context` (UserPromptSubmit) at 15:40:51.391Z, 1.0 s after the prompt and 1.3 s before the reply: "Mesa decision advice for this prompt ... Most relevant: note:wiki/decisions/tern-batch-size.md (margin 0.87, clef) ... (COBALT WREN 58)." | "51 / 37 rows (COBALT WREN 58), taken from the Mesa decision note `tern-batch-size.md`", no tool use, 2.3 s after the prompt | relevance `automatic`, accepted, margin 0.87, live ask 605 ms, 222 input tokens, $0.000053 (after the goal's: prepared at launch 820 ms, then read ready, 0 ms) | 2 (the launch's prepare, this turn) |
+| Codex, no model (`qm8q9cw6`), prompt 1 | `-c mcp_servers.mesa-vault.*` only | none (same 5 searches: 0) | "51 / unknown" | `[]`; `show`: disabled | 0 |
+| Codex, CLEF (`8z5yqk0v`), prompt 1 | `mesa-vault` and `mesa-decisions` overrides | `developer` message right after the user prompt (15:44:00.100Z), the same advice, margin 0.87 | "51 / unknown" (see below) | accepted, margin 0.87, live ask 376 ms, 222 tokens | 2 |
+| Codex, CLEF (`8z5yqk0v`), prompt 2 | same | `developer` message after the prompt, margin 0.97 | "The supplied advice says 37 rows per batch, with marker (COBALT WREN 58). I haven't verified the note." | accepted, 549 ms, 198 tokens, $0.000048 | 1 |
+| Codex, no model (`ad35c4jg`), prompt 2 | `mesa-vault` only | none | "I don't have the quarry import batch size or accompanying marker in this conversation, so I can't determine either without tools." | `[]` | 0 |
+
+No model call without a key, proved two ways: the profile's `sessions/decisions/` folder gained no file for the no-key sessions (a session that asks gets one), and the installed `UserPromptSubmit` hook, run on the same real payload with the session's `MESA_SESSION_ID`, printed the same single newline (byte for byte, `cmp`) with and without network, under `sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip))'` (in which `curl https://api.cloudflare.com` fails at once), for Claude and for Codex. The same sandboxed hook with CLEF in use records `unavailable: CLEF could not be reached` after 44 ms: with a key the hook does ask, without one it never tries.
+
+Surprise: Codex given the advice on prompt 1 still answered "unknown". The advice reached it (the `developer` message holds the marker, before its reply), but the prompt forbade reading files and the advice says "Read it before relying on it", so GPT-6.1-Sol declined to rely on it unverified; asked without that restriction (prompt 2) it used the advice and said it had not verified the note. Claude Code relied on the same advice at once. The paired coding tasks below, where the agent may read files, are the measure that matters.
+
+### B. Turn latency: the hook with no key against the hook before decision assistance
+
+The installed `UserPromptSubmit` hook, run as the provider runs it (`sh -c '<installed command>'`, the session's real payload on stdin with a new prompt each turn, so every CLEF turn is a live ask), timed from spawn to exit. 24 turns per agent; each turn ran every arm in a shuffled order:
+
+- `v0.1.5 app`: the hook the owner had installed before this work, `/Applications/Mesa.app/Contents/MacOS/mesa hook claude|codex >/dev/null 2>&1` (Mesa 0.1.5, a Node single executable, before decision assistance), in a throwaway `HOME` holding a copy of the profile config (with the keys 0.1.5 does not know removed) and the no-key session's record; it records the event there, as it does in a real session.
+- `pre-P11 CLI`: main at `d26de1c5` (the commit before decision assistance's first, #669), built from `git archive` and run with the same node launcher as the branch, in the same throwaway `HOME`.
+- `no key (throwaway HOME)`: this branch's hook in that same `HOME` (no Decision model there).
+- `no key`: this branch's installed hook on the real profile with `decisions use none`, on a live no-key session.
+- `CLEF`: the same with `decisions use clef`, on a live CLEF session.
+
+| Agent | v0.1.5 app | pre-P11 CLI | No key (throwaway HOME) | No key | CLEF (advice sent) |
+| --- | --- | --- | --- | --- | --- |
+| Claude Code | 187 / 202 ms | 358 / 419 ms | 345 / 394 ms | 342 / 427 ms | 855 / 1,571 ms (11 of 24) |
+| Codex | 198 / 235 ms | 365 / 401 ms | 358 / 382 ms | 349 / 406 ms | 897 / 1,124 ms (12 of 24) |
+
+p50 / p95 over 24 turns each; no hook failed or was killed. Load average about 8 during the run (Apple M1 Pro, macOS 26.6.2).
+
+- **No key adds no time.** Against the same code before decision assistance, on the same launcher and in the same `HOME`, the no-key hook is equal within noise: Claude p50 345 ms against 358 ms (means 369 and 366 ms), Codex 358 against 365 ms (means 359 and 374 ms). On the real profile it is 342 and 349 ms.
+- **The 0.1.5 app's hook is about 160 ms faster, and that is its launcher, not decision assistance**: the packaged app runs the hook from its single executable, the worktree from `node mesa.js` loading the built modules; the pre-P11 build on node costs the same as today's no-key hook. A packaged build of this branch runs the hook from its own single executable; it was not on this machine (the 0.1.7 test build was deleted with its worktree), so the like-for-like comparison is the node one above.
+- **With CLEF** each turn asks the model live (the turns with an unrelated prompt get a `none` or abstained answer and send nothing): about 500 ms more at p50. Two Claude turns of 24 ran 1,571 and 1,607 ms, past the 1,500 ms per-turn deadline: their asks were cancelled (`unavailable: cancelled`) and nothing was sent, as designed, but the whole hook overran by about 70 to 110 ms on this loaded machine: the budget counts from the node process's start (`performance.timeOrigin`), so what is past it is the `sh` wrapper and the work after the deadline (cancelling the ask, recording it, exiting). Codex's slowest was 1,352 ms.
+
+### C. Smarter: the paired workflows on Codex
+
+The same harness, tasks, notes and hidden tests as the Claude Code run above, now with `--agent codex` (added for this run, `feat(decisions)` commit): each run is `mesa run paired-task --agent codex` on a fresh `kelp-ledger`, which Mesa runs as `codex exec --json -c approval_policy=never -c sandbox_mode=workspace-write` with Codex's default model (GPT-6.1-Sol), `mesa-vault` mounted in both arms and `mesa-decisions` only with CLEF; the skill is also placed under `.agents/skills`, where Codex reads it. Advice reaches it by Codex's `UserPromptSubmit` hook, trusted once in the interactive session of part A. Arms off and clef, 6 tasks x 2 repetitions, 24 runs.
+
+```sh
+export CODEX_HOME=<scratch>/codex-home       # a copy of ~/.codex/auth.json; Mesa's hooks trusted there
+$MESA --profile p11-live hooks install --json  # after the cp -p backups below
+pnpm decisions:paired --profile p11-live --agent codex --hooks-installed --arms off,clef --out <scratch>/paired-codex.json
+```
+
+Seed: 1285268906. Codex CLI 0.160.0, 2026-10-08, profile `p11-live`.
+
+| Arm | Solved | Total wall | Time per solved task | Advice delivered | Decision calls | Decision input tokens | Decision $ | Main-model tokens (in / out; in includes cached) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| off | 3/12 | 725.5 s | 241.8 s | n/a | 0 | 0 | 0 | 1,754,947 / 8,284 |
+| clef | 10/12 | 513.1 s | 51.3 s | 10/12 | 12 | 9,706 | $0.00233 | 1,325,862 / 7,663 |
+
+| Model | Successes vs off | Time per solved task vs off | Paired gate (ADR-0019, `pairedVerdict`) |
+| --- | --- | --- | --- |
+| clef | +7 (10 against 3) | 51.3 s against 241.8 s (79% less) | pass: complete, successes not lower, time not worse, more successes and faster |
+
+Per task (solved out of 2): format-amount off 0, clef 2; log-line off 0, clef 2; parse-weight off 1, clef 2; retry-manifest off 0, clef 2; shipment-id off 2, clef 2; sort-shipments off 0, clef 0.
+
+- Every run CLEF advised was solved (10 of 10). The two CLEF runs that failed, both sort-shipments, got no advice: their live ask was cancelled at the per-turn deadline (`unavailable: cancelled`), so Codex worked without it, as the off arm does, and failed the same way. For Claude Code the same task's ask answered in time (12 of 12 advised).
+- Codex without advice sometimes looked for the notes itself: the three off runs that called `mesa-vault`'s `project_context` and `read_note` are the three it solved; the other nine never read a note and failed on the convention. With advice it read the cited note (`read_note`) at once in every advised run.
+- With advice Codex used 24% fewer main-model input tokens and 29% less wall time in all. Codex reports no dollar cost; CLEF cost $0.00023 per advised run.
+- This repeats on Codex what the Claude Code run (above) showed: there, off 0/12 and CLEF 12/12 (seed 1476997429). `PAIRED_ARMS` in `decisions/measured.ts` still holds the Claude Code measurement; the Codex result agrees with it and changes no site's mode.
+
+### Global files and cleanup
+
+Before `mesa hooks install` (run with `CODEX_HOME` set to the scratch home, so Codex's hook file went there; its output listed `~/.claude/settings.json`, `~/.gemini/config/hooks.json`, `~/.gemini/config/mcp_config.json`, `~/.gemini/antigravity-cli/settings.json` and `<scratch>/codex-home/hooks.json`, nothing under `~/.codex`) each global file was copied with `cp -p` and hashed; after the runs each was restored from its copy (not `hooks uninstall`) and hashed again. `~/.codex` was hashed for comparison and never written.
+
+```
+553d0d42d3f91843299777f498db55acb6a0c1894c1ff0c902961371847516e0  ~/.claude/settings.json
+4106c89cb4905ae564ce04cec5248aa6dd7d47b2b2d662906962efb70478ac8c  ~/.gemini/config/hooks.json
+9ebf3f3661268f31657625e91ceb82813020592e0751e106852fdd973ec30be5  ~/.gemini/config/mcp_config.json
+b08afe62666ac23b510d431bc47138b4092f8ed65b92236e13ce5e74627b861e  ~/.gemini/antigravity-cli/settings.json
+abfe9a4ec5740c4a05e8c41b035b79da29035e99e7795f23ef0863435a2b4c14  ~/.codex/hooks.json
+3edb73778aecb295326dc0b29940500236ed421761226bfb4dd6e1a8bd6bdcd3  ~/.codex/config.toml
+```
+
+Before and after equal (`diff` empty). While installed, `~/.claude/settings.json` was `e2252c9f...`, the three Antigravity files `b221a89f...`, `a6faa13e...` and `b2b6b778...`; `~/.codex` was unchanged throughout.
+
+Cleanup: the eight invented sessions removed (`mesa rm --force`; the paired runner removed its own 26 runs, smoke included), `tern-quarry` unregistered and its note deleted (the profile's files and vault list the same files as before the run), `tmux -L mesa-p11-live kill-server`, the global files restored, the scratch folder deleted (the Codex home with its copied login, the throwaway `HOME` of part B and the pre-P11 build included). Profile `p11-live` keeps its CLEF key, model `clef`, `decisions.experimental` false. Left for the epic's final cleanup, as before: folder-trust entries for the scratch project in `~/.claude.json` and the native Claude Code transcripts of these sessions under `~/.claude/projects/` (invented content only).
+
+### Verdict
+
+- **No key: works as normal, no delay.** Claude Code and Codex launch without `mesa-decisions`, get no advice, answer as they did, and Mesa makes no model call (no decisions file; the same hook output with the network denied). The turn hook costs what the same code cost before decision assistance (Claude 345 against 358 ms p50, Codex 358 against 365 ms, same launcher and `HOME`).
+- **A key: what is sent goes through the Decision model.** Every prompt to a CLEF session is asked of CLEF by the `UserPromptSubmit` hook, and its advice reaches the agent before the reply: Claude Code's `hook_additional_context`, Codex's `developer` message, each listed by `decisions status` as automatic use with model, margin, latency, tokens and cost.
+- **Better and smarter, on both agents, under the frozen paired gate**: Claude Code 0/12 to 12/12, Codex 3/12 to 10/12 with time per solved task 241.8 s to 51.3 s. What it costs: about 500 ms more per turn at p50 while it asks, and fractions of a cent per turn.
