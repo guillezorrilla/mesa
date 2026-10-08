@@ -217,6 +217,8 @@ Once the model answers again, each session asks for itself and reads only its ow
 
 Both models passed the paired gate at `relevance`, the only site Mesa delivers automatically inside a session, so `PAIRED_ARMS` in `decisions/measured.ts` holds the arms above and `PAIRED_PASSED`, read from them by the frozen gate, is `['relevance']` for `jev` and `clef`. `relevance` is therefore automatic for both models; `next-step` and `evidence` passed the quality gate but are tool calls the agent makes, not measured by these workflows, so they stay on demand. Board supervision (#461) now stays off unless the profile opts into experimental automatic decisions, because the paired workflows measure in-session relevance only; whether the relevance result should also count for supervision is the owner's call (ADR-0019, 2026-10-07 amendment). Settings and the session details show each site's mode with both measured results.
 
+Update, 2026-10-08: Board supervision got its own paired workflows (#677) and passed for CLEF, so it is now automatic for CLEF by default; Jev's stays off until measured ([Board placement](#board-placement-2026-10-08)).
+
 ## Epic #458: criteria and evidence
 
 | Epic criterion | Merged work | Evidence |
@@ -331,3 +333,103 @@ The owner raised the hard per-turn deadline to 3,000 ms (ADR-0019, 2026-10-08 am
 | 8 | 1,127 / 1,578 / 1,759 ms | 566 / 941 ms | 0 | pass |
 
 The slowest turn (2,175 ms) is one whose advice the old 1,500 ms deadline would have dropped. Before `TURN_EXIT_MS`, at the old deadline, two of 24 Claude hooks overran by 71 and 107 ms; with it, the slowest of 72 hooks took 1,453 ms at the old deadline.
+
+## Board placement (2026-10-08)
+
+The owner's question (#677): Board placement (the `supervision` site, #461) passed the held-out quality gate for both models; does it make sessions finish more often or faster under ADR-0019's frozen paired gate? If it does, it runs automatically by default; if not, it stays off with the result shown. Run on 2026-10-08 on profile `p11-live` (CLEF key only; no TypeSafe key, so no Jev arm), Mesa at branch `decisions/board-placement`, Codex CLI 0.160.0 with its default model (GPT-6.1-Sol), load average 5 to 19.
+
+### Which agent, and why Codex
+
+Placement is asked only for a session no hook and no listing speaks for, from its screen (`sessions/board/managed.ts`), and never for Antigravity. Claude Code never gets there: its listing (`claude agents --json --all`, `agents/claude/listing.ts`) gives every live session a state (`claudeListedState` always returns one, `working` at 0.5 for a status it does not know), and Mesa's Claude hooks are global (`~/.claude/settings.json`, installed by the packaged app), so they fire in every Mesa window of every profile. Codex's listing gives no state (`listing.state` is `() => undefined`), and its hooks are silent when Mesa's are not installed in its `CODEX_HOME` or not yet reviewed. So the honest test is Codex with a temporary `CODEX_HOME` that has no `hooks.json`; nothing is installed and no global file is written.
+
+### Method
+
+`pnpm decisions:paired --site supervision` (`scripts/decisions/paired/supervision/`, all invented):
+
+- **Tasks**: the six kelp-ledger tasks and their hidden tests above, each now stopping once partway for a person (`supervision` in each `task.json`). Three are **questions** (format-amount, parse-weight, shipment-id): the goal says the convention is the person's call, written nowhere in the project, and asks the agent to ask first; the person's fixed answer is the task's note text. Three are **permission prompts** (log-line, retry-manifest, sort-shipments): the convention is kept only in `scripts/policy.mjs`, XOR-encoded so reading the file does not give it, and the goal says to run `node scripts/policy.mjs <topic>`; a `prefix_rule(... decision="prompt")` in the temporary `CODEX_HOME` makes Codex ask before it runs. No note is in the vault, and the runner refuses a vault that holds kelp-ledger notes.
+- **Sessions**: each run is a real interactive Codex session in a Mesa window, `mesa open kelp-ledger --agent codex --goal "<task>"`, on a fresh copy of the project, with on-request approvals in Codex's workspace-write sandbox (the profile's `agents.codex`). The temporary `CODEX_HOME` holds a copy of `~/.codex/auth.json` (the real `~/.codex` is only read), no `hooks.json`, the project trusted, and the person's own skills, apps and plugins off, so a screen (and what the model reads) shows only the invented task. The runner refuses to start while the profile's tmux server runs, since its windows would not get that `CODEX_HOME`, and stops the server it started.
+- **The simulated person** (`person.mjs`) acts only on what the Board says. Every 2 s it reads the session's row from `mesa sessions --json`; when the row wants placing (`supervision.pending`) it runs `mesa decisions place` beside the looks, one at a time and never awaited, as the app does (`useSessions`). On `waiting-permission` it presses Enter in the pane (Codex's highlighted choice is "Yes, proceed"); on `waiting-question` it sends the fixed answer with `mesa send <id> "<answer>" --force --no-from`, as a person. Once per wait, again only if the Board still shows it 20 s later; nothing on any other state.
+- **Budget and success**: 300 s per task from `mesa open`. A run is solved when its hidden test passes on a copy of the project (the agent never sees it), checked whenever the screen shows Codex stopped; else it fails at the budget.
+- **Waits and time to notice**: measured apart from the person, from the pane: Codex's screen reader says whether Codex has stopped (a dialog, or a turn that ended). Each stretch where Codex stopped with the task unsolved is a waiting episode; it is noticed at the first look whose Board row shows `waiting-permission` or `waiting-question`, to the nearest 2 s look. A stop seen on one look only, between two steps, is not counted.
+- **Arms**: `off` is `mesa decisions use none`, the rules alone; `clef` is `decisions use clef` with `decisions.experimental` on (supervision was not yet proven, so it needs the opt-in to be asked). Same main model, sandbox, approvals, tasks and person; the order shuffled by a printed seed; 6 tasks x 2 repetitions per arm. The runner sets the profile's settings and puts them back. Records per run: success, wall time, each episode (its screen, the Board states seen, when it was noticed), the person's acts and whether Codex had really stopped, and the Decision model's calls, input tokens and dollars (placing calls from `mesa decisions place`, list price `inputCostUsd`; the session's own from its decisions file). The verdict is core's `pairedVerdict`, unchanged.
+
+```sh
+pnpm decisions:paired --site supervision --dry-run --seed 461                  # stub agent, virtual clock
+pnpm decisions:paired --site supervision --profile p11-live --arms off,clef     # live
+```
+
+A smoke run first (seed 7, 2 tasks x 1 repetition per arm, 240 s) checked the loop end to end; it is not part of the result.
+
+### Results
+
+Seed 1488018697. 24 runs, 12 per arm.
+
+| Arm | Solved | Total wall | Time per solved task | Waits | Unnoticed | Median time to notice | Acts on a working agent | Model calls | Input tokens | $ |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| off | 6/12 | 2,017.2 s | 336.2 s | 12 | 6 | 0 s | 0 | 0 | 0 | 0 |
+| clef | 8/12 | 1,504.7 s | 188.1 s | 15 | 4 | 2 s | 0 | 221 | 114,003 | $0.0274 |
+
+| Model | Successes vs off | Time per solved task vs off | Paired gate (ADR-0019, `pairedVerdict`) |
+| --- | --- | --- | --- |
+| clef | +2 (8 against 6) | 188.1 s against 336.2 s (44% less) | pass: complete, successes not lower, time not worse, more successes and faster |
+
+By kind of stop:
+
+| Stop | off solved | clef solved | First waits noticed, off | First waits noticed, clef |
+| --- | --- | --- | --- | --- |
+| Permission prompt (3 tasks x 2) | 6/6 | 6/6 | 6 of 6 (0 s x 4, 2 s x 2) | 6 of 6 (0 s x 4, 2 s x 2) |
+| Question (3 tasks x 2) | 0/6 | 2/6 | 0 of 6 | 5 of 6 (2 s x 3, 4 s x 2) |
+
+Every run (time to notice per waiting episode; model calls, tokens and dollars include the session's own relevance call where it made one):
+
+| # | Arm | Task | Stop | Result | Wall | Waits noticed | Calls | Input tokens | $ | Why it failed |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | off | log-line | permission | solved | 31.3 s | 2 s | 0 | 0 | 0 | |
+| 2 | off | format-amount | question | failed | 300.6 s | unnoticed | 0 | 0 | 0 | the Board showed the question as idle |
+| 3 | clef | retry-manifest | permission | solved | 43.3 s | 2 s | 22 | 11,802 | $0.00283 | |
+| 4 | clef | shipment-id | question | solved | 53.2 s | 2 s | 26 | 13,634 | $0.00327 | |
+| 5 | off | sort-shipments | permission | solved | 33.3 s | 0 s | 0 | 0 | 0 | |
+| 6 | clef | format-amount | question | solved | 37.2 s | 4 s | 18 | 9,068 | $0.00218 | |
+| 7 | off | parse-weight | question | failed | 300.6 s | unnoticed | 0 | 0 | 0 | the Board showed the question as idle |
+| 8 | clef | shipment-id | question | failed | 300.7 s | 4 s; unnoticed | 15 | 7,940 | $0.00191 | answered; Codex then stopped again, on a screen CLEF read as a question at 0.75 but abstained on (margin 0.70, under 0.762), so the Board kept idle |
+| 9 | clef | log-line | permission | solved | 33.2 s | 2 s | 17 | 9,154 | $0.00220 | |
+| 10 | clef | format-amount | question | failed | 300.7 s | unnoticed | 6 | 2,333 | $0.00056 | CLEF did not answer within 3,000 ms on the question's screen; that reply stands for the screen, which did not change, so it was not asked again |
+| 11 | clef | parse-weight | question | failed | 300.6 s | 2 s; unnoticed | 21 | 10,808 | $0.00259 | answered; Codex's `parseWeight` failed the hidden test and it stopped idle, which the Board showed |
+| 12 | clef | parse-weight | question | failed | 300.7 s | 2 s; unnoticed | 23 | 11,830 | $0.00284 | the same |
+| 13 | clef | retry-manifest | permission | solved | 41.3 s | 0 s | 22 | 10,959 | $0.00263 | |
+| 14 | clef | sort-shipments | permission | solved | 33.3 s | 0 s | 18 | 9,905 | $0.00238 | |
+| 15 | off | log-line | permission | solved | 37.3 s | 2 s | 0 | 0 | 0 | |
+| 16 | clef | sort-shipments | permission | solved | 29.3 s | 0 s | 16 | 7,709 | $0.00185 | |
+| 17 | off | sort-shipments | permission | solved | 33.2 s | 0 s | 0 | 0 | 0 | |
+| 18 | off | shipment-id | question | failed | 300.7 s | unnoticed | 0 | 0 | 0 | the Board showed the question as idle |
+| 19 | off | retry-manifest | permission | solved | 41.2 s | 0 s | 0 | 0 | 0 | |
+| 20 | off | parse-weight | question | failed | 300.5 s | unnoticed | 0 | 0 | 0 | the Board showed the question as idle |
+| 21 | off | retry-manifest | permission | solved | 37.2 s | 0 s | 0 | 0 | 0 | |
+| 22 | off | shipment-id | question | failed | 300.6 s | unnoticed | 0 | 0 | 0 | the Board showed the question as idle |
+| 23 | off | format-amount | question | failed | 300.7 s | unnoticed | 0 | 0 | 0 | the Board showed the question as idle |
+| 24 | clef | log-line | permission | solved | 31.3 s | 0 s | 17 | 8,861 | $0.00213 | |
+
+- **Where the rules already read the screen right, placement adds nothing, and that alone fails the gate.** Codex's approval dialog ("Would you like to run the following command?") is in the rules' screen reader (`agents/codex/screen.ts`): both arms noticed all six permission waits at once and solved all six. On those tasks alone the arms tie, and a tie fails ADR-0019's gate (no +1 success, no 10% less time).
+- **The gain is the questions.** A Codex turn that ends with a question looks like any finished turn to the rules (the empty composer, `idle`), so with placement off the Board showed every question as idle and the person, who acts only on waits, never answered: 0 of 6. With CLEF the Board showed 5 of the 6 first questions as `waiting-question` within 2 to 4 s; 2 of those runs were solved, 2 failed later on the task itself (after the answer, Codex's `parseWeight` failed the hidden test), and 1 on a second stop CLEF abstained on. The one question it missed was a CLEF timeout (3,000 ms) whose fallback stands for that screen.
+- **No false waits.** In neither arm did the Board show a wait while Codex was working: the person never acted on a working agent.
+- **What it costs.** Every changed screen of an unsure session is asked while the Board looks, so a 30 to 50 s run made 15 to 26 calls (217 placing calls in all, 216 answered, 185 accepted), about 520 input tokens each: $0.0274 for the 12 runs at the paid list price, $0.0023 a run. Each session is capped at 60 asks an hour (`ASKS_PER_HOUR`); CLEF's free daily allocation (about 450k input tokens) covers about 15 hours of one unsure session at that cap. Claude Code sessions, and Codex sessions whose hooks run, are never asked.
+- **What the person stands for.** The simulated person is the issue's: it looks only at what the Board flags as waiting and never opens an idle session. A real person would find an idle Codex question in the end, so the off arm's question runs end at the 300 s budget rather than never; the result is that within the budget, with placement on, two more tasks were solved and each solved task took 44% less time. 12 runs per arm is ADR-0019's minimum.
+
+### Verdict and what changed
+
+Placement passes the paired gate for CLEF (8 against 6 solved, 188.1 s against 336.2 s per solved task). `PAIRED_ARMS` in `decisions/measured.ts` holds these arms under `supervision` for `clef`, so `PAIRED_PASSED.clef` is `['supervision', 'relevance']` and `siteMode` makes Board placement automatic for CLEF by default, with no opt-in; Settings > Smarter decisions > How it performed shows the result. Jev was not measured (no TypeSafe key on the profile): its placement stays off unless the profile opts into experimental decisions.
+
+### Global files and cleanup
+
+`mesa hooks install` was never run, and no global file was written: Codex ran with the runner's temporary `CODEX_HOME`, removed at the end. SHA-256 before the work and after the cleanup, equal (`diff` empty):
+
+```
+599b6f8dcfb30cf069198294129231df68202c1390bd9ad3eb4bd652bd00e51b  ~/.codex/hooks.json
+3edb73778aecb295326dc0b29940500236ed421761226bfb4dd6e1a8bd6bdcd3  ~/.codex/config.toml
+553d0d42d3f91843299777f498db55acb6a0c1894c1ff0c902961371847516e0  ~/.claude/settings.json
+4106c89cb4905ae564ce04cec5248aa6dd7d47b2b2d662906962efb70478ac8c  ~/.gemini/config/hooks.json
+9ebf3f3661268f31657625e91ceb82813020592e0751e106852fdd973ec30be5  ~/.gemini/config/mcp_config.json
+b08afe62666ac23b510d431bc47138b4092f8ed65b92236e13ce5e74627b861e  ~/.gemini/antigravity-cli/settings.json
+```
+
+Cleanup: the runner removed its 28 sessions (smoke included, `mesa rm --force`), unregistered `kelp-ledger`, put back `agents.codex`, `decisions.experimental` and the model, stopped `tmux -L mesa-p11-live` and deleted its temporary folders (the project copies and the `CODEX_HOME` with its copied login). Three earlier probe sessions and their project (`tidewell`) were removed by hand, and the placements left in `p11-live/placements.json` for the removed sessions were deleted. Profile `p11-live` keeps its CLEF key, model `clef`, `decisions.experimental` false.

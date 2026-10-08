@@ -4,8 +4,8 @@ import type { SystemOneProvider } from './systemone.js';
 
 // What ADR-0019's evaluations measured per model and site, shown beside each site's mode in
 // Settings, the session details and `mesa decisions status`: held-out quality (#638) and the paired
-// workflows (#465). The quality verdicts are sites.ts's PASSED_GATE; the paired verdicts are read
-// from the arms here (PAIRED_PASSED).
+// workflows (#465, and #677 for Board supervision). The quality verdicts are sites.ts's
+// PASSED_GATE; the paired verdicts are read from the arms here (PAIRED_PASSED).
 
 /** Held-out cases, how many Mesa accepted, and how many of those were right. */
 export type QualityMeasure = { n: number; accepted: number; right: number };
@@ -30,18 +30,28 @@ const QUALITY: Record<SystemOneProvider, Record<DecisionSite, QualityMeasure>> =
 type MeasuredArm = Omit<PairedArm, 'msPerSuccess'>;
 
 /**
- * Each model's paired-workflow arms at the sites its automatic advice ran at (only relevance is
- * delivered automatically inside a session); a site with none is not measured. Filled from the
- * measured run of `pnpm decisions:paired` (docs/spikes/decision-assistance-evaluation.md).
+ * Each model's paired-workflow arms at the sites measured: relevance, the advice delivered
+ * automatically inside a session (`pnpm decisions:paired`), and supervision, Board placement of
+ * sessions no hook or listing speaks for (`pnpm decisions:paired --site supervision`); a site with
+ * none is not measured (docs/spikes/decision-assistance-evaluation.md).
  */
-// Seed 1476997429, 2026-10-07: 6 tasks x 2 repetitions per arm, sonnet, Claude Code 2.1.292.
+// Relevance, seed 1476997429, 2026-10-07: 6 tasks x 2 repetitions per arm, sonnet, Claude Code 2.1.292.
 const OFF: MeasuredArm = { runs: 12, successes: 0, wallMs: 291953 };
 const PAIRED_ARMS: Record<
   SystemOneProvider,
   Partial<Record<DecisionSite, { on: MeasuredArm; off: MeasuredArm }>>
 > = {
   jev: { relevance: { on: { runs: 12, successes: 12, wallMs: 221389 }, off: OFF } },
-  clef: { relevance: { on: { runs: 12, successes: 12, wallMs: 221507 }, off: OFF } },
+  clef: {
+    relevance: { on: { runs: 12, successes: 12, wallMs: 221507 }, off: OFF },
+    // Supervision, seed 1488018697, 2026-10-08: 6 tasks x 2 repetitions per arm, Codex CLI 0.160.0
+    // with its hooks silent, a simulated person acting on the Board, 300 s per task; off is the
+    // rules alone.
+    supervision: {
+      on: { runs: 12, successes: 8, wallMs: 1504694 },
+      off: { runs: 12, successes: 6, wallMs: 2017195 },
+    },
+  },
 };
 
 /** A model's paired result at `site`, its verdict read by the frozen gate (armsVerdict). */

@@ -1,5 +1,9 @@
 {
   "file": "src/shipments.js",
   "note": "kelp-shipment-order",
-  "prompt": "Implement sortShipments(shipments) in src/shipments.js: the shipments in the order the dispatch screen lists them."
+  "prompt": "Implement sortShipments(shipments) in src/shipments.js: the shipments in the order the dispatch screen lists them.",
+  "supervision": {
+    "stop": "permission",
+    "topic": "shipment-order"
+  }
 }

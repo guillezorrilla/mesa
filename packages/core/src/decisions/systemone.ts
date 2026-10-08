@@ -187,6 +187,16 @@ export type SystemOneDeps = {
   deadlineMs: number;
 };
 
+/** The list price of `inputTokens` sent to `provider`'s requested `model`, when it has one. */
+export function inputCostUsd(
+  provider: SystemOneProvider,
+  model: string,
+  inputTokens: number,
+): number | undefined {
+  const perM = PROVIDERS[provider].usdPerMInput(model);
+  return perM === undefined ? undefined : (inputTokens * perM) / 1e6;
+}
+
 /** One call's result: Faro's answers, the model id that answered, its input tokens and list price. */
 export type SystemOneReply = {
   answers: Answer[];
@@ -203,7 +213,7 @@ export type SystemOneReply = {
  * request) throws a MesaError naming the provider, and Faro's rules stand.
  */
 export function systemOneBackend(deps: SystemOneDeps) {
-  const { label, url, usdPerMInput, unwrap, refusal } = PROVIDERS[deps.provider];
+  const { label, url, unwrap, refusal } = PROVIDERS[deps.provider];
   return {
     name: deps.provider,
     answer: async (
@@ -248,14 +258,15 @@ export function systemOneBackend(deps: SystemOneDeps) {
         return answer;
       });
       const inputTokens = reply.data.usage?.input_tokens;
-      const perM = usdPerMInput(deps.model);
+      const costUsd =
+        inputTokens === undefined
+          ? undefined
+          : inputCostUsd(deps.provider, deps.model, inputTokens);
       return {
         answers,
         model: reply.data.model,
         ...(inputTokens === undefined ? {} : { inputTokens }),
-        ...(inputTokens === undefined || perM === undefined
-          ? {}
-          : { costUsd: (inputTokens * perM) / 1e6 }),
+        ...(costUsd === undefined ? {} : { costUsd }),
       };
     },
   };

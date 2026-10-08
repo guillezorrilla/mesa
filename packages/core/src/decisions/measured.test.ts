@@ -18,8 +18,14 @@ test('the held-out numbers back the quality gate list: a site passes only on its
   }
 });
 
-test('the paired verdicts are read from the measured arms: relevance passes for both models', () => {
-  expect(PAIRED_PASSED).toEqual({ jev: ['relevance'], clef: ['relevance'] });
+test('the paired verdicts are read from the measured arms: relevance for both models, supervision for CLEF', () => {
+  expect(PAIRED_PASSED).toEqual({ jev: ['relevance'], clef: ['supervision', 'relevance'] });
+  expect(siteMeasure('clef', 'supervision').paired).toEqual({
+    on: { runs: 12, successes: 8, wallMs: 1504694, msPerSuccess: 1504694 / 8 },
+    off: { runs: 12, successes: 6, wallMs: 2017195, msPerSuccess: 2017195 / 6 },
+    pass: true,
+  });
+  expect(siteMeasure('jev', 'supervision').paired).toBeUndefined();
   expect(siteMeasure('jev', 'relevance').paired).toEqual({
     on: { runs: 12, successes: 12, wallMs: 221389, msPerSuccess: 221389 / 12 },
     off: { runs: 12, successes: 0, wallMs: 291953, msPerSuccess: null },

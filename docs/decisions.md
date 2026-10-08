@@ -17,7 +17,7 @@ Jev and CLEF answer the same four kinds of question, called decision sites:
 
 Mesa acts on an answer only when the model is sure enough; otherwise it gives no advice and the rules stand. Advice never runs a command, approves a permission or marks work complete.
 
-A site runs **automatically** only after it has passed both of Mesa's tests: a quality check on invented cases, and paired coding workflows that show agents solve more tasks, or the same tasks faster, with it than without it ([ADR-0019](adr/0019-local-decision-model.md), [evaluation](spikes/decision-assistance-evaluation.md)). Until then a site works **on demand** only, when an agent or you ask. Settings > Smarter decisions lists each site with its mode and what it measured, under **How it performed** on each model. To try automatic decisions before they are proven, turn on **Try unproven automatic decisions** in Settings > Advanced (or `mesa config set decisions.experimental true`); that advice is marked experimental.
+A site runs **automatically** only after it has passed both of Mesa's tests: a quality check on invented cases, and paired coding workflows that show agents solve more tasks, or the same tasks faster, with it than without it ([ADR-0019](adr/0019-local-decision-model.md), [evaluation](spikes/decision-assistance-evaluation.md)). Today source relevance runs automatically with both models, and session state with CLEF: on six invented Codex tasks that each stopped once for a person, with Codex's hooks silent, the rules showed every question Codex asked as a finished turn, while with CLEF the Board flagged 5 of 6 as waiting, and Codex solved 8 of 12 tasks against 6 of 12 in 44% less time per solved task ([evaluation](spikes/decision-assistance-evaluation.md#board-placement-2026-10-08)). Jev's session state is not measured yet. Until a site passes, it works **on demand** only, when an agent or you ask (session state, which nobody asks for, stays off). Settings > Smarter decisions lists each site with its mode and what it measured, under **How it performed** on each model. To try automatic decisions before they are proven, turn on **Try unproven automatic decisions** in Settings > Advanced (or `mesa config set decisions.experimental true`); that advice is marked experimental.
 
 ## Setup
 
@@ -47,6 +47,8 @@ A session started before you added a key cannot gain the decision tool while it 
 | Typical call | 300 to 1,000 input tokens: about $0.02 to $0.03 per 1,000 calls | About $0.07 to $0.11 per 1,000 calls once paid |
 
 Mesa shows each call's cost in the session details' recent use and `mesa decisions status --session <id> --json`.
+
+Session state is asked only for a session no hook or listing speaks for (in practice, a Codex session whose Mesa hooks are not installed or not yet reviewed), about each new screen while the Board is open, at most 60 times an hour per session: about 520 input tokens a call, under 1 cent an hour per such session at CLEF's paid price, or about 15 hours of one such session on its free daily allocation.
 
 ## What text leaves your Mac
 
@@ -79,5 +81,5 @@ The session details (Decision assistance) and `mesa decisions status --session <
 ## Turning it off
 
 - **Everywhere**: Stop using in the model's menu in Settings > Smarter decisions, or `mesa decisions use none`. Keys stay saved; no model is asked.
-- **One session**: the switch in its details, or `mesa decisions off --session <id>` (`mesa decisions on` brings it back).
+- **One session**: the switch in its details, or `mesa decisions off --session <id>` (`mesa decisions on` brings it back). Session state on the Board belongs to no session: Stop using turns it off.
 - **Remove a key**: Disconnect in its row's menu, or `mesa decisions key remove typesafe|cloudflare`. Mesa moves to the other model if its key is set, else to None.
