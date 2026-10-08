@@ -54,7 +54,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         site,
         mode: 'off' as const,
       })),
-      deadlines: { automatic: 1500, 'on-demand': 10000 },
+      deadlines: { automatic: 3000, 'on-demand': 10000 },
       packetChars: 4096,
       ready: 0,
       use: [],
@@ -93,7 +93,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
         doctor: 'silent',
       },
       application: { warnBeforeQuit: true, backupOnClose: false },
-      onboarding: { status: 'complete', step: 0, discovery: 'complete' },
+      onboarding: { status: 'complete', step: 0, discovery: 'complete', decisionTip: 'dismissed' },
       appearance: {
         theme: 'system',
         font: 'plex',

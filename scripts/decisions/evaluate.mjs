@@ -3,10 +3,13 @@
 //                              clef reads CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
 //   --model clef|clef-flash    the CLEF size (default: the one Mesa ships)
 //   --dataset calibration|heldout
+//   --profile <name>           read the key (and CLEF's account ID) from that Mesa profile's
+//                              Keychain item and config, as Mesa does, instead of the environment
 //   --json                     the full report; otherwise a table per site
 // On calibration it also prints the thresholds ADR-0019's rule fits (`fit`); copy them into
 // ACCEPT_AT and commit before any held-out run. Each request may take 60 s: this measures
-// quality, not the per-turn deadline. Keys are read from the environment and never printed.
+// quality, not the per-turn deadline. Keys are never printed.
+import { homedir } from 'node:os';
 import { parseArgs } from 'node:util';
 import { readCorpus } from '../../packages/core/dist/decisions/evaluation/corpus.js';
 import {
@@ -15,17 +18,22 @@ import {
   report,
   runCases,
 } from '../../packages/core/dist/decisions/evaluation/evaluation.js';
+import { decisionKeys, KEY_OF } from '../../packages/core/dist/decisions/keys.js';
 import { ACCEPT_AT } from '../../packages/core/dist/decisions/sites.js';
 import {
   SYSTEM_ONE_MODELS,
   systemOneBackend,
 } from '../../packages/core/dist/decisions/systemone.js';
+import { envRunner, keychainStore } from '../../packages/core/dist/index.js';
+import { loadConfig } from '../../packages/core/dist/profile/config.js';
+import { profilePaths } from '../../packages/core/dist/profile/paths.js';
 
 const { values } = parseArgs({
   options: {
     backend: { type: 'string', default: 'rules' },
     model: { type: 'string' },
     dataset: { type: 'string', default: 'heldout' },
+    profile: { type: 'string' },
     json: { type: 'boolean', default: false },
   },
 });
@@ -39,14 +47,30 @@ if (values.model && (values.backend !== 'clef' || !['clef', 'clef-flash'].includ
 if (!['calibration', 'heldout'].includes(values.dataset)) fail('--dataset: calibration or heldout');
 
 const env = (name) => process.env[name] || fail(`${name} is not set`);
+/** The key and account ID Mesa keeps for `profile`'s model `backend`. */
+async function profileKey(profile, backend) {
+  const stored = await decisionKeys(keychainStore(envRunner(process.env)), profile).read(
+    KEY_OF[backend],
+  );
+  if (!stored) fail(`profile ${profile} has no ${KEY_OF[backend]} key`);
+  const { cloudflareAccount } = loadConfig(profilePaths(homedir(), profile).config).decisions;
+  return { key: stored.key, accountId: cloudflareAccount };
+}
+const saved =
+  values.profile && values.backend !== 'rules'
+    ? await profileKey(values.profile, values.backend)
+    : undefined;
 const backend =
   values.backend === 'rules'
     ? undefined
     : systemOneBackend({
         provider: values.backend,
         http: fetch,
-        key: env(values.backend === 'jev' ? 'TYPESAFE_API_KEY' : 'CLOUDFLARE_API_TOKEN'),
-        ...(values.backend === 'clef' ? { accountId: env('CLOUDFLARE_ACCOUNT_ID') } : {}),
+        key:
+          saved?.key ?? env(values.backend === 'jev' ? 'TYPESAFE_API_KEY' : 'CLOUDFLARE_API_TOKEN'),
+        ...(values.backend === 'clef'
+          ? { accountId: saved?.accountId ?? env('CLOUDFLARE_ACCOUNT_ID') }
+          : {}),
         model: values.model ?? SYSTEM_ONE_MODELS[values.backend],
         deadlineMs: 60_000,
       });

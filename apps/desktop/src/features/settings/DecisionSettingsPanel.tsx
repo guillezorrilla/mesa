@@ -1,71 +1,72 @@
-import { SYSTEM_ONE_PROVIDERS } from '@mesa/core/browser';
-import { Cpu } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import type { SystemOneProvider } from '@mesa/core/browser';
+import { useState } from 'react';
+import { Muted } from '@/components/Muted';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { ModelKeyPanel } from './decisions/ModelKeyPanel';
-import { MODELS } from './decisions/models';
-import { SettingRow } from './SettingRow';
+import { ConnectModelDialog } from './decisions/ConnectModelDialog';
+import { DecisionModelRow } from './decisions/DecisionModelRow';
+import { MODEL_ORDER, MODELS } from './decisions/models';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
 /**
- * Smarter decisions: Jev and CLEF, each usable once its key is saved, and None. Faro asks the
- * model in use when its rules are unsure; with None, nothing leaves this Mac.
+ * Smarter decisions: one row per hosted model, CLEF then Jev, to connect, use, replace or
+ * disconnect it, as Connections lists its sources. With none in use, Faro answers with its rules
+ * alone and nothing leaves this Mac.
  */
 export function DecisionSettingsPanel() {
   const { config, reload } = useSettings();
   const keys = useCommand('decisions.keys');
   const run = useRun();
   const { acting, act } = useAct();
-  const { model, cloudflareAccount } = config.decisions;
+  // The model whose Connect dialog is open, and whether it was connected already (Replace).
+  const [connecting, setConnecting] = useState<{ model: SystemOneProvider; replacing: boolean }>();
+  const { model, cloudflareAccount, experimental = false } = config.decisions;
   const changed = async () => {
     await Promise.all([keys.refresh(), reload()]);
   };
+  const runThen = (action: () => Promise<unknown>) =>
+    void act(async () => {
+      if (await action()) await changed();
+      return undefined;
+    });
+  const rowOf = (hosted: SystemOneProvider) =>
+    keys.data?.keys.find((row) => row.provider === MODELS[hosted].provider);
   return (
-    <>
-      {SYSTEM_ONE_PROVIDERS.map((hosted) => (
-        <ModelKeyPanel
+    <SettingSection
+      id="models"
+      title="Decision models"
+      description="When its own rules are unsure, Mesa can ask a hosted decision model, so each session gets the right notes and checks. Optional: with none, nothing leaves this Mac."
+    >
+      {MODEL_ORDER.map((hosted) => (
+        <DecisionModelRow
           key={hosted}
           model={hosted}
-          row={keys.data?.keys.find((row) => row.provider === MODELS[hosted].provider)}
+          row={rowOf(hosted)}
           inUse={model === hosted}
-          account={cloudflareAccount}
-          onChanged={changed}
-        />
-      ))}
-      <SettingSection
-        id="none"
-        title="None"
-        description="Faro answers with its rules alone, and the agents work as they normally do."
-      >
-        <SettingRow
-          icon={Cpu}
-          title="Rules only"
-          description="No key needed, and no session text leaves this Mac."
-          keywords="off disable"
-          control={
-            model === 'none' ? (
-              <Badge variant="secondary">In use</Badge>
-            ) : (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={acting}
-                onClick={() =>
-                  void act(async () => {
-                    if (await run('decisions.use', { model: 'none' })) await changed();
-                    return undefined;
-                  })
-                }
-              >
-                Use this one
-              </Button>
-            )
+          experimental={experimental}
+          acting={acting}
+          onConnect={() => setConnecting({ model: hosted, replacing: rowOf(hosted)?.set === true })}
+          onUse={(use) => runThen(() => run('decisions.use', { model: use ? hosted : 'none' }))}
+          onDisconnect={() =>
+            runThen(() => run('decisions.keys.remove', { provider: MODELS[hosted].provider }))
           }
         />
-      </SettingSection>
-    </>
+      ))}
+      {model === 'none' && (
+        <Muted size="xs" data-testid="decisions-rules-only" className="px-1 pt-1">
+          No model in use: Mesa decides with its own rules.
+        </Muted>
+      )}
+      {connecting && (
+        <ConnectModelDialog
+          model={connecting.model}
+          account={cloudflareAccount}
+          replacing={connecting.replacing}
+          onConnected={changed}
+          onClose={() => setConnecting(undefined)}
+        />
+      )}
+    </SettingSection>
   );
 }

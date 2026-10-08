@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Sparkles,
   Stethoscope,
   TerminalSquare,
   UserRound,
@@ -38,6 +39,7 @@ export const COMMAND_ICONS: Record<CommandId, LucideIcon> = {
   preferences: SlidersHorizontal,
   prompts: MessageSquareText,
   backup: Archive,
+  'smarter-decisions': Sparkles,
 };
 
 const BY_KIND: Record<SearchHit['kind'], LucideIcon> = {

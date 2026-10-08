@@ -5,7 +5,7 @@ import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
 import { DECISIONS_MOUNT, mountsPerLaunch } from '../../agents/mesa-mount.js';
 import { NO_MODEL } from '../../decisions/evaluate.js';
-import { PASSED_GATE } from '../../decisions/sites.js';
+import { siteMode } from '../../decisions/site-mode.js';
 import type { DecisionsModel } from '../../decisions/types.js';
 import type { Env } from '../../lib/process.js';
 import { toFail } from '../../lib/result.js';
@@ -32,6 +32,8 @@ export type DeliveryStatus = {
 /** What the session's decision assistance holds (DecisionAssistance.assistState). */
 export type AssistState = {
   model: DecisionsModel;
+  /** The person's opt-in to automatic decisions where the model is not proven yet. */
+  experimental: boolean;
   off: boolean;
   seen: { tool?: string; advice?: string };
 };
@@ -105,10 +107,10 @@ function toolStatus(
 }
 
 /**
- * Automatic advice: only at a site the model qualified for, through the turn hook the #459 probe
- * proved: Claude Code's and Codex's UserPromptSubmit, Antigravity's PreInvocation (the saved
- * goal's ready answer, as its hook carries no prompt). A native identity Mesa no longer holds
- * (`identityChanged`, a /clear or a nested agent) gets none.
+ * Automatic advice: only where the model runs relevance automatically (siteMode), through the
+ * turn hook the #459 probe proved: Claude Code's and Codex's UserPromptSubmit, Antigravity's
+ * PreInvocation (the saved goal's ready answer, as its hook carries no prompt). A native identity
+ * Mesa no longer holds (`identityChanged`, a /clear or a nested agent) gets none.
  */
 function adviceStatus(
   record: SessionRecord,
@@ -119,10 +121,10 @@ function adviceStatus(
   const seen = at(state.seen.advice);
   const why = disabled(record, state);
   if (why) return { ...why, ...seen };
-  if (state.model !== 'none' && !PASSED_GATE[state.model].includes('relevance'))
+  if (siteMode(state.model, 'relevance', state.experimental).mode !== 'automatic')
     return {
       state: 'disabled',
-      reason: `${state.model} did not qualify for automatic advice; on demand only`,
+      reason: `${state.model} is not proven for automatic advice yet; on demand only`,
       ...seen,
     };
   if (identityChanged)

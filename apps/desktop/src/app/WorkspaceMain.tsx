@@ -14,8 +14,10 @@ import { ProjectScreen, type ProjectTab } from '@/features/projects/ProjectScree
 import { SavedPromptsScreen } from '@/features/prompts/SavedPromptsScreen';
 import { SessionsScreen } from '@/features/sessions/SessionsScreen';
 import type { SessionPreset } from '@/features/sessions/start/useStartSession';
+import { SmarterDecisionsTip } from '@/features/settings/decisions/SmarterDecisionsTip';
 import { VaultScreen } from '@/features/vault/VaultScreen';
 import { type CommandState, useRun } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 
 /** A sidebar request the Sessions screen acts on once per new `count`. */
@@ -40,7 +42,6 @@ export function WorkspaceMain(props: {
   onNewSession: (preset: SessionPreset) => void;
   onAddProject: (request: ProjectAddRequest) => void;
   onVaultSettings: () => void;
-  onDecisionSettings: () => void;
   archiveSessionRequest?: SessionRequest;
   dependencySessionRequest?: SessionRequest;
   promptInsertRequest?: { session: string; text: string };
@@ -58,16 +59,22 @@ export function WorkspaceMain(props: {
     [navigate, run],
   );
   const sessionView = view.kind === 'session';
+  const startView = view.kind === 'sessions';
   return (
     <main
       className={
-        sessionView ? 'min-w-0 flex-1 overflow-hidden' : 'min-w-0 flex-1 overflow-auto px-6 py-5'
+        sessionView
+          ? 'min-w-0 flex-1 overflow-hidden'
+          : cn('min-w-0 flex-1 overflow-auto px-6 py-5', startView && 'flex flex-col gap-4')
       }
     >
+      {startView && (
+        <SmarterDecisionsTip config={config.data} onChanged={() => void config.refresh()} />
+      )}
       {/* Sessions stays mounted so its terminal clients survive navigation. */}
       <div
-        hidden={view.kind !== 'sessions' && view.kind !== 'grid' && !sessionView}
-        className={sessionView || view.kind === 'sessions' ? 'h-full' : undefined}
+        hidden={!startView && view.kind !== 'grid' && !sessionView}
+        className={sessionView ? 'h-full' : startView ? 'min-h-0 flex-1' : undefined}
       >
         <SessionsScreen
           onAddProject={props.onAddProject}
@@ -154,7 +161,6 @@ export function WorkspaceMain(props: {
           onInitialised={props.onProfileInitialised}
           onConfigChanged={config.refresh}
           onProjectsChanged={projects.refresh}
-          onDecisionSettings={props.onDecisionSettings}
           onDone={(session) =>
             navigate(session ? { kind: 'session', id: session } : { kind: 'sessions' })
           }

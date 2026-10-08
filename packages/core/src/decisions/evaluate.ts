@@ -4,6 +4,7 @@ import type { Clock } from '../lib/clock.js';
 import { MesaError } from '../lib/result.js';
 import { ON_DEMAND_MS, PER_TURN_MS } from './models.js';
 import type { Packet } from './packet.js';
+import { siteMode } from './site-mode.js';
 import { ACCEPT_AT, accepted, DECISION_SITES, type DecisionSite, margin } from './sites.js';
 import type { Decision, DecisionsModel, Question } from './types.js';
 
@@ -12,7 +13,7 @@ import type { Decision, DecisionsModel, Question } from './types.js';
 // decides what, if anything, is kept.
 
 /**
- * How a call came: `automatic` beside a turn (the 1,500 ms deadline, and only at a site the model
+ * How a call came: `automatic` beside a turn (the 3,000 ms deadline, and only at a site the model
  * qualified for), or `on-demand` from a tool or a command (10 s, any site).
  */
 export const ASSIST_MODES = ['automatic', 'on-demand'] as const;
@@ -30,7 +31,10 @@ export const EvaluationSchema = z.strictObject({
   site: z.enum(DECISION_SITES),
   mode: z.enum(ASSIST_MODES),
   status: z.enum(EVALUATION_STATUSES),
-  /** A site the model did not qualify for (PASSED_GATE): on demand only. */
+  /**
+   * A site the model did not pass the quality gate at, asked on demand, or an automatic call at a
+   * site it is not proven at, which the person opted into (siteMode).
+   */
   experimental: z.literal(true).optional(),
   /** The model's pick: an option of the Choice, or the Noul's lean. */
   answer: z.union([z.string(), z.boolean()]).optional(),
@@ -40,6 +44,8 @@ export const EvaluationSchema = z.strictObject({
   acceptAt: z.number().optional(),
   /** The model id that answered. */
   model: z.string().optional(),
+  /** The input tokens the model counted for the call. */
+  inputTokens: z.number().optional(),
   /** Why no answer came. */
   reason: z.string().optional(),
   latencyMs: z.number(),
@@ -63,8 +69,8 @@ export type EvaluationMemory = {
 export type EvaluateDeps = {
   /** The Decision model in use; `none` asks nothing. */
   model: DecisionsModel;
-  /** The sites it passed the held-out gate at (PASSED_GATE): the only automatic ones. */
-  passed: readonly DecisionSite[];
+  /** The person's opt-in to experimental automatic decisions (`decisions.experimental`). */
+  experimental: boolean;
   /** Faro, asked the packet within `deadlineMs`, its rules even (faro.ts); `signal` cancels it. */
   ask: (
     state: string,
@@ -99,7 +105,8 @@ const aborted = (signal: AbortSignal) =>
 
 /**
  * Evaluates `packet` once. With no model, nothing is asked. An automatic call at a site the model
- * did not qualify for is unavailable; on demand it runs, marked experimental. An answer made
+ * does not run automatically (siteMode) is unavailable, and one at a site it is not proven at is
+ * marked experimental, as is any call at a site it did not pass the quality gate at. An answer made
  * before for the same key is reused; with `readyOnly`, only that, and a miss is unavailable and
  * noted nowhere (a hook on every model call asks this way). The model answers within the mode's
  * deadline (ADR-0019);
@@ -115,13 +122,16 @@ export async function evaluate(
   const { mode, signal, revision = '', readyOnly } = options;
   const { model } = deps;
   if (model === 'none') return unavailable(site, mode, NO_MODEL);
-  const qualified = deps.passed.includes(site);
-  if (mode === 'automatic' && !qualified)
-    return unavailable(site, mode, `${model} did not qualify for automatic ${site} advice`);
+  const runs = siteMode(model, site, deps.experimental);
+  if (mode === 'automatic' && runs.mode !== 'automatic')
+    return unavailable(site, mode, `${model} is not proven for automatic ${site} advice`);
+  // On demand, a call is experimental only where the site missed the quality gate: as it runs
+  // without the opt-in.
+  const { experimental } = mode === 'automatic' ? runs : siteMode(model, site, false);
   const acceptAt = ACCEPT_AT[model][site];
   const key = keyOf(packet, model, acceptAt, revision);
   const noted = (evaluation: Evaluation) => {
-    const made = { ...evaluation, ...(qualified ? {} : { experimental: true as const }) };
+    const made = { ...evaluation, ...(experimental ? { experimental: true as const } : {}) };
     deps.memory?.note(made, key);
     return made;
   };
@@ -158,6 +168,7 @@ export async function evaluate(
     margin: margin(answer),
     acceptAt,
     ...(decision.model ? { model: decision.model } : {}),
+    ...(decision.inputTokens === undefined ? {} : { inputTokens: decision.inputTokens }),
     latencyMs,
     ...(decision.costUsd === undefined ? {} : { costUsd: decision.costUsd }),
   });

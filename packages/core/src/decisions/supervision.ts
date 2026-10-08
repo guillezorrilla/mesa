@@ -12,13 +12,13 @@ import {
 import { decide } from './decide.js';
 import { type DecisionModels, PER_TURN_MS } from './models.js';
 import { rulesBackend } from './rules.js';
+import { automaticGate } from './site-mode.js';
 import {
   ACCEPT_AT,
   type AcceptAt,
   accepted,
   type DecisionSite,
   margin,
-  PASSED_GATE,
   siteQuestion,
 } from './sites.js';
 import { SYSTEM_ONE_MODELS, type SystemOneProvider } from './systemone.js';
@@ -41,17 +41,27 @@ export const SCREEN_CHARS = 1_400;
 /** An ask in flight longer than this was abandoned by a mesa that stopped: it may be claimed again. */
 const ABANDONED_MS = 2 * PER_TURN_MS;
 
-/** The sites each model passed the gate on, and its thresholds: the real tables unless a test's. */
+/**
+ * The sites each model runs automatically (automaticGate), and its thresholds: the real tables
+ * unless a test's.
+ */
 export type SupervisionTables = {
   gate: Record<SystemOneProvider, readonly DecisionSite[]>;
   acceptAt: Record<SystemOneProvider, AcceptAt>;
 };
-const TABLES: SupervisionTables = { gate: PASSED_GATE, acceptAt: ACCEPT_AT };
+/** The real tables, with the person's opt-in to experimental automatic sites or without. */
+const tables = (experimental: boolean): SupervisionTables => ({
+  gate: automaticGate(experimental),
+  acceptAt: ACCEPT_AT,
+});
 
-/** The model that may place sessions: the chosen one, only if it passed the supervision gate. */
+/**
+ * The model that may place sessions: the chosen one, only if it runs supervision automatically
+ * (both gates passed, or opted in as experimental; siteMode).
+ */
 export function supervisingModel(
   model: DecisionsModel | undefined,
-  gate: SupervisionTables['gate'] = PASSED_GATE,
+  gate: SupervisionTables['gate'] = automaticGate(false),
 ): SystemOneProvider | undefined {
   return model && model !== 'none' && gate[model].includes('supervision') ? model : undefined;
 }
@@ -128,7 +138,7 @@ export type Placed = { id: string; key: string } & (
  * Places the sessions the Board's looks want placed (placements.ts): asks the supervising model
  * about each claimed screen side by side, within the per-turn deadline, and saves each reply for
  * the next look. A reply is dropped when the model was switched or lost its key meanwhile, or the
- * screen changed. A model that did not pass the supervision gate is never asked.
+ * screen changed. A model that does not run supervision automatically is never asked.
  */
 export async function placeUnsure(deps: {
   store: PlacementStore;
@@ -140,7 +150,7 @@ export async function placeUnsure(deps: {
   tables?: SupervisionTables;
   clock: Clock;
 }): Promise<Placed[]> {
-  const { gate, acceptAt } = deps.tables ?? TABLES;
+  const { gate, acceptAt } = deps.tables ?? tables(false);
   const provider = supervisingModel(deps.model(), gate);
   const backend = deps.backend();
   if (!provider || !backend) return [];
@@ -179,6 +189,7 @@ export function boardPlacing(ctx: MesaContext, models: Pick<DecisionModels, 'act
       model: () => ctx.configIfAny()?.decisions.model,
       backend: () => models.active(PER_TURN_MS),
       hasKey: models.hasKey,
+      tables: tables(ctx.configIfAny()?.decisions.experimental ?? false),
       clock: ctx.clock,
     });
 }

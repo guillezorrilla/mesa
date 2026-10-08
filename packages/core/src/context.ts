@@ -46,7 +46,7 @@ export type MesaDeps = {
   processId: number;
   /**
    * When this process started, so a hook's per-turn budget counts its own start-up (ADR-0019:
-   * 1,500 ms in all); without it, the budget starts when the advice is asked for.
+   * 3,000 ms in all); without it, the budget starts when the advice is asked for.
    */
   processStartedAt?: Date;
   /** Read the current element from the owning native webview before browser feedback is sent. */

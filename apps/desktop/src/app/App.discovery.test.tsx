@@ -74,7 +74,7 @@ test('the discovery dialog never opens over onboarding, from the vault step on',
     init: () => {
       config = {
         ...baseline.data,
-        onboarding: { status: 'active', step: 0, discovery: 'pending' },
+        onboarding: { status: 'active', step: 0, discovery: 'pending', decisionTip: 'pending' },
       };
       return envelope({
         profile: 'default',

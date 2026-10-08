@@ -10,6 +10,20 @@ export const TEST_CLOUDFLARE_ACCOUNT = 'acct-0001';
 /** An invented TypeSafe key, for Jev in systemOneWorld. */
 export const TEST_TYPESAFE_KEY = 'ts-test-0000-1111-abcd';
 
+/**
+ * Workers AI's refusal once the account's free 10,000 Neurons of the day are used up: HTTP 429,
+ * internal code 3036 (developers.cloudflare.com/workers-ai/platform/errors), in Cloudflare's REST
+ * envelope. Simulated only: never drained from a real account.
+ */
+export const CLEF_QUOTA_BODY = {
+  success: false,
+  errors: [
+    { code: 3036, message: 'You have used up your daily free allocation of 10,000 neurons' },
+  ],
+  messages: [],
+  result: null,
+};
+
 const URLS: Record<SystemOneProvider, string> = {
   jev: 'https://api.typesafe.ai/v1/systemone',
   clef: `https://api.cloudflare.com/client/v4/accounts/${TEST_CLOUDFLARE_ACCOUNT}/ai/run/@cf/cloudflare/${SYSTEM_ONE_MODELS.clef}`,
@@ -51,18 +65,20 @@ function wireAnswer(q: { type: string; criteria?: unknown }, lean: Lean) {
  * Jev and CLEF in memory (CLEF at TEST_CLOUDFLARE_ACCOUNT), and an empty Keychain: each answers
  * whatever System One body it is sent, leaning to the first option or level (0.8; a Noul 0.9), with
  * the model id it was asked for and 100 input tokens. `lean` steers the answers, `refuse` makes
- * one answer an HTTP status instead, and `stall` holds its requests until their deadline or a
- * cancel, each noted in `aborted` when it ends.
+ * one answer an HTTP status instead (with a body of its own, such as CLEF_QUOTA_BODY), `offline`
+ * makes every host unreachable, as fetch fails with no network, and `stall` holds its requests
+ * until their deadline or a cancel, each noted in `aborted` when it ends.
  */
 export function systemOneWorld() {
-  const refused: Partial<Record<SystemOneProvider, number>> = {};
+  const refused: Partial<Record<SystemOneProvider, { status: number; body: unknown }>> = {};
+  let unreachable = false;
   const stalled = new Set<string>();
   /** The URLs of stalled requests whose signal aborted, in order. */
   const aborted: string[] = [];
   let lean = DEFAULT_LEAN;
   const answer = (provider: SystemOneProvider) => (request: FakeRequest) => {
-    const status = refused[provider];
-    if (status) return { status, body: { error: 'refused' } };
+    const refusal = refused[provider];
+    if (refusal) return refusal;
     const body = JSON.parse(request.body ?? '{}');
     const answers = Object.fromEntries(
       Object.entries(body.questions as Record<string, { type: string }>).map(([id, q]) => [
@@ -82,6 +98,10 @@ export function systemOneWorld() {
   const secrets = memorySecretStore();
   // A stalled provider's request ends only when its signal aborts (the deadline, or a cancel).
   const http: Http = (url, init) => {
+    if (unreachable) {
+      web.requests.push({ method: init?.method ?? 'GET', url, headers: {} });
+      return Promise.reject(new TypeError('fetch failed'));
+    }
     if (!stalled.has(url)) return web.http(url, init);
     web.requests.push({ method: init?.method ?? 'GET', url, headers: {} });
     return new Promise((_, reject) => {
@@ -112,10 +132,18 @@ export function systemOneWorld() {
       if (on) stalled.add(URLS[provider]);
       else stalled.delete(URLS[provider]);
     },
-    /** `provider` answers HTTP `status` from now on; none puts it back. */
-    refuse: (provider: SystemOneProvider, status?: number) => {
+    /** `provider` answers HTTP `status` (with `body`) from now on; none puts it back. */
+    refuse: (
+      provider: SystemOneProvider,
+      status?: number,
+      body: unknown = { error: 'refused' },
+    ) => {
       if (status === undefined) delete refused[provider];
-      else refused[provider] = status;
+      else refused[provider] = { status, body };
+    },
+    /** No host answers from now on, as with no network; false puts the network back. */
+    offline: (on = true) => {
+      unreachable = on;
     },
   };
 }

@@ -128,12 +128,32 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
     project: 'lantern-cove',
     model: 'jev',
     off: false,
+    // Each site passed the quality gate; relevance also passed the paired workflows (#465), so it
+    // is automatic, and the others stay on demand, each with its measured results.
     sites: [
-      { site: 'relevance', mode: 'automatic', acceptAt: 0.5 },
-      { site: 'next-step', mode: 'automatic', acceptAt: 0.5 },
-      { site: 'evidence', mode: 'automatic', acceptAt: 0.5 },
+      {
+        site: 'relevance',
+        mode: 'automatic',
+        acceptAt: 0.5,
+        measured: {
+          quality: { n: 30, accepted: 28, right: 28 },
+          paired: expect.objectContaining({ pass: true }),
+        },
+      },
+      {
+        site: 'next-step',
+        mode: 'on-demand',
+        acceptAt: 0.5,
+        measured: { quality: { n: 30, accepted: 29, right: 29 } },
+      },
+      {
+        site: 'evidence',
+        mode: 'on-demand',
+        acceptAt: 0.5,
+        measured: { quality: { n: 30, accepted: 26, right: 26 } },
+      },
     ],
-    deadlines: { automatic: 1500, 'on-demand': 10000 },
+    deadlines: { automatic: 3000, 'on-demand': 10000 },
     packetChars: 4096,
     ready: 1,
     use: [
@@ -145,9 +165,21 @@ test('turned off for a session, nothing is asked; the status shows each mode, th
         model: 'jev-1.13.0',
         margin: expect.closeTo(0.7, 6),
         latencyMs: 0,
+        inputTokens: 100,
+        costUsd: expect.closeTo(0.0000042, 12),
       },
     ],
   });
+  // Opted into experimental automatic decisions: every site automatic, the unproven ones marked so.
+  person.config.set('decisions.experimental', 'true');
+  expect(
+    mesa.decisions.status().sites.map(({ mode, experimental }) => [mode, experimental]),
+  ).toEqual([
+    ['automatic', undefined],
+    ['automatic', true],
+    ['automatic', true],
+  ]);
+  person.config.set('decisions.experimental', 'false');
   expect(person.decisions.setOff(true, session.id)).toEqual({
     session: session.id,
     off: true,

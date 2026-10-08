@@ -74,7 +74,7 @@ These numbers are fixed before the held-out evaluation (#465) and are not lowere
 | next-step | >= 0.85 | >= 0.40 |
 | evidence | >= 0.90 | >= 0.40 |
 
-**Latency (target Mac, MLX, warm worker).** An automatic per-turn packet is at most 1,024 tokens and has a hard deadline of 1,500 ms including queue time; its measured p95 added turn latency over 20 turns is at most 1,500 ms and p50 at most 700 ms. An on-demand call has a 10 s deadline.
+**Latency (target Mac, MLX, warm worker).** An automatic per-turn packet is at most 1,024 tokens and has a hard deadline of 1,500 ms including queue time (3,000 ms since the 2026-10-08 amendment below); its measured p95 added turn latency over 20 turns is at most 1,500 ms and p50 at most 700 ms. An on-demand call has a 10 s deadline.
 
 **Resources.** Worker physical footprint at most 6.5 GB while loaded and 0 after idle stop; installed disk at most 6 GB; cold start to ready at most 30 s.
 
@@ -118,3 +118,19 @@ The owner dropped Strands Decider on 2026-10-05: no Hugging Face Space, no Huggi
 - **Unchanged.** The quality gates and the paired-workflow gate (with the owner's time-per-successful-task revision) stand as frozen above. The concurrency and safety gate stands for hosted calls.
 
 Evidence: `docs/spikes/jev-clef-qualification.md` (#638).
+
+## Amendment, 2026-10-07: automatic only after both gates, and the experimental opt-in (#465)
+
+- **Both gates.** A site runs automatically only when the model passed the quality gate there (`PASSED_GATE`, #638) and the paired-workflow gate (`PAIRED_PASSED`, #465), one rule in `decisions/site-mode.ts` (`siteMode`); `PASSED_GATE` is in `decisions/sites.ts`, and `PAIRED_PASSED` is read from the measured arms in `decisions/measured.ts`, which also holds the numbers behind both, shown beside each site's mode in Settings, the session details and `mesa decisions status`. Until a model passes the paired gate, the in-session sites run on demand and Board supervision is off. The paired workflows exercise only the automatic in-session delivery, relevance advice at `UserPromptSubmit`; whether supervision on the Board may count that result is the owner's call when `PAIRED_PASSED` is filled.
+- **Experimental opt-in, per profile.** "Experimental, opt-in per session" above becomes one profile setting, `decisions.experimental` (Settings > Smarter decisions > Experimental): automatic decisions at the sites that passed the quality gate but not yet the paired one, each answer marked experimental. A session's own switch cannot come first for a skill run, whose first prompt reaches the hook as it starts, or for Board supervision, which belongs to no session; the paired harness needs automatic delivery to measure it at all. A site that missed the quality gate is never automatic. A person turns any one session off as before (`mesa decisions off`).
+- **Gates unchanged.** No number above changed.
+
+## Amendment, 2026-10-08: the per-turn deadline is 3,000 ms
+
+The owner raised the hard per-turn deadline from 1,500 ms to 3,000 ms, after reading the evidence below. This is the one frozen gate changed, and only the owner can change one. `PER_TURN_MS` is 3,000. It now bounds the whole turn hook, from its process start to its exit; the work ends `TURN_EXIT_MS` (200 ms) early so printing and exiting fit inside it. The 1,500 ms figure stays as a monitored target for the hook's added time at p95 (`TURN_TARGET_P95_MS`), which `pnpm decisions:concurrency` checks. Board placement's call shares the deadline; it runs beside the Board read and blocks nothing.
+
+Evidence (`docs/spikes/decision-assistance-evaluation.md`):
+- The hook delays the start of a turn that already takes seconds. Paired tasks took 15 to 50 s each, and a Sonnet-class model takes about a second just to start answering.
+- Nielsen's response-time limits: 1 s keeps a person's flow and 10 s keeps their attention.
+- Claude Code caps a `UserPromptSubmit` hook at 30 s and drops its context on timeout. Mesa installs no shorter limit, and the #459 probe saw hooks killed at a configured 5 s, so 3,000 ms stays well under every native limit.
+- Most answers arrive in 0.2 to 0.9 s, so a longer deadline changes only the slow tail. At 1,500 ms that tail lost advice: both Codex `sort-shipments` runs with CLEF were cancelled at the deadline and failed, while every advised run succeeded. Two Claude hooks also overran 1,500 ms by 71 and 107 ms before `TURN_EXIT_MS` existed.

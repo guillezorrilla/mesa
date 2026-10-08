@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { listAgentProcesses } from '../../agents/listing.js';
 import type { MesaContext } from '../../context.js';
 import type { Faro } from '../../decisions/faro.js';
+import { automaticGate } from '../../decisions/site-mode.js';
 import { supervisingModel } from '../../decisions/supervision.js';
 import { projectPriorities } from '../../projects/projects.js';
 import { readRegistry } from '../../projects/registry.js';
@@ -19,8 +20,12 @@ export function boardLook(ctx: MesaContext, faro: Faro, elsewhere: () => Readonl
   const { paths, open, store, tmux } = ctx;
   const placements = placementStore(paths.placements, ctx);
   return (all = false) => {
-    // The chosen model, if it passed the supervision gate, places unsure rows beside the look.
-    const provider = supervisingModel(ctx.configIfAny()?.decisions.model);
+    // The chosen model, if it runs supervision automatically, places unsure rows beside the look.
+    const decisions = ctx.configIfAny()?.decisions;
+    const provider = supervisingModel(
+      decisions?.model,
+      automaticGate(decisions?.experimental ?? false),
+    );
     return listSessions(
       {
         store,

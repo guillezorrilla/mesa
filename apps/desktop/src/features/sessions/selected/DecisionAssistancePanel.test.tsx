@@ -10,9 +10,15 @@ const STATUS: DecisionStatus = {
   model: 'jev',
   off: false,
   sites: [
-    { site: 'relevance', mode: 'automatic', acceptAt: 0.5 },
-    { site: 'next-step', mode: 'on-demand', acceptAt: 0.5 },
-    { site: 'evidence', mode: 'automatic', acceptAt: 0.5 },
+    {
+      site: 'relevance',
+      mode: 'automatic',
+      acceptAt: 0.5,
+      experimental: true,
+      measured: { quality: { n: 30, accepted: 28, right: 28 } },
+    },
+    { site: 'next-step', mode: 'on-demand', acceptAt: 0.5, experimental: true },
+    { site: 'evidence', mode: 'on-demand', acceptAt: 0.5 },
   ],
   deadlines: { automatic: 1500, 'on-demand': 10000 },
   packetChars: 4096,
@@ -75,11 +81,14 @@ test("the panel shows each site's mode, the deadlines and recent use, turns the 
   const panel = text(byTestId, 'session-decisions');
   expect(calls).toContainEqual(['--json', 'decisions', 'status', '--session', 'aaaaaaaa']);
   expect(panel).toContain('Model jev');
-  expect(panel).toContain('relevanceAutomatic');
+  expect(panel).toContain(
+    'relevanceAutomatic (experimental)Quality: 100% right where it answered, on 93% of 30 held-out cases. Paired workflows: not measured.',
+  );
   expect(panel).toContain('next-stepOn demand (experimental)');
+  expect(panel).toContain('evidenceOn demand');
   expect(panel).toContain('Deadlines 1.5 s per turn, 10 s on demand. 2 ready answers');
   expect(text(byTestId, 'session-decision-use')).toBe(
-    'now relevance accepted, ready answernow next-step unavailable, 1500 ms',
+    'now relevance accepted, ready answernow next-step unavailable, 1500 ms: Jev did not answer within 1500 ms',
   );
 
   await click(
@@ -107,8 +116,10 @@ test('with no Decision model the switch is off and disabled; a refused session s
     <DecisionAssistancePanel session="aaaaaaaa" />,
     none.bridge,
   );
-  expect(text(byTestId, 'session-decisions')).toContain(
-    'Off: no Decision model (Settings > Smarter decisions)',
+  expect(text(byTestId, 'session-decisions')).toContain('Off: no Decision model');
+  // Outside the app nothing opens Settings, so it offers no Set up (App.test.tsx clicks it).
+  expect([...document.querySelectorAll('button')].some((b) => b.textContent === 'Set up')).toBe(
+    false,
   );
   const toggle = document.querySelector('[aria-label="Decision assistance for this session"]');
   expect(toggle?.getAttribute('data-state')).toBe('unchecked');

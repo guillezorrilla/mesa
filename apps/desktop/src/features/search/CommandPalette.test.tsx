@@ -119,3 +119,16 @@ test('the switcher lists open sessions by last activity; Backspace on no text le
     'session:cccccccc',
   ]);
 });
+
+test('Set up smarter decisions opens Settings on Smarter decisions', async () => {
+  await renderWithMesa(<App />, fakeBridge().bridge);
+  await pressKey({ key: 'k', metaKey: true });
+  await searchFor('smarter');
+  expect(rows()[0]?.dataset.value).toBe('setting:smarter-decisions');
+  expect(rows()[0]?.textContent).toContain('Set up smarter decisions');
+  await keyOnQuery('Enter');
+  expect(palette()).toBeNull();
+  expect(
+    document.querySelector('[aria-label="Settings categories"] [aria-current="page"]')?.textContent,
+  ).toBe('Smarter decisions');
+});

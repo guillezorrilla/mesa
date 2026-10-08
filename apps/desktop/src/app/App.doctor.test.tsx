@@ -63,7 +63,7 @@ test('Doctor shows installed and qualified versions with unsupported native oper
   );
 });
 
-test('the Doctor screen says rules only when no decision model is in use', async () => {
+test('the Doctor screen says rules only when no decision model is in use, with Set up', async () => {
   const decisions: Check = {
     name: 'decisions',
     ok: true,
@@ -74,7 +74,20 @@ test('the Doctor screen says rules only when no decision model is in use', async
   const { bridge } = fakeBridge({ doctor: () => envelope(report([check('3.6'), decisions])) });
   const byTestId = await renderWithMesa(<App />, bridge);
   await click(byTestId('nav-doctor')[0]);
-  expect(cells(byTestId('doctor-row')[1])).toEqual(['decisions', '✓', 'rules', 'rules only']);
+  expect(cells(byTestId('doctor-row')[1])).toEqual([
+    'decisions',
+    '✓',
+    'rules',
+    'rules only Set up',
+  ]);
+  await click(
+    [...(byTestId('doctor-row')[1]?.querySelectorAll('button') ?? [])].find(
+      (b) => b.textContent === ' Set up',
+    ),
+  );
+  expect(
+    document.querySelector('[aria-label="Settings categories"] [aria-current="page"]')?.textContent,
+  ).toBe('Smarter decisions');
 });
 
 test('the Doctor screen names the decision model in use', async () => {

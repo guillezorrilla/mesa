@@ -137,17 +137,17 @@ test('an abstaining, failing or slow model skips advice, well inside the native 
   const started = Date.now();
   const slow = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'third' }));
   expect(slow && 'advice' in slow).toBe(false);
-  // The per-turn deadline (1,500 ms in all, ADR-0019) ends the call, far inside the native 5 s;
+  // The per-turn deadline (3,000 ms in all, ADR-0019) ends the call, far inside the native 5 s;
   // the slack is this test's own process, not the hook's budget.
   expect(Date.now() - started).toBeLessThan(PER_TURN_MS + 250);
   expect(world.aborted).toHaveLength(1);
 }, 10_000);
 
 test('the live ask gets only what the per-turn budget leaves after the vault read', async () => {
-  // A clock that runs 400 ms on every reading: by the ask, the 1,500 ms are spent.
+  // A clock that runs a third of the budget on every reading: by the ask, the budget is spent.
   let now = Date.parse('2026-09-24T12:00:00.000Z');
   const clock = () => {
-    now += 400;
+    now += PER_TURN_MS / 3;
     return new Date(now);
   };
   const { mesa, world } = await assistedAgent('claude', NATIVE_ID, { deps: { clock } });
@@ -155,7 +155,7 @@ test('the live ask gets only what the per-turn budget leaves after the vault rea
   const started = Date.now();
   const event = await mesa.hookEvent('claude', prompt(NATIVE_ID));
   expect(event && 'advice' in event).toBe(false);
-  // Asked with nothing left, the stalled call ends at once instead of waiting 1,500 ms more.
+  // Asked with nothing left, the stalled call ends at once instead of waiting 3,000 ms more.
   expect(Date.now() - started).toBeLessThan(PER_TURN_MS / 2);
   expect(world.aborted).toHaveLength(1);
 });

@@ -10,7 +10,8 @@ import {
 } from '../testing/index.js';
 import { decide } from './decide.js';
 import { type EvaluateDeps, evaluate } from './evaluate.js';
-import { evidencePacket, nextStepPacket } from './packet.js';
+import { PER_TURN_MS } from './models.js';
+import { evidencePacket, nextStepPacket, relevancePacket } from './packet.js';
 import { rulesBackend } from './rules.js';
 import { SYSTEM_ONE_MODELS, systemOneBackend } from './systemone.js';
 
@@ -23,12 +24,15 @@ const STEPS = {
   ],
 };
 
-/** Faro over Jev in the world, as the profile's Faro asks it, for the evaluate function alone. */
-function jevDeps(world: ReturnType<typeof systemOneWorld>, passed: EvaluateDeps['passed']) {
+/**
+ * Faro over Jev in the world, as the profile's Faro asks it, for the evaluate function alone, with
+ * the person's opt-in to experimental automatic decisions or without.
+ */
+function jevDeps(world: ReturnType<typeof systemOneWorld>, experimental = false) {
   const clock = fixedClock();
   return {
     model: 'jev',
-    passed,
+    experimental,
     clock,
     ask: (state, questions, deadlineMs, { signal }) =>
       decide(
@@ -104,23 +108,32 @@ test('with no Decision model nothing is asked and nothing is written', async () 
   expect(existsSync(profilePaths(home, 'default').decisions)).toBe(false);
 });
 
-test('an automatic call runs only at a site the model qualified for; on demand the rest are experimental', async () => {
+test('an automatic call runs only at a site the model runs automatically; opted in, it is experimental', async () => {
   const world = systemOneWorld();
-  const deps = jevDeps(world, ['relevance']);
+  const deps = jevDeps(world);
   const automatic = await evaluate(deps, packet, { mode: 'automatic' });
   expect(automatic).toMatchObject({
     status: 'unavailable',
-    reason: 'jev did not qualify for automatic next-step advice',
+    reason: 'jev is not proven for automatic next-step advice',
   });
   expect(world.requests).toEqual([]);
+  // On demand any site is asked; next-step passed the quality gate, so it is not experimental.
   const asked = await evaluate(deps, packet, { mode: 'on-demand' });
-  expect(asked).toMatchObject({ status: 'accepted', experimental: true });
-  const qualified = await evaluate(jevDeps(world, ['next-step']), packet, { mode: 'automatic' });
-  expect(qualified.status).toBe('accepted');
-  expect(qualified.experimental).toBeUndefined();
+  expect(asked.status).toBe('accepted');
+  expect(asked.experimental).toBeUndefined();
+  // Relevance passed both gates: automatic, and not experimental.
+  const sources = [{ id: 'tide-retry', title: 'Tide retries', excerpt: 'Retry the feed on 503' }];
+  const proven = await evaluate(deps, relevancePacket('Retry on 503', sources).packet, {
+    mode: 'automatic',
+  });
+  expect(proven.status).toBe('accepted');
+  expect(proven.experimental).toBeUndefined();
+  // Opted in (decisions.experimental): automatic at a site that passed only the quality gate.
+  const opted = await evaluate(jevDeps(world, true), packet, { mode: 'automatic' });
+  expect(opted).toMatchObject({ status: 'accepted', experimental: true });
 });
 
-test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled call at once, its request too', async () => {
+test('an automatic call ends at the 3,000 ms per-turn deadline, and a cancelled call at once, its request too', async () => {
   const world = systemOneWorld();
   world.stall('jev');
   const signals: (AbortSignal | undefined)[] = [];
@@ -128,14 +141,14 @@ test('an automatic call ends at the 1,500 ms per-turn deadline, and a cancelled 
     signals.push(init?.signal ?? undefined);
     return world.http(url, init);
   };
-  const deps = jevDeps({ ...world, http }, ['next-step', 'evidence']);
+  const deps = jevDeps({ ...world, http }, true);
   const started = Date.now();
   const late = await evaluate(deps, packet, { mode: 'automatic' });
   expect(late).toMatchObject({
     status: 'unavailable',
-    reason: 'Jev did not answer within 1500 ms',
+    reason: 'Jev did not answer within 3000 ms',
   });
-  expect(Date.now() - started).toBeGreaterThanOrEqual(1400);
+  expect(Date.now() - started).toBeGreaterThanOrEqual(PER_TURN_MS - 300);
 
   const cancel = new AbortController();
   const asked = evaluate(deps, evidencePacket('The import retries', 'retry.test.ts passes'), {

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 import { TextField } from './controls/TextField';
+import { ToggleField } from './controls/ToggleField';
 import { MODELS } from './decisions/models';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
@@ -33,6 +34,19 @@ export function AdvancedSettingsPanel(props: { onBackup: () => void; onUsage: ()
                 ? 'Rules only'
                 : MODELS[config.decisions.model].label}
             </Muted>
+          }
+        />
+        <SettingRow
+          title="Try unproven automatic decisions"
+          description="Let the model act on its own where it passed the quality check but has not yet been proven to help in paired coding runs. Its advice is marked experimental."
+          htmlFor="decisions-experimental"
+          keywords="experimental automatic paired gate smarter"
+          control={
+            <ToggleField
+              id="decisions-experimental"
+              path="decisions.experimental"
+              checked={config.decisions.experimental ?? false}
+            />
           }
         />
         <SettingRow

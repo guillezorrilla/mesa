@@ -16,22 +16,21 @@ import {
   NO_MODEL,
 } from './evaluate.js';
 import type { Faro } from './faro.js';
-import { PER_TURN_MS } from './models.js';
+import { siteMeasure } from './measured.js';
+import { PER_TURN_MS, TURN_EXIT_MS } from './models.js';
 import { PACKET_CHARS, type Packet } from './packet.js';
 import { answerRequest, type DecisionAnswer, decisionRequest, REQUEST_SITES } from './request.js';
 import { decisionBinding } from './scope.js';
 import { DECISION_TOOLS, serveDecisions } from './server.js';
 import { sessionDecisions } from './session-decisions.js';
-import { ACCEPT_AT, PASSED_GATE } from './sites.js';
+import { siteMode } from './site-mode.js';
+import { ACCEPT_AT } from './sites.js';
 import type { Decision } from './types.js';
 
 // Decision assistance for sessions (ADR-0019, CONTEXT.md Decision assistance): scoped context and
 // advice for one live session, through `mesa decisions evaluate|context|advise`, the
 // decision_evaluate tool, and the app's session details. Routine calls keep nothing but the
 // session's bounded use; only an explicit decision with a rationale writes a receipt.
-
-/** How a site runs for a session: off, on demand only (experimental), or automatic. */
-export type SiteMode = 'off' | 'on-demand' | 'automatic';
 
 export type EvaluateOptions = {
   /** The session, for a person outside a Mesa window; inside one, only its own. */
@@ -48,6 +47,8 @@ export type EvaluateOptions = {
 
 export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'decide'>) {
   const model = () => ctx.configIfAny()?.decisions.model ?? 'none';
+  /** The person's opt-in to automatic decisions where the model is not proven yet. */
+  const experimental = () => ctx.configIfAny()?.decisions.experimental ?? false;
   const stateOf = (id: string) => sessionDecisions({ ...ctx, dir: ctx.paths.decisions }, id);
   /** The live session a call serves, or a usage error saying why none. */
   const bound = (given?: string): SessionRecord => {
@@ -105,7 +106,7 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
         : evaluate(
             {
               model: active,
-              passed: active === 'none' ? [] : PASSED_GATE[active],
+              experimental: experimental(),
               ask,
               clock: ctx.clock,
               // A kept decision is asked anew, so its receipt holds a real answer.
@@ -142,7 +143,8 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     { readyOnly }: { readyOnly?: boolean } = {},
   ): Promise<string | undefined> => {
     // The budget counts from the hook process's own start when the entrypoint gives it.
-    const until = (ctx.processStartedAt ?? ctx.clock()).getTime() + PER_TURN_MS;
+    // The whole hook, start-up to exit, stays inside PER_TURN_MS: the work ends TURN_EXIT_MS early.
+    const until = (ctx.processStartedAt ?? ctx.clock()).getTime() + PER_TURN_MS - TURN_EXIT_MS;
     const signal = AbortSignal.timeout(Math.max(0, until - ctx.clock().getTime()));
     const asked = query?.trim() || session.goal?.trim();
     if (!asked || off(session)) return undefined;
@@ -180,28 +182,37 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     /** What the session's delivery status reads: the model, whether it is off, and what was seen. */
     assistState: (session: SessionRecord) => {
       const state = stateOf(session.id).read();
-      return { model: model(), off: state.off === true, seen: state.seen ?? {} };
+      return {
+        model: model(),
+        experimental: experimental(),
+        off: state.off === true,
+        seen: state.seen ?? {},
+      };
     },
     /** What the session's details show: each site's mode, the deadlines, and recent use. */
     status: (given?: string) => {
       const session = bound(given);
       const active = model();
       const state = stateOf(session.id).read();
-      const passed = active === 'none' ? [] : PASSED_GATE[active];
+      const opted = experimental();
       return {
         session: session.id,
         project: projectLabel(session.project),
         model: active,
         off: state.off === true,
-        sites: REQUEST_SITES.map((site) => ({
-          site,
-          mode: (active === 'none' || state.off
-            ? 'off'
-            : passed.includes(site)
-              ? 'automatic'
-              : 'on-demand') satisfies SiteMode as SiteMode,
-          ...(active === 'none' ? {} : { acceptAt: ACCEPT_AT[active][site] }),
-        })),
+        sites: REQUEST_SITES.map((site) => {
+          // Turned off for this session, every site is off.
+          const { mode, experimental } = state.off
+            ? { mode: 'off' as const, experimental: false }
+            : siteMode(active, site, opted);
+          return {
+            site,
+            mode,
+            ...(active === 'none' ? {} : { acceptAt: ACCEPT_AT[active][site] }),
+            ...(experimental ? { experimental: true as const } : {}),
+            ...(active === 'none' ? {} : { measured: siteMeasure(active, site) }),
+          };
+        }),
         deadlines: Object.fromEntries(
           ASSIST_MODES.map((m) => [m, DEADLINE_MS[m]]),
         ) as typeof DEADLINE_MS,

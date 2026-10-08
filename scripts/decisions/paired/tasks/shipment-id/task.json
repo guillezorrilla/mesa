@@ -1,0 +1,5 @@
+{
+  "file": "src/ids.js",
+  "note": "kelp-shipment-ids",
+  "prompt": "Implement newShipmentId(date, seq) in src/ids.js: the id of the seq-th shipment booked on that date."
+}

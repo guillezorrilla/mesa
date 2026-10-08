@@ -18,7 +18,9 @@ export {
 } from './agents/names.js';
 export { AGENT_STATES } from './agents/states.js';
 export { describeAutomation } from './automations/describe.js';
-export { DECISION_SITES, type DecisionSite, PASSED_GATE } from './decisions/sites.js';
+export { measuredText, type SiteMeasure, siteMeasure } from './decisions/measured.js';
+export { type SiteMode, siteMode } from './decisions/site-mode.js';
+export { DECISION_SITES, type DecisionSite } from './decisions/sites.js';
 export { SYSTEM_ONE_PROVIDERS, type SystemOneProvider } from './decisions/systemone.js';
 export { parseFileTarget } from './files/file-target.js';
 export { shortAgo, timeAgo } from './lib/ago.js';

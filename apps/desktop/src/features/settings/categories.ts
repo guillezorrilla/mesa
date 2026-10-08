@@ -115,11 +115,7 @@ export const CATEGORIES: {
     id: 'decisions',
     label: 'Smarter decisions',
     icon: Sparkles,
-    sections: [
-      ['jev', 'Jev'],
-      ['clef', 'CLEF'],
-      ['none', 'None'],
-    ],
+    sections: [['models', 'Decision models']],
   },
   {
     id: 'advanced',

@@ -1,24 +1,27 @@
 import type { DecisionStatus, ScopedContext, SiteMode } from '@mesa/core';
-import { shortAgo } from '@mesa/core/browser';
+import { measuredText, shortAgo } from '@mesa/core/browser';
 import { useCallback, useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { useOpenSettings } from '@/features/settings/useOpenSettings';
 import { useCall } from '@/lib/useCommand';
 
 const MODE: Record<SiteMode, string> = {
   automatic: 'Automatic',
-  'on-demand': 'On demand (experimental)',
+  'on-demand': 'On demand',
   off: 'Off',
 };
 
 const seconds = (ms: number) => `${ms / 1000} s`;
 
 /**
- * One session's decision assistance (ADR-0019): each site's mode, a switch that turns it off for
- * this session, its deadlines and ready answers, its recent use, and a preview of its scoped
- * context. Read when the details open; advice here never acts on the session.
+ * One session's decision assistance (ADR-0019): each site's mode and what it measured against
+ * Mesa's gates, a switch that turns it off for this session, its deadlines and ready answers, its
+ * recent use with why a call gave no answer, and a preview of its scoped context; with no model,
+ * Set up opens Settings on Smarter decisions. Read when the details open; advice here never acts
+ * on the session.
  */
 export function DecisionAssistancePanel(props: { session: string }) {
   const call = useCall();
@@ -27,6 +30,7 @@ export function DecisionAssistancePanel(props: { session: string }) {
   const [preview, setPreview] = useState<{ context?: ScopedContext; error?: string }>();
   const [acting, setActing] = useState(false);
   const { session } = props;
+  const openSettings = useOpenSettings();
 
   const read = useCallback(
     () =>
@@ -49,10 +53,18 @@ export function DecisionAssistancePanel(props: { session: string }) {
   return (
     <div data-testid="session-decisions" className="grid gap-2 text-xs">
       <div className="flex items-center justify-between gap-2">
-        <span>
-          {noModel
-            ? 'Off: no Decision model (Settings > Smarter decisions)'
-            : `Model ${status.model}`}
+        <span className="flex items-center gap-2">
+          {noModel ? 'Off: no Decision model' : `Model ${status.model}`}
+          {noModel && openSettings && (
+            <Button
+              size="xs"
+              variant="link"
+              className="h-auto p-0 text-xs"
+              onClick={() => openSettings('decisions')}
+            >
+              Set up
+            </Button>
+          )}
         </span>
         <Switch
           aria-label="Decision assistance for this session"
@@ -68,14 +80,18 @@ export function DecisionAssistancePanel(props: { session: string }) {
       </div>
       <ul className="grid gap-1">
         {status.sites.map((s) => (
-          <li key={s.site} className="flex items-center justify-between gap-2">
-            <span className="font-mono">{s.site}</span>
-            <Badge
-              variant="outline"
-              title={s.acceptAt === undefined ? undefined : `Accepts at margin ${s.acceptAt}`}
-            >
-              {MODE[s.mode]}
-            </Badge>
+          <li key={s.site} className="grid gap-0.5">
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-mono">{s.site}</span>
+              <Badge
+                variant="outline"
+                title={s.acceptAt === undefined ? undefined : `Accepts at margin ${s.acceptAt}`}
+              >
+                {MODE[s.mode]}
+                {s.experimental ? ' (experimental)' : ''}
+              </Badge>
+            </span>
+            {s.measured && <Muted size="xs">{measuredText(s.measured)}</Muted>}
           </li>
         ))}
       </ul>
@@ -90,6 +106,7 @@ export function DecisionAssistancePanel(props: { session: string }) {
             <li key={`${u.at}-${u.site}-${u.status}`} title={u.reason}>
               {shortAgo(u.at, now)} {u.site} {u.status}
               {u.cached ? ', ready answer' : `, ${u.latencyMs} ms`}
+              {u.status === 'unavailable' && u.reason ? `: ${u.reason}` : ''}
             </li>
           ))}
         </ul>

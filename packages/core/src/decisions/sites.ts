@@ -89,8 +89,8 @@ export const ACCEPT_AT: Record<SystemOneProvider, AcceptAt> = {
 
 /**
  * The sites where each model passed ADR-0019's frozen quality gate on the held-out split
- * (`docs/spikes/jev-clef-qualification.md`). Only these may run automatically; the rest stay off
- * or on demand.
+ * (`docs/spikes/jev-clef-qualification.md`). How each site then runs is `siteMode`'s
+ * (`site-mode.ts`), with the paired-workflow verdicts (PAIRED_PASSED in `measured.ts`).
  */
 export const PASSED_GATE: Record<SystemOneProvider, readonly DecisionSite[]> = {
   jev: DECISION_SITES,

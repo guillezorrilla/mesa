@@ -23,6 +23,8 @@ const UseSchema = z.strictObject({
     model: true,
     margin: true,
     latencyMs: true,
+    inputTokens: true,
+    costUsd: true,
     cached: true,
     reason: true,
   }).shape,
@@ -58,6 +60,8 @@ const useOf = (e: Evaluation, at: string): DecisionUse => ({
   ...(e.model ? { model: e.model } : {}),
   ...(e.margin === undefined ? {} : { margin: e.margin }),
   latencyMs: e.latencyMs,
+  ...(e.inputTokens === undefined || e.cached ? {} : { inputTokens: e.inputTokens }),
+  ...(e.costUsd === undefined || e.cached ? {} : { costUsd: e.costUsd }),
   ...(e.cached ? { cached: true } : {}),
   ...(e.reason ? { reason: e.reason } : {}),
 });

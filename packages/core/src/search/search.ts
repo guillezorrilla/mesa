@@ -33,7 +33,8 @@ export type CommandId =
   | 'profile'
   | 'preferences'
   | 'prompts'
-  | 'backup';
+  | 'backup'
+  | 'smarter-decisions';
 
 /** Places to go, things to do, and settings, with the profile's keys on the hits that have one. */
 function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
@@ -105,6 +106,12 @@ function commands(shortcuts: Shortcuts, canStart: boolean): SearchHit[] {
       id: 'backup',
       label: 'Local backup',
       detail: 'Create or restore a profile backup',
+    },
+    {
+      kind: 'setting',
+      id: 'smarter-decisions',
+      label: 'Set up smarter decisions',
+      detail: 'Connect a decision model so sessions get the right notes',
     },
   ];
 }

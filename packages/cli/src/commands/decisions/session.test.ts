@@ -11,10 +11,14 @@ test('status shows each mode, off and on turn a session off and back, and a kept
   expect(status.stdout).toBe(
     [
       `session ${id} (lantern-cove), model jev`,
+      // Every site passed the quality gate; only relevance the paired workflows: automatic.
       'relevance  automatic  accepts at margin 0.5',
-      'next-step  automatic  accepts at margin 0.5',
-      'evidence   automatic  accepts at margin 0.5',
-      'deadlines 1.5 s per turn, 10 s on demand; 0 ready answers',
+      'next-step  on demand  accepts at margin 0.5',
+      'evidence   on demand  accepts at margin 0.5',
+      'relevance: Quality: 100% right where it answered, on 93% of 30 held-out cases. Paired workflows: 12 of 12 tasks solved against 0 of 12 without, 18 s against unbounded per solved task (passed).',
+      'next-step: Quality: 100% right where it answered, on 97% of 30 held-out cases. Paired workflows: not measured.',
+      'evidence: Quality: 100% right where it answered, on 87% of 30 held-out cases. Paired workflows: not measured.',
+      'deadlines 3 s per turn, 10 s on demand; 0 ready answers',
       'no decision use yet',
       '',
     ].join('\n'),

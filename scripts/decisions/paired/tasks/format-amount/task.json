@@ -1,0 +1,5 @@
+{
+  "file": "src/money.js",
+  "note": "kelp-money-display",
+  "prompt": "Implement formatAmount(cents) in src/money.js: the display string for an amount in cents, for receipts and the dispatch screen."
+}

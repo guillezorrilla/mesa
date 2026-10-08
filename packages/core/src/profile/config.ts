@@ -75,6 +75,9 @@ const ConfigShape = z.strictObject({
         // (`mesa decisions use`).
         model: DecisionsModelSchema.default('none'),
         threshold: z.number().min(0).max(1).default(0.7),
+        // The person's opt-in to automatic decisions at the sites the model passed the quality
+        // gate at but not yet the paired-workflow gate, marked experimental (ADR-0019, sites.ts).
+        experimental: z.boolean().optional(),
         // CLEF's Cloudflare account ID: not a secret, unlike its API token.
         cloudflareAccount: z.string().trim().min(1).optional(),
       }),
@@ -120,6 +123,8 @@ const ConfigShape = z.strictObject({
       step: z.number().int().min(0).max(3).default(0),
       // First-run discovery (CONTEXT.md): offered at launch while pending with no projects, or started.
       discovery: z.enum(['pending', 'started', 'complete', 'dismissed']).default('pending'),
+      // The workspace tip that offers a Decision model, until it is closed or a model is chosen.
+      decisionTip: z.enum(['pending', 'dismissed']).default('pending'),
     })
     .prefault({}),
   appearance: z
