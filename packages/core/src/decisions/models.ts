@@ -12,6 +12,11 @@ export const ON_DEMAND_MS = 10_000;
  * 1,500 ms per turn, measured at p95).
  */
 export const PER_TURN_MS = 1_500;
+/**
+ * What a turn's hook keeps of PER_TURN_MS to print its answer and exit after an ask it gave up
+ * on, and for the shell that starts it before node does: measured overruns were 70 to 110 ms.
+ */
+export const TURN_EXIT_MS = 200;
 
 // The one invented question a key's test asks, so a saved key is known to answer.
 const TEST_STATE =

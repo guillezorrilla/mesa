@@ -17,7 +17,7 @@ import {
 } from './evaluate.js';
 import type { Faro } from './faro.js';
 import { siteMeasure } from './measured.js';
-import { PER_TURN_MS } from './models.js';
+import { PER_TURN_MS, TURN_EXIT_MS } from './models.js';
 import { PACKET_CHARS, type Packet } from './packet.js';
 import { answerRequest, type DecisionAnswer, decisionRequest, REQUEST_SITES } from './request.js';
 import { decisionBinding } from './scope.js';
@@ -143,7 +143,8 @@ export function decisionAssistance(ctx: MesaContext, faro: Pick<Faro, 'ask' | 'd
     { readyOnly }: { readyOnly?: boolean } = {},
   ): Promise<string | undefined> => {
     // The budget counts from the hook process's own start when the entrypoint gives it.
-    const until = (ctx.processStartedAt ?? ctx.clock()).getTime() + PER_TURN_MS;
+    // The whole hook, start-up to exit, stays inside PER_TURN_MS: the work ends TURN_EXIT_MS early.
+    const until = (ctx.processStartedAt ?? ctx.clock()).getTime() + PER_TURN_MS - TURN_EXIT_MS;
     const signal = AbortSignal.timeout(Math.max(0, until - ctx.clock().getTime()));
     const asked = query?.trim() || session.goal?.trim();
     if (!asked || off(session)) return undefined;
