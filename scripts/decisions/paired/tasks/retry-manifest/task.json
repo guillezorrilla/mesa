@@ -1,5 +1,9 @@
 {
   "file": "src/manifest.js",
   "note": "kelp-remote-calls",
-  "prompt": "Implement fetchManifest(url, { fetch }) in src/manifest.js: fetch a courier's manifest and return its parsed JSON. The courier's server is flaky, so handle failures."
+  "prompt": "Implement fetchManifest(url, { fetch }) in src/manifest.js: fetch a courier's manifest and return its parsed JSON. The courier's server is flaky, so handle failures.",
+  "supervision": {
+    "stop": "permission",
+    "topic": "remote-calls"
+  }
 }

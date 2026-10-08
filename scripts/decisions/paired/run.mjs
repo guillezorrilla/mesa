@@ -9,6 +9,8 @@
 // with no approvals, as Mesa runs it), advised by Codex's UserPromptSubmit hook, which Codex must
 // have trusted (start codex once in a Mesa window; use a temporary CODEX_HOME).
 //
+//   --site relevance     relevance (this file), or supervision: Board placement's workflows,
+//                        with codex (supervision/run.mjs says how they run)
 //   --profile <name>     a throwaway profile with the keys, never an everyday one; required
 //   --agent claude       claude or codex: the agent every arm runs
 //   --hooks-installed    say Mesa's hooks are installed (mesa hooks install, after a backup)
@@ -16,7 +18,7 @@
 //   --reps 2             runs per task per arm
 //   --seed <n>           the order's seed (default random; always printed)
 //   --tasks a,b          only these tasks (fewer than 6 gives no verdict)
-//   --timeout 900        seconds each run may take
+//   --timeout 900        seconds each run may take (supervision: 300, each task's budget)
 //   --out <file>         the results file (default paired-<seed>.json in the current folder)
 //   --keep               keep the run sessions, the notes and the project registered
 //   --dry-run            no Mesa and no agent: a stub writes a reference or naive solution,
@@ -25,73 +27,65 @@
 // The profile's run permissions and decisions.experimental are set for the runs (automatic advice
 // needs the opt-in until a site passes this gate) and put back afterwards.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import {
-  PAIRED_GATE,
-  pairedArm,
-  pairedVerdict,
-} from '../../../packages/core/dist/decisions/evaluation/paired.js';
+import { PAIRED_GATE } from '../../../packages/core/dist/decisions/evaluation/paired.js';
 import { fail, must, needCli, profileCli, Refused, usage } from '../lib.mjs';
 import { freshProject, hiddenTest, notes, PROJECT, solve, TASKS } from './harness.mjs';
+import { runOrder } from './order.mjs';
+import { decisionsOf, readJson, report } from './report.mjs';
 
 const { values } = parseArgs({
   options: {
+    site: { type: 'string', default: 'relevance' },
     profile: { type: 'string' },
-    agent: { type: 'string', default: 'claude' },
+    agent: { type: 'string' },
     'hooks-installed': { type: 'boolean', default: false },
     arms: { type: 'string', default: 'off,jev,clef' },
     reps: { type: 'string', default: String(PAIRED_GATE.repetitions) },
     seed: { type: 'string' },
     tasks: { type: 'string' },
-    timeout: { type: 'string', default: '900' },
+    timeout: { type: 'string' },
     out: { type: 'string' },
     keep: { type: 'boolean', default: false },
     'dry-run': { type: 'boolean', default: false },
   },
 });
+const site = values.site;
+if (!['relevance', 'supervision'].includes(site)) usage('--site: relevance or supervision');
 const dry = values['dry-run'];
-const agent = values.agent;
+const agent = values.agent ?? (site === 'supervision' ? 'codex' : 'claude');
 if (!['claude', 'codex'].includes(agent)) usage('--agent: claude or codex');
 const arms = ['off', ...values.arms.split(',').filter((a) => a !== 'off')];
 if (arms.some((a) => !['off', 'jev', 'clef'].includes(a))) usage('--arms: off, jev and clef');
 const reps = Number(values.reps);
 const seed = values.seed === undefined ? Math.floor(Math.random() * 2 ** 31) : Number(values.seed);
-const timeout = Number(values.timeout);
+const timeout = Number(values.timeout ?? (site === 'supervision' ? 300 : 900));
 const tasks = values.tasks ? TASKS.filter((t) => values.tasks.split(',').includes(t.id)) : TASKS;
 if (!tasks.length) usage(`--tasks: some of ${TASKS.map((t) => t.id).join(', ')}`);
+if (site === 'supervision') {
+  // Board placement's paired workflows (#677): their own runner, over the same order.
+  const { supervise } = await import('./supervision/run.mjs');
+  await supervise({
+    values,
+    agent,
+    arms,
+    reps,
+    seed,
+    budgetS: timeout,
+    ...runOrder({ arms, tasks, reps, seed }),
+  });
+  process.exit();
+}
 const MODEL = { off: 'none', jev: 'jev', clef: 'clef' };
 // Bash for node, ls and cat only; edits are accepted by the permission mode.
 const ALLOWED = ['Bash(node:*)', 'Bash(ls:*)', 'Bash(cat:*)'];
 
-/** A seeded generator (mulberry32), so the order and the dry run repeat for a seed. */
-function random(state) {
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const draw = random(seed);
-const order = arms.flatMap((arm) =>
-  tasks.flatMap((task) => Array.from({ length: reps }, (_, i) => ({ arm, task, rep: i + 1 }))),
-);
-for (let i = order.length - 1; i > 0; i--) {
-  const j = Math.floor(draw() * (i + 1));
-  [order[i], order[j]] = [order[j], order[i]];
-}
+const { order, draw } = runOrder({ arms, tasks, reps, seed });
 
 const { paths, mesa, set } = profileCli(values.profile, (timeout + 120) * 1000);
-const readJson = (file) => {
-  try {
-    return JSON.parse(readFileSync(file, 'utf8'));
-  } catch {
-    return undefined;
-  }
-};
 
 const work = mkdtempSync(join(tmpdir(), 'paired-'));
 const projectDir = join(work, PROJECT);
@@ -136,19 +130,6 @@ function setUp() {
     writeFileSync(file, note.text);
     if (!values.keep) restore.push(() => rmSync(file, { force: true }));
   }
-}
-
-/** What a run's session used of the Decision model, from its decisions file. */
-function decisionsOf(id) {
-  const state = readJson(join(paths.decisions, `${id}.json`)) ?? { use: [] };
-  const calls = state.use.filter((u) => !u.cached && (u.model || u.latencyMs > 0));
-  return {
-    calls: calls.length,
-    inputTokens: calls.reduce((sum, u) => sum + (u.inputTokens ?? 0), 0),
-    usd: calls.reduce((sum, u) => sum + (u.costUsd ?? 0), 0),
-    statuses: state.use.map((u) => (u.reason ? `${u.status}: ${u.reason}` : u.status)),
-    adviceDelivered: Boolean(state.seen?.advice),
-  };
 }
 
 /**
@@ -225,7 +206,7 @@ function record(run) {
     agentMs: data?.durationMs,
     mainUsd: data?.costUsd,
     ...(id ? mainUsage(id, data) : {}),
-    decisions: id ? decisionsOf(id) : undefined,
+    decisions: id ? decisionsOf(paths.decisions, id) : undefined,
   };
   if (id && !values.keep) mesa('rm', id, '--force', '--json');
   return row;
@@ -265,32 +246,18 @@ try {
 }
 if (process.exitCode) process.exit();
 
-const summary = Object.fromEntries(
-  arms.map((a) => [a, pairedArm(results.filter((r) => r.arm === a))]),
-);
-const verdicts = Object.fromEntries(
-  arms.filter((a) => a !== 'off').map((a) => [a, pairedVerdict(results, a)]),
-);
-const out = values.out ?? `paired-${seed}.json`;
-writeFileSync(
-  out,
-  `${JSON.stringify({ seed, dryRun: dry, profile: values.profile, agent, agentVersion, mainModel: agent === 'claude' ? 'sonnet' : 'codex default', arms, reps, gate: PAIRED_GATE, summary, verdicts, runs: results }, null, 2)}\n`,
-);
-const secs = (ms) => (ms === null ? 'unbounded' : `${(ms / 1000).toFixed(1)} s`);
-for (const [arm, s] of Object.entries(summary))
-  console.log(
-    `${arm.padEnd(4)} ${s.successes}/${s.runs} solved, ${secs(s.msPerSuccess)} per solved task`,
-  );
-// What measured.ts takes once the run is accepted: the arms only, as relevance is the site the
-// automatic advice exercised; it reads the verdict, and PAIRED_PASSED, from them.
-const measured = ({ runs, successes, wallMs }) =>
-  `{ runs: ${runs}, successes: ${successes}, wallMs: ${wallMs} }`;
-console.log(`measured.ts OFF: ${measured(summary.off)}`);
-for (const [arm, v] of Object.entries(verdicts)) {
-  const stub = dry ? ' [dry run: a stub agent, not a measurement]' : '';
-  console.log(`paired gate ${arm}: ${v.pass ? 'PASS' : 'FAIL'} (${v.reason})${stub}`);
-  console.log(
-    `  measured.ts PAIRED_ARMS: ${arm}: { relevance: { on: ${measured(v.on)}, off: OFF } },`,
-  );
-}
-console.log(`results: ${out}`);
+report({
+  site: 'relevance',
+  seed,
+  dry,
+  header: {
+    profile: values.profile,
+    agent,
+    agentVersion,
+    mainModel: agent === 'claude' ? 'sonnet' : 'codex default',
+  },
+  arms,
+  reps,
+  runs: results,
+  out: values.out ?? `paired-${seed}.json`,
+});

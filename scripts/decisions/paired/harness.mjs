@@ -40,16 +40,21 @@ const git = (dir, ...args) =>
   });
 
 /**
- * `dir` as a fresh copy of the project, committed once: every run starts from the same tree. Its
- * package.json is kept as package.json.template, so Mesa's release version check passes it by.
- * For Codex the same skill is also where Codex reads a repo's skills, `.agents/skills`.
+ * `dir` as a fresh copy of the project, with `files` (path to text) added, committed once: every
+ * run starts from the same tree. Its package.json is kept as package.json.template, so Mesa's
+ * release version check passes it by. For Codex the same skill is also where Codex reads a repo's
+ * skills, `.agents/skills`.
  */
-export function freshProject(dir, agent = 'claude') {
+export function freshProject(dir, agent = 'claude', files = {}) {
   rmSync(dir, { recursive: true, force: true });
   cpSync(TEMPLATE, dir, { recursive: true });
   renameSync(join(dir, 'package.json.template'), join(dir, 'package.json'));
   if (agent === 'codex')
     cpSync(join(dir, '.claude', 'skills'), join(dir, '.agents', 'skills'), { recursive: true });
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(dir, path, '..'), { recursive: true });
+    writeFileSync(join(dir, path), text);
+  }
   git(dir, 'init', '-q');
   git(dir, 'add', '-A');
   git(dir, 'commit', '-qm', 'kelp-ledger');
@@ -71,6 +76,19 @@ export function hiddenTest(dir, task, timeoutMs = 60_000) {
   });
   rmSync(hidden, { recursive: true, force: true });
   return { passed: run.status === 0, tail: `${run.stdout}${run.stderr}`.trim().slice(-400) };
+}
+
+/**
+ * The convention `task`'s note states, as Mesa excerpts a source (decisions/context.ts): the body
+ * without its frontmatter or headings, on one line.
+ */
+export function convention(task, all = notes()) {
+  const note = all.find((n) => n.name === `${task.note}.md`);
+  const body = note?.text.split('---')[2] ?? '';
+  return body
+    .split('\n')
+    .filter((line) => line.trim() && !line.trim().startsWith('#'))
+    .join(' ');
 }
 
 /** Writes `task`'s reference or naive solution over its file in project `dir`. */
@@ -95,13 +113,8 @@ export function selfCheck(work) {
     const naive = hiddenTest(dir, task).passed;
     rmSync(dir, { recursive: true, force: true });
     const note = all.find((n) => n.name === `${task.note}.md`);
-    // As Mesa excerpts a source (decisions/context.ts): the body without headings, 200 at most.
-    const body = note?.text.split('---')[2] ?? '';
-    const excerpt = body
-      .split('\n')
-      .filter((line) => line.trim() && !line.trim().startsWith('#'))
-      .join(' ');
-    const fits = Boolean(note) && excerpt.length <= 200;
+    // Mesa sends 200 characters of a source at most.
+    const fits = Boolean(note) && convention(task, all).length <= 200;
     const ok = !stub && reference && !naive && fits;
     return { task: task.id, stub, reference, naive, note: fits, ok };
   });
