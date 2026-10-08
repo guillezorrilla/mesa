@@ -2,6 +2,16 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.1 - 2026-10-08
+
+### Fixes
+
+- **sessions**: a session starts in a project whose untracked mesa.yaml went missing, writing a minimal one back instead of failing with "no mesa.yaml" (#684)
+- **projects**: right-click a project in the sidebar for the same actions as its menu: rename, pin, hide, reorder, unregister (#684)
+- **projects**: unregistering the project in view opens the nearest one in the sidebar instead of Sessions (#684)
+- **sessions**: a collapsed Sessions folder expands when a new session appears in it (#684)
+- **app**: Review > Responses shows two lines of each response and opens its review in place under it (#684)
+
 ## 0.2.0 - 2026-10-08
 
 ### Features
