@@ -423,6 +423,14 @@ test('a project whose folder is gone is not_found, even with --agent', async () 
   });
 });
 
+test('a project whose mesa.yaml is gone gets a minimal one back, named as registered', async () => {
+  const { dir, mesa } = await setUp(agentWorld());
+  rmSync(join(dir, 'mesa.yaml'));
+  const { result } = await mesa.sessions.open('lantern-cove');
+  expect(result.project).toBe('lantern-cove');
+  expect(readFileSync(join(dir, 'mesa.yaml'), 'utf8')).toContain('name: lantern-cove');
+});
+
 test('an open session attaches to its exact window on the profile socket', async () => {
   const { mesa } = await setUp(agentWorld());
   const { result } = await mesa.sessions.open('lantern-cove');

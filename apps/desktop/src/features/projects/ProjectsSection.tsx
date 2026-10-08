@@ -5,9 +5,13 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { WorkspaceView } from '@/lib/workspaceView';
 import { AddProjectMenu, type ProjectAddRequest } from './AddProjectMenu';
+import { ProjectMenu } from './ProjectMenu';
 import { ProjectSortMenu } from './ProjectSortMenu';
 
-/** The Projects tab: Add project, the sort, and each visible project with its active session count. */
+/**
+ * The Projects tab: Add project, the sort, and each visible project with its active session count
+ * and its actions on right-click.
+ */
 export function ProjectsSection(props: {
   projects: readonly ProjectRow[];
   /** A project's active sessions, primary or additional, counted (sidebarGroups). */
@@ -17,6 +21,8 @@ export function ProjectsSection(props: {
   sort: ProjectSort;
   onSort: (sort: ProjectSort) => void;
   onAddProject: (request: ProjectAddRequest) => void;
+  onProjectsChanged: () => void;
+  onProjectUnregistered: (name: string) => void;
 }) {
   const { view, onView } = props;
   return (
@@ -37,25 +43,33 @@ export function ProjectsSection(props: {
         </Muted>
       )}
       {props.projects.map((project) => (
-        <Button
+        <ProjectMenu
           key={project.name}
-          variant="ghost"
-          size="sm"
-          data-testid="sidebar-project"
-          className={cn(
-            'w-full justify-start truncate text-xs',
-            view.kind === 'project' && view.name === project.name && 'bg-accent',
-          )}
-          aria-current={view.kind === 'project' && view.name === project.name ? 'page' : undefined}
-          title={project.path}
-          onClick={() => onView({ kind: 'project', name: project.name })}
+          project={project}
+          onChanged={props.onProjectsChanged}
+          onUnregistered={() => props.onProjectUnregistered(project.name)}
         >
-          <Folder aria-hidden className="size-4 shrink-0" />
-          <span className="truncate">{project.label}</span>
-          <span data-testid="sidebar-project-count" className="ml-auto text-muted-foreground">
-            {props.touching(project.name).length || ''}
-          </span>
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="sidebar-project"
+            className={cn(
+              'w-full justify-start truncate text-xs',
+              view.kind === 'project' && view.name === project.name && 'bg-accent',
+            )}
+            aria-current={
+              view.kind === 'project' && view.name === project.name ? 'page' : undefined
+            }
+            title={project.path}
+            onClick={() => onView({ kind: 'project', name: project.name })}
+          >
+            <Folder aria-hidden className="size-4 shrink-0" />
+            <span className="truncate">{project.label}</span>
+            <span data-testid="sidebar-project-count" className="ml-auto text-muted-foreground">
+              {props.touching(project.name).length || ''}
+            </span>
+          </Button>
+        </ProjectMenu>
       ))}
     </>
   );

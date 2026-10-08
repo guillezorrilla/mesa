@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { Config, TreeRow } from '@mesa/core';
+import type { Config, ProjectRow, TreeRow } from '@mesa/core';
 import {
   DEFAULT_SHORTCUTS,
   DEFAULT_TERMINAL_PREFERENCES,
@@ -2528,7 +2528,54 @@ test('project controls update profile presentation and leave the slug available 
   expect(byTestId('project-unregister-dialog')).toHaveLength(1);
   await click(byTestId('confirm-unregister-project')[0]);
   expect(calls).toContainEqual(['--json', 'unregister', '--', 'lantern-cove']);
-  expect(byTestId('projects-screen')).toHaveLength(0);
+  // Hidden, it had no place in the list: the first listed project shows instead.
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
+});
+
+test('a sidebar project right-click offers the project actions, and unregistering the one in view shows the next', async () => {
+  const harbor = {
+    ...(PROJECTS[1] as ProjectRow),
+    name: 'harbor',
+    label: 'harbor',
+    path: '/src/harbor',
+  };
+  let rows: ProjectRow[] = [...PROJECTS, harbor];
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope(rows),
+    unregister: (args) => {
+      const removed = rows.find((row) => row.name === args.at(-1));
+      rows = rows.filter((row) => row !== removed);
+      return envelope({ name: removed?.name, path: removed?.path });
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId, 1);
+  await act(async () => {
+    byTestId('sidebar-project')[1]?.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }),
+    );
+  });
+  const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+  const buttons = byTestId('project-menu')[0]?.parentElement?.querySelectorAll('button') ?? [];
+  expect(items.map((item) => item.textContent)).toEqual(
+    [...buttons].map((button) => button.textContent),
+  );
+  expect(items.map((item) => item.textContent)).toEqual([
+    'Rename display label',
+    'Pin project',
+    'Hide project',
+    'Move up',
+    'Move down',
+    'Unregister project',
+  ]);
+  await click(items.at(-1));
+  await click(byTestId('confirm-unregister-project')[0]);
+  expect(calls).toContainEqual(['--json', 'unregister', '--', 'tide']);
+  expect(byTestId('project-workspace')[0]?.textContent).toContain('harbor');
+  expect(byTestId('sidebar-project').map((element) => element.textContent)).toEqual([
+    'lantern-cove',
+    'harbor',
+  ]);
 });
 
 test('Search Mesa opens with Cmd+K, filters destinations, and navigates with Enter', async () => {

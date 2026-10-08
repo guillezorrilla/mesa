@@ -54,9 +54,9 @@ export function readProjectFile(dir: string): Project {
   return readYaml(file, ProjectSchema);
 }
 
-/** The minimal project for a folder: named after it, schema defaults filled in. */
-export const minimalProject = (dir: string): Project =>
-  parseWith(ProjectSchema, { name: slugify(basename(dir)) }, projectFile(dir));
+/** The minimal project for a folder: named after it unless named, schema defaults filled in. */
+export const minimalProject = (dir: string, name = slugify(basename(dir))): Project =>
+  parseWith(ProjectSchema, { name }, projectFile(dir));
 
 /** Writes a new project file; never replaces an existing one. */
 export const writeProjectFile = (dir: string, project: Project): boolean =>

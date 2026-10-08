@@ -18,7 +18,12 @@ import type { Env, Runner } from '../../lib/process.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import { WINDOW_VARS } from '../../lib/window-vars.js';
 import type { Profile } from '../../profile/profile.js';
-import { type Project, readProjectFile } from '../../projects/project-file.js';
+import {
+  minimalProject,
+  type Project,
+  readProjectFile,
+  writeProjectFile,
+} from '../../projects/project-file.js';
 import { findProject } from '../../projects/projects.js';
 import type { RegistryEntry } from '../../projects/registry.js';
 import { joinWarnings } from '../../receipts/recorder.js';
@@ -64,10 +69,12 @@ export type LaunchDeps = {
 
 /**
  * The registered project a session starts on, with its mesa.yaml read: a folder that is gone is
- * not_found, never an agent started in $HOME.
+ * not_found, never an agent started in $HOME. A mesa.yaml that is gone (often untracked, so a
+ * `git clean` takes it) is written again minimal under the registered name, as registering does.
  */
 export function launchProject(profile: Profile, name: string) {
   const entry = findProject(profile, name);
+  if (existsSync(entry.path)) writeProjectFile(entry.path, minimalProject(entry.path, entry.name));
   return { entry, project: readProjectFile(entry.path) };
 }
 

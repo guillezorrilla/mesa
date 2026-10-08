@@ -30,6 +30,12 @@ export function sidebarGroups(projects: readonly ProjectRow[], sessions: readonl
 
 export type SidebarGroups = ReturnType<typeof sidebarGroups>;
 
+/** The project to show once `name` leaves `visible`: the one below it, else above; the first when unlisted. */
+export function nearestProject(visible: readonly ProjectRow[], name: string) {
+  const at = visible.findIndex((project) => project.name === name);
+  return visible[at + 1] ?? visible[at - 1];
+}
+
 /**
  * The session ids in the order the Sessions tab shows their cards: each listed project's (none
  * for a folded one), then General, Other, and Recoverable.

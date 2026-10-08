@@ -187,6 +187,33 @@ test('Sessions folder clicks collapse and expand its rows without changing the o
   expect(byTestId('project-workspace')[0]?.textContent).toContain('tide');
 });
 
+test('a session new to a folded Sessions folder opens the folder', async () => {
+  const rows = [managedRow('aaaaaaaa')];
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope(rows),
+    open: () => {
+      const created = managedRow('bbbbbbbb');
+      rows.push(created);
+      return envelope(created);
+    },
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const folder = byTestId('sidebar-project')[0];
+  await click(folder);
+  expect(folder?.getAttribute('aria-expanded')).toBe('false');
+  await click(
+    document.querySelector<HTMLElement>('[aria-label="New session in lantern-cove"]') ?? undefined,
+  );
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+      (item) => item.textContent === 'New session',
+    ),
+  );
+  expect(folder?.getAttribute('aria-expanded')).toBe('true');
+  expect(byTestId('sidebar-session')).toHaveLength(2);
+});
+
 test('Sessions returns to the simple landing view after visiting Grid, and missing folders cannot start', async () => {
   const { bridge, calls } = fakeBridge({
     projects: () => envelope(PROJECTS.map((project) => ({ ...project, exists: false }))),

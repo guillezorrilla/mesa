@@ -12,6 +12,7 @@ import { useDiscoveryOffer } from '@/features/projects/useDiscoveryOffer';
 import { useSortedProjects } from '@/features/projects/useSortedProjects';
 import { CommandPalette } from '@/features/search/CommandPalette';
 import { useSearchPalette } from '@/features/search/useSearchPalette';
+import { nearestProject, sidebarGroups } from '@/features/sessions/sidebar/sidebarGroups';
 import { useStartSession } from '@/features/sessions/start/useStartSession';
 import { usePrEventDelivery } from '@/features/sessions/usePrEventDelivery';
 import { OpenSettingsContext } from '@/features/settings/useOpenSettings';
@@ -93,6 +94,14 @@ export function App() {
   const projectRegistered = async () => {
     await projects.refresh();
   };
+  const sidebarProjects = sorted.sorted ?? projects.data ?? [];
+  /** A project unregistered while in view gives way to its nearest neighbour in the sidebar. */
+  const projectUnregistered = (name: string) => {
+    void projects.refresh();
+    if (view.kind !== 'project' || view.name !== name) return;
+    const next = nearestProject(sidebarGroups(sidebarProjects, sessions).visible, name);
+    navigate(next ? { kind: 'project', name: next.name } : { kind: 'sessions' });
+  };
   const quit = useCloseGuard(config.data);
   const waiting = useVisualAlert(config.data, sessions);
   useAppearance(config.data?.appearance);
@@ -157,7 +166,7 @@ export function App() {
         <WorkspaceSidebar
           view={view}
           onView={navigate}
-          projects={sorted.sorted ?? projects.data ?? []}
+          projects={sidebarProjects}
           sort={sorted.sort}
           onSort={sorted.setSort}
           sessions={sessions}
@@ -165,6 +174,8 @@ export function App() {
           collapsed={sidebarCollapsed}
           onCollapse={() => setSidebarCollapsed((value) => !value)}
           onAddProject={setProjectAdd}
+          onProjectsChanged={() => void projects.refresh()}
+          onProjectUnregistered={projectUnregistered}
           starting={starting}
           lastSession={workspace.lastSession}
           lastProject={workspace.lastProject}
@@ -210,6 +221,7 @@ export function App() {
             onFilesDirtyChange={workspace.setFilesDirty}
             onNewSession={requestNewSession}
             onAddProject={setProjectAdd}
+            onProjectUnregistered={projectUnregistered}
             onVaultSettings={() => workspace.openSettings('general')}
             archiveSessionRequest={archiveSessionRequest}
             dependencySessionRequest={dependencySessionRequest}
