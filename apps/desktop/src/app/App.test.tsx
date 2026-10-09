@@ -4,6 +4,7 @@ import {
   DEFAULT_SHORTCUTS,
   DEFAULT_TERMINAL_PREFERENCES,
   GENERAL_PROJECT,
+  TERMINAL_PRESETS,
 } from '@mesa/core/browser';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
@@ -1623,7 +1624,9 @@ test("a session's terminal takes its project's theme override over the profile's
     fakePlatform({ terminal: fakeTerminals().host }),
   );
   // The profile's theme follows the light interface; lantern-cove's mesa.yaml says dark.
-  expect(byTestId('terminal-aaaaaaaa')[0]?.dataset.terminalTheme).toBe('dark');
+  expect(byTestId('terminal-aaaaaaaa')[0]?.style.background).toBe(
+    TERMINAL_PRESETS['mesa-dark'].colors.background,
+  );
 });
 
 test('sidebar selects an exact session and keeps its terminal alive across navigation', async () => {

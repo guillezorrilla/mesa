@@ -5,7 +5,11 @@ import { MesaError } from './result.js';
 export function parseWith<T>(schema: z.ZodType<T>, raw: unknown, file: string): T {
   const parsed = schema.safeParse(raw);
   if (parsed.success) return parsed.data;
-  const issues = parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }));
+  // An unknown key is named in full (`terminal.colors.purple`), not by the object holding it.
+  const issues = parsed.error.issues.map((i) => ({
+    path: [...i.path, ...(i.code === 'unrecognized_keys' ? i.keys.slice(0, 1) : [])].join('.'),
+    message: i.message,
+  }));
   const first = issues[0];
   throw new MesaError('invalid_config', `${file}: ${first?.path || '(root)'}: ${first?.message}`, {
     issues,

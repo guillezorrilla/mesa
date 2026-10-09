@@ -30,7 +30,7 @@ export function ActionDialog(props: {
   onSubmit: (form: HTMLFormElement) => void;
   onCancel: () => void;
   returnFocus?: HTMLElement | null;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   const { submit } = props;
   return (

@@ -1,5 +1,5 @@
 import type { ProjectRow } from '@mesa/core';
-import { TERMINAL_THEMES } from '@mesa/core/browser';
+import { currentTerminalTheme, TERMINAL_PALETTE_CHOICES } from '@mesa/core/browser';
 import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { options } from './controls/options';
+import { label, options } from './controls/options';
 import { TextField } from './controls/TextField';
 import { commaList } from './controls/textLists';
 import { ApproveScriptsDialog, type PendingScripts } from './project/ApproveScriptsDialog';
@@ -50,7 +50,8 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
       props.onChanged();
       return undefined;
     });
-  const themes = options(TERMINAL_THEMES);
+  const themes = options(TERMINAL_PALETTE_CHOICES);
+  const theme = project?.overrides.terminal?.theme;
   const pending = Object.entries(project?.unapproved ?? {}) as PendingScripts;
   // The scripts the dialog shows, frozen when it opens: their fingerprints are what trust approves,
   // so a mesa.yaml that changes meanwhile is refused rather than approved unseen.
@@ -90,7 +91,7 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
               icon={Palette}
               title="Terminal theme override"
               description={profileValue(
-                themes.find(([value]) => value === config.terminal.theme)?.[1],
+                label(currentTerminalTheme(config.terminal.theme)),
                 'follow',
               )}
               keywords="project terminal theme"
@@ -99,7 +100,7 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
                 <NativeSelect
                   id="project-terminal-theme"
                   className="min-w-40"
-                  value={project.overrides.terminal?.theme ?? ''}
+                  value={theme ? currentTerminalTheme(theme) : ''}
                   disabled={acting}
                   onChange={(event) =>
                     save('terminal.theme', event.currentTarget.value || undefined)

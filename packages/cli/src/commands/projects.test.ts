@@ -194,6 +194,10 @@ test('projects set writes one mesa.yaml override and --unset removes it, keeping
     '--json',
   );
   expect(unset.json.data).toMatchObject({ path: 'terminal.theme', value: null });
+  expect(
+    (await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'gruvbox-dark')).code,
+  ).toBe(0);
+  await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', '--unset');
   await mesa('projects', 'set', 'lantern-cove', 'worktrees.base', '--unset');
   await mesa('projects', 'set', 'lantern-cove', 'worktrees.sparseDirectories', '--unset');
   expect(file()).toBe(original);
@@ -205,6 +209,9 @@ test('projects set writes one mesa.yaml override and --unset removes it, keeping
   expect((await mesa('projects', 'set', 'lantern-cove', 'worktrees.fetch')).code).toBe(2);
   expect((await mesa('projects', 'set', 'lantern-cove', 'priority', '0.1')).code).toBe(2);
   expect((await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'neon')).code).toBe(4);
+  expect((await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'nord')).code).toBe(4);
+  // Custom colors are each user's own, so a shared mesa.yaml cannot pick them.
+  expect((await mesa('projects', 'set', 'lantern-cove', 'terminal.theme', 'custom')).code).toBe(4);
   expect((await mesa('projects', 'set', 'unknown', 'terminal.theme', 'dark')).code).toBe(3);
   expect(file()).toBe(original);
 });

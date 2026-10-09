@@ -41,6 +41,22 @@ test('terminal.newlineKey is shift-enter by default, and a profile that sets nat
   expect(await newlineKey()).toBe('native');
 });
 
+test('terminal.theme takes a preset, and custom colors only as #rrggbb', async () => {
+  await cli.mesa('init', '--vault', 'vault');
+  expect((await cli.mesa('config', 'set', 'terminal.theme', 'dracula', '--json')).code).toBe(0);
+  expect((await cli.mesa('config', '--json')).json.data.terminal.theme).toBe('dracula');
+  for (const [path, value, named] of [
+    ['terminal.theme', 'custom', 'terminal.colors'],
+    ['terminal.colors.red', 'red', 'terminal.colors.red'],
+    ['terminal.colors.purple', '"#ff00ff"', 'terminal.colors.purple'],
+  ] as const) {
+    const set = await cli.mesa('config', 'set', path, value, '--json');
+    expect(set.code).toBe(4);
+    expect(set.json.error).toMatchObject({ code: 'invalid_config' });
+    expect(set.json.error.message).toContain(`${named}:`);
+  }
+});
+
 test('changing the vault switches reads and writes without moving or changing existing notes', async () => {
   await cli.mesa('init', '--vault', 'first-vault');
   await cli.mesa('vault', 'init');
