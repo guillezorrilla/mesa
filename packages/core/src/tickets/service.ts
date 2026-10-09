@@ -126,7 +126,6 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
           .map(([project]) => project),
       }));
     },
-    /** Adds a view, checking its board or saved filter on the site and keeping its name. */
     /**
      * Adds a view, its shape checked first. A board view's board must have sprints (reading them
      * checks it); its board's and a saved filter's names are kept to show them.

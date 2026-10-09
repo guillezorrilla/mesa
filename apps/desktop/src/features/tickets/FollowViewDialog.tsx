@@ -62,15 +62,17 @@ export function FollowViewDialog(props: {
       : board
         ? { board: Number(picked), sprint: kind }
         : { filter: picked };
+  // An empty name takes the picked board's or filter's name.
+  const viewName = name.trim() || (kind === 'jql' ? '' : (pickedName ?? ''));
   const ready = existing
     ? true
-    : Boolean(name.trim()) && (kind === 'jql' ? Boolean(jql.trim()) : Boolean(picked));
+    : Boolean(viewName) && (kind === 'jql' ? Boolean(jql.trim()) : Boolean(picked));
   const submit = () =>
     void act(async () => {
       let view = existing;
       if (!view) {
         const input: ViewInput = {
-          name: name.trim(),
+          name: viewName,
           ...query,
           ...(mine ? {} : { everyone: true }),
           ...(hideDone ? {} : { showDone: true }),
@@ -78,6 +80,8 @@ export function FollowViewDialog(props: {
         const added = await run('tickets.viewsAdd', { view: input });
         if (!added) return undefined;
         view = added.name;
+        // Defined now: a retry after a failed follow follows it instead of adding it again.
+        setExisting(view);
       }
       if (await run('tickets.follow', { project: props.project, view })) props.onFollowed();
       return undefined;

@@ -115,8 +115,11 @@ export function ticketViews(ctx: MesaContext) {
       update((tickets) => {
         const removed = view(tickets, name);
         tickets.views = tickets.views.filter((v) => v !== removed);
-        for (const [key, names] of Object.entries(tickets.follows))
-          tickets.follows[key] = names.filter((n) => !same(n, removed.name));
+        for (const [key, names] of Object.entries(tickets.follows)) {
+          const kept = names.filter((n) => !same(n, removed.name));
+          if (kept.length) tickets.follows[key] = kept;
+          else delete tickets.follows[key];
+        }
         return removed;
       }),
     follow: (projectName: string, name: string) => {

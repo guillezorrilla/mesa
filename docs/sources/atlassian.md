@@ -76,7 +76,7 @@ Where an org admin blocks unapproved third-party apps (Atlassian Administration 
 
 `mesa tickets` (CONTEXT.md, Ticket view) makes only GETs through the same authorized fetch:
 
-- Boards: `/rest/agile/1.0/board?name=<q>`, and one board by `/board/<id>` when a view is added. A board view's sprints: `/board/<id>/sprint?state=active`, or `state=future` for the next sprint, read again every time the list is.
+- Boards: `/rest/agile/1.0/board?name=<q>`. When a view is added, the board's name is found by paging `/board?startAt=<n>` (reading `/board/<id>` would need `read:issue-details:jira`, which Mesa does not ask for), and its sprints are read once to check it has any. A board view's sprints: `/board/<id>/sprint?state=active`, or `state=future` for the next sprint, read again every time the list is.
 - Saved filters: `/rest/api/3/filter/search?filterName=<q>`, and one by `/filter/<id>` when a view is added.
 - Tickets: `/rest/api/3/search/jql` with `fields=summary,status,assignee`, the first 100 per view.
 
