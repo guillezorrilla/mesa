@@ -18,14 +18,19 @@ export function ProfileMenu(props: {
   onSettings: () => void;
 }) {
   const { status, busy, check } = useUpdate();
-  const { profiles, switchTo } = useProfiles();
+  const { profiles, refresh, switchTo } = useProfiles();
   const [creating, setCreating] = useState(false);
   const current = profiles?.find((profile) => profile.current)?.name;
   const close = () => {
     if (props.ref.current) props.ref.current.open = false;
   };
   return (
-    <details ref={props.ref} className="relative shrink-0">
+    // Read again on each open: Settings may have renamed or removed one meanwhile.
+    <details
+      ref={props.ref}
+      className="relative shrink-0"
+      onToggle={(event) => event.currentTarget.open && void refresh()}
+    >
       <summary
         aria-label="Profile settings"
         className="flex h-8 min-w-8 cursor-pointer items-center justify-center gap-1.5 rounded-full border bg-card px-2 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"

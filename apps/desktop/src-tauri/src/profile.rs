@@ -39,9 +39,6 @@ pub fn resolve() -> String {
 /// Starts another instance of the app on `profile`, with `notice` to open when a notification
 /// click started it.
 pub fn launch(profile: &str, notice: Option<&str>) -> Result<(), String> {
-    if !valid_name(profile) {
-        return Err(format!("invalid profile name {profile}"));
-    }
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     if let Some(bundle) = executable
         .ancestors()
@@ -74,6 +71,9 @@ pub fn launch(profile: &str, notice: Option<&str>) -> Result<(), String> {
 /// Relaunches the app on `profile`: the new instance starts, then this one quits.
 #[tauri::command]
 pub fn profile_switch(app: tauri::AppHandle, profile: String) -> Result<(), String> {
+    if !valid_name(&profile) {
+        return Err(format!("invalid profile name {profile}"));
+    }
     launch(&profile, None)?;
     app.exit(0);
     Ok(())

@@ -149,7 +149,12 @@ test('rename refuses a profile with worktrees, and a name that is taken', async 
   await expect(w.mesa().profiles.rename('work', 'default')).rejects.toThrow(
     'profile default already exists',
   );
-  mkdirSync(join(profilePaths(w.home, 'work').worktrees, 'lantern-cove/fix'), { recursive: true });
+  const { worktrees } = profilePaths(w.home, 'work');
+  mkdirSync(join(worktrees, 'lantern-cove'), { recursive: true });
+  writeFileSync(join(worktrees, '.DS_Store'), '');
+  expect(await w.mesa().profiles.rename('work', 'renamed')).toMatchObject({ to: 'renamed' });
+  await w.mesa().profiles.rename('renamed', 'work');
+  mkdirSync(join(worktrees, 'lantern-cove/fix'), { recursive: true });
   await expect(w.mesa().profiles.rename('work', 'client')).rejects.toThrow('it has worktrees');
   await expect(w.mesa().profiles.rename('nope', 'client')).rejects.toMatchObject({
     code: 'not_found',

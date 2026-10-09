@@ -166,8 +166,11 @@ export function profilesService(ctx: MesaContext) {
       const next = pathsOf(profileName(to));
       if (existsSync(next.root)) throw new MesaError('usage', `profile ${to} already exists`);
       await refuseWhileRunning(from, 'rename');
-      const worktrees = existsSync(old.worktrees) ? readdirSync(old.worktrees) : [];
-      if (worktrees.some((project) => readdirSync(join(old.worktrees, project)).length))
+      // Project folders only: Finder leaves a .DS_Store beside them.
+      const worktrees = existsSync(old.worktrees)
+        ? readdirSync(old.worktrees, { withFileTypes: true }).filter((entry) => entry.isDirectory())
+        : [];
+      if (worktrees.some((project) => readdirSync(join(old.worktrees, project.name)).length))
         throw new MesaError(
           'usage',
           `cannot rename profile ${from}: it has worktrees, which git knows by their folder; remove them first`,
@@ -210,7 +213,9 @@ export function profilesService(ctx: MesaContext) {
       await refuseWhileRunning(name, 'remove');
       const vault = vaultOf(paths);
       const sharing =
-        deleteVault && names().find((other) => other !== name && vaultOf(pathsOf(other)) === vault);
+        deleteVault &&
+        vault !== null &&
+        names().find((other) => other !== name && vaultOf(pathsOf(other)) === vault);
       if (sharing)
         throw new MesaError(
           'usage',
