@@ -203,4 +203,5 @@ test('open shows the folder in Finder; slugs are profile names', async () => {
     args: [profilePaths(w.home, 'default').root],
   });
   expect(profileSlug('  Client Work! ')).toBe('client-work');
+  expect(profileSlug(`-${'-'.repeat(50_000)}a`)).toBe('a');
 });

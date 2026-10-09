@@ -20,10 +20,10 @@ export function profileName(name: string): string {
 /** The profile name a typed label becomes: `Client Work!` is `client-work`. */
 export const profileSlug = (label: string) =>
   label
-    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .split(/[^a-z0-9_]+/)
+    .filter(Boolean)
+    .join('-')
     .slice(0, 64);
 
 /** A new profile's own vault folder, beside the first vault Mesa suggests (`~/Documents/Mesa`). */
