@@ -2,6 +2,12 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.4 - 2026-10-09
+
+### Features
+
+- **tickets**: name Jira in the Tickets tab's setup, and move Vault after Files (#707)
+
 ## 0.2.3 - 2026-10-09
 
 ### Features
