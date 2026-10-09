@@ -14,7 +14,10 @@ const LIMITS = [
   ['monthlyAlertUsd', 'Monthly', 'month'],
 ] as const;
 
-/** Informational spend thresholds: each shows progress toward it, and all save together. */
+/**
+ * Informational spend thresholds: each shows progress toward it, and all save together. With none
+ * set, the section is one row until it is opened.
+ */
 export function CostAlerts(props: {
   usage: Config['usage'];
   report: UsageReport;
@@ -23,6 +26,7 @@ export function CostAlerts(props: {
   const run = useRun();
   const toast = useToast();
   const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(() => LIMITS.some(([key]) => props.usage[key] > 0));
   const shown = (key: Key) => (props.usage[key] ? String(props.usage[key]) : '');
   const [draft, setDraft] = useState<Record<Key, string>>({
     dailyAlertUsd: shown('dailyAlertUsd'),
@@ -53,6 +57,21 @@ export function CostAlerts(props: {
       setSaving(false);
     }
   };
+  if (!open)
+    return (
+      <section
+        className="flex items-center justify-between rounded-lg border bg-background px-4 py-2"
+        aria-label="Cost alerts"
+      >
+        <h3 className="flex items-center gap-2 text-sm font-medium">
+          <BellRing aria-hidden className="size-4 text-muted-foreground" /> Cost alerts
+          <span className="text-xs font-normal text-muted-foreground">Off</span>
+        </h3>
+        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(true)}>
+          Set up
+        </Button>
+      </section>
+    );
   return (
     <section className="space-y-4 rounded-lg border bg-background p-4" aria-label="Cost alerts">
       <div className="flex items-start justify-between gap-3">
@@ -61,7 +80,7 @@ export function CostAlerts(props: {
             <BellRing aria-hidden className="size-4 text-state-waiting" /> Cost alerts
           </h3>
           <Muted size="xs" className="mt-1">
-            Informational only. Cost alerts never pause sessions or block requests.
+            Informational only: alerts never pause sessions. Days and months count in UTC.
           </Muted>
         </div>
         <Button
@@ -125,12 +144,7 @@ export function CostAlerts(props: {
           );
         })}
       </div>
-      <div className="flex items-end justify-between gap-3 border-t pt-3">
-        <p className="text-[11px] text-muted-foreground">
-          Costs are estimated from usage Mesa reads in your sessions and may differ from provider
-          billing. Daily and weekly limits count UTC days; monthly starts on the first of the UTC
-          month.
-        </p>
+      <div className="flex justify-end">
         <Button
           size="sm"
           variant="secondary"

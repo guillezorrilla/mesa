@@ -4,9 +4,10 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
-import { modelKey, money, seriesColor, tokenLine } from './format';
+import { Cost } from './Cost';
+import { counted, knownCost, modelKey, seriesColor, tokenLine } from './format';
 
-/** The 90-day cost of each model, grouped under its provider, with its share as a bar. */
+/** The 90-day cost of each model that used tokens, grouped under its provider, with its share as a bar. */
 export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const top = Math.max(...props.breakdown.map((row) => row.totals.estimatedCostUsd ?? 0), 0);
@@ -18,7 +19,8 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
       </SectionLabel>
       <div className="divide-y rounded-lg border bg-background">
         {props.agents.map(({ agent, totals }) => {
-          const rows = props.breakdown.filter((row) => row.agent === agent);
+          const rows = props.breakdown.filter((row) => row.agent === agent && counted(row));
+          if (!rows.length) return null;
           const open = !closed.has(agent);
           return (
             <div key={agent}>
@@ -43,9 +45,11 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
                   )}
                   {AGENT_LABELS[agent]}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {money(totals.estimatedCostUsd)}
-                </span>
+                <Cost
+                  value={totals.estimatedCostUsd}
+                  known={knownCost(rows)}
+                  className="text-xs text-muted-foreground"
+                />
               </button>
               {open &&
                 rows.map((row) => (
@@ -54,18 +58,22 @@ export function UsageByAgent(props: Pick<UsageReport, 'breakdown' | 'agents'>) {
                       <p className="truncate font-mono text-sm">{row.model}</p>
                       <Muted size="xs">{tokenLine(row.totals)}</Muted>
                     </div>
-                    <span className="h-1.5 w-24 overflow-hidden rounded-full bg-accent">
-                      <span
-                        className="block h-full rounded-full"
-                        style={{
-                          width: `${top ? ((row.totals.estimatedCostUsd ?? 0) / top) * 100 : 0}%`,
-                          background: seriesColor(props.breakdown.indexOf(row)),
-                        }}
-                      />
-                    </span>
-                    <span className="w-16 text-right text-sm font-medium">
-                      {money(row.totals.estimatedCostUsd)}
-                    </span>
+                    {row.totals.estimatedCostUsd !== null && (
+                      <span className="h-1.5 w-24 overflow-hidden rounded-full bg-accent">
+                        <span
+                          className="block h-full rounded-full"
+                          style={{
+                            width: `${top ? (row.totals.estimatedCostUsd / top) * 100 : 0}%`,
+                            background: seriesColor(props.breakdown.indexOf(row)),
+                          }}
+                        />
+                      </span>
+                    )}
+                    <Cost
+                      value={row.totals.estimatedCostUsd}
+                      known={0}
+                      className="w-16 text-right text-sm font-medium"
+                    />
                   </div>
                 ))}
             </div>

@@ -73,6 +73,43 @@ test('the dialog shows period cards, the daily chart by model, agents, and days 
   );
 });
 
+test('unpriced usage leaves known costs showing, names the gaps, and hides empty models', async () => {
+  const unpriced = { ...opus, estimatedCostUsd: null };
+  const models: UsageReport['breakdown'] = [
+    { agent: 'claude', model: 'opus-5-5', totals: opus },
+    { agent: 'claude', model: '<synthetic>', totals: { ...zero, events: 1 } },
+    { agent: 'codex', model: 'gpt-invented', totals: unpriced },
+  ];
+  const report: UsageReport = {
+    ...used,
+    unknown: [{ session: 'abcdefgh', reason: 'claude usage is unavailable' }],
+    periods: { today: unpriced, '7d': unpriced, '30d': unpriced, '90d': unpriced, month: unpriced },
+    daily: [...used.daily.slice(0, -1), { day: '2026-09-26', totals: unpriced, models }],
+    breakdown: models,
+    agents: [
+      { agent: 'claude', totals: unpriced },
+      { agent: 'codex', totals: unpriced },
+    ],
+  };
+  const { bridge } = fakeBridge({ usage: () => envelope(report) });
+  const byTestId = await renderWithMesa(
+    <UsageDialog open onOpenChange={() => {}} onSession={() => {}} />,
+    bridge,
+  );
+  const panel = text('usage-panel', byTestId);
+  expect(panel).toContain('Today$0.27+');
+  expect(panel).not.toContain('Unknown');
+  expect(panel).toContain(
+    'No list price: gpt-invented. Not read: abcdefgh (claude usage is unavailable).',
+  );
+  const agents = document.querySelector('[aria-label="Cost by agent"]')?.textContent ?? '';
+  expect(agents).not.toContain('<synthetic>');
+  expect(agents).toContain('gpt-invented8 in / 204 out / 28.6k cache-w / 178.6k cache-rn/a');
+  expect(document.querySelector('[aria-label="Cost alerts"]')?.textContent?.trim()).toBe(
+    'Cost alertsOffSet up',
+  );
+});
+
 test('agent rows take their names from core, Antigravity included', async () => {
   const row = { agent: 'antigravity' as const, model: 'gemini-invented', totals: opus };
   const report: UsageReport = {

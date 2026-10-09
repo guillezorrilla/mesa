@@ -53,7 +53,8 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
           <DollarSign aria-hidden className="size-5 text-state-idle" />
           Usage &amp; Estimated Costs
         </DialogTitle>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-2">
+          <UsageScope value={session} retained={retained} onChange={setSession} />
           <IconButton
             label="Refresh"
             icon={RefreshCw}
@@ -65,18 +66,6 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
         </span>
       </div>
       <div className="max-h-[70vh] space-y-4 overflow-y-auto p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <DialogDescription className="text-xs">
-            Cost values are estimates based on public model list prices, not billing. Usage data
-            stays in your profile.
-          </DialogDescription>
-          <UsageScope value={session} retained={retained} onChange={setSession} />
-        </div>
-        {report?.unknown.map((item) => (
-          <p key={`${item.session}:${item.reason}`} className="text-xs text-muted-foreground">
-            {item.session}: {item.reason}
-          </p>
-        ))}
         {!report && (
           <Muted className="py-12 text-center">
             {usage.busy ? 'Loading cost data...' : 'No usage data found'}
@@ -84,7 +73,7 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
         )}
         {report && (
           <>
-            <UsageStatCards periods={report.periods} />
+            <UsageStatCards report={report} />
             <UsageChart report={report} days={days} mode={mode} onDays={setDays} onMode={setMode} />
             <UsageByAgent breakdown={report.breakdown} agents={report.agents} />
             <UsageByDay daily={report.daily.slice(-days)} />
@@ -101,10 +90,10 @@ function UsageBody(props: { onClose: () => void; onSession: (id: string) => void
           </>
         )}
       </div>
-      <Muted size="xs" className="border-t px-4 py-3 text-center">
-        Data from local per-turn session records
-        {updated ? `, updated ${updated.toLocaleTimeString()}` : ''}
-      </Muted>
+      <DialogDescription className="border-t px-4 py-3 text-center text-xs">
+        Estimates from public list prices, not billing, read from session records in your profile
+        {updated ? `. Updated ${updated.toLocaleTimeString()}` : ''}
+      </DialogDescription>
     </>
   );
 }

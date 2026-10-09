@@ -3,7 +3,8 @@ import { AGENT_LABELS } from '@mesa/core/browser';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { SectionLabel } from '@/components/SectionLabel';
-import { allTokens, compact, dayLabel, modelKey, money, tokenLine } from './format';
+import { Cost } from './Cost';
+import { allTokens, compact, counted, dayLabel, knownCost, modelKey, tokenLine } from './format';
 
 /** The chart's days that had usage, newest first; each opens onto its models. */
 export function UsageByDay(props: { daily: UsageReport['daily'] }) {
@@ -16,6 +17,7 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
       <div className="divide-y rounded-lg border bg-background">
         {days.map((day) => {
           const expanded = open.has(day.day);
+          const models = day.models.filter(counted);
           const Chevron = expanded ? ChevronDown : ChevronRight;
           return (
             <div key={day.day}>
@@ -36,19 +38,23 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
                 <span className="min-w-0 flex-1 truncate">
                   <span className="text-sm">{dayLabel(day.day)}</span>
                   <span className="ml-2 text-xs text-muted-foreground">
-                    {day.models.map((row) => row.model).join(', ')}
+                    {models.map((row) => row.model).join(', ')}
                   </span>
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {compact(allTokens(day.totals))} tokens
-                </span>
-                <span className="w-16 text-right text-sm font-medium">
-                  {money(day.totals.estimatedCostUsd)}
-                </span>
+                {allTokens(day.totals) !== null && (
+                  <span className="text-xs text-muted-foreground">
+                    {compact(allTokens(day.totals))} tokens
+                  </span>
+                )}
+                <Cost
+                  value={day.totals.estimatedCostUsd}
+                  known={knownCost(day.models)}
+                  className="w-16 text-right text-sm font-medium"
+                />
               </button>
               {expanded && (
                 <div className="space-y-1 pr-3 pb-2 pl-10">
-                  {day.models.map((row) => (
+                  {models.map((row) => (
                     <p key={modelKey(row)} className="flex items-center gap-3 py-1 text-xs">
                       <span className="flex-1 truncate font-mono text-muted-foreground">
                         {row.model}
@@ -57,9 +63,11 @@ export function UsageByDay(props: { daily: UsageReport['daily'] }) {
                         {AGENT_LABELS[row.agent]}
                       </span>
                       <span className="text-muted-foreground">{tokenLine(row.totals)}</span>
-                      <span className="w-16 text-right font-medium">
-                        {money(row.totals.estimatedCostUsd)}
-                      </span>
+                      <Cost
+                        value={row.totals.estimatedCostUsd}
+                        known={0}
+                        className="w-16 text-right font-medium"
+                      />
                     </p>
                   ))}
                 </div>

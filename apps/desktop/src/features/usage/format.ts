@@ -24,8 +24,26 @@ export const allTokens = (totals: UsageTotals) =>
     ? null
     : totals.input + totals.output + totals.cacheRead + totals.cacheWrite;
 
+/** The token kinds a row used; a kind it never touched is left out. */
 export const tokenLine = (totals: UsageTotals) =>
-  `${compact(totals.input)} in / ${compact(totals.output)} out / ${compact(totals.cacheWrite)} cache-w / ${compact(totals.cacheRead)} cache-r`;
+  (
+    [
+      ['input', 'in'],
+      ['output', 'out'],
+      ['cacheWrite', 'cache-w'],
+      ['cacheRead', 'cache-r'],
+    ] as const
+  )
+    .filter(([field]) => totals[field] !== 0)
+    .map(([field, label]) => `${compact(totals[field])} ${label}`)
+    .join(' / ');
+
+/** A model row that counted any tokens; an all-zero one (such as `<synthetic>`) is noise. */
+export const counted = (row: UsageBreakdown[number]) => allTokens(row.totals) !== 0;
+
+/** The priced part of some rows' spend: a cost with no list price counts as nothing. */
+export const knownCost = (rows: UsageBreakdown) =>
+  rows.reduce((sum, row) => sum + (row.totals.estimatedCostUsd ?? 0), 0);
 
 /** A UTC day key (2026-09-26) as "Sat, Sep 26", read in UTC so it never shifts a day. */
 export const dayLabel = (day: string, weekday = true) =>
