@@ -10,6 +10,9 @@ Classic and granular scopes, space-separated, exactly as the broker asks for the
 | --- | --- |
 | `read:jira-work` | Jira projects, issues, comments |
 | `read:jira-user` | Jira users named on issues |
+| `read:board-scope:jira-software` | Jira boards, for a ticket view (#693) |
+| `read:sprint:jira-software` | a board's active and future sprints, for a ticket view |
+| `read:project:jira` | the project a board belongs to, which the boards API asks for |
 | `read:page:confluence` | Confluence pages |
 | `read:space:confluence` | Confluence spaces |
 | `read:hierarchical-content:confluence` | a page's ancestors (not granted live, see below) |
@@ -68,3 +71,14 @@ The app listing's privacy policy and terms are the broker's pages:
 Tried on 2026-10-02 against a company Atlassian site whose admin does not block third-party apps: a member's consent connected Mesa with no admin step. Mesa was registered under a personal developer account, and that made no difference: with sharing on, any Atlassian account can consent for the sites it can use.
 
 Where an org admin blocks unapproved third-party apps (Atlassian Administration > Security > User security > App access rules, or user-installed app settings), Atlassian refuses the consent itself or asks the user to request approval, so no code reaches the broker and `mesa sources connect` ends with the callback's error and stores nothing. The admin approves "Mesa" in Atlassian Administration, after which the same one-click Connect works. This blocked case was not tried live (no such site was available).
+
+## What the Tickets tab reads
+
+`mesa tickets` (CONTEXT.md, Ticket view) makes only GETs through the same authorized fetch:
+
+- Boards: `/rest/agile/1.0/board?name=<q>`, and one board by `/board/<id>` when a view is added. A board view's sprints: `/board/<id>/sprint?state=active`, or `state=future` for the next sprint, read again every time the list is.
+- Saved filters: `/rest/api/3/filter/search?filterName=<q>`, and one by `/filter/<id>` when a view is added.
+- Tickets: `/rest/api/3/search/jql` with `fields=summary,status,assignee`, the first 100 per view.
+
+Jira Software's API takes granular scopes only. A connection made before Mesa asked for them is answered 401 "scope does not match". The board view then says to reconnect, and the connection stays connected for everything else.
+

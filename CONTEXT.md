@@ -451,6 +451,21 @@ Not: sync, clip, ingest.
 Browsing a Source as a tree to tick the items to import: `mesa sources browse <source> [<node>] [--cursor <c>] [--search <q>] [--descendants] --json` prints `{node, children: [{id, kind, title, url, hasChildren, importable}], cursor?}`, or, from a connected Source's Browse on the Context tab, a dialog whose tree opens a node at a time, with Load more, a search box, the count ticked, Write notes, and Import, which is the Import of the ticked items' URLs, or, with one ticked, Start session, which imports it and starts from it (see Import). Node ids and cursors are opaque strings the Source's tree makes (`tree` in its `SOURCES` row, a `SourceTree`; Atlassian's ids are in `sources/atlassian-nodes.ts`, Notion's in `sources/notion-tree.ts`); the root, no node, lists the connection's sites (Notion's workspace). The Source's tree says which children an import takes (`importable`: Atlassian's pages and issues, Notion's pages and database rows), whose `url` is the canonical link it takes; a container's is its web page. A search looks under the node (Notion's, across its whole workspace). Ticking a page with pages under it asks whether to tick them too, every one under it up to 200 (`--descendants`). With Write notes on, more than 50 ticked disables Import and says why. A Connection that needs reconnecting shows Reconnect in the tree.
 Not: Vault browser, explorer, finder.
 
+## Ticket view
+
+A named question the profile asks Jira, defined once in `~/.mesa/<profile>/tickets.yaml` and followed by any number of projects (several repos can share one board). Its kind is one of: a board's current sprint, its next sprint, a saved filter, or a JQL query. Every read becomes JQL again, so a board view follows its sprints as they roll over: the board's own active (or first future) sprints, never another board's sprint that touches its filter. Two toggles narrow any view: only the person's tickets, and hiding done ones, both on by default. A kanban board has no sprints; follow its saved filter instead. `mesa tickets views [add|remove]`, `mesa tickets follow|unfollow <project> <view>`, and `mesa tickets boards|filters` to find what a view names. Boards and sprints need Jira Software's granular scopes (docs/sources/atlassian.md).
+Not: sprint (a view of a board follows whichever sprint is current), board, query, saved search.
+
+## Tickets tab
+
+The project screen's tab that lists the tickets of the Ticket views the project follows, read live from Jira (`mesa tickets <project>`): each ticket once, with the views that list it and a "Running in <project>" badge for every live session started from it in any project. A view that fails (one needing a reconnect, say) shows why while the others still list. Start session imports the ticket, with Write notes as the Context tab has it, and fills the Overview composer with its goal, as Context's Start session does.
+Not: backlog, board, inbox.
+
+## Ticket prompt
+
+The Saved prompt a session started from a Jira issue gets before the issue's goal, so one that starts with `/goal` runs Claude Code's goal command with the issue as part of its condition: the project's own when it names one, else the profile's (`mesa tickets prompt <name> [--project p] | --clear`, or the Tickets tab). It applies to `mesa open --from` and to the app's Start session alike; Confluence, Notion and web items get none.
+Not: system prompt (the agent's own instructions stay its own), Goal.
+
 ## Automation
 
 An optional named rule in the Profile's `automations.yaml`, never in a project's `mesa.yaml`. Each names a registered Project, an enabled toggle, `when: cron | file | state`, `run: skill | send | open | refresh`, and an explicit `guardrail: ask | allow`. Trigger details are `cron` (five numeric local-time fields), `file` (a project-relative path without `..`), or `state` (one of Faro's Agent states). Action details are `skill` and optional literal `args`, `session` and `prompt`, `goal`, or optional `notes` for Refresh. Skill, Open and Refresh may select `agent: claude | codex`; unattended notes do not default to Antigravity. Names are unique ignoring case.

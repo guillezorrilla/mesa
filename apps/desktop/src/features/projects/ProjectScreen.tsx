@@ -7,6 +7,7 @@ import { GitTab } from '@/features/git/GitTab';
 import { useGitChangeCount } from '@/features/git/useGitChangeCount';
 import { InstructionsTab } from '@/features/instructions/InstructionsTab';
 import { SkillsTab } from '@/features/skills/SkillsTab';
+import { TicketsTab } from '@/features/tickets/TicketsTab';
 import { VaultTab } from '@/features/vault/VaultTab';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
@@ -21,6 +22,7 @@ export type ProjectTab =
   | 'overview'
   | 'vault'
   | 'import'
+  | 'tickets'
   | 'git'
   | 'files'
   | 'skills'
@@ -65,6 +67,8 @@ export function ProjectScreen(props: {
   const gitChanges = useGitChangeCount(project.name, gitRevision);
   const { acting, act } = useAct();
   const run = useRun();
+  // Write notes, as the Context and Tickets tabs share it for every import.
+  const [notes, setNotes] = useState(true);
   // Start session on an imported item: its goal fills in the Overview's composer, to edit there.
   const startFrom = (from: string) =>
     void act(async () => {
@@ -122,7 +126,21 @@ export function ProjectScreen(props: {
           onImport={() => setTab('import')}
         />
       ) : tab === 'import' ? (
-        <ImportTab key={project.name} project={project.name} onStartSession={startFrom} />
+        <ImportTab
+          key={project.name}
+          project={project.name}
+          notes={notes}
+          onNotesChange={setNotes}
+          onStartSession={startFrom}
+        />
+      ) : tab === 'tickets' ? (
+        <TicketsTab
+          key={project.name}
+          project={project.name}
+          notes={notes}
+          onNotesChange={setNotes}
+          onStartSession={startFrom}
+        />
       ) : tab === 'git' ? (
         <GitTab
           key={project.name}

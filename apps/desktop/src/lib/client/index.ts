@@ -15,6 +15,7 @@ import { settingsCommands } from './settings';
 import { skillsCommands } from './skills';
 import { sourcesCommands } from './sources';
 import type { Spec } from './spec';
+import { ticketsCommands } from './tickets';
 import { updateCommands } from './update';
 import { usageCommands } from './usage';
 import { vaultCommands } from './vault';
@@ -41,6 +42,7 @@ const COMMANDS = {
   ...instructionsCommands,
   ...sourcesCommands,
   ...importsCommands,
+  ...ticketsCommands,
   ...vaultCommands,
   ...settingsCommands,
   ...notificationsCommands,

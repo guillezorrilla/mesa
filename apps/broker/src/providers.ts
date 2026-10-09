@@ -25,7 +25,7 @@ export const PROVIDERS: Record<string, Provider> = {
     authorizeUrl: 'https://auth.atlassian.com/authorize',
     tokenUrl: 'https://auth.atlassian.com/oauth/token',
     scopes:
-      'read:jira-work read:jira-user read:page:confluence read:space:confluence read:hierarchical-content:confluence search:confluence read:me offline_access',
+      'read:jira-work read:jira-user read:board-scope:jira-software read:sprint:jira-software read:project:jira read:page:confluence read:space:confluence read:hierarchical-content:confluence search:confluence read:me offline_access',
     params: { audience: 'api.atlassian.com', response_type: 'code', prompt: 'consent' },
     env: { clientId: 'ATLASSIAN_CLIENT_ID', clientSecret: 'ATLASSIAN_CLIENT_SECRET' },
   },

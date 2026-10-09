@@ -41,7 +41,7 @@ test('authorize sends the browser to Atlassian with the client id, scopes, callb
   expect(Object.fromEntries(to.searchParams)).toEqual({
     client_id: 'client-1',
     scope:
-      'read:jira-work read:jira-user read:page:confluence read:space:confluence read:hierarchical-content:confluence search:confluence read:me offline_access',
+      'read:jira-work read:jira-user read:board-scope:jira-software read:sprint:jira-software read:project:jira read:page:confluence read:space:confluence read:hierarchical-content:confluence search:confluence read:me offline_access',
     redirect_uri: `${BROKER}/callback/atlassian`,
     state: 'n1.49152',
     audience: 'api.atlassian.com',

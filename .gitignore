@@ -12,3 +12,5 @@ apps/desktop/src-tauri/gen/schemas/
 .wrangler/
 apps/desktop/src-tauri/binaries/
 .env.release.local
+# A self-hosted or local broker's secrets (wrangler dev): never committed.
+.dev.vars*

@@ -27,6 +27,7 @@ import { skillsService } from './skills/service.js';
 import { importService } from './sources/import-service.js';
 import { itemSessions } from './sources/item-session.js';
 import { sourcesService } from './sources/service.js';
+import { ticketsService } from './tickets/service.js';
 import { updateService } from './update/service.js';
 import { rewindService } from './usage/rewind.js';
 import { usageService } from './usage/service.js';
@@ -58,6 +59,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     fetch: sources.fetch,
     sites: sources.sites,
     run: sessions.sessions.run,
+  });
+  const tickets = ticketsService(ctx, {
+    fetch: sources.fetch,
+    sites: sources.sites,
+    prompts: prompts.list,
   });
   const automations = automationsService(ctx, faro, {
     sessions: sessions.sessions,
@@ -98,7 +104,11 @@ export function createMesa(profile: string, deps: MesaDeps) {
     update: updateService(ctx, profileApi.config),
     instructions: instructionsService(ctx),
     sources,
-    imports: { ...imports, ...itemSessions(imports.item, sessions.sessions.open) },
+    imports: {
+      ...imports,
+      ...itemSessions(imports.item, sessions.sessions.open, tickets.promptFor),
+    },
+    tickets,
     decide: faro.decide,
     /**
      * The hosted decision models: their keys and which one Faro asks (#488), placing the sessions

@@ -35,6 +35,8 @@ export async function atlassianSites(get: Http): Promise<Site[]> {
 
 /** Jira's REST API (v3) on the site with cloud id `site`. */
 export const jiraApi = (site: string) => `${API}/ex/jira/${site}/rest/api/3`;
+/** Jira Software's REST API (boards and sprints) on the site with cloud id `site`. */
+export const jiraAgileApi = (site: string) => `${API}/ex/jira/${site}/rest/agile/1.0`;
 /** Confluence's REST API (v2) on the site with cloud id `site`. */
 export const confluenceApi = (site: string) => `${API}/ex/confluence/${site}/wiki/api/v2`;
 /** Confluence's older REST API (v1), which alone has CQL search, on the site with cloud id `site`. */

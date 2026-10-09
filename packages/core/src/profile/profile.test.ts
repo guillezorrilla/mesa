@@ -31,6 +31,7 @@ test('profile paths live under <home>/.mesa/<profile>', () => {
     prompts: '/h/.mesa/work/prompts.json',
     automations: '/h/.mesa/work/automations.yaml',
     automationState: '/h/.mesa/work/automation-state.yaml',
+    tickets: '/h/.mesa/work/tickets.yaml',
     pendingImportNotes: '/h/.mesa/work/pending-import-notes.yaml',
     backups: '/h/.mesa/work/backups',
     attachScripts: '/h/.mesa/work/attach',
