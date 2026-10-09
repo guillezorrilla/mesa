@@ -9,12 +9,14 @@ import { parseNote } from '../vault/frontmatter.js';
 
 /** The skill whose run writes an Import's notes (skills/import-notes). */
 export const IMPORT_NOTES = 'import-notes';
+/** The skill whose run picks what a session's Vault capture saves (skills/vault-capture). */
+export const VAULT_CAPTURE = 'vault-capture';
 
 /**
- * Skills Mesa's own pipelines run (an Import's notes): enabled for their own Skill run whatever
- * the skills lists say, and for nothing else.
+ * Skills Mesa's own pipelines run (an Import's notes, a Vault capture): enabled for their own
+ * Skill run whatever the skills lists say, and for nothing else.
  */
-export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES];
+export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES, VAULT_CAPTURE];
 
 /** Whether `skill` is one of Mesa's own pipeline skills. */
 export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill);

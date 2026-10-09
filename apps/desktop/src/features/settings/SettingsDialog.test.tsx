@@ -96,6 +96,15 @@ test('Sessions has the status line cost toggle, off by default, saved to session
   expect(sets(calls)).toEqual([['sessions.statusLineCost', 'true']]);
 });
 
+test('General has the vault capture toggle, on by default, saved to vault.capture', async () => {
+  const { bridge, calls } = fakeBridge({ 'config set': () => envelope({}) });
+  await render(bridge);
+  const toggle = document.getElementById('vault-capture');
+  expect(toggle?.getAttribute('aria-checked')).toBe('true');
+  await click(toggle ?? undefined);
+  expect(sets(calls)).toEqual([['vault.capture', 'false']]);
+});
+
 test('search finds a row in any category and hides the sections without a match', async () => {
   await render(fakeBridge().bridge);
   const search = document.querySelector<HTMLInputElement>('[aria-label="Search settings"]');

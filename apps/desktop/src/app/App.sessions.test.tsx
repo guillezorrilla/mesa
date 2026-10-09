@@ -362,6 +362,37 @@ test('session details list the additional projects with their worktree paths', a
   expect(byTestId('session-also-in')[0]?.textContent).toBe(`tide-pool ${path}`);
 });
 
+test("session details show the notes the session's vault capture saved, or why it saved none", async () => {
+  const row = managedRow('aaaaaaaa');
+  const notes = ['wiki/decisions/2026-09-24-tide-feed-retries.md', 'wiki/notes/tide-feed.md'];
+  let capture: object = { at: row.startedAt, state: 'done', run: 'bbbbbbbb', notes };
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([row]),
+    show: () =>
+      envelope({
+        ...row,
+        capture,
+        instructions: { state: 'missing', reason: 'Run mesa hooks install' },
+        vault: { state: 'missing', reason: 'Run mesa hooks install' },
+      }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  const details = document.querySelector('[aria-label="Session details"]') as HTMLElement;
+  await click(details);
+  expect(byTestId('session-vault-capture')[0]?.textContent).toBe(notes.join(''));
+  capture = {
+    at: row.startedAt,
+    state: 'failed',
+    reason: 'the vault-capture run returned no JSON array',
+  };
+  await click(details);
+  await click(details);
+  expect(byTestId('session-vault-capture')[0]?.textContent).toBe(
+    'Failed: the vault-capture run returned no JSON array',
+  );
+});
+
 test('a session row shows a badge per additional project', async () => {
   const row = managedRow('aaaaaaaa', {
     worktree: { path: '/w/lantern-cove/b', branch: 'b' },

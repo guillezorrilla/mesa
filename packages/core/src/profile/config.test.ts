@@ -318,3 +318,19 @@ test('agent launch defaults are unset by default, validate in each agent terms, 
   });
   expect(loadConfig(file).agents.codex).toEqual({ sandbox: 'read-only' });
 });
+
+test('vault capture is on by default, and vault.capture on|off sets it beside the vault path', () => {
+  expect(loadConfig(file).vaultCapture).toBe(true);
+  expect(setConfigValue(file, 'vault.capture', 'off', lockDeps())).toEqual({
+    value: false,
+    changed: true,
+  });
+  const config = loadConfig(file);
+  expect(config.vaultCapture).toBe(false);
+  expect(config.vault).toBe('/tmp/v');
+  expect(setConfigValue(file, 'vault.capture', 'true', lockDeps()).value).toBe(true);
+  expect(setConfigValue(file, 'vault.capture', 'on', lockDeps()).changed).toBe(false);
+  expect(thrown(() => setConfigValue(file, 'vault.capture', 'maybe', lockDeps()))).toMatchObject({
+    code: 'invalid_config',
+  });
+});

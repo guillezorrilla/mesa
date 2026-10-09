@@ -67,6 +67,22 @@ const SessionRecordFields = z.strictObject({
   about: z.string().regex(SHORT_ID).optional(),
   /** A failed run keeps its outcome when the hook and waiter both finish it. */
   runFailure: z.string().optional(),
+  /**
+   * Its Vault capture (CONTEXT.md): the vault-capture run over its conversation, claimed under the
+   * record's lock so its end signals start one; then the notes it saved and its receipt, or why
+   * it failed.
+   */
+  capture: z
+    .strictObject({
+      run: z.string().regex(SHORT_ID).optional(),
+      at: z.iso.datetime(),
+      state: z.enum(['running', 'done', 'failed']),
+      notes: z.array(z.string()).optional(),
+      /** Its receipt's vault path. */
+      receipt: z.string().optional(),
+      reason: z.string().optional(),
+    })
+    .optional(),
   /** The session it waits on, while queued, and the one it waited on after (CONTEXT.md, Queued session). */
   after: z.string().regex(SHORT_ID).optional(),
   /**

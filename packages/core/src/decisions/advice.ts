@@ -12,13 +12,23 @@ const ABSTAINED: Record<DecisionSite, string> = {
   evidence: 'Mesa is not sure whether the evidence supports the claim, so it gives no advice',
 };
 
+/** The most shared words a relevance answer names as its reason. */
+const SHARED_SHOWN = 3;
+
+/** Why a picked source bears on the query, in one clause: the words they share, if any. */
+function because(e: Evaluation, shared: readonly string[]) {
+  if (!shared.length) return '';
+  const words = shared.slice(0, SHARED_SHOWN).map((word) => `"${word}"`);
+  return `, because it shares ${words.join(', ')} with the ${e.mode === 'automatic' ? 'prompt' : 'query'}`;
+}
+
 /** What an accepted answer means at its site. */
-function acceptedText(e: Evaluation, how: string): string {
+function acceptedText(e: Evaluation, how: string, shared: readonly string[]): string {
   switch (e.site) {
     case 'relevance':
       return e.answer === 'none'
         ? `No vault source is relevant to the query${how}.`
-        : `Most relevant: ${e.answer}${how}. Read it before relying on it.`;
+        : `Most relevant: ${e.answer}${how}${because(e, shared)}. Read it before relying on it.`;
     case 'next-step':
       return e.answer === 'defer'
         ? `Mesa defers${how}: no candidate is clearly right; get more evidence or ask a person.`
@@ -32,11 +42,15 @@ function acceptedText(e: Evaluation, how: string): string {
   }
 }
 
-/** The advice an evaluation gives, in one or two sentences. */
-export function adviceText(e: Evaluation): string {
+/**
+ * The advice an evaluation gives, in one or two sentences; at relevance, `shared` are the words
+ * the picked source shares with the query (sharedWords), named as the reason.
+ */
+export function adviceText(e: Evaluation, shared: readonly string[] = []): string {
   if (e.status === 'unavailable') return `No advice: ${e.reason ?? 'no answer'}.`;
   const how = ` (margin ${(e.margin ?? 0).toFixed(2)}${e.model ? `, ${e.model}` : ''})`;
-  const text = e.status === 'abstained' ? `${ABSTAINED[e.site]}${how}.` : acceptedText(e, how);
+  const text =
+    e.status === 'abstained' ? `${ABSTAINED[e.site]}${how}.` : acceptedText(e, how, shared);
   return e.experimental
     ? `${text} Experimental: ${e.site} advice has not passed both of Mesa's gates for this model.`
     : text;

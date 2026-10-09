@@ -8,6 +8,8 @@ export const RECORD_KINDS = [
   'connection',
   'refresh',
   'automation',
+  // A Vault capture: the notes one session's capture saved, or why it saved none.
+  'capture',
 ] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
@@ -22,18 +24,22 @@ export const keepSuccess = (kind: RecordKind | undefined, outputs: Record<string
   kind === 'connection' ||
   kind === 'refresh' ||
   kind === 'automation' ||
+  kind === 'capture' ||
   (kind === 'guardrail' &&
     (typeof outputs.override === 'string' ||
       typeof outputs.dangerousFlags === 'string' ||
       typeof outputs.sandboxOverride === 'string'));
 
 export const keepFailure = (kind: RecordKind | undefined, code: string) =>
-  kind === 'automation' || (kind === 'guardrail' && code === 'guardrail_blocked');
+  kind === 'automation' ||
+  kind === 'capture' ||
+  (kind === 'guardrail' && code === 'guardrail_blocked');
 
 /** The same meaningful history policy in Obsidian Bases' expression syntax. */
 export const BASES_MEANINGFUL_FILTER = [
   '!(outputs && outputs.target.isType("string") && (outputs.target == "daily" || outputs.target.startsWith("daily/")))',
   '&& ((status == "ok" && (kind == "decision" || kind == "vault-change" || kind == "connection"',
+  '|| kind == "capture"',
   '|| (kind == "refresh" && outputs && ((outputs.refreshed.isType("list") && outputs.refreshed.length > 0)',
   '|| (outputs.notesWritten.isType("number") && outputs.notesWritten > 0)))',
   '|| (kind == "guardrail" && outputs',
@@ -43,7 +49,11 @@ export const BASES_MEANINGFUL_FILTER = [
   '&& outputs && outputs.error && outputs.error.code == "guardrail_blocked"))',
 ].join(' ');
 
-/** Successful knowledge and material guardrails, excluding Daily bookkeeping. */
+/**
+ * Successful knowledge and material guardrails, excluding Daily bookkeeping. A capture's success
+ * saved notes (one that saved none keeps no receipt); its failure, like an automation's, is kept
+ * as operations, not knowledge.
+ */
 export function meaningfulReceipt(receipt: Receipt): boolean {
   const { kind, status, outputs } = receipt;
   const target = outputs.target;
@@ -56,6 +66,7 @@ export function meaningfulReceipt(receipt: Receipt): boolean {
         (typeof outputs.notesWritten === 'number' && outputs.notesWritten > 0))
     );
   if (kind === 'automation') return false;
+  if (kind === 'capture') return status === 'ok';
   const error = outputs.error;
   return status === 'ok'
     ? keepSuccess(kind, outputs)

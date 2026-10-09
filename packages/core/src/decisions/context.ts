@@ -10,11 +10,14 @@ import { vaultFile } from '../vault/scope.js';
 import { searchVault } from '../vault/search.js';
 import { adviceText } from './advice.js';
 import type { Evaluation } from './evaluate.js';
-import { MAX_SOURCES, type Packet, relevancePacket, type Source } from './packet.js';
+import { MAX_SOURCES, type Packet, relevancePacket, type Source, sentSource } from './packet.js';
+import { sharedWords } from './shared-words.js';
 
 // Scoped context (CONTEXT.md, Scoped context): the relevance site over a session's own project.
 // The candidates come from the vault's owners (search, then the project's decisions and notes),
-// capped; the model may rank them, and never adds to them.
+// capped; the model may rank them, and never adds to them. An automatic ask (per turn, or the
+// saved goal's ready answer) offers only sources that share two content words with the query, so
+// a prompt about nothing in the vault asks nothing (#692).
 
 /** Where sources may come from: knowledge, never receipts, Daily notes or the layout notes. */
 const SOURCE_CATEGORIES = new Set<VaultCategory>(['wiki', 'projects', 'raw', 'user']);
@@ -34,18 +37,29 @@ export type ScopedContext = {
 /** The most characters of the saved goal a result repeats. */
 const GOAL_CHARS = 300;
 
+/** The fewest content words a source shares with the query for an automatic ask to offer it. */
+const AUTOMATIC_SHARED = 2;
+
 type Candidate = { path: string; title: string };
+
+/** The content words `source`, as a packet sends it, shares with `query`. */
+function sharedWith(query: string, source: Source) {
+  const sent = sentSource(source);
+  return sharedWords(query, `${sent.title} ${sent.excerpt}`);
+}
 
 /**
  * The sources for `session`: vault search for `query`, then its project's decisions and notes,
  * each once, the hub left out (it is required). A project session sees only its project; a General
  * session only items of no project (the conservative General policy). Each is read through the
- * vault's scope; one that does not read is left out. `revision` changes when any of them does.
+ * vault's scope; one that does not read is left out, and so, for an automatic ask, is one that
+ * shares fewer than AUTOMATIC_SHARED words with `query`. `revision` changes when any kept one does.
  */
 function sourcesOf(
   deps: { vault: string; store: SessionStore },
   session: SessionRecord,
   query: string,
+  mode: Evaluation['mode'],
 ) {
   const { vault } = deps;
   const project = projectScope(session.project);
@@ -81,7 +95,9 @@ function sourcesOf(
       .split('\n')
       .filter((line) => !/^\s*#/.test(line))
       .join(' ');
-    sources.push({ id: `note:${path}`, title: titles.get(path) ?? title, excerpt: body });
+    const source = { id: `note:${path}`, title: titles.get(path) ?? title, excerpt: body };
+    if (mode === 'automatic' && sharedWith(query, source).length < AUTOMATIC_SHARED) continue;
+    sources.push(source);
     revision.push(`${path}@${changed}`);
   }
   const hub = overview.hub && { path: overview.hub.path, headings: overview.hub.headings };
@@ -109,7 +125,7 @@ export async function scopedContext(
   run: (packet: Packet, revision: string) => Promise<Evaluation>,
   mode: Evaluation['mode'],
 ): Promise<ScopedContext> {
-  const { sources, hub, revision } = sourcesOf(deps, session, query);
+  const { sources, hub, revision } = sourcesOf(deps, session, query, mode);
   const { packet, sent } = relevancePacket(query, sources);
   const evaluation: Evaluation = sent.length
     ? await run(packet, revision)
@@ -117,9 +133,13 @@ export async function scopedContext(
         site: 'relevance',
         mode,
         status: 'unavailable',
-        reason: 'the vault holds no source for this session',
+        reason:
+          mode === 'automatic'
+            ? `no source shares ${AUTOMATIC_SHARED} words with the query`
+            : 'the vault holds no source for this session',
         latencyMs: 0,
       };
+  const picked = sent.find((source) => source.id === evaluation.answer);
   return {
     session: session.id,
     project: projectLabel(session.project),
@@ -130,6 +150,6 @@ export async function scopedContext(
     },
     sources: ranked(sent, evaluation),
     evaluation,
-    advice: adviceText(evaluation),
+    advice: adviceText(evaluation, picked ? sharedWith(query, picked) : []),
   };
 }

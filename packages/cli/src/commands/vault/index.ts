@@ -1,4 +1,5 @@
 import type { Command } from '../../command.js';
+import { vaultCapture } from './capture.js';
 import { vaultContext, vaultGoals } from './context.js';
 import { vaultHealth } from './health.js';
 import { vaultList, vaultOpen, vaultRead, vaultSearch } from './items.js';
@@ -10,6 +11,7 @@ import { vaultSaveDecision, vaultSaveNote, vaultSaveSummary } from './save.js';
 export const VAULT_COMMANDS: Command[] = [
   vaultHealth,
   vaultBases,
+  vaultCapture,
   vaultInit,
   vaultList,
   vaultMcp,

@@ -80,6 +80,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   config: () =>
     envelope({
       vault: '/h/vault',
+      vaultCapture: true,
       defaultAgent: 'claude',
       skills: [],
       decisions: { model: 'none', threshold: 0.7 },

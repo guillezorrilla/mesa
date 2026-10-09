@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, rmSync } from 'node:fs';
 
-// tsc emits code only. The published testing seam also reads these invented provider fixtures
-// and the invented attributions file.
-for (const dir of ['agents/claude', 'agents/codex', 'about']) {
+// tsc emits code only. The published testing seam also reads these invented provider fixtures,
+// the invented attributions file and the invented relevance vault.
+for (const dir of ['agents/claude', 'agents/codex', 'about', 'decisions']) {
   cpSync(
     new URL(`src/${dir}/fixtures`, import.meta.url),
     new URL(`dist/${dir}/fixtures`, import.meta.url),
