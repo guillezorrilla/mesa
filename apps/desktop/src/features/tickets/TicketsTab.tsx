@@ -45,7 +45,11 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
       (!current || t.views.includes(current)) &&
       (!words || `${t.key} ${t.summary}`.toLowerCase().includes(words)),
   );
-  const ticket = tickets.find((t) => t.key === selected) ?? tickets[0];
+  // Until one is picked, the first open ticket: done ones start collapsed in the list.
+  const ticket =
+    tickets.find((t) => t.key === selected) ??
+    tickets.find((t) => t.category !== 'done') ??
+    tickets[0];
   const counts = Object.fromEntries(
     views.map((v) => [
       v.name,

@@ -144,9 +144,10 @@ export function TicketPanel(props: {
               Comments {full.comments.length > 0 && <span>{full.comments.length}</span>}
             </h3>
             {full.comments.length ? (
-              full.comments.map((comment) => (
+              full.comments.map((comment, at) => (
                 <div
-                  key={`${comment.author}-${comment.created}`}
+                  // biome-ignore lint/suspicious/noArrayIndexKey: comments never reorder; two can share an author and time.
+                  key={at}
                   className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 text-sm"
                 >
                   <AssigneeAvatar name={comment.author} />

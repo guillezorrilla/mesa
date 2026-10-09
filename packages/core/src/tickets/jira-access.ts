@@ -44,7 +44,11 @@ export function jiraAccess(deps: JiraDeps) {
     },
     /** The signed-in account, whose id says which tickets are the person's. */
     me: () => {
-      me ??= atlassianAccount(get());
+      // A failed read is not kept: the next call asks again.
+      me ??= atlassianAccount(get()).catch((error: unknown) => {
+        me = undefined;
+        throw error;
+      });
       return me;
     },
   };

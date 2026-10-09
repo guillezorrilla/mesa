@@ -160,7 +160,7 @@ export function ticketViews(ctx: MesaContext) {
     /** `projectName`'s defaults, each one not set taking DEFAULTS'. */
     defaults: (projectName: string): TicketDefaults => ({
       ...DEFAULTS,
-      ...read().defaults[projectName],
+      ...read().defaults[project(projectName)],
     }),
     /** Changes some of `projectName`'s defaults, and returns them all. */
     setDefaults: (projectName: string, change: Partial<TicketDefaults>) => {

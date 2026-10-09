@@ -10,7 +10,7 @@ import type { Site } from './connection.js';
 /** How many boards, filters, or tickets one read lists. */
 // ponytail: one page each; a search narrows boards and filters, a view's JQL narrows tickets.
 const PAGE = 50;
-const TICKETS = 100;
+export const TICKETS = 100;
 
 /** A 2xx body parsed by `schema`, else Jira's own error messages, which name what is wrong. */
 async function jiraJson<T>(response: Response, schema: z.ZodType<T>, what: string): Promise<T> {

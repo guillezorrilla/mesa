@@ -11,6 +11,7 @@ import {
   type JiraTicket,
   searchTickets,
   sprints,
+  TICKETS,
 } from '../sources/jira-tickets.js';
 import type { SourceId } from '../sources/sources.js';
 import { type JiraDeps, jiraAccess } from './jira-access.js';
@@ -129,8 +130,8 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
         describe: describeView(view),
         jql: resolved.jql ?? null,
         count: found.length,
-        // ponytail: one page of TICKETS (100); "100 or more" is enough for a count.
-        more: found.length >= 100,
+        // ponytail: one page of TICKETS; "that many or more" is enough for a count.
+        more: found.length >= TICKETS,
         ...(resolved.sprints ? { sprints: resolved.sprints } : {}),
         ...(resolved.note ? { note: resolved.note } : {}),
       };
