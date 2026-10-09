@@ -78,7 +78,9 @@ test('the list groups tickets by status, and the panel shows the ticket whole an
     <TicketsTab project="lantern-cove" onSession={() => {}} />,
     bridge,
   );
-  const groups = [...document.querySelectorAll('[role="listbox"] [aria-expanded]')].map((g) => g.textContent);
+  const groups = [...document.querySelectorAll('[role="listbox"] [aria-expanded]')].map(
+    (g) => g.textContent,
+  );
   expect(groups).toEqual(['In progress1', 'To do1']);
   expect(byTestId('ticket-row')[0]?.textContent).toContain('LC-1Retry the tide feedLive');
   expect(byTestId('view-switcher')[0]?.textContent).toContain('sprintTide 7');

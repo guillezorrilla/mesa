@@ -52,7 +52,7 @@ export function TicketPanel(props: {
       return undefined;
     });
   return (
-    <div className="flex min-h-0 flex-col" data-testid="ticket-panel">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="ticket-panel">
       <div className="grid flex-1 content-start gap-5 overflow-auto px-6 py-5">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Button variant="ghost" size="sm" className="-ml-2 md:hidden" onClick={props.onBack}>
@@ -178,7 +178,7 @@ export function TicketPanel(props: {
           onSession={props.onSession}
         />
       ) : (
-        <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t bg-card/90 px-6 py-3.5 backdrop-blur">
+        <div className="flex flex-wrap items-center gap-3 border-t bg-card px-6 py-3.5">
           <span className="min-w-40 flex-1 text-xs text-muted-foreground">
             {[
               props.prompt ?? 'No prompt',

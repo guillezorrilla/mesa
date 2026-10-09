@@ -139,7 +139,12 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
                 </Muted>
               )}
             </div>
-            <div className={cn('max-h-[40rem] min-h-0', !narrowTicket && 'max-md:hidden')}>
+            <div
+              className={cn(
+                'flex max-h-[40rem] min-h-0 flex-col',
+                !narrowTicket && 'max-md:hidden',
+              )}
+            >
               {ticket && data && (
                 <TicketPanel
                   key={ticket.key}
