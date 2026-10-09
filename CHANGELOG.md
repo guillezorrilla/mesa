@@ -2,6 +2,13 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.7 - 2026-10-09
+
+### Features
+
+- **vault**: make the project Vault tab's overview read cleanly (#719)
+- **imports**: run Picker imports in the background with progress in the Context tab (#717)
+
 ## 0.2.6 - 2026-10-09
 
 ### Features
