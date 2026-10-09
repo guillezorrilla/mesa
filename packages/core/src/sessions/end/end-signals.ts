@@ -24,9 +24,9 @@ import type { StopOutcome } from './stop.js';
 // hook's event, a stop, or a look at the board. Each starts what was queued after the session
 // (CONTEXT.md, Queued session), with its receipt; a look starts what a missed signal left
 // waiting. No daemon. An interactive session's end (its agent's SessionEnd, pane-died, a stop,
-// or a look that found its exit) also starts its Vault capture, once. An agent hook may also answer its agent:
-// the pointer at its start, and decision advice with a prompt (ADR-0019, #463), only for the
-// native conversation Mesa holds.
+// or a look that found its exit) also starts its Vault capture, one run over its new messages.
+// An agent hook may also answer its agent: the pointer at its start, and decision advice with a
+// prompt (ADR-0019, #463), only for the native conversation Mesa holds.
 
 /** One profile's signals that a session ended, and the queue trigger they share, for the sessions service. */
 export function endSignals(
@@ -143,7 +143,7 @@ export function endSignals(
     /**
      * The board, once it has started what it found due: a queued session whose session is over
      * by this look, which a missed signal left waiting, and the capture of a session whose exit
-     * it found (a warning there never fails the look).
+     * it found, a Claude background one's too (a warning there never fails the look).
      */
     board: async (all = false) => {
       const rows = await deps.look(all);
@@ -159,20 +159,22 @@ export function endSignals(
             return { events: [...current.events, { type: 'exited', at: clock().toISOString() }] };
           });
           await markExited(ctx, exited);
+          if (newlyExited) await deps.capture(exited.id);
           finishedRun ||= newlyExited;
           continue;
         }
-        const exited =
-          (await recordPaneDied(
-            { store, tmux, clock },
-            row.tmux.session,
-            row.tmux.window,
-            'tmux',
-          )) ?? store.find(row.id);
+        const found = await recordPaneDied(
+          { store, tmux, clock },
+          row.tmux.session,
+          row.tmux.window,
+          'tmux',
+        );
+        const exited = found ?? store.find(row.id);
         // The signal may have saved the exit but missed its receipt (or beaten its creation).
         if (!exited || exited.endedAt || !exited.events.some((e) => e.type === 'exited')) continue;
         await finishExit(exited);
-        if (exited.kind !== 'run') await deps.capture(exited.id);
+        // Captured only by the look that found the exit: the signal that recorded one captures it.
+        if (found && exited.kind !== 'run') await deps.capture(exited.id);
         finishedRun ||= exited.kind === 'run';
       }
       const overNow = (id: string) => {

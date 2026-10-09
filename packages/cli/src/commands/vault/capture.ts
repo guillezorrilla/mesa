@@ -5,7 +5,7 @@ import { recordedOutput } from '../../output/recorded.js';
 export const vaultCapture = defineCommand({
   name: 'vault capture',
   summary:
-    "Capture a session's durable decisions and findings into the vault now: one vault-capture run over its conversation, waited for, then the notes it saved; exits 1 when it saved none because it failed",
+    "Capture a session's durable decisions and findings into the vault now: one vault-capture run over its messages since its last capture, waited for, then the notes it saved; exits 1 when it saved none because it failed",
   args: ['session'],
   example: 'mesa vault capture a1b2c3d4',
   run: async ({ mesa, args }) => {

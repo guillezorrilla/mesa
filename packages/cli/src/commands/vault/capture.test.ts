@@ -10,9 +10,16 @@ const NOTE = {
   title: 'The tide feed answers 503 on the hour',
   body: 'It rebuilds its cache on the hour; retry after 15 s.',
 };
+const ASKED = '2026-10-08T09:00:00.000Z';
 const TRANSCRIPT = JSON.stringify({
   type: 'user',
+  timestamp: ASKED,
   message: { role: 'user', content: 'Why does the tide feed fail on the hour?' },
+});
+const LATER = JSON.stringify({
+  type: 'user',
+  timestamp: '2026-10-08T09:05:00.000Z',
+  message: { role: 'user', content: 'Does it fail on the half hour too?' },
 });
 
 test('vault capture runs a capture of the session now and prints the notes it saved; show keeps them', async () => {
@@ -39,7 +46,12 @@ test('vault capture runs a capture of the session now and prints the notes it sa
     state: 'done',
     notes: [path],
     receipt: json.json.data.receipt.path,
+    through: ASKED,
   });
+  // Nothing said since: nothing to capture.
+  const none = await cli.mesa('vault', 'capture', id, '--json');
+  expect(none.json).toMatchObject({ ok: false, error: { code: 'usage' } });
+  plantTranscript(cli.home, agentSessionId, dir, `${TRANSCRIPT}\n${LATER}`);
   const text = await cli.mesa('vault', 'capture', id);
   expect(text.code).toBe(0);
   expect(text.stdout).toContain('nothing to save: run ');

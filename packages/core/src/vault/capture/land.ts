@@ -47,12 +47,23 @@ type Landed = { notes: string[]; items: SavedItem[]; again?: true };
 /** An item ready to land: its note, the note found to cover it, and the name a new one takes. */
 type Planned = { item: CaptureItem; title: string; note: Note; covering?: string; name: string };
 
-/** The capture field of session `id` from now on, replaced under its record's lock. */
+/**
+ * The capture field of session `id` from now on, replaced under its record's lock, with its mark:
+ * `through` moves to the claim's `upTo` when run `landed` lands the claim it holds (or one with no
+ * run yet, as a run quick enough to land first or a capture by hand has); else it stays.
+ */
 const settle = (
   store: CaptureContext['store'],
   id: string,
   capture: NonNullable<SessionRecord['capture']>,
-) => store.update(id, () => ({ capture }));
+  landed?: string,
+) =>
+  store.update(id, (current) => {
+    const claim = current.capture?.state === 'running' ? current.capture : undefined;
+    const ours = landed && claim && (!claim.run || claim.run === landed);
+    const through = (ours && claim.upTo) || current.capture?.through;
+    return { capture: { ...capture, ...(through ? { through } : {}) } };
+  });
 
 /**
  * The receipt of `about`'s capture by `run`: kind `capture`, kept whether it saved notes or
@@ -161,9 +172,10 @@ function write(ctx: CaptureContext, about: SessionRecord, planned: readonly Plan
  * Lands vault-capture run `run`'s result `read` for the session it is about, once per run
  * (finishRun may end a run twice): its items parsed (captureItems, from the redacted output) and
  * their covering notes found, then, under the vault lock, all written or none, and the session's
- * record `done` with the notes, under one `capture` receipt (none for a capture that saved
- * nothing). A run that failed, output that does not read, or a refused write changes no note,
- * and the record and a failed receipt say why. Never throws: its receipt, and a warning.
+ * record `done` with the notes and its mark moved (settle), under one `capture` receipt (none
+ * for a capture that saved nothing). A run that failed, output that does not read, or a refused
+ * write changes no note and keeps the mark, and the record and a failed receipt say why. Never
+ * throws: its receipt, and a warning.
  */
 export async function landCapture(
   ctx: CaptureContext,
@@ -194,12 +206,12 @@ export async function landCapture(
         try {
           if (problem) throw problem;
           const landed = write(ctx, about, planned);
-          settle(ctx.store, about.id, {
-            run: run.id,
-            at: at(),
-            state: 'done',
-            notes: landed.notes,
-          });
+          settle(
+            ctx.store,
+            about.id,
+            { run: run.id, at: at(), state: 'done', notes: landed.notes },
+            run.id,
+          );
           return landed;
         } catch (error) {
           const reason = toFail(error).error.message;

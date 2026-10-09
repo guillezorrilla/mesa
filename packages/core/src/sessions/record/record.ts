@@ -81,6 +81,10 @@ const SessionRecordFields = z.strictObject({
       /** Its receipt's vault path. */
       receipt: z.string().optional(),
       reason: z.string().optional(),
+      /** The newest message a landed capture was given: a later one reads only newer messages. */
+      through: z.iso.datetime().optional(),
+      /** While running: the newest message its run was given, `through` once it lands. */
+      upTo: z.iso.datetime().optional(),
     })
     .optional(),
   /** The session it waits on, while queued, and the one it waited on after (CONTEXT.md, Queued session). */
