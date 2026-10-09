@@ -7,7 +7,7 @@ import { warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { FileEditor } from '@/features/files/FileEditor';
 import { useUnloadGuard } from '@/features/files/useUnloadGuard';
-import { PROSE } from '@/features/vault/VaultReader';
+import { PROSE } from '@/features/vault/NoteMarkdown';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';

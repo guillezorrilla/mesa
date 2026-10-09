@@ -30,11 +30,33 @@ const CONTEXT: ProjectContext = {
   more: 'Nothing left out.',
 };
 
-const texts = (rows: HTMLElement[]) => rows.map((row) => row.textContent);
+const titles = (rows: HTMLElement[]) => rows.map((row) => row.querySelector('span')?.textContent);
+const HUB_BODY = '# Tide\n\n## Imported\n\n- [[wiki/currents]]: Currents of the cove\n';
+const READ = {
+  path: 'projects/tide.md',
+  uri: 'obsidian://open?vault=vault&file=projects%2Ftide.md',
+  backlinks: [],
+  preview: 'markdown',
+  frontmatter: {},
+  body: HUB_BODY,
+  links: [
+    {
+      text: '[[wiki/currents]]',
+      start: HUB_BODY.indexOf('[['),
+      end: HUB_BODY.indexOf(']]') + 2,
+      syntax: 'wikilink',
+      embed: false,
+      target: 'wiki/currents',
+      status: 'resolved',
+      path: 'wiki/currents.md',
+    },
+  ],
+};
 
-test('the hub excerpt with Open in Obsidian, related notes and summaries that open in the Vault, and recent goals', async () => {
+test('the hub, read with its links, beside related notes and recent sessions that open in the Vault', async () => {
   const { bridge, calls } = fakeBridge({
     'vault context': () => envelope(CONTEXT),
+    'vault read': () => envelope(READ),
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'obsidian://open' }),
   });
   const opened: string[] = [];
@@ -43,9 +65,14 @@ test('the hub excerpt with Open in Obsidian, related notes and summaries that op
     bridge,
   );
   expect(calls).toContainEqual(['--json', 'vault', 'context', '--', 'tide']);
+  expect(calls).toContainEqual(['--json', 'vault', 'read', '--', 'projects/tide.md']);
   const hub = byTestId('vault-overview-hub')[0];
-  expect(hub?.querySelector('h2')?.textContent).toBe('Purpose');
-  expect(hub?.textContent).toContain('Tide tables for the cove.');
+  expect(hub?.querySelector('h2')?.textContent).toBe('Imported');
+  // A bare link followed by its title shows the title alone, and opens its note.
+  const link = byTestId('vault-link')[0];
+  expect(link?.textContent).toBe('Currents of the cove');
+  expect(hub?.textContent).not.toContain('[[');
+  await click(link);
   await click(
     [...(hub?.querySelectorAll('button') ?? [])].find((b) =>
       b.textContent?.includes('Open in Obsidian'),
@@ -53,17 +80,30 @@ test('the hub excerpt with Open in Obsidian, related notes and summaries that op
   );
   expect(calls.at(-1)).toEqual(['--json', 'vault', 'open', '--', 'projects/tide.md']);
 
-  expect(texts(byTestId('vault-overview-note'))).toEqual([
-    'Currents2026-09-24',
-    'Eddies2026-09-23',
-  ]);
+  expect(titles(byTestId('vault-overview-note'))).toEqual(['Currents', 'Eddies']);
   await click(byTestId('vault-overview-note')[1]);
-  expect(texts(byTestId('vault-overview-goal'))).toEqual([
-    'Chart the neapscodex · 2026-09-25Summary',
-    'No goalclaude · 2026-09-20',
-  ]);
-  await click(byTestId('vault-overview-goal')[0]?.querySelector('button') ?? undefined);
-  expect(opened).toEqual(['wiki/eddies.md', 'wiki/sessions/bbbbbbbb.md']);
+  const goals = byTestId('vault-overview-goal');
+  expect(titles(goals)).toEqual(['Chart the neaps', 'No goal set']);
+  expect(goals[0]?.textContent).toContain('codex');
+  await click(
+    [...(goals[0]?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'Summary'),
+  );
+  expect(opened).toEqual(['wiki/currents.md', 'wiki/eddies.md', 'wiki/sessions/bbbbbbbb.md']);
+});
+
+test('a long list of related notes shows eight, with Show all', async () => {
+  const notes = Array.from({ length: 12 }, (_, at) => ({
+    path: `wiki/tide-${at}.md`,
+    title: `Tide ${at}`,
+    modified: '2026-09-24T12:00:00.000Z',
+  }));
+  const { bridge } = fakeBridge({ 'vault context': () => envelope({ ...CONTEXT, notes }) });
+  const byTestId = await renderWithMesa(<VaultOverview project="tide" onItem={() => {}} />, bridge);
+  expect(byTestId('vault-overview-note')).toHaveLength(8);
+  await click(
+    [...document.querySelectorAll('button')].find((b) => b.textContent === 'Show all 12 notes'),
+  );
+  expect(byTestId('vault-overview-note')).toHaveLength(12);
 });
 
 test('a project with no knowledge shows an empty state and opens Import', async () => {
