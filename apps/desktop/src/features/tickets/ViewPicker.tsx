@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useCommand } from '@/lib/useCommand';
+import { SourceError } from '@/features/projects/import/SourceError';
+import { type CommandState, useCommand } from '@/lib/useCommand';
 
 /** A board or saved filter a view can name. */
 export type Pick = { id: string; name: string };
@@ -9,6 +10,7 @@ type Choice = Pick & { hint: string };
 /** The choices as radio rows; the first is picked until the person picks another. */
 function Choices(props: {
   label: string;
+  read: CommandState<unknown>;
   choices: Choice[] | undefined;
   picked: Pick | undefined;
   onPick: (pick: Pick) => void;
@@ -18,6 +20,9 @@ function Choices(props: {
   useEffect(() => {
     if (!picked && first) onPick({ id: first.id, name: first.name });
   }, [picked, first, onPick]);
+  // A token without the Jira Software scopes lands here: Reconnect signs in again and reloads.
+  if (props.read.error && !choices)
+    return <SourceError source="atlassian" error={props.read.error} onRetry={props.read.refresh} />;
   return (
     <div
       role="radiogroup"
@@ -56,14 +61,28 @@ function Boards(props: { search: string; picked: Pick | undefined; onPick: (p: P
     name: b.name,
     hint: [b.type, b.project].filter(Boolean).join(', '),
   }));
-  return <Choices label="Boards" choices={choices} picked={props.picked} onPick={props.onPick} />;
+  return (
+    <Choices
+      label="Boards"
+      read={read}
+      choices={choices}
+      picked={props.picked}
+      onPick={props.onPick}
+    />
+  );
 }
 
 function Filters(props: { search: string; picked: Pick | undefined; onPick: (p: Pick) => void }) {
   const read = useCommand('tickets.filters', { search: props.search });
   const choices = read.data?.filters.map((f) => ({ id: f.id, name: f.name, hint: '' }));
   return (
-    <Choices label="Saved filters" choices={choices} picked={props.picked} onPick={props.onPick} />
+    <Choices
+      label="Saved filters"
+      read={read}
+      choices={choices}
+      picked={props.picked}
+      onPick={props.onPick}
+    />
   );
 }
 
