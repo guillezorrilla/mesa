@@ -14,6 +14,8 @@ const ViewSchema = z
     name: z.string().trim().min(1).max(60),
     /** The Atlassian site's cloud id. */
     site: z.string().min(1),
+    /** Its name, kept to say which site to reconnect to. */
+    siteName: z.string().optional(),
     board: z.number().int().positive().optional(),
     /** A board view's board name, kept to show it. */
     boardName: z.string().optional(),

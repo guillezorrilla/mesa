@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { importProfile, newSession, TEST_JIRA, testStore } from '../testing/index.js';
 
@@ -144,4 +145,17 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   expect(await goal('Hotfix flow')).toMatch(/^Smallest safe change\.\n\nWork on the imported/);
   expect(await goal(null)).toMatch(/^Work on the imported Jira issue LC-12/);
   await expect(goal('Missing')).rejects.toThrow('no saved prompt Missing');
+});
+
+test('a view of a site the connection no longer reaches names the site and asks to reconnect', async () => {
+  const { mesa, home } = await setUp();
+  await mesa.tickets.addView({ name: 'mine', jql: 'project = LC' });
+  mesa.tickets.follow('lantern-cove', 'mine');
+  // Signed in again to another account: the view's site is gone from the connection.
+  const file = `${home}/.mesa/default/tickets.yaml`;
+  writeFileSync(file, readFileSync(file, 'utf8').replace('site: cloud-1', 'site: cloud-9'));
+  expect((await mesa.tickets.list('lantern-cove')).views[0]).toMatchObject({
+    error: 'Atlassian is signed in to another site: reconnect to lantern-cove to read this view',
+    connect: 'atlassian',
+  });
 });

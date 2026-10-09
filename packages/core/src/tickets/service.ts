@@ -25,7 +25,9 @@ export type TicketsDeps = JiraDeps & {
 };
 
 /** What `mesa tickets views add` takes: the view, its site when the connection reaches several. */
-export type ViewInput = Omit<TicketView, 'site' | 'boardName' | 'filterName'> & { site?: string };
+export type ViewInput = Omit<TicketView, 'site' | 'siteName' | 'boardName' | 'filterName'> & {
+  site?: string;
+};
 
 /** A ticket in a project's Tickets tab: the views that list it and the live sessions from it. */
 export type Ticket = JiraTicket & {
@@ -76,7 +78,7 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     const { site: siteName, ...rest } = input;
     const site = await jira.siteOf(siteName);
     const sprint = rest.board !== undefined ? { sprint: rest.sprint ?? 'current' } : {};
-    return { site, view: parseView({ ...rest, ...sprint, site: site.id }) };
+    return { site, view: parseView({ ...rest, ...sprint, site: site.id, siteName: site.name }) };
   };
 
   const savedPrompt = (name: string) => {
@@ -191,7 +193,11 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
           followed.map(async (view) => {
             const site = sites.find((s) => s.id === view.site);
             if (!site)
-              throw new MesaError('not_found', 'its Atlassian site is no longer connected');
+              throw new MesaError(
+                'invalid_config',
+                `Atlassian is signed in to another site: reconnect to ${view.siteName ?? view.site} to read this view`,
+                { connect: 'atlassian' },
+              );
             const resolved = await resolve(view, site);
             const found = resolved.jql ? await searchTickets(get(), site, resolved.jql) : [];
             return { site, resolved, found };

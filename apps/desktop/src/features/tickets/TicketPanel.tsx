@@ -70,7 +70,7 @@ export function TicketPanel(props: {
         </div>
         <h2 className="text-xl leading-snug font-semibold text-balance">{ticket.summary}</h2>
         {sessions.length > 0 && (
-          <div className="flex items-center gap-2.5 rounded-lg bg-state-done/10 px-3 py-2 text-sm">
+          <div className="flex items-center gap-2.5 rounded-lg bg-state-working/10 px-3 py-2 text-sm">
             <LiveDot />
             <span>
               A session is working on this in{' '}

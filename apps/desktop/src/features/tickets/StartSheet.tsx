@@ -71,7 +71,7 @@ export function StartSheet(props: {
               <span
                 className={cn(
                   'grid size-[18px] place-items-center rounded-full border',
-                  step.state === 'done' && 'border-state-done bg-state-done text-white',
+                  step.state === 'done' && 'border-state-idle bg-state-idle text-white',
                   step.state === 'failed' && 'border-state-failed bg-state-failed text-white',
                 )}
               >
