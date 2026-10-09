@@ -100,6 +100,8 @@ const ConfigShape = z.strictObject({
       statusLineCost: z.boolean().default(false),
       /** Forward PR events into their sessions (CONTEXT.md, PR event). */
       prEvents: z.boolean().default(false),
+      // The agent-guidelines skill for every project, and the pointer line naming it.
+      guidelines: z.boolean().default(true),
     })
     .prefault({}),
   usage: z

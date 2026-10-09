@@ -1,5 +1,11 @@
 import { AGENT_LABELS, AGENT_NAMES } from '@mesa/core/browser';
-import { BookMarked, CircleDollarSign, ScrollText, SquareTerminal } from 'lucide-react';
+import {
+  BookMarked,
+  CircleDollarSign,
+  GraduationCap,
+  ScrollText,
+  SquareTerminal,
+} from 'lucide-react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { ChoiceField } from './controls/ChoiceField';
@@ -10,7 +16,7 @@ import { useSettings } from './useSettings';
 
 /**
  * What a new session starts with, whether its output is kept, whether Claude's status line shows
- * its cost, and the saved prompts.
+ * its cost, whether its agent gets the agent guidelines, and the saved prompts.
  */
 export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
   const { config } = useSettings();
@@ -74,6 +80,26 @@ export function SessionSettingsPanel(props: { onSavedPrompts: () => void }) {
               id="sessions-status-line-cost"
               path="sessions.statusLineCost"
               checked={config.sessions.statusLineCost}
+            />
+          }
+        />
+      </SettingSection>
+      <SettingSection
+        id="guidelines"
+        title="Guidelines"
+        description="Habits Mesa teaches the agents in its sessions"
+      >
+        <SettingRow
+          icon={GraduationCap}
+          title="Agent guidelines"
+          description="Give every project the agent-guidelines skill, learned from real sessions: ask only what is yours to decide, leave your machine as it was, verify the way you run things. Applies to sessions started or resumed from now on."
+          htmlFor="sessions-guidelines"
+          keywords="skill habits rules behaviour behavior agent-guidelines"
+          control={
+            <ToggleField
+              id="sessions-guidelines"
+              path="sessions.guidelines"
+              checked={config.sessions.guidelines}
             />
           }
         />

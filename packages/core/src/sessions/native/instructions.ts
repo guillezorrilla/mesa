@@ -3,6 +3,7 @@ import { hooksStatus as claudeHooks } from '../../agents/claude/hooks.js';
 import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
 import type { Env } from '../../lib/process.js';
+import { GUIDELINES } from '../../skills/library.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
 
@@ -61,16 +62,23 @@ export const DECISIONS_LINE =
   "Decisions: mesa-decisions' decision_evaluate (or mesa decisions evaluate --json) gives advice only. Before presenting options with a recommendation, ask next-step and show its probabilities beside it and in save_decision; preference questions are the person's. Before claiming a task done, ask evidence. Prompts may carry Mesa advice; weigh it, it never acts.";
 
 /**
+ * The line a pointer carries while `sessions.guidelines` is on: when to read the agent-guidelines
+ * skill, since a listed skill is only read when the agent decides to (#703).
+ */
+export const GUIDELINES_LINE = `Guidelines: before live tests, config writes outside the repo, or asking the person for access or a decision, read the ${GUIDELINES} skill.`;
+
+/**
  * A bounded native hook supplement, under 1,000 bytes and with no vault content: the session, how
  * to reach Mesa and the vault tools (ADR-0012), and the CLI when they are not there; with
- * `decisions` (the session's agent has the decision tool), DECISIONS_LINE after it. Provider and
- * repository instructions stay intact.
+ * `guidelines` (sessions.guidelines is on), GUIDELINES_LINE after it, and with `decisions` (the
+ * session's agent has the decision tool), DECISIONS_LINE last. Provider and repository
+ * instructions stay intact.
  */
 export function mesaPointer(
   record: SessionRecord,
   profile: string,
   cwd: string,
-  { decisions = false }: { decisions?: boolean } = {},
+  { decisions = false, guidelines = false }: { decisions?: boolean; guidelines?: boolean } = {},
 ): string {
   const prefix = record.agent === 'codex' ? '$' : '/';
   const skills =
@@ -91,7 +99,11 @@ export function mesaPointer(
     `Without the tools: ${vault} and the mesa-vault skill.`,
   ];
   if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));
-  return [...lines, ...(decisions ? [DECISIONS_LINE] : [])].join('\n');
+  return [
+    ...lines,
+    ...(guidelines ? [GUIDELINES_LINE] : []),
+    ...(decisions ? [DECISIONS_LINE] : []),
+  ].join('\n');
 }
 
 /** The cap a pointer stays under, in UTF-8 bytes. */

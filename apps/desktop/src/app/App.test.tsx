@@ -2743,7 +2743,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
     defaultAgent: 'claude',
     skills: [],
     decisions: { model: 'none', threshold: 0.7 },
-    sessions: { log: true, statusLineCost: false, prEvents: false },
+    sessions: { log: true, statusLineCost: false, prEvents: false, guidelines: true },
     usage: { dailyAlertUsd: 0, weeklyAlertUsd: 0, monthlyAlertUsd: 0 },
     notifications: {
       quiet: false,

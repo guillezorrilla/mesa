@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { newSession } from '../../testing/index.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
-import { DECISIONS_LINE, mesaPointer } from './instructions.js';
+import { DECISIONS_LINE, GUIDELINES_LINE, mesaPointer } from './instructions.js';
 
 // The longest ids and paths a pointer realistically names: a long profile and project, and a
 // worktree of a long branch under a long home.
@@ -65,6 +65,21 @@ test('a session across projects names them in one line, eliding past the 1,000-b
   }
   expect(mesaPointer(record({}), PROFILE, CWD)).not.toContain('Also in');
 });
+
+test.each(['claude', 'codex', 'antigravity'] as const)(
+  'with sessions.guidelines on, the %s pointer names the agent-guidelines skill, before decisions',
+  (agent) => {
+    const plain = mesaPointer(record({ agent }), PROFILE, CWD);
+    expect(plain).not.toContain('Guidelines:');
+    expect(mesaPointer(record({ agent }), PROFILE, CWD, { guidelines: true })).toBe(
+      `${plain}\n${GUIDELINES_LINE}`,
+    );
+    expect(GUIDELINES_LINE).toContain('read the agent-guidelines skill');
+    expect(
+      mesaPointer(record({ agent }), PROFILE, CWD, { guidelines: true, decisions: true }),
+    ).toBe(`${plain}\n${GUIDELINES_LINE}\n${DECISIONS_LINE}`);
+  },
+);
 
 test.each(['claude', 'codex', 'antigravity'] as const)(
   'with the decision tool, the %s pointer ends with one capability line of under 400 bytes',

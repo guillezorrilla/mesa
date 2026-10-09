@@ -18,6 +18,9 @@ export const VAULT_CAPTURE = 'vault-capture';
  */
 export const PIPELINE_SKILLS: readonly string[] = [IMPORT_NOTES, VAULT_CAPTURE];
 
+/** The skill `sessions.guidelines` enables for every project (skills/agent-guidelines). */
+export const GUIDELINES = 'agent-guidelines';
+
 /** Whether `skill` is one of Mesa's own pipeline skills. */
 export const isPipelineSkill = (skill: string) => PIPELINE_SKILLS.includes(skill);
 
