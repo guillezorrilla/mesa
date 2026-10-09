@@ -1,4 +1,5 @@
 import type { ViewInput } from '@mesa/core';
+import { SquareKanban } from 'lucide-react';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
@@ -82,7 +83,12 @@ export function FollowViewDialog(props: {
     <ActionDialog
       testId="follow-view-dialog"
       wide
-      title="Follow a view"
+      title={
+        <span className="flex items-center gap-2">
+          <SquareKanban aria-hidden className="size-4 text-state-working" />
+          Follow a Jira view
+        </span>
+      }
       description="Its tickets show up in this tab and stay current as sprints change."
       submit={{ label: 'Follow', testId: 'confirm-follow-view', disabled: acting || !view }}
       onSubmit={() => follow()}

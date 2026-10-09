@@ -53,6 +53,12 @@ const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(
     (item) => item.textContent?.trim() === label || item.getAttribute('aria-label') === label,
   );
+const atlassian = (status: 'connected' | 'needs-reconnect' | 'disconnected') => ({
+  id: 'atlassian',
+  label: 'Atlassian',
+  connected: status !== 'disconnected',
+  status,
+});
 const words = (calls: string[][]) => calls.map((args) => args.slice(1).join(' '));
 
 test('the list groups tickets by status, and the panel shows the ticket whole and assigns it', async () => {
@@ -157,6 +163,7 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
       }),
     'tickets preview': () =>
       envelope({ describe: 'x', jql: '(sprint = 7) ORDER BY Rank ASC', count: 3, more: false }),
+    'sources list': () => envelope({ sources: [atlassian('connected')] }),
     'tickets views add': () => envelope({ name: 'Tide team sprint', describe: 'x' }),
     'tickets follow': () => {
       followed = true;
@@ -167,8 +174,8 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
     <TicketsTab project="lantern-cove" onSession={() => {}} />,
     bridge,
   );
-  expect(byTestId('tickets-tab')[0]?.textContent).toContain('See your sprint here');
-  await click(button('Follow a view'));
+  expect(byTestId('tickets-tab')[0]?.textContent).toContain('Pick the Jira tickets to show here');
+  await click(button('Follow a Jira view'));
   const dialog = () => byTestId('follow-view-dialog')[0]?.textContent ?? '';
   // The board view another project follows can be followed in one click.
   expect(dialog()).toContain('Views you already have');
@@ -182,6 +189,38 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
     'tickets follow -- lantern-cove Tide team sprint',
   ]);
   expect(byTestId('follow-view-dialog')).toHaveLength(0);
+});
+
+test('with no view and Jira not connected, the tab names Jira and signs in with Atlassian first', async () => {
+  let status: 'connected' | 'disconnected' = 'disconnected';
+  const { bridge, calls } = fakeBridge({
+    tickets: () => listOf([], []),
+    'sources list': () => envelope({ sources: [atlassian(status)] }),
+    'sources connect': () => {
+      status = 'connected';
+      return envelope(atlassian(status));
+    },
+  });
+  const byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(byTestId('tickets-tab')[0]?.textContent).toContain('Bring your Jira sprint into Mesa');
+  expect(button('Follow a Jira view')).toBeUndefined();
+  await click(button('Connect Jira'));
+  expect(words(calls)).toContain('sources connect atlassian');
+  expect(byTestId('tickets-tab')[0]?.textContent).toContain('Signed in with Atlassian');
+  expect(button('Follow a Jira view')).toBeDefined();
+});
+
+test('with no view and an expired Atlassian sign-in, the tab offers Reconnect Jira', async () => {
+  const { bridge } = fakeBridge({
+    tickets: () => listOf([], []),
+    'sources list': () => envelope({ sources: [atlassian('needs-reconnect')] }),
+  });
+  await renderWithMesa(<TicketsTab project="lantern-cove" onSession={() => {}} />, bridge);
+  expect(button('Reconnect Jira')).toBeDefined();
+  expect(button('Follow a Jira view')).toBeUndefined();
 });
 
 test('a view that needs a fresh sign-in says so and offers Reconnect', async () => {
