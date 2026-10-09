@@ -3,7 +3,7 @@ import type { DoctorReport, InboxItem } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
 import { useState } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa, toastTexts } from '@/lib/testing';
+import { click, envelope, failure, fakeBridge, renderWithMesa, toastTexts } from '@/lib/testing';
 import { NotificationsMenu } from './NotificationsMenu';
 
 const hooks: InboxItem = {
@@ -265,4 +265,35 @@ test('opening a session reads its notice, so the bell counts one fewer unread', 
     finished.id,
   ]);
   expect(bell()).toBe('Notifications, 1 unread');
+});
+
+test('a notice a newer turn replaced is read quietly, without an error toast', async () => {
+  const newer: InboxItem = { ...finished, id: '2026-09-23T09:05:00.000Z:turn', read: true };
+  let replaced = false;
+  const { bridge, calls } = fakeBridge({
+    notifications: () => envelope([replaced ? newer : finished]),
+    // The session finished another turn after the list was read, so its old notice is gone.
+    'notifications read': (args) => {
+      replaced = true;
+      return failure(`no inbox item ${args.at(-1)}`);
+    },
+  });
+  const byTestId = await renderWithMesa(
+    <NotificationsMenu
+      open={false}
+      onOpenChange={() => {}}
+      onSession={() => {}}
+      onDoctor={() => {}}
+      onAutomations={() => {}}
+      onSettings={() => {}}
+      onRecheck={async () => {}}
+      session="aaaaaaaa"
+    />,
+    bridge,
+  );
+  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual([
+    finished.id,
+  ]);
+  expect(toastTexts(byTestId)).toEqual([]);
+  expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications');
 });

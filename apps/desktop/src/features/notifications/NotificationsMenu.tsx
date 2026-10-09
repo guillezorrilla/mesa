@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { codexReviewMessage, useUpdateHooks } from '@/features/hooks/useUpdateHooks';
 import { useAct } from '@/lib/useAct';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useCall, useCommand, useRun } from '@/lib/useCommand';
 import { ClearNotificationsDialog } from './ClearNotificationsDialog';
 import { NotificationRow } from './NotificationRow';
 
@@ -28,6 +28,7 @@ export function NotificationsMenu(props: {
 }) {
   const inbox = useCommand('notifications.list');
   const run = useRun();
+  const call = useCall();
   const update = useUpdateHooks();
   const toast = useToast();
   const { acting, act } = useAct();
@@ -42,9 +43,20 @@ export function NotificationsMenu(props: {
     const timer = window.setInterval(() => void inbox.refresh(), 60_000);
     return () => window.clearInterval(timer);
   }, [inbox.refresh]);
-  const mark = async (name: 'notifications.read' | 'notifications.clear', list: InboxItem[]) => {
+  const mark = async (
+    name: 'notifications.read' | 'notifications.clear',
+    list: InboxItem[],
+    background = false,
+  ) => {
     // ponytail: one call per item; the CLI marks one id at a time.
-    for (const item of list) if (!(await run(name, { id: item.id }))) break;
+    for (const item of list) {
+      const result = await call(name, { id: item.id });
+      if (result.ok) continue;
+      // A background read can race a newer turn of the session, which replaces its notice: the
+      // notice is gone, which is no error.
+      if (!background || result.error.code !== 'not_found') toast(result.error.message);
+      break;
+    }
     await inbox.refresh();
   };
   const seen = items.filter(
@@ -56,7 +68,7 @@ export function NotificationsMenu(props: {
   useEffect(() => {
     const unmarked = seen.filter((item) => !marked.current.has(item.id));
     for (const item of unmarked) marked.current.add(item.id);
-    if (unmarked.length) void mark('notifications.read', unmarked);
+    if (unmarked.length) void mark('notifications.read', unmarked, true);
   }, [inbox.data, props.session]);
   const open = (item: InboxItem) => {
     if (!item.read) void mark('notifications.read', [item]);
