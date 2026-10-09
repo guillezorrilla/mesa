@@ -96,6 +96,8 @@ export function WorkspaceSidebar(props: {
     <aside
       data-testid="workspace-sidebar"
       data-collapsed={collapsed}
+      // The Sessions tab's empty space gives the keyboard back to the open session.
+      data-returns-focus={!projectTab || undefined}
       className={cn('flex shrink-0 flex-col border-r bg-card/50', collapsed ? 'w-14' : 'w-[264px]')}
     >
       <div className="flex h-12 items-center border-b px-2">

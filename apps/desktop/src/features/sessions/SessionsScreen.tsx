@@ -89,6 +89,7 @@ export function SessionsScreen(
   return (
     <section
       data-testid="session-workspace"
+      data-returns-focus
       className={props.selectedSession || emptyStart ? 'flex h-full min-h-0 flex-col' : 'space-y-4'}
     >
       {emptyStart ? (
