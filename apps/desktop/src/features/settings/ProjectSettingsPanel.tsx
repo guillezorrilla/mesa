@@ -1,5 +1,5 @@
 import type { ProjectRow } from '@mesa/core';
-import { TERMINAL_THEMES } from '@mesa/core/browser';
+import { TERMINAL_PRESET_IDS, TERMINAL_THEME_ALIASES } from '@mesa/core/browser';
 import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -50,7 +50,9 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
       props.onChanged();
       return undefined;
     });
-  const themes = options(TERMINAL_THEMES);
+  // Follow and the presets: custom colors are each user's own, so mesa.yaml cannot name them.
+  const themes = options(['follow', ...TERMINAL_PRESET_IDS]);
+  const theme = project?.overrides.terminal?.theme;
   const pending = Object.entries(project?.unapproved ?? {}) as PendingScripts;
   // The scripts the dialog shows, frozen when it opens: their fingerprints are what trust approves,
   // so a mesa.yaml that changes meanwhile is refused rather than approved unseen.
@@ -89,17 +91,14 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
             <SettingRow
               icon={Palette}
               title="Terminal theme override"
-              description={profileValue(
-                themes.find(([value]) => value === config.terminal.theme)?.[1],
-                'follow',
-              )}
+              description={profileValue(options([config.terminal.theme])[0]?.[1], 'follow')}
               keywords="project terminal theme"
               htmlFor="project-terminal-theme"
               control={
                 <NativeSelect
                   id="project-terminal-theme"
                   className="min-w-40"
-                  value={project.overrides.terminal?.theme ?? ''}
+                  value={(theme && TERMINAL_THEME_ALIASES[theme]) ?? theme ?? ''}
                   disabled={acting}
                   onChange={(event) =>
                     save('terminal.theme', event.currentTarget.value || undefined)

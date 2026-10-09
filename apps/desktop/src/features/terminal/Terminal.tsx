@@ -1,13 +1,14 @@
 import type { Config } from '@mesa/core';
-import { DEFAULT_TERMINAL_PREFERENCES } from '@mesa/core/browser';
+import { DEFAULT_TERMINAL_PREFERENCES, terminalPalette } from '@mesa/core/browser';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as Xterm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { fromBase64 } from '@/lib/bytes';
 import { usePlatform } from '@/lib/MesaRoot';
 import { oneAtATime } from '@/lib/oneAtATime';
 import { useRun } from '@/lib/useCommand';
+import { useInterfaceDark } from '@/lib/useInterfaceDark';
 import { terminalInputForKey } from './terminalInput';
 import { wheelForwarder } from './terminalWheel';
 import { useFocusOnEmptyClick } from './useFocusOnEmptyClick';
@@ -50,8 +51,17 @@ export function Terminal(props: {
   onWebLink.current = props.onWebLink;
   const focusRef = useRef(props.focus);
   focusRef.current = props.focus;
-  const preferencesRef = useRef(props.preferences ?? DEFAULT_TERMINAL_PREFERENCES);
-  preferencesRef.current = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
+  const preferences = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
+  const preferencesRef = useRef(preferences);
+  preferencesRef.current = preferences;
+  const dark = useInterfaceDark();
+  const colors = props.preferences?.colors;
+  const palette = useMemo(
+    () => terminalPalette({ theme: preferences.theme, colors }, dark),
+    [preferences.theme, colors, dark],
+  );
+  const paletteRef = useRef(palette);
+  paletteRef.current = palette;
   const platform = usePlatform();
   const run = useRun();
   useEffect(() => {
@@ -62,6 +72,7 @@ export function Terminal(props: {
       fontSize: 13,
       cursorBlink: true,
       macOptionClickForcesSelection: true,
+      theme: paletteRef.current,
     });
     xterm.current = term;
     const fit = new FitAddon();
@@ -203,39 +214,19 @@ export function Terminal(props: {
     if (props.focus) xterm.current?.focus();
   }, [props.focus]);
   useFocusOnEmptyClick(props.focus, () => xterm.current?.focus());
-  const preferences = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
+  useEffect(() => {
+    if (xterm.current) xterm.current.options.theme = palette;
+  }, [palette]);
   useEffect(() => {
     const term = xterm.current;
     if (!term) return;
-    const apply = () => {
-      const dark =
-        preferences.theme === 'dark' ||
-        (preferences.theme === 'follow' && document.documentElement.dataset.theme === 'dark');
-      const host = term.element?.parentElement;
-      if (!host) return;
-      host.dataset.terminalTheme = dark ? 'dark' : 'light';
-      const style = getComputedStyle(host);
-      term.options.theme = {
-        background: style.getPropertyValue('--terminal-background').trim(),
-        foreground: style.getPropertyValue('--terminal-foreground').trim(),
-        cursor: style.getPropertyValue('--terminal-cursor').trim(),
-      };
-    };
     term.options.fontSize = preferences.fontSize;
     term.options.fontFamily = preferences.fontFamily;
     term.options.macOptionIsMeta = preferences.optionAsMeta;
     // Scrolls xterm's own buffer only; tmux's history follows terminalWheel.ts.
     term.options.scrollSensitivity = preferences.scrollSpeed;
-    apply();
     refit.current?.();
-    const observer = new MutationObserver(apply);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    });
-    return () => observer.disconnect();
   }, [
-    preferences.theme,
     preferences.fontSize,
     preferences.fontFamily,
     preferences.optionAsMeta,
@@ -247,6 +238,7 @@ export function Terminal(props: {
       className={
         props.fill ? 'terminal-host min-h-[240px] flex-1 p-1' : 'terminal-host h-[420px] p-1'
       }
+      style={{ background: palette.background }}
       data-testid={`terminal-${props.sessionId}`}
     />
   );

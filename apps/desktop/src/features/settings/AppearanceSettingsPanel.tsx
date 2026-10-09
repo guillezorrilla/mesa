@@ -3,7 +3,6 @@ import {
   INTERFACE_DENSITIES,
   INTERFACE_FONTS,
   INTERFACE_THEMES,
-  TERMINAL_THEMES,
 } from '@mesa/core/browser';
 import { Eye, Palette, Type } from 'lucide-react';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -13,6 +12,7 @@ import { RangeField } from './controls/RangeField';
 import { TextField } from './controls/TextField';
 import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
+import { TerminalPaletteSection } from './terminal/TerminalPaletteSection';
 import { useSettings } from './useSettings';
 
 /** Settings > General's Appearance and Accessibility: themes, typography, density and colour vision. */
@@ -24,7 +24,7 @@ export function AppearanceSettingsPanel() {
       <SettingSection
         id="appearance"
         title="Appearance"
-        description="Interface theme, terminal theme, typography, and density"
+        description="Interface theme, typography, and density"
         group="Appearance"
         groupIcon={Palette}
       >
@@ -37,19 +37,6 @@ export function AppearanceSettingsPanel() {
               value={appearance.theme}
               options={options(INTERFACE_THEMES)}
               onChange={(theme) => save('appearance.theme', theme)}
-            />
-          }
-        />
-        <SettingRow
-          title="Terminal theme"
-          description="Terminal color palette, or follow the interface theme"
-          htmlFor="terminal-theme"
-          control={
-            <ChoiceField
-              id="terminal-theme"
-              path="terminal.theme"
-              value={terminal.theme}
-              options={options(TERMINAL_THEMES)}
             />
           }
         />
@@ -152,6 +139,7 @@ export function AppearanceSettingsPanel() {
           }
         />
       </SettingSection>
+      <TerminalPaletteSection />
       <SettingSection
         id="accessibility"
         title="Accessibility"

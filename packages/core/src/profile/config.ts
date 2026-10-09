@@ -25,9 +25,9 @@ import {
   INTERFACE_THEMES,
   PROJECT_SORTS,
   TERMINAL_APPS,
-  TERMINAL_THEMES,
 } from './preferences.js';
 import { DEFAULT_SHORTCUTS, validShortcut } from './shortcuts.js';
+import { TERMINAL_COLOR, TERMINAL_COLOR_KEYS, TERMINAL_THEMES } from './terminal-palettes.js';
 
 /** The terminal apps `mesa attach --app` can open. */
 export { TERMINAL_APPS } from './preferences.js';
@@ -183,7 +183,26 @@ const ConfigShape = z.strictObject({
       wezTermNewTab: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.wezTermNewTab),
       // Copy and Review over a session terminal on hover, for the agent's latest response.
       messageActions: z.boolean().default(DEFAULT_TERMINAL_PREFERENCES.messageActions),
+      // The `custom` palette (terminal-palettes.ts), which needs all 20.
+      colors: z
+        .strictObject(
+          Object.fromEntries(
+            TERMINAL_COLOR_KEYS.map((key) => [
+              key,
+              z.string().regex(TERMINAL_COLOR, 'must be a #rrggbb color').optional(),
+            ]),
+          ) as Record<(typeof TERMINAL_COLOR_KEYS)[number], z.ZodOptional<z.ZodString>>,
+        )
+        .optional(),
     })
+    .refine(
+      ({ theme, colors }) =>
+        theme !== 'custom' || TERMINAL_COLOR_KEYS.every((key) => colors?.[key]),
+      {
+        path: ['colors'],
+        message: `the custom theme needs all ${TERMINAL_COLOR_KEYS.length} colors`,
+      },
+    )
     .prefault({}),
   editor: z
     .strictObject({

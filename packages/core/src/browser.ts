@@ -37,7 +37,6 @@ export {
   INTERFACE_FONTS,
   INTERFACE_THEMES,
   TERMINAL_APPS,
-  TERMINAL_THEMES,
 } from './profile/preferences.js';
 export { profileSlug, profileVault, validProfileName } from './profile/profile-name.js';
 export {
@@ -46,6 +45,19 @@ export {
   shortcutFromKeys,
   validShortcut,
 } from './profile/shortcuts.js';
+export {
+  PROJECT_TERMINAL_THEMES,
+  TERMINAL_COLOR_KEYS,
+  TERMINAL_PRESET_IDS,
+  TERMINAL_PRESETS,
+  TERMINAL_THEME_ALIASES,
+  TERMINAL_THEMES,
+  type TerminalColorKey,
+  type TerminalColors,
+  type TerminalPreset,
+  type TerminalTheme,
+  terminalPalette,
+} from './profile/terminal-palettes.js';
 export { repositoryUrl } from './projects/project-url.js';
 export { PROJECT_SORTS, type ProjectSort } from './projects/sort.js';
 export { type CommandId, type SearchHit, searchWorkspace } from './search/search.js';

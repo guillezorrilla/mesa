@@ -385,7 +385,7 @@ test('Projects picks a project and edits its overrides, each row naming the prof
   await type('project-worktree-teardown', 'make\nclean');
   // None is an empty list, so the profile's setup does not run either; it differs from inherit.
   await choose(field('project-worktree-setup-mode'), 'none');
-  await choose(field('project-terminal-theme'), 'light');
+  await choose(field('project-terminal-theme'), 'mesa-light');
   const projectSets = () =>
     calls
       .filter((args) => args[1] === 'projects' && args[2] === 'set')
@@ -396,11 +396,17 @@ test('Projects picks a project and edits its overrides, each row naming the prof
     ['--unset', '--', 'lantern-cove', 'worktrees.sparseDirectories'],
     ['--', 'lantern-cove', 'worktrees.teardown', '["make","clean"]'],
     ['--', 'lantern-cove', 'worktrees.setup', '[]'],
-    ['--', 'lantern-cove', 'terminal.theme', '"light"'],
+    ['--', 'lantern-cove', 'terminal.theme', '"mesa-light"'],
   ]);
 
   await choose(field('project-settings-project'), 'reef');
-  expect(field('project-terminal-theme').value).toBe('dark');
+  // The old `dark` names Mesa Dark.
+  expect(field('project-terminal-theme').value).toBe('mesa-dark');
+  expect(
+    [...(field('project-terminal-theme') as unknown as HTMLSelectElement).options].map(
+      (option) => option.value,
+    ),
+  ).not.toContain('custom');
   expect(field('project-worktree-sparse').value).toBe('');
   await choose(field('project-terminal-theme'), '');
   expect(projectSets().at(-1)).toEqual(['--unset', '--', 'reef', 'terminal.theme']);

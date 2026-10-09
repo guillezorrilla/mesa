@@ -57,13 +57,15 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
   const profile = useCommand('profile.get');
   const run = useRun();
   const { acting, act } = useAct();
-  const save = (path: string, value: unknown) =>
+  const saveAll = (fields: readonly (readonly [string, unknown])[]) =>
     void act(async () => {
-      if (!(await run('config.set', { path, value }))) return undefined;
+      for (const [path, value] of fields)
+        if (!(await run('config.set', { path, value }))) return undefined;
       await config.refresh();
       props.onChanged();
       return undefined;
     });
+  const save = (path: string, value: unknown) => saveAll([[path, value]]);
   const reload = async () => {
     await config.refresh();
     props.onChanged();
@@ -183,7 +185,9 @@ function SettingsBody(props: Parameters<typeof SettingsDialog>[0]) {
         </aside>
         <div id="settings-content" className="min-h-0 overflow-y-auto">
           {config.data ? (
-            <SettingsContext.Provider value={{ config: config.data, acting, save, reload }}>
+            <SettingsContext.Provider
+              value={{ config: config.data, acting, save, saveAll, reload }}
+            >
               <SettingsQuery.Provider value={query}>
                 <div className="space-y-8 px-6 py-5 [&:not(:has([data-setting-row]:not([hidden])))_[data-empty]]:block">
                   {query ? (

@@ -7,7 +7,7 @@ import { MesaError } from '../lib/result.js';
 import { parseWith } from '../lib/schema.js';
 import { slugify } from '../lib/slug.js';
 import { readYaml, setYamlPath, writeYaml } from '../lib/yaml-file.js';
-import { TERMINAL_THEMES } from '../profile/preferences.js';
+import { PROJECT_TERMINAL_THEMES } from '../profile/terminal-palettes.js';
 import { WORKTREE_OVERRIDE_FIELDS } from './overrides.js';
 
 export { slugify } from '../lib/slug.js';
@@ -30,7 +30,8 @@ const ProjectSchema = z.strictObject({
   skills: z.array(z.string()).optional(),
   // Overrides of the profile's settings for this project; one left out is the profile's.
   worktrees: z.strictObject(WORKTREE_OVERRIDE_FIELDS).partial().optional(),
-  terminal: z.strictObject({ theme: z.enum(TERMINAL_THEMES).optional() }).optional(),
+  // No `custom`: its colors are each user's own, in their profile.
+  terminal: z.strictObject({ theme: z.enum(PROJECT_TERMINAL_THEMES).optional() }).optional(),
 });
 
 /** The fields that override a profile setting, the ones `mesa projects set` changes. */

@@ -105,19 +105,6 @@
   --state-waiting: oklch(0.67 0.15 30);
 }
 
-.terminal-host {
-  --terminal-background: #fff;
-  --terminal-foreground: #18181b;
-  --terminal-cursor: #18181b;
-  background: var(--terminal-background);
-}
-
-.terminal-host[data-terminal-theme="dark"] {
-  --terminal-background: #09090b;
-  --terminal-foreground: #f4f4f5;
-  --terminal-cursor: #f4f4f5;
-}
-
 @theme inline {
   --font-sans: var(--app-font-family);
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
