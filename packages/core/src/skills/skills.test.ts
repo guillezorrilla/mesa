@@ -12,7 +12,8 @@ import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import { gitRepo, scriptedRunner, tempDir, testDeps, testGit, thrown } from '../testing/index.js';
-import { GUIDELINES, readLibrary } from './library.js';
+import { GUIDELINES } from './guidelines.js';
+import { readLibrary } from './library.js';
 
 /** A skill folder with the frontmatter both agents read. */
 function skill(dir: string, name: string, description = `The ${name} skill`, as = name) {

@@ -125,7 +125,8 @@ export function endSignals(
   /** Which capability lines a session's pointer carries. */
   const pointerLines = (started: SessionRecord) => ({
     decisions: assisted(started),
-    guidelines: ctx.open().config.sessions.guidelines,
+    // A config that does not read means no line, never a failed hook.
+    guidelines: ctx.configIfAny()?.sessions.guidelines ?? false,
   });
   /** The advice for a turn, or none; a failure of any kind is none, never the hook's. */
   const advise = (...args: Parameters<SessionAssistance['advise']>) =>

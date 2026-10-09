@@ -3,7 +3,7 @@ import { hooksStatus as claudeHooks } from '../../agents/claude/hooks.js';
 import { hooksStatus as codexHooks } from '../../agents/codex/hooks.js';
 import { codexHome } from '../../agents/codex/paths.js';
 import type { Env } from '../../lib/process.js';
-import { GUIDELINES } from '../../skills/library.js';
+import { GUIDELINES } from '../../skills/guidelines.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
 

@@ -4,8 +4,9 @@ import { readWorkspaceFile, writeWorkspaceFile } from '../files/editor.js';
 import { MesaError } from '../lib/result.js';
 import { readProjectFile, setProjectSkills } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import { GUIDELINES } from './guidelines.js';
 import { skillInventory } from './inventory.js';
-import { GUIDELINES, isPipelineSkill, readLibrary } from './library.js';
+import { isPipelineSkill, readLibrary } from './library.js';
 import { listSkills, syncSkills } from './sync.js';
 
 /** Mesa's skills: the library, what a profile and a project enable, and linking them in. */

@@ -598,6 +598,51 @@ test('project Skills does not offer to disable a skill inherited from the profil
   expect(text).not.toContain('Disable in project');
 });
 
+test('project Skills leaves agent-guidelines to Settings while sessions.guidelines is on', async () => {
+  const defaults = (await fakeBridge().bridge(['--json', 'config', 'get'])) as {
+    data: Config;
+  };
+  const { bridge } = fakeBridge({
+    projects: () => envelope([PROJECTS[0]]),
+    config: () => envelope(defaults.data),
+    'skills list': () =>
+      envelope([
+        {
+          id: '/library/agent-guidelines',
+          path: '/library/agent-guidelines',
+          name: 'agent-guidelines',
+          description: 'Habits learned from real sessions',
+          source: 'mesa',
+          scope: 'mesa',
+          providers: ['claude', 'codex', 'antigravity'],
+          enabled: true,
+          supportFiles: [],
+          writable: false,
+          conflicts: [],
+        },
+      ]),
+    'skills read': () =>
+      envelope({ path: 'SKILL.md', text: '# Guidelines\n', revision: 'a'.repeat(64), lines: 2 }),
+  });
+  const byTestId = await renderWithMesa(<App />, bridge);
+  await openProject(byTestId);
+  await click([...document.querySelectorAll('button')].find((b) => b.textContent === 'skills'));
+  await click(
+    [...document.querySelectorAll<HTMLButtonElement>('fieldset button')].find((b) =>
+      b.textContent?.startsWith('mesa'),
+    ),
+  );
+  await click(
+    [
+      ...(byTestId('skills-workspace')[0]?.querySelectorAll<HTMLButtonElement>('button') ?? []),
+    ].find((b) => b.textContent?.includes('agent-guidelines')),
+  );
+  const text = byTestId('skills-workspace')[0]?.textContent ?? '';
+  expect(text).toContain('Enabled in every project by Settings > Sessions > Agent guidelines.');
+  expect(text).not.toContain('in profile');
+  expect(text).not.toContain('in project');
+});
+
 test('project Skills lists the vault and Obsidian skills Mesa ships, with their NOTICE', async () => {
   const shipped = (name: string, enabled: boolean, supportFiles: string[]) => ({
     id: `/library/${name}`,
