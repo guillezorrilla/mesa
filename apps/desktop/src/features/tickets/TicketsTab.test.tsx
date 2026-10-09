@@ -191,6 +191,47 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
   expect(byTestId('follow-view-dialog')).toHaveLength(0);
 });
 
+test('a board list the sign-in lacks scopes for offers Reconnect, which signs in and lists them', async () => {
+  let scoped = false;
+  const { bridge, calls } = fakeBridge({
+    tickets: () => listOf([], []),
+    prompts: () => envelope([]),
+    'tickets views': () => envelope([]),
+    'tickets boards': () =>
+      scoped
+        ? envelope({
+            site: { id: 'cloud-1', name: 'lantern-cove' },
+            boards: [{ id: 42, name: 'Tide team', type: 'scrum' }],
+          })
+        : {
+            ok: false,
+            error: {
+              code: 'invalid_config',
+              message:
+                'Atlassian needs reconnecting to allow this: run mesa sources connect atlassian',
+              details: { connect: 'atlassian' },
+            },
+          },
+    'tickets preview': () =>
+      envelope({ describe: 'x', jql: '(sprint = 7) ORDER BY Rank ASC', count: 3, more: false }),
+    'sources list': () => envelope({ sources: [atlassian('connected')] }),
+    'sources connect': () => {
+      scoped = true;
+      return envelope(atlassian('connected'));
+    },
+  });
+  const byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  await click(button('Follow a Jira view'));
+  expect(byTestId('source-error')[0]?.textContent).toContain('Atlassian needs reconnecting');
+  await click(button('Reconnect'));
+  expect(words(calls)).toContain('sources connect atlassian');
+  expect(byTestId('source-error')).toHaveLength(0);
+  expect(document.getElementById('view-pick-42')).not.toBeNull();
+});
+
 test('with no view and Jira not connected, the tab names Jira and signs in with Atlassian first', async () => {
   let status: 'connected' | 'disconnected' = 'disconnected';
   const { bridge, calls } = fakeBridge({

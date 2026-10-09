@@ -64,9 +64,17 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
       return undefined;
     });
 
+  const setup = data && !views.length;
   return (
-    <div data-testid="tickets-tab" className="overflow-hidden rounded-xl border bg-card">
-      {data && !views.length ? (
+    <div
+      data-testid="tickets-tab"
+      className={cn(
+        'overflow-hidden rounded-xl border bg-card',
+        // The list and the ticket fill the window and scroll on their own, so Start session stays in view.
+        !setup && 'flex h-[calc(100vh-13rem)] min-h-[24rem] flex-col',
+      )}
+    >
+      {setup ? (
         <JiraSetupPanel onFollow={() => setDialog('follow')} />
       ) : (
         <>
@@ -108,12 +116,9 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
               )}
             </div>
           ))}
-          <div className="grid min-h-[34rem] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
             <div
-              className={cn(
-                'max-h-[40rem] overflow-auto md:border-r',
-                narrowTicket && 'max-md:hidden',
-              )}
+              className={cn('min-h-0 overflow-auto md:border-r', narrowTicket && 'max-md:hidden')}
             >
               {tickets.length ? (
                 <TicketList
@@ -133,12 +138,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
                 </Muted>
               )}
             </div>
-            <div
-              className={cn(
-                'flex max-h-[40rem] min-h-0 flex-col',
-                !narrowTicket && 'max-md:hidden',
-              )}
-            >
+            <div className={cn('flex min-h-0 flex-col', !narrowTicket && 'max-md:hidden')}>
               {ticket && data && (
                 <TicketPanel
                   key={ticket.key}
