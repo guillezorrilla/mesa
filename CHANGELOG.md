@@ -2,6 +2,22 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.3 - 2026-10-09
+
+### Features
+
+- **skills**: ship agent-guidelines, on by default, with a Settings switch (#705)
+- **vault**: re-capture a session's newer messages, capture background sessions, and build capture input in vault/capture (#704)
+- **vault**: capture session decisions at session end, and nudge agents to ask the Decision model (#697)
+- **sources**: redesign the Tickets tab around a ticket panel, and assign a ticket when a session starts from it (#698)
+- **sources**: a Tickets tab that lists a project's followed Jira views and starts sessions from them (#694)
+
+### Fixes
+
+- **sessions**: a finished turn with background work reads idle, not working (#701)
+- **app**: a session's background read of a replaced notice no longer toasts (#700)
+- **app**: declutter the usage dialog and show priced costs instead of Unknown (#696)
+
 ## 0.2.2 - 2026-10-09
 
 ### Features
