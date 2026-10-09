@@ -1,5 +1,4 @@
 import { timeAgo } from '@mesa/core/browser';
-import { ListTodo } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { FollowViewDialog } from './FollowViewDialog';
+import { JiraSetupPanel } from './JiraSetupPanel';
 import { ManageViewsDialog } from './ManageViewsDialog';
 import { TicketList } from './TicketList';
 import { TicketPanel } from './TicketPanel';
@@ -67,17 +67,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   return (
     <div data-testid="tickets-tab" className="overflow-hidden rounded-xl border bg-card">
       {data && !views.length ? (
-        <div className="grid place-items-center gap-2 px-6 py-16 text-center">
-          <ListTodo aria-hidden className="size-6 text-muted-foreground" />
-          <h2 className="text-base font-semibold">See your sprint here</h2>
-          <Muted className="max-w-[44ch]">
-            Follow a board's current sprint, a saved filter, or a query. Its tickets stay up to date
-            as sprints change.
-          </Muted>
-          <Button className="mt-2" onClick={() => setDialog('follow')}>
-            Follow a view
-          </Button>
-        </div>
+        <JiraSetupPanel onFollow={() => setDialog('follow')} />
       ) : (
         <>
           <TicketsToolbar

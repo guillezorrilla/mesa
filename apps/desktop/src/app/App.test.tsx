@@ -62,11 +62,11 @@ test('sidebar opens a project workspace and its Skills tab', async () => {
     ),
   ).toEqual([
     'overview',
-    'vault',
     'Context',
     'tickets',
     'git',
     'files',
+    'vault',
     'skills',
     'instructions',
     'automations',
@@ -438,7 +438,7 @@ test('a project folder that is not a Git repository opens without a Git badge or
   const byTestId = await renderWithMesa(<App />, bridge);
   await openProject(byTestId);
   expect(
-    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(5)')?.textContent,
+    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(4)')?.textContent,
   ).toBe('git');
   expect(toasts(byTestId)).toEqual([]);
 });
@@ -1256,7 +1256,7 @@ test('project Git actions stage, unstage and commit through the CLI bridge', asy
   );
   // The tab badge recounts after the commit.
   expect(
-    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(5)')?.textContent,
+    document.querySelector('nav[aria-label="lantern-cove tabs"] button:nth-child(4)')?.textContent,
   ).toBe('git');
   expect(calls.some((args) => args.includes('commit') && args.includes('--message=Add note'))).toBe(
     true,

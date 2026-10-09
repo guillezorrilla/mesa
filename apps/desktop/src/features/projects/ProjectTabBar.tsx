@@ -45,11 +45,11 @@ export function ProjectTabBar(props: {
         {(
           [
             'overview',
-            'vault',
             'import',
             'tickets',
             'git',
             'files',
+            'vault',
             'skills',
             'instructions',
             'automations',
