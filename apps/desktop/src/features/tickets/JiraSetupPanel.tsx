@@ -87,7 +87,7 @@ export function JiraSetupPanel(props: { onFollow: () => void }) {
       {connected ? (
         <Button onClick={props.onFollow}>Follow a Jira view</Button>
       ) : (
-        <Button disabled={!sources.data || acting} onClick={signIn}>
+        <Button disabled={acting} onClick={signIn}>
           {signingIn ? 'Waiting for sign-in...' : steps[0]?.title}
         </Button>
       )}

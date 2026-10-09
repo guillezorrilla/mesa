@@ -213,6 +213,16 @@ test('with no view and Jira not connected, the tab names Jira and signs in with 
   expect(button('Follow a Jira view')).toBeDefined();
 });
 
+test('with no view and an expired Atlassian sign-in, the tab offers Reconnect Jira', async () => {
+  const { bridge } = fakeBridge({
+    tickets: () => listOf([], []),
+    'sources list': () => envelope({ sources: [atlassian('needs-reconnect')] }),
+  });
+  await renderWithMesa(<TicketsTab project="lantern-cove" onSession={() => {}} />, bridge);
+  expect(button('Reconnect Jira')).toBeDefined();
+  expect(button('Follow a Jira view')).toBeUndefined();
+});
+
 test('a view that needs a fresh sign-in says so and offers Reconnect', async () => {
   const { bridge } = fakeBridge({
     tickets: () =>
