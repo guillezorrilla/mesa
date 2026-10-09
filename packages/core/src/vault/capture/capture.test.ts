@@ -210,7 +210,12 @@ test('a capture updates the note of the same title instead of adding a second', 
   const w = captureWorld({
     output: claudeAnswer(JSON.stringify([{ ...NOTE, body: 'It answers 503 for 10 s.' }])),
   });
-  await w.mesa.vault.saveNote({ project: 'lantern-cove', title: NOTE.title, body: 'Old words.' });
+  // Its title in another case is the same title.
+  await w.mesa.vault.saveNote({
+    project: 'lantern-cove',
+    title: NOTE.title.toLocaleLowerCase(),
+    body: 'Old words.',
+  });
   const s = await w.session();
   // A stop whose agent exits is an end signal too.
   expect((await w.mesa.sessions.stop(s.id)).result.outcome).toBe('exited');
@@ -319,32 +324,116 @@ test('runs, terminals, General, sessions with no conversation, no vault, or capt
   expect(w.captures()).toHaveLength(1);
 });
 
-test('with a Decision model, the note it picks among the hits is the one a capture updates, its decision in the receipt', async () => {
+test('a related note of another title is never written over, whatever a Decision model would pick: the capture saves its own', async () => {
   const s1 = systemOneWorld();
-  const w = captureWorld(
-    { output: claudeAnswer(JSON.stringify([{ ...NOTE, title: 'Tide feed outage each hour' }])) },
-    s1.deps,
-  );
+  const timeout = {
+    kind: 'decision',
+    title: 'Feed timeout is 10 s',
+    decision: 'The feed client gives up on a request after 10 s.',
+    rationale: 'The feed answers within 2 s whenever it is up.',
+  };
+  const w = captureWorld({ output: claudeAnswer(JSON.stringify([timeout])) }, s1.deps);
   await w.mesa.decisions.keys.set('typesafe', TEST_TYPESAFE_KEY);
-  await w.mesa.vault.saveNote({
+  const { result: policy } = await w.mesa.vault.saveDecision({
     project: 'lantern-cove',
-    title: 'Feed outages',
-    body: 'The tide feed drops.',
+    title: 'Feed retry policy',
+    decision: 'The feed client retries a 503 three times.',
+    rationale: 'The feed rebuilds its cache on the hour.',
   });
-  const covering = 'wiki/notes/feed-outages.md';
-  s1.lean({ option: `note:${covering}`, p: 0.9 });
+  const before = readFileSync(join(w.vault, policy.path), 'utf8');
+  // Were it asked which note covers the item, the model would pick the retry policy.
+  s1.lean({ option: `note:${policy.path}`, p: 0.9 });
   s1.requests.length = 0;
   const s = await w.session();
   await w.mesa.sessions.stop(s.id);
   await w.land();
-  expect(s1.requests).toHaveLength(1);
-  expect(filesIn(w.vault, 'wiki/notes')).toEqual(['feed-outages.md']);
-  expect(readNote(w.vault, covering).body).toContain(NOTE.body);
-  const [entry] = w.receipts();
-  expect(entry?.receipt.outputs.notes).toEqual([covering]);
-  expect(entry?.receipt.decisions).toEqual([
-    expect.objectContaining({ question: 'source', answer: `note:${covering}`, backend: 'jev' }),
-  ]);
+  expect(s1.requests).toEqual([]);
+  expect(readFileSync(join(w.vault, policy.path), 'utf8')).toBe(before);
+  const notes = testStore(w.home).get(s.id).capture?.notes ?? [];
+  expect(notes).toEqual([expect.stringMatching(/^wiki\/decisions\/.*feed-timeout-is-10-s\.md$/)]);
+  expect(filesIn(w.vault, 'wiki/decisions')).toHaveLength(2);
+  expect(w.receipts()[0]?.receipt.decisions ?? []).toEqual([]);
+});
+
+test('a claim whose run never started is taken again only after 10 minutes', async () => {
+  let now = Date.parse('2026-09-24T12:00:00.000Z');
+  const clock = () => new Date(now);
+  const w = captureWorld(undefined, { clock });
+  const s = await w.session();
+  // A process claimed the capture and died before its run started.
+  testStore(w.home).update(s.id, () => ({
+    capture: { at: clock().toISOString(), state: 'running' },
+  }));
+  const inside = createMesa(
+    'default',
+    testDeps(w.home, {
+      run: w.world.run,
+      env: windowEnv(s.id, 'default'),
+      newId: laterIds(),
+      clock,
+    }),
+  );
+  const end = JSON.stringify({
+    session_id: s.agentSessionId,
+    hook_event_name: 'SessionEnd',
+    reason: 'prompt_input_exit',
+  });
+  now += 9 * 60_000;
+  await inside.hookEvent('claude', end);
+  expect(w.captures()).toEqual([]);
+  now += 2 * 60_000;
+  await inside.hookEvent('claude', end);
+  expect(w.captures()).toHaveLength(1);
+  expect(testStore(w.home).get(s.id).capture).toMatchObject({
+    at: clock().toISOString(),
+    state: 'running',
+    run: expect.any(String),
+  });
+});
+
+test('a forced stop, and a Board look that finds an exit no signal reported, each start the capture', async () => {
+  for (const end of ['forced stop', 'board look'] as const) {
+    const w = captureWorld();
+    const s = await w.session();
+    if (end === 'forced stop') {
+      expect((await w.mesa.sessions.stop(s.id, true)).result.outcome).toBe('killed');
+    } else {
+      const pane = w.world.tmux.windows.find((x) => x.window === s.tmux.window);
+      if (pane) pane.dead = true;
+      await w.mesa.sessions.list();
+      await w.mesa.sessions.list();
+    }
+    expect(w.captures(), end).toHaveLength(1);
+    await w.land();
+    expect(testStore(w.home).get(s.id).capture, end).toMatchObject({ state: 'done' });
+  }
+});
+
+test('a newest message longer than the conversation budget is kept, clipped, so the capture still runs', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  const long = {
+    type: 'assistant',
+    message: {
+      role: 'assistant',
+      content: [{ type: 'text', text: `Tide log: ${'ebb flood '.repeat(12_000)}` }],
+    },
+  };
+  plantTranscript(
+    w.home,
+    s.agentSessionId ?? '',
+    w.dir,
+    [...CONVERSATION, long].map((line) => JSON.stringify(line)).join('\n'),
+  );
+  await w.mesa.sessions.stop(s.id);
+  expect(w.captures()).toHaveLength(1);
+  const lines = (w.inputs[0] ?? '').split('\n');
+  const kept = lines.filter((line) => line.startsWith('['));
+  expect(kept).toHaveLength(1);
+  expect(kept[0]).toMatch(/^\[assistant\] Tide log: ebb flood .*\.\.\.$/);
+  expect(kept[0]?.length).toBe(100_000);
+  await w.land();
+  expect(testStore(w.home).get(s.id).capture).toMatchObject({ state: 'done' });
 });
 
 test('mesa vault capture runs it by hand, waited for, again after an automatic one, and only on an agent session', async () => {

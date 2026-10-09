@@ -3,6 +3,7 @@ import { AGENTS, newSessionId } from '../../agents/agents.js';
 import { antigravityLog, prepareAntigravityLog } from '../../agents/antigravity/log.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
 import { writeFileAtomic } from '../../lib/atomic-file.js';
+import { clip } from '../../lib/clip.js';
 import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
@@ -203,7 +204,8 @@ function aboutInput(
 
 /**
  * The person's and the agent's messages in `about`'s native transcript, each `[user] <text>` or
- * `[assistant] <text>`, the newest that fit in CONVERSATION_CHARS; none without a transcript.
+ * `[assistant] <text>`, the newest that fit in CONVERSATION_CHARS, the newest alone clipped to it
+ * (ending `...`) when it does not fit whole; none without a transcript.
  */
 function conversationLines(deps: Pick<RunDeps, 'home' | 'env'>, about: SessionRecord) {
   if (about.agent === 'terminal' || !about.agentSessionId) return undefined;
@@ -214,7 +216,10 @@ function conversationLines(deps: Pick<RunDeps, 'home' | 'env'>, about: SessionRe
   let room = CONVERSATION_CHARS;
   for (const { role, text } of [...transcripts.messages(file).messages].reverse()) {
     const line = `[${role}] ${text.trim()}`;
-    if (line.length > room) break;
+    if (line.length > room) {
+      if (!lines.length) lines.push(clip(line, room));
+      break;
+    }
     lines.unshift(line);
     room -= line.length + 1;
   }

@@ -12,6 +12,17 @@ import { captureFailed } from './land.js';
 // When a session's end starts its Vault capture (CONTEXT.md): from the end signals (end-signals.ts),
 // a detached vault-capture run that its own end lands (finishRun), once per session.
 
+// A claim is made before its run starts; a process that died in between left it with no run.
+/** How old a claim with no run is before another end signal may claim it again. */
+const STALE_CLAIM_MS = 10 * 60 * 1000;
+
+/** Whether `s` has no capture yet, or only a claim with no run older than STALE_CLAIM_MS. */
+const unclaimed = (s: SessionRecord, now: Date) =>
+  !s.capture ||
+  (s.capture.state === 'running' &&
+    !s.capture.run &&
+    now.getTime() - Date.parse(s.capture.at) > STALE_CLAIM_MS);
+
 /** What starting a capture takes beside the context: a skill run's start, not waited for. */
 export type CaptureTrigger = Pick<
   MesaContext,
@@ -24,10 +35,11 @@ export type CaptureTrigger = Pick<
 /**
  * Whether session `s` is one whose end is captured: an interactive Claude Code or Codex session on
  * a project, its native transcript on disk and a conversation in it, while the profile has
- * capture on (`vault.capture`) and a laid-out vault, and nothing captured it yet.
+ * capture on (`vault.capture`) and a laid-out vault, and nothing captured it yet (unclaimed).
  */
 function due(deps: CaptureTrigger, s: SessionRecord) {
-  if (s.capture || s.kind !== 'interactive' || s.project === GENERAL_PROJECT) return false;
+  if (!unclaimed(s, deps.clock()) || s.kind !== 'interactive' || s.project === GENERAL_PROJECT)
+    return false;
   if (s.agent !== 'claude' && s.agent !== 'codex') return false;
   const config = deps.configIfAny();
   if (!config?.vaultCapture) return false;
@@ -44,8 +56,8 @@ function due(deps: CaptureTrigger, s: SessionRecord) {
 
 /**
  * Starts session `id`'s capture when it is due, once: the record claims it under its lock, so
- * every end signal of one session (its agent's SessionEnd, tmux's pane-died, a stop) starts at
- * most one run, which is not waited for. A start that fails never fails the signal: the record
+ * every end signal of one session (its agent's SessionEnd, tmux's pane-died, a stop, a Board
+ * look) starts at most one run, which is not waited for; a stale claim is taken again. A start that fails never fails the signal: the record
  * and a failed receipt say why, and the warning comes back.
  */
 export async function startCapture(deps: CaptureTrigger, id: string): Promise<string | undefined> {
@@ -53,9 +65,10 @@ export async function startCapture(deps: CaptureTrigger, id: string): Promise<st
   if (!found || !due(deps, found)) return undefined;
   let claimed = false;
   const about = deps.store.update(id, (current) => {
-    if (current.capture) return {};
+    const now = deps.clock();
+    if (!unclaimed(current, now)) return {};
     claimed = true;
-    return { capture: { at: deps.clock().toISOString(), state: 'running' as const } };
+    return { capture: { at: now.toISOString(), state: 'running' as const } };
   });
   if (!claimed) return undefined;
   try {

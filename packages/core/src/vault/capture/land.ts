@@ -1,5 +1,4 @@
 import type { MesaContext } from '../../context.js';
-import type { DecisionRecorder } from '../../decisions/types.js';
 import { redactWhole } from '../../lib/redact.js';
 import { MesaError, toFail } from '../../lib/result.js';
 import { localDay } from '../../lib/time.js';
@@ -21,21 +20,18 @@ import {
   prepareKeep,
 } from '../saved-notes.js';
 import { withVaultLock } from '../vault-lock.js';
-import { type CoverJudge, coveringNote } from './cover.js';
+import { coveringNote } from './cover.js';
 import { type CaptureItem, captureItems } from './items.js';
 
 // A Vault capture's landing (CONTEXT.md, Vault capture): core saves what the vault-capture run
 // returned (ADR-0006: the agent never writes the vault), all or none, with one receipt, and keeps
 // how it went on the captured session's record.
 
-/** What landing a capture takes: the records, the vault, receipts, redaction, and the judge. */
+/** What landing a capture takes: the records, the vault, receipts, and redaction. */
 export type CaptureContext = Pick<
   MesaContext,
   'store' | 'notes' | 'record' | 'clock' | 'home' | 'secrets'
-> & {
-  /** Which note already covers an item, asked of the Decision model (relevanceJudge). */
-  cover: CoverJudge;
-};
+>;
 
 /** One item as a capture saved it: where, whether that changed the note, and its odds. */
 type SavedItem = Odds & {
@@ -91,13 +87,8 @@ export async function captureFailed(
   return reason;
 }
 
-/** Each item's note and the note that covers it, if one does, asked before the vault lock. */
-async function plan(
-  ctx: CaptureContext,
-  about: SessionRecord,
-  items: readonly CaptureItem[],
-  recorder: DecisionRecorder,
-): Promise<Planned[]> {
+/** Each item's note and the note that covers it, if one does, found before the vault lock. */
+function plan(ctx: CaptureContext, about: SessionRecord, items: readonly CaptureItem[]): Planned[] {
   const { vault } = ctx.notes();
   const day = localDay(ctx.clock());
   const planned: Planned[] = [];
@@ -118,10 +109,7 @@ async function plan(
             },
           })
         : plainNote({ project, session: about.id, title, text: item.body });
-    const covering = await coveringNote({ vault, judge: ctx.cover, recorder }, project, {
-      ...item,
-      title,
-    });
+    const covering = coveringNote(vault, project, { ...item, title });
     const name = item.kind === 'decision' ? decisionName(day, title) : noteName(title);
     planned.push({ item, title, note, ...(covering ? { covering } : {}), name });
   }
@@ -188,7 +176,7 @@ export async function landCapture(
   if (settled(about)) return {};
   const at = () => ctx.clock().toISOString();
   try {
-    const recorded = await ctx.record(captureSpec(about, run.id), async (recorder) => {
+    const recorded = await ctx.record(captureSpec(about, run.id), async () => {
       let planned: Planned[] = [];
       let problem: unknown;
       try {
@@ -196,7 +184,7 @@ export async function landCapture(
           throw new MesaError('internal', read.reason ?? `the ${VAULT_CAPTURE} run failed`);
         }
         const items = captureItems(redactWhole(read.output, ctx.home, ctx.secrets()));
-        planned = await plan(ctx, about, items, recorder);
+        planned = plan(ctx, about, items);
       } catch (error) {
         problem = error;
       }

@@ -27,7 +27,7 @@ type RemoveFlags = { force?: boolean; deleteWorktree?: boolean; deleteBranch?: b
 /** A session's life: opening it, running a skill as one, stopping it, and removing it. */
 export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps) {
   const { paths, open, store, tmux, record, secrets, absolute } = ctx;
-  const { caller, openDeps, ends, ending } = deps;
+  const { caller, openDeps, ends } = deps;
   /**
    * Ends a session politely, or at once with `force`. The stop gets a session receipt of its own
    * (none when it changed nothing), and the session's opening receipt is marked ended.
@@ -62,7 +62,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
         }
         const pane = await tmux.findWindow(windowOf(found));
         const ended = await endRun(
-          ending,
+          ctx,
           found,
           pane,
           pane?.dead ? undefined : 'stopped by mesa stop',
@@ -211,7 +211,7 @@ export function lifecycleActions(ctx: MesaContext, faro: Faro, deps: SessionDeps
     },
     /** Runs a skill headlessly and waits for its result (CONTEXT.md, Skill run; runSkill). */
     run: (skill: string, opts: Omit<RunInput, 'skill'> & Overrides) =>
-      runSkill(ending, { faro, caller, start: deps.runDeps, stopped: ends.stopped }, skill, opts),
+      runSkill(ctx, { faro, caller, start: deps.runDeps, stopped: ends.stopped }, skill, opts),
     /**
      * Removes a session's record, hook log, output log, and a run's output, and with the flags
      * its worktree and branch; a live one only with `force`. The session receipt says what went.

@@ -8,7 +8,6 @@ import { shortId } from '../../lib/ids.js';
 import { redactWhole } from '../../lib/redact.js';
 import { VAULT_CAPTURE } from '../../skills/library.js';
 import type { skillsService } from '../../skills/service.js';
-import { relevanceJudge } from '../../vault/capture/cover.js';
 import { startCapture } from '../../vault/capture/trigger.js';
 import { otherProfilesSessions } from '../board/elsewhere.js';
 import { endSignals } from '../end/end-signals.js';
@@ -100,18 +99,6 @@ export function sessionDeps(
   const ensureBackgroundView = backgroundView(ctx, openDeps);
   /** A look at the board (board.ts). */
   const look = boardLook(ctx, faro, elsewhere);
-  /** What ending a run takes: the context, and the judge a Vault capture's landing asks. */
-  const ending = {
-    ...ctx,
-    cover: relevanceJudge({
-      faro,
-      settings: () => ({
-        model: ctx.configIfAny()?.decisions.model ?? 'none',
-        experimental: ctx.configIfAny()?.decisions.experimental ?? false,
-        clock: ctx.clock,
-      }),
-    }),
-  };
   /**
    * Starts a session's Vault capture when it is due (startCapture): a detached vault-capture run,
    * past the guardrail as Mesa's own prompt, its decision kept nowhere.
@@ -135,7 +122,6 @@ export function sessionDeps(
     launch: openDeps,
     context: contextDeps,
     assistance,
-    ending,
     capture,
   });
   return {
@@ -149,7 +135,6 @@ export function sessionDeps(
     nativeDeps,
     runDeps,
     ensureBackgroundView,
-    ending,
     ends,
   };
 }
