@@ -110,4 +110,6 @@ export type Platform = {
   updates: UpdateHost;
   /** The macOS app menu's items that open a screen: About Mesa. Returns the unsubscribe. */
   menu: { onAbout: (handler: () => void) => Promise<() => void> };
+  /** Relaunches the app on another profile (profile.rs): this window closes. */
+  profiles: { switch: (name: string) => Promise<void> };
 };

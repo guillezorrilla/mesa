@@ -1,6 +1,7 @@
 import type { DoctorReport } from '@mesa/core';
 import { Database, FolderOpen, Library, Power, RefreshCw, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ProfilesSettingsPanel } from '@/features/profile/ProfilesSettingsPanel';
 import { UpdateSettingsPanel } from '@/features/update/UpdateSettingsPanel';
 import { usePlatform } from '@/lib/MesaRoot';
 import { useAct } from '@/lib/useAct';
@@ -11,7 +12,7 @@ import { SettingRow } from './SettingRow';
 import { SettingSection } from './SettingSection';
 import { useSettings } from './useSettings';
 
-/** Application behaviour, updates, appearance, accessibility, and Doctor's health checks. */
+/** Application behaviour, updates, the vault, profiles, appearance, and Doctor's health checks. */
 export function GeneralSettingsPanel(props: {
   doctor?: DoctorReport;
   doctorBusy: boolean;
@@ -104,6 +105,7 @@ export function GeneralSettingsPanel(props: {
           </p>
         </SettingRow>
       </SettingSection>
+      <ProfilesSettingsPanel />
       <AppearanceSettingsPanel />
       <SettingSection id="doctor" title="Doctor" description="Verify your setup is healthy">
         <SettingRow

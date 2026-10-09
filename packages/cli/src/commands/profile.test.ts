@@ -1,4 +1,4 @@
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, expect, test } from 'vitest';
 import { VERSION } from '../cli.js';
@@ -141,4 +141,58 @@ test('profile and version', async () => {
     data: { profile: 'default', dir: cli.paths.root },
   });
   expect((await mesa('--version')).stdout).toBe(`${VERSION}\n`);
+});
+
+test('profile create, list, use, rename and remove', async () => {
+  await mesa('init', '--vault', 'vault');
+  const created = await mesa('profile', 'create', 'work', '--new-vault', '--json');
+  expect(created.json.data).toMatchObject({
+    profile: 'work',
+    vault: join(cli.home, 'Documents/Mesa-work'),
+  });
+  expect((await mesa('profile', 'create', 'work', '--new-vault')).stderr).toBe(
+    'profile work already exists\n',
+  );
+  expect((await mesa('profile', 'use', 'work')).stdout).toBe('the app opens profile work\n');
+  const listed = (await mesa('profile', 'list', '--json')).json.data;
+  expect(
+    listed.map((r: { name: string; current: boolean; app: boolean }) => [r.name, r.current, r.app]),
+  ).toEqual([
+    ['default', true, false],
+    ['work', false, true],
+  ]);
+  expect((await mesa('profile', 'list')).stdout).toContain('* default');
+
+  expect((await mesa('profile', 'rename', 'work', 'client', '--json')).json.data).toMatchObject({
+    from: 'work',
+    to: 'client',
+  });
+  expect((await mesa('profile', 'list', '--json')).json.data[0]).toMatchObject({
+    name: 'client',
+    app: true,
+  });
+  expect(await mesa('profile', 'use', 'work')).toMatchObject({ code: 3 });
+});
+
+test('profile remove asks on a terminal and needs --yes otherwise', async () => {
+  await mesa('init', '--vault', 'vault');
+  await mesa('profile', 'create', 'work', '--new-vault');
+  expect((await mesa('profile', 'remove', 'work', '--json')).json.error.message).toBe(
+    'confirm with mesa profile remove work --yes',
+  );
+  cli.answer = false;
+  expect((await mesa('profile', 'remove', 'work')).stderr).toBe('nothing was removed\n');
+  expect(cli.asked).toEqual([
+    "Remove profile work? This stops its sessions' server, forgets its projects and keys, and keeps its vault.",
+  ]);
+  cli.answer = true;
+  const vault = join(cli.home, 'Documents/Mesa-work');
+  expect((await mesa('profile', 'remove', 'work')).stdout).toBe(
+    `removed profile work; kept ${vault}\n`,
+  );
+  await mesa('profile', 'create', 'work', '--vault', vault);
+  const removed = await mesa('profile', 'remove', 'work', '--delete-vault', '--yes', '--json');
+  expect(removed.json.data).toEqual({ profile: 'work', vault, vaultDeleted: true });
+  expect(existsSync(vault)).toBe(false);
+  expect((await mesa('profile', 'list', '--json')).json.data).toHaveLength(1);
 });

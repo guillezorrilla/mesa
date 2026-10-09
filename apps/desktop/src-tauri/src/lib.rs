@@ -3,6 +3,7 @@ mod browser;
 mod install_location;
 mod menu;
 mod notifications;
+mod profile;
 mod shell_path;
 mod terminal;
 mod updater;
@@ -10,7 +11,7 @@ mod updater;
 use serde_json::Value;
 use tauri_plugin_deep_link::DeepLinkExt;
 
-/// Runs `mesa <args>` with the current environment (MESA_PROFILE included), `stdin` on its stdin
+/// Runs `mesa <args>` with the current environment (MESA_PROFILE included, profile.rs), `stdin` on its stdin
 /// when given (a secret, never argv), and returns its envelope.
 #[tauri::command]
 async fn run_mesa(args: Vec<String>, stdin: Option<String>) -> Result<Value, String> {
@@ -30,13 +31,14 @@ pub fn run() {
         return;
     }
     shell_path::fix();
+    let launch_profile = profile::resolve();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(terminal::Terms::default())
         .manage(updater::Updates::default())
-        .setup(|app| {
+        .setup(move |app| {
             menu::install(app)?;
             install_location::warn(app.handle());
             updater::start(app.handle());
@@ -60,7 +62,7 @@ pub fn run() {
             }
             if let Err(error) = tauri::async_runtime::block_on(notifications::install(
                 app.handle().clone(),
-                std::env::var("MESA_PROFILE").unwrap_or_else(|_| "default".into()),
+                launch_profile,
                 std::env::var("MESA_OPEN_NOTIFICATION").ok(),
             )) {
                 eprintln!("native notifications unavailable: {error}");
@@ -72,6 +74,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             run_mesa,
+            profile::profile_switch,
             terminal::term_open,
             terminal::term_write,
             terminal::term_resize,

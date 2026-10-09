@@ -51,7 +51,15 @@ import {
 import { obsidianVaults } from './obsidian.js';
 import { open } from './open.js';
 import { prEvents } from './pr-events.js';
-import { profile } from './profile.js';
+import {
+  profile,
+  profileCreate,
+  profileList,
+  profileOpen,
+  profileRemove,
+  profileRename,
+  profileUse,
+} from './profile.js';
 import {
   projects,
   projectsClone,
@@ -173,6 +181,12 @@ export const COMMANDS: Command[] = [
   open,
   prEvents,
   profile,
+  profileList,
+  profileCreate,
+  profileRename,
+  profileRemove,
+  profileUse,
+  profileOpen,
   prompts,
   promptsSave,
   promptsRemove,

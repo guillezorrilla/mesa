@@ -1,4 +1,4 @@
-import type { Config, ProfileInfo, SavedPrompt } from '@mesa/core';
+import type { Config, ProfileInfo, ProfileRow, SavedPrompt } from '@mesa/core';
 import { command, commandWith, type Recorded } from './spec';
 
 /** Settings commands: the profile, its config, saved prompts, and backups. */
@@ -43,6 +43,36 @@ export const settingsCommands = {
     Recorded<{ path: string; value: unknown }>
   >(({ path, value }) => ['config', 'set', '--', path, JSON.stringify(value)]),
   'profile.get': command<ProfileInfo>('profile'),
+  'profile.list': command<ProfileRow[]>('profile', 'list'),
+  'profile.create': commandWith<
+    { name: string; vault?: string; copySettings: boolean },
+    { profile: string; dir: string; vault: string }
+  >(({ name, vault, copySettings }) => [
+    'profile',
+    'create',
+    ...(vault ? [`--vault=${vault}`] : ['--new-vault']),
+    ...(copySettings ? ['--copy-settings'] : []),
+    '--',
+    name,
+  ]),
+  'profile.rename': commandWith<{ from: string; to: string }, { from: string; to: string }>(
+    ({ from, to }) => ['profile', 'rename', '--', from, to],
+  ),
+  'profile.remove': commandWith<{ name: string }, { profile: string; vault: string | null }>(
+    ({ name }) => ['profile', 'remove', '--yes', '--', name],
+  ),
+  'profile.use': commandWith<{ name: string }, { profile: string }>(({ name }) => [
+    'profile',
+    'use',
+    '--',
+    name,
+  ]),
+  'profile.open': commandWith<{ name: string }, { profile: string; dir: string }>(({ name }) => [
+    'profile',
+    'open',
+    '--',
+    name,
+  ]),
   'profile.init': commandWith<{ vault: string }, Recorded<ProfileInfo & { created: boolean }>>(
     ({ vault }) => ['init', `--vault=${vault}`],
   ),

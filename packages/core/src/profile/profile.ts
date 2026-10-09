@@ -1,7 +1,15 @@
 import { existsSync, mkdirSync } from 'node:fs';
+import type { Clock } from '../lib/clock.js';
 import type { Env } from '../lib/process.js';
 import { writeYaml } from '../lib/yaml-file.js';
-import { buildConfig, CONFIG_HEADER, type Config, loadConfig } from './config.js';
+import { acceptsMesaWrites, initVault } from '../vault/vault.js';
+import {
+  type BackupSettings,
+  buildConfig,
+  CONFIG_HEADER,
+  type Config,
+  loadConfig,
+} from './config.js';
 import type { ProfilePaths } from './paths.js';
 
 const DEFAULT_PROFILE = 'default';
@@ -35,13 +43,14 @@ export function openProfile(paths: ProfilePaths): Profile {
  */
 export function initProfile(
   paths: ProfilePaths,
-  input: { vault: string; agent?: string },
+  input: { vault: string; agent?: string; settings?: BackupSettings },
 ): { created: boolean; path: string } {
   if (existsSync(paths.config)) return { created: false, path: paths.config };
   const config = buildConfig(
     {
+      ...input.settings,
       vault: input.vault,
-      defaultAgent: input.agent,
+      defaultAgent: input.agent ?? input.settings?.defaultAgent,
       onboarding: { status: 'active', step: 0 },
     },
     paths.config,
@@ -53,4 +62,20 @@ export function initProfile(
     exclusive: true,
   });
   return { created, path: paths.config };
+}
+
+/**
+ * initProfile, then its vault laid out as `mesa vault init` would; a folder Mesa may not write
+ * into is left for `mesa vault init --force`.
+ */
+export function createProfile(
+  paths: ProfilePaths,
+  input: Parameters<typeof initProfile>[1],
+  clock: Clock,
+) {
+  const made = initProfile(paths, input);
+  const vaultCreated = acceptsMesaWrites(input.vault)
+    ? initVault({ path: input.vault, clock }).created
+    : [];
+  return { ...made, vaultCreated };
 }

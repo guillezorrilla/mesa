@@ -4,9 +4,8 @@ import { REDACTED, redactWhole } from '../lib/redact.js';
 import { MesaError } from '../lib/result.js';
 import { APPROVAL_FROM_SESSION, WORKTREE_SCRIPTS } from '../projects/trust.js';
 import { callerOf } from '../sessions/window/caller.js';
-import { acceptsMesaWrites, initVault } from '../vault/vault.js';
 import { type Config, loadConfig, redactConfig, setConfigValue } from './config.js';
-import { initProfile, type ProfileInfo } from './profile.js';
+import { createProfile, type ProfileInfo } from './profile.js';
 
 /** The profile itself: what it is, making it, and its config. */
 export function profileService(ctx: MesaContext) {
@@ -43,15 +42,7 @@ export function profileService(ctx: MesaContext) {
           outputs: (r) => ({ config: r.path, vaultCreated: r.vaultCreated }),
           changed: (r) => r.created,
         },
-        () => {
-          const made = initProfile(paths, { ...input, vault });
-          // A new profile starts with its vault laid out, as `mesa vault init` would; a folder Mesa
-          // may not write into is left for `mesa vault init --force`.
-          const vaultCreated = acceptsMesaWrites(vault)
-            ? initVault({ path: vault, clock: ctx.clock }).created
-            : [];
-          return { ...made, vaultCreated };
-        },
+        () => createProfile(paths, { ...input, vault }, ctx.clock),
       );
     },
     config: {

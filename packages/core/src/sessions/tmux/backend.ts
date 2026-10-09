@@ -321,6 +321,12 @@ export function tmuxBackend({
       return out.replace(/\n+$/, '').split('\n').slice(-lines).join('\n');
     },
     listWindows,
+    /** Stops the profile's server and every window on it; none running is already the goal. */
+    killServer: async () => {
+      const res = await tmux(['kill-server']);
+      if (!res.ok && !NOTHING_THERE.test(res.detail))
+        throw new MesaError('internal', `could not stop tmux: ${res.detail}`);
+    },
     attachArgv,
     /**
      * Several windows side by side, for one terminal (CONTEXT.md, Project view): a session

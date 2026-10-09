@@ -262,6 +262,9 @@ const BackupSettingsSchema = WithoutRemovedKeys.pipe(ConfigShape.omit({ vault: t
 export type BackupSettings = z.infer<typeof BackupSettingsSchema>;
 export const buildBackupSettings = (input: unknown, file: string): BackupSettings =>
   parseWith(BackupSettingsSchema, input, file);
+/** What a backup or a new profile carries over: everything but the vault and the keys. */
+export const portableSettings = ({ vault: _, keys: __, ...settings }: Config): BackupSettings =>
+  settings;
 
 export const CONFIG_HEADER = 'Mesa profile config. Edit with `mesa config set <path> <value>`.';
 

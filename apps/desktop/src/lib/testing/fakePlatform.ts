@@ -62,7 +62,7 @@ export function fakeTerminals() {
 }
 
 /** A platform whose pickers return `folder` and `file` (none: the user cancelled), recording
- * the pasteboard and each Dock badge count. */
+ * the pasteboard, each Dock badge count, and each profile switched to. */
 export const fakePlatform = ({
   folder = null,
   file = null,
@@ -113,9 +113,11 @@ export const fakePlatform = ({
 } = {}): Platform & {
   pasteboard: string[];
   badges: number[];
+  switched: string[];
 } => {
   const pasteboard: string[] = [];
   const badges: number[] = [];
+  const switched: string[] = [];
   return {
     lifecycle,
     pickFolder: async () => folder,
@@ -130,5 +132,7 @@ export const fakePlatform = ({
     badges,
     updates,
     menu,
+    profiles: { switch: async (name) => void switched.push(name) },
+    switched,
   };
 };
