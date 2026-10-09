@@ -4,11 +4,15 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+import { AGENTS } from '../../agents/agents.js';
+import { claudeTranscripts } from '../../agents/claude/paths.js';
 import type { MesaDeps } from '../../context.js';
+import type { Runner } from '../../lib/process.js';
 import { createMesa } from '../../mesa.js';
 import { listReceipts, sessionReceipt } from '../../receipts/store.js';
 import { GENERAL_PROJECT } from '../../sessions/record/general.js';
@@ -61,6 +65,24 @@ const NOTE = {
 };
 const CAPTURE = "'/vault-capture'";
 
+/** A transcript line of `role` saying `text` at `at`, as Claude Code writes one. */
+const said = (role: 'user' | 'assistant', text: string, at: string) =>
+  JSON.stringify({ type: role, timestamp: at, message: { role, content: text } });
+/** A conversation that goes on: each turn a question and its answer, a minute apart from 09:00. */
+const TURNS = [
+  ['Which port does the tide feed use?', 'Port 7341, as the harbour proxy expects.'],
+  ['Should the tide feed cache on disk?', 'No: it rebuilds hourly, so memory is enough.'],
+  ['Who owns the tide feed alerts?', 'The harbour team, paged after 3 failures.'],
+].map(([question = '', answer = ''], n) => ({
+  question,
+  answer,
+  lines: [
+    said('user', question, `2026-10-08T09:0${2 * n}:00.000Z`),
+    said('assistant', answer, `2026-10-08T09:0${2 * n + 1}:00.000Z`),
+  ],
+  at: `2026-10-08T09:0${2 * n + 1}:00.000Z`,
+}));
+
 /**
  * lantern-cove over a fake tmux whose claude ends a capture run as `run` says (two items by
  * default) and quits on /exit, with `deps` (a decision model's world). `session` opens one with
@@ -101,6 +123,16 @@ function captureWorld(
   const land = async () => {
     for (const w of captures()) await profile.mesa.tmuxEvent('pane-died', 'lantern-cove', w.window);
   };
+  /** Session `s`'s transcript holds the first `turns` of TURNS. */
+  const converse = (s: { agentSessionId?: string }, turns: number) =>
+    plantTranscript(
+      profile.home,
+      s.agentSessionId ?? '',
+      profile.dir,
+      TURNS.slice(0, turns)
+        .flatMap((t) => t.lines)
+        .join('\n'),
+    );
   const receipts = () =>
     listReceipts(join(profile.home, 'vault')).filter((e) => e.receipt.kind === 'capture');
   return {
@@ -110,6 +142,7 @@ function captureWorld(
     inputs,
     captures,
     session,
+    converse,
     land,
     receipts,
   };
@@ -439,11 +472,13 @@ test('a newest message longer than the conversation budget is kept, clipped, so 
 test('mesa vault capture runs it by hand, waited for, again after an automatic one, and only on an agent session', async () => {
   const w = captureWorld({ output: claudeAnswer(JSON.stringify([NOTE])) });
   const s = await w.session();
+  w.converse(s, 1);
   const { result, receipt } = await w.mesa.vault.capture(s.id);
   const path = 'wiki/notes/the-tide-feed-answers-503-on-the-hour.md';
   expect(result).toEqual({ session: s.id, run: expect.any(String), ok: true, notes: [path] });
   expect(receipt?.path).toBe(testStore(w.home).get(s.id).capture?.receipt);
-  // The same words again change nothing: no note, no receipt.
+  // The same note from newer words changes nothing: no note, no receipt.
+  w.converse(s, 2);
   const again = await w.mesa.vault.capture(s.id);
   expect(again.result).toMatchObject({ ok: true, notes: [] });
   expect(w.receipts()).toHaveLength(1);
@@ -462,4 +497,200 @@ test('a run that returns more than 5 items keeps its first 5', () => {
   expect(captureItems(JSON.stringify(notes)).map((i) => i.title)).toEqual(
     notes.slice(0, 5).map((n) => n.title),
   );
+});
+
+test("a capture marks the newest message it was given; a resumed session's end reads only newer ones, and starts nothing when none are", async () => {
+  const w = captureWorld({ output: claudeAnswer(JSON.stringify([NOTE])) });
+  const store = testStore(w.home);
+  const s = await w.session();
+  w.converse(s, 1);
+  await w.mesa.sessions.stop(s.id);
+  await w.land();
+  expect(store.get(s.id).capture).toMatchObject({ state: 'done', through: TURNS[0]?.at });
+  expect(store.get(s.id).capture?.upTo).toBeUndefined();
+  // mesa show prints the record's capture, mark and all.
+  expect((await w.mesa.sessions.show(s.id)).capture?.through).toBe(TURNS[0]?.at);
+
+  const resumed = (await w.mesa.sessions.resume(s.id)).result.record;
+  w.converse(resumed, 2);
+  await w.mesa.sessions.stop(resumed.id);
+  expect(w.captures()).toHaveLength(2);
+  expect(w.inputs[1]).toContain(`[user] ${TURNS[1]?.question}`);
+  expect(w.inputs[1]).toContain(`[assistant] ${TURNS[1]?.answer}`);
+  expect(w.inputs[1]).not.toContain(TURNS[0]?.question);
+  expect(w.inputs[1]).toContain('the newest 2 messages');
+  await w.land();
+  expect(store.get(resumed.id).capture).toMatchObject({ state: 'done', through: TURNS[1]?.at });
+
+  // Resumed again and ended with nothing said: no run.
+  const again = (await w.mesa.sessions.resume(resumed.id)).result.record;
+  await w.mesa.sessions.stop(again.id);
+  expect(w.captures()).toHaveLength(2);
+  expect(store.get(again.id).capture).toBeUndefined();
+});
+
+test('a failed capture keeps the mark, and the next end tries the same messages again', async () => {
+  const run: Parameters<typeof finishesRun>[0] = { output: claudeAnswer(JSON.stringify([NOTE])) };
+  const w = captureWorld(run);
+  const store = testStore(w.home);
+  const s = await w.session();
+  w.converse(s, 1);
+  await w.mesa.sessions.stop(s.id);
+  await w.land();
+  run.output = claudeAnswer('I saved it for you.');
+  const resumed = (await w.mesa.sessions.resume(s.id)).result.record;
+  w.converse(resumed, 2);
+  await w.mesa.sessions.stop(resumed.id);
+  await w.land();
+  expect(store.get(resumed.id).capture).toMatchObject({
+    state: 'failed',
+    through: TURNS[0]?.at,
+  });
+  run.output = claudeAnswer(JSON.stringify([NOTE]));
+  const again = (await w.mesa.sessions.resume(resumed.id)).result.record;
+  await w.mesa.sessions.stop(again.id);
+  expect(w.captures()).toHaveLength(3);
+  expect(w.inputs[2]).toContain(TURNS[1]?.question);
+  expect(w.inputs[2]).not.toContain(TURNS[0]?.question);
+  await w.land();
+  expect(store.get(again.id).capture).toMatchObject({ state: 'done', through: TURNS[1]?.at });
+});
+
+test('a capture by hand of a live session marks it: its end captures only what was said after, or nothing', async () => {
+  for (const more of [true, false]) {
+    const w = captureWorld({ output: claudeAnswer(JSON.stringify([NOTE])) });
+    const s = await w.session();
+    w.converse(s, 1);
+    expect((await w.mesa.vault.capture(s.id)).result).toMatchObject({ ok: true });
+    expect(testStore(w.home).get(s.id).capture?.through).toBe(TURNS[0]?.at);
+    // Nothing newer to capture by hand either.
+    await expect(w.mesa.vault.capture(s.id)).rejects.toMatchObject({ code: 'usage' });
+    if (more) w.converse(s, 2);
+    await w.mesa.sessions.stop(s.id);
+    expect(w.captures(), String(more)).toHaveLength(more ? 2 : 1);
+    if (!more) continue;
+    expect(w.inputs[1]).toContain(TURNS[1]?.question);
+    expect(w.inputs[1]).not.toContain(TURNS[0]?.question);
+    await w.land();
+    expect(testStore(w.home).get(s.id).capture).toMatchObject({
+      state: 'done',
+      through: TURNS[1]?.at,
+    });
+  }
+});
+
+test("a Claude background session's exit, found by a Board look, starts its capture", async () => {
+  let native: 'active' | 'stopped' = 'active';
+  let base: Runner | undefined;
+  const agentSessionId = 'abcdef12-0000-4000-8000-000000000001';
+  const run: Runner = (file, args, ms, options) => {
+    if (file === 'claude' && args[0] === '--bg')
+      return Promise.resolve({ ok: true, stdout: 'backgrounded · abcdef12\n' });
+    if (file === 'claude' && args[0] === 'agents') {
+      const row = {
+        id: 'abcdef12',
+        kind: 'background',
+        cwd: options?.cwd ?? '',
+        sessionId: agentSessionId,
+      };
+      const state =
+        native === 'stopped' ? { state: 'stopped' } : { pid: 1234, status: 'idle', state: 'done' };
+      return Promise.resolve({
+        ok: true,
+        stdout: JSON.stringify([{ ...row, startedAt: 1790251200000, ...state }]),
+      });
+    }
+    if (!base) throw new Error('no world yet');
+    return base(file, args, ms, options);
+  };
+  const w = captureWorld(undefined, { run });
+  base = w.world.run;
+  const { result: s } = await w.mesa.sessions.open('lantern-cove', {
+    background: true,
+    goal: 'Make the tide feed reliable',
+  });
+  w.converse({ agentSessionId }, 1);
+  await w.mesa.sessions.list();
+  expect(w.captures()).toEqual([]);
+  native = 'stopped';
+  await w.mesa.sessions.list();
+  await w.mesa.sessions.list();
+  expect(w.captures()).toHaveLength(1);
+  expect(w.inputs[0]).toContain(TURNS[0]?.question);
+  await w.land();
+  expect(testStore(w.home).get(s.id).capture).toMatchObject({
+    state: 'done',
+    through: TURNS[0]?.at,
+  });
+});
+
+test('with capture off, an end reads no transcript: the switch is checked first', async () => {
+  const w = captureWorld();
+  const ends = async () => {
+    const s = await w.session();
+    // A transcripts folder that cannot be read: any look into it fails.
+    const transcripts = claudeTranscripts(w.home, {});
+    rmSync(transcripts, { recursive: true });
+    writeFileSync(transcripts, '');
+    const { warning } = await w.mesa.sessions.stop(s.id);
+    rmSync(transcripts);
+    return warning ?? '';
+  };
+  w.mesa.config.set('vault.capture', 'off');
+  expect(await ends()).not.toMatch(/vault capture/);
+  w.mesa.config.set('vault.capture', 'on');
+  expect(await ends()).toMatch(/vault capture did not start: .*ENOTDIR/);
+  expect(w.captures()).toEqual([]);
+});
+
+test('a capture that landed before marks were kept covers the conversation up to its time', async () => {
+  const w = captureWorld();
+  const s = await w.session();
+  w.converse(s, 2);
+  // As #697 left it: done, with no mark.
+  testStore(w.home).update(s.id, () => ({
+    capture: { at: '2026-10-08T09:01:30.000Z', state: 'done', notes: [] },
+  }));
+  await w.mesa.sessions.stop(s.id);
+  expect(w.captures()).toHaveLength(1);
+  expect(w.inputs[0]).toContain(TURNS[1]?.question);
+  expect(w.inputs[0]).not.toContain(TURNS[0]?.question);
+});
+
+test('a Board look captures only an exit it found itself, so a failed capture is not run again on every look', async () => {
+  for (const found of ['board look', 'pane-died hook'] as const) {
+    const w = captureWorld({ output: claudeAnswer('I saved it for you.') });
+    const s = await w.session();
+    w.converse(s, 1);
+    const pane = w.world.tmux.windows.find((x) => x.window === s.tmux.window);
+    if (pane) pane.dead = true;
+    if (found === 'pane-died hook')
+      await w.mesa.tmuxEvent('pane-died', 'lantern-cove', s.tmux.window);
+    await w.mesa.sessions.list();
+    expect(w.captures(), found).toHaveLength(1);
+    await w.land();
+    expect(testStore(w.home).get(s.id).capture, found).toMatchObject({ state: 'failed' });
+    for (let look = 0; look < 3; look++) await w.mesa.sessions.list();
+    expect(w.captures(), found).toHaveLength(1);
+  }
+});
+
+test('with capture off, a Board look that finds an exit reads no transcript', async () => {
+  const read = vi.spyOn(AGENTS.claude.transcripts, 'messages');
+  try {
+    for (const on of [false, true]) {
+      const w = captureWorld();
+      w.mesa.config.set('vault.capture', on ? 'on' : 'off');
+      const s = await w.session();
+      w.converse(s, 1);
+      read.mockClear();
+      const pane = w.world.tmux.windows.find((x) => x.window === s.tmux.window);
+      if (pane) pane.dead = true;
+      await w.mesa.sessions.list();
+      expect(read.mock.calls.length > 0, `capture ${on ? 'on' : 'off'}`).toBe(on);
+      expect(w.captures()).toHaveLength(on ? 1 : 0);
+    }
+  } finally {
+    read.mockRestore();
+  }
 });

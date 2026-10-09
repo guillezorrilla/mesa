@@ -3,12 +3,11 @@ import { AGENTS, newSessionId } from '../../agents/agents.js';
 import { antigravityLog, prepareAntigravityLog } from '../../agents/antigravity/log.js';
 import type { Guarded, Override } from '../../decisions/guardrail.js';
 import { writeFileAtomic } from '../../lib/atomic-file.js';
-import { clip } from '../../lib/clip.js';
 import type { IdSource } from '../../lib/ids.js';
 import type { LockDeps } from '../../lib/lock-file.js';
 import { shellWord } from '../../lib/process.js';
 import { MesaError } from '../../lib/result.js';
-import { isPipelineSkill, VAULT_CAPTURE } from '../../skills/library.js';
+import { isPipelineSkill } from '../../skills/library.js';
 import type { SkillRow } from '../../skills/sync.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
@@ -28,10 +27,6 @@ export const RUN_TIMEOUT_SECONDS = 20 * 60;
 // is left out of its summary. Stream the full log if summaries need the complete history.
 /** How many of a session's last output lines a run about it is given. */
 const INPUT_LINES = 1000;
-// ponytail: the newest 100,000 characters of a conversation, some 25k tokens; a capture of a
-// longer one reads its end, where its settled decisions usually are. Chunk it if that misses some.
-/** How much of a session's conversation a vault-capture run about it is given. */
-const CONVERSATION_CHARS = 100_000;
 
 /** A run's native skill prompt, which its record keeps as its goal. */
 const runPrompt = (prefix: string, skill: string, args: readonly string[] = []) =>
@@ -43,8 +38,10 @@ export type RunInput = {
   skill: string;
   /** The project to run on; the session's own when it is about one. */
   project?: string;
-  /** The session it is about: its output log is the agent's stdin. */
+  /** The session it is about: its output log is the agent's stdin, unless `input` is given. */
   session?: string;
+  /** The agent's stdin for a run about a session, built by its caller (a Vault capture's). */
+  input?: string;
   agent?: string;
   /** The words after the skill in its prompt, `/<skill> <args>`. */
   args?: readonly string[];
@@ -72,13 +69,13 @@ type RunDeps = LaunchDeps & {
  * Starts a skill run: a session of kind run whose window runs the agent's headless command, with
  * `/<skill> <args>` as its prompt (kept as the record's goal), and its stdout in runOutput; its
  * stderr stays on the pane. Its stdin is closed, or, for a run about a session, a file holding
- * that session's output (aboutInput), written once the record is, as its id names it. The
- * window's command execs the agent, so the pane's pid and exit status are the agent's. Every
- * refusal comes before anything is written: a timeout under one second, an unknown session or
- * project, a project that is not the session's, a skill the project does not see or enable, an
- * agent that cannot run, a session with no output log, a command too long for tmux, and last the
- * guardrail on its prompt (`guard`), whose override, if one let it through, comes back with the
- * record.
+ * the `input` it was given, else that session's output (aboutInput), written once the record
+ * is, as its id names it. The window's command execs the agent, so the pane's pid and exit
+ * status are the agent's. Every refusal comes before anything is written: a timeout under one
+ * second, an unknown session or project, a project that is not the session's, a skill the
+ * project does not see or enable, an agent that cannot run, a session with no output log (and no
+ * `input`), a command too long for tmux, and last the guardrail on its prompt (`guard`), whose
+ * override, if one let it through, comes back with the record.
  */
 export async function startRun(deps: RunDeps, input: RunInput) {
   const { timeoutSeconds = RUN_TIMEOUT_SECONDS } = input;
@@ -105,7 +102,7 @@ export async function startRun(deps: RunDeps, input: RunInput) {
   }
   requireSkill(deps.skills(entry.name), input.skill, entry.name);
   const { agent, spec } = await launchAgent(deps, project, input.agent);
-  const given = about && aboutInput(deps, about, input.skill);
+  const given = about && (input.input ?? aboutInput(deps, about));
   const prompt = runPrompt(spec.headless.skillPrefix, input.skill, input.args);
   const agentSessionId = newSessionId(agent, deps.newUuid);
   // A pipeline skill's output is landed by core (ADR-0006), so its run gets no vault writes.
@@ -169,61 +166,25 @@ export async function startRun(deps: RunDeps, input: RunInput) {
 }
 
 /**
- * What a run about session `about` reads on stdin: which session it is and its goal, then, for a
- * vault-capture run, its conversation (conversationLines), else the last INPUT_LINES lines of its
- * output log as plain text (outputTail), redacted as they leave Mesa's files. usage when the
- * session has none of that, or nothing in it.
+ * What a run about session `about` reads on stdin when it is given none: which session it is and
+ * its goal, then the last INPUT_LINES lines of its output log as plain text (outputTail),
+ * redacted as they leave Mesa's files. usage when the session has no output log, or nothing in it.
  */
-function aboutInput(
-  deps: Pick<RunDeps, 'logs' | 'redact' | 'lock' | 'home' | 'env'>,
-  about: SessionRecord,
-  skill: string,
-) {
-  const lines =
-    skill === VAULT_CAPTURE
-      ? conversationLines(deps, about)
-      : outputTail(deps.lock, deps.logs, about.id, INPUT_LINES);
+function aboutInput(deps: Pick<RunDeps, 'logs' | 'redact' | 'lock'>, about: SessionRecord) {
+  const lines = outputTail(deps.lock, deps.logs, about.id, INPUT_LINES);
   if (!lines?.length) {
     throw new MesaError(
       'usage',
-      skill === VAULT_CAPTURE
-        ? `session ${about.id} has no conversation to capture: its agent's transcript is not on this machine`
-        : `session ${about.id} has no output to run on: logging was off when it started, or it has not started (see mesa logs ${about.id})`,
+      `session ${about.id} has no output to run on: logging was off when it started, or it has not started (see mesa logs ${about.id})`,
     );
   }
   const ended = about.endedAt ? `, ended ${about.endedAt}` : '';
   const head = [
     `Mesa session ${about.id} on ${about.project}, started ${about.startedAt}${ended}.`,
     ...(about.goal ? [`Its goal: ${about.goal}`] : []),
-    skill === VAULT_CAPTURE
-      ? `Its conversation, the newest ${lines.length} messages:`
-      : `The last ${lines.length} lines of its output log, as plain text:`,
+    `The last ${lines.length} lines of its output log, as plain text:`,
   ];
   return deps.redact([...head, '', ...lines, ''].join('\n'));
-}
-
-/**
- * The person's and the agent's messages in `about`'s native transcript, each `[user] <text>` or
- * `[assistant] <text>`, the newest that fit in CONVERSATION_CHARS, the newest alone clipped to it
- * (ending `...`) when it does not fit whole; none without a transcript.
- */
-function conversationLines(deps: Pick<RunDeps, 'home' | 'env'>, about: SessionRecord) {
-  if (about.agent === 'terminal' || !about.agentSessionId) return undefined;
-  const transcripts = AGENTS[about.agent].transcripts;
-  const file = transcripts?.file(deps, about.agentSessionId);
-  if (!transcripts || !file) return undefined;
-  const lines: string[] = [];
-  let room = CONVERSATION_CHARS;
-  for (const { role, text } of [...transcripts.messages(file).messages].reverse()) {
-    const line = `[${role}] ${text.trim()}`;
-    if (line.length > room) {
-      if (!lines.length) lines.push(clip(line, room));
-      break;
-    }
-    lines.unshift(line);
-    room -= line.length + 1;
-  }
-  return lines;
 }
 
 /**
