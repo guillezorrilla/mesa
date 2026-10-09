@@ -1,0 +1,68 @@
+{
+  "offTopic": [
+    "Write a short Slack message telling my manager the demo moved to Thursday",
+    "What is the difference between a mutex and a semaphore?",
+    "Rename the variable tmp to buffer in this function",
+    "Explain this TypeScript error: Type 'string' is not assignable to type 'number'",
+    "Draft a birthday card message for a teammate",
+    "How does CSS grid auto-fit differ from auto-fill?",
+    "Fix the typo in the README heading",
+    "Bump the eslint plugin to the latest patch version",
+    "Add a dark mode toggle to the settings page",
+    "Notify me when the CI run finishes"
+  ],
+  "meta": [
+    "Could the decision model decide this for us?",
+    "File a separate issue for these findings",
+    "Save this decision to the vault",
+    "Add these findings to the issue",
+    "Should we decide this now or wait for the owner?",
+    "Test whether it needs refinements",
+    "Write down what we decided today",
+    "What did we decide last week about memory?",
+    "Open a pull request and link the issue",
+    "Is this worth recording as a durable decision?"
+  ],
+  "onTopic": [
+    {
+      "prompt": "Why does the tide import keep retrying when the harbour feed returns 503?",
+      "note": "wiki/decisions/2026-09-01-feed-retry-policy.md"
+    },
+    {
+      "prompt": "Should we round tide heights when each reading arrives?",
+      "note": "wiki/decisions/2026-09-04-tide-height-rounding.md"
+    },
+    {
+      "prompt": "Make the sprint board refresh faster when a ticket moves",
+      "note": "wiki/decisions/2026-09-10-sprint-board-refresh.md"
+    },
+    {
+      "prompt": "Send the high water alert to the harbour master by email instead",
+      "note": "wiki/decisions/2026-09-15-harbour-alerts-by-push.md"
+    },
+    {
+      "prompt": "Convert knots to metres per second on the wind screen",
+      "note": "wiki/decisions/2026-09-20-units-have-one-owner.md"
+    },
+    {
+      "prompt": "How long do we keep chart tiles on the phone?",
+      "note": "projects/lantern-cove/map-tile-cache.md"
+    },
+    {
+      "prompt": "The buoy readings came in late again, should the chart interpolate?",
+      "note": "projects/lantern-cove/buoy-sensor-gaps.md"
+    },
+    {
+      "prompt": "Prepare the beta build for release",
+      "note": "projects/lantern-cove/release-checklist.md"
+    },
+    {
+      "prompt": "Where in onboarding do we ask for location permission?",
+      "note": "projects/lantern-cove/onboarding-location.md"
+    },
+    {
+      "prompt": "The moon phase widget shows yesterday's high tide",
+      "note": "projects/lantern-cove/moon-phase-widget.md"
+    }
+  ]
+}

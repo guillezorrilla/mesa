@@ -89,6 +89,10 @@ export const claudeResult = (name: 'success' | 'not-logged-in') =>
     'utf8',
   );
 
+/** A successful `claude -p --output-format json` result whose answer is `text`. */
+export const claudeAnswer = (text: string) =>
+  JSON.stringify({ ...JSON.parse(claudeResult('success')), result: text });
+
 /** What `claude --version` answers in tests. */
 export const CLAUDE_VERSION = '2.1.282 (Claude Code)';
 

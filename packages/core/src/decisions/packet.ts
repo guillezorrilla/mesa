@@ -53,18 +53,20 @@ function bullets(items: readonly string[], room: number) {
   return kept.length ? kept.join('\n') : '- none';
 }
 
+/** `source` as a relevance packet sends it: its title and excerpt on one line, capped. */
+export const sentSource = (source: Source): Source => ({
+  id: source.id,
+  title: clip(flat(source.title), CHARS.title),
+  excerpt: clip(flat(source.excerpt), CHARS.excerpt),
+});
+
 /**
  * The relevance packet: `query`, then each source that fits as `[id] title: excerpt`, in the
- * order given, with the sources as sent (title and excerpt capped); the Choice is between them
- * and `none`.
+ * order given, with the sources as sent (sentSource); the Choice is between them and `none`.
  */
 export function relevancePacket(query: string, sources: readonly Source[]) {
   const head = `Query: ${clip(flat(query), CHARS.head)}\nCandidates:\n`;
-  const capped = sources.slice(0, MAX_SOURCES).map((s) => ({
-    id: s.id,
-    title: clip(flat(s.title), CHARS.title),
-    excerpt: clip(flat(s.excerpt), CHARS.excerpt),
-  }));
+  const capped = sources.slice(0, MAX_SOURCES).map(sentSource);
   const lines = capped.map((s) => `[${s.id}] ${s.title}: ${s.excerpt}`);
   const sent = capped.slice(0, fitted(head, lines, PACKET_CHARS).length);
   const packet: Packet = {

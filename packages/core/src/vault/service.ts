@@ -4,6 +4,7 @@ import { BASES_MEANINGFUL_FILTER } from '../receipts/policy.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { callerOf } from '../sessions/window/caller.js';
 import { writeBases } from './bases.js';
+import { captureByHand } from './capture/by-hand.js';
 import { vaultHealth } from './health.js';
 import { listVault, type VaultInventory } from './inventory.js';
 import type { VaultFilter } from './item.js';
@@ -21,9 +22,13 @@ import { initVault, vaultStatus } from './vault.js';
 
 /**
  * The profile's vault: laying it out, its status, its inventory, reading an item, searching it,
- * a project's context and earlier goals, opening it, session writes, and the vault server.
+ * a project's context and earlier goals, opening it, session writes, a session's capture, and
+ * the vault server. `run` is a Skill run, waited for (the sessions service's).
  */
-export function vaultService(ctx: MesaContext) {
+export function vaultService(
+  ctx: MesaContext,
+  deps: { run: Parameters<typeof captureByHand>[0]['run'] },
+) {
   const { record, vaultOf, store } = ctx;
   /** A registered project, or General; not_found otherwise. */
   const known = (project: string) => {
@@ -75,6 +80,8 @@ export function vaultService(ctx: MesaContext) {
       open: (note?: string, cli = false) =>
         openInObsidian({ run: ctx.run, obsidian: ctx.obsidian }, { vault: vaultOf(), note, cli }),
       ...writes,
+      /** Captures session `id` now (captureByHand, `mesa vault capture`). */
+      capture: (id: string) => captureByHand({ ...ctx, run: deps.run }, id),
       /** The mesa-vault tools a bound server lists (ADR-0011). */
       tools: () => VAULT_TOOLS,
       /** Serves the mesa-vault tools on `io` until its input ends, to this process's session. */

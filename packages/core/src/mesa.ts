@@ -49,10 +49,10 @@ export function createMesa(profile: string, deps: MesaDeps) {
   const skills = skillsService(ctx);
   const profileApi = profileService(ctx);
   const usage = usageService(ctx);
-  const vaults = vaultService(ctx);
   const prompts = promptsService(ctx);
   const assistance = decisionAssistance(ctx, faro);
   const sessions = sessionsService(ctx, faro, skills, profileApi.config.set, assistance);
+  const vaults = vaultService(ctx, { run: sessions.sessions.run });
   const sources = sourcesService(ctx);
   const imports = importService(ctx, {
     fetch: sources.fetch,

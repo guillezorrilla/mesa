@@ -50,6 +50,7 @@ test('init creates a 0700 dir, sessions/, and a 0600 config with defaults', () =
   expect(readFileSync(paths.config, 'utf8')).toMatch(/^# Mesa profile config/);
   expect(loadConfig(paths.config)).toEqual({
     vault: '/tmp/v',
+    vaultCapture: true,
     defaultAgent: 'claude',
     skills: ['mesa', 'mesa-handoff', 'mesa-vault'],
     decisions: { model: 'none', threshold: 0.7 },

@@ -117,14 +117,15 @@ export function createFaro(ctx: MesaContext, models: Pick<DecisionModels, 'activ
       );
     },
     /**
-     * Faro for questions no rules know, within `deadlineMs`, recorded nowhere: what a decision
-     * site asks for an ephemeral evaluation (evaluate.ts). An abort of `signal` ends the request.
+     * Faro for questions no rules know, within `deadlineMs`, recorded nowhere but on `recorder`
+     * (a Vault capture's receipt): what a decision site asks for an evaluation (evaluate.ts). An
+     * abort of `signal` ends the request.
      */
     ask: (
       state: unknown,
       questions: Question[],
       deadlineMs: number,
-      options: { signal?: AbortSignal } = {},
+      options: { signal?: AbortSignal; recorder?: DecisionRecorder } = {},
     ) => askUnruled(state, questions, deadlineMs, options),
     guardrail: {
       /** The verdict on `text`, in `project` when given; recorded nowhere (mesa guardrail check). */

@@ -136,6 +136,8 @@ test('generated meaningful filter matches policy for decisions, changes, materia
     ['vault-change', 'blocked', {}, false],
     ['connection', 'ok', { source: 'atlassian' }, true],
     ['connection', 'failed', {}, false],
+    ['capture', 'ok', { notes: ['wiki/notes/tide.md'], target: 'wiki/notes/tide.md' }, true],
+    ['capture', 'failed', { error: { code: 'internal' } }, false],
     ['refresh', 'ok', { refreshed: [] }, false],
     ['refresh', 'ok', { refreshed: ['LC-12'] }, true],
     ['refresh', 'ok', { refreshed: 'LC-12' }, false],

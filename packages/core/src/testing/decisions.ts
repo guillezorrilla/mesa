@@ -1,5 +1,6 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { MesaDeps } from '../context.js';
 import type { Decision, DecisionRecorder, DecisionsModel } from '../decisions/types.js';
 import { createMesa } from '../mesa.js';
@@ -108,4 +109,24 @@ export async function assistedAgent(
     `---\nproject: lantern-cove\ntype: decision\n---\n# Retry policy\n\nFeed calls retry 5 times on 503 (${ADVICE_MARKER}).\n`,
   );
   return world;
+}
+
+/** The invented relevance fixtures (#692): a lantern-cove vault and the prompts measured over it. */
+const RELEVANCE = fileURLToPath(new URL('../decisions/fixtures/relevance/', import.meta.url));
+
+/** Ten prompts per group; each on-topic one names the note it is about. */
+export type RelevancePrompts = {
+  offTopic: string[];
+  meta: string[];
+  onTopic: { prompt: string; note: string }[];
+};
+
+export const relevancePrompts = (): RelevancePrompts =>
+  JSON.parse(readFileSync(join(RELEVANCE, 'prompts.json'), 'utf8'));
+
+/** Writes every note of the invented relevance vault through `put` (an assistedSession's). */
+export function plantRelevanceVault(put: (path: string, text: string) => void) {
+  const root = join(RELEVANCE, 'vault');
+  for (const path of readdirSync(root, { recursive: true, encoding: 'utf8' }))
+    if (path.endsWith('.md')) put(path, readFileSync(join(root, path), 'utf8'));
 }

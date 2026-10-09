@@ -594,7 +594,11 @@ test('a fast hook lands a note once without polling again or a start receipt', a
 test('a successful completion committed after the timeout read supplies the winning result', async () => {
   const world = agentWorld();
   const { home, dir } = setUp(world);
-  const ctx = createContext('default', testDeps(home, { run: world.run }));
+  // No capture lands here: its judge never answers.
+  const ctx = {
+    ...createContext('default', testDeps(home, { run: world.run })),
+    cover: async () => undefined,
+  };
   const run = ctx.store.create((id) =>
     newSession({
       kind: 'run',

@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-import { isDeepStrictEqual } from 'node:util';
 import type { MesaContext } from '../../context.js';
 import { redactWhole } from '../../lib/redact.js';
 import { MesaError } from '../../lib/result.js';
@@ -10,24 +8,22 @@ import { type NoteChange, recordNoteChange, settleUnchanged } from '../../receip
 import { recordScope } from '../../receipts/record-scope.js';
 import type { Recorded } from '../../receipts/recorder.js';
 import { recordAgent } from '../../sessions/record/record.js';
-import { keepSections } from '../../skills/keep-sections.js';
 import { landOutput } from '../../skills/landing.js';
-import type { Frontmatter, Note } from '../frontmatter.js';
+import type { Note } from '../frontmatter.js';
 import { addToIndex } from '../index-note.js';
 import { itemProject } from '../item.js';
-import { projectHubPath, VAULT } from '../layout.js';
-import { wikilink } from '../links.js';
-import { nameOf } from '../note-name.js';
+import { VAULT } from '../layout.js';
+import { type LockedNotesDeps, oneLine, requireLog } from '../notes.js';
 import {
-  type LockedNotesDeps,
-  oneLine,
-  ownFields,
-  readNote,
-  refuseForeign,
-  requireLog,
-  writeNote,
-} from '../notes.js';
-import { canonicalVaultPath, vaultFile, vaultWriteFile } from '../scope.js';
+  applyKeep,
+  decisionName,
+  decisionNote,
+  existingNote,
+  noteName,
+  plainNote,
+  prepareKeep,
+} from '../saved-notes.js';
+import { canonicalVaultPath, vaultFile } from '../scope.js';
 import { withVaultLock } from '../vault-lock.js';
 
 // Session writes (CONTEXT.md, Session write): the decisions, summaries, and notes a session saves
@@ -81,17 +77,12 @@ function unit(value: number, what: string): number {
   return value;
 }
 
-/** Whether two notes say the same: their bodies, and their own frontmatter (not writeNote's). */
-const sameContent = (a: Note, b: Note) =>
-  a.body === b.body && isDeepStrictEqual(ownFields(a.frontmatter), b.frontmatter);
-
 /**
- * Keeps `note` in the vault, under its lock, at the path `place` picks given what is there. A note
- * there that is the person's (locked, or not Mesa's) is refused (refuseForeign), with no receipt.
- * One whose own content is the same writes nothing (settleUnchanged: a lost log line back, or the
- * entry and index line an interrupted save left out). Otherwise the note is written, keeping the
- * blocks between paired `<!-- keep -->` markers of the one it replaces; a new note gets its index
- * line (bookkeeping); and the change gets its one history entry.
+ * Keeps `note` in the vault, under its lock, at the path `place` picks given what is there
+ * (prepareKeep: a note there that is the person's is refused, with no receipt). One whose own
+ * content is the same writes nothing (settleUnchanged: a lost log line back, or the entry and
+ * index line an interrupted save left out). Otherwise the note is written (applyKeep: a new one
+ * gets its index line), and the change gets its one history entry.
  */
 async function keep(
   deps: WriteDeps,
@@ -101,28 +92,22 @@ async function keep(
   place: (read: (path: string) => Note | undefined) => string,
 ): Promise<Recorded<Saved>> {
   requireLog(deps.vault);
-  const read = (path: string) => {
-    const file = vaultWriteFile(deps.vault, path, change.project);
-    return existsSync(file) ? readNote(deps.vault, path) : undefined;
-  };
+  const read = (path: string) => existingNote(deps.vault, path, change.project);
   return withVaultLock(deps, async () => {
-    const path = place(read);
-    const previous = read(path);
-    refuseForeign(vaultFile(deps.vault, path), previous);
-    const next = { ...note, body: keepSections(note.body, previous?.body ?? '', path) };
+    const kept = prepareKeep(deps.vault, place(read), note, change.project);
+    const { path } = kept;
     const entry = (recorded: Omit<Recorded<unknown>, 'result'>): Recorded<Saved> => ({
       result: { path, changed: true },
       receipt: recorded.receipt,
       ...(recorded.warning ? { warning: recorded.warning } : {}),
     });
-    if (previous && sameContent(previous, next)) {
+    if (kept.same) {
       const settled = settleUnchanged(deps, { ...change, path });
       if (!settled) return { result: { path, changed: false }, receipt: null };
       addToIndex(deps.vault, path, summary);
       return entry(settled);
     }
-    writeNote(deps, { path, ...next });
-    if (!previous) addToIndex(deps.vault, path, summary);
+    applyKeep(deps, kept, summary);
     return entry(recordNoteChange(deps, { ...change, path }));
   });
 }
@@ -181,17 +166,19 @@ export function sessionWrites(ctx: MesaContext) {
         ...(probabilities.length ? { probabilities: Object.fromEntries(probabilities) } : {}),
         ...(confidence === undefined ? {} : { confidence }),
       };
-      const name = `${VAULT.wiki}/decisions/${localDay(ctx.clock())}-${nameOf(title)}`;
-      const frontmatter: Frontmatter = {
-        type: 'decision',
+      const name = decisionName(localDay(ctx.clock()), title);
+      const note = decisionNote({
         project,
-        ...(session ? { session: session.id } : {}),
-        ...odds,
-      };
-      const body = `# ${title}\n\n${decision}\n\n## Rationale\n\n${rationale}\n\nProject: ${wikilink(projectHubPath(project))}\n`;
+        session: session?.id,
+        title,
+        decision,
+        rationale,
+        odds,
+      });
+      const { body } = note;
       return keep(
         writes(),
-        { frontmatter, body },
+        note,
         {
           said: `Saved decision ${title} for ${project}`,
           kind: 'decision',
@@ -247,7 +234,7 @@ export function sessionWrites(ctx: MesaContext) {
      */
     saveNote: async (input: NoteInput): Promise<Recorded<Saved>> => {
       const title = redact(oneLine(required(input.title, 'title')));
-      const path = notePath(ctx.vaultOf(), input.path ?? `${VAULT.wiki}/notes/${nameOf(title)}.md`);
+      const path = notePath(ctx.vaultOf(), input.path ?? `${noteName(title)}.md`);
       const canonical = canonicalVaultPath(ctx.vaultOf(), path);
       notePath(ctx.vaultOf(), canonical);
       const inFolder = itemProject(path) ?? itemProject(canonical);
@@ -259,15 +246,9 @@ export function sessionWrites(ctx: MesaContext) {
         session: input.session,
       });
       const text = textOf(input.body, input.file, 'note');
-      const heading = text.value.startsWith('# ') ? '' : `# ${title}\n\n`;
-      const frontmatter: Frontmatter = {
-        type: 'note',
-        ...(project ? { project } : {}),
-        ...(session ? { session: session.id } : {}),
-      };
       return keep(
         writes(),
-        { frontmatter, body: `${heading}${text.value}\n` },
+        plainNote({ project, session: session?.id, title, text: text.value }),
         {
           said: `Saved note ${title}${project ? ` for ${project}` : ''}`,
           project,

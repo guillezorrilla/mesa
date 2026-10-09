@@ -1,6 +1,7 @@
 import { rmSync } from 'node:fs';
 import type { MesaContext } from '../../context.js';
 import { MesaError } from '../../lib/result.js';
+import type { CoverJudge } from '../../vault/capture/cover.js';
 import type { SessionRecord } from '../record/record.js';
 import { killIfThere, type TmuxBackend } from '../tmux/backend.js';
 import { paneExit, type TmuxWindow } from '../tmux/format.js';
@@ -18,7 +19,7 @@ const POLL_MS = 1000;
 /**
  * What ending a run takes: its record and window, the clock, the profile's runs/ (its result) and
  * logs/ (its pane's output, errors included), and the vault and secrets used when its output
- * becomes a note.
+ * becomes a note, with the judge a Vault capture's landing asks which note covers an item.
  */
 export type EndContext = Pick<
   MesaContext,
@@ -35,6 +36,7 @@ export type EndContext = Pick<
   | 'processAlive'
 > & {
   tmux: Pick<TmuxBackend, 'killWindow'>;
+  cover: CoverJudge;
 };
 
 /** How a run ended: its result, and what its end could not record (endRun). */

@@ -17,6 +17,7 @@ import { ContextRing } from './ContextRing';
 import { DecisionAssistancePanel } from './DecisionAssistancePanel';
 import { DecisionDeliveryField } from './DecisionDeliveryField';
 import { useDecisionDelivery } from './useDecisionDelivery';
+import { VaultCaptureField } from './VaultCaptureField';
 
 /** A configuration status as `state: reason`, once the details are read. */
 const statusText = (status?: InstructionStatus) =>
@@ -157,6 +158,16 @@ export function SelectedSessionDetails(props: { row: ManagedRow; projectPath?: s
                 </ul>
               ) : (
                 (tools.error ?? 'Open details to check')
+              )}
+            </dd>
+            <dt className="text-muted-foreground">Vault capture</dt>
+            <dd data-testid="session-vault-capture">
+              {!agent ? (
+                'None: a plain terminal runs no agent'
+              ) : record ? (
+                <VaultCaptureField capture={record.capture} />
+              ) : (
+                'Open details to check'
               )}
             </dd>
             <dt className="text-muted-foreground">Decisions</dt>

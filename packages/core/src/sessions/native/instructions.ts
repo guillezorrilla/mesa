@@ -54,10 +54,11 @@ export function instructionStatus(
 
 /**
  * The capability line a pointer ends with while the session's agent has the decision tool (#463):
- * under 200 bytes, beside the pointer's own 1,000.
+ * when to ask it (#692: agents did not ask until told), under 400 bytes, beside the pointer's own
+ * 1,000.
  */
 export const DECISIONS_LINE =
-  "Decisions: mesa-decisions' decision_evaluate (or mesa decisions evaluate --json) gives advice only, on relevance, next-step or evidence; prompts may carry Mesa advice. Weigh it; it never acts.";
+  "Decisions: mesa-decisions' decision_evaluate (or mesa decisions evaluate --json) gives advice only. Before presenting options with a recommendation, ask next-step and show its probabilities beside it and in save_decision; preference questions are the person's. Before claiming a task done, ask evidence. Prompts may carry Mesa advice; weigh it, it never acts.";
 
 /**
  * A bounded native hook supplement, under 1,000 bytes and with no vault content: the session, how
@@ -86,7 +87,7 @@ export function mesaPointer(
     `Help: mesa help --agent. Skills: ${skills}, invoked here as ${prefix}skill-name.`,
     'Coordinate: mesa sessions --json, mesa open [--after], send, handoff; check state before sending. Only a human answers permission or question prompts.',
     'Guardrails check sent prompts; never bypass a block without the user.',
-    "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when earlier decisions, notes or goals bear on the task. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
+    "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when past work bears on the task. After a design decision: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
     `Without the tools: ${vault} and the mesa-vault skill.`,
   ];
   if (record.additional) lines.splice(1, 0, alsoIn(record, Buffer.byteLength(lines.join('\n'))));

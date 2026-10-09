@@ -4,8 +4,15 @@ import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { GENERAL_PROJECT } from '../sessions/record/general.js';
 import { windowEnv } from '../sessions/window/caller.js';
-import { assistedSession, profilePaths, testDeps } from '../testing/index.js';
+import {
+  assistedSession,
+  plantRelevanceVault,
+  profilePaths,
+  relevancePrompts,
+  testDeps,
+} from '../testing/index.js';
 import type { ScopedContext } from './context.js';
+import { turnAdvice } from './delivery.js';
 
 const RETRY = 'wiki/decisions/retry-policy.md';
 const ROUNDING = 'wiki/decisions/rounding.md';
@@ -68,6 +75,50 @@ test("scoped context ranks only its project's sources, keeps the hub and goal, a
   expect(state).not.toContain('loose');
   expect(state).not.toContain('receipts/');
   for (const line of state.split('\n').slice(2)) expect(line.length).toBeLessThan(400);
+});
+
+const automatic = async (mesa: Awaited<ReturnType<typeof withNotes>>['mesa'], query: string) =>
+  (await mesa.decisions.evaluate(
+    { site: 'relevance', query },
+    { mode: 'automatic' },
+  )) as ScopedContext;
+
+test('per turn, only sources sharing two words with the prompt are offered, and the advice names them', async () => {
+  const { world, mesa } = await withNotes({ experimental: true });
+  world.lean({ option: `note:${RETRY}`, p: 0.9 });
+  const context = await automatic(mesa, 'Why does the feed retry so often?');
+  expect(ids(context)).toEqual([`note:${RETRY}`]);
+  expect(context.advice).toMatch(
+    /^Most relevant: note:wiki\/decisions\/retry-policy.md \(margin [0-9.]+, jev-1.13.0\), because it shares "feed", "retry" with the prompt\. Read it before relying on it\./,
+  );
+  expect(turnAdvice(context)).toContain('because it shares "feed", "retry" with the prompt.');
+  // A prompt that shares no two words with any source asks nothing and sends nothing.
+  const off = await automatic(mesa, 'Draft a birthday card for a teammate');
+  expect(off.evaluation).toMatchObject({
+    status: 'unavailable',
+    reason: 'no source shares 2 words with the query',
+  });
+  expect(off.sources).toEqual([]);
+  expect(turnAdvice(off)).toBeUndefined();
+  expect(world.requests).toHaveLength(1);
+  // Asked on demand, every source is still offered.
+  const asked = (await mesa.decisions.evaluate({
+    site: 'relevance',
+    query: 'Draft a birthday card for a teammate',
+  })) as ScopedContext;
+  expect(ids(asked)).toHaveLength(3);
+  expect(world.requests).toHaveLength(2);
+});
+
+test('over the invented relevance vault, per turn at most 1 off-topic prompt is asked, and each on-topic note is offered', async () => {
+  const { mesa, put } = await assistedSession({ experimental: true });
+  plantRelevanceVault(put);
+  const { offTopic, onTopic } = relevancePrompts();
+  let asked = 0;
+  for (const prompt of offTopic) if ((await automatic(mesa, prompt)).sources.length) asked++;
+  expect(asked).toBeLessThanOrEqual(1);
+  for (const { prompt, note } of onTopic)
+    expect(ids(await automatic(mesa, prompt))).toContain(`note:${note}`);
 });
 
 test('an abstained or unavailable answer keeps the original order, and the required part stays', async () => {

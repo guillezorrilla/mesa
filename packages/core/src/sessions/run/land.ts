@@ -3,6 +3,8 @@ import { toFail } from '../../lib/result.js';
 import { findProject } from '../../projects/projects.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import { landingOf, landOutput } from '../../skills/landing.js';
+import { VAULT_CAPTURE } from '../../skills/library.js';
+import { landCapture } from '../../vault/capture/land.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
 import { markRunEnded } from '../record/session-receipt.js';
 import type { EndContext, RunEnd } from './end.js';
@@ -11,7 +13,8 @@ import { skillOfRun } from './start.js';
 
 /**
  * What a run's end records, best effort: its output, when ok and redacted, as the vault note its
- * skill's output becomes (landOutput), with a receipt only for a changed note. A historical
+ * skill's output becomes (landOutput), with a receipt only for a changed note; a vault-capture
+ * run's, ok or not, as its session's Vault capture (landCapture). A historical
  * opening receipt, when present, is finished by markRunEnded. Failures become warnings.
  */
 export async function finishRun(ctx: EndContext, run: SessionRecord, read: HeadlessResult) {
@@ -26,7 +29,11 @@ export async function finishRun(ctx: EndContext, run: SessionRecord, read: Headl
     about: run.about,
     endedAt: run.endedAt ?? run.startedAt,
   };
-  if (read.ok && skill && landingOf(skill, landed)) {
+  if (skill === VAULT_CAPTURE && run.about) {
+    const captured = await landCapture(ctx, run, read);
+    receipt = captured.receipt;
+    unlanded = captured.warning;
+  } else if (read.ok && skill && landingOf(skill, landed)) {
     try {
       const notes = ctx.notes();
       const output = redactWhole(read.output, ctx.home, ctx.secrets());

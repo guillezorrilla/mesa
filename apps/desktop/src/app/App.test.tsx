@@ -2738,6 +2738,7 @@ test('shortcut settings validate conflicts and update the active profile key', a
   let shortcuts = { ...DEFAULT_SHORTCUTS } as Config['shortcuts'];
   const config = (): Config => ({
     vault: '/h/vault',
+    vaultCapture: true,
     defaultAgent: 'claude',
     skills: [],
     decisions: { model: 'none', threshold: 0.7 },

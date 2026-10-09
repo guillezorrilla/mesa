@@ -127,16 +127,20 @@ test('a nested conversation, a subagent, an ended or turned-off session get no a
 test('an abstaining, failing or slow model skips advice, well inside the native 5 s timeout', async () => {
   const { mesa, world } = await assistedAgent('claude', NATIVE_ID);
   world.lean({ p: 0.55 });
-  const unsure = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'first' }));
+  // Each prompt shares "feed" and "retry" with the note, so each asks the model.
+  const unsure = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'feed retry, first' }));
   expect(unsure && 'advice' in unsure).toBe(false);
   world.lean();
   world.refuse('jev', 503);
-  const failed = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'second' }));
+  const failed = await mesa.hookEvent(
+    'claude',
+    prompt(NATIVE_ID, { prompt: 'feed retry, second' }),
+  );
   expect(failed && 'advice' in failed).toBe(false);
   world.refuse('jev');
   world.stall('jev');
   const started = Date.now();
-  const slow = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'third' }));
+  const slow = await mesa.hookEvent('claude', prompt(NATIVE_ID, { prompt: 'feed retry, third' }));
   expect(slow && 'advice' in slow).toBe(false);
   // The per-turn deadline (3,000 ms in all, ADR-0019) ends the call, far inside the native 5 s;
   // the slack is this test's own process, not the hook's budget.

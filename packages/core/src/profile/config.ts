@@ -52,6 +52,12 @@ const REMOVED_KEYS: Record<string, string> = {
   board: 'board settings were removed with the Board view',
 };
 
+/**
+ * Dotted paths `mesa config set` takes for a field stored under another name: `vault` is the
+ * vault's path, so its capture switch sits beside it as `vaultCapture`.
+ */
+const CONFIG_ALIASES: Record<string, string> = { 'vault.capture': 'vaultCapture' };
+
 const WithoutRemovedKeys = z
   .unknown()
   .transform((config) =>
@@ -63,6 +69,10 @@ const WithoutRemovedKeys = z
 // Strict objects, so a typo in the file or in `mesa config set` is an error, not a silent no-op.
 const ConfigShape = z.strictObject({
   vault: z.string().refine(isAbsolute, 'must be an absolute path'),
+  // Vault capture (CONTEXT.md): on by default; `mesa config set vault.capture off` (CONFIG_ALIASES).
+  vaultCapture: z
+    .preprocess((v) => (v === 'on' ? true : v === 'off' ? false : v), z.boolean())
+    .default(true),
   defaultAgent: AgentSchema.default(DEFAULT_AGENT),
   // The mesa skill teaches every agent Mesa starts to drive Mesa (skills/mesa), and mesa-vault
   // to read and save the profile vault's knowledge (skills/mesa-vault).
@@ -302,17 +312,19 @@ function currentValue(file: string, dotted: string): unknown {
 }
 
 /**
- * Sets one dotted path; `value` is read as YAML (`0.5`, `true`, `[a, b]`). Returns the new value,
+ * Sets one dotted path (an alias, its stored field: CONFIG_ALIASES); `value` is read as YAML
+ * (`0.5`, `true`, `[a, b]`). Returns the new value,
  * redacted under `keys`, and whether it differs from the one before (defaults included).
  */
 export function setConfigValue(
   file: string,
-  dotted: string,
+  given: string,
   value: string,
   lock: LockDeps,
   /** Throws to refuse the new config, before anything is written. */
   check?: (next: Config) => void,
 ): { value: unknown; changed: boolean } {
+  const dotted = CONFIG_ALIASES[given] ?? given;
   const removed = REMOVED_KEYS[dotted.split('.')[0] as string];
   if (removed) throw new MesaError('invalid_config', `${file}: ${removed}`);
   const before = currentValue(file, dotted);

@@ -23,7 +23,7 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
     expect(Buffer.byteLength(pointer)).toBeLessThan(1000);
     expect(pointer).toContain(`Mesa session abcdefgh; profile ${PROFILE}; project ${PROJECT};`);
     expect(pointer).toContain(
-      "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when earlier decisions, notes or goals bear on the task. save_decision, save_summary, save_note keep meaningful knowledge, never routine events.",
+      "Vault: mesa-vault's project_context, read_note, search_vault and session_goals on demand, when past work bears on the task. After a design decision: search_vault, then save_decision; save_summary, save_note only for lasting knowledge.",
     );
     expect(pointer).toContain(`Without the tools: mesa vault context ${PROJECT} --json`);
     expect(pointer).not.toContain('unavailable until P5');
@@ -67,14 +67,21 @@ test('a session across projects names them in one line, eliding past the 1,000-b
 });
 
 test.each(['claude', 'codex', 'antigravity'] as const)(
-  'with the decision tool, the %s pointer ends with one capability line of under 200 bytes',
+  'with the decision tool, the %s pointer ends with one capability line of under 400 bytes',
   (agent) => {
     const plain = mesaPointer(record({ agent }), PROFILE, CWD);
     const pointer = mesaPointer(record({ agent }), PROFILE, CWD, { decisions: true });
     expect(pointer).toBe(`${plain}\n${DECISIONS_LINE}`);
-    expect(Buffer.byteLength(DECISIONS_LINE)).toBeLessThan(200);
+    expect(Buffer.byteLength(DECISIONS_LINE)).toBeLessThan(400);
     expect(DECISIONS_LINE).toContain('decision_evaluate');
     expect(DECISIONS_LINE).toContain('advice only');
+    // It names when to ask (#692): next-step before a recommendation, with its probabilities and
+    // preference questions left to the person; evidence before a task is called done.
+    expect(DECISIONS_LINE).toContain(
+      'Before presenting options with a recommendation, ask next-step and show its probabilities beside it',
+    );
+    expect(DECISIONS_LINE).toContain("preference questions are the person's");
+    expect(DECISIONS_LINE).toContain('Before claiming a task done, ask evidence.');
     expect(plain).not.toContain('Decisions:');
     // Across projects, the projects line keeps the pointer itself under its cap.
     const name = (c: string) => `${c.repeat(52)}-project`;
