@@ -57,13 +57,13 @@ test('background delivery diagnostics and a claimed notice use the same JSON inb
 test('notifications clear --all clears the whole inbox and reports the count', async () => {
   cli.withTmux();
   await cli.withProject();
-  const id = (await cli.mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
   mkdirSync(cli.paths.events, { recursive: true });
   const stop = (at: string) => `${JSON.stringify({ at, agent: 'claude', event: 'Stop' })}\n`;
-  writeFileSync(
-    join(cli.paths.events, `${id}.jsonl`),
-    stop('2026-09-24T12:00:01.000Z') + stop('2026-09-24T12:00:05.000Z'),
-  );
+  // A session keeps one notice, so two sessions make two.
+  for (const at of ['2026-09-24T12:00:01.000Z', '2026-09-24T12:00:05.000Z']) {
+    const id = (await cli.mesa('open', 'lantern-cove')).stdout.split('\n')[0] ?? '';
+    writeFileSync(join(cli.paths.events, `${id}.jsonl`), stop(at));
+  }
   expect((await cli.mesa('notifications', '--json')).json.data).toHaveLength(2);
   expect((await cli.mesa('notifications', 'clear', '--all', '--json')).json.data).toEqual({
     count: 2,

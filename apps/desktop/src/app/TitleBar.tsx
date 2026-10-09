@@ -94,6 +94,7 @@ export function TitleBar(props: {
           onSettings={() => props.onSettings('notifications')}
           onRecheck={props.onRecheck}
           doctor={props.doctor}
+          session={view.kind === 'session' ? view.id : undefined}
         />
       </nav>
       <ProfileMenu
