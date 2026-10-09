@@ -12,6 +12,7 @@ import { expect, test } from 'vitest';
 import { createMesa } from '../mesa.js';
 import { listReceipts } from '../receipts/store.js';
 import { gitRepo, scriptedRunner, tempDir, testDeps, testGit, thrown } from '../testing/index.js';
+import { GUIDELINES } from './guidelines.js';
 import { readLibrary } from './library.js';
 
 /** A skill folder with the frontmatter both agents read. */
@@ -25,7 +26,8 @@ function skill(dir: string, name: string, description = `The ${name} skill`, as 
 
 /**
  * A profile over a temp home with its own library (skills a and b), `a` enabled in the profile,
- * and lantern-cove registered with `b` as its mesa.yaml extra.
+ * sessions.guidelines off (its own test turns it on), and lantern-cove registered with `b` as its
+ * mesa.yaml extra.
  */
 function setUp(env: Record<string, string> = {}) {
   const home = tempDir();
@@ -42,6 +44,7 @@ function setUp(env: Record<string, string> = {}) {
   mesa.init({ vault: 'vault' });
   mesa.vault.init();
   mesa.config.set('skills', '[a]');
+  mesa.config.set('sessions.guidelines', 'false');
   mesa.projects.register(dir);
   return { home, library, dir, mesa };
 }
@@ -338,6 +341,32 @@ test('skill documents use the checked editor and reject stale or read-only write
   expect(
     thrown(() => mesa.skills.write(shipped, 'changed', mesa.skills.read(shipped).revision)),
   ).toMatchObject({ code: 'usage' });
+});
+
+test('agent-guidelines is on for every project by default, off with sessions.guidelines false', () => {
+  const { library, dir, mesa } = setUp();
+  skill(library, GUIDELINES);
+  mesa.config.set('sessions.guidelines', 'true');
+  const guidelines = () => mesa.skills.list('lantern-cove').find((r) => r.name === GUIDELINES);
+  expect(mesa.config.get().skills).toEqual(['a']);
+  expect(guidelines()?.enabled).toBe(true);
+  expect(mesa.skills.sync('lantern-cove').result.added).toContain(`.claude/skills/${GUIDELINES}`);
+  // While it is on for every project, one project cannot turn it off.
+  expect(thrown(() => mesa.skills.setProject('lantern-cove', GUIDELINES, false))).toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('mesa config set sessions.guidelines false'),
+  });
+  mesa.config.set('sessions.guidelines', 'false');
+  expect(guidelines()?.enabled).toBe(false);
+  expect(mesa.skills.sync('lantern-cove').result.removed).toContain(`.claude/skills/${GUIDELINES}`);
+  expect(existsSync(join(dir, '.claude/skills', GUIDELINES))).toBe(false);
+});
+
+test('a new profile has sessions.guidelines on, and Mesa ships the agent-guidelines skill', () => {
+  const mesa = createMesa('default', testDeps(tempDir()));
+  mesa.init({ vault: 'vault' });
+  expect(mesa.config.get().sessions.guidelines).toBe(true);
+  expect(readLibrary(testDeps(tempDir()).skillsDir).map((s) => s.name)).toContain(GUIDELINES);
 });
 
 test('sync links the enabled skills into both folders, then unlinks only its own', async () => {

@@ -122,6 +122,12 @@ export function endSignals(
       return false;
     }
   };
+  /** Which capability lines a session's pointer carries. */
+  const pointerLines = (started: SessionRecord) => ({
+    decisions: assisted(started),
+    // A config that does not read means no line, never a failed hook.
+    guidelines: ctx.configIfAny()?.sessions.guidelines ?? false,
+  });
   /** The advice for a turn, or none; a failure of any kind is none, never the hook's. */
   const advise = (...args: Parameters<SessionAssistance['advise']>) =>
     deps.assistance.advise(...args).catch(() => undefined);
@@ -216,7 +222,7 @@ export function endSignals(
       return started && cwd
         ? {
             ...event,
-            instruction: mesaPointer(started, ctx.profile, cwd, { decisions: assisted(started) }),
+            instruction: mesaPointer(started, ctx.profile, cwd, pointerLines(started)),
           }
         : event;
     },
@@ -246,7 +252,7 @@ export function endSignals(
             current.agentSessionId || current.endedAt ? {} : { agentSessionId: ownedId },
           );
       if (held.endedAt || held.agentSessionId !== ownedId) return undefined;
-      const pointer = mesaPointer(held, ctx.profile, cwd, { decisions: assisted(held) });
+      const pointer = mesaPointer(held, ctx.profile, cwd, pointerLines(held));
       const advice = await advise(held, undefined, { readyOnly: true });
       return advice ? `${pointer}\n${advice}` : pointer;
     },

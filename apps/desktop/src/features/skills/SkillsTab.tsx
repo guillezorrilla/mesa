@@ -1,4 +1,5 @@
 import type { Config, SkillInventoryRow } from '@mesa/core';
+import { GUIDELINES } from '@mesa/core/browser';
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
@@ -62,6 +63,8 @@ export function SkillsTab(props: {
     const inProject = projects.data
       ?.find((row) => row.name === props.project)
       ?.skills.includes(selected.name);
+    // On through sessions.guidelines: Settings owns it, so the policy buttons would only fail.
+    const bySetting = selected.name === GUIDELINES && config.data?.sessions.guidelines;
     return (
       <section data-testid="skills-workspace">
         <SkillPanel
@@ -73,7 +76,8 @@ export function SkillsTab(props: {
           onSaved={skills.refresh}
           onDirtyChange={props.onDirtyChange}
           actions={
-            selected.source === 'mesa' && (
+            selected.source === 'mesa' &&
+            !bySetting && (
               <>
                 <Button
                   size="sm"
@@ -108,6 +112,9 @@ export function SkillsTab(props: {
               )}
               {selected.source === 'mesa' && inProfile && (
                 <p>Enabled by the profile in every project.</p>
+              )}
+              {bySetting && (
+                <p>Enabled in every project by Settings &gt; Sessions &gt; Agent guidelines.</p>
               )}
               {selected.conflicts.length > 0 && (
                 <p className="break-all text-state-waiting">

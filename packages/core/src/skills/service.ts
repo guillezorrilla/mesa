@@ -4,6 +4,7 @@ import { readWorkspaceFile, writeWorkspaceFile } from '../files/editor.js';
 import { MesaError } from '../lib/result.js';
 import { readProjectFile, setProjectSkills } from '../projects/project-file.js';
 import { findProject } from '../projects/projects.js';
+import { GUIDELINES } from './guidelines.js';
 import { skillInventory } from './inventory.js';
 import { isPipelineSkill, readLibrary } from './library.js';
 import { listSkills, syncSkills } from './sync.js';
@@ -12,17 +13,19 @@ import { listSkills, syncSkills } from './sync.js';
 export function skillsService(ctx: MesaContext) {
   const libraryDir = ctx.skillsDir;
   /**
-   * A project's folder and the skills enabled for it: the profile's, then its mesa.yaml extras,
-   * and for a Skill run of a pipeline skill (PIPELINE_SKILLS), that skill.
+   * A project's folder and the skills enabled for it: the profile's, agent-guidelines while
+   * `sessions.guidelines` is on, its mesa.yaml extras, and for a Skill run of a pipeline skill
+   * (PIPELINE_SKILLS), that skill.
    */
   const scope = (project?: string, run?: string) => {
     const profile = ctx.open();
     const entry = project === undefined ? undefined : findProject(profile, project);
     const extras = entry ? (readProjectFile(entry.path).skills ?? []) : [];
     const own = run && isPipelineSkill(run) ? [run] : [];
+    const guidelines = profile.config.sessions.guidelines ? [GUIDELINES] : [];
     return {
       projectDir: entry?.path,
-      enabled: new Set([...profile.config.skills, ...extras, ...own]),
+      enabled: new Set([...profile.config.skills, ...guidelines, ...extras, ...own]),
     };
   };
   const inventory = (project?: string) => {
@@ -71,10 +74,17 @@ export function skillsService(ctx: MesaContext) {
           if (!readLibrary(libraryDir).some((skill) => skill.name === name)) {
             throw new MesaError('not_found', `no Mesa skill ${name}`);
           }
-          if (!enabled && ctx.open().config.skills.includes(name)) {
+          const { config } = ctx.open();
+          if (!enabled && config.skills.includes(name)) {
             throw new MesaError(
               'usage',
               `${name} is on in profile ${ctx.profile}'s skills, so one project cannot turn it off; change the profile with mesa config set skills`,
+            );
+          }
+          if (!enabled && name === GUIDELINES && config.sessions.guidelines) {
+            throw new MesaError(
+              'usage',
+              `${name} is on for every project in profile ${ctx.profile}; turn it off in Settings or with mesa config set sessions.guidelines false`,
             );
           }
           const { projectDir } = scope(project);
