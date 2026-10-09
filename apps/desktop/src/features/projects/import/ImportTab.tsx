@@ -3,14 +3,16 @@ import { Download, Link, Plug } from 'lucide-react';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { SectionLabel } from '@/components/SectionLabel';
-import { type Message, said } from '@/components/Toast';
+import { type Message, said, useToast } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { ImportedItems } from './ImportedItems';
+import { ImportProgressPanel } from './ImportProgressPanel';
 import { PasteLinkForm } from './PasteLinkForm';
 import { SourceCards } from './SourceCards';
 import { SourcePickerDialog } from './SourcePickerDialog';
+import { useImportProgress } from './useImportProgress';
 
 /** What an import says when it ends: what came in, and why no notes were written if none were. */
 function outcome(result: ImportResult & { warning?: string }): Message {
@@ -38,7 +40,12 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
   const sources = useCommand('sources.list');
   const run = useRun();
   const { acting, act } = useAct();
+  const toast = useToast();
   const [notes, setNotes] = useState(true);
+  // An import started here and not yet answered; its progress comes from `mesa import status`.
+  const [starting, setStarting] = useState(false);
+  const progress = useImportProgress(project, starting);
+  const importing = starting || Boolean(progress);
   const [browsing, setBrowsing] = useState<SourceRow>();
   const [lastRefresh, setLastRefresh] = useState<string>();
   const settle = async (result: (ImportResult & { warning?: string }) | undefined) => {
@@ -46,18 +53,24 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
     if (result?.checked) setLastRefresh(outcome(result).text);
     return result && outcome(result);
   };
-  /** Imports `links`; false when the import did not run (its error toasted). */
+  /**
+   * Imports `links` in the background: the tab stays usable and shows its progress, and what came
+   * in toasts when it ends. False when the import did not run (its error toasted).
+   */
   const add = async (links: string[]) => {
-    let ran = false;
-    await act(async () => {
+    setStarting(true);
+    try {
       const result = await run('imports.add', { project, links, notes });
-      ran = Boolean(result);
-      return settle(result);
-    });
-    return ran;
+      const message = await settle(result);
+      if (message) toast(message.text, message.tone);
+      return Boolean(result);
+    } finally {
+      setStarting(false);
+    }
   };
   return (
     <div data-testid="import-tab" className="space-y-8">
+      {importing && <ImportProgressPanel progress={progress} />}
       <section aria-label="Sources" className="space-y-3">
         <SectionLabel className="flex items-center gap-2">
           <Plug aria-hidden className="size-4" /> Sources
@@ -70,7 +83,7 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
           <Link aria-hidden className="size-4" /> Paste a link
         </SectionLabel>
         <Muted>A Jira issue or key, a Confluence or Notion page, or any public web page.</Muted>
-        <PasteLinkForm acting={acting} notes={notes} onNotesChange={setNotes} onImport={add} />
+        <PasteLinkForm acting={importing} notes={notes} onNotesChange={setNotes} onImport={add} />
       </section>
       <section aria-label="Imported" className="space-y-3">
         <SectionLabel className="flex items-center gap-2">
@@ -78,7 +91,7 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
         </SectionLabel>
         <Button
           variant="outline"
-          disabled={acting || !list.data?.items.length}
+          disabled={acting || importing || !list.data?.items.length}
           onClick={() =>
             void act(async () =>
               settle(await run('imports.refresh', { project, notes, changedOnly: true })),
@@ -90,7 +103,7 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
         {lastRefresh && <Muted role="status">{lastRefresh}</Muted>}
         <ImportedItems
           items={list.data?.items ?? []}
-          acting={acting}
+          acting={acting || importing}
           onRefresh={(id) =>
             void act(async () => settle(await run('imports.refresh', { project, id, notes })))
           }
@@ -104,8 +117,9 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
           label={browsing.label}
           project={project}
           notes={notes}
+          importing={importing}
           onNotesChange={setNotes}
-          onImport={add}
+          onImport={(links, then) => void add(links).then((ran) => ran && then?.())}
           onStartSession={props.onStartSession}
           onClose={() => setBrowsing(undefined)}
         />

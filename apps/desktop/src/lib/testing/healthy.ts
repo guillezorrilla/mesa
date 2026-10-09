@@ -72,6 +72,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
     }),
   // The project screen's Import panel.
   'import list': () => envelope({ items: [] }),
+  'import status': (args) => envelope({ project: args.at(-1), progress: null }),
   // The header's bell reads the inbox on every screen.
   notifications: () => envelope([]),
   prompts: () => envelope([]),

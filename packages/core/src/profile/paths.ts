@@ -47,6 +47,8 @@ export type ProfilePaths = {
   tickets: string;
   /** Failed or unattempted notes batches from change-aware source refresh. */
   pendingImportNotes: string;
+  /** Each project's running import, while it runs (sources/import-progress.ts). */
+  importProgress: string;
   /** Local archives of settings, project registry, and saved prompts. */
   backups: string;
   /** ADR-0001: every profile has its own tmux server, never the user's. */
@@ -87,6 +89,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     automationState: join(root, 'automation-state.yaml'),
     tickets: join(root, 'tickets.yaml'),
     pendingImportNotes: join(root, 'pending-import-notes.yaml'),
+    importProgress: join(root, 'import-progress'),
     backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,
   };

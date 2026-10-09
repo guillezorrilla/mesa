@@ -174,6 +174,21 @@ test('a public web page imports cleaned by Defuddle with notes off: one snapshot
   expect(files(join(vault, 'wiki/notes'))).toEqual([]);
 });
 
+test("an import's progress shows while it runs, a second import into the project waits, and it ends with none", async () => {
+  const { world, mesa } = await importProfile();
+  world.serveIssue('LC-12', { summary: 'Fix the tide alarm', description: '<p>Late.</p>' });
+  world.serveIssue('LC-13', { summary: 'Paint the buoys', description: '<p>Faded.</p>' });
+  expect(mesa.imports.status('lantern-cove')).toEqual({ project: 'lantern-cove', progress: null });
+
+  const running = mesa.imports.add('lantern-cove', ['LC-12', 'LC-13'], false);
+  expect(mesa.imports.status('lantern-cove').progress).toMatchObject({ phase: 'fetching' });
+  expect((await mesa.imports.add('lantern-cove', ['LC-12'], false).catch((e) => e)).code).toBe(
+    'locked',
+  );
+  await running;
+  expect(mesa.imports.status('lantern-cove').progress).toBeNull();
+});
+
 test('a refresh after a kept-block edit and a source change has the new content and the edit, and a new snapshot', async () => {
   // The agent drops the person's block and makes one of its own: core keeps exactly the person's.
   let says = 'The alarm rings late.';

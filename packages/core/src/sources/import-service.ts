@@ -10,6 +10,7 @@ import {
   reachedSites,
 } from './import.js';
 import { importNotes } from './import-notes.js';
+import { importProgress } from './import-progress.js';
 import { resolveLink } from './links.js';
 import { pendingImportNotes } from './pending-notes.js';
 import { snapshotRows } from './snapshots.js';
@@ -26,6 +27,7 @@ type ImportServiceDeps = Pick<ImportDeps, 'fetch' | 'sites' | 'run'>;
  * each item, its snapshot, and its note.
  */
 export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
+  const progress = importProgress(ctx.paths.importProgress, ctx);
   /** Checked before anything is fetched: a registered project and a laid-out vault. */
   const prepare = (project: string) => {
     findProject(ctx.open(), project);
@@ -45,60 +47,65 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
     notes: boolean,
     options: RefreshOptions = {},
   ) =>
-    ctx.record(
-      {
-        kind: options.changedOnly ? 'refresh' : 'vault-change',
-        summary: (r: ImportResult) =>
-          r.checked
-            ? `Checked ${r.checked.length}, skipped ${r.skipped?.length}, refreshed ${r.refreshed?.length} in ${project}`
-            : `Imported ${r.items.map((i) => i.id).join(', ')} into ${project}`,
-        failure: `Could not import into ${project}`,
-        project: () => project,
-        inputs: {
-          project,
-          notes,
-          ...(options.changedOnly ? { changedOnly: true, agent: options.agent ?? 'claude' } : {}),
-        },
-        outputs: (r) => ({
-          items: r.items,
-          ...(r.notes ? { notes: r.notes } : {}),
-          ...(options.changedOnly && r.notes
-            ? { notesWritten: r.items.filter((i) => i.note).length }
-            : {}),
-          ...(r.notesRuns ? { notesRuns: r.notesRuns } : {}),
-          ...(r.notesRetried ? { notesRetried: r.notesRetried } : {}),
-          ...(r.checked ? { checked: r.checked, skipped: r.skipped, refreshed: r.refreshed } : {}),
-          target: r.items[0]?.note ?? r.items[0]?.snapshot,
-        }),
-      },
-      () => {
-        const revisions = new Map<string, string>();
-        if (options.changedOnly) {
-          for (const row of list(project)) {
-            const revision = readNote(ctx.vaultOf(), row.snapshot).frontmatter.revision;
-            if (typeof revision === 'string') revisions.set(row.url, revision);
-          }
-        }
-        return importLinks(
-          {
-            ...deps,
-            notes: ctx.notes(),
-            http: ctx.http,
-            pending: pendingImportNotes(ctx.paths.pendingImportNotes, ctx),
+    progress.track(project, (step) =>
+      ctx.record(
+        {
+          kind: options.changedOnly ? 'refresh' : 'vault-change',
+          summary: (r: ImportResult) =>
+            r.checked
+              ? `Checked ${r.checked.length}, skipped ${r.skipped?.length}, refreshed ${r.refreshed?.length} in ${project}`
+              : `Imported ${r.items.map((i) => i.id).join(', ')} into ${project}`,
+          failure: `Could not import into ${project}`,
+          project: () => project,
+          inputs: {
+            project,
+            notes,
+            ...(options.changedOnly ? { changedOnly: true, agent: options.agent ?? 'claude' } : {}),
           },
-          project,
-          links,
-          notes,
-          options.changedOnly
-            ? {
-                revisions,
-                agent: options.agent ?? 'claude',
-                yes: options.yes,
-                automation: options.automation,
-              }
-            : undefined,
-        );
-      },
+          outputs: (r) => ({
+            items: r.items,
+            ...(r.notes ? { notes: r.notes } : {}),
+            ...(options.changedOnly && r.notes
+              ? { notesWritten: r.items.filter((i) => i.note).length }
+              : {}),
+            ...(r.notesRuns ? { notesRuns: r.notesRuns } : {}),
+            ...(r.notesRetried ? { notesRetried: r.notesRetried } : {}),
+            ...(r.checked
+              ? { checked: r.checked, skipped: r.skipped, refreshed: r.refreshed }
+              : {}),
+            target: r.items[0]?.note ?? r.items[0]?.snapshot,
+          }),
+        },
+        () => {
+          const revisions = new Map<string, string>();
+          if (options.changedOnly) {
+            for (const row of list(project)) {
+              const revision = readNote(ctx.vaultOf(), row.snapshot).frontmatter.revision;
+              if (typeof revision === 'string') revisions.set(row.url, revision);
+            }
+          }
+          return importLinks(
+            {
+              ...deps,
+              notes: ctx.notes(),
+              http: ctx.http,
+              pending: pendingImportNotes(ctx.paths.pendingImportNotes, ctx),
+              step,
+            },
+            project,
+            links,
+            notes,
+            options.changedOnly
+              ? {
+                  revisions,
+                  agent: options.agent ?? 'claude',
+                  yes: options.yes,
+                  automation: options.automation,
+                }
+              : undefined,
+          );
+        },
+      ),
     );
   return {
     /** Imports `links` into `project`'s vault, with notes unless `notes` is false. */
@@ -106,6 +113,11 @@ export function importService(ctx: MesaContext, deps: ImportServiceDeps) {
       if (!links.length) throw new MesaError('usage', 'give one link or more to import');
       prepare(project);
       return run(project, links, notes);
+    },
+    /** `project`'s running import, how far it is; null when none runs. */
+    status: (project: string) => {
+      findProject(ctx.open(), project);
+      return { project, progress: progress.read(project) };
     },
     /** The items `project` imported, each with its latest fetch and its note, newest first. */
     list: (project: string) => {
