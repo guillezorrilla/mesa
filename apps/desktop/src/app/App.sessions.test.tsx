@@ -573,10 +573,11 @@ test('a click in empty space puts the keyboard back in the open session, and con
   const bar = document.querySelector<HTMLElement>('[data-testid="session-workspace"]') ?? undefined;
   await clickEmpty(bar);
   expect(inTerminal()).toBe(true);
-  const collapse = document.querySelector<HTMLElement>('[aria-label="Collapse sidebar"]');
-  collapse?.focus();
-  await click(collapse ?? undefined);
-  expect(document.activeElement).toBe(collapse);
+  // A button keeps the click even where, as in WKWebView, clicking does not focus it.
+  await clickEmpty(
+    document.querySelector<HTMLElement>('[aria-label="Collapse sidebar"]') ?? undefined,
+  );
+  expect(inTerminal()).toBe(false);
   await click(document.querySelector<HTMLElement>('[aria-label="Expand sidebar"]') ?? undefined);
   await click(tab('Projects'));
   await clickEmpty(document.querySelector<HTMLElement>('nav[aria-label="Workspace"]') ?? undefined);

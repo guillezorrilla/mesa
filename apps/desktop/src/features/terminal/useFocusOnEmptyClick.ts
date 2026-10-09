@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
  * app is also an open `<details>` popover.
  */
 const INTERACTIVE =
-  'a, button, input, textarea, select, label, details, [contenteditable], [tabindex], [role="button"], [role="tab"], [role="option"], [role="menu"], [role="menuitem"]';
+  'a, button, input, textarea, select, label, details, [contenteditable], [tabindex]:not([tabindex="-1"]), [role="button"], [role="tab"], [role="option"], [role="menu"], [role="menuitem"]';
 
 /**
  * While `active`, a click inside a `data-returns-focus` region that lands on nothing interactive,
@@ -13,8 +13,8 @@ const INTERACTIVE =
  * keyboard back.
  */
 export function useFocusOnEmptyClick(active: boolean | undefined, focus: () => void) {
-  const focusRef = useRef(focus);
-  focusRef.current = focus;
+  const refocus = useRef(focus);
+  refocus.current = focus;
   useEffect(() => {
     if (!active) return;
     const onClick = (event: MouseEvent) => {
@@ -23,7 +23,7 @@ export function useFocusOnEmptyClick(active: boolean | undefined, focus: () => v
       const held = document.activeElement;
       if (held && held !== document.body) return;
       if (window.getSelection()?.isCollapsed === false) return;
-      focusRef.current();
+      refocus.current();
     };
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
