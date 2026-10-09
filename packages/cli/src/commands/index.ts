@@ -95,6 +95,7 @@ import { sourcesBrowse, sourcesConnect, sourcesDisconnect, sourcesList } from '.
 import { statusline } from './statusline.js';
 import { stop } from './stop.js';
 import { swap } from './swap.js';
+import { TICKETS_COMMANDS } from './tickets/index.js';
 import { unarchive } from './unarchive.js';
 import { unregister } from './unregister.js';
 import { updateChannel, updateCheck, updateInstall, updateRevoked } from './update.js';
@@ -122,6 +123,7 @@ export const COMMANDS: Command[] = [
   archive,
   attach,
   ...AUTOMATIONS_COMMANDS,
+  ...TICKETS_COMMANDS,
   backupCreate,
   backupRestore,
   browserAnnotationPreview,

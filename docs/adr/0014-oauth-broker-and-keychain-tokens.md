@@ -45,3 +45,8 @@ Before the live run: `apps/broker/src/broker.test.ts` covers the exchange, the r
 - Anyone holding the client secret could impersonate Mesa's vendor apps, so it lives only in the Worker's secrets, never in this repository.
 - A new source (ClickUp perhaps later) is a row in `providers.ts`, a row in core's `SOURCES` table (how its API names the account and the sites), and its vendor app registered with the broker's callback.
 - Keychain values must be printable ASCII (`security -w` prints any other value as hex), so the connection is written as JSON with non-ASCII characters escaped.
+
+## Amendment, 2026-10-08: Jira Software scopes (#693)
+
+The Atlassian row also asks for `read:board-scope:jira-software`, `read:sprint:jira-software` and `read:project:jira`, for Ticket views (CONTEXT.md). Jira Software's API takes granular scopes only, and the Atlassian app already mixed classic and granular ones, so one app holds both. A connection made before the change keeps working. A board view on it gets 401 "scope does not match", which `authorizedFetch` reports as needing a reconnect without marking the whole connection needs-reconnect. Reading one board by id (`/board/<id>`) would also need `read:issue-details:jira`, so Mesa reads a board's name from the board list instead and asks for no more. Verified live on 2026-10-08 against a company site through a local broker (`wrangler dev`, with `http://localhost:8787/callback/atlassian` added as a second callback URL): the new scopes were granted, and boards, sprints and searches all answered.
+

@@ -1,7 +1,7 @@
 import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
-import type { importService } from './import-service.js';
+import type { ImportListRow, importService } from './import-service.js';
 import { itemGoal } from './item-goal.js';
 
 // A session started from an imported item (CONTEXT.md, Import): its goal built from the item,
@@ -20,13 +20,31 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
   exactGoal?: boolean;
 };
 
-/** Starts sessions from `item`s, through `open`. */
-export function itemSessions(item: Imports['item'], open: Open) {
+/**
+ * Starts sessions from `item`s, through `open`. A Jira issue's goal opens with the ticket prompt
+ * `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), so a prompt that starts with
+ * Claude Code's `/goal` makes the whole goal its condition, the issue included.
+ */
+export function itemSessions(
+  item: Imports['item'],
+  open: Open,
+  ticketPrompt: (project: string) => string | undefined = () => undefined,
+) {
+  const withPrompt = (project: string, found: ImportListRow, goal?: string) => {
+    const prompt = found.source === 'jira' ? ticketPrompt(project)?.trim() : undefined;
+    const base = itemGoal(found, goal);
+    return prompt ? `${prompt}\n\n${base}` : base;
+  };
   return {
     /** The goal a session started from `from` gets, and the item, without starting it. */
     goal: async (project: string, from: string) => {
       const { item: found } = await item(project, from);
-      return { source: found.source, id: found.id, title: found.title, goal: itemGoal(found) };
+      return {
+        source: found.source,
+        id: found.id,
+        title: found.title,
+        goal: withPrompt(project, found),
+      };
     },
     /**
      * Starts a session on `project` (sessions.open), from the item `from` names when given,
@@ -53,7 +71,7 @@ export function itemSessions(item: Imports['item'], open: Open) {
       const found = await item(project, from, { notes });
       const opened = await open(project, {
         ...start,
-        goal: exactGoal ? goal : itemGoal(found.item, goal),
+        goal: exactGoal ? goal : withPrompt(project, found.item, goal),
         from: { source: found.item.source, id: found.item.id },
       });
       const failed =

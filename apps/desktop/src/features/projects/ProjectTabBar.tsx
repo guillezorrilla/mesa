@@ -47,6 +47,7 @@ export function ProjectTabBar(props: {
             'overview',
             'vault',
             'import',
+            'tickets',
             'git',
             'files',
             'skills',

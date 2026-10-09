@@ -39,6 +39,21 @@ export const reconnectError = (source: SourceId) =>
     { connect: source },
   );
 
+/**
+ * A call the connection's token has no scope for: one connected before Mesa asked for it. Only
+ * a new sign-in grants it, so the connection stays usable for everything else (#693).
+ */
+export const scopeError = (source: SourceId) =>
+  new MesaError(
+    'invalid_config',
+    `${SOURCES[source].label} needs reconnecting to allow this: run mesa sources connect ${source}`,
+    { connect: source },
+  );
+
+/** Atlassian's answer to a token that lacks a scope the call needs. */
+const missingScope = async (response: Response) =>
+  response.status === 401 && /scope does not match/i.test(await response.clone().text());
+
 /** A source asking Mesa to wait: a 429, or a 503 that says for how long. */
 const limited = (response: Response) =>
   response.status === 429 || (response.status === 503 && response.headers.has('retry-after'));
@@ -122,9 +137,11 @@ export function authorizedFetch(deps: SourceDeps, source: SourceId): Http {
     }
     const response = await call(connection.accessToken);
     if (response.status !== 401) return response;
+    if (await missingScope(response)) throw scopeError(source);
     if (refreshed) throw await needsReconnect(connection);
     connection = await refresh(connection);
     const again = await call(connection.accessToken);
+    if (await missingScope(again)) throw scopeError(source);
     if (again.status === 401) throw await needsReconnect(connection);
     return again;
   };

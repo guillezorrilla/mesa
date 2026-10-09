@@ -43,6 +43,8 @@ export type ProfilePaths = {
   /** Optional profile-local automation rules, never installed implicitly. */
   automations: string;
   automationState: string;
+  /** The Jira views this profile defines, which projects follow them, and the ticket prompts. */
+  tickets: string;
   /** Failed or unattempted notes batches from change-aware source refresh. */
   pendingImportNotes: string;
   /** Local archives of settings, project registry, and saved prompts. */
@@ -83,6 +85,7 @@ export function profilePaths(home: string, profile: string): ProfilePaths {
     prompts: join(root, 'prompts.json'),
     automations: join(root, 'automations.yaml'),
     automationState: join(root, 'automation-state.yaml'),
+    tickets: join(root, 'tickets.yaml'),
     pendingImportNotes: join(root, 'pending-import-notes.yaml'),
     backups: join(root, 'backups'),
     tmuxSocket: `mesa-${profile}`,
