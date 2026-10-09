@@ -1,6 +1,6 @@
 import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
 import { Bell, Settings2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { useToast, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -50,9 +50,13 @@ export function NotificationsMenu(props: {
   const seen = items.filter(
     (item) => !item.read && item.target.kind === 'session' && item.target.id === props.session,
   );
+  // Each notice is marked once: a read that fails is not retried on every refresh.
+  const marked = useRef(new Set<string>());
   // biome-ignore lint/correctness/useExhaustiveDependencies: each fresh list is checked once.
   useEffect(() => {
-    if (seen.length) void mark('notifications.read', seen);
+    const unmarked = seen.filter((item) => !marked.current.has(item.id));
+    for (const item of unmarked) marked.current.add(item.id);
+    if (unmarked.length) void mark('notifications.read', unmarked);
   }, [inbox.data, props.session]);
   const open = (item: InboxItem) => {
     if (!item.read) void mark('notifications.read', [item]);

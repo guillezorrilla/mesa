@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
@@ -306,6 +306,35 @@ test('inbox drops old markers when a newer notice replaces theirs', () => {
   };
   expect(state.read).toEqual([]);
   expect(state.cleared).toEqual([]);
+});
+
+test('a state file with several notices for a session shows only its newest', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const stateFile = profilePaths(home, 'default').notifications;
+  const notice = (at: string, kind: 'subagent' | 'input-required', title: string) => ({
+    session: 'aaaaaaaa',
+    at,
+    kind,
+    title,
+    fingerprint: `${kind}-fingerprint`,
+    target: { kind: 'session', id: 'aaaaaaaa' },
+  });
+  mkdirSync(dirname(stateFile), { recursive: true });
+  writeFileSync(
+    stateFile,
+    JSON.stringify({
+      read: [],
+      cleared: [],
+      items: [
+        notice('2026-09-24T12:00:00.000Z', 'input-required', 'Session needs permission'),
+        notice('2026-09-24T12:00:05.000Z', 'subagent', 'Subagent needs permission'),
+      ],
+    }),
+  );
+  expect(mesa.notifications.list().map((item) => item.title)).toEqual([
+    'Subagent needs permission',
+  ]);
 });
 
 test('clearAll clears every current notice at once and keeps hook offsets so none return', () => {
