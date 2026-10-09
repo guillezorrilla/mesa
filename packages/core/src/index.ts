@@ -164,6 +164,7 @@ export { type CallbackListen, loopbackListener } from './sources/callback-listen
 export type { Account, Site } from './sources/connection.js';
 export { siteNames } from './sources/describe.js';
 export type { ImportedItem, ImportResult, RefreshOptions } from './sources/import.js';
+export type { ImportProgress } from './sources/import-progress.js';
 export type { ImportListRow } from './sources/import-service.js';
 export type { ItemSource } from './sources/items.js';
 export type { JiraIssue } from './sources/jira.js';

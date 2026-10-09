@@ -51,6 +51,24 @@ export const importList = defineCommand({
   },
 });
 
+export const importStatus = defineCommand({
+  name: 'import status',
+  summary:
+    "Show a project's running import: fetching its items or writing their notes, and how far it is",
+  flags: { project },
+  example: 'mesa import status --project lantern-cove',
+  run: ({ mesa, flags }) => {
+    const data = mesa.imports.status(flags.project);
+    const { progress } = data;
+    const text = !progress
+      ? `no import running in ${data.project}`
+      : progress.phase === 'fetching'
+        ? `fetching ${progress.done} of ${progress.total} items, since ${progress.startedAt}`
+        : `writing notes for ${progress.total} items, since ${progress.startedAt}`;
+    return { data, text };
+  },
+});
+
 export const importRefresh = defineCommand({
   name: 'import refresh',
   summary:

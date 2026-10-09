@@ -5,6 +5,7 @@ import type { LockedNotesDeps } from '../vault/notes.js';
 import type { Site } from './connection.js';
 import { CONNECTORS } from './connectors.js';
 import { type NotesRun, type SkillRun, writeNotes } from './import-notes.js';
+import type { ImportStep } from './import-progress.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { resolveLink } from './links.js';
 import { NOTES_MAX_ITEMS } from './notes-limit.js';
@@ -27,6 +28,8 @@ export type ImportDeps = {
   sites: (source: SourceId) => Promise<Site[] | undefined>;
   run: SkillRun;
   pending: ReturnType<typeof pendingImportNotes>;
+  /** Told each step the import takes, for its progress (import-progress.ts). */
+  step?: (step: ImportStep) => void;
 };
 
 /** One item an import brought in: its snapshot, and the note written for it, if any. */
@@ -96,10 +99,12 @@ export async function importLinks(
   const gets = new Map<SourceId, Http>();
   const items: Item[] = [];
   const skipped: string[] = [];
-  for (const ref of refs) {
+  deps.step?.({ phase: 'fetching', done: 0, total: refs.length });
+  for (const [at, ref] of refs.entries()) {
     const item = await fetchItem(deps, gets, ref, refresh?.revisions.get(ref.url));
     if (item) items.push(item);
     else skipped.push(ref.id);
+    deps.step?.({ phase: 'fetching', done: at + 1, total: refs.length });
   }
   const pending = refresh && notes ? deps.pending.list(project) : new Set<string>();
   if (refresh && notes)
@@ -147,6 +152,7 @@ export async function importLinks(
   const runs: NotesRun[] = [];
   const locked: string[] = [];
   for (let at = 0; at < noteSnapshots.length; at += NOTES_MAX_ITEMS) {
+    deps.step?.({ phase: 'notes', done: at, total: noteSnapshots.length });
     const selected = noteSnapshots.slice(at, at + NOTES_MAX_ITEMS);
     const batch = await writeNotes(
       deps,

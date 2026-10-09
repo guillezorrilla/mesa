@@ -34,7 +34,7 @@ import { history, historySearch } from './history.js';
 import { hook, hookTmux } from './hook.js';
 import { hooksInstall, hooksStatus, hooksUninstall } from './hooks.js';
 import { imagePreview, imageSend } from './image.js';
-import { importGoal, importLinks, importList, importRefresh } from './import.js';
+import { importGoal, importLinks, importList, importRefresh, importStatus } from './import.js';
 import { init } from './init.js';
 import { instructionsList, instructionsRead, instructionsWrite } from './instructions.js';
 import { log } from './log.js';
@@ -166,6 +166,7 @@ export const COMMANDS: Command[] = [
   importLinks,
   importList,
   importRefresh,
+  importStatus,
   importGoal,
   init,
   instructionsList,

@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
-import type { BrowseChild, BrowseResult, ImportListRow } from '@mesa/core';
+import type { BrowseChild, BrowseResult, ImportListRow, ImportProgress } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, renderWithMesa, toasts } from '@/lib/testing';
+import { click, deferred, envelope, fakeBridge, renderWithMesa, toasts } from '@/lib/testing';
 import { ImportTab } from './ImportTab';
 
 const SITE = 'https://lantern-cove.atlassian.net';
@@ -185,6 +185,53 @@ test('Start session takes one ticked item: it imports it, closes, and hands on i
   ]);
   expect(byTestId('source-picker-dialog')).toHaveLength(0);
   expect(started).toEqual([`${SITE}/browse/LC-12`]);
+});
+
+test('Import closes the Picker at once; the import runs in the background with its progress, and another waits', async () => {
+  const written = deferred();
+  let progress: ImportProgress | null = null;
+  const { byTestId } = await setUp({
+    import: () => written.promise,
+    'import status': () => envelope({ project: 'lantern-cove', progress }),
+  });
+  const panel = () => byTestId('import-progress')[0]?.textContent;
+  const poll = () => act(() => new Promise((resolve) => setTimeout(resolve, 1_100)));
+  await click(button('Browse Atlassian'));
+  await open('lantern-cove');
+  await open('Jira');
+  await open('Lantern Cove');
+  await tick('LC-12: Fix the tide alarm');
+  await click(byTestId('import-picked')[0]);
+  expect(byTestId('source-picker-dialog')).toHaveLength(0);
+  expect(panel()).toContain('Starting the import');
+
+  const startedAt = new Date().toISOString();
+  progress = { phase: 'fetching', done: 1, total: 2, startedAt };
+  await poll();
+  expect(panel()).toContain('Fetching 1 of 2 items');
+  progress = { phase: 'notes', done: 0, total: 2, startedAt };
+  await poll();
+  expect(panel()).toContain('Writing notes for 2 items');
+
+  // The Picker opens meanwhile, and its Import waits for the running one.
+  await click(button('Browse Atlassian'));
+  expect(count()).toBe('0 ticked; an import is running');
+  await click(button('Cancel'));
+  expect(byTestId('source-picker-dialog')).toHaveLength(0);
+
+  progress = null;
+  await act(async () => {
+    written.resolve(
+      envelope({
+        project: 'lantern-cove',
+        items: [imported(`${SITE}/browse/LC-12`, 'LC-12: Fix the tide alarm')],
+        receipt: null,
+      }),
+    );
+  });
+  await poll();
+  expect(byTestId('import-progress')).toHaveLength(0);
+  expect(toasts(byTestId)).toContainEqual(['confirmation', 'Imported LC-12: Fix the tide alarm']);
 });
 
 test('Include them ticks every page under it, and Write notes off imports with --no-notes', async () => {

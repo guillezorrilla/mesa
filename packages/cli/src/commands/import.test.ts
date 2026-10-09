@@ -15,6 +15,15 @@ async function connected() {
   return world;
 }
 
+test('mesa import status says when no import is running in a project', async () => {
+  await connected();
+  const out = await cli.mesa('import', 'status', '--project', 'lantern-cove', '--json');
+  expect(out.json.data).toEqual({ project: 'lantern-cove', progress: null });
+  expect((await cli.mesa('import', 'status', '--project', 'lantern-cove')).stdout).toBe(
+    'no import running in lantern-cove\n',
+  );
+});
+
 test('mesa import takes a Confluence URL and a Jira key, prints each item, and lists and refreshes them', async () => {
   const world = await connected();
   const out = await cli.mesa(
