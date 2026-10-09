@@ -2,6 +2,17 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.2 - 2026-10-09
+
+### Features
+
+- **app**: create, switch and manage profiles from the app (#688)
+
+### Fixes
+
+- **notifications**: the Inbox keeps one notice per session, its newest, raises none when a subagent finishes, and marks a session's notice read when you open it (#690)
+- **sessions**: a click in empty space puts the keyboard back in the open session (#689)
+
 ## 0.2.1 - 2026-10-08
 
 ### Fixes
