@@ -67,8 +67,6 @@ export function ProjectScreen(props: {
   const gitChanges = useGitChangeCount(project.name, gitRevision);
   const { acting, act } = useAct();
   const run = useRun();
-  // Write notes, as the Context and Tickets tabs share it for every import.
-  const [notes, setNotes] = useState(true);
   // Start session on an imported item: its goal fills in the Overview's composer, to edit there.
   const startFrom = (from: string) =>
     void act(async () => {
@@ -126,21 +124,9 @@ export function ProjectScreen(props: {
           onImport={() => setTab('import')}
         />
       ) : tab === 'import' ? (
-        <ImportTab
-          key={project.name}
-          project={project.name}
-          notes={notes}
-          onNotesChange={setNotes}
-          onStartSession={startFrom}
-        />
+        <ImportTab key={project.name} project={project.name} onStartSession={startFrom} />
       ) : tab === 'tickets' ? (
-        <TicketsTab
-          key={project.name}
-          project={project.name}
-          notes={notes}
-          onNotesChange={setNotes}
-          onStartSession={startFrom}
-        />
+        <TicketsTab key={project.name} project={project.name} onSession={props.onSession} />
       ) : tab === 'git' ? (
         <GitTab
           key={project.name}

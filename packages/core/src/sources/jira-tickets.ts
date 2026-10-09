@@ -143,9 +143,12 @@ export type JiraTicket = {
   key: string;
   summary: string;
   status: string;
-  /** Its status is in Jira's Done category. */
-  done: boolean;
+  /** Jira's status category: new (to do), indeterminate (in progress), or done. */
+  category: string;
+  priority?: string;
   assignee?: string;
+  /** The assignee's Atlassian account id, which says whether the ticket is the person's. */
+  assigneeId?: string;
   url: string;
 };
 
@@ -161,7 +164,8 @@ const ticketsSchema = z.object({
             statusCategory: z.object({ key: z.string() }).optional(),
           })
           .optional(),
-        assignee: z.object({ displayName: z.string() }).nullish(),
+        assignee: z.object({ displayName: z.string(), accountId: z.string().optional() }).nullish(),
+        priority: z.object({ name: z.string() }).nullish(),
       }),
     }),
   ),
@@ -171,7 +175,7 @@ const ticketsSchema = z.object({
 export async function searchTickets(get: Http, site: Site, jql: string): Promise<JiraTicket[]> {
   const body = await jiraJson(
     await get(
-      `${jiraApi(site.id)}/search/jql?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee&maxResults=${TICKETS}`,
+      `${jiraApi(site.id)}/search/jql?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee,priority&maxResults=${TICKETS}`,
     ),
     ticketsSchema,
     'Jira search',
@@ -180,8 +184,24 @@ export async function searchTickets(get: Http, site: Site, jql: string): Promise
     key,
     summary: fields.summary,
     status: fields.status?.name ?? '',
-    done: fields.status?.statusCategory?.key === 'done',
+    category: fields.status?.statusCategory?.key ?? 'new',
+    ...(fields.priority ? { priority: fields.priority.name } : {}),
     ...(fields.assignee ? { assignee: fields.assignee.displayName } : {}),
+    ...(fields.assignee?.accountId ? { assigneeId: fields.assignee.accountId } : {}),
     url: issueUrl(site, key),
   }));
+}
+
+/**
+ * Assigns issue `key` to account `accountId`: Mesa's one write to Jira, which needs the
+ * write:jira-work scope (a token without it gets the reconnect error, authorizedFetch).
+ */
+export async function assignIssue(get: Http, site: Site, key: string, accountId: string) {
+  const response = await get(`${jiraApi(site.id)}/issue/${encodeURIComponent(key)}/assignee`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  });
+  if (response.ok) return;
+  await jiraJson(response, z.unknown(), `Assigning ${key}`);
 }

@@ -5,13 +5,16 @@ import { htmlToMarkdown } from './html-markdown.js';
 import type { Item, ItemRef } from './items.js';
 
 const named = z.object({ name: z.string() }).nullish();
-const person = z.object({ displayName: z.string() }).nullish();
+const person = z.object({ displayName: z.string(), accountId: z.string().optional() }).nullish();
 
 const issueSchema = z.object({
+  key: z.string().optional(),
   fields: z.object({
     summary: z.string(),
     issuetype: named,
-    status: named,
+    status: z
+      .object({ name: z.string(), statusCategory: z.object({ key: z.string() }).optional() })
+      .nullish(),
     priority: named,
     assignee: person,
     reporter: person,
@@ -32,26 +35,37 @@ const commentsSchema = z.object({
 /** How many comments one page asks for: Jira's most. */
 const PAGE = 100;
 
+/** A Jira issue's fields, description, and every comment, the text as Markdown. */
+export type JiraIssue = {
+  key: string;
+  summary: string;
+  type?: string;
+  status?: string;
+  /** Jira's status category: new (to do), indeterminate (in progress), or done. */
+  category?: string;
+  priority?: string;
+  assignee?: { name: string; accountId?: string };
+  reporter?: string;
+  labels: string[];
+  created?: string;
+  updated?: string;
+  description: string;
+  comments: { author: string; created: string; markdown: string }[];
+};
+
 /**
- * A Jira issue as an item: its fields, its description from `renderedFields`, and every comment
- * (each page of them followed), as Markdown. Reads only.
+ * Issue `key` on the site with cloud id `site`, every page of its comments followed, its HTML
+ * turned into Markdown with links resolved against `url`. Reads only. The one reader both an
+ * import and the Tickets tab's ticket panel use.
  */
-export async function jiraIssue(
+export async function readJiraIssue(
   get: Http,
-  ref: ItemRef,
-  previousRevision?: string,
-): Promise<Item | undefined> {
-  const base = `${jiraApi(siteOf(ref))}/issue/${encodeURIComponent(ref.id)}`;
-  const what = `Jira issue ${ref.id}`;
-  if (previousRevision) {
-    const current = await readItem(
-      get,
-      `${base}?fields=updated`,
-      z.object({ fields: z.object({ updated: z.string() }) }),
-      what,
-    );
-    if (current.fields.updated === previousRevision) return undefined;
-  }
+  site: string,
+  key: string,
+  url: string,
+): Promise<JiraIssue> {
+  const base = `${jiraApi(site)}/issue/${encodeURIComponent(key)}`;
+  const what = `Jira issue ${key}`;
   const { fields, renderedFields } = await readItem(
     get,
     `${base}?expand=renderedFields`,
@@ -70,32 +84,77 @@ export async function jiraIssue(
     comments.push(...page.comments);
     total = page.total;
   }
-  const facts = [
-    ['Type', fields.issuetype?.name],
-    ['Status', fields.status?.name],
-    ['Priority', fields.priority?.name],
-    ['Assignee', fields.assignee?.displayName],
-    ['Reporter', fields.reporter?.displayName],
-    ['Labels', fields.labels?.join(', ')],
-    ['Created', fields.created],
-    ['Updated', fields.updated],
-  ].flatMap(([label, value]) => (value ? [`- ${label}: ${value}`] : []));
-  const description = await htmlToMarkdown(renderedFields?.description ?? '', ref.url);
-  const discussion = await Promise.all(
-    comments.map(
-      async (c) =>
-        `### ${c.author?.displayName ?? 'Someone'}, ${c.created}\n\n${await htmlToMarkdown(c.renderedBody ?? '', ref.url)}`,
+  const optional = <T>(name: string, value: T | null | undefined) =>
+    value === null || value === undefined ? {} : { [name]: value };
+  return {
+    key,
+    summary: fields.summary,
+    ...optional('type', fields.issuetype?.name),
+    ...optional('status', fields.status?.name),
+    ...optional('category', fields.status?.statusCategory?.key),
+    ...optional('priority', fields.priority?.name),
+    ...(fields.assignee
+      ? {
+          assignee: {
+            name: fields.assignee.displayName,
+            ...optional('accountId', fields.assignee.accountId),
+          },
+        }
+      : {}),
+    ...optional('reporter', fields.reporter?.displayName),
+    labels: fields.labels ?? [],
+    ...optional('created', fields.created),
+    ...optional('updated', fields.updated),
+    description: await htmlToMarkdown(renderedFields?.description ?? '', url),
+    comments: await Promise.all(
+      comments.map(async (c) => ({
+        author: c.author?.displayName ?? 'Someone',
+        created: c.created,
+        markdown: await htmlToMarkdown(c.renderedBody ?? '', url),
+      })),
     ),
-  );
+  };
+}
+
+/**
+ * A Jira issue as an item: its fields, its description, and every comment, as Markdown
+ * (readJiraIssue). Reads only.
+ */
+export async function jiraIssue(
+  get: Http,
+  ref: ItemRef,
+  previousRevision?: string,
+): Promise<Item | undefined> {
+  if (previousRevision) {
+    const current = await readItem(
+      get,
+      `${jiraApi(siteOf(ref))}/issue/${encodeURIComponent(ref.id)}?fields=updated`,
+      z.object({ fields: z.object({ updated: z.string() }) }),
+      `Jira issue ${ref.id}`,
+    );
+    if (current.fields.updated === previousRevision) return undefined;
+  }
+  const issue = await readJiraIssue(get, siteOf(ref), ref.id, ref.url);
+  const facts = [
+    ['Type', issue.type],
+    ['Status', issue.status],
+    ['Priority', issue.priority],
+    ['Assignee', issue.assignee?.name],
+    ['Reporter', issue.reporter],
+    ['Labels', issue.labels.join(', ')],
+    ['Created', issue.created],
+    ['Updated', issue.updated],
+  ].flatMap(([label, value]) => (value ? [`- ${label}: ${value}`] : []));
+  const discussion = issue.comments.map((c) => `### ${c.author}, ${c.created}\n\n${c.markdown}`);
   const sections = [
     facts.join('\n'),
-    `## Description\n\n${description || 'None.'}`,
+    `## Description\n\n${issue.description || 'None.'}`,
     ...(discussion.length ? [`## Comments\n\n${discussion.join('\n\n')}`] : []),
   ];
   return {
     ...ref,
-    title: `${ref.id}: ${fields.summary}`,
+    title: `${ref.id}: ${issue.summary}`,
     markdown: sections.join('\n\n'),
-    ...(fields.updated ? { revision: fields.updated } : {}),
+    ...(issue.updated ? { revision: issue.updated } : {}),
   };
 }

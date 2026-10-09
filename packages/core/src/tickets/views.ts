@@ -57,6 +57,18 @@ export function parseView(input: unknown): TicketView {
   return parsed.data;
 }
 
+const TicketDefaultsSchema = z.strictObject({
+  /** Write notes before the session starts. */
+  notes: z.boolean().optional(),
+  /** Assign the ticket to the person when it is someone else's or no one's. */
+  assign: z.boolean().optional(),
+  /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
+  start: z.enum(['worktree', 'checkout']).optional(),
+});
+export type TicketDefaults = Required<z.infer<typeof TicketDefaultsSchema>>;
+/** What a project gets until it changes them: notes, assigning, and a worktree, all on. */
+export const DEFAULTS: TicketDefaults = { notes: true, assign: true, start: 'worktree' };
+
 const TicketsSchema = z.strictObject({
   views: z.array(ViewSchema).default([]),
   /** Each project's followed view names. */
@@ -64,10 +76,12 @@ const TicketsSchema = z.strictObject({
   /** The Saved prompt every ticket session gets, unless its project names its own. */
   prompt: z.string().optional(),
   prompts: z.record(z.string(), z.string()).default({}),
+  /** Each project's defaults for a session started from a ticket. */
+  defaults: z.record(z.string(), TicketDefaultsSchema).default({}),
 });
 export type TicketsFile = z.infer<typeof TicketsSchema>;
 
-const EMPTY: TicketsFile = { views: [], follows: {}, prompts: {} };
+const EMPTY: TicketsFile = { views: [], follows: {}, prompts: {}, defaults: {} };
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** The profile's ticket views, follows, and prompts, each change a locked rewrite of the file. */
@@ -139,6 +153,20 @@ export function ticketViews(ctx: MesaContext) {
         if (names.length) tickets.follows[key] = names;
         else delete tickets.follows[key];
         return { project: key, following: names };
+      });
+    },
+    /** `projectName`'s defaults, each one not set taking DEFAULTS'. */
+    defaults: (projectName: string): TicketDefaults => ({
+      ...DEFAULTS,
+      ...read().defaults[projectName],
+    }),
+    /** Changes some of `projectName`'s defaults, and returns them all. */
+    setDefaults: (projectName: string, change: Partial<TicketDefaults>) => {
+      const key = project(projectName);
+      return update((tickets): TicketDefaults => {
+        const next = { ...tickets.defaults[key], ...change };
+        tickets.defaults[key] = next;
+        return { ...DEFAULTS, ...next };
       });
     },
     /** Sets, or with no `prompt` clears, the profile's ticket prompt, or `projectName`'s own. */

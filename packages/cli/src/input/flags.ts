@@ -73,3 +73,47 @@ export function probabilitiesOf(words: string[]): Record<string, number> {
   }
   return probabilities;
 }
+
+/** The flags that name a view's query: `views add` and `preview` take them. */
+export const VIEW_FLAGS = {
+  board: { type: 'string', description: "A board's id: the view reads its sprint" },
+  sprint: { type: 'string', description: 'current (default) or next, with --board' },
+  filter: { type: 'string', description: "A saved filter's id" },
+  jql: { type: 'string', description: 'A JQL query' },
+  everyone: { type: 'boolean', description: "Every assignee's tickets, not only yours" },
+  'show-done': { type: 'boolean', description: 'Done tickets too' },
+  site: { type: 'string', description: 'The Atlassian site, when the connection reaches several' },
+} as const;
+
+/** The view query VIEW_FLAGS name, checked. */
+export function viewOf(flags: {
+  board?: string | undefined;
+  sprint?: string | undefined;
+  filter?: string | undefined;
+  jql?: string | undefined;
+  everyone?: boolean | undefined;
+  'show-done'?: boolean | undefined;
+  site?: string | undefined;
+}) {
+  const board = flags.board === undefined ? undefined : Number(flags.board);
+  if (board !== undefined && !(Number.isInteger(board) && board > 0))
+    throw new MesaError('usage', '--board takes a board id; see mesa tickets boards');
+  if (flags.sprint !== undefined && flags.sprint !== 'current' && flags.sprint !== 'next')
+    throw new MesaError('usage', '--sprint is current or next');
+  return {
+    ...(board !== undefined ? { board } : {}),
+    ...(flags.sprint ? { sprint: flags.sprint as 'current' | 'next' } : {}),
+    ...(flags.filter !== undefined ? { filter: flags.filter } : {}),
+    ...(flags.jql !== undefined ? { jql: flags.jql } : {}),
+    ...(flags.everyone ? { everyone: true } : {}),
+    ...(flags['show-done'] ? { showDone: true } : {}),
+    ...(flags.site ? { site: flags.site } : {}),
+  };
+}
+
+/** `on` or `off`, as a boolean; undefined when not given. */
+export const onOff = (flag: string, value?: string) => {
+  if (value === undefined) return undefined;
+  if (value !== 'on' && value !== 'off') throw new MesaError('usage', `--${flag} is on or off`);
+  return value === 'on';
+};

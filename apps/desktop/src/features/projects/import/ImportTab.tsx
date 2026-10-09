@@ -32,17 +32,13 @@ function outcome(result: ImportResult & { warning?: string }): Message {
  * and the items the project imported. Start session, on an item or from the Picker, hands the
  * item (its id or link) to `onStartSession`.
  */
-export function ImportTab(props: {
-  project: string;
-  notes: boolean;
-  onNotesChange: (notes: boolean) => void;
-  onStartSession: (from: string) => void;
-}) {
-  const { project, notes, onNotesChange: setNotes } = props;
+export function ImportTab(props: { project: string; onStartSession: (from: string) => void }) {
+  const { project } = props;
   const list = useCommand('imports.list', { project });
   const sources = useCommand('sources.list');
   const run = useRun();
   const { acting, act } = useAct();
+  const [notes, setNotes] = useState(true);
   const [browsing, setBrowsing] = useState<SourceRow>();
   const [lastRefresh, setLastRefresh] = useState<string>();
   const settle = async (result: (ImportResult & { warning?: string }) | undefined) => {

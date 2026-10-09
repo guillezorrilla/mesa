@@ -13,10 +13,19 @@ export const importsCommands = {
     project,
   ]),
   // The goal a session started from the item gets, for the composer to fill in.
+  // `prompt`: a Saved prompt's name for a Jira issue's goal, null for none, else the project's.
   'imports.goal': commandWith<
-    { project: string; from: string },
+    { project: string; from: string; prompt?: string | null },
     { source: ItemSource; id: string; title: string; goal: string }
-  >(({ project, from }) => ['import', 'goal', '--project', project, '--', from]),
+  >(({ project, from, prompt }) => [
+    'import',
+    'goal',
+    '--project',
+    project,
+    ...(prompt === null ? ['--no-prompt'] : prompt ? [`--prompt=${prompt}`] : []),
+    '--',
+    from,
+  ]),
   // Waits for the Write notes run, which can take minutes.
   'imports.add': commandWith<
     { project: string; links: string[]; notes: boolean },

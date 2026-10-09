@@ -9,6 +9,7 @@ Classic and granular scopes, space-separated, exactly as the broker asks for the
 | Scope | For |
 | --- | --- |
 | `read:jira-work` | Jira projects, issues, comments |
+| `write:jira-work` | assigning a ticket to the signed-in person, the one write (#695) |
 | `read:jira-user` | Jira users named on issues |
 | `read:board-scope:jira-software` | Jira boards, for a ticket view (#693) |
 | `read:sprint:jira-software` | a board's active and future sprints, for a ticket view |
@@ -20,7 +21,7 @@ Classic and granular scopes, space-separated, exactly as the broker asks for the
 | `read:me` | the signed-in account, shown in `mesa sources list` |
 | `offline_access` | a refresh token, so a connection outlives the one-hour access token |
 
-All are read scopes: Mesa never writes to Atlassian.
+All are read scopes except `write:jira-work`, which Mesa uses for one thing: `PUT /rest/api/3/issue/<key>/assignee` with the signed-in account's id, when a person assigns a ticket to themselves in the Tickets tab or `mesa tickets assign`. Each assignment leaves a receipt. Mesa never edits, comments on, or transitions an issue, and never writes to Confluence.
 
 `read:hierarchical-content:confluence` is requested and configured in the app, but in the live sign-in (2026-10-01) Atlassian did not grant it on the token: `GET /wiki/api/v2/pages/{id}/ancestors` answered 401 "scope does not match", while `GET /wiki/api/v2/pages/{id}/direct-children` worked. A page's tree is built from its children, not its ancestors.
 
@@ -78,7 +79,8 @@ Where an org admin blocks unapproved third-party apps (Atlassian Administration 
 
 - Boards: `/rest/agile/1.0/board?name=<q>`. When a view is added, the board's name is found by paging `/board?startAt=<n>` (reading `/board/<id>` would need `read:issue-details:jira`, which Mesa does not ask for), and its sprints are read once to check it has any. A board view's sprints: `/board/<id>/sprint?state=active`, or `state=future` for the next sprint, read again every time the list is.
 - Saved filters: `/rest/api/3/filter/search?filterName=<q>`, and one by `/filter/<id>` when a view is added.
-- Tickets: `/rest/api/3/search/jql` with `fields=summary,status,assignee`, the first 100 per view.
+- Tickets: `/rest/api/3/search/jql` with `fields=summary,status,assignee,priority`, the first 100 per view. One ticket's panel reads it as an import does (its `renderedFields` and every page of comments).
+- Assigning: `PUT /rest/api/3/issue/<key>/assignee`, the account id from `/me`. Atlassian lists the classic `write:jira-work` as its current scope; the granular `write:issue:jira` is Beta.
 
 Jira Software's API takes granular scopes only. A connection made before Mesa asked for them is answered 401 "scope does not match". The board view then says to reconnect, and the connection stays connected for everything else.
 

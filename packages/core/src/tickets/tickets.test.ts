@@ -7,13 +7,13 @@ const MINE = 'assignee = currentUser() AND statusCategory != Done';
 
 /** Jira's search URL for `jql`, as the Tickets tab asks it. */
 const search = (jql: string) =>
-  `${TEST_JIRA}/search/jql?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee&maxResults=100`;
+  `${TEST_JIRA}/search/jql?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee,priority&maxResults=100`;
 const issue = (key: string, summary: string, status = 'In Progress', done = false) => ({
   key,
   fields: {
     summary,
     status: { name: status, statusCategory: { key: done ? 'done' : 'indeterminate' } },
-    assignee: { displayName: 'Rowan Tide' },
+    assignee: { displayName: 'Rowan Tide', accountId: 'acc-1' },
   },
 });
 
@@ -55,8 +55,10 @@ test("a board view reads the board's current sprint, found again when the sprint
       key: 'LC-1',
       summary: 'Fix the tide alarm',
       status: 'In Progress',
-      done: false,
+      category: 'indeterminate',
       assignee: 'Rowan Tide',
+      assigneeId: 'acc-1',
+      mine: true,
       url: `${SITE}/browse/LC-1`,
       site: 'cloud-1',
       views: ['sprint'],
@@ -117,10 +119,10 @@ test('filter and JQL views narrow as told, keep their own order, and a ticket in
     'Saved filter Harbor bugs (only mine, not done)',
     'JQL: project = LC ORDER BY priority DESC (everyone, done included)',
   ]);
-  expect(tickets.map((t) => [t.key, t.views, t.done])).toEqual([
-    ['LC-1', ['bugs'], false],
-    ['LC-4', ['bugs', 'everything'], false],
-    ['LC-5', ['everything'], true],
+  expect(tickets.map((t) => [t.key, t.views, t.category])).toEqual([
+    ['LC-1', ['bugs'], 'indeterminate'],
+    ['LC-4', ['bugs', 'everything'], 'indeterminate'],
+    ['LC-5', ['everything'], 'done'],
   ]);
   // The views list which projects follow them; unfollowing the last one empties the tab.
   expect(mesa.tickets.views().map((v) => [v.name, v.following])).toEqual([
@@ -136,6 +138,7 @@ test('filter and JQL views narrow as told, keep their own order, and a ticket in
     project: 'lantern-cove',
     prompt: null,
     projectPrompt: null,
+    defaults: { notes: true, assign: true, start: 'worktree' },
     views: [],
     tickets: [],
   });

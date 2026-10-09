@@ -1,9 +1,7 @@
 import { defineCommand } from '../../command.js';
+import { VIEW_FLAGS } from '../../input/flags.js';
 
-const site = {
-  type: 'string',
-  description: 'The Atlassian site, when the connection reaches several',
-} as const;
+const { site } = VIEW_FLAGS;
 const search = { type: 'string', description: 'Only those whose name holds this' } as const;
 
 export const ticketsBoards = defineCommand({
