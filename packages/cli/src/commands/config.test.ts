@@ -48,7 +48,7 @@ test('terminal.theme takes a preset, and custom colors only as #rrggbb', async (
   for (const [path, value, named] of [
     ['terminal.theme', 'custom', 'terminal.colors'],
     ['terminal.colors.red', 'red', 'terminal.colors.red'],
-    ['terminal.colors.purple', '"#ff00ff"', 'terminal.colors'],
+    ['terminal.colors.purple', '"#ff00ff"', 'terminal.colors.purple'],
   ] as const) {
     const set = await cli.mesa('config', 'set', path, value, '--json');
     expect(set.code).toBe(4);

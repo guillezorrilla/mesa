@@ -15,5 +15,7 @@ const LABEL: Record<string, string> = {
   custom: 'Custom',
   ...Object.fromEntries(Object.entries(TERMINAL_PRESETS).map(([id, { label }]) => [id, label])),
 };
+/** The word for one of core's choices. */
+export const label = (value: string) => LABEL[value] ?? value;
 export const options = <T extends string>(values: readonly T[]) =>
-  values.map((value) => [value, LABEL[value] ?? value] as const);
+  values.map((value) => [value, label(value)] as const);

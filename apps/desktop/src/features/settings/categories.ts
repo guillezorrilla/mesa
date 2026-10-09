@@ -40,6 +40,7 @@ export const CATEGORIES: {
       ['application', 'Application'],
       ['vault', 'Vault'],
       ['appearance', 'Appearance'],
+      ['terminal-palette', 'Terminal palette'],
       ['accessibility', 'Accessibility'],
       ['doctor', 'Doctor'],
     ],

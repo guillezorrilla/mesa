@@ -1,5 +1,5 @@
 import type { ProjectRow } from '@mesa/core';
-import { TERMINAL_PRESET_IDS, TERMINAL_THEME_ALIASES } from '@mesa/core/browser';
+import { currentTerminalTheme, TERMINAL_PALETTE_CHOICES } from '@mesa/core/browser';
 import { FolderGit2, GitBranch, Palette, Play, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { ProjectField } from '@/features/sessions/fields/ProjectField';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
-import { options } from './controls/options';
+import { label, options } from './controls/options';
 import { TextField } from './controls/TextField';
 import { commaList } from './controls/textLists';
 import { ApproveScriptsDialog, type PendingScripts } from './project/ApproveScriptsDialog';
@@ -50,8 +50,7 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
       props.onChanged();
       return undefined;
     });
-  // Follow and the presets: custom colors are each user's own, so mesa.yaml cannot name them.
-  const themes = options(['follow', ...TERMINAL_PRESET_IDS]);
+  const themes = options(TERMINAL_PALETTE_CHOICES);
   const theme = project?.overrides.terminal?.theme;
   const pending = Object.entries(project?.unapproved ?? {}) as PendingScripts;
   // The scripts the dialog shows, frozen when it opens: their fingerprints are what trust approves,
@@ -91,14 +90,17 @@ export function ProjectSettingsPanel(props: { onChanged: () => void }) {
             <SettingRow
               icon={Palette}
               title="Terminal theme override"
-              description={profileValue(options([config.terminal.theme])[0]?.[1], 'follow')}
+              description={profileValue(
+                label(currentTerminalTheme(config.terminal.theme)),
+                'follow',
+              )}
               keywords="project terminal theme"
               htmlFor="project-terminal-theme"
               control={
                 <NativeSelect
                   id="project-terminal-theme"
                   className="min-w-40"
-                  value={(theme && TERMINAL_THEME_ALIASES[theme]) ?? theme ?? ''}
+                  value={theme ? currentTerminalTheme(theme) : ''}
                   disabled={acting}
                   onChange={(event) =>
                     save('terminal.theme', event.currentTarget.value || undefined)

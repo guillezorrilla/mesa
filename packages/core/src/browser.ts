@@ -46,16 +46,15 @@ export {
   validShortcut,
 } from './profile/shortcuts.js';
 export {
-  PROJECT_TERMINAL_THEMES,
+  currentTerminalTheme,
+  TERMINAL_COLOR_GROUPS,
   TERMINAL_COLOR_KEYS,
+  TERMINAL_PALETTE_CHOICES,
   TERMINAL_PRESET_IDS,
   TERMINAL_PRESETS,
-  TERMINAL_THEME_ALIASES,
-  TERMINAL_THEMES,
   type TerminalColorKey,
   type TerminalColors,
-  type TerminalPreset,
-  type TerminalTheme,
+  type TerminalPaletteChoice,
   terminalPalette,
 } from './profile/terminal-palettes.js';
 export { repositoryUrl } from './projects/project-url.js';

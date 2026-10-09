@@ -47,7 +47,7 @@ test('config takes a preset, and custom only with all 20 valid colors', () => {
     ['terminal.theme', 'custom', 'terminal.colors'],
     ['terminal.theme', 'nord', 'terminal.theme'],
     ['terminal.colors.red', 'red', 'terminal.colors.red'],
-    ['terminal.colors.purple', '"#ff00ff"', 'terminal.colors'],
+    ['terminal.colors.purple', '"#ff00ff"', 'terminal.colors.purple'],
   ] as const) {
     const error = thrown(() => setConfigValue(file, path, value, lockDeps()));
     expect(error.code).toBe('invalid_config');

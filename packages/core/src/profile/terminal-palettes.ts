@@ -29,6 +29,12 @@ export const TERMINAL_COLOR_KEYS = [
 ] as const;
 export type TerminalColorKey = (typeof TERMINAL_COLOR_KEYS)[number];
 export type TerminalColors = Record<TerminalColorKey, string>;
+/** The 20 colors as people group them: the base four, then the 8 normal and 8 bright ANSI ones. */
+export const TERMINAL_COLOR_GROUPS = {
+  base: TERMINAL_COLOR_KEYS.slice(0, 4),
+  normal: TERMINAL_COLOR_KEYS.slice(4, 12),
+  bright: TERMINAL_COLOR_KEYS.slice(12),
+};
 
 /** A palette color as config takes it: `#rrggbb`. */
 export const TERMINAL_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -154,10 +160,15 @@ export const TERMINAL_PRESETS = {
 export type TerminalPreset = keyof typeof TERMINAL_PRESETS;
 export const TERMINAL_PRESET_IDS = Object.keys(TERMINAL_PRESETS) as TerminalPreset[];
 
-/** What a project's mesa.yaml may set: shared with the repository, so no `custom`. */
-export const PROJECT_TERMINAL_THEMES = [
+/** The palettes a person picks from by name: Follow and the presets. */
+export const TERMINAL_PALETTE_CHOICES = [
   'follow',
   ...(TERMINAL_PRESET_IDS as [TerminalPreset, ...TerminalPreset[]]),
+] as const;
+export type TerminalPaletteChoice = (typeof TERMINAL_PALETTE_CHOICES)[number];
+/** What a project's mesa.yaml may set: shared with the repository, so no `custom`. */
+export const PROJECT_TERMINAL_THEMES = [
+  ...TERMINAL_PALETTE_CHOICES,
   // Before palettes: kept so older configs and mesa.yaml files still load.
   'dark',
   'light',
@@ -166,10 +177,16 @@ export const TERMINAL_THEMES = [...PROJECT_TERMINAL_THEMES, 'custom'] as const;
 export type TerminalTheme = (typeof TERMINAL_THEMES)[number];
 
 /** The themes from before palettes, and the preset each now names. */
-export const TERMINAL_THEME_ALIASES: Partial<Record<TerminalTheme, TerminalPreset>> = {
+const ALIASES: Partial<Record<TerminalTheme, TerminalPreset>> = {
   dark: 'mesa-dark',
   light: 'mesa-light',
 };
+
+/** A theme under its current name: an old alias (`dark`, `light`) as the preset it names. */
+export const currentTerminalTheme = (
+  theme: TerminalTheme,
+): Exclude<TerminalTheme, 'dark' | 'light'> =>
+  ALIASES[theme] ?? (theme as Exclude<TerminalTheme, 'dark' | 'light'>);
 
 /**
  * The 20 colors a terminal gets: `follow` is Mesa Dark or Mesa Light with the interface theme, a
@@ -180,8 +197,8 @@ export function terminalPalette(
   interfaceDark: boolean,
 ): TerminalColors {
   const followed = TERMINAL_PRESETS[interfaceDark ? 'mesa-dark' : 'mesa-light'].colors;
-  const { theme } = terminal;
+  const theme = currentTerminalTheme(terminal.theme);
   if (theme === 'custom') return { ...followed, ...terminal.colors };
   if (theme === 'follow') return followed;
-  return TERMINAL_PRESETS[TERMINAL_THEME_ALIASES[theme] ?? (theme as TerminalPreset)].colors;
+  return TERMINAL_PRESETS[theme].colors;
 }

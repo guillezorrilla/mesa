@@ -1,5 +1,9 @@
 import type { Config } from '@mesa/core';
-import { DEFAULT_TERMINAL_PREFERENCES, terminalPalette } from '@mesa/core/browser';
+import {
+  DEFAULT_TERMINAL_PREFERENCES,
+  TERMINAL_COLOR_KEYS,
+  terminalPalette,
+} from '@mesa/core/browser';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as Xterm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
@@ -215,7 +219,10 @@ export function Terminal(props: {
   }, [props.focus]);
   useFocusOnEmptyClick(props.focus, () => xterm.current?.focus());
   useEffect(() => {
-    if (xterm.current) xterm.current.options.theme = palette;
+    // A config refresh hands custom colors over anew: only a real change repaints the terminal.
+    const term = xterm.current;
+    if (term && TERMINAL_COLOR_KEYS.some((key) => term.options.theme?.[key] !== palette[key]))
+      term.options.theme = palette;
   }, [palette]);
   useEffect(() => {
     const term = xterm.current;
