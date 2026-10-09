@@ -2,6 +2,12 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.5 - 2026-10-09
+
+### Fixes
+
+- **tickets**: offer Reconnect when Jira refuses the board list, and fit the tab to the window (#712)
+
 ## 0.2.4 - 2026-10-09
 
 ### Features
