@@ -4,6 +4,7 @@ import type { TreeRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test, vi } from 'vitest';
 import {
+  attached,
   choose,
   click,
   deferred,
@@ -11,6 +12,7 @@ import {
   failure,
   fakeBridge,
   fakePlatform,
+  fakeTerminals,
   foreignRow,
   managedRow,
   PROJECTS,
@@ -541,4 +543,42 @@ test("an Antigravity session without the global entry offers Mesa's hooks instal
   );
   expect(calls).toContainEqual(['--json', 'hooks', 'install']);
   expect(delivery()).toContain('Tool Configured: Global mesa-decisions entry and allow rule.');
+});
+
+test('a click in empty space puts the keyboard back in the open session, and controls keep theirs', async () => {
+  const terminals = fakeTerminals();
+  const { bridge } = fakeBridge({
+    projects: () => envelope(PROJECTS),
+    sessions: () => envelope([managedRow('aaaaaaaa')]),
+  });
+  await renderWithMesa(<App />, bridge, fakePlatform({ terminal: terminals.host }));
+  await attached();
+  const inTerminal = () =>
+    Boolean(document.activeElement?.closest('[data-testid="terminal-aaaaaaaa"]'));
+  const sidebar = document.querySelector<HTMLElement>('nav[aria-label="Workspace"]') ?? undefined;
+  // A click on nothing leaves the keyboard on the page body, as the webview does.
+  const clickEmpty = async (element: HTMLElement | undefined) => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    await click(element);
+  };
+  expect(inTerminal()).toBe(true);
+  await clickEmpty(sidebar);
+  expect(inTerminal()).toBe(true);
+  await act(async () => {
+    document.activeElement?.dispatchEvent(
+      new InputEvent('input', { data: 'x', inputType: 'insertText', bubbles: true }),
+    );
+  });
+  expect(terminals.calls.some((call) => call[0] === 'write' && call[2] === 'x')).toBe(true);
+  const bar = document.querySelector<HTMLElement>('[data-testid="session-workspace"]') ?? undefined;
+  await clickEmpty(bar);
+  expect(inTerminal()).toBe(true);
+  const collapse = document.querySelector<HTMLElement>('[aria-label="Collapse sidebar"]');
+  collapse?.focus();
+  await click(collapse ?? undefined);
+  expect(document.activeElement).toBe(collapse);
+  await click(document.querySelector<HTMLElement>('[aria-label="Expand sidebar"]') ?? undefined);
+  await click(tab('Projects'));
+  await clickEmpty(document.querySelector<HTMLElement>('nav[aria-label="Workspace"]') ?? undefined);
+  expect(inTerminal()).toBe(false);
 });

@@ -10,6 +10,7 @@ import { oneAtATime } from '@/lib/oneAtATime';
 import { useRun } from '@/lib/useCommand';
 import { terminalInputForKey } from './terminalInput';
 import { wheelForwarder } from './terminalWheel';
+import { useFocusOnEmptyClick } from './useFocusOnEmptyClick';
 
 /**
  * An OSC 52 payload (`c;<base64>`): the text a tmux copy sends out, or null for a query or a
@@ -201,6 +202,7 @@ export function Terminal(props: {
   useEffect(() => {
     if (props.focus) xterm.current?.focus();
   }, [props.focus]);
+  useFocusOnEmptyClick(props.focus, () => xterm.current?.focus());
   const preferences = props.preferences ?? DEFAULT_TERMINAL_PREFERENCES;
   useEffect(() => {
     const term = xterm.current;
