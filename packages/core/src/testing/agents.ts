@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { claudeLiveSessions, claudeTranscripts } from '../agents/claude/paths.js';
 import { codexSessionIndex, codexSessions } from '../agents/codex/paths.js';
 import type { LaunchDefaults } from '../agents/launch-flags.js';
-import type { ListingDeps } from '../agents/listing.js';
+import { type ListingDeps, listAgentProcesses } from '../agents/listing.js';
 import type { Env, Runner } from '../lib/process.js';
 import { localDay } from '../lib/time.js';
 import { fixedClock } from './clock.js';
@@ -203,6 +203,12 @@ export function timedAgentWorld(opts: Parameters<typeof agentWorld>[0] = {}) {
   };
   return { ...world, sleep, log };
 }
+
+/** The agent listings, with claude's listing `rows` (`claude agents --json`). */
+export const listingOf = (...rows: object[]) => {
+  const { run } = scriptedRunner({ claude: JSON.stringify(rows) });
+  return () => listAgentProcesses(listingDeps(run));
+};
 
 /**
  * What the agent listings read (listAgentProcesses): claude's from `run`, Codex's from an empty

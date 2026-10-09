@@ -6,7 +6,7 @@ import { antigravitySessionId, prepareAntigravityLog } from './antigravity/log.j
 import { readAntigravityResult } from './antigravity/result.js';
 import { antigravityLastOutputLine, antigravityScreenState } from './antigravity/screen.js';
 import { claudeContext } from './claude/context-use.js';
-import { claudeHookState } from './claude/hook-state.js';
+import { claudeBackgroundWork, claudeHookState } from './claude/hook-state.js';
 import { claudeListedState, listClaudeProcesses } from './claude/listing.js';
 import { readClaudeResult } from './claude/result.js';
 import { claudeLastOutputLine, claudeScreenState } from './claude/screen.js';
@@ -161,6 +161,8 @@ export const AGENTS = {
     },
     /** The session state a hook event means, if any. */
     hookState: claudeHookState,
+    /** Whether a hook event says background work still runs after the turn. */
+    backgroundWork: claudeBackgroundWork,
     /** Its pane's screen: the state it shows, and the board's last output line. */
     screen: { state: claudeScreenState, lastLine: claudeLastOutputLine },
     /** Its live sessions on the machine, and the state each listed status means. */
@@ -228,6 +230,7 @@ export const AGENTS = {
     },
     /** Trusted hooks from the embedded Codex process. */
     hookState: codexHookState,
+    backgroundWork: undefined,
     screen: { state: codexScreenState, lastLine: codexLastOutputLine },
     /** Its sessions written in the last 10 minutes, whose rows say no state. */
     listing: { list: listCodexSessions, state: () => undefined },
@@ -275,6 +278,7 @@ export const AGENTS = {
       result: readAntigravityResult,
     },
     hookState: undefined,
+    backgroundWork: undefined,
     screen: { state: antigravityScreenState, lastLine: antigravityLastOutputLine },
     listing: { list: async () => [], state: () => undefined },
     context: undefined,

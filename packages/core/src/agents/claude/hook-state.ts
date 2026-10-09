@@ -32,3 +32,17 @@ export function claudeHookState(event: string, payload?: unknown): AgentState | 
       return undefined;
   }
 }
+
+/** Whether a Stop says background work (a Monitor, a background command, a subagent) still runs. */
+export function claudeBackgroundWork(event: string, payload?: unknown): boolean {
+  const tasks =
+    event === 'Stop' && payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>).background_tasks
+      : undefined;
+  return (
+    Array.isArray(tasks) &&
+    tasks.some(
+      (t) => t && typeof t === 'object' && (t as { status?: unknown }).status === 'running',
+    )
+  );
+}

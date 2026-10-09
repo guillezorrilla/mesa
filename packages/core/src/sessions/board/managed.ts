@@ -128,9 +128,11 @@ export async function managedRow(
   const listed = listedAs && reader.listing.state(listedAs) ? listedAs : undefined;
   // A stopped session keeps its state, and swaps nothing, so its hook log is not read.
   const events = found.endedAt ? [] : deps.events(found.id);
-  const event = events
-    .filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload))
-    .at(-1);
+  const states = events.filter((e) => parentHook(e) && reader.hookState?.(e.event, e.payload));
+  // An idle_prompt repeats the Stop before it, whose payload names the work still running.
+  const [before, latest] = states.slice(-2);
+  const event =
+    latest?.event === 'Notification' && before?.event === 'Stop' ? before : states.at(-1);
   const signals: SessionSignals = {
     now: now.toISOString(),
     agent: found.agent,
