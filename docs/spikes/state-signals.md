@@ -557,6 +557,16 @@ Confidence tiers follow ADR-0003: a fresh hook event 0.95, an agent listing 0.85
 
 Ordering rule the data calls for: a waiting state from a hook is superseded when a later listing poll says `idle` or `busy`. A user denial fires no hook at all, so without that rule the board would show `waiting-permission` until the next prompt.
 
+## Background work (2026-10-08, #699)
+
+A live run (Claude Code 2.x, a Monitor on `sleep 150 && echo done`, polled every 5 s) showed:
+
+- A background notice (a Monitor event, a `run_in_background` command ending, a subagent handing back) arrives as a prompt: `UserPromptSubmit` with a `prompt` starting `<task-notification>`, then the turn's tool hooks, then `Stop`. Every such turn in the reported session's log ended with `Stop`.
+- `Stop`'s payload lists the work still running in `background_tasks`, and `Notification` `idle_prompt` follows 60 s later, once.
+- The listing reads `busy` for as long as the background work runs, also between turns, and `idle` once it ends.
+
+So a stale idle hook must not yield to a `busy` listing: before #699 the board read `working` (listing, 0.85) from 60 s after the last idle hook until the work ended. A listing wait still overrides a stale idle hook, because a background subagent's permission hook carries `agent_id` and is not a parent signal.
+
 ## Differences from ADR-0003
 
 Recorded as an amendment in `docs/adr/0003-session-state-signals.md`:

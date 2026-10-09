@@ -57,7 +57,7 @@ const TAIL = 0.6;
  * Where a session is, by ADR-0003's order: a stopped session keeps its state; a dead or gone
  * window is a process fact (a session already done or failed stays so); then the latest hook
  * event, which yields a wait to a later listing that says the agent moved on (a denial fires no
- * hook); then the listing; then what the chosen model placed from the screen; then the tail.
+ * hook), but an idle one not to a listing's working (background work); then the listing; then what the chosen model placed from the screen; then the tail.
  * With no signal at all the last state stands. `at` is when the state began: the hook event's
  * time, else when it was first seen.
  */
@@ -85,7 +85,10 @@ export function classify(s: SessionSignals): LastState {
   if (fromHook && s.event) {
     const age = Date.parse(s.now) - Date.parse(s.event.at);
     const movedOn = WAITING_STATES.has(fromHook) ? age > LISTING_LAG_MS : age >= FRESH_MS;
-    if (listing && listing.state !== fromHook && movedOn) {
+    // A finished turn's listing reads working while its background work runs; that work's
+    // notices start a turn with a hook of their own (docs/spikes/state-signals.md).
+    const backgroundWork = fromHook === 'idle' && listing?.state === 'working';
+    if (listing && listing.state !== fromHook && movedOn && !backgroundWork) {
       return seen(listing.state, listing.confidence, 'listing');
     }
     const confidence = age < FRESH_MS || listing?.state === fromHook ? HOOK : STALE_HOOK;
