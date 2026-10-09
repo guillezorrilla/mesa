@@ -132,19 +132,15 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
       : {};
   const child = !parentHook(event);
   const question = payload.tool_name === 'AskUserQuestion';
-  // Claude Code's own background agents (such as an idle recap) stop with an empty agent_type
-  // after every turn; only a subagent the session started is worth a notice.
-  if (event.event === 'SubagentStop' && payload.agent_type === '') return undefined;
+  // A subagent finishing needs nothing from the user, so SubagentStop raises no notice (#687).
   const kind =
     event.event === 'PermissionRequest' || (event.event === 'PreToolUse' && question)
       ? child
         ? 'subagent'
         : 'input-required'
-      : event.event === 'SubagentStop'
-        ? 'subagent'
-        : event.event === 'Stop' && !child
-          ? 'finished'
-          : undefined;
+      : event.event === 'Stop' && !child
+        ? 'finished'
+        : undefined;
   if (!kind) return undefined;
   const title =
     kind === 'input-required'
@@ -153,9 +149,7 @@ export function hookItem(session: string, event: HookEvent): Candidate | undefin
         : 'Session needs permission'
       : kind === 'finished'
         ? 'Session turn finished'
-        : event.event === 'SubagentStop'
-          ? 'Subagent finished'
-          : 'Subagent needs permission';
+        : 'Subagent needs permission';
   const fingerprint = createHash('sha256')
     .update(
       JSON.stringify([

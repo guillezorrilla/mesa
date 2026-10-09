@@ -220,3 +220,49 @@ test('a new Doctor report is read into the bell without opening the menu', async
   await click(button('Doctor ran'));
   expect(byTestId('nav-inbox')[0]?.getAttribute('aria-label')).toBe('Notifications, 1 unread');
 });
+
+test('opening a session reads its notice, so the bell counts one fewer unread', async () => {
+  const other: InboxItem = {
+    ...finished,
+    id: '2026-09-23T09:30:00.000Z:other',
+    session: 'bbbbbbbb',
+    target: { kind: 'session', id: 'bbbbbbbb' },
+  };
+  const read = new Set<string>();
+  const { bridge, calls } = fakeBridge({
+    notifications: () =>
+      envelope([other, finished].map((item) => ({ ...item, read: read.has(item.id) }))),
+    'notifications read': (args) => {
+      read.add(String(args.at(-1)));
+      return envelope({ id: args.at(-1), read: true });
+    },
+  });
+  function Harness() {
+    const [session, setSession] = useState<string>();
+    return (
+      <>
+        <button type="button" onClick={() => setSession('aaaaaaaa')}>
+          Open session
+        </button>
+        <NotificationsMenu
+          open={false}
+          onOpenChange={() => {}}
+          onSession={() => {}}
+          onDoctor={() => {}}
+          onAutomations={() => {}}
+          onSettings={() => {}}
+          onRecheck={async () => {}}
+          session={session}
+        />
+      </>
+    );
+  }
+  const byTestId = await renderWithMesa(<Harness />, bridge);
+  const bell = () => byTestId('nav-inbox')[0]?.getAttribute('aria-label');
+  expect(bell()).toBe('Notifications, 2 unread');
+  await click(button('Open session'));
+  expect(calls.filter((args) => args[2] === 'read').map((args) => args.at(-1))).toEqual([
+    finished.id,
+  ]);
+  expect(bell()).toBe('Notifications, 1 unread');
+});

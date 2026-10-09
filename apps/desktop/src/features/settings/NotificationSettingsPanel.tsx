@@ -13,7 +13,7 @@ import { useSettings } from './useSettings';
 const KINDS = [
   ['inputRequired', 'Input required', 'A session asks a question or needs permission.'],
   ['finished', 'Turn finished', 'A session finished its turn.'],
-  ['subagent', 'Subagent', 'A subagent a session started finished or needs permission.'],
+  ['subagent', 'Subagent', 'A subagent a session started needs permission.'],
   ['doctor', 'Doctor', 'Doctor found something to fix.'],
   [
     'automation',

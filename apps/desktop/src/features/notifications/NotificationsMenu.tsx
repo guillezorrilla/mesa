@@ -1,6 +1,6 @@
 import type { DoctorReport, InboxFix, InboxItem } from '@mesa/core';
 import { Bell, Settings2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { useToast, warningOf } from '@/components/Toast';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,8 @@ export function NotificationsMenu(props: {
   onRecheck: () => Promise<void>;
   /** Doctor's latest report: each one records its notices, so the list is read again. */
   doctor?: DoctorReport;
+  /** The session open in the window: its notice is read, as the user has gone back to it. */
+  session?: string;
 }) {
   const inbox = useCommand('notifications.list');
   const run = useRun();
@@ -32,10 +34,10 @@ export function NotificationsMenu(props: {
   const [clearing, setClearing] = useState(false);
   const items = inbox.data ?? [];
   const unread = items.filter((item) => !item.read);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: opening the menu or a new Doctor report asks for a fresh list.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: opening the menu, a session, or a new Doctor report asks for a fresh list.
   useEffect(() => {
-    if (props.open || props.doctor) void inbox.refresh();
-  }, [props.open, props.doctor]);
+    if (props.open || props.doctor || props.session) void inbox.refresh();
+  }, [props.open, props.doctor, props.session]);
   useEffect(() => {
     const timer = window.setInterval(() => void inbox.refresh(), 60_000);
     return () => window.clearInterval(timer);
@@ -45,6 +47,17 @@ export function NotificationsMenu(props: {
     for (const item of list) if (!(await run(name, { id: item.id }))) break;
     await inbox.refresh();
   };
+  const seen = items.filter(
+    (item) => !item.read && item.target.kind === 'session' && item.target.id === props.session,
+  );
+  // Each notice is marked once: a read that fails is not retried on every refresh.
+  const marked = useRef(new Set<string>());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: each fresh list is checked once.
+  useEffect(() => {
+    const unmarked = seen.filter((item) => !marked.current.has(item.id));
+    for (const item of unmarked) marked.current.add(item.id);
+    if (unmarked.length) void mark('notifications.read', unmarked);
+  }, [inbox.data, props.session]);
   const open = (item: InboxItem) => {
     if (!item.read) void mark('notifications.read', [item]);
     props.onOpenChange(false);

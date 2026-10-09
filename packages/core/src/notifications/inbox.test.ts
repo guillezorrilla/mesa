@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from 'vitest';
 import { HOOKS_UPDATE_HINT } from '../agents/hooks-update.js';
@@ -16,12 +16,13 @@ import {
   testStore,
 } from '../testing/index.js';
 
-test('inbox deduplicates a question pair, keeps child alerts separate, and survives restart', () => {
+test('a session keeps only its newest notice, a subagent finishing raises none, and marks survive restart', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
   const store = testStore(home);
   const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
   const session = store.create(() => newSession({ agentSessionId: nativeId }));
+  const other = store.create(() => newSession());
   let second = 0;
   const deps = {
     store,
@@ -30,33 +31,47 @@ test('inbox deduplicates a question pair, keeps child alerts separate, and survi
     home,
     secrets: () => [],
   };
-  const hook = (event: string, extra: Record<string, unknown> = {}) =>
+  const hook = (event: string, extra: Record<string, unknown> = {}, id = session.id) =>
     recordHookEvent(deps, {
       agent: 'claude',
-      mesaSessionId: session.id,
+      mesaSessionId: id,
       payload: JSON.stringify({ session_id: nativeId, hook_event_name: event, ...extra }),
     });
-  hook('PreToolUse', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
-  hook('PermissionRequest', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
-  hook('PermissionRequest', { agent_id: 'agent-lantern', tool_name: 'Bash' });
-  hook('Stop');
-  // Claude Code's own background agents (an idle recap) stop with an empty agent_type.
-  hook('SubagentStop', { agent_id: 'agent-recap', agent_type: '' });
+  const titles = () => mesa.notifications.list().map((item) => item.title);
 
+  // A question asked twice within two seconds is one notice, which keeps its id.
+  hook('PreToolUse', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
+  const [question] = mesa.notifications.list();
+  hook('PermissionRequest', { tool_name: 'AskUserQuestion', tool_input: { question: 'Choose' } });
+  expect(mesa.notifications.list()).toMatchObject([
+    { id: question?.id, title: 'Question needs an answer' },
+  ]);
+  hook('SubagentStop', { agent_id: 'agent-lantern', agent_type: 'Explore' });
+  expect(mesa.notifications.list()).toMatchObject([{ id: question?.id }]);
+  hook('PermissionRequest', { agent_id: 'agent-lantern', tool_name: 'Bash' });
+  expect(titles()).toEqual(['Subagent needs permission']);
+  hook('PermissionRequest', { tool_name: 'Bash' });
+  expect(titles()).toEqual(['Session needs permission']);
+  hook('Stop');
+  hook('Stop', {}, other.id);
   const first = mesa.notifications.list();
-  expect(first.map((item) => item.kind)).toEqual(['finished', 'subagent', 'input-required']);
-  expect(
-    first.every(
-      (item) => item.target.kind === 'session' && item.target.id === session.id && !item.read,
-    ),
-  ).toBe(true);
-  const firstId = first[0]?.id;
-  if (!firstId) throw new Error('expected a finished inbox item');
-  mesa.notifications.markRead(firstId);
+  expect(first.map(({ kind, title, target }) => ({ kind, title, target }))).toEqual([
+    { kind: 'finished', title: 'Session turn finished', target: { kind: 'session', id: other.id } },
+    {
+      kind: 'finished',
+      title: 'Session turn finished',
+      target: { kind: 'session', id: session.id },
+    },
+  ]);
+  expect(first.every((item) => !item.read)).toBe(true);
+
+  const id = first[1]?.id;
+  if (!id) throw new Error('expected a finished inbox item');
+  mesa.notifications.markRead(id);
   const restarted = createMesa('default', testDeps(home));
-  expect(restarted.notifications.list()[0]).toMatchObject({ id: firstId, read: true });
-  restarted.notifications.clear(firstId);
-  expect(restarted.notifications.list()).toHaveLength(2);
+  expect(restarted.notifications.list()[1]).toMatchObject({ id, read: true });
+  restarted.notifications.clear(id);
+  expect(restarted.notifications.list()).toHaveLength(1);
   expect(createMesa('other', testDeps(home)).notifications.list()).toEqual([]);
 });
 
@@ -171,12 +186,14 @@ test('quiet delivery digests new notices once and respects each kind across rest
   const { home, mesa } = projectProfile(run);
   const paths = profilePaths(home, 'default');
   const nativeId = '5b1e2f40-9c3d-4e7a-8f10-2a3b4c5d6e7f';
-  const session = testStore(home).create(() => newSession({ agentSessionId: nativeId }));
+  const store = testStore(home);
+  const session = store.create(() => newSession({ agentSessionId: nativeId }));
+  const other = store.create(() => newSession());
   let second = 1;
-  const hook = (event: string, extra: Record<string, unknown> = {}) =>
+  const hook = (event: string, extra: Record<string, unknown> = {}, id = session.id) =>
     recordHookEvent(
       {
-        store: testStore(home),
+        store,
         eventsDir: paths.events,
         clock: () => new Date(`2026-09-24T12:00:0${second++}.000Z`),
         home,
@@ -184,12 +201,12 @@ test('quiet delivery digests new notices once and respects each kind across rest
       },
       {
         agent: 'claude',
-        mesaSessionId: session.id,
+        mesaSessionId: id,
         payload: JSON.stringify({ session_id: nativeId, hook_event_name: event, ...extra }),
       },
     );
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
-  hook('Stop');
+  hook('Stop', {}, other.id);
   hook('PermissionRequest', { tool_name: 'Bash' });
   setConfigValue(paths.config, 'notifications.quiet', 'true', lockDeps());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
@@ -208,29 +225,27 @@ test('quiet delivery digests new notices once and respects each kind across rest
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
 });
 
-test('delivery acknowledges a full inbox and a Doctor finding across two batches', () => {
+test('delivery acknowledges a full inbox and a session notice across two batches', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
   const session = testStore(home).create(() => newSession());
   expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  mesa.notifications.recordDoctor({
+    healthy: true,
+    summary: '',
+    checks: Array.from({ length: 500 }, (_, index) => ({
+      name: `Finding ${index}`,
+      ok: false,
+      status: 'warn' as const,
+      hint: 'Review setup',
+    })),
+  });
   const file = eventsLog(profilePaths(home, 'default').events, session.id);
   mkdirSync(dirname(file), { recursive: true });
   appendFileSync(
     file,
-    `${Array.from({ length: 500 }, (_, index) =>
-      JSON.stringify({
-        at: new Date(Date.parse('2026-09-24T12:00:00.000Z') + (index + 1) * 3_000).toISOString(),
-        agent: 'claude',
-        event: 'Stop',
-        payload: {},
-      }),
-    ).join('\n')}\n`,
+    `${JSON.stringify({ at: '2026-09-24T12:00:03.000Z', agent: 'claude', event: 'Stop', payload: {} })}\n`,
   );
-  mesa.notifications.recordDoctor({
-    healthy: true,
-    summary: '',
-    checks: [{ name: 'hooks', ok: false, status: 'warn', hint: 'Review hooks' }],
-  });
   const first = mesa.notifications.delivery();
   expect(first.kind).toBe('digest');
   if (first.kind === 'none') throw new Error('expected first batch');
@@ -264,31 +279,62 @@ test('inbox keeps unread notices when later hooks exceed a bounded scan window',
     createMesa('default', testDeps(home))
       .notifications.list()
       .map((item) => item.at),
-  ).toEqual(['2026-09-24T12:00:02.000Z', '2026-09-24T12:00:00.000Z']);
+  ).toEqual(['2026-09-24T12:00:02.000Z']);
 });
 
-test('inbox drops old markers when their notices leave the retained 500', () => {
+test('inbox drops old markers when a newer notice replaces theirs', () => {
   const { run } = scriptedRunner();
   const { home, mesa } = projectProfile(run);
   const session = testStore(home).create(() => newSession());
   const stateFile = profilePaths(home, 'default').notifications;
   const file = eventsLog(profilePaths(home, 'default').events, session.id);
   mkdirSync(dirname(file), { recursive: true });
-  const event = (index: number) =>
-    `${JSON.stringify({ at: new Date(Date.parse('2026-09-24T12:00:00.000Z') + index * 3_000).toISOString(), agent: 'claude', event: 'Stop', payload: {} })}\n`;
-  appendFileSync(file, event(0));
+  const event = (at: string) =>
+    `${JSON.stringify({ at, agent: 'claude', event: 'Stop', payload: {} })}\n`;
+  appendFileSync(file, event('2026-09-24T12:00:00.000Z'));
   const id = mesa.notifications.list()[0]?.id;
   if (!id) throw new Error('missing first notice');
   mesa.notifications.markRead(id);
   mesa.notifications.clear(id);
-  appendFileSync(file, Array.from({ length: 500 }, (_, index) => event(index + 1)).join(''));
-  expect(mesa.notifications.list()).toHaveLength(500);
+  appendFileSync(file, event('2026-09-24T12:00:05.000Z'));
+  expect(mesa.notifications.list()).toMatchObject([
+    { at: '2026-09-24T12:00:05.000Z', read: false },
+  ]);
   const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
     read: string[];
     cleared: string[];
   };
   expect(state.read).toEqual([]);
   expect(state.cleared).toEqual([]);
+});
+
+test('a state file with several notices for a session shows only its newest', () => {
+  const { run } = scriptedRunner();
+  const { home, mesa } = projectProfile(run);
+  const stateFile = profilePaths(home, 'default').notifications;
+  const notice = (at: string, kind: 'subagent' | 'input-required', title: string) => ({
+    session: 'aaaaaaaa',
+    at,
+    kind,
+    title,
+    fingerprint: `${kind}-fingerprint`,
+    target: { kind: 'session', id: 'aaaaaaaa' },
+  });
+  mkdirSync(dirname(stateFile), { recursive: true });
+  writeFileSync(
+    stateFile,
+    JSON.stringify({
+      read: [],
+      cleared: [],
+      items: [
+        notice('2026-09-24T12:00:00.000Z', 'input-required', 'Session needs permission'),
+        notice('2026-09-24T12:00:05.000Z', 'subagent', 'Subagent needs permission'),
+      ],
+    }),
+  );
+  expect(mesa.notifications.list().map((item) => item.title)).toEqual([
+    'Subagent needs permission',
+  ]);
 });
 
 test('clearAll clears every current notice at once and keeps hook offsets so none return', () => {
@@ -306,14 +352,14 @@ test('clearAll clears every current notice at once and keeps hook offsets so non
     summary: '',
     checks: [{ name: 'claude hooks', ok: false, status: 'warn', hint: HOOKS_HINT }],
   });
-  expect(mesa.notifications.list()).toHaveLength(3);
-  expect(mesa.notifications.clearAll()).toBe(3);
+  expect(mesa.notifications.list()).toHaveLength(2);
+  expect(mesa.notifications.clearAll()).toBe(2);
   expect(mesa.notifications.list()).toEqual([]);
   const state = JSON.parse(readFileSync(stateFile, 'utf8')) as {
     cleared: string[];
     offsets: Record<string, number>;
   };
-  expect(state.cleared).toHaveLength(3);
+  expect(state.cleared).toHaveLength(2);
   expect(state.offsets[session.id]).toBeGreaterThan(0);
   expect(createMesa('default', testDeps(home)).notifications.list()).toEqual([]);
   expect(mesa.notifications.clearAll()).toBe(0);

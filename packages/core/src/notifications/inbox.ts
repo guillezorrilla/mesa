@@ -53,8 +53,10 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
       });
       if (after !== before) offsets[record.id] = after;
     }
+    // A state written before #687 holds several notices per session; a write keeps the newest.
+    const stale = new Set(current.items.map((item) => item.session)).size < current.items.length;
     const state =
-      fresh.length || Object.keys(offsets).length
+      fresh.length || Object.keys(offsets).length || stale
         ? store.write({ items: fresh, offsets })
         : current;
     return inboxItems(state, failures());
