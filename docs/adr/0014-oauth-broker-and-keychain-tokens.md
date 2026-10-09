@@ -50,3 +50,7 @@ Before the live run: `apps/broker/src/broker.test.ts` covers the exchange, the r
 
 The Atlassian row also asks for `read:board-scope:jira-software`, `read:sprint:jira-software` and `read:project:jira`, for Ticket views (CONTEXT.md). Jira Software's API takes granular scopes only, and the Atlassian app already mixed classic and granular ones, so one app holds both. A connection made before the change keeps working. A board view on it gets 401 "scope does not match", which `authorizedFetch` reports as needing a reconnect without marking the whole connection needs-reconnect. Reading one board by id (`/board/<id>`) would also need `read:issue-details:jira`, so Mesa reads a board's name from the board list instead and asks for no more. Verified live on 2026-10-08 against a company site through a local broker (`wrangler dev`, with `http://localhost:8787/callback/atlassian` added as a second callback URL): the new scopes were granted, and boards, sprints and searches all answered.
 
+## Amendment, 2026-10-08: the first write (#695)
+
+The Atlassian row also asks for the classic `write:jira-work`, so a person can assign a ticket to themselves when starting a session from it (the owner asked for it). It is Mesa's only write to Atlassian: one assignee, to the signed-in account, with a receipt. The classic scope is chosen over the granular `write:issue:jira` because Atlassian's spec lists it as the current scope for `PUT /issue/{key}/assignee` and the granular one as Beta. A connection made before the change fails assigning alone with the reconnect error.
+

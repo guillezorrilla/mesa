@@ -28,22 +28,31 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
 export function itemSessions(
   item: Imports['item'],
   open: Open,
-  ticketPrompt: (project: string) => string | undefined = () => undefined,
+  ticketPrompt: (project: string, override?: string | null) => string | undefined = () => undefined,
 ) {
-  const withPrompt = (project: string, found: ImportListRow, goal?: string) => {
-    const prompt = found.source === 'jira' ? ticketPrompt(project)?.trim() : undefined;
+  /** `override` is a Saved prompt's name, or null for none; undefined takes the project's. */
+  const withPrompt = (
+    project: string,
+    found: ImportListRow,
+    goal?: string,
+    override?: string | null,
+  ) => {
+    const prompt = found.source === 'jira' ? ticketPrompt(project, override)?.trim() : undefined;
     const base = itemGoal(found, goal);
     return prompt ? `${prompt}\n\n${base}` : base;
   };
   return {
-    /** The goal a session started from `from` gets, and the item, without starting it. */
-    goal: async (project: string, from: string) => {
+    /**
+     * The goal a session started from `from` gets, and the item, without starting it. `prompt`
+     * names the Saved prompt a Jira issue's goal opens with (null for none) over the project's.
+     */
+    goal: async (project: string, from: string, prompt?: string | null) => {
       const { item: found } = await item(project, from);
       return {
         source: found.source,
         id: found.id,
         title: found.title,
-        goal: withPrompt(project, found),
+        goal: withPrompt(project, found, undefined, prompt),
       };
     },
     /**

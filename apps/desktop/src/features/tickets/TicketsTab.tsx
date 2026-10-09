@@ -1,190 +1,190 @@
-import type { Ticket } from '@mesa/core';
-import { ListTodo, Play, Plus, RefreshCw, X } from 'lucide-react';
-import { useState } from 'react';
-import { IconButton } from '@/components/IconButton';
+import { timeAgo } from '@mesa/core/browser';
+import { ListTodo } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { SectionLabel } from '@/components/SectionLabel';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
 import { FollowViewDialog } from './FollowViewDialog';
-import { TicketPromptFields } from './TicketPromptFields';
+import { ManageViewsDialog } from './ManageViewsDialog';
+import { TicketList } from './TicketList';
+import { TicketPanel } from './TicketPanel';
+import { TicketsToolbar } from './TicketsToolbar';
 
 /**
- * A project's Tickets tab (CONTEXT.md, Tickets tab): the Jira views it follows, read live, their
- * tickets once each, and Start session on one, which imports it (with Write notes as the Context
- * tab has it) and hands its key to `onStartSession`.
+ * A project's Tickets tab (CONTEXT.md, Tickets tab): the followed views' tickets grouped by
+ * status beside the selected ticket, which a session starts from. Narrow windows show the list,
+ * then the ticket on its own.
  */
-export function TicketsTab(props: {
-  project: string;
-  notes: boolean;
-  onNotesChange: (notes: boolean) => void;
-  onStartSession: (from: string) => void;
-}) {
+export function TicketsTab(props: { project: string; onSession: (id: string) => void }) {
   const { project } = props;
   const list = useCommand('tickets.list', { project });
   const run = useRun();
   const { acting, act } = useAct();
-  const [following, setFollowing] = useState(false);
-  // The ticket being imported for a session: with Write notes on, that takes a minute or more.
-  const [starting, setStarting] = useState<{ key: string; notes: boolean }>();
+  const [view, setView] = useState<string>();
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<string>();
+  const [narrowTicket, setNarrowTicket] = useState(false);
+  const [dialog, setDialog] = useState<'follow' | 'manage'>();
+  const [readAt, setReadAt] = useState<number>();
   const data = list.data;
-  const unfollow = (view: string) =>
-    void act(async () => {
-      if (await run('tickets.unfollow', { project, view })) await list.refresh();
-      return undefined;
-    });
+  useEffect(() => {
+    if (data) setReadAt(Date.now());
+  }, [data]);
+  const views = data?.views ?? [];
+  // A view no longer followed falls back to every view; with one view, it is that view.
+  const current = views.some((v) => v.name === view)
+    ? view
+    : views.length === 1
+      ? views[0]?.name
+      : undefined;
+  const words = query.trim().toLowerCase();
+  const tickets = (data?.tickets ?? []).filter(
+    (t) =>
+      (!current || t.views.includes(current)) &&
+      (!words || `${t.key} ${t.summary}`.toLowerCase().includes(words)),
+  );
+  // Until one is picked, the first open ticket: done ones start collapsed in the list.
+  const ticket =
+    tickets.find((t) => t.key === selected) ??
+    tickets.find((t) => t.category !== 'done') ??
+    tickets[0];
+  const counts = Object.fromEntries(
+    views.map((v) => [
+      v.name,
+      (data?.tickets ?? []).filter((t) => t.views.includes(v.name)).length,
+    ]),
+  );
+  const failing = views.filter((v) => v.error && (!current || v.name === current));
+  const refresh = () => void list.refresh();
   const reconnect = () =>
     void act(async () => {
-      if (await run('sources.connect', { source: 'atlassian' })) await list.refresh();
+      if (await run('sources.connect', { source: 'atlassian' })) refresh();
       return undefined;
     });
-  const start = (ticket: Ticket) =>
-    void act(async () => {
-      const notes = props.notes;
-      setStarting({ key: ticket.key, notes });
-      try {
-        if (await run('imports.add', { project, links: [ticket.url], notes }))
-          props.onStartSession(ticket.key);
-      } finally {
-        setStarting(undefined);
-      }
-      return undefined;
-    });
+
   return (
-    <div data-testid="tickets-tab" className="space-y-8">
-      <section aria-label="Following" className="space-y-3">
-        <SectionLabel className="flex items-center gap-2">
-          <ListTodo aria-hidden className="size-4" /> Following
-        </SectionLabel>
-        <div className="flex flex-wrap items-center gap-2">
-          {data?.views.map((view) => (
-            <Badge key={view.name} variant="secondary" title={view.describe} className="gap-1">
-              {view.name}
-              {view.sprints && <span className="opacity-70">{view.sprints.join(', ')}</span>}
-              <IconButton
-                label={`Unfollow ${view.name}`}
-                icon={X}
-                size="icon-xs"
-                disabled={acting}
-                onClick={() => unfollow(view.name)}
-              />
-            </Badge>
-          ))}
-          <Button variant="outline" size="sm" disabled={acting} onClick={() => setFollowing(true)}>
-            <Plus aria-hidden /> Follow
+    <div data-testid="tickets-tab" className="overflow-hidden rounded-xl border bg-card">
+      {data && !views.length ? (
+        <div className="grid place-items-center gap-2 px-6 py-16 text-center">
+          <ListTodo aria-hidden className="size-6 text-muted-foreground" />
+          <h2 className="text-base font-semibold">See your sprint here</h2>
+          <Muted className="max-w-[44ch]">
+            Follow a board's current sprint, a saved filter, or a query. Its tickets stay up to date
+            as sprints change.
+          </Muted>
+          <Button className="mt-2" onClick={() => setDialog('follow')}>
+            Follow a view
           </Button>
-          <IconButton
-            label="Refresh tickets"
-            icon={RefreshCw}
-            disabled={acting || list.busy}
-            onClick={() => void list.refresh()}
+        </div>
+      ) : (
+        <>
+          <TicketsToolbar
+            project={project}
+            views={views}
+            view={current}
+            counts={counts}
+            onView={setView}
+            onFollow={() => setDialog('follow')}
+            onManage={() => setDialog('manage')}
+            query={query}
+            onQuery={setQuery}
+            updated={readAt ? `Updated ${timeAgo(new Date(readAt).toISOString(), Date.now())}` : ''}
+            busy={list.busy}
+            onRefresh={refresh}
+            settings={{
+              projectPrompt: data?.projectPrompt ?? null,
+              prompt: data?.prompt ?? null,
+              defaults: data?.defaults ?? { notes: true, assign: true, start: 'worktree' },
+            }}
+            onSettingsChanged={refresh}
           />
-        </div>
-        {data?.views.map(
-          (view) =>
-            (view.error ?? view.note) && (
-              <p
-                key={view.name}
-                role={view.error ? 'alert' : 'status'}
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                {view.name}: {view.error ?? view.note}
-                {view.connect && (
-                  <Button variant="outline" size="sm" disabled={acting} onClick={reconnect}>
-                    Reconnect Atlassian
-                  </Button>
-                )}
-              </p>
-            ),
-        )}
-        {data && !data.views.length && (
-          <Muted>
-            Follow a board&apos;s sprint, a saved filter, or a JQL query to list its tickets.
-          </Muted>
-        )}
-      </section>
-      <TicketPromptFields
-        project={project}
-        prompt={data?.prompt ?? null}
-        projectPrompt={data?.projectPrompt ?? null}
-        onChanged={() => void list.refresh()}
-      />
-      <section aria-label="Tickets" className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <SectionLabel>Tickets</SectionLabel>
-          <Label className="flex items-center gap-2 text-sm font-normal">
-            <Switch
-              checked={props.notes}
-              onCheckedChange={props.onNotesChange}
-              aria-label="Write notes"
-            />
-            Write notes
-          </Label>
-        </div>
-        {starting && (
-          <Muted role="status">
-            Importing {starting.key}
-            {starting.notes ? ' and writing its notes, which can take a minute or two' : ''}...
-          </Muted>
-        )}
-        {list.busy && !data ? (
-          <Muted>Reading Jira...</Muted>
-        ) : data?.tickets.length ? (
-          <ul className="divide-y rounded-lg border">
-            {data.tickets.map((ticket) => (
-              <li
-                key={`${ticket.site}:${ticket.key}`}
-                data-testid="ticket-row"
-                className="flex min-w-0 items-center gap-2 px-3 py-1.5 text-sm"
-              >
-                <a
-                  href={ticket.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 font-mono text-xs hover:underline"
-                >
-                  {ticket.key}
-                </a>
-                <span className="min-w-0 flex-1 truncate" title={ticket.summary}>
-                  {ticket.summary}
-                </span>
-                {ticket.sessions.map((session) => (
-                  <Badge key={session.id} variant="outline">
-                    Running in {session.project}
-                  </Badge>
-                ))}
-                <Badge variant="secondary">{ticket.status}</Badge>
-                {ticket.assignee && (
-                  <span className="hidden shrink-0 text-xs text-muted-foreground md:inline">
-                    {ticket.assignee}
-                  </span>
-                )}
-                <IconButton
-                  label={`Start session from ${ticket.key}`}
-                  icon={Play}
-                  disabled={acting}
-                  onClick={() => start(ticket)}
+          {failing.map((v) => (
+            <div
+              key={v.name}
+              role="alert"
+              className="mx-4 mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-state-waiting/15 px-3 py-2 text-sm"
+            >
+              <span className="flex-1">
+                {v.connect
+                  ? `Mesa needs a fresh sign-in to read ${v.name} from Jira.`
+                  : `${v.name}: ${v.error}`}
+              </span>
+              {v.connect && (
+                <Button variant="outline" size="sm" disabled={acting} onClick={reconnect}>
+                  Reconnect Atlassian
+                </Button>
+              )}
+            </div>
+          ))}
+          <div className="grid min-h-[34rem] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+            <div
+              className={cn(
+                'max-h-[40rem] overflow-auto md:border-r',
+                narrowTicket && 'max-md:hidden',
+              )}
+            >
+              {tickets.length ? (
+                <TicketList
+                  tickets={tickets}
+                  selected={ticket?.key}
+                  onSelect={(key) => {
+                    setSelected(key);
+                    setNarrowTicket(true);
+                  }}
                 />
-              </li>
-            ))}
-          </ul>
-        ) : data?.views.length ? (
-          <Muted>No tickets in the views this project follows.</Muted>
-        ) : null}
-      </section>
-      {following && (
+              ) : (
+                <Muted className="px-4 py-10 text-center">
+                  {!data
+                    ? 'Reading Jira...'
+                    : (views.find((v) => v.name === current)?.note ??
+                      (words ? 'No tickets match.' : 'No tickets in this view.'))}
+                </Muted>
+              )}
+            </div>
+            <div
+              className={cn(
+                'flex max-h-[40rem] min-h-0 flex-col',
+                !narrowTicket && 'max-md:hidden',
+              )}
+            >
+              {ticket && data && (
+                <TicketPanel
+                  key={ticket.key}
+                  project={project}
+                  ticket={ticket}
+                  sprints={views
+                    .filter((v) => ticket.views.includes(v.name))
+                    .flatMap((v) => v.sprints ?? [])}
+                  defaults={data.defaults}
+                  prompt={data.prompt}
+                  onBack={() => setNarrowTicket(false)}
+                  onChanged={refresh}
+                  onSession={props.onSession}
+                />
+              )}
+            </div>
+          </div>
+        </>
+      )}
+      {dialog === 'follow' && (
         <FollowViewDialog
           project={project}
-          following={data?.views.map((view) => view.name) ?? []}
+          following={views.map((v) => v.name)}
           onFollowed={() => {
-            setFollowing(false);
-            void list.refresh();
+            setDialog(undefined);
+            refresh();
           }}
-          onCancel={() => setFollowing(false)}
+          onCancel={() => setDialog(undefined)}
+        />
+      )}
+      {dialog === 'manage' && (
+        <ManageViewsDialog
+          project={project}
+          views={views}
+          onChanged={refresh}
+          onClose={() => setDialog(undefined)}
         />
       )}
     </div>

@@ -1,200 +1,167 @@
-import type { Board, Filter, ViewInput } from '@mesa/core';
+import type { ViewInput } from '@mesa/core';
 import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
-import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
+import { cn } from '@/lib/utils';
+import { ViewCount } from './ViewCount';
+import { type Pick, ViewPicker } from './ViewPicker';
 
 type Kind = 'current' | 'next' | 'filter' | 'jql';
-const KINDS = [
-  ['current', 'Current sprint'],
-  ['next', 'Next sprint'],
-  ['filter', 'Saved filter'],
-  ['jql', 'JQL'],
-] as const;
+const KINDS: readonly [Kind, string, string][] = [
+  ['current', 'Current sprint', "A board's active sprint"],
+  ['next', 'Next sprint', "What's planned next"],
+  ['filter', 'Saved filter', 'A filter you keep in Jira'],
+  ['jql', 'JQL query', 'Anything else'],
+];
+
+/** `base`, or `base 2`, `base 3`... until no view has the name. */
+const freeName = (base: string, taken: readonly string[]) => {
+  const used = new Set(taken.map((n) => n.toLowerCase()));
+  for (let n = 1; ; n++) {
+    const name = n === 1 ? base : `${base} ${n}`;
+    if (!used.has(name.toLowerCase())) return name;
+  }
+};
 
 /**
- * Follow a ticket view (CONTEXT.md, Ticket view): one the profile defines already, or a new one,
- * a board's current or next sprint (found by searching boards), a saved filter, or JQL, with
- * Only mine and Hide done on by default.
+ * Follow a ticket view: one the profile defines already (another project's board, say), or a
+ * new one picked by what it reads, with Only mine and Hide done, a live count of its tickets,
+ * and the JQL Mesa sends under Advanced. A new view is named after what it reads.
  */
 export function FollowViewDialog(props: {
   project: string;
-  /** The views the project follows already, left out of the choice. */
   following: string[];
   onFollowed: () => void;
   onCancel: () => void;
 }) {
-  const views = useCommand('tickets.views');
   const run = useRun();
   const { acting, act } = useAct();
-  const choices = (views.data ?? []).filter((view) => !props.following.includes(view.name));
-  const [existing, setExisting] = useState('');
+  const views = useCommand('tickets.views');
   const [kind, setKind] = useState<Kind>('current');
-  const [search, setSearch] = useState('');
-  const [found, setFound] = useState<(Board | Filter)[]>();
-  const [picked, setPicked] = useState('');
+  const [picked, setPicked] = useState<Pick>();
   const [jql, setJql] = useState('');
-  const [name, setName] = useState('');
+  const [checkedJql, setCheckedJql] = useState('');
   const [mine, setMine] = useState(true);
   const [hideDone, setHideDone] = useState(true);
-  const board = kind === 'current' || kind === 'next';
-  const find = () =>
-    void act(async () => {
-      const result = board
-        ? (await run('tickets.boards', { search }))?.boards
-        : (await run('tickets.filters', { search }))?.filters;
-      setFound(result);
-      setPicked(result?.[0] ? String(result[0].id) : '');
-      return undefined;
-    });
-  const pickedName = found?.find((item) => String(item.id) === picked)?.name;
-  const query =
+  const filter = kind === 'filter';
+  const query: Omit<ViewInput, 'name'> | undefined =
     kind === 'jql'
-      ? { jql: jql.trim() }
-      : board
-        ? { board: Number(picked), sprint: kind }
-        : { filter: picked };
-  // An empty name takes the picked board's or filter's name.
-  const viewName = name.trim() || (kind === 'jql' ? '' : (pickedName ?? ''));
-  const ready = existing
-    ? true
-    : Boolean(viewName) && (kind === 'jql' ? Boolean(jql.trim()) : Boolean(picked));
-  const submit = () =>
+      ? checkedJql.trim()
+        ? { jql: checkedJql.trim() }
+        : undefined
+      : picked && (filter ? { filter: picked.id } : { board: Number(picked.id), sprint: kind });
+  const view = query && {
+    ...query,
+    ...(mine ? {} : { everyone: true }),
+    ...(hideDone ? {} : { showDone: true }),
+  };
+  const others = (views.data ?? []).filter((v) => !props.following.includes(v.name));
+  const name = freeName(
+    kind === 'jql'
+      ? 'JQL view'
+      : filter
+        ? (picked?.name ?? 'Saved filter')
+        : `${picked?.name ?? 'Board'} ${kind === 'next' ? 'next sprint' : 'sprint'}`,
+    (views.data ?? []).map((v) => v.name),
+  );
+  const follow = (existing?: string) =>
     void act(async () => {
-      let view = existing;
-      if (!view) {
-        const input: ViewInput = {
-          name: viewName,
-          ...query,
-          ...(mine ? {} : { everyone: true }),
-          ...(hideDone ? {} : { showDone: true }),
-        };
-        const added = await run('tickets.viewsAdd', { view: input });
-        if (!added) return undefined;
-        view = added.name;
-        // Defined now: a retry after a failed follow follows it instead of adding it again.
-        setExisting(view);
-      }
-      if (await run('tickets.follow', { project: props.project, view })) props.onFollowed();
+      const target =
+        existing ?? (view && (await run('tickets.viewsAdd', { view: { name, ...view } }))?.name);
+      if (target && (await run('tickets.follow', { project: props.project, view: target })))
+        props.onFollowed();
       return undefined;
     });
   return (
     <ActionDialog
       testId="follow-view-dialog"
       wide
-      title="Follow a ticket view"
-      description="Its tickets are read from Jira each time the Tickets tab opens or refreshes."
-      submit={{ label: 'Follow', testId: 'confirm-follow-view', disabled: acting || !ready }}
-      onSubmit={submit}
+      title="Follow a view"
+      description="Its tickets show up in this tab and stay current as sprints change."
+      submit={{ label: 'Follow', testId: 'confirm-follow-view', disabled: acting || !view }}
+      onSubmit={() => follow()}
       onCancel={props.onCancel}
     >
-      {choices.length > 0 && (
-        <Label className="grid gap-1.5">
-          A view you defined
-          <NativeSelect
-            aria-label="A view you defined"
-            value={existing}
-            onChange={(event) => setExisting(event.currentTarget.value)}
-          >
-            <NativeSelectOption value="">A new view</NativeSelectOption>
-            {choices.map((view) => (
-              <NativeSelectOption key={view.name} value={view.name}>
-                {view.name}: {view.describe}
-              </NativeSelectOption>
+      {others.length > 0 && (
+        <div className="grid gap-2">
+          <span className="text-xs text-muted-foreground">Views you already have</span>
+          <div className="flex flex-wrap gap-2">
+            {others.map((v) => (
+              <Button
+                key={v.name}
+                type="button"
+                variant="outline"
+                size="sm"
+                title={v.describe}
+                disabled={acting}
+                onClick={() => follow(v.name)}
+              >
+                {v.name}
+              </Button>
             ))}
-          </NativeSelect>
-        </Label>
-      )}
-      {!existing && (
-        <>
-          <SegmentedControl
-            label="What the view reads"
-            value={kind}
-            options={KINDS}
-            onChange={(next) => {
-              // Boards and saved filters are different lists: a switch between them searches again.
-              if ((next === 'filter') !== (kind === 'filter')) {
-                setFound(undefined);
-                setPicked('');
-              }
-              setKind(next);
-            }}
-          />
-          {kind === 'jql' ? (
-            <Textarea
-              aria-label="JQL"
-              placeholder="project = LC AND labels = backend"
-              value={jql}
-              onChange={(event) => setJql(event.currentTarget.value)}
-            />
-          ) : (
-            <div className="grid gap-2">
-              <div className="flex gap-2">
-                <Input
-                  id="ticket-view-search"
-                  aria-label={board ? 'Search boards' : 'Search saved filters'}
-                  placeholder={board ? 'Board name' : 'Filter name'}
-                  value={search}
-                  onChange={(event) => setSearch(event.currentTarget.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      find();
-                    }
-                  }}
-                />
-                <Button type="button" variant="outline" disabled={acting} onClick={find}>
-                  Search
-                </Button>
-              </div>
-              {found &&
-                (found.length ? (
-                  <NativeSelect
-                    aria-label={board ? 'Board' : 'Saved filter'}
-                    value={picked}
-                    onChange={(event) => setPicked(event.currentTarget.value)}
-                  >
-                    {found.map((item) => (
-                      <NativeSelectOption key={item.id} value={String(item.id)}>
-                        {item.name}
-                        {'project' in item && item.project ? ` (${item.project})` : ''}
-                      </NativeSelectOption>
-                    ))}
-                  </NativeSelect>
-                ) : (
-                  <Muted>None found.</Muted>
-                ))}
-            </div>
-          )}
-          <Label className="grid gap-1.5">
-            Name
-            <Input
-              id="ticket-view-name"
-              aria-label="View name"
-              placeholder={pickedName ?? 'sprint'}
-              value={name}
-              onChange={(event) => setName(event.currentTarget.value)}
-            />
-          </Label>
-          <div className="flex gap-6">
-            <Label className="flex items-center gap-2 font-normal">
-              <Switch checked={mine} onCheckedChange={setMine} aria-label="Only mine" />
-              Only mine
-            </Label>
-            <Label className="flex items-center gap-2 font-normal">
-              <Switch checked={hideDone} onCheckedChange={setHideDone} aria-label="Hide done" />
-              Hide done
-            </Label>
           </div>
-        </>
+        </div>
+      )}
+      <fieldset className="grid grid-cols-2 gap-2">
+        <legend className="sr-only">What to follow</legend>
+        {KINDS.map(([value, label, hint]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={kind === value}
+            onClick={() => {
+              // Boards and saved filters are different lists: switching picks again.
+              if ((value === 'filter') !== filter) setPicked(undefined);
+              setKind(value);
+            }}
+            className={cn(
+              'grid gap-0.5 rounded-xl border p-3 text-left hover:bg-accent/60',
+              kind === value && 'border-primary bg-accent',
+            )}
+          >
+            <span className="text-sm font-medium">{label}</span>
+            <span className="text-xs text-muted-foreground">{hint}</span>
+          </button>
+        ))}
+      </fieldset>
+      {kind === 'jql' ? (
+        <Textarea
+          aria-label="JQL"
+          placeholder="project = HB AND labels = backend"
+          value={jql}
+          onChange={(event) => setJql(event.currentTarget.value)}
+          onBlur={() => setCheckedJql(jql)}
+        />
+      ) : (
+        <ViewPicker kind={filter ? 'filter' : 'board'} picked={picked} onPick={setPicked} />
+      )}
+      {(
+        [
+          ['view-mine', 'Only my tickets', mine, setMine],
+          ['view-hide-done', 'Hide done tickets', hideDone, setHideDone],
+        ] as const
+      ).map(([id, label, value, onChange]) => (
+        <div key={id} className="flex items-center justify-between">
+          <Label htmlFor={id} className="font-normal">
+            {label}
+          </Label>
+          <Switch id={id} checked={value} onCheckedChange={onChange} />
+        </div>
+      ))}
+      {view ? (
+        <ViewCount view={view} name={name} />
+      ) : (
+        <Muted role="status">
+          {kind === 'jql'
+            ? 'Type a query, then click outside it to count its tickets.'
+            : 'Pick a board or filter.'}
+        </Muted>
       )}
     </ActionDialog>
   );

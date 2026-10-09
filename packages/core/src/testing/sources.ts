@@ -83,6 +83,11 @@ function brokerWorld(
       web.routes[`POST ${url}`] = (request) =>
         authed(request, answer(JSON.parse(request.body ?? '{}')));
     },
+    /** What `answer` says to a PUT of JSON to `url`, to a live access token only. */
+    servePut: (url: string, answer: (body: Record<string, unknown>) => unknown) => {
+      web.routes[`PUT ${url}`] = (request) =>
+        authed(request, answer(JSON.parse(request.body ?? '{}')));
+    },
     revoke: () => {
       live.access.clear();
       live.refresh.clear();

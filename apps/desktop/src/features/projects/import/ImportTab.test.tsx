@@ -1,15 +1,9 @@
 // @vitest-environment happy-dom
 import type { ImportListRow, ImportResult } from '@mesa/core';
-import { act, useState } from 'react';
+import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa, toasts } from '@/lib/testing';
 import { ImportTab } from './ImportTab';
-
-/** ImportTab with Write notes held as the project screen holds it. */
-function NotesImportTab(props: { project: string; onStartSession: (from: string) => void }) {
-  const [notes, setNotes] = useState(true);
-  return <ImportTab {...props} notes={notes} onNotesChange={setNotes} />;
-}
 
 const ISSUE: ImportListRow = {
   source: 'jira',
@@ -61,7 +55,7 @@ test('a pasted link imports with Write notes on, and the item then lists with Re
   });
   const started: string[] = [];
   const byTestId = await renderWithMesa(
-    <NotesImportTab project="lantern-cove" onStartSession={(from) => started.push(from)} />,
+    <ImportTab project="lantern-cove" onStartSession={(from) => started.push(from)} />,
     bridge,
   );
   expect(byTestId('import-tab')[0]?.textContent).toContain('Nothing imported yet.');
@@ -105,7 +99,7 @@ test('with Write notes off an import passes --no-notes, and an item without a no
     'vault open': () => envelope({ opened: true, method: 'uri', target: 'x' }),
   });
   await renderWithMesa(
-    <NotesImportTab project="lantern-cove" onStartSession={() => undefined} />,
+    <ImportTab project="lantern-cove" onStartSession={() => undefined} />,
     bridge,
   );
   await click(button('Write notes'));
@@ -137,7 +131,7 @@ test('Refresh changed items passes the explicit flag and keeps checked, skipped 
       }),
   });
   await renderWithMesa(
-    <NotesImportTab project="lantern-cove" onStartSession={() => undefined} />,
+    <ImportTab project="lantern-cove" onStartSession={() => undefined} />,
     bridge,
   );
   await click(button('Refresh changed items'));

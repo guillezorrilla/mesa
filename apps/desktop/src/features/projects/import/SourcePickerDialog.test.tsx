@@ -1,15 +1,9 @@
 // @vitest-environment happy-dom
 import type { BrowseChild, BrowseResult, ImportListRow } from '@mesa/core';
-import { act, useState } from 'react';
+import { act } from 'react';
 import { expect, test } from 'vitest';
 import { click, envelope, fakeBridge, renderWithMesa, toasts } from '@/lib/testing';
 import { ImportTab } from './ImportTab';
-
-/** ImportTab with Write notes held as the project screen holds it. */
-function NotesImportTab(props: { project: string; onStartSession: (from: string) => void }) {
-  const [notes, setNotes] = useState(true);
-  return <ImportTab {...props} notes={notes} onNotesChange={setNotes} />;
-}
 
 const SITE = 'https://lantern-cove.atlassian.net';
 
@@ -97,7 +91,7 @@ async function setUp(answers: Record<string, (args: string[]) => unknown> = {}) 
   });
   const started: string[] = [];
   const byTestId = await renderWithMesa(
-    <NotesImportTab project="lantern-cove" onStartSession={(from) => started.push(from)} />,
+    <ImportTab project="lantern-cove" onStartSession={(from) => started.push(from)} />,
     fake.bridge,
   );
   return { ...fake, byTestId, started };

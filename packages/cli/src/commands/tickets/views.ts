@@ -1,5 +1,6 @@
 import { MesaError } from '@mesa/core';
 import { defineCommand } from '../../command.js';
+import { VIEW_FLAGS, viewOf } from '../../input/flags.js';
 
 export const ticketsViews = defineCommand({
   name: 'tickets views',
@@ -19,35 +20,10 @@ export const ticketsViewsAdd = defineCommand({
   name: 'tickets views add',
   summary: "Define a view: a board's current or next sprint, a saved filter, or JQL",
   args: ['name'],
-  flags: {
-    board: { type: 'string', description: "A board's id: the view reads its sprint" },
-    sprint: { type: 'string', description: 'current (default) or next, with --board' },
-    filter: { type: 'string', description: "A saved filter's id" },
-    jql: { type: 'string', description: 'A JQL query' },
-    everyone: { type: 'boolean', description: "Every assignee's tickets, not only yours" },
-    'show-done': { type: 'boolean', description: 'Done tickets too' },
-    site: {
-      type: 'string',
-      description: 'The Atlassian site, when the connection reaches several',
-    },
-  },
+  flags: VIEW_FLAGS,
   example: 'mesa tickets views add sprint --board 42',
   run: async ({ mesa, args, flags }) => {
-    const board = flags.board === undefined ? undefined : Number(flags.board);
-    if (board !== undefined && !(Number.isInteger(board) && board > 0))
-      throw new MesaError('usage', '--board takes a board id; see mesa tickets boards');
-    if (flags.sprint !== undefined && flags.sprint !== 'current' && flags.sprint !== 'next')
-      throw new MesaError('usage', '--sprint is current or next');
-    const data = await mesa.tickets.addView({
-      name: args.name,
-      ...(board !== undefined ? { board } : {}),
-      ...(flags.sprint ? { sprint: flags.sprint } : {}),
-      ...(flags.filter !== undefined ? { filter: flags.filter } : {}),
-      ...(flags.jql !== undefined ? { jql: flags.jql } : {}),
-      ...(flags.everyone ? { everyone: true } : {}),
-      ...(flags['show-done'] ? { showDone: true } : {}),
-      ...(flags.site ? { site: flags.site } : {}),
-    });
+    const data = await mesa.tickets.addView({ name: args.name, ...viewOf(flags) });
     return { data, text: `Added ${data.name}: ${data.describe}` };
   },
 });
@@ -110,5 +86,17 @@ export const ticketsPrompt = defineCommand({
         ? `Ticket prompt for ${scope}: ${data.prompt}`
         : `Cleared ${scope}'s ticket prompt`,
     };
+  },
+});
+
+export const ticketsPreview = defineCommand({
+  name: 'tickets preview',
+  summary: 'Count the tickets a view would list now, without saving it',
+  flags: VIEW_FLAGS,
+  example: 'mesa tickets preview --board 42',
+  run: async ({ mesa, flags }) => {
+    const data = await mesa.tickets.preview(viewOf(flags));
+    const count = `${data.count}${data.more ? ' or more' : ''} tickets`;
+    return { data, text: data.note ?? `${count}: ${data.describe}` };
   },
 });

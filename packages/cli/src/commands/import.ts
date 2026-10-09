@@ -1,4 +1,4 @@
-import { EXIT_CODES, type ImportResult, type Recorded } from '@mesa/core';
+import { EXIT_CODES, type ImportResult, MesaError, type Recorded } from '@mesa/core';
 import { defineCommand } from '../command.js';
 import { columns } from '../output/columns.js';
 import { recordedOutput } from '../output/recorded.js';
@@ -79,10 +79,24 @@ export const importGoal = defineCommand({
   summary:
     "Print the goal a session started from an imported item gets (mesa open --from), without starting it: the item's title, URL, and vault paths",
   args: ['item'],
-  flags: { project },
+  flags: {
+    project,
+    prompt: {
+      type: 'string',
+      description:
+        "A Jira issue's goal opens with this Saved prompt, over the project's ticket prompt",
+    },
+    'no-prompt': {
+      type: 'boolean',
+      description: "A Jira issue's goal opens with no ticket prompt",
+    },
+  },
   example: 'mesa import goal LC-12 --project lantern-cove',
   run: async ({ mesa, args, flags }) => {
-    const data = await mesa.imports.goal(flags.project, args.item);
+    if (flags.prompt !== undefined && flags['no-prompt'])
+      throw new MesaError('usage', 'pass --prompt or --no-prompt, not both');
+    const prompt = flags['no-prompt'] ? null : flags.prompt;
+    const data = await mesa.imports.goal(flags.project, args.item, prompt);
     return { data, text: data.goal };
   },
 });
