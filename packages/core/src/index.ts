@@ -72,6 +72,7 @@ export type { PrEvent, PrProblem } from './pr-events/pr-events.js';
 export { type Config, TERMINAL_APPS } from './profile/config.js';
 export { profilesDir } from './profile/paths.js';
 export { type ProfileInfo, resolveProfileName } from './profile/profile.js';
+export type { ProfileRow } from './profile/profiles.js';
 export {
   DEFAULT_SHORTCUTS,
   type Shortcuts,

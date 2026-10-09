@@ -5,6 +5,7 @@ import type {
   HooksStatus,
   PrEventList,
   ProfileInfo,
+  ProfileRow,
   ProjectContext,
   ProjectRow,
   SessionRow,
@@ -75,6 +76,7 @@ export const HEALTHY: Record<string, (args: string[]) => unknown> = {
   notifications: () => envelope([]),
   prompts: () => envelope([]),
   profile: () => envelope({ profile: 'default', dir: '/h/.mesa/default' } satisfies ProfileInfo),
+  'profile list': () => envelope([profileRow('default', { current: true, app: true })]),
   config: () =>
     envelope({
       vault: '/h/vault',
@@ -217,3 +219,16 @@ export const appearanceConfig = (appearance: Partial<Config['appearance']>) => (
   const data = healthy.data;
   return envelope({ ...data, appearance: { ...data.appearance, ...appearance } });
 };
+
+/** A `profile list` row: an idle profile with its own vault, as the others are unless told. */
+export const profileRow = (name: string, row: Partial<ProfileRow> = {}): ProfileRow => ({
+  name,
+  dir: `/h/.mesa/${name}`,
+  vault: `/h/vault-${name}`,
+  projects: 0,
+  liveSessions: 0,
+  lastUsed: '2026-10-08T10:00:00.000Z',
+  current: false,
+  app: false,
+  ...row,
+});

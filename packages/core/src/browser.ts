@@ -39,6 +39,7 @@ export {
   TERMINAL_APPS,
   TERMINAL_THEMES,
 } from './profile/preferences.js';
+export { profileSlug, profileVault, validProfileName } from './profile/profile-name.js';
 export {
   DEFAULT_SHORTCUTS,
   FIXED_SHORTCUTS,

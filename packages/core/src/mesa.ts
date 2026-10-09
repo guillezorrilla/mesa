@@ -17,6 +17,7 @@ import { backgroundDelivery } from './notifications/background.js';
 import { inbox } from './notifications/inbox.js';
 import { prEventsService } from './pr-events/pr-event-delivery.js';
 import { backupService } from './profile/backup.js';
+import { profilesService } from './profile/profiles.js';
 import { profileService } from './profile/service.js';
 import { projectsService } from './projects/service.js';
 import { promptsService } from './prompts/prompts.js';
@@ -70,6 +71,7 @@ export function createMesa(profile: string, deps: MesaDeps) {
   return {
     about: () => about(deps.version, deps.release),
     ...profileApi,
+    profiles: profilesService(ctx),
     backup: backupService(ctx, prompts.list),
     projects: projectsService(ctx),
     automations,

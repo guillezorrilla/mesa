@@ -54,6 +54,12 @@ export type ProfilePaths = {
 /** Where every profile's folder lives. */
 export const profilesDir = (home: string) => join(home, '.mesa');
 
+/**
+ * The profile the app opens when no MESA_PROFILE is set (`mesa profile use`): one line, its name.
+ * A dot file, so no profile can take its name; the app's launch (Rust, lib.rs) reads it too.
+ */
+export const appProfileFile = (home: string) => join(profilesDir(home), '.app-profile');
+
 export function profilePaths(home: string, profile: string): ProfilePaths {
   const root = join(profilesDir(home), profile);
   return {

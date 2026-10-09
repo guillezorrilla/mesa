@@ -11,6 +11,6 @@ export {
   PROJECTS,
   report,
 } from './fixtures';
-export { appearanceConfig } from './healthy';
+export { appearanceConfig, profileRow } from './healthy';
 export { renderWithMesa } from './renderWithMesa';
 export { deferred, envelope, failure, guardrailStopped } from './replies';

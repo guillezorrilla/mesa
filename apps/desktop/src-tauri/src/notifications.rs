@@ -1,7 +1,5 @@
-use std::ffi::OsStr;
 use std::io::Read;
 use std::path::PathBuf;
-use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 
 use block2::DynBlock;
@@ -72,7 +70,7 @@ define_class!(
                             let _ = window.set_focus();
                         }
                         let _ = app.emit("notification-open", target);
-                    } else if let Err(error) = open_profile_notice(&profile, &id) {
+                    } else if let Err(error) = crate::profile::launch(&profile, Some(&id)) {
                         eprintln!("cannot open notification profile {profile}: {error}");
                     }
                 }
@@ -200,35 +198,6 @@ fn target_from_id(id: &str) -> Option<(String, Target)> {
         }
     }
     Some((profile, target))
-}
-
-fn open_profile_notice(profile: &str, id: &str) -> Result<(), String> {
-    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
-    if let Some(bundle) = executable
-        .ancestors()
-        .find(|path| path.extension() == Some(OsStr::new("app")))
-    {
-        let status = Command::new("/usr/bin/open")
-            .arg("-n")
-            .arg("-a")
-            .arg(bundle)
-            .arg("--env")
-            .arg(format!("MESA_PROFILE={profile}"))
-            .arg("--env")
-            .arg(format!("MESA_OPEN_NOTIFICATION={id}"))
-            .status()
-            .map_err(|error| error.to_string())?;
-        if !status.success() {
-            return Err(format!("open exited with {status}"));
-        }
-    } else {
-        Command::new(executable)
-            .env("MESA_PROFILE", profile)
-            .env("MESA_OPEN_NOTIFICATION", id)
-            .spawn()
-            .map_err(|error| error.to_string())?;
-    }
-    Ok(())
 }
 
 fn valid_session_id(id: &str) -> bool {

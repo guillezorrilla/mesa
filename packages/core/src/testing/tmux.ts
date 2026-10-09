@@ -189,6 +189,11 @@ export function fakeTmux(
       case 'start-server':
         server = true;
         return ok();
+      case 'kill-server':
+        if (!server) return noServer();
+        server = false;
+        windows.splice(0);
+        return ok();
       case 'resize-window': {
         const w = find(target);
         if (!w) return failed("can't find window");

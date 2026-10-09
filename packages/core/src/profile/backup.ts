@@ -18,8 +18,9 @@ import { parseWith } from '../lib/schema.js';
 import { writeYaml } from '../lib/yaml-file.js';
 import { parseRegistryEntries, readRegistry } from '../projects/registry.js';
 import { parseSavedPrompts, type SavedPrompt } from '../prompts/prompts.js';
-import { buildBackupSettings, buildConfig, CONFIG_HEADER } from './config.js';
+import { buildBackupSettings, buildConfig, CONFIG_HEADER, portableSettings } from './config.js';
 import { profilesDir } from './paths.js';
+import { validProfileName } from './profile-name.js';
 
 const RETAIN = 5;
 const MAX_BYTES = 10_000_000;
@@ -38,11 +39,10 @@ export function backupService(
   prompts: () => SavedPrompt[],
 ) {
   const create = () => {
-    const { vault: _vault, keys: _keys, ...settings } = ctx.open().config;
     const archive = {
       version: 1,
       createdAt: ctx.clock().toISOString(),
-      settings,
+      settings: portableSettings(ctx.open().config),
       projects: readRegistry(ctx.paths.registry),
       prompts: prompts(),
     };
@@ -59,7 +59,7 @@ export function backupService(
   const restore = (input: string, vaultInput: string) => {
     const archiveFile = ctx.absolute(input);
     const vault = ctx.absolute(vaultInput);
-    if (!/^[A-Za-z0-9_-]{1,64}$/.test(ctx.profile))
+    if (!validProfileName(ctx.profile))
       throw new MesaError('usage', 'restore needs a simple new profile name');
     if (existsSync(ctx.paths.root))
       throw new MesaError('usage', `profile ${ctx.profile} already exists; choose a new profile`);

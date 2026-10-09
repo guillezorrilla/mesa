@@ -8,6 +8,7 @@ import {
   failure,
   fakeBridge,
   fakePlatform,
+  profileRow,
   renderWithMesa,
   report,
 } from '@/lib/testing';
@@ -51,6 +52,8 @@ async function setup(
           })
         : missing,
     projects: () => (state.profile ? envelope(state.projects) : missing),
+    // A first launch has no profile yet, so the account menu lists none.
+    'profile list': () => envelope(state.profile ? [profileRow('default', { current: true })] : []),
     'obsidian vaults': () =>
       envelope({
         vaults: [{ path: '/h/Notes', name: 'Notes' }],
