@@ -1,18 +1,13 @@
-import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { listAgentProcesses } from '../../agents/listing.js';
 import {
   fakeTmux,
   fixedClock,
-  listingDeps,
-  lockDeps,
+  listingOf,
   newSession,
   SPIKE_LISTING,
-  scriptedRunner,
-  sequentialIds,
   tempDir,
+  testStore,
 } from '../../testing/index.js';
-import { sessionStore } from '../record/store.js';
 import type { HookEvent } from '../signals/hook-events.js';
 import { listSessions } from './board.js';
 
@@ -28,14 +23,11 @@ const hook = (at: string, event: string, more: object = {}): HookEvent => ({
 });
 const notice = '<task-notification><task-id>b1</task-id></task-notification>';
 const running = { background_tasks: [{ id: 'b2', type: 'monitor', status: 'running' }] };
+const idlePrompt = (at: string) => hook(at, 'Notification', { notification_type: 'idle_prompt' });
 
 /** The session's state at `now`, after `events`, while the listing reads `status`. */
 async function stateAt(now: string, events: HookEvent[], status = 'busy') {
-  const store = sessionStore({
-    dir: join(tempDir(), 'sessions'),
-    newId: sequentialIds(),
-    lock: lockDeps(),
-  });
+  const store = testStore(tempDir());
   const row = store.create(() =>
     newSession({
       project: 'lantern-cove',
@@ -46,12 +38,11 @@ async function stateAt(now: string, events: HookEvent[], status = 'busy') {
   store.update(row.id, { agentSessionId: SPIKE_LISTING.idle.sessionId });
   const tmux = fakeTmux();
   tmux.addWindow({ project: 'lantern-cove', window: 'claude-aaaaaa', pid: SPIKE_LISTING.idle.pid });
-  const { run } = scriptedRunner({ claude: JSON.stringify([{ ...SPIKE_LISTING.idle, status }]) });
   const [found] = await listSessions({
     store,
     tmux,
     events: () => events,
-    listing: () => listAgentProcesses(listingDeps(run)),
+    listing: listingOf({ ...SPIKE_LISTING.idle, status }),
     projects: [],
     elsewhere: () => new Set<string>(),
     priorityOf: () => 0.5,
@@ -78,13 +69,16 @@ test('the reported sequence reads idle after its Stop while its monitor keeps th
   expect(await stateAt('12:03:00', reported)).toMatchObject({ state: 'idle', source: 'hook' });
 });
 
-test('an idle_prompt notification after Stop keeps it idle past a minute', async () => {
-  const events = [
-    ...reported,
-    hook('12:02:09', 'Notification', { notification_type: 'idle_prompt' }),
-  ];
+test('an idle_prompt notification after Stop keeps it idle, since the Stop', async () => {
+  const events = [...reported, idlePrompt('12:02:09')];
   expect(await stateAt('12:02:10', events)).toMatchObject({ state: 'idle', source: 'hook' });
-  expect(await stateAt('12:05:00', events)).toMatchObject({ state: 'idle', source: 'hook' });
+  expect(await stateAt('12:05:00', events)).toMatchObject({
+    state: 'idle',
+    source: 'hook',
+    // Stale, and the listing disagrees.
+    confidence: 0.8,
+    at: '2026-09-24T12:01:09.000Z',
+  });
 });
 
 test('a notice that starts a turn reads working until that turn ends', async () => {
@@ -105,17 +99,28 @@ test('a prompt during a running turn keeps it working', async () => {
   expect(await stateAt('12:00:10', events)).toMatchObject({ state: 'working', source: 'hook' });
 });
 
-test('with no background work, a stale Stop still follows the listing and its waits', async () => {
-  const stop = [hook('12:00:00', 'Stop')];
-  expect(await stateAt('12:03:00', stop, 'idle')).toMatchObject({ state: 'idle' });
-  // A missed turn-start hook: a stale working hook yields to an idle listing, as before.
+test('with no background work, a stale idle hook still follows the listing', async () => {
+  // A Stop naming no running work, then a lost UserPromptSubmit: the busy listing wins.
+  const done = { background_tasks: [{ id: 'b2', type: 'monitor', status: 'completed' }] };
+  for (const stop of [[hook('12:00:00', 'Stop')], [hook('12:00:00', 'Stop', done)]]) {
+    expect(await stateAt('12:00:30', stop)).toMatchObject({ state: 'idle', source: 'hook' });
+    expect(await stateAt('12:03:00', stop)).toMatchObject({ state: 'working', source: 'listing' });
+    expect(await stateAt('12:03:00', stop, 'idle')).toMatchObject({ state: 'idle' });
+  }
+  // A compaction's SessionStart mid-turn reads idle; the busy listing still corrects it.
+  const compact = [
+    hook('12:00:00', 'Stop', running),
+    hook('12:00:10', 'SessionStart', { source: 'compact' }),
+  ];
+  expect(await stateAt('12:03:00', compact)).toMatchObject({ state: 'working', source: 'listing' });
+  // A missed Stop: a stale working hook yields to an idle listing, as before.
   const prompt = [hook('12:00:00', 'UserPromptSubmit', { prompt: 'Tidy the harbor notes' })];
   expect(await stateAt('12:03:00', prompt, 'idle')).toMatchObject({
     state: 'idle',
     source: 'listing',
   });
   // A background subagent's permission prompt fires no parent hook: the listing's wait wins.
-  expect(await stateAt('12:03:00', stop, 'waiting')).toMatchObject({
+  expect(await stateAt('12:03:00', [hook('12:00:00', 'Stop', running)], 'waiting')).toMatchObject({
     state: 'waiting-question',
     source: 'listing',
   });

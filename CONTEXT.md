@@ -260,7 +260,7 @@ Where a session is right now, one of the agent's states, `working`, `waiting-per
 
 - A stopped session keeps its state.
 - A dead or vanished window is a process fact (0.85): `failed` with a signal or a nonzero status, else `done`.
-- Next comes the latest hook event: 0.95 under a minute old or when the listing agrees, 0.8 when stale. A `SessionEnd` from `/clear` or `/resume` says nothing, since the agent goes on. A wait more than 2 s old yields to a listing that says the agent moved on.
+- Next comes the latest hook event: 0.95 under a minute old or when the listing agrees, 0.8 when stale. A `SessionEnd` from `/clear` or `/resume` says nothing, since the agent goes on. A wait more than 2 s old yields to a listing that says the agent moved on. An idle hook whose `Stop` names running background work (a Monitor, a background command, a subagent) does not yield to a listing that reads working, which it does for as long as that work runs.
 - Then the agent listing (0.85).
 - Then a reply the Decision model saved for that very screen (`jev` or `clef`, at its probability), when its margin reached the site's threshold (#461).
 - Then the tail, the pane's last 30 lines read with CCManager's Claude Code patterns, or Codex's from docs/spikes/codex.md, where a startup gate (folder trust, hook review, the resume folder picker) is `waiting-question` (0.6). The tail is read only when no hook or listing speaks; a Codex listing row never speaks.

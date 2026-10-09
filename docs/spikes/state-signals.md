@@ -565,7 +565,7 @@ A live run (Claude Code 2.x, a Monitor on `sleep 150 && echo done`, polled every
 - `Stop`'s payload lists the work still running in `background_tasks`, and `Notification` `idle_prompt` follows 60 s later, once.
 - The listing reads `busy` for as long as the background work runs, also between turns, and `idle` once it ends.
 
-So a stale idle hook must not yield to a `busy` listing: before #699 the board read `working` (listing, 0.85) from 60 s after the last idle hook until the work ended. A listing wait still overrides a stale idle hook, because a background subagent's permission hook carries `agent_id` and is not a parent signal.
+So a stale idle hook whose `Stop` names running background work must not yield to a `busy` listing: before #699 the board read `working` (listing, 0.85) from 60 s after the last idle hook until the work ended. The board reads that `Stop` also behind the `idle_prompt` that repeats it. Any other idle hook (a `Stop` with no running work, a compaction's `SessionStart`) still yields to `busy` after a minute, which catches a lost `UserPromptSubmit`. A listing wait still overrides a stale idle hook, because a background subagent's permission hook carries `agent_id` and is not a parent signal.
 
 ## Differences from ADR-0003
 

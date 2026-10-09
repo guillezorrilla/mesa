@@ -6,6 +6,7 @@ import {
   fakeTmux,
   fixedClock,
   listingDeps,
+  listingOf,
   lockDeps,
   type NewWindow,
   newSession,
@@ -162,10 +163,6 @@ test('an empty board never calls tmux', async () => {
 });
 
 const SPIKE_ID = SPIKE_LISTING.idle.sessionId;
-const listingOf = (...rows: object[]) => {
-  const { run } = scriptedRunner({ claude: JSON.stringify(rows) });
-  return () => listAgentProcesses(listingDeps(run));
-};
 
 test('a listed process marks the session it runs in: by pane pid, else by agent session id', async () => {
   const store = storeIn();
