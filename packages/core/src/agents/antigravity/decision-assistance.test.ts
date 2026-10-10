@@ -46,6 +46,15 @@ test("install adds Mesa's two entries and rules beside the user's; uninstall rem
   expect(readFileSync(rulesFile, 'utf8')).toBe(rules);
 });
 
+test('before mesa hooks install writes its entry, the pointer names the CLI instead of the tool', async () => {
+  const { mesa } = await assistedAgent('antigravity', CONVERSATION);
+  const pointer = await mesa.antigravityInstruction(invocation(0));
+  expect(pointer).toContain(
+    'Decisions: no mesa-decisions tool here; mesa decisions evaluate --json',
+  );
+  expect(pointer).not.toContain('decision_evaluate');
+});
+
 test("PreInvocation re-sends the pointer and the goal's ready advice unchanged, asking no model", async () => {
   const { mesa, world } = await assistedAgent('antigravity', CONVERSATION);
   mesa.hooks.install();

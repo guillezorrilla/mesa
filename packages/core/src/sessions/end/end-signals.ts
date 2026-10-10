@@ -6,7 +6,7 @@ import { toFail } from '../../lib/result.js';
 import { readRegistry } from '../../projects/registry.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import type { SessionRow } from '../board/rows.js';
-import { decisionStatus } from '../native/decision-status.js';
+import { decisionStatus, decisionsReach } from '../native/decision-status.js';
 import { mesaPointer } from '../native/instructions.js';
 import { isOver } from '../record/lifecycle.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
@@ -113,18 +113,19 @@ export function endSignals(
     started.cwd ??
     started.worktree?.path ??
     readRegistry(paths.registry).find((entry) => entry.name === started.project)?.path;
-  /** Whether the session's agent has the decision tool now, for its pointer to name. */
-  const assisted = (started: SessionRecord) => {
+  /** How the session's agent reaches the Decision model now, for its pointer to name. */
+  const reach = (started: SessionRecord) => {
     try {
-      const status = decisionStatus(started, deps.assistance.assistState(started), ctx);
-      return status.tool.state === 'configured';
+      return decisionsReach(
+        decisionStatus(started, deps.assistance.assistState(started), ctx).tool,
+      );
     } catch {
-      return false;
+      return undefined;
     }
   };
   /** Which capability lines a session's pointer carries. */
   const pointerLines = (started: SessionRecord) => ({
-    decisions: assisted(started),
+    decisions: reach(started),
     // A config that does not read means no line, never a failed hook.
     guidelines: ctx.configIfAny()?.sessions.guidelines ?? false,
   });
