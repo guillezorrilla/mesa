@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import type { FollowedView, Ticket } from '@mesa/core';
+import { act } from 'react';
 import { expect, test } from 'vitest';
 import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
 import { TicketsTab } from './TicketsTab';
@@ -48,6 +49,14 @@ const shown = (key: string, extra: object = {}) =>
     mine: false,
     sessions: [],
     ...extra,
+  });
+/** Types into a field as a person does: the input event React's onChange reads. */
+const fill = (field: HTMLInputElement | HTMLTextAreaElement | null, text: string) =>
+  act(async () => {
+    if (!field) return;
+    const proto = field instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement;
+    Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set?.call(field, text);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
   });
 const button = (label: string) =>
   [...document.querySelectorAll<HTMLButtonElement>('button')].find(
@@ -101,9 +110,10 @@ test('the list groups tickets by status, and the panel shows the ticket whole an
   expect(words(calls)).toContain('tickets assign -- LC-2');
 });
 
-test('Start session assigns, imports, and starts in a worktree on the ticket branch, then opens it', async () => {
+/** A Tickets tab over one ticket, LC-2, whose start runs every step. */
+async function startable(answers: Record<string, (args: string[]) => unknown> = {}) {
   const opened: string[] = [];
-  const { bridge, calls } = fakeBridge({
+  const fake = fakeBridge({
     tickets: () => listOf([sprint], [ticket('LC-2', 'Show the next high tide')]),
     'tickets show': (args) => shown(String(args.at(-1))),
     'tickets assign': () => envelope({ key: 'LC-2', assignee: 'Rowan Tide', receipt: null }),
@@ -121,27 +131,26 @@ test('Start session assigns, imports, and starts in a worktree on the ticket bra
         goal: '/goal Fix it fast.\n\nWork on LC-2',
       }),
     open: () => envelope({ id: 'bbbbbbbb', project: 'lantern-cove', receipt: null }),
+    ...answers,
   });
   const byTestId = await renderWithMesa(
     <TicketsTab project="lantern-cove" onSession={(id) => opened.push(id)} />,
-    bridge,
+    fake.bridge,
+  );
+  const started = () => words(fake.calls).filter((w) => /^(tickets assign|import|open)/.test(w));
+  return { ...fake, byTestId, opened, started };
+}
+
+test('Start session starts at once with the project defaults, then opens it', async () => {
+  const { byTestId, opened, started } = await startable();
+  expect(byTestId('start-summary')[0]?.textContent).toBe(
+    'Ticket flow · until done · assign to me · new worktree on lc-2',
   );
   await click(byTestId('start-ticket')[0]);
-  const sheet = () => byTestId('start-sheet')[0]?.textContent ?? '';
-  expect(sheet()).toContain('Assign LC-2 to me');
-  expect(sheet()).toContain('New worktree on lc-2');
-  // On by default: the session starts as Claude Code's /goal, held to finishing the ticket.
-  expect(sheet()).toContain('Keep working until done');
-  expect((document.getElementById('start-until-done') as HTMLElement).dataset.state).toBe(
-    'checked',
-  );
-  await choose(document.getElementById('start-prompt') ?? undefined, 'Hotfix flow');
-  await click(button('Start session'));
-  const started = words(calls).filter((w) => /^(tickets assign|import|open)/.test(w));
-  expect(started).toEqual([
+  expect(started()).toEqual([
     'tickets assign -- LC-2',
     'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
-    'import goal --project lantern-cove --prompt=Hotfix flow --until-done -- LC-2',
+    'import goal --project lantern-cove --prompt=Ticket flow --until-done -- LC-2',
     'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --branch=lc-2 -- lantern-cove',
   ]);
   expect(byTestId('start-progress')[0]?.textContent).toContain(
@@ -149,6 +158,48 @@ test('Start session assigns, imports, and starts in a worktree on the ticket bra
   );
   await click(button('Open session'));
   expect(opened).toEqual(['bbbbbbbb']);
+});
+
+test('Options changes the start first: where it runs, a prompt, and a new prompt written in place', async () => {
+  const saved = [{ name: 'Ticket flow', text: '/goal Deliver the ticket below.' }];
+  const { byTestId, calls, started } = await startable({
+    prompts: () => envelope(saved),
+    'prompts save': (args) => {
+      saved.push({ name: String(args.at(-2)), text: String(args.at(-1)) });
+      return envelope(saved.at(-1));
+    },
+  });
+  await click(byTestId('start-options')[0]);
+  const sheet = () => byTestId('start-sheet')[0]?.textContent ?? '';
+  expect(sheet()).toContain('Assign LC-2 to me');
+  expect(sheet()).toContain('Its own checkout, on the branch lc-2');
+  expect((document.getElementById('start-until-done') as HTMLElement).dataset.state).toBe(
+    'checked',
+  );
+  await click(button('Main checkout'));
+  expect(sheet()).toContain("The project's own checkout");
+
+  // New prompt writes one here, saves it, and picks it.
+  const prompt = () => document.getElementById('start-prompt') as HTMLSelectElement;
+  await choose(prompt(), ' new');
+  const form = byTestId('new-prompt-form')[0] as HTMLElement;
+  await fill(form.querySelector<HTMLInputElement>('[aria-label="Prompt name"]'), 'Tidy flow');
+  await fill(
+    form.querySelector<HTMLTextAreaElement>('[aria-label="Prompt text"]'),
+    'Small commits.',
+  );
+  await click(button('Save prompt'));
+  expect(words(calls)).toContain('prompts save -- Tidy flow Small commits.');
+  expect(byTestId('new-prompt-form')).toHaveLength(0);
+  expect(prompt().value).toBe('Tidy flow');
+
+  await click(byTestId('start-sheet-submit')[0]);
+  expect(started()).toContain(
+    'import goal --project lantern-cove --prompt=Tidy flow --until-done -- LC-2',
+  );
+  expect(started().at(-1)).toBe(
+    'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 -- lantern-cove',
+  );
 });
 
 test('Follow picks a board, counts its tickets live, then adds the view and follows it', async () => {

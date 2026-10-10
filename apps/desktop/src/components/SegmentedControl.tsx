@@ -6,9 +6,16 @@ export function SegmentedControl<T extends string | number>(props: {
   value: T;
   options: readonly (readonly [T, string])[];
   onChange: (value: T) => void;
+  /** Stretches it to its container, each option an equal share, as tall as a select. */
+  wide?: boolean;
 }) {
   return (
-    <fieldset className="flex items-center rounded-md border bg-card p-0.5">
+    <fieldset
+      className={cn(
+        'flex items-center rounded-md border bg-card p-0.5',
+        props.wide && 'h-9 [&>button]:h-full [&>button]:flex-1',
+      )}
+    >
       <legend className="sr-only">{props.label}</legend>
       {props.options.map(([value, text]) => (
         <button
