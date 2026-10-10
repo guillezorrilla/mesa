@@ -11,6 +11,7 @@ Each version's changes, newest first. `pnpm release:version` writes a version's 
 
 ### Fixes
 
+- **decisions**: point agents at the Decision model when its tool is not mounted (#729)
 - **app**: switch profiles in the same app, one Dock icon (#726)
 
 ## 0.2.7 - 2026-10-09
