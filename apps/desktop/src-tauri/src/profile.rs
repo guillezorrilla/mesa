@@ -1,7 +1,7 @@
 //! Which profile this app runs: MESA_PROFILE when set, else the last one chosen in the app
 //! (`mesa profile use` writes `~/.mesa/.app-profile`, core's profile/paths.ts), else `default`.
-//! Every `mesa` the app starts inherits MESA_PROFILE. Switching relaunches into the other profile,
-//! so its tmux server, notifications and windows all start clean.
+//! Every `mesa` the app starts inherits MESA_PROFILE. Switching quits and reopens the app on the
+//! other profile, so its tmux server, notifications and windows all start clean.
 
 use std::ffi::OsStr;
 use std::path::Path;
@@ -36,28 +36,29 @@ pub fn resolve() -> String {
     chosen
 }
 
-/// Starts another instance of the app on `profile`, with `notice` to open when a notification
-/// click started it.
-pub fn launch(profile: &str, notice: Option<&str>) -> Result<(), String> {
+/// Quits and reopens the app on `profile`, with `notice` to open when a notification click asked
+/// for it. Waiting instead of `open -n` keeps one app and one Dock icon: a second instance gets
+/// its own tile, which stays after the first one quits.
+pub fn relaunch(app: &tauri::AppHandle, profile: &str, notice: Option<&str>) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     if let Some(bundle) = executable
         .ancestors()
         .find(|path| path.extension() == Some(OsStr::new("app")))
     {
-        let mut open = Command::new("/usr/bin/open");
-        open.arg("-n")
-            .arg("-a")
+        Command::new("/bin/sh")
+            .arg("-c")
+            .arg(concat!(
+                r#"while /bin/kill -0 "$0" 2>/dev/null; do /bin/sleep 0.1; done; "#,
+                r#"exec /usr/bin/open -a "$1" --env "MESA_PROFILE=$2" ${3:+--env "MESA_OPEN_NOTIFICATION=$3"}"#
+            ))
+            .arg(std::process::id().to_string())
             .arg(bundle)
-            .arg("--env")
-            .arg(format!("MESA_PROFILE={profile}"));
-        if let Some(id) = notice {
-            open.arg("--env").arg(format!("MESA_OPEN_NOTIFICATION={id}"));
-        }
-        let status = open.status().map_err(|error| error.to_string())?;
-        if !status.success() {
-            return Err(format!("open exited with {status}"));
-        }
+            .arg(profile)
+            .arg(notice.unwrap_or(""))
+            .spawn()
+            .map_err(|error| error.to_string())?;
     } else {
+        // A dev build outside a bundle has no Dock tile to keep.
         let mut direct = Command::new(executable);
         direct.env("MESA_PROFILE", profile);
         if let Some(id) = notice {
@@ -65,18 +66,17 @@ pub fn launch(profile: &str, notice: Option<&str>) -> Result<(), String> {
         }
         direct.spawn().map_err(|error| error.to_string())?;
     }
+    app.exit(0);
     Ok(())
 }
 
-/// Relaunches the app on `profile`: the new instance starts, then this one quits.
+/// Relaunches the app on `profile`: this instance quits, then the app reopens on it.
 #[tauri::command]
 pub fn profile_switch(app: tauri::AppHandle, profile: String) -> Result<(), String> {
     if !valid_name(&profile) {
         return Err(format!("invalid profile name {profile}"));
     }
-    launch(&profile, None)?;
-    app.exit(0);
-    Ok(())
+    relaunch(&app, &profile, None)
 }
 
 #[cfg(test)]
