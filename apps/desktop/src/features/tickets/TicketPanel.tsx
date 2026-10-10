@@ -1,7 +1,6 @@
 import type { Ticket, TicketDefaults } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
-import { ArrowLeft, ExternalLink, Play } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -9,8 +8,8 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { AssigneeAvatar } from './AssigneeAvatar';
 import { LiveDot } from './LiveDot';
-import { StartSheet } from './StartSheet';
 import { StatusIcon } from './StatusIcon';
+import { TicketStart } from './start/TicketStart';
 
 /** Links in a ticket's text open in the browser, never in the app. */
 const link = (href: string, children: React.ReactNode) => (
@@ -21,7 +20,7 @@ const link = (href: string, children: React.ReactNode) => (
 
 /**
  * One ticket beside the list: its key and Jira link, title, who has a session on it, its
- * fields, description and comments, and Start session, which opens the start sheet.
+ * fields, description and comments, and Start session (TicketStart).
  */
 export function TicketPanel(props: {
   project: string;
@@ -38,7 +37,6 @@ export function TicketPanel(props: {
   const detail = useCommand('tickets.show', { key: ticket.key });
   const run = useRun();
   const { acting, act } = useAct();
-  const [starting, setStarting] = useState(false);
   const full = detail.data;
   const mine = full?.mine ?? ticket.mine;
   const assignee = full?.assignee?.name ?? ticket.assignee;
@@ -168,33 +166,15 @@ export function TicketPanel(props: {
           </section>
         )}
       </div>
-      {starting ? (
-        <StartSheet
-          project={props.project}
-          ticket={{ key: ticket.key, url: ticket.url, mine, assignee }}
-          defaults={props.defaults}
-          prompt={props.prompt}
-          onCancel={() => setStarting(false)}
-          onStarted={props.onChanged}
-          onSession={props.onSession}
-        />
-      ) : (
-        <div className="flex flex-wrap items-center gap-3 border-t bg-card px-6 py-3.5">
-          <span className="min-w-40 flex-1 text-xs text-muted-foreground">
-            {[
-              props.prompt ?? 'No prompt',
-              !mine && props.defaults.assign ? 'assign to me' : null,
-              props.defaults.notes ? 'notes on' : 'notes off',
-              props.defaults.start === 'worktree' ? 'new worktree' : 'main checkout',
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-          <Button onClick={() => setStarting(true)} data-testid="start-ticket">
-            <Play aria-hidden /> Start session
-          </Button>
-        </div>
-      )}
+      <TicketStart
+        key={ticket.key}
+        project={props.project}
+        ticket={{ key: ticket.key, url: ticket.url, mine, assignee }}
+        defaults={props.defaults}
+        prompt={props.prompt}
+        onStarted={props.onChanged}
+        onSession={props.onSession}
+      />
     </div>
   );
 }

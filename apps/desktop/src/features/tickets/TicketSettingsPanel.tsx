@@ -2,8 +2,9 @@ import type { TicketDefaults } from '@mesa/core';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
+import { PromptField } from '@/features/prompts/PromptField';
 import { useAct } from '@/lib/useAct';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useRun } from '@/lib/useCommand';
 
 /**
  * The gear's settings for this project's ticket sessions: the prompt (its own, or the default
@@ -17,10 +18,8 @@ export function TicketSettingsPanel(props: {
   defaults: TicketDefaults;
   onChanged: () => void;
 }) {
-  const prompts = useCommand('prompts.list');
   const run = useRun();
   const { acting, act } = useAct();
-  const names = prompts.data?.map((p) => p.name) ?? [];
   const profilePrompt = props.projectPrompt ? undefined : props.prompt;
   const save = (call: () => Promise<unknown>) =>
     void act(async () => {
@@ -37,38 +36,24 @@ export function TicketSettingsPanel(props: {
     <div className="grid w-80 max-w-[calc(100vw-3rem)] gap-4 p-1" data-testid="ticket-settings">
       <Label htmlFor="ticket-prompt" className="grid gap-1.5 font-normal">
         <span className="text-xs text-muted-foreground">Prompt for this project</span>
-        <NativeSelect
+        <PromptField
           id="ticket-prompt"
-          value={props.projectPrompt ?? ''}
+          value={props.projectPrompt}
+          empty={`Use the default${profilePrompt ? ` (${profilePrompt})` : ''}`}
           disabled={acting}
-          onChange={(event) => setPrompt(event.currentTarget.value, props.project)}
-        >
-          <NativeSelectOption value="">
-            Use the default{profilePrompt ? ` (${profilePrompt})` : ''}
-          </NativeSelectOption>
-          {names.map((name) => (
-            <NativeSelectOption key={name} value={name}>
-              {name}
-            </NativeSelectOption>
-          ))}
-        </NativeSelect>
+          onChange={(name) => setPrompt(name ?? '', props.project)}
+        />
       </Label>
       {profilePrompt !== undefined && (
         <Label htmlFor="ticket-default-prompt" className="grid gap-1.5 font-normal">
           <span className="text-xs text-muted-foreground">Default for all projects</span>
-          <NativeSelect
+          <PromptField
             id="ticket-default-prompt"
-            value={profilePrompt ?? ''}
+            value={profilePrompt}
+            empty="No prompt"
             disabled={acting}
-            onChange={(event) => setPrompt(event.currentTarget.value)}
-          >
-            <NativeSelectOption value="">No prompt</NativeSelectOption>
-            {names.map((name) => (
-              <NativeSelectOption key={name} value={name}>
-                {name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+            onChange={(name) => setPrompt(name ?? '')}
+          />
         </Label>
       )}
       <Label htmlFor="ticket-start" className="grid gap-1.5 font-normal">
@@ -109,7 +94,6 @@ export function TicketSettingsPanel(props: {
           />
         </div>
       ))}
-      <p className="text-xs text-muted-foreground">Saved prompts are edited in Settings.</p>
     </div>
   );
 }
