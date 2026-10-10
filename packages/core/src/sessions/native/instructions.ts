@@ -76,6 +76,9 @@ export const DECISIONS_CLI_LINE = `Decisions: no mesa-decisions tool here; mesa 
  */
 export const GUIDELINES_LINE = `Guidelines: before live tests, config writes outside the repo, or asking the person for access or a decision, read the ${GUIDELINES} skill.`;
 
+/** How a session's agent reaches the Decision model: its tool, or the CLI without it. */
+export type DecisionsReach = 'tool' | 'cli';
+
 /**
  * A bounded native hook supplement, under 1,000 bytes and with no vault content: the session, how
  * to reach Mesa and the vault tools (ADR-0012), and the CLI when they are not there; with
@@ -88,7 +91,7 @@ export function mesaPointer(
   record: SessionRecord,
   profile: string,
   cwd: string,
-  { decisions, guidelines = false }: { decisions?: 'tool' | 'cli'; guidelines?: boolean } = {},
+  { decisions, guidelines = false }: { decisions?: DecisionsReach; guidelines?: boolean } = {},
 ): string {
   const prefix = record.agent === 'codex' ? '$' : '/';
   const skills =

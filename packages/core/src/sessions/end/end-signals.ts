@@ -6,7 +6,7 @@ import { toFail } from '../../lib/result.js';
 import { readRegistry } from '../../projects/registry.js';
 import { joinWarnings } from '../../receipts/recorder.js';
 import type { SessionRow } from '../board/rows.js';
-import { decisionStatus } from '../native/decision-status.js';
+import { decisionStatus, decisionsReach } from '../native/decision-status.js';
 import { mesaPointer } from '../native/instructions.js';
 import { isOver } from '../record/lifecycle.js';
 import { recordAgent, type SessionRecord } from '../record/record.js';
@@ -113,25 +113,19 @@ export function endSignals(
     started.cwd ??
     started.worktree?.path ??
     readRegistry(paths.registry).find((entry) => entry.name === started.project)?.path;
-  /**
-   * How the session's agent reaches the Decision model now, for its pointer to name: the tool,
-   * the CLI when the tool is conflicting or missing with a fix (a restart, resume or hooks
-   * install), or not at all (no model, off, no agent, or the person disabled it in Antigravity).
-   */
-  const assisted = (started: SessionRecord): 'tool' | 'cli' | undefined => {
+  /** How the session's agent reaches the Decision model now, for its pointer to name. */
+  const reach = (started: SessionRecord) => {
     try {
-      const tool = decisionStatus(started, deps.assistance.assistState(started), ctx).tool;
-      if (tool.state === 'configured') return 'tool';
-      return tool.state === 'conflicting' || (tool.state === 'missing' && tool.action)
-        ? 'cli'
-        : undefined;
+      return decisionsReach(
+        decisionStatus(started, deps.assistance.assistState(started), ctx).tool,
+      );
     } catch {
       return undefined;
     }
   };
   /** Which capability lines a session's pointer carries. */
   const pointerLines = (started: SessionRecord) => ({
-    decisions: assisted(started),
+    decisions: reach(started),
     // A config that does not read means no line, never a failed hook.
     guidelines: ctx.configIfAny()?.sessions.guidelines ?? false,
   });

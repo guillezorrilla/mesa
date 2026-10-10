@@ -2,6 +2,7 @@ import { expect, test } from 'vitest';
 import { newSession } from '../../testing/index.js';
 import { GENERAL_PROJECT } from '../record/general.js';
 import type { SessionRecord } from '../record/record.js';
+import { decisionsReach } from './decision-status.js';
 import {
   DECISIONS_CLI_LINE,
   DECISIONS_LINE,
@@ -87,6 +88,19 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
 );
 
 test.each(['claude', 'codex', 'antigravity'] as const)(
+  'without the decision tool, the %s pointer ends with the CLI line of under 400 bytes (#728)',
+  (agent) => {
+    const plain = mesaPointer(record({ agent }), PROFILE, CWD);
+    const pointer = mesaPointer(record({ agent }), PROFILE, CWD, { decisions: 'cli' });
+    expect(pointer).toBe(`${plain}\n${DECISIONS_CLI_LINE}`);
+    expect(Buffer.byteLength(DECISIONS_CLI_LINE)).toBeLessThan(400);
+    expect(DECISIONS_CLI_LINE).toContain('mesa decisions evaluate --json');
+    expect(DECISIONS_CLI_LINE).not.toContain('decision_evaluate');
+    expect(DECISIONS_CLI_LINE).toContain('Before claiming a task done, ask evidence.');
+  },
+);
+
+test.each(['claude', 'codex', 'antigravity'] as const)(
   'with the decision tool, the %s pointer ends with one capability line of under 400 bytes',
   (agent) => {
     const plain = mesaPointer(record({ agent }), PROFILE, CWD);
@@ -103,14 +117,6 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
     expect(DECISIONS_LINE).toContain("preference questions are the person's");
     expect(DECISIONS_LINE).toContain('Before claiming a task done, ask evidence.');
     expect(plain).not.toContain('Decisions:');
-    // Without the tool, the CLI line takes its place, with the same guidance (#728).
-    const cli = mesaPointer(record({ agent }), PROFILE, CWD, { decisions: 'cli' });
-    expect(cli).toBe(`${plain}\n${DECISIONS_CLI_LINE}`);
-    expect(Buffer.byteLength(DECISIONS_CLI_LINE)).toBeLessThan(400);
-    expect(DECISIONS_CLI_LINE).toContain('mesa decisions evaluate --json');
-    expect(DECISIONS_CLI_LINE.slice(DECISIONS_CLI_LINE.indexOf('Before'))).toBe(
-      DECISIONS_LINE.slice(DECISIONS_LINE.indexOf('Before')),
-    );
     // Across projects, the projects line keeps the pointer itself under its cap.
     const name = (c: string) => `${c.repeat(52)}-project`;
     const worktree = { path: CWD, branch: 'issue-1234-long-branch-name-for-feature' };
@@ -121,3 +127,19 @@ test.each(['claude', 'codex', 'antigravity'] as const)(
     expect(Buffer.byteLength(across)).toBeLessThan(1000 + 1 + Buffer.byteLength(DECISIONS_LINE));
   },
 );
+
+test('the tool names its line when configured, the CLI when a fix would mount it, else none', () => {
+  const reach = (tool: Parameters<typeof decisionsReach>[0]) => decisionsReach(tool);
+  expect(reach({ state: 'configured', reason: 'mounted' })).toBe('tool');
+  expect(reach({ state: 'missing', reason: 'started before the key', action: 'restart' })).toBe(
+    'cli',
+  );
+  expect(reach({ state: 'missing', reason: 'no entry', action: 'hooks install' })).toBe('cli');
+  expect(reach({ state: 'conflicting', reason: 'another mesa-decisions' })).toBe('cli');
+  // The person's own switch in Antigravity, or a queued session: nothing to route around.
+  expect(reach({ state: 'missing', reason: 'mesa-decisions is disabled in Antigravity' })).toBe(
+    undefined,
+  );
+  expect(reach({ state: 'disabled', reason: 'no decision model' })).toBe(undefined);
+  expect(reach({ state: 'unsupported', reason: 'A plain terminal runs no agent' })).toBe(undefined);
+});

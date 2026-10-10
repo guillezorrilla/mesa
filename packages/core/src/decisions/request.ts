@@ -39,7 +39,11 @@ export const DecisionRequestSchema = z.strictObject({
     .max(MAX_STEPS)
     .optional()
     .describe('next-step: the steps to choose from'),
-  events: z.array(z.string().max(LINE)).max(MAX_EVENTS).optional().describe('next-step: recent'),
+  events: z
+    .array(z.string().max(LINE))
+    .max(MAX_EVENTS)
+    .optional()
+    .describe('next-step: recent facts, the situation'),
   attempts: z.array(z.string().max(LINE)).max(MAX_EVENTS).optional().describe('next-step: tried'),
   claim: z.string().max(500).optional().describe('evidence: the completion claim'),
   evidence: z.string().max(PACKET_CHARS).optional().describe('evidence: what shows it'),
@@ -56,9 +60,10 @@ export type Advice = {
 
 export type DecisionAnswer = ScopedContext | Advice;
 
-/** The fields each site takes, for a usage error to name (#728: agents guessed `context`). */
-const FIELDS =
-  'relevance takes query; next-step takes candidates, events (recent facts) and attempts; evidence takes claim and evidence';
+/** Every field and what it is for, for a usage error to name (#728: agents guessed `context`). */
+const FIELDS = `Fields: ${Object.entries(DecisionRequestSchema.shape)
+  .map(([key, field]) => `${key} (${field.description})`)
+  .join(', ')}`;
 
 /** `raw` as a request, or a usage error naming every field it gets wrong and the ones it takes. */
 export function decisionRequest(raw: unknown): DecisionRequest {

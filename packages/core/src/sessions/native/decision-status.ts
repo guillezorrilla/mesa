@@ -10,7 +10,7 @@ import type { DecisionsModel } from '../../decisions/types.js';
 import type { Env } from '../../lib/process.js';
 import { toFail } from '../../lib/result.js';
 import type { SessionRecord } from '../record/record.js';
-import type { InstructionStatus } from './instructions.js';
+import type { DecisionsReach, InstructionStatus } from './instructions.js';
 
 // Whether a session's agent can reach decision assistance (#463, ADR-0019), in the instruction
 // status's words plus `disabled`: the decision_evaluate tool (its mesa-decisions mount) and
@@ -188,3 +188,14 @@ export function decisionStatus(
 }
 
 export type DecisionDeliveryStatus = ReturnType<typeof decisionStatus>;
+
+/**
+ * Which `Decisions:` line a pointer carries for the tool's status (#728): the tool's when it is
+ * configured, the CLI's when it is conflicting or missing with an action that would mount it, and
+ * none otherwise (no model, off, no agent, queued, or the person disabled it in Antigravity).
+ */
+export function decisionsReach(tool: DeliveryStatus): DecisionsReach | undefined {
+  if (tool.state === 'configured') return 'tool';
+  if (tool.state === 'conflicting' || (tool.state === 'missing' && tool.action)) return 'cli';
+  return undefined;
+}

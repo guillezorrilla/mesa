@@ -94,17 +94,18 @@ mesa adopt 36c173f2-803e-4845-bd97-a032b37c6d6d --project lantern-cove
 
 Run `mesa run session-summary --session <id> --json` to summarise its output log on its own project. Core writes `wiki/sessions/<id>.md`; the result gives `note` and, when the note body changes, a `vault-change` `receipt`. The source session must have nonempty output. A locked note produces a warning and stays unchanged. Only the last 1000 nonblank lines are supplied; older output is omitted. Use `mesa decide --project <slug> --rationale <why>` for a deliberate project decision, optionally `--session <id>`. Read its history with `mesa receipts --project <slug> --kind decision --json`. Routine session activity and no-op note writes return `receipt: null` without a warning.
 
-### Ask the Decision model
+### Decision model (Jev, CLEF)
 
 The Decision model is the hosted model Faro asks: `jev` (TypeSafe) or `clef` (Cloudflare). A request to "use clef" or "use Jev" means asking it; the call always goes to the model the profile chose (`mesa decisions status --json` names it), and switching models is the person's call (`mesa decisions use`). It gives advice only and never acts. Inside a Mesa window it answers only for your own session, and frames the question with the session's saved goal.
 
-You ask it; it never asks itself at these sites, even where `mesa decisions status` shows a site as automatic (the only automatic advice is relevance, beside the prompt):
+You call next-step and evidence yourself; the only advice Mesa adds on its own is relevance, beside the prompt.
 
-- **next-step**, before you recommend one of several options: 1 to 8 `candidates` (slug `id`, `step` up to 300 characters), optional `events` (up to 5 recent facts or observations, 300 characters each) and `attempts` (what was tried). It picks one, or `defer`.
+- **next-step**, before you recommend one of several options: the situation goes in `events`, as short recent facts, and each option in `candidates` (a slug `id` and a short `step`); `attempts` lists what was tried. It picks one, or `defer`.
 - **evidence**, before you call a task done: the `claim` and the `evidence` for it.
 
 ```sh
-echo '{"events":["Prod runs E2E_GATE=enforce; shadow waits for Maestro before the canary"],"candidates":[{"id":"reword","step":"Keep the wait, fix the docs"},{"id":"skip-wait","step":"Let the canary go at once"}]}' | mesa decisions advise next-step --json
+echo '{"events":["tide-table test fails only after midnight UTC","the clock is read inside parseTide"],"candidates":[{"id":"inject-clock","step":"Pass the clock to parseTide"},{"id":"pin-tz","step":"Pin TZ=UTC in the test setup"}]}' | mesa decisions advise next-step --json
+echo '{"claim":"the tide-table flake is fixed","evidence":"Tests 48 passed (48), run 20 times"}' | mesa decisions advise evidence --json
 ```
 
-`mesa decisions evaluate --json` takes the same request with `site` in it. The answer is `accepted` when its margin reaches the site's threshold (`acceptAt`), `abstained` when the call was too close (the choice stays yours or the person's), or `unavailable` when no answer came (no model, a failed or late call, assistance off). Show its probabilities beside your recommendation and pass them to `save_decision`. Questions of preference belong to the person. A session started before the profile chose a model has no `mesa-decisions` tool; the CLI works the same.
+A field it does not know is a `usage` error that lists the fields it takes. `mesa decisions evaluate --json` takes the same request with `site` in it. The answer is `accepted` when its margin reaches the site's threshold (`acceptAt`), `abstained` when the call was too close (the choice stays yours or the person's), or `unavailable` when no answer came (no model, a failed or late call, assistance off). Show its probabilities beside your recommendation and pass them to `save_decision`. Questions of preference belong to the person. A session started before the profile chose a model has no `mesa-decisions` tool; the CLI works the same.
