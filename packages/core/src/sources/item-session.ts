@@ -2,7 +2,7 @@ import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
 import type { ImportListRow, importService } from './import-service.js';
-import { itemGoal } from './item-goal.js';
+import { itemGoal, untilDone } from './item-goal.js';
 
 // A session started from an imported item (CONTEXT.md, Import): its goal built from the item,
 // and the item kept on its record.
@@ -30,29 +30,36 @@ export function itemSessions(
   open: Open,
   ticketPrompt: (project: string, override?: string | null) => string | undefined = () => undefined,
 ) {
-  /** `override` is a Saved prompt's name, or null for none; undefined takes the project's. */
+  /**
+   * `override` is a Saved prompt's name, or null for none; undefined takes the project's. With
+   * `done`, a Jira issue's goal is a /goal that holds the agent to finishing it (untilDone).
+   */
   const withPrompt = (
     project: string,
     found: ImportListRow,
     goal?: string,
     override?: string | null,
+    done?: boolean,
   ) => {
-    const prompt = found.source === 'jira' ? ticketPrompt(project, override)?.trim() : undefined;
+    const jira = found.source === 'jira';
+    const prompt = jira ? ticketPrompt(project, override)?.trim() : undefined;
     const base = itemGoal(found, goal);
-    return prompt ? `${prompt}\n\n${base}` : base;
+    const full = prompt ? `${prompt}\n\n${base}` : base;
+    return jira && done ? untilDone(full) : full;
   };
   return {
     /**
      * The goal a session started from `from` gets, and the item, without starting it. `prompt`
-     * names the Saved prompt a Jira issue's goal opens with (null for none) over the project's.
+     * names the Saved prompt a Jira issue's goal opens with (null for none) over the project's;
+     * `done` makes a Jira issue's goal a /goal that keeps the agent at it until it is done.
      */
-    goal: async (project: string, from: string, prompt?: string | null) => {
+    goal: async (project: string, from: string, prompt?: string | null, done?: boolean) => {
       const { item: found } = await item(project, from);
       return {
         source: found.source,
         id: found.id,
         title: found.title,
-        goal: withPrompt(project, found, undefined, prompt),
+        goal: withPrompt(project, found, undefined, prompt, done),
       };
     },
     /**

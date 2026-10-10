@@ -71,6 +71,7 @@ export { WORKFLOW_STATUSES, type WorkflowStatus } from './sessions/record/workfl
 export { GUIDELINES } from './skills/guidelines.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';
 export { describeSource, siteNames } from './sources/describe.js';
+export { UNTIL_DONE } from './sources/item-goal.js';
 export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
 export { UPDATE_CHANNELS, UPDATE_LINK } from './update/feeds.js';
 export { costAlertText } from './usage/alert.js';

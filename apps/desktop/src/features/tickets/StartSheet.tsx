@@ -1,4 +1,5 @@
 import type { TicketDefaults } from '@mesa/core';
+import { UNTIL_DONE } from '@mesa/core/browser';
 import { Check, Loader2, Play, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,7 @@ export function StartSheet(props: {
     prompt: props.prompt,
     notes: props.defaults.notes,
     start: props.defaults.start,
+    untilDone: props.defaults.untilDone,
   });
   const set = (change: Partial<StartOptions>) => setOptions((was) => ({ ...was, ...change }));
   const promptText = prompts.data?.find((p) => p.name === options.prompt)?.text;
@@ -147,6 +149,13 @@ export function StartSheet(props: {
         </Label>
       </div>
       <Toggle
+        id="start-until-done"
+        label="Keep working until done"
+        hint="Starts with Claude Code's /goal: the agent goes on until the acceptance criteria are met and the tests pass"
+        checked={options.untilDone}
+        onChange={(untilDone) => set({ untilDone })}
+      />
+      <Toggle
         id="start-notes"
         label="Write notes first"
         hint="Adds a minute; the session also gets a summary note"
@@ -156,11 +165,15 @@ export function StartSheet(props: {
       <details className="text-sm">
         <summary className="cursor-pointer text-muted-foreground">Preview the goal</summary>
         <div className="mt-2 grid max-h-56 gap-2 overflow-auto rounded-md bg-muted p-3 text-xs">
+          {options.untilDone && !promptText?.startsWith('/goal') && (
+            <pre className="font-mono">/goal</pre>
+          )}
           {promptText && <pre className="whitespace-pre-wrap font-mono">{promptText}</pre>}
           <p className="text-muted-foreground">
             {promptText ? 'Then ' : ''}
             {ticket.key}'s title, its link, and where its snapshot and notes are in the vault.
           </p>
+          {options.untilDone && <p className="text-muted-foreground">{UNTIL_DONE}</p>}
         </div>
       </details>
       <div className="flex justify-end gap-2">

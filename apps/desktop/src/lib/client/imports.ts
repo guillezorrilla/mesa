@@ -19,15 +19,17 @@ export const importsCommands = {
   >(({ project }) => ['import', 'status', '--project', project]),
   // The goal a session started from the item gets, for the composer to fill in.
   // `prompt`: a Saved prompt's name for a Jira issue's goal, null for none, else the project's.
+  // `untilDone`: a Jira issue's goal is Claude Code's /goal, held to finishing it.
   'imports.goal': commandWith<
-    { project: string; from: string; prompt?: string | null },
+    { project: string; from: string; prompt?: string | null; untilDone?: boolean },
     { source: ItemSource; id: string; title: string; goal: string }
-  >(({ project, from, prompt }) => [
+  >(({ project, from, prompt, untilDone }) => [
     'import',
     'goal',
     '--project',
     project,
     ...(prompt === null ? ['--no-prompt'] : prompt ? [`--prompt=${prompt}`] : []),
+    ...(untilDone ? ['--until-done'] : []),
     '--',
     from,
   ]),

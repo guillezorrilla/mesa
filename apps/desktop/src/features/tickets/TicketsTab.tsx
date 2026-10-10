@@ -94,7 +94,12 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
             settings={{
               projectPrompt: data?.projectPrompt ?? null,
               prompt: data?.prompt ?? null,
-              defaults: data?.defaults ?? { notes: true, assign: true, start: 'worktree' },
+              defaults: data?.defaults ?? {
+                notes: true,
+                assign: true,
+                start: 'worktree',
+                untilDone: true,
+              },
             }}
             onSettingsChanged={refresh}
           />

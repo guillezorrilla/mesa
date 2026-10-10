@@ -26,7 +26,7 @@ const listOf = (views: FollowedView[], tickets: Ticket[]) =>
     project: 'lantern-cove',
     prompt: 'Ticket flow',
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree' },
+    defaults: { notes: false, assign: true, start: 'worktree', untilDone: true },
     views,
     tickets,
   });
@@ -130,13 +130,18 @@ test('Start session assigns, imports, and starts in a worktree on the ticket bra
   const sheet = () => byTestId('start-sheet')[0]?.textContent ?? '';
   expect(sheet()).toContain('Assign LC-2 to me');
   expect(sheet()).toContain('New worktree on lc-2');
+  // On by default: the session starts as Claude Code's /goal, held to finishing the ticket.
+  expect(sheet()).toContain('Keep working until done');
+  expect((document.getElementById('start-until-done') as HTMLElement).dataset.state).toBe(
+    'checked',
+  );
   await choose(document.getElementById('start-prompt') ?? undefined, 'Hotfix flow');
   await click(button('Start session'));
   const started = words(calls).filter((w) => /^(tickets assign|import|open)/.test(w));
   expect(started).toEqual([
     'tickets assign -- LC-2',
     'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
-    'import goal --project lantern-cove --prompt=Hotfix flow -- LC-2',
+    'import goal --project lantern-cove --prompt=Hotfix flow --until-done -- LC-2',
     'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --branch=lc-2 -- lantern-cove',
   ]);
   expect(byTestId('start-progress')[0]?.textContent).toContain(

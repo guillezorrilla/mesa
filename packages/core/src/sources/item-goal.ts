@@ -16,6 +16,17 @@ const KIND: Record<ItemSource, string> = {
 // (goal.ts); only the `extra` text can make it too long, which the start then refuses.
 const MAX_TITLE = 200;
 
+/** What a ticket session's /goal holds it to: the condition after the issue's goal. */
+export const UNTIL_DONE =
+  'Done when the issue is implemented as it describes, its acceptance criteria are met, and its tests pass.';
+
+/**
+ * `goal` as Claude Code's /goal command, so the agent keeps working until UNTIL_DONE holds; one
+ * that already is (a ticket prompt starting with /goal) stays as it is.
+ */
+export const untilDone = (goal: string) =>
+  /^\/goal(\s|$)/.test(goal) ? goal : `/goal ${goal}\n\n${UNTIL_DONE}`;
+
 /**
  * The goal for `item`: its title (clipped, never its paths), its source URL, and the vault paths
  * of its note, if any, and its latest snapshot, for the agent to read with mesa-vault's
