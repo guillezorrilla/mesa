@@ -76,6 +76,7 @@ export const ticketsCommands = {
     ...(change.notes === undefined ? [] : ['--notes', change.notes ? 'on' : 'off']),
     ...(change.assign === undefined ? [] : ['--assign', change.assign ? 'on' : 'off']),
     ...(change.start ? ['--start', change.start] : []),
+    ...(change.untilDone === undefined ? [] : ['--until-done', change.untilDone ? 'on' : 'off']),
     '--',
     project,
   ]),

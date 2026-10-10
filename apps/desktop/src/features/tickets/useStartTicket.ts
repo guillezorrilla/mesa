@@ -8,6 +8,8 @@ export type StartOptions = {
   prompt: string | null;
   notes: boolean;
   start: 'worktree' | 'checkout';
+  /** Start as Claude Code's /goal, so the agent keeps working until the ticket is done. */
+  untilDone: boolean;
 };
 
 export type StartStep = { label: string; state: 'todo' | 'now' | 'done' | 'failed' };
@@ -47,6 +49,7 @@ export function useStartTicket(project: string) {
           project,
           from: ticket.key,
           prompt: options.prompt,
+          untilDone: options.untilDone,
         });
         const opened =
           built &&

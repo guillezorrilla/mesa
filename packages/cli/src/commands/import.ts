@@ -108,13 +108,18 @@ export const importGoal = defineCommand({
       type: 'boolean',
       description: "A Jira issue's goal opens with no ticket prompt",
     },
+    'until-done': {
+      type: 'boolean',
+      description:
+        "A Jira issue's goal is Claude Code's /goal, so the agent keeps working until it is done",
+    },
   },
-  example: 'mesa import goal LC-12 --project lantern-cove',
+  example: 'mesa import goal LC-12 --project lantern-cove --until-done',
   run: async ({ mesa, args, flags }) => {
     if (flags.prompt !== undefined && flags['no-prompt'])
       throw new MesaError('usage', 'pass --prompt or --no-prompt, not both');
     const prompt = flags['no-prompt'] ? null : flags.prompt;
-    const data = await mesa.imports.goal(flags.project, args.item, prompt);
+    const data = await mesa.imports.goal(flags.project, args.item, prompt, flags['until-done']);
     return { data, text: data.goal };
   },
 });

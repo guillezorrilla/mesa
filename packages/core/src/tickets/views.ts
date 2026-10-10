@@ -66,10 +66,17 @@ const TicketDefaultsSchema = z.strictObject({
   assign: z.boolean().optional(),
   /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
   start: z.enum(['worktree', 'checkout']).optional(),
+  /** Start as Claude Code's /goal, so the agent keeps working until the ticket is done. */
+  untilDone: z.boolean().optional(),
 });
 export type TicketDefaults = Required<z.infer<typeof TicketDefaultsSchema>>;
-/** What a project gets until it changes them: notes, assigning, and a worktree, all on. */
-export const DEFAULTS: TicketDefaults = { notes: true, assign: true, start: 'worktree' };
+/** What a project gets until it changes them: notes, assigning, a worktree, and /goal, all on. */
+export const DEFAULTS: TicketDefaults = {
+  notes: true,
+  assign: true,
+  start: 'worktree',
+  untilDone: true,
+};
 
 const TicketsSchema = z.strictObject({
   views: z.array(ViewSchema).default([]),

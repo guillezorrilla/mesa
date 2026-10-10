@@ -64,6 +64,10 @@ export const ticketsDefaults = defineCommand({
       type: 'string',
       description: 'worktree (a new one, on a branch named after the ticket) or checkout',
     },
+    'until-done': {
+      type: 'string',
+      description: "Start as Claude Code's /goal, working until the ticket is done: on or off",
+    },
   },
   example: 'mesa tickets defaults lantern-cove --start checkout',
   run: ({ mesa, args, flags }) => {
@@ -71,15 +75,17 @@ export const ticketsDefaults = defineCommand({
       throw new MesaError('usage', '--start is worktree or checkout');
     const notes = onOff('notes', flags.notes);
     const assign = onOff('assign', flags.assign);
+    const done = onOff('until-done', flags['until-done']);
     const change = {
       ...(notes === undefined ? {} : { notes }),
       ...(assign === undefined ? {} : { assign }),
       ...(flags.start ? { start: flags.start as 'worktree' | 'checkout' } : {}),
+      ...(done === undefined ? {} : { untilDone: done }),
     };
     const data = Object.keys(change).length
       ? mesa.tickets.setDefaults(args.project, change)
       : mesa.tickets.defaults(args.project);
-    const text = `notes ${data.notes ? 'on' : 'off'}, assign ${data.assign ? 'on' : 'off'}, start in ${data.start === 'worktree' ? 'a new worktree' : 'the main checkout'}`;
+    const text = `notes ${data.notes ? 'on' : 'off'}, assign ${data.assign ? 'on' : 'off'}, start in ${data.start === 'worktree' ? 'a new worktree' : 'the main checkout'}, until done ${data.untilDone ? 'on' : 'off'}`;
     return { data, text };
   },
 });

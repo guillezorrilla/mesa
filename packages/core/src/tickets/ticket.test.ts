@@ -123,11 +123,13 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
     notes: true,
     assign: true,
     start: 'worktree',
+    untilDone: true,
   });
   expect(mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: false })).toEqual({
     notes: false,
     assign: true,
     start: 'checkout',
+    untilDone: true,
   });
   expect(mesa.tickets.defaults('lantern-cove').start).toBe('checkout');
   expect(() => mesa.tickets.setDefaults('nowhere', { notes: true })).toThrow(
@@ -145,6 +147,17 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   expect(await goal('Hotfix flow')).toMatch(/^Smallest safe change\.\n\nWork on the imported/);
   expect(await goal(null)).toMatch(/^Work on the imported Jira issue LC-12/);
   await expect(goal('Missing')).rejects.toThrow('no saved prompt Missing');
+
+  // Until done: the whole goal is Claude Code's /goal, held to finishing the issue.
+  const done = async (prompt?: string | null) =>
+    (await mesa.imports.goal('lantern-cove', 'LC-12', prompt, true)).goal;
+  expect(await done(null)).toMatch(
+    /^\/goal Work on the imported Jira issue LC-12[\s\S]*\n\nDone when the issue is implemented as it describes, its acceptance criteria are met, and its tests pass\.$/,
+  );
+  expect(await done('Hotfix flow')).toMatch(/^\/goal Smallest safe change\.\n\nWork on/);
+  // A prompt that already is a /goal stays its own.
+  mesa.prompts.save('Goal flow', '/goal Ship it with a PR.');
+  expect(await done('Goal flow')).toMatch(/^\/goal Ship it with a PR\.\n\nWork on[\s\S]*\.md$/);
 });
 
 test('a view of a site the connection no longer reaches names the site and asks to reconnect', async () => {
