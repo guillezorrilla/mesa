@@ -56,10 +56,15 @@ export type Advice = {
 
 export type DecisionAnswer = ScopedContext | Advice;
 
-/** `raw` as a request, or a usage error naming every field it gets wrong. */
+/** The fields each site takes, for a usage error to name (#728: agents guessed `context`). */
+const FIELDS =
+  'relevance takes query; next-step takes candidates, events (recent facts) and attempts; evidence takes claim and evidence';
+
+/** `raw` as a request, or a usage error naming every field it gets wrong and the ones it takes. */
 export function decisionRequest(raw: unknown): DecisionRequest {
   const parsed = DecisionRequestSchema.safeParse(raw);
-  if (!parsed.success) throw new MesaError('usage', `decision request: ${misfit(parsed.error)}`);
+  if (!parsed.success)
+    throw new MesaError('usage', `decision request: ${misfit(parsed.error)}. ${FIELDS}`);
   return parsed.data;
 }
 

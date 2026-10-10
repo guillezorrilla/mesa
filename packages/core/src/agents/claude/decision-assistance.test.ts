@@ -208,6 +208,19 @@ test("SessionStart's pointer names the decision tool only while the session has 
   expect(session.decisionsMounted).toBe(true);
 });
 
+test("SessionStart's pointer names the CLI while the model is chosen but the tool is not mounted", async () => {
+  const { mesa } = await assistedAgent('claude', NATIVE_ID, {
+    session: { decisionsMounted: undefined },
+  });
+  const start = JSON.stringify({ session_id: NATIVE_ID, hook_event_name: 'SessionStart' });
+  const event = await mesa.hookEvent('claude', start);
+  const pointer = event && 'instruction' in event ? event.instruction : '';
+  expect(pointer).toContain(
+    'Decisions: no mesa-decisions tool here; mesa decisions evaluate --json',
+  );
+  expect(pointer).not.toContain('decision_evaluate');
+});
+
 test('installed hooks pass UserPromptSubmit output to Claude, and advice is then configured', async () => {
   const { mesa, session, home } = await assistedAgent('claude', NATIVE_ID);
   mesa.hooks.install();

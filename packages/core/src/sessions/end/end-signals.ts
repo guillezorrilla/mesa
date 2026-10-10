@@ -113,13 +113,20 @@ export function endSignals(
     started.cwd ??
     started.worktree?.path ??
     readRegistry(paths.registry).find((entry) => entry.name === started.project)?.path;
-  /** Whether the session's agent has the decision tool now, for its pointer to name. */
-  const assisted = (started: SessionRecord) => {
+  /**
+   * How the session's agent reaches the Decision model now, for its pointer to name: the tool,
+   * the CLI when the tool is conflicting or missing with a fix (a restart, resume or hooks
+   * install), or not at all (no model, off, no agent, or the person disabled it in Antigravity).
+   */
+  const assisted = (started: SessionRecord): 'tool' | 'cli' | undefined => {
     try {
-      const status = decisionStatus(started, deps.assistance.assistState(started), ctx);
-      return status.tool.state === 'configured';
+      const tool = decisionStatus(started, deps.assistance.assistState(started), ctx).tool;
+      if (tool.state === 'configured') return 'tool';
+      return tool.state === 'conflicting' || (tool.state === 'missing' && tool.action)
+        ? 'cli'
+        : undefined;
     } catch {
-      return false;
+      return undefined;
     }
   };
   /** Which capability lines a session's pointer carries. */

@@ -103,7 +103,8 @@ test('requests are bounded and typed: ids are slugs, the goal is never supplied,
     message: 'evidence needs a claim and the evidence for it',
   });
   await expect(mesa.decisions.evaluate({ ...NEXT, sitee: 1 })).rejects.toMatchObject({
-    message: 'decision request: arguments: Unrecognized key: "sitee"',
+    message:
+      'decision request: arguments: Unrecognized key: "sitee". relevance takes query; next-step takes candidates, events (recent facts) and attempts; evidence takes claim and evidence',
   });
   expect(world.requests).toEqual([]);
 });
