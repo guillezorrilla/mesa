@@ -2,6 +2,17 @@
 
 Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
 
+## 0.2.8 - 2026-10-10
+
+### Features
+
+- **tickets**: start a ticket session in one click, with clearer options and prompts written in place (#724)
+- **tickets**: start ticket sessions as /goal, held to finishing the ticket (#722)
+
+### Fixes
+
+- **app**: switch profiles in the same app, one Dock icon (#726)
+
 ## 0.2.7 - 2026-10-09
 
 ### Features
