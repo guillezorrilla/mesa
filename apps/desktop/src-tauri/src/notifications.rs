@@ -70,8 +70,13 @@ define_class!(
                             let _ = window.set_focus();
                         }
                         let _ = app.emit("notification-open", target);
-                    } else if let Err(error) = crate::profile::launch(&profile, Some(&id)) {
-                        eprintln!("cannot open notification profile {profile}: {error}");
+                    } else {
+                        match crate::profile::relaunch(&profile, Some(&id)) {
+                            Ok(()) => app.exit(0),
+                            Err(error) => {
+                                eprintln!("cannot open notification profile {profile}: {error}")
+                            }
+                        }
                     }
                 }
             }
