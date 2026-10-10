@@ -36,11 +36,10 @@ pub fn resolve() -> String {
     chosen
 }
 
-/// Reopens the app on `profile` once this instance has quit, with `notice` to open when a
-/// notification click asked for it. The caller quits right after. Waiting instead of `open -n`
-/// keeps one app and one Dock icon: a second instance gets its own tile, which stays after the
-/// first one quits.
-pub fn relaunch(profile: &str, notice: Option<&str>) -> Result<(), String> {
+/// Quits and reopens the app on `profile`, with `notice` to open when a notification click asked
+/// for it. Waiting instead of `open -n` keeps one app and one Dock icon: a second instance gets
+/// its own tile, which stays after the first one quits.
+pub fn relaunch(app: &tauri::AppHandle, profile: &str, notice: Option<&str>) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     if let Some(bundle) = executable
         .ancestors()
@@ -67,6 +66,7 @@ pub fn relaunch(profile: &str, notice: Option<&str>) -> Result<(), String> {
         }
         direct.spawn().map_err(|error| error.to_string())?;
     }
+    app.exit(0);
     Ok(())
 }
 
@@ -76,9 +76,7 @@ pub fn profile_switch(app: tauri::AppHandle, profile: String) -> Result<(), Stri
     if !valid_name(&profile) {
         return Err(format!("invalid profile name {profile}"));
     }
-    relaunch(&profile, None)?;
-    app.exit(0);
-    Ok(())
+    relaunch(&app, &profile, None)
 }
 
 #[cfg(test)]

@@ -71,11 +71,13 @@ define_class!(
                         }
                         let _ = app.emit("notification-open", target);
                     } else {
-                        match crate::profile::relaunch(&profile, Some(&id)) {
-                            Ok(()) => app.exit(0),
-                            Err(error) => {
-                                eprintln!("cannot open notification profile {profile}: {error}")
-                            }
+                        // Last-used follows, as a switch from the profile menu does.
+                        let args = ["profile".to_string(), "use".to_string(), profile.clone()];
+                        if let Err(error) = crate::bridge::run(&args, None) {
+                            eprintln!("cannot record profile {profile}: {error}");
+                        }
+                        if let Err(error) = crate::profile::relaunch(app, &profile, Some(&id)) {
+                            eprintln!("cannot open notification profile {profile}: {error}");
                         }
                     }
                 }
