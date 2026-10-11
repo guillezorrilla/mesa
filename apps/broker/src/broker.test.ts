@@ -8,18 +8,28 @@ const ENV: Env = {
   NOTION_CLIENT_SECRET: 'notion-secret',
   CLICKUP_CLIENT_ID: 'clickup-client',
   CLICKUP_CLIENT_SECRET: 'clickup-secret',
+  LINEAR_CLIENT_ID: 'linear-client',
+  LINEAR_CLIENT_SECRET: 'linear-secret',
 };
 const BROKER = 'https://broker.example.test';
 
-/** A vendor token endpoint that records each request and answers `status` with `body`. */
+/**
+ * A vendor token endpoint that records each request (its body read as JSON, or as a form when sent
+ * as one) and answers `status` with `body`.
+ */
 function vendor(status = 200, body: unknown = { access_token: 'at-1', refresh_token: 'rt-1' }) {
-  const calls: { url: string; body: unknown; authorization?: string | null }[] = [];
+  const calls: { url: string; body: unknown; authorization?: string | null; form?: true }[] = [];
   const upstream: Upstream = async (url, init) => {
-    const authorization = new Headers(init.headers).get('authorization');
+    const headers = new Headers(init.headers);
+    const authorization = headers.get('authorization');
+    const form = headers.get('content-type') === 'application/x-www-form-urlencoded';
     calls.push({
       url,
-      body: JSON.parse(String(init.body)),
+      body: form
+        ? Object.fromEntries(new URLSearchParams(String(init.body)))
+        : JSON.parse(String(init.body)),
       ...(authorization ? { authorization } : {}),
+      ...(form ? { form } : {}),
     });
     return new Response(JSON.stringify(body), { status });
   };
@@ -179,12 +189,53 @@ test('ClickUp signs in with no scopes, and takes the client id and secret in the
   ]);
 });
 
+test('Linear asks for read with consent, and takes its token requests as a form', async () => {
+  const to = new URL((await get('/authorize/linear?state=n1.49152')).headers.get('location') ?? '');
+  expect(`${to.origin}${to.pathname}`).toBe('https://linear.app/oauth/authorize');
+  expect(Object.fromEntries(to.searchParams)).toEqual({
+    client_id: 'linear-client',
+    scope: 'read',
+    redirect_uri: `${BROKER}/callback/linear`,
+    state: 'n1.49152',
+    response_type: 'code',
+    prompt: 'consent',
+  });
+
+  const token = { access_token: 'at-1', expires_in: 86399, refresh_token: 'rt-1', scope: 'read' };
+  const { upstream, calls } = vendor(200, token);
+  const answer = await post(
+    '/token/linear',
+    { grant_type: 'authorization_code', code: 'c1' },
+    upstream,
+  );
+  expect(await answer.json()).toEqual(token);
+  await post('/token/linear', { grant_type: 'refresh_token', refresh_token: 'rt-1' }, upstream);
+  const client = { client_id: 'linear-client', client_secret: 'linear-secret' };
+  expect(calls).toEqual([
+    {
+      url: 'https://api.linear.app/oauth/token',
+      body: {
+        grant_type: 'authorization_code',
+        code: 'c1',
+        ...client,
+        redirect_uri: `${BROKER}/callback/linear`,
+      },
+      form: true,
+    },
+    {
+      url: 'https://api.linear.app/oauth/token',
+      body: { grant_type: 'refresh_token', refresh_token: 'rt-1', ...client },
+      form: true,
+    },
+  ]);
+});
+
 test('an unknown source is 404 and reaches no vendor', async () => {
   const { upstream, calls } = vendor();
   for (const answer of [
-    await get('/authorize/linear?state=n1.49152'),
-    await get('/callback/linear?code=c1&state=n1.49152'),
-    await post('/token/linear', { grant_type: 'authorization_code', code: 'c1' }, upstream),
+    await get('/authorize/asana?state=n1.49152'),
+    await get('/callback/asana?code=c1&state=n1.49152'),
+    await post('/token/asana', { grant_type: 'authorization_code', code: 'c1' }, upstream),
     await get('/authorize/toString?state=n1.49152'),
   ]) {
     expect(answer.status).toBe(404);

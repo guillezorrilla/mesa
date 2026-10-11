@@ -1,6 +1,7 @@
 import {
   atlassianWorld,
   clickupWorld,
+  linearWorld,
   notionPageObject,
   notionWorld,
   TEST_CONFLUENCE,
@@ -14,6 +15,7 @@ beforeEach(cli.reset);
 const SITES = [{ id: 'cloud-1', name: 'lantern-cove', url: 'https://lantern-cove.atlassian.net' }];
 const NOTION = { id: 'notion', label: 'Notion', connected: false, status: 'disconnected' };
 const CLICKUP = { id: 'clickup', label: 'ClickUp', connected: false, status: 'disconnected' };
+const LINEAR = { id: 'linear', label: 'Linear', connected: false, status: 'disconnected' };
 
 test('sources connect, list, and disconnect print their JSON, and disconnect leaves a receipt', async () => {
   const world = atlassianWorld();
@@ -25,6 +27,7 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
       { id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' },
       NOTION,
       CLICKUP,
+      LINEAR,
     ],
   });
   const connected = await cli.mesa('sources', 'connect', 'atlassian', '--json');
@@ -39,10 +42,10 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
   };
   expect(connected.json.data).toMatchObject({ ...row, receipt: { id: expect.any(String) } });
   expect((await cli.mesa('sources', 'list', '--json')).json.data).toEqual({
-    sources: [row, NOTION, CLICKUP],
+    sources: [row, NOTION, CLICKUP, LINEAR],
   });
   expect((await cli.mesa('sources', 'list')).stdout).toBe(
-    'atlassian  connected     Rowan Tide  lantern-cove\nnotion     disconnected\nclickup    disconnected\n',
+    'atlassian  connected     Rowan Tide  lantern-cove\nnotion     disconnected\nclickup    disconnected\nlinear     disconnected\n',
   );
   const gone = await cli.mesa('sources', 'disconnect', 'atlassian', '--json');
   expect(gone.json.data).toMatchObject({
@@ -62,11 +65,11 @@ test('sources connect, list, and disconnect print their JSON, and disconnect lea
 test('an unknown source is a usage error', async () => {
   cli.deps = atlassianWorld().deps;
   await cli.withProject();
-  const out = await cli.mesa('sources', 'connect', 'linear', '--json');
+  const out = await cli.mesa('sources', 'connect', 'asana', '--json');
   expect(out.code).toBe(2);
   expect(out.json.error).toEqual({
     code: 'usage',
-    message: 'unknown source linear; one of atlassian, notion, clickup',
+    message: 'unknown source asana; one of atlassian, notion, clickup, linear',
   });
 });
 
@@ -194,6 +197,34 @@ test('ClickUp connects, browses from its Workspace, and a pasted task link impor
       title: 'Chart the spring tide',
       url: link,
       snapshot: 'raw/clickup/86tide1/2026-09-24T1200.md',
+    },
+  ]);
+});
+
+test('Linear connects, browses from its workspace, and a pasted issue link imports', async () => {
+  const world = linearWorld();
+  cli.deps = world.deps;
+  await cli.withProject();
+  const connected = await cli.mesa('sources', 'connect', 'linear', '--json');
+  expect(connected.json.data).toMatchObject({
+    id: 'linear',
+    status: 'connected',
+    account: { name: 'Rowan Tide' },
+    sites: [{ id: 'org-1', name: 'Lantern Cove' }],
+  });
+  const root = await cli.mesa('sources', 'browse', 'linear', '--json');
+  expect(root.json.data.children).toMatchObject([{ id: 'workspace:org-1', kind: 'workspace' }]);
+
+  world.serveIssue('HAR-12', { title: 'Chart the spring tide', description: 'Twice a day.' });
+  const link = 'https://linear.app/lantern-cove/issue/HAR-12';
+  const out = await cli.mesa('import', link, '--project', 'lantern-cove', '--no-notes', '--json');
+  expect(out.json.data.items).toEqual([
+    {
+      source: 'linear',
+      id: 'HAR-12',
+      title: 'HAR-12: Chart the spring tide',
+      url: link,
+      snapshot: 'raw/linear/HAR-12/2026-09-24T1200.md',
     },
   ]);
 });

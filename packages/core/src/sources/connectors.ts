@@ -3,6 +3,7 @@ import { clickupItem } from './clickup-item.js';
 import { confluencePage } from './confluence.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { jiraIssue } from './jira.js';
+import { linearItem } from './linear-item.js';
 import { notionPage } from './notion-page.js';
 import type { SourceId } from './sources.js';
 import { webPage } from './web.js';
@@ -23,5 +24,6 @@ export const CONNECTORS: Record<
   confluence: { connection: 'atlassian', fetch: confluencePage },
   notion: { connection: 'notion', fetch: notionPage },
   clickup: { connection: 'clickup', fetch: clickupItem },
+  linear: { connection: 'linear', fetch: linearItem },
   web: { fetch: webPage },
 };

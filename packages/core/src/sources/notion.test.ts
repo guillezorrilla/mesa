@@ -88,6 +88,7 @@ test('connect stores the tokens with no expiry and the workspace, and lists the 
     ['atlassian', 'disconnected'],
     ['notion', 'connected'],
     ['clickup', 'disconnected'],
+    ['linear', 'disconnected'],
   ]);
   expect((await mesa.sources.disconnect('notion')).result).toEqual({
     source: 'notion',
