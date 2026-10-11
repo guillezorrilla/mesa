@@ -6,60 +6,21 @@ import { changeYaml, readYaml } from '../lib/yaml-file.js';
 import { findProject } from '../projects/projects.js';
 import type { JiraField } from '../sources/jira.js';
 import { DEFAULTS, type TicketDefaults } from './defaults.js';
+import { parseWith } from './provider.js';
+import {
+  PROVIDER_IDS,
+  type ProviderId,
+  providerName,
+  type TicketView,
+  TicketViewSchema,
+} from './providers.js';
 
-// The profile's `tickets.yaml` (CONTEXT.md, Ticket view): the Jira views it defines once, the
-// projects that follow each, and which Saved prompt a ticket session gets. Personal, so never in a
-// project's mesa.yaml.
-
-const ViewSchema = z
-  .strictObject({
-    name: z.string().trim().min(1).max(60),
-    /** The Atlassian site's cloud id. */
-    site: z.string().min(1),
-    /** Its name, kept to say which site to reconnect to. */
-    siteName: z.string().optional(),
-    board: z.number().int().positive().optional(),
-    /** A board view's board name, kept to show it. */
-    boardName: z.string().optional(),
-    sprint: z.enum(['current', 'next']).optional(),
-    filter: z.string().regex(/^\d+$/).optional(),
-    /** A saved filter view's filter name, kept to show it. */
-    filterName: z.string().optional(),
-    jql: z.string().trim().min(1).max(2000).optional(),
-    /** Every assignee's tickets, not only the person's. */
-    everyone: z.boolean().optional(),
-    /** Done tickets too. */
-    showDone: z.boolean().optional(),
-  })
-  .refine(
-    (v) => [v.board, v.filter, v.jql].filter((q) => q !== undefined).length === 1,
-    'a view names exactly one of a board, a saved filter, or JQL',
-  )
-  .refine((v) => v.sprint === undefined || v.board !== undefined, 'only a board view has a sprint');
-export type TicketView = z.infer<typeof ViewSchema>;
-
-/** `view` in a line: what it reads and how it narrows it. */
-export function describeView(view: TicketView): string {
-  const what =
-    view.board !== undefined
-      ? `${view.sprint === 'next' ? 'Next' : 'Current'} sprint of board ${view.boardName ?? view.board}`
-      : view.filter !== undefined
-        ? `Saved filter ${view.filterName ?? view.filter}`
-        : `JQL: ${view.jql}`;
-  const narrowing = [
-    view.everyone ? 'everyone' : 'only mine',
-    view.showDone ? 'done included' : 'not done',
-  ];
-  return `${what} (${narrowing.join(', ')})`;
-}
+// The profile's `tickets.yaml` (CONTEXT.md, Ticket view): the views it defines once, of any
+// ticket provider, the projects that follow each, the tracker each project tracks work in, and
+// which Saved prompt a ticket session gets. Personal, so never in a project's mesa.yaml.
 
 /** `input` as a view, or a usage error naming what is wrong with it. */
-export function parseView(input: unknown): TicketView {
-  const parsed = ViewSchema.safeParse(input);
-  if (!parsed.success)
-    throw new MesaError('usage', parsed.error.issues[0]?.message ?? 'invalid ticket view');
-  return parsed.data;
-}
+export const parseView = (input: unknown): TicketView => parseWith(TicketViewSchema, input);
 
 const TicketDefaultsSchema = z
   .strictObject({
@@ -74,9 +35,11 @@ const TicketDefaultsSchema = z
   })
   .transform(({ untilDone: _, ...set }): Partial<TicketDefaults> => set);
 const TicketsSchema = z.strictObject({
-  views: z.array(ViewSchema).default([]),
+  views: z.array(TicketViewSchema).default([]),
   /** Each project's followed view names. */
   follows: z.record(z.string(), z.array(z.string())).default({}),
+  /** Each project's tracker, when it set one; unset reads as Jira for a project following Jira views. */
+  trackers: z.record(z.string(), z.enum(PROVIDER_IDS as [ProviderId, ...ProviderId[]])).default({}),
   /** The Saved prompt every ticket session gets, unless its project names its own. */
   prompt: z.string().optional(),
   prompts: z.record(z.string(), z.string()).default({}),
@@ -91,8 +54,26 @@ const TicketsSchema = z.strictObject({
 });
 export type TicketsFile = z.infer<typeof TicketsSchema>;
 
-const EMPTY: TicketsFile = { views: [], follows: {}, prompts: {}, defaults: {}, fields: [] };
+const EMPTY: TicketsFile = {
+  views: [],
+  follows: {},
+  trackers: {},
+  prompts: {},
+  defaults: {},
+  fields: [],
+};
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The views project `key` follows, in its order, those since removed left out. */
+export const followedViews = (tickets: TicketsFile, key: string): TicketView[] =>
+  (tickets.follows[key] ?? [])
+    .map((name) => tickets.views.find((v) => same(v.name, name)))
+    .filter((v): v is TicketView => v !== undefined);
+
+/** The tracker project `key` tracks work in: its own, else Jira when it follows a Jira view. */
+export const trackerOf = (tickets: TicketsFile, key: string): ProviderId | undefined =>
+  tickets.trackers[key] ??
+  (followedViews(tickets, key).some((v) => v.provider === 'jira') ? 'jira' : undefined);
 
 /** The profile's ticket views, follows, and prompts, each change a locked rewrite of the file. */
 export function ticketViews(ctx: MesaContext) {
@@ -161,10 +142,17 @@ export function ticketViews(ctx: MesaContext) {
         }
         return removed;
       }),
+    /** Follows view `name` in the project, which must be of the tracker it tracks work in. */
     follow: (projectName: string, name: string) => {
       const key = project(projectName);
       return update((tickets) => {
         const followed = view(tickets, name);
+        const tracker = trackerOf(tickets, key);
+        if (tracker && followed.provider !== tracker)
+          throw new MesaError(
+            'usage',
+            `${key} tracks work in ${providerName(tracker)}, and ${followed.name} is a ${providerName(followed.provider)} view; see mesa tickets tracker`,
+          );
         const names = tickets.follows[key] ?? [];
         if (!names.some((n) => same(n, followed.name))) names.push(followed.name);
         tickets.follows[key] = names;
@@ -178,6 +166,19 @@ export function ticketViews(ctx: MesaContext) {
         if (names.length) tickets.follows[key] = names;
         else delete tickets.follows[key];
         return { project: key, following: names };
+      });
+    },
+    /** The tracker `projectName` tracks work in, if any. */
+    tracker: (projectName: string) => trackerOf(read(), project(projectName)),
+    /**
+     * Sets the tracker `projectName` tracks work in. Every view and follow is kept: the tab lists
+     * only the tracker's, so switching back lists the old ones again.
+     */
+    setTracker: (projectName: string, tracker: ProviderId) => {
+      const key = project(projectName);
+      return update((tickets) => {
+        tickets.trackers[key] = tracker;
+        return { project: key, tracker };
       });
     },
     /** `projectName`'s defaults, each one not set taking DEFAULTS'. */

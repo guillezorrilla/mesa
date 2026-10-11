@@ -7,7 +7,8 @@ const { site } = VIEW_FLAGS;
 
 export const ticketsShow = defineCommand({
   name: 'tickets show',
-  summary: 'Show one Jira ticket: its fields, description and comments, and the sessions on it',
+  summary:
+    'Show one ticket, by id (jira:LC-12) or Jira key: its fields, description, comments and sessions',
   args: ['key'],
   flags: { site },
   example: 'mesa tickets show LC-12',
@@ -36,7 +37,7 @@ export const ticketsShow = defineCommand({
 
 export const ticketsAssign = defineCommand({
   name: 'tickets assign',
-  summary: 'Assign a Jira ticket to you: the one change Mesa makes in Jira',
+  summary: 'Assign a ticket to you, by id or Jira key: the one change Mesa makes in its tracker',
   args: ['key'],
   flags: { site },
   example: 'mesa tickets assign LC-12',

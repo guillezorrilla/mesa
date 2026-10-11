@@ -6,6 +6,8 @@ import { choose, click, envelope, fakeBridge, renderWithMesa } from '@/lib/testi
 import { TicketsTab } from './TicketsTab';
 
 const ticket = (key: string, summary: string, extra: Partial<Ticket> = {}): Ticket => ({
+  id: `jira:${key}`,
+  provider: 'jira',
   key,
   summary,
   status: 'To Do',
@@ -25,6 +27,7 @@ const sprint: FollowedView = {
 const listOf = (views: FollowedView[], tickets: Ticket[]) =>
   envelope({
     project: 'lantern-cove',
+    tracker: views.length ? 'jira' : null,
     prompt: 'Ticket flow',
     projectPrompt: null,
     defaults: { notes: false, assign: true, start: 'worktree' },
@@ -460,4 +463,70 @@ test('an option changed on one ticket is where the next ticket starts', async ()
   expect(words(calls)).toContain('tickets defaults --notes on -- lantern-cove');
   await click(byTestId('ticket-row').find((row) => row.textContent?.includes('LC-2')));
   expect(byTestId('start-summary')[0]?.textContent).toContain('notes first');
+});
+
+test('an existing Jira project shows its tab as before: no tracker choice, icon or new control', async () => {
+  const { bridge } = fakeBridge({
+    tickets: () => listOf([sprint], [ticket('LC-2', 'Show the next high tide')]),
+    'tickets show': (args) => shown(String(args.at(-1))),
+    prompts: () => envelope([]),
+  });
+  const byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  const tab = byTestId('tickets-tab')[0];
+  const labels = [...(tab?.querySelectorAll('button') ?? [])].map(
+    (b) => b.getAttribute('aria-label') ?? b.textContent?.trim(),
+  );
+  // Today's controls, in order: the view switcher, Refresh, the gear, the group, the row, then
+  // the panel's back, Assign to me, and the starts.
+  expect(labels).toEqual([
+    'sprintTide 7',
+    'Refresh tickets',
+    'Ticket settings',
+    'To do1',
+    'LC-2Show the next high tide?',
+    'Tickets',
+    'Assign to me',
+    'Options',
+    'Start session',
+    'Investigate',
+    'Start goal',
+  ]);
+  expect(tab?.textContent).not.toMatch(/track work|tracker/i);
+  // The panel's id line is the key and Open in Jira, with no tracker icon before the key.
+  const panel = byTestId('ticket-panel')[0];
+  expect(panel?.textContent).toContain('LC-2Open in Jira');
+});
+
+test('with Atlassian not connected, one banner offers Connect for every view', async () => {
+  const views = ['sprint', 'bugs'].map((name) => ({
+    name,
+    describe: 'x',
+    error: 'Atlassian is not connected: run mesa sources connect atlassian',
+    connect: 'atlassian' as const,
+  }));
+  const { bridge, calls } = fakeBridge({
+    tickets: () =>
+      envelope({
+        project: 'lantern-cove',
+        tracker: 'jira',
+        connect: 'atlassian',
+        prompt: null,
+        projectPrompt: null,
+        defaults: { notes: false, assign: true, start: 'worktree' },
+        views,
+        tickets: [],
+      }),
+    'sources connect': () => envelope({ result: atlassian('connected'), receipt: null }),
+    prompts: () => envelope([]),
+  });
+  await renderWithMesa(<TicketsTab project="lantern-cove" onSession={() => {}} />, bridge);
+  const alerts = [...document.querySelectorAll('[role="alert"]')].map((a) => a.textContent);
+  expect(alerts).toEqual([
+    "Jira isn't connected, so Mesa can't read these views.Connect Atlassian",
+  ]);
+  await click(button('Connect Atlassian'));
+  expect(words(calls)).toContain('sources connect atlassian');
 });

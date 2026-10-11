@@ -1,7 +1,7 @@
-import type { TicketView } from './views.js';
+import type { JiraView } from './jira-view.js';
 
 /** What a view asks Jira, before its narrowing: the sprints a board view found, else its query. */
-export function baseJql(view: TicketView, sprintIds: readonly number[] = []): string {
+export function baseJql(view: JiraView, sprintIds: readonly number[] = []): string {
   if (view.filter) return `filter = ${view.filter}`;
   if (view.jql) return view.jql;
   return sprintIds.length === 1
@@ -15,7 +15,7 @@ export function baseJql(view: TicketView, sprintIds: readonly number[] = []): st
  * recently updated first for the rest.
  */
 // ponytail: the first ORDER BY splits the query, even one inside a quoted value.
-export function viewJql(view: TicketView, base: string): string {
+export function viewJql(view: JiraView, base: string): string {
   const at = base.search(/\border\s+by\b/i);
   const query = (at < 0 ? base : base.slice(0, at)).trim();
   const order =
