@@ -2,6 +2,12 @@
 
 Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
+## 0.2.12 - 2026-10-11
+
+### Added
+
+- What's new in each version: after Mesa updates, the Notifications menu has a notice for each version installed since the last one you saw, with a count of what is new, changed and fixed that expands to the notes. `mesa whats-new` prints them too. (#745)
+
 ## 0.2.11 - 2026-10-11
 
 ### Features
