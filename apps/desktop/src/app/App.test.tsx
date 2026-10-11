@@ -2893,7 +2893,7 @@ test('appearance preference saves through config and updates the live app theme'
   await click(byTestId('open-settings')[0]);
   await click(
     [
-      ...(byTestId('settings')[0]?.querySelectorAll<HTMLButtonElement>('fieldset button') ?? []),
+      ...(byTestId('settings')[0]?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? []),
     ].find((button) => button.textContent === 'Dark'),
   );
   expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'appearance.theme', '"dark"']);

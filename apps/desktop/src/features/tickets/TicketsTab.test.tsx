@@ -202,7 +202,7 @@ test('Options changes the start first: where it runs, your rules, and a new prom
 
   // The preview shows each start's own prompt, with your rules after it.
   await click(
-    [...document.querySelectorAll<HTMLElement>('button[aria-pressed]')].find(
+    [...document.querySelectorAll<HTMLElement>('[role="radio"]')].find(
       (b) => b.textContent === 'Investigate',
     ),
   );

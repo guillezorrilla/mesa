@@ -120,7 +120,7 @@ test('the profile menu checks for updates and keeps an Update ready entry after 
 test('Settings switches the channel through core and checks the new feed', async () => {
   const { calls, bridgeCalls } = await render(<UpdateSettingsPanel />, { phase: 'up-to-date' });
   expect(document.body.textContent).toContain('Mesa is up to date.');
-  const stable = document.querySelector<HTMLButtonElement>('button[aria-pressed="false"]');
+  const stable = document.querySelector<HTMLButtonElement>('[role="radio"][aria-checked="false"]');
   expect(stable?.textContent).toBe('Stable');
   await click(stable ?? undefined);
   expect(bridgeCalls).toContainEqual(['--json', 'update', 'channel', 'stable']);

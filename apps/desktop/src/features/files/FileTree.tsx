@@ -116,7 +116,8 @@ export function FileTree(props: {
         <Input
           ref={props.goToRef}
           aria-label="Go to file and line"
-          className="h-8 border-0 bg-background font-mono text-xs dark:bg-background"
+          size="sm"
+          className="border-0 bg-background font-mono dark:bg-background"
           value={goTo}
           onChange={(event) => setGoTo(event.target.value)}
           placeholder="Search..."

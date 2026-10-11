@@ -11,7 +11,6 @@ export function SessionModeField({ agent }: { agent: Agent }) {
         aria-label="Mode"
         defaultValue=""
         data-testid="session-mode"
-        className="text-xs"
       >
         <NativeSelectOption value="">Default mode</NativeSelectOption>
         <NativeSelectOption value="plan">Plan mode</NativeSelectOption>

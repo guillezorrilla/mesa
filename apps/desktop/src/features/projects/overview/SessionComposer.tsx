@@ -59,16 +59,15 @@ export function SessionComposer(props: {
   const extra = supportsAgentCapability(selectedAgent, 'addDir') ? chosen : [];
   const where = extra.length ? 'worktree' : location;
   const goalBox = useRef<HTMLTextAreaElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   // Focused when an item fills it in, which opens the composer.
   useEffect(() => {
     if (draft) goalBox.current?.focus();
   }, [draft]);
-  useFoldOnLeave(formRef, composerOpen, setComposerOpen, props.busy);
+  const foldOnLeave = useFoldOnLeave(composerOpen, setComposerOpen, props.busy);
   const canStart = project.exists && !props.busy;
   return (
     <form
-      ref={formRef}
+      {...foldOnLeave}
       data-testid="project-session-form"
       className="rounded-xl border bg-card/45 px-4 py-3 transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/20 motion-reduce:transition-none"
       onSubmit={(event) => {
@@ -148,7 +147,6 @@ export function SessionComposer(props: {
                 id="session-location"
                 size="sm"
                 aria-label="Start in"
-                className="text-xs"
                 value={where}
                 disabled={extra.length > 0}
                 onChange={(event) => setLocation(event.target.value as 'main' | 'worktree')}
@@ -163,7 +161,8 @@ export function SessionComposer(props: {
                 aria-label="Branch"
                 name="branch"
                 data-testid="project-branch"
-                className="h-8 w-48 text-xs md:text-xs"
+                size="sm"
+                className="w-48"
                 required={!extra.length}
                 placeholder={extra.length ? 'Mesa names one' : 'feature/my-work'}
               />
