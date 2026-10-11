@@ -226,7 +226,6 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
         updates.with(&app, |state| state.install_failed(ready, &error));
         return Err(error);
     }
-    crate::window_state::save(&app);
     app.restart();
 }
 

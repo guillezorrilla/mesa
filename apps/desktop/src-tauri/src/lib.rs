@@ -7,10 +7,10 @@ mod profile;
 mod shell_path;
 mod terminal;
 mod updater;
-mod window_state;
 
 use serde_json::Value;
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_window_state::StateFlags;
 
 /// Runs `mesa <args>` with the current environment (MESA_PROFILE included, profile.rs), `stdin` on its stdin
 /// when given (a secret, never argv), and returns its envelope.
@@ -37,10 +37,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        // The window reopens where it was, at its size, after a quit, an update, or a profile switch.
+        // The window reopens where it was, at its size, after a quit, an update, or a profile switch:
+        // the plugin saves on RunEvent::Exit, which `exit` and an async command's `restart` both fire.
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                .with_state_flags(window_state::FLAGS)
+                .with_state_flags(
+                    StateFlags::SIZE
+                        | StateFlags::POSITION
+                        | StateFlags::MAXIMIZED
+                        | StateFlags::FULLSCREEN,
+                )
                 .build(),
         )
         .manage(terminal::Terms::default())
