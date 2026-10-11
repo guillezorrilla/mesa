@@ -11,25 +11,35 @@ export type DeliveryPlan =
       title: string;
       body: string;
       sound: boolean;
-      target: InboxItem['target'] | { kind: 'inbox' };
+      target: Deliverable['target'] | { kind: 'inbox' };
     };
+
+/** A notice native delivery may send: any but a release notice, which waits in the Inbox. */
+type Deliverable = InboxItem & {
+  kind: Exclude<InboxItem['kind'], 'release'>;
+  target: Exclude<InboxItem['target'], { kind: 'release' }>;
+};
+const deliverable = (item: InboxItem): item is Deliverable => item.kind !== 'release';
 
 /**
  * What to deliver of `items` (newest first) not yet delivered and, except failed automation runs,
- * no older than `startedAt`: one notice, or a digest of up to 500. `skipped` are the read ones
- * and those whose kind is off, which the caller acknowledges so they are never offered again.
+ * no older than `startedAt`: one notice, or a digest of up to 500, never counting a release
+ * notice. `skipped` are the read ones and those whose kind is off, which the caller acknowledges
+ * so they are never offered again.
  */
 export function planDelivery(
   items: InboxItem[],
   settings: Config['notifications'],
   state: { startedAt: string; delivered: readonly string[] },
 ): { plan: DeliveryPlan; skipped: string[] } {
-  const fresh = items.filter(
-    (item) =>
-      (item.kind === 'automation' || item.at >= state.startedAt) &&
-      !state.delivered.includes(item.id),
-  );
-  const mode = (item: InboxItem) =>
+  const fresh = items
+    .filter(deliverable)
+    .filter(
+      (item) =>
+        (item.kind === 'automation' || item.at >= state.startedAt) &&
+        !state.delivered.includes(item.id),
+    );
+  const mode = (item: Deliverable) =>
     settings[item.kind === 'input-required' ? 'inputRequired' : item.kind];
   const skipped = fresh.filter((item) => item.read || mode(item) === 'off').map((item) => item.id);
   const pending = fresh.filter((item) => !item.read && mode(item) !== 'off').slice(0, 500);

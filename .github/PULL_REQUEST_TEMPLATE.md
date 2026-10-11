@@ -10,6 +10,7 @@ One line per criterion from the issue, with how it was verified (command and out
 ## Checklist
 
 - [ ] Tests added or updated
+- [ ] A `feat`, `fix` or `perf` change adds `changes/<slug>.md` written for users (changes/README.md), or has the `no-release-note` label
 - [ ] `pnpm verify` green locally (pasted the last line)
 - [ ] `/code-review` run and findings addressed
 - [ ] No em dashes (U+2014) in the diff

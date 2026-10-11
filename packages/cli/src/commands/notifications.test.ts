@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { TEST_CHANGELOG } from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../testing.js';
 
@@ -82,4 +83,20 @@ test('notifications.visualAlert is on by default and config set turns it off', a
   ).toMatchObject({ path: 'notifications.visualAlert', value: false });
   expect(await visualAlert()).toBe(false);
   expect((await cli.mesa('config', 'set', 'notifications.visualAlert', 'loud')).code).toBe(4);
+});
+
+test('a newer version lists its release notice with its kind, target and notes', async () => {
+  cli.deps = { version: '0.1.2', changelog: () => TEST_CHANGELOG };
+  expect((await cli.mesa('notifications', '--json')).json.data).toEqual([]);
+  cli.deps = { version: '0.1.3', changelog: () => TEST_CHANGELOG };
+  const out = await cli.mesa('notifications', '--json');
+  expect(out.json.data).toMatchObject([
+    {
+      kind: 'release',
+      title: "What's new in v0.1.3",
+      read: false,
+      target: { kind: 'release', version: '0.1.3' },
+      notes: { version: '0.1.3', added: ['Tide charts in 0.1.3.'] },
+    },
+  ]);
 });

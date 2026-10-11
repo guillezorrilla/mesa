@@ -94,6 +94,7 @@ export type { SavedPrompt } from './prompts/prompts.js';
 export { RECORD_KINDS } from './receipts/policy.js';
 export type { Recorded } from './receipts/recorder.js';
 export { DEFAULT_RECEIPT_LIMIT, type ReceiptEntry } from './receipts/store.js';
+export { RELEASE_GROUPS, type ReleaseNotes } from './release/notes.js';
 export { type SearchHit, searchWorkspace } from './search/search.js';
 export type { ForeignRow, ManagedRow, SessionRow } from './sessions/board/rows.js';
 export type { TreeRow } from './sessions/board/tree.js';

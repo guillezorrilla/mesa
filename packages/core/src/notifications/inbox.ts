@@ -1,9 +1,11 @@
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { MesaContext } from '../context.js';
 import type { DoctorReport } from '../doctor/doctor.js';
 import { lockedBy, withLockSync } from '../lib/lock-file.js';
 import { MesaError } from '../lib/result.js';
+import { changelogNotes, type ReleaseNotes } from '../release/notes.js';
+import { versionsSince } from '../release/versions.js';
 import { scanHookEvents } from '../sessions/signals/hook-events.js';
 import { type DeliveryPlan, planDelivery } from './delivery-plan.js';
 import {
@@ -14,35 +16,86 @@ import {
   failureItems,
   hookItem,
   type InboxItem,
+  releaseItem,
 } from './inbox-items.js';
 import { type InboxState, inboxStore } from './inbox-store.js';
 
-/** The notices `state` keeps and `failures` add, newest first, without the cleared ones. */
-function inboxItems(state: InboxState, failures: Candidate[]): InboxItem[] {
-  const entries: Candidate[] = [...state.items, ...state.doctor.map(doctorItem), ...failures];
+/**
+ * The notices `state` keeps and `failures` add, newest first, without the cleared ones; a release
+ * notice gets its notes from `notes`.
+ */
+function inboxItems(
+  state: InboxState,
+  failures: Candidate[],
+  notes: () => ReleaseNotes[],
+): InboxItem[] {
+  // Release notices are kept oldest version first, so the stable sort on equal times lists the
+  // newest first.
+  const entries: Candidate[] = [
+    ...state.items,
+    ...state.doctor.map(doctorItem),
+    ...state.releases.map(releaseItem),
+    ...failures,
+  ];
   entries.sort((a, b) => a.at.localeCompare(b.at));
   const cleared = new Set(state.cleared);
   const readIds = new Set(state.read);
   return entries
     .filter((entry) => !cleared.has(`${entry.at}:${entry.fingerprint}`))
-    .map(({ fingerprint, ...entry }) => ({
-      ...entry,
-      id: `${entry.at}:${fingerprint}`,
-      read: readIds.has(`${entry.at}:${fingerprint}`),
-    }))
+    .map(({ fingerprint, ...entry }) => {
+      const { target } = entry;
+      const release =
+        target.kind === 'release' && notes().find((section) => section.version === target.version);
+      return {
+        ...entry,
+        ...(release ? { notes: release } : {}),
+        id: `${entry.at}:${fingerprint}`,
+        read: readIds.has(`${entry.at}:${fingerprint}`),
+      };
+    })
     .reverse();
 }
 
 /**
- * A bounded, durable inbox projected from the profile's redacted hooks, its Doctor findings, and
- * the failed runs `automationRuns` reads from the run ledger.
+ * A bounded, durable inbox projected from the profile's redacted hooks, its Doctor findings, the
+ * failed runs `automationRuns` reads from the run ledger, and the versions installed since the
+ * last one seen, from the changelog Mesa ships.
  */
 export function inbox(ctx: MesaContext, automationRuns: () => readonly AutomationRunNotice[]) {
   // The run ledger is the event owner: a crash between failure and notification loses no notice.
   const failures = () => failureItems(automationRuns());
   const store = inboxStore(ctx.paths.notifications, ctx, failures);
+  let changelog: ReleaseNotes[] | undefined;
+  const notes = () => {
+    changelog ??= changelogNotes(ctx.changelog);
+    return changelog;
+  };
+  /**
+   * Records a newer running version, with a release notice per version since the last one seen;
+   * a fresh profile gets none, so a first run shows onboarding, and a downgrade changes nothing. A
+   * profile from before #639 has an inbox but no version seen: it gets the running version's.
+   */
+  const seeVersion = (state: InboxState) => {
+    const { seenVersion: seen } = state;
+    const running = ctx.version;
+    if (seen === running) return state;
+    const versions =
+      seen || !existsSync(store.file)
+        ? versionsSince(notes(), seen, running)
+        : notes()
+            .filter((section) => section.version === running)
+            .map((section) => section.version);
+    if (!versions) return state;
+    const at = ctx.clock().toISOString();
+    return store.write({
+      seenVersion: running,
+      releases: versions.map((version) => ({ version, at })),
+    });
+  };
+  /** The state, after seeVersion: it runs before any other write, so a fresh profile is known. */
+  const read = () => seeVersion(store.read());
   const list = (): InboxItem[] => {
-    const current = store.read();
+    const current = read();
     const fresh: Candidate[] = [];
     const offsets: Record<string, number> = {};
     for (const record of ctx.store.list()) {
@@ -59,7 +112,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
       fresh.length || Object.keys(offsets).length || stale
         ? store.write({ items: fresh, offsets })
         : current;
-    return inboxItems(state, failures());
+    return inboxItems(state, failures(), notes);
   };
   const change = (id: string, field: 'read' | 'cleared') => {
     if (!list().some((item) => item.id === id))
@@ -67,7 +120,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     store.write({ read: field === 'read' ? [id] : [], cleared: field === 'cleared' ? [id] : [] });
   };
   const delivery = (): DeliveryPlan => {
-    const state = store.read();
+    const state = read();
     const startedAt = state.startedAt ?? ctx.clock().toISOString();
     if (!state.startedAt) store.write({ startedAt });
     const settings = ctx.open().config.notifications;
@@ -79,7 +132,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     return plan;
   };
   const markDelivered = (ids: string[]) => {
-    const state = store.read();
+    const state = read();
     const known = new Set([...list().map((item) => item.id), ...state.cleared, ...state.delivered]);
     if (!ids.length || ids.length > 500 || ids.some((id) => !known.has(id)))
       throw new MesaError('not_found', 'notification item not found');
@@ -113,7 +166,7 @@ export function inbox(ctx: MesaContext, automationRuns: () => readonly Automatio
     },
     markDelivered,
     recordDoctor: (report: DoctorReport) => {
-      const state = store.read();
+      const state = read();
       const now = ctx.clock().toISOString();
       // A finding seen before keeps its time, so its read or cleared mark still applies.
       store.write({

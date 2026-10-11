@@ -1,6 +1,6 @@
 # Changelog
 
-Each version's changes, newest first. `pnpm release:version` writes a version's section from the pull request titles, and the release publishes it as its notes ([docs/release.md](docs/release.md)).
+Each version's changes, newest first, in the [Keep a Changelog](https://keepachangelog.com/) style: Added, Changed and Fixed. Each user-visible pull request adds a change file under [changes/](changes/README.md), and `pnpm release:version` collects them into the version's section, which the release publishes as its notes and Mesa shows in its Notifications menu ([docs/release.md](docs/release.md)). To reword a note, edit its change file, not the bump pull request. Sections up to 0.2.11 were written from pull request titles and stay as they were.
 
 ## 0.2.11 - 2026-10-11
 

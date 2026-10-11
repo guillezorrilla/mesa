@@ -75,7 +75,7 @@ export function NotificationsMenu(props: {
     props.onOpenChange(false);
     if (item.target.kind === 'session') props.onSession(item.target.id);
     else if (item.target.kind === 'automations') props.onAutomations();
-    else props.onDoctor();
+    else if (item.target.kind === 'doctor') props.onDoctor();
   };
   /** A hooks fix, and the Codex note when it changed Codex's hooks, as the card shows it. */
   const updateHooks = async () => {
@@ -165,6 +165,9 @@ export function NotificationsMenu(props: {
                 item={item}
                 busy={acting}
                 onOpen={open}
+                onRead={(target) => {
+                  if (!target.read) void mark('notifications.read', [target]);
+                }}
                 onFix={(command) => void fix(command)}
                 onClear={(target) => void mark('notifications.clear', [target])}
               />

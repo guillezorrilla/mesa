@@ -12,6 +12,8 @@ import {
   profilePaths,
   projectProfile,
   scriptedRunner,
+  TEST_CHANGELOG,
+  tempDir,
   testDeps,
   testStore,
 } from '../testing/index.js';
@@ -410,4 +412,107 @@ test('an automation acknowledgement survives more than 1000 unrelated deliveries
     kind: 'none',
   });
   expect(mesa.notifications.list().some((item) => item.id === first.id)).toBe(true);
+});
+
+/** Mesa `version` over `home`, shipping the invented changelog. */
+const atVersion = (home: string, version: string) =>
+  createMesa('default', testDeps(home, { version, changelog: () => TEST_CHANGELOG }));
+
+test('an upgrade adds one release notice per version since the last seen, newest first, at most 5', () => {
+  const home = tempDir();
+  const at = (version: string) => atVersion(home, version);
+  const releases = (version: string) =>
+    at(version)
+      .notifications.list()
+      .filter((item) => item.kind === 'release');
+
+  // A fresh profile records its version and gets no backlog.
+  expect(releases('0.1.1')).toEqual([]);
+  // One version up: its notice, unread, with its notes.
+  const [one, ...none] = releases('0.1.2');
+  expect(none).toEqual([]);
+  expect(one).toMatchObject({
+    kind: 'release',
+    title: "What's new in v0.1.2",
+    read: false,
+    target: { kind: 'release', version: '0.1.2' },
+    notes: {
+      version: '0.1.2',
+      added: ['Tide charts in 0.1.2.'],
+      changed: [],
+      fixed: ['Kelp sync in 0.1.2.', 'Reef scroll in 0.1.2.'],
+    },
+  });
+  // The same version again adds nothing.
+  expect(releases('0.1.2')).toHaveLength(1);
+  // A skip of several: one each, newest first, beside the earlier one.
+  expect(releases('0.1.5').map((item) => item.target)).toEqual([
+    { kind: 'release', version: '0.1.5' },
+    { kind: 'release', version: '0.1.4' },
+    { kind: 'release', version: '0.1.3' },
+    { kind: 'release', version: '0.1.2' },
+  ]);
+  // A downgrade adds nothing and does not lower the version seen.
+  expect(releases('0.1.3')).toHaveLength(4);
+  expect(releases('0.1.5')).toHaveLength(4);
+});
+
+test('more than 5 new versions give the newest 5, a stable Mesa skips betas, and none is delivered', () => {
+  const home = tempDir();
+  const at = (version: string) => atVersion(home, version);
+  const first = at('0.1.1');
+  first.init({ vault: 'vault' });
+  first.notifications.list();
+  const mesa = at('0.1.9');
+  const items = mesa.notifications.list();
+  expect(items.map((item) => item.title)).toEqual([
+    "What's new in v0.1.9",
+    "What's new in v0.1.8",
+    "What's new in v0.1.7",
+    "What's new in v0.1.6",
+    "What's new in v0.1.5",
+  ]);
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  // It stays unread until marked read, and clears like any other notice.
+  const [newest, next] = items;
+  if (!newest || !next) throw new Error('expected release notices');
+  mesa.notifications.markRead(newest.id);
+  mesa.notifications.clear(next.id);
+  const after = at('0.1.9').notifications.list();
+  expect(after).toHaveLength(4);
+  expect(after[0]).toMatchObject({ id: newest.id, read: true });
+});
+
+test('a beta Mesa lists beta versions, and no changelog gives no notice', () => {
+  const home = tempDir();
+  atVersion(home, '0.1.8').notifications.list();
+  const beta = atVersion(home, '0.1.9-beta.1');
+  expect(beta.notifications.list().map((item) => item.title)).toEqual([
+    "What's new in v0.1.9-beta.1",
+  ]);
+  const bare = tempDir();
+  createMesa('default', testDeps(bare, { version: '0.1.1' })).notifications.list();
+  expect(createMesa('default', testDeps(bare, { version: '0.1.2' })).notifications.list()).toEqual(
+    [],
+  );
+});
+
+test('a fresh profile whose first inbox write is a delivery check still gets no backlog', () => {
+  const home = tempDir();
+  const mesa = atVersion(home, '0.1.9');
+  mesa.init({ vault: 'vault' });
+  expect(mesa.notifications.delivery()).toEqual({ kind: 'none' });
+  expect(mesa.notifications.list()).toEqual([]);
+});
+
+test('a profile from before release notices, with an inbox but no version seen, gets the running version notice', () => {
+  const home = tempDir();
+  const file = profilePaths(home, 'default').notifications;
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify({ read: [], cleared: [] }));
+  expect(
+    atVersion(home, '0.1.5')
+      .notifications.list()
+      .map((item) => item.title),
+  ).toEqual(["What's new in v0.1.5"]);
 });
