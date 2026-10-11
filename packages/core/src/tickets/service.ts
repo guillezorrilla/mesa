@@ -136,6 +136,10 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
         ...(resolved.note ? { note: resolved.note } : {}),
       };
     },
+    renameView: (name: string, to: string) => {
+      const renamed = store.rename(name, to);
+      return { ...renamed, describe: describeView(renamed) };
+    },
     removeView: store.remove,
     follow: store.follow,
     unfollow: store.unfollow,

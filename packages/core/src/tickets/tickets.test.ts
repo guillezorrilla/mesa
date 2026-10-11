@@ -129,8 +129,15 @@ test('filter and JQL views narrow as told, keep their own order, and a ticket in
     ['bugs', ['lantern-cove']],
     ['everything', ['lantern-cove']],
   ]);
+  // Renaming follows the name everywhere; a name another view has is refused.
+  expect(mesa.tickets.renameView('everything', 'On call')).toMatchObject({ name: 'On call' });
+  expect(() => mesa.tickets.renameView('On call', 'BUGS')).toThrow('already exists');
+  expect(mesa.tickets.views().map((v) => [v.name, v.following])).toEqual([
+    ['bugs', ['lantern-cove']],
+    ['On call', ['lantern-cove']],
+  ]);
   mesa.tickets.removeView('bugs');
-  expect(mesa.tickets.unfollow('lantern-cove', 'everything')).toEqual({
+  expect(mesa.tickets.unfollow('lantern-cove', 'On call')).toEqual({
     project: 'lantern-cove',
     following: [],
   });

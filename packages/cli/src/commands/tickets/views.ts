@@ -28,6 +28,17 @@ export const ticketsViewsAdd = defineCommand({
   },
 });
 
+export const ticketsViewsRename = defineCommand({
+  name: 'tickets views rename',
+  summary: 'Rename a view, and every project follow of it',
+  args: ['name', 'to'],
+  example: 'mesa tickets views rename "JQL view" "On call"',
+  run: ({ mesa, args }) => {
+    const data = mesa.tickets.renameView(args.name, args.to);
+    return { data, text: `Renamed ${args.name} to ${data.name}` };
+  },
+});
+
 export const ticketsViewsRemove = defineCommand({
   name: 'tickets views remove',
   summary: 'Remove a view, and every project follow of it',

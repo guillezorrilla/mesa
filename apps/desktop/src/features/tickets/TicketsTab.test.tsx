@@ -202,7 +202,7 @@ test('Options changes the start first: where it runs, a prompt, and a new prompt
   );
 });
 
-test('Follow picks a board, counts its tickets live, then adds the view and follows it', async () => {
+test('Follow picks a board, counts its tickets live, then adds the view under the name typed and follows it', async () => {
   let followed = false;
   const { bridge, calls } = fakeBridge({
     tickets: () => listOf(followed ? [sprint] : [], []),
@@ -220,10 +220,10 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
     'tickets preview': () =>
       envelope({ describe: 'x', jql: '(sprint = 7) ORDER BY Rank ASC', count: 3, more: false }),
     'sources list': () => envelope({ sources: [atlassian('connected')] }),
-    'tickets views add': () => envelope({ name: 'Tide team sprint', describe: 'x' }),
+    'tickets views add': () => envelope({ name: 'Tide work', describe: 'x' }),
     'tickets follow': () => {
       followed = true;
-      return envelope({ project: 'lantern-cove', following: ['Tide team sprint'] });
+      return envelope({ project: 'lantern-cove', following: ['Tide work'] });
     },
   });
   const byTestId = await renderWithMesa(
@@ -237,12 +237,15 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
   expect(dialog()).toContain('Views you already have');
   await click(document.getElementById('view-pick-42') ?? undefined);
   expect(dialog()).toContain('3 tickets right now, shown as "Tide team sprint"');
+  // The name is optional: empty, the view is named after what it reads.
+  await fill(document.querySelector<HTMLInputElement>('#view-name'), 'Tide work');
+  expect(dialog()).toContain('shown as "Tide work"');
   await click(byTestId('confirm-follow-view')[0]);
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --board 42 --sprint current -- Tide team sprint',
-    'tickets follow -- lantern-cove Tide team sprint',
+    'tickets views add --board 42 --sprint current -- Tide work',
+    'tickets follow -- lantern-cove Tide work',
   ]);
   expect(byTestId('follow-view-dialog')).toHaveLength(0);
 });

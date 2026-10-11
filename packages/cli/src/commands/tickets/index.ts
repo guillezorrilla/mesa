@@ -10,6 +10,7 @@ import {
   ticketsViews,
   ticketsViewsAdd,
   ticketsViewsRemove,
+  ticketsViewsRename,
 } from './views.js';
 
 // Every `mesa tickets` subcommand, in help order.
@@ -19,6 +20,7 @@ export const TICKETS_COMMANDS: Command[] = [
   ticketsAssign,
   ticketsViews,
   ticketsViewsAdd,
+  ticketsViewsRename,
   ticketsViewsRemove,
   ticketsPreview,
   ticketsFollow,

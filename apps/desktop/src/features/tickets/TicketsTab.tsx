@@ -179,6 +179,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
           project={project}
           views={views}
           onChanged={refresh}
+          onRenamed={(from, to) => view === from && setView(to)}
           onClose={() => setDialog(undefined)}
         />
       )}

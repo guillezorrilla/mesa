@@ -133,6 +133,20 @@ export function ticketViews(ctx: MesaContext) {
         return added;
       });
     },
+    /** Renames the view, and every project's follow of it. */
+    rename: (name: string, to: string) =>
+      update((tickets) => {
+        const found = view(tickets, name);
+        const renamed = parseView({ ...found, name: to });
+        if (tickets.views.some((v) => v !== found && same(v.name, renamed.name)))
+          throw new MesaError('usage', `ticket view ${renamed.name} already exists`);
+        for (const names of Object.values(tickets.follows))
+          names.forEach((n, i) => {
+            if (same(n, found.name)) names[i] = renamed.name;
+          });
+        found.name = renamed.name;
+        return found;
+      }),
     /** Removes the view and every project's follow of it. */
     remove: (name: string) =>
       update((tickets) => {

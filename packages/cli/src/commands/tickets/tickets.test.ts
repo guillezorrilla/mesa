@@ -83,11 +83,14 @@ test("mesa tickets views add, follow and the list read a board's current sprint"
   const json = await cli.mesa('tickets', 'lantern-cove', '--json');
   expect(json.json.data.tickets).toMatchObject([{ key: 'LC-1', views: ['sprint'], sessions: [] }]);
 
-  expect((await cli.mesa('tickets', 'unfollow', 'lantern-cove', 'sprint')).stdout).toContain(
+  expect((await cli.mesa('tickets', 'views', 'rename', 'sprint', 'Tide sprint')).stdout).toContain(
+    'Renamed sprint to Tide sprint',
+  );
+  expect((await cli.mesa('tickets', 'unfollow', 'lantern-cove', 'Tide sprint')).stdout).toContain(
     'lantern-cove follows no ticket views',
   );
-  expect((await cli.mesa('tickets', 'views', 'remove', 'sprint')).stdout).toContain(
-    'Removed sprint',
+  expect((await cli.mesa('tickets', 'views', 'remove', 'Tide sprint')).stdout).toContain(
+    'Removed Tide sprint',
   );
   expect((await cli.mesa('tickets', 'views')).stdout).toBe('No ticket views.\n');
 });
