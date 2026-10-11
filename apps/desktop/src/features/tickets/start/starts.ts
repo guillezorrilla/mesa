@@ -42,8 +42,8 @@ export const STARTS: Record<
   },
 };
 
-/** The start the sheet explains first: the strongest. */
+/** The start the sheet describes and previews first: the strongest. */
 export const DEFAULT_START: TicketStart = 'goal';
 
 /** Each start with its look, in core's order, weakest first. */
-export const startList = () => TICKET_STARTS.map((kind) => ({ kind, ...STARTS[kind] }));
+export const START_LIST = TICKET_STARTS.map((kind) => ({ kind, ...STARTS[kind] }));

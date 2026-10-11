@@ -4,6 +4,7 @@ import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { changeYaml, readYaml } from '../lib/yaml-file.js';
 import { findProject } from '../projects/projects.js';
+import { DEFAULTS, type TicketDefaults } from './defaults.js';
 
 // The profile's `tickets.yaml` (CONTEXT.md, Ticket view): the Jira views it defines once, the
 // projects that follow each, and which Saved prompt a ticket session gets. Personal, so never in a
@@ -70,15 +71,7 @@ const TicketDefaultsSchema = z
     /** Files written before the Ticket starts may hold it: read, then dropped. */
     untilDone: z.boolean().optional(),
   })
-  .transform(({ untilDone: _, ...set }) => set);
-export type TicketDefaults = Required<z.infer<typeof TicketDefaultsSchema>>;
-/** What a project gets until it changes them: notes, assigning, and a worktree, all on. */
-export const DEFAULTS: TicketDefaults = {
-  notes: true,
-  assign: true,
-  start: 'worktree',
-};
-
+  .transform(({ untilDone: _, ...set }): Partial<TicketDefaults> => set);
 const TicketsSchema = z.strictObject({
   views: z.array(ViewSchema).default([]),
   /** Each project's followed view names. */

@@ -169,7 +169,7 @@ export function TicketPanel(props: {
       <TicketStartPanel
         key={ticket.key}
         project={props.project}
-        ticket={{ key: ticket.key, url: ticket.url, title: ticket.summary, mine, assignee }}
+        ticket={{ key: ticket.key, url: ticket.url, summary: ticket.summary, mine, assignee }}
         defaults={props.defaults}
         prompt={props.prompt}
         onStarted={props.onChanged}

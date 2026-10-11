@@ -1,6 +1,7 @@
 import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
+import { goalCondition, MAX_GOAL_CONDITION } from '../sessions/start/goal-command.js';
 import { type TicketStart, ticketStartPrompt } from '../tickets/ticket-start.js';
 import type { ImportListRow, importService } from './import-service.js';
 import { itemGoal } from './item-goal.js';
@@ -50,8 +51,8 @@ export function itemSessions(
         `--as starts a Jira issue; ${found.id} is a ${found.source} item`,
       );
     const prompt = jira ? ticketPrompt(project, override)?.trim() : undefined;
-    if (kind)
-      return ticketStartPrompt(kind, {
+    if (kind) {
+      const built = ticketStartPrompt(kind, {
         project,
         key: found.id,
         title: found.title,
@@ -61,6 +62,15 @@ export function itemSessions(
         rules: prompt,
         extra: goal,
       });
+      const condition = goalCondition(built);
+      if (condition && condition.length > MAX_GOAL_CONDITION) {
+        throw new MesaError(
+          'usage',
+          `the ${kind} prompt is ${condition.length} characters with Your rules, over the ${MAX_GOAL_CONDITION} /goal takes: shorten Your rules`,
+        );
+      }
+      return built;
+    }
     const base = itemGoal(found, goal);
     return prompt ? `${prompt}\n\n${base}` : base;
   };
@@ -103,7 +113,10 @@ export function itemSessions(
           '--from needs a project, and cannot use --general or --terminal',
         );
       }
-      const found = await item(project, from, { notes });
+      const found = await item(project, from, {
+        notes,
+        ...(kind ? { source: 'jira' as const } : {}),
+      });
       const opened = await open(project, {
         ...start,
         goal: exactGoal ? goal : goalFor(project, found.item, { goal, kind }),

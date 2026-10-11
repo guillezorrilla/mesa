@@ -56,7 +56,8 @@ export function StartSheet(props: {
   onStart: (kind: TicketStart) => void;
 }) {
   const { ticket, options } = props;
-  const [described, setDescribed] = useState<TicketStart>(DEFAULT_START);
+  // The start the caption describes and the preview shows: the one last pointed at or picked.
+  const [selected, setSelected] = useState<TicketStart>(DEFAULT_START);
   const set = props.onChange;
   return (
     <div className="@container grid gap-5 border-t bg-card px-6 py-5" data-testid="start-sheet">
@@ -115,8 +116,10 @@ export function StartSheet(props: {
       <StartPreviewPanel
         project={props.project}
         ticket={ticket}
-        rules={options.prompt}
+        prompt={options.prompt}
         notes={options.notes}
+        previewed={selected}
+        onPreview={setSelected}
       />
       <div className="grid gap-1.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -128,10 +131,12 @@ export function StartSheet(props: {
           >
             Cancel
           </Button>
-          <StartButtons onStart={props.onStart} onPoint={setDescribed} />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StartButtons onStart={props.onStart} onPoint={setSelected} />
+          </div>
         </div>
         <p aria-live="polite" className="text-right text-xs text-muted-foreground">
-          {STARTS[described].hint}
+          {STARTS[selected].hint}
         </p>
       </div>
     </div>

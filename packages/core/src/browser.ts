@@ -72,7 +72,13 @@ export { GUIDELINES } from './skills/guidelines.js';
 export { DESCENDANTS_CAP } from './sources/browse.js';
 export { describeSource, siteNames } from './sources/describe.js';
 export { NOTES_MAX_ITEMS } from './sources/notes-limit.js';
-export * from './tickets/ticket-start.js';
+export { DEFAULTS, type TicketDefaults } from './tickets/defaults.js';
+export {
+  branchOf,
+  TICKET_STARTS,
+  type TicketStart,
+  ticketStartPreview,
+} from './tickets/ticket-start.js';
 export { UPDATE_CHANNELS, UPDATE_LINK } from './update/feeds.js';
 export { costAlertText } from './usage/alert.js';
 export { matchesVaultFilter, VAULT_CATEGORIES, VAULT_KINDS } from './vault/item.js';

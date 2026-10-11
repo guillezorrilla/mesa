@@ -116,8 +116,7 @@ export const importGoal = defineCommand({
     if (flags.prompt !== undefined && flags['no-prompt'])
       throw new MesaError('usage', 'pass --prompt or --no-prompt, not both');
     const prompt = flags['no-prompt'] ? null : flags.prompt;
-    const kind = ticketStartOf(flags.as);
-    const data = await mesa.imports.goal(flags.project, args.item, prompt, kind);
+    const data = await mesa.imports.goal(flags.project, args.item, prompt, ticketStartOf(flags.as));
     return { data, text: data.goal };
   },
 });

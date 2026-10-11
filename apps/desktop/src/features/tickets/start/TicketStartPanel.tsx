@@ -1,4 +1,4 @@
-import type { TicketDefaults, TicketStart } from '@mesa/core';
+import type { TicketDefaults, TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
 import { StartBar } from './StartBar';
 import { StartProgress } from './StartProgress';

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { MAX_GOAL_CONDITION } from '../sessions/start/goal.js';
+import { MAX_GOAL_CONDITION } from '../sessions/start/goal-command.js';
 import { importProfile, newSession, TEST_JIRA, testStore } from '../testing/index.js';
 import type { TicketStart } from './ticket-start.js';
 

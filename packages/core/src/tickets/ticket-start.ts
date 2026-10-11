@@ -1,3 +1,4 @@
+import { goalCondition } from '../sessions/start/goal-command.js';
 import { jiraTitle } from '../sources/items.js';
 import { investigationPath, snapshotFolder } from '../vault/layout.js';
 
@@ -105,8 +106,8 @@ export const TICKET_STARTS = Object.keys(PROMPTS) as TicketStart[];
  * issue's brief, then the person's rules and any extra text, which a /goal's condition holds.
  */
 export function ticketStartPrompt(start: TicketStart, t: TicketBrief): string {
-  // A ticket prompt written as a whole /goal, before the Ticket starts, keeps only its text.
-  const rules = t.rules?.trim().replace(/^\/goal\s*/, '');
+  // A ticket prompt written as a whole /goal, before the Ticket starts, keeps only its condition.
+  const rules = t.rules && (goalCondition(t.rules.trim()) ?? t.rules.trim());
   const extra = t.extra?.trim();
   return [
     PROMPTS[start](t),
@@ -126,9 +127,9 @@ export function ticketStartPreview(
     notes: boolean;
   },
 ): string {
-  const { summary, notes, ...brief } = t;
+  const { summary, notes, ...rest } = t;
   return ticketStartPrompt(start, {
-    ...brief,
+    ...rest,
     title: jiraTitle(t.key, summary),
     snapshot: `${snapshotFolder('jira', t.key)}/<latest>.md`,
     note: notes ? '<the note Write notes adds>' : undefined,

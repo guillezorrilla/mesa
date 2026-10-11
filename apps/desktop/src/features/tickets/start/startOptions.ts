@@ -1,12 +1,11 @@
-import type { TicketDefaults } from '@mesa/core';
-import { branchOf } from '@mesa/core/browser';
+import { branchOf, type TicketDefaults } from '@mesa/core/browser';
 
 /** The ticket a session starts from, as the Tickets tab shows it. */
 export type StartTicket = {
   key: string;
   url: string;
   /** Its summary in Jira. */
-  title: string;
+  summary: string;
   mine: boolean;
   assignee?: string | undefined;
 };
