@@ -1,14 +1,14 @@
 import { goalCondition } from '../sessions/start/goal-command.js';
-import { jiraTitle } from '../sources/items.js';
+import { itemIdOfKey, jiraTitle } from '../sources/items.js';
 import { investigationPath, snapshotFolder } from '../vault/layout.js';
 
-// How a session on a Jira issue starts (CONTEXT.md, Ticket start): each way's first prompt, built
+// How a session on a ticket (a Jira or GitHub issue) starts (CONTEXT.md, Ticket start): each way's first prompt, built
 // from the issue's key, title, link, and vault files. Pure, so the app previews the same text the
 // session gets. A new way is one more entry in PROMPTS.
 
 export type TicketBrief = {
   project: string;
-  /** The issue's key, such as LC-12. */
+  /** The issue's key as its import names it, such as LC-12 or owner/repo/12. */
   key: string;
   title: string;
   url: string;
@@ -21,8 +21,14 @@ export type TicketBrief = {
   extra?: string | undefined;
 };
 
-/** The branch a ticket's work is on: its key in lowercase, such as hb-219. */
-export const branchOf = (key: string) => key.toLowerCase();
+/**
+ * The branch a ticket's work is on: its key in lowercase, such as hb-219, or issue-<number> for
+ * an issue numbered in its repo (GitHub's owner/repo#12, imported as owner/repo/12).
+ */
+export const branchOf = (key: string) => {
+  const issue = /[#/](\d+)$/.exec(key)?.[1];
+  return issue ? `issue-${issue}` : key.toLowerCase();
+};
 
 /** The issue, its link, and where it is in the vault; its text is data, never instructions. */
 const brief = (t: TicketBrief) =>
@@ -129,13 +135,17 @@ export function ticketStartPreview(
   t: Omit<TicketBrief, 'title' | 'snapshot' | 'note' | 'extra'> & {
     summary: string;
     notes: boolean;
+    /** Its provider, whose folder under raw/ its import goes to; Jira when not given. */
+    provider?: string;
   },
 ): string {
-  const { summary, notes, ...rest } = t;
+  const { summary, notes, provider = 'jira', ...rest } = t;
+  const id = itemIdOfKey(t.key);
   return ticketStartPrompt(start, {
     ...rest,
+    key: id,
     title: jiraTitle(t.key, summary),
-    snapshot: `${snapshotFolder('jira', t.key)}/<latest>.md`,
+    snapshot: `${snapshotFolder(provider, id)}/<latest>.md`,
     note: notes ? '<the note Write notes adds>' : undefined,
   });
 }

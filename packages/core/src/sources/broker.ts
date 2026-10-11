@@ -27,10 +27,11 @@ const tokenSchema = z.object({
 
 /**
  * The OAuth errors that mean the vendor refused this grant, so the person must sign in again:
- * `invalid_grant` (expired, or already used), and `unauthorized_client`, which Atlassian answers a
- * refresh token of an app the person revoked with.
+ * `invalid_grant` (expired, or already used), `unauthorized_client`, which Atlassian answers a
+ * refresh token of an app the person revoked with, and GitHub's own `bad_verification_code` and
+ * `bad_refresh_token`.
  */
-const REFUSED = ['invalid_grant', 'unauthorized_client'];
+const REFUSED = ['invalid_grant', 'unauthorized_client', 'bad_verification_code', 'bad_refresh_token'];
 
 /**
  * Exchanges a code or refreshes a token through the broker, which adds the client secret. The
@@ -55,7 +56,8 @@ export async function brokerToken(
   }
   const body: unknown = await response.json().catch(() => undefined);
   const error = z.object({ error: z.string() }).safeParse(body);
-  if (!response.ok) {
+  // GitHub answers a refused grant with HTTP 200 and an `error`, so an error body fails either way.
+  if (!response.ok || error.success) {
     if (error.success && REFUSED.includes(error.data.error)) return undefined;
     const why = error.success ? error.data.error : `HTTP ${response.status}`;
     throw new MesaError('internal', `the broker could not get a ${source} token: ${why}`);

@@ -1,7 +1,10 @@
 import type { MesaContext } from '../context.js';
 import { PROVIDER_IDS, ticketId } from './providers.js';
 
-/** The live sessions started from each ticket, by ticket id (jira:LC-12), in any project. */
+/**
+ * The live sessions started from each ticket, in any project, by its provider and the item id its
+ * import gave it (itemIdOfKey): jira:LC-12, github:owner/repo/12.
+ */
 export function liveSessions(ctx: MesaContext) {
   const by = new Map<string, { id: string; project: string }[]>();
   for (const record of ctx.store.list()) {

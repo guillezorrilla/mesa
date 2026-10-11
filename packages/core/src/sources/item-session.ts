@@ -2,6 +2,7 @@ import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
 import { goalCondition, MAX_GOAL_CONDITION } from '../sessions/start/goal-command.js';
+import { PROVIDER_IDS } from '../tickets/providers.js';
 import { type TicketStart, ticketStartPrompt } from '../tickets/ticket-start.js';
 import type { ImportListRow, importService } from './import-service.js';
 import { itemGoal } from './item-goal.js';
@@ -20,13 +21,16 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
   notes?: boolean;
   /** `goal` is the whole goal (the app's edited one), not added after the item's. */
   exactGoal?: boolean;
-  /** A Jira issue's goal is this Ticket start's prompt, `goal` after it. */
+  /** A ticket's goal is this Ticket start's prompt, `goal` after it. */
   kind?: TicketStart;
 };
 
+/** Whether items from `source` are tickets, a ticket provider's (Jira's, GitHub's). */
+const isTicket = (source: string) => PROVIDER_IDS.some((p) => p === source);
+
 /**
- * Starts sessions from `item`s, through `open`. A Jira issue's goal opens with the ticket prompt
- * `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), or, started as a Ticket start,
+ * Starts sessions from `item`s, through `open`. A ticket's goal (a Jira or GitHub issue's) opens
+ * with the ticket prompt `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), or, started as a Ticket start,
  * is that start's prompt with the ticket prompt as its rules.
  */
 export function itemSessions(
@@ -36,7 +40,7 @@ export function itemSessions(
 ) {
   /**
    * The goal for `found`, then `goal`. `override` is a Saved prompt's name, or null for none;
-   * undefined takes the project's. With `kind`, a Jira issue's goal is that Ticket start's prompt,
+   * undefined takes the project's. With `kind`, a ticket's goal is that Ticket start's prompt,
    * the Saved prompt its rules; without, the Saved prompt opens the item's goal.
    */
   const goalFor = (
@@ -44,13 +48,13 @@ export function itemSessions(
     found: ImportListRow,
     { goal, override, kind }: { goal?: string; override?: string | null; kind?: TicketStart } = {},
   ) => {
-    const jira = found.source === 'jira';
-    if (kind && !jira)
+    const ticket = isTicket(found.source);
+    if (kind && !ticket)
       throw new MesaError(
         'usage',
-        `--as starts a Jira issue; ${found.id} is a ${found.source} item`,
+        `--as starts a ticket (${PROVIDER_IDS.join(', ')}); ${found.id} is a ${found.source} item`,
       );
-    const prompt = jira ? ticketPrompt(project, override)?.trim() : undefined;
+    const prompt = ticket ? ticketPrompt(project, override)?.trim() : undefined;
     if (kind) {
       const built = ticketStartPrompt(kind, {
         project,
@@ -77,7 +81,7 @@ export function itemSessions(
   return {
     /**
      * The goal a session started from `from` gets, and the item, without starting it. `prompt`
-     * names the Saved prompt a Jira issue's goal takes (null for none) over the project's; `kind`
+     * names the Saved prompt a ticket's goal takes (null for none) over the project's; `kind`
      * makes it that Ticket start's prompt.
      */
     goal: async (project: string, from: string, prompt?: string | null, kind?: TicketStart) => {
@@ -94,7 +98,7 @@ export function itemSessions(
      * importing it first when it is not yet. Its goal is the item's (itemGoal), then `goal`; the
      * record keeps the item's `source` and `id`, and a Write notes run that failed in that import
      * is a warning, the session started all the same. Every usage error comes before any import,
-     * but --as on an item that turns out not to be a Jira issue.
+     * but --as on an item that turns out not to be a ticket.
      */
     open: async (project: string | undefined, opts: ItemOpenOptions = {}) => {
       const { from, notes = true, exactGoal, goal, kind, ...start } = opts;
@@ -115,7 +119,7 @@ export function itemSessions(
       }
       const found = await item(project, from, {
         notes,
-        ...(kind ? { source: 'jira' as const } : {}),
+        ...(kind ? { sources: PROVIDER_IDS } : {}),
       });
       const opened = await open(project, {
         ...start,

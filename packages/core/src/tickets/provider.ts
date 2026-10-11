@@ -21,7 +21,7 @@ export const categoryOf = (key: string | undefined): TicketCategory =>
 
 /** A ticket as a provider lists it, before the tab adds whose it is and its sessions. */
 export type ProviderTicket = {
-  /** The provider's own id, such as LC-12. */
+  /** The provider's own id, such as LC-12 or owner/repo#12. */
   key: string;
   summary: string;
   status: string;
@@ -30,6 +30,8 @@ export type ProviderTicket = {
   assignee?: string;
   /** The assignee's account id in the provider, which says whether the ticket is the person's. */
   assigneeId?: string;
+  /** Every assignee, where a provider allows several (GitHub); `assignee` is the first. */
+  assignees?: { id: string; name: string }[];
   url: string;
   /** The Atlassian site it is on (Jira). */
   site?: string;
@@ -38,7 +40,7 @@ export type ProviderTicket = {
 /** What a view lists now, the query sent for it, and what it read or why it lists nothing. */
 export type ViewRead = {
   tickets: ProviderTicket[];
-  /** The query the provider was sent (Jira's JQL), shown under Advanced. */
+  /** The query the provider was sent (Jira's JQL, GitHub's request), shown under Advanced. */
   query?: string;
   /** A board view's sprints this read. */
   sprints?: string[];
@@ -54,16 +56,21 @@ export type ProviderDeps = {
   sites: (source: SourceId) => Promise<Site[] | undefined>;
   /** The Jira fields every ticket panel shows after its own. */
   fields: () => JiraField[];
+  /** The repo (owner/repo) of `project`'s origin remote on github.com, if it has one. */
+  origin: (project: string) => Promise<string | undefined>;
 };
 
 /**
  * One provider's reads and its one write, over views of type `View` and panels of type `Detail`.
  * `where` names the provider's place a key is on when a connection reaches several (Jira's site).
+ * Its reads are methods, so each row may take only its own provider's inputs and views while
+ * every row has the same type over all of them: the service gives a row only its own (a view's
+ * `provider` keeps them apart).
  */
 export type TicketProvider<Input, View, Detail> = {
   /** `input` as a view, checked against the provider first when `check` (adding it). */
-  view: (input: Input, check: boolean) => Promise<View>;
-  read: (view: View) => Promise<ViewRead>;
+  view(input: Input, check: boolean): Promise<View>;
+  read(view: View): Promise<ViewRead>;
   /** `input` as one of the provider's ticket keys, or a usage error. */
   key: (input: string) => string;
   /** Ticket `key` whole, for the panel, with whether it is the person's. */
@@ -72,7 +79,7 @@ export type TicketProvider<Input, View, Detail> = {
   me: () => Promise<Account>;
   /** The name of the place `where` names, or the one place the connection reaches, for receipts. */
   place: (where?: string) => Promise<string>;
-  /** Assigns ticket `key` to the signed-in person, and names them. */
+  /** Assigns ticket `key` to the signed-in person, beside any others where a provider allows several, and names them. */
   assign: (key: string, where?: string) => Promise<{ assignee: string }>;
 };
 

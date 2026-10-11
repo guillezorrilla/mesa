@@ -1,6 +1,7 @@
 import type { Http } from '../lib/http.js';
 import { clickupItem } from './clickup-item.js';
 import { confluencePage } from './confluence.js';
+import { githubIssue } from './github-issue.js';
 import type { Item, ItemRef, ItemSource } from './items.js';
 import { jiraIssue } from './jira.js';
 import { notionPage } from './notion-page.js';
@@ -23,5 +24,6 @@ export const CONNECTORS: Record<
   confluence: { connection: 'atlassian', fetch: confluencePage },
   notion: { connection: 'notion', fetch: notionPage },
   clickup: { connection: 'clickup', fetch: clickupItem },
+  github: { connection: 'github', fetch: githubIssue },
   web: { fetch: webPage },
 };
