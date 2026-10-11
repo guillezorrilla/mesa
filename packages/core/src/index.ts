@@ -171,10 +171,17 @@ export type { ImportListRow } from './sources/import-service.js';
 export type { ItemSource } from './sources/items.js';
 export type { JiraField, JiraIssue } from './sources/jira.js';
 export type { Board, Filter } from './sources/jira-tickets.js';
+export type {
+  LinearCustomView,
+  LinearCycle,
+  LinearProject,
+  LinearTeam,
+} from './sources/linear-tickets.js';
 export type { SourceRow } from './sources/service.js';
 export type { SourceId } from './sources/sources.js';
 export type { TicketDefaults } from './tickets/defaults.js';
 export type { GithubDetail } from './tickets/github-provider.js';
+export type { LinearDetail } from './tickets/linear-provider.js';
 export {
   type ProviderId,
   providerOf,

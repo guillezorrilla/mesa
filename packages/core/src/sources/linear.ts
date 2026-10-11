@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
+import { scopeError } from './authorized-fetch.js';
 import type { Account, Site } from './connection.js';
 import type { ItemRef } from './items.js';
 
@@ -18,9 +19,16 @@ const errorsSchema = z
   .nullish();
 
 /**
+ * Linear's answer to a token without the scope a call needs (`Invalid scope: \`write\` required`,
+ * as Linear words it): one signed in before Mesa asked for that scope.
+ */
+const MISSING_SCOPE = /\binvalid scope\b|\bscope\b.*\brequired\b/i;
+
+/**
  * One GraphQL query to Linear's API, its `data` parsed by `schema`. Linear answers an item that is
  * gone, or in a team the person cannot see, with an "Entity not found" error: not_found, saying so.
- * Any other error names `what` and Linear's first message.
+ * A token that lacks a scope the call needs asks to reconnect (scopeError), the connection kept for
+ * the rest. Any other error names `what` and Linear's first message.
  */
 export async function linearCall<T>(
   get: Http,
@@ -43,6 +51,7 @@ export async function linearCall<T>(
       `${what} is missing, or not in the connected Linear workspace: reconnect Linear and pick its workspace`,
     );
   }
+  if (errors.some((e) => MISSING_SCOPE.test(e.message))) throw scopeError('linear');
   const why = errors[0]?.message ?? (response.ok ? undefined : `HTTP ${response.status}`);
   if (why) throw new MesaError('internal', `${what} answered ${why}`);
   const data = schema.safeParse(parsed.success ? parsed.data.data : undefined);
@@ -107,6 +116,9 @@ export type LinearLink = {
 const LINK = /^\/([\w-]+)\/(issue|project|document)\/([\w-]+)(?:\/|$)/;
 const IDENTIFIER = /^[A-Za-z0-9]+-\d+$/;
 
+/** Whether `text` is an issue's identifier: its team's key, a dash, a number (ENG-123). */
+export const isLinearIdentifier = (text: string) => IDENTIFIER.test(text);
+
 /** The issue, project, or document `url`'s path names; undefined when it names none. */
 export function linearLink(url: URL): LinearLink | undefined {
   const match = LINK.exec(url.pathname);
@@ -130,3 +142,17 @@ export const linearRef = (link: LinearLink): ItemRef => ({
   id: link.kind === 'issue' ? link.slug : `${link.kind}.${slugId(link.slug)}`,
   url: linearUrl(link),
 });
+
+/**
+ * The id a project or custom view `input` names: its link's slug id (`/<workspace>/project/<slug>`
+ * or `/<workspace>/view/<slug>`), else `input` itself, an id or a slug id.
+ */
+export function linearIdOf(input: string, kind: 'project' | 'view'): string {
+  const text = input.trim();
+  if (!/^https?:\/\//i.test(text)) return text;
+  const url = URL.parse(text);
+  const path = url && LINEAR_HOSTS.includes(url.host) ? url.pathname : '';
+  const slug = new RegExp(`^/[\\w-]+/${kind}/([\\w-]+)(?:/|$)`).exec(path)?.[1];
+  if (!slug) throw new MesaError('usage', `${text} is not a Linear ${kind} link`);
+  return slugId(slug);
+}

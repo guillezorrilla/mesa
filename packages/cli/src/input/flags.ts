@@ -103,7 +103,7 @@ export const SEARCH_FLAG = {
 
 /** The flags that name a view's query: `views add` and `preview` take them. */
 export const VIEW_FLAGS = {
-  provider: { type: 'string', description: 'jira (default) or github' },
+  provider: { type: 'string', description: 'jira (default), github or linear' },
   board: { type: 'string', description: "A board's id: the view reads its sprint" },
   sprint: { type: 'string', description: 'current (default) or next, with --board' },
   filter: { type: 'string', description: "A saved filter's id" },
@@ -115,6 +115,10 @@ export const VIEW_FLAGS = {
   project: { type: 'string', description: 'GitHub: the project whose origin remote is the repo' },
   label: { type: 'string', description: 'GitHub: issues with these labels, comma-separated' },
   milestone: { type: 'string', description: "GitHub: a milestone's title or number, or none" },
+  team: { type: 'string', description: "Linear: a team's key or id: the view reads its cycle" },
+  cycle: { type: 'string', description: 'Linear: current (default) or next, with --team' },
+  'linear-project': { type: 'string', description: "Linear: a project's id, slug id or link" },
+  'custom-view': { type: 'string', description: "Linear: a custom view's id or link" },
   everyone: { type: 'boolean', description: "Every assignee's tickets, not only yours" },
   'show-done': { type: 'boolean', description: 'Done (closed) tickets too' },
   site: { type: 'string', description: 'The Atlassian site, when the connection reaches several' },
@@ -125,7 +129,7 @@ type ViewFlags = { [K in keyof typeof VIEW_FLAGS]?: string | boolean | undefined
   'show-done'?: boolean | undefined;
 };
 
-/** The view query VIEW_FLAGS name, checked: Jira's, or GitHub's with --provider github. */
+/** The view query VIEW_FLAGS name, checked: Jira's, or GitHub's or Linear's with --provider. */
 export function viewOf(flags: ViewFlags): ViewQuery {
   const text = (name: keyof typeof VIEW_FLAGS) => {
     const value = flags[name];
@@ -141,6 +145,24 @@ export function viewOf(flags: ViewFlags): ViewQuery {
     if (given.length)
       throw new MesaError('usage', `${given.map((n) => `--${n}`).join(', ')}: ${owner}'s only`);
   };
+  const linear = ['team', 'cycle', 'linear-project', 'custom-view'] as const;
+  if (provider === 'linear') {
+    only(['board', 'sprint', 'filter', 'jql', 'site'], 'Jira');
+    only(['repo', 'project', 'label', 'milestone'], 'GitHub (--provider github)');
+    const cycle = text('cycle');
+    if (cycle !== undefined && cycle !== 'current' && cycle !== 'next')
+      throw new MesaError('usage', '--cycle is current or next');
+    const [team, project, customView] = [text('team'), text('linear-project'), text('custom-view')];
+    return {
+      provider,
+      ...(team ? { team } : {}),
+      ...(cycle ? { cycle: cycle as 'current' | 'next' } : {}),
+      ...(project ? { project } : {}),
+      ...(customView ? { customView } : {}),
+      ...narrowing,
+    };
+  }
+  only([...linear], 'Linear (--provider linear)');
   if (provider === 'github') {
     only(['board', 'sprint', 'filter', 'jql', 'site'], 'Jira');
     const labels = text('label')

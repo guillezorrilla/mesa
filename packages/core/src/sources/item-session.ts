@@ -2,7 +2,7 @@ import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
 import { goalCondition, MAX_GOAL_CONDITION } from '../sessions/start/goal-command.js';
-import { PROVIDER_IDS } from '../tickets/providers.js';
+import { isTicketItem, PROVIDER_IDS } from '../tickets/providers.js';
 import { type TicketStart, ticketStartPrompt } from '../tickets/ticket-start.js';
 import type { ImportListRow, importService } from './import-service.js';
 import { itemGoal } from './item-goal.js';
@@ -25,9 +25,6 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
   kind?: TicketStart;
 };
 
-/** Whether items from `source` are tickets, a ticket provider's (Jira's, GitHub's). */
-const isTicket = (source: string) => PROVIDER_IDS.some((p) => p === source);
-
 /**
  * Starts sessions from `item`s, through `open`. A ticket's goal (a Jira or GitHub issue's) opens
  * with the ticket prompt `ticketPrompt` names for its project (CONTEXT.md, Ticket prompt), or, started as a Ticket start,
@@ -48,7 +45,7 @@ export function itemSessions(
     found: ImportListRow,
     { goal, override, kind }: { goal?: string; override?: string | null; kind?: TicketStart } = {},
   ) => {
-    const ticket = isTicket(found.source);
+    const ticket = isTicketItem(found.source, found.id);
     if (kind && !ticket)
       throw new MesaError(
         'usage',

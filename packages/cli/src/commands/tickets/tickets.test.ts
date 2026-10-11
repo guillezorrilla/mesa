@@ -1,6 +1,8 @@
 import {
   githubIssueObject,
   githubWorld,
+  linearIssueObject,
+  linearWorld,
   scriptedRunner,
   TEST_GITHUB,
   TEST_JIRA,
@@ -342,4 +344,96 @@ test("mesa tickets views add --provider github follows the project's origin repo
   );
   const assigned = await cli.mesa('tickets', 'assign', `github:${repo}#412`, '--json');
   expect(assigned.json.data).toMatchObject({ key: `${repo}#412`, assignee: 'Rowan Tide' });
+});
+
+test('mesa tickets views add --provider linear follows a team cycle, and the tab lists, shows and assigns its issues', async () => {
+  const world = linearWorld();
+  cli.deps = world.deps;
+  await cli.withProject();
+  await cli.mesa('sources', 'connect', 'linear');
+  const harbour = { id: 'team-har', key: 'HAR', name: 'Harbour', color: null };
+  const cycle = {
+    id: 'cycle-4',
+    number: 4,
+    name: null,
+    startsAt: '2026-09-21T00:00:00.000Z',
+    endsAt: '2026-10-04T00:00:00.000Z',
+  };
+  world.answer('TicketTeams', () => ({ teams: { nodes: [harbour] } }));
+  world.answer('TicketTeam', () => ({ teams: { nodes: [harbour] } }));
+  world.answer('TicketCycles', () => ({ team: { activeCycle: cycle, cycles: { nodes: [] } } }));
+  expect((await cli.mesa('tickets', 'teams')).stdout).toBe('HAR  Harbour\n');
+
+  const added = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--provider',
+    'linear',
+    '--team',
+    'HAR',
+    '--everyone',
+    '--json',
+    '--',
+    'Harbour cycle',
+  );
+  expect(added.json.data).toMatchObject({
+    provider: 'linear',
+    team: 'team-har',
+    cycle: 'current',
+    describe: 'Harbour, current cycle',
+  });
+  const githubOnly = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--provider',
+    'linear',
+    '--repo',
+    'a/b',
+    '--json',
+    '--',
+    'x',
+  );
+  expect(githubOnly.json.error).toEqual({
+    code: 'usage',
+    message: "--repo: GitHub (--provider github)'s only",
+  });
+  const linearOnly = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--team',
+    'HAR',
+    '--json',
+    '--',
+    'x',
+  );
+  expect(linearOnly.json.error).toEqual({
+    code: 'usage',
+    message: "--team: Linear (--provider linear)'s only",
+  });
+
+  await cli.mesa('tickets', 'tracker', 'lantern-cove', 'linear');
+  await cli.mesa('tickets', 'follow', 'lantern-cove', 'Harbour cycle');
+  world.answer('TicketIssues', () => ({
+    issues: {
+      nodes: [linearIssueObject('HAR-12', 'Page the harbor master once')],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    },
+  }));
+  expect((await cli.mesa('tickets', 'lantern-cove')).stdout).toBe(
+    'Harbour cycle: Harbour, current cycle [Cycle 4]\n\nHAR-12  In Progress  Page the harbor master once\n',
+  );
+
+  world.serveIssue('HAR-12', { title: 'Page the harbor master once', assignee: null });
+  const shown = await cli.mesa('tickets', 'show', 'linear:HAR-12');
+  expect(shown.stdout).toContain(
+    'HAR-12: Page the harbor master once\nIn Progress · High · Unassigned · tides\n',
+  );
+  world.answer('TicketAssign', ({ assignee }) => ({
+    issueUpdate: { success: true, issue: { assignee: { id: assignee, name: 'Rowan Tide' } } },
+  }));
+  const assigned = await cli.mesa('tickets', 'assign', 'linear:HAR-12', '--json');
+  expect(assigned.json.data).toMatchObject({ key: 'HAR-12', assignee: 'Rowan Tide' });
 });

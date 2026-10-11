@@ -15,10 +15,12 @@ import {
 const COMMENTS_PAGE = 50;
 
 const named = z.object({ name: z.string() }).nullish();
-const commentsSchema = linearPage(
+/** A page of an issue's comments, as COMMENTS asks for it. */
+export const commentsSchema = linearPage(
   z.object({ body: z.string(), createdAt: z.string(), user: named }),
 );
-const COMMENTS = `comments(first: ${COMMENTS_PAGE}, after: $after) { nodes { body createdAt user { name } } ${PAGE_INFO} }`;
+/** An issue's first page of comments, in a query that takes `$after: String`. */
+export const COMMENTS = `comments(first: ${COMMENTS_PAGE}, after: $after) { nodes { body createdAt user { name } } ${PAGE_INFO} }`;
 
 const issueSchema = z.object({
   issue: z.object({
@@ -46,6 +48,32 @@ const ISSUE = `query Issue($id: String!, $after: String) { issue(id: $id) {
   labels { nodes { name } } ${COMMENTS} } }`;
 const ISSUE_COMMENTS = `query IssueComments($id: String!, $after: String) { issue(id: $id) { ${COMMENTS} } }`;
 
+/**
+ * Every comment of issue `id` (`what` names it), oldest first: its first page `first`, read with
+ * the issue, then one query per 50 more.
+ */
+export async function allComments(
+  get: Http,
+  id: string,
+  first: z.infer<typeof commentsSchema>,
+  what: string,
+) {
+  const comments = [...first.nodes];
+  let page = first.pageInfo;
+  while (page.hasNextPage && page.endCursor) {
+    const next = await linearCall(
+      get,
+      ISSUE_COMMENTS,
+      { id, after: page.endCursor },
+      z.object({ issue: z.object({ comments: commentsSchema }) }),
+      `${what}'s comments`,
+    );
+    comments.push(...next.issue.comments.nodes);
+    page = next.issue.comments.pageInfo;
+  }
+  return comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 /** `- Label: value` lines for the facts that have a value. */
 const facts = (pairs: [string, string | number | null | undefined][]) =>
   pairs.flatMap(([label, value]) => (value || value === 0 ? [`- ${label}: ${value}`] : []));
@@ -59,20 +87,7 @@ async function issue(get: Http, ref: ItemRef, id: string, previousRevision?: str
   const what = `Linear issue ${id}`;
   const { issue: raw } = await linearCall(get, ISSUE, { id }, issueSchema, what);
   if (raw.updatedAt === previousRevision) return undefined;
-  const comments = [...raw.comments.nodes];
-  let page = raw.comments.pageInfo;
-  while (page.hasNextPage && page.endCursor) {
-    const next = await linearCall(
-      get,
-      ISSUE_COMMENTS,
-      { id, after: page.endCursor },
-      z.object({ issue: z.object({ comments: commentsSchema }) }),
-      `${what}'s comments`,
-    );
-    comments.push(...next.issue.comments.nodes);
-    page = next.issue.comments.pageInfo;
-  }
-  comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const comments = await allComments(get, id, raw.comments, what);
   const cycle = raw.cycle && (raw.cycle.name || `Cycle ${raw.cycle.number}`);
   const sections = [
     facts([
