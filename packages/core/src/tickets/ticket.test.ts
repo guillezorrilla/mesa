@@ -47,6 +47,8 @@ test('show reads one ticket whole, as Markdown, with whose it is and the session
     newSession({ project: 'harbor-gate', from: { source: 'jira', id: 'LC-12' } }),
   );
   expect(await mesa.tickets.show('lc-12')).toEqual({
+    id: 'jira:LC-12',
+    provider: 'jira',
     key: 'LC-12',
     summary: 'Fix the tide alarm',
     status: 'In Progress',
@@ -69,6 +71,8 @@ test('show reads one ticket whole, as Markdown, with whose it is and the session
     sessions: [{ id: running.id, project: 'harbor-gate' }],
     fields: [],
   });
+  // Its provider-qualified id reads the same ticket.
+  expect(await mesa.tickets.show('jira:LC-12')).toMatchObject({ id: 'jira:LC-12', mine: false });
   await expect(mesa.tickets.show('../etc')).rejects.toThrow('../etc is not a Jira issue key');
 });
 

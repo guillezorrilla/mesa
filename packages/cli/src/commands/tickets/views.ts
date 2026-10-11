@@ -77,6 +77,24 @@ export const ticketsUnfollow = defineCommand({
   },
 });
 
+export const ticketsTracker = defineCommand({
+  name: 'tickets tracker',
+  summary: 'Show or set where a project tracks work; its other views stay, unlisted',
+  args: ['project', 'provider?'],
+  example: 'mesa tickets tracker lantern-cove jira',
+  run: ({ mesa, args }) => {
+    const data = args.provider
+      ? mesa.tickets.setTracker(args.project, args.provider)
+      : mesa.tickets.tracker(args.project);
+    return {
+      data,
+      text: data.tracker
+        ? `${data.project} tracks work in ${data.tracker}`
+        : `${data.project} has no tracker yet; see mesa tickets tracker ${data.project} jira`,
+    };
+  },
+});
+
 export const ticketsPrompt = defineCommand({
   name: 'tickets prompt',
   summary: 'Set the Saved prompt a session from a Jira ticket gets, for the profile or a project',

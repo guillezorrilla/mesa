@@ -2,38 +2,34 @@ import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { findProject } from '../projects/projects.js';
 import type { SavedPrompt } from '../prompts/prompts.js';
-import type { Site } from '../sources/connection.js';
-import {
-  boards,
-  filter,
-  filters,
-  findBoard,
-  type JiraTicket,
-  jiraFields,
-  searchTickets,
-  sprints,
-  TICKETS,
-} from '../sources/jira-tickets.js';
+import { notConnectedError } from '../sources/authorized-fetch.js';
 import type { SourceId } from '../sources/sources.js';
-import { type JiraDeps, jiraAccess } from './jira-access.js';
-import { baseJql, viewJql } from './jql.js';
 import { liveSessions } from './live.js';
+import type { ProviderDeps, ProviderTicket } from './provider.js';
+import {
+  connectProviders,
+  describeView,
+  PROVIDERS,
+  type ProviderId,
+  providerOf,
+  ticketId,
+  type ViewInput,
+} from './providers.js';
 import { ticketActions } from './ticket.js';
-import { describeView, parseView, type TicketView, ticketViews } from './views.js';
+import { followedViews, ticketViews, trackerOf } from './views.js';
 
-export type TicketsDeps = JiraDeps & {
+export type TicketsDeps = Omit<ProviderDeps, 'fields'> & {
   /** The profile's Saved prompts, which a ticket prompt names. */
   prompts: () => SavedPrompt[];
 };
 
-/** What `mesa tickets views add` takes: the view, its site when the connection reaches several. */
-export type ViewInput = Omit<TicketView, 'site' | 'siteName' | 'boardName' | 'filterName'> & {
-  site?: string;
-};
+export type { ViewInput } from './providers.js';
 
 /** A ticket in a project's Tickets tab: the views that list it and the live sessions from it. */
-export type Ticket = JiraTicket & {
-  site: string;
+export type Ticket = ProviderTicket & {
+  /** Its id across providers, such as jira:LC-12. */
+  id: string;
+  provider: ProviderId;
   /** Assigned to the signed-in person. */
   mine: boolean;
   views: string[];
@@ -55,36 +51,16 @@ export type FollowedView = {
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-/** The Tickets tab's views over Jira (CONTEXT.md, Ticket view), its tickets, and their prompt. */
+/**
+ * The Tickets tab (CONTEXT.md, Ticket view): views over each project's tracker, read through
+ * its row of the ticket providers, their tickets, and the prompt a ticket session gets.
+ */
 export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
   const store = ticketViews(ctx);
-  const jira = jiraAccess(deps);
-  const { get } = jira;
-
-  /** The JQL `view` reads now: a board view's current or next sprint is found again each time. */
-  const resolve = async (view: TicketView, site: Site) => {
-    if (view.board === undefined) return { jql: viewJql(view, baseJql(view)) };
-    const next = view.sprint === 'next';
-    const found = await sprints(get(), site, view.board, next ? 'future' : 'active');
-    const picked = next ? found.slice(0, 1) : found;
-    if (!picked.length) {
-      const which = next ? 'next' : 'active';
-      return { note: `No ${which} sprint on board ${view.boardName ?? view.board}` };
-    }
-    const ids = picked.map((s) => s.id);
-    return { jql: viewJql(view, baseJql(view, ids)), sprints: picked.map((s) => s.name) };
-  };
-
-  /** `input` as a view on its site, its shape checked first; `name` is the view's name. */
-  const viewOf = async (input: ViewInput) => {
-    const { site: siteName, ...rest } = input;
-    const site = await jira.siteOf(siteName);
-    const sprint = rest.board !== undefined ? { sprint: rest.sprint ?? 'current' } : {};
-    return { site, view: parseView({ ...rest, ...sprint, site: site.id, siteName: site.name }) };
-  };
-
-  /** The Jira fields every ticket panel shows after its own. */
+  /** The fields every ticket panel shows after its own. */
   const shown = () => store.read().fields;
+  const rows = connectProviders({ ...deps, fields: shown });
+  const { jira } = rows;
 
   const savedPrompt = (name: string) => {
     const saved = deps.prompts().find((p) => same(p.name, name));
@@ -97,7 +73,7 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
   };
 
   return {
-    ...ticketActions(ctx, jira, shown),
+    ...ticketActions(ctx, rows),
     /** Every view the profile defines, and the projects following each. */
     views: () => {
       const file = store.read();
@@ -109,35 +85,25 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
           .map(([project]) => project),
       }));
     },
-    /**
-     * Adds a view. A board view's board must have sprints (reading them checks it); its board's
-     * and a saved filter's names are kept to show them.
-     */
+    /** Adds a view, checked against its provider first. */
     addView: async (input: ViewInput) => {
-      const { site, view } = await viewOf(input);
-      if (view.board !== undefined) {
-        await sprints(get(), site, view.board, 'active');
-        const found = await findBoard(get(), site, view.board);
-        if (found) view.boardName = found.name;
-      }
-      if (view.filter !== undefined)
-        view.filterName = (await filter(get(), site, view.filter)).name;
+      const view = await rows[input.provider ?? 'jira'].view(input, true);
       const added = store.add(view);
       return { ...added, describe: describeView(added) };
     },
     /** How many tickets `input` lists now, without saving it: the Follow dialog's live count. */
     preview: async (input: Omit<ViewInput, 'name'>) => {
-      const { site, view } = await viewOf({ ...input, name: 'preview' });
-      const resolved = await resolve(view, site);
-      const found = resolved.jql ? await searchTickets(get(), site, resolved.jql) : [];
+      const row = rows[input.provider ?? 'jira'];
+      const view = await row.view({ ...input, name: 'preview' }, false);
+      const read = await row.read(view);
       return {
         describe: describeView(view),
-        jql: resolved.jql ?? null,
-        count: found.length,
-        // ponytail: one page of TICKETS; "that many or more" is enough for a count.
-        more: found.length >= TICKETS,
-        ...(resolved.sprints ? { sprints: resolved.sprints } : {}),
-        ...(resolved.note ? { note: resolved.note } : {}),
+        // ponytail: Jira's word for the query sent, which its dialog shows under Advanced.
+        jql: read.query ?? null,
+        count: read.tickets.length,
+        more: read.more ?? false,
+        ...(read.sprints ? { sprints: read.sprints } : {}),
+        ...(read.note ? { note: read.note } : {}),
       };
     },
     renameView: (name: string, to: string) => {
@@ -147,6 +113,14 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     removeView: store.remove,
     follow: store.follow,
     unfollow: store.unfollow,
+    /** The tracker a project tracks work in, null when it has none yet. */
+    tracker: (project: string) => {
+      const key = findProject(ctx.open(), project).name;
+      return { project: key, tracker: store.tracker(key) ?? null };
+    },
+    /** Sets the tracker a project tracks work in; its other views stay, unlisted. */
+    setTracker: (project: string, tracker: string) =>
+      store.setTracker(project, providerOf(tracker)),
     defaults: store.defaults,
     setDefaults: store.setDefaults,
     /** Sets the ticket prompt to Saved prompt `name`, or clears it, for the profile or `project`. */
@@ -162,22 +136,13 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
       const name = promptName(project);
       return name ? deps.prompts().find((p) => same(p.name, name))?.text : undefined;
     },
-    boards: async (search?: string, siteName?: string) => {
-      const site = await jira.siteOf(siteName);
-      return { site: { id: site.id, name: site.name }, boards: await boards(get(), site, search) };
-    },
-    /**
-     * The site's Jira fields a ticket panel can show, whose name holds `search` if given, and the
-     * ones it shows.
-     */
-    fields: async (search?: string, siteName?: string) => {
-      const site = await jira.siteOf(siteName);
-      return {
-        site: { id: site.id, name: site.name },
-        fields: await jiraFields(get(), site, search),
-        shown: shown(),
-      };
-    },
+    boards: jira.boards,
+    filters: jira.filters,
+    /** The site's Jira fields a ticket panel can show, whose name holds `search`, and the ones it shows. */
+    fields: async (search?: string, siteName?: string) => ({
+      ...(await jira.fields(search, siteName)),
+      shown: shown(),
+    }),
     /**
      * Sets the Jira fields every ticket panel shows, by id in order (none for only its own);
      * each must be one of the site's, and its name is kept to show it.
@@ -186,7 +151,7 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
       // Only a field not shown yet needs the site's list: hiding one asks Jira nothing.
       let known = shown();
       if (ids.some((id) => !known.some((f) => f.id === id)))
-        known = await jiraFields(get(), await jira.siteOf(siteName));
+        known = (await jira.fields(undefined, siteName)).fields;
       return store.setFields(
         [...new Set(ids)].map((id) => {
           const found = known.find((f) => f.id === id);
@@ -195,52 +160,47 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
         }),
       );
     },
-    filters: async (search?: string, siteName?: string) => {
-      const site = await jira.siteOf(siteName);
-      return {
-        site: { id: site.id, name: site.name },
-        filters: await filters(get(), site, search),
-      };
-    },
     /**
-     * `project`'s tickets: every followed view read now, a ticket in two of them listed once.
-     * A view that fails says why and the rest still list.
+     * `project`'s tickets: every followed view of its tracker read now, a ticket in two of them
+     * listed once. A view that fails says why and the rest still list.
      */
     list: async (project: string) => {
       const key = findProject(ctx.open(), project).name;
       const file = store.read();
-      const followed = (file.follows[key] ?? [])
-        .map((name) => file.views.find((v) => same(v.name, name)))
-        .filter((v): v is TicketView => v !== undefined);
+      const tracker = trackerOf(file, key);
+      const followed = followedViews(file, key).filter((v) => v.provider === tracker);
       // The prompt a ticket session gets, the project's own when it names one, and its defaults.
       const base = {
         project: key,
+        tracker: tracker ?? null,
         prompt: promptName(key) ?? null,
         projectPrompt: file.prompts[key] ?? null,
         defaults: store.defaults(key),
       };
-      if (!followed.length) return { ...base, views: [], tickets: [] };
-      const sites = await jira.connected();
+      if (!tracker || !followed.length) return { ...base, views: [], tickets: [] };
+      const { source } = PROVIDERS[tracker];
+      // Not connected: the views still list, each saying to connect, and `connect` names the
+      // source, so the tab offers one Connect for all of them.
+      if (!(await deps.sites(source))?.length) {
+        const error = notConnectedError(source).message;
+        const views = followed.map(
+          (view): FollowedView => ({
+            name: view.name,
+            describe: describeView(view),
+            error,
+            connect: source,
+          }),
+        );
+        return { ...base, connect: source, views, tickets: [] };
+      }
+      const row = rows[tracker];
       const [myId, reads] = await Promise.all([
         // Without the account, no ticket reads as the person's; the list still shows.
-        jira.me().then(
+        row.me().then(
           (me) => me.id,
           () => undefined,
         ),
-        Promise.allSettled(
-          followed.map(async (view) => {
-            const site = sites.find((s) => s.id === view.site);
-            if (!site)
-              throw new MesaError(
-                'invalid_config',
-                `Atlassian is signed in to another site: reconnect to ${view.siteName ?? view.site} to read this view`,
-                { connect: 'atlassian' },
-              );
-            const resolved = await resolve(view, site);
-            const found = resolved.jql ? await searchTickets(get(), site, resolved.jql) : [];
-            return { site, resolved, found };
-          }),
-        ),
+        Promise.allSettled(followed.map((view) => row.read(view))),
       ]);
       const live = liveSessions(ctx);
       const tickets = new Map<string, Ticket>();
@@ -254,25 +214,24 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
           const connect = (details as { connect?: SourceId } | undefined)?.connect;
           return connect ? { ...shown, connect } : shown;
         }
-        const { site, resolved, found } = read.value;
-        for (const ticket of found) {
-          const id = `${site.id}:${ticket.key}`;
-          const listed = tickets.get(id);
+        for (const ticket of read.value.tickets) {
+          const id = ticketId(tracker, ticket.key);
+          // The same key on two Atlassian sites is two tickets.
+          const where = `${ticket.site ?? ''}:${id}`;
+          const listed = tickets.get(where);
           if (listed) listed.views.push(view.name);
           else
-            tickets.set(id, {
+            tickets.set(where, {
               ...ticket,
-              site: site.id,
+              id,
+              provider: tracker,
               mine: myId !== undefined && ticket.assigneeId === myId,
               views: [view.name],
-              sessions: live.get(ticket.key) ?? [],
+              sessions: live.get(id) ?? [],
             });
         }
-        return {
-          ...shown,
-          ...(resolved.sprints ? { sprints: resolved.sprints } : {}),
-          ...(resolved.note ? { note: resolved.note } : {}),
-        };
+        const { sprints, note } = read.value;
+        return { ...shown, ...(sprints ? { sprints } : {}), ...(note ? { note } : {}) };
       });
       return { ...base, views, tickets: [...tickets.values()] };
     },

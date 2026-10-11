@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import { importProfile, newSession, TEST_JIRA, testStore } from '../testing/index.js';
 
@@ -52,6 +53,8 @@ test("a board view reads the board's current sprint, found again when the sprint
   expect(first.views).toEqual([{ name: 'sprint', describe: view.describe, sprints: ['Tide 7'] }]);
   expect(first.tickets).toEqual([
     {
+      id: 'jira:LC-1',
+      provider: 'jira',
       key: 'LC-1',
       summary: 'Fix the tide alarm',
       status: 'In Progress',
@@ -143,6 +146,7 @@ test('filter and JQL views narrow as told, keep their own order, and a ticket in
   });
   expect(await mesa.tickets.list('lantern-cove')).toEqual({
     project: 'lantern-cove',
+    tracker: null,
     prompt: null,
     projectPrompt: null,
     defaults: { notes: false, assign: true, start: 'worktree' },
@@ -236,4 +240,80 @@ test('a view names one query, an unknown project or view is not found, and a sec
   expect(() => mesa.tickets.follow('lantern-cove', 'nope')).toThrow('no ticket view nope');
   expect(() => mesa.tickets.follow('nowhere', 'mine')).toThrow('no project named nowhere');
   await expect(mesa.tickets.list('nowhere')).rejects.toThrow('no project named nowhere');
+});
+
+test('a tickets.yaml written before providers loads unchanged: its views read as Jira, its project tracks Jira', async () => {
+  const { mesa, world, home } = await setUp();
+  writeFileSync(
+    `${home}/.mesa/default/tickets.yaml`,
+    [
+      'views:',
+      '  - name: mine',
+      '    site: cloud-1',
+      '    siteName: lantern-cove',
+      '    jql: project = LC',
+      'follows:',
+      '  lantern-cove: [mine]',
+      '',
+    ].join('\n'),
+  );
+  world.serve(search(`(project = LC) AND ${MINE} ORDER BY updated DESC`), {
+    issues: [issue('LC-12', 'Fix the tide alarm')],
+  });
+  expect(mesa.tickets.views()).toEqual([
+    expect.objectContaining({ name: 'mine', provider: 'jira', following: ['lantern-cove'] }),
+  ]);
+  expect(mesa.tickets.tracker('lantern-cove')).toEqual({
+    project: 'lantern-cove',
+    tracker: 'jira',
+  });
+  const list = await mesa.tickets.list('lantern-cove');
+  expect(list).toMatchObject({ tracker: 'jira', views: [{ name: 'mine' }] });
+  expect(list.tickets.map((t) => t.id)).toEqual(['jira:LC-12']);
+});
+
+test('a project tracks no tracker until it follows a view or sets one, and only a known provider', async () => {
+  const { mesa } = await setUp();
+  expect(mesa.tickets.tracker('lantern-cove')).toEqual({ project: 'lantern-cove', tracker: null });
+  expect(mesa.tickets.setTracker('lantern-cove', 'Jira')).toEqual({
+    project: 'lantern-cove',
+    tracker: 'jira',
+  });
+  expect(mesa.tickets.tracker('lantern-cove').tracker).toBe('jira');
+  expect(() => mesa.tickets.setTracker('lantern-cove', 'trello')).toThrow(
+    'no ticket provider trello; one of jira',
+  );
+});
+
+test('with its tracker not connected, the list names each view and asks to connect instead of failing', async () => {
+  const { mesa } = await setUp();
+  await mesa.tickets.addView({ name: 'mine', jql: 'project = LC' });
+  mesa.tickets.follow('lantern-cove', 'mine');
+  await mesa.sources.disconnect('atlassian');
+  expect(await mesa.tickets.list('lantern-cove')).toMatchObject({
+    tracker: 'jira',
+    connect: 'atlassian',
+    views: [
+      {
+        name: 'mine',
+        error: 'Atlassian is not connected: run mesa sources connect atlassian',
+        connect: 'atlassian',
+      },
+    ],
+    tickets: [],
+  });
+});
+
+test('a Live dot matches a session by provider and key, not by key alone', async () => {
+  const { mesa, world, home } = await setUp();
+  await mesa.tickets.addView({ name: 'mine', jql: 'project = LC' });
+  mesa.tickets.follow('lantern-cove', 'mine');
+  world.serve(search(`(project = LC) AND ${MINE} ORDER BY updated DESC`), {
+    issues: [issue('LC-12', 'Fix the tide alarm')],
+  });
+  // A session from another source's item with the same id is not this ticket's.
+  testStore(home).create(() =>
+    newSession({ project: 'harbor-gate', from: { source: 'notion', id: 'LC-12' } }),
+  );
+  expect((await mesa.tickets.list('lantern-cove')).tickets[0]?.sessions).toEqual([]);
 });
