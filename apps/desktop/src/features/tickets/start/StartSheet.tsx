@@ -1,13 +1,14 @@
-import { type TicketStart, ticketStartPrompt } from '@mesa/core/browser';
-import { type ReactNode, useEffect, useState } from 'react';
+import { branchOf, type TicketStart } from '@mesa/core/browser';
+import { type ReactNode, useState } from 'react';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
-import { useCommand } from '@/lib/useCommand';
-import { branchOf, type StartOptions } from '../useStartTicket';
-import { STARTS, StartButtons } from './StartButtons';
+import { StartButtons } from './StartButtons';
+import { StartPreview } from './StartPreview';
+import type { StartOptions, StartTicket } from './startOptions';
+import { DEFAULT_START, STARTS } from './starts';
 
 /** A labelled switch with a line under it saying what it does. */
 function Toggle(props: {
@@ -42,46 +43,28 @@ function Field(props: { label: string; htmlFor?: string; hint: string; children:
 }
 
 /**
- * How a session on one ticket starts, to change before one of the three start buttons: where it
- * runs, Your rules (a Saved prompt every start follows, or a new one written here), assigning, and
- * Write notes; and the prompt each start sends.
+ * The options every Ticket start uses, to change before pressing one: where it runs, Your rules (a
+ * Saved prompt, or a new one written here), assigning, and Write notes; with the preview, and the
+ * start buttons over a line saying what the one pointed at does.
  */
 export function StartSheet(props: {
   project: string;
-  ticket: { key: string; url: string; title: string; mine: boolean; assignee?: string | undefined };
+  ticket: StartTicket;
   options: StartOptions;
   onChange: (change: Partial<StartOptions>) => void;
   onCancel: () => void;
-  onStart: (as: TicketStart) => void;
+  onStart: (kind: TicketStart) => void;
 }) {
   const { ticket, options } = props;
-  const [shown, setShown] = useState<TicketStart>('goal');
-  const prompts = useCommand('prompts.list');
-  const rules = prompts.data?.find((p) => p.name === options.prompt)?.text;
-  // A prompt just written here is picked before this list has it: read the list again.
-  const { refresh } = prompts;
-  const missing = Boolean(options.prompt && prompts.data && rules === undefined);
-  useEffect(() => {
-    if (missing) void refresh();
-  }, [missing, refresh]);
+  const [described, setDescribed] = useState<TicketStart>(DEFAULT_START);
   const set = props.onChange;
-  // ponytail: the vault paths are known only once the ticket is imported, so these stand in.
-  const preview = ticketStartPrompt(shown, {
-    project: props.project,
-    key: ticket.key,
-    title: `${ticket.key}: ${ticket.title}`,
-    url: ticket.url,
-    snapshot: `raw/jira/${ticket.key}/<latest>.md`,
-    note: options.notes ? '<the note Write notes adds>' : undefined,
-    rules,
-  });
   return (
     <form
       className="grid gap-5 border-t bg-card px-6 py-5"
       data-testid="start-sheet"
       onSubmit={(event) => {
         event.preventDefault();
-        props.onStart('goal');
+        props.onStart(DEFAULT_START);
       }}
     >
       <h3 className="text-[15px] font-semibold">Start a session on {ticket.key}</h3>
@@ -136,42 +119,27 @@ export function StartSheet(props: {
           onChange={(notes) => set({ notes })}
         />
       </div>
-      <details className="text-sm">
-        <summary className="cursor-pointer text-muted-foreground">
-          Preview what each start sends
-        </summary>
-        <div className="mt-2 grid gap-2">
-          <SegmentedControl
-            label="Preview"
-            value={shown}
-            options={[
-              ['session', 'Session'],
-              ['investigate', 'Investigate'],
-              ['goal', 'Goal'],
-            ]}
-            onChange={setShown}
-          />
-          <p className="text-xs text-muted-foreground">
-            {STARTS.find((s) => s.as === shown)?.hint}
-          </p>
-          <pre
-            data-testid="start-preview"
-            className="max-h-72 overflow-auto rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap"
+      <StartPreview
+        project={props.project}
+        ticket={ticket}
+        rules={options.prompt}
+        notes={options.notes}
+      />
+      <div className="grid gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="link"
+            className="px-0 text-muted-foreground"
+            onClick={props.onCancel}
           >
-            {preview}
-          </pre>
+            Cancel
+          </Button>
+          <StartButtons onStart={props.onStart} onPoint={setDescribed} />
         </div>
-      </details>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button
-          type="button"
-          variant="link"
-          className="px-0 text-muted-foreground"
-          onClick={props.onCancel}
-        >
-          Cancel
-        </Button>
-        <StartButtons onStart={props.onStart} />
+        <p aria-live="polite" className="text-right text-xs text-muted-foreground">
+          {STARTS[described].hint}
+        </p>
       </div>
     </form>
   );

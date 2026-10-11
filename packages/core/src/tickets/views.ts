@@ -59,28 +59,25 @@ export function parseView(input: unknown): TicketView {
   return parsed.data;
 }
 
-const TicketDefaultsSchema = z.strictObject({
-  /** Write notes before the session starts. */
-  notes: z.boolean().optional(),
-  /** Assign the ticket to the person when it is someone else's or no one's. */
-  assign: z.boolean().optional(),
-  /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
-  start: z.enum(['worktree', 'checkout']).optional(),
-  /** Read and dropped: a file from before the three Ticket starts replaced Keep working until done. */
-  untilDone: z.boolean().optional(),
-});
-export type TicketDefaults = Required<Omit<z.infer<typeof TicketDefaultsSchema>, 'untilDone'>>;
+const TicketDefaultsSchema = z
+  .strictObject({
+    /** Write notes before the session starts. */
+    notes: z.boolean().optional(),
+    /** Assign the ticket to the person when it is someone else's or no one's. */
+    assign: z.boolean().optional(),
+    /** Start in a new worktree on a branch named after the ticket, or in the main checkout. */
+    start: z.enum(['worktree', 'checkout']).optional(),
+    /** Files written before the Ticket starts may hold it: read, then dropped. */
+    untilDone: z.boolean().optional(),
+  })
+  .transform(({ untilDone: _, ...set }) => set);
+export type TicketDefaults = Required<z.infer<typeof TicketDefaultsSchema>>;
 /** What a project gets until it changes them: notes, assigning, and a worktree, all on. */
 export const DEFAULTS: TicketDefaults = {
   notes: true,
   assign: true,
   start: 'worktree',
 };
-/** `set` over DEFAULTS, without the dropped untilDone. */
-const withDefaults = ({ untilDone: _, ...set }: z.infer<typeof TicketDefaultsSchema> = {}) => ({
-  ...DEFAULTS,
-  ...set,
-});
 
 const TicketsSchema = z.strictObject({
   views: z.array(ViewSchema).default([]),
@@ -169,15 +166,17 @@ export function ticketViews(ctx: MesaContext) {
       });
     },
     /** `projectName`'s defaults, each one not set taking DEFAULTS'. */
-    defaults: (projectName: string): TicketDefaults =>
-      withDefaults(read().defaults[project(projectName)]),
+    defaults: (projectName: string): TicketDefaults => ({
+      ...DEFAULTS,
+      ...read().defaults[project(projectName)],
+    }),
     /** Changes some of `projectName`'s defaults, and returns them all. */
     setDefaults: (projectName: string, change: Partial<TicketDefaults>) => {
       const key = project(projectName);
       return update((tickets): TicketDefaults => {
-        const { untilDone: _, ...next } = { ...tickets.defaults[key], ...change };
+        const next = { ...tickets.defaults[key], ...change };
         tickets.defaults[key] = next;
-        return withDefaults(next);
+        return { ...DEFAULTS, ...next };
       });
     },
     /** Sets, or with no `prompt` clears, the profile's ticket prompt, or `projectName`'s own. */

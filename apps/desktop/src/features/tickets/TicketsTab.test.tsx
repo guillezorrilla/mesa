@@ -27,7 +27,7 @@ const listOf = (views: FollowedView[], tickets: Ticket[]) =>
     project: 'lantern-cove',
     prompt: 'Ticket flow',
     projectPrompt: null,
-    defaults: { notes: false, assign: true, start: 'worktree', untilDone: true },
+    defaults: { notes: false, assign: true, start: 'worktree' },
     views,
     tickets,
   });
@@ -144,7 +144,7 @@ async function startable(answers: Record<string, (args: string[]) => unknown> = 
 test('Start goal starts at once with the project defaults, then opens it', async () => {
   const { byTestId, opened, started } = await startable();
   expect(byTestId('start-summary')[0]?.textContent).toBe(
-    'New worktree on lc-2 · assign to me · your rules: Ticket flow',
+    'Runs in a new worktree on lc-2 · assign to me · your rules: Ticket flow',
   );
   await click(byTestId('start-goal')[0]);
   expect(started()).toEqual([
@@ -183,7 +183,6 @@ test('Options changes the start first: where it runs, your rules, and a new prom
   const sheet = () => byTestId('start-sheet')[0]?.textContent ?? '';
   expect(sheet()).toContain('Assign LC-2 to me');
   expect(sheet()).toContain('Its own checkout, on the branch lc-2');
-  expect(document.getElementById('start-until-done')).toBeNull();
   await click(button('Main checkout'));
   expect(sheet()).toContain("The project's own checkout");
 

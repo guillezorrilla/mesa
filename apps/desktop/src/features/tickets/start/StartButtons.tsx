@@ -1,51 +1,27 @@
-import type { TicketStart } from '@mesa/core';
-import { type LucideIcon, MessageSquare, ScanSearch, Target } from 'lucide-react';
+import type { TicketStart } from '@mesa/core/browser';
 import { Button } from '@/components/ui/button';
+import { startList } from './starts';
 
-/** Each Ticket start's button, least to most committed: its look says how much it sets going. */
-export const STARTS: {
-  as: TicketStart;
-  label: string;
-  hint: string;
-  icon: LucideIcon;
-  variant: 'ghost' | 'outline' | 'default';
-}[] = [
-  {
-    as: 'session',
-    label: 'Start session',
-    hint: 'Loads the ticket as context, then waits for your prompt',
-    icon: MessageSquare,
-    variant: 'ghost',
-  },
-  {
-    as: 'investigate',
-    label: 'Investigate',
-    hint: 'Finds the root cause or the answer with proof, no guessing, and leaves the code as it was; then offers a fix session',
-    icon: ScanSearch,
-    variant: 'outline',
-  },
-  {
-    as: 'goal',
-    label: 'Start goal',
-    hint: '/goal: finishes the ticket, proven by tests and checks, then commits on a branch and pushes it',
-    icon: Target,
-    variant: 'default',
-  },
-];
-
-/** The three ways to start a session on a ticket, Start goal last and strongest. */
-export function StartButtons(props: { onStart: (as: TicketStart) => void }) {
+/**
+ * The Ticket start buttons, weakest first. `onPoint` hears which one is pointed at or focused, for
+ * a caption saying what it does; without it, each button's tooltip does.
+ */
+export function StartButtons(props: {
+  onStart: (kind: TicketStart) => void;
+  onPoint?: (kind: TicketStart) => void;
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {STARTS.map(({ as, label, hint, icon: Icon, variant }) => (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {startList().map(({ kind, label, hint, icon: Icon, variant }) => (
         <Button
-          key={as}
+          key={kind}
           type="button"
           variant={variant}
-          title={hint}
-          data-testid={`start-${as}`}
-          className={variant === 'ghost' ? 'text-muted-foreground' : undefined}
-          onClick={() => props.onStart(as)}
+          title={props.onPoint ? undefined : hint}
+          data-testid={`start-${kind}`}
+          onClick={() => props.onStart(kind)}
+          onPointerEnter={() => props.onPoint?.(kind)}
+          onFocus={() => props.onPoint?.(kind)}
         >
           <Icon aria-hidden /> {label}
         </Button>

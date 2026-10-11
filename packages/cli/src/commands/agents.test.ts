@@ -29,7 +29,7 @@ test('agents JSON and text expose the same provider capability catalog used by l
   expect(text.stdout).toContain(
     'antigravity: missing; qualified on 1.2.12; current version unverified:',
   );
-  expect(text.stdout).toContain('plan=true background=false fork=false');
+  expect(text.stdout).toContain('plan=true goal=false background=false fork=false');
 });
 
 test('agents identifies the installed versions actually qualified in this release', async () => {

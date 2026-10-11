@@ -20,7 +20,7 @@ export type ItemOpenOptions = Omit<NonNullable<Parameters<Open>[1]>, 'from'> & {
   /** `goal` is the whole goal (the app's edited one), not added after the item's. */
   exactGoal?: boolean;
   /** A Jira issue's goal is this Ticket start's prompt, `goal` after it. */
-  as?: TicketStart;
+  kind?: TicketStart;
 };
 
 /**
@@ -34,20 +34,19 @@ export function itemSessions(
   ticketPrompt: (project: string, override?: string | null) => string | undefined = () => undefined,
 ) {
   /**
-   * `override` is a Saved prompt's name, or null for none; undefined takes the project's. With
-   * `as`, a Jira issue's goal is that Ticket start's prompt, the Saved prompt its rules.
+   * The goal for `found`, then `goal`. `override` is a Saved prompt's name, or null for none;
+   * undefined takes the project's. With `kind`, a Jira issue's goal is that Ticket start's prompt,
+   * the Saved prompt its rules; without, the Saved prompt opens the item's goal.
    */
-  const withPrompt = (
+  const goalFor = (
     project: string,
     found: ImportListRow,
-    goal?: string,
-    override?: string | null,
-    as?: TicketStart,
+    { goal, override, kind }: { goal?: string; override?: string | null; kind?: TicketStart } = {},
   ) => {
     const jira = found.source === 'jira';
     const prompt = jira ? ticketPrompt(project, override)?.trim() : undefined;
-    if (jira && as)
-      return ticketStartPrompt(as, {
+    if (jira && kind)
+      return ticketStartPrompt(kind, {
         project,
         key: found.id,
         title: found.title,
@@ -63,16 +62,16 @@ export function itemSessions(
   return {
     /**
      * The goal a session started from `from` gets, and the item, without starting it. `prompt`
-     * names the Saved prompt a Jira issue's goal takes (null for none) over the project's; `as`
+     * names the Saved prompt a Jira issue's goal takes (null for none) over the project's; `kind`
      * makes it that Ticket start's prompt.
      */
-    goal: async (project: string, from: string, prompt?: string | null, as?: TicketStart) => {
+    goal: async (project: string, from: string, prompt?: string | null, kind?: TicketStart) => {
       const { item: found } = await item(project, from);
       return {
         source: found.source,
         id: found.id,
         title: found.title,
-        goal: withPrompt(project, found, undefined, prompt, as),
+        goal: goalFor(project, found, { override: prompt, kind }),
       };
     },
     /**
@@ -82,9 +81,9 @@ export function itemSessions(
      * is a warning, the session started all the same. Every usage error comes before any import.
      */
     open: async (project: string | undefined, opts: ItemOpenOptions = {}) => {
-      const { from, notes = true, exactGoal, goal, as, ...start } = opts;
+      const { from, notes = true, exactGoal, goal, kind, ...start } = opts;
       if (from === undefined) {
-        if (!notes || exactGoal || as)
+        if (!notes || exactGoal || kind)
           throw new MesaError('usage', '--no-notes, --exact-goal and --as need --from');
         return open(project, { ...start, goal });
       }
@@ -100,7 +99,7 @@ export function itemSessions(
       const found = await item(project, from, { notes });
       const opened = await open(project, {
         ...start,
-        goal: exactGoal ? goal : withPrompt(project, found.item, goal, undefined, as),
+        goal: exactGoal ? goal : goalFor(project, found.item, { goal, kind }),
         from: { source: found.item.source, id: found.item.id },
       });
       const failed =

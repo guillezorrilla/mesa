@@ -25,17 +25,17 @@ export const importsCommands = {
   >(({ project }) => ['import', 'status', '--project', project]),
   // The goal a session started from the item gets, for the composer to fill in.
   // `prompt`: a Saved prompt's name for a Jira issue's goal, null for none, else the project's.
-  // `as`: a Jira issue's goal is that Ticket start's prompt, the Saved prompt its rules.
+  // `kind`: a Jira issue's goal is that Ticket start's prompt, the Saved prompt its rules.
   'imports.goal': commandWith<
-    { project: string; from: string; prompt?: string | null; as?: TicketStart },
+    { project: string; from: string; prompt?: string | null; kind?: TicketStart },
     { source: ItemSource; id: string; title: string; goal: string }
-  >(({ project, from, prompt, as }) => [
+  >(({ project, from, prompt, kind }) => [
     'import',
     'goal',
     '--project',
     project,
     ...(prompt === null ? ['--no-prompt'] : prompt ? [`--prompt=${prompt}`] : []),
-    ...(as ? [`--as=${as}`] : []),
+    ...(kind ? [`--as=${kind}`] : []),
     '--',
     from,
   ]),

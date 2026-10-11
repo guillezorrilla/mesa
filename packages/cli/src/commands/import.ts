@@ -103,7 +103,7 @@ export const importGoal = defineCommand({
     prompt: {
       type: 'string',
       description:
-        "A Jira issue's goal opens with this Saved prompt (with --as, follows it), over the project's ticket prompt",
+        "A Jira issue's goal opens with this Saved prompt (with --as, comes after that start's prompt as My rules), over the project's ticket prompt",
     },
     'no-prompt': {
       type: 'boolean',
@@ -116,8 +116,8 @@ export const importGoal = defineCommand({
     if (flags.prompt !== undefined && flags['no-prompt'])
       throw new MesaError('usage', 'pass --prompt or --no-prompt, not both');
     const prompt = flags['no-prompt'] ? null : flags.prompt;
-    const as = ticketStartOf(flags.as);
-    const data = await mesa.imports.goal(flags.project, args.item, prompt, as);
+    const kind = ticketStartOf(flags.as);
+    const data = await mesa.imports.goal(flags.project, args.item, prompt, kind);
     return { data, text: data.goal };
   },
 });
