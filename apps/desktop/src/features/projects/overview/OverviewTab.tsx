@@ -44,6 +44,7 @@ export function OverviewTab(props: {
       if (!session) return undefined;
       if (input.from) props.state.setDraft(undefined);
       props.state.setAdditional([]);
+      props.state.setComposerOpen(false);
       props.onSession(session.id);
       return warningOf(session);
     });

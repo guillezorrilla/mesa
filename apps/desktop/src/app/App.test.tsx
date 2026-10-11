@@ -1571,9 +1571,10 @@ test('Sessions and Projects tabs keep the same live session and expand the goal 
   expect(
     byTestId('project-active-session')[0]?.querySelector('[data-state="waiting-permission"]'),
   ).not.toBeNull();
-  expect(document.querySelector('#session-location')).toBeNull();
+  // Folded, its options are there but inert.
+  expect(document.querySelector('#session-location')?.closest('[inert]')).not.toBeNull();
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
-  expect(document.querySelector('#session-location')).not.toBeNull();
+  expect(document.querySelector('#session-location')?.closest('[inert]')).toBeNull();
   await click(byTestId('project-active-session')[0]);
   expect(byTestId('terminal-aaaaaaaa')).toHaveLength(1);
   expect(
@@ -2892,7 +2893,7 @@ test('appearance preference saves through config and updates the live app theme'
   await click(byTestId('open-settings')[0]);
   await click(
     [
-      ...(byTestId('settings')[0]?.querySelectorAll<HTMLButtonElement>('fieldset button') ?? []),
+      ...(byTestId('settings')[0]?.querySelectorAll<HTMLButtonElement>('[role="radio"]') ?? []),
     ].find((button) => button.textContent === 'Dark'),
   );
   expect(calls).toContainEqual(['--json', 'config', 'set', '--', 'appearance.theme', '"dark"']);

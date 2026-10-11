@@ -2,7 +2,16 @@
 import type { ImportListRow } from '@mesa/core';
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { click, envelope, fakeBridge, managedRow, PROJECTS, renderWithMesa } from '@/lib/testing';
+import {
+  choose,
+  click,
+  envelope,
+  fakeBridge,
+  managedRow,
+  PROJECTS,
+  press,
+  renderWithMesa,
+} from '@/lib/testing';
 import { ProjectScreen } from './ProjectScreen';
 
 const PROJECT = PROJECTS[0] as (typeof PROJECTS)[number];
@@ -18,15 +27,9 @@ const ISSUE: ImportListRow = {
 const TIDE_POOL = { ...PROJECT, name: 'tide-pool', label: 'tide-pool', path: '/src/tide-pool' };
 const GOAL = 'Work on the imported Jira issue LC-12: Fix the tide alarm\nSource: x';
 
-test('Context opens imported items; Start session fills the Overview composer and keeps the item', async () => {
-  const { bridge, calls } = fakeBridge({
-    'import list': () => envelope({ items: [ISSUE] }),
-    'import goal': () => envelope({ source: 'jira', id: 'LC-12', title: ISSUE.title, goal: GOAL }),
-    'sources list': () => envelope({ sources: [] }),
-    'worktrees list': () => envelope([]),
-    open: () => envelope(managedRow('newnewne')),
-  });
-  const byTestId = await renderWithMesa(
+/** The project screen on PROJECT, with no sessions, over `bridge`. */
+const renderScreen = (bridge: ReturnType<typeof fakeBridge>['bridge']) =>
+  renderWithMesa(
     <ProjectScreen
       project={PROJECT}
       sessions={[]}
@@ -41,6 +44,16 @@ test('Context opens imported items; Start session fills the Overview composer an
     />,
     bridge,
   );
+
+test('Context opens imported items; Start session fills the Overview composer and keeps the item', async () => {
+  const { bridge, calls } = fakeBridge({
+    'import list': () => envelope({ items: [ISSUE] }),
+    'import goal': () => envelope({ source: 'jira', id: 'LC-12', title: ISSUE.title, goal: GOAL }),
+    'sources list': () => envelope({ sources: [] }),
+    'worktrees list': () => envelope([]),
+    open: () => envelope(managedRow('newnewne')),
+  });
+  const byTestId = await renderScreen(bridge);
   const goal = () => byTestId('project-goal')[0] as HTMLTextAreaElement;
 
   const tabs = [...document.querySelectorAll<HTMLButtonElement>('nav button')];
@@ -97,21 +110,7 @@ test('the composer adds another project: its chip shows, Start in is its own wor
     'worktrees list': () => envelope([]),
     open: () => envelope(managedRow('newnewne')),
   });
-  const byTestId = await renderWithMesa(
-    <ProjectScreen
-      project={PROJECT}
-      sessions={[]}
-      onSession={() => undefined}
-      onVaultItem={() => undefined}
-      onChanged={() => undefined}
-      onUnregistered={() => undefined}
-      filesDirty={false}
-      onFilesDirtyChange={() => undefined}
-      onNewSession={() => undefined}
-      onAgentSettings={() => undefined}
-    />,
-    bridge,
-  );
+  const byTestId = await renderScreen(bridge);
   await act(async () => (byTestId('project-goal')[0] as HTMLTextAreaElement).focus());
   await click(byTestId('session-with-trigger')[0]);
   expect(byTestId('session-with-option-lantern-cove')).toHaveLength(0);
@@ -140,6 +139,51 @@ test('the composer adds another project: its chip shows, Start in is its own wor
   ]);
   // Started, the next session starts with no other project again.
   expect(byTestId('session-with-chip-tide-pool')).toHaveLength(0);
+});
+
+test('the composer folds on a click outside or Esc, not on its menu, and keeps what was picked', async () => {
+  const { bridge, calls } = fakeBridge({
+    projects: () => envelope([...PROJECTS, TIDE_POOL]),
+    'worktrees list': () => envelope([]),
+    open: () => envelope(managedRow('newnewne')),
+  });
+  const byTestId = await renderScreen(bridge);
+  const goal = byTestId('project-goal')[0] as HTMLTextAreaElement;
+  // Folded, its options are there but inert.
+  const open = () => !document.getElementById('session-location')?.closest('[inert]');
+  await act(async () => goal.focus());
+  expect(open()).toBe(true);
+  await choose(byTestId('session-mode')[0], 'plan');
+  // The Add project menu portals out of the form, and still counts as inside.
+  await click(byTestId('session-with-trigger')[0]);
+  await click(byTestId('session-with-option-tide-pool')[0]);
+  expect(open()).toBe(true);
+  // Esc in the menu closes only the menu.
+  await press(byTestId('session-with-option-tide-pool')[0], 'Escape');
+  expect(byTestId('session-with-option-tide-pool')).toHaveLength(0);
+  expect(open()).toBe(true);
+  await click(document.querySelector<HTMLElement>('nav button') ?? undefined);
+  expect(open()).toBe(false);
+  await act(async () => goal.focus());
+  expect(open()).toBe(true);
+  await press(goal, 'Escape');
+  expect(open()).toBe(false);
+  // Folded and opened again, Mod+Enter starts it with the mode and project picked before.
+  await act(async () => goal.focus());
+  await press(goal, 'Enter', { metaKey: true });
+  expect(calls).toContainEqual([
+    '--json',
+    'open',
+    '--no-parent',
+    '--agent',
+    'claude',
+    '--mode',
+    'plan',
+    '--with=tide-pool',
+    '--worktree',
+    '--',
+    'lantern-cove',
+  ]);
 });
 
 test('the Overview lists a session where the project is additional, marked from its primary', async () => {

@@ -1,36 +1,48 @@
+import { RadioGroup } from 'radix-ui';
 import { cn } from '@/lib/utils';
 
-/** A compact choice of one value among a few, each option a pressed or unpressed button. */
+/**
+ * A compact choice of one value among a few: a radio group drawn as joined segments, so arrows
+ * move it. Controlled with `value`, or left to itself with `defaultValue` and sent as the form's
+ * `name`.
+ */
 export function SegmentedControl<T extends string | number>(props: {
   label: string;
-  value: T;
   options: readonly (readonly [T, string])[];
-  onChange: (value: T) => void;
+  value?: T;
+  defaultValue?: T;
+  onChange?: (value: T) => void;
+  name?: string;
   /** Stretches it to its container, each option an equal share, as tall as a select. */
   wide?: boolean;
+  className?: string;
 }) {
+  const key = (value: T | undefined) => (value === undefined ? undefined : String(value));
   return (
-    <fieldset
+    <RadioGroup.Root
+      aria-label={props.label}
+      name={props.name}
+      value={key(props.value)}
+      defaultValue={key(props.defaultValue)}
+      onValueChange={(picked) => {
+        const option = props.options.find(([value]) => String(value) === picked);
+        if (option) props.onChange?.(option[0]);
+      }}
       className={cn(
         'flex items-center rounded-md border bg-card p-0.5',
-        props.wide && 'h-9 [&>button]:h-full [&>button]:flex-1',
+        props.wide && 'h-9 [&>button]:flex-1',
+        props.className,
       )}
     >
-      <legend className="sr-only">{props.label}</legend>
       {props.options.map(([value, text]) => (
-        <button
+        <RadioGroup.Item
           key={String(value)}
-          type="button"
-          aria-pressed={props.value === value}
-          className={cn(
-            'rounded px-3 py-1 text-xs text-muted-foreground hover:text-foreground',
-            'aria-pressed:bg-accent aria-pressed:text-foreground',
-          )}
-          onClick={() => props.onChange(value)}
+          value={String(value)}
+          className="h-full rounded px-3 py-1 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[state=checked]:bg-accent data-[state=checked]:text-foreground"
         >
           {text}
-        </button>
+        </RadioGroup.Item>
       ))}
-    </fieldset>
+    </RadioGroup.Root>
   );
 }

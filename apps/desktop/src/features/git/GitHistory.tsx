@@ -105,14 +105,16 @@ export function GitHistory(props: {
         >
           <Input
             aria-label="Compare base"
-            className="h-8 flex-1 font-mono text-xs"
+            size="sm"
+            className="flex-1 font-mono"
             value={base}
             onChange={(event) => setBase(event.target.value)}
             placeholder="Base ref"
           />
           <Input
             aria-label="Compare head"
-            className="h-8 flex-1 font-mono text-xs"
+            size="sm"
+            className="flex-1 font-mono"
             value={head}
             onChange={(event) => setHead(event.target.value)}
             placeholder="Head ref or selected commit"
