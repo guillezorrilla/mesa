@@ -4,6 +4,8 @@ import type {
   FollowedView,
   JiraField,
   JiraIssue,
+  ProviderId,
+  SourceId,
   Ticket,
   TicketDefaults,
   TicketView,
@@ -14,6 +16,16 @@ import { command, commandWith, type Recorded } from './spec';
 type ListedView = TicketView & { describe: string; following: string[] };
 type Follows = { project: string; following: string[] };
 type SiteOf<T> = { site: { id: string; name: string } } & T;
+
+/** One ticket whole, as its panel reads it. */
+type TicketDetail = JiraIssue & {
+  id: string;
+  provider: ProviderId;
+  url: string;
+  site: string;
+  mine: boolean;
+  sessions: { id: string; project: string }[];
+};
 
 /** The flags that name a view's query, as `mesa tickets views add` and `preview` take them. */
 const viewFlags = (view: Omit<ViewInput, 'name'>) => [
@@ -34,6 +46,10 @@ export const ticketsCommands = {
     { project: string },
     {
       project: string;
+      /** The tracker the project tracks work in, null when it has none yet. */
+      tracker: ProviderId | null;
+      /** Its source, when it is not connected: connecting lists the views. */
+      connect?: SourceId;
       prompt: string | null;
       projectPrompt: string | null;
       defaults: TicketDefaults;
@@ -60,15 +76,12 @@ export const ticketsCommands = {
       note?: string;
     }
   >(({ view }) => ['tickets', 'preview', ...viewFlags(view)]),
-  'tickets.show': commandWith<
-    { key: string },
-    JiraIssue & {
-      url: string;
-      site: string;
-      mine: boolean;
-      sessions: { id: string; project: string }[];
-    }
-  >(({ key }) => ['tickets', 'show', '--', key]),
+  'tickets.show': commandWith<{ key: string }, TicketDetail>(({ key }) => [
+    'tickets',
+    'show',
+    '--',
+    key,
+  ]),
   'tickets.assign': commandWith<{ key: string }, Recorded<{ key: string; assignee: string }>>(
     ({ key }) => ['tickets', 'assign', '--', key],
   ),

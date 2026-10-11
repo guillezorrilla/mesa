@@ -1,61 +1,40 @@
 import type { MesaContext } from '../context.js';
-import { MesaError } from '../lib/result.js';
-import { issueUrl } from '../sources/atlassian.js';
-import { type JiraField, readJiraIssue } from '../sources/jira.js';
-import { assignIssue } from '../sources/jira-tickets.js';
-import type { JiraAccess } from './jira-access.js';
 import { liveSessions } from './live.js';
-
-/** A Jira issue key: a project key, a dash, a number. */
-const KEY = /^[A-Za-z][A-Za-z0-9_]*-\d+$/;
-const issueKey = (key: string) => {
-  if (!KEY.test(key.trim())) throw new MesaError('usage', `${key} is not a Jira issue key`);
-  return key.trim().toUpperCase();
-};
+import { type connectProviders, PROVIDERS, ticketId, ticketRef } from './providers.js';
 
 /**
- * One ticket of the Tickets tab: its whole panel, with the profile's chosen `fields`, and
- * assigning it to the person.
+ * One ticket of the Tickets tab, by its id (jira:LC-12) or a bare Jira key: its whole panel,
+ * read through its provider's row, and assigning it to the person.
  */
-export function ticketActions(ctx: MesaContext, jira: JiraAccess, fields: () => JiraField[]) {
+export function ticketActions(ctx: MesaContext, rows: ReturnType<typeof connectProviders>) {
+  /** `input`'s provider row and its key, checked by that row. */
+  const of = (input: string) => {
+    const { provider, key } = ticketRef(input);
+    const row = rows[provider];
+    return { provider, row, key: row.key(key) };
+  };
   return {
-    /**
-     * Ticket `key` with its description, comments and chosen fields, whether it is the person's,
-     * and its sessions.
-     */
-    show: async (input: string, siteName?: string) => {
-      const key = issueKey(input);
-      const site = await jira.siteOf(siteName);
-      const url = issueUrl(site, key);
-      const [issue, me] = await Promise.all([
-        readJiraIssue(jira.get(), site.id, key, url, fields()),
-        jira.me(),
-      ]);
-      return {
-        ...issue,
-        url,
-        site: site.id,
-        mine: issue.assignee?.accountId === me.id,
-        sessions: liveSessions(ctx).get(key) ?? [],
-      };
+    /** The ticket with its description, comments and fields, whether it is the person's, and its sessions. */
+    show: async (input: string, where?: string) => {
+      const { provider, row, key } = of(input);
+      const id = ticketId(provider, key);
+      const detail = await row.show(key, where);
+      return { ...detail, id, provider, sessions: liveSessions(ctx).get(id) ?? [] };
     },
-    /** Assigns ticket `key` to the signed-in person: Mesa's one write to Jira, with a receipt. */
-    assign: async (input: string, siteName?: string) => {
-      const key = issueKey(input);
-      const site = await jira.siteOf(siteName);
+    /** Assigns the ticket to the signed-in person: Mesa's one write to its provider, with a receipt. */
+    assign: async (input: string, where?: string) => {
+      const { provider, row, key } = of(input);
+      const { name } = PROVIDERS[provider];
+      const place = await row.place(where);
       return ctx.record(
         {
           kind: 'connection',
-          summary: () => `Assigned ${key} to you in Jira`,
+          summary: () => `Assigned ${key} to you in ${name}`,
           failure: `Could not assign ${key}`,
-          inputs: { key, site: site.name },
-          outputs: () => ({ key, site: site.name }),
+          inputs: { id: ticketId(provider, key), where: place },
+          outputs: () => ({ id: ticketId(provider, key), where: place }),
         },
-        async () => {
-          const me = await jira.me();
-          await assignIssue(jira.get(), site, key, me.id);
-          return { key, assignee: me.name };
-        },
+        async () => ({ key, assignee: (await row.assign(key, where)).assignee }),
       );
     },
   };

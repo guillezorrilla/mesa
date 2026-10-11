@@ -1,17 +1,14 @@
 import type { ViewInput } from '@mesa/core';
-import { SquareKanban } from 'lucide-react';
 import { useState } from 'react';
-import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { ViewCount } from './ViewCount';
+import { FollowDialogFrame } from './FollowDialogFrame';
 import { type Pick, ViewPicker } from './ViewPicker';
 
 type Kind = 'current' | 'next' | 'filter' | 'jql';
@@ -86,21 +83,23 @@ export function FollowViewDialog(props: {
       return undefined;
     });
   return (
-    <ActionDialog
-      testId="follow-view-dialog"
-      wide
-      title={
-        <span className="flex items-center gap-2">
-          <SquareKanban aria-hidden className="size-4 text-state-working" />
-          Follow a Jira view
-        </span>
-      }
+    <FollowDialogFrame
+      tracker="jira"
+      title="Follow a Jira view"
       description="Its tickets show up in this tab and stay current as sprints change."
-      submit={{
-        label: 'Follow',
-        testId: 'confirm-follow-view',
-        disabled: acting || !view || taken !== undefined,
-      }}
+      view={view}
+      name={name}
+      waiting={
+        kind === 'jql'
+          ? 'Type a query, then click outside it to count its tickets.'
+          : 'Pick a board or filter.'
+      }
+      labels={{ mine: 'Only my tickets', hideDone: 'Hide done tickets' }}
+      mine={mine}
+      hideDone={hideDone}
+      onMine={setMine}
+      onHideDone={setHideDone}
+      disabled={acting || !view || taken !== undefined}
       onSubmit={() => follow()}
       onCancel={props.onCancel}
     >
@@ -175,28 +174,6 @@ export function FollowViewDialog(props: {
           </Muted>
         )}
       </div>
-      {(
-        [
-          ['view-mine', 'Only my tickets', mine, setMine],
-          ['view-hide-done', 'Hide done tickets', hideDone, setHideDone],
-        ] as const
-      ).map(([id, label, value, onChange]) => (
-        <div key={id} className="flex items-center justify-between">
-          <Label htmlFor={id} className="font-normal">
-            {label}
-          </Label>
-          <Switch id={id} checked={value} onCheckedChange={onChange} />
-        </div>
-      ))}
-      {view ? (
-        <ViewCount view={view} name={name} />
-      ) : (
-        <Muted role="status">
-          {kind === 'jql'
-            ? 'Type a query, then click outside it to count its tickets.'
-            : 'Pick a board or filter.'}
-        </Muted>
-      )}
-    </ActionDialog>
+    </FollowDialogFrame>
   );
 }

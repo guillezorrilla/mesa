@@ -1,17 +1,18 @@
 import type { Ticket, TicketDefaults } from '@mesa/core';
 import { timeAgo } from '@mesa/core/browser';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
-import { Fragment } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
 import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { AssigneeAvatar } from './AssigneeAvatar';
+import { FieldRow } from './FieldRow';
 import { LiveDot } from './LiveDot';
 import { StatusIcon } from './StatusIcon';
 import { TicketStartPanel } from './start/TicketStartPanel';
 import { TicketFieldsMenu } from './TicketFieldsMenu';
+import { TRACKERS } from './trackers';
 
 /** Links in a ticket's text open in the browser, never in the app. */
 const link = (href: string, children: React.ReactNode) => (
@@ -21,8 +22,9 @@ const link = (href: string, children: React.ReactNode) => (
 );
 
 /**
- * One ticket beside the list: its key and Jira link, title, who has a session on it, its
- * fields, description and comments, and the Ticket starts (TicketStartPanel).
+ * One ticket beside the list: its key and link to its tracker, title, who has a session on it,
+ * Status, Assignee and its tracker's own fields (TRACKERS), description and comments, and the
+ * Ticket starts (TicketStartPanel).
  */
 export function TicketPanel(props: {
   project: string;
@@ -36,6 +38,7 @@ export function TicketPanel(props: {
   onSession: (id: string) => void;
 }) {
   const { ticket } = props;
+  const tracker = TRACKERS[ticket.provider];
   const detail = useCommand('tickets.show', { key: ticket.key });
   const run = useRun();
   const { acting, act } = useAct();
@@ -70,7 +73,7 @@ export function TicketPanel(props: {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 hover:text-foreground"
           >
-            Open in Jira <ExternalLink aria-hidden className="size-3.5" />
+            Open in {tracker.name} <ExternalLink aria-hidden className="size-3.5" />
           </a>
         </div>
         <h2 className="text-xl leading-snug font-semibold text-balance">{ticket.summary}</h2>
@@ -84,13 +87,11 @@ export function TicketPanel(props: {
           </div>
         )}
         <dl className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">Status</dt>
-          <dd className="flex items-center gap-2">
+          <FieldRow name="Status" className="flex items-center gap-2">
             <StatusIcon category={ticket.category} />
             {ticket.status}
-          </dd>
-          <dt className="text-muted-foreground">Assignee</dt>
-          <dd className="flex flex-wrap items-center gap-2">
+          </FieldRow>
+          <FieldRow name="Assignee" className="flex flex-wrap items-center gap-2">
             <AssigneeAvatar name={assignee} />
             {assignee ?? <span className="text-muted-foreground">Unassigned</span>}
             {!mine && (
@@ -103,41 +104,8 @@ export function TicketPanel(props: {
                 Assign to me
               </button>
             )}
-          </dd>
-          {(full?.priority ?? ticket.priority) && (
-            <>
-              <dt className="text-muted-foreground">Priority</dt>
-              <dd>{full?.priority ?? ticket.priority}</dd>
-            </>
-          )}
-          {full && full.labels.length > 0 && (
-            <>
-              <dt className="text-muted-foreground">Labels</dt>
-              <dd className="flex flex-wrap gap-1.5">
-                {full.labels.map((label) => (
-                  <span key={label} className="rounded-md bg-muted px-2 py-0.5 text-xs">
-                    {label}
-                  </span>
-                ))}
-              </dd>
-            </>
-          )}
-          {props.sprints.length > 0 && (
-            <>
-              <dt className="text-muted-foreground">Sprint</dt>
-              <dd>{props.sprints.join(', ')}</dd>
-            </>
-          )}
-          {full?.fields?.map((field) => (
-            <Fragment key={field.id}>
-              <dt className="truncate text-muted-foreground" title={field.name}>
-                {field.name}
-              </dt>
-              <dd className="break-words">
-                {field.value ?? <span className="text-muted-foreground">None</span>}
-              </dd>
-            </Fragment>
-          ))}
+          </FieldRow>
+          <tracker.Fields ticket={ticket} detail={full} sprints={props.sprints} />
         </dl>
         {full?.fields && (
           <TicketFieldsMenu shown={full.fields} disabled={acting} onChange={setFields} />

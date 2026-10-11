@@ -95,6 +95,19 @@ test("mesa tickets views add, follow and the list read a board's current sprint"
   expect((await cli.mesa('tickets', 'views')).stdout).toBe('No ticket views.\n');
 });
 
+test('mesa tickets tracker shows or sets where a project tracks work', async () => {
+  await connected();
+  expect((await cli.mesa('tickets', 'tracker', 'lantern-cove')).stdout).toContain(
+    'lantern-cove has no tracker yet',
+  );
+  const set = await cli.mesa('tickets', 'tracker', 'lantern-cove', 'jira', '--json');
+  expect(set.json.data).toEqual({ project: 'lantern-cove', tracker: 'jira' });
+  expect((await cli.mesa('tickets', 'tracker', 'lantern-cove')).stdout).toContain(
+    'lantern-cove tracks work in jira',
+  );
+  expect((await cli.mesa('tickets', 'tracker', 'lantern-cove', 'trello')).code).toBe(2);
+});
+
 test('mesa tickets prompt names a Saved prompt for the profile or a project, or clears it', async () => {
   await cli.withProject();
   expect((await cli.mesa('tickets', 'prompt')).code).toBe(2);
@@ -137,8 +150,17 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
   expect(shown.stdout).toContain('LC-12: Fix the tide alarm\nTo Do · Unassigned');
   expect(shown.stdout).toContain('\nLate.\n');
 
+  // A ticket id names its provider; a bare Jira key still works.
+  expect((await cli.mesa('tickets', 'show', 'jira:LC-12', '--json')).json.data).toMatchObject({
+    id: 'jira:LC-12',
+    provider: 'jira',
+  });
+
   world.servePut(`${TEST_JIRA}/issue/LC-12/assignee`, () => ({}));
   expect((await cli.mesa('tickets', 'assign', 'LC-12')).stdout).toContain(
+    'Assigned LC-12 to Rowan Tide',
+  );
+  expect((await cli.mesa('tickets', 'assign', 'jira:LC-12')).stdout).toContain(
     'Assigned LC-12 to Rowan Tide',
   );
 

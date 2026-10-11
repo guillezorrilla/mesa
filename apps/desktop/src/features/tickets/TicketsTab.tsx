@@ -1,16 +1,15 @@
 import { DEFAULTS, timeAgo } from '@mesa/core/browser';
 import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
-import { Button } from '@/components/ui/button';
-import { useAct } from '@/lib/useAct';
-import { useCommand, useRun } from '@/lib/useCommand';
+import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { FollowViewDialog } from './FollowViewDialog';
 import { JiraSetupPanel } from './JiraSetupPanel';
 import { ManageViewsDialog } from './ManageViewsDialog';
+import { SignInBanner } from './SignInBanner';
 import { TicketList } from './TicketList';
 import { TicketPanel } from './TicketPanel';
 import { TicketsToolbar } from './TicketsToolbar';
+import { TRACKERS } from './trackers';
 import { useKeptPick } from './useKeptPick';
 
 /**
@@ -21,8 +20,6 @@ import { useKeptPick } from './useKeptPick';
 export function TicketsTab(props: { project: string; onSession: (id: string) => void }) {
   const { project } = props;
   const list = useCommand('tickets.list', { project });
-  const run = useRun();
-  const { acting, act } = useAct();
   const [view, setView] = useKeptPick(project, 'view');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useKeptPick(project, 'ticket');
@@ -58,12 +55,11 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
     ]),
   );
   const failing = views.filter((v) => v.error && (!current || v.name === current));
+  const signIn = failing.filter((v) => v.connect);
+  // A project with no tracker yet follows Jira from its setup panel, as before trackers.
+  const tracker = data?.tracker ?? 'jira';
+  const { Follow, name } = TRACKERS[tracker];
   const refresh = () => void list.refresh();
-  const reconnect = () =>
-    void act(async () => {
-      if (await run('sources.connect', { source: 'atlassian' })) refresh();
-      return undefined;
-    });
 
   const setup = data && !views.length;
   return (
@@ -99,24 +95,25 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
             }}
             onSettingsChanged={refresh}
           />
-          {failing.map((v) => (
-            <div
-              key={v.name}
-              role="alert"
-              className="mx-4 mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-state-waiting/15 px-3 py-2 text-sm"
-            >
-              <span className="flex-1">
-                {v.connect
-                  ? `Mesa needs a fresh sign-in to read ${v.name} from Jira.`
-                  : `${v.name}: ${v.error}`}
-              </span>
-              {v.connect && (
-                <Button variant="outline" size="sm" disabled={acting} onClick={reconnect}>
-                  Reconnect Atlassian
-                </Button>
-              )}
-            </div>
-          ))}
+          {signIn.length > 0 && (
+            <SignInBanner
+              tracker={tracker}
+              views={signIn}
+              notConnected={data?.connect !== undefined}
+              onConnected={refresh}
+            />
+          )}
+          {failing
+            .filter((v) => !v.connect)
+            .map((v) => (
+              <div
+                key={v.name}
+                role="alert"
+                className="mx-4 mt-3 rounded-lg bg-state-waiting/15 px-3 py-2 text-sm"
+              >
+                {v.name}: {v.error}
+              </div>
+            ))}
           <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
             <div
               className={cn('min-h-0 overflow-auto md:border-r', narrowTicket && 'max-md:hidden')}
@@ -133,7 +130,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
               ) : (
                 <Muted className="px-4 py-10 text-center">
                   {!data
-                    ? 'Reading Jira...'
+                    ? `Reading ${name}...`
                     : (views.find((v) => v.name === current)?.note ??
                       (words ? 'No tickets match.' : 'No tickets in this view.'))}
                 </Muted>
@@ -160,7 +157,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
         </>
       )}
       {dialog === 'follow' && (
-        <FollowViewDialog
+        <Follow
           project={project}
           following={views.map((v) => v.name)}
           onFollowed={() => {
