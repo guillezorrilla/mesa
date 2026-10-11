@@ -120,7 +120,9 @@ function linearRefIn(url: URL, text: string, sites: Site[] | undefined): ItemRef
       `${text} is not a Linear issue, project or document: Mesa imports /<workspace>/issue/<ID>, /project/<slug> and /document/<slug> links`,
     );
   }
-  if (!sites.some((site) => site.url === `${LINEAR_WEB}/${link.workspace}`)) {
+  // URL keys are case-insensitive in Linear's links, so a pasted link's case does not matter.
+  const workspaceUrl = `${LINEAR_WEB}/${link.workspace}`.toLowerCase();
+  if (!sites.some((site) => site.url.toLowerCase() === workspaceUrl)) {
     throw new MesaError(
       'not_found',
       `${link.workspace} is not the connected Linear workspace (${sites.map((s) => s.name).join(', ')}): reconnect with mesa sources connect linear and pick it`,

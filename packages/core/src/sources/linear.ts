@@ -37,7 +37,7 @@ export async function linearCall<T>(
   const body: unknown = await response.json().catch(() => undefined);
   const parsed = z.object({ data: z.unknown(), errors: errorsSchema }).safeParse(body);
   const errors = (parsed.success && parsed.data.errors) || [];
-  if (errors.some((e) => /not found/i.test(e.message))) {
+  if (errors.some((e) => /^Entity not found\b/i.test(e.message))) {
     throw new MesaError(
       'not_found',
       `${what} is missing, or not in the connected Linear workspace: reconnect Linear and pick its workspace`,

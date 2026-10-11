@@ -207,6 +207,8 @@ test('a link to another workspace, to no item, or to a missing issue says why', 
     message:
       'other-cove is not the connected Linear workspace (Lantern Cove): reconnect with mesa sources connect linear and pick it',
   });
+  // The workspace's URL key in another case is still the connected workspace.
+  await expect(add('https://linear.app/Lantern-Cove/issue/HAR-404')).rejects.toThrow(/is missing/);
   await expect(add(`${WEB}/team/HAR/active`)).rejects.toMatchObject({
     code: 'usage',
     message: `${WEB}/team/HAR/active is not a Linear issue, project or document: Mesa imports /<workspace>/issue/<ID>, /project/<slug> and /document/<slug> links`,
