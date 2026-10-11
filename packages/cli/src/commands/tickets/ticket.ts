@@ -8,7 +8,7 @@ const { site } = VIEW_FLAGS;
 export const ticketsShow = defineCommand({
   name: 'tickets show',
   summary:
-    'Show one ticket, by id (jira:LC-12, github:owner/repo#12) or Jira key: its fields, description, comments and sessions',
+    'Show one ticket, by id (jira:LC-12, github:owner/repo#12, clickup:DOCK-112) or Jira key: its fields, description, comments and sessions',
   args: ['key'],
   flags: { site },
   example: 'mesa tickets show LC-12',

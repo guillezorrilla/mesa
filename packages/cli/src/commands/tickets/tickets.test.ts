@@ -1,7 +1,10 @@
 import {
+  clickupTaskObject,
+  clickupWorld,
   githubIssueObject,
   githubWorld,
   scriptedRunner,
+  TEST_CLICKUP,
   TEST_GITHUB,
   TEST_JIRA,
 } from '@mesa/core/testing';
@@ -320,7 +323,7 @@ test("mesa tickets views add --provider github follows the project's origin repo
     '--',
     'x',
   );
-  expect(jiraOnly.json.error).toEqual({ code: 'usage', message: "--board: Jira's only" });
+  expect(jiraOnly.json.error).toEqual({ code: 'usage', message: '--board: for Jira views only' });
 
   expect((await cli.mesa('tickets', 'tracker', 'lantern-cove', 'github')).stdout).toBe(
     'lantern-cove tracks work in github\n',
@@ -342,4 +345,86 @@ test("mesa tickets views add --provider github follows the project's origin repo
   );
   const assigned = await cli.mesa('tickets', 'assign', `github:${repo}#412`, '--json');
   expect(assigned.json.data).toMatchObject({ key: `${repo}#412`, assignee: 'Rowan Tide' });
+});
+
+test('mesa tickets views add --provider clickup follows a Folder by its link, and the tab lists, shows and assigns its tasks', async () => {
+  const world = clickupWorld();
+  cli.deps = { ...world.deps, run: scriptedRunner({ '/usr/bin/open': world.signIn.open }).run };
+  await cli.withProject();
+  await cli.mesa('sources', 'connect', 'clickup');
+  world.serveLocations();
+  expect((await cli.mesa('tickets', 'locations')).stdout).toBe(
+    [
+      'Lantern Cove (ws-1)',
+      '  Space Harbor ops (s1)',
+      '    Folder Q4 roadmap (f1)',
+      '      List Sprint 18 (l1)',
+      '    List Inbox (l2)',
+      '',
+    ].join('\n'),
+  );
+  expect((await cli.mesa('tickets', 'saved-views')).stdout).toBe(
+    'My open tasks: list in Everything (v-mine)\nDock sprint board: board in Harbor ops (v-board)\n',
+  );
+
+  const added = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--provider',
+    'clickup',
+    '--folder',
+    'https://app.clickup.com/ws-1/v/f/f1',
+    '--everyone',
+    '--json',
+    '--',
+    'Q4 roadmap',
+  );
+  expect(added.json.data).toMatchObject({
+    provider: 'clickup',
+    workspace: 'ws-1',
+    kind: 'folder',
+    id: 'f1',
+    title: 'Q4 roadmap',
+    describe: 'Harbor ops',
+  });
+  const githubOnly = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--provider',
+    'clickup',
+    '--repo',
+    'harbor-co/harbor-api',
+    '--json',
+    '--',
+    'x',
+  );
+  expect(githubOnly.json.error).toEqual({
+    code: 'usage',
+    message: '--repo: for GitHub Issues views only',
+  });
+
+  await cli.mesa('tickets', 'tracker', 'lantern-cove', 'clickup');
+  await cli.mesa('tickets', 'follow', 'lantern-cove', 'Q4 roadmap');
+  const task = clickupTaskObject('86a1', 'Replace the fender sensors', {
+    custom: 'DOCK-112',
+    type: 'custom',
+    tags: ['hardware'],
+  });
+  world.serveTasks('/v2/team/ws-1/task?project_ids%5B%5D=f1&subtasks=true', [[task]]);
+  expect((await cli.mesa('tickets', 'lantern-cove')).stdout).toBe(
+    'Q4 roadmap: Harbor ops\n\nDOCK-112  in progress  Replace the fender sensors\n',
+  );
+  world.serveTaskObject(task);
+  world.serve(`${TEST_CLICKUP}/v2/space/s1`, { name: 'Harbor ops' });
+  const shown = await cli.mesa('tickets', 'show', 'clickup:DOCK-112');
+  expect(shown.stdout).toContain(
+    'DOCK-112: Replace the fender sensors\nin progress · Unassigned · hardware\n',
+  );
+  world.servePut(`${TEST_CLICKUP}/v2/task/DOCK-112?custom_task_ids=true&team_id=ws-1`, () =>
+    clickupTaskObject('86a1', 'Replace the fender sensors', { assignees: ['Rowan Tide'] }),
+  );
+  const assigned = await cli.mesa('tickets', 'assign', 'clickup:DOCK-112', '--json');
+  expect(assigned.json.data).toMatchObject({ key: 'DOCK-112', assignee: 'Rowan Tide' });
 });

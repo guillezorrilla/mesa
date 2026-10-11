@@ -305,6 +305,57 @@ export function notionWorld(signIn = fakeSignIn()) {
 /** ClickUp's API in clickupWorld. */
 export const TEST_CLICKUP = 'https://api.clickup.com/api';
 
+/** The invented ClickUp people clickupWorld knows, by name. */
+const CLICKUP_PEOPLE: Record<string, number> = {
+  'Rowan Tide': 101,
+  'Mira Keel': 102,
+  'Ash Pier': 103,
+};
+
+/** ClickUp's status types, each with its invented status name and color. */
+const CLICKUP_STATUSES = {
+  open: { status: 'to do', color: '#87909e' },
+  custom: { status: 'in progress', color: '#5f55ee' },
+  done: { status: 'review', color: '#f8ae00' },
+  closed: { status: 'complete', color: '#008844' },
+};
+
+/** A task as ClickUp's API answers it, in Workspace ws-1's Space s1, List l1 in Folder f1. */
+export const clickupTaskObject = (
+  id: string,
+  name: string,
+  more: {
+    custom?: string;
+    type?: keyof typeof CLICKUP_STATUSES;
+    assignees?: string[];
+    priority?: 'urgent' | 'high' | 'normal' | 'low';
+    tags?: string[];
+    due?: string;
+    parent?: string;
+    markdown?: string;
+  } = {},
+) => ({
+  id,
+  custom_id: more.custom ?? null,
+  name,
+  team_id: 'ws-1',
+  parent: more.parent ?? null,
+  status: { ...CLICKUP_STATUSES[more.type ?? 'open'], type: more.type ?? 'open' },
+  priority: more.priority ? { priority: more.priority, color: '#f8ae00' } : null,
+  assignees: (more.assignees ?? []).map((username) => ({
+    id: CLICKUP_PEOPLE[username] ?? 199,
+    username,
+    email: `${username.split(' ')[0]?.toLowerCase()}@example.test`,
+  })),
+  tags: (more.tags ?? []).map((tag) => ({ name: tag, tag_bg: '#4466ff' })),
+  due_date: more.due ?? null,
+  markdown_description: more.markdown ?? '',
+  url: `https://app.clickup.com/t/${id}`,
+  list: { id: 'l1', name: 'Sprint 18' },
+  folder: { id: 'f1', name: 'Q4 roadmap', hidden: false },
+  space: { id: 's1' },
+});
+
 /**
  * ClickUp and the broker in memory (brokerWorld): access tokens with no expiry and no refresh
  * token, as ClickUp's are. Rowan Tide signed in and gave Mesa the invented Workspace Lantern Cove
@@ -316,6 +367,29 @@ export function clickupWorld(signIn = fakeSignIn()) {
     user: { id: 101, username: 'Rowan Tide', email: 'rowan@example.test' },
   });
   world.serve(`${TEST_CLICKUP}/v2/team`, { teams: [{ id: 'ws-1', name: 'Lantern Cove' }] });
+  /**
+   * Task `id`'s `comments` (newest last), 25 to a page, newest first, as ClickUp pages them;
+   * `custom` is the query that names it by its custom id.
+   */
+  const serveComments = (id: string, comments: { by: string; text: string }[], custom = '') => {
+    const newest = comments
+      .map((c, at) => ({
+        id: `c${at}`,
+        comment_text: c.text,
+        user: { username: c.by },
+        date: String(1790000000000 + at * 60_000),
+      }))
+      .reverse();
+    for (let at = 0; at === 0 || at <= newest.length; at += 25) {
+      const last = newest[at - 1];
+      const query = [custom, last ? `start=${last.date}&start_id=${last.id}` : '']
+        .filter(Boolean)
+        .join('&');
+      world.serve(`${TEST_CLICKUP}/v2/task/${id}/comment${query ? `?${query}` : ''}`, {
+        comments: newest.slice(at, at + 25),
+      });
+    }
+  };
   return {
     ...world,
     /**
@@ -343,21 +417,72 @@ export function clickupWorld(signIn = fakeSignIn()) {
         date_created: '1790000000000',
         date_updated: task.updated ?? '1790000000000',
       });
-      const comments = (task.comments ?? [])
-        .map((c, at) => ({
-          id: `c${at}`,
-          comment_text: c.text,
-          user: { username: c.by },
-          date: String(1790000000000 + at * 60_000),
-        }))
-        .reverse();
-      for (let at = 0; at === 0 || at <= comments.length; at += 25) {
-        const last = comments[at - 1];
-        const query = last ? `?start=${last.date}&start_id=${last.id}` : '';
-        world.serve(`${TEST_CLICKUP}/v2/task/${id}/comment${query}`, {
-          comments: comments.slice(at, at + 25),
+      serveComments(id, task.comments ?? []);
+    },
+    /**
+     * A task whole (clickupTaskObject) and its comments, by its custom id in ws-1 when it has one,
+     * else by its id.
+     */
+    serveTaskObject: (
+      task: ReturnType<typeof clickupTaskObject>,
+      comments: { by: string; text: string }[] = [],
+    ) => {
+      const id = task.custom_id ?? task.id;
+      const custom = task.custom_id ? 'custom_task_ids=true&team_id=ws-1' : '';
+      const query = ['include_markdown_description=true', custom].filter(Boolean).join('&');
+      world.serve(`${TEST_CLICKUP}/v2/task/${id}?${query}`, task);
+      serveComments(id, comments, custom);
+    },
+    /** The `pages` of tasks ClickUp answers at `path` (with its query), 100 to a full page. */
+    serveTasks: (path: string, pages: unknown[][]) =>
+      pages.forEach((tasks, page) => {
+        world.serve(`${TEST_CLICKUP}${path}${path.includes('?') ? '&' : '?'}page=${page}`, {
+          tasks,
+          last_page: page === pages.length - 1,
         });
-      }
+      }),
+    /**
+     * ws-1's Space Harbor ops (s1): Folder Q4 roadmap (f1) with List Sprint 18 (l1), and List
+     * Inbox (l2) outside any Folder; and its saved views at Everything and in the Space.
+     */
+    serveLocations: () => {
+      world.serve(`${TEST_CLICKUP}/v2/team/ws-1/space?archived=false`, {
+        spaces: [{ id: 's1', name: 'Harbor ops', color: '#7b68ee' }],
+      });
+      world.serve(`${TEST_CLICKUP}/v2/space/s1/folder?archived=false`, {
+        folders: [
+          {
+            id: 'f1',
+            name: 'Q4 roadmap',
+            lists: [{ id: 'l1', name: 'Sprint 18', task_count: 14 }],
+          },
+        ],
+      });
+      world.serve(`${TEST_CLICKUP}/v2/space/s1/list?archived=false`, {
+        lists: [{ id: 'l2', name: 'Inbox', task_count: 0 }],
+      });
+      world.serve(`${TEST_CLICKUP}/v2/team/ws-1/view`, {
+        views: [
+          { id: 'v-mine', name: 'My open tasks', type: 'list' },
+          { id: 'v-doc', name: 'Runbook', type: 'doc' },
+        ],
+      });
+      world.serve(`${TEST_CLICKUP}/v2/space/s1/view`, {
+        views: [{ id: 'v-board', name: 'Dock sprint board', type: 'board' }],
+      });
+      world.serve(`${TEST_CLICKUP}/v2/list/l1`, {
+        name: 'Sprint 18',
+        folder: { name: 'Q4 roadmap', hidden: false },
+        space: { name: 'Harbor ops' },
+      });
+      world.serve(`${TEST_CLICKUP}/v2/folder/f1`, {
+        name: 'Q4 roadmap',
+        space: { name: 'Harbor ops' },
+      });
+      world.serve(`${TEST_CLICKUP}/v2/space/s1`, { name: 'Harbor ops' });
+      world.serve(`${TEST_CLICKUP}/v2/view/v-board`, {
+        view: { name: 'Dock sprint board', type: 'board' },
+      });
     },
   };
 }

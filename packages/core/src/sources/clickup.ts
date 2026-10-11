@@ -14,12 +14,27 @@ export const CLICKUP_WEB = 'https://app.clickup.com';
 export const CLICKUP_HOSTS = ['app.clickup.com'];
 
 /**
- * One GET of ClickUp's API at `path`, its JSON body parsed by `schema`. ClickUp answers 404 for an
- * item that is gone, and a 401 (authorizedFetch's outOfReach) for one in a Workspace the person
- * did not give Mesa: both not_found, saying so.
+ * One GET of ClickUp's API at `path` (a PUT of `put` as JSON when given), its JSON body parsed by
+ * `schema`. ClickUp answers 404 for an item that is gone, and a 401 (authorizedFetch's
+ * outOfReach) for one in a Workspace the person did not give Mesa: both not_found, saying so.
  */
-export async function clickupCall<T>(get: Http, path: string, schema: z.ZodType<T>, what: string) {
-  const response = await get(`${CLICKUP_API}${path}`);
+export async function clickupCall<T>(
+  get: Http,
+  path: string,
+  schema: z.ZodType<T>,
+  what: string,
+  put?: unknown,
+) {
+  const response = await get(
+    `${CLICKUP_API}${path}`,
+    put === undefined
+      ? undefined
+      : {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(put),
+        },
+  );
   if (response.status === 404 || response.status === 401) {
     throw new MesaError(
       'not_found',
@@ -95,3 +110,27 @@ export const clickupRef = (link: ClickupLink): ItemRef => ({
   id: link.kind === 'task' ? link.id : `${link.doc}.${link.page}`,
   url: clickupUrl(link),
 });
+
+/** What a ClickUp view of tasks follows: a List, every List in a Folder or Space, or a saved view. */
+export type ClickupLocationKind = 'list' | 'folder' | 'space' | 'view';
+
+const LOCATION_CODES: Record<string, ClickupLocationKind> = { li: 'list', f: 'folder', s: 'space' };
+
+/**
+ * The List, Folder, Space or saved view a ClickUp link names, and its Workspace: `/<ws>/v/li/<id>`
+ * (`f` a Folder, `s` a Space), a view of one of them such as `/<ws>/v/b/li/<id>`, or a saved
+ * view, `/<ws>/v/<type>/<view id>`. Undefined for any other link (a task, a Doc).
+ */
+export function clickupLocationLink(
+  url: URL,
+): { workspace: string; kind: ClickupLocationKind; id: string } | undefined {
+  if (!CLICKUP_HOSTS.includes(url.host)) return undefined;
+  const [, workspace, v, code = '', ...rest] = url.pathname.split('/');
+  if (!workspace || v !== 'v' || !rest[0] || code === 'dc') return undefined;
+  const of = (kind: ClickupLocationKind | undefined, id: string | undefined) =>
+    kind && id && /^[\w-]+$/.test(id) ? { workspace, kind, id } : undefined;
+  const direct = LOCATION_CODES[code];
+  if (direct) return of(direct, rest[0]);
+  const inner = LOCATION_CODES[rest[0]];
+  return inner ? of(inner, rest[1]) : of('view', rest[0]);
+}
