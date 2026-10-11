@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import type { TicketStart } from '../sources/ticket-start.js';
+import { MAX_GOAL_CONDITION } from '../sessions/start/goal.js';
 import { importProfile, newSession, TEST_JIRA, testStore } from '../testing/index.js';
+import type { TicketStart } from './ticket-start.js';
 
 const AGILE = 'https://api.atlassian.com/ex/jira/cloud-1/rest/agile/1.0';
 const SITE = 'https://lantern-cove.atlassian.net';
@@ -159,11 +160,30 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   expect(investigate).toContain('mesa open lantern-cove --from LC-12 --as goal');
   const built = await as('goal', null);
   expect(built).toMatch(/^\/goal Finish LC-12: do what the ticket asks\./);
-  // ponytail: room under Claude Code's 4000-character /goal condition for Your rules.
-  expect(built.length).toBeLessThan(3200);
+  // Room left under the /goal condition's cap for 1500 characters of Your rules.
+  expect(built.length + 1500).toBeLessThan(MAX_GOAL_CONDITION);
   expect(await as('goal', 'Hotfix flow')).toMatch(/\n\nMy rules:\nSmallest safe change\.$/);
+  // A ticket prompt written as a whole /goal, before the Ticket starts, keeps only its text.
+  mesa.prompts.save('Goal flow', '/goal Ship it with a PR.');
+  expect(await as('session', 'Goal flow')).toMatch(/\n\nMy rules:\nShip it with a PR\.$/);
+  await expect(
+    mesa.imports.open('lantern-cove', { from: 'LC-12', exactGoal: true, kind: 'goal' }),
+  ).rejects.toMatchObject({ code: 'usage', message: 'pass --exact-goal or --as, not both' });
   // The project's ticket prompt is Your rules too, never what the goal opens with.
   expect(await as('goal')).toMatch(/^\/goal Finish LC-12[\s\S]*Branch, test first, open a PR\.$/);
+});
+
+test('defaults written before the Ticket starts load, and the next change drops their untilDone', async () => {
+  const { mesa, home } = await setUp();
+  const file = `${home}/.mesa/default/tickets.yaml`;
+  writeFileSync(file, 'defaults:\n  lantern-cove:\n    notes: false\n    untilDone: true\n');
+  expect(mesa.tickets.defaults('lantern-cove')).toEqual({
+    notes: false,
+    assign: true,
+    start: 'worktree',
+  });
+  mesa.tickets.setDefaults('lantern-cove', { assign: false });
+  expect(readFileSync(file, 'utf8')).not.toContain('untilDone');
 });
 
 test('a view of a site the connection no longer reaches names the site and asks to reconnect', async () => {

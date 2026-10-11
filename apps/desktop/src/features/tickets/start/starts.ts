@@ -1,9 +1,9 @@
-import type { TicketStart } from '@mesa/core/browser';
+import { TICKET_STARTS, type TicketStart } from '@mesa/core/browser';
 import { type LucideIcon, MessageSquare, ScanSearch, Target } from 'lucide-react';
 
 /**
- * How the app shows each Ticket start (core builds its prompt): its button, weakest first, its
- * preview tab, what it does, and its progress step. A new start is one more entry here.
+ * How the app shows each Ticket start (core builds its prompt and sets their order): its button,
+ * its preview tab, what it does, and its progress step. A new start in core needs its entry here.
  */
 export const STARTS: Record<
   TicketStart,
@@ -42,12 +42,8 @@ export const STARTS: Record<
   },
 };
 
-/** The start Enter runs and the sheet explains first: the strongest. */
+/** The start the sheet explains first: the strongest. */
 export const DEFAULT_START: TicketStart = 'goal';
 
-/** Each start with its look, in button order. */
-export const startList = () =>
-  (Object.entries(STARTS) as [TicketStart, (typeof STARTS)[TicketStart]][]).map(([kind, look]) => ({
-    kind,
-    ...look,
-  }));
+/** Each start with its look, in core's order, weakest first. */
+export const startList = () => TICKET_STARTS.map((kind) => ({ kind, ...STARTS[kind] }));

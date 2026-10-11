@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { PromptField } from '@/features/prompts/PromptField';
 import { StartButtons } from './StartButtons';
-import { StartPreview } from './StartPreview';
+import { StartPreviewPanel } from './StartPreviewPanel';
 import type { StartOptions, StartTicket } from './startOptions';
 import { DEFAULT_START, STARTS } from './starts';
 
@@ -59,16 +59,9 @@ export function StartSheet(props: {
   const [described, setDescribed] = useState<TicketStart>(DEFAULT_START);
   const set = props.onChange;
   return (
-    <form
-      className="grid gap-5 border-t bg-card px-6 py-5"
-      data-testid="start-sheet"
-      onSubmit={(event) => {
-        event.preventDefault();
-        props.onStart(DEFAULT_START);
-      }}
-    >
+    <div className="@container grid gap-5 border-t bg-card px-6 py-5" data-testid="start-sheet">
       <h3 className="text-[15px] font-semibold">Start a session on {ticket.key}</h3>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @lg:grid-cols-2">
         <Field
           label="Runs in"
           hint={
@@ -119,7 +112,7 @@ export function StartSheet(props: {
           onChange={(notes) => set({ notes })}
         />
       </div>
-      <StartPreview
+      <StartPreviewPanel
         project={props.project}
         ticket={ticket}
         rules={options.prompt}
@@ -141,6 +134,6 @@ export function StartSheet(props: {
           {STARTS[described].hint}
         </p>
       </div>
-    </form>
+    </div>
   );
 }

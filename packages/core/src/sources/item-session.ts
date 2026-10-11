@@ -1,9 +1,9 @@
 import { MesaError } from '../lib/result.js';
 import { joinWarnings } from '../receipts/recorder.js';
 import type { sessionsService } from '../sessions/service/index.js';
+import { type TicketStart, ticketStartPrompt } from '../tickets/ticket-start.js';
 import type { ImportListRow, importService } from './import-service.js';
 import { itemGoal } from './item-goal.js';
-import { type TicketStart, ticketStartPrompt } from './ticket-start.js';
 
 // A session started from an imported item (CONTEXT.md, Import): its goal built from the item,
 // and the item kept on its record.
@@ -44,8 +44,13 @@ export function itemSessions(
     { goal, override, kind }: { goal?: string; override?: string | null; kind?: TicketStart } = {},
   ) => {
     const jira = found.source === 'jira';
+    if (kind && !jira)
+      throw new MesaError(
+        'usage',
+        `--as starts a Jira issue; ${found.id} is a ${found.source} item`,
+      );
     const prompt = jira ? ticketPrompt(project, override)?.trim() : undefined;
-    if (jira && kind)
+    if (kind)
       return ticketStartPrompt(kind, {
         project,
         key: found.id,
@@ -78,7 +83,8 @@ export function itemSessions(
      * Starts a session on `project` (sessions.open), from the item `from` names when given,
      * importing it first when it is not yet. Its goal is the item's (itemGoal), then `goal`; the
      * record keeps the item's `source` and `id`, and a Write notes run that failed in that import
-     * is a warning, the session started all the same. Every usage error comes before any import.
+     * is a warning, the session started all the same. Every usage error comes before any import,
+     * but --as on an item that turns out not to be a Jira issue.
      */
     open: async (project: string | undefined, opts: ItemOpenOptions = {}) => {
       const { from, notes = true, exactGoal, goal, kind, ...start } = opts;
@@ -87,6 +93,7 @@ export function itemSessions(
           throw new MesaError('usage', '--no-notes, --exact-goal and --as need --from');
         return open(project, { ...start, goal });
       }
+      if (exactGoal && kind) throw new MesaError('usage', 'pass --exact-goal or --as, not both');
       if (start.goalFile !== undefined) {
         throw new MesaError('usage', 'pass --from or --goal-file, not both');
       }

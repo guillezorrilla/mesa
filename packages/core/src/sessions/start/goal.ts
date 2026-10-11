@@ -43,7 +43,7 @@ export function requireCommandFits(command: string): void {
 
 // Claude Code refuses a longer /goal condition and starts no work (measured on 2.1.288: "Goal
 // condition is limited to 4000 characters (got 4048)"); Codex caps its objectives the same.
-const MAX_GOAL_CONDITION = 4000;
+export const MAX_GOAL_CONDITION = 4000;
 
 /**
  * Refuses a goal opening the `/goal` command where it would not run: an agent without the `goal`
@@ -63,7 +63,7 @@ export function requireGoalCommandRuns(goal: string | undefined, agent: Agent): 
   if (length > MAX_GOAL_CONDITION) {
     throw new MesaError(
       'usage',
-      `the /goal condition is ${length} characters, over the ${MAX_GOAL_CONDITION} ${AGENT_LABELS[agent]} takes: shorten it, or keep the long part in a file the goal names`,
+      `the /goal condition is ${length} characters, over the ${MAX_GOAL_CONDITION} ${AGENT_LABELS[agent]} takes: shorten it (a Ticket start counts Your rules too), or keep the long part in a file the goal names`,
     );
   }
 }

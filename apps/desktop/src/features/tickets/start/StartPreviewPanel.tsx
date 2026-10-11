@@ -6,7 +6,7 @@ import type { StartTicket } from './startOptions';
 import { DEFAULT_START, STARTS, startList } from './starts';
 
 /** The prompt each Ticket start sends for `ticket`, one at a time, with Your rules after it. */
-export function StartPreview(props: {
+export function StartPreviewPanel(props: {
   project: string;
   ticket: StartTicket;
   /** Your rules: a Saved prompt's name, or null for none. */

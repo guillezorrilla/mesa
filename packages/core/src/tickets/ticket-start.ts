@@ -1,4 +1,5 @@
-import { investigationPath, VAULT } from '../vault/layout.js';
+import { jiraTitle } from '../sources/items.js';
+import { investigationPath, snapshotFolder } from '../vault/layout.js';
 
 // How a session on a Jira issue starts (CONTEXT.md, Ticket start): each way's first prompt, built
 // from the issue's key, title, link, and vault files. Pure, so the app previews the same text the
@@ -38,12 +39,7 @@ const SESSION = (t: TicketBrief) => `Load ${t.key} as context, then wait for my 
 
 ${brief(t)}
 
-Read the snapshot and notes, then the code they point at, enough to discuss it concretely. This is a reading pass: files, branch, and ticket stay as they are. Reply with:
-- What the ticket asks for, in two or three sentences.
-- The files and modules it touches, marking any you have not opened.
-- Anything unclear, missing, or contradictory in it.
-
-Then stop. I will choose what comes next: a discussion, a plan, or a fix.`;
+Read the snapshot and notes so the ticket is in your context, then reply with what it asks for in two or three sentences and anything unclear in it. Then wait: files, branch, and ticket stay as they are until I say what to do.`;
 
 const INVESTIGATE = (t: TicketBrief) => {
   const findings = investigationPath(t.project, t.key);
@@ -83,16 +79,16 @@ Report, leading with the answer
 5. Proposed fix: where, and why there rather than where the symptom shows; the steps; the test that fails now and will pass after; what else uses that code; sized S, M, or L.
 6. Open questions, including anything that blocks proof and what would remove it.
 
-Save the report with the mesa-vault save_note tool, titled "${t.key} investigation", at path ${findings}, replacing any earlier one, whatever its status.
+When the status is Confirmed, save the report with the mesa-vault save_note tool, titled "${t.key} investigation", at path ${findings}, replacing any earlier one. When it is Not proven, save nothing: the report stays in this session.
 
-If the status is Confirmed and a fix is needed, offer to fix it in a new session, and stop. Once I agree, start it with:
+If you saved it and a fix is needed, offer to fix it in a new session, and stop. Once I agree, start it with:
 mesa open ${t.project} --from ${t.key} --as goal --branch ${branchOf(t.key)}-fix`;
 };
 
 const GOAL = (t: TicketBrief) => `/goal Finish ${t.key}: do what the ticket asks. It is done when:
 - the change meets each acceptance criterion (the ticket's, or the ones it plainly implies), each covered by a test or check you ran; for a bug, a test that fails without the fix and passes with it;
 - the repository's test, lint, typecheck, and build commands for the change pass, or fail the same way without it;
-- the work is committed on its own branch (create ${branchOf(t.key)} if you are on main or master) with a message naming ${t.key}, and the branch is pushed.
+- the work is committed on this ticket's branch (the current one if its name holds ${branchOf(t.key)}; otherwise create ${branchOf(t.key)}) with a message naming ${t.key}, and the branch is pushed.
 If something only I can settle stops you (missing access, a check that cannot run here, a decision that changes the result, a ticket that needs Investigate first), stop with a message starting "Blocked:" that says what you need. Make reasonable choices yourself and mention them.
 
 Change only what the ticket needs, and commit only the files it needs. If an earlier investigation was saved, start from its reproduction and trust only what it marks Confirmed. Never weaken, skip, or delete a test to get a pass. If the code already does what the ticket asks, prove it and change nothing. Opening a pull request and changing the ticket wait for me. Save a vault note (save_note) only for something later work on this project needs, such as a decision or a trap you found. My rules at the end win where they differ.
@@ -109,7 +105,8 @@ export const TICKET_STARTS = Object.keys(PROMPTS) as TicketStart[];
  * issue's brief, then the person's rules and any extra text, which a /goal's condition holds.
  */
 export function ticketStartPrompt(start: TicketStart, t: TicketBrief): string {
-  const rules = t.rules?.trim();
+  // A ticket prompt written as a whole /goal, before the Ticket starts, keeps only its text.
+  const rules = t.rules?.trim().replace(/^\/goal\s*/, '');
   const extra = t.extra?.trim();
   return [
     PROMPTS[start](t),
@@ -132,8 +129,8 @@ export function ticketStartPreview(
   const { summary, notes, ...brief } = t;
   return ticketStartPrompt(start, {
     ...brief,
-    title: `${t.key}: ${summary}`,
-    snapshot: `${VAULT.raw}/jira/${t.key}/<latest>.md`,
+    title: jiraTitle(t.key, summary),
+    snapshot: `${snapshotFolder('jira', t.key)}/<latest>.md`,
     note: notes ? '<the note Write notes adds>' : undefined,
   });
 }
