@@ -75,7 +75,12 @@ export async function githubIssue(
   const facts = [
     ['State', raw.state === 'open' ? 'Open' : 'Closed'],
     ['Assignees', raw.assignees?.map((a) => a.login).join(', ')],
-    ['Labels', labelsOf(raw).map((l) => l.name).join(', ')],
+    [
+      'Labels',
+      labelsOf(raw)
+        .map((l) => l.name)
+        .join(', '),
+    ],
     ['Milestone', raw.milestone?.title],
     ['Opened by', raw.user?.login],
     ['Created', raw.created_at],

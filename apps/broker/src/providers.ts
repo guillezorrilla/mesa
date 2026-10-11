@@ -23,7 +23,9 @@ export type Provider = {
  * scopes either (a token reaches the Workspaces the person picks) and answers only an access token,
  * which does not expire. Linear asks for read only, takes its token request as a form, and answers
  * day-long access tokens with rotating refresh tokens; `prompt=consent` shows the workspace picker
- * again on a reconnect.
+ * again on a reconnect. GitHub's is a GitHub App: no scopes (its permissions, Issues read and
+ * write, are set on the app), 8-hour user tokens with rotating refresh tokens, a form token
+ * request, and refusals answered as HTTP 200 with an `error`.
  */
 export const PROVIDERS: Record<string, Provider> = {
   atlassian: {
@@ -53,6 +55,13 @@ export const PROVIDERS: Record<string, Provider> = {
     scopes: 'read',
     params: { response_type: 'code', prompt: 'consent' },
     env: { clientId: 'LINEAR_CLIENT_ID', clientSecret: 'LINEAR_CLIENT_SECRET' },
+    tokenBody: 'form',
+  },
+  github: {
+    authorizeUrl: 'https://github.com/login/oauth/authorize',
+    tokenUrl: 'https://github.com/login/oauth/access_token',
+    params: {},
+    env: { clientId: 'GITHUB_CLIENT_ID', clientSecret: 'GITHUB_CLIENT_SECRET' },
     tokenBody: 'form',
   },
 };

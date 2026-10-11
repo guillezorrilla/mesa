@@ -10,6 +10,8 @@ const ENV: Env = {
   CLICKUP_CLIENT_SECRET: 'clickup-secret',
   LINEAR_CLIENT_ID: 'linear-client',
   LINEAR_CLIENT_SECRET: 'linear-secret',
+  GITHUB_CLIENT_ID: 'github-client',
+  GITHUB_CLIENT_SECRET: 'github-secret',
 };
 const BROKER = 'https://broker.example.test';
 
@@ -228,6 +230,59 @@ test('Linear asks for read with consent, and takes its token requests as a form'
       form: true,
     },
   ]);
+});
+
+test('GitHub signs in to its GitHub App with no scopes, and refreshes its 8-hour tokens as a form', async () => {
+  const to = new URL((await get('/authorize/github?state=n1.49152')).headers.get('location') ?? '');
+  expect(`${to.origin}${to.pathname}`).toBe('https://github.com/login/oauth/authorize');
+  expect(Object.fromEntries(to.searchParams)).toEqual({
+    client_id: 'github-client',
+    redirect_uri: `${BROKER}/callback/github`,
+    state: 'n1.49152',
+  });
+
+  const token = {
+    access_token: 'ghu-1',
+    expires_in: 28800,
+    refresh_token: 'ghr-1',
+    refresh_token_expires_in: 15897600,
+    token_type: 'bearer',
+    scope: '',
+  };
+  const { upstream, calls } = vendor(200, token);
+  const answer = await post(
+    '/token/github',
+    { grant_type: 'authorization_code', code: 'c1' },
+    upstream,
+  );
+  expect(await answer.json()).toEqual(token);
+  await post('/token/github', { grant_type: 'refresh_token', refresh_token: 'ghr-1' }, upstream);
+  const client = { client_id: 'github-client', client_secret: 'github-secret' };
+  expect(calls).toEqual([
+    {
+      url: 'https://github.com/login/oauth/access_token',
+      body: {
+        grant_type: 'authorization_code',
+        code: 'c1',
+        ...client,
+        redirect_uri: `${BROKER}/callback/github`,
+      },
+      form: true,
+    },
+    {
+      url: 'https://github.com/login/oauth/access_token',
+      body: { grant_type: 'refresh_token', refresh_token: 'ghr-1', ...client },
+      form: true,
+    },
+  ]);
+  // GitHub refuses a used refresh token with HTTP 200 and an error, passed back unchanged.
+  const refused = vendor(200, { error: 'bad_refresh_token' });
+  const again = await post(
+    '/token/github',
+    { grant_type: 'refresh_token', refresh_token: 'ghr-1' },
+    refused.upstream,
+  );
+  expect([again.status, await again.json()]).toEqual([200, { error: 'bad_refresh_token' }]);
 });
 
 test('an unknown source is 404 and reaches no vendor', async () => {

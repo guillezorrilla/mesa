@@ -2,6 +2,8 @@ import type {
   Board,
   Filter,
   FollowedView,
+  GithubDetail,
+  GithubRepo,
   JiraField,
   JiraIssue,
   ProviderId,
@@ -10,6 +12,7 @@ import type {
   TicketDefaults,
   TicketView,
   ViewInput,
+  ViewQuery,
 } from '@mesa/core';
 import { command, commandWith, type Recorded } from './spec';
 
@@ -17,25 +20,40 @@ type ListedView = TicketView & { describe: string; following: string[] };
 type Follows = { project: string; following: string[] };
 type SiteOf<T> = { site: { id: string; name: string } } & T;
 
-/** One ticket whole, as its panel reads it. */
-type TicketDetail = JiraIssue & {
+/** One ticket whole, as its panel reads it: each provider's own fields, keyed by `provider`. */
+export type TicketDetail = (
+  | (JiraIssue & { provider: 'jira'; site: string })
+  | (GithubDetail & { provider: 'github' })
+) & {
   id: string;
-  provider: ProviderId;
   url: string;
-  site: string;
   mine: boolean;
   sessions: { id: string; project: string }[];
 };
 
+/** Each field of a view's query, any provider's, as its flag; free text goes after `=`. */
+const FLAGS: Record<string, { flag: string; joined?: true }> = {
+  provider: { flag: 'provider' },
+  board: { flag: 'board' },
+  sprint: { flag: 'sprint' },
+  filter: { flag: 'filter' },
+  jql: { flag: 'jql', joined: true },
+  repo: { flag: 'repo' },
+  labels: { flag: 'label', joined: true },
+  milestone: { flag: 'milestone' },
+  everyone: { flag: 'everyone' },
+  showDone: { flag: 'show-done' },
+};
+
 /** The flags that name a view's query, as `mesa tickets views add` and `preview` take them. */
-const viewFlags = (view: Omit<ViewInput, 'name'>) => [
-  ...(view.board !== undefined ? ['--board', String(view.board)] : []),
-  ...(view.sprint ? ['--sprint', view.sprint] : []),
-  ...(view.filter !== undefined ? ['--filter', view.filter] : []),
-  ...(view.jql !== undefined ? [`--jql=${view.jql}`] : []),
-  ...(view.everyone ? ['--everyone'] : []),
-  ...(view.showDone ? ['--show-done'] : []),
-];
+const viewFlags = (view: ViewQuery) =>
+  Object.entries(view).flatMap(([field, value]) => {
+    const known = FLAGS[field];
+    if (!known || value === undefined || value === false) return [];
+    if (value === true) return [`--${known.flag}`];
+    const text = Array.isArray(value) ? value.join(',') : String(value);
+    return known.joined ? [`--${known.flag}=${text}`] : [`--${known.flag}`, text];
+  });
 
 /** `--search q` when there is a query. */
 const searchFlag = (search?: string) => (search?.trim() ? ['--search', search.trim()] : []);
@@ -66,7 +84,7 @@ export const ticketsCommands = {
     TicketView & { describe: string }
   >(({ name, to }) => ['tickets', 'views', 'rename', '--', name, to]),
   'tickets.preview': commandWith<
-    { view: Omit<ViewInput, 'name'> },
+    { view: ViewQuery },
     {
       describe: string;
       jql: string | null;
@@ -76,15 +94,35 @@ export const ticketsCommands = {
       note?: string;
     }
   >(({ view }) => ['tickets', 'preview', ...viewFlags(view)]),
-  'tickets.show': commandWith<{ key: string }, TicketDetail>(({ key }) => [
+  /** One ticket whole, by its id (jira:LC-12, github:owner/repo#12). */
+  'tickets.show': commandWith<{ id: string }, TicketDetail>(({ id }) => [
     'tickets',
     'show',
     '--',
-    key,
+    id,
   ]),
-  'tickets.assign': commandWith<{ key: string }, Recorded<{ key: string; assignee: string }>>(
-    ({ key }) => ['tickets', 'assign', '--', key],
+  'tickets.assign': commandWith<{ id: string }, Recorded<{ key: string; assignee: string }>>(
+    ({ id }) => ['tickets', 'assign', '--', id],
   ),
+  /** Shows, or with `tracker` sets, where a project tracks work; its other views stay, unlisted. */
+  'tickets.tracker': commandWith<
+    { project: string; tracker?: ProviderId },
+    { project: string; tracker: ProviderId | null }
+  >(({ project, tracker }) => ['tickets', 'tracker', '--', project, ...(tracker ? [tracker] : [])]),
+  /** The GitHub repos a view can follow, the project's remote first, and where to give access to more. */
+  'tickets.repos': commandWith<
+    { project: string },
+    { repos: (GithubRepo & { origin: boolean })[]; install: string }
+  >(({ project }) => ['tickets', 'repos', '--project', project]),
+  /** A GitHub repo's labels and open milestones. */
+  'tickets.repo': commandWith<
+    { repo: string },
+    {
+      repo: string;
+      labels: { name: string; color?: string }[];
+      milestones: { number: number; title: string }[];
+    }
+  >(({ repo }) => ['tickets', 'repo', '--', repo]),
   'tickets.defaults': commandWith<
     { project: string; change: Partial<TicketDefaults> },
     TicketDefaults

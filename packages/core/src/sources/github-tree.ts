@@ -21,7 +21,10 @@ const holds = (title: string, search: string | undefined) =>
 const repoOf = (node: string) => {
   const name = node.startsWith('repo:') ? node.slice(5) : '';
   if (isRepoName(name)) return name;
-  throw new MesaError('usage', `${node} is not a GitHub node: take ids from mesa sources browse github`);
+  throw new MesaError(
+    'usage',
+    `${node} is not a GitHub node: take ids from mesa sources browse github`,
+  );
 };
 
 const pageOf = (cursor: string | undefined) => {

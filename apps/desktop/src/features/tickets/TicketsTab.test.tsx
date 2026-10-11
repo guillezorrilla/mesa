@@ -27,7 +27,7 @@ const sprint: FollowedView = {
 const listOf = (views: FollowedView[], tickets: Ticket[]) =>
   envelope({
     project: 'lantern-cove',
-    tracker: views.length ? 'jira' : null,
+    tracker: 'jira',
     prompt: 'Ticket flow',
     projectPrompt: null,
     defaults: { notes: false, assign: true, start: 'worktree' },
@@ -113,7 +113,7 @@ test('the list groups tickets by status, and the panel shows the ticket whole an
   expect(panel()).toContain('Use the wind card style.');
   expect(panel()).toContain('SprintTide 7');
   await click(button('Assign to me'));
-  expect(words(calls)).toContain('tickets assign -- LC-2');
+  expect(words(calls)).toContain('tickets assign -- jira:LC-2');
 });
 
 /** A Tickets tab over one ticket, LC-2, whose start runs every step. */
@@ -154,7 +154,7 @@ test('Start goal starts at once with the project defaults, then opens it', async
   );
   await click(byTestId('start-goal')[0]);
   expect(started()).toEqual([
-    'tickets assign -- LC-2',
+    'tickets assign -- jira:LC-2',
     'import --project lantern-cove --no-notes -- https://lantern-cove.atlassian.net/browse/LC-2',
     'import goal --project lantern-cove --prompt=Ticket flow --as=goal -- LC-2',
     'open --from=LC-2 --exact-goal --no-parent --goal=/goal Fix it fast.\n\nWork on LC-2 --branch=lc-2 -- lantern-cove',

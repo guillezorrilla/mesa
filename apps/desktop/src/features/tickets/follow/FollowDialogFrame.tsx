@@ -1,10 +1,10 @@
-import type { ProviderId, ViewInput } from '@mesa/core';
+import type { ProviderId, ViewQuery } from '@mesa/core';
 import type { ComponentProps, ReactNode } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
 import { TrackerIcon } from '../TrackerIcon';
 import { FollowToggles } from './FollowToggles';
-import { ViewCount } from './ViewCount';
+import { type CountWords, ViewCount } from './ViewCount';
 
 /**
  * The frame every tracker's Follow dialog shares: its icon and title, the tracker's own picker
@@ -17,8 +17,10 @@ export function FollowDialogFrame(
     title: string;
     description: string;
     /** The view picked so far, with its name, when it is complete. */
-    view: Omit<ViewInput, 'name'> | undefined;
+    view: ViewQuery | undefined;
     name: string;
+    /** How the live count words its items and its query; Jira's when not given. */
+    words?: CountWords;
     waiting: string;
     disabled: boolean;
     onSubmit: () => void;
@@ -50,7 +52,7 @@ export function FollowDialogFrame(
         onHideDone={props.onHideDone}
       />
       {props.view ? (
-        <ViewCount view={props.view} name={props.name} />
+        <ViewCount view={props.view} name={props.name} words={props.words} />
       ) : (
         <Muted role="status">{props.waiting}</Muted>
       )}

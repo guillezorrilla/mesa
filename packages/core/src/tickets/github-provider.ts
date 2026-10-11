@@ -21,8 +21,13 @@ import {
 } from '../sources/github-issue.js';
 import { githubRepos } from '../sources/github-repos.js';
 import { type GithubView, type GithubViewInput, GithubViewSchema } from './github-view.js';
+import {
+  type ProviderDeps,
+  type ProviderTicket,
+  parseWith,
+  type TicketProvider,
+} from './provider.js';
 import type { TicketView, ViewInput } from './providers.js';
-import { type ProviderDeps, type ProviderTicket, parseWith, type TicketProvider } from './provider.js';
 
 /** How many issues one read lists: one page of GitHub's. */
 const ISSUES = 100;
@@ -41,6 +46,8 @@ export type GithubDetail = {
   repository: string;
   description: string;
   comments: { author: string; created: string; markdown: string }[];
+  /** None: the fields a profile picks for every panel are Jira's. */
+  fields?: undefined;
 };
 
 const milestonesSchema = z.array(z.object({ number: z.number(), title: z.string() }));
@@ -70,7 +77,13 @@ export function githubProvider(deps: ProviderDeps) {
     return viewer;
   };
   const milestones = (repo: string) =>
-    githubPages(get(), `/repos/${repo}/milestones?state=all`, milestonesSchema, (p) => p, `GitHub ${repo}'s milestones`);
+    githubPages(
+      get(),
+      `/repos/${repo}/milestones?state=all`,
+      milestonesSchema,
+      (p) => p,
+      `GitHub ${repo}'s milestones`,
+    );
 
   /** `input`'s milestone as a view keeps it: a number, `none`, or a title found in the repo. */
   const milestoneOf = async (repo: string, input: string | undefined, check: boolean) => {
@@ -220,8 +233,20 @@ export function githubProvider(deps: ProviderDeps) {
     repo: async (repo: string) => {
       if (!isRepoName(repo)) throw new MesaError('usage', `${repo} is not a repo: owner/repo`);
       const [labels, open] = await Promise.all([
-        githubPages(get(), `/repos/${repo}/labels`, labelsSchema, (p) => p, `GitHub ${repo}'s labels`),
-        githubPages(get(), `/repos/${repo}/milestones?state=open`, milestonesSchema, (p) => p, `GitHub ${repo}'s milestones`),
+        githubPages(
+          get(),
+          `/repos/${repo}/labels`,
+          labelsSchema,
+          (p) => p,
+          `GitHub ${repo}'s labels`,
+        ),
+        githubPages(
+          get(),
+          `/repos/${repo}/milestones?state=open`,
+          milestonesSchema,
+          (p) => p,
+          `GitHub ${repo}'s milestones`,
+        ),
       ]);
       return {
         repo,

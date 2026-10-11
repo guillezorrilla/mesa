@@ -490,7 +490,9 @@ export const githubIssueObject = (
   milestone: more.milestone ?? null,
   created_at: '2026-09-20T10:00:00Z',
   updated_at: '2026-09-24T12:00:00Z',
-  ...(more.pr ? { pull_request: { url: `https://api.github.com/repos/${repo}/pulls/${number}` } } : {}),
+  ...(more.pr
+    ? { pull_request: { url: `https://api.github.com/repos/${repo}/pulls/${number}` } }
+    : {}),
 });
 
 /** The invented GitHub people githubWorld knows, by login. */

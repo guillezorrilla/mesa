@@ -6,8 +6,8 @@ import { Switch } from '@/components/ui/switch';
 
 /**
  * Paste a link to import: a Jira issue or key, a Confluence or Notion page, a ClickUp task or Doc
- * page, a Linear issue, project or document, or any public web page, with the Write notes toggle
- * every import shares. Cleared once the import ran.
+ * page, a Linear issue, project or document, a GitHub issue, or any public web page, with the
+ * Write notes toggle every import shares. Cleared once the import ran.
  */
 export function PasteLinkForm(props: {
   acting: boolean;
@@ -26,7 +26,7 @@ export function PasteLinkForm(props: {
     >
       <Input
         aria-label="Link to import"
-        placeholder="Paste a Jira, Confluence, Notion, ClickUp, Linear, or any public web link"
+        placeholder="Paste a Jira, Confluence, Notion, ClickUp, Linear, GitHub, or any public web link"
         value={link}
         onChange={(event) => setLink(event.target.value)}
         className="min-w-64 flex-1"

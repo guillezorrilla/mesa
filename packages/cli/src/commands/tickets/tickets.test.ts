@@ -1,4 +1,10 @@
-import { TEST_JIRA } from '@mesa/core/testing';
+import {
+  githubIssueObject,
+  githubWorld,
+  scriptedRunner,
+  TEST_GITHUB,
+  TEST_JIRA,
+} from '@mesa/core/testing';
 import { beforeEach, expect, test } from 'vitest';
 import { cliHarness } from '../../testing.js';
 
@@ -260,4 +266,80 @@ test('mesa tickets fields lists the Jira fields, marks the shown ones, and field
   expect((await cli.mesa('tickets', 'fields', 'set', '--clear')).stdout).toContain(
     'Ticket panels show only their own fields',
   );
+});
+
+test("mesa tickets views add --provider github follows the project's origin repo, narrowed, and the tab lists, shows and assigns its issues", async () => {
+  const world = githubWorld();
+  // lantern-cove's origin remote is harbor-co/harbor-api on github.com.
+  cli.deps = {
+    ...world.deps,
+    run: scriptedRunner({
+      '/usr/bin/open': world.signIn.open,
+      git: (args) =>
+        args.includes('get-url') ? 'https://github.com/harbor-co/harbor-api.git\n' : '',
+    }).run,
+  };
+  await cli.withProject();
+  await cli.mesa('sources', 'connect', 'github');
+  const repo = 'harbor-co/harbor-api';
+  world.serveRepo(repo, [{ name: 'bug', color: 'd73a4a' }], [{ number: 3, title: 'v2.4' }]);
+
+  const added = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--provider',
+    'github',
+    '--project',
+    'lantern-cove',
+    '--label',
+    'bug',
+    '--milestone',
+    'v2.4',
+    '--everyone',
+    '--json',
+    '--',
+    'harbor-api',
+  );
+  expect(added.json.data).toMatchObject({
+    provider: 'github',
+    repo,
+    labels: ['bug'],
+    milestone: 3,
+    describe: 'harbor-co, bug, v2.4',
+  });
+  const jiraOnly = await cli.mesa(
+    'tickets',
+    'views',
+    'add',
+    '--provider',
+    'github',
+    '--board',
+    '42',
+    '--json',
+    '--',
+    'x',
+  );
+  expect(jiraOnly.json.error).toEqual({ code: 'usage', message: "--board: Jira's only" });
+
+  expect((await cli.mesa('tickets', 'tracker', 'lantern-cove', 'github')).stdout).toBe(
+    'lantern-cove tracks work in github\n',
+  );
+  await cli.mesa('tickets', 'follow', 'lantern-cove', 'harbor-api');
+  world.serveIssues(repo, 'state=open&labels=bug&milestone=3', [
+    githubIssueObject(repo, 412, 'Tide chart shows UTC', { labels: ['bug'] }),
+    githubIssueObject(repo, 413, 'Fix the export', { pr: true }),
+  ]);
+  expect((await cli.mesa('tickets', 'lantern-cove')).stdout).toBe(
+    `harbor-api: harbor-co, bug, v2.4\n\n${repo}#412  Open  Tide chart shows UTC\n`,
+  );
+
+  world.serveIssue(repo, githubIssueObject(repo, 412, 'Tide chart shows UTC', { labels: ['bug'] }));
+  const shown = await cli.mesa('tickets', 'show', `github:${repo}#412`);
+  expect(shown.stdout).toContain(`${repo}#412: Tide chart shows UTC\nOpen · Unassigned · bug\n`);
+  world.servePost(`${TEST_GITHUB}/repos/${repo}/issues/412/assignees`, () =>
+    githubIssueObject(repo, 412, 'Tide chart shows UTC', { assignees: ['rowan-tide'] }),
+  );
+  const assigned = await cli.mesa('tickets', 'assign', `github:${repo}#412`, '--json');
+  expect(assigned.json.data).toMatchObject({ key: `${repo}#412`, assignee: 'Rowan Tide' });
 });

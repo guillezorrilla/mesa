@@ -1,10 +1,21 @@
+import type { ProviderId } from '@mesa/core';
 import { branchOf, type TicketDefaults } from '@mesa/core/browser';
 
 /** The ticket a session starts from, as the Tickets tab shows it. */
 export type StartTicket = {
+  /** Its key in its tracker (LC-12, owner/repo#12), which imports and names its branch. */
   key: string;
+  /** Its id across trackers (jira:LC-12), which assigns it. */
+  id: string;
+  /** Its key as the tab shows it (#12 for GitHub). */
+  label: string;
+  provider: ProviderId;
+  /** Its tracker takes several assignees, so assigning adds the person beside them. */
+  several: boolean;
+  /** Its tracker's name in a sentence. */
+  trackerName: string;
   url: string;
-  /** Its summary in Jira. */
+  /** Its summary in its tracker. */
   summary: string;
   mine: boolean;
   assignee?: string | undefined;

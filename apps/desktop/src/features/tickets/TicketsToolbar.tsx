@@ -1,5 +1,6 @@
-import type { FollowedView, TicketDefaults } from '@mesa/core';
+import type { FollowedView, ProviderId, TicketDefaults } from '@mesa/core';
 import { Check, ChevronDown, Plus, RefreshCw, Search, Settings2 } from 'lucide-react';
+import { useState } from 'react';
 import { IconButton } from '@/components/IconButton';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,16 +12,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TicketSettingsPanel } from './TicketSettingsPanel';
+import { TRACKERS } from './trackers';
 
 /** A view's second line: its sprints this read, else what it reads. */
 const subtitle = (view: FollowedView) => view.sprints?.join(', ') ?? view.describe;
 
 /**
- * The Tickets tab's one bar: the view switcher (with Follow and Manage), search, when the list
- * was read, Refresh, and the gear with this project's ticket settings.
+ * The Tickets tab's one bar, in its tracker's words: the view switcher (with Follow and Manage;
+ * GitHub's repos), search, when the list was read, Refresh, and the gear with this project's
+ * ticket settings and its tracker, with Change.
  */
 export function TicketsToolbar(props: {
   project: string;
+  tracker: ProviderId;
   views: FollowedView[];
   view: string | undefined;
   counts: Record<string, number>;
@@ -38,12 +42,15 @@ export function TicketsToolbar(props: {
     defaults: TicketDefaults;
   };
   onSettingsChanged: () => void;
+  onSwitch: () => void;
 }) {
+  const { unit, nouns } = TRACKERS[props.tracker];
+  const [gear, setGear] = useState(false);
+  const all = `All ${unit}s`;
+  const several = `${props.views.length} ${unit}s`;
   const current = props.views.find((v) => v.name === props.view);
   const choices: [string | undefined, string, string][] = [
-    ...(props.views.length > 1
-      ? [[undefined, 'All views', `${props.views.length} views`] as [undefined, string, string]]
-      : []),
+    ...(props.views.length > 1 ? [[undefined, all, several] as [undefined, string, string]] : []),
     ...props.views.map((v): [string, string, string] => [v.name, v.name, subtitle(v)]),
   ];
   return (
@@ -56,9 +63,9 @@ export function TicketsToolbar(props: {
             className="max-w-full gap-2"
             data-testid="view-switcher"
           >
-            <span className="font-medium">{current?.name ?? 'All views'}</span>
+            <span className="font-medium">{current?.name ?? all}</span>
             <span className="truncate text-muted-foreground">
-              {current ? subtitle(current) : `${props.views.length} views`}
+              {current ? subtitle(current) : several}
             </span>
             <ChevronDown aria-hidden className="text-muted-foreground" />
           </Button>
@@ -86,10 +93,10 @@ export function TicketsToolbar(props: {
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={props.onFollow}>
-            <Plus aria-hidden /> Follow a view
+            <Plus aria-hidden /> Follow a {unit}
           </DropdownMenuItem>
           {props.views.length > 0 && (
-            <DropdownMenuItem onSelect={props.onManage}>Manage views</DropdownMenuItem>
+            <DropdownMenuItem onSelect={props.onManage}>Manage {unit}s</DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -101,7 +108,7 @@ export function TicketsToolbar(props: {
         <input
           id="ticket-search"
           type="search"
-          placeholder="Search tickets"
+          placeholder={`Search ${nouns}`}
           value={props.query}
           onChange={(event) => props.onQuery(event.currentTarget.value)}
           className="w-full bg-transparent py-1.5 text-sm outline-none"
@@ -111,12 +118,12 @@ export function TicketsToolbar(props: {
         {props.updated}
       </span>
       <IconButton
-        label="Refresh tickets"
+        label={`Refresh ${nouns}`}
         icon={RefreshCw}
         disabled={props.busy}
         onClick={props.onRefresh}
       />
-      <Popover>
+      <Popover open={gear} onOpenChange={setGear}>
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
@@ -131,7 +138,13 @@ export function TicketsToolbar(props: {
           <TicketSettingsPanel
             project={props.project}
             {...props.settings}
+            tracker={props.tracker}
+            following={props.views.length}
             onChanged={props.onSettingsChanged}
+            onSwitch={() => {
+              setGear(false);
+              props.onSwitch();
+            }}
           />
         </PopoverContent>
       </Popover>

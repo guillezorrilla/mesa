@@ -3,19 +3,23 @@ import { useEffect, useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { useCommand } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
-import { JiraSetupPanel } from './JiraSetupPanel';
+import { ElsewhereLink } from './ElsewhereLink';
 import { ManageViewsDialog } from './ManageViewsDialog';
+import { NotConnectedPanel } from './NotConnectedPanel';
 import { SignInBanner } from './SignInBanner';
+import { SwitchTrackerDialog } from './SwitchTrackerDialog';
 import { TicketList } from './TicketList';
 import { TicketPanel } from './TicketPanel';
 import { TicketsToolbar } from './TicketsToolbar';
+import { TrackerChoice } from './TrackerChoice';
 import { TRACKERS } from './trackers';
 import { useKeptPick } from './useKeptPick';
 
 /**
  * A project's Tickets tab (CONTEXT.md, Tickets tab): the followed views' tickets grouped by
- * status beside the selected ticket, which a session starts from. Narrow windows show the list,
- * then the ticket on its own.
+ * status beside the selected ticket, which a session starts from, in its tracker's words. Narrow
+ * windows show the list, then the ticket on its own. A project with no tracker yet picks one
+ * first (TrackerChoice); the gear changes it (SwitchTrackerDialog).
  */
 export function TicketsTab(props: { project: string; onSession: (id: string) => void }) {
   const { project } = props;
@@ -24,7 +28,9 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useKeptPick(project, 'ticket');
   const [narrowTicket, setNarrowTicket] = useState(false);
-  const [dialog, setDialog] = useState<'follow' | 'manage'>();
+  const [dialog, setDialog] = useState<'follow' | 'manage' | 'switch'>();
+  // Picking another tracker from a tracker's setup page.
+  const [choosing, setChoosing] = useState(false);
   const [readAt, setReadAt] = useState<number>();
   const data = list.data;
   useEffect(() => {
@@ -56,12 +62,14 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   );
   const failing = views.filter((v) => v.error && (!current || v.name === current));
   const signIn = failing.filter((v) => v.connect);
-  // A project with no tracker yet follows Jira from its setup panel, as before trackers.
+  // Until the list reads, the tab speaks Jira's words, as before trackers.
   const tracker = data?.tracker ?? 'jira';
-  const { Follow, name } = TRACKERS[tracker];
+  const { Follow, Setup, name, nouns, unit, groups, shortKey, connectPage } = TRACKERS[tracker];
   const refresh = () => void list.refresh();
 
-  const setup = data && !views.length;
+  const choice = data && (choosing || (!data.tracker && !views.length));
+  const unreachable = data?.connect !== undefined && connectPage;
+  const setup = data && (choice || unreachable || !views.length);
   return (
     <div
       data-testid="tickets-tab"
@@ -71,12 +79,32 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
         !setup && 'flex h-[calc(100vh-13rem)] min-h-[24rem] flex-col',
       )}
     >
-      {setup ? (
-        <JiraSetupPanel onFollow={() => setDialog('follow')} />
+      {choice ? (
+        <TrackerChoice
+          project={project}
+          onChosen={async () => {
+            setChoosing(false);
+            await list.refresh();
+            setDialog('follow');
+          }}
+        />
+      ) : unreachable ? (
+        <NotConnectedPanel
+          tracker={tracker}
+          following={views.length}
+          onConnected={refresh}
+          onElsewhere={() => setDialog('switch')}
+        />
+      ) : setup ? (
+        <div className="grid justify-items-center pb-12">
+          <Setup onFollow={() => setDialog('follow')} />
+          <ElsewhereLink onClick={() => setChoosing(true)} />
+        </div>
       ) : (
         <>
           <TicketsToolbar
             project={project}
+            tracker={tracker}
             views={views}
             view={current}
             counts={counts}
@@ -94,6 +122,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
               defaults: data?.defaults ?? DEFAULTS,
             }}
             onSettingsChanged={refresh}
+            onSwitch={() => setDialog('switch')}
           />
           {signIn.length > 0 && (
             <SignInBanner
@@ -121,6 +150,8 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
               {tickets.length ? (
                 <TicketList
                   tickets={tickets}
+                  groups={groups}
+                  shortKey={shortKey}
                   selected={ticket?.key}
                   onSelect={(key) => {
                     setSelected(key);
@@ -132,7 +163,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
                   {!data
                     ? `Reading ${name}...`
                     : (views.find((v) => v.name === current)?.note ??
-                      (words ? 'No tickets match.' : 'No tickets in this view.'))}
+                      (words ? `No ${nouns} match.` : `No ${nouns} in this ${unit}.`))}
                 </Muted>
               )}
             </div>
@@ -171,9 +202,21 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
         <ManageViewsDialog
           project={project}
           views={views}
+          unit={unit}
           onChanged={refresh}
           onRenamed={(from, to) => view === from && setView(to)}
           onClose={() => setDialog(undefined)}
+        />
+      )}
+      {dialog === 'switch' && (
+        <SwitchTrackerDialog
+          project={project}
+          tracker={tracker}
+          onSwitched={() => {
+            setDialog(undefined);
+            refresh();
+          }}
+          onCancel={() => setDialog(undefined)}
         />
       )}
     </div>

@@ -196,7 +196,12 @@ test('a GitHub view follows a repo: its issues listed without pull requests, one
 
 test('a session started from a GitHub issue imports it through the pipeline, and its Live dot matches by provider and key', async () => {
   const { world, mesa, home } = await setUp();
-  await mesa.tickets.addView({ provider: 'github', name: 'harbor-api', repo: REPO, everyone: true });
+  await mesa.tickets.addView({
+    provider: 'github',
+    name: 'harbor-api',
+    repo: REPO,
+    everyone: true,
+  });
   mesa.tickets.setTracker('lantern-cove', 'github');
   mesa.tickets.follow('lantern-cove', 'harbor-api');
   const issue = githubIssueObject(REPO, 412, 'Tide chart shows UTC', { body: 'Use the zone.' });
@@ -211,7 +216,9 @@ test('a session started from a GitHub issue imports it through the pipeline, and
   expect(built.result.goal).toMatch(/^Load harbor-co\/harbor-api\/412 as context/);
   expect(built.result.goal).toContain(`Ticket: ${REPO}#412: Tide chart shows UTC`);
   expect(built.result.goal).toMatch(/Snapshot: raw\/github\/harbor-co\/harbor-api\/412\/\S+\.md/);
-  const record = testStore(home).list().find((r) => r.from?.source === 'github');
+  const record = testStore(home)
+    .list()
+    .find((r) => r.from?.source === 'github');
   expect(record?.from).toEqual({ source: 'github', id: `${REPO}/412` });
   expect((await mesa.imports.list('lantern-cove')).items).toEqual([
     expect.objectContaining({
@@ -260,7 +267,11 @@ test('switching a project to GitHub keeps its Jira views, unlisted, and switchin
   mesa.tickets.setTracker('lantern-cove', 'jira');
   const back = await mesa.tickets.list('lantern-cove');
   // Atlassian is not connected here, so the view asks to connect; it is back all the same.
-  expect(back).toMatchObject({ tracker: 'jira', connect: 'atlassian', views: [{ name: 'sprint' }] });
+  expect(back).toMatchObject({
+    tracker: 'jira',
+    connect: 'atlassian',
+    views: [{ name: 'sprint' }],
+  });
   expect(mesa.tickets.views().map((v) => [v.name, v.provider, v.following])).toEqual([
     ['sprint', 'jira', ['lantern-cove']],
     ['harbor-api', 'github', ['lantern-cove']],

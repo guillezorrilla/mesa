@@ -75,3 +75,10 @@ export function ticketRef(input: string): { provider: ProviderId; key: string } 
  * one naming no provider is Jira's.
  */
 export type ViewInput = JiraViewInput | GithubViewInput;
+
+/** A view's query without its name, as the Follow dialog's live count takes it (per provider). */
+export type ViewQuery = ViewInput extends infer V
+  ? V extends unknown
+    ? Omit<V, 'name'>
+    : never
+  : never;

@@ -2,7 +2,7 @@ import { defineCommand } from '../../command.js';
 
 export const tickets = defineCommand({
   name: 'tickets',
-  summary: "List the Jira tickets of a project's followed views, read live",
+  summary: "List the tickets of a project's followed views in its tracker, read live",
   args: ['project'],
   example: 'mesa tickets lantern-cove',
   run: async ({ mesa, args }) => {

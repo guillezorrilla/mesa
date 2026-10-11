@@ -9,10 +9,10 @@ import { useCommand, useRun } from '@/lib/useCommand';
 import { AssigneeAvatar } from './AssigneeAvatar';
 import { FieldRow } from './FieldRow';
 import { LiveDot } from './LiveDot';
-import { StatusIcon } from './StatusIcon';
 import { TicketStartPanel } from './start/TicketStartPanel';
 import { TicketFieldsMenu } from './TicketFieldsMenu';
-import { TRACKERS } from './trackers';
+import { TrackerIcon } from './TrackerIcon';
+import { fieldsOf, TRACKERS } from './trackers';
 
 /** Links in a ticket's text open in the browser, never in the app. */
 const link = (href: string, children: React.ReactNode) => (
@@ -22,9 +22,10 @@ const link = (href: string, children: React.ReactNode) => (
 );
 
 /**
- * One ticket beside the list: its key and link to its tracker, title, who has a session on it,
- * Status, Assignee and its tracker's own fields (TRACKERS), description and comments, and the
- * Ticket starts (TicketStartPanel).
+ * One ticket beside the list: its key (with its tracker's icon, but on Jira) and link to its
+ * tracker, title, who has a session on it, Status (GitHub's State), Assignee (or Assignees) and
+ * its tracker's own fields (TRACKERS), description and comments, and the Ticket starts
+ * (TicketStartPanel).
  */
 export function TicketPanel(props: {
   project: string;
@@ -39,16 +40,21 @@ export function TicketPanel(props: {
 }) {
   const { ticket } = props;
   const tracker = TRACKERS[ticket.provider];
-  const detail = useCommand('tickets.show', { key: ticket.key });
+  const Fields = fieldsOf(ticket.provider);
+  const detail = useCommand('tickets.show', { id: ticket.id });
   const run = useRun();
   const { acting, act } = useAct();
   const full = detail.data;
   const mine = full?.mine ?? ticket.mine;
-  const assignee = full?.assignee?.name ?? ticket.assignee;
+  const listed = ticket.assignees?.map((a) => a.name) ?? (ticket.assignee ? [ticket.assignee] : []);
+  const read =
+    full && ('assignees' in full ? full.assignees : full.assignee ? [full.assignee] : []);
+  const assignees = read?.map((a) => a.name) ?? listed;
   const sessions = full?.sessions ?? ticket.sessions;
+  const nouns = `${tracker.nouns[0]?.toUpperCase()}${tracker.nouns.slice(1)}`;
   const assign = () =>
     void act(async () => {
-      if (await run('tickets.assign', { key: ticket.key })) {
+      if (await run('tickets.assign', { id: ticket.id })) {
         await detail.refresh();
         props.onChanged();
       }
@@ -64,16 +70,17 @@ export function TicketPanel(props: {
       <div className="grid flex-1 content-start gap-5 overflow-auto px-6 py-5">
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Button variant="ghost" size="sm" className="-ml-2 md:hidden" onClick={props.onBack}>
-            <ArrowLeft aria-hidden /> Tickets
+            <ArrowLeft aria-hidden /> {nouns}
           </Button>
-          <span className="font-mono">{ticket.key}</span>
+          {tracker.mark && <TrackerIcon tracker={ticket.provider} className="size-3.5" />}
+          <span className="font-mono">{tracker.shortKey(ticket.key)}</span>
           <a
             href={ticket.url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 hover:text-foreground"
           >
-            Open in {tracker.name} <ExternalLink aria-hidden className="size-3.5" />
+            Open in {tracker.short} <ExternalLink aria-hidden className="size-3.5" />
           </a>
         </div>
         <h2 className="text-xl leading-snug font-semibold text-balance">{ticket.summary}</h2>
@@ -87,13 +94,26 @@ export function TicketPanel(props: {
           </div>
         )}
         <dl className="grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 text-sm">
-          <FieldRow name="Status" className="flex items-center gap-2">
-            <StatusIcon category={ticket.category} />
-            {ticket.status}
+          <FieldRow name={tracker.statusName} className="flex items-center gap-2">
+            <tracker.Status ticket={ticket} />
           </FieldRow>
-          <FieldRow name="Assignee" className="flex flex-wrap items-center gap-2">
-            <AssigneeAvatar name={assignee} />
-            {assignee ?? <span className="text-muted-foreground">Unassigned</span>}
+          <FieldRow
+            name={tracker.several ? 'Assignees' : 'Assignee'}
+            className="flex flex-wrap items-center gap-2"
+          >
+            {assignees.length ? (
+              assignees.map((name) => (
+                <span key={name} className="inline-flex items-center gap-2">
+                  <AssigneeAvatar name={name} />
+                  {name}
+                </span>
+              ))
+            ) : (
+              <>
+                <AssigneeAvatar />
+                <span className="text-muted-foreground">Unassigned</span>
+              </>
+            )}
             {!mine && (
               <button
                 type="button"
@@ -105,7 +125,7 @@ export function TicketPanel(props: {
               </button>
             )}
           </FieldRow>
-          <tracker.Fields ticket={ticket} detail={full} sprints={props.sprints} />
+          <Fields ticket={ticket} detail={full} sprints={props.sprints} />
         </dl>
         {full?.fields && (
           <TicketFieldsMenu shown={full.fields} disabled={acting} onChange={setFields} />
@@ -157,7 +177,18 @@ export function TicketPanel(props: {
       <TicketStartPanel
         key={ticket.key}
         project={props.project}
-        ticket={{ key: ticket.key, url: ticket.url, summary: ticket.summary, mine, assignee }}
+        ticket={{
+          key: ticket.key,
+          id: ticket.id,
+          label: tracker.shortKey(ticket.key),
+          provider: ticket.provider,
+          several: tracker.several,
+          trackerName: tracker.short,
+          url: ticket.url,
+          summary: ticket.summary,
+          mine,
+          assignee: assignees.join(', ') || undefined,
+        }}
         defaults={props.defaults}
         prompt={props.prompt}
         onChanged={props.onChanged}

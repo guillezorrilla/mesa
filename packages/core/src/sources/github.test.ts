@@ -2,7 +2,9 @@ import { expect, test } from 'vitest';
 import { repoOfRemote } from './github.js';
 import { resolveLink } from './links.js';
 
-const GITHUB = { github: [{ id: 'rowan-tide', name: 'rowan-tide', url: 'https://github.com/rowan-tide' }] };
+const GITHUB = {
+  github: [{ id: 'rowan-tide', name: 'rowan-tide', url: 'https://github.com/rowan-tide' }],
+};
 const ISSUE = {
   source: 'github',
   id: 'harbor-co/harbor-api/421',

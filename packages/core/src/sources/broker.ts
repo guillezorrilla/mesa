@@ -31,7 +31,12 @@ const tokenSchema = z.object({
  * refresh token of an app the person revoked with, and GitHub's own `bad_verification_code` and
  * `bad_refresh_token`.
  */
-const REFUSED = ['invalid_grant', 'unauthorized_client', 'bad_verification_code', 'bad_refresh_token'];
+const REFUSED = [
+  'invalid_grant',
+  'unauthorized_client',
+  'bad_verification_code',
+  'bad_refresh_token',
+];
 
 /**
  * Exchanges a code or refreshes a token through the broker, which adds the client secret. The

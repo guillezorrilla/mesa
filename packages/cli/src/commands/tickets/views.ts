@@ -4,7 +4,8 @@ import { VIEW_FLAGS, viewOf } from '../../input/flags.js';
 
 export const ticketsViews = defineCommand({
   name: 'tickets views',
-  summary: "List the profile's Jira ticket views and the projects following each",
+  summary:
+    "List the profile's ticket views (GitHub's followed repos too) and the projects following each",
   example: 'mesa tickets views',
   run: ({ mesa }) => {
     const data = mesa.tickets.views();
@@ -18,7 +19,8 @@ export const ticketsViews = defineCommand({
 
 export const ticketsViewsAdd = defineCommand({
   name: 'tickets views add',
-  summary: "Define a view: a board's current or next sprint, a saved filter, or JQL",
+  summary:
+    "Define a view: a board's current or next sprint, a saved filter, or JQL; or a GitHub repo (--provider github)",
   args: ['name'],
   flags: VIEW_FLAGS,
   example: 'mesa tickets views add sprint --board 42',

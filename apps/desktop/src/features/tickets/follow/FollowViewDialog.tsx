@@ -1,4 +1,4 @@
-import type { ViewInput } from '@mesa/core';
+import type { ViewQuery } from '@mesa/core';
 import { useState } from 'react';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useAct } from '@/lib/useAct';
 import { useCommand, useRun } from '@/lib/useCommand';
 import { cn } from '@/lib/utils';
 import { FollowDialogFrame } from './FollowDialogFrame';
+import { freeName } from './freeName';
 import { type Pick, ViewPicker } from './ViewPicker';
 
 type Kind = 'current' | 'next' | 'filter' | 'jql';
@@ -18,15 +19,6 @@ const KINDS: readonly [Kind, string, string][] = [
   ['filter', 'Saved filter', 'A filter you keep in Jira'],
   ['jql', 'JQL query', 'Anything else'],
 ];
-
-/** `base`, or `base 2`, `base 3`... until no view has the name. */
-const freeName = (base: string, taken: readonly string[]) => {
-  const used = new Set(taken.map((n) => n.toLowerCase()));
-  for (let n = 1; ; n++) {
-    const name = n === 1 ? base : `${base} ${n}`;
-    if (!used.has(name.toLowerCase())) return name;
-  }
-};
 
 /**
  * Follow a ticket view: one the profile defines already (another project's board, say), or a
@@ -51,7 +43,7 @@ export function FollowViewDialog(props: {
   const [mine, setMine] = useState(true);
   const [hideDone, setHideDone] = useState(true);
   const filter = kind === 'filter';
-  const query: Omit<ViewInput, 'name'> | undefined =
+  const query: ViewQuery | undefined =
     kind === 'jql'
       ? checkedJql.trim()
         ? { jql: checkedJql.trim() }

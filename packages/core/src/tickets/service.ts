@@ -6,6 +6,7 @@ import { notConnectedError } from '../sources/authorized-fetch.js';
 import { itemIdOfKey } from '../sources/items.js';
 import type { SourceId } from '../sources/sources.js';
 import { liveSessions } from './live.js';
+import { originRepo } from './project-repo.js';
 import type { ProviderDeps, ProviderTicket } from './provider.js';
 import {
   connectProviders,
@@ -15,8 +16,8 @@ import {
   providerOf,
   ticketId,
   type ViewInput,
+  type ViewQuery,
 } from './providers.js';
-import { originRepo } from './project-repo.js';
 import { ticketActions } from './ticket.js';
 import { followedViews, ticketViews, trackerOf } from './views.js';
 
@@ -98,13 +99,13 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
       return { ...added, describe: describeView(added) };
     },
     /** How many tickets `input` lists now, without saving it: the Follow dialog's live count. */
-    preview: async (input: Omit<ViewInput, 'name'>) => {
+    preview: async (input: ViewQuery) => {
       const row = rows[input.provider ?? 'jira'];
       const view = await row.view({ ...input, name: 'preview' }, false);
       const read = await row.read(view);
       return {
         describe: describeView(view),
-        // ponytail: Jira's word for the query sent, which its dialog shows under Advanced.
+        // ponytail: Jira's word for the query sent (GitHub's request too), shown under Advanced.
         jql: read.query ?? null,
         count: read.tickets.length,
         more: read.more ?? false,
@@ -235,7 +236,8 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
               provider: tracker,
               mine:
                 myId !== undefined &&
-                (ticket.assigneeId === myId || Boolean(ticket.assignees?.some((a) => a.id === myId))),
+                (ticket.assigneeId === myId ||
+                  Boolean(ticket.assignees?.some((a) => a.id === myId))),
               views: [view.name],
               sessions: live.get(ticketId(tracker, itemIdOfKey(ticket.key))) ?? [],
             });
