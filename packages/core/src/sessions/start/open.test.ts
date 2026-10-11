@@ -552,9 +552,9 @@ test('a goal file is read as UTF-8; a bad goal is refused without vault history'
       'the /goal condition is 4001 characters, over the 4000 Claude Code takes: shorten it, or keep the long part in a file the goal names',
     ],
     [
-      { goal: '/goal Ship it', agent: 'codex' },
+      { goal: '/goal Ship it', agent: 'antigravity' },
       'usage',
-      'codex has no /goal command and would take the goal as plain text: start it with claude, or drop /goal',
+      'antigravity has no /goal command and would take the goal as plain text: start it with claude or codex, or drop /goal',
     ],
   );
   for (const [opts, code, message] of cases) {

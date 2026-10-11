@@ -39,5 +39,12 @@ export const dailyNotePath = (day: string) => `${VAULT.daily}/${day}.md`;
 /** A project's hub note (CONTEXT.md, Project hub). */
 export const projectHubPath = (project: string) => `${VAULT.projects}/${project}.md`;
 
+/** The folder of an imported item's snapshots, one file per fetch (CONTEXT.md, Import). */
+export const snapshotFolder = (source: string, id: string) => `${VAULT.raw}/${source}/${id}`;
+
+/** Where an investigation of an item saves its report (CONTEXT.md, Ticket start). */
+export const investigationPath = (project: string, key: string) =>
+  `${VAULT.projects}/${project}/investigations/${key}.md`;
+
 /** Where a session's summary lands (the session-summary skill's landing). */
 export const sessionSummaryPath = (id: string) => `${VAULT.wiki}/sessions/${id}.md`;

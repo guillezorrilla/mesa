@@ -1,6 +1,9 @@
 // An item a project imports (CONTEXT.md, Import): a Jira issue, a Confluence page, a Notion page,
 // or a web page.
 
+/** An imported Jira issue's title: its key, then its summary. */
+export const jiraTitle = (key: string, summary: string) => `${key}: ${summary}`;
+
 /** Where an item comes from: its folder under `raw/`, and its snapshots' `source`. */
 export const ITEM_SOURCES = ['jira', 'confluence', 'notion', 'web'] as const;
 export type ItemSource = (typeof ITEM_SOURCES)[number];

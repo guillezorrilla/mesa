@@ -77,7 +77,11 @@ test('a /goal goal is handed off only to an agent that runs /goal, within its 40
   });
   await expect(mesa.sessions.handoff(a.id, { note, agent: 'codex' })).rejects.toMatchObject({
     code: 'usage',
-    message: expect.stringContaining('codex has no /goal command'),
+    message: expect.stringContaining('over the 4000 Codex takes'),
+  });
+  await expect(mesa.sessions.handoff(a.id, { note, agent: 'antigravity' })).rejects.toMatchObject({
+    code: 'usage',
+    message: expect.stringContaining('antigravity has no /goal command'),
   });
   expect(tmux.windows).toHaveLength(1);
   expect(existsSync(profilePaths(home, 'default').handoffs)).toBe(false);

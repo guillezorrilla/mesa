@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { obsidianDateTime } from '../lib/time.js';
 import { listVault } from '../vault/inventory.js';
-import { VAULT } from '../vault/layout.js';
+import { snapshotFolder, VAULT } from '../vault/layout.js';
 import { type NotesDeps, oneLine, readNote, writeNote } from '../vault/notes.js';
 import { vaultFile } from '../vault/scope.js';
 import { ITEM_SOURCES, type Item, type ItemSource } from './items.js';
@@ -28,7 +28,7 @@ export type SnapshotRow = {
  */
 export function writeSnapshot(deps: NotesDeps, project: string, item: Item): string {
   const fetched = obsidianDateTime(deps.clock());
-  const name = `${VAULT.raw}/${item.source}/${item.id}/${fetched.replace(':', '')}`;
+  const name = `${snapshotFolder(item.source, item.id)}/${fetched.replace(':', '')}`;
   let path = `${name}.md`;
   for (let n = 2; existsSync(vaultFile(deps.vault, path)); n++) path = `${name}-${n}.md`;
   const title = oneLine(item.title);

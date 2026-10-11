@@ -187,6 +187,10 @@ test('every form of a Notion link imports the one page; a row lists its properti
 
   // A session starts from it, by its link, with the item's goal and its source on the record.
   const goal = (await mesa.imports.goal('lantern-cove', PAGE)).goal;
+  // A Ticket start is for a Jira issue only.
+  await expect(mesa.imports.goal('lantern-cove', PAGE, undefined, 'goal')).rejects.toMatchObject({
+    code: 'usage',
+  });
   expect(goal.split('\n').slice(0, 2)).toEqual([
     'Work on the imported Notion page Mesa import test',
     `Source: https://www.notion.so/${PAGE}`,

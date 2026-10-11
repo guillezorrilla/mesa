@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
+import { MAX_GOAL_CONDITION } from '../sessions/start/goal-command.js';
 import { importProfile, newSession, TEST_JIRA, testStore } from '../testing/index.js';
+import type { TicketStart } from './ticket-start.js';
 
 const AGILE = 'https://api.atlassian.com/ex/jira/cloud-1/rest/agile/1.0';
 const SITE = 'https://lantern-cove.atlassian.net';
@@ -123,13 +125,11 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
     notes: true,
     assign: true,
     start: 'worktree',
-    untilDone: true,
   });
   expect(mesa.tickets.setDefaults('lantern-cove', { start: 'checkout', notes: false })).toEqual({
     notes: false,
     assign: true,
     start: 'checkout',
-    untilDone: true,
   });
   expect(mesa.tickets.defaults('lantern-cove').start).toBe('checkout');
   expect(() => mesa.tickets.setDefaults('nowhere', { notes: true })).toThrow(
@@ -148,16 +148,42 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   expect(await goal(null)).toMatch(/^Work on the imported Jira issue LC-12/);
   await expect(goal('Missing')).rejects.toThrow('no saved prompt Missing');
 
-  // Until done: the whole goal is Claude Code's /goal, held to finishing the issue.
-  const done = async (prompt?: string | null) =>
-    (await mesa.imports.goal('lantern-cove', 'LC-12', prompt, true)).goal;
-  expect(await done(null)).toMatch(
-    /^\/goal Work on the imported Jira issue LC-12[\s\S]*\n\nDone when the issue is implemented as it describes, its acceptance criteria are met, and its tests pass\.$/,
-  );
-  expect(await done('Hotfix flow')).toMatch(/^\/goal Smallest safe change\.\n\nWork on/);
-  // A prompt that already is a /goal stays its own.
+  // A Ticket start: its own prompt around the issue, the Saved prompt after it as Your rules.
+  const as = async (start: TicketStart, prompt?: string | null) =>
+    (await mesa.imports.goal('lantern-cove', 'LC-12', prompt, start)).goal;
+  const session = await as('session', null);
+  expect(session).toMatch(/^Load LC-12 as context, then wait for my instructions\./);
+  expect(session).toContain('Ticket: LC-12: Fix the tide alarm');
+  expect(session).toMatch(/- Snapshot: raw\/jira\/LC-12\/.+\.md/);
+  const investigate = await as('investigate', null);
+  expect(investigate).toContain('projects/lantern-cove/investigations/LC-12.md');
+  expect(investigate).toContain('mesa open lantern-cove --from LC-12 --as goal');
+  const built = await as('goal', null);
+  expect(built).toMatch(/^\/goal Finish LC-12: do what the ticket asks\./);
+  // Room left under the /goal condition's cap for 1500 characters of Your rules.
+  expect(built.length + 1500).toBeLessThan(MAX_GOAL_CONDITION);
+  expect(await as('goal', 'Hotfix flow')).toMatch(/\n\nMy rules:\nSmallest safe change\.$/);
+  // A ticket prompt written as a whole /goal, before the Ticket starts, keeps only its text.
   mesa.prompts.save('Goal flow', '/goal Ship it with a PR.');
-  expect(await done('Goal flow')).toMatch(/^\/goal Ship it with a PR\.\n\nWork on[\s\S]*\.md$/);
+  expect(await as('session', 'Goal flow')).toMatch(/\n\nMy rules:\nShip it with a PR\.$/);
+  await expect(
+    mesa.imports.open('lantern-cove', { from: 'LC-12', exactGoal: true, kind: 'goal' }),
+  ).rejects.toMatchObject({ code: 'usage', message: 'pass --exact-goal or --as, not both' });
+  // The project's ticket prompt is Your rules too, never what the goal opens with.
+  expect(await as('goal')).toMatch(/^\/goal Finish LC-12[\s\S]*Branch, test first, open a PR\.$/);
+});
+
+test('defaults written before the Ticket starts load, and the next change drops their untilDone', async () => {
+  const { mesa, home } = await setUp();
+  const file = `${home}/.mesa/default/tickets.yaml`;
+  writeFileSync(file, 'defaults:\n  lantern-cove:\n    notes: false\n    untilDone: true\n');
+  expect(mesa.tickets.defaults('lantern-cove')).toEqual({
+    notes: false,
+    assign: true,
+    start: 'worktree',
+  });
+  mesa.tickets.setDefaults('lantern-cove', { assign: false });
+  expect(readFileSync(file, 'utf8')).not.toContain('untilDone');
 });
 
 test('a view of a site the connection no longer reaches names the site and asks to reconnect', async () => {

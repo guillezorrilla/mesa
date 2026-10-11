@@ -1,37 +1,26 @@
+import { branchOf, type TicketStart } from '@mesa/core/browser';
 import { useState } from 'react';
 import { useRun } from '@/lib/useCommand';
-
-/** How a session starts from a ticket: the start sheet's choices. */
-export type StartOptions = {
-  assign: boolean;
-  /** A Saved prompt's name, or null for none. */
-  prompt: string | null;
-  notes: boolean;
-  start: 'worktree' | 'checkout';
-  /** Start as Claude Code's /goal, so the agent keeps working until the ticket is done. */
-  untilDone: boolean;
-};
+import { placeOf, type StartOptions } from './startOptions';
+import { STARTS } from './starts';
 
 export type StartStep = { label: string; state: 'todo' | 'now' | 'done' | 'failed' };
 
-/** The branch a ticket's worktree is on: its key in lowercase, such as hb-219. */
-export const branchOf = (key: string) => key.toLowerCase();
-
 /**
  * Starts a session from a ticket in `project`, one step after another: assign it (when asked),
- * import it (with notes when asked), then open the session from it with its goal, in a new
- * worktree on the ticket's branch or in the main checkout. `steps` is the progress the sheet
- * shows; a failed step stops there, its error already toasted.
+ * import it (with notes when asked), then open the session from it with the goal its `kind` of
+ * Ticket start builds, in a new worktree on the ticket's branch or in the main checkout. `steps`
+ * is the progress StartProgress shows; a failed step stops there, its error already toasted.
  */
 export function useStartTicket(project: string) {
   const run = useRun();
   const [steps, setSteps] = useState<StartStep[]>();
   const [session, setSession] = useState<string>();
-  const start = async (ticket: { key: string; url: string }, options: StartOptions) => {
-    const where =
-      options.start === 'worktree'
-        ? `in a new worktree on ${branchOf(ticket.key)}`
-        : 'in the main checkout';
+  const startTicket = async (
+    ticket: { key: string; url: string },
+    options: StartOptions,
+    kind: TicketStart,
+  ) => {
     const plan: { label: string; run: () => Promise<unknown> }[] = [];
     if (options.assign)
       plan.push({
@@ -43,13 +32,13 @@ export function useStartTicket(project: string) {
       run: () => run('imports.add', { project, links: [ticket.url], notes: options.notes }),
     });
     plan.push({
-      label: `Start the session ${where}`,
+      label: `${STARTS[kind].step} in ${placeOf(ticket.key, options.start)}`,
       run: async () => {
         const built = await run('imports.goal', {
           project,
           from: ticket.key,
           prompt: options.prompt,
-          untilDone: options.untilDone,
+          kind,
         });
         const opened =
           built &&
@@ -78,5 +67,5 @@ export function useStartTicket(project: string) {
     }
     return true;
   };
-  return { steps, session, start, reset: () => setSteps(undefined) };
+  return { steps, session, startTicket, reset: () => setSteps(undefined) };
 }

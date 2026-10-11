@@ -33,7 +33,7 @@ export function NewPromptForm(props: { onSaved: (name: string) => void; onCancel
       />
       <Textarea
         aria-label="Prompt text"
-        placeholder="/goal Deliver the ticket below: branch, test first, open a PR."
+        placeholder="Small commits; run the full test suite before you finish."
         value={text}
         rows={4}
         className="font-mono text-xs"
