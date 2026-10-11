@@ -183,8 +183,13 @@ test('each project keeps its own defaults, and a goal takes a prompt by name, no
   const investigate = await as('investigate', null);
   expect(investigate).toContain('projects/lantern-cove/investigations/LC-12.md');
   expect(investigate).toContain('mesa open lantern-cove --from LC-12 --as goal');
+  // Its Status covers every kind of ticket, and no subagent re-checks the report.
+  expect(investigate).toContain('for a story or task, the change map), otherwise Not proven');
+  expect(investigate).not.toContain('give one subagent');
   const built = await as('goal', null);
   expect(built).toMatch(/^\/goal Finish LC-12: do what the ticket asks\./);
+  // The /goal checker reads only the conversation, so the condition asks for the evidence there.
+  expect(built).toContain('Whoever checks this goal sees only this conversation');
   // Room left under the /goal condition's cap for 1500 characters of Your rules.
   expect(built.length + 1500).toBeLessThan(MAX_GOAL_CONDITION);
   expect(await as('goal', 'Hotfix flow')).toMatch(/\n\nMy rules:\nSmallest safe change\.$/);
