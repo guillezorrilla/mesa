@@ -2,6 +2,7 @@ import type {
   Board,
   Filter,
   FollowedView,
+  JiraField,
   JiraIssue,
   Ticket,
   TicketDefaults,
@@ -44,6 +45,10 @@ export const ticketsCommands = {
   'tickets.viewsAdd': commandWith<{ view: ViewInput }, TicketView & { describe: string }>(
     ({ view }) => ['tickets', 'views', 'add', ...viewFlags(view), '--', view.name],
   ),
+  'tickets.viewsRename': commandWith<
+    { name: string; to: string },
+    TicketView & { describe: string }
+  >(({ name, to }) => ['tickets', 'views', 'rename', '--', name, to]),
   'tickets.preview': commandWith<
     { view: Omit<ViewInput, 'name'> },
     {
@@ -102,6 +107,16 @@ export const ticketsCommands = {
     'tickets',
     'boards',
     ...searchFlag(search),
+  ]),
+  'tickets.fields': command<SiteOf<{ fields: JiraField[]; shown: JiraField[] }>>(
+    'tickets',
+    'fields',
+  ),
+  'tickets.fieldsSet': commandWith<{ ids: string[] }, JiraField[]>(({ ids }) => [
+    'tickets',
+    'fields',
+    'set',
+    ...(ids.length ? ['--', ...ids] : ['--clear']),
   ]),
   'tickets.filters': commandWith<{ search?: string }, SiteOf<{ filters: Filter[] }>>(
     ({ search }) => ['tickets', 'filters', ...searchFlag(search)],

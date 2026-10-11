@@ -83,11 +83,14 @@ test("mesa tickets views add, follow and the list read a board's current sprint"
   const json = await cli.mesa('tickets', 'lantern-cove', '--json');
   expect(json.json.data.tickets).toMatchObject([{ key: 'LC-1', views: ['sprint'], sessions: [] }]);
 
-  expect((await cli.mesa('tickets', 'unfollow', 'lantern-cove', 'sprint')).stdout).toContain(
+  expect((await cli.mesa('tickets', 'views', 'rename', 'sprint', 'Tide sprint')).stdout).toContain(
+    'Renamed sprint to Tide sprint',
+  );
+  expect((await cli.mesa('tickets', 'unfollow', 'lantern-cove', 'Tide sprint')).stdout).toContain(
     'lantern-cove follows no ticket views',
   );
-  expect((await cli.mesa('tickets', 'views', 'remove', 'sprint')).stdout).toContain(
-    'Removed sprint',
+  expect((await cli.mesa('tickets', 'views', 'remove', 'Tide sprint')).stdout).toContain(
+    'Removed Tide sprint',
   );
   expect((await cli.mesa('tickets', 'views')).stdout).toBe('No ticket views.\n');
 });
@@ -212,4 +215,27 @@ test('mesa tickets show, assign, preview and defaults, and import goal --prompt'
       )
     ).code,
   ).toBe(2);
+});
+
+test('mesa tickets fields lists the Jira fields, marks the shown ones, and fields set picks them', async () => {
+  const world = await connected();
+  world.serve(`${TEST_JIRA}/field`, [
+    { id: 'customfield_10067', name: 'Severity (SLA)' },
+    { id: 'components', name: 'Components' },
+  ]);
+  expect((await cli.mesa('tickets', 'fields', 'set')).code).toBe(2);
+  expect((await cli.mesa('tickets', 'fields', 'set', 'components')).stdout).toContain(
+    'Ticket panels show Components',
+  );
+  expect((await cli.mesa('tickets', 'fields')).stdout).toBe(
+    '* components  Components\n  customfield_10067  Severity (SLA)\n',
+  );
+  const json = await cli.mesa('tickets', 'fields', '--search', 'sla', '--json');
+  expect(json.json.data).toMatchObject({
+    fields: [{ id: 'customfield_10067', name: 'Severity (SLA)' }],
+    shown: [{ id: 'components', name: 'Components' }],
+  });
+  expect((await cli.mesa('tickets', 'fields', 'set', '--clear')).stdout).toContain(
+    'Ticket panels show only their own fields',
+  );
 });

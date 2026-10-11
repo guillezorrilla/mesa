@@ -1,4 +1,5 @@
 import type { Command } from '../../command.js';
+import { ticketsFields, ticketsFieldsSet } from './fields.js';
 import { ticketsBoards, ticketsFilters } from './jira.js';
 import { tickets } from './list.js';
 import { ticketsAssign, ticketsDefaults, ticketsShow } from './ticket.js';
@@ -10,6 +11,7 @@ import {
   ticketsViews,
   ticketsViewsAdd,
   ticketsViewsRemove,
+  ticketsViewsRename,
 } from './views.js';
 
 // Every `mesa tickets` subcommand, in help order.
@@ -19,12 +21,15 @@ export const TICKETS_COMMANDS: Command[] = [
   ticketsAssign,
   ticketsViews,
   ticketsViewsAdd,
+  ticketsViewsRename,
   ticketsViewsRemove,
   ticketsPreview,
   ticketsFollow,
   ticketsUnfollow,
   ticketsPrompt,
   ticketsDefaults,
+  ticketsFields,
+  ticketsFieldsSet,
   ticketsBoards,
   ticketsFilters,
 ];

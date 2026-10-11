@@ -11,6 +11,7 @@ import { ManageViewsDialog } from './ManageViewsDialog';
 import { TicketList } from './TicketList';
 import { TicketPanel } from './TicketPanel';
 import { TicketsToolbar } from './TicketsToolbar';
+import { usePickedView } from './usePickedView';
 
 /**
  * A project's Tickets tab (CONTEXT.md, Tickets tab): the followed views' tickets grouped by
@@ -22,7 +23,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
   const list = useCommand('tickets.list', { project });
   const run = useRun();
   const { acting, act } = useAct();
-  const [view, setView] = useState<string>();
+  const [view, setView] = usePickedView(project);
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string>();
   const [narrowTicket, setNarrowTicket] = useState(false);
@@ -174,6 +175,7 @@ export function TicketsTab(props: { project: string; onSession: (id: string) => 
           project={project}
           views={views}
           onChanged={refresh}
+          onRenamed={(from, to) => view === from && setView(to)}
           onClose={() => setDialog(undefined)}
         />
       )}

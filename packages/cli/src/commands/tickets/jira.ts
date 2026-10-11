@@ -1,8 +1,7 @@
 import { defineCommand } from '../../command.js';
-import { VIEW_FLAGS } from '../../input/flags.js';
+import { SEARCH_FLAG as search, VIEW_FLAGS } from '../../input/flags.js';
 
 const { site } = VIEW_FLAGS;
-const search = { type: 'string', description: 'Only those whose name holds this' } as const;
 
 export const ticketsBoards = defineCommand({
   name: 'tickets boards',

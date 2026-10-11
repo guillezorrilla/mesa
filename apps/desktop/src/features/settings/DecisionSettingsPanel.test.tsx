@@ -1,10 +1,17 @@
 // @vitest-environment happy-dom
 import type { Config, HooksStatus, KeyProvider, KeyRow } from '@mesa/core';
-import { expect, test } from 'vitest';
+import { act } from 'react';
+import { expect, test, vi } from 'vitest';
 import { click, envelope, failure, fakeBridge, fill, renderWithMesa } from '@/lib/testing';
 import type { SettingsCategory } from './categories';
 import { SettingsDialog } from './SettingsDialog';
 
+/** Waits for `check` to pass: a Connect saves, refreshes, then reads the hooks before it closes. */
+const settled = (check: () => void) =>
+  vi.waitFor(async () => {
+    await act(async () => {});
+    check();
+  });
 const KEY = 'ts-test-0000-1111-abcd';
 const REVIEW =
   'The next Codex start asks you to review hooks: choose "Review hooks" in "Hooks need review" and trust Mesa\'s entries.';
@@ -198,7 +205,7 @@ test('Connect CLEF labels the account ID and the token, keeps it masked while it
     'cloudflare',
   ]);
   expect(calls.flat().join(' ')).not.toContain(KEY);
-  expect(dialog('clef')).toBeNull();
+  await settled(() => expect(dialog('clef')).toBeNull());
   const clef = row('CLEF (Cloudflare)');
   expect(clef?.textContent).toContain('In use · token ending abcd');
   expect(clef?.textContent).not.toContain(KEY);
@@ -213,8 +220,10 @@ test('after Connect, hooks that need an update are one more step, then how Codex
   await click(
     document.querySelector<HTMLElement>('[data-testid="connect-jev-submit"]') ?? undefined,
   );
-  expect(dialog('jev')?.textContent).toContain(
-    "One more step: update Mesa's session hooks so your agents get the advice",
+  await settled(() =>
+    expect(dialog('jev')?.textContent).toContain(
+      "One more step: update Mesa's session hooks so your agents get the advice",
+    ),
   );
   await click(button(dialog('jev'), 'Update hooks'));
   expect(calls.some((args) => args[1] === 'hooks' && args[2] === 'install')).toBe(true);
@@ -231,7 +240,7 @@ test('after Connect with hooks that need no update, the dialog just closes', asy
   await click(
     document.querySelector<HTMLElement>('[data-testid="connect-jev-submit"]') ?? undefined,
   );
-  expect(dialog('jev')).toBeNull();
+  await settled(() => expect(dialog('jev')).toBeNull());
   expect(calls.some((args) => args[1] === 'hooks' && args[2] === 'install')).toBe(false);
 });
 
@@ -248,8 +257,10 @@ test('a rejected key says so in place with the provider message, empties the fie
     document.querySelector<HTMLElement>('[data-testid="connect-jev-submit"]') ?? undefined,
   );
   expect(state.stdin).toEqual([KEY]);
-  expect(dialog('jev')?.querySelector('[role="alert"]')?.textContent).toBe(
-    'That key was rejected. Jev rejected the key (HTTP 401); the key was not saved.',
+  await settled(() =>
+    expect(dialog('jev')?.querySelector('[role="alert"]')?.textContent).toBe(
+      'That key was rejected. Jev rejected the key (HTTP 401); the key was not saved.',
+    ),
   );
   expect(field('jev', 'API key')?.value).toBe('');
   expect(row('Jev (TypeSafe)')?.textContent).toContain('Not connected');

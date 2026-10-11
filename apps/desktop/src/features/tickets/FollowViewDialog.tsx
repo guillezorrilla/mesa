@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActionDialog } from '@/components/ActionDialog';
 import { Muted } from '@/components/Muted';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,7 +34,8 @@ const freeName = (base: string, taken: readonly string[]) => {
 /**
  * Follow a ticket view: one the profile defines already (another project's board, say), or a
  * new one picked by what it reads, with Only mine and Hide done, a live count of its tickets,
- * and the JQL Mesa sends under Advanced. A new view is named after what it reads.
+ * and the JQL Mesa sends under Advanced. A new view takes the name typed, else one after what it
+ * reads.
  */
 export function FollowViewDialog(props: {
   project: string;
@@ -47,6 +49,7 @@ export function FollowViewDialog(props: {
   const [kind, setKind] = useState<Kind>('current');
   const [picked, setPicked] = useState<Pick>();
   const [jql, setJql] = useState('');
+  const [typedName, setTypedName] = useState('');
   const [checkedJql, setCheckedJql] = useState('');
   const [mine, setMine] = useState(true);
   const [hideDone, setHideDone] = useState(true);
@@ -63,7 +66,7 @@ export function FollowViewDialog(props: {
     ...(hideDone ? {} : { showDone: true }),
   };
   const others = (views.data ?? []).filter((v) => !props.following.includes(v.name));
-  const name = freeName(
+  const suggested = freeName(
     kind === 'jql'
       ? 'JQL view'
       : filter
@@ -71,6 +74,9 @@ export function FollowViewDialog(props: {
         : `${picked?.name ?? 'Board'} ${kind === 'next' ? 'next sprint' : 'sprint'}`,
     (views.data ?? []).map((v) => v.name),
   );
+  const name = typedName.trim() || suggested;
+  // A typed name another view has is refused before Follow, not after.
+  const taken = (views.data ?? []).find((v) => v.name.toLowerCase() === name.toLowerCase())?.name;
   const follow = (existing?: string) =>
     void act(async () => {
       const target =
@@ -90,7 +96,11 @@ export function FollowViewDialog(props: {
         </span>
       }
       description="Its tickets show up in this tab and stay current as sprints change."
-      submit={{ label: 'Follow', testId: 'confirm-follow-view', disabled: acting || !view }}
+      submit={{
+        label: 'Follow',
+        testId: 'confirm-follow-view',
+        disabled: acting || !view || taken !== undefined,
+      }}
       onSubmit={() => follow()}
       onCancel={props.onCancel}
     >
@@ -147,6 +157,24 @@ export function FollowViewDialog(props: {
       ) : (
         <ViewPicker kind={filter ? 'filter' : 'board'} picked={picked} onPick={setPicked} />
       )}
+      <div className="grid gap-1.5">
+        <Label htmlFor="view-name">
+          Name <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
+        <Input
+          id="view-name"
+          placeholder={suggested}
+          value={typedName}
+          aria-invalid={taken !== undefined || undefined}
+          aria-describedby={taken === undefined ? undefined : 'view-name-taken'}
+          onChange={(event) => setTypedName(event.currentTarget.value)}
+        />
+        {taken !== undefined && (
+          <Muted id="view-name-taken" size="xs" className="text-destructive">
+            You already have a view named {taken}. Follow it above, or pick another name.
+          </Muted>
+        )}
+      </div>
       {(
         [
           ['view-mine', 'Only my tickets', mine, setMine],

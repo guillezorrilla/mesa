@@ -218,7 +218,7 @@ test('Options changes the start first: where it runs, your rules, and a new prom
   );
 });
 
-test('Follow picks a board, counts its tickets live, then adds the view and follows it', async () => {
+test('Follow picks a board, counts its tickets live, then adds the view under the name typed and follows it', async () => {
   let followed = false;
   const { bridge, calls } = fakeBridge({
     tickets: () => listOf(followed ? [sprint] : [], []),
@@ -236,10 +236,10 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
     'tickets preview': () =>
       envelope({ describe: 'x', jql: '(sprint = 7) ORDER BY Rank ASC', count: 3, more: false }),
     'sources list': () => envelope({ sources: [atlassian('connected')] }),
-    'tickets views add': () => envelope({ name: 'Tide team sprint', describe: 'x' }),
+    'tickets views add': () => envelope({ name: 'Tide work', describe: 'x' }),
     'tickets follow': () => {
       followed = true;
-      return envelope({ project: 'lantern-cove', following: ['Tide team sprint'] });
+      return envelope({ project: 'lantern-cove', following: ['Tide work'] });
     },
   });
   const byTestId = await renderWithMesa(
@@ -253,12 +253,18 @@ test('Follow picks a board, counts its tickets live, then adds the view and foll
   expect(dialog()).toContain('Views you already have');
   await click(document.getElementById('view-pick-42') ?? undefined);
   expect(dialog()).toContain('3 tickets right now, shown as "Tide team sprint"');
+  // The name is optional: empty, the view is named after what it reads; one taken is refused.
+  await fill(document.querySelector<HTMLInputElement>('#view-name'), 'SPRINT');
+  expect(dialog()).toContain('You already have a view named sprint.');
+  expect(byTestId('confirm-follow-view')[0]?.hasAttribute('disabled')).toBe(true);
+  await fill(document.querySelector<HTMLInputElement>('#view-name'), 'Tide work');
+  expect(dialog()).toContain('shown as "Tide work"');
   await click(byTestId('confirm-follow-view')[0]);
   expect(
     words(calls).filter((w) => w.startsWith('tickets views add') || w.startsWith('tickets follow')),
   ).toEqual([
-    'tickets views add --board 42 --sprint current -- Tide team sprint',
-    'tickets follow -- lantern-cove Tide team sprint',
+    'tickets views add --board 42 --sprint current -- Tide work',
+    'tickets follow -- lantern-cove Tide work',
   ]);
   expect(byTestId('follow-view-dialog')).toHaveLength(0);
 });
@@ -353,4 +359,44 @@ test('a view that needs a fresh sign-in says so and offers Reconnect', async () 
     'Mesa needs a fresh sign-in to read boards from Jira.',
   );
   expect(button('Reconnect Atlassian')).toBeDefined();
+});
+
+test('the view picked stays picked when the person leaves the project and comes back', async () => {
+  localStorage.clear();
+  const harbor: FollowedView = {
+    name: 'harbor',
+    describe: 'JQL: project = HB (everyone, not done)',
+  };
+  const { bridge } = fakeBridge({
+    tickets: () =>
+      listOf(
+        [sprint, harbor],
+        [
+          ticket('LC-1', 'Retry the tide feed'),
+          ticket('HB-2', 'Paint the harbor gate', { views: ['harbor'] }),
+        ],
+      ),
+    'tickets show': (args) => shown(String(args.at(-1))),
+    prompts: () => envelope([]),
+  });
+  const rows = () => byTestId('ticket-row').map((r) => r.textContent ?? '');
+  let byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(rows()).toHaveLength(2);
+  await click(byTestId('view-switcher')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find((item) =>
+      item.textContent?.startsWith('harbor'),
+    ),
+  );
+  expect(rows()).toEqual([expect.stringContaining('HB-2')]);
+
+  // Another visit to the project, the tab mounted again: still the harbor view.
+  byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(rows()).toEqual([expect.stringContaining('HB-2')]);
 });

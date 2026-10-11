@@ -3,6 +3,7 @@ import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import { issueUrl, jiraAgileApi, jiraApi } from './atlassian.js';
 import type { Site } from './connection.js';
+import type { JiraField } from './jira.js';
 
 // The Jira reads a project's Tickets tab needs (CONTEXT.md, Ticket view): boards and their
 // sprints (Jira Software's API, its own scopes), saved filters, and the tickets a JQL query finds.
@@ -137,6 +138,21 @@ export async function filter(get: Http, site: Site, id: string): Promise<Filter>
     'Jira filter',
   );
   return { id, name };
+}
+
+/** The site's fields whose name holds `search`, if given, by name. */
+// ponytail: Jira answers every field in one list (no paging), so `search` narrows it here.
+export async function jiraFields(get: Http, site: Site, search?: string): Promise<JiraField[]> {
+  const body = await jiraJson(
+    await get(`${jiraApi(site.id)}/field`),
+    z.array(z.object({ id: z.string(), name: z.string() })),
+    'Jira fields',
+  );
+  const words = search?.trim().toLowerCase() ?? '';
+  return body
+    .filter((f) => f.name.toLowerCase().includes(words))
+    .map(({ id, name }) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export type JiraTicket = {

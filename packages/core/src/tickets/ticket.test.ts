@@ -22,6 +22,9 @@ async function setUp() {
       assignee: { displayName: 'Mira Keel', accountId: 'acc-2' },
       labels: ['tides'],
       updated: '2026-09-24T12:00:00Z',
+      components: [{ name: 'Alarms' }, { name: 'Buoys' }],
+      customfield_10067: { value: 'Sev2', id: '10007' },
+      customfield_10070: null,
     },
     renderedFields: { description: '<p>The alarm rings <strong>late</strong>.</p>' },
   });
@@ -64,8 +67,30 @@ test('show reads one ticket whole, as Markdown, with whose it is and the session
     site: 'cloud-1',
     mine: false,
     sessions: [{ id: running.id, project: 'harbor-gate' }],
+    fields: [],
   });
   await expect(mesa.tickets.show('../etc')).rejects.toThrow('../etc is not a Jira issue key');
+});
+
+test('the fields the profile picks show in every ticket, in order, each value as text', async () => {
+  const { mesa, world } = await setUp();
+  world.serve(`${TEST_JIRA}/field`, [
+    { id: 'customfield_10067', name: 'Severity (SLA)' },
+    { id: 'components', name: 'Components' },
+    { id: 'customfield_10070', name: 'Root cause' },
+  ]);
+  expect((await mesa.tickets.fields('sev')).fields).toEqual([
+    { id: 'customfield_10067', name: 'Severity (SLA)' },
+  ]);
+  await expect(mesa.tickets.setFields(['nope'])).rejects.toThrow('no Jira field nope');
+  await mesa.tickets.setFields(['components', 'customfield_10067', 'customfield_10070']);
+  expect((await mesa.tickets.show('LC-12')).fields).toEqual([
+    { id: 'components', name: 'Components', value: 'Alarms, Buoys' },
+    { id: 'customfield_10067', name: 'Severity (SLA)', value: 'Sev2' },
+    { id: 'customfield_10070', name: 'Root cause', value: null },
+  ]);
+  expect(await mesa.tickets.setFields([])).toEqual([]);
+  expect((await mesa.tickets.show('LC-12')).fields).toEqual([]);
 });
 
 test('assign puts the ticket on the signed-in account, once, with a receipt', async () => {

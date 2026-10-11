@@ -9,6 +9,7 @@ import {
   filters,
   findBoard,
   type JiraTicket,
+  jiraFields,
   searchTickets,
   sprints,
   TICKETS,
@@ -82,6 +83,9 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     return { site, view: parseView({ ...rest, ...sprint, site: site.id, siteName: site.name }) };
   };
 
+  /** The Jira fields every ticket panel shows after its own. */
+  const shown = () => store.read().fields;
+
   const savedPrompt = (name: string) => {
     const saved = deps.prompts().find((p) => same(p.name, name));
     if (!saved) throw new MesaError('not_found', `no saved prompt ${name}; see mesa prompts`);
@@ -93,7 +97,7 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
   };
 
   return {
-    ...ticketActions(ctx, jira),
+    ...ticketActions(ctx, jira, shown),
     /** Every view the profile defines, and the projects following each. */
     views: () => {
       const file = store.read();
@@ -136,6 +140,10 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
         ...(resolved.note ? { note: resolved.note } : {}),
       };
     },
+    renameView: (name: string, to: string) => {
+      const renamed = store.rename(name, to);
+      return { ...renamed, describe: describeView(renamed) };
+    },
     removeView: store.remove,
     follow: store.follow,
     unfollow: store.unfollow,
@@ -157,6 +165,35 @@ export function ticketsService(ctx: MesaContext, deps: TicketsDeps) {
     boards: async (search?: string, siteName?: string) => {
       const site = await jira.siteOf(siteName);
       return { site: { id: site.id, name: site.name }, boards: await boards(get(), site, search) };
+    },
+    /**
+     * The site's Jira fields a ticket panel can show, whose name holds `search` if given, and the
+     * ones it shows.
+     */
+    fields: async (search?: string, siteName?: string) => {
+      const site = await jira.siteOf(siteName);
+      return {
+        site: { id: site.id, name: site.name },
+        fields: await jiraFields(get(), site, search),
+        shown: shown(),
+      };
+    },
+    /**
+     * Sets the Jira fields every ticket panel shows, by id in order (none for only its own);
+     * each must be one of the site's, and its name is kept to show it.
+     */
+    setFields: async (ids: readonly string[], siteName?: string) => {
+      // Only a field not shown yet needs the site's list: hiding one asks Jira nothing.
+      let known = shown();
+      if (ids.some((id) => !known.some((f) => f.id === id)))
+        known = await jiraFields(get(), await jira.siteOf(siteName));
+      return store.setFields(
+        [...new Set(ids)].map((id) => {
+          const found = known.find((f) => f.id === id);
+          if (!found) throw new MesaError('usage', `no Jira field ${id}; see mesa tickets fields`);
+          return found;
+        }),
+      );
     },
     filters: async (search?: string, siteName?: string) => {
       const site = await jira.siteOf(siteName);
