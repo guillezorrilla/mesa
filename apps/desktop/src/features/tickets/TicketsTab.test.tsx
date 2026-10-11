@@ -239,7 +239,7 @@ test('Follow picks a board, counts its tickets live, then adds the view under th
   expect(dialog()).toContain('3 tickets right now, shown as "Tide team sprint"');
   // The name is optional: empty, the view is named after what it reads; one taken is refused.
   await fill(document.querySelector<HTMLInputElement>('#view-name'), 'SPRINT');
-  expect(dialog()).toContain('You already have a view named SPRINT');
+  expect(dialog()).toContain('You already have a view named sprint.');
   expect(byTestId('confirm-follow-view')[0]?.hasAttribute('disabled')).toBe(true);
   await fill(document.querySelector<HTMLInputElement>('#view-name'), 'Tide work');
   expect(dialog()).toContain('shown as "Tide work"');

@@ -42,10 +42,13 @@ export function TicketFieldsMenu(props: {
         <div className="grid gap-0.5 border-b px-3 py-2.5">
           <span className="text-sm font-medium">Fields in every ticket</span>
           <span className="text-xs text-muted-foreground">
-            Shown under Status and Assignee, in all your projects.
+            Shown after each ticket's own fields, in all your projects.
           </span>
         </div>
-        <Command>
+        {/* A name or id holding the search, not cmdk's fuzzy match ("sev" is not Fix versions). */}
+        <Command
+          filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}
+        >
           <CommandInput placeholder="Search Jira fields" />
           <CommandList className="max-h-72">
             {props.shown.length > 0 && (

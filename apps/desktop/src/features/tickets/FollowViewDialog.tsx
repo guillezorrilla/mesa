@@ -76,7 +76,7 @@ export function FollowViewDialog(props: {
   );
   const name = typedName.trim() || suggested;
   // A typed name another view has is refused before Follow, not after.
-  const taken = (views.data ?? []).some((v) => v.name.toLowerCase() === name.toLowerCase());
+  const taken = (views.data ?? []).find((v) => v.name.toLowerCase() === name.toLowerCase())?.name;
   const follow = (existing?: string) =>
     void act(async () => {
       const target =
@@ -99,7 +99,7 @@ export function FollowViewDialog(props: {
       submit={{
         label: 'Follow',
         testId: 'confirm-follow-view',
-        disabled: acting || !view || taken,
+        disabled: acting || !view || taken !== undefined,
       }}
       onSubmit={() => follow()}
       onCancel={props.onCancel}
@@ -165,13 +165,13 @@ export function FollowViewDialog(props: {
           id="view-name"
           placeholder={suggested}
           value={typedName}
-          aria-invalid={taken || undefined}
-          aria-describedby={taken ? 'view-name-taken' : undefined}
+          aria-invalid={taken !== undefined || undefined}
+          aria-describedby={taken === undefined ? undefined : 'view-name-taken'}
           onChange={(event) => setTypedName(event.currentTarget.value)}
         />
-        {taken && (
+        {taken !== undefined && (
           <Muted id="view-name-taken" size="xs" className="text-destructive">
-            You already have a view named {name}. Follow it above, or pick another name.
+            You already have a view named {taken}. Follow it above, or pick another name.
           </Muted>
         )}
       </div>
