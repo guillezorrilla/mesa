@@ -5,12 +5,14 @@ import { notConnectedError } from './authorized-fetch.js';
 import { CLICKUP_HOSTS, clickupLink, clickupRef } from './clickup.js';
 import type { Site } from './connection.js';
 import type { ItemRef } from './items.js';
+import { LINEAR_HOSTS, LINEAR_WEB, linearLink, linearRef } from './linear.js';
 import { NOTION_HOSTS, NOTION_ID, notionId, notionUrl } from './notion.js';
 import type { SourceId } from './sources.js';
 
 // What a pasted link is (CONTEXT.md, Import): a Jira issue (its URL, or a bare key), a Confluence
-// page, a Notion page or database row, a ClickUp task or Doc page, or any other public web page. An Atlassian link resolves
-// through the connected site its host names, whose cloud id the API calls take.
+// page, a Notion page or database row, a ClickUp task or Doc page, a Linear issue, project or
+// document, or any other public web page. An Atlassian link resolves through the connected site its
+// host names, whose cloud id the API calls take; a Linear link must name the connected workspace.
 
 const KEY = /^[A-Z][A-Z0-9_]+-\d+$/;
 const ISSUE = /^\/browse\/([A-Z][A-Z0-9_]+-\d+)\/?$/;
@@ -63,6 +65,7 @@ export function resolveLink(link: string, sites: Partial<Record<SourceId, Site[]
       `${text} is not a ClickUp task or Doc page: Mesa imports /t/<task id> and /<workspace>/v/dc/<doc>/<page> links`,
     );
   }
+  if (LINEAR_HOSTS.includes(url.host)) return linearRefIn(url, text, sites.linear);
   const site = atlassian.find((s) => new URL(s.url).host === url.host);
   if (!site) {
     if (!url.host.endsWith('.atlassian.net')) {
@@ -103,4 +106,25 @@ function notionRef(url: URL, text: string, connected: boolean): ItemRef {
     .find(Boolean);
   if (!id) throw usage(`${text} is not a Notion page: Mesa imports links that end in its id`);
   return { source: 'notion', id: notionId(id), url: notionUrl(id) };
+}
+
+/**
+ * A Linear link's item (linearLink), in the connected workspace its first path part names by URL
+ * key: a link to another workspace is refused, as the token reaches only the one picked at sign-in.
+ */
+function linearRefIn(url: URL, text: string, sites: Site[] | undefined): ItemRef {
+  if (!sites) throw notConnectedError('linear');
+  const link = linearLink(url);
+  if (!link) {
+    throw usage(
+      `${text} is not a Linear issue, project or document: Mesa imports /<workspace>/issue/<ID>, /project/<slug> and /document/<slug> links`,
+    );
+  }
+  if (!sites.some((site) => site.url === `${LINEAR_WEB}/${link.workspace}`)) {
+    throw new MesaError(
+      'not_found',
+      `${link.workspace} is not the connected Linear workspace (${sites.map((s) => s.name).join(', ')}): reconnect with mesa sources connect linear and pick it`,
+    );
+  }
+  return linearRef(link);
 }

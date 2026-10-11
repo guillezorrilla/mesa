@@ -21,7 +21,7 @@ function loopbackPort(state: string | null) {
 }
 
 /** The token request's body, or undefined when it is not one of the two grants. */
-function grant(body: unknown) {
+function grant(body: unknown): Record<string, string> | undefined {
   if (typeof body !== 'object' || body === null) return undefined;
   const { grant_type, code, refresh_token } = body as Record<string, unknown>;
   if (grant_type === 'authorization_code' && typeof code === 'string' && code)
@@ -80,18 +80,20 @@ export async function handle(request: Request, env: Env, upstream: Upstream): Pr
     const body = grant(await request.json().catch(() => undefined));
     if (!body) return json(400, { error: 'bad_request' });
     const basic = provider.clientAuth === 'basic';
+    const form = provider.tokenBody === 'form';
+    const fields: Record<string, string> = {
+      ...body,
+      ...(basic ? {} : { client_id: clientId, client_secret: clientSecret }),
+      ...(body.grant_type === 'authorization_code' ? { redirect_uri: redirectUri } : {}),
+    };
     const answer = await upstream(provider.tokenUrl, {
       method: 'POST',
       headers: {
-        'content-type': 'application/json',
+        'content-type': form ? 'application/x-www-form-urlencoded' : 'application/json',
         accept: 'application/json',
         ...(basic ? { authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}` } : {}),
       },
-      body: JSON.stringify({
-        ...body,
-        ...(basic ? {} : { client_id: clientId, client_secret: clientSecret }),
-        ...(body.grant_type === 'authorization_code' ? { redirect_uri: redirectUri } : {}),
-      }),
+      body: form ? new URLSearchParams(fields).toString() : JSON.stringify(fields),
     });
     return new Response(await answer.text(), {
       status: answer.status,

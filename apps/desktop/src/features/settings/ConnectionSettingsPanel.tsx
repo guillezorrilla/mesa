@@ -39,7 +39,7 @@ export function ConnectionSettingsPanel() {
           icon={Cable}
           title={source.label}
           description={describeSource(source)}
-          keywords="connect sign in oauth jira confluence notion clickup"
+          keywords="connect sign in oauth jira confluence notion clickup linear"
           control={
             <span className="flex gap-2">
               {source.status !== 'connected' && (

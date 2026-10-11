@@ -83,8 +83,8 @@ export function ImportTab(props: { project: string; onStartSession: (from: strin
           <Link aria-hidden className="size-4" /> Paste a link
         </SectionLabel>
         <Muted>
-          A Jira issue or key, a Confluence or Notion page, a ClickUp task or Doc page, or any
-          public web page.
+          A Jira issue or key, a Confluence or Notion page, a ClickUp task or Doc page, a Linear
+          issue, project or document, or any public web page.
         </Muted>
         <PasteLinkForm acting={importing} notes={notes} onNotesChange={setNotes} onImport={add} />
       </section>

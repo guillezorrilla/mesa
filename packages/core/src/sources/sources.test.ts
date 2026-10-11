@@ -78,6 +78,7 @@ test('connect signs in through the broker, stores the tokens and sites in the Ke
       connected.result,
       { id: 'notion', label: 'Notion', connected: false, status: 'disconnected' },
       { id: 'clickup', label: 'ClickUp', connected: false, status: 'disconnected' },
+      { id: 'linear', label: 'Linear', connected: false, status: 'disconnected' },
     ],
   });
 });
@@ -181,6 +182,7 @@ test('a revoked connection becomes needs-reconnect: calls refuse, list keeps the
       },
       { id: 'notion', label: 'Notion', connected: false, status: 'disconnected' },
       { id: 'clickup', label: 'ClickUp', connected: false, status: 'disconnected' },
+      { id: 'linear', label: 'Linear', connected: false, status: 'disconnected' },
     ],
   });
   // A connection known to need reconnecting is not tried again.
@@ -219,6 +221,7 @@ test('disconnect removes the Keychain item and leaves a receipt; again, it chang
     { id: 'atlassian', label: 'Atlassian', connected: false, status: 'disconnected' },
     { id: 'notion', label: 'Notion', connected: false, status: 'disconnected' },
     { id: 'clickup', label: 'ClickUp', connected: false, status: 'disconnected' },
+    { id: 'linear', label: 'Linear', connected: false, status: 'disconnected' },
   ]);
   await expect(
     mesa.sources.fetch('atlassian')('https://api.atlassian.com/me'),
@@ -227,9 +230,9 @@ test('disconnect removes the Keychain item and leaves a receipt; again, it chang
 
 test('an unknown source is a usage error', async () => {
   const { mesa } = setUp();
-  await expect(async () => mesa.sources.connect('linear')).rejects.toMatchObject({
+  await expect(async () => mesa.sources.connect('asana')).rejects.toMatchObject({
     code: 'usage',
-    message: 'unknown source linear; one of atlassian, notion, clickup',
+    message: 'unknown source asana; one of atlassian, notion, clickup, linear',
   });
   await expect(async () => mesa.sources.disconnect('toString')).rejects.toMatchObject({
     code: 'usage',
