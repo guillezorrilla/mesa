@@ -1,5 +1,6 @@
 import type { FollowedView } from '@mesa/core';
 import { Pencil } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,6 +12,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { useAct } from '@/lib/useAct';
 import { useRun } from '@/lib/useCommand';
+
+/** A view's name being edited: the view, and what its field holds. */
+type Editing = { view: string; text: string };
 
 /**
  * The views this project follows, each with what it reads, Unfollow, and its name to edit in
@@ -25,35 +29,35 @@ export function ManageViewsDialog(props: {
 }) {
   const run = useRun();
   const { acting, act } = useAct();
+  const [editing, setEditing] = useState<Editing>();
+  const edited = editing !== undefined && editing.text.trim() !== editing.view;
   const unfollow = (view: string) =>
     void act(async () => {
       if (await run('tickets.unfollow', { project: props.project, view })) props.onChanged();
       return undefined;
     });
-  /** Renames `view` to what `field` holds, or puts its name back when that is empty or taken. */
-  const rename = (view: string, field: HTMLInputElement) =>
-    void act(async () => {
-      const to = field.value.trim();
-      if (to === view) return undefined;
-      const renamed = to ? await run('tickets.viewsRename', { name: view, to }) : undefined;
-      if (renamed) {
-        props.onRenamed(view, renamed.name);
-        props.onChanged();
-      } else field.value = view;
-      return undefined;
-    });
+  // Not through `act`: leaving the field by clicking Unfollow must not disable that click.
+  /** Renames the view being edited; an empty or taken name puts its name back. */
+  const rename = async () => {
+    setEditing(undefined);
+    if (!editing || !edited || !editing.text.trim()) return;
+    const renamed = await run('tickets.viewsRename', { name: editing.view, to: editing.text });
+    if (!renamed) return;
+    props.onRenamed(editing.view, renamed.name);
+    props.onChanged();
+  };
   return (
     <Dialog open onOpenChange={(open) => !open && props.onClose()}>
       <DialogContent
         data-testid="manage-views-dialog"
         className="sm:max-w-lg"
+        // Opening must not put a name in edit mode, its text selected for one key to replace.
+        onOpenAutoFocus={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => {
-          // Esc in a name being edited puts the name back; the next Esc closes.
-          const field = document.activeElement;
-          if (!(field instanceof HTMLInputElement) || field.dataset.view === undefined) return;
+          // Esc puts an edited name back; Esc again closes.
+          if (!edited) return;
           event.preventDefault();
-          field.value = field.dataset.view;
-          field.blur();
+          setEditing({ view: editing.view, text: editing.view });
         }}
       >
         <DialogHeader>
@@ -71,13 +75,14 @@ export function ManageViewsDialog(props: {
                   <Input
                     aria-label={`Name of ${view.name}`}
                     title="Rename"
-                    data-view={view.name}
-                    maxLength={60}
-                    defaultValue={view.name}
-                    disabled={acting}
+                    value={editing?.view === view.name ? editing.text : view.name}
                     className="-ml-1.5 h-7 border-transparent px-1.5 pr-7 font-medium shadow-none hover:border-input focus-visible:border-ring"
+                    onFocus={() => setEditing({ view: view.name, text: view.name })}
+                    onChange={(event) =>
+                      setEditing({ view: view.name, text: event.currentTarget.value })
+                    }
                     onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-                    onBlur={(event) => rename(view.name, event.currentTarget)}
+                    onBlur={() => void rename()}
                   />
                   <Pencil
                     aria-hidden

@@ -109,7 +109,10 @@ export const ticketsCommands = {
     'boards',
     ...searchFlag(search),
   ]),
-  'tickets.fields': command<SiteOf<{ fields: JiraField[] }>>('tickets', 'fields'),
+  'tickets.fields': command<SiteOf<{ fields: JiraField[]; shown: JiraField[] }>>(
+    'tickets',
+    'fields',
+  ),
   'tickets.fieldsSet': commandWith<{ ids: string[] }, JiraField[]>(({ ids }) => [
     'tickets',
     'fields',

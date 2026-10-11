@@ -231,7 +231,10 @@ test('mesa tickets fields lists the Jira fields, marks the shown ones, and field
     '* components  Components\n  customfield_10067  Severity (SLA)\n',
   );
   const json = await cli.mesa('tickets', 'fields', '--search', 'sla', '--json');
-  expect(json.json.data.fields).toEqual([{ id: 'customfield_10067', name: 'Severity (SLA)' }]);
+  expect(json.json.data).toMatchObject({
+    fields: [{ id: 'customfield_10067', name: 'Severity (SLA)' }],
+    shown: [{ id: 'components', name: 'Components' }],
+  });
   expect((await cli.mesa('tickets', 'fields', 'set', '--clear')).stdout).toContain(
     'Ticket panels show only their own fields',
   );

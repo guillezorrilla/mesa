@@ -14,9 +14,12 @@ const typeInto = (input: HTMLInputElement, value: string) =>
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
-/** Types `value` into the input with `id`. */
-export const fill = (id: string, value: string) =>
-  typeInto(document.getElementById(id) as HTMLInputElement, value);
+/** Types `value` into `input`, or the input with that id. */
+export const fill = (input: string | HTMLInputElement | null | undefined, value: string) =>
+  typeInto(
+    (typeof input === 'string' ? document.getElementById(input) : input) as HTMLInputElement,
+    value,
+  );
 
 /** Types `text` into the command palette's query, found by test id: cmdk owns the input's id. */
 export const searchFor = (text: string) => {

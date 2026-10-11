@@ -237,7 +237,10 @@ test('Follow picks a board, counts its tickets live, then adds the view under th
   expect(dialog()).toContain('Views you already have');
   await click(document.getElementById('view-pick-42') ?? undefined);
   expect(dialog()).toContain('3 tickets right now, shown as "Tide team sprint"');
-  // The name is optional: empty, the view is named after what it reads.
+  // The name is optional: empty, the view is named after what it reads; one taken is refused.
+  await fill(document.querySelector<HTMLInputElement>('#view-name'), 'SPRINT');
+  expect(dialog()).toContain('You already have a view named SPRINT');
+  expect(byTestId('confirm-follow-view')[0]?.hasAttribute('disabled')).toBe(true);
   await fill(document.querySelector<HTMLInputElement>('#view-name'), 'Tide work');
   expect(dialog()).toContain('shown as "Tide work"');
   await click(byTestId('confirm-follow-view')[0]);
@@ -340,4 +343,44 @@ test('a view that needs a fresh sign-in says so and offers Reconnect', async () 
     'Mesa needs a fresh sign-in to read boards from Jira.',
   );
   expect(button('Reconnect Atlassian')).toBeDefined();
+});
+
+test('the view picked stays picked when the person leaves the project and comes back', async () => {
+  localStorage.clear();
+  const harbor: FollowedView = {
+    name: 'harbor',
+    describe: 'JQL: project = HB (everyone, not done)',
+  };
+  const { bridge } = fakeBridge({
+    tickets: () =>
+      listOf(
+        [sprint, harbor],
+        [
+          ticket('LC-1', 'Retry the tide feed'),
+          ticket('HB-2', 'Paint the harbor gate', { views: ['harbor'] }),
+        ],
+      ),
+    'tickets show': (args) => shown(String(args.at(-1))),
+    prompts: () => envelope([]),
+  });
+  const rows = () => byTestId('ticket-row').map((r) => r.textContent ?? '');
+  let byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(rows()).toHaveLength(2);
+  await click(byTestId('view-switcher')[0]);
+  await click(
+    [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')].find((item) =>
+      item.textContent?.startsWith('harbor'),
+    ),
+  );
+  expect(rows()).toEqual([expect.stringContaining('HB-2')]);
+
+  // Another visit to the project, the tab mounted again: still the harbor view.
+  byTestId = await renderWithMesa(
+    <TicketsTab project="lantern-cove" onSession={() => {}} />,
+    bridge,
+  );
+  expect(rows()).toEqual([expect.stringContaining('HB-2')]);
 });

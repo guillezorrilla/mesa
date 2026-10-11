@@ -80,8 +80,9 @@ function SiteFields(props: { shown: string[]; disabled: boolean; onSelect: (id: 
     );
   if (!read.data) return <Muted className="px-3 py-2.5">Reading your Jira fields...</Muted>;
   const all = read.data.fields;
-  // Jira lets two fields share a name: those show their id to tell them apart.
-  const twice = new Set(all.map((f) => f.name).filter((n, i, names) => names.indexOf(n) !== i));
+  // Jira lets two fields share a name: those show their id to tell them apart. The list comes
+  // sorted by name, so a shared name sits next to its twin.
+  const sharedNames = new Set(all.filter((f, i) => all[i - 1]?.name === f.name).map((f) => f.name));
   return (
     <>
       <CommandEmpty>No Jira field matches.</CommandEmpty>
@@ -92,7 +93,7 @@ function SiteFields(props: { shown: string[]; disabled: boolean; onSelect: (id: 
             <FieldItem
               key={field.id}
               field={field}
-              hint={twice.has(field.name) ? field.id : undefined}
+              hint={sharedNames.has(field.name) ? field.id : undefined}
               disabled={props.disabled}
               onSelect={() => props.onSelect(field.id)}
             />

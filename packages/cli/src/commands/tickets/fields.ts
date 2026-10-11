@@ -1,17 +1,17 @@
 import { MesaError } from '@mesa/core';
 import { defineCommand } from '../../command.js';
-import { VIEW_FLAGS } from '../../input/flags.js';
+import { SEARCH_FLAG as search, VIEW_FLAGS } from '../../input/flags.js';
 
 const { site } = VIEW_FLAGS;
 
 export const ticketsFields = defineCommand({
   name: 'tickets fields',
   summary: 'List the Jira fields a ticket panel can show, marking the ones it shows (*)',
-  flags: { search: { type: 'string', description: 'Only those whose name holds this' }, site },
+  flags: { search, site },
   example: 'mesa tickets fields --search component',
   run: async ({ mesa, flags }) => {
     const data = await mesa.tickets.fields(flags.search, flags.site);
-    const shown = new Set(mesa.tickets.shownFields().map((f) => f.id));
+    const shown = new Set(data.shown.map((f) => f.id));
     const lines = data.fields.map((f) => `${shown.has(f.id) ? '*' : ' '} ${f.id}  ${f.name}`);
     return { data, text: lines.length ? lines.join('\n') : 'No fields.' };
   },

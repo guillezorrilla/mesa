@@ -4,6 +4,7 @@ import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { changeYaml, readYaml } from '../lib/yaml-file.js';
 import { findProject } from '../projects/projects.js';
+import type { JiraField } from '../sources/jira.js';
 
 // The profile's `tickets.yaml` (CONTEXT.md, Ticket view): the Jira views it defines once, the
 // projects that follow each, and which Saved prompt a ticket session gets. Personal, so never in a
@@ -88,7 +89,11 @@ const TicketsSchema = z.strictObject({
   /** Each project's defaults for a session started from a ticket. */
   defaults: z.record(z.string(), TicketDefaultsSchema).default({}),
   /** The Jira fields every ticket panel shows after its own, in order; each name kept to show it. */
-  fields: z.array(z.strictObject({ id: z.string().min(1), name: z.string() })).default([]),
+  fields: z
+    .array(
+      z.strictObject({ id: z.string().min(1), name: z.string() }) satisfies z.ZodType<JiraField>,
+    )
+    .default([]),
 });
 export type TicketsFile = z.infer<typeof TicketsSchema>;
 
@@ -122,6 +127,11 @@ export function ticketViews(ctx: MesaContext) {
     if (!found) throw new MesaError('not_found', `no ticket view ${name}; see mesa tickets views`);
     return found;
   };
+  /** Refuses `name` when a view other than `except` has it. */
+  const free = (tickets: TicketsFile, name: string, except?: TicketView) => {
+    if (tickets.views.some((v) => v !== except && same(v.name, name)))
+      throw new MesaError('usage', `ticket view ${name} already exists`);
+  };
   const project = (name: string) => findProject(ctx.open(), name).name;
   return {
     read,
@@ -129,8 +139,7 @@ export function ticketViews(ctx: MesaContext) {
     add: (input: unknown) => {
       const added = parseView(input);
       return update((tickets) => {
-        if (tickets.views.some((v) => same(v.name, added.name)))
-          throw new MesaError('usage', `ticket view ${added.name} already exists`);
+        free(tickets, added.name);
         tickets.views.push(added);
         return added;
       });
@@ -139,14 +148,11 @@ export function ticketViews(ctx: MesaContext) {
     rename: (name: string, to: string) =>
       update((tickets) => {
         const found = view(tickets, name);
-        const renamed = parseView({ ...found, name: to });
-        if (tickets.views.some((v) => v !== found && same(v.name, renamed.name)))
-          throw new MesaError('usage', `ticket view ${renamed.name} already exists`);
-        for (const names of Object.values(tickets.follows))
-          names.forEach((n, i) => {
-            if (same(n, found.name)) names[i] = renamed.name;
-          });
-        found.name = renamed.name;
+        const { name: renamed } = parseView({ ...found, name: to });
+        free(tickets, renamed, found);
+        for (const [key, names] of Object.entries(tickets.follows))
+          tickets.follows[key] = names.map((n) => (same(n, found.name) ? renamed : n));
+        found.name = renamed;
         return found;
       }),
     /** Removes the view and every project's follow of it. */

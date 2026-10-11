@@ -35,6 +35,9 @@ const commentsSchema = z.object({
 /** How many comments one page asks for: Jira's most. */
 const PAGE = 100;
 
+/** A Jira field a ticket panel can show: built in (`components`) or custom (`customfield_10067`). */
+export type JiraField = { id: string; name: string };
+
 /** A Jira issue's fields, description, and every comment, the text as Markdown. */
 export type JiraIssue = {
   key: string;
@@ -52,7 +55,7 @@ export type JiraIssue = {
   description: string;
   comments: { author: string; created: string; markdown: string }[];
   /** The fields asked for by id, in that order, each value as text: null when it has none. */
-  fields?: { id: string; name: string; value: string | null }[];
+  fields?: (JiraField & { value: string | null })[];
 };
 
 /**
@@ -62,21 +65,20 @@ export type JiraIssue = {
 export function fieldText(value: unknown): string | null {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value !== 'object') return String(value);
-  if (Array.isArray(value)) {
-    const texts = value.map(fieldText).filter((t): t is string => t !== null);
-    return texts.length ? texts.join(', ') : null;
-  }
+  if (Array.isArray(value)) return joinedText(value, ', ');
   const v = value as Record<string, unknown>;
   // A cascading select names its child after its own value.
   const own = fieldText(v.value ?? v.name ?? v.displayName ?? v.text ?? null);
   const child = v.child === undefined ? null : fieldText(v.child);
   if (own !== null) return child === null ? own : `${own} / ${child}`;
   // A rich text field (Atlassian Document Format): its text nodes' words.
-  if (Array.isArray(v.content)) {
-    const words = v.content.map(fieldText).filter((t): t is string => t !== null);
-    return words.length ? words.join(' ') : null;
-  }
-  return null;
+  return Array.isArray(v.content) ? joinedText(v.content, ' ') : null;
+}
+
+/** Each of `values` as text, joined by `separator`; null when none has any. */
+function joinedText(values: unknown[], separator: string): string | null {
+  const texts = values.map(fieldText).filter((t): t is string => t !== null);
+  return texts.length ? texts.join(separator) : null;
 }
 
 /**
@@ -89,11 +91,11 @@ export async function readJiraIssue(
   site: string,
   key: string,
   url: string,
-  fields?: readonly { id: string; name: string }[],
+  fields?: readonly JiraField[],
 ): Promise<JiraIssue> {
   const base = `${jiraApi(site)}/issue/${encodeURIComponent(key)}`;
   const what = `Jira issue ${key}`;
-  const { fields: read, renderedFields } = await readItem(
+  const { fields: raw, renderedFields } = await readItem(
     get,
     `${base}?expand=renderedFields`,
     issueSchema,
@@ -115,23 +117,23 @@ export async function readJiraIssue(
     value === null || value === undefined ? {} : { [name]: value };
   return {
     key,
-    summary: read.summary,
-    ...optional('type', read.issuetype?.name),
-    ...optional('status', read.status?.name),
-    ...optional('category', read.status?.statusCategory?.key),
-    ...optional('priority', read.priority?.name),
-    ...(read.assignee
+    summary: raw.summary,
+    ...optional('type', raw.issuetype?.name),
+    ...optional('status', raw.status?.name),
+    ...optional('category', raw.status?.statusCategory?.key),
+    ...optional('priority', raw.priority?.name),
+    ...(raw.assignee
       ? {
           assignee: {
-            name: read.assignee.displayName,
-            ...optional('accountId', read.assignee.accountId),
+            name: raw.assignee.displayName,
+            ...optional('accountId', raw.assignee.accountId),
           },
         }
       : {}),
-    ...optional('reporter', read.reporter?.displayName),
-    labels: read.labels ?? [],
-    ...optional('created', read.created),
-    ...optional('updated', read.updated),
+    ...optional('reporter', raw.reporter?.displayName),
+    labels: raw.labels ?? [],
+    ...optional('created', raw.created),
+    ...optional('updated', raw.updated),
     description: await htmlToMarkdown(renderedFields?.description ?? '', url),
     comments: await Promise.all(
       comments.map(async (c) => ({
@@ -141,7 +143,7 @@ export async function readJiraIssue(
       })),
     ),
     ...(fields
-      ? { fields: fields.map(({ id, name }) => ({ id, name, value: fieldText(read[id]) })) }
+      ? { fields: fields.map(({ id, name }) => ({ id, name, value: fieldText(raw[id]) })) }
       : {}),
   };
 }

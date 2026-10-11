@@ -3,6 +3,7 @@ import type { Http } from '../lib/http.js';
 import { MesaError } from '../lib/result.js';
 import { issueUrl, jiraAgileApi, jiraApi } from './atlassian.js';
 import type { Site } from './connection.js';
+import type { JiraField } from './jira.js';
 
 // The Jira reads a project's Tickets tab needs (CONTEXT.md, Ticket view): boards and their
 // sprints (Jira Software's API, its own scopes), saved filters, and the tickets a JQL query finds.
@@ -138,9 +139,6 @@ export async function filter(get: Http, site: Site, id: string): Promise<Filter>
   );
   return { id, name };
 }
-
-/** A Jira field a ticket panel can show: built in (`components`) or custom (`customfield_10067`). */
-export type JiraField = { id: string; name: string };
 
 /** The site's fields whose name holds `search`, if given, by name. */
 // ponytail: Jira answers every field in one list (no paging), so `search` narrows it here.

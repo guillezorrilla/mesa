@@ -1,29 +1,22 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { expect, test } from 'vitest';
-import { envelope, fakeBridge, renderWithMesa } from '@/lib/testing';
+import { envelope, fakeBridge, fill, press, renderWithMesa } from '@/lib/testing';
 import { ManageViewsDialog } from './ManageViewsDialog';
 
 const views = [{ name: 'JQL view', describe: 'JQL: project = LC (everyone, not done)' }];
 const nameField = () =>
   document.querySelector<HTMLInputElement>('input[aria-label="Name of JQL view"]');
-/** Types `text` into the name and leaves the field, as a person renaming does. */
-const rename = (text: string) =>
-  act(async () => {
-    const field = nameField();
-    if (!field) return;
-    field.focus();
-    field.value = text;
-    field.blur();
-  });
+const focus = () => act(async () => nameField()?.focus());
+const leave = () => act(async () => nameField()?.blur());
 
-test('a view is renamed by editing its name, and an empty name or Esc puts it back', async () => {
+test('a view is renamed by editing its name; an empty name or Esc puts it back', async () => {
   let changed = 0;
   const renamed: [string, string][] = [];
   const { bridge, calls } = fakeBridge({
     'tickets views rename': () => envelope({ name: 'On call', describe: 'x' }),
   });
-  await renderWithMesa(
+  const byTestId = await renderWithMesa(
     <ManageViewsDialog
       project="lantern-cove"
       views={views}
@@ -33,20 +26,28 @@ test('a view is renamed by editing its name, and an empty name or Esc puts it ba
     />,
     bridge,
   );
-  await rename('  ');
+  // Opening edits nothing: no name is focused for one key to replace.
+  expect(document.activeElement).not.toBe(nameField());
+
+  await focus();
+  await fill(nameField(), '  ');
+  await leave();
   expect(nameField()?.value).toBe('JQL view');
+
   // Esc while editing puts the name back and keeps the dialog open.
-  await act(async () => {
-    const field = nameField();
-    field?.focus();
-    if (field) field.value = 'Half typed';
-    field?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  });
+  await focus();
+  await fill(nameField(), 'Half typed');
+  await press(nameField(), 'Escape');
   expect(nameField()?.value).toBe('JQL view');
-  await rename('On call');
-  expect(calls.map((args) => args.slice(1).join(' '))).toContain(
+  expect(byTestId('manage-views-dialog')).toHaveLength(1);
+  await leave();
+
+  await focus();
+  await fill(nameField(), 'On call');
+  await leave();
+  expect(calls.map((args) => args.slice(1).join(' '))).toEqual([
     'tickets views rename -- JQL view On call',
-  );
-  expect(changed).toBe(1);
+  ]);
   expect(renamed).toEqual([['JQL view', 'On call']]);
+  expect(changed).toBe(1);
 });

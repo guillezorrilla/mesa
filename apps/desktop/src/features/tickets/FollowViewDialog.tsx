@@ -75,6 +75,8 @@ export function FollowViewDialog(props: {
     (views.data ?? []).map((v) => v.name),
   );
   const name = typedName.trim() || suggested;
+  // A typed name another view has is refused before Follow, not after.
+  const taken = (views.data ?? []).some((v) => v.name.toLowerCase() === name.toLowerCase());
   const follow = (existing?: string) =>
     void act(async () => {
       const target =
@@ -94,7 +96,11 @@ export function FollowViewDialog(props: {
         </span>
       }
       description="Its tickets show up in this tab and stay current as sprints change."
-      submit={{ label: 'Follow', testId: 'confirm-follow-view', disabled: acting || !view }}
+      submit={{
+        label: 'Follow',
+        testId: 'confirm-follow-view',
+        disabled: acting || !view || taken,
+      }}
       onSubmit={() => follow()}
       onCancel={props.onCancel}
     >
@@ -157,11 +163,17 @@ export function FollowViewDialog(props: {
         </Label>
         <Input
           id="view-name"
-          maxLength={60}
           placeholder={suggested}
           value={typedName}
+          aria-invalid={taken || undefined}
+          aria-describedby={taken ? 'view-name-taken' : undefined}
           onChange={(event) => setTypedName(event.currentTarget.value)}
         />
+        {taken && (
+          <Muted id="view-name-taken" size="xs" className="text-destructive">
+            You already have a view named {name}. Follow it above, or pick another name.
+          </Muted>
+        )}
       </div>
       {(
         [

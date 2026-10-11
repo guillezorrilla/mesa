@@ -1,8 +1,8 @@
 import type { MesaContext } from '../context.js';
 import { MesaError } from '../lib/result.js';
 import { issueUrl } from '../sources/atlassian.js';
-import { readJiraIssue } from '../sources/jira.js';
-import { assignIssue, type JiraField } from '../sources/jira-tickets.js';
+import { type JiraField, readJiraIssue } from '../sources/jira.js';
+import { assignIssue } from '../sources/jira-tickets.js';
 import type { JiraAccess } from './jira-access.js';
 import { liveSessions } from './live.js';
 

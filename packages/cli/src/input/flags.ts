@@ -74,6 +74,12 @@ export function probabilitiesOf(words: string[]): Record<string, number> {
   return probabilities;
 }
 
+/** `--search`: a Jira list narrowed to the names that hold it. */
+export const SEARCH_FLAG = {
+  type: 'string',
+  description: 'Only those whose name holds this',
+} as const;
+
 /** The flags that name a view's query: `views add` and `preview` take them. */
 export const VIEW_FLAGS = {
   board: { type: 'string', description: "A board's id: the view reads its sprint" },
